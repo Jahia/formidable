@@ -1,0 +1,6 @@
+// Radio input component properties
+// Note: Radio inputs are designed to work only within radioGroup containers
+// and cannot be used as standalone form elements
+[fmdb:inputRadio] > jnt:content, mix:title
+ - defaultChecked (boolean) = false
+ - value (string) indexed=no mandatory

@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <artifactId>formidable-modules</artifactId>
+        <groupId>org.jahia.modules</groupId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+    <artifactId>formidable</artifactId>
+    <name>Formidable</name>
+    <packaging>pom</packaging>
+    <description>Formidable Front</description>
+
+    <scm>
+        <connection>scm:git:git@github.com:Jahia/formidable.git</connection>
+        <developerConnection>scm:git:git@github.com:Jahia/formidable.git</developerConnection>
+        <url>scm:git:git@github.com:Jahia/formidable.git</url>
+        <tag>HEAD</tag>
+    </scm>
+
+
+    <repositories>
+        <repository>
+            <id>jahia-public</id>
+            <name>Jahia Public Repository</name>
+            <url>https://devtools.jahia.com/nexus/content/groups/public</url>
+            <releases>
+                <enabled>true</enabled>
+                <updatePolicy>never</updatePolicy>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>jahia-public</id>
+            <name>Jahia Public Repository</name>
+            <url>https://devtools.jahia.com/nexus/content/groups/public</url>
+            <releases>
+                <enabled>true</enabled>
+                <updatePolicy>never</updatePolicy>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </pluginRepository>
+    </pluginRepositories>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-clean-plugin</artifactId>
+                <configuration>
+                    <filesets>
+                        <fileset>
+                            <!-- equivalent of 'yarn clean' -->
+                            <directory>${project.basedir}/dist/</directory>
+                        </fileset>
+                    </filesets>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>com.github.eirslett</groupId>
+                <artifactId>frontend-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>install node and yarn - Formidable</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>install-node-and-yarn</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>yarn install - Formidable</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>yarn</goal>
+                        </goals>
+                    </execution>
+                    <!-- Executions bound on the "process-sources" phase (executed in order of declaration): -->
+                    <execution>
+                        <id>yarn lint - Formidable</id>
+                        <phase>process-sources</phase>
+                        <goals>
+                            <goal>yarn</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>lint</arguments>
+                        </configuration>
+                    </execution>
+                    <!-- Executions bound on the "package" phase (executed in order of declaration): -->
+                    <execution>
+                        <id>yarn build - Formidable</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>yarn</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>build</arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <!-- attach the dist/package.tgz artifact to the Maven build so it will be installed/deployed as part of the Maven build -->
+                        <!-- bound to the "package" phase -->
+                        <id>attach-tgz-artifact</id>
+                        <goals>
+                            <goal>attach-artifact</goal>
+                        </goals>
+                        <configuration>
+                            <artifacts>
+                                <artifact>
+                                    <file>dist/package.tgz</file>
+                                    <type>tgz</type>
+                                </artifact>
+                            </artifacts>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-dist-package - Formidable</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <copy file="dist/package.tgz" tofile="${project.build.directory}/${project.build.finalName}.tgz"/>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-release-plugin</artifactId>
+                <configuration>
+                    <!-- when releasing, the checksum of the javascript-modules-library package in the
+                    yarn.lock files changes -->
+                    <!-- 'clean verify/install' is used to recompute the checksum of the yarn.lock files as
+                    part of the regular Maven build -->
+                    <!-- scm:checkin allows to commit those files -->
+                    <preparationGoals>-P release-prepare clean verify scm:checkin</preparationGoals>
+                    <completionGoals>-P release-prepare clean install scm:checkin</completionGoals>
+                    <releaseProfiles>release-perform</releaseProfiles>
+                    <useReleaseProfile>true</useReleaseProfile>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>release-prepare</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-scm-plugin</artifactId>
+                        <configuration>
+                            <includes>yarn.lock,packages/*/package.json</includes>
+                            <message>chore(release): Prepare release ${project.version}</message>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>com.github.eirslett</groupId>
+                        <artifactId>frontend-maven-plugin</artifactId>
+                        <executions>
+                            <!-- Keep all package.json in sync with the maven version -->
+                            <execution>
+                                <id>sync-version</id>
+                                <phase>process-resources</phase>
+                                <goals>
+                                    <goal>yarn</goal>
+                                </goals>
+                                <configuration>
+                                    <arguments>node ${basedir}/.m2/sync-version.js ${project.version}</arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

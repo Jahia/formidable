@@ -1,0 +1,18 @@
+{
+	"fmdb_inputFile": {
+		"selectedFiles": "Selected files:",
+		"removeFile": "Remove file",
+		"noFilesSelected": "No files selected"
+	},
+	"fmdb_inputCheckboxGroup": {
+		"error": "Please select at least one option"
+	},
+	"fmdb_form": {
+		"submitBtn": "Submit",
+		"resetBtn": "Reset",
+		"newFormBtn": "New Form",
+		"tryAgainBtn": "Try Again",
+		"submitting": "Submitting...",
+		"loading": "Loading..."
+	}
+}

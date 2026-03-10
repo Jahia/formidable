@@ -1,0 +1,36 @@
+// Message manager component properties
+[fmdbmix:responses] mixin
+ extends = fmdb:form
+ itemtype = content
+ - submissionMessage (string, richtext) i18n indexed=no
+ - errorMessage (string, richtext) i18n indexed=no
+
+[fmdbmix:buttons] mixin
+ extends = fmdb:form
+ itemtype = content
+  - submitBtnLabel (string) = resourceBundle('label.submitBtn') autocreated i18n indexed=no
+  - resetBtnLabel (string) = resourceBundle('label.resetBtn') autocreated i18n indexed=no
+  - showResetBtn (boolean) = false
+  - newFormBtnLabel (string) = resourceBundle('label.newFormBtn') autocreated i18n indexed=no
+  - showNewFormBtn (boolean) = false
+  - tryAgainBtnLabel (string) = resourceBundle('label.tryAgainBtn') autocreated i18n indexed=no
+  - showTryAgainBtn (boolean) = false
+
+[fmdbmix:actions] mixin
+ extends = fmdb:form
+ itemtype = content
+ - customTarget (string) indexed=no
+
+ [fmdbmix:style] mixin
+  extends = fmdb:form
+  itemtype = content
+  - css (string,textarea) indexed=no
+
+[fmdb:form] > jnt:content, fmdbmix:component, jmix:visibleInContentTree, mix:title
+ orderable
+ - intro (string, richtext) i18n indexed=no
+// + action (fmdb:actionList) = fmdb:actionList autocreated
+// + fieldsets (fmdb:fieldsets) = fmdb:fieldsets autocreated
+// + formButtons (fmdb:formButtonsList) = fmdb:formButtonsList autocreated
+// + responses (fmdb:responsesList) = fmdb:responsesList autocreated
+ + * (fmdbmix:formElement)

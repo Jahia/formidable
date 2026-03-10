@@ -1,0 +1,11 @@
+// Color input advanced settings mixin
+//[fmdbmix:inputColorAdvancedSettings] mixin
+// extends = fmdb:inputColor
+// itemtype = content
+// - alpha (boolean) = false
+// - colorspace (string) = 'limited-srgb' < 'limited-srgb', 'display-p3'
+
+// Color input component properties
+[fmdb:inputColor] > fmdb:element
+ - required (boolean) = false
+ - defaultValue (string) indexed=no

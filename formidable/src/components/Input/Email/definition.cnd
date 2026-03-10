@@ -1,0 +1,12 @@
+// Email input component properties
+[fmdb:inputEmail] > fmdb:element
+ - required (boolean) = false
+ - multiple (boolean) = false
+ - placeholder (string) i18n indexed=no
+ - defaultValue (string) i18n indexed=no
+ - list (string) i18n multiple indexed=no
+ - pattern (string) indexed=no
+ - minLength (long)
+ - maxLength (long)
+ // Simple string: 'on' (default), 'off', or any HTML5 autocomplete token
+ - autocomplete (string) = 'on' autocreated indexed=no

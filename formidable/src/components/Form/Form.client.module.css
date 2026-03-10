@@ -1,0 +1,35 @@
+.container {
+	position: relative;
+	width: 100%;
+}
+
+/* Form styles */
+.form {
+	transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+	opacity: 1;
+	transform: translateY(0);
+}
+
+.form.hidden {
+	display: none;
+	/*opacity: 0;*/
+	/*transform: translateY(-10px);*/
+	/*pointer-events: none;*/
+}
+
+.message {
+	animation: fadeInUp 0.4s ease-out;
+	opacity: 1;
+	transform: translateY(0);
+}
+
+@keyframes fadeInUp {
+	from {
+		opacity: 0;
+		transform: translateY(20px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}

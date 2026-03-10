@@ -1,0 +1,8 @@
+// Select component properties
+[fmdb:select] > fmdb:element
+ - options (string) i18n multiple indexed=no
+ - size (long)
+ - required (boolean) = false
+ - multiple (boolean) = false
+ - disabled (boolean) = false
+ - autofocus (boolean) = false

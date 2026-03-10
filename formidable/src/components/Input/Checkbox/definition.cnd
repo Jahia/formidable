@@ -1,0 +1,6 @@
+// Checkbox input component properties
+// Note: Can be used standalone or within checkboxGroup containers
+[fmdb:inputCheckbox] > fmdb:element
+ - required (boolean) = false
+ - defaultChecked (boolean) = false
+ - value (string) indexed=no
