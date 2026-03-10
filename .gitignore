@@ -8,6 +8,7 @@
 target/
 
 # Javascript
+node/
 dist
 node_modules
 
