@@ -8,8 +8,8 @@
 target/
 
 # Javascript
-node/
 dist
+node/
 node_modules
 
 # Yarn
