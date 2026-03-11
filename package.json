@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "formidable"
+    "formidable",
+    "formidable-engine"
   ],
   "scripts": {
     "format": "prettier --write --list-different $INIT_CWD",

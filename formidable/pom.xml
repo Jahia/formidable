@@ -19,6 +19,9 @@
         <tag>HEAD</tag>
     </scm>
 
+    <properties>
+        <jahia-depends>formidable-engine</jahia-depends>
+    </properties>
 
     <repositories>
         <repository>

@@ -38,6 +38,7 @@
     </scm>
 
     <modules>
+        <module>formidable-engine</module>
         <module>formidable</module>
         <module>jahia-test-module</module>
     </modules>
