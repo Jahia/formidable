@@ -1,0 +1,20 @@
+name: Nightly Test run (Jahia SN)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *'
+
+jobs:
+  integration-tests:
+    uses: Jahia/jahia-modules-action/.github/workflows/reusable-integration-tests.yml@v2
+    secrets: inherit
+    with:
+      jahia_image: ghcr.io/jahia/jahia-ee-dev:8-SNAPSHOT
+      module_id: formidable
+      testrail_project: Formidable
+      pagerduty_incident_service: formidable-JahiaSN
+      provisioning_manifest: provisioning-manifest-snapshot.yml
+      artifact_prefix: fmb
+      module_branch: ${{ github.ref }}
+

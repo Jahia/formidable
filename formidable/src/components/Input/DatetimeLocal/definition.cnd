@@ -1,0 +1,10 @@
+// Datetime-local input component properties
+[fmdb:inputDatetimeLocal] > fmdb:element
+ - required (boolean) = false
+ - defaultValue (date)
+ - min (date)
+ - max (date)
+ - step (long)
+
+
+

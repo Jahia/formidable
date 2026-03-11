@@ -1,0 +1,10 @@
+// Date input component properties
+// Note: Currently defaultValue, min and max are defined as date type,
+// so "today" keyword handling is not possible.
+// To support this, these props should be defined as string type
+[fmdb:inputDate] > fmdb:element
+ - required (boolean) = false
+ - defaultValue (date, DatePicker)
+ - min (date, DatePicker)
+ - max (date, DatePicker)
+ - step (long)

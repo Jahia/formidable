@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+   Copyright (C) 2002-2024 Jahia Solutions Group SA. All rights reserved.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <artifactId>jahia-modules</artifactId>
+        <groupId>org.jahia.modules</groupId>
+        <version>8.2.1.0</version>
+    </parent>
+    <artifactId>formidable-modules</artifactId>
+    <name>Formidable Modules</name>
+    <version>0.0.1-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <description>Multi-module project containing the Formidable front-end module and its Cypress test suite.</description>
+
+    <scm>
+        <connection>scm:git:git@github.com:Jahia/formidable-modules.git</connection>
+        <developerConnection>scm:git:git@github.com:Jahia/formidable-modules.git</developerConnection>
+        <url>scm:git:git@github.com:Jahia/formidable-modules.git</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <modules>
+        <module>formidable</module>
+        <module>jahia-test-module</module>
+    </modules>
+
+    <properties>
+        <!-- frontend-maven-plugin requires yarn 1.22.x as bootstrap; .yarnrc.yml will then activate Yarn Berry -->
+        <frontend-maven-plugin.yarn.version>v1.22.22</frontend-maven-plugin.yarn.version>
+        <frontend-maven-plugin.node.version>v24.12.0</frontend-maven-plugin.node.version>
+        <frontend-maven-plugin.version>1.15.4</frontend-maven-plugin.version>
+        <maven-antrun-plugin.version>3.1.0</maven-antrun-plugin.version>
+        <maven-clean-plugin.version>3.4.0</maven-clean-plugin.version>
+        <build-helper-maven-plugin.version>3.6.0</build-helper-maven-plugin.version>
+        <buildnumber-maven-plugin.version>3.2.1</buildnumber-maven-plugin.version>
+        <jahia.plugin.version>6.9</jahia.plugin.version>
+    </properties>
+
+    <repositories>
+        <repository>
+            <id>jahia-public</id>
+            <name>Jahia Public Repository</name>
+            <url>https://devtools.jahia.com/nexus/content/groups/public</url>
+            <releases>
+                <enabled>true</enabled>
+                <updatePolicy>never</updatePolicy>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>com.github.eirslett</groupId>
+                    <artifactId>frontend-maven-plugin</artifactId>
+                    <version>${frontend-maven-plugin.version}</version>
+                    <configuration>
+                        <nodeVersion>${frontend-maven-plugin.node.version}</nodeVersion>
+                        <yarnVersion>${frontend-maven-plugin.yarn.version}</yarnVersion>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <artifactId>maven-antrun-plugin</artifactId>
+                    <version>${maven-antrun-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <artifactId>maven-clean-plugin</artifactId>
+                    <version>${maven-clean-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>build-helper-maven-plugin</artifactId>
+                    <version>${build-helper-maven-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>buildnumber-maven-plugin</artifactId>
+                    <version>${buildnumber-maven-plugin.version}</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+        <plugins>
+            <plugin>
+                <artifactId>maven-release-plugin</artifactId>
+                <configuration>
+                    <!-- when releasing, the checksum of packages in yarn.lock files may change -->
+                    <!-- 'clean verify/install' recomputes those checksums as part of the regular Maven build -->
+                    <!-- scm:checkin commits the updated files -->
+                    <preparationGoals>-P release-prepare clean verify scm:checkin</preparationGoals>
+                    <completionGoals>-P release-prepare clean install scm:checkin</completionGoals>
+                    <releaseProfiles>release-perform</releaseProfiles>
+                    <useReleaseProfile>true</useReleaseProfile>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>buildnumber-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <!-- create a ${timestamp} Maven variable with the build timestamp -->
+                        <goals>
+                            <goal>create-timestamp</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <!-- use UTC to ensure timestamps between builds are in correct SemVer order -->
+                    <timestampFormat>yyyyMMddHHmmssSSS</timestampFormat>
+                    <timezone>UTC</timezone>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>release-prepare</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-scm-plugin</artifactId>
+                        <configuration>
+                            <includes>formidable/yarn.lock</includes>
+                            <!-- use "skip ci" to prevent the CI workflow from triggering mid-release -->
+                            <message>chore(release): Prepare release ${project.version} [skip ci]</message>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+</project>

@@ -1,0 +1,5 @@
+// Checkbox group component - only accepts checkboxes
+[fmdb:checkboxGroup] > fmdb:element
+ orderable
+ - required (boolean) = false
+ + * (fmdb:inputCheckbox)

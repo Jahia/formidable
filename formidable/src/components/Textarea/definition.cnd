@@ -1,0 +1,24 @@
+[fmdbmix:advancedTextareaSettings] mixin
+ extends = fmdb:textarea
+ itemtype = content
+ - readonly (boolean) = false
+ - spellcheck (boolean) = true
+ - autofocus (boolean) = false
+ - disabled (boolean) = false
+ - cols (long)
+ - wrap (string,choicelist[resourceBundle]) = 'soft' < 'soft', 'hard', 'off'
+ - form (string) indexed=no
+ - dirname (boolean) = false
+
+// Textarea component properties
+[fmdb:textarea] > fmdb:element
+ - required (boolean) = false
+ - placeholder (string) i18n indexed=no
+ - defaultValue (string) i18n indexed=no
+ - minLength (long)
+ - maxLength (long)
+ - rows (long)
+ - resize (string,choicelist[resourceBundle]) = 'vertical' < 'none', 'both', 'horizontal', 'vertical'
+ // Simple string: 'on' (default), 'off', or any HTML5 autocomplete token
+ - autocomplete (string) = 'on' autocreated indexed=no
+

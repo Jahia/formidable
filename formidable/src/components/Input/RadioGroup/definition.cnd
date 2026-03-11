@@ -1,0 +1,5 @@
+// Radio group component - only accepts radio buttons
+[fmdb:radioGroup] > fmdb:element
+ orderable
+ - required (boolean) = false
+ + * (fmdb:inputRadio)

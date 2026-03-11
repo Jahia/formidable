@@ -1,0 +1,7 @@
+// File input component properties
+[fmdb:inputFile] > fmdb:element
+ - accept (string) indexed=no
+ - multiple (boolean) = false
+ - required (boolean) = false
+ // - capture (string) indexed=no // Uncomment if capture attribute is needed
+

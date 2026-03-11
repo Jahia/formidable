@@ -1,0 +1,25 @@
+// Text input component properties
+
+[fmdbmix:advancedInputTextSettings] mixin
+ extends = fmdb:inputText
+ itemtype = content
+ - mask (string) indexed=no
+ - pattern (string) indexed=no
+ - title (string) i18n indexed=no
+ - readonly (boolean) = false
+ - autofocus (boolean) = false
+ - disabled (boolean) = false
+ - spellcheck (boolean) = true
+ - form (string) indexed=no
+ - dirname (boolean) = false
+ - size (long)
+
+[fmdb:inputText] > fmdb:element
+ - required (boolean) = false
+ - placeholder (string) i18n indexed=no
+ - defaultValue (string) i18n indexed=no
+ - list (string) i18n multiple indexed=no
+ - minLength (long)
+ - maxLength (long)
+ // Simple string: 'on' (default), 'off', or any HTML5 autocomplete token
+ - autocomplete (string) = 'on' autocreated indexed=no
