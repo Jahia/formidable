@@ -25,7 +25,7 @@ export default function CheckboxGroup({
 		});
 
 		return hasChecked;
-	}, [errorMessage]);
+	}, [errorMessage,t]);
 
 	useEffect(() => {
 		if (!required || !fieldsetRef.current) return;

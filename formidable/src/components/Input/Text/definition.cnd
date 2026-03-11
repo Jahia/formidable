@@ -11,7 +11,7 @@
  - disabled (boolean) = false
  - spellcheck (boolean) = true
  - form (string) indexed=no
- - dirname (string) indexed=no
+ - dirname (boolean) = false
  - size (long)
 
 [fmdb:inputText] > fmdb:element

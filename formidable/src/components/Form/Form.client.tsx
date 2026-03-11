@@ -1,13 +1,17 @@
-import {type FormEvent, useEffect, useState} from 'react';
+import {type FormEvent, useState} from 'react';
 import {interpolateMessage} from '~/utils/messageUtils';
 import clsx from "clsx";
 import classes from './Form.client.module.css';
 import {type FormProps} from './types';
 import Spinner from '~/design/Spinner';
-import {type default as DOMPurifyType} from 'dompurify';
+import DOMPurify from 'dompurify';
+
+const sanitize = (html: string): string => {
+	if (typeof window === 'undefined') return '';
+	return DOMPurify.sanitize(html);
+};
 import {useTranslation} from "react-i18next";
 
-/* eslint-disable @eslint-react/dom/no-dangerously-set-innerhtml -- Safe: content is sanitized */
 export default function Form({
 															 intro,
 															 submissionMessage,
@@ -29,14 +33,6 @@ export default function Form({
 	const [isLoading, setIsLoading] = useState(false);
 
 	const {t} = useTranslation('formidable', {keyPrefix: 'fmdb_form'});
-	const [dompurify, setDompurify] = useState<typeof DOMPurifyType | null>(null);
-
-	useEffect(() => {
-		// This library only works client-side, import it dynamically in an effect
-		import("dompurify").then(({default: purify}) => {
-			setDompurify(() => purify);
-		});
-	}, []);
 
 	const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
@@ -94,8 +90,8 @@ export default function Form({
 	const hasMessage = message && messageType;
 
 	// Sanitize HTML content to prevent XSS attacks
-	const sanitizedIntro = intro && dompurify ? dompurify.sanitize(intro) : '';
-	const sanitizedMessage = message && dompurify ? dompurify.sanitize(message) : '';
+	const sanitizedIntro = intro ? sanitize(intro) : '';
+	const sanitizedMessage = message ? sanitize(message) : '';
 
 	return (
 		<>

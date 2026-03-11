@@ -13,14 +13,9 @@ interface InputDateProps {
 const formatDateForInput = (isoDate?: string): string | undefined => {
 	if (!isoDate) return undefined;
 
-	try {
-		// Parse ISO date and extract only the date part
-		const date = new Date(isoDate);
-		return date.toISOString().split('T')[0];
-	} catch {
-		// If parsing fails, return undefined to let browser handle invalid dates
-		return undefined;
-	}
+	// Extract YYYY-MM-DD directly to avoid timezone shifting via Date object
+	const match = isoDate.match(/^(\d{4}-\d{2}-\d{2})/);
+	return match ? match[1] : undefined;
 };
 
 jahiaComponent(

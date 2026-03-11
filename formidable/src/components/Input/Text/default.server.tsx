@@ -25,16 +25,27 @@ interface InputTextProps {
 // Default values declared outside component to prevent re-render issues
 const DEFAULT_LIST: string[] = [];
 
-// Convert mask to regex pattern for validation
+// Mask tokens aligned with useMask hook
+const MASK_TOKEN_PATTERNS: Record<string, string> = {
+	'9': '[0-9]',
+	'A': '[A-Za-z]',
+	'a': '[A-Za-z]',
+	'X': '[A-Za-z0-9]',
+	'x': '[A-Za-z0-9]'
+};
+
+// Convert mask to a regex pattern string suitable for <input pattern>
 const maskToPattern = (mask?: string): string | undefined => {
 	if (!mask) return undefined;
 
-	// Convert common mask characters to regex
-	return mask
-		.replace(/9/g, '[0-9]')      // 9 = digit
-		.replace(/A/g, '[A-Za-z]')   // A = letter
-		.replace(/\*/g, '[A-Za-z0-9]') // * = alphanumeric
-		.replace(/\?/g, '.');         // ? = any character
+	const pattern = Array.from(mask).map(char => {
+		const token = MASK_TOKEN_PATTERNS[char];
+		if (token) return token;
+		// Escape fixed characters so they match literally in the regex
+		return char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	}).join('');
+
+	return `^${pattern}$`;
 };
 
 jahiaComponent(

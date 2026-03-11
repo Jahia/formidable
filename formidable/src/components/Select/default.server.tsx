@@ -70,6 +70,9 @@ jahiaComponent(
 
 		const parsedOptions = parseOptions(options);
 
+		const selectedValues = parsedOptions.filter(o => o.selected).map(o => o.value);
+		const defaultValue = multiple ? selectedValues : (selectedValues[0] ?? undefined);
+
 		return (
 			<div className="fmdb-form-group">
 				{label && (
@@ -88,12 +91,12 @@ jahiaComponent(
 					size={size}
 					disabled={disabled}
 					autoFocus={autofocus}
+					defaultValue={defaultValue}
 				>
 					{parsedOptions.map((option) => (
 						<option
 							key={option.value || option.label}
 							value={option.value}
-							selected={option.selected}
 						>
 							{option.label}
 						</option>

@@ -8,7 +8,7 @@
  - cols (long)
  - wrap (string,choicelist[resourceBundle]) = 'soft' < 'soft', 'hard', 'off'
  - form (string) indexed=no
- - dirname (string) indexed=no
+ - dirname (boolean) = false
 
 // Textarea component properties
 [fmdb:textarea] > fmdb:element

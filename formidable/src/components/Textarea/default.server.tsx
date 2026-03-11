@@ -16,7 +16,7 @@ interface TextareaProps {
 	autofocus?: boolean;
 	disabled?: boolean;
 	form?: string;
-	dirname?: string;
+	dirname?: boolean;
 	wrap?: 'soft' | 'hard' | 'off';
 	resize?: 'none' | 'both' | 'horizontal' | 'vertical';
 }
@@ -87,15 +87,8 @@ jahiaComponent(
 					autoFocus={autofocus}
 					disabled={disabled}
 					form={form}
-					dir={dirname}
+					{...(dirname && {'dirname': `${textareaName}.dir`})}
 				/>
-
-				{/* Character count indicator if maxLength is set */}
-				{maxLength && (
-					<div className="fmdb-form-hint">
-						Maximum {maxLength} characters
-					</div>
-				)}
 			</div>
 		);
 	}

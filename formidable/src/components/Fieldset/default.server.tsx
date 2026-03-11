@@ -16,7 +16,6 @@ jahiaComponent(
 	) => {
 		// Convert NodeIterator to Array for fieldset elements
 		const elementNodes = Array.from(currentNode.getNodes());
-		const hasElements = elementNodes.length > 0;
 
 		return (
 			<fieldset className="fmdb-fieldset">
@@ -28,17 +27,13 @@ jahiaComponent(
 				)}
 
 				{/* Render form elements */}
-				{hasElements ? (
+				{elementNodes.length > 0 && (
 					<div className="fmdb-fieldset-elements">
 						{elementNodes.map((elementNode) => (
 							<div key={elementNode.getIdentifier()} className="fmdb-form-element">
 								<Render node={elementNode}/>
 							</div>
 						))}
-					</div>
-				) : (
-					<div className="fmdb-fieldset-empty">
-						<p>Aucun élément dans ce fieldset</p>
 					</div>
 				)}
 			</fieldset>
