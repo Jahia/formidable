@@ -1,27 +1,24 @@
 {
   "name": "formidable-engine",
   "version": "0.0.1",
+  "private": true,
+  "type": "module",
   "scripts": {
-    "build": "vite build && yarn pack --out dist/package.tgz",
-    "dev": "vite build --watch",
-    "lint": "eslint ."
+    "build": "vite build"
   },
   "dependencies": {
     "@jahia/moonstone": "^2.17.5",
     "@jahia/ui-extender": "^1.2.0",
+    "i18next": "^20.6.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-i18next": "^11"
+    "react-i18next": "^11.2.2"
   },
   "devDependencies": {
-    "@babel/runtime": "^7.28.4",
-    "@jahia/vite-federation-plugin": "^0.1.0",
-    "@types/node": "^25.0.3",
-    "@types/react": "^18.3.27",
-    "@types/react-dom": "^18.3.7",
-    "@typescript/native-preview": "^7.0.0-dev.20260107.1",
-    "@vitest/coverage-v8": "4.0.16",
-    "prop-types": "^15.8.1",
+    "@jahia/vite-federation-plugin": "^0.1.1",
+    "@types/react": "^18.3.28",
+    "prop-types": "^15.7.2",
+    "typescript": "^5.9.3",
     "vite": "^7.3.1"
   },
   "packageManager": "yarn@4.12.0",

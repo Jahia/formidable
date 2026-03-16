@@ -2,6 +2,6 @@
     "selectOptions": {
         "value": "Value",
         "label": "Label",
-        "selected": "Selected by default"
+        "selected": "Selected"
     }
 }

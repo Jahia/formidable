@@ -29,7 +29,18 @@
     <version>0.0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
     <description>Multi-module project containing the Formidable front-end module and its Cypress test suite.</description>
-
+    <licenses>
+        <license>
+            <name>GNU General Public License</name>
+            <url>http://www.gnu.org/licenses/gpl.txt</url>
+            <distribution>repo</distribution>
+        </license>
+        <license>
+            <name>JAHIA Sustainable Enterprise License</name>
+            <url>https://github.com/Jahia/maven-archetypes/blob/master/license/jsel.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
     <scm>
         <connection>scm:git:git@github.com:Jahia/formidable-modules.git</connection>
         <developerConnection>scm:git:git@github.com:Jahia/formidable-modules.git</developerConnection>
