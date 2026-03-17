@@ -71,7 +71,7 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>yarn install - Formidable</id>
+                        <id>yarn install - Formidable Elements</id>
                         <phase>initialize</phase>
                         <goals>
                             <goal>exec</goal>
@@ -84,7 +84,7 @@
                         </configuration>
                     </execution>
                     <execution>
-                        <id>yarn lint - Formidable</id>
+                        <id>yarn lint - Formidable Elements</id>
                         <phase>process-sources</phase>
                         <goals>
                             <goal>exec</goal>
@@ -97,7 +97,7 @@
                         </configuration>
                     </execution>
                     <execution>
-                        <id>yarn build - Formidable</id>
+                        <id>yarn build - Formidable Elements</id>
                         <phase>package</phase>
                         <goals>
                             <goal>exec</goal>
@@ -137,7 +137,7 @@
                 <artifactId>maven-antrun-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>copy-dist-package - Formidable</id>
+                        <id>copy-dist-package - Formidable Elements</id>
                         <phase>package</phase>
                         <goals>
                             <goal>run</goal>
