@@ -53,6 +53,7 @@ jahiaComponent(
 						locale: currentNode.getLanguage(),
 					}}
 				>
+
 					{/* Render all form elements in order */}
 					{formElements.map((element) => (
 						<Render key={element.getIdentifier()} node={element}/>

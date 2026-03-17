@@ -7,8 +7,8 @@
         <groupId>org.jahia.modules</groupId>
         <version>0.0.1-SNAPSHOT</version>
     </parent>
-    <artifactId>formidable</artifactId>
-    <name>Formidable</name>
+    <artifactId>formidable-elements</artifactId>
+    <name>Formidable Elements</name>
     <packaging>pom</packaging>
     <description>Formidable Front</description>
 
