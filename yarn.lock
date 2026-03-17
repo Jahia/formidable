@@ -3291,6 +3291,24 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"formidable-monorepo@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "formidable-monorepo@workspace:."
+  dependencies:
+    "@eslint-react/eslint-plugin": "npm:^2.3.13"
+    "@eslint/compat": "npm:^2.0.0"
+    "@eslint/js": "npm:^9.39.2"
+    eslint: "npm:^9.39.2"
+    eslint-plugin-cypress: "npm:^5.2.0"
+    globals: "npm:^16.5.0"
+    prettier: "npm:^3.7.4"
+    prettier-plugin-jsdoc: "npm:^1.8.0"
+    prettier-plugin-packagejson: "npm:^2.5.20"
+    typescript: "npm:^5.9.3"
+    typescript-eslint: "npm:^8.50.0"
+  languageName: unknown
+  linkType: soft
+
 "fresh@npm:~0.5.2":
   version: 0.5.2
   resolution: "fresh@npm:0.5.2"
@@ -3913,24 +3931,6 @@ __metadata:
   checksum: 10c0/6acc10d139eaefdbe04d2f679e6191b3abf073f111edf10b1de5302c97ec93fffeb2fdd8681ed17f16268aa9dd4f8c588ed9d1d3bffbbfa6e8bf897cbb3149b9
   languageName: node
   linkType: hard
-
-"javascript-modules-monorepo@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "javascript-modules-monorepo@workspace:."
-  dependencies:
-    "@eslint-react/eslint-plugin": "npm:^2.3.13"
-    "@eslint/compat": "npm:^2.0.0"
-    "@eslint/js": "npm:^9.39.2"
-    eslint: "npm:^9.39.2"
-    eslint-plugin-cypress: "npm:^5.2.0"
-    globals: "npm:^16.5.0"
-    prettier: "npm:^3.7.4"
-    prettier-plugin-jsdoc: "npm:^1.8.0"
-    prettier-plugin-packagejson: "npm:^2.5.20"
-    typescript: "npm:^5.9.3"
-    typescript-eslint: "npm:^8.50.0"
-  languageName: unknown
-  linkType: soft
 
 "js-tokens@npm:^3.0.0 || ^4.0.0":
   version: 4.0.0
