@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "formidable",
+    "formidable-elements",
     "formidable-engine"
   ],
   "scripts": {

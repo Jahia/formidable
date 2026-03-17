@@ -52,9 +52,9 @@
         <artifactId>formidable-modules-test-modules-parent</artifactId>
         <version>0.0.1-SNAPSHOT</version>
     </parent>
-    <artifactId>formidable-modules-test-module-jsp</artifactId>
+    <artifactId>formidable-test-module-jsp</artifactId>
     <packaging>bundle</packaging>
-    <name>Formidable Modules - Test JSP TemplateSet Module</name>
+    <name>Formidable Test - JSP TemplateSet Module</name>
     <description>Jahia JSP module providing test templates and resources for the Formidable end-to-end test suite.</description>
     <build>
         <plugins>
