@@ -1,0 +1,10 @@
+{
+	"name": "fmdb:optionGroup",
+	"fields": [
+		{
+			"name": "options",
+			"selectorType": "SelectOptions"
+		}
+	]
+}
+

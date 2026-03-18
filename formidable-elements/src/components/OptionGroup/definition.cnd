@@ -1,0 +1,9 @@
+// Generic option group - can be rendered as select, radio group, or checkbox group
+[fmdb:optionGroup] > jnt:content, fmdbmix:element
+ - options (string) i18n multiple indexed=no mandatory
+ - required (boolean) = false
+ - multiple (boolean) = false
+ - disabled (boolean) = false
+ - autofocus (boolean) = false
+ - size (long)
+
