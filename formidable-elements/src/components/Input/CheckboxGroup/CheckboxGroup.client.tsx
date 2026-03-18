@@ -10,7 +10,7 @@ export default function CheckboxGroup({
 																			}: CheckboxGroupClientProps) {
 	const [isValid, setIsValid] = useState(true);
 	const fieldsetRef = useRef<HTMLFieldSetElement>(null);
-	const {t} = useTranslation('formidable', {keyPrefix: 'fmdb_inputCheckboxGroup'});
+	const {t} = useTranslation('formidable-elements', {keyPrefix: 'fmdb_inputCheckboxGroup'});
 
 	// Validation logic extracted to a callback
 	const validateGroup = useCallback((checkboxes: HTMLInputElement[]) => {

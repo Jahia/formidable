@@ -13,15 +13,18 @@
 // to see in this category.
 [fmdbmix:component] > jmix:droppableContent, jmix:editorialContent, jmix:accessControllableContent mixin
 
-
 [fmdb:elementValidation] > jnt:content abstract
 orderable
 
 //[fmdb:formListElement] > jnt:content,mix:title
 //orderable
 
+// Mixin to mark any content type as embeddable in a fmdb:form or fmdb:fieldset.
+// Apply this mixin in any module to extend the list of allowed content in a form.
+[fmdbmix:formContent] mixin
+
 [fmdbmix:formElement] > mix:title mixin
 orderable
 
-[fmdb:element] > jnt:content, fmdbmix:formElement abstract
+[fmdbmix:element] > fmdbmix:formElement mixin
 + * (fmdb:elementValidation)

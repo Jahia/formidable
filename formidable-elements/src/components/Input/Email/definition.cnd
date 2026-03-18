@@ -1,5 +1,5 @@
 // Email input component properties
-[fmdb:inputEmail] > fmdb:element
+[fmdb:inputEmail] > jnt:content, fmdbmix:element
  - required (boolean) = false
  - multiple (boolean) = false
  - placeholder (string) i18n indexed=no

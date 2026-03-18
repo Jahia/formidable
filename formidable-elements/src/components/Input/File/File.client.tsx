@@ -21,7 +21,7 @@ export default function FileInput(
 ) {
 	const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
-	const {t} = useTranslation('formidable', {keyPrefix: 'fmdb_inputFile'});
+	const {t} = useTranslation('formidable-elements', {keyPrefix: 'fmdb_inputFile'});
 
 	const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
 		setSelectedFiles(event.target.files);

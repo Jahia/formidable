@@ -1,5 +1,5 @@
 // Select component properties
-[fmdb:select] > fmdb:element
+[fmdb:select] > jnt:content, fmdbmix:element
  - options (string) i18n multiple indexed=no
  - size (long)
  - required (boolean) = false

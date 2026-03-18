@@ -33,4 +33,5 @@
 // + fieldsets (fmdb:fieldsets) = fmdb:fieldsets autocreated
 // + formButtons (fmdb:formButtonsList) = fmdb:formButtonsList autocreated
 // + responses (fmdb:responsesList) = fmdb:responsesList autocreated
- + * (fmdbmix:formElement)
+ + * (fmdbmix:formElement) = fmdbmix:formElement
+ + * (fmdbmix:formContent) = fmdbmix:formContent

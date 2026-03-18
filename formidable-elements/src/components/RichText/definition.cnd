@@ -1,0 +1,3 @@
+// Rich text content embeddable in a form (replaces direct jnt:bigText usage)
+[fmdb:richText] > jnt:content, fmdbmix:formContent
+ - text (string, richtext) i18n indexed=no

@@ -32,7 +32,7 @@ export default function Form({
 	const [messageType, setMessageType] = useState<'success' | 'error' | null>(null);
 	const [isLoading, setIsLoading] = useState(false);
 
-	const {t} = useTranslation('formidable', {keyPrefix: 'fmdb_form'});
+	const {t} = useTranslation('formidable-elements', {keyPrefix: 'fmdb_form'});
 
 	const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();

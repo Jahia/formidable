@@ -11,7 +11,7 @@
  - dirname (boolean) = false
 
 // Textarea component properties
-[fmdb:textarea] > fmdb:element
+[fmdb:textarea] > jnt:content, fmdbmix:element
  - required (boolean) = false
  - placeholder (string) i18n indexed=no
  - defaultValue (string) i18n indexed=no
