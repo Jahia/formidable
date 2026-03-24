@@ -1,0 +1,10 @@
+{
+	"name": "fmdb:checkbox",
+	"fields": [
+		{
+			"name": "choices",
+			"selectorType": "SelectOptions"
+		}
+	]
+}
+

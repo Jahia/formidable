@@ -1,10 +1,5 @@
 import {jahiaComponent} from "@jahia/javascript-modules-library";
-
-interface SelectOption {
-	value: string;
-	label: string;
-	selected?: boolean;
-}
+import {parseChoices} from "~/utils/choiceUtils";
 
 interface SelectProps {
 	"jcr:title"?: string;
@@ -16,34 +11,6 @@ interface SelectProps {
 	autofocus?: boolean;
 }
 
-// Default values declared outside component to prevent re-render issues
-const DEFAULT_OPTIONS: string[] = [];
-
-// Parse JSON options with fallback for invalid JSON
-const parseOptions = (options: string[] = []): SelectOption[] => {
-	return options.map(option => {
-		try {
-			const parsed = JSON.parse(option);
-			if (parsed && typeof parsed.value === 'string' && typeof parsed.label === 'string') {
-				return {
-					value: parsed.value,
-					label: parsed.label,
-					selected: parsed.selected === true
-				};
-			}
-		} catch (error) {
-			console.error(`Failed to parse option JSON: ${option}`, error);
-			// Fallback: treat as simple string option with error indicator
-			return {
-				value: "",
-				label: `Invalid JSON: ${option}`
-			};
-		}
-		// Final fallback: valid JSON but wrong structure (e.g., numbers, booleans, missing properties)
-		// This ensures no option is lost and allows admin to see and fix malformed options
-		return {value: "", label: `Malformed option structure - Expected {value, label, selected}: ${option}`};
-	});
-};
 
 jahiaComponent(
 	{
@@ -54,7 +21,7 @@ jahiaComponent(
 	(
 		{
 			"jcr:title": label,
-			options = DEFAULT_OPTIONS,
+			options = [],
 			required,
 			multiple,
 			size,
@@ -64,11 +31,10 @@ jahiaComponent(
 		{currentNode}
 	) => {
 
-		// Generate unique id and name for the select
 		const selectId = `select-${currentNode.getIdentifier()}`;
 		const selectName = currentNode.getName();
 
-		const parsedOptions = parseOptions(options);
+		const parsedOptions = parseChoices(options);
 
 		const selectedValues = parsedOptions.filter(o => o.selected).map(o => o.value);
 		const defaultValue = multiple ? selectedValues : (selectedValues[0] ?? undefined);

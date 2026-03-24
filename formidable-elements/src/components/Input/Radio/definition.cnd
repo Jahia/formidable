@@ -1,6 +1,4 @@
-// Radio input component properties
-// Note: Radio inputs are designed to work only within radioGroup containers
-// and cannot be used as standalone form elements
-[fmdb:inputRadio] > jnt:content, mix:title
- - defaultChecked (boolean) = false
- - value (string) indexed=no mandatory
+// Radio component - unified field: single radio if 1 choice, radio group if > 1
+[fmdb:radio] > jnt:content, fmdbmix:element
+ - choices (string) i18n multiple indexed=no mandatory
+ - required (boolean) = false

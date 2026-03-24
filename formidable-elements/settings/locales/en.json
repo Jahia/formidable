@@ -4,7 +4,7 @@
 		"removeFile": "Remove file",
 		"noFilesSelected": "No files selected"
 	},
-	"fmdb_inputCheckboxGroup": {
+	"fmdb_inputCheckbox": {
 		"error": "Please select at least one option"
 	},
 	"fmdb_form": {

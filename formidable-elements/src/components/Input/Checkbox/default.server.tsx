@@ -1,69 +1,69 @@
-import {jahiaComponent} from "@jahia/javascript-modules-library";
+import {Island, jahiaComponent} from "@jahia/javascript-modules-library";
+import Checkbox from "./Checkbox.client";
+import {parseChoices} from "~/utils/choiceUtils";
 
-interface InputCheckboxProps {
+interface CheckboxProps {
 	"jcr:title"?: string;
-	defaultChecked?: boolean;
+	choices?: string[];
 	required?: boolean;
-	value?: string;
 }
-
 jahiaComponent(
 	{
 		componentType: "view",
-		nodeType: "fmdb:inputCheckbox",
+		nodeType: "fmdb:checkbox",
 		name: "default"
 	},
 	(
-		{"jcr:title": label, defaultChecked, required, value}: InputCheckboxProps,
+		{"jcr:title": label, choices: rawChoices = [], required}: CheckboxProps,
 		{currentNode}
 	) => {
-
-		// Generate unique id
-		const inputId = `input-${currentNode.getIdentifier()}`;
-
-		// Check if parent is a CheckboxGroup
-		const parent = currentNode.getParent();
-		const isInCheckboxGroup = parent && parent.isNodeType("fmdb:checkboxGroup");
-
-		// finalRequired: false if in group (group handles validation), otherwise current node's required
-		const finalRequired = isInCheckboxGroup ? false : (required || false);
-
-		// finalName: parent name if in group, otherwise current node name
-		const finalName = isInCheckboxGroup ? parent.getName() : currentNode.getName();
-
-		// Mutualized checkbox input
-		const checkboxInput = (
-			<>
-				<input
-					type="checkbox"
-					id={inputId}
-					name={finalName}
-					className="fmdb-form-control"
-					defaultChecked={defaultChecked}
-					value={value || "on"}
-					required={finalRequired}
-				/>
-				{label && (
+		const inputName = currentNode.getName();
+		const nodeId = currentNode.getIdentifier();
+		const parsedChoices = parseChoices(rawChoices);
+		if (parsedChoices.length === 1) {
+			const choice = parsedChoices[0];
+			const inputId = `checkbox-${nodeId}`;
+			return (
+				<div className="fmdb-form-group">
+					<input
+						type="checkbox"
+						id={inputId}
+						name={inputName}
+						className="fmdb-form-control"
+						value={choice.value}
+						defaultChecked={choice.selected}
+						required={required}
+					/>
 					<label htmlFor={inputId} className="fmdb-checkbox-label">
-						{label}
-						{/* Required indicator only shown if not in group - group handles its own indicator */}
-						{!isInCheckboxGroup && finalRequired && <span className="fmdb-required-indicator">*</span>}
+						{choice.label}
+						{required && <span className="fmdb-required-indicator">*</span>}
 					</label>
-				)}
-			</>
-		);
-
-
-		// Simple render if inside CheckboxGroup (parent handles styling)
-		if (isInCheckboxGroup) {
-			return checkboxInput;
+				</div>
+			);
 		}
-
-		// Full render with form-group if standalone
 		return (
-			<div className="fmdb-form-group">
-				{checkboxInput}
-			</div>
+			<Island component={Checkbox} props={{ label, required }}>
+				<div className="fmdb-group-items">
+					{parsedChoices.map((choice, idx) => {
+						const inputId = `checkbox-${nodeId}-${idx}`;
+						return (
+							<div key={choice.value || String(idx)} className="fmdb-group-item">
+								<input
+									type="checkbox"
+									id={inputId}
+									name={inputName}
+									className="fmdb-form-control"
+									value={choice.value}
+									defaultChecked={choice.selected}
+								/>
+								<label htmlFor={inputId} className="fmdb-checkbox-label">
+									{choice.label}
+								</label>
+							</div>
+						);
+					})}
+				</div>
+			</Island>
 		);
 	}
 );
