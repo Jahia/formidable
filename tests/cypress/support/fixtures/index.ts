@@ -2,7 +2,6 @@ export * from './types';
 export * from './site';
 export * from './inputButton';
 export * from './inputCheckbox';
-export * from './inputCheckboxGroup';
 export * from './inputColor';
 export * from './inputDate';
 export * from './inputDatetimeLocal';

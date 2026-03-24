@@ -1,0 +1,95 @@
+import {createSite, deleteSite, enableModule} from '@jahia/cypress';
+import {FORMIDABLE_MODULE_ID} from '../support/constants';
+import {
+	FORMIDABLE_TEST_SITE,
+	getCheckboxNode,
+	CHECKBOX_SINGLE,
+	CHECKBOX_SINGLE_COMPLETE,
+	CHECKBOX_GROUP,
+	CHECKBOX_GROUP_COMPLETE
+} from '../support/fixtures';
+import {createFormNode, getFormPreview} from "../support/fixtures/forms";
+
+describe('Checkbox Component', () => {
+	before(() => {
+		deleteSite(FORMIDABLE_TEST_SITE.key);
+		createSite(FORMIDABLE_TEST_SITE.key, FORMIDABLE_TEST_SITE.config);
+		enableModule(FORMIDABLE_MODULE_ID, FORMIDABLE_TEST_SITE.key);
+	});
+
+	beforeEach(() => {
+		cy.login();
+	});
+
+	afterEach(() => {
+		cy.logout();
+	});
+
+	describe('Single choice - renders standalone checkbox', () => {
+		it('should render a simple standalone checkbox', () => {
+			createFormNode('simple-checkbox-form', 'Simple Checkbox Form', [getCheckboxNode(CHECKBOX_SINGLE)]);
+
+			const form = getFormPreview('Simple Checkbox Form');
+
+			form.getCheckbox(CHECKBOX_SINGLE.name)
+				.shouldBeVisible()
+				.shouldHaveLabel(CHECKBOX_SINGLE.choices[0].label)
+				.shouldHaveValue(CHECKBOX_SINGLE.choices[0].value)
+				.shouldBeUnchecked()
+				.shouldNotBeRequired();
+		});
+
+		it('should render a standalone checkbox with required and preselected', () => {
+			createFormNode('complete-checkbox-form', 'Complete Checkbox Form', [getCheckboxNode(CHECKBOX_SINGLE_COMPLETE)]);
+
+			const form = getFormPreview('Complete Checkbox Form');
+
+			form.getCheckbox(CHECKBOX_SINGLE_COMPLETE.name)
+				.shouldBeVisible()
+				.shouldHaveLabel(CHECKBOX_SINGLE_COMPLETE.choices[0].label)
+				.shouldHaveValue(CHECKBOX_SINGLE_COMPLETE.choices[0].value)
+				.shouldBeChecked()
+				.shouldBeRequired();
+		});
+	});
+
+	describe('Multiple choices - renders checkbox group', () => {
+		it('should render a simple checkbox group', () => {
+			createFormNode('simple-checkbox-group-form', 'Simple Checkbox Group Form', [getCheckboxNode(CHECKBOX_GROUP)]);
+
+			const form = getFormPreview('Simple Checkbox Group Form');
+
+			const group = form.getCheckboxGroup(CHECKBOX_GROUP.name);
+			group.shouldBeVisible()
+				.shouldHaveLegend(CHECKBOX_GROUP.title)
+				.shouldNotBeRequired();
+
+			CHECKBOX_GROUP.choices.forEach(choice => {
+				group.getCheckbox(choice.label)
+					.shouldBeVisible()
+					.shouldBeUnchecked();
+			});
+		});
+
+		it('should render a checkbox group with required and a preselected choice', () => {
+			createFormNode('complete-checkbox-group-form', 'Complete Checkbox Group Form', [getCheckboxNode(CHECKBOX_GROUP_COMPLETE)]);
+
+			const form = getFormPreview('Complete Checkbox Group Form');
+
+			const group = form.getCheckboxGroup(CHECKBOX_GROUP_COMPLETE.name);
+			group.shouldBeVisible()
+				.shouldHaveLegend(CHECKBOX_GROUP_COMPLETE.title)
+				.shouldBeRequired();
+
+			CHECKBOX_GROUP_COMPLETE.choices.forEach(choice => {
+				const checkbox = group.getCheckbox(choice.label);
+				checkbox.shouldBeVisible();
+				if (choice.selected) {
+					checkbox.shouldBeChecked();
+				} else {
+					checkbox.shouldBeUnchecked();
+				}
+			});
+		});
+	});
+});
