@@ -1,2 +1,3 @@
 [fmdb:fieldset] > jnt:content, fmdbmix:formElement
-+ * (fmdb:element)
+ + * (fmdbmix:element) = fmdbmix:element
+ + * (fmdbmix:formContent) = fmdbmix:formContent

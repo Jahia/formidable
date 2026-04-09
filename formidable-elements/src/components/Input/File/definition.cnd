@@ -1,5 +1,5 @@
 // File input component properties
-[fmdb:inputFile] > fmdb:element
+[fmdb:inputFile] > jnt:content, fmdbmix:element
  - accept (string) indexed=no
  - multiple (boolean) = false
  - required (boolean) = false
