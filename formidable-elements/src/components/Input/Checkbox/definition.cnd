@@ -1,6 +1,4 @@
-// Checkbox input component properties
-// Note: Can be used standalone or within checkboxGroup containers
-[fmdb:inputCheckbox] > jnt:content, fmdbmix:element
+// Checkbox component - unified field: single checkbox if 1 choice, checkbox group if > 1
+[fmdb:checkbox] > jnt:content, fmdbmix:element
+ - choices (string) i18n multiple indexed=no mandatory
  - required (boolean) = false
- - defaultChecked (boolean) = false
- - value (string) indexed=no

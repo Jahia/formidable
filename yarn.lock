@@ -709,7 +709,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@jahia/moonstone@npm:^2.17.5":
+"@jahia/moonstone@npm:^2.17.3":
   version: 2.17.5
   resolution: "@jahia/moonstone@npm:2.17.5"
   dependencies:
@@ -3277,7 +3277,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "formidable-engine@workspace:formidable-engine"
   dependencies:
-    "@jahia/moonstone": "npm:^2.17.5"
+    "@jahia/moonstone": "npm:^2.17.3"
     "@jahia/ui-extender": "npm:^1.2.0"
     "@jahia/vite-federation-plugin": "npm:^0.1.1"
     "@types/react": "npm:^18.3.28"

@@ -1,27 +1,46 @@
-import {InputCheckboxData, JahiaNode, NodeProperty} from './types';
+import {CheckboxData, JahiaNode, NodeProperty} from './types';
 
-export const INPUT_CHECKBOX_SIMPLE: InputCheckboxData = {
+export const CHECKBOX_SINGLE: CheckboxData = {
 	name: 'simpleCheckbox',
 	title: 'Accept Terms',
-	value: 'accepted'
-};
-export const INPUT_CHECKBOX_COMPLETE: InputCheckboxData = {
-	name: 'completeCheckbox',
-	title: 'I agree to terms',
-	value: 'agreed',
-	required: true,
-	defaultChecked: true
+	choices: [{value: 'accepted', label: 'Accept terms', selected: false}]
 };
 
-export function getInputCheckboxNode(data: InputCheckboxData = INPUT_CHECKBOX_SIMPLE): JahiaNode {
+export const CHECKBOX_SINGLE_COMPLETE: CheckboxData = {
+	name: 'completeCheckbox',
+	title: 'I agree to terms',
+	required: true,
+	choices: [{value: 'agreed', label: 'I agree to terms', selected: true}]
+};
+
+export const CHECKBOX_GROUP: CheckboxData = {
+	name: 'simpleCheckboxGroup',
+	title: 'Select your interests',
+	choices: [
+		{value: 'sports', label: 'Sports', selected: false},
+		{value: 'music', label: 'Music', selected: false}
+	]
+};
+
+export const CHECKBOX_GROUP_COMPLETE: CheckboxData = {
+	name: 'completeCheckboxGroup',
+	title: 'Required interests',
+	required: true,
+	choices: [
+		{value: 'reading', label: 'Reading', selected: false},
+		{value: 'sports', label: 'Sports', selected: true},
+		{value: 'music', label: 'Music', selected: false}
+	]
+};
+
+export function getCheckboxNode(data: CheckboxData = CHECKBOX_SINGLE): JahiaNode {
 	const properties: NodeProperty[] = [];
 	if (data.title) properties.push({name: 'jcr:title', value: data.title, language: 'en'});
-	if (data.value) properties.push({name: 'value', value: data.value});
 	if (data.required !== undefined) properties.push({name: 'required', value: String(data.required), type: 'BOOLEAN'});
-	if (data.defaultChecked !== undefined) properties.push({
-		name: 'defaultChecked',
-		value: String(data.defaultChecked),
-		type: 'BOOLEAN'
+	properties.push({
+		name: 'choices',
+		values: data.choices.map(c => JSON.stringify({value: c.value, label: c.label, selected: c.selected ?? false})),
+		language: 'en'
 	});
-	return {name: data.name || 'checkboxInput', primaryNodeType: 'fmdb:inputCheckbox', properties};
+	return {name: data.name || 'checkbox', primaryNodeType: 'fmdb:checkbox', properties};
 }

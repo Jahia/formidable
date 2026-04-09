@@ -82,11 +82,20 @@ export interface InputButtonData extends BaseFormElementData {
 }
 
 /**
- * Checkbox input data based on fmdb:inputCheckbox CND
+ * Checkbox choice based on SelectOptions JSON structure
  */
-export interface InputCheckboxData extends BaseInputData {
-	value?: string;
-	defaultChecked?: boolean;
+export interface CheckboxChoiceData {
+	value: string;
+	label: string;
+	selected?: boolean;
+}
+
+/**
+ * Checkbox data based on fmdb:checkbox CND
+ * 1 choice → standalone checkbox, N choices → checkbox group
+ */
+export interface CheckboxData extends BaseInputData {
+	choices: CheckboxChoiceData[];
 }
 
 /**
@@ -117,9 +126,3 @@ export interface InputEmailData extends InputWithLength {
 	list?: string[];
 }
 
-/**
- * Checkbox group data based on fmdb:checkboxGroup CND
- */
-export interface InputCheckboxGroupData extends BaseInputData {
-	checkboxes?: InputCheckboxData[];
-}

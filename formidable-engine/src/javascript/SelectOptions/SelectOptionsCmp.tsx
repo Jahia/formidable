@@ -41,7 +41,7 @@ export const SelectOptionsCmp = ({field,id, value, onChange}: SelectOptionsCmpPr
           name={`select-option-selected-${id}`}
           title={t("selectOptions.selected")}
           checked={option.selected}
-          readOnly={field.readOnly}
+          disabled={field.readOnly}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
             handleChange({ selected: e.target.checked })
           }

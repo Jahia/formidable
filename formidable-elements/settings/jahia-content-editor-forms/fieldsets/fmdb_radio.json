@@ -1,0 +1,10 @@
+{
+	"name": "fmdb:radio",
+	"fields": [
+		{
+			"name": "choices",
+			"selectorType": "SelectOptions"
+		}
+	]
+}
+
