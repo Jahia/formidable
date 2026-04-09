@@ -1,3 +1,5 @@
 [tools]
-node = "24"
+java = "temurin-17"
+node = "lts"
 yarn = "4"
+maven = "3"

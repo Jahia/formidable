@@ -3,7 +3,7 @@ import {FORMIDABLE_TEST_SITE} from './fixtures'
 /**
  * Formidable module identifier
  */
-export const FORMIDABLE_MODULE_ID = 'formidable'
+export const FORMIDABLE_MODULE_ID = 'formidable-elements'
 
 /**
  * Base content path for the test site

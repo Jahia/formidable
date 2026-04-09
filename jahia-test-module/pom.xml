@@ -7,10 +7,10 @@
         <relativePath/>
     </parent>
     <groupId>org.jahia.test</groupId>
-    <artifactId>formidable-modules-test-modules-parent</artifactId>
+    <artifactId>formidable-test-modules-parent</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
-    <name>Formidable Modules - Test Modules Parent</name>
+    <name>Formidable Test - Modules Parent</name>
     <description>Parent POM for Jahia test modules used in the Formidable end-to-end Cypress test suite.</description>
 
     <distributionManagement>
@@ -40,7 +40,7 @@
     </repositories>
 
     <modules>
-        <module>formidable-modules-test-module-jsp</module>
+        <module>formidable-test-module-jsp</module>
     </modules>
 
 </project>

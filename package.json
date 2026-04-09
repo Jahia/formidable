@@ -1,9 +1,10 @@
 {
-  "name": "javascript-modules-monorepo",
+  "name": "formidable-monorepo",
   "private": true,
   "type": "module",
   "workspaces": [
-    "formidable"
+    "formidable-elements",
+    "formidable-engine"
   ],
   "scripts": {
     "format": "prettier --write --list-different $INIT_CWD",
