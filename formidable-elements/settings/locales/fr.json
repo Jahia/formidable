@@ -13,6 +13,9 @@
 		"newFormBtn": "Nouveau formulaire",
 		"tryAgainBtn": "Réessayer",
 		"submitting": "Envoi en cours...",
-		"loading": "Chargement..."
+		"loading": "Chargement...",
+		"previousBtn": "Précédent",
+		"nextBtn": "Suivant",
+		"stepsNav": "Étapes du formulaire"
 	}
-},
+}

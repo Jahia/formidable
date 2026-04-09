@@ -13,7 +13,10 @@ export interface FormServerProps {
 	resetBtnLabel?: string;
 	newFormBtnLabel?: string;
 	tryAgainBtnLabel?: string;
+	previousBtnLabel?: string;
+	nextBtnLabel?: string;
 	css?: string;
+	stepLabels?: string[];
 }
 
 // Client-side props extend server props with additional properties

@@ -12,9 +12,6 @@
 
 .form.hidden {
 	display: none;
-	/*opacity: 0;*/
-	/*transform: translateY(-10px);*/
-	/*pointer-events: none;*/
 }
 
 .message {
@@ -33,3 +30,65 @@
 		transform: translateY(0);
 	}
 }
+
+/* Multi-step navigation */
+.stepsNav {
+	display: flex;
+	gap: 0;
+	margin-bottom: 1.5rem;
+	list-style: none;
+	padding: 0;
+}
+
+.stepIndicator {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	flex: 1;
+	padding: 0.5rem 0.75rem;
+	font-size: 0.875rem;
+	color: var(--fmdb-step-color, #6b7280);
+	border-bottom: 2px solid var(--fmdb-step-border, #e5e7eb);
+	transition: color 0.2s, border-color 0.2s;
+}
+
+.stepIndicator:not(:last-child)::after {
+	content: '';
+	flex: 1;
+}
+
+.stepIndicatorActive {
+	color: var(--fmdb-step-active-color, #2563eb);
+	border-bottom-color: var(--fmdb-step-active-border, #2563eb);
+	font-weight: 600;
+}
+
+.stepIndicatorDone {
+	color: var(--fmdb-step-done-color, #16a34a);
+	border-bottom-color: var(--fmdb-step-done-border, #16a34a);
+}
+
+.stepNumber {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.5rem;
+	height: 1.5rem;
+	border-radius: 50%;
+	font-size: 0.75rem;
+	font-weight: 700;
+	background-color: var(--fmdb-step-number-bg, #e5e7eb);
+	color: var(--fmdb-step-number-color, #374151);
+	flex-shrink: 0;
+}
+
+.stepIndicatorActive .stepNumber {
+	background-color: var(--fmdb-step-active-number-bg, #2563eb);
+	color: var(--fmdb-step-active-number-color, #fff);
+}
+
+.stepIndicatorDone .stepNumber {
+	background-color: var(--fmdb-step-done-number-bg, #16a34a);
+	color: var(--fmdb-step-done-number-color, #fff);
+}
+

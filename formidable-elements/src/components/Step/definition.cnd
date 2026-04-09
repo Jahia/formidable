@@ -1,0 +1,5 @@
+[fmdb:step] > jnt:content, fmdbmix:formStep, mix:title
+ orderable
+ + * (fmdbmix:formElement) = fmdbmix:formElement
+ + * (fmdbmix:formContent) = fmdbmix:formContent
+

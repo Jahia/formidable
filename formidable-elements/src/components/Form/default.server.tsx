@@ -21,19 +21,23 @@ jahiaComponent(
 			resetBtnLabel,
 			newFormBtnLabel,
 			tryAgainBtnLabel,
+			previousBtnLabel,
+			nextBtnLabel,
 			css
 		}: FormServerProps,
 		{currentNode}
 	) => {
-		// Get all form elements (all children are guaranteed to be fmdbmix:formElement)
 		const formElements = Array.from(currentNode.getNodes());
 		const formId = `form-${currentNode.getIdentifier()}`;
 
+		const stepNodes = formElements.filter(el => el.isNodeType('fmdb:step'));
+		const stepLabels = stepNodes.length > 0
+			? stepNodes.map((s, i) => s.getProperty('jcr:title')?.getString() ?? `Step ${i + 1}`)
+			: undefined;
+
 		return (
 			<>
-				{/* Add custom CSS if provided */}
 				{css && <style>{css}</style>}
-				{/* Add module CSS */}
 				<AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")}/>
 				<Island
 					component={Form}
@@ -49,12 +53,13 @@ jahiaComponent(
 						resetBtnLabel,
 						newFormBtnLabel,
 						tryAgainBtnLabel,
+						previousBtnLabel,
+						nextBtnLabel,
 						formId,
 						locale: currentNode.getLanguage(),
+						stepLabels,
 					}}
 				>
-
-					{/* Render all form elements in order */}
 					{formElements.map((element) => (
 						<Render key={element.getIdentifier()} node={element}/>
 					))}
