@@ -1,5 +1,7 @@
 [fmdb:step] > jnt:content, fmdbmix:formStep, mix:title
  orderable
+ - label (string) i18n indexed=no
+ - intro (string, richtext) i18n indexed=no
  + * (fmdbmix:formElement) = fmdbmix:formElement
  + * (fmdbmix:formContent) = fmdbmix:formContent
 

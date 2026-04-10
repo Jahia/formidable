@@ -26,6 +26,7 @@ export default function Form({
 															 tryAgainBtnLabel,
 															 previousBtnLabel,
 															 nextBtnLabel,
+															 showStepsNav = true,
 															 formId,
 															 locale,
 															 stepLabels,
@@ -43,18 +44,24 @@ export default function Form({
 	const totalSteps = isMultiStep ? stepLabels.length : 0;
 	const isLastStep = currentStep === totalSteps - 1;
 
+	const stepElsRef = useRef<HTMLElement[]>([]);
 	useEffect(() => {
-		if (!isMultiStep || !formRef.current) return;
-		const stepEls = formRef.current.querySelectorAll<HTMLElement>('[data-fmdb-step]');
-		stepEls.forEach((el, i) => {
-			el.style.display = i === currentStep ? '' : 'none';
-		});
+		if (formRef.current) {
+			stepElsRef.current = Array.from(formRef.current.querySelectorAll<HTMLElement>('[data-fmdb-step]'));
+		}
+	}, []);
+
+	const prevStepRef = useRef(0);
+	useEffect(() => {
+		if (!isMultiStep) return;
+		const stepEls = stepElsRef.current;
+		if (stepEls[prevStepRef.current]) stepEls[prevStepRef.current].style.display = 'none';
+		if (stepEls[currentStep]) stepEls[currentStep].style.display = '';
+		prevStepRef.current = currentStep;
 	}, [currentStep, isMultiStep]);
 
 	const validateCurrentStep = (): boolean => {
-		if (!formRef.current) return true;
-		const stepEls = formRef.current.querySelectorAll<HTMLElement>('[data-fmdb-step]');
-		const current = stepEls[currentStep];
+		const current = stepElsRef.current[currentStep];
 		if (!current) return true;
 		const inputs = current.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
 			'input, select, textarea'
@@ -175,7 +182,7 @@ export default function Form({
 					<header className="fmdb-form-intro" dangerouslySetInnerHTML={{__html: sanitizedIntro}}/>
 				)}
 
-				{isMultiStep && (
+				{isMultiStep && showStepsNav && (
 					<nav className={clsx("fmdb-steps-nav", classes.stepsNav)} aria-label={t('stepsNav')}>
 						{stepLabels.map((label, i) => (
 							<span
@@ -210,20 +217,25 @@ export default function Form({
 									{previousBtnLabel || t('previousBtn')}
 								</button>
 							)}
-							{!isLastStep ? (
-								<button
-									type="button"
-									className="fmdb-btn fmdb-btn-primary fmdb-next-btn"
-									onClick={handleNext}
-									disabled={isLoading}
-								>
-									{nextBtnLabel || t('nextBtn')}
-								</button>
-							) : (
-								<button type="submit" className="fmdb-btn fmdb-btn-primary" disabled={isLoading}>
-									{submitBtnLabel || t('submitBtn')}
-								</button>
-							)}
+						{!isLastStep && (
+							<button
+								type="button"
+								className="fmdb-btn fmdb-btn-primary fmdb-next-btn"
+								onClick={handleNext}
+								disabled={isLoading}
+							>
+								{nextBtnLabel || t('nextBtn')}
+							</button>
+						)}
+						{isLastStep && (
+							<button
+								type="submit"
+								className="fmdb-btn fmdb-btn-primary"
+								disabled={isLoading}
+							>
+								{submitBtnLabel || t('submitBtn')}
+							</button>
+						)}
 						</>
 					) : (
 						<>

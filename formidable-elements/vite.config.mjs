@@ -8,6 +8,9 @@ export default defineConfig({
   resolve: {
     alias: {"~": path.resolve("./src")},
   },
+  build: {
+    sourcemap: true,
+  },
   plugins: [
     sbom({specVersion: "1.4"}),
     jahia({

@@ -34,8 +34,8 @@
 /* Multi-step navigation */
 .stepsNav {
 	display: flex;
-	gap: 0;
-	margin-bottom: 1.5rem;
+	gap: var(--fmdb-steps-nav-gap, 0);
+	margin-bottom: var(--fmdb-steps-nav-mb, 1.5rem);
 	list-style: none;
 	padding: 0;
 }
@@ -43,13 +43,13 @@
 .stepIndicator {
 	display: flex;
 	align-items: center;
-	gap: 0.5rem;
+	gap: var(--fmdb-step-gap, 0.5rem);
 	flex: 1;
-	padding: 0.5rem 0.75rem;
-	font-size: 0.875rem;
+	padding: var(--fmdb-step-padding, 0.5rem 0.75rem);
+	font-size: var(--fmdb-step-font-size, 0.875rem);
 	color: var(--fmdb-step-color, #6b7280);
-	border-bottom: 2px solid var(--fmdb-step-border, #e5e7eb);
-	transition: color 0.2s, border-color 0.2s;
+	border-bottom: var(--fmdb-step-border-width, 2px) solid var(--fmdb-step-border, #e5e7eb);
+	transition: var(--fmdb-step-transition, color 0.2s, border-color 0.2s);
 }
 
 .stepIndicator:not(:last-child)::after {
@@ -60,23 +60,24 @@
 .stepIndicatorActive {
 	color: var(--fmdb-step-active-color, #2563eb);
 	border-bottom-color: var(--fmdb-step-active-border, #2563eb);
-	font-weight: 600;
+	font-weight: var(--fmdb-step-active-font-weight, 600);
 }
 
 .stepIndicatorDone {
 	color: var(--fmdb-step-done-color, #16a34a);
 	border-bottom-color: var(--fmdb-step-done-border, #16a34a);
+	font-weight: var(--fmdb-step-done-font-weight, normal);
 }
 
 .stepNumber {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 1.5rem;
-	height: 1.5rem;
-	border-radius: 50%;
-	font-size: 0.75rem;
-	font-weight: 700;
+	width: var(--fmdb-step-number-size, 1.5rem);
+	height: var(--fmdb-step-number-size, 1.5rem);
+	border-radius: var(--fmdb-step-number-radius, 50%);
+	font-size: var(--fmdb-step-number-font-size, 0.75rem);
+	font-weight: var(--fmdb-step-number-font-weight, 700);
 	background-color: var(--fmdb-step-number-bg, #e5e7eb);
 	color: var(--fmdb-step-number-color, #374151);
 	flex-shrink: 0;

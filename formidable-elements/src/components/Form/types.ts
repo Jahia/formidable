@@ -15,6 +15,7 @@ export interface FormServerProps {
 	tryAgainBtnLabel?: string;
 	previousBtnLabel?: string;
 	nextBtnLabel?: string;
+	showStepsNav?: boolean;
 	css?: string;
 	stepLabels?: string[];
 }
