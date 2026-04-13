@@ -5,6 +5,7 @@ import classes from './Form.client.module.css';
 import {type FormProps} from './types';
 import Spinner from '~/design/Spinner';
 import DOMPurify from 'dompurify';
+import Captcha from './Captcha.client';
 
 const sanitize = (html: string): string => {
 	if (typeof window === 'undefined') return '';
@@ -30,6 +31,8 @@ export default function Form({
 															 formId,
 															 locale,
 															 stepLabels,
+															 captchaSiteKey,
+															 captchaScriptUrl,
 															 children
 														 }: FormProps) {
 	const [message, setMessage] = useState<string | null>(null);
@@ -43,6 +46,8 @@ export default function Form({
 	const isMultiStep = stepLabels && stepLabels.length > 0;
 	const totalSteps = isMultiStep ? stepLabels.length : 0;
 	const isLastStep = currentStep === totalSteps - 1;
+
+	const showCaptcha = !!captchaSiteKey && !!captchaScriptUrl && (!isMultiStep || isLastStep);
 
 	const stepElsRef = useRef<HTMLElement[]>([]);
 	useEffect(() => {
@@ -85,6 +90,14 @@ export default function Form({
 		if (isMultiStep && !isLastStep) return;
 
 		setIsLoading(true);
+
+		const captchaInput = formRef.current?.querySelector<HTMLInputElement>('[data-fmdb-captcha]');
+		if (captchaInput && !captchaInput.value) {
+			setMessage(t('captchaRequired'));
+			setMessageType('error');
+			setIsLoading(false);
+			return;
+		}
 
 		const form = event.currentTarget;
 
@@ -202,9 +215,13 @@ export default function Form({
 					</nav>
 				)}
 
-				{children}
+			{children}
 
-				<div className="fmdb-form-actions">
+			{showCaptcha && (
+				<Captcha siteKey={captchaSiteKey!} scriptUrl={captchaScriptUrl!}/>
+			)}
+
+			<div className="fmdb-form-actions">
 					{isMultiStep ? (
 						<>
 							{currentStep > 0 && (

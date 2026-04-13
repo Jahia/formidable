@@ -33,6 +33,11 @@
   itemtype = content
   - css (string,textarea) indexed=no
 
+[fmdbmix:captcha] mixin
+ extends = fmdb:form
+ itemtype = content
+ - captchaConfig (weakreference) < fmdb:captchaProvider
+
 [fmdb:form] > jnt:content, fmdbmix:component, jmix:visibleInContentTree, mix:title
  orderable
  - intro (string, richtext) i18n indexed=no

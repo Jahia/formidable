@@ -16,6 +16,7 @@
 		"loading": "Chargement...",
 		"previousBtn": "Précédent",
 		"nextBtn": "Suivant",
-		"stepsNav": "Étapes du formulaire"
+		"stepsNav": "Étapes du formulaire",
+		"captchaRequired": "Veuillez compléter la vérification CAPTCHA."
 	}
 }

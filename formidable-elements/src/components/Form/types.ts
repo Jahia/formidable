@@ -1,3 +1,4 @@
+import type {JCRNodeWrapper} from "org.jahia.services.content";
 import {type ReactNode} from 'react';
 
 // Base interface for server-side props
@@ -17,12 +18,15 @@ export interface FormServerProps {
 	nextBtnLabel?: string;
 	showStepsNav?: boolean;
 	css?: string;
-	stepLabels?: string[];
+	captchaConfig?: JCRNodeWrapper;
 }
 
 // Client-side props extend server props with additional properties
-export interface FormProps extends FormServerProps {
+export interface FormProps extends Omit<FormServerProps, 'captchaConfig'> {
 	formId: string;
 	locale: string;
+	stepLabels?: string[];
+	captchaSiteKey?: string;
+	captchaScriptUrl?: string;
 	children: ReactNode;
 }
