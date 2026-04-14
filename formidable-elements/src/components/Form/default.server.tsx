@@ -1,12 +1,18 @@
-import {AddResources, buildModuleFileUrl, Island, jahiaComponent, Render} from "@jahia/javascript-modules-library";
+import {
+	AddResources,
+	buildModuleFileUrl,
+	Island,
+	jahiaComponent,
+	Render,
+} from "@jahia/javascript-modules-library";
 import Form from "./Form.client";
-import {type FormServerProps} from './types';
+import { type FormServerProps } from "./types";
 
 jahiaComponent(
 	{
 		componentType: "view",
 		nodeType: "fmdb:form",
-		name: "default"
+		name: "default",
 	},
 	(
 		{
@@ -14,27 +20,37 @@ jahiaComponent(
 			submissionMessage,
 			errorMessage,
 			customTarget,
-			showResetBtn = false,
-			showNewFormBtn = false,
-			showTryAgainBtn = false,
+			showResetBtn,
+			showNewFormBtn,
+			showTryAgainBtn,
 			submitBtnLabel,
 			resetBtnLabel,
 			newFormBtnLabel,
 			tryAgainBtnLabel,
-			css
+			previousBtnLabel,
+			nextBtnLabel,
+			showStepsNav,
+			css,
 		}: FormServerProps,
-		{currentNode}
+		{ currentNode },
 	) => {
-		// Get all form elements (all children are guaranteed to be fmdbmix:formElement)
 		const formElements = Array.from(currentNode.getNodes());
 		const formId = `form-${currentNode.getIdentifier()}`;
 
+		const stepNodes = formElements.filter((el) => el.isNodeType("fmdb:step"));
+		const stepLabels =
+			stepNodes.length > 0
+				? stepNodes.map((s, i) => {
+					const label = s.hasProperty('label') ? s.getProperty('label').getString() : undefined;
+					const title = s.hasProperty('jcr:title') ? s.getProperty('jcr:title').getString() : undefined;
+					return label ?? title ?? `Step ${i + 1}`;
+				})
+				: undefined;
+
 		return (
 			<>
-				{/* Add custom CSS if provided */}
 				{css && <style>{css}</style>}
-				{/* Add module CSS */}
-				<AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")}/>
+				<AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")} />
 				<Island
 					component={Form}
 					props={{
@@ -49,17 +65,34 @@ jahiaComponent(
 						resetBtnLabel,
 						newFormBtnLabel,
 						tryAgainBtnLabel,
+						previousBtnLabel,
+						nextBtnLabel,
+						showStepsNav,
 						formId,
 						locale: currentNode.getLanguage(),
+						stepLabels,
 					}}
 				>
-
-					{/* Render all form elements in order */}
-					{formElements.map((element) => (
-						<Render key={element.getIdentifier()} node={element}/>
-					))}
+					{formElements.map((element) => {
+						const isStep = element.isNodeType("fmdb:step");
+						const stepIndex = isStep
+							? stepNodes.findIndex((s) => s.getIdentifier() === element.getIdentifier())
+							: -1;
+						const nodeView = element.hasProperty("j:view")
+							? element.getProperty("j:view").getString()
+							: undefined;
+						const fallbackView = isStep && showStepsNav ? "compact" : "default";
+						return (
+							<Render
+								key={element.getIdentifier()}
+								node={element}
+								view={nodeView ?? fallbackView}
+								parameters={isStep && stepIndex > 0 ? {initiallyHidden: "true"} : undefined}
+							/>
+						);
+					})}
 				</Island>
 			</>
 		);
-	}
+	},
 );

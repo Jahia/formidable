@@ -23,6 +23,10 @@ orderable
 // Apply this mixin in any module to extend the list of allowed content in a form.
 [fmdbmix:formContent] mixin
 
+// Mixin to mark a content type as a form step.
+// Only allowed as a direct child of fmdb:form, not nestable.
+[fmdbmix:formStep] mixin
+
 [fmdbmix:formElement] > mix:title mixin
 orderable
 

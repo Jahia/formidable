@@ -13,6 +13,9 @@
 		"newFormBtn": "New Form",
 		"tryAgainBtn": "Try Again",
 		"submitting": "Submitting...",
-		"loading": "Loading..."
+		"loading": "Loading...",
+		"previousBtn": "Previous",
+		"nextBtn": "Next",
+		"stepsNav": "Form steps"
 	}
 }

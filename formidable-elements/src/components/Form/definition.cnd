@@ -8,13 +8,20 @@
 [fmdbmix:buttons] mixin
  extends = fmdb:form
  itemtype = content
-  - submitBtnLabel (string) = resourceBundle('label.submitBtn') autocreated i18n indexed=no
-  - resetBtnLabel (string) = resourceBundle('label.resetBtn') autocreated i18n indexed=no
-  - showResetBtn (boolean) = false
-  - newFormBtnLabel (string) = resourceBundle('label.newFormBtn') autocreated i18n indexed=no
-  - showNewFormBtn (boolean) = false
-  - tryAgainBtnLabel (string) = resourceBundle('label.tryAgainBtn') autocreated i18n indexed=no
-  - showTryAgainBtn (boolean) = false
+   - submitBtnLabel (string) = resourceBundle('label.submitBtn') autocreated i18n indexed=no
+   - resetBtnLabel (string) = resourceBundle('label.resetBtn') autocreated i18n indexed=no
+   - showResetBtn (boolean) = false
+   - newFormBtnLabel (string) = resourceBundle('label.newFormBtn') autocreated i18n indexed=no
+   - showNewFormBtn (boolean) = false
+   - tryAgainBtnLabel (string) = resourceBundle('label.tryAgainBtn') autocreated i18n indexed=no
+   - showTryAgainBtn (boolean) = false
+   - previousBtnLabel (string) = resourceBundle('label.previousBtn') autocreated i18n indexed=no
+   - nextBtnLabel (string) = resourceBundle('label.nextBtn') autocreated i18n indexed=no
+
+[fmdbmix:multiStep] mixin
+ extends = fmdb:form
+ itemtype = content
+   - showStepsNav (boolean) = true autocreated indexed=no
 
 [fmdbmix:actions] mixin
  extends = fmdb:form
@@ -35,3 +42,4 @@
 // + responses (fmdb:responsesList) = fmdb:responsesList autocreated
  + * (fmdbmix:formElement) = fmdbmix:formElement
  + * (fmdbmix:formContent) = fmdbmix:formContent
+ + * (fmdbmix:formStep) = fmdbmix:formStep

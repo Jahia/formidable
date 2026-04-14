@@ -1,4 +1,4 @@
-import {type FormEvent, useState} from 'react';
+import {type FormEvent, useEffect, useRef, useState} from 'react';
 import {interpolateMessage} from '~/utils/messageUtils';
 import clsx from "clsx";
 import classes from './Form.client.module.css';
@@ -24,44 +24,87 @@ export default function Form({
 															 resetBtnLabel,
 															 newFormBtnLabel,
 															 tryAgainBtnLabel,
+															 previousBtnLabel,
+															 nextBtnLabel,
+															 showStepsNav = true,
 															 formId,
 															 locale,
+															 stepLabels,
 															 children
 														 }: FormProps) {
 	const [message, setMessage] = useState<string | null>(null);
 	const [messageType, setMessageType] = useState<'success' | 'error' | null>(null);
 	const [isLoading, setIsLoading] = useState(false);
+	const [currentStep, setCurrentStep] = useState(0);
+	const formRef = useRef<HTMLFormElement>(null);
 
 	const {t} = useTranslation('formidable-elements', {keyPrefix: 'fmdb_form'});
 
+	const isMultiStep = stepLabels && stepLabels.length > 0;
+	const totalSteps = isMultiStep ? stepLabels.length : 0;
+	const isLastStep = currentStep === totalSteps - 1;
+
+	const stepElsRef = useRef<HTMLElement[]>([]);
+	useEffect(() => {
+		if (formRef.current) {
+			stepElsRef.current = Array.from(formRef.current.querySelectorAll<HTMLElement>('[data-fmdb-step]'));
+		}
+	}, []);
+
+	const prevStepRef = useRef(0);
+	useEffect(() => {
+		if (!isMultiStep) return;
+		const stepEls = stepElsRef.current;
+		if (stepEls[prevStepRef.current]) stepEls[prevStepRef.current].style.display = 'none';
+		if (stepEls[currentStep]) stepEls[currentStep].style.display = '';
+		prevStepRef.current = currentStep;
+	}, [currentStep, isMultiStep]);
+
+	const validateCurrentStep = (): boolean => {
+		const current = stepElsRef.current[currentStep];
+		if (!current) return true;
+		const inputs = current.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+			'input, select, textarea'
+		);
+		return Array.from(inputs).every(input => input.reportValidity());
+	};
+
+	const handleNext = () => {
+		if (validateCurrentStep()) {
+			setCurrentStep(s => s + 1);
+		}
+	};
+
+	const handlePrevious = () => {
+		setCurrentStep(s => s - 1);
+	};
+
 	const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
+
+		if (isMultiStep && !isLastStep) return;
+
 		setIsLoading(true);
 
 		const form = event.currentTarget;
 
 		try {
 			const formData = new FormData(form);
-
-			// Interpolate variables in messages with locale
 			const interpolatedSubmissionMessage = interpolateMessage(submissionMessage, formData, locale);
-
-			// Use custom target if provided, otherwise use current URL
 			const submitUrl = customTarget || form.action || window.location.href;
 
-			// Simulate form submission (replace with actual submission logic)
 			const response = await fetch(submitUrl, {
 				method: 'POST',
 				body: formData
 			});
 
-			// Add a small delay to show the spinner
 			await new Promise(resolve => setTimeout(resolve, 500));
 
 			if (response.ok) {
 				setMessage(interpolatedSubmissionMessage || 'Form submitted successfully!');
 				setMessageType('success');
 				form.reset();
+				if (isMultiStep) setCurrentStep(0);
 			} else {
 				throw new Error('Submission failed');
 			}
@@ -78,7 +121,6 @@ export default function Form({
 
 	const showForm = () => {
 		setIsLoading(true);
-		// Add transition delay
 		setTimeout(() => {
 			setMessage(null);
 			setMessageType(null);
@@ -95,7 +137,6 @@ export default function Form({
 
 	return (
 		<>
-			{/* Loading Spinner */}
 			{isLoading && (
 				<Spinner
 					overlay
@@ -109,7 +150,6 @@ export default function Form({
 					<div className="fmdb-message-content">
 						<div dangerouslySetInnerHTML={{__html: sanitizedMessage}}/>
 						{messageType === 'success' && showNewFormBtn && (
-							//form.reset() is done in handle submit after successful submission
 							<button
 								type="button"
 								className="fmdb-btn fmdb-btn-secondary fmdb-new-form-btn"
@@ -119,8 +159,6 @@ export default function Form({
 							</button>
 						)}
 						{messageType === 'error' && showTryAgainBtn && (
-							//no form.reset() show again the form with previous data
-							//user can correct the data and resubmit
 							<button
 								type="button"
 								className="fmdb-btn fmdb-btn-secondary fmdb-new-form-btn"
@@ -133,29 +171,83 @@ export default function Form({
 				</div>
 			}
 			<form
+				ref={formRef}
 				className={clsx("fmdb-form", classes.form, (hasMessage || isLoading) && classes.hidden)}
 				method="post"
 				action={customTarget}
 				id={formId}
 				onSubmit={handleSubmit}
 			>
-				{/* Form introduction text */}
 				{intro && (
 					<header className="fmdb-form-intro" dangerouslySetInnerHTML={{__html: sanitizedIntro}}/>
 				)}
 
-				{/* Render form elements placeholder - actual elements are server-rendered */}
+				{isMultiStep && showStepsNav && (
+					<nav className={clsx("fmdb-steps-nav", classes.stepsNav)} aria-label={t('stepsNav')}>
+						{stepLabels.map((label, i) => (
+							<span
+								key={label}
+								className={clsx(
+									"fmdb-step-indicator",
+									classes.stepIndicator,
+									i === currentStep && classes.stepIndicatorActive,
+									i < currentStep && classes.stepIndicatorDone
+								)}
+								aria-current={i === currentStep ? 'step' : undefined}
+							>
+								<span className={clsx("fmdb-step-number", classes.stepNumber)}>{i + 1}</span>
+								<span className="fmdb-step-label">{label}</span>
+							</span>
+						))}
+					</nav>
+				)}
+
 				{children}
 
-				{/* Form submission buttons */}
 				<div className="fmdb-form-actions">
-					<button type="submit" className="fmdb-btn fmdb-btn-primary" disabled={isLoading}>
-						{submitBtnLabel || t('submitBtn')}
-					</button>
-					{showResetBtn && (
-						<button type="reset" className="fmdb-btn fmdb-btn-secondary" disabled={isLoading}>
-							{resetBtnLabel || t('resetBtn')}
-						</button>
+					{isMultiStep ? (
+						<>
+							{currentStep > 0 && (
+								<button
+									type="button"
+									className="fmdb-btn fmdb-btn-secondary fmdb-prev-btn"
+									onClick={handlePrevious}
+									disabled={isLoading}
+								>
+									{previousBtnLabel || t('previousBtn')}
+								</button>
+							)}
+						{!isLastStep && (
+							<button
+								type="button"
+								className="fmdb-btn fmdb-btn-primary fmdb-next-btn"
+								onClick={handleNext}
+								disabled={isLoading}
+							>
+								{nextBtnLabel || t('nextBtn')}
+							</button>
+						)}
+						{isLastStep && (
+							<button
+								type="submit"
+								className="fmdb-btn fmdb-btn-primary"
+								disabled={isLoading}
+							>
+								{submitBtnLabel || t('submitBtn')}
+							</button>
+						)}
+						</>
+					) : (
+						<>
+							<button type="submit" className="fmdb-btn fmdb-btn-primary" disabled={isLoading}>
+								{submitBtnLabel || t('submitBtn')}
+							</button>
+							{showResetBtn && (
+								<button type="reset" className="fmdb-btn fmdb-btn-secondary" disabled={isLoading}>
+									{resetBtnLabel || t('resetBtn')}
+								</button>
+							)}
+						</>
 					)}
 				</div>
 			</form>
