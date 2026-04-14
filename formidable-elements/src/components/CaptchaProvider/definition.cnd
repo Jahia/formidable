@@ -1,0 +1,4 @@
+[fmdb:captchaProvider] > jnt:content, fmdbmix:component, mix:title
+ - siteKey (string) indexed=no
+ - scriptUrl (string) = 'https://challenges.cloudflare.com/turnstile/v0/api.js' autocreated indexed=no
+

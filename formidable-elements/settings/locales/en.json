@@ -16,6 +16,7 @@
 		"loading": "Loading...",
 		"previousBtn": "Previous",
 		"nextBtn": "Next",
-		"stepsNav": "Form steps"
+		"stepsNav": "Form steps",
+		"captchaRequired": "Please complete the CAPTCHA verification."
 	}
 }

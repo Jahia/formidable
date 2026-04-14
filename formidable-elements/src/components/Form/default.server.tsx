@@ -1,12 +1,26 @@
 import {
 	AddResources,
 	buildModuleFileUrl,
+	getNodeProps,
 	Island,
 	jahiaComponent,
 	Render,
 } from "@jahia/javascript-modules-library";
 import Form from "./Form.client";
-import { type FormServerProps } from "./types";
+import {type CaptchaProvider, type FormServerProps} from "./types";
+
+const deriveProvider = (scriptUrl: string): CaptchaProvider => {
+	if (scriptUrl.includes('challenges.cloudflare.com')) return 'turnstile';
+	if (scriptUrl.includes('hcaptcha.com')) return 'hcaptcha';
+	if (scriptUrl.includes('google.com/recaptcha')) return 'recaptcha_v2';
+	return 'turnstile';
+};
+
+const ensureCaptchaExplicit = (url: string): string => {
+	if (!url.includes('challenges.cloudflare.com')) return url;
+	if (url.includes('render=explicit')) return url;
+	return url + (url.includes('?') ? '&' : '?') + 'render=explicit';
+};
 
 jahiaComponent(
 	{
@@ -16,6 +30,7 @@ jahiaComponent(
 	},
 	(
 		{
+			captchaConfig,
 			intro,
 			submissionMessage,
 			errorMessage,
@@ -38,19 +53,31 @@ jahiaComponent(
 		const formId = `form-${currentNode.getIdentifier()}`;
 
 		const stepNodes = formElements.filter((el) => el.isNodeType("fmdb:step"));
-		const stepLabels =
-			stepNodes.length > 0
-				? stepNodes.map((s, i) => {
-					const label = s.hasProperty('label') ? s.getProperty('label').getString() : undefined;
-					const title = s.hasProperty('jcr:title') ? s.getProperty('jcr:title').getString() : undefined;
-					return label ?? title ?? `Step ${i + 1}`;
-				})
-				: undefined;
+		const stepLabels = stepNodes.length > 0
+			? stepNodes.map((s, i) => {
+				const {label, 'jcr:title': title} = getNodeProps<{label?: string; 'jcr:title'?: string}>(s, ['label', 'jcr:title']);
+				return label ?? title ?? `Step ${i + 1}`;
+			})
+			: undefined;
+
+		const {siteKey, scriptUrl} = captchaConfig
+			? getNodeProps<{siteKey?: string; scriptUrl?: string}>(captchaConfig, ['siteKey', 'scriptUrl'])
+			: {};
+		const captcha = siteKey && scriptUrl
+			? {siteKey, provider: deriveProvider(scriptUrl)}
+			: undefined;
 
 		return (
 			<>
 				{css && <style>{css}</style>}
 				<AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")} />
+				{scriptUrl && (
+					<AddResources
+						type="javascript"
+						resources={ensureCaptchaExplicit(scriptUrl)}
+						defer
+					/>
+				)}
 				<Island
 					component={Form}
 					props={{
@@ -68,9 +95,10 @@ jahiaComponent(
 						previousBtnLabel,
 						nextBtnLabel,
 						showStepsNav,
-						formId,
-						locale: currentNode.getLanguage(),
-						stepLabels,
+					formId,
+					locale: currentNode.getLanguage(),
+					stepLabels,
+					captcha,
 					}}
 				>
 					{formElements.map((element) => {
@@ -78,9 +106,7 @@ jahiaComponent(
 						const stepIndex = isStep
 							? stepNodes.findIndex((s) => s.getIdentifier() === element.getIdentifier())
 							: -1;
-						const nodeView = element.hasProperty("j:view")
-							? element.getProperty("j:view").getString()
-							: undefined;
+						const {['j:view']: nodeView} = getNodeProps<{'j:view'?: string}>(element, ['j:view']);
 						const fallbackView = isStep && showStepsNav ? "compact" : "default";
 						return (
 							<Render

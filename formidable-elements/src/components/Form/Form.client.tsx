@@ -5,6 +5,7 @@ import classes from './Form.client.module.css';
 import {type FormProps} from './types';
 import Spinner from '~/design/Spinner';
 import DOMPurify from 'dompurify';
+import Captcha, {type CaptchaHandle} from './Captcha.client';
 
 const sanitize = (html: string): string => {
 	if (typeof window === 'undefined') return '';
@@ -30,6 +31,7 @@ export default function Form({
 															 formId,
 															 locale,
 															 stepLabels,
+															 captcha,
 															 children
 														 }: FormProps) {
 	const [message, setMessage] = useState<string | null>(null);
@@ -37,12 +39,15 @@ export default function Form({
 	const [isLoading, setIsLoading] = useState(false);
 	const [currentStep, setCurrentStep] = useState(0);
 	const formRef = useRef<HTMLFormElement>(null);
+	const captchaRef = useRef<CaptchaHandle>(null);
 
 	const {t} = useTranslation('formidable-elements', {keyPrefix: 'fmdb_form'});
 
 	const isMultiStep = stepLabels && stepLabels.length > 0;
 	const totalSteps = isMultiStep ? stepLabels.length : 0;
 	const isLastStep = currentStep === totalSteps - 1;
+
+	const showCaptcha = !!captcha && (!isMultiStep || isLastStep);
 
 	const stepElsRef = useRef<HTMLElement[]>([]);
 	useEffect(() => {
@@ -86,6 +91,13 @@ export default function Form({
 
 		setIsLoading(true);
 
+		if (captcha && !captchaRef.current?.getToken()) {
+			setMessage(t('captchaRequired'));
+			setMessageType('error');
+			setIsLoading(false);
+			return;
+		}
+
 		const form = event.currentTarget;
 
 		try {
@@ -113,6 +125,7 @@ export default function Form({
 			const interpolatedErrorMessage = interpolateMessage(errorMessage, formData, locale);
 			setMessage(interpolatedErrorMessage || 'An error occurred while submitting the form.');
 			setMessageType('error');
+			captchaRef.current?.reset();
 			console.error("formidable submit error:", error);
 		} finally {
 			setIsLoading(false);
@@ -202,9 +215,13 @@ export default function Form({
 					</nav>
 				)}
 
-				{children}
+			{children}
 
-				<div className="fmdb-form-actions">
+			{showCaptcha && (
+				<Captcha ref={captchaRef} siteKey={captcha!.siteKey} provider={captcha!.provider}/>
+			)}
+
+			<div className="fmdb-form-actions">
 					{isMultiStep ? (
 						<>
 							{currentStep > 0 && (
