@@ -7,7 +7,11 @@ interface RenderOptions {
 }
 
 interface Window {
-	turnstile?: {render: (el: HTMLElement, opts: RenderOptions) => string; remove: (id: string) => void};
+	turnstile?: {
+		render: (el: HTMLElement, opts: RenderOptions) => string;
+		remove: (id: string) => void;
+		reset: (id: string) => void;
+	};
 	hcaptcha?: {render: (el: HTMLElement, opts: RenderOptions) => string};
 	grecaptcha?: {render: (el: HTMLElement, opts: RenderOptions) => number};
 }

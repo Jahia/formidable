@@ -7,7 +7,20 @@ import {
 	Render,
 } from "@jahia/javascript-modules-library";
 import Form from "./Form.client";
-import { type FormServerProps } from "./types";
+import {type CaptchaProvider, type FormServerProps} from "./types";
+
+const deriveProvider = (scriptUrl: string): CaptchaProvider => {
+	if (scriptUrl.includes('challenges.cloudflare.com')) return 'turnstile';
+	if (scriptUrl.includes('hcaptcha.com')) return 'hcaptcha';
+	if (scriptUrl.includes('google.com/recaptcha')) return 'recaptcha_v2';
+	return 'turnstile';
+};
+
+const ensureCaptchaExplicit = (url: string): string => {
+	if (!url.includes('challenges.cloudflare.com')) return url;
+	if (url.includes('render=explicit')) return url;
+	return url + (url.includes('?') ? '&' : '?') + 'render=explicit';
+};
 
 jahiaComponent(
 	{
@@ -47,14 +60,24 @@ jahiaComponent(
 			})
 			: undefined;
 
-		const {siteKey: captchaSiteKey, scriptUrl: captchaScriptUrl} = captchaConfig
+		const {siteKey, scriptUrl} = captchaConfig
 			? getNodeProps<{siteKey?: string; scriptUrl?: string}>(captchaConfig, ['siteKey', 'scriptUrl'])
 			: {};
+		const captcha = siteKey && scriptUrl
+			? {siteKey, provider: deriveProvider(scriptUrl)}
+			: undefined;
 
 		return (
 			<>
 				{css && <style>{css}</style>}
 				<AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")} />
+				{scriptUrl && (
+					<AddResources
+						type="javascript"
+						resources={ensureCaptchaExplicit(scriptUrl)}
+						defer
+					/>
+				)}
 				<Island
 					component={Form}
 					props={{
@@ -75,8 +98,7 @@ jahiaComponent(
 					formId,
 					locale: currentNode.getLanguage(),
 					stepLabels,
-					captchaSiteKey,
-					captchaScriptUrl,
+					captcha,
 					}}
 				>
 					{formElements.map((element) => {

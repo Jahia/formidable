@@ -1,54 +1,49 @@
-import {useEffect, useRef} from 'react';
+import {useEffect, useImperativeHandle, useRef} from 'react';
+import {type CaptchaProvider} from './types';
 
-type CaptchaProvider = 'turnstile' | 'hcaptcha' | 'recaptcha_v2';
-
-
-const deriveProvider = (scriptUrl: string): CaptchaProvider => {
-	if (scriptUrl.includes('challenges.cloudflare.com')) return 'turnstile';
-	if (scriptUrl.includes('hcaptcha.com')) return 'hcaptcha';
-	if (scriptUrl.includes('google.com/recaptcha')) return 'recaptcha_v2';
-	return 'turnstile';
-};
+export interface CaptchaHandle {
+	getToken: () => string;
+	reset: () => void;
+}
 
 interface CaptchaProps {
 	siteKey: string;
-	scriptUrl: string;
+	provider: CaptchaProvider;
+	ref?: React.Ref<CaptchaHandle>;
 }
 
-export default function Captcha({siteKey, scriptUrl}: CaptchaProps) {
+export default function Captcha({siteKey, provider, ref}: CaptchaProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
-	const tokenRef = useRef<HTMLInputElement>(null);
+	const tokenRef = useRef('');
 	const widgetIdRef = useRef<string | undefined>(undefined);
 
-	useEffect(() => {
-		const provider = deriveProvider(scriptUrl);
-		const setToken = (token: string) => { if (tokenRef.current) tokenRef.current.value = token; };
-		const clearToken = () => { if (tokenRef.current) tokenRef.current.value = ''; };
-
-		const render = () => {
-			const el = containerRef.current;
-			if (!el) return;
-			const opts: RenderOptions = {sitekey: siteKey, callback: setToken, 'expired-callback': clearToken};
-			if (provider === 'turnstile' && window.turnstile) {
-				widgetIdRef.current = window.turnstile.render(el, opts);
-			} else if (provider === 'hcaptcha' && window.hcaptcha) {
-				window.hcaptcha.render(el, opts);
-			} else if (provider === 'recaptcha_v2' && window.grecaptcha) {
-				window.grecaptcha.render(el, opts);
+	useImperativeHandle(ref, () => ({
+		getToken: () => tokenRef.current,
+		reset: () => {
+			tokenRef.current = '';
+			if (provider === 'turnstile' && widgetIdRef.current) {
+				window.turnstile?.reset(widgetIdRef.current);
 			}
+		}
+	}), [provider]);
+
+	useEffect(() => {
+		const el = containerRef.current;
+		if (!el) return;
+
+		const opts: RenderOptions = {
+			'sitekey': siteKey,
+			'callback': token => { tokenRef.current = token; },
+			'expired-callback': () => { tokenRef.current = ''; },
 		};
 
-		const scriptId = `fmdb-captcha-${provider}`;
-		if (document.getElementById(scriptId)) {
-			render();
-		} else {
-			const script = document.createElement('script');
-			script.id = scriptId;
-			script.src = scriptUrl;
-			script.async = true;
-			script.defer = true;
-			script.onload = render;
-			document.head.appendChild(script);
+		// Script is injected server-side with defer — always ready by the time the Island hydrates.
+		if (provider === 'turnstile' && window.turnstile) {
+			widgetIdRef.current = window.turnstile.render(el, opts);
+		} else if (provider === 'hcaptcha' && window.hcaptcha) {
+			window.hcaptcha.render(el, opts);
+		} else if (provider === 'recaptcha_v2' && window.grecaptcha) {
+			window.grecaptcha.render(el, opts);
 		}
 
 		return () => {
@@ -57,12 +52,11 @@ export default function Captcha({siteKey, scriptUrl}: CaptchaProps) {
 				widgetIdRef.current = undefined;
 			}
 		};
-	}, [siteKey, scriptUrl]);
+	}, [siteKey, provider]);
 
 	return (
 		<div className="fmdb-form-group fmdb-captcha">
 			<div ref={containerRef}/>
-			<input ref={tokenRef} type="hidden" name="fmdb-captcha-token" data-fmdb-captcha/>
 		</div>
 	);
 }
