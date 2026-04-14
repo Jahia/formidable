@@ -38,6 +38,11 @@
  itemtype = content
  - captchaConfig (weakreference) < fmdb:captchaProvider
 
+[fmdbmix:actionPipeline] mixin
+ extends = fmdb:form
+ itemtype = content
+ - actions (weakreference, contentpicker[fmdbmix:formAction]) multiple
+
 [fmdb:form] > jnt:content, fmdbmix:component, jmix:visibleInContentTree, mix:title
  orderable
  - intro (string, richtext) i18n indexed=no

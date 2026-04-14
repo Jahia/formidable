@@ -1,0 +1,22 @@
+<jnt = 'http://www.jahia.org/jahia/nt/1.0'>
+<fmdb = 'http://www.jahia.org/jahia/fmdb/nt/1.0'>
+<fmdbmix = 'http://www.jahia.org/jahia/fmdb/mix/1.0'>
+
+// Mixin marking a content node as a pluggable form action.
+// An admin creates instances of types implementing this mixin anywhere in the site.
+// Contributors then reference those instances from a form via fmdbmix:actionPipeline.
+[fmdbmix:formAction] mixin
+
+// Verifies the CAPTCHA token server-side after a form submission.
+[fmdb:captchaAction] > jnt:content, fmdbmix:formAction, mix:title
+ - provider (string) = 'turnstile' autocreated indexed=no < 'turnstile', 'hcaptcha', 'recaptcha_v2'
+ - secretKey (string) indexed=no
+
+// Sends an email after a successful form submission.
+// Subject and body support ${fieldName} interpolation from the submitted form data.
+[fmdb:emailAction] > jnt:content, fmdbmix:formAction, mix:title
+ - to (string) indexed=no
+ - from (string) indexed=no
+ - subject (string) i18n indexed=no
+ - templateMessage (string, textarea) i18n indexed=no
+

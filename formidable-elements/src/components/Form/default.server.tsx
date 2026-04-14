@@ -67,6 +67,10 @@ jahiaComponent(
 			? {siteKey, provider: deriveProvider(scriptUrl)}
 			: undefined;
 
+		const submitActionUrl = currentNode.hasProperty('actions')
+			? `/cms/render/live/${currentNode.getLanguage()}${currentNode.getPath()}.formidableSubmit.do`
+			: undefined;
+
 		return (
 			<>
 				{css && <style>{css}</style>}
@@ -78,28 +82,29 @@ jahiaComponent(
 						defer
 					/>
 				)}
-				<Island
-					component={Form}
-					props={{
-						intro,
-						submissionMessage,
-						errorMessage,
-						customTarget,
-						showResetBtn,
-						showNewFormBtn,
-						showTryAgainBtn,
-						submitBtnLabel,
-						resetBtnLabel,
-						newFormBtnLabel,
-						tryAgainBtnLabel,
-						previousBtnLabel,
-						nextBtnLabel,
-						showStepsNav,
-					formId,
-					locale: currentNode.getLanguage(),
-					stepLabels,
-					captcha,
-					}}
+			<Island
+				component={Form}
+				props={{
+					intro,
+					submissionMessage,
+					errorMessage,
+					customTarget,
+					submitActionUrl,
+					showResetBtn,
+					showNewFormBtn,
+					showTryAgainBtn,
+					submitBtnLabel,
+					resetBtnLabel,
+					newFormBtnLabel,
+					tryAgainBtnLabel,
+					previousBtnLabel,
+					nextBtnLabel,
+					showStepsNav,
+				formId,
+				locale: currentNode.getLanguage(),
+				stepLabels,
+				captcha,
+				}}
 				>
 					{formElements.map((element) => {
 						const isStep = element.isNodeType("fmdb:step");

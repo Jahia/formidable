@@ -1,0 +1,118 @@
+package org.jahia.modules.formidable.engine.actions;
+
+import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.services.content.JCRSessionWrapper;
+import org.jahia.services.mail.MailMessage;
+import org.jahia.services.mail.MailService;
+import org.jahia.services.render.RenderContext;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.servlet.http.HttpServletRequest;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * Sends an email after a successful form submission.
+ *
+ * The contributor configures on the fmdb:emailAction node:
+ *   - {@code to}              – recipient address (supports ${fieldName} interpolation)
+ *   - {@code from}            – optional sender override
+ *   - {@code subject}         – email subject (supports ${fieldName} interpolation)
+ *   - {@code templateMessage} – HTML body    (supports ${fieldName} interpolation)
+ *
+ * Requires Jahia's MailService to be configured (SMTP settings in Jahia administration).
+ */
+@Component(service = FormAction.class)
+public class SendEmailFormAction implements FormAction {
+
+    private static final Logger log = LoggerFactory.getLogger(SendEmailFormAction.class);
+
+    private static final Pattern INTERPOLATION = Pattern.compile("\\$\\{([^}]+)}");
+
+    private MailService mailService;
+
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, unbind = "unbindMailService")
+    protected void bindMailService(MailService service) {
+        this.mailService = service;
+    }
+
+    protected void unbindMailService(MailService service) {
+        this.mailService = null;
+    }
+
+    @Override
+    public String getNodeType() {
+        return "fmdb:emailAction";
+    }
+
+    @Override
+    public void execute(
+            JCRNodeWrapper actionNode,
+            HttpServletRequest req,
+            RenderContext renderContext,
+            JCRSessionWrapper session,
+            Map<String, List<String>> parameters
+    ) throws FormActionException {
+
+        if (mailService == null) {
+            throw FormActionException.serverError("MailService is unavailable. Check Jahia SMTP configuration.");
+        }
+
+        String to = interpolate(readProperty(actionNode, "to"), parameters);
+        if (to == null || to.isBlank()) {
+            throw FormActionException.serverError("fmdb:emailAction is missing a 'to' address.");
+        }
+
+        String from = readProperty(actionNode, "from");
+        String subject = interpolate(readProperty(actionNode, "subject"), parameters);
+        String htmlBody = interpolate(readProperty(actionNode, "templateMessage"), parameters);
+
+        MailMessage message = new MailMessage();
+        message.setTo(to);
+        message.setFrom(from);
+        message.setSubject(subject != null ? subject : "");
+        message.setHtmlBody(htmlBody);
+
+        try {
+            mailService.sendMessage(message);
+            log.debug("Email sent to '{}' with subject '{}'", to, subject);
+        } catch (Exception e) {
+            log.error("Failed to send email to '{}'", to, e);
+            throw FormActionException.serverError("Failed to send email: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Replaces {@code ${fieldName}} placeholders with the first matching form parameter value.
+     * Unknown placeholders are replaced with an empty string.
+     */
+    static String interpolate(String template, Map<String, List<String>> parameters) {
+        if (template == null) return null;
+        Matcher m = INTERPOLATION.matcher(template);
+        StringBuilder sb = new StringBuilder();
+        while (m.find()) {
+            String field = m.group(1);
+            List<String> values = parameters.get(field);
+            String replacement = (values != null && !values.isEmpty()) ? values.get(0) : "";
+            m.appendReplacement(sb, Matcher.quoteReplacement(replacement));
+        }
+        m.appendTail(sb);
+        return sb.toString();
+    }
+
+    private static String readProperty(JCRNodeWrapper node, String name) {
+        try {
+            return node.hasProperty(name) ? node.getProperty(name).getString() : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+}
+

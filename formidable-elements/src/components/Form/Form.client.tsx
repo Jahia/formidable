@@ -18,6 +18,7 @@ export default function Form({
 															 submissionMessage,
 															 errorMessage,
 															 customTarget,
+															 submitActionUrl,
 															 showResetBtn = false,
 															 showNewFormBtn = false,
 															 showTryAgainBtn = false,
@@ -102,8 +103,12 @@ export default function Form({
 
 		try {
 			const formData = new FormData(form);
+			// Each captcha widget (Turnstile / hCaptcha / reCAPTCHA) auto-injects its native
+			// hidden field into the form DOM (cf-turnstile-response, h-captcha-response, etc.).
+			// FormData picks it up automatically — no manual injection needed.
+
 			const interpolatedSubmissionMessage = interpolateMessage(submissionMessage, formData, locale);
-			const submitUrl = customTarget || form.action || window.location.href;
+			const submitUrl = submitActionUrl || customTarget || form.action || window.location.href;
 
 			const response = await fetch(submitUrl, {
 				method: 'POST',

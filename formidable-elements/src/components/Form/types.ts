@@ -9,6 +9,7 @@ export interface FormServerProps {
 	submissionMessage?: string;
 	errorMessage?: string;
 	customTarget?: string;
+	submitActionUrl?: string;
 	showResetBtn?: boolean;
 	showNewFormBtn?: boolean;
 	showTryAgainBtn?: boolean;
