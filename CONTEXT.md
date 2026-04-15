@@ -109,37 +109,36 @@ fmdbmix:component            ← makes a type visible/droppable in the editor
   orderable
   + * (fmdbmix:formElement)
   + * (fmdbmix:formContent)
-
-[fmdb:captchaProvider] > jnt:content, fmdbmix:component, mix:title
-  - siteKey (string) indexed=no
-  - scriptUrl (string) = 'https://challenges.cloudflare.com/turnstile/v0/api.js' autocreated indexed=no
 ```
+
+`fmdb:captchaProvider` has been removed. Captcha configuration lives entirely on `fmdb:captchaAction` (see action pipeline section).
 
 ---
 
 ## Captcha – Full integration
 
-### Front-end
+The captcha widget config and server-side verification are unified in a single `fmdb:captchaAction` node (no separate `fmdb:captchaProvider`).
 
-- `fmdbmix:captcha` mixin on `fmdb:form` → `captchaConfig (weakreference) < fmdb:captchaProvider`
-- `default.server.tsx` reads `siteKey` and `scriptUrl` from the `fmdb:captchaProvider` node
-- The provider is derived from `scriptUrl` (domain-based heuristic)
-- The captcha script is injected server-side via `<AddResources type="javascript" ... defer/>`
-- Turnstile requires `render=explicit` in the script URL (added automatically by `ensureCaptchaExplicit`)
-- `Captcha.client.tsx` renders the widget into a `<div ref>` and exposes `getToken()` / `reset()` via `useImperativeHandle`
-- Each widget auto-injects its token into the DOM under its native field name — **`FormData` picks it up automatically, no manual injection needed**
+The admin creates one `fmdb:captchaAction` node with:
+- `siteKey` – public key for the front-end widget
+- `scriptUrl` – provider JS API URL (default: Cloudflare Turnstile)
+- `secretKey` – private key for server-side `siteverify` call
+
+The contributor adds this node to the form's `actions` pipeline. `default.server.tsx` scans the `actions` array for a `fmdb:captchaAction` node and reads `siteKey` + `scriptUrl` from it to drive the front-end widget.
+
+The provider is derived from `scriptUrl` at runtime (both in TypeScript and Java):
 
 ### Native token field names
 
-| Provider | Field name in POST |
-|---|---|
-| Cloudflare Turnstile | `cf-turnstile-response` |
-| hCaptcha | `h-captcha-response` |
-| Google reCAPTCHA v2 | `g-recaptcha-response` |
+| Provider | `scriptUrl` contains | Field name in POST |
+|---|---|---|
+| Cloudflare Turnstile | `challenges.cloudflare.com` | `cf-turnstile-response` |
+| hCaptcha | `hcaptcha.com` | `h-captcha-response` |
+| Google reCAPTCHA v2 | `google.com/recaptcha` | `g-recaptcha-response` |
 
 ### Server-side
 
-`CaptchaVerificationFormAction` reads the field matching the provider from the POST parameters and calls the provider's `siteverify` endpoint.
+`CaptchaVerificationFormAction` derives the provider from `scriptUrl` via `deriveProvider()`, reads the matching token field from POST parameters, and calls the provider's `siteverify` endpoint.
 
 ---
 
@@ -147,19 +146,30 @@ fmdbmix:component            ← makes a type visible/droppable in the editor
 
 ### Overview
 
-When the `fmdbmix:actionPipeline` mixin is applied to a `fmdb:form`, the contributor selects action nodes via the `actions (weakreference, contentpicker[fmdbmix:formAction]) multiple` property.
-
-`default.server.tsx` detects `hasProperty('actions')` and computes:
+When the `fmdbmix:actionPipeline` mixin is applied to a `fmdb:form`, or when a captcha is configured, `default.server.tsx` sets:
 ```
 submitActionUrl = /cms/render/live/{locale}{nodePath}.formidableSubmit.do
 ```
-This URL is passed to the Island instead of `customTarget`.
+
+### Submission flow (client-side)
+
+`handleSubmit` fires requests **in parallel** via `Promise.all` — full `FormData` always:
+
+| submitActionUrl | customTarget | Behaviour |
+|---|---|---|
+| ✓ | — | Pipeline handles everything (captcha + email + etc.) |
+| — | ✓ | Direct POST to `customTarget`; it handles captcha |
+| ✓ | ✓ | Both fire in parallel; `customTarget` handles captcha |
+| — | — | POST to `form.action` / current URL |
+
+When `customTarget` is set, **do not add `fmdb:captchaAction` to the pipeline** — captcha is `customTarget`'s responsibility. The token is single-use.
 
 `FormSubmitAction` (Jahia `Action`, OSGi):
 1. Reads the `actions` weak-references from the form node
 2. For each referenced node, finds the OSGi `FormAction` service whose `getNodeType()` matches the node's primary type
 3. Calls `handler.execute(actionNode, req, renderContext, session, parameters)` in order
 4. On `FormActionException`, returns the exception's HTTP status to the client
+5. On success, returns `{"success": true}`
 
 ### Java class layout
 
@@ -205,14 +215,17 @@ FormActionException.serverError("message");   // HTTP 500
 
 #### `fmdb:captchaAction` → `CaptchaVerificationFormAction`
 
-CND:
+CND (in `formidable-engine`):
 ```cnd
 [fmdb:captchaAction] > jnt:content, fmdbmix:formAction, mix:title
- - provider (string) = 'turnstile' autocreated indexed=no < 'turnstile', 'hcaptcha', 'recaptcha_v2'
+ - siteKey (string) indexed=no
+ - scriptUrl (string) = 'https://challenges.cloudflare.com/turnstile/v0/api.js' autocreated indexed=no
  - secretKey (string) indexed=no
 ```
 
-Behaviour: reads the token from the provider's native field, calls `siteverify` via POST `application/x-www-form-urlencoded` with `secret`, `response`, `remoteip`. Checks `result.success`.
+Behaviour: derives provider from `scriptUrl` via `deriveProvider()`, reads the matching captcha token field from POST parameters, calls `siteverify` via POST `application/x-www-form-urlencoded` with `secret`, `response`, `remoteip`. Checks `result.success`.
+
+Also drives the front-end: `default.server.tsx` scans the `actions` prop (`JCRNodeWrapper[]`) for a node of type `fmdb:captchaAction` and reads `siteKey` + `scriptUrl` from it to inject the widget script and render the `<Captcha>` Island component.
 
 #### `fmdb:emailAction` → `SendEmailFormAction`
 
@@ -323,6 +336,6 @@ Disabled specs use the `.cy.ts.disabled` extension.
 
 - **`MailMessage` + `setHtml` / `setHtmlBody`**: do not use. Correct API is `mailService.sendMessage(from, to, cc, bcc, subject, textBody, htmlBody)`.
 - **Captcha token**: each widget auto-injects its hidden field into the DOM. `FormData` captures it automatically. On the Java side, read the provider's native field name (`cf-turnstile-response`, etc.) — never invent a field like `fmdb-captcha-token`.
-- **`submitActionUrl` vs `customTarget`**: if `fmdbmix:actionPipeline` is active AND `actions` is non-empty, `submitActionUrl` takes priority in `Form.client.tsx`.
+- **`submitActionUrl` vs `customTarget`**: `submitActionUrl` is set whenever captcha is configured OR actions exist. When both are present, phase 1 sends only the captcha token to Jahia (verification gate), then phase 2 sends the full FormData to `customTarget`. When only `submitActionUrl` is set (no `customTarget`), the pipeline handles everything (email etc.) and shows the success message.
 - **Turnstile `render=explicit`**: required, otherwise the widget renders automatically and ignores `containerRef`. Added by `ensureCaptchaExplicit` in `default.server.tsx`.
 - **Island props must be serialisable**: never pass a `JCRNodeWrapper` to an Island. Extract scalars server-side with `getNodeProps()`.

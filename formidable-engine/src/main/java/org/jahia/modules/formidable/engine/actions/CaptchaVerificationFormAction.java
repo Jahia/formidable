@@ -21,14 +21,15 @@ import java.util.Map;
 /**
  * Verifies the CAPTCHA token submitted by the client against the provider's server-side API.
  *
- * The token must be present in the request under the field name {@code fmdb-captcha-token}.
- * The contributor configures the {@code provider} (turnstile / hcaptcha / recaptcha_v2)
- * and the {@code secretKey} on the fmdb:captchaAction node.
+ * Called only in JCR mode (destination = save2jcrAction or no destination).
+ * In transfer mode (destination = sendDataAction), FormSubmitAction never calls this action;
+ * the captcha token is forwarded to the target, which handles its own verification.
  */
 @Component(service = FormAction.class)
 public class CaptchaVerificationFormAction implements FormAction {
 
     private static final Logger log = LoggerFactory.getLogger(CaptchaVerificationFormAction.class);
+
 
 
     private static final String TURNSTILE_URL  = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
@@ -56,10 +57,9 @@ public class CaptchaVerificationFormAction implements FormAction {
             throw FormActionException.serverError("fmdb:captchaAction is missing a secretKey.");
         }
 
-        String provider = readProperty(actionNode, "provider");
-        if (provider == null || provider.isBlank()) {
-            provider = "turnstile";
-        }
+
+        String scriptUrl = readProperty(actionNode, "scriptUrl");
+        String provider = deriveProvider(scriptUrl);
 
         // Each widget injects its token under its own native field name
         String tokenField = switch (provider) {
@@ -77,6 +77,13 @@ public class CaptchaVerificationFormAction implements FormAction {
         if (!valid) {
             throw FormActionException.badRequest("CAPTCHA verification failed.");
         }
+    }
+
+    private static String deriveProvider(String scriptUrl) {
+        if (scriptUrl == null) return "turnstile";
+        if (scriptUrl.contains("hcaptcha.com")) return "hcaptcha";
+        if (scriptUrl.contains("google.com/recaptcha")) return "recaptcha_v2";
+        return "turnstile";
     }
 
     private boolean verify(String secretKey, String token, String provider, String remoteIp) {

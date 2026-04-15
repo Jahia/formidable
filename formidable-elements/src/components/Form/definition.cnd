@@ -23,25 +23,19 @@
  itemtype = content
    - showStepsNav (boolean) = true autocreated indexed=no
 
-[fmdbmix:actions] mixin
- extends = fmdb:form
- itemtype = content
- - customTarget (string) indexed=no
 
  [fmdbmix:style] mixin
   extends = fmdb:form
   itemtype = content
   - css (string,textarea) indexed=no
 
-[fmdbmix:captcha] mixin
- extends = fmdb:form
- itemtype = content
- - captchaConfig (weakreference) < fmdb:captchaProvider
 
 [fmdbmix:actionPipeline] mixin
  extends = fmdb:form
  itemtype = content
- - actions (weakreference, contentpicker[fmdbmix:formAction]) multiple
+ - captcha (weakreference, contentpicker[fmdb:captchaAction])
+ - destination (weakreference, contentpicker[fmdbmix:formDestination])
+ - actions (weakreference, contentpicker[fmdbmix:formSideEffect]) multiple
 
 [fmdb:form] > jnt:content, fmdbmix:component, jmix:visibleInContentTree, mix:title
  orderable

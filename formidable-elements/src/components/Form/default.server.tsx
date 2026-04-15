@@ -30,11 +30,11 @@ jahiaComponent(
 	},
 	(
 		{
-			captchaConfig,
+			captcha: captchaNode,
+			destination: destinationNode,
 			intro,
 			submissionMessage,
 			errorMessage,
-			customTarget,
 			showResetBtn,
 			showNewFormBtn,
 			showTryAgainBtn,
@@ -60,14 +60,24 @@ jahiaComponent(
 			})
 			: undefined;
 
-		const {siteKey, scriptUrl} = captchaConfig
-			? getNodeProps<{siteKey?: string; scriptUrl?: string}>(captchaConfig, ['siteKey', 'scriptUrl'])
+		const {siteKey, scriptUrl} = captchaNode
+			? getNodeProps<{siteKey?: string; scriptUrl?: string}>(captchaNode, ['siteKey', 'scriptUrl'])
 			: {};
 		const captcha = siteKey && scriptUrl
 			? {siteKey, provider: deriveProvider(scriptUrl)}
 			: undefined;
 
-		const submitActionUrl = currentNode.hasProperty('actions')
+		const isTransferMode = destinationNode?.isNodeType('fmdb:sendDataAction') ?? false;
+		const destinationUrl = isTransferMode
+			? getNodeProps<{targetUrl?: string}>(destinationNode!, ['targetUrl']).targetUrl
+			: undefined;
+
+		// In transfer mode, Jahia pipeline handles side effects only (captcha + destination are client-side).
+		// In JCR mode, Jahia pipeline handles captcha, destination and side effects.
+		const hasJahiaPipeline = isTransferMode
+			? currentNode.hasProperty('actions')
+			: (currentNode.hasProperty('captcha') || currentNode.hasProperty('destination') || currentNode.hasProperty('actions'));
+		const submitActionUrl = hasJahiaPipeline
 			? `/cms/render/live/${currentNode.getLanguage()}${currentNode.getPath()}.formidableSubmit.do`
 			: undefined;
 
@@ -76,20 +86,20 @@ jahiaComponent(
 				{css && <style>{css}</style>}
 				<AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")} />
 				{scriptUrl && (
-					<AddResources
-						type="javascript"
-						resources={ensureCaptchaExplicit(scriptUrl)}
-						defer
-					/>
-				)}
-			<Island
-				component={Form}
-				props={{
-					intro,
-					submissionMessage,
-					errorMessage,
-					customTarget,
-					submitActionUrl,
+				<AddResources
+					type="javascript"
+					resources={ensureCaptchaExplicit(scriptUrl)}
+					defer
+				/>
+			)}
+		<Island
+			component={Form}
+			props={{
+				intro,
+				submissionMessage,
+				errorMessage,
+				destinationUrl,
+				submitActionUrl,
 					showResetBtn,
 					showNewFormBtn,
 					showTryAgainBtn,

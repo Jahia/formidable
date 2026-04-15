@@ -2,21 +2,44 @@
 <fmdb = 'http://www.jahia.org/jahia/fmdb/nt/1.0'>
 <fmdbmix = 'http://www.jahia.org/jahia/fmdb/mix/1.0'>
 
-// Mixin marking a content node as a pluggable form action.
-// An admin creates instances of types implementing this mixin anywhere in the site.
-// Contributors then reference those instances from a form via fmdbmix:actionPipeline.
-[fmdbmix:formAction] mixin
+// Marks a node as a form destination (mutually exclusive: JCR storage or third-party transfer).
+// Referenced by the fmdbmix:actionPipeline 'destination' property.
+// FormSubmitAction always executes the destination first, before any side effects.
+[fmdbmix:formDestination] mixin
 
-// Verifies the CAPTCHA token server-side after a form submission.
-[fmdb:captchaAction] > jnt:content, fmdbmix:formAction, mix:title
- - provider (string) = 'turnstile' autocreated indexed=no < 'turnstile', 'hcaptcha', 'recaptcha_v2'
+// Marks a node as a form side effect (e.g. email notification).
+// Referenced by the fmdbmix:actionPipeline 'actions' property.
+// Side effects run after the destination succeeds.
+[fmdbmix:formSideEffect] mixin
+
+// Drives the front-end captcha widget and verifies the token server-side in JCR mode.
+// siteKey + scriptUrl are used by the form view to inject the widget script and render the challenge.
+// secretKey is used server-side to verify the submitted token (JCR mode only).
+// In transfer mode (sendDataAction), server-side verification is skipped automatically;
+// the captcha token travels to the third-party target, which handles its own verification.
+[fmdb:captchaAction] > jnt:content, mix:title
+ - siteKey (string) indexed=no
+ - scriptUrl (string) = 'https://challenges.cloudflare.com/turnstile/v0/api.js' autocreated indexed=no
  - secretKey (string) indexed=no
 
 // Sends an email after a successful form submission.
 // Subject and body support ${fieldName} interpolation from the submitted form data.
-[fmdb:emailAction] > jnt:content, fmdbmix:formAction, mix:title
+[fmdb:emailAction] > jnt:content, fmdbmix:formSideEffect, mix:title
  - to (string) indexed=no
  - from (string) indexed=no
  - subject (string) i18n indexed=no
  - templateMessage (string, textarea) i18n indexed=no
+
+// Forwards the full form data to a third-party endpoint server-side (application/x-www-form-urlencoded).
+// Acts as the form destination: executes first, before any side effects.
+// If the target rejects, side effects (e.g. emailAction) do NOT run.
+// When this is the destination, captcha server-side verification is skipped by FormSubmitAction;
+// the captcha token is forwarded to the target, which is responsible for its own verification.
+[fmdb:sendDataAction] > jnt:content, fmdbmix:formDestination, mix:title
+ - targetUrl (string) indexed=no
+
+// Saves the submitted form data as child nodes under a designated JCR path.
+// Acts as the form destination: executes first (after captcha verification), before any side effects.
+// Not yet implemented — reserved for future use.
+[fmdb:save2jcrAction] > jnt:content, fmdbmix:formDestination, mix:title
 

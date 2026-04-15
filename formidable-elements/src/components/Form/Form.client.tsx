@@ -14,12 +14,12 @@ const sanitize = (html: string): string => {
 import {useTranslation} from "react-i18next";
 
 export default function Form({
-															 intro,
-															 submissionMessage,
-															 errorMessage,
-															 customTarget,
-															 submitActionUrl,
-															 showResetBtn = false,
+														 intro,
+														 submissionMessage,
+														 errorMessage,
+														 destinationUrl,
+														 submitActionUrl,
+														 showResetBtn = false,
 															 showNewFormBtn = false,
 															 showTryAgainBtn = false,
 															 submitBtnLabel,
@@ -104,27 +104,42 @@ export default function Form({
 		try {
 			const formData = new FormData(form);
 			// Each captcha widget (Turnstile / hCaptcha / reCAPTCHA) auto-injects its native
-			// hidden field into the form DOM (cf-turnstile-response, h-captcha-response, etc.).
-			// FormData picks it up automatically — no manual injection needed.
+			// hidden field into the form DOM. FormData picks it up automatically.
 
 			const interpolatedSubmissionMessage = interpolateMessage(submissionMessage, formData, locale);
-			const submitUrl = submitActionUrl || customTarget || form.action || window.location.href;
 
-			const response = await fetch(submitUrl, {
-				method: 'POST',
-				body: formData
-			});
+			if (destinationUrl) {
+				// Transfer mode: POST full FormData (including files + captcha token) to the
+				// third-party destination first. If it rejects, stop here — no side effects run.
+				const destinationResponse = await fetch(destinationUrl, {method: 'POST', body: formData});
+				if (!destinationResponse.ok) {
+					throw new Error('Submission failed');
+				}
+			}
+
+			if (submitActionUrl) {
+				// Jahia pipeline: side effects only in transfer mode (captcha + destination already done),
+				// or full pipeline (captcha verify → save2jcr → side effects) in JCR mode.
+				const pipelineResponse = await fetch(submitActionUrl, {method: 'POST', body: formData});
+				if (!pipelineResponse.ok) {
+					throw new Error('Submission failed');
+				}
+			}
+
+			if (!destinationUrl && !submitActionUrl) {
+				// No pipeline — post to the form's action URL (current page if not set).
+				const response = await fetch(form.action || window.location.href, {method: 'POST', body: formData});
+				if (!response.ok) {
+					throw new Error('Submission failed');
+				}
+			}
 
 			await new Promise(resolve => setTimeout(resolve, 500));
 
-			if (response.ok) {
-				setMessage(interpolatedSubmissionMessage || 'Form submitted successfully!');
-				setMessageType('success');
-				form.reset();
-				if (isMultiStep) setCurrentStep(0);
-			} else {
-				throw new Error('Submission failed');
-			}
+			setMessage(interpolatedSubmissionMessage || 'Form submitted successfully!');
+			setMessageType('success');
+			form.reset();
+			if (isMultiStep) setCurrentStep(0);
 		} catch (error) {
 			const formData = new FormData(form);
 			const interpolatedErrorMessage = interpolateMessage(errorMessage, formData, locale);
@@ -192,7 +207,6 @@ export default function Form({
 				ref={formRef}
 				className={clsx("fmdb-form", classes.form, (hasMessage || isLoading) && classes.hidden)}
 				method="post"
-				action={customTarget}
 				id={formId}
 				onSubmit={handleSubmit}
 			>
