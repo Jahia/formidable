@@ -19,12 +19,11 @@ export interface FormServerProps {
 	nextBtnLabel?: string;
 	showStepsNav?: boolean;
 	css?: string;
-	captcha?: JCRNodeWrapper;
 	destination?: JCRNodeWrapper;
 }
 
 // Props passed to the Form Island (client-side)
-export interface FormProps extends Omit<FormServerProps, 'captcha' | 'destination'> {
+export interface FormProps extends Omit<FormServerProps, 'destination'> {
 	formId: string;
 	locale: string;
 	stepLabels?: string[];

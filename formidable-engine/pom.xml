@@ -5,7 +5,7 @@
     <parent>
         <artifactId>formidable-modules</artifactId>
         <groupId>org.jahia.modules</groupId>
-        <version>0.0.1-SNAPSHOT</version>
+        <version>${revision}</version>
     </parent>
     <artifactId>formidable-engine</artifactId>
     <name>Formidable Engine</name>
@@ -62,12 +62,16 @@
                     <instructions>
                         <!-- Process OSGi Declarative Services annotations -->
                         <_dsannotations>*</_dsannotations>
-                        <Export-Package>org.jahia.modules.formidable.engine.actions</Export-Package>
+                        <Export-Package>
+                            org.jahia.modules.formidable.engine.actions,
+                            org.jahia.modules.formidable.engine.captcha
+                        </Export-Package>
                         <Import-Package>
                             org.jahia.bin,
                             org.jahia.services.content,
                             org.jahia.services.mail,
                             org.jahia.services.render,
+                            org.jahia.services.render.filter,
                             org.json,
                             *
                         </Import-Package>

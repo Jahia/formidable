@@ -2,6 +2,7 @@ package org.jahia.modules.formidable.engine.actions;
 
 import org.jahia.bin.Action;
 import org.jahia.bin.ActionResult;
+import org.jahia.modules.formidable.engine.captcha.CaptchaConfigService;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.render.RenderContext;
@@ -28,14 +29,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * Main Jahia action that processes form submissions for fmdb:form nodes.
  *
- * Reads three distinct properties from the form node:
- *   - captcha    (weakreference → fmdb:captchaAction)    widget config + conditional verification
- *   - destination (weakreference → fmdbmix:formDestination)  where data goes (JCR or third party)
- *   - actions    (weakreference-multiple → fmdbmix:formSideEffect)  email etc., run after destination
- *
- * Pipeline order is enforced regardless of configuration:
- *   JCR mode    : captcha verify → save2jcr → side effects
- *   Transfer mode : sendData (captcha not verified) → side effects
+ * Pipeline order (enforced regardless of configuration):
+ *   1. CAPTCHA verification — if fmdb:form has fmdbmix:captcha mixin (always server-side)
+ *   2. Destination          — save2jcr or other fmdbmix:formDestination
+ *   3. Follow-up actions    — fmdbmix:formSideEffect nodes (e.g. email)
  *
  * Invoked via: POST /cms/render/live/{locale}/{formPath}.formidableSubmit.do
  */
@@ -44,16 +41,28 @@ public class FormSubmitAction extends Action {
 
     private static final Logger log = LoggerFactory.getLogger(FormSubmitAction.class);
 
-    static final String PROP_CAPTCHA     = "captcha";
     static final String PROP_DESTINATION = "destination";
     static final String PROP_ACTIONS     = "actions";
 
+    // CAPTCHA token field names per provider (injected automatically by the widget)
+    private static final String[] CAPTCHA_TOKEN_FIELDS = {
+            "cf-turnstile-response",   // Cloudflare Turnstile
+            "h-captcha-response",      // hCaptcha
+            "g-recaptcha-response"     // Google reCAPTCHA v2
+    };
+
     private final List<FormAction> formActions = new CopyOnWriteArrayList<>();
+    private CaptchaConfigService captchaConfigService;
 
     @Activate
     public void activate() {
         setName("formidableSubmit");
         setRequireAuthenticatedUser(false);
+    }
+
+    @Reference
+    public void setCaptchaConfigService(CaptchaConfigService captchaConfigService) {
+        this.captchaConfigService = captchaConfigService;
     }
 
     @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC, unbind = "unbindFormAction")
@@ -78,40 +87,51 @@ public class FormSubmitAction extends Action {
 
         JCRNodeWrapper formNode = resource.getNode();
 
-        JCRNodeWrapper captchaNode     = resolveWeakRef(formNode, PROP_CAPTCHA, session);
-        JCRNodeWrapper destinationNode = resolveWeakRef(formNode, PROP_DESTINATION, session);
-        List<JCRNodeWrapper> sideEffects = resolveWeakRefs(formNode, PROP_ACTIONS, session);
-
-        if (captchaNode == null && destinationNode == null && sideEffects.isEmpty()) {
-            return ok();
-        }
-
         try {
-            if (destinationNode != null && destinationNode.isNodeType("fmdb:sendDataAction")) {
-                // Transfer mode: the client already POSTed to the destination before calling this pipeline.
-                // Captcha was consumed by the target — do not re-verify here.
-                // Only run side effects (e.g. email notification).
-                for (JCRNodeWrapper node : sideEffects) {
-                    executeAction(node, req, renderContext, session, parameters);
-                }
-            } else {
-                // JCR mode: verify captcha first, then store, then side effects
-                if (captchaNode != null) {
-                    executeAction(captchaNode, req, renderContext, session, parameters);
-                }
-                if (destinationNode != null) {
-                    executeAction(destinationNode, req, renderContext, session, parameters);
-                }
-                for (JCRNodeWrapper node : sideEffects) {
-                    executeAction(node, req, renderContext, session, parameters);
+            // 1. CAPTCHA verification (always first, if mixin is present)
+            boolean hasCaptcha = false;
+            try {
+                hasCaptcha = formNode.isNodeType("fmdbmix:captcha");
+            } catch (javax.jcr.RepositoryException e) {
+                log.warn("Could not check fmdbmix:captcha on form node '{}'", formNode.getPath(), e);
+            }
+
+            if (hasCaptcha) {
+                String token = resolveToken(parameters);
+                boolean valid = captchaConfigService.verify(token, req.getRemoteAddr());
+                if (!valid) {
+                    return error(HttpServletResponse.SC_BAD_REQUEST, "CAPTCHA verification failed.");
                 }
             }
+
+            // 2. Destination
+            JCRNodeWrapper destinationNode = resolveWeakRef(formNode, PROP_DESTINATION, session);
+            if (destinationNode != null) {
+                executeAction(destinationNode, req, renderContext, session, parameters);
+            }
+
+            // 3. Follow-up actions
+            for (JCRNodeWrapper node : resolveWeakRefs(formNode, PROP_ACTIONS, session)) {
+                executeAction(node, req, renderContext, session, parameters);
+            }
+
         } catch (FormActionException e) {
             log.warn("Pipeline stopped: {}", e.getMessage());
             return error(e.getHttpStatus(), e.getMessage());
         }
 
         return ok();
+    }
+
+    /** Tries each known captcha token field name and returns the first non-blank value found. */
+    private static String resolveToken(Map<String, List<String>> parameters) {
+        for (String field : CAPTCHA_TOKEN_FIELDS) {
+            List<String> values = parameters.get(field);
+            if (values != null && !values.isEmpty() && !values.get(0).isBlank()) {
+                return values.get(0);
+            }
+        }
+        return null;
     }
 
     private void executeAction(
@@ -121,7 +141,13 @@ public class FormSubmitAction extends Action {
             JCRSessionWrapper session,
             Map<String, List<String>> parameters
     ) throws FormActionException {
-        String nodeType = node.getPrimaryNodeTypeName();
+        String nodeType;
+        try {
+            nodeType = node.getPrimaryNodeTypeName();
+        } catch (javax.jcr.RepositoryException e) {
+            log.warn("Could not get primary node type for node '{}', skipping.", node.getPath());
+            return;
+        }
         FormAction handler = formActions.stream()
                 .filter(a -> nodeType.equals(a.getNodeType()))
                 .findFirst()

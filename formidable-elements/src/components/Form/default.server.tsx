@@ -30,7 +30,6 @@ jahiaComponent(
 	},
 	(
 		{
-			captcha: captchaNode,
 			destination: destinationNode,
 			intro,
 			submissionMessage,
@@ -47,7 +46,7 @@ jahiaComponent(
 			showStepsNav,
 			css,
 		}: FormServerProps,
-		{ currentNode },
+		{ currentNode, renderContext },
 	) => {
 		const formElements = Array.from(currentNode.getNodes());
 		const formId = `form-${currentNode.getIdentifier()}`;
@@ -60,9 +59,10 @@ jahiaComponent(
 			})
 			: undefined;
 
-		const {siteKey, scriptUrl} = captchaNode
-			? getNodeProps<{siteKey?: string; scriptUrl?: string}>(captchaNode, ['siteKey', 'scriptUrl'])
-			: {};
+		// Captcha config is injected as request attributes by CaptchaRenderFilter (Java)
+		// when the fmdbmix:captcha mixin is applied to this form node.
+		const siteKey   = renderContext.getRequest().getAttribute('formidable.captcha.siteKey') as string | null;
+		const scriptUrl = renderContext.getRequest().getAttribute('formidable.captcha.scriptUrl') as string | null;
 		const captcha = siteKey && scriptUrl
 			? {siteKey, provider: deriveProvider(scriptUrl)}
 			: undefined;
@@ -72,11 +72,7 @@ jahiaComponent(
 			? getNodeProps<{targetUrl?: string}>(destinationNode!, ['targetUrl']).targetUrl
 			: undefined;
 
-		// In transfer mode, Jahia pipeline handles side effects only (captcha + destination are client-side).
-		// In JCR mode, Jahia pipeline handles captcha, destination and side effects.
-		const hasJahiaPipeline = isTransferMode
-			? currentNode.hasProperty('actions')
-			: (currentNode.hasProperty('captcha') || currentNode.hasProperty('destination') || currentNode.hasProperty('actions'));
+		const hasJahiaPipeline = currentNode.hasProperty('destination') || currentNode.hasProperty('actions') || currentNode.isNodeType('fmdbmix:captcha');
 		const submitActionUrl = hasJahiaPipeline
 			? `/cms/render/live/${currentNode.getLanguage()}${currentNode.getPath()}.formidableSubmit.do`
 			: undefined;
@@ -137,3 +133,6 @@ jahiaComponent(
 		);
 	},
 );
+
+
+

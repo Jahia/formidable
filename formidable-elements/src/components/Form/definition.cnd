@@ -33,9 +33,8 @@
 [fmdbmix:actionPipeline] mixin
  extends = fmdb:form
  itemtype = content
- - captcha (weakreference, contentpicker[fmdb:captchaAction])
- - destination (weakreference, contentpicker[fmdbmix:formDestination])
- - actions (weakreference, contentpicker[fmdbmix:formSideEffect]) multiple
+ - destination (weakreference, choicelist[nodes='$currentSite//*;fmdbmix:formDestination'])
+ - actions (weakreference, choicelist[nodes='$currentSite//*;fmdbmix:formSideEffect']) multiple
 
 [fmdb:form] > jnt:content, fmdbmix:component, jmix:visibleInContentTree, mix:title
  orderable

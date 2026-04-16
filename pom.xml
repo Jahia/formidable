@@ -26,7 +26,7 @@
     </parent>
     <artifactId>formidable-modules</artifactId>
     <name>Formidable</name>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>${revision}</version>
     <packaging>pom</packaging>
     <description>Multi-module project containing the Formidable front-end module and its Cypress test suite.</description>
     <licenses>
@@ -55,11 +55,13 @@
     </modules>
 
     <properties>
+        <revision>0.0.2-SNAPSHOT</revision>
         <exec-maven-plugin.version>3.6.3</exec-maven-plugin.version>
         <maven-antrun-plugin.version>3.1.0</maven-antrun-plugin.version>
         <maven-clean-plugin.version>3.4.0</maven-clean-plugin.version>
         <build-helper-maven-plugin.version>3.6.0</build-helper-maven-plugin.version>
         <buildnumber-maven-plugin.version>3.2.1</buildnumber-maven-plugin.version>
+        <flatten-maven-plugin.version>1.6.0</flatten-maven-plugin.version>
         <jahia.plugin.version>6.9</jahia.plugin.version>
     </properties>
 
@@ -104,9 +106,38 @@
                     <artifactId>buildnumber-maven-plugin</artifactId>
                     <version>${buildnumber-maven-plugin.version}</version>
                 </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>flatten-maven-plugin</artifactId>
+                    <version>${flatten-maven-plugin.version}</version>
+                </plugin>
             </plugins>
         </pluginManagement>
         <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+                <configuration>
+                    <updatePomFile>true</updatePomFile>
+                    <flattenMode>resolveCiFriendliesOnly</flattenMode>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>flatten</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>flatten</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>flatten.clean</id>
+                        <phase>clean</phase>
+                        <goals>
+                            <goal>clean</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <artifactId>maven-release-plugin</artifactId>
                 <configuration>

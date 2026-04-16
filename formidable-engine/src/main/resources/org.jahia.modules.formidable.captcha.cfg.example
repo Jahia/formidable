@@ -1,0 +1,33 @@
+# Formidable CAPTCHA Configuration
+# Copy this file to your Jahia Digital Experience Manager's karaf/etc/ directory
+# and rename it to: org.jahia.modules.formidable.captcha.cfg
+#
+# This file can also be managed from the Felix Web Console:
+#   System > Configuration > Formidable - CAPTCHA Configuration
+#
+# Supported providers:
+#   Cloudflare Turnstile : https://dash.cloudflare.com
+#   hCaptcha             : https://www.hcaptcha.com
+#   Google reCAPTCHA v2  : https://www.google.com/recaptcha
+
+# Public site key — injected in the page to render the CAPTCHA widget
+captcha_siteKey=YOUR_SITE_KEY
+
+# Secret key — used server-side to verify the submitted token (never exposed to the client)
+captcha_secretKey=YOUR_SECRET_KEY
+
+# JavaScript API URL of the CAPTCHA provider
+# Cloudflare Turnstile (default):
+captcha_scriptUrl=https://challenges.cloudflare.com/turnstile/v0/api.js
+# hCaptcha:
+# captcha_scriptUrl=https://js.hcaptcha.com/1/api.js
+# Google reCAPTCHA v2:
+# captcha_scriptUrl=https://www.google.com/recaptcha/api.js
+
+# Server-side token verification endpoint
+# Cloudflare Turnstile (default):
+captcha_verifyUrl=https://challenges.cloudflare.com/turnstile/v0/siteverify
+# hCaptcha:
+# captcha_verifyUrl=https://api.hcaptcha.com/siteverify
+# Google reCAPTCHA v2:
+# captcha_verifyUrl=https://www.google.com/recaptcha/api/siteverify
