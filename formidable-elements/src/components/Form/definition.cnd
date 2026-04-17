@@ -23,26 +23,28 @@
  itemtype = content
    - showStepsNav (boolean) = true autocreated indexed=no
 
-
- [fmdbmix:style] mixin
+[fmdbmix:style] mixin
   extends = fmdb:form
   itemtype = content
   - css (string,textarea) indexed=no
 
-
-[fmdbmix:actionPipeline] mixin
+// Enables CAPTCHA protection on a fmdb:form.
+// When this mixin is applied, the form injects the configured CAPTCHA widget (front-end)
+// and verifies the submitted token server-side (FormSubmitAction).
+// CAPTCHA configuration (siteKey, scriptUrl, verifyUrl, secretKey) is read from
+// org.jahia.modules.formidable.captcha.cfg — not stored in JCR.
+[fmdbmix:captcha] mixin
  extends = fmdb:form
  itemtype = content
- - destination (weakreference, choicelist[nodes='$currentSite//*;fmdbmix:formDestination'])
- - actions (weakreference, choicelist[nodes='$currentSite//*;fmdbmix:formSideEffect']) multiple
+
+[fmdb:actionList] > jnt:content, jmix:list
+ orderable
+ + * (fmdbmix:formAction) = fmdbmix:formAction version
 
 [fmdb:form] > jnt:content, fmdbmix:component, jmix:visibleInContentTree, mix:title
  orderable
  - intro (string, richtext) i18n indexed=no
-// + action (fmdb:actionList) = fmdb:actionList autocreated
-// + fieldsets (fmdb:fieldsets) = fmdb:fieldsets autocreated
-// + formButtons (fmdb:formButtonsList) = fmdb:formButtonsList autocreated
-// + responses (fmdb:responsesList) = fmdb:responsesList autocreated
+ + actions (fmdb:actionList) = fmdb:actionList autocreated
  + * (fmdbmix:formElement) = fmdbmix:formElement
  + * (fmdbmix:formContent) = fmdbmix:formContent
  + * (fmdbmix:formStep) = fmdbmix:formStep

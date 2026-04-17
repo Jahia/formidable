@@ -61,11 +61,16 @@ jahiaComponent(
 
 		// Captcha config is injected as request attributes by CaptchaRenderFilter (Java)
 		// when the fmdbmix:captcha mixin is applied to this form node.
+		const hasCaptchaMixin = currentNode.isNodeType('fmdbmix:captcha');
 		const siteKey   = renderContext.getRequest().getAttribute('formidable.captcha.siteKey') as string | null;
 		const scriptUrl = renderContext.getRequest().getAttribute('formidable.captcha.scriptUrl') as string | null;
 		const captcha = siteKey && scriptUrl
 			? {siteKey, provider: deriveProvider(scriptUrl)}
 			: undefined;
+
+		if (hasCaptchaMixin && !captcha) {
+			console.warn(`[Formidable] fmdbmix:captcha is applied on form '${currentNode.getPath()}' but CAPTCHA is not configured (siteKey or scriptUrl missing). The widget will not be rendered.`);
+		}
 
 		const isTransferMode = destinationNode?.isNodeType('fmdb:sendDataAction') ?? false;
 		const destinationUrl = isTransferMode

@@ -17,8 +17,7 @@ import org.osgi.service.component.annotations.ReferencePolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jcr.ItemNotFoundException;
-import javax.jcr.Value;
+import javax.jcr.NodeIterator;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.ArrayList;
@@ -31,8 +30,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *
  * Pipeline order (enforced regardless of configuration):
  *   1. CAPTCHA verification — if fmdb:form has fmdbmix:captcha mixin (always server-side)
- *   2. Destination          — save2jcr or other fmdbmix:formDestination
- *   3. Follow-up actions    — fmdbmix:formSideEffect nodes (e.g. email)
+ *   2. Actions              — child nodes of fmdb:actionList, in order
  *
  * Invoked via: POST /cms/render/live/{locale}/{formPath}.formidableSubmit.do
  */
@@ -41,8 +39,7 @@ public class FormSubmitAction extends Action {
 
     private static final Logger log = LoggerFactory.getLogger(FormSubmitAction.class);
 
-    static final String PROP_DESTINATION = "destination";
-    static final String PROP_ACTIONS     = "actions";
+    static final String ACTIONS_NODE = "actions";
 
     // CAPTCHA token field names per provider (injected automatically by the widget)
     private static final String[] CAPTCHA_TOKEN_FIELDS = {
@@ -97,6 +94,10 @@ public class FormSubmitAction extends Action {
             }
 
             if (hasCaptcha) {
+                if (!captchaConfigService.isConfigured()) {
+                    log.warn("CAPTCHA mixin is present on form '{}' but the CAPTCHA service is not configured (siteKey or secretKey missing in org.jahia.modules.formidable.captcha.cfg). Blocking submission.", formNode.getPath());
+                    return error(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "CAPTCHA is enabled but not configured server-side.");
+                }
                 String token = resolveToken(parameters);
                 boolean valid = captchaConfigService.verify(token, req.getRemoteAddr());
                 if (!valid) {
@@ -104,15 +105,9 @@ public class FormSubmitAction extends Action {
                 }
             }
 
-            // 2. Destination
-            JCRNodeWrapper destinationNode = resolveWeakRef(formNode, PROP_DESTINATION, session);
-            if (destinationNode != null) {
-                executeAction(destinationNode, req, renderContext, session, parameters);
-            }
-
-            // 3. Follow-up actions
-            for (JCRNodeWrapper node : resolveWeakRefs(formNode, PROP_ACTIONS, session)) {
-                executeAction(node, req, renderContext, session, parameters);
+            // 2. Execute actions from fmdb:actionList child node, in order
+            for (JCRNodeWrapper actionNode : resolveActionNodes(formNode)) {
+                executeAction(actionNode, req, renderContext, session, parameters);
             }
 
         } catch (FormActionException e) {
@@ -159,32 +154,20 @@ public class FormSubmitAction extends Action {
         handler.execute(node, req, renderContext, session, parameters);
     }
 
-    private static JCRNodeWrapper resolveWeakRef(JCRNodeWrapper node, String prop, JCRSessionWrapper session) {
-        try {
-            if (!node.hasProperty(prop)) return null;
-            return session.getNodeByIdentifier(node.getProperty(prop).getString());
-        } catch (ItemNotFoundException e) {
-            log.warn("Referenced node not found for property '{}' on '{}'", prop, node.getPath());
-            return null;
-        } catch (Exception e) {
-            log.warn("Could not resolve weakref '{}' on '{}'", prop, node.getPath(), e);
-            return null;
-        }
-    }
-
-    private static List<JCRNodeWrapper> resolveWeakRefs(JCRNodeWrapper node, String prop, JCRSessionWrapper session) {
+    private static List<JCRNodeWrapper> resolveActionNodes(JCRNodeWrapper formNode) {
         List<JCRNodeWrapper> result = new ArrayList<>();
         try {
-            if (!node.hasProperty(prop)) return result;
-            for (Value v : node.getProperty(prop).getValues()) {
-                try {
-                    result.add(session.getNodeByIdentifier(v.getString()));
-                } catch (ItemNotFoundException e) {
-                    log.warn("Referenced node not found (uuid={}) in '{}', skipping.", v.getString(), prop);
+            if (!formNode.hasNode(ACTIONS_NODE)) return result;
+            JCRNodeWrapper actionList = formNode.getNode(ACTIONS_NODE);
+            NodeIterator it = actionList.getNodes();
+            while (it.hasNext()) {
+                javax.jcr.Node child = it.nextNode();
+                if (child instanceof JCRNodeWrapper) {
+                    result.add((JCRNodeWrapper) child);
                 }
             }
-        } catch (Exception e) {
-            log.warn("Could not read '{}' property on '{}'", prop, node.getPath(), e);
+        } catch (javax.jcr.RepositoryException e) {
+            log.warn("Could not read actions from form node '{}'", formNode.getPath(), e);
         }
         return result;
     }

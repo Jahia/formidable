@@ -4,6 +4,7 @@ import org.jahia.services.render.RenderContext;
 import org.jahia.services.render.Resource;
 import org.jahia.services.render.filter.AbstractFilter;
 import org.jahia.services.render.filter.RenderChain;
+import org.jahia.services.render.filter.RenderFilter;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
@@ -20,7 +21,7 @@ import org.slf4j.LoggerFactory;
  *
  * Runs before the view is rendered (priority 10, lower number = earlier execution).
  */
-@Component(service = AbstractFilter.class, immediate = true)
+@Component(service = RenderFilter.class, immediate = true)
 public class CaptchaRenderFilter extends AbstractFilter {
 
     private static final Logger log = LoggerFactory.getLogger(CaptchaRenderFilter.class);
@@ -37,21 +38,36 @@ public class CaptchaRenderFilter extends AbstractFilter {
 
     @Activate
     public void activate() {
-        setPriority(10f);
+        setPriority(10);
         setApplyOnNodeTypes("fmdb:form");
+        setApplyOnTemplateTypes("html");
+        setSkipOnAjaxRequest(true);
     }
 
     @Override
-    public String prepare(RenderContext renderContext, Resource resource, RenderChain chain) {
+    public String prepare(RenderContext renderContext, Resource resource, RenderChain chain) throws Exception {
         try {
-            if (resource.getNode().isNodeType("fmdbmix:captcha")) {
-                renderContext.getRequest().setAttribute(ATTR_SITE_KEY,   captchaConfigService.getSiteKey());
-                renderContext.getRequest().setAttribute(ATTR_SCRIPT_URL, captchaConfigService.getScriptUrl());
+            if (resource == null || resource.getNode() == null) {
+                return super.prepare(renderContext, resource, chain);
             }
+
+            if (!resource.getNode().isNodeType("fmdbmix:captcha")) {
+                return super.prepare(renderContext, resource, chain);
+            }
+
+            if (!captchaConfigService.isConfigured()) {
+                log.warn("[Formidable] fmdbmix:captcha is applied on form '{}' but CAPTCHA is not configured (siteKey or secretKey missing).", resource.getNodePath());
+                return super.prepare(renderContext, resource, chain);
+            }
+
+            renderContext.getRequest().setAttribute(ATTR_SITE_KEY,   captchaConfigService.getSiteKey());
+            renderContext.getRequest().setAttribute(ATTR_SCRIPT_URL, captchaConfigService.getScriptUrl());
+
         } catch (Exception e) {
-            log.warn("Could not check fmdbmix:captcha mixin on node '{}'", resource.getNodePath(), e);
+            String nodePath = resource != null ? resource.getNodePath() : "<no-resource>";
+            log.warn("Could not prepare CAPTCHA attributes for node '{}'", nodePath, e);
         }
-        return null; // continue render chain
+
+        return super.prepare(renderContext, resource, chain);
     }
 }
-

@@ -4,6 +4,7 @@ import org.json.JSONObject;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Modified;
+import org.osgi.service.metatype.annotations.Designate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,6 +26,7 @@ import java.nio.charset.StandardCharsets;
         configurationPid = "org.jahia.modules.formidable.captcha",
         immediate = true
 )
+@Designate(ocd = CaptchaConfig.class)
 public class CaptchaConfigService {
 
     private static final Logger log = LoggerFactory.getLogger(CaptchaConfigService.class);
@@ -39,10 +41,10 @@ public class CaptchaConfigService {
     @Activate
     @Modified
     public void activate(CaptchaConfig config) {
-        siteKey   = config.captcha_siteKey();
-        scriptUrl = config.captcha_scriptUrl();
-        verifyUrl = config.captcha_verifyUrl();
-        secretKey = config.captcha_secretKey();
+        siteKey   = config.siteKey();
+        scriptUrl = config.scriptUrl();
+        verifyUrl = config.verifyUrl();
+        secretKey = config.secretKey();
         log.info("CaptchaConfigService configured: scriptUrl={}, verifyUrl={}, siteKey={}",
                 scriptUrl, verifyUrl, !siteKey.isBlank() ? "[set]" : "[missing]");
     }

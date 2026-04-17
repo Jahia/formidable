@@ -2,66 +2,36 @@
 
 ## Overview
 
-The form submission flow depends on the properties configured on the `fmdb:form` node via the `fmdbmix:actionPipeline` mixin.
+Form submission is handled server-side by `FormSubmitAction`, a Jahia `Action` OSGi service.
 
-Three properties drive the behaviour:
-
-| Property | Type | Role |
-|---|---|---|
-| `captcha` | weakreference → `fmdb:captchaAction` | Drives the front-end widget; verified server-side in JCR mode only |
-| `destination` | weakreference → `fmdbmix:formDestination` | Where form data goes: JCR storage or third-party transfer |
-| `actions` | weakreference-multiple → `fmdbmix:formSideEffect` | Side effects run after a successful destination (e.g. email) |
+The pipeline is driven by the child nodes of the `actions` node (`fmdb:actionList`) autocreated on every `fmdb:form`. Actions are executed in order, as configured by the contributor.
 
 ---
 
-## Two modes
-
-### JCR mode (`destination` = `fmdb:save2jcrAction` or absent)
+## Pipeline
 
 ```
 Browser
-  └─ POST FormData → submitActionUrl (.formidableSubmit.do)
+  └─ POST FormData → /cms/render/live/{locale}/{formPath}.formidableSubmit.do
        Jahia pipeline (enforced order):
-         1. captcha server-side verification (if captcha configured)
-         2. save2jcr (if destination configured)
-         3. side effects in order (email, ...)
-       └─ { "success": true }
-  └─ show success message
+         1. CAPTCHA server-side verification (if fmdbmix:captcha mixin is present)
+         2. Actions in order (fmdb:actionList child nodes)
+       └─ { "success": true | "success": false, "message": "..." }
+  └─ show success or error message
 ```
-
-Captcha token is verified by Jahia before any data is stored or any email is sent.
-
-### Transfer mode (`destination` = `fmdb:sendDataAction`)
-
-```
-Browser
-  └─ POST FormData → destinationUrl (third-party, multipart/form-data)
-       includes: all fields + files + captcha token
-       third party verifies the captcha token itself
-       └─ 2xx OK
-  └─ POST FormData → submitActionUrl (.formidableSubmit.do)   [only if side effects configured]
-       Jahia pipeline (captcha NOT re-verified — token is single-use):
-         1. side effects in order (email, ...)
-       └─ { "success": true }
-  └─ show success message
-```
-
-If the destination rejects (non-2xx), the pipeline is **not called** — side effects do not run.
 
 ---
 
-## Captcha behaviour by mode
+## CAPTCHA
 
-| Mode | Widget rendered | Jahia verifies token | Who verifies token |
-|---|---|---|---|
-| JCR | Yes (if `captcha` set) | ✅ Yes | Jahia (`CaptchaVerificationFormAction`) |
-| Transfer | Yes (if `captcha` set) | ❌ No | The third-party destination |
+| Condition | Behaviour |
+|---|---|
+| `fmdbmix:captcha` mixin present on the form | Token verified server-side before any action runs |
+| `fmdbmix:captcha` mixin absent | No verification, pipeline runs immediately |
 
-The captcha token is single-use. In transfer mode the browser sends it to the destination — Jahia must not consume it.
+CAPTCHA configuration (`siteKey`, `scriptUrl`, `verifyUrl`, `secretKey`) is read from `org.jahia.modules.formidable.captcha.cfg` — not stored in JCR.
 
----
-
-## Token field names (auto-injected by the widget into FormData)
+Token field names auto-injected by the widget:
 
 | Provider | Field name |
 |---|---|
@@ -71,24 +41,18 @@ The captcha token is single-use. In transfer mode the browser sends it to the de
 
 ---
 
-## Pipeline actions
+## Action nodes (`fmdb:actionList`)
 
-### `fmdb:captchaAction` (referenced via `captcha` property)
+Every `fmdb:form` has an autocreated `actions` child node of type `fmdb:actionList`. It contains a `save2jcr` node (`fmdb:save2jcrAction`) by default, which the contributor can delete.
 
-Configured once per form. Provides `siteKey` + `scriptUrl` for the front-end widget and `secretKey` for server-side verification.
-
-### Destinations (`destination` property — one of)
+The contributor adds action nodes inside `actions` via the Content Editor. Actions are executed in the order they appear in the list.
 
 | Node type | Description |
 |---|---|
-| `fmdb:sendDataAction` | Client POSTs full `FormData` directly to `targetUrl` (files supported). Jahia never sees the data. |
-| `fmdb:save2jcrAction` | *(not yet implemented)* Will save form data as JCR child nodes |
+| `fmdb:save2jcrAction` | Saves form data as JCR child nodes (default, autocreated) |
+| `fmdb:emailAction` | Sends email via Jahia `MailService`; `${fieldName}` interpolation in subject and body |
 
-### Side effects (`actions` property — multiple)
-
-| Node type | Class | Description |
-|---|---|---|
-| `fmdb:emailAction` | `SendEmailFormAction` | Sends email via Jahia `MailService`; `${fieldName}` interpolation in subject and body |
+To add a new action type, see `AGENTS.md` → *Form action pipeline*.
 
 ---
 
@@ -96,8 +60,8 @@ Configured once per form. Provides `siteKey` + `scriptUrl` for the front-end wid
 
 | File | Role |
 |---|---|
-| `src/components/Form/Form.client.tsx` | `handleSubmit` — POST to destination first (if transfer mode), then pipeline |
-| `src/components/Form/default.server.tsx` | Computes `destinationUrl` and `submitActionUrl`; reads `captcha` node for widget config |
-| `formidable-engine/.../FormSubmitAction.java` | Jahia `Action` OSGi — enforces pipeline order per mode |
-| `formidable-engine/.../CaptchaVerificationFormAction.java` | Verifies token server-side (JCR mode only) |
-| `formidable-engine/.../SendEmailFormAction.java` | Sends email with `${fieldName}` interpolation |
+| `src/components/Form/Form.client.tsx` | `handleSubmit` — POST to `submitActionUrl` |
+| `src/components/Form/default.server.tsx` | Computes `submitActionUrl`; reads `fmdbmix:captcha` for widget config |
+| `formidable-engine/.../FormSubmitAction.java` | Jahia `Action` OSGi — runs CAPTCHA then iterates `actions` child nodes |
+| `formidable-engine/.../FormAction.java` | Interface implemented by each action type |
+| `formidable-engine/.../CaptchaConfigService.java` | Reads captcha cfg and verifies token against provider siteverify API |
