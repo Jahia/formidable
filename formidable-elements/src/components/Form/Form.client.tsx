@@ -38,6 +38,7 @@ export default function Form({
 	const [message, setMessage] = useState<string | null>(null);
 	const [messageType, setMessageType] = useState<'success' | 'error' | null>(null);
 	const [isLoading, setIsLoading] = useState(false);
+	const [isCaptchaValid, setIsCaptchaValid] = useState(false);
 	const [currentStep, setCurrentStep] = useState(0);
 	const formRef = useRef<HTMLFormElement>(null);
 	const captchaRef = useRef<CaptchaHandle>(null);
@@ -48,6 +49,7 @@ export default function Form({
 	const totalSteps = isMultiStep ? stepLabels.length : 0;
 	const isLastStep = currentStep === totalSteps - 1;
 
+	const isSubmitBlocked = isLoading || isSubmitDisabled || (!!captcha && (!isMultiStep || isLastStep) && !isCaptchaValid);
 	const showCaptcha = !!captcha && (!isMultiStep || isLastStep);
 
 	const stepElsRef = useRef<HTMLElement[]>([]);
@@ -222,7 +224,13 @@ export default function Form({
 			{children}
 
 			{showCaptcha && (
-				<Captcha ref={captchaRef} siteKey={captcha!.siteKey} provider={captcha!.provider}/>
+				<Captcha
+					ref={captchaRef}
+					siteKey={captcha!.siteKey}
+					provider={captcha!.provider}
+					onVerify={() => setIsCaptchaValid(true)}
+					onExpire={() => setIsCaptchaValid(false)}
+				/>
 			)}
 
 			<div className="fmdb-form-actions">
@@ -252,7 +260,7 @@ export default function Form({
 							<button
 								type="submit"
 								className="fmdb-btn fmdb-btn-primary"
-						disabled={isLoading || isSubmitDisabled}
+						disabled={isSubmitBlocked}
 								title={isSubmitDisabled ? t('editModeSubmitDisabled') : undefined}
 							>
 								{submitBtnLabel || t('submitBtn')}
@@ -261,7 +269,7 @@ export default function Form({
 						</>
 					) : (
 						<>
-							<button type="submit" className="fmdb-btn fmdb-btn-primary" disabled={isLoading || isSubmitDisabled} title={isSubmitDisabled ? t('editModeSubmitDisabled') : undefined}>
+							<button type="submit" className="fmdb-btn fmdb-btn-primary" disabled={isSubmitBlocked} title={isSubmitDisabled ? t('editModeSubmitDisabled') : undefined}>
 							{submitBtnLabel || t('submitBtn')}
 						</button>
 							{showResetBtn && (
