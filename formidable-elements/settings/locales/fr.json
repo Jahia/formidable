@@ -17,6 +17,7 @@
 		"previousBtn": "Précédent",
 		"nextBtn": "Suivant",
 		"stepsNav": "Étapes du formulaire",
-		"captchaRequired": "Veuillez compléter la vérification CAPTCHA."
+		"captchaRequired": "Veuillez compléter la vérification CAPTCHA.",
+		"editModeSubmitDisabled": "L'envoi du formulaire est désactivé en mode édition/prévisualisation."
 	}
 }

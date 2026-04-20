@@ -28,9 +28,8 @@ jahiaComponent(
 		nodeType: "fmdb:form",
 		name: "default",
 	},
-	(
+		(
 		{
-			destination: destinationNode,
 			intro,
 			submissionMessage,
 			errorMessage,
@@ -72,15 +71,9 @@ jahiaComponent(
 			console.warn(`[Formidable] fmdbmix:captcha is applied on form '${currentNode.getPath()}' but CAPTCHA is not configured (siteKey or scriptUrl missing). The widget will not be rendered.`);
 		}
 
-		const isTransferMode = destinationNode?.isNodeType('fmdb:sendDataAction') ?? false;
-		const destinationUrl = isTransferMode
-			? getNodeProps<{targetUrl?: string}>(destinationNode!, ['targetUrl']).targetUrl
-			: undefined;
-
-		const hasJahiaPipeline = currentNode.hasProperty('destination') || currentNode.hasProperty('actions') || currentNode.isNodeType('fmdbmix:captcha');
-		const submitActionUrl = hasJahiaPipeline
-			? `/cms/render/live/${currentNode.getLanguage()}${currentNode.getPath()}.formidableSubmit.do`
-			: undefined;
+		const isSubmitDisabled = renderContext.isEditMode() || renderContext.isPreviewMode();
+		const workspace = renderContext.getWorkspace();
+		const submitActionUrl = `/cms/render/${workspace}/${currentNode.getLanguage()}${currentNode.getPath()}.formidableSubmit.do`;
 
 		return (
 			<>
@@ -99,9 +92,9 @@ jahiaComponent(
 				intro,
 				submissionMessage,
 				errorMessage,
-				destinationUrl,
 				submitActionUrl,
-					showResetBtn,
+				isSubmitDisabled,
+				showResetBtn,
 					showNewFormBtn,
 					showTryAgainBtn,
 					submitBtnLabel,

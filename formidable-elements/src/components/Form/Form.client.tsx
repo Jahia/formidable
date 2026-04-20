@@ -17,8 +17,8 @@ export default function Form({
 														 intro,
 														 submissionMessage,
 														 errorMessage,
-														 destinationUrl,
 														 submitActionUrl,
+														 isSubmitDisabled = false,
 														 showResetBtn = false,
 															 showNewFormBtn = false,
 															 showTryAgainBtn = false,
@@ -103,36 +103,21 @@ export default function Form({
 
 		try {
 			const formData = new FormData(form);
-			// Each captcha widget (Turnstile / hCaptcha / reCAPTCHA) auto-injects its native
-			// hidden field into the form DOM. FormData picks it up automatically.
 
 			const interpolatedSubmissionMessage = interpolateMessage(submissionMessage, formData, locale);
 
-			if (destinationUrl) {
-				// Transfer mode: POST full FormData (including files + captcha token) to the
-				// third-party destination first. If it rejects, stop here — no side effects run.
-				const destinationResponse = await fetch(destinationUrl, {method: 'POST', body: formData});
-				if (!destinationResponse.ok) {
-					throw new Error('Submission failed');
-				}
-			}
-
-			if (submitActionUrl) {
-				// Jahia pipeline: side effects only in transfer mode (captcha + destination already done),
-				// or full pipeline (captcha verify → save2jcr → side effects) in JCR mode.
-				const pipelineResponse = await fetch(submitActionUrl, {method: 'POST', body: formData});
-				if (!pipelineResponse.ok) {
-					throw new Error('Submission failed');
-				}
-			}
-
-			if (!destinationUrl && !submitActionUrl) {
-				// No pipeline — post to the form's action URL (current page if not set).
-				const response = await fetch(form.action || window.location.href, {method: 'POST', body: formData});
-				if (!response.ok) {
-					throw new Error('Submission failed');
-				}
-			}
+			// XHR is required here instead of fetch: Jahia's OWASP CSRFGuard patches
+			// XMLHttpRequest.prototype.send to inject the CSRF token automatically.
+			// The fetch API is not patched by CSRFGuard and would result in a CSRF rejection.
+			const response = await new Promise<XMLHttpRequest>((resolve, reject) => {
+				const xhr = new XMLHttpRequest();
+				xhr.open('POST', submitActionUrl ?? form.action ?? window.location.href, true);
+				xhr.withCredentials = true;
+				xhr.onload = () => resolve(xhr);
+				xhr.onerror = () => reject(new Error('Submission failed'));
+				xhr.send(formData);
+			});
+			if (response.status < 200 || response.status >= 300) throw new Error('Submission failed');
 
 			await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -267,7 +252,8 @@ export default function Form({
 							<button
 								type="submit"
 								className="fmdb-btn fmdb-btn-primary"
-								disabled={isLoading}
+						disabled={isLoading || isSubmitDisabled}
+								title={isSubmitDisabled ? t('editModeSubmitDisabled') : undefined}
 							>
 								{submitBtnLabel || t('submitBtn')}
 							</button>
@@ -275,9 +261,9 @@ export default function Form({
 						</>
 					) : (
 						<>
-							<button type="submit" className="fmdb-btn fmdb-btn-primary" disabled={isLoading}>
-								{submitBtnLabel || t('submitBtn')}
-							</button>
+							<button type="submit" className="fmdb-btn fmdb-btn-primary" disabled={isLoading || isSubmitDisabled} title={isSubmitDisabled ? t('editModeSubmitDisabled') : undefined}>
+							{submitBtnLabel || t('submitBtn')}
+						</button>
 							{showResetBtn && (
 								<button type="reset" className="fmdb-btn fmdb-btn-secondary" disabled={isLoading}>
 									{resetBtnLabel || t('resetBtn')}

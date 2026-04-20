@@ -30,5 +30,6 @@ export interface FormProps extends Omit<FormServerProps, 'destination'> {
 	captcha?: {siteKey: string; provider: CaptchaProvider};
 	destinationUrl?: string;
 	submitActionUrl?: string;
+	isSubmitDisabled?: boolean;
 	children: ReactNode;
 }
