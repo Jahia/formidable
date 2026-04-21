@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.engine.captcha;
 
+import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.services.render.RenderContext;
 import org.jahia.services.render.Resource;
 import org.jahia.services.render.filter.AbstractFilter;
@@ -29,43 +30,37 @@ public class CaptchaRenderFilter extends AbstractFilter {
     static final String ATTR_SITE_KEY   = "formidable.captcha.siteKey";
     static final String ATTR_SCRIPT_URL = "formidable.captcha.scriptUrl";
 
-    private CaptchaConfigService captchaConfigService;
+    private FormidableConfigService config;
 
     @Reference
-    public void setCaptchaConfigService(CaptchaConfigService captchaConfigService) {
-        this.captchaConfigService = captchaConfigService;
+    public void setConfig(FormidableConfigService config) {
+        this.config = config;
     }
 
     @Activate
     public void activate() {
         setPriority(10);
-        setApplyOnNodeTypes("fmdb:form");
+        // fmdbmix:captcha is a mixin — Jahia evaluates isNodeType() so this correctly
+        // restricts the filter to form nodes that have the mixin applied.
+        setApplyOnNodeTypes("fmdbmix:captcha");
         setApplyOnTemplateTypes("html");
-        setSkipOnAjaxRequest(true);
     }
 
     @Override
     public String prepare(RenderContext renderContext, Resource resource, RenderChain chain) throws Exception {
         try {
-            if (resource == null || resource.getNode() == null) {
-                return super.prepare(renderContext, resource, chain);
+
+            if (!config.isCaptchaConfigured()) {
+                log.warn("[Formidable] fmdbmix:captcha is applied on form '{}' but CAPTCHA is not configured " +
+                        "(siteKey or scriptUrl missing in org.jahia.modules.formidable.cfg). The widget will not be rendered.",
+                        resource.getNodePath());
+                return null;
             }
 
-            if (!resource.getNode().isNodeType("fmdbmix:captcha")) {
-                return super.prepare(renderContext, resource, chain);
-            }
-
-            if (!captchaConfigService.isConfigured()) {
-                log.warn("[Formidable] fmdbmix:captcha is applied on form '{}' but CAPTCHA is not configured (siteKey or secretKey missing).", resource.getNodePath());
-                return super.prepare(renderContext, resource, chain);
-            }
-
-            renderContext.getRequest().setAttribute(ATTR_SITE_KEY,   captchaConfigService.getSiteKey());
-            renderContext.getRequest().setAttribute(ATTR_SCRIPT_URL, captchaConfigService.getScriptUrl());
-
+            renderContext.getRequest().setAttribute(ATTR_SITE_KEY,   config.getCaptchaSiteKey());
+            renderContext.getRequest().setAttribute(ATTR_SCRIPT_URL, config.getCaptchaScriptUrl());
         } catch (Exception e) {
-            String nodePath = resource != null ? resource.getNodePath() : "<no-resource>";
-            log.warn("Could not prepare CAPTCHA attributes for node '{}'", nodePath, e);
+            log.warn("[Formidable] Could not prepare CAPTCHA attributes for node '{}'", resource.getNodePath(), e);
         }
 
         return super.prepare(renderContext, resource, chain);

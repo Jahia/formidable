@@ -2,7 +2,7 @@ package org.jahia.modules.formidable.engine.actions;
 
 import org.jahia.bin.Action;
 import org.jahia.bin.ActionResult;
-import org.jahia.modules.formidable.engine.captcha.CaptchaConfigService;
+import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.render.RenderContext;
@@ -32,7 +32,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *   1. CAPTCHA verification — if fmdb:form has fmdbmix:captcha mixin (always server-side)
  *   2. Actions              — child nodes of fmdb:actionList, in order
  *
- * Invoked via: POST /cms/render/live/{locale}/{formPath}.formidableSubmit.do
+ * Invoked via: POST /cms/render/{workspace}/{locale}/{formPath}.formidableSubmit.do
  */
 @Component(service = Action.class)
 public class FormSubmitAction extends Action {
@@ -41,15 +41,8 @@ public class FormSubmitAction extends Action {
 
     static final String ACTIONS_NODE = "actions";
 
-    // CAPTCHA token field names per provider (injected automatically by the widget)
-    private static final String[] CAPTCHA_TOKEN_FIELDS = {
-            "cf-turnstile-response",   // Cloudflare Turnstile
-            "h-captcha-response",      // hCaptcha
-            "g-recaptcha-response"     // Google reCAPTCHA v2
-    };
-
     private final List<FormAction> formActions = new CopyOnWriteArrayList<>();
-    private CaptchaConfigService captchaConfigService;
+    private FormidableConfigService config;
 
     @Activate
     public void activate() {
@@ -58,8 +51,8 @@ public class FormSubmitAction extends Action {
     }
 
     @Reference
-    public void setCaptchaConfigService(CaptchaConfigService captchaConfigService) {
-        this.captchaConfigService = captchaConfigService;
+    public void setConfig(FormidableConfigService config) {
+        this.config = config;
     }
 
     @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC, unbind = "unbindFormAction")
@@ -94,12 +87,14 @@ public class FormSubmitAction extends Action {
             }
 
             if (hasCaptcha) {
-                if (!captchaConfigService.isConfigured()) {
-                    log.warn("CAPTCHA mixin is present on form '{}' but the CAPTCHA service is not configured (siteKey or secretKey missing in org.jahia.modules.formidable.captcha.cfg). Blocking submission.", formNode.getPath());
+                if (!config.isCaptchaConfigured()) {
+                    log.warn("CAPTCHA mixin is present on form '{}' but CAPTCHA is not configured " +
+                            "(siteKey or secretKey missing in org.jahia.modules.formidable.cfg). Blocking submission.",
+                            formNode.getPath());
                     return error(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "CAPTCHA is enabled but not configured server-side.");
                 }
                 String token = resolveToken(parameters);
-                boolean valid = captchaConfigService.verify(token, req.getRemoteAddr());
+                boolean valid = config.verifyCaptcha(token, req.getRemoteAddr());
                 if (!valid) {
                     return error(HttpServletResponse.SC_BAD_REQUEST, "CAPTCHA verification failed.");
                 }
@@ -120,7 +115,7 @@ public class FormSubmitAction extends Action {
 
     /** Tries each known captcha token field name and returns the first non-blank value found. */
     private static String resolveToken(Map<String, List<String>> parameters) {
-        for (String field : CAPTCHA_TOKEN_FIELDS) {
+        for (String field : FormidableConstants.CAPTCHA_TOKEN_FIELDS) {
             List<String> values = parameters.get(field);
             if (values != null && !values.isEmpty() && !values.get(0).isBlank()) {
                 return values.get(0);
