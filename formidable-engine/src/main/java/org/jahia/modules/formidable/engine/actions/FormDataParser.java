@@ -89,12 +89,10 @@ public class FormDataParser {
 
         try {
             ServletFileUpload upload = new ServletFileUpload();
-            upload.setFileSizeMax(config.getUploadMaxFileSizeBytes());
-            upload.setSizeMax(config.getUploadMaxRequestSizeBytes());
-            upload.setFileCountMax(config.getUploadMaxFileCount()); // CVE-2023-24998: limit part count
-
+//            upload.setFileSizeMax(config.getUploadMaxFileSizeBytes());
+//            upload.setSizeMax(config.getUploadMaxRequestSizeBytes());
+//            upload.setFileCountMax(config.getUploadMaxFileCount()); // CVE-2023-24998: limit part count
             FileItemIterator iterator = upload.getItemIterator(req);
-
             while (iterator.hasNext()) {
                 FileItemStream item = iterator.next();
                 if (item.isFormField()) continue;
@@ -132,8 +130,8 @@ public class FormDataParser {
             }
         } catch (ParseException e) {
             throw e;
-        } catch (org.apache.commons.fileupload.FileCountLimitExceededException e) {
-            throw new ParseException("Too many file parts. Max allowed: " + config.getUploadMaxFileCount() + ".", 413);
+//        } catch (org.apache.commons.fileupload.FileCountLimitExceededException e) {
+//            throw new ParseException("Too many file parts. Max allowed: " + config.getUploadMaxFileCount() + ".", 413);
         } catch (org.apache.commons.fileupload.FileUploadBase.FileSizeLimitExceededException e) {
             throw new ParseException("File too large. Max allowed: " + config.getUploadMaxFileSizeBytes() + " bytes.", 413);
         } catch (org.apache.commons.fileupload.FileUploadBase.SizeLimitExceededException e) {
