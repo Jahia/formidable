@@ -11,7 +11,7 @@ import java.util.Map;
 /**
  * Strategy interface for pluggable form actions.
  * Implement this interface and register the implementation as an OSGi service
- * to make a new action available to {@link FormSubmitAction}.
+ * to make a new action available to {@link org.jahia.modules.formidable.engine.servlet.FormSubmitServlet}.
  */
 public interface FormAction {
 

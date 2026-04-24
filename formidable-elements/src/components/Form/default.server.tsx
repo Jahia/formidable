@@ -47,7 +47,8 @@ jahiaComponent(
 		}: FormServerProps,
 		{ currentNode, renderContext },
 	) => {
-		const formElements = Array.from(currentNode.getNodes());
+		const fieldListNode = currentNode.getNode("fields");
+		const formElements = fieldListNode ? Array.from(fieldListNode.getNodes()) : [];
 		const formId = `form-${currentNode.getIdentifier()}`;
 
 		const stepNodes = formElements.filter((el) => el.isNodeType("fmdb:step"));
@@ -72,8 +73,7 @@ jahiaComponent(
 		}
 
 		const isSubmitDisabled = renderContext.isEditMode() || renderContext.isPreviewMode();
-		const workspace = renderContext.getWorkspace();
-		const submitActionUrl = `/cms/render/${workspace}/${currentNode.getLanguage()}${currentNode.getPath()}.formidableSubmit.do`;
+		const submitActionUrl = `/modules/formidable-engine/form-submit?fid=${currentNode.getIdentifier()}&lang=${currentNode.getLanguage()}`;
 
 		return (
 			<>
@@ -86,7 +86,7 @@ jahiaComponent(
 					defer
 				/>
 			)}
-		<Island
+				<Island
 			component={Form}
 			props={{
 				intro,
@@ -95,22 +95,22 @@ jahiaComponent(
 				submitActionUrl,
 				isSubmitDisabled,
 				showResetBtn,
-					showNewFormBtn,
-					showTryAgainBtn,
-					submitBtnLabel,
-					resetBtnLabel,
-					newFormBtnLabel,
-					tryAgainBtnLabel,
-					previousBtnLabel,
-					nextBtnLabel,
-					showStepsNav,
+				showNewFormBtn,
+				showTryAgainBtn,
+				submitBtnLabel,
+				resetBtnLabel,
+				newFormBtnLabel,
+				tryAgainBtnLabel,
+				previousBtnLabel,
+				nextBtnLabel,
+				showStepsNav,
 				formId,
 				locale: currentNode.getLanguage(),
 				stepLabels,
 				captcha,
-				}}
-				>
-					{formElements.map((element) => {
+			}}
+			>
+				{formElements.map((element) => {
 						const isStep = element.isNodeType("fmdb:step");
 						const stepIndex = isStep
 							? stepNodes.findIndex((s) => s.getIdentifier() === element.getIdentifier())

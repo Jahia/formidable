@@ -37,14 +37,26 @@
  extends = fmdb:form
  itemtype = content
 
+// Restricts form submission to authenticated users only.
+// When this mixin is applied, Guest (anonymous) submissions are rejected server-side
+// with FMDB-009 before any file data is read from the request stream.
+[fmdbmix:requireAuthentication] mixin
+ extends = fmdb:form
+ itemtype = content
+
 [fmdb:actionList] > jnt:content, jmix:list
  orderable
  + * (fmdbmix:formAction) = fmdbmix:formAction version
 
-[fmdb:form] > jnt:content, fmdbmix:component, jmix:visibleInContentTree, mix:title
+[fmdb:fieldList] > jnt:content, jmix:list
  orderable
- - intro (string, richtext) i18n indexed=no
- + actions (fmdb:actionList) = fmdb:actionList autocreated
  + * (fmdbmix:formElement) = fmdbmix:formElement
  + * (fmdbmix:formContent) = fmdbmix:formContent
  + * (fmdbmix:formStep) = fmdbmix:formStep
+
+[fmdb:form] > jnt:content, fmdbmix:component, jmix:visibleInContentTree, mix:title
+ orderable
+ - intro (string, richtext) i18n indexed=no
+ + fields (fmdb:fieldList) = fmdb:fieldList autocreated
+ + actions (fmdb:actionList) = fmdb:actionList autocreated
+
