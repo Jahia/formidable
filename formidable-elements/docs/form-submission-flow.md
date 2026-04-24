@@ -3,8 +3,9 @@
 ## Overview
 
 Form submission is handled by `FormSubmitServlet`, a dedicated OSGi servlet registered via
-`HttpService` at `/modules/formidable-engine/form-submit`. It operates **outside the Jahia
-render chain**, ensuring it is always the first consumer of the multipart request stream.
+the **OSGi HTTP Whiteboard** (`service = { HttpServlet.class, Servlet.class }`, `alias=/formidable-engine/form-submit`).
+It operates **outside the Jahia render chain**, ensuring it is always the first consumer of
+the multipart request stream.
 
 The pipeline is driven by the child nodes of the `actions` node (`fmdb:actionList`)
 autocreated on every `fmdb:form`. Actions are executed in order, as configured by the
@@ -85,8 +86,9 @@ Both mixins are applied via the Content Editor. Neither requires configuration i
 
 ## Field whitelist (step 7 → step 8)
 
-`collectFormFieldInfo()` walks the `fmdb:form` node tree (direct children + `fmdb:step`
-children, excluding `fmdb:actionList`) and builds a `Set<String>` of declared field names.
+`collectFormFieldInfo()` walks the `fields` child node (`fmdb:fieldList`) of the `fmdb:form`,
+including fields nested inside `fmdb:step` children, and builds a `Set<String>` of declared
+field names.
 
 During `parseAll()`, any multipart item whose field name is absent from this set is
 **skipped without reading its content**. The Commons FileUpload iterator advances past
