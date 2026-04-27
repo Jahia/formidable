@@ -10,6 +10,11 @@ Formidable is based on Jahia standard technologies:
 - Rendering / views are using JavaScript modules, they're built in React / TSX
 - Actions can be declared in Java / OSGi, as per any other action inside Jahia
 
+## Prerequisites
+- Jahia 8.2.2+
+- JavaScript modules 1.2.0+
+- jContent 3.6+
+
 ## Alpha version
 
 ### Scope
