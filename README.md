@@ -27,6 +27,7 @@ It will include the ability to:
 -- Text area
 -- Email
 -- Select (Dropdown)
+-- Checkbox
 -- Radio
 -- Date
 -- Datetime
