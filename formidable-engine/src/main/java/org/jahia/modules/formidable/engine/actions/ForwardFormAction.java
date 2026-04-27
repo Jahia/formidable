@@ -1,9 +1,11 @@
 package org.jahia.modules.formidable.engine.actions;
 
+import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.render.RenderContext;
 import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,7 +13,9 @@ import javax.jcr.RepositoryException;
 import javax.servlet.http.HttpServletRequest;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.URI;
+import java.net.UnknownHostException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -23,6 +27,14 @@ import java.util.UUID;
 /**
  * Forwards the submitted form data to a third-party endpoint as multipart/form-data.
  * Text parameters and pre-parsed files (from request attribute) are forwarded as-is.
+ *
+ * The target URL is never stored in JCR. The JCR node only holds a stable {@code targetId}
+ * that is resolved to a URI via the operator configuration (forward_targets in
+ * org.jahia.modules.formidable.cfg). This prevents contributors from redirecting submissions
+ * to arbitrary hosts.
+ *
+ * SSRF protection: private/internal IP addresses are rejected at execution time to guard
+ * against DNS rebinding of the operator-configured hostnames.
  */
 @Component(service = FormAction.class)
 public class ForwardFormAction implements FormAction {
@@ -30,6 +42,13 @@ public class ForwardFormAction implements FormAction {
     private static final Logger log = LoggerFactory.getLogger(ForwardFormAction.class);
 
     private final HttpClient http = HttpClient.newHttpClient();
+
+    private FormidableConfigService configService;
+
+    @Reference
+    public void setConfigService(FormidableConfigService service) {
+        this.configService = service;
+    }
 
     @Override
     public String getNodeType() {
@@ -45,22 +64,30 @@ public class ForwardFormAction implements FormAction {
             Map<String, List<String>> parameters
     ) throws FormActionException {
 
-        String targetUrl;
+        String targetId;
         try {
-            if (!actionNode.hasProperty("targetUrl")) {
-                log.warn("[ForwardFormAction] targetUrl is not set on node '{}', skipping.", actionNode.getPath());
+            if (!actionNode.hasProperty("targetId")) {
+                log.warn("[ForwardFormAction] targetId is not set on node '{}', skipping.", actionNode.getPath());
                 return;
             }
-            targetUrl = actionNode.getProperty("targetUrl").getString();
+            targetId = actionNode.getProperty("targetId").getString();
         } catch (RepositoryException e) {
-            log.warn("[ForwardFormAction] Could not read targetUrl from node '{}'", actionNode.getPath(), e);
+            log.warn("[ForwardFormAction] Could not read targetId from node '{}'", actionNode.getPath(), e);
             return;
         }
 
-        if (targetUrl == null || targetUrl.isBlank()) {
-            log.warn("[ForwardFormAction] targetUrl is blank on node '{}', skipping.", actionNode.getPath());
+        if (targetId == null || targetId.isBlank()) {
+            log.warn("[ForwardFormAction] targetId is blank on node '{}', skipping.", actionNode.getPath());
             return;
         }
+
+        URI targetUri = configService.resolveForwardTarget(targetId).orElseThrow(() -> {
+            log.warn("[ForwardFormAction] targetId '{}' on node '{}' does not match any configured forward target.",
+                    targetId, actionNode.getPath());
+            return new FormActionException("Forward target '" + targetId + "' is not configured.", 403);
+        });
+
+        checkNotPrivateAddress(targetUri);
 
         @SuppressWarnings("unchecked")
         List<FormDataParser.FormFile> files =
@@ -83,7 +110,7 @@ public class ForwardFormAction implements FormAction {
 
         try {
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(targetUrl))
+                    .uri(targetUri)
                     .header("Content-Type", "multipart/form-data; boundary=" + boundary)
                     .POST(HttpRequest.BodyPublishers.ofByteArray(body))
                     .build();
@@ -91,14 +118,44 @@ public class ForwardFormAction implements FormAction {
             HttpResponse<Void> response = http.send(request, HttpResponse.BodyHandlers.discarding());
 
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                log.warn("[ForwardFormAction] Target '{}' returned HTTP {}", targetUrl, response.statusCode());
+                log.warn("[ForwardFormAction] Target '{}' returned HTTP {}", targetUri, response.statusCode());
                 throw new FormActionException("Forward target returned HTTP " + response.statusCode(), 502);
             }
         } catch (FormActionException e) {
             throw e;
         } catch (Exception e) {
-            log.error("[ForwardFormAction] Request to '{}' failed", targetUrl, e);
+            log.error("[ForwardFormAction] Request to '{}' failed", targetUri, e);
             throw new FormActionException("Failed to forward form data to target.", 502);
+        }
+    }
+
+    /**
+     * Rejects targets that resolve to a private or internal IP address.
+     * Called at execution time (not only at config load time) to guard against DNS rebinding.
+     */
+    private static void checkNotPrivateAddress(URI uri) throws FormActionException {
+        String hostname = uri.getHost();
+        if (hostname == null || hostname.isBlank()) {
+            throw new FormActionException("Forward target URI has no valid hostname.", 400);
+        }
+        try {
+            InetAddress[] addresses = InetAddress.getAllByName(hostname);
+            if (addresses.length == 0) {
+                throw new FormActionException("Forward target hostname cannot be resolved.", 400);
+            }
+            for (InetAddress addr : addresses) {
+                if (addr.isLoopbackAddress() || addr.isSiteLocalAddress()
+                        || addr.isLinkLocalAddress() || addr.isAnyLocalAddress()
+                        || addr.isMulticastAddress()) {
+                    log.warn("[ForwardFormAction] Rejected target '{}': '{}' resolves to a private/internal address ({}).",
+                            uri, hostname, addr.getHostAddress());
+                    throw new FormActionException(
+                            "Forward target resolves to a private or internal address.", 403);
+                }
+            }
+        } catch (UnknownHostException e) {
+            log.warn("[ForwardFormAction] Rejected target '{}': hostname cannot be resolved.", uri);
+            throw new FormActionException("Forward target hostname cannot be resolved.", 400);
         }
     }
 

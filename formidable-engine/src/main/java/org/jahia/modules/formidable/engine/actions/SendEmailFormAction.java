@@ -65,14 +65,16 @@ public class SendEmailFormAction implements FormAction {
             throw FormActionException.serverError("MailService is unavailable. Check Jahia SMTP configuration.");
         }
 
-        String to = interpolate(readProperty(actionNode, "to"), parameters);
+        String to = interpolate(readProperty(actionNode, "to"), parameters, false);
         if (to == null || to.isBlank()) {
             throw FormActionException.serverError("fmdb:emailAction is missing a 'to' address.");
         }
+        to = FieldSanitizer.headerSafe(to);
 
         String from = readProperty(actionNode, "from");
-        String subject = interpolate(readProperty(actionNode, "subject"), parameters);
-        String htmlBody = interpolate(readProperty(actionNode, "templateMessage"), parameters);
+        String subject = FieldSanitizer.headerSafe(
+                interpolate(readProperty(actionNode, "subject"), parameters, false));
+        String htmlBody = interpolate(readProperty(actionNode, "templateMessage"), parameters, true);
 
         MailMessage message = new MailMessage();
         message.setTo(to);
@@ -90,22 +92,27 @@ public class SendEmailFormAction implements FormAction {
     }
 
     /**
-     * Replaces {@code ${fieldName}} placeholders with the first matching form parameter value.
+     * Replaces {@code ${fieldName}} placeholders with form parameter values.
+     * When {@code escapeHtmlValues} is true, values are HTML-encoded via {@link FieldSanitizer#htmlEncode}
+     * before insertion (use for HTML email body). Pass false for plain-text fields like
+     * addresses or subjects.
      * Unknown placeholders are replaced with an empty string.
      */
-    static String interpolate(String template, Map<String, List<String>> parameters) {
+    static String interpolate(String template, Map<String, List<String>> parameters, boolean escapeHtmlValues) {
         if (template == null) return null;
         Matcher m = INTERPOLATION.matcher(template);
         StringBuilder sb = new StringBuilder();
         while (m.find()) {
             String field = m.group(1);
             List<String> values = parameters.get(field);
-            String replacement = (values != null && !values.isEmpty()) ? values.get(0) : "";
+            String raw = (values != null && !values.isEmpty()) ? values.get(0) : "";
+            String replacement = escapeHtmlValues ? FieldSanitizer.htmlEncode(raw) : FieldSanitizer.plainText(raw);
             m.appendReplacement(sb, Matcher.quoteReplacement(replacement));
         }
         m.appendTail(sb);
         return sb.toString();
     }
+
 
     private static String readProperty(JCRNodeWrapper node, String name) {
         try {

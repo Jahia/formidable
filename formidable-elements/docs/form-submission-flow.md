@@ -24,26 +24,42 @@ Browser
   └─ POST multipart/form-data → /modules/formidable-engine/form-submit?fid=UUID&lang=fr[&ct=TOKEN]
        FormSubmitServlet → FormSubmissionPipeline (outside Jahia render chain):
 
-         Step 1  verifyMultipart         Content-Type must be multipart/form-data
-         Step 2  readRoutingParams       fid + lang read from URL query params     — 0 byte read
-         Step 3  guardContentLength      reject if Content-Length > max            — 0 byte read
-         Step 4  resolveFormNode         JCR getNodeByIdentifier(fid) in "live"    — 0 byte read
-         Step 5  verifyAuthentication    if fmdbmix:requireAuthentication → reject Guest
-         Step 6  verifyCaptcha           if fmdbmix:captcha → verify 'ct' URL param — 0 byte read
-         Step 7  collectFormFieldInfo    walk form node: build field whitelist
-                                         + per-field accept types (fmdb:inputFile)  — 0 byte read
-         Step 8  parseMultipart          FIRST AND ONLY read of the request stream
+         Step 1   verifyMultipart         Content-Type must be multipart/form-data
+         Step 2   readRoutingParams       fid (UUID-validated) + lang read from URL query params  — 0 byte read
+         Step 3   guardContentLength      reject if Content-Length > max                          — 0 byte read
+         Step 4   resolveFormNode         JCR getNodeByIdentifier(fid) in "live"                 — 0 byte read
+         Step 5   verifyAuthentication    if fmdbmix:requireAuthentication → reject Guest
+         Step 6   verifyCaptcha           if fmdbmix:captcha → verify 'ct' URL param             — 0 byte read
+         Step 7   collectFormFieldInfo    walk form node: build field whitelist,
+                                          per-field type, allowed choices, accept types,
+                                          and field constraints (required, min/maxLength,
+                                          pattern, min/maxDate)                                   — 0 byte read
+         Step 8   parseMultipart          FIRST AND ONLY read of the request stream
                    ├─ undeclared fields skipped inline (not read, not stored)
-                   ├─ text fields  → Map<String, List<String>> parameters
+                   ├─ text fields  → validated + sanitized → Map<String, List<String>>
+                   │    ├─ free-text (inputText, textarea, inputHidden): HTML tags stripped
+                   │    ├─ choice fields (select, radio, checkbox): value checked against
+                   │    │   allowed choices declared in JCR
+                   │    ├─ typed fields (email, date, datetime-local, color): format validated
+                   │    └─ field constraints applied (required, minLength, maxLength, pattern,
+                   │        minDate, maxDate)
                    └─ file parts   → List<FormFile>
                         ├─ size limits (per-file + total)
+                        ├─ file count limit (config.getUploadMaxFileCount())
                         ├─ Tika magic-byte MIME detection
                         └─ MIME allowlist (field accept or global cfg)
-         Step 9  dispatchActions         execute fmdb:actionList nodes in order
+         Step 9   validateRequired        post-parse: check required fields absent from the
+                                          submitted body (e.g. unchecked checkbox/radio)
+         Step 10  dispatchActions         execute fmdb:actionList nodes in order
+                   ├─ fmdb:emailAction:
+                   │    - subject + to sanitized with FieldSanitizer.headerSafe()
+                   │    - HTML body uses FieldSanitizer.htmlEncode() for interpolated values
                    └─ fmdb:forwardAction:
-                        - reads pre-parsed files from request attribute
-                        - reconstructs multipart/form-data body
-                        - POSTs to targetUrl
+                        - reads targetId from JCR node
+                        - resolves URI via configService.resolveForwardTarget(targetId)
+                          (targets defined in org.jahia.modules.formidable.cfg only)
+                        - reconstructs multipart/form-data body with pre-parsed files
+                        - POSTs to resolved URI
 
        └─ { "success": true } or { "success": false, "errorCode": "FMDB-XXX" }
   └─ show success or error message
@@ -87,10 +103,15 @@ Both mixins are applied via the Content Editor. Neither requires configuration i
 ## Field whitelist (step 7 → step 8)
 
 `collectFormFieldInfo()` walks the `fields` child node (`fmdb:fieldList`) of the `fmdb:form`,
-including fields nested inside `fmdb:step` children, and builds a `Set<String>` of declared
-field names.
+including fields nested inside `fmdb:step` children, and builds:
 
-During `parseAll()`, any multipart item whose field name is absent from this set is
+- `Set<String> allowedNames` — declared field names
+- `Map<String, String> fieldTypes` — JCR primary node type per field
+- `Map<String, Set<String>> allowedChoices` — for choice fields, the set of valid values
+- `Map<String, Set<String>> fieldAcceptTypes` — for file fields, allowed MIME types
+- `Map<String, FieldConstraints> fieldConstraints` — per-field constraints (required, minLength, maxLength, pattern, minDate, maxDate)
+
+During `parseAll()`, any multipart item whose field name is absent from `allowedNames` is
 **skipped without reading its content**. The Commons FileUpload iterator advances past
 undeclared items automatically.
 
@@ -98,6 +119,35 @@ This prevents:
 - Injection of arbitrary fields into forwarded data
 - Exploitation of `${fieldName}` interpolation in email templates
 - Storage or processing of data the form was not designed to collect
+
+---
+
+## Input validation and sanitization (step 8)
+
+`FormDataParser` validates and sanitizes every text field before it enters the pipeline:
+
+| Field category | Control |
+|---|---|
+| Free-text (`fmdb:inputText`, `fmdb:textarea`, `fmdb:inputHidden`) | HTML tags stripped via regex |
+| Choice fields (`fmdb:select`, `fmdb:inputRadio`, `fmdb:inputCheckbox`) | Value checked against the `allowedChoices` set built from JCR; rejected if not in set |
+| Typed fields (`email`, `date`, `datetime-local`, `color`) | Format validated with a strict regex |
+| All text fields | `FieldConstraints` applied: required, minLength, maxLength, pattern, minDate, maxDate |
+
+Required fields that are legitimately absent from the multipart body (e.g. unchecked
+checkbox) are detected at step 9 (`validateRequired`) after parsing, rather than during
+parsing.
+
+---
+
+## Output sanitization (steps 10 — email action)
+
+`FieldSanitizer` centralises all output encoding:
+
+| Method | Context |
+|---|---|
+| `htmlEncode(value)` | Encodes `&`, `<`, `>`, `"`, `'` — used in HTML email body |
+| `headerSafe(value)` | Strips `\r`, `\n`, `\t` and trims — applied to `to` and `subject` headers |
+| `plainText(value)` | Null-safe passthrough — used in plain-text email body |
 
 ---
 
@@ -110,10 +160,10 @@ All file parts pass through `FormDataParser` which enforces the following contro
 | 1 | Field whitelist | Undeclared fields skipped before any read |
 | 2 | Per-file size limit | `upload.setFileSizeMax()` |
 | 3 | Total request size limit | `upload.setSizeMax()` |
-| 4 | File part count limit (CVE-2023-24998) | `upload.setFileCountMax()` — requires commons-fileupload ≥ 1.5 |
-| 5 | Filename sanitisation | Path traversal (`../`) and XSS chars stripped; UUID used for storage name |
+| 4 | File part count limit (CVE-2023-24998) | `upload.setFileCountMax(config.getUploadMaxFileCount())` — requires commons-fileupload ≥ 1.5 |
+| 5 | Filename sanitisation | Path traversal (`../`), CRLF control chars, and XSS chars stripped; UUID used for storage name |
 | 6 | MIME type detection | Apache Tika magic-byte detection (ignores client-supplied `Content-Type`) |
-| 7 | MIME type allowlist | Field-level `accept` property takes priority; falls back to global cfg allowlist |
+| 7 | MIME type allowlist | Field-level `accept` property (multiple choicelist) takes priority; falls back to global cfg allowlist |
 
 Limits and the global allowlist are configured in `org.jahia.modules.formidable.cfg` via `FormidableConfig`.
 
@@ -150,8 +200,21 @@ they appear in the list.
 | Node type | Description |
 |---|---|
 | `fmdb:save2jcrAction` | Saves form data as JCR child nodes (not yet implemented) |
-| `fmdb:emailAction` | Sends email via Jahia `MailService`; `${fieldName}` interpolation in subject and body |
-| `fmdb:forwardAction` | Forwards declared form fields + pre-parsed files to a third-party endpoint as `multipart/form-data` |
+| `fmdb:emailAction` | Sends email via Jahia `MailService`; `${fieldName}` interpolation in subject and body; headers and HTML body sanitized |
+| `fmdb:forwardAction` | Forwards declared form fields + pre-parsed files to a target endpoint resolved from config by ID |
+
+### forwardAction — target registry
+
+The target URL is never stored in JCR. The contributor picks a `targetId` from a choicelist
+populated by `FormidableForwardTargetsInitializer`. The available targets are defined by an
+administrator in `org.jahia.modules.formidable.cfg`:
+
+```
+forward_targets=salesforce-prod|Salesforce Prod|https://api.salesforce.com/services/,crm-staging|CRM Staging|https://crm.internal/hook
+```
+
+`FormidableConfigService.resolveForwardTarget(targetId)` returns the URI or throws if the ID
+is unknown. This design prevents SSRF: contributors can only reach pre-approved endpoints.
 
 To add a new action type, see `AGENTS.md` → *Form action pipeline*.
 
@@ -190,9 +253,11 @@ Form submissions use `XMLHttpRequest` (not `fetch`). Jahia's OWASP CSRFGuard pat
 | `src/components/Form/Form.client.tsx` | `handleSubmit` — removes CAPTCHA body field, appends `ct` URL param, POSTs via XHR |
 | `src/components/Form/default.server.tsx` | Builds `submitActionUrl` with `fid` and `lang` query params |
 | `formidable-engine/.../servlet/FormSubmitServlet.java` | OSGi entry point — thin wrapper, delegates to `FormSubmissionPipeline` |
-| `formidable-engine/.../servlet/FormSubmissionPipeline.java` | 9-step pipeline — all submission logic |
+| `formidable-engine/.../servlet/FormSubmissionPipeline.java` | 10-step pipeline — all submission logic |
 | `formidable-engine/.../servlet/ErrorCode.java` | Error code enum — see `docs/error-codes.md` |
-| `formidable-engine/.../actions/FormDataParser.java` | Secure multipart parser (whitelist, Tika, allowlist, size + count limits) |
-| `formidable-engine/.../actions/ForwardFormAction.java` | Reads pre-parsed files from request attribute; forwards declared fields only |
+| `formidable-engine/.../actions/FormDataParser.java` | Secure multipart parser: whitelist, input validation/sanitization, Tika, allowlist, size + count limits |
+| `formidable-engine/.../actions/FieldSanitizer.java` | Output encoding utility: `htmlEncode`, `headerSafe`, `plainText` |
+| `formidable-engine/.../actions/ForwardFormAction.java` | Resolves `targetId` via `FormidableConfigService`; forwards declared fields only |
+| `formidable-engine/.../actions/SendEmailFormAction.java` | Sends email; headers sanitized with `headerSafe()`; HTML body encodes values with `htmlEncode()` |
 | `formidable-engine/.../actions/FormAction.java` | Interface implemented by each action type |
-| `formidable-engine/.../config/FormidableConfigService.java` | Reads unified cfg (CAPTCHA + upload limits); verifies CAPTCHA token |
+| `formidable-engine/.../config/FormidableConfigService.java` | Reads unified cfg; resolves forward targets by ID; verifies CAPTCHA

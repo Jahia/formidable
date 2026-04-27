@@ -70,6 +70,20 @@ public @interface FormidableConfig {
     )
     int upload_maxFileCount() default 10;
 
+    // --- FORWARD ACTION ---
+
+    @AttributeDefinition(
+            name = "Forward action targets",
+            description = "Newline-separated list of allowed forward targets for fmdb:forwardAction. " +
+                    "Each entry has the form: id|Label|https://target-url. " +
+                    "The id is stored in JCR; the URL is resolved server-side and never exposed to contributors. " +
+                    "Leave empty to disable all forward actions (fail-safe default).",
+            type = AttributeType.STRING
+    )
+    String forward_targets() default "";
+
+    // ---
+
     @AttributeDefinition(
             name = "Allowed MIME types (fallback)",
             description = "Global MIME type allowlist applied as fallback when no 'accept' property is defined " +

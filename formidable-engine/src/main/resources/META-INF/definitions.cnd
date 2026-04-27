@@ -15,9 +15,10 @@
  - templateMessage (string, textarea) i18n indexed=no
 
 // Forwards the full form data to a third-party endpoint (multipart/form-data).
-// CAPTCHA token fields are stripped before forwarding.
+// targetId references a named target configured in forward_targets (org.jahia.modules.formidable.cfg).
+// The actual URL is never stored in JCR; it is resolved server-side from the operator configuration.
 [fmdb:forwardAction] > jnt:content, fmdbmix:formAction, mix:title
- - targetUrl (string) indexed=no
+ - targetId (string, choicelist[formidableForwardTargets]) indexed=no
 
 // Saves the submitted form data as child nodes under a designated JCR path.
 // Default action autocreated in fmdb:actionList; can be removed by the contributor.

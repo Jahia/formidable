@@ -80,6 +80,7 @@
                         <Export-Package>
                             org.jahia.modules.formidable.engine.actions,
                             org.jahia.modules.formidable.engine.captcha,
+                            org.jahia.modules.formidable.engine.choicelist,
                             org.jahia.modules.formidable.engine.config
                         </Export-Package>
                         <Import-Package>
