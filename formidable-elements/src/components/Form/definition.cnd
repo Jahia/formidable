@@ -23,28 +23,40 @@
  itemtype = content
    - showStepsNav (boolean) = true autocreated indexed=no
 
-[fmdbmix:actions] mixin
- extends = fmdb:form
- itemtype = content
- - customTarget (string) indexed=no
-
- [fmdbmix:style] mixin
+[fmdbmix:style] mixin
   extends = fmdb:form
   itemtype = content
   - css (string,textarea) indexed=no
 
+// Enables CAPTCHA protection on a fmdb:form.
+// When this mixin is applied, the form injects the configured CAPTCHA widget (front-end)
+// and verifies the submitted token server-side (FormSubmitAction).
+// CAPTCHA configuration (siteKey, scriptUrl, verifyUrl, secretKey) is read from
+// org.jahia.modules.formidable.captcha.cfg — not stored in JCR.
 [fmdbmix:captcha] mixin
  extends = fmdb:form
  itemtype = content
- - captchaConfig (weakreference) < fmdb:captchaProvider
+
+// Restricts form submission to authenticated users only.
+// When this mixin is applied, Guest (anonymous) submissions are rejected server-side
+// with FMDB-009 before any file data is read from the request stream.
+[fmdbmix:requireAuthentication] mixin
+ extends = fmdb:form
+ itemtype = content
+
+[fmdb:actionList] > jnt:content, jmix:list
+ orderable
+ + * (fmdbmix:formAction) = fmdbmix:formAction version
+
+[fmdb:fieldList] > jnt:content, jmix:list
+ orderable
+ + * (fmdbmix:formElement) = fmdbmix:formElement
+ + * (fmdbmix:formContent) = fmdbmix:formContent
+ + * (fmdbmix:formStep) = fmdbmix:formStep
 
 [fmdb:form] > jnt:content, fmdbmix:component, jmix:visibleInContentTree, mix:title
  orderable
  - intro (string, richtext) i18n indexed=no
-// + action (fmdb:actionList) = fmdb:actionList autocreated
-// + fieldsets (fmdb:fieldsets) = fmdb:fieldsets autocreated
-// + formButtons (fmdb:formButtonsList) = fmdb:formButtonsList autocreated
-// + responses (fmdb:responsesList) = fmdb:responsesList autocreated
- + * (fmdbmix:formElement) = fmdbmix:formElement
- + * (fmdbmix:formContent) = fmdbmix:formContent
- + * (fmdbmix:formStep) = fmdbmix:formStep
+ + fields (fmdb:fieldList) = fmdb:fieldList autocreated
+ + actions (fmdb:actionList) = fmdb:actionList autocreated
+

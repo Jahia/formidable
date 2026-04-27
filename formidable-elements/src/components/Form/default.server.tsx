@@ -28,13 +28,11 @@ jahiaComponent(
 		nodeType: "fmdb:form",
 		name: "default",
 	},
-	(
+		(
 		{
-			captchaConfig,
 			intro,
 			submissionMessage,
 			errorMessage,
-			customTarget,
 			showResetBtn,
 			showNewFormBtn,
 			showTryAgainBtn,
@@ -47,9 +45,10 @@ jahiaComponent(
 			showStepsNav,
 			css,
 		}: FormServerProps,
-		{ currentNode },
+		{ currentNode, renderContext },
 	) => {
-		const formElements = Array.from(currentNode.getNodes());
+		const fieldListNode = currentNode.getNode("fields");
+		const formElements = fieldListNode ? Array.from(fieldListNode.getNodes()) : [];
 		const formId = `form-${currentNode.getIdentifier()}`;
 
 		const stepNodes = formElements.filter((el) => el.isNodeType("fmdb:step"));
@@ -60,48 +59,58 @@ jahiaComponent(
 			})
 			: undefined;
 
-		const {siteKey, scriptUrl} = captchaConfig
-			? getNodeProps<{siteKey?: string; scriptUrl?: string}>(captchaConfig, ['siteKey', 'scriptUrl'])
-			: {};
+		// Captcha config is injected as request attributes by CaptchaRenderFilter (Java)
+		// when the fmdbmix:captcha mixin is applied to this form node.
+		const hasCaptchaMixin = currentNode.isNodeType('fmdbmix:captcha');
+		const siteKey   = renderContext.getRequest().getAttribute('formidable.captcha.siteKey') as string | null;
+		const scriptUrl = renderContext.getRequest().getAttribute('formidable.captcha.scriptUrl') as string | null;
 		const captcha = siteKey && scriptUrl
 			? {siteKey, provider: deriveProvider(scriptUrl)}
 			: undefined;
+
+		if (hasCaptchaMixin && !captcha) {
+			console.warn(`[Formidable] fmdbmix:captcha is applied on form '${currentNode.getPath()}' but CAPTCHA is not configured (siteKey or scriptUrl missing). The widget will not be rendered.`);
+		}
+
+		const isSubmitDisabled = renderContext.isEditMode() || renderContext.isPreviewMode();
+		const submitActionUrl = `/modules/formidable-engine/form-submit?fid=${currentNode.getIdentifier()}&lang=${currentNode.getLanguage()}`;
 
 		return (
 			<>
 				{css && <style>{css}</style>}
 				<AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")} />
 				{scriptUrl && (
-					<AddResources
-						type="javascript"
-						resources={ensureCaptchaExplicit(scriptUrl)}
-						defer
-					/>
-				)}
+				<AddResources
+					type="javascript"
+					resources={ensureCaptchaExplicit(scriptUrl)}
+					defer
+				/>
+			)}
 				<Island
-					component={Form}
-					props={{
-						intro,
-						submissionMessage,
-						errorMessage,
-						customTarget,
-						showResetBtn,
-						showNewFormBtn,
-						showTryAgainBtn,
-						submitBtnLabel,
-						resetBtnLabel,
-						newFormBtnLabel,
-						tryAgainBtnLabel,
-						previousBtnLabel,
-						nextBtnLabel,
-						showStepsNav,
-					formId,
-					locale: currentNode.getLanguage(),
-					stepLabels,
-					captcha,
-					}}
-				>
-					{formElements.map((element) => {
+			component={Form}
+			props={{
+				intro,
+				submissionMessage,
+				errorMessage,
+				submitActionUrl,
+				isSubmitDisabled,
+				showResetBtn,
+				showNewFormBtn,
+				showTryAgainBtn,
+				submitBtnLabel,
+				resetBtnLabel,
+				newFormBtnLabel,
+				tryAgainBtnLabel,
+				previousBtnLabel,
+				nextBtnLabel,
+				showStepsNav,
+				formId,
+				locale: currentNode.getLanguage(),
+				stepLabels,
+				captcha,
+			}}
+			>
+				{formElements.map((element) => {
 						const isStep = element.isNodeType("fmdb:step");
 						const stepIndex = isStep
 							? stepNodes.findIndex((s) => s.getIdentifier() === element.getIdentifier())
@@ -122,3 +131,6 @@ jahiaComponent(
 		);
 	},
 );
+
+
+

@@ -9,10 +9,12 @@ export interface CaptchaHandle {
 interface CaptchaProps {
 	siteKey: string;
 	provider: CaptchaProvider;
+	onVerify?: () => void;
+	onExpire?: () => void;
 	ref?: React.Ref<CaptchaHandle>;
 }
 
-export default function Captcha({siteKey, provider, ref}: CaptchaProps) {
+export default function Captcha({siteKey, provider, onVerify, onExpire, ref}: CaptchaProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const tokenRef = useRef('');
 	const widgetIdRef = useRef<string | undefined>(undefined);
@@ -21,11 +23,12 @@ export default function Captcha({siteKey, provider, ref}: CaptchaProps) {
 		getToken: () => tokenRef.current,
 		reset: () => {
 			tokenRef.current = '';
+			onExpire?.();
 			if (provider === 'turnstile' && widgetIdRef.current) {
 				window.turnstile?.reset(widgetIdRef.current);
 			}
 		}
-	}), [provider]);
+	}), [provider, onExpire]);
 
 	useEffect(() => {
 		const el = containerRef.current;
@@ -33,8 +36,8 @@ export default function Captcha({siteKey, provider, ref}: CaptchaProps) {
 
 		const opts: RenderOptions = {
 			'sitekey': siteKey,
-			'callback': token => { tokenRef.current = token; },
-			'expired-callback': () => { tokenRef.current = ''; },
+			'callback': token => { tokenRef.current = token; onVerify?.(); },
+			'expired-callback': () => { tokenRef.current = ''; onExpire?.(); },
 		};
 
 		// Script is injected server-side with defer — always ready by the time the Island hydrates.

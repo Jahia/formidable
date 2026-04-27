@@ -6,6 +6,7 @@
 
 # Maven
 target/
+.flattened-pom.xml
 
 # Javascript
 dist

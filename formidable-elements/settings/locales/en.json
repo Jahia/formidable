@@ -17,6 +17,7 @@
 		"previousBtn": "Previous",
 		"nextBtn": "Next",
 		"stepsNav": "Form steps",
-		"captchaRequired": "Please complete the CAPTCHA verification."
+		"captchaRequired": "Please complete the CAPTCHA verification.",
+		"editModeSubmitDisabled": "Form submission is disabled in edit/preview mode."
 	}
 }

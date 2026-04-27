@@ -3,12 +3,11 @@ import {type ReactNode} from 'react';
 
 export type CaptchaProvider = 'turnstile' | 'hcaptcha' | 'recaptcha_v2';
 
-// Base interface for server-side props
+// Props mapped from JCR node properties by the JS modules library
 export interface FormServerProps {
 	intro?: string;
 	submissionMessage?: string;
 	errorMessage?: string;
-	customTarget?: string;
 	showResetBtn?: boolean;
 	showNewFormBtn?: boolean;
 	showTryAgainBtn?: boolean;
@@ -20,14 +19,17 @@ export interface FormServerProps {
 	nextBtnLabel?: string;
 	showStepsNav?: boolean;
 	css?: string;
-	captchaConfig?: JCRNodeWrapper;
+	destination?: JCRNodeWrapper;
 }
 
-// Client-side props extend server props with additional properties
-export interface FormProps extends Omit<FormServerProps, 'captchaConfig'> {
+// Props passed to the Form Island (client-side)
+export interface FormProps extends Omit<FormServerProps, 'destination'> {
 	formId: string;
 	locale: string;
 	stepLabels?: string[];
 	captcha?: {siteKey: string; provider: CaptchaProvider};
+	destinationUrl?: string;
+	submitActionUrl?: string;
+	isSubmitDisabled?: boolean;
 	children: ReactNode;
 }

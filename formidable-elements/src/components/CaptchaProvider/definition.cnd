@@ -1,4 +1,2 @@
-[fmdb:captchaProvider] > jnt:content, fmdbmix:component, mix:title
- - siteKey (string) indexed=no
- - scriptUrl (string) = 'https://challenges.cloudflare.com/turnstile/v0/api.js' autocreated indexed=no
-
+// fmdb:captchaProvider has been removed.
+// Captcha configuration (siteKey, scriptUrl, secretKey) is now on fmdb:captchaAction in formidable-engine.

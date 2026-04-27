@@ -14,11 +14,12 @@ const sanitize = (html: string): string => {
 import {useTranslation} from "react-i18next";
 
 export default function Form({
-															 intro,
-															 submissionMessage,
-															 errorMessage,
-															 customTarget,
-															 showResetBtn = false,
+														 intro,
+														 submissionMessage,
+														 errorMessage,
+														 submitActionUrl,
+														 isSubmitDisabled = false,
+														 showResetBtn = false,
 															 showNewFormBtn = false,
 															 showTryAgainBtn = false,
 															 submitBtnLabel,
@@ -37,6 +38,7 @@ export default function Form({
 	const [message, setMessage] = useState<string | null>(null);
 	const [messageType, setMessageType] = useState<'success' | 'error' | null>(null);
 	const [isLoading, setIsLoading] = useState(false);
+	const [isCaptchaValid, setIsCaptchaValid] = useState(false);
 	const [currentStep, setCurrentStep] = useState(0);
 	const formRef = useRef<HTMLFormElement>(null);
 	const captchaRef = useRef<CaptchaHandle>(null);
@@ -47,6 +49,7 @@ export default function Form({
 	const totalSteps = isMultiStep ? stepLabels.length : 0;
 	const isLastStep = currentStep === totalSteps - 1;
 
+	const isSubmitBlocked = isLoading || isSubmitDisabled || (!!captcha && (!isMultiStep || isLastStep) && !isCaptchaValid);
 	const showCaptcha = !!captcha && (!isMultiStep || isLastStep);
 
 	const stepElsRef = useRef<HTMLElement[]>([]);
@@ -102,24 +105,46 @@ export default function Form({
 
 		try {
 			const formData = new FormData(form);
-			const interpolatedSubmissionMessage = interpolateMessage(submissionMessage, formData, locale);
-			const submitUrl = customTarget || form.action || window.location.href;
 
-			const response = await fetch(submitUrl, {
-				method: 'POST',
-				body: formData
+			// Remove the CAPTCHA widget's hidden field from the body — the token is already
+			// passed as the 'ct' URL query param so it must not be sent twice.
+			if (captcha) {
+				const captchaFieldNames: Record<string, string> = {
+					turnstile: 'cf-turnstile-response',
+					hcaptcha: 'h-captcha-response',
+					recaptcha_v2: 'g-recaptcha-response',
+				};
+				formData.delete(captchaFieldNames[captcha.provider]);
+			}
+
+			const interpolatedSubmissionMessage = interpolateMessage(submissionMessage, formData, locale);
+
+			// If a CAPTCHA widget is present, append the token as a URL query param (ct) so
+			// the servlet can verify it before reading any file data from the request stream.
+			const captchaToken = captcha ? captchaRef.current?.getToken() : undefined;
+			const targetUrl = captchaToken
+				? `${submitActionUrl}&ct=${encodeURIComponent(captchaToken)}`
+				: (submitActionUrl ?? form.action ?? window.location.href);
+
+			// XHR is required here instead of fetch: Jahia's OWASP CSRFGuard patches
+			// XMLHttpRequest.prototype.send to inject the CSRF token automatically.
+			// The fetch API is not patched by CSRFGuard and would result in a CSRF rejection.
+			const response = await new Promise<XMLHttpRequest>((resolve, reject) => {
+				const xhr = new XMLHttpRequest();
+				xhr.open('POST', targetUrl, true);
+				xhr.withCredentials = true;
+				xhr.onload = () => resolve(xhr);
+				xhr.onerror = () => reject(new Error('Submission failed'));
+				xhr.send(formData);
 			});
+			if (response.status < 200 || response.status >= 300) throw new Error('Submission failed');
 
 			await new Promise(resolve => setTimeout(resolve, 500));
 
-			if (response.ok) {
-				setMessage(interpolatedSubmissionMessage || 'Form submitted successfully!');
-				setMessageType('success');
-				form.reset();
-				if (isMultiStep) setCurrentStep(0);
-			} else {
-				throw new Error('Submission failed');
-			}
+			setMessage(interpolatedSubmissionMessage || 'Form submitted successfully!');
+			setMessageType('success');
+			form.reset();
+			if (isMultiStep) setCurrentStep(0);
 		} catch (error) {
 			const formData = new FormData(form);
 			const interpolatedErrorMessage = interpolateMessage(errorMessage, formData, locale);
@@ -187,7 +212,6 @@ export default function Form({
 				ref={formRef}
 				className={clsx("fmdb-form", classes.form, (hasMessage || isLoading) && classes.hidden)}
 				method="post"
-				action={customTarget}
 				id={formId}
 				onSubmit={handleSubmit}
 			>
@@ -218,7 +242,13 @@ export default function Form({
 			{children}
 
 			{showCaptcha && (
-				<Captcha ref={captchaRef} siteKey={captcha!.siteKey} provider={captcha!.provider}/>
+				<Captcha
+					ref={captchaRef}
+					siteKey={captcha!.siteKey}
+					provider={captcha!.provider}
+					onVerify={() => setIsCaptchaValid(true)}
+					onExpire={() => setIsCaptchaValid(false)}
+				/>
 			)}
 
 			<div className="fmdb-form-actions">
@@ -248,7 +278,8 @@ export default function Form({
 							<button
 								type="submit"
 								className="fmdb-btn fmdb-btn-primary"
-								disabled={isLoading}
+						disabled={isSubmitBlocked}
+								title={isSubmitDisabled ? t('editModeSubmitDisabled') : undefined}
 							>
 								{submitBtnLabel || t('submitBtn')}
 							</button>
@@ -256,9 +287,9 @@ export default function Form({
 						</>
 					) : (
 						<>
-							<button type="submit" className="fmdb-btn fmdb-btn-primary" disabled={isLoading}>
-								{submitBtnLabel || t('submitBtn')}
-							</button>
+							<button type="submit" className="fmdb-btn fmdb-btn-primary" disabled={isSubmitBlocked} title={isSubmitDisabled ? t('editModeSubmitDisabled') : undefined}>
+							{submitBtnLabel || t('submitBtn')}
+						</button>
 							{showResetBtn && (
 								<button type="reset" className="fmdb-btn fmdb-btn-secondary" disabled={isLoading}>
 									{resetBtnLabel || t('resetBtn')}

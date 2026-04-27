@@ -1,0 +1,24 @@
+<jnt = 'http://www.jahia.org/jahia/nt/1.0'>
+<fmdb = 'http://www.jahia.org/jahia/fmdb/nt/1.0'>
+<fmdbmix = 'http://www.jahia.org/jahia/fmdb/mix/1.0'>
+
+// Marks a node as a form action. All concrete action types must implement this mixin.
+// Actions are stored as child nodes of fmdb:actionList under a fmdb:form node.
+[fmdbmix:formAction] mixin
+
+// Sends an email after a successful form submission.
+// Subject and body support ${fieldName} interpolation from the submitted form data.
+[fmdb:emailAction] > jnt:content, fmdbmix:formAction, mix:title
+ - to (string) indexed=no
+ - from (string) indexed=no
+ - subject (string) i18n indexed=no
+ - templateMessage (string, textarea) i18n indexed=no
+
+// Forwards the full form data to a third-party endpoint (multipart/form-data).
+// CAPTCHA token fields are stripped before forwarding.
+[fmdb:forwardAction] > jnt:content, fmdbmix:formAction, mix:title
+ - targetUrl (string) indexed=no
+
+// Saves the submitted form data as child nodes under a designated JCR path.
+// Default action autocreated in fmdb:actionList; can be removed by the contributor.
+[fmdb:save2jcrAction] > jnt:content, fmdbmix:formAction, mix:title
