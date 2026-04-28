@@ -4,7 +4,9 @@
 		"removeFile": "Supprimer le fichier",
 		"noFilesSelected": "Aucun fichier sélectionné",
 		"singleInvalidFile": "Le fichier {{invalidFormats}} n'est pas autorisé. Formats autorisés : {{allowedTypes}}.",
-		"multipleInvalidFiles": "Les fichiers {{invalidFormats}} ne sont pas autorisés. Formats autorisés : {{allowedTypes}}."
+		"multipleInvalidFiles": "Les fichiers {{invalidFormats}} ne sont pas autorisés. Formats autorisés : {{allowedTypes}}.",
+		"ignoredSingleInvalidFile": "Le fichier {{invalidFormats}} a été ignoré. Formats autorisés : {{allowedTypes}}.",
+		"ignoredMultipleInvalidFiles": "Les fichiers {{invalidFormats}} ont été ignorés. Formats autorisés : {{allowedTypes}}."
 	},
 	"fmdb_inputCheckbox": {
 		"error": "Veuillez sélectionner au moins une option"

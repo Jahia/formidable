@@ -83,6 +83,23 @@ public @interface FormidableConfig {
     )
     String forwardTargets() default "";
 
+    @AttributeDefinition(
+            name = "Enable development forward targets",
+            description = "Allows use of devForwardTargets. Disabled by default. " +
+                    "When enabled, only plain HTTP targets on localhost or host.docker.internal are accepted.",
+            type = AttributeType.BOOLEAN
+    )
+    boolean enableDevForwardTargets() default false;
+
+    @AttributeDefinition(
+            name = "Development forward action targets",
+            description = "Newline-separated list of development-only forward targets for fmdb:forwardAction. " +
+                    "Each entry has the form: id|Label|http://localhost/... or id|Label|http://host.docker.internal/... " +
+                    "Ignored unless 'Enable development forward targets' is true.",
+            type = AttributeType.STRING
+    )
+    String devForwardTargets() default "";
+
     // ---
 
     @AttributeDefinition(

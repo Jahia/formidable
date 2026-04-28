@@ -51,7 +51,7 @@ Browser
          Step 9   validateRequired        post-parse: check required fields absent from the
                                           submitted body (e.g. unchecked checkbox/radio)
          Step 10  dispatchActions         execute fmdb:actionList nodes in order
-                   ├─ fmdb:emailAction:
+                   ├─ fmdb:emailNotificationAction:
                    │    - subject + to sanitized with FieldSanitizer.headerSafe()
                    │    - HTML body uses FieldSanitizer.htmlEncode() for interpolated values
                    └─ fmdb:forwardAction:
@@ -200,7 +200,8 @@ they appear in the list.
 | Node type | Description |
 |---|---|
 | `fmdb:save2jcrAction` | Saves form data as JCR child nodes (not yet implemented) |
-| `fmdb:emailAction` | Sends email via Jahia `MailService`; `${fieldName}` interpolation in subject and body; headers and HTML body sanitized |
+| `fmdb:emailNotificationAction` | Sends a notification email via Jahia `MailService`; `${fieldName}` interpolation in subject and body; headers and HTML body sanitized |
+| `fmdb:emailContentAction` | Sends the submitted form content by email; may optionally attach validated uploaded files |
 | `fmdb:forwardAction` | Forwards declared form fields + pre-parsed files to a target endpoint resolved from config by ID |
 
 ### forwardAction — target registry
@@ -214,8 +215,19 @@ forwardTargets=salesforce-prod|Salesforce Prod|https://api.salesforce.com/servic
 crm-staging|CRM Staging|https://crm.internal/hook
 ```
 
-`FormidableConfigService.resolveForwardTarget(targetId)` returns the URI or throws if the ID
-is unknown. This design prevents SSRF: contributors can only reach pre-approved endpoints.
+Optional development-only targets can be enabled explicitly:
+
+```
+enableDevForwardTargets=true
+devForwardTargets=local-api|Local API|http://localhost:3000/hook
+docker-api|Docker API|http://host.docker.internal:8080/hook
+```
+
+`devForwardTargets` only accepts plain HTTP on `localhost` and `host.docker.internal`.
+
+`FormidableConfigService.resolveForwardTarget(targetId)` returns the configured target entry or
+throws if the ID is unknown. This design prevents SSRF: contributors can only reach
+pre-approved endpoints.
 
 To add a new action type, see `AGENTS.md` → *Form action pipeline*.
 
@@ -258,7 +270,8 @@ Form submissions use `XMLHttpRequest` (not `fetch`). Jahia's OWASP CSRFGuard pat
 | `formidable-engine/.../servlet/ErrorCode.java` | Error code enum — see `docs/error-codes.md` |
 | `formidable-engine/.../actions/FormDataParser.java` | Secure multipart parser: whitelist, input validation/sanitization, Tika, allowlist, size + count limits |
 | `formidable-engine/.../actions/FieldSanitizer.java` | Output encoding utility: `htmlEncode`, `headerSafe`, `plainText` |
-| `formidable-engine/.../actions/ForwardFormAction.java` | Resolves `targetId` via `FormidableConfigService`; forwards declared fields only |
-| `formidable-engine/.../actions/SendEmailFormAction.java` | Sends email; headers sanitized with `headerSafe()`; HTML body encodes values with `htmlEncode()` |
+| `formidable-engine/.../actions/forward/ForwardSubmissionFormAction.java` | Resolves `targetId` via `FormidableConfigService`; forwards declared fields only |
+| `formidable-engine/.../actions/email/SendEmailNotificationFormAction.java` | Sends notification email; headers sanitized with `headerSafe()`; HTML body encodes values with `htmlEncode()` |
+| `formidable-engine/.../actions/email/SendEmailContentFormAction.java` | Placeholder for sending submitted form content by email, optionally with attachments |
 | `formidable-engine/.../actions/FormAction.java` | Interface implemented by each action type |
 | `formidable-engine/.../config/FormidableConfigService.java` | Reads unified cfg; resolves forward targets by ID; verifies CAPTCHA

@@ -66,7 +66,7 @@ public class FormDataParser {
 
     /**
      * Request attribute key under which the servlet stores pre-parsed files.
-     * ForwardFormAction reads this attribute to avoid re-parsing a consumed stream.
+     * ForwardSubmissionFormAction reads this attribute to avoid re-parsing a consumed stream.
      */
     public static final String PARSED_FILES_ATTR = "formidable.parsedFiles";
 
@@ -448,4 +448,3 @@ public class FormDataParser {
         return dot >= 0 ? filename.substring(dot) : "";
     }
 }
-

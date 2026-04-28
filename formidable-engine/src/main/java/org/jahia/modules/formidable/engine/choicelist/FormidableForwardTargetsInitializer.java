@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 
 /**
  * Populates the targetId choice list for fmdb:forwardAction from the
- * forwardTargets configuration in org.jahia.modules.formidable.cfg.
+ * configured forward target registries in org.jahia.modules.formidable.cfg.
  *
  * Each entry exposes the target id as the stored JCR value and the
  * operator-defined label as the display name shown in the CMS editor.

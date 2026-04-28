@@ -178,8 +178,12 @@ org.jahia.modules.formidable.engine.actions
 ├── FormAction.java                      ← strategy interface (getNodeType + execute)
 ├── FormActionException.java             ← exception carrying an httpStatus
 ├── FormSubmitAction.java                ← Jahia Action OSGi, orchestrates the pipeline
-├── CaptchaVerificationFormAction.java
-└── SendEmailFormAction.java
+├── email/
+│   └── SendEmailNotificationFormAction.java
+├── forward/
+│   └── ForwardSubmissionFormAction.java
+└── storage/
+    └── SaveToJcrFormAction.java
 ```
 
 ### `FormAction` interface
@@ -227,11 +231,11 @@ Behaviour: derives provider from `scriptUrl` via `deriveProvider()`, reads the m
 
 Also drives the front-end: `default.server.tsx` scans the `actions` prop (`JCRNodeWrapper[]`) for a node of type `fmdb:captchaAction` and reads `siteKey` + `scriptUrl` from it to inject the widget script and render the `<Captcha>` Island component.
 
-#### `fmdb:emailAction` → `SendEmailFormAction`
+#### `fmdb:emailNotificationAction` → `SendEmailNotificationFormAction`
 
 CND:
 ```cnd
-[fmdb:emailAction] > jnt:content, fmdbmix:formAction, mix:title
+[fmdb:emailNotificationAction] > jnt:content, fmdbmix:formAction, mix:title
  - to (string) indexed=no
  - from (string) indexed=no
  - subject (string) i18n indexed=no
@@ -286,7 +290,7 @@ Build: `@jahia/vite-federation-plugin` (Module Federation), output in `src/main/
 
 | Role | Action |
 |---|---|
-| **Admin** | Creates action nodes (`fmdb:captchaAction`, `fmdb:emailAction`, …) anywhere in the site content tree |
+| **Admin** | Creates action nodes (`fmdb:captchaAction`, `fmdb:emailNotificationAction`, …) anywhere in the site content tree |
 | **Contributor** | Creates a `fmdb:form`, applies `fmdbmix:actionPipeline`, selects actions via the `actions` property |
 
 ---

@@ -24,17 +24,37 @@ const MIME_EXTENSION_MAP: Record<string, string[]> = {
 	"image/png": [".png"],
 	"image/webp": [".webp"],
 	"text/csv": [".csv"],
-	"text/plain": [".txt"],
 };
 
-const formatAcceptToken = (token: string): string => {
-	const loweredToken = token.toLowerCase();
-	if (loweredToken.startsWith(".")) {
-		return loweredToken;
-	}
+const getKnownExtensionsForMime = (mimeType: string): string[] =>
+	MIME_EXTENSION_MAP[mimeType] ?? [];
 
-	return MIME_EXTENSION_MAP[loweredToken]?.join(", ") ?? token;
+const getKnownExtensionsForWildcard = (wildcardMimeType: string): string[] => {
+	const prefix = wildcardMimeType.slice(0, -1);
+	return Array.from(
+		new Set(
+			Object.entries(MIME_EXTENSION_MAP)
+				.filter(([mimeType]) => mimeType.startsWith(prefix))
+				.flatMap(([, extensions]) => extensions)
+		)
+	);
 };
+
+const getDisplayFormats = (acceptTokens: string[]): string[] =>
+	Array.from(new Set(acceptTokens.flatMap(token => {
+		const loweredToken = token.toLowerCase();
+		if (loweredToken.startsWith(".")) {
+			return [loweredToken];
+		}
+
+		if (loweredToken.endsWith("/*")) {
+			const wildcardExtensions = getKnownExtensionsForWildcard(loweredToken);
+			return wildcardExtensions.length > 0 ? wildcardExtensions : [token];
+		}
+
+		const mimeExtensions = getKnownExtensionsForMime(loweredToken);
+		return mimeExtensions.length > 0 ? mimeExtensions : [token];
+	})));
 
 const extensionFromName = (fileName: string): string => {
 	const dotIndex = fileName.lastIndexOf(".");
@@ -52,15 +72,20 @@ const matchesAcceptToken = (file: File, token: string): boolean => {
 
 	if (loweredToken.endsWith("/*")) {
 		const prefix = loweredToken.slice(0, -1);
-		return loweredType.startsWith(prefix);
+		if (loweredType) {
+			return loweredType.startsWith(prefix);
+		}
+
+		const wildcardExtensions = getKnownExtensionsForWildcard(loweredToken);
+		return wildcardExtensions.length === 0 || wildcardExtensions.some(extension => loweredName.endsWith(extension));
 	}
 
-	if (loweredType === loweredToken) {
-		return true;
+	if (loweredType) {
+		return loweredType === loweredToken;
 	}
 
-	const knownExtensions = MIME_EXTENSION_MAP[loweredToken];
-	return !!knownExtensions && knownExtensions.some(extension => loweredName.endsWith(extension));
+	const knownExtensions = getKnownExtensionsForMime(loweredToken);
+	return knownExtensions.length === 0 || knownExtensions.some(extension => loweredName.endsWith(extension));
 };
 
 export default function FileInput(
@@ -73,10 +98,13 @@ export default function FileInput(
 	}: FileInputProps
 ) {
 	const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
+	const [selectionNotice, setSelectionNotice] = useState<string | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const {t} = useTranslation('formidable-elements', {keyPrefix: 'fmdb_inputFile'});
 	const acceptTokens = normalizeAccept(accept);
-	const allowedTypesLabel = acceptTokens.map(formatAcceptToken).join(", ");
+	const allowedTypesLabel = getDisplayFormats(acceptTokens)
+		.map(format => `"${format}"`)
+		.join(", ");
 
 	const syncInputFiles = (files: File[]) => {
 		if (!fileInputRef.current) return;
@@ -84,7 +112,7 @@ export default function FileInput(
 		const dt = new DataTransfer();
 		files.forEach(file => dt.items.add(file));
 		fileInputRef.current.files = dt.files;
-		setSelectedFiles(dt.files);
+		setSelectedFiles(dt.files.length > 0 ? dt.files : null);
 	};
 
 	const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -93,13 +121,15 @@ export default function FileInput(
 
 		if (files.length === 0) {
 			input.setCustomValidity("");
+			setSelectionNotice(null);
 			setSelectedFiles(null);
 			return;
 		}
 
 		if (acceptTokens.length === 0) {
 			input.setCustomValidity("");
-			setSelectedFiles(input.files);
+			setSelectionNotice(null);
+			setSelectedFiles(input.files && input.files.length > 0 ? input.files : null);
 			return;
 		}
 
@@ -108,24 +138,34 @@ export default function FileInput(
 
 		if (invalidFiles.length === 0) {
 			input.setCustomValidity("");
-			setSelectedFiles(input.files);
+			setSelectionNotice(null);
+			setSelectedFiles(input.files && input.files.length > 0 ? input.files : null);
 			return;
 		}
-
-		syncInputFiles(validFiles);
 
 		const invalidFormats = Array.from(new Set(invalidFiles.map(file => extensionFromName(file.name))))
 			.map(format => `"${format}"`)
 			.join(", ");
-		const message = t(validFiles.length > 0 || invalidFiles.length > 1 ? "multipleInvalidFiles" : "singleInvalidFile", {
+		const blockingMessage = t(invalidFiles.length > 1 ? "multipleInvalidFiles" : "singleInvalidFile", {
 			invalidFormats,
 			allowedTypes: allowedTypesLabel,
 			interpolation: {escapeValue: false},
 		});
-		const hasValidSelection = validFiles.length > 0;
+		if (validFiles.length === 0) {
+			syncInputFiles([]);
+			setSelectionNotice(null);
+			input.setCustomValidity(blockingMessage);
+			input.reportValidity();
+			return;
+		}
 
-		input.setCustomValidity(hasValidSelection ? "" : message);
-		input.reportValidity();
+		syncInputFiles(validFiles);
+		setSelectionNotice(t(invalidFiles.length > 1 ? "ignoredMultipleInvalidFiles" : "ignoredSingleInvalidFile", {
+			invalidFormats,
+			allowedTypes: allowedTypesLabel,
+			interpolation: {escapeValue: false},
+		}));
+		input.setCustomValidity("");
 	};
 
 	const removeFile = (index: number) => {
@@ -142,7 +182,8 @@ export default function FileInput(
 
 		fileInputRef.current.files = dt.files;
 		fileInputRef.current.setCustomValidity("");
-		setSelectedFiles(dt.files);
+		setSelectionNotice(null);
+		setSelectedFiles(dt.files.length > 0 ? dt.files : null);
 	};
 
 	const acceptAttr = acceptTokens.join(",");
@@ -160,6 +201,12 @@ export default function FileInput(
 				required={required}
 				onChange={handleFileChange}
 			/>
+
+			{selectionNotice && (
+				<p className="fmdb-file-selection-note" role="status" aria-live="polite">
+					{selectionNotice}
+				</p>
+			)}
 
 			{selectedFiles && selectedFiles.length > 0 && (
 				<div className="fmdb-selected-files">

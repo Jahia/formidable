@@ -4,7 +4,9 @@
 		"removeFile": "Remove file",
 		"noFilesSelected": "No files selected",
 		"singleInvalidFile": "File {{invalidFormats}} is not allowed. Allowed formats: {{allowedTypes}}.",
-		"multipleInvalidFiles": "Files {{invalidFormats}} are not allowed. Allowed formats: {{allowedTypes}}."
+		"multipleInvalidFiles": "Files {{invalidFormats}} are not allowed. Allowed formats: {{allowedTypes}}.",
+		"ignoredSingleInvalidFile": "File {{invalidFormats}} was ignored. Allowed formats: {{allowedTypes}}.",
+		"ignoredMultipleInvalidFiles": "Files {{invalidFormats}} were ignored. Allowed formats: {{allowedTypes}}."
 	},
 	"fmdb_inputCheckbox": {
 		"error": "Please select at least one option"

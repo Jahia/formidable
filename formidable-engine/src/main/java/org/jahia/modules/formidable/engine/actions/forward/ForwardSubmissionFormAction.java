@@ -1,5 +1,9 @@
-package org.jahia.modules.formidable.engine.actions;
+package org.jahia.modules.formidable.engine.actions.forward;
 
+import org.jahia.modules.formidable.engine.actions.ContentDispositionUtils;
+import org.jahia.modules.formidable.engine.actions.FormAction;
+import org.jahia.modules.formidable.engine.actions.FormActionException;
+import org.jahia.modules.formidable.engine.actions.FormDataParser;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
@@ -29,17 +33,17 @@ import java.util.UUID;
  * Text parameters and pre-parsed files (from request attribute) are forwarded as-is.
  *
  * The target URL is never stored in JCR. The JCR node only holds a stable {@code targetId}
- * that is resolved to a URI via the operator configuration (forwardTargets in
- * org.jahia.modules.formidable.cfg). This prevents contributors from redirecting submissions
- * to arbitrary hosts.
+ * that is resolved to a URI via the operator configuration (forwardTargets and, optionally,
+ * devForwardTargets in org.jahia.modules.formidable.cfg). This prevents contributors from
+ * redirecting submissions to arbitrary hosts.
  *
  * SSRF protection: private/internal IP addresses are rejected at execution time to guard
  * against DNS rebinding of the operator-configured hostnames.
  */
 @Component(service = FormAction.class)
-public class ForwardFormAction implements FormAction {
+public class ForwardSubmissionFormAction implements FormAction {
 
-    private static final Logger log = LoggerFactory.getLogger(ForwardFormAction.class);
+    private static final Logger log = LoggerFactory.getLogger(ForwardSubmissionFormAction.class);
 
     private final HttpClient http = HttpClient.newHttpClient();
 
@@ -67,34 +71,33 @@ public class ForwardFormAction implements FormAction {
         String targetId;
         try {
             if (!actionNode.hasProperty("targetId")) {
-                log.warn("[ForwardFormAction] targetId is not set on node '{}', skipping.", actionNode.getPath());
+                log.warn("[ForwardSubmissionFormAction] targetId is not set on node '{}', skipping.", actionNode.getPath());
                 return;
             }
             targetId = actionNode.getProperty("targetId").getString();
         } catch (RepositoryException e) {
-            log.warn("[ForwardFormAction] Could not read targetId from node '{}'", actionNode.getPath(), e);
+            log.warn("[ForwardSubmissionFormAction] Could not read targetId from node '{}'", actionNode.getPath(), e);
             return;
         }
 
         if (targetId == null || targetId.isBlank()) {
-            log.warn("[ForwardFormAction] targetId is blank on node '{}', skipping.", actionNode.getPath());
+            log.warn("[ForwardSubmissionFormAction] targetId is blank on node '{}', skipping.", actionNode.getPath());
             return;
         }
 
-        URI targetUri = configService.resolveForwardTarget(targetId).orElseThrow(() -> {
-            log.warn("[ForwardFormAction] targetId '{}' on node '{}' does not match any configured forward target.",
+        FormidableConfigService.ForwardTarget target = configService.resolveForwardTarget(targetId).orElseThrow(() -> {
+            log.warn("[ForwardSubmissionFormAction] targetId '{}' on node '{}' does not match any configured forward target.",
                     targetId, actionNode.getPath());
             return new FormActionException("Forward target '" + targetId + "' is not configured.", 403);
         });
+        URI targetUri = target.uri();
 
-        checkNotPrivateAddress(targetUri);
+        checkNotPrivateAddress(targetUri, target.development());
 
         @SuppressWarnings("unchecked")
         List<FormDataParser.FormFile> files =
                 (List<FormDataParser.FormFile>) req.getAttribute(FormDataParser.PARSED_FILES_ATTR);
         if (files == null) {
-            // PARSED_FILES_ATTR is always set by FormSubmitServlet before the pipeline runs.
-            // A null value here means the request bypassed the servlet — this must never happen.
             throw new FormActionException(
                     "Form submission did not go through the expected servlet endpoint.", 500);
         }
@@ -104,7 +107,7 @@ public class ForwardFormAction implements FormAction {
         try {
             body = buildMultipartBody(parameters, files, boundary);
         } catch (IOException e) {
-            log.error("[ForwardFormAction] Failed to build multipart body", e);
+            log.error("[ForwardSubmissionFormAction] Failed to build multipart body", e);
             throw new FormActionException("Failed to build form data.", 500);
         }
 
@@ -118,28 +121,23 @@ public class ForwardFormAction implements FormAction {
             HttpResponse<Void> response = http.send(request, HttpResponse.BodyHandlers.discarding());
 
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                log.warn("[ForwardFormAction] Target '{}' returned HTTP {}", targetUri, response.statusCode());
+                log.warn("[ForwardSubmissionFormAction] Target '{}' returned HTTP {}", targetUri, response.statusCode());
                 throw new FormActionException("Forward target returned HTTP " + response.statusCode(), 502);
             }
         } catch (FormActionException e) {
             throw e;
         } catch (Exception e) {
-            log.error("[ForwardFormAction] Request to '{}' failed", targetUri, e);
+            log.error("[ForwardSubmissionFormAction] Request to '{}' failed", targetUri, e);
             throw new FormActionException("Failed to forward form data to target.", 502);
         }
     }
 
-    /**
-     * Rejects targets that resolve to a private or internal IP address,
-     * except explicit local-development endpoints.
-     * Called at execution time (not only at config load time) to guard against DNS rebinding.
-     */
-    private static void checkNotPrivateAddress(URI uri) throws FormActionException {
+    private static void checkNotPrivateAddress(URI uri, boolean allowDevelopmentEndpoint) throws FormActionException {
         String hostname = uri.getHost();
         if (hostname == null || hostname.isBlank()) {
             throw new FormActionException("Forward target URI has no valid hostname.", 400);
         }
-        if (isAllowedDevelopmentEndpoint(uri)) {
+        if (allowDevelopmentEndpoint && isAllowedDevelopmentEndpoint(uri)) {
             return;
         }
         try {
@@ -151,14 +149,14 @@ public class ForwardFormAction implements FormAction {
                 if (addr.isLoopbackAddress() || addr.isSiteLocalAddress()
                         || addr.isLinkLocalAddress() || addr.isAnyLocalAddress()
                         || addr.isMulticastAddress()) {
-                    log.warn("[ForwardFormAction] Rejected target '{}': '{}' resolves to a private/internal address ({}).",
+                    log.warn("[ForwardSubmissionFormAction] Rejected target '{}': '{}' resolves to a private/internal address ({}).",
                             uri, hostname, addr.getHostAddress());
                     throw new FormActionException(
                             "Forward target resolves to a private or internal address.", 403);
                 }
             }
         } catch (UnknownHostException e) {
-            log.warn("[ForwardFormAction] Rejected target '{}': hostname cannot be resolved.", uri);
+            log.warn("[ForwardSubmissionFormAction] Rejected target '{}': hostname cannot be resolved.", uri);
             throw new FormActionException("Forward target hostname cannot be resolved.", 400);
         }
     }
@@ -210,7 +208,8 @@ public class ForwardFormAction implements FormAction {
 
         String disposition = "Content-Disposition: form-data; name=\"" + name + "\"";
         if (filename != null && !filename.isEmpty()) {
-            disposition += "; filename=\"" + filename + "\"";
+            disposition += "; filename=\"" + ContentDispositionUtils.toAsciiFilenameFallback(filename) + "\"";
+            disposition += "; filename*=UTF-8''" + ContentDispositionUtils.encodeRfc5987(filename);
         }
         out.write(disposition.getBytes(StandardCharsets.UTF_8));
         out.write(crlf);

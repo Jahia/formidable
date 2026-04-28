@@ -97,7 +97,7 @@ The module also contains the **server-side form action framework** (Java / OSGi)
 ### Form action pipeline
 
 **Roles:**
-- **Admin** – creates action nodes (e.g. `fmdb:captchaAction`, `fmdb:emailAction`) anywhere in the site content tree.
+- **Admin** – creates action nodes (e.g. `fmdb:captchaAction`, `fmdb:emailNotificationAction`) anywhere in the site content tree.
 - **Contributor** – applies the `fmdbmix:actionPipeline` mixin to a `fmdb:form` node, then selects one or more action nodes via the `actions` weakreference-multiple property.
 
 When the form has at least one referenced action (`hasProperty('actions')`), the server-side view computes a Jahia action URL:
@@ -120,7 +120,7 @@ The `FormSubmitAction` Java class resolves each weakreference, finds the matchin
 | Node type | Java class | Description |
 |---|---|---|
 | `fmdb:captchaAction` | `CaptchaVerificationFormAction` | Verifies the token against Turnstile / hCaptcha / reCAPTCHA. Each widget auto-injects its native field (`cf-turnstile-response`, `h-captcha-response`, `g-recaptcha-response`) into the form DOM. |
-| `fmdb:emailAction` | `SendEmailFormAction` | Sends an email via Jahia `MailService`; subject and body support `${fieldName}` interpolation |
+| `fmdb:emailNotificationAction` | `SendEmailNotificationFormAction` | Sends an email via Jahia `MailService`; subject and body support `${fieldName}` interpolation |
 
 Java sources live in `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/`.
 
@@ -128,4 +128,3 @@ Java sources live in `formidable-engine/src/main/java/org/jahia/modules/formidab
 
 - Java 17 (Temurin), Node LTS, Yarn 4, Maven 3
 - Path alias `~` → `formidable-elements/src` (configured in both `vite.config.mjs` and `tsconfig.json`)
-

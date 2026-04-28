@@ -37,11 +37,13 @@ public class FormidableConfigService {
     /**
      * A resolved forward target entry from the operator configuration.
      *
-     * @param id    stable identifier stored in JCR (e.g. {@code salesforce-prod})
-     * @param label human-readable label shown in the CMS editor
-     * @param uri   resolved target URI; guaranteed to use HTTPS
+     * @param id          stable identifier stored in JCR (e.g. {@code salesforce-prod})
+     * @param label       human-readable label shown in the CMS editor
+     * @param uri         resolved target URI; guaranteed to use HTTPS for standard targets,
+     *                    or HTTP on localhost / host.docker.internal for explicit dev targets
+     * @param development whether this target comes from {@code devForwardTargets}
      */
-    public record ForwardTarget(String id, String label, URI uri) {}
+    public record ForwardTarget(String id, String label, URI uri, boolean development) {}
 
     private static final Logger log = LoggerFactory.getLogger(FormidableConfigService.class);
 
@@ -54,6 +56,7 @@ public class FormidableConfigService {
     private long uploadMaxRequestSizeBytes;
     private int  uploadMaxFileCount;
     private Set<String> uploadAllowedMimeTypes;
+    private boolean enableDevForwardTargets;
 
     /** Keyed by target id. Insertion-ordered so the choice list is stable. */
     private Map<String, ForwardTarget> forwardTargets = new LinkedHashMap<>();
@@ -76,23 +79,41 @@ public class FormidableConfigService {
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toSet());
 
-        forwardTargets = parseForwardTargets(config.forwardTargets());
+        enableDevForwardTargets = config.enableDevForwardTargets();
 
-        log.info("FormidableConfigService configured: captcha={}, maxFileSize={}MB, maxRequest={}MB, allowedTypes={}, forwardTargets={}",
+        Map<String, ForwardTarget> standardForwardTargets =
+                parseForwardTargets(config.forwardTargets(), "forwardTargets", false);
+        Map<String, ForwardTarget> developmentForwardTargets = new LinkedHashMap<>();
+
+        if (enableDevForwardTargets) {
+            developmentForwardTargets =
+                    parseForwardTargets(config.devForwardTargets(), "devForwardTargets", true);
+        } else if (config.devForwardTargets() != null && !config.devForwardTargets().isBlank()) {
+            log.info("[FormidableConfigService] Ignoring devForwardTargets because enableDevForwardTargets=false.");
+        }
+
+        forwardTargets = mergeForwardTargets(standardForwardTargets, developmentForwardTargets);
+
+        log.info("FormidableConfigService configured: captcha={}, maxFileSize={}MB, maxRequest={}MB, allowedTypes={}, forwardTargets={}, devForwardTargetsEnabled={}, devForwardTargets={}",
                 isCaptchaConfigured() ? "[set]" : "[missing]",
                 uploadMaxFileSizeBytes / 1_048_576,
                 uploadMaxRequestSizeBytes / 1_048_576,
                 uploadAllowedMimeTypes.size(),
-                forwardTargets.size());
+                forwardTargets.size(),
+                enableDevForwardTargets,
+                developmentForwardTargets.size());
     }
 
     /**
-     * Parses the {@code forwardTargets} config value.
-     * Each line has the form: {@code id|Label|https://...}
-     * Invalid entries are logged and skipped. For local Docker development,
-     * plain HTTP is also accepted for localhost and host.docker.internal.
+     * Parses a forward target registry config value.
+     * Each line has the form: {@code id|Label|url}
+     * Invalid entries are logged and skipped.
      */
-    private static Map<String, ForwardTarget> parseForwardTargets(String raw) {
+    private static Map<String, ForwardTarget> parseForwardTargets(
+            String raw,
+            String propertyName,
+            boolean development
+    ) {
         Map<String, ForwardTarget> result = new LinkedHashMap<>();
         if (raw == null || raw.isBlank()) {
             return result;
@@ -105,7 +126,7 @@ public class FormidableConfigService {
             }
             String[] parts = trimmed.split("\\|", 3);
             if (parts.length != 3) {
-                log.warn("[FormidableConfigService] Skipping malformed forwardTargets entry (expected id|label|url): '{}'", trimmed);
+                log.warn("[FormidableConfigService] Skipping malformed {} entry (expected id|label|url): '{}'", propertyName, trimmed);
                 continue;
             }
             String id    = parts[0].trim();
@@ -113,39 +134,64 @@ public class FormidableConfigService {
             String url   = parts[2].trim();
 
             if (id.isEmpty() || url.isEmpty()) {
-                log.warn("[FormidableConfigService] Skipping forwardTargets entry with empty id or url: '{}'", trimmed);
+                log.warn("[FormidableConfigService] Skipping {} entry with empty id or url: '{}'", propertyName, trimmed);
                 continue;
             }
             URI uri;
             try {
                 uri = URI.create(url);
             } catch (IllegalArgumentException e) {
-                log.warn("[FormidableConfigService] Skipping forwardTargets entry '{}': malformed URI '{}'", id, url);
+                log.warn("[FormidableConfigService] Skipping {} entry '{}': malformed URI '{}'", propertyName, id, url);
                 continue;
             }
-            if (!isSupportedForwardTargetUri(uri)) {
-                log.warn("[FormidableConfigService] Skipping forwardTargets entry '{}': URI must use HTTPS, except for localhost and host.docker.internal over HTTP.", id);
+            if (!isSupportedForwardTargetUri(uri, development)) {
+                log.warn("[FormidableConfigService] Skipping {} entry '{}': {}",
+                        propertyName,
+                        id,
+                        development
+                                ? "URI must use HTTP on localhost or host.docker.internal."
+                                : "URI must use HTTPS.");
                 continue;
             }
             if (result.containsKey(id)) {
-                log.warn("[FormidableConfigService] Duplicate forwardTargets id '{}', keeping first occurrence.", id);
+                log.warn("[FormidableConfigService] Duplicate {} id '{}', keeping first occurrence.", propertyName, id);
                 continue;
             }
-            result.put(id, new ForwardTarget(id, label, uri));
+            result.put(id, new ForwardTarget(id, label, uri, development));
         }
         return result;
     }
 
-    private static boolean isSupportedForwardTargetUri(URI uri) {
+    private static Map<String, ForwardTarget> mergeForwardTargets(
+            Map<String, ForwardTarget> standardForwardTargets,
+            Map<String, ForwardTarget> developmentForwardTargets
+    ) {
+        Map<String, ForwardTarget> merged = new LinkedHashMap<>(standardForwardTargets);
+        for (Map.Entry<String, ForwardTarget> entry : developmentForwardTargets.entrySet()) {
+            if (merged.containsKey(entry.getKey())) {
+                log.warn("[FormidableConfigService] Duplicate forward target id '{}' across forwardTargets and devForwardTargets, keeping the standard target.",
+                        entry.getKey());
+                continue;
+            }
+            merged.put(entry.getKey(), entry.getValue());
+        }
+        return merged;
+    }
+
+    private static boolean isSupportedForwardTargetUri(URI uri, boolean development) {
         String scheme = uri.getScheme();
-        if ("https".equalsIgnoreCase(scheme)) {
-            return true;
+        if (!development) {
+            return "https".equalsIgnoreCase(scheme);
         }
 
         if (!"http".equalsIgnoreCase(scheme)) {
             return false;
         }
 
+        return isAllowedDevelopmentEndpoint(uri);
+    }
+
+    private static boolean isAllowedDevelopmentEndpoint(URI uri) {
         String host = uri.getHost();
         return "localhost".equalsIgnoreCase(host) || "host.docker.internal".equalsIgnoreCase(host);
     }
@@ -220,11 +266,11 @@ public class FormidableConfigService {
      * Resolves a forward target by its stable id.
      *
      * @param id the value stored in the JCR {@code targetId} property
-     * @return the target URI, or empty if the id is unknown
+     * @return the configured forward target, or empty if the id is unknown
      */
-    public Optional<URI> resolveForwardTarget(String id) {
+    public Optional<ForwardTarget> resolveForwardTarget(String id) {
         ForwardTarget target = forwardTargets.get(id);
-        return target != null ? Optional.of(target.uri()) : Optional.empty();
+        return target != null ? Optional.of(target) : Optional.empty();
     }
 
     private static String encode(String value) {
