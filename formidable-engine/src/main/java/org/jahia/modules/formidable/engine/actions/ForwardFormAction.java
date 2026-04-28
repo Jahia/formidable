@@ -29,7 +29,7 @@ import java.util.UUID;
  * Text parameters and pre-parsed files (from request attribute) are forwarded as-is.
  *
  * The target URL is never stored in JCR. The JCR node only holds a stable {@code targetId}
- * that is resolved to a URI via the operator configuration (forward_targets in
+ * that is resolved to a URI via the operator configuration (forwardTargets in
  * org.jahia.modules.formidable.cfg). This prevents contributors from redirecting submissions
  * to arbitrary hosts.
  *
@@ -130,13 +130,17 @@ public class ForwardFormAction implements FormAction {
     }
 
     /**
-     * Rejects targets that resolve to a private or internal IP address.
+     * Rejects targets that resolve to a private or internal IP address,
+     * except explicit local-development endpoints.
      * Called at execution time (not only at config load time) to guard against DNS rebinding.
      */
     private static void checkNotPrivateAddress(URI uri) throws FormActionException {
         String hostname = uri.getHost();
         if (hostname == null || hostname.isBlank()) {
             throw new FormActionException("Forward target URI has no valid hostname.", 400);
+        }
+        if (isAllowedDevelopmentEndpoint(uri)) {
+            return;
         }
         try {
             InetAddress[] addresses = InetAddress.getAllByName(hostname);
@@ -157,6 +161,15 @@ public class ForwardFormAction implements FormAction {
             log.warn("[ForwardFormAction] Rejected target '{}': hostname cannot be resolved.", uri);
             throw new FormActionException("Forward target hostname cannot be resolved.", 400);
         }
+    }
+
+    private static boolean isAllowedDevelopmentEndpoint(URI uri) {
+        if (!"http".equalsIgnoreCase(uri.getScheme())) {
+            return false;
+        }
+
+        String host = uri.getHost();
+        return "localhost".equalsIgnoreCase(host) || "host.docker.internal".equalsIgnoreCase(host);
     }
 
     private static byte[] buildMultipartBody(

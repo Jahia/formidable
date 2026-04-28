@@ -2,7 +2,9 @@
 	"fmdb_inputFile": {
 		"selectedFiles": "Selected files:",
 		"removeFile": "Remove file",
-		"noFilesSelected": "No files selected"
+		"noFilesSelected": "No files selected",
+		"singleInvalidFile": "File {{invalidFormats}} is not allowed. Allowed formats: {{allowedTypes}}.",
+		"multipleInvalidFiles": "Files {{invalidFormats}} are not allowed. Allowed formats: {{allowedTypes}}."
 	},
 	"fmdb_inputCheckbox": {
 		"error": "Please select at least one option"
@@ -18,6 +20,7 @@
 		"nextBtn": "Next",
 		"stepsNav": "Form steps",
 		"captchaRequired": "Please complete the CAPTCHA verification.",
-		"editModeSubmitDisabled": "Form submission is disabled in edit/preview mode."
+		"editModeSubmitDisabled": "Form submission is disabled in edit/preview mode.",
+		"errorCode": "Error code"
 	}
 }

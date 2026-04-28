@@ -1,7 +1,6 @@
 // File input component properties
 [fmdb:inputFile] > jnt:content, fmdbmix:element
- - accept (string, choicelist[formidableMimeTypes]) multiple indexed=no
+ - accept (string, choicelist[formidableMimeTypes,resourceBundle]) multiple indexed=no
  - multiple (boolean) = false
  - required (boolean) = false
  // - capture (string) indexed=no // Uncomment if capture attribute is needed
-

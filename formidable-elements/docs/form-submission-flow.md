@@ -210,7 +210,8 @@ populated by `FormidableForwardTargetsInitializer`. The available targets are de
 administrator in `org.jahia.modules.formidable.cfg`:
 
 ```
-forward_targets=salesforce-prod|Salesforce Prod|https://api.salesforce.com/services/,crm-staging|CRM Staging|https://crm.internal/hook
+forwardTargets=salesforce-prod|Salesforce Prod|https://api.salesforce.com/services/
+crm-staging|CRM Staging|https://crm.internal/hook
 ```
 
 `FormidableConfigService.resolveForwardTarget(targetId)` returns the URI or throws if the ID

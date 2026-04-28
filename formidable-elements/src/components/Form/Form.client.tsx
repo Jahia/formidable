@@ -102,6 +102,7 @@ export default function Form({
 		}
 
 		const form = event.currentTarget;
+		let serverErrorCode: string | undefined;
 
 		try {
 			const formData = new FormData(form);
@@ -137,7 +138,14 @@ export default function Form({
 				xhr.onerror = () => reject(new Error('Submission failed'));
 				xhr.send(formData);
 			});
-			if (response.status < 200 || response.status >= 300) throw new Error('Submission failed');
+
+			if (response.status < 200 || response.status >= 300) {
+				try {
+					const body = JSON.parse(response.responseText);
+					if (typeof body.errorCode === 'string') serverErrorCode = body.errorCode;
+				} catch { /* ignore non-JSON bodies */ }
+				throw new Error('Submission failed');
+			}
 
 			await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -148,7 +156,11 @@ export default function Form({
 		} catch (error) {
 			const formData = new FormData(form);
 			const interpolatedErrorMessage = interpolateMessage(errorMessage, formData, locale);
-			setMessage(interpolatedErrorMessage || 'An error occurred while submitting the form.');
+			const base = interpolatedErrorMessage || 'An error occurred while submitting the form.';
+			const full = serverErrorCode
+				? `${base}<br><small>${t('errorCode')}: ${serverErrorCode}</small>`
+				: base;
+			setMessage(full);
 			setMessageType('error');
 			captchaRef.current?.reset();
 			console.error("formidable submit error:", error);

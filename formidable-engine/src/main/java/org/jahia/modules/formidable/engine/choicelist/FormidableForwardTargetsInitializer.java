@@ -1,14 +1,15 @@
 package org.jahia.modules.formidable.engine.choicelist;
 
-import org.apache.jackrabbit.value.ValueFactoryImpl;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.services.content.nodetypes.ExtendedPropertyDefinition;
-import org.jahia.services.content.nodetypes.initializers.ChoiceListInitializer;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListValue;
+import org.jahia.services.content.nodetypes.initializers.ModuleChoiceListInitializer;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import javax.jcr.Value;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -16,15 +17,18 @@ import java.util.stream.Collectors;
 
 /**
  * Populates the targetId choice list for fmdb:forwardAction from the
- * forward_targets configuration in org.jahia.modules.formidable.cfg.
+ * forwardTargets configuration in org.jahia.modules.formidable.cfg.
  *
  * Each entry exposes the target id as the stored JCR value and the
  * operator-defined label as the display name shown in the CMS editor.
  *
  * Registered as: choicelist[formidableForwardTargets] in the CND.
  */
-@Component(service = ChoiceListInitializer.class, property = {"name=formidableForwardTargets"})
-public class FormidableForwardTargetsInitializer implements ChoiceListInitializer {
+@Component(service = ModuleChoiceListInitializer.class)
+public class FormidableForwardTargetsInitializer implements ModuleChoiceListInitializer {
+
+    private static final String KEY = "formidableForwardTargets";
+    private static final Logger log = LoggerFactory.getLogger(FormidableForwardTargetsInitializer.class);
 
     private FormidableConfigService configService;
 
@@ -36,17 +40,23 @@ public class FormidableForwardTargetsInitializer implements ChoiceListInitialize
     @Override
     public List<ChoiceListValue> getChoiceListValues(ExtendedPropertyDefinition epd, String param,
             List<ChoiceListValue> values, Locale locale, Map<String, Object> context) {
-        return configService.getForwardTargets().stream()
-                .map(target -> {
-                    try {
-                        Value jcrValue = ValueFactoryImpl.getInstance().createValue(target.id());
-                        return new ChoiceListValue(target.label(), null, jcrValue);
-                    } catch (Exception e) {
-                        return null;
-                    }
-                })
-                .filter(cv -> cv != null)
+        Collection<FormidableConfigService.ForwardTarget> targets = configService.getForwardTargets();
+        if (targets.isEmpty()) {
+            log.warn("[FormidableForwardTargetsInitializer] No forward targets are configured. "
+                    + "The choicelist '{}' for property '{}' will be empty.", KEY, epd.getName());
+        }
+        return targets.stream()
+                .map(target -> new ChoiceListValue(target.label(), target.id()))
                 .collect(Collectors.toList());
     }
-}
 
+    @Override
+    public void setKey(String key) {
+        // Jahia injects the service key on registration; this initializer uses a fixed key.
+    }
+
+    @Override
+    public String getKey() {
+        return KEY;
+    }
+}

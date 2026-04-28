@@ -63,20 +63,20 @@ public class FormidableConfigService {
     @Activate
     @Modified
     public void activate(FormidableConfig config) {
-        captchaSiteKey    = config.captcha_siteKey();
-        captchaSecretKey  = config.captcha_secretKey();
-        captchaScriptUrl  = config.captcha_scriptUrl();
-        captchaVerifyUrl  = config.captcha_verifyUrl();
+        captchaSiteKey    = config.captchaSiteKey();
+        captchaSecretKey  = config.captchaSecretKey();
+        captchaScriptUrl  = config.captchaScriptUrl();
+        captchaVerifyUrl  = config.captchaVerifyUrl();
 
-        uploadMaxFileSizeBytes    = config.upload_maxFileSizeBytes();
-        uploadMaxRequestSizeBytes = config.upload_maxRequestSizeBytes();
-        uploadMaxFileCount        = config.upload_maxFileCount();
-        uploadAllowedMimeTypes    = Arrays.stream(config.upload_allowedMimeTypes().split(","))
+        uploadMaxFileSizeBytes    = config.uploadMaxFileSizeBytes();
+        uploadMaxRequestSizeBytes = config.uploadMaxRequestSizeBytes();
+        uploadMaxFileCount        = config.uploadMaxFileCount();
+        uploadAllowedMimeTypes    = Arrays.stream(config.uploadAllowedMimeTypes().split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toSet());
 
-        forwardTargets = parseForwardTargets(config.forward_targets());
+        forwardTargets = parseForwardTargets(config.forwardTargets());
 
         log.info("FormidableConfigService configured: captcha={}, maxFileSize={}MB, maxRequest={}MB, allowedTypes={}, forwardTargets={}",
                 isCaptchaConfigured() ? "[set]" : "[missing]",
@@ -87,17 +87,17 @@ public class FormidableConfigService {
     }
 
     /**
-     * Parses the {@code forward_targets} config value.
-     * Each line (or comma-separated entry) has the form: {@code id|Label|https://...}
-     * Invalid or non-HTTPS entries are logged and skipped.
+     * Parses the {@code forwardTargets} config value.
+     * Each line has the form: {@code id|Label|https://...}
+     * Invalid entries are logged and skipped. For local Docker development,
+     * plain HTTP is also accepted for localhost and host.docker.internal.
      */
     private static Map<String, ForwardTarget> parseForwardTargets(String raw) {
         Map<String, ForwardTarget> result = new LinkedHashMap<>();
         if (raw == null || raw.isBlank()) {
             return result;
         }
-        // Support both newline and comma as separator for OSGi multi-value fields
-        String[] entries = raw.split("[,\n\r]+");
+        String[] entries = raw.split("[\n\r]+");
         for (String entry : entries) {
             String trimmed = entry.trim();
             if (trimmed.isEmpty()) {
@@ -105,7 +105,7 @@ public class FormidableConfigService {
             }
             String[] parts = trimmed.split("\\|", 3);
             if (parts.length != 3) {
-                log.warn("[FormidableConfigService] Skipping malformed forward_targets entry (expected id|label|url): '{}'", trimmed);
+                log.warn("[FormidableConfigService] Skipping malformed forwardTargets entry (expected id|label|url): '{}'", trimmed);
                 continue;
             }
             String id    = parts[0].trim();
@@ -113,27 +113,41 @@ public class FormidableConfigService {
             String url   = parts[2].trim();
 
             if (id.isEmpty() || url.isEmpty()) {
-                log.warn("[FormidableConfigService] Skipping forward_targets entry with empty id or url: '{}'", trimmed);
+                log.warn("[FormidableConfigService] Skipping forwardTargets entry with empty id or url: '{}'", trimmed);
                 continue;
             }
             URI uri;
             try {
                 uri = URI.create(url);
             } catch (IllegalArgumentException e) {
-                log.warn("[FormidableConfigService] Skipping forward_targets entry '{}': malformed URI '{}'", id, url);
+                log.warn("[FormidableConfigService] Skipping forwardTargets entry '{}': malformed URI '{}'", id, url);
                 continue;
             }
-            if (!"https".equalsIgnoreCase(uri.getScheme())) {
-                log.warn("[FormidableConfigService] Skipping forward_targets entry '{}': URI must use HTTPS.", id);
+            if (!isSupportedForwardTargetUri(uri)) {
+                log.warn("[FormidableConfigService] Skipping forwardTargets entry '{}': URI must use HTTPS, except for localhost and host.docker.internal over HTTP.", id);
                 continue;
             }
             if (result.containsKey(id)) {
-                log.warn("[FormidableConfigService] Duplicate forward_targets id '{}', keeping first occurrence.", id);
+                log.warn("[FormidableConfigService] Duplicate forwardTargets id '{}', keeping first occurrence.", id);
                 continue;
             }
             result.put(id, new ForwardTarget(id, label, uri));
         }
         return result;
+    }
+
+    private static boolean isSupportedForwardTargetUri(URI uri) {
+        String scheme = uri.getScheme();
+        if ("https".equalsIgnoreCase(scheme)) {
+            return true;
+        }
+
+        if (!"http".equalsIgnoreCase(scheme)) {
+            return false;
+        }
+
+        String host = uri.getHost();
+        return "localhost".equalsIgnoreCase(host) || "host.docker.internal".equalsIgnoreCase(host);
     }
 
     // --- CAPTCHA ---
@@ -217,4 +231,3 @@ public class FormidableConfigService {
         return URLEncoder.encode(value == null ? "" : value, StandardCharsets.UTF_8);
     }
 }
-

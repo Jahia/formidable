@@ -21,14 +21,14 @@ public @interface FormidableConfig {
             description = "Public site key provided by the CAPTCHA service dashboard. Injected in the page to render the widget.",
             type = AttributeType.STRING
     )
-    String captcha_siteKey() default "";
+    String captchaSiteKey() default "";
 
     @AttributeDefinition(
             name = "CAPTCHA secret key",
             description = "Private secret key used to verify the submitted token server-side. Never exposed to the client.",
             type = AttributeType.PASSWORD
     )
-    String captcha_secretKey() default "";
+    String captchaSecretKey() default "";
 
     @AttributeDefinition(
             name = "CAPTCHA provider script URL",
@@ -36,7 +36,7 @@ public @interface FormidableConfig {
                     "(e.g. https://challenges.cloudflare.com/turnstile/v0/api.js).",
             type = AttributeType.STRING
     )
-    String captcha_scriptUrl() default "";
+    String captchaScriptUrl() default "";
 
     @AttributeDefinition(
             name = "CAPTCHA verification endpoint URL",
@@ -44,7 +44,7 @@ public @interface FormidableConfig {
                     "(e.g. https://challenges.cloudflare.com/turnstile/v0/siteverify).",
             type = AttributeType.STRING
     )
-    String captcha_verifyUrl() default "";
+    String captchaVerifyUrl() default "";
 
     // --- FILE UPLOAD ---
 
@@ -53,14 +53,14 @@ public @interface FormidableConfig {
             description = "Maximum allowed size per uploaded file in bytes. Default: 10 MB.",
             type = AttributeType.LONG
     )
-    long upload_maxFileSizeBytes() default 10_485_760L;
+    long uploadMaxFileSizeBytes() default 10_485_760L;
 
     @AttributeDefinition(
             name = "Max request size (bytes)",
             description = "Maximum allowed total multipart request body size in bytes. Default: 50 MB.",
             type = AttributeType.LONG
     )
-    long upload_maxRequestSizeBytes() default 52_428_800L;
+    long uploadMaxRequestSizeBytes() default 52_428_800L;
 
     @AttributeDefinition(
             name = "Max file count per request",
@@ -68,7 +68,7 @@ public @interface FormidableConfig {
                     "Limits resource exhaustion (CVE-2023-24998). Default: 10.",
             type = AttributeType.INTEGER
     )
-    int upload_maxFileCount() default 10;
+    int uploadMaxFileCount() default 10;
 
     // --- FORWARD ACTION ---
 
@@ -76,11 +76,12 @@ public @interface FormidableConfig {
             name = "Forward action targets",
             description = "Newline-separated list of allowed forward targets for fmdb:forwardAction. " +
                     "Each entry has the form: id|Label|https://target-url. " +
+                    "Commas inside labels or URLs are preserved. " +
                     "The id is stored in JCR; the URL is resolved server-side and never exposed to contributors. " +
                     "Leave empty to disable all forward actions (fail-safe default).",
             type = AttributeType.STRING
     )
-    String forward_targets() default "";
+    String forwardTargets() default "";
 
     // ---
 
@@ -90,9 +91,8 @@ public @interface FormidableConfig {
                     "on the fmdb:inputFile field. Comma-separated list of MIME types.",
             type = AttributeType.STRING
     )
-    String upload_allowedMimeTypes() default "image/jpeg,image/png,image/gif,image/webp,application/pdf," +
+    String uploadAllowedMimeTypes() default "image/jpeg,image/png,image/gif,image/webp,application/pdf," +
             "application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document," +
             "application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet," +
             "text/plain,text/csv";
 }
-

@@ -2,8 +2,8 @@ package org.jahia.modules.formidable.engine.choicelist;
 
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.services.content.nodetypes.ExtendedPropertyDefinition;
-import org.jahia.services.content.nodetypes.initializers.ChoiceListInitializer;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListValue;
+import org.jahia.services.content.nodetypes.initializers.ModuleChoiceListInitializer;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 
@@ -14,17 +14,19 @@ import java.util.stream.Collectors;
 
 /**
  * Populates the accept choice list for fmdb:inputFile from the
- * upload.allowedMimeTypes configuration in org.jahia.modules.formidable.cfg.
+ * uploadAllowedMimeTypes configuration in org.jahia.modules.formidable.cfg.
  *
- * Labels are resolved by Jahia's renderer from the module resource bundle
- * using the convention key: fmdb_inputFile.accept.{mime/type}
- * (e.g. fmdb_inputFile.accept.image/jpeg=JPEG Image)
- * If no key is defined, the raw MIME type is displayed.
+ * Labels are resolved by Jahia's resourceBundle choicelist initializer from the
+ * resource bundle of the module declaring the property definition.
+ * For fmdb:inputFile.accept, the expected keys are:
+ * fmdb_inputFile.accept.{mime/type}
  *
  * Registered as: choicelist[formidableMimeTypes] in the CND.
  */
-@Component(service = ChoiceListInitializer.class, property = {"name=formidableMimeTypes"})
-public class FormidableMimeTypesInitializer implements ChoiceListInitializer {
+@Component(service = ModuleChoiceListInitializer.class)
+public class FormidableMimeTypesInitializer implements ModuleChoiceListInitializer {
+
+    private static final String KEY = "formidableMimeTypes";
 
     private FormidableConfigService configService;
 
@@ -40,5 +42,15 @@ public class FormidableMimeTypesInitializer implements ChoiceListInitializer {
                 .sorted()
                 .map(mime -> new ChoiceListValue(mime, mime))
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public void setKey(String key) {
+        // Jahia injects the service key on registration; this initializer uses a fixed key.
+    }
+
+    @Override
+    public String getKey() {
+        return KEY;
     }
 }
