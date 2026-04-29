@@ -42,6 +42,6 @@ If you don't use default configuration for the Docker container port and credent
 
 ## Documentation
 
-- [Form submission flow](docs/form-submission-flow.md) — two-phase submission, captcha pipeline, `customTarget`
-- [CAPTCHA server-side validation](docs/captcha-server-side-validation.md) — provider verification endpoints and examples
+- [Form submission flow](../docs/form-submission-flow.md) — two-phase submission, captcha pipeline, `customTarget`
+- [CAPTCHA server-side validation](../docs/captcha-server-side-validation.md) — provider verification endpoints and examples
 
