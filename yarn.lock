@@ -598,7 +598,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@floating-ui/react@npm:^0.27.16":
+"@floating-ui/react@npm:^0.27.7":
   version: 0.27.19
   resolution: "@floating-ui/react@npm:0.27.19"
   dependencies:
@@ -709,11 +709,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@jahia/moonstone@npm:^2.17.3":
-  version: 2.17.5
-  resolution: "@jahia/moonstone@npm:2.17.5"
+"@jahia/moonstone@npm:2.16.2":
+  version: 2.16.2
+  resolution: "@jahia/moonstone@npm:2.16.2"
   dependencies:
-    "@floating-ui/react": "npm:^0.27.16"
+    "@floating-ui/react": "npm:^0.27.7"
     clsx: "npm:^2.1.1"
     re-resizable: "npm:^6.11.2"
     to-px: "npm:^1.1.0"
@@ -721,7 +721,7 @@ __metadata:
     react: ^18.3.1
     react-dom: ^18.3.1
     react-table: ^7.8.0
-  checksum: 10c0/0d78986b5ae5009f9107cfef3763791e78d1f65ac509bcf4abbdd71bd62ba1b4780016b349bb7c12fd987cd8a2903bbdc09ef06ccd535afcfaf648e01872a943
+  checksum: 10c0/69f308c0b93e6cc6ec399f8645d39e4f466e7fbc9379337101c32aee956016c23ffd1a2f4af1e9a04fc5dd314c97db4e7c6db39774d2130abbd865c07954d8c9
   languageName: node
   linkType: hard
 
@@ -3277,7 +3277,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "formidable-engine@workspace:formidable-engine"
   dependencies:
-    "@jahia/moonstone": "npm:^2.17.3"
+    "@jahia/moonstone": "npm:2.16.2"
     "@jahia/ui-extender": "npm:^1.2.0"
     "@jahia/vite-federation-plugin": "npm:^0.1.1"
     "@types/react": "npm:^18.3.28"
