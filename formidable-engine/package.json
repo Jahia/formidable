@@ -7,7 +7,7 @@
     "build": "vite build"
   },
   "dependencies": {
-    "@jahia/moonstone": "^2.17.3",
+    "@jahia/moonstone": "2.16.2",
     "@jahia/ui-extender": "^1.2.0",
     "i18next": "^20.6.1",
     "react": "^18.3.1",

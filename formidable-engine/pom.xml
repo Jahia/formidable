@@ -56,8 +56,13 @@
         <dependency>
             <groupId>org.apache.tika</groupId>
             <artifactId>tika-core</artifactId>
-            <version>${tika.version}</version>
-            <scope>provided</scope>
+            <version>3.2.3</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <!-- Override transitive version (CVE-2023-24998, CVE-2025-48976) -->
         <dependency>
@@ -152,4 +157,3 @@
         </plugins>
     </build>
 </project>
-
