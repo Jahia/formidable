@@ -1,5 +1,8 @@
-package org.jahia.modules.formidable.engine.actions;
+package org.jahia.modules.formidable.engine.actions.email;
 
+import org.jahia.modules.formidable.engine.actions.FieldSanitizer;
+import org.jahia.modules.formidable.engine.actions.FormAction;
+import org.jahia.modules.formidable.engine.actions.FormActionException;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.mail.MailMessage;
@@ -19,9 +22,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Sends an email after a successful form submission.
+ * Sends a notification email after a successful form submission.
  *
- * The contributor configures on the fmdb:emailAction node:
+ * The contributor configures on the fmdb:emailNotificationAction node:
  *   - {@code to}              – recipient address (supports ${fieldName} interpolation)
  *   - {@code from}            – optional sender override
  *   - {@code subject}         – email subject (supports ${fieldName} interpolation)
@@ -30,9 +33,9 @@ import java.util.regex.Pattern;
  * Requires Jahia's MailService to be configured (SMTP settings in Jahia administration).
  */
 @Component(service = FormAction.class)
-public class SendEmailFormAction implements FormAction {
+public class SendEmailNotificationFormAction implements FormAction {
 
-    private static final Logger log = LoggerFactory.getLogger(SendEmailFormAction.class);
+    private static final Logger log = LoggerFactory.getLogger(SendEmailNotificationFormAction.class);
 
     private static final Pattern INTERPOLATION = Pattern.compile("\\$\\{([^}]+)}");
 
@@ -49,7 +52,7 @@ public class SendEmailFormAction implements FormAction {
 
     @Override
     public String getNodeType() {
-        return "fmdb:emailAction";
+        return "fmdb:emailNotificationAction";
     }
 
     @Override
@@ -65,14 +68,16 @@ public class SendEmailFormAction implements FormAction {
             throw FormActionException.serverError("MailService is unavailable. Check Jahia SMTP configuration.");
         }
 
-        String to = interpolate(readProperty(actionNode, "to"), parameters);
+        String to = interpolate(readProperty(actionNode, "to"), parameters, false);
         if (to == null || to.isBlank()) {
-            throw FormActionException.serverError("fmdb:emailAction is missing a 'to' address.");
+            throw FormActionException.serverError("fmdb:emailNotificationAction is missing a 'to' address.");
         }
+        to = FieldSanitizer.headerSafe(to);
 
         String from = readProperty(actionNode, "from");
-        String subject = interpolate(readProperty(actionNode, "subject"), parameters);
-        String htmlBody = interpolate(readProperty(actionNode, "templateMessage"), parameters);
+        String subject = FieldSanitizer.headerSafe(
+                interpolate(readProperty(actionNode, "subject"), parameters, false));
+        String htmlBody = interpolate(readProperty(actionNode, "templateMessage"), parameters, true);
 
         MailMessage message = new MailMessage();
         message.setTo(to);
@@ -82,25 +87,29 @@ public class SendEmailFormAction implements FormAction {
 
         try {
             mailService.sendMessage(message);
-            log.debug("Email sent to '{}' with subject '{}'", to, subject);
+            log.debug("Email notification sent to '{}' with subject '{}'", to, subject);
         } catch (Exception e) {
-            log.error("Failed to send email to '{}'", to, e);
-            throw FormActionException.serverError("Failed to send email: " + e.getMessage());
+            log.error("Failed to send email notification to '{}'", to, e);
+            throw FormActionException.serverError("Failed to send email notification: " + e.getMessage());
         }
     }
 
     /**
-     * Replaces {@code ${fieldName}} placeholders with the first matching form parameter value.
+     * Replaces {@code ${fieldName}} placeholders with form parameter values.
+     * When {@code escapeHtmlValues} is true, values are HTML-encoded via {@link FieldSanitizer#htmlEncode}
+     * before insertion (use for HTML email body). Pass false for plain-text fields like
+     * addresses or subjects.
      * Unknown placeholders are replaced with an empty string.
      */
-    static String interpolate(String template, Map<String, List<String>> parameters) {
+    static String interpolate(String template, Map<String, List<String>> parameters, boolean escapeHtmlValues) {
         if (template == null) return null;
         Matcher m = INTERPOLATION.matcher(template);
         StringBuilder sb = new StringBuilder();
         while (m.find()) {
             String field = m.group(1);
             List<String> values = parameters.get(field);
-            String replacement = (values != null && !values.isEmpty()) ? values.get(0) : "";
+            String raw = (values != null && !values.isEmpty()) ? values.get(0) : "";
+            String replacement = escapeHtmlValues ? FieldSanitizer.htmlEncode(raw) : FieldSanitizer.plainText(raw);
             m.appendReplacement(sb, Matcher.quoteReplacement(replacement));
         }
         m.appendTail(sb);
@@ -115,4 +124,3 @@ public class SendEmailFormAction implements FormAction {
         }
     }
 }
-

@@ -3,7 +3,7 @@ import FileInput from "./File.client";
 
 interface InputFileProps {
 	"jcr:title"?: string;
-	accept?: string;
+	accept?: string[];
 	multiple?: boolean;
 	required?: boolean;
 }

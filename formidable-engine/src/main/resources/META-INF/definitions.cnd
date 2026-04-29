@@ -6,18 +6,27 @@
 // Actions are stored as child nodes of fmdb:actionList under a fmdb:form node.
 [fmdbmix:formAction] mixin
 
-// Sends an email after a successful form submission.
+// Sends a notification email after a successful form submission.
 // Subject and body support ${fieldName} interpolation from the submitted form data.
-[fmdb:emailAction] > jnt:content, fmdbmix:formAction, mix:title
+[fmdb:emailNotificationAction] > jnt:content, fmdbmix:formAction, mix:title
  - to (string) indexed=no
  - from (string) indexed=no
  - subject (string) i18n indexed=no
  - templateMessage (string, textarea) i18n indexed=no
 
+// Sends the submitted form content by email. The subject comes from the submitted form title.
+// Can optionally attach the validated uploaded files.
+[fmdb:emailContentAction] > jnt:content, fmdbmix:formAction, mix:title
+ - to (string) indexed=no
+ - from (string) indexed=no
+ - attachFiles (boolean) = false autocreated
+ - maxAttachmentSizeMb (long) = 10 autocreated
+
 // Forwards the full form data to a third-party endpoint (multipart/form-data).
-// CAPTCHA token fields are stripped before forwarding.
+// targetId references a named target configured in forward_targets (org.jahia.modules.formidable.cfg).
+// The actual URL is never stored in JCR; it is resolved server-side from the operator configuration.
 [fmdb:forwardAction] > jnt:content, fmdbmix:formAction, mix:title
- - targetUrl (string) indexed=no
+ - targetId (string, choicelist[formidableForwardTargets]) indexed=no mandatory
 
 // Saves the submitted form data as child nodes under a designated JCR path.
 // Default action autocreated in fmdb:actionList; can be removed by the contributor.

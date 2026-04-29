@@ -1,5 +1,7 @@
-package org.jahia.modules.formidable.engine.actions;
+package org.jahia.modules.formidable.engine.actions.storage;
 
+import org.jahia.modules.formidable.engine.actions.FormAction;
+import org.jahia.modules.formidable.engine.actions.FormActionException;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.render.RenderContext;
@@ -16,9 +18,9 @@ import java.util.Map;
  * Not yet implemented.
  */
 @Component(service = FormAction.class)
-public class Save2JcrFormAction implements FormAction {
+public class SaveToJcrFormAction implements FormAction {
 
-    private static final Logger log = LoggerFactory.getLogger(Save2JcrFormAction.class);
+    private static final Logger log = LoggerFactory.getLogger(SaveToJcrFormAction.class);
 
     @Override
     public String getNodeType() {
@@ -37,4 +39,3 @@ public class Save2JcrFormAction implements FormAction {
         log.warn("fmdb:save2jcrAction is not yet implemented — form data was not saved.");
     }
 }
-
