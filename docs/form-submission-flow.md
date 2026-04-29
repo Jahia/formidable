@@ -167,6 +167,41 @@ All file parts pass through `FormDataParser` which enforces the following contro
 
 Limits and the global allowlist are configured in `org.jahia.modules.formidable.cfg` via `FormidableConfig`.
 
+### Uploaded file lifecycle and temporary-file handling
+
+`FormDataParser` does **not** create temporary files on disk for uploaded parts, and therefore
+does not perform any explicit temp-file cleanup after processing.
+
+More precisely:
+
+- It uses the **streaming API** from Commons FileUpload: `ServletFileUpload#getItemIterator(req)`.
+- For each file part, it opens the part stream and reads it into a `ByteArrayOutputStream`.
+- It then stores the uploaded content in the `FormFile` record as `byte[] data`, not as a `File`
+  handle or a disk-backed `FileItem`.
+
+As a consequence:
+
+- there is **no `DiskFileItemFactory`** in this flow
+- there is **no spool-to-`/tmp` step** performed by `FormDataParser`
+- there is **nothing to delete on disk** from `FormDataParser` itself
+
+After parsing, the validated uploads remain in memory as `List<FormFile>` and are exposed
+through the request attribute `formidable.parsedFiles` (`FormDataParser.PARSED_FILES_ATTR`).
+
+Actions that need uploaded files reuse that in-memory list:
+
+- `SendEmailContentFormAction` reads `parsedFiles` and, when enabled, attaches the in-memory
+  `byte[]` payloads to the outgoing email
+- `ForwardSubmissionFormAction` reads the same `parsedFiles` list and rebuilds a new
+  `multipart/form-data` request body in memory before POSTing it to the configured target
+
+Those actions do not manipulate temporary files on disk either.
+
+> **Operational note:** if temporary upload files are observed under the servlet container's
+> temp directory, they are not created by `FormDataParser` itself. They would have to come from
+> another layer such as the servlet container, an upstream filter, or a different multipart
+> handling path.
+
 ---
 
 ## CAPTCHA
