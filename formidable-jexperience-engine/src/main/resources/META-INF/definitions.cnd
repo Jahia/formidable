@@ -1,0 +1,17 @@
+<jnt = 'http://www.jahia.org/jahia/nt/1.0'>
+<fmdb = 'http://www.jahia.org/jahia/fmdb/nt/1.0'>
+<fmdbmix = 'http://www.jahia.org/jahia/fmdb/mix/1.0'>
+
+// Adds jExperience profile synchronization settings to supported form field types.
+// This mixin is extended directly onto concrete field node types because extending
+// fmdbmix:element from another mixin is not supported in this setup.
+[fmdbmix:jExperienceProfileMapping] mixin
+ extends = fmdb:inputText, fmdb:textarea, fmdb:radio, fmdb:inputEmail, fmdb:select, fmdb:checkbox, fmdb:inputDate, fmdb:inputDatetimeLocal
+ itemtype = content
+ - jExperienceProfileProperty (string, choicelist[formidableJExperienceProfileProperties]) indexed=no
+ - jExperiencePrefillFromProfile (boolean) = false autocreated
+ // - jExperienceIncludeInEvent (boolean) = true autocreated
+
+// jExperience-specific action attached to a fmdb:form action list.
+// The implementation is provided by the formidable-jexperience-engine module.
+[fmdb:jExperienceAction] > jnt:content, fmdbmix:formAction, mix:title

@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <artifactId>formidable-modules</artifactId>
+        <groupId>org.jahia.modules</groupId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>formidable-jexperience-engine</artifactId>
+    <name>Formidable jExperience Engine</name>
+    <packaging>bundle</packaging>
+    <description>Formidable integration module for jExperience-specific actions and services.</description>
+
+    <properties>
+        <jahia-depends>formidable-engine,jexperience</jahia-depends>
+    </properties>
+
+    <scm>
+        <connection>scm:git:git@github.com:Jahia/formidable-modules.git</connection>
+        <developerConnection>scm:git:git@github.com:Jahia/formidable-modules.git</developerConnection>
+        <url>scm:git:git@github.com:Jahia/formidable-modules.git</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <repositories>
+        <repository>
+            <id>jahia-public</id>
+            <name>Jahia Public Repository</name>
+            <url>https://devtools.jahia.com/nexus/content/groups/public</url>
+            <releases>
+                <enabled>true</enabled>
+                <updatePolicy>never</updatePolicy>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>jahia-public</id>
+            <name>Jahia Public Repository</name>
+            <url>https://devtools.jahia.com/nexus/content/groups/public</url>
+            <releases>
+                <enabled>true</enabled>
+                <updatePolicy>never</updatePolicy>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </pluginRepository>
+    </pluginRepositories>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.jahia.modules</groupId>
+            <artifactId>formidable-engine</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jahia.modules</groupId>
+            <artifactId>jexperience</artifactId>
+            <version>3.4.0</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>maven-bundle-plugin</artifactId>
+                <extensions>true</extensions>
+                <configuration>
+                    <instructions>
+                        <_dsannotations>*</_dsannotations>
+                        <Export-Package>
+                            org.jahia.modules.formidable.jexperience.engine,
+                            org.jahia.modules.formidable.jexperience.engine.actions,
+                            org.jahia.modules.formidable.jexperience.engine.choicelist
+                        </Export-Package>
+                        <Import-Package>
+                            org.apache.unomi.api,
+                            org.apache.unomi.api.actions,
+                            org.jahia.modules.formidable.engine.actions,
+                            org.jahia.modules.jexperience.admin,
+                            org.jahia.services.content,
+                            org.jahia.services.render,
+                            org.json,
+                            javax.jcr,
+                            javax.servlet.http,
+                            *
+                        </Import-Package>
+                    </instructions>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <release>17</release>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
