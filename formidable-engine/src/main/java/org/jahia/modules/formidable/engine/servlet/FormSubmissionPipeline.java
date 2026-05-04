@@ -53,6 +53,10 @@ class FormSubmissionPipeline {
 
     private static final String ACTIONS_NODE = "actions";
     private static final String FIELDS_NODE  = "fields";
+    private static final Set<String> NON_SUBMITTABLE_FORM_ELEMENT_TYPES = Set.of(
+            "fmdb:fieldset",
+            "fmdb:inputButton"
+    );
 
     private final FormidableConfigService config;
     private final List<FormAction> formActions;
@@ -189,15 +193,7 @@ class FormSubmissionPipeline {
             while (it.hasNext()) {
                 javax.jcr.Node child = it.nextNode();
                 if (!(child instanceof JCRNodeWrapper w)) continue;
-                if (w.isNodeType("fmdb:step")) {
-                    NodeIterator stepIt = w.getNodes();
-                    while (stepIt.hasNext()) {
-                        javax.jcr.Node stepChild = stepIt.nextNode();
-                        if (stepChild instanceof JCRNodeWrapper sw) collectFieldNode(sw);
-                    }
-                } else {
-                    collectFieldNode(w);
-                }
+                collectAllowedFieldsRecursively(w);
             }
         } catch (RepositoryException e) {
             log.warn("[FormSubmissionPipeline] Could not collect form field info from '{}': {}",
@@ -206,12 +202,34 @@ class FormSubmissionPipeline {
         log.debug("[FormSubmissionPipeline] Allowed fields: {}", allowedFieldNames);
     }
 
-    private void collectFieldNode(JCRNodeWrapper node) {
+    private void collectAllowedFieldsRecursively(JCRNodeWrapper node) {
         try {
-            String name     = node.getName();
             String nodeType = node.getPrimaryNodeTypeName();
-            allowedFieldNames.add(name);
+            if (node.isNodeType("fmdbmix:formElement")
+                    && !NON_SUBMITTABLE_FORM_ELEMENT_TYPES.contains(nodeType)) {
+                registerAllowedField(node, nodeType);
+            }
+
+            NodeIterator it = node.getNodes();
+            while (it.hasNext()) {
+                javax.jcr.Node child = it.nextNode();
+                if (child instanceof JCRNodeWrapper childNode) {
+                    collectAllowedFieldsRecursively(childNode);
+                }
+            }
+        } catch (RepositoryException e) {
+            log.debug("[FormSubmissionPipeline] Cannot traverse node '{}': {}", node.getPath(), e.getMessage());
+        }
+    }
+
+    private void registerAllowedField(JCRNodeWrapper node, String nodeType) {
+        try {
+            String name = node.getName();
+            if (!allowedFieldNames.add(name)) {
+                log.warn("[FormSubmissionPipeline] Duplicate submitted field name '{}' detected; later metadata will overwrite earlier entries.", name);
+            }
             fieldTypes.put(name, nodeType);
+
             switch (nodeType) {
                 case "fmdb:checkbox", "fmdb:radio" -> collectChoices(node, name, "choices");
                 case "fmdb:select"                 -> collectChoices(node, name, "options");
@@ -226,6 +244,7 @@ class FormSubmissionPipeline {
                     }
                 }
             }
+
             FormDataParser.FieldConstraints c = readConstraints(node, nodeType);
             if (c != null) fieldConstraints.put(name, c);
         } catch (RepositoryException e) {
