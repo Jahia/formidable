@@ -24,5 +24,8 @@
 		"captchaRequired": "Please complete the CAPTCHA verification.",
 		"editModeSubmitDisabled": "Form submission is disabled in edit/preview mode.",
 		"errorCode": "Error code"
+	},
+	"fmdb_formReference": {
+		"noFormSelected": "No form selected"
 	}
 }

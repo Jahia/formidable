@@ -1,4 +1,5 @@
 <jnt = 'http://www.jahia.org/jahia/nt/1.0'>
+<jmix = 'http://www.jahia.org/jahia/mix/1.0'>
 <fmdb = 'http://www.jahia.org/jahia/fmdb/nt/1.0'>
 <fmdbmix = 'http://www.jahia.org/jahia/fmdb/mix/1.0'>
 
@@ -31,3 +32,29 @@
 // Saves the submitted form data as child nodes under a designated JCR path.
 // Default action autocreated in fmdb:actionList; can be removed by the contributor.
 [fmdb:save2jcrAction] > jnt:content, fmdbmix:formAction, mix:title
+
+[fmdb:resultsFolder] > jnt:content, jmix:accessControlled
+ + * (fmdb:formResults) = fmdb:formResults
+
+[fmdb:formResults] > jnt:content, mix:title
+ - parentForm (weakreference) mandatory
+ - buildingLang (string)
+ + submissions (fmdb:submissions) = fmdb:submissions autocreated
+
+[fmdb:submissions] > jnt:content
+ + * (fmdb:splittedSubmission) = fmdb:splittedSubmission
+
+[fmdb:splittedSubmission] > jnt:content
+ + * (fmdb:splittedSubmission) = fmdb:splittedSubmission
+ + * (fmdb:formSubmission) = fmdb:formSubmission
+
+[fmdb:formSubmission] > jmix:unversionedBasemetadata, jmix:observable
+ - origin (string) mandatory
+ - ipAddress (string)
+ - locale (string)
+ - status (string)
+ - submitterUsername (string)
+ - userAgent (string)
+ - referer (string)
+ + data (nt:unstructured) = nt:unstructured autocreated
+ + files (jnt:folder) = jnt:folder autocreated

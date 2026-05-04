@@ -1,0 +1,3 @@
+[fmdb:formReference] > jnt:content, jmix:nodeReference, fmdbmix:component, mix:title
+ - j:node (weakreference) mandatory < 'fmdb:form'
+
