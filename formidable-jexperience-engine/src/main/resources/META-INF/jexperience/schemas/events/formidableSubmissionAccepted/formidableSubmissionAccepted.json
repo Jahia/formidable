@@ -1,0 +1,30 @@
+{
+  "$id": "https://formidable.jahia.com/schemas/json/events/formidableSubmissionAccepted/1-0-0",
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "self": {
+    "vendor": "org.jahia.modules.formidable",
+    "target": "events",
+    "name": "formidableSubmissionAccepted",
+    "format": "jsonschema",
+    "version": "1-0-0"
+  },
+  "title": "FormidableSubmissionAccepted",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "https://unomi.apache.org/schemas/json/event/1-0-0"
+    }
+  ],
+  "properties": {
+    "properties": {
+      "$ref": "https://formidable.jahia.com/schemas/json/events/formidableSubmissionAccepted/properties/1-0-0"
+    },
+    "source": {
+      "$ref": "https://formidable.jahia.com/schemas/json/events/formidableSubmissionAccepted/source/1-0-0"
+    },
+    "target": {
+      "$ref": "https://formidable.jahia.com/schemas/json/events/formidableSubmissionAccepted/target/1-0-0"
+    }
+  },
+  "unevaluatedProperties": false
+}

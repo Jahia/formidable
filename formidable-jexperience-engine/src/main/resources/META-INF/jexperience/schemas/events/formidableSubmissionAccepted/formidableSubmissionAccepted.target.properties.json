@@ -1,0 +1,27 @@
+{
+  "$id": "https://formidable.jahia.com/schemas/json/events/formidableSubmissionAccepted/target/properties/1-0-0",
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "self": {
+    "vendor": "org.jahia.modules.formidable",
+    "name": "formidableSubmissionAcceptedTargetProperties",
+    "format": "jsonschema",
+    "version": "1-0-0"
+  },
+  "title": "FormidableSubmissionAcceptedTargetProperties",
+  "type": "object",
+  "properties": {
+    "formId": {
+      "type": "string"
+    },
+    "formPath": {
+      "type": "string"
+    },
+    "formType": {
+      "type": "string"
+    },
+    "language": {
+      "type": "string"
+    }
+  },
+  "unevaluatedProperties": false
+}

@@ -1,0 +1,43 @@
+{
+  "$id": "https://formidable.jahia.com/schemas/json/events/formidableSubmissionAccepted/properties/1-0-0",
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "self": {
+    "vendor": "org.jahia.modules.formidable",
+    "name": "formidableSubmissionAcceptedProperties",
+    "format": "jsonschema",
+    "version": "1-0-0"
+  },
+  "title": "FormidableSubmissionAcceptedProperties",
+  "type": "object",
+  "properties": {
+    "submissionChannel": {
+      "type": "string"
+    },
+    "submissionStatus": {
+      "type": "string"
+    },
+    "fields": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "profileMappings": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  },
+  "unevaluatedProperties": false
+}
