@@ -13,11 +13,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.jcr.Binary;
+import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import javax.jcr.Value;
 import javax.servlet.http.HttpServletRequest;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +38,8 @@ public class SaveToJcrFormAction implements FormAction {
     private static final String SUBMISSION_STATUS = "accepted";
     private static final String SPLIT_CONFIG = "date,jcr:created,yyyy;date,jcr:created,MM;date,jcr:created,dd";
     private static final String SPLIT_NODE_TYPE = "fmdb:splittedSubmission";
+    private static final DateTimeFormatter SUBMISSION_NAME_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
     @Override
     public String getNodeType() {
@@ -65,13 +70,15 @@ public class SaveToJcrFormAction implements FormAction {
             ensureAutoSplit(submissions);
 
             JCRNodeWrapper submission = createSubmissionNode(submissions, req, session);
+            String submissionId = submission.getIdentifier();
             session.save();
 
-            JCRNodeWrapper movedSubmission = JCRAutoSplitUtils.applyAutoSplitRules(submission, submissions);
-            if (movedSubmission != null) {
-                submission = movedSubmission;
-                session.save();
-            }
+            JCRAutoSplitUtils.applyAutoSplitRules(submission, submissions);
+            session.save();
+
+            // Auto-splitting may move the node and leave the previous wrapper bound to the old path.
+            // Always reacquire by identifier before continuing.
+            submission = session.getNodeByIdentifier(submissionId);
 
             populateSubmissionData(submission, parameters, files, session);
             session.save();
@@ -111,13 +118,14 @@ public class SaveToJcrFormAction implements FormAction {
             session.save();
         }
 
-        String formResultsName = formNode.getIdentifier();
-        if (resultsRoot.hasNode(formResultsName)) {
-            return resultsRoot.getNode(formResultsName);
+        JCRNodeWrapper existingFormResults = findFormResultsByParentForm(resultsRoot, formNode);
+        if (existingFormResults != null) {
+            return renameFormResultsIfNeeded(existingFormResults, resultsRoot, formNode, session);
         }
 
         session.checkout(resultsRoot);
-        JCRNodeWrapper formResults = resultsRoot.addNode(formResultsName, "fmdb:formResults");
+        String availableName = JCRContentUtils.findAvailableNodeName(resultsRoot, formNode.getName());
+        JCRNodeWrapper formResults = resultsRoot.addNode(availableName, "fmdb:formResults");
         formResults.setProperty("jcr:title", resolveFormTitle(formNode));
         Value parentForm = session.getValueFactory().createValue(formNode);
         formResults.setProperty("parentForm", parentForm);
@@ -126,6 +134,43 @@ public class SaveToJcrFormAction implements FormAction {
         }
         session.save();
         return formResults;
+    }
+
+    private static JCRNodeWrapper findFormResultsByParentForm(JCRNodeWrapper resultsRoot, JCRNodeWrapper formNode)
+            throws RepositoryException {
+        String formIdentifier = formNode.getIdentifier();
+        NodeIterator children = resultsRoot.getNodes();
+        while (children.hasNext()) {
+            javax.jcr.Node child = children.nextNode();
+            if (!(child instanceof JCRNodeWrapper candidate)) {
+                continue;
+            }
+            if (!candidate.isNodeType("fmdb:formResults") || !candidate.hasProperty("parentForm")) {
+                continue;
+            }
+            if (formIdentifier.equals(candidate.getProperty("parentForm").getString())) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private static JCRNodeWrapper renameFormResultsIfNeeded(
+            JCRNodeWrapper formResults,
+            JCRNodeWrapper resultsRoot,
+            JCRNodeWrapper formNode,
+            JCRSessionWrapper session
+    ) throws RepositoryException {
+        String expectedName = formNode.getName();
+        if (expectedName.equals(formResults.getName())) {
+            return formResults;
+        }
+
+        String availableName = JCRContentUtils.findAvailableNodeName(resultsRoot, expectedName);
+        String targetPath = resultsRoot.getPath() + "/" + availableName;
+        session.move(formResults.getPath(), targetPath);
+        session.save();
+        return session.getNode(targetPath);
     }
 
     private static void ensureAutoSplit(JCRNodeWrapper submissions) throws RepositoryException {
@@ -140,8 +185,9 @@ public class SaveToJcrFormAction implements FormAction {
             JCRSessionWrapper session
     ) throws RepositoryException {
         session.checkout(submissions);
-        String submissionName = UUID.randomUUID().toString();
-        JCRNodeWrapper submission = submissions.addNode(submissionName, "fmdb:formSubmission");
+        String submissionName = buildSubmissionNodeName();
+        String availableName = JCRContentUtils.findAvailableNodeName(submissions, submissionName);
+        JCRNodeWrapper submission = submissions.addNode(availableName, "fmdb:formSubmission");
         submission.setProperty("origin", SUBMISSION_ORIGIN);
         submission.setProperty("status", SUBMISSION_STATUS);
         setOptionalProperty(submission, "ipAddress", req.getRemoteAddr());
@@ -150,6 +196,12 @@ public class SaveToJcrFormAction implements FormAction {
         setOptionalProperty(submission, "userAgent", req.getHeader("User-Agent"));
         setOptionalProperty(submission, "referer", req.getHeader("Referer"));
         return submission;
+    }
+
+    private static String buildSubmissionNodeName() {
+        String timestamp = LocalDateTime.now().format(SUBMISSION_NAME_FORMATTER);
+        String shortUuid = UUID.randomUUID().toString().substring(0, 3);
+        return "submission-" + timestamp + "-" + shortUuid;
     }
 
     private static void populateSubmissionData(

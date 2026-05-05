@@ -41,8 +41,12 @@
  - buildingLang (string)
  + submissions (fmdb:submissions) = fmdb:submissions autocreated
 
+// submissions is intended to be auto-split into fmdb:splittedSubmission folders (yyyy/MM/dd).
+// Direct fmdb:formSubmission children are also allowed as a resilience fallback, so a split
+// failure does not block persistence of the submitted payload.
 [fmdb:submissions] > jnt:content
  + * (fmdb:splittedSubmission) = fmdb:splittedSubmission
+ + * (fmdb:formSubmission) = fmdb:formSubmission
 
 [fmdb:splittedSubmission] > jnt:content
  + * (fmdb:splittedSubmission) = fmdb:splittedSubmission
