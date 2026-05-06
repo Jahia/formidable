@@ -24,5 +24,8 @@
 		"captchaRequired": "Veuillez compléter la vérification CAPTCHA.",
 		"editModeSubmitDisabled": "L'envoi du formulaire est désactivé en mode édition/prévisualisation.",
 		"errorCode": "Code d'erreur"
+	},
+	"fmdb_formReference": {
+		"noFormSelected": "Aucun formulaire sélectionné"
 	}
 }
