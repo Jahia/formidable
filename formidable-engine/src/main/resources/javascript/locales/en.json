@@ -14,31 +14,35 @@
         "empty": {
             "noForms": "No form results",
             "noFormsDescription": "No saved Formidable submissions were found for this site.",
-            "noSubmissions": "No submissions"
+            "noSubmissions": "No submissions",
+            "selectForm": "Select a form to see form results"
         },
         "error": {
             "noSite": "No site selected."
         },
         "table": {
             "date": "Date",
-            "status": "Status",
             "user": "User",
             "locale": "Locale",
-            "files": "Files",
+            "ipAddress": "IP Address",
+            "files": "#Files",
+            "filledFields": "#Fields",
             "view": "View",
             "rowsPerPage": "Rows per page:",
+            "of": "of",
             "pageInfo": "Page {{current}} of {{total}} ({{count}} results)"
         },
         "detail": {
             "title": "Submission detail",
+            "close": "Close",
             "metadata": "Metadata",
             "submittedValues": "Submitted values",
             "files": "Files",
             "noValues": "No submitted values.",
             "download": "Download",
+            "preview": "Preview",
             "created": "Created",
             "origin": "Origin",
-            "status": "Status",
             "ipAddress": "IP Address",
             "locale": "Locale",
             "user": "User",

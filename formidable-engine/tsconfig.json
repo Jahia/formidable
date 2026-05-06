@@ -1,0 +1,25 @@
+{
+    "compilerOptions": {
+        "esModuleInterop": true,
+        "jsx": "react-jsx",
+        "lib": [
+            "esnext",
+            "dom"
+        ],
+        "module": "esnext",
+        "moduleResolution": "bundler",
+        "noEmit": true,
+        "resolveJsonModule": true,
+        "skipLibCheck": true,
+        "strict": true,
+        "target": "esnext",
+        "verbatimModuleSyntax": true
+    },
+    "include": [
+        "src/javascript",
+        "vite.config.ts"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
+}

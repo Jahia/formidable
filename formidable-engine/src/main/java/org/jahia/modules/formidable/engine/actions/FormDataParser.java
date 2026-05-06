@@ -23,7 +23,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -111,15 +110,13 @@ public class FormDataParser {
      * Parsed representation of a single uploaded file.
      *
      * @param fieldName    the form field name
-     * @param originalName sanitized original filename (for display only)
-     * @param storageName  UUID-based name to use for storage (never the client name)
+     * @param originalName sanitized original filename
      * @param mimeType     detected MIME type (via Tika magic bytes)
      * @param data         file bytes
      */
     public record FormFile(
             String fieldName,
             String originalName,
-            String storageName,
             String mimeType,
             byte[] data
     ) {}
@@ -399,15 +396,16 @@ public class FormDataParser {
                     "File '" + sanitizedName + "': type '" + detectedMime + "' is not allowed.", 415);
         }
 
-        String storageName = UUID.randomUUID() + extensionFrom(sanitizedName);
-        log.debug("[FormDataParser] Accepted file: field={}, original={}, storage={}, mime={}, size={}",
-                fieldName, sanitizedName, storageName, detectedMime, data.length);
-        return new FormFile(fieldName, sanitizedName, storageName, detectedMime, data);
+        log.debug("[FormDataParser] Accepted file: field={}, name={}, mime={}, size={}",
+                fieldName, sanitizedName, detectedMime, data.length);
+        return new FormFile(fieldName, sanitizedName, detectedMime, data);
     }
 
     /**
-     * Strips path traversal sequences, CRLF (header injection), and XSS characters from the filename.
+     * Strips path traversal sequences, CRLF (header injection), XSS characters,
+     * and JCR-invalid node name characters from the filename.
      * All ASCII control characters (0x00–0x1F, 0x7F) are removed to prevent Content-Disposition injection.
+     * JCR reserved characters (: [ ] * | ?) are replaced with underscores.
      * Returns "upload" if the result is blank.
      */
     static String sanitizeFilename(String raw) {
@@ -416,6 +414,8 @@ public class FormDataParser {
         String name = raw.replaceAll(".*[/\\\\]", "");
         // Strip all ASCII control chars (includes \r \n \t) and XSS chars
         name = name.replaceAll("[\\x00-\\x1F\\x7F<>\"']", "");
+        // Replace JCR-invalid node name characters with underscores
+        name = name.replaceAll("[:\\[\\]*|?]", "_");
         name = name.trim();
         return name.isEmpty() ? "upload" : name;
     }
@@ -443,8 +443,4 @@ public class FormDataParser {
         return !prefix.isEmpty() && allowed.contains(prefix + "/*");
     }
 
-    private static String extensionFrom(String filename) {
-        int dot = filename.lastIndexOf('.');
-        return dot >= 0 ? filename.substring(dot) : "";
-    }
 }

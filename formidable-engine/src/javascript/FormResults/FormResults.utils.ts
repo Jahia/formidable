@@ -18,12 +18,19 @@ export interface SubmissionFieldValue {
     values: string[];
 }
 
+interface SubmissionProperty {
+    name?: string;
+    value?: unknown;
+    values?: unknown;
+}
+
 export interface SubmissionFile {
     fieldName: string;
     fileName: string;
     fileUuid: string;
     filePath: string;
     mimeType: string | null;
+    thumbnailUrl: string | null;
 }
 
 export interface SubmissionRow {
@@ -32,7 +39,6 @@ export interface SubmissionRow {
     name: string;
     created: string;
     origin: string | null;
-    status: string | null;
     ipAddress: string | null;
     locale: string | null;
     submitterUsername: string | null;
@@ -48,14 +54,29 @@ export function isUserProperty(name: string): boolean {
     return !JCR_PROPERTY_PREFIXES.some(prefix => name.startsWith(prefix));
 }
 
+function normalizePropertyValues(property: SubmissionProperty): string[] {
+    if (Array.isArray(property.values) && property.values.length > 0) {
+        return property.values
+            .filter(value => value != null && value !== '')
+            .map(value => String(value));
+    }
+
+    if (property.value == null || property.value === '') {
+        return [];
+    }
+
+    return [String(property.value)];
+}
+
 export function parseSubmissionNode(node: any): SubmissionRow {
     const fieldValues: SubmissionFieldValue[] = [];
     const dataNode = node.data?.nodes?.[0];
-    const properties = dataNode?.properties;
+    const properties = dataNode?.properties as SubmissionProperty[] | undefined;
     if (Array.isArray(properties)) {
         for (const prop of properties) {
-            if (isUserProperty(prop.name)) {
-                fieldValues.push({name: prop.name, values: prop.values ?? []});
+            const name = typeof prop.name === 'string' ? prop.name : '';
+            if (name && isUserProperty(name)) {
+                fieldValues.push({name, values: normalizePropertyValues(prop)});
             }
         }
     }
@@ -70,7 +91,8 @@ export function parseSubmissionNode(node: any): SubmissionRow {
                     fileName: fileNode.name,
                     fileUuid: fileNode.uuid,
                     filePath: fileNode.path,
-                    mimeType: fileNode.content?.nodes?.[0]?.mimeType?.value ?? null
+                    mimeType: fileNode.content?.nodes?.[0]?.mimeType?.value ?? null,
+                    thumbnailUrl: fileNode.thumbnailUrl ?? null
                 });
             }
         }
@@ -82,7 +104,6 @@ export function parseSubmissionNode(node: any): SubmissionRow {
         name: node.name,
         created: node.created?.value ?? '',
         origin: node.origin?.value ?? null,
-        status: node.status?.value ?? null,
         ipAddress: node.ipAddress?.value ?? null,
         locale: node.locale?.value ?? null,
         submitterUsername: node.submitterUsername?.value ?? null,
@@ -135,7 +156,7 @@ export function formatFileSize(bytes: number | null): string {
 
 export function buildDownloadUrl(filePath: string): string {
     const ctx = (window as any).contextJsParameters?.contextPath ?? '';
-    return `${ctx}/files/default${filePath}`;
+    return `${ctx}/files/live${filePath}`;
 }
 
 

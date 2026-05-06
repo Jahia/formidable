@@ -1,24 +1,38 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {useQuery} from '@apollo/client';
-import {Loader, Typography} from '@jahia/moonstone';
+import {Loader, Paper, Typography} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
 import {GET_FORM_RESULTS_LIST} from './FormResultsApp.gql-queries';
 import {FormResultsList} from './FormResultsList';
+import {SubmissionDetailPanel} from './SubmissionDetailPanel';
 import {SubmissionsTable} from './SubmissionsTable';
-import type {FormResultsNode} from './FormResults.utils';
+import type {FormResultsNode, SubmissionRow} from './FormResults.utils';
 
 export const FormResultsApp = () => {
     const {t} = useTranslation('formidable-engine');
     const siteKey = (window as any).contextJsParameters?.siteKey;
+    const language = (window as any).contextJsParameters?.uilang || 'en';
     const resultsPath = `/sites/${siteKey}/formidable-results`;
 
     const [selectedFormResultsId, setSelectedFormResultsId] = useState<string | null>(null);
+    const [selectedSubmission, setSelectedSubmission] = useState<SubmissionRow | null>(null);
 
     const {loading, error, data} = useQuery(GET_FORM_RESULTS_LIST, {
-        variables: {resultsPath},
+        variables: {resultsPath, workspace: 'LIVE', language},
         fetchPolicy: 'network-only',
         skip: !siteKey
     });
+
+    const forms: FormResultsNode[] = data?.jcr?.nodeByPath?.children?.nodes ?? [];
+    const selectedForm = forms.find(f => f.uuid === selectedFormResultsId) ?? null;
+    const selectedFormUuid = selectedForm?.uuid ?? null;
+    const selectedFormLabel = selectedForm
+        ? selectedForm.parentForm?.refNode?.displayName ?? selectedForm.displayName ?? selectedForm.name
+        : '';
+
+    useEffect(() => {
+        setSelectedSubmission(null);
+    }, [selectedFormUuid]);
 
     if (!siteKey) {
         return <Typography>{t('formResults.error.noSite')}</Typography>;
@@ -45,8 +59,6 @@ export const FormResultsApp = () => {
         return <Typography color="danger">{error.message}</Typography>;
     }
 
-    const forms: FormResultsNode[] = data?.jcr?.nodeByPath?.children?.nodes ?? [];
-
     if (forms.length === 0) {
         return (
             <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', flexDirection: 'column', gap: '1rem'}}>
@@ -56,19 +68,71 @@ export const FormResultsApp = () => {
         );
     }
 
-    const selectedForm = forms.find(f => f.uuid === selectedFormResultsId) ?? forms[0];
-
     return (
-        <div style={{display: 'flex', height: '100%', overflow: 'hidden'}}>
-            <FormResultsList
-                forms={forms}
-                selectedId={selectedForm.uuid}
-                onSelect={setSelectedFormResultsId}
-            />
-            <div style={{flex: 1, overflow: 'auto', padding: '16px'}}>
-                <SubmissionsTable formResults={selectedForm}/>
+        <div style={{display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden'}}>
+            <div
+                style={{
+                    padding: '24px 24px 16px',
+                    borderBottom: '1px solid var(--color-gray_light40)',
+                    backgroundColor: 'var(--color-light)'
+                }}
+            >
+                <Typography variant="heading" weight="bold">
+                    {t('formResults.nav.title')}
+                </Typography>
+                {selectedFormLabel && (
+                    <Typography variant="body" style={{marginTop: '4px', color: 'var(--color-gray)'}}>
+                        {selectedFormLabel}
+                    </Typography>
+                )}
+            </div>
+
+            <div
+                style={{
+                    display: 'flex',
+                    flex: 1,
+                    minHeight: 0,
+                    overflow: 'hidden',
+                    gap: '16px',
+                    padding: '16px',
+                    backgroundColor: 'var(--color-gray_light40)'
+                }}
+            >
+                <FormResultsList
+                    forms={forms}
+                    selectedId={selectedForm?.uuid ?? ''}
+                    onSelect={setSelectedFormResultsId}
+                />
+                <div style={{flex: 1, minWidth: 0, overflow: 'hidden'}}>
+                    {selectedForm ? (
+                        <SubmissionsTable
+                            formResults={selectedForm}
+                            selectedSubmission={selectedSubmission}
+                            onSelectSubmission={setSelectedSubmission}
+                        />
+                    ) : (
+                        <Paper
+                            hasPadding
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                height: '100%'
+                            }}
+                        >
+                            <Typography variant="heading">
+                                {t('formResults.empty.selectForm')}
+                            </Typography>
+                        </Paper>
+                    )}
+                </div>
+                {selectedSubmission && (
+                    <SubmissionDetailPanel
+                        submission={selectedSubmission}
+                        onClose={() => setSelectedSubmission(null)}
+                    />
+                )}
             </div>
         </div>
     );
 };
-

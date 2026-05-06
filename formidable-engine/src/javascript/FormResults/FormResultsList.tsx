@@ -1,5 +1,5 @@
 import React from 'react';
-import {Typography} from '@jahia/moonstone';
+import {Badge, Form as FormIcon, Paper, Typography} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
 import type {FormResultsNode} from './FormResults.utils';
 
@@ -13,52 +13,82 @@ export const FormResultsList = ({forms, selectedId, onSelect}: FormResultsListPr
     const {t} = useTranslation('formidable-engine');
 
     return (
-        <aside style={{
-            width: '280px',
-            minWidth: '280px',
-            borderRight: '1px solid var(--color-gray_light40)',
-            overflowY: 'auto',
-            backgroundColor: 'var(--color-light)',
-            padding: '8px 0'
-        }}>
-            <div style={{padding: '12px 16px'}}>
-                <Typography variant="subheading" weight="bold">
-                    {t('formResults.sidebar.title')}
-                </Typography>
-            </div>
-            {forms.map(form => {
-                const isSelected = form.uuid === selectedId;
-                const label = form.parentForm?.refNode?.displayName ?? form.displayName ?? form.name;
+        <aside
+            style={{
+                width: '280px',
+                minWidth: '280px',
+                overflow: 'hidden'
+            }}
+        >
+            <Paper
+                hasPadding={false}
+                style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: '100%',
+                    overflow: 'hidden'
+                }}
+            >
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '8px',
+                        minHeight: '48px',
+                        padding: '0 16px',
+                        borderBottom: '1px solid var(--color-gray_light40)'
+                    }}
+                >
+                    <Typography variant="subheading" weight="bold">
+                        {t('formResults.sidebar.title')}
+                    </Typography>
+                    <Badge label={String(forms.length)} color="accent"/>
+                </div>
 
-                return (
-                    <button
-                        key={form.uuid}
-                        type="button"
-                        onClick={() => onSelect(form.uuid)}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            width: '100%',
-                            padding: '10px 16px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            textAlign: 'left',
-                            backgroundColor: isSelected ? 'var(--color-blue10)' : 'transparent',
-                            borderLeft: isSelected ? '3px solid var(--color-blue)' : '3px solid transparent'
-                        }}
-                    >
-                        <Typography
-                            variant="body"
-                            weight={isSelected ? 'bold' : 'default'}
-                            style={{overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}
+                <div style={{padding: '8px', overflowY: 'auto'}}>
+                {forms.map(form => {
+                    const isSelected = form.uuid === selectedId;
+                    const label = form.parentForm?.refNode?.displayName ?? form.displayName ?? form.name;
+
+                    return (
+                        <button
+                            key={form.uuid}
+                            type="button"
+                            onClick={() => onSelect(form.uuid)}
+                            style={{
+                                width: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                padding: '10px 12px',
+                                border: 'none',
+                                borderRadius: '0',
+                                backgroundColor: isSelected ? 'var(--color-accent)' : 'transparent',
+                                borderLeft: isSelected ? '3px solid var(--color-accent_dark)' : '3px solid transparent',
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                                color: isSelected ? 'var(--color-light)' : 'inherit'
+                            }}
                         >
-                            {label}
-                        </Typography>
-                    </button>
-                );
-            })}
+                            <FormIcon size="small"/>
+                            <Typography
+                                variant="body"
+                                weight={isSelected ? 'bold' : 'default'}
+                                style={{
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    color: isSelected ? 'var(--color-light)' : 'inherit'
+                                }}
+                            >
+                                {label}
+                            </Typography>
+                        </button>
+                    );
+                })}
+                </div>
+            </Paper>
         </aside>
     );
 };
-

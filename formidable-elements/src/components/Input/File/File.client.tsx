@@ -24,6 +24,10 @@ const MIME_EXTENSION_MAP: Record<string, string[]> = {
 	"image/png": [".png"],
 	"image/webp": [".webp"],
 	"text/csv": [".csv"],
+	"video/mp4": [".mp4"],
+	"video/ogg": [".ogv", ".ogg"],
+	"video/webm": [".webm"],
+	"video/x-matroska": [".mkv"],
 };
 
 const getKnownExtensionsForMime = (mimeType: string): string[] =>
@@ -72,20 +76,33 @@ const matchesAcceptToken = (file: File, token: string): boolean => {
 
 	if (loweredToken.endsWith("/*")) {
 		const prefix = loweredToken.slice(0, -1);
-		if (loweredType) {
-			return loweredType.startsWith(prefix);
+		if (loweredType && loweredType.startsWith(prefix)) {
+			return true;
 		}
 
 		const wildcardExtensions = getKnownExtensionsForWildcard(loweredToken);
 		return wildcardExtensions.length === 0 || wildcardExtensions.some(extension => loweredName.endsWith(extension));
 	}
 
-	if (loweredType) {
-		return loweredType === loweredToken;
+	if (loweredType && loweredType === loweredToken) {
+		return true;
 	}
 
 	const knownExtensions = getKnownExtensionsForMime(loweredToken);
 	return knownExtensions.length === 0 || knownExtensions.some(extension => loweredName.endsWith(extension));
+};
+
+const deduplicateFiles = (files: File[]): File[] => {
+	const seen = new Set<string>();
+	return files.filter(file => {
+		const key = `${file.name}-${file.size}-${file.lastModified}`;
+		if (seen.has(key)) {
+			return false;
+		}
+
+		seen.add(key);
+		return true;
+	});
 };
 
 export default function FileInput(
@@ -117,29 +134,36 @@ export default function FileInput(
 
 	const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
 		const input = event.currentTarget;
-		const files = Array.from(input.files ?? []);
+		const newFiles = Array.from(input.files ?? []);
 
-		if (files.length === 0) {
-			input.setCustomValidity("");
-			setSelectionNotice(null);
-			setSelectedFiles(null);
+		if (newFiles.length === 0) {
+			if (!multiple || !selectedFiles || selectedFiles.length === 0) {
+				input.setCustomValidity("");
+				setSelectionNotice(null);
+				setSelectedFiles(null);
+			}
+
 			return;
 		}
+
+		const previousFiles = multiple && selectedFiles ? Array.from(selectedFiles) : [];
 
 		if (acceptTokens.length === 0) {
+			const merged = deduplicateFiles([...previousFiles, ...newFiles]);
+			syncInputFiles(merged);
 			input.setCustomValidity("");
 			setSelectionNotice(null);
-			setSelectedFiles(input.files && input.files.length > 0 ? input.files : null);
 			return;
 		}
 
-		const validFiles = files.filter(file => acceptTokens.some(token => matchesAcceptToken(file, token)));
-		const invalidFiles = files.filter(file => !validFiles.includes(file));
+		const validFiles = newFiles.filter(file => acceptTokens.some(token => matchesAcceptToken(file, token)));
+		const invalidFiles = newFiles.filter(file => !validFiles.includes(file));
 
 		if (invalidFiles.length === 0) {
+			const merged = deduplicateFiles([...previousFiles, ...validFiles]);
+			syncInputFiles(merged);
 			input.setCustomValidity("");
 			setSelectionNotice(null);
-			setSelectedFiles(input.files && input.files.length > 0 ? input.files : null);
 			return;
 		}
 
@@ -151,7 +175,7 @@ export default function FileInput(
 			allowedTypes: allowedTypesLabel,
 			interpolation: {escapeValue: false},
 		});
-		if (validFiles.length === 0) {
+		if (validFiles.length === 0 && previousFiles.length === 0) {
 			syncInputFiles([]);
 			setSelectionNotice(null);
 			input.setCustomValidity(blockingMessage);
@@ -159,7 +183,8 @@ export default function FileInput(
 			return;
 		}
 
-		syncInputFiles(validFiles);
+		const merged = deduplicateFiles([...previousFiles, ...validFiles]);
+		syncInputFiles(merged);
 		setSelectionNotice(t(invalidFiles.length > 1 ? "ignoredMultipleInvalidFiles" : "ignoredSingleInvalidFile", {
 			invalidFormats,
 			allowedTypes: allowedTypesLabel,
@@ -186,7 +211,21 @@ export default function FileInput(
 		setSelectedFiles(dt.files.length > 0 ? dt.files : null);
 	};
 
-	const acceptAttr = acceptTokens.join(",");
+	const buildAcceptAttr = (tokens: string[]): string => {
+		const entries = new Set<string>(tokens);
+		for (const token of tokens) {
+			const lower = token.toLowerCase();
+			if (!lower.startsWith(".")) {
+				for (const ext of getKnownExtensionsForMime(lower)) {
+					entries.add(ext);
+				}
+			}
+		}
+
+		return Array.from(entries).join(",");
+	};
+
+	const acceptAttr = buildAcceptAttr(acceptTokens);
 
 	return (
 		<div className="fmdb-file-input-container">

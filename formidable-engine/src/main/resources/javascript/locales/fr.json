@@ -14,31 +14,35 @@
         "empty": {
             "noForms": "Aucun résultat de formulaire",
             "noFormsDescription": "Aucune soumission Formidable sauvegardée n'a été trouvée pour ce site.",
-            "noSubmissions": "Aucune soumission"
+            "noSubmissions": "Aucune soumission",
+            "selectForm": "Sélectionnez un formulaire pour voir les résultats"
         },
         "error": {
             "noSite": "Aucun site sélectionné."
         },
         "table": {
             "date": "Date",
-            "status": "Statut",
             "user": "Utilisateur",
             "locale": "Langue",
+            "ipAddress": "Adresse IP",
             "files": "Fichiers",
+            "filledFields": "Champs",
             "view": "Voir",
             "rowsPerPage": "Lignes par page :",
+            "of": "sur",
             "pageInfo": "Page {{current}} sur {{total}} ({{count}} résultats)"
         },
         "detail": {
             "title": "Détail de la soumission",
+            "close": "Fermer",
             "metadata": "Métadonnées",
             "submittedValues": "Valeurs soumises",
             "files": "Fichiers",
             "noValues": "Aucune valeur soumise.",
             "download": "Télécharger",
+            "preview": "Aperçu",
             "created": "Créé le",
             "origin": "Origine",
-            "status": "Statut",
             "ipAddress": "Adresse IP",
             "locale": "Langue",
             "user": "Utilisateur",

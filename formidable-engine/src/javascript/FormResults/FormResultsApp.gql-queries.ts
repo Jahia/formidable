@@ -1,20 +1,20 @@
 import {gql} from '@apollo/client';
 
 export const GET_FORM_RESULTS_LIST = gql`
-    query GetFormResultsList($resultsPath: String!) {
-        jcr {
+    query GetFormResultsList($resultsPath: String!, $workspace: Workspace = LIVE, $language: String!) {
+        jcr(workspace: $workspace) {
             nodeByPath(path: $resultsPath) {
                 children(typesFilter: {types: ["fmdb:formResults"]}) {
                     nodes {
                         uuid
                         path
                         name
-                        displayName
+                        displayName(language: $language)
                         parentForm: property(name: "parentForm") {
                             refNode {
                                 uuid
                                 path
-                                displayName
+                                displayName(language: $language)
                             }
                         }
                     }
@@ -29,8 +29,9 @@ export const GET_SUBMISSIONS = gql`
         $submissionsQuery: String!
         $limit: Int!
         $offset: Int!
+        $workspace: Workspace = LIVE
     ) {
-        jcr {
+        jcr(workspace: $workspace) {
             nodesByQuery(
                 query: $submissionsQuery
                 queryLanguage: SQL2
@@ -49,9 +50,6 @@ export const GET_SUBMISSIONS = gql`
                         value
                     }
                     origin: property(name: "origin") {
-                        value
-                    }
-                    status: property(name: "status") {
                         value
                     }
                     ipAddress: property(name: "ipAddress") {
@@ -73,6 +71,7 @@ export const GET_SUBMISSIONS = gql`
                         nodes {
                             properties {
                                 name
+                                value
                                 values
                             }
                         }
@@ -87,6 +86,7 @@ export const GET_SUBMISSIONS = gql`
                                             uuid
                                             name
                                             path
+                                            thumbnailUrl(name: "thumbnail", checkIfExists: true)
                                             content: children(names: ["jcr:content"]) {
                                                 nodes {
                                                     mimeType: property(name: "jcr:mimeType") {
@@ -107,8 +107,8 @@ export const GET_SUBMISSIONS = gql`
 `;
 
 export const GET_SUBMISSION_COUNT = gql`
-    query GetSubmissionCount($countQuery: String!) {
-        jcr {
+    query GetSubmissionCount($countQuery: String!, $workspace: Workspace = LIVE) {
+        jcr(workspace: $workspace) {
             nodesByQuery(
                 query: $countQuery
                 queryLanguage: SQL2
@@ -122,4 +122,3 @@ export const GET_SUBMISSION_COUNT = gql`
         }
     }
 `;
-

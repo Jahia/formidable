@@ -56,7 +56,6 @@
  - origin (string) mandatory
  - ipAddress (string)
  - locale (string)
- - status (string)
  - submitterUsername (string)
  - userAgent (string)
  - referer (string)

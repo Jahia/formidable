@@ -1,6 +1,20 @@
 import React, {useMemo, useState} from 'react';
 import {useQuery} from '@apollo/client';
-import {Loader, Typography, Button} from '@jahia/moonstone';
+import {
+    Button,
+    Loader,
+    Paper,
+    SortIndicator,
+    Table,
+    TableBody,
+    TableBodyCell,
+    TableHead,
+    TableHeadCell,
+    TablePagination,
+    TableRow,
+    Typography,
+    Visibility
+} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
 import {GET_SUBMISSIONS} from './FormResultsApp.gql-queries';
 import {
@@ -10,22 +24,26 @@ import {
     type FormResultsNode,
     type SubmissionRow
 } from './FormResults.utils';
-import {SubmissionDetailPanel} from './SubmissionDetailPanel';
 
 interface SubmissionsTableProps {
     formResults: FormResultsNode;
+    selectedSubmission: SubmissionRow | null;
+    onSelectSubmission: (submission: SubmissionRow | null) => void;
 }
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
-export const SubmissionsTable = ({formResults}: SubmissionsTableProps) => {
+export const SubmissionsTable = ({
+    formResults,
+    selectedSubmission,
+    onSelectSubmission
+}: SubmissionsTableProps) => {
     const {t} = useTranslation('formidable-engine');
 
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
     const [sortBy] = useState('created');
-    const [sortDirection] = useState('descending');
-    const [selectedSubmission, setSelectedSubmission] = useState<SubmissionRow | null>(null);
+    const [sortDirection, setSortDirection] = useState<'ascending' | 'descending'>('descending');
 
     const submissionsQuery = useMemo(
         () => buildSubmissionsQuery(formResults.path, sortBy, sortDirection),
@@ -38,7 +56,8 @@ export const SubmissionsTable = ({formResults}: SubmissionsTableProps) => {
         variables: {
             submissionsQuery,
             limit: pageSize,
-            offset
+            offset,
+            workspace: 'LIVE'
         },
         fetchPolicy: 'network-only'
     });
@@ -53,18 +72,6 @@ export const SubmissionsTable = ({formResults}: SubmissionsTableProps) => {
         return nodes.map(parseSubmissionNode);
     }, [queryResult]);
 
-    const dynamicFieldNames = useMemo(() => {
-        const names = new Set<string>();
-        for (const sub of submissions) {
-            for (const fv of sub.fieldValues) {
-                names.add(fv.name);
-            }
-        }
-
-        return Array.from(names);
-    }, [submissions]);
-
-    const formLabel = formResults.parentForm?.refNode?.displayName ?? formResults.displayName ?? formResults.name;
 
     if (loading) {
         return (
@@ -87,133 +94,102 @@ export const SubmissionsTable = ({formResults}: SubmissionsTableProps) => {
     }
 
     return (
-        <div style={{display: 'flex', gap: '16px', height: '100%'}}>
-            <div style={{flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden'}}>
-                <div style={{marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                    <Typography variant="heading" weight="bold">
-                        {formLabel} ({totalCount})
-                    </Typography>
-                </div>
+        <Paper hasPadding={false} style={{display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0}}>
+            <div style={{flex: 1, overflow: 'auto'}}>
+                <Table
+                    style={{
+                        minWidth: '870px'
+                    }}
+                >
+                    <TableHead>
+                        <TableRow>
+                            <TableHeadCell
+                                width="180px"
+                                style={{cursor: 'pointer'}}
+                                onClick={() => setSortDirection(current => current === 'descending' ? 'ascending' : 'descending')}
+                                iconEnd={<SortIndicator direction={sortDirection} isSorted/>}
+                            >
+                                {t('formResults.table.date')}
+                            </TableHeadCell>
+                            <TableHeadCell width="110px">{t('formResults.table.user')}</TableHeadCell>
+                            <TableHeadCell width="90px">{t('formResults.table.locale')}</TableHeadCell>
+                            <TableHeadCell width="140px">{t('formResults.table.ipAddress')}</TableHeadCell>
+                            <TableHeadCell width="80px" textAlign="center">{t('formResults.table.files')}</TableHeadCell>
+                            <TableHeadCell width="90px" textAlign="center">{t('formResults.table.filledFields')}</TableHeadCell>
+                            <TableHeadCell width="110px" textAlign="right"/>
+                        </TableRow>
+                    </TableHead>
 
-                <div style={{flex: 1, overflow: 'auto'}}>
-                    <table style={{width: '100%', borderCollapse: 'collapse', fontSize: '14px'}}>
-                        <thead>
-                            <tr style={{borderBottom: '2px solid var(--color-gray_light40)', textAlign: 'left'}}>
-                                <th style={{padding: '8px 12px', whiteSpace: 'nowrap'}}>{t('formResults.table.date')}</th>
-                                <th style={{padding: '8px 12px', whiteSpace: 'nowrap'}}>{t('formResults.table.status')}</th>
-                                <th style={{padding: '8px 12px', whiteSpace: 'nowrap'}}>{t('formResults.table.user')}</th>
-                                <th style={{padding: '8px 12px', whiteSpace: 'nowrap'}}>{t('formResults.table.locale')}</th>
-                                <th style={{padding: '8px 12px', whiteSpace: 'nowrap'}}>{t('formResults.table.files')}</th>
-                                {dynamicFieldNames.map(fieldName => (
-                                    <th key={fieldName} style={{padding: '8px 12px', whiteSpace: 'nowrap'}}>{fieldName}</th>
-                                ))}
-                                <th style={{padding: '8px 12px', width: '60px'}}/>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {submissions.map(submission => (
-                                <tr
-                                    key={submission.uuid}
-                                    style={{
-                                        borderBottom: '1px solid var(--color-gray_light40)',
-                                        cursor: 'pointer',
-                                        backgroundColor: selectedSubmission?.uuid === submission.uuid ? 'var(--color-blue10)' : 'transparent'
-                                    }}
-                                    onClick={() => setSelectedSubmission(submission)}
-                                >
-                                    <td style={{padding: '8px 12px', whiteSpace: 'nowrap'}}>{formatDate(submission.created)}</td>
-                                    <td style={{padding: '8px 12px'}}>{submission.status ?? ''}</td>
-                                    <td style={{padding: '8px 12px'}}>{submission.submitterUsername ?? ''}</td>
-                                    <td style={{padding: '8px 12px'}}>{submission.locale ?? ''}</td>
-                                    <td style={{padding: '8px 12px', textAlign: 'right'}}>{submission.files.length}</td>
-                                    {dynamicFieldNames.map(fieldName => {
-                                        const field = submission.fieldValues.find(fv => fv.name === fieldName);
-                                        const displayValue = field ? field.values.join(', ') : '';
-                                        return (
-                                            <td
-                                                key={fieldName}
-                                                style={{
-                                                    padding: '8px 12px',
-                                                    maxWidth: '200px',
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    whiteSpace: 'nowrap'
-                                                }}
-                                                title={displayValue}
-                                            >
-                                                {displayValue}
-                                            </td>
-                                        );
-                                    })}
-                                    <td style={{padding: '8px 12px'}}>
-                                        <Button
-                                            variant="ghost"
-                                            size="small"
-                                            label={t('formResults.table.view')}
-                                            onClick={e => {
-                                                e.stopPropagation();
-                                                setSelectedSubmission(submission);
-                                            }}
-                                        />
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-
-                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderTop: '1px solid var(--color-gray_light40)'}}>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-                        <Typography variant="caption">
-                            {t('formResults.table.rowsPerPage')}
-                        </Typography>
-                        <select
-                            value={pageSize}
-                            onChange={e => {
-                                setPageSize(Number(e.target.value));
-                                setCurrentPage(1);
-                            }}
-                            style={{padding: '4px 8px'}}
-                        >
-                            {PAGE_SIZE_OPTIONS.map(size => (
-                                <option key={size} value={size}>{size}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-                        <Typography variant="caption">
-                            {t('formResults.table.pageInfo', {
-                                current: String(currentPage),
-                                total: String(totalPages || 1),
-                                count: String(totalCount)
-                            } as any)}
-                        </Typography>
-                        <Button
-                            variant="ghost"
-                            size="small"
-                            label="←"
-                            isDisabled={currentPage <= 1}
-                            onClick={() => setCurrentPage(p => p - 1)}
-                        />
-                        <Button
-                            variant="ghost"
-                            size="small"
-                            label="→"
-                            isDisabled={!hasNextPage}
-                            onClick={() => setCurrentPage(p => p + 1)}
-                        />
-                    </div>
-                </div>
+                    <TableBody>
+                        {submissions.map(submission => (
+                            <TableRow
+                                key={submission.uuid}
+                                isSelected={selectedSubmission?.uuid === submission.uuid}
+                                onClick={() => onSelectSubmission(submission)}
+                                style={{cursor: 'pointer'}}
+                            >
+                                <TableBodyCell width="180px" isScrollable>
+                                    {formatDate(submission.created)}
+                                </TableBodyCell>
+                                <TableBodyCell width="110px" isScrollable>
+                                    {submission.submitterUsername ?? ''}
+                                </TableBodyCell>
+                                <TableBodyCell width="90px">
+                                    {submission.locale ?? ''}
+                                </TableBodyCell>
+                                <TableBodyCell width="140px" isScrollable>
+                                    {submission.ipAddress ?? ''}
+                                </TableBodyCell>
+                                <TableBodyCell width="80px" textAlign="center">
+                                    {submission.files.length}
+                                </TableBodyCell>
+                                <TableBodyCell width="90px" textAlign="center">
+                                    {submission.fieldValues.length}
+                                </TableBodyCell>
+                                <TableBodyCell width="110px" textAlign="right">
+                                    <Button
+                                        variant="ghost"
+                                        size="small"
+                                        label={t('formResults.table.view')}
+                                        icon={<Visibility/>}
+                                        onClick={e => {
+                                            e.stopPropagation();
+                                            onSelectSubmission(submission);
+                                        }}
+                                    />
+                                </TableBodyCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
             </div>
 
-            {selectedSubmission && (
-                <SubmissionDetailPanel
-                    submission={selectedSubmission}
-                    onClose={() => setSelectedSubmission(null)}
+            <div style={{padding: '0 16px 16px'}}>
+                <TablePagination
+                    rowsPerPage={pageSize}
+                    rowsPerPageOptions={PAGE_SIZE_OPTIONS}
+                    onRowsPerPageChange={rowsPerPage => {
+                        setPageSize(rowsPerPage);
+                        setCurrentPage(1);
+                    }}
+                    totalNumberOfRows={totalCount}
+                    currentPage={currentPage}
+                    onPageChange={setCurrentPage}
+                    label={{
+                        rowsPerPage: t('formResults.table.rowsPerPage'),
+                        of: t('formResults.table.of')
+                    }}
                 />
-            )}
-        </div>
+                <div style={{paddingTop: '8px'}}>
+                    <Typography variant="caption">
+                        {t('formResults.table.pageInfo', {
+                            current: String(currentPage),
+                            total: String(totalPages || 1),
+                            count: String(totalCount)
+                        } as any)}
+                    </Typography>
+                </div>
+            </div>
+        </Paper>
     );
 };
-
-

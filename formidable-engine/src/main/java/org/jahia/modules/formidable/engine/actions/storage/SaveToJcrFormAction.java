@@ -35,7 +35,6 @@ public class SaveToJcrFormAction implements FormAction {
     private static final Logger log = LoggerFactory.getLogger(SaveToJcrFormAction.class);
     private static final String RESULTS_ROOT_NAME = "formidable-results";
     private static final String SUBMISSION_ORIGIN = "formidable";
-    private static final String SUBMISSION_STATUS = "accepted";
     private static final String SPLIT_CONFIG = "date,jcr:created,yyyy;date,jcr:created,MM;date,jcr:created,dd";
     private static final String SPLIT_NODE_TYPE = "fmdb:splittedSubmission";
     private static final DateTimeFormatter SUBMISSION_NAME_FORMATTER =
@@ -189,7 +188,6 @@ public class SaveToJcrFormAction implements FormAction {
         String availableName = JCRContentUtils.findAvailableNodeName(submissions, submissionName);
         JCRNodeWrapper submission = submissions.addNode(availableName, "fmdb:formSubmission");
         submission.setProperty("origin", SUBMISSION_ORIGIN);
-        submission.setProperty("status", SUBMISSION_STATUS);
         setOptionalProperty(submission, "ipAddress", req.getRemoteAddr());
         setOptionalProperty(submission, "locale", req.getParameter("lang"));
         setOptionalProperty(submission, "submitterUsername", session.getUserID());
@@ -239,7 +237,7 @@ public class SaveToJcrFormAction implements FormAction {
             JCRSessionWrapper session
     ) throws RepositoryException {
         session.checkout(fieldFolder);
-        String fileNodeName = JCRContentUtils.findAvailableNodeName(fieldFolder, file.storageName());
+        String fileNodeName = JCRContentUtils.findAvailableNodeName(fieldFolder, file.originalName());
         JCRNodeWrapper fileNode = fieldFolder.addNode(fileNodeName, "jnt:file");
         JCRNodeWrapper contentNode = fileNode.addNode("jcr:content", "jnt:resource");
 
