@@ -3,5 +3,47 @@
         "value": "Valeur",
         "label": "Libellé",
         "selected": "Sélectionné"
+    },
+    "formResults": {
+        "nav": {
+            "title": "Résultats de formulaires"
+        },
+        "sidebar": {
+            "title": "Formulaires"
+        },
+        "empty": {
+            "noForms": "Aucun résultat de formulaire",
+            "noFormsDescription": "Aucune soumission Formidable sauvegardée n'a été trouvée pour ce site.",
+            "noSubmissions": "Aucune soumission"
+        },
+        "error": {
+            "noSite": "Aucun site sélectionné."
+        },
+        "table": {
+            "date": "Date",
+            "status": "Statut",
+            "user": "Utilisateur",
+            "locale": "Langue",
+            "files": "Fichiers",
+            "view": "Voir",
+            "rowsPerPage": "Lignes par page :",
+            "pageInfo": "Page {{current}} sur {{total}} ({{count}} résultats)"
+        },
+        "detail": {
+            "title": "Détail de la soumission",
+            "metadata": "Métadonnées",
+            "submittedValues": "Valeurs soumises",
+            "files": "Fichiers",
+            "noValues": "Aucune valeur soumise.",
+            "download": "Télécharger",
+            "created": "Créé le",
+            "origin": "Origine",
+            "status": "Statut",
+            "ipAddress": "Adresse IP",
+            "locale": "Langue",
+            "user": "Utilisateur",
+            "userAgent": "User Agent",
+            "referer": "Provenance"
+        }
     }
 }

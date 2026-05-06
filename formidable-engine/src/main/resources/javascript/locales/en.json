@@ -3,5 +3,47 @@
         "value": "Value",
         "label": "Label",
         "selected": "Selected"
+    },
+    "formResults": {
+        "nav": {
+            "title": "Form Results"
+        },
+        "sidebar": {
+            "title": "Forms"
+        },
+        "empty": {
+            "noForms": "No form results",
+            "noFormsDescription": "No saved Formidable submissions were found for this site.",
+            "noSubmissions": "No submissions"
+        },
+        "error": {
+            "noSite": "No site selected."
+        },
+        "table": {
+            "date": "Date",
+            "status": "Status",
+            "user": "User",
+            "locale": "Locale",
+            "files": "Files",
+            "view": "View",
+            "rowsPerPage": "Rows per page:",
+            "pageInfo": "Page {{current}} of {{total}} ({{count}} results)"
+        },
+        "detail": {
+            "title": "Submission detail",
+            "metadata": "Metadata",
+            "submittedValues": "Submitted values",
+            "files": "Files",
+            "noValues": "No submitted values.",
+            "download": "Download",
+            "created": "Created",
+            "origin": "Origin",
+            "status": "Status",
+            "ipAddress": "IP Address",
+            "locale": "Locale",
+            "user": "User",
+            "userAgent": "User Agent",
+            "referer": "Referer"
+        }
     }
 }
