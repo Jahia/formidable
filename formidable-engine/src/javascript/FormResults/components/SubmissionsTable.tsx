@@ -1,4 +1,4 @@
-import React, {useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useQuery} from '@apollo/client';
 import {
     Button,
@@ -16,19 +16,20 @@ import {
     Visibility
 } from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
-import {GET_SUBMISSIONS} from './FormResultsApp.gql-queries';
+import {GET_SUBMISSIONS} from '../graphql';
 import {
     buildSubmissionsQuery,
     formatDate,
     parseSubmissionNode,
     type FormResultsNode,
     type SubmissionRow
-} from './FormResults.utils';
+} from '../FormResults.utils';
 
 interface SubmissionsTableProps {
     formResults: FormResultsNode;
     selectedSubmission: SubmissionRow | null;
     onSelectSubmission: (submission: SubmissionRow | null) => void;
+    onRegisterRefresh: (refresh: (() => Promise<unknown>) | null) => void;
 }
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50];
@@ -36,7 +37,8 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50];
 export const SubmissionsTable = ({
     formResults,
     selectedSubmission,
-    onSelectSubmission
+    onSelectSubmission,
+    onRegisterRefresh
 }: SubmissionsTableProps) => {
     const {t} = useTranslation('formidable-engine');
 
@@ -52,7 +54,7 @@ export const SubmissionsTable = ({
 
     const offset = (currentPage - 1) * pageSize;
 
-    const {loading, error, data} = useQuery(GET_SUBMISSIONS, {
+    const {loading, error, data, refetch} = useQuery(GET_SUBMISSIONS, {
         variables: {
             submissionsQuery,
             limit: pageSize,
@@ -64,13 +66,70 @@ export const SubmissionsTable = ({
 
     const queryResult = data?.jcr?.nodesByQuery;
     const totalCount = queryResult?.pageInfo?.totalCount ?? 0;
-    const hasNextPage = queryResult?.pageInfo?.hasNextPage ?? false;
     const totalPages = Math.ceil(totalCount / pageSize);
 
     const submissions: SubmissionRow[] = useMemo(() => {
         const nodes = queryResult?.nodes ?? [];
         return nodes.map(parseSubmissionNode);
     }, [queryResult]);
+
+    useEffect(() => {
+        onRegisterRefresh(() => refetch());
+
+        return () => {
+            onRegisterRefresh(null);
+        };
+    }, [onRegisterRefresh, refetch]);
+
+    useEffect(() => {
+        if (!selectedSubmission) {
+            return;
+        }
+
+        const updatedSelection = submissions.find(submission => submission.uuid === selectedSubmission.uuid);
+        if (updatedSelection && updatedSelection !== selectedSubmission) {
+            onSelectSubmission(updatedSelection);
+        }
+    }, [onSelectSubmission, selectedSubmission, submissions]);
+
+    const tableRef = useRef<HTMLDivElement | null>(null);
+
+    const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+        if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') {
+            return;
+        }
+
+        e.preventDefault();
+
+        if (submissions.length === 0) {
+            return;
+        }
+
+        const currentIndex = selectedSubmission
+            ? submissions.findIndex(s => s.uuid === selectedSubmission.uuid)
+            : -1;
+
+        let nextIndex: number;
+        if (e.key === 'ArrowDown') {
+            nextIndex = currentIndex < submissions.length - 1 ? currentIndex + 1 : 0;
+        } else {
+            nextIndex = currentIndex > 0 ? currentIndex - 1 : submissions.length - 1;
+        }
+
+        onSelectSubmission(submissions[nextIndex]);
+    }, [submissions, selectedSubmission, onSelectSubmission]);
+
+    useEffect(() => {
+        if (!selectedSubmission || !tableRef.current) {
+            return;
+        }
+
+        const row = tableRef.current.querySelector<HTMLElement>(`[data-submission-uuid="${selectedSubmission.uuid}"]`);
+        if (row) {
+            row.focus({preventScroll: true});
+            row.scrollIntoView({block: 'nearest'});
+        }
+    }, [selectedSubmission]);
 
 
     if (loading) {
@@ -95,7 +154,16 @@ export const SubmissionsTable = ({
 
     return (
         <Paper hasPadding={false} style={{display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0}}>
-            <div style={{flex: 1, overflow: 'auto'}}>
+            <div
+                ref={tableRef}
+                tabIndex={0}
+                onKeyDown={handleKeyDown}
+                style={{
+                    flex: 1,
+                    overflow: 'auto',
+                    outline: 'none'
+                }}
+            >
                 <Table
                     style={{
                         minWidth: '870px'
@@ -124,9 +192,11 @@ export const SubmissionsTable = ({
                         {submissions.map(submission => (
                             <TableRow
                                 key={submission.uuid}
-                                isSelected={selectedSubmission?.uuid === submission.uuid}
+                                isHighlighted={selectedSubmission?.uuid === submission.uuid}
+                                tabIndex={-1}
+                                data-submission-uuid={submission.uuid}
                                 onClick={() => onSelectSubmission(submission)}
-                                style={{cursor: 'pointer'}}
+                                style={{cursor: 'pointer', outline: 'none'}}
                             >
                                 <TableBodyCell width="180px" isScrollable>
                                     {formatDate(submission.created)}
@@ -193,3 +263,4 @@ export const SubmissionsTable = ({
         </Paper>
     );
 };
+

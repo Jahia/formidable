@@ -1,11 +1,10 @@
-import React, {useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import {useQuery} from '@apollo/client';
-import {Loader, Paper, Typography} from '@jahia/moonstone';
+import {Button, Download, Loader, Paper, Reload, Typography} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
-import {GET_FORM_RESULTS_LIST} from './FormResultsApp.gql-queries';
-import {FormResultsList} from './FormResultsList';
-import {SubmissionDetailPanel} from './SubmissionDetailPanel';
-import {SubmissionsTable} from './SubmissionsTable';
+import {GET_FORM_RESULTS_LIST} from './graphql';
+import {ExportResultsDialog} from './export';
+import {FormResultsList, SubmissionDetailPanel, SubmissionsTable} from './components';
 import type {FormResultsNode, SubmissionRow} from './FormResults.utils';
 
 export const FormResultsApp = () => {
@@ -16,8 +15,11 @@ export const FormResultsApp = () => {
 
     const [selectedFormResultsId, setSelectedFormResultsId] = useState<string | null>(null);
     const [selectedSubmission, setSelectedSubmission] = useState<SubmissionRow | null>(null);
+    const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [refreshSelectedForm, setRefreshSelectedForm] = useState<(() => Promise<unknown>) | null>(null);
 
-    const {loading, error, data} = useQuery(GET_FORM_RESULTS_LIST, {
+    const {loading, error, data, refetch: refetchForms} = useQuery(GET_FORM_RESULTS_LIST, {
         variables: {resultsPath, workspace: 'LIVE', language},
         fetchPolicy: 'network-only',
         skip: !siteKey
@@ -33,6 +35,27 @@ export const FormResultsApp = () => {
     useEffect(() => {
         setSelectedSubmission(null);
     }, [selectedFormUuid]);
+
+    useEffect(() => {
+        setIsExportDialogOpen(false);
+    }, [selectedFormUuid]);
+
+    const handleRegisterRefresh = useCallback((refresh: (() => Promise<unknown>) | null) => {
+        setRefreshSelectedForm(() => refresh);
+    }, []);
+
+    const handleRefresh = async () => {
+        if (!selectedForm || !refreshSelectedForm) {
+            return;
+        }
+
+        setIsRefreshing(true);
+        try {
+            await Promise.all([refetchForms(), refreshSelectedForm()]);
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
 
     if (!siteKey) {
         return <Typography>{t('formResults.error.noSite')}</Typography>;
@@ -90,6 +113,33 @@ export const FormResultsApp = () => {
             <div
                 style={{
                     display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '12px 24px',
+                    borderBottom: '1px solid var(--color-gray_light40)',
+                    backgroundColor: 'var(--color-light)'
+                }}
+            >
+                <Button
+                    variant="ghost"
+                    icon={<Download/>}
+                    label={t('formResults.actions.export')}
+                    isDisabled={!selectedForm}
+                    onClick={() => setIsExportDialogOpen(true)}
+                />
+                <Button
+                    variant="ghost"
+                    icon={<Reload/>}
+                    label={t('formResults.actions.refresh')}
+                    isDisabled={!selectedForm || !refreshSelectedForm}
+                    isLoading={isRefreshing}
+                    onClick={handleRefresh}
+                />
+            </div>
+
+            <div
+                style={{
+                    display: 'flex',
                     flex: 1,
                     minHeight: 0,
                     overflow: 'hidden',
@@ -109,6 +159,7 @@ export const FormResultsApp = () => {
                             formResults={selectedForm}
                             selectedSubmission={selectedSubmission}
                             onSelectSubmission={setSelectedSubmission}
+                            onRegisterRefresh={handleRegisterRefresh}
                         />
                     ) : (
                         <Paper
@@ -133,6 +184,12 @@ export const FormResultsApp = () => {
                     />
                 )}
             </div>
+            {selectedForm && isExportDialogOpen && (
+                <ExportResultsDialog
+                    formResults={selectedForm}
+                    onClose={() => setIsExportDialogOpen(false)}
+                />
+            )}
         </div>
     );
 };

@@ -1,7 +1,9 @@
 {
     "compilerOptions": {
+        "allowJs": true,
+        "checkJs": true,
         "esModuleInterop": true,
-        "jsx": "react-jsx",
+        "jsx": "preserve",
         "lib": [
             "esnext",
             "dom"
@@ -13,7 +15,8 @@
         "skipLibCheck": true,
         "strict": true,
         "target": "esnext",
-        "verbatimModuleSyntax": true
+        "verbatimModuleSyntax": true,
+        "baseUrl": "."
     },
     "include": [
         "src/javascript",

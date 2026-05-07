@@ -1,19 +1,19 @@
 import {gql} from '@apollo/client';
+import {JCR_NODE_IDENTITY} from './fragments';
 
 export const GET_FORM_RESULTS_LIST = gql`
+    ${JCR_NODE_IDENTITY}
     query GetFormResultsList($resultsPath: String!, $workspace: Workspace = LIVE, $language: String!) {
         jcr(workspace: $workspace) {
             nodeByPath(path: $resultsPath) {
+                ...JcrNodeIdentity
                 children(typesFilter: {types: ["fmdb:formResults"]}) {
                     nodes {
-                        uuid
-                        path
-                        name
+                        ...JcrNodeIdentity
                         displayName(language: $language)
                         parentForm: property(name: "parentForm") {
                             refNode {
-                                uuid
-                                path
+                                ...JcrNodeIdentity
                                 displayName(language: $language)
                             }
                         }
@@ -25,6 +25,7 @@ export const GET_FORM_RESULTS_LIST = gql`
 `;
 
 export const GET_SUBMISSIONS = gql`
+    ${JCR_NODE_IDENTITY}
     query GetSubmissions(
         $submissionsQuery: String!
         $limit: Int!
@@ -43,9 +44,7 @@ export const GET_SUBMISSIONS = gql`
                     hasNextPage
                 }
                 nodes {
-                    uuid
-                    path
-                    name
+                    ...JcrNodeIdentity
                     created: property(name: "jcr:created") {
                         value
                     }
@@ -69,6 +68,7 @@ export const GET_SUBMISSIONS = gql`
                     }
                     data: children(names: ["data"]) {
                         nodes {
+                            ...JcrNodeIdentity
                             properties {
                                 name
                                 value
@@ -78,17 +78,18 @@ export const GET_SUBMISSIONS = gql`
                     }
                     files: children(names: ["files"]) {
                         nodes {
+                            ...JcrNodeIdentity
                             children {
                                 nodes {
-                                    name
+                                    ...JcrNodeIdentity
                                     children {
                                         nodes {
-                                            uuid
-                                            name
-                                            path
+                                            ...JcrNodeIdentity
+                                            url
                                             thumbnailUrl(name: "thumbnail", checkIfExists: true)
                                             content: children(names: ["jcr:content"]) {
                                                 nodes {
+                                                    ...JcrNodeIdentity
                                                     mimeType: property(name: "jcr:mimeType") {
                                                         value
                                                     }
@@ -122,3 +123,4 @@ export const GET_SUBMISSION_COUNT = gql`
         }
     }
 `;
+

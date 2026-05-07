@@ -11,6 +11,10 @@
         "sidebar": {
             "title": "Forms"
         },
+        "actions": {
+            "export": "Export",
+            "refresh": "Refresh"
+        },
         "empty": {
             "noForms": "No form results",
             "noFormsDescription": "No saved Formidable submissions were found for this site.",
@@ -41,13 +45,33 @@
             "noValues": "No submitted values.",
             "download": "Download",
             "preview": "Preview",
-            "created": "Created",
+            "created": "Submitted",
             "origin": "Origin",
             "ipAddress": "IP Address",
             "locale": "Locale",
             "user": "User",
             "userAgent": "User Agent",
             "referer": "Referer"
+        },
+        "export": {
+            "title": "Export results",
+            "description": "Export form submissions.",
+            "cancel": "Cancel",
+            "confirm": "Export",
+            "fields": {
+                "startDate": "Start date",
+                "endDate": "End date",
+                "allResults": "Export all results",
+                "format": "Format"
+            },
+            "columns": {
+                "id": "Submission ID",
+                "name": "Submission name"
+            },
+            "validation": {
+                "invalidRange": "Select a valid start and end date, or export all results.",
+                "unexpectedError": "Export failed."
+            }
         }
     }
 }

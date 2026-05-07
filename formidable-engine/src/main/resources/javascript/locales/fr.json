@@ -11,6 +11,10 @@
         "sidebar": {
             "title": "Formulaires"
         },
+        "actions": {
+            "export": "Exporter",
+            "refresh": "Rafraîchir"
+        },
         "empty": {
             "noForms": "Aucun résultat de formulaire",
             "noFormsDescription": "Aucune soumission Formidable sauvegardée n'a été trouvée pour ce site.",
@@ -41,13 +45,33 @@
             "noValues": "Aucune valeur soumise.",
             "download": "Télécharger",
             "preview": "Aperçu",
-            "created": "Créé le",
+            "created": "Soumis le",
             "origin": "Origine",
             "ipAddress": "Adresse IP",
             "locale": "Langue",
             "user": "Utilisateur",
             "userAgent": "User Agent",
             "referer": "Provenance"
+        },
+        "export": {
+            "title": "Exporter les résultats",
+            "description": "Exporte les soumissions du formulaire.",
+            "cancel": "Annuler",
+            "confirm": "Exporter",
+            "fields": {
+                "startDate": "Date de début",
+                "endDate": "Date de fin",
+                "allResults": "Exporter tous les résultats",
+                "format": "Format"
+            },
+            "columns": {
+                "id": "ID de soumission",
+                "name": "Nom de soumission"
+            },
+            "validation": {
+                "invalidRange": "Sélectionnez une plage de dates valide, ou exportez tous les résultats.",
+                "unexpectedError": "Échec de l'export."
+            }
         }
     }
 }

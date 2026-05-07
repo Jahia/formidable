@@ -1,7 +1,7 @@
 import React from 'react';
 import {Badge, Form as FormIcon, Paper, Typography} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
-import type {FormResultsNode} from './FormResults.utils';
+import type {FormResultsNode} from '../FormResults.utils';
 
 interface FormResultsListProps {
     forms: FormResultsNode[];
@@ -92,3 +92,4 @@ export const FormResultsList = ({forms, selectedId, onSelect}: FormResultsListPr
         </aside>
     );
 };
+

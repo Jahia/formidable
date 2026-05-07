@@ -29,6 +29,7 @@ export interface SubmissionFile {
     fileName: string;
     fileUuid: string;
     filePath: string;
+    fileUrl: string;
     mimeType: string | null;
     thumbnailUrl: string | null;
 }
@@ -46,6 +47,11 @@ export interface SubmissionRow {
     referer: string | null;
     fieldValues: SubmissionFieldValue[];
     files: SubmissionFile[];
+}
+
+export interface SubmissionQueryFilters {
+    startDate?: string;
+    endDate?: string;
 }
 
 const JCR_PROPERTY_PREFIXES = ['jcr:', 'j:', 'mix:'];
@@ -91,6 +97,7 @@ export function parseSubmissionNode(node: any): SubmissionRow {
                     fileName: fileNode.name,
                     fileUuid: fileNode.uuid,
                     filePath: fileNode.path,
+                    fileUrl: fileNode.url ?? '',
                     mimeType: fileNode.content?.nodes?.[0]?.mimeType?.value ?? null,
                     thumbnailUrl: fileNode.thumbnailUrl ?? null
                 });
@@ -114,11 +121,35 @@ export function parseSubmissionNode(node: any): SubmissionRow {
     };
 }
 
-export function buildSubmissionsQuery(formResultsPath: string, sortBy: string, sortDirection: string): string {
+const toJcrDateStart = (dateValue: string): string => {
+    const [year, month, day] = dateValue.split('-').map(Number);
+    return new Date(year, month - 1, day, 0, 0, 0, 0).toISOString();
+};
+
+const toJcrDateEndExclusive = (dateValue: string): string => {
+    const [year, month, day] = dateValue.split('-').map(Number);
+    return new Date(year, month - 1, day + 1, 0, 0, 0, 0).toISOString();
+};
+
+export function buildSubmissionsQuery(
+    formResultsPath: string,
+    sortBy: string,
+    sortDirection: string,
+    filters: SubmissionQueryFilters = {}
+): string {
     const orderDirection = sortDirection === 'ascending' ? 'ASC' : 'DESC';
     const orderColumn = sortBy === 'created' ? 's.[jcr:created]' : `s.[${sortBy}]`;
+    const whereClauses = [`ISDESCENDANTNODE(s, '${formResultsPath}/submissions')`];
 
-    return `SELECT * FROM [fmdb:formSubmission] AS s WHERE ISDESCENDANTNODE(s, '${formResultsPath}/submissions') ORDER BY ${orderColumn} ${orderDirection}`;
+    if (filters.startDate) {
+        whereClauses.push(`s.[jcr:created] >= CAST('${toJcrDateStart(filters.startDate)}' AS DATE)`);
+    }
+
+    if (filters.endDate) {
+        whereClauses.push(`s.[jcr:created] < CAST('${toJcrDateEndExclusive(filters.endDate)}' AS DATE)`);
+    }
+
+    return `SELECT * FROM [fmdb:formSubmission] AS s WHERE ${whereClauses.join(' AND ')} ORDER BY ${orderColumn} ${orderDirection}`;
 }
 
 export function buildCountQuery(formResultsPath: string): string {
@@ -152,11 +183,6 @@ export function formatFileSize(bytes: number | null): string {
     }
 
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-export function buildDownloadUrl(filePath: string): string {
-    const ctx = (window as any).contextJsParameters?.contextPath ?? '';
-    return `${ctx}/files/live${filePath}`;
 }
 
 
