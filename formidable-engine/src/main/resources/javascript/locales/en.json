@@ -3,5 +3,75 @@
         "value": "Value",
         "label": "Label",
         "selected": "Selected"
+    },
+    "formResults": {
+        "nav": {
+            "title": "Form Results"
+        },
+        "sidebar": {
+            "title": "Forms"
+        },
+        "actions": {
+            "export": "Export",
+            "refresh": "Refresh"
+        },
+        "empty": {
+            "noForms": "No form results",
+            "noFormsDescription": "No saved Formidable submissions were found for this site.",
+            "noSubmissions": "No submissions",
+            "selectForm": "Select a form to see form results"
+        },
+        "error": {
+            "noSite": "No site selected."
+        },
+        "table": {
+            "date": "Date",
+            "user": "User",
+            "locale": "Locale",
+            "ipAddress": "IP Address",
+            "files": "#Files",
+            "filledFields": "#Fields",
+            "view": "View",
+            "rowsPerPage": "Rows per page:",
+            "of": "of",
+            "pageInfo": "Page {{current}} of {{total}} ({{count}} results)"
+        },
+        "detail": {
+            "title": "Submission detail",
+            "close": "Close",
+            "metadata": "Metadata",
+            "submittedValues": "Submitted values",
+            "files": "Files",
+            "noValues": "No submitted values.",
+            "download": "Download",
+            "preview": "Preview",
+            "created": "Submitted",
+            "origin": "Origin",
+            "ipAddress": "IP Address",
+            "locale": "Locale",
+            "user": "User",
+            "userAgent": "User Agent",
+            "referer": "Referer"
+        },
+        "export": {
+            "title": "Export results",
+            "description": "Export form submissions.",
+            "cancel": "Cancel",
+            "confirm": "Export",
+            "fields": {
+                "startDate": "Start date",
+                "endDate": "End date",
+                "allResults": "Export all results",
+                "format": "Format"
+            },
+            "columns": {
+                "id": "Submission ID",
+                "name": "Submission name"
+            },
+            "validation": {
+                "invalidRange": "Select a valid start and end date, or export all results.",
+                "unexpectedError": "Export failed."
+            }
+        }
     }
 }

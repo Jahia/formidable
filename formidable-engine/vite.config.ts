@@ -8,7 +8,7 @@ export default defineConfig({
   plugins: [
     jahia({
       exposes: {
-        "./init": "./src/javascript/init.ts",
+        "./init": "./src/javascript/init.tsx",
       },
     }),
   ],

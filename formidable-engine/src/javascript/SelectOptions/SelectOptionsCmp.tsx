@@ -1,5 +1,6 @@
+import React from 'react';
 import {useTranslation} from 'react-i18next';
-import { Input, Checkbox } from "@jahia/moonstone";
+import { Input, Switch } from "@jahia/moonstone";
 interface SelectOption {
     value: string;
     label: string;
@@ -31,19 +32,21 @@ export const SelectOptionsCmp = ({field,id, value, onChange}: SelectOptionsCmpPr
     const option = parseValue(value);
 
     const handleChange = (patch: Partial<SelectOption>) => {
-        onChange(JSON.stringify({...option, ...patch}));
+        const updated = {...option, ...patch};
+        console.log('[SelectOptionsCmp] handleChange', {id, currentValue: value, option, patch, updated, json: JSON.stringify(updated)});
+        onChange(JSON.stringify(updated));
     };
 
     return (
       <div className="flexRow_nowrap flexFluid alignCenter" style={{ gap: "1rem" }}>
-        <Checkbox
+        <Switch
           id={`select-option-selected-${id}`}
           name={`select-option-selected-${id}`}
           title={t("selectOptions.selected")}
           checked={option.selected}
-          disabled={field.readOnly}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange({ selected: e.target.checked })
+          isDisabled={field.readOnly}
+          onChange={(_event, _value, checked) =>
+            handleChange({ selected: checked })
           }
         />
         <div className="flexFluid">
@@ -52,7 +55,7 @@ export const SelectOptionsCmp = ({field,id, value, onChange}: SelectOptionsCmpPr
             name={`select-option-value-${id}`}
             placeholder={t("selectOptions.value")}
             value={option.value}
-            readOnly={field.readOnly}
+            isReadOnly={field.readOnly}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
               handleChange({ value: e.target.value })
             }
@@ -66,7 +69,7 @@ export const SelectOptionsCmp = ({field,id, value, onChange}: SelectOptionsCmpPr
             name={`select-option-label-${id}`}
             placeholder={t("selectOptions.label")}
             value={option.label}
-            readOnly={field.readOnly}
+            isReadOnly={field.readOnly}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
               handleChange({ label: e.target.value })
             }
