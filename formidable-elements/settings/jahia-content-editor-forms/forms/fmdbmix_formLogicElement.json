@@ -1,0 +1,20 @@
+{
+	"nodeType": "fmdbmix:formLogicElement",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "logic",
+			"labelKey": "fmdb.section.logic",
+			"rank": 2.0,
+			"fieldSets": [
+				{
+					"name": "fmdbmix:formLogicElement",
+					"rank": 0.0,
+					"fields": [
+						{ "name": "logics" }
+					]
+				}
+			]
+		}
+	]
+}

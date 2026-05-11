@@ -4,4 +4,3 @@
  - intro (string, richtext) i18n indexed=no
  + * (fmdbmix:formElement) = fmdbmix:formElement
  + * (fmdbmix:formContent) = fmdbmix:formContent
-

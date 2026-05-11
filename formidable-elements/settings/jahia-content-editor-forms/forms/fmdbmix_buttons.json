@@ -1,0 +1,43 @@
+{
+	"nodeType": "fmdbmix:buttons",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "buttons",
+			"labelKey": "fmdb.section.buttons",
+			"rank": 1.20,
+			"fieldSets": [
+			{
+				"name": "submitAndReset",
+				"labelKey": "fmdb.fieldset.submitAndReset",
+				"rank": 0.0,
+					"fields": [
+						{ "name": "submitBtnLabel" },
+						{ "name": "showResetBtn" },
+						{ "name": "resetBtnLabel" }
+					]
+				},
+			{
+				"name": "stepNavigation",
+				"labelKey": "fmdb.fieldset.stepNavigation",
+				"rank": 1.0,
+					"fields": [
+						{ "name": "previousBtnLabel" },
+						{ "name": "nextBtnLabel" }
+					]
+				},
+			{
+				"name": "postSubmission",
+				"labelKey": "fmdb.fieldset.postSubmission",
+				"rank": 2.0,
+					"fields": [
+						{ "name": "showNewFormBtn" },
+						{ "name": "newFormBtnLabel" },
+						{ "name": "showTryAgainBtn" },
+						{ "name": "tryAgainBtnLabel" }
+					]
+				}
+			]
+		}
+	]
+}

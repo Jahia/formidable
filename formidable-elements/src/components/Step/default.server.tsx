@@ -1,4 +1,5 @@
-import {jahiaComponent, Render} from "@jahia/javascript-modules-library";
+import {jahiaComponent} from "@jahia/javascript-modules-library";
+import LogicAwareRender from "~/components/Form/LogicAwareRender";
 
 interface StepProps {
 	'jcr:title'?: string;
@@ -21,7 +22,11 @@ jahiaComponent(
 				{intro && <div className="fmdb-step-intro" dangerouslySetInnerHTML={{__html: intro}}/>}
 
 				{elements.map((element) => (
-					<Render key={element.getIdentifier()} node={element} />
+					<LogicAwareRender
+						key={element.getIdentifier()}
+						node={element}
+						className="fmdb-form-element"
+					/>
 				))}
 			</div>
 		);

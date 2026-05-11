@@ -1,0 +1,20 @@
+{
+	"nodeType": "fmdbmix:style",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "style",
+			"labelKey": "fmdb.section.style",
+			"rank": 1.40,
+			"fieldSets": [
+				{
+					"name": "customCss",
+					"rank": 0.0,
+					"fields": [
+						{ "name": "css" }
+					]
+				}
+			]
+		}
+	]
+}

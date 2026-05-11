@@ -1,31 +1,23 @@
 // Message manager component properties
 [fmdbmix:responses] mixin
- extends = fmdb:form
- itemtype = content
  - submissionMessage (string, richtext) i18n indexed=no
  - errorMessage (string, richtext) i18n indexed=no
 
 [fmdbmix:buttons] mixin
- extends = fmdb:form
- itemtype = content
    - submitBtnLabel (string) = resourceBundle('label.submitBtn') autocreated i18n indexed=no
-   - resetBtnLabel (string) = resourceBundle('label.resetBtn') autocreated i18n indexed=no
    - showResetBtn (boolean) = false
-   - newFormBtnLabel (string) = resourceBundle('label.newFormBtn') autocreated i18n indexed=no
+   - resetBtnLabel (string) = resourceBundle('label.resetBtn') autocreated i18n indexed=no
    - showNewFormBtn (boolean) = false
-   - tryAgainBtnLabel (string) = resourceBundle('label.tryAgainBtn') autocreated i18n indexed=no
+   - newFormBtnLabel (string) = resourceBundle('label.newFormBtn') autocreated i18n indexed=no
    - showTryAgainBtn (boolean) = false
+   - tryAgainBtnLabel (string) = resourceBundle('label.tryAgainBtn') autocreated i18n indexed=no
    - previousBtnLabel (string) = resourceBundle('label.previousBtn') autocreated i18n indexed=no
    - nextBtnLabel (string) = resourceBundle('label.nextBtn') autocreated i18n indexed=no
 
 [fmdbmix:multiStep] mixin
- extends = fmdb:form
- itemtype = content
    - showStepsNav (boolean) = true autocreated indexed=no
 
 [fmdbmix:style] mixin
-  extends = fmdb:form
-  itemtype = content
   - css (string,textarea) indexed=no
 
 // Enables CAPTCHA protection on a fmdb:form.
@@ -54,9 +46,8 @@
  + * (fmdbmix:formContent) = fmdbmix:formContent
  + * (fmdbmix:formStep) = fmdbmix:formStep
 
-[fmdb:form] > jnt:content, fmdbmix:component, jmix:visibleInContentTree, mix:title
+[fmdb:form] > jnt:content, fmdbmix:component, jmix:visibleInContentTree, fmdbmix:buttons, fmdbmix:responses, fmdbmix:multiStep, fmdbmix:style, mix:title
  orderable
  - intro (string, richtext) i18n indexed=no
  + fields (fmdb:fieldList) = fmdb:fieldList autocreated
  + actions (fmdb:actionList) = fmdb:actionList autocreated
-

@@ -1,40 +1,41 @@
 import {type FormEvent, useEffect, useRef, useState} from 'react';
 import {interpolateMessage} from '~/utils/messageUtils';
+import {applyConditionalLogicVisibility} from '~/utils/conditionalLogic';
 import clsx from "clsx";
 import classes from './Form.client.module.css';
 import {type FormProps} from './types';
 import Spinner from '~/design/Spinner';
 import DOMPurify from 'dompurify';
 import Captcha, {type CaptchaHandle} from './Captcha.client';
+import {useTranslation} from "react-i18next";
 
 const sanitize = (html: string): string => {
 	if (typeof window === 'undefined') return '';
 	return DOMPurify.sanitize(html);
 };
-import {useTranslation} from "react-i18next";
 
 export default function Form({
-														 intro,
-														 submissionMessage,
-														 errorMessage,
-														 submitActionUrl,
-														 isSubmitDisabled = false,
-														 showResetBtn = false,
-															 showNewFormBtn = false,
-															 showTryAgainBtn = false,
-															 submitBtnLabel,
-															 resetBtnLabel,
-															 newFormBtnLabel,
-															 tryAgainBtnLabel,
-															 previousBtnLabel,
-															 nextBtnLabel,
-															 showStepsNav = true,
-															 formId,
-															 locale,
-															 stepLabels,
-															 captcha,
-															 children
-														 }: FormProps) {
+	intro,
+	submissionMessage,
+	errorMessage,
+	submitActionUrl,
+	isSubmitDisabled = false,
+	showResetBtn = false,
+	showNewFormBtn = false,
+	showTryAgainBtn = false,
+	submitBtnLabel,
+	resetBtnLabel,
+	newFormBtnLabel,
+	tryAgainBtnLabel,
+	previousBtnLabel,
+	nextBtnLabel,
+	showStepsNav = true,
+	formId,
+	locale,
+	stepLabels,
+	captcha,
+	children
+}: FormProps) {
 	const [message, setMessage] = useState<string | null>(null);
 	const [messageType, setMessageType] = useState<'success' | 'error' | null>(null);
 	const [isLoading, setIsLoading] = useState(false);
@@ -42,6 +43,7 @@ export default function Form({
 	const [currentStep, setCurrentStep] = useState(0);
 	const formRef = useRef<HTMLFormElement>(null);
 	const captchaRef = useRef<CaptchaHandle>(null);
+	const resetVisibilityTimeoutRef = useRef<number | null>(null);
 
 	const {t} = useTranslation('formidable-elements', {keyPrefix: 'fmdb_form'});
 
@@ -59,6 +61,39 @@ export default function Form({
 		}
 	}, []);
 
+	useEffect(() => {
+		const form = formRef.current;
+		if (!form) return;
+
+		const syncVisibility = () => applyConditionalLogicVisibility(form);
+		const handleReset = () => {
+			if (resetVisibilityTimeoutRef.current !== null) {
+				window.clearTimeout(resetVisibilityTimeoutRef.current);
+			}
+
+			resetVisibilityTimeoutRef.current = window.setTimeout(() => {
+				syncVisibility();
+				resetVisibilityTimeoutRef.current = null;
+			}, 0);
+		};
+
+		syncVisibility();
+
+		form.addEventListener('input', syncVisibility);
+		form.addEventListener('change', syncVisibility);
+		form.addEventListener('reset', handleReset);
+
+		return () => {
+			form.removeEventListener('input', syncVisibility);
+			form.removeEventListener('change', syncVisibility);
+			form.removeEventListener('reset', handleReset);
+			if (resetVisibilityTimeoutRef.current !== null) {
+				window.clearTimeout(resetVisibilityTimeoutRef.current);
+				resetVisibilityTimeoutRef.current = null;
+			}
+		};
+	}, []);
+
 	const prevStepRef = useRef(0);
 	useEffect(() => {
 		if (!isMultiStep) return;
@@ -67,6 +102,12 @@ export default function Form({
 		if (stepEls[currentStep]) stepEls[currentStep].style.display = '';
 		prevStepRef.current = currentStep;
 	}, [currentStep, isMultiStep]);
+
+	useEffect(() => {
+		if (formRef.current) {
+			applyConditionalLogicVisibility(formRef.current);
+		}
+	}, [currentStep]);
 
 	const validateCurrentStep = (): boolean => {
 		const current = stepElsRef.current[currentStep];
