@@ -8,6 +8,7 @@ import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionFactory;
 import org.jahia.services.content.JCRSessionWrapper;
+import org.jahia.services.content.JCRTemplate;
 import org.jahia.services.usermanager.JahiaUserManagerService;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -183,21 +184,28 @@ class FormSubmissionPipeline {
         fieldAcceptTypes  = new HashMap<String, Set<String>>();
         fieldConstraints  = new HashMap<>();
         try {
-            if (!formNode.hasNode(FIELDS_NODE)) {
-                log.debug("[FormSubmissionPipeline] No '{}' child on form node '{}'",
-                        FIELDS_NODE, formNode.getPath());
-                return;
-            }
-            JCRNodeWrapper fieldList = formNode.getNode(FIELDS_NODE);
-            NodeIterator it = fieldList.getNodes();
-            while (it.hasNext()) {
-                javax.jcr.Node child = it.nextNode();
-                if (!(child instanceof JCRNodeWrapper w)) continue;
-                collectAllowedFieldsRecursively(w);
-            }
+            JCRTemplate.getInstance().doExecuteWithSystemSession(null, "live", locale, systemSession -> {
+                JCRNodeWrapper systemFormNode = systemSession.getNodeByIdentifier(formId);
+                if (!systemFormNode.hasNode(FIELDS_NODE)) {
+                    log.debug("[FormSubmissionPipeline] No '{}' child on form node '{}'",
+                            FIELDS_NODE, systemFormNode.getPath());
+                    return null;
+                }
+
+                JCRNodeWrapper fieldList = systemFormNode.getNode(FIELDS_NODE);
+                NodeIterator it = fieldList.getNodes();
+                while (it.hasNext()) {
+                    javax.jcr.Node child = it.nextNode();
+                    if (child instanceof JCRNodeWrapper w) {
+                        collectAllowedFieldsRecursively(w);
+                    }
+                }
+
+                return null;
+            });
         } catch (RepositoryException e) {
-            log.warn("[FormSubmissionPipeline] Could not collect form field info from '{}': {}",
-                    formNode.getPath(), e.getMessage());
+            log.warn("[FormSubmissionPipeline] Could not collect form field info from form '{}': {}",
+                    formId, e.getMessage());
         }
         log.debug("[FormSubmissionPipeline] Allowed fields: {}", allowedFieldNames);
     }
@@ -327,15 +335,8 @@ class FormSubmissionPipeline {
     }
 
     private void dispatchActions(HttpServletRequest req) throws SubmissionException {
-        for (JCRNodeWrapper actionNode : resolveActionNodes(formNode)) {
-            String nodeType;
-            try {
-                nodeType = actionNode.getPrimaryNodeTypeName();
-            } catch (RepositoryException e) {
-                log.warn("[FormSubmissionPipeline] Cannot read node type for action '{}', skipping.",
-                        actionNode.getPath());
-                continue;
-            }
+        for (ResolvedAction action : resolveActionNodes(formId, locale)) {
+            String nodeType = action.nodeType();
             FormAction handler = formActions.stream()
                     .filter(a -> nodeType.equals(a.getNodeType()))
                     .findFirst()
@@ -345,8 +346,20 @@ class FormSubmissionPipeline {
                 continue;
             }
             try {
-                handler.execute(actionNode, req, null, session, parsed.parameters());
-            } catch (FormActionException e) {
+                JCRTemplate.getInstance().doExecuteWithSystemSession(null, "live", locale, systemSession -> {
+                    JCRNodeWrapper actionNode = systemSession.getNodeByIdentifier(action.id());
+                    try {
+                        handler.execute(actionNode, req, null, session, parsed.parameters());
+                    } catch (FormActionException e) {
+                        throw new WrappedFormActionException(e);
+                    }
+                    return null;
+                });
+            } catch (WrappedFormActionException e) {
+                FormActionException cause = e.getFormActionException();
+                throw new SubmissionException(ErrorCode.FMDB_008,
+                        "Action '" + nodeType + "' failed: " + cause.getMessage());
+            } catch (RepositoryException e) {
                 throw new SubmissionException(ErrorCode.FMDB_008,
                         "Action '" + nodeType + "' failed: " + e.getMessage());
             }
@@ -408,20 +421,49 @@ class FormSubmissionPipeline {
                 : ldt.toLocalDate().toString();
     }
 
-    private static List<JCRNodeWrapper> resolveActionNodes(JCRNodeWrapper formNode) {
-        List<JCRNodeWrapper> result = new ArrayList<>();
+    private static List<ResolvedAction> resolveActionNodes(String formId, Locale locale) {
+        List<ResolvedAction> result = new ArrayList<>();
         try {
-            if (!formNode.hasNode(ACTIONS_NODE)) return result;
-            JCRNodeWrapper actionList = formNode.getNode(ACTIONS_NODE);
-            NodeIterator it = actionList.getNodes();
-            while (it.hasNext()) {
-                javax.jcr.Node child = it.nextNode();
-                if (child instanceof JCRNodeWrapper w) result.add(w);
-            }
+            JCRTemplate.getInstance().doExecuteWithSystemSession(null, "live", locale, systemSession -> {
+                JCRNodeWrapper systemFormNode = systemSession.getNodeByIdentifier(formId);
+                if (!systemFormNode.hasNode(ACTIONS_NODE)) {
+                    return null;
+                }
+
+                JCRNodeWrapper actionList = systemFormNode.getNode(ACTIONS_NODE);
+                NodeIterator it = actionList.getNodes();
+                while (it.hasNext()) {
+                    javax.jcr.Node child = it.nextNode();
+                    if (child instanceof JCRNodeWrapper w) {
+                        result.add(new ResolvedAction(
+                                w.getIdentifier(),
+                                w.getPath(),
+                                w.getPrimaryNodeTypeName()
+                        ));
+                    }
+                }
+
+                return null;
+            });
         } catch (RepositoryException e) {
-            log.warn("[FormSubmissionPipeline] Could not read actions from form node '{}'",
-                    formNode.getPath(), e);
+            log.warn("[FormSubmissionPipeline] Could not read actions from form '{}'", formId, e);
         }
         return result;
+    }
+
+    private record ResolvedAction(String id, String path, String nodeType) {
+    }
+
+    private static final class WrappedFormActionException extends RuntimeException {
+        private final FormActionException formActionException;
+
+        private WrappedFormActionException(FormActionException formActionException) {
+            super(formActionException);
+            this.formActionException = formActionException;
+        }
+
+        private FormActionException getFormActionException() {
+            return formActionException;
+        }
     }
 }

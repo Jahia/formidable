@@ -7,6 +7,7 @@ import org.jahia.services.content.JCRAutoSplitUtils;
 import org.jahia.services.content.JCRContentUtils;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
+import org.jahia.services.content.JCRTemplate;
 import org.jahia.services.render.RenderContext;
 import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
@@ -63,24 +64,34 @@ public class SaveToJcrFormAction implements FormAction {
                     "Validated uploaded files are unavailable for fmdb:save2jcrAction.");
         }
 
+        String formNodeId;
         try {
-            JCRNodeWrapper formResults = resolveOrCreateFormResults(formNode, session);
-            JCRNodeWrapper submissions = formResults.getNode("submissions");
-            ensureAutoSplit(submissions);
+            formNodeId = formNode.getIdentifier();
+        } catch (RepositoryException e) {
+            throw new FormActionException("Could not read form node identifier.", 500, e);
+        }
 
-            JCRNodeWrapper submission = createSubmissionNode(submissions, req, session);
-            String submissionId = submission.getIdentifier();
-            session.save();
+        try {
+            String submitterUsername = session != null ? session.getUserID() : null;
+            JCRTemplate.getInstance().doExecuteWithSystemSession(null, "live", null, systemSession -> {
+                JCRNodeWrapper sysFormNode = systemSession.getNodeByIdentifier(formNodeId);
+                JCRNodeWrapper formResults = resolveOrCreateFormResults(sysFormNode, systemSession);
+                JCRNodeWrapper submissions = formResults.getNode("submissions");
+                ensureAutoSplit(submissions);
 
-            JCRAutoSplitUtils.applyAutoSplitRules(submission, submissions);
-            session.save();
+                JCRNodeWrapper submission = createSubmissionNode(submissions, req, submitterUsername, systemSession);
+                String submissionId = submission.getIdentifier();
+                systemSession.save();
 
-            // Auto-splitting may move the node and leave the previous wrapper bound to the old path.
-            // Always reacquire by identifier before continuing.
-            submission = session.getNodeByIdentifier(submissionId);
+                JCRAutoSplitUtils.applyAutoSplitRules(submission, submissions);
+                systemSession.save();
 
-            populateSubmissionData(submission, parameters, files, session);
-            session.save();
+                submission = systemSession.getNodeByIdentifier(submissionId);
+
+                populateSubmissionData(submission, parameters, files, systemSession);
+                systemSession.save();
+                return null;
+            });
         } catch (RepositoryException e) {
             log.error("[SaveToJcrFormAction] Failed to persist submission for form '{}'", safeNodePath(formNode), e);
             throw new FormActionException("Failed to save form data in JCR: " + e.getMessage(), 500, e);
@@ -181,6 +192,7 @@ public class SaveToJcrFormAction implements FormAction {
     private static JCRNodeWrapper createSubmissionNode(
             JCRNodeWrapper submissions,
             HttpServletRequest req,
+            String submitterUsername,
             JCRSessionWrapper session
     ) throws RepositoryException {
         session.checkout(submissions);
@@ -190,7 +202,7 @@ public class SaveToJcrFormAction implements FormAction {
         submission.setProperty("origin", SUBMISSION_ORIGIN);
         setOptionalProperty(submission, "ipAddress", req.getRemoteAddr());
         setOptionalProperty(submission, "locale", req.getParameter("lang"));
-        setOptionalProperty(submission, "submitterUsername", session.getUserID());
+        setOptionalProperty(submission, "submitterUsername", submitterUsername);
         setOptionalProperty(submission, "userAgent", req.getHeader("User-Agent"));
         setOptionalProperty(submission, "referer", req.getHeader("Referer"));
         return submission;
@@ -215,10 +227,16 @@ public class SaveToJcrFormAction implements FormAction {
             if (values == null || values.isEmpty()) {
                 continue;
             }
-            if (values.size() == 1) {
-                dataNode.setProperty(entry.getKey(), values.get(0));
+            List<String> nonBlankValues = values.stream()
+                    .filter(v -> v != null && !v.isBlank())
+                    .toList();
+            if (nonBlankValues.isEmpty()) {
+                continue;
+            }
+            if (nonBlankValues.size() == 1) {
+                dataNode.setProperty(entry.getKey(), nonBlankValues.get(0));
             } else {
-                dataNode.setProperty(entry.getKey(), values.toArray(String[]::new));
+                dataNode.setProperty(entry.getKey(), nonBlankValues.toArray(String[]::new));
             }
         }
 
