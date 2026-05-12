@@ -25,9 +25,12 @@ orderable
 
 // Mixin to mark a content type as a form step.
 // Only allowed as a direct child of fmdb:form, not nestable.
-[fmdbmix:formStep] mixin
+[fmdbmix:formStep] > fmdbmix:formLogicElement mixin
 
-[fmdbmix:formElement] > mix:title mixin
+[fmdbmix:formLogicElement] mixin
+- logics (string) multiple indexed=no
+
+[fmdbmix:formElement] > mix:title, fmdbmix:formLogicElement mixin
 orderable
 
 [fmdbmix:element] > fmdbmix:formElement mixin

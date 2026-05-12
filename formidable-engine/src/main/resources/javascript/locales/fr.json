@@ -4,6 +4,34 @@
         "label": "Libellé",
         "selected": "Sélectionné"
     },
+    "conditionalLogic": {
+        "sourceField": "Champ source",
+        "selectSource": "Sélectionner un champ source",
+        "operator": "Opérateur",
+        "value": "Valeur",
+        "values": "Valeurs",
+        "dateFrom": "De",
+        "dateTo": "À",
+        "loadingSources": "Chargement des champs disponibles...",
+        "noSources": "Aucun champ source supporté n'est disponible avant ce champ.",
+        "help": "Utilise des champs placés avant celui-ci pour afficher ou masquer ce champ. Seuls les champs liste, radio, case à cocher et date sont éligibles. \"Aucun champ source supporté...\" signifie qu'aucun champ compatible précédent n'a été trouvé.",
+        "allSourcesUsed": "Tous les champs source disponibles sont déjà utilisés par d'autres règles.",
+        "unresolvedContext": "Impossible de résoudre le chemin du champ édité.",
+        "formNotFound": "Impossible de retrouver le formulaire parent.",
+        "loadError": "Impossible de charger les champs source disponibles.",
+        "operators": {
+            "in": "est l'une des valeurs suivantes",
+            "notIn": "n'est pas l'une des valeurs suivantes",
+            "isChecked": "est cochée",
+            "isUnchecked": "est décochée",
+            "containsAny": "contient au moins une des valeurs suivantes",
+            "containsAll": "contient toutes les valeurs suivantes",
+            "before": "est avant",
+            "after": "est après",
+            "on": "est le",
+            "between": "est entre"
+        }
+    },
     "formResults": {
         "nav": {
             "title": "Résultats de formulaires"

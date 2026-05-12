@@ -1,0 +1,10 @@
+{
+	"name": "fmdbmix:formLogicElement",
+	"fields": [
+		{
+			"name": "logics",
+			"selectorType": "ConditionalLogic"
+		}
+	]
+}
+

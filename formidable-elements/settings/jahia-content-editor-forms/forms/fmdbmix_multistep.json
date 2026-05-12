@@ -1,0 +1,20 @@
+{
+	"nodeType": "fmdbmix:multiStep",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "multistep",
+			"labelKey": "fmdb.section.multistep",
+			"rank": 1.30,
+			"fieldSets": [
+				{
+					"name": "navigation",
+					"rank": 0.0,
+					"fields": [
+						{ "name": "showStepsNav" }
+					]
+				}
+			]
+		}
+	]
+}

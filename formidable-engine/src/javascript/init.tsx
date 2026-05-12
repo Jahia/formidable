@@ -1,6 +1,7 @@
 import {registry} from '@jahia/ui-extender';
 import i18next from 'i18next';
 import {SelectOptionsCmp} from './SelectOptions/SelectOptionsCmp';
+import {ConditionalLogicCmp} from './ConditionalLogic/ConditionalLogicCmp';
 import {FormResultsApp} from './FormResults';
 import {Form} from '@jahia/moonstone';
 
@@ -11,6 +12,7 @@ export default function () {
             i18next.loadNamespaces('formidable-engine');
 
             registry.add('selectorType', 'SelectOptions', {cmp: SelectOptionsCmp, supportMultiple: false});
+            registry.add('selectorType', 'ConditionalLogic', {cmp: ConditionalLogicCmp, supportMultiple: false});
 
             registry.add('adminRoute', 'formidableResults', {
                 targets: ['jcontent:50'],

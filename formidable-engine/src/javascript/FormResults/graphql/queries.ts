@@ -1,5 +1,5 @@
 import {gql} from '@apollo/client';
-import {JCR_NODE_IDENTITY} from './fragments';
+import {JCR_NODE_IDENTITY} from '../../graphql';
 
 export const GET_FORM_RESULTS_LIST = gql`
     ${JCR_NODE_IDENTITY}

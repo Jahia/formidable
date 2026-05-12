@@ -1,4 +1,5 @@
-import {jahiaComponent, Render} from "@jahia/javascript-modules-library";
+import {jahiaComponent} from "@jahia/javascript-modules-library";
+import LogicAwareRender from "~/components/Form/LogicAwareRender";
 
 interface FieldsetProps {
 	"jcr:title"?: string;
@@ -30,9 +31,11 @@ jahiaComponent(
 				{elementNodes.length > 0 && (
 					<div className="fmdb-fieldset-elements">
 						{elementNodes.map((elementNode) => (
-							<div key={elementNode.getIdentifier()} className="fmdb-form-element">
-								<Render node={elementNode}/>
-							</div>
+							<LogicAwareRender
+								key={elementNode.getIdentifier()}
+								node={elementNode}
+								className="fmdb-form-element"
+							/>
 						))}
 					</div>
 				)}

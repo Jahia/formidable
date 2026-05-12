@@ -4,10 +4,10 @@ import {
 	getNodeProps,
 	Island,
 	jahiaComponent,
-	Render,
 } from "@jahia/javascript-modules-library";
 import Form from "./Form.client";
 import {type CaptchaProvider, type FormServerProps} from "./types";
+import LogicAwareRender from "./LogicAwareRender";
 
 const deriveProvider = (scriptUrl: string): CaptchaProvider => {
 	if (scriptUrl.includes('challenges.cloudflare.com')) return 'turnstile';
@@ -118,7 +118,7 @@ jahiaComponent(
 						const {['j:view']: nodeView} = getNodeProps<{'j:view'?: string}>(element, ['j:view']);
 						const fallbackView = isStep && showStepsNav ? "compact" : "default";
 						return (
-							<Render
+							<LogicAwareRender
 								key={element.getIdentifier()}
 								node={element}
 								view={nodeView ?? fallbackView}
@@ -131,6 +131,4 @@ jahiaComponent(
 		);
 	},
 );
-
-
 

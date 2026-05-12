@@ -1,0 +1,21 @@
+{
+	"nodeType": "fmdbmix:responses",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "responses",
+			"labelKey": "fmdb.section.responses",
+			"rank": 1.10,
+			"fieldSets": [
+				{
+					"name": "messages",
+					"rank": 0.0,
+					"fields": [
+						{ "name": "submissionMessage" },
+						{ "name": "errorMessage" }
+					]
+				}
+			]
+		}
+	]
+}
