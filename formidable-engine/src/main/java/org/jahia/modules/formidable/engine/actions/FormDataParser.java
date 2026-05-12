@@ -196,7 +196,9 @@ public class FormDataParser {
                     continue;
                 }
                 FormFile file = parseFilePart(item, fieldMetadata.fieldAcceptTypes().get(item.getFieldName()), config);
-                files.add(file);
+                if (file != null) {
+                    files.add(file);
+                }
             }
         } catch (ParseException e) {
             throw e;
@@ -381,6 +383,11 @@ public class FormDataParser {
         } catch (Exception e) {
             log.error("[FormDataParser] Failed to read file part for field '{}'", fieldName, e);
             throw new ParseException("Failed to read uploaded file: " + e.getMessage(), 500);
+        }
+
+        if (data.length == 0) {
+            log.debug("[FormDataParser] Skipping empty file part for field '{}'", fieldName);
+            return null;
         }
 
         String detectedMime = TIKA.detect(data, sanitizedName);
