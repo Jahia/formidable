@@ -15,13 +15,18 @@ export default function LogicAwareRender({node, view, parameters, className}: Lo
 		? parseConditionalLogicRules(rawLogics ?? [])
 		: [];
 
+	const hasLogic = logics.length > 0;
+
 	return (
 		<div
 			className={className}
+			style={hasLogic ? {display: 'none'} : undefined}
+			aria-hidden={hasLogic ? 'true' : undefined}
+			data-fmdb-logic-hidden={hasLogic ? 'true' : undefined}
 			data-fmdb-node-id={node.getIdentifier()}
 			data-fmdb-node-name={node.getName()}
 			data-fmdb-node-type={node.getPrimaryNodeTypeName()}
-			data-fmdb-logics={logics.length > 0 ? JSON.stringify(logics) : undefined}
+			data-fmdb-logics={hasLogic ? JSON.stringify(logics) : undefined}
 		>
 			<Render node={node} view={view} parameters={parameters}/>
 		</div>

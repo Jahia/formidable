@@ -42,7 +42,7 @@ const DateValueFields = ({
 
         return (
             <div className="flexRow_nowrap" style={{gap: '0.5rem'}}>
-                <div>
+                <div className="flexFluid">
                     <Input
                         id={`${id}-date-from`}
                         type="date"
@@ -53,7 +53,7 @@ const DateValueFields = ({
                         size="big"
                     />
                 </div>
-                <div>
+                <div className="flexFluid">
                     <Input
                         id={`${id}-date-to`}
                         type="date"
@@ -97,8 +97,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     const rule = useMemo(() => parseRule(value), [value]);
 
     const siblingSourceIds = useMemo(() => {
-        const fieldName = field.name ?? 'logics';
-        const allEntries = props.formik?.values?.[fieldName];
+        const allEntries = field.name ? props.form?.values?.[field.name] : undefined;
         if (!Array.isArray(allEntries)) {
             return new Set<string>();
         }
@@ -107,9 +106,9 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
             allEntries
                 .filter((entry): entry is string => typeof entry === 'string' && entry !== value)
                 .map(entry => parseRule(entry).sourceFieldId)
-                .filter(id => id !== '')
+                .filter(sourceId => sourceId !== '')
         );
-    }, [field.name, props.formik?.values, value]);
+    }, [field.name, props.form?.values, value]);
 
     const availableSources = useMemo(
         () => sources.filter(source => source.id === rule.sourceFieldId || !siblingSourceIds.has(source.id)),
@@ -257,7 +256,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         [selectedSource, t]
     );
     const valueOptions = useMemo(
-        () => (selectedSource?.choiceValues ?? []).map(choiceValue => ({label: choiceValue, value: choiceValue})),
+        () => (selectedSource?.choiceValues ?? []).map(choice => ({label: choice.label, value: choice.value})),
         [selectedSource]
     );
 
@@ -274,17 +273,26 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     }
 
     if (sources.length === 0) {
-        return <Typography variant="body" style={{color: 'var(--color-gray)'}}>{t('conditionalLogic.noSources')}</Typography>;
+        return (
+            <Typography variant="body" style={{color: 'var(--color-gray)'}}>
+                {t('conditionalLogic.noSources')}
+            </Typography>
+        );
     }
 
     if (availableSources.length === 0) {
-        return <Typography variant="body" style={{color: 'var(--color-gray)'}}>{t('conditionalLogic.allSourcesUsed')}</Typography>;
+        return (
+            <Typography variant="body" style={{color: 'var(--color-gray)'}}>
+                {t('conditionalLogic.allSourcesUsed')}
+            </Typography>
+        );
     }
 
     return (
         <div className="flexRow_nowrap flexFluid alignCenter" style={{gap: '0.75rem'}}>
             <div className="flexFluid">
                 <Dropdown
+                  size="big"
                     data={sourceOptions}
                     value={selectedSource?.id}
                     placeholder={t('conditionalLogic.selectSource')}
@@ -294,6 +302,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
             </div>
             <div className="flexFluid">
                 <Dropdown
+                  size="big"
                     data={operatorOptions}
                     value={selectedOperator}
                     placeholder={t('conditionalLogic.operator')}
@@ -305,6 +314,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
             {showValueDropdown && (
                 <div className="flexFluid">
                     <Dropdown
+                      size="big"
                         data={valueOptions}
                         values={rule.values ?? []}
                         placeholder={t('conditionalLogic.values')}
@@ -312,6 +322,10 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                         onChange={handleValuesChange}
                     />
                 </div>
+            )}
+
+            {!showValueDropdown && selectedSource?.type !== 'fmdb:inputDate' && (
+                <div className="flexFluid"/>
             )}
 
             {selectedSource?.type === 'fmdb:inputDate' && (

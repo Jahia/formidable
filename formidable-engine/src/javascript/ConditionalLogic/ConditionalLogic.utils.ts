@@ -1,6 +1,7 @@
 import {gql} from '@apollo/client';
 import {JCR_NODE_IDENTITY} from '../graphql';
 import type {
+    ChoiceValue,
     ConditionalLogicRule,
     EditorContextLike,
     GraphNode,
@@ -74,8 +75,10 @@ export const FORM_TREE_BY_PATH = gql`
     query ConditionalLogicFormTreeByPath($path: String!, $workspace: Workspace!, $language: String!) {
         jcr(workspace: $workspace) {
             nodeByPath(path: $path) {
+                ...JcrNodeIdentity
                 children(names: ["fields"]) {
                     nodes {
+                        ...JcrNodeIdentity
                         children {
                             nodes {
                                 ...ConditionalLogicTreeNode
@@ -93,7 +96,7 @@ export const FORM_TREE_BY_PATH = gql`
         primaryNodeType {
             name
         }
-        properties(names: ["choices", "options"]) {
+        properties(names: ["choices", "options"], language: $language) {
             name
             value
             values
@@ -111,7 +114,7 @@ export const FORM_TREE_BY_PATH = gql`
         primaryNodeType {
             name
         }
-        properties(names: ["choices", "options"]) {
+        properties(names: ["choices", "options"], language: $language) {
             name
             value
             values
@@ -129,7 +132,7 @@ export const FORM_TREE_BY_PATH = gql`
         primaryNodeType {
             name
         }
-        properties(names: ["choices", "options"]) {
+        properties(names: ["choices", "options"], language: $language) {
             name
             value
             values
@@ -147,7 +150,7 @@ export const FORM_TREE_BY_PATH = gql`
         primaryNodeType {
             name
         }
-        properties(names: ["choices", "options"]) {
+        properties(names: ["choices", "options"], language: $language) {
             name
             value
             values
@@ -159,7 +162,7 @@ export const FORM_TREE_BY_PATH = gql`
                 primaryNodeType {
                     name
                 }
-                properties(names: ["choices", "options"]) {
+                properties(names: ["choices", "options"], language: $language) {
                     name
                     value
                     values
@@ -284,15 +287,13 @@ export const extractEditorContext = (props: SelectorProps): EditorContextLike | 
 
 export const extractCurrentNodePath = (props: SelectorProps): string | undefined => {
     const editorContext = extractEditorContext(props);
-    const formikValues = props.formik?.values ?? {};
 
     return props.field.node?.path
         ?? props.field.nodePath
         ?? props.field.path
         ?? editorContext?.nodeData?.path
         ?? editorContext?.path
-        ?? (typeof formikValues['jcr:path'] === 'string' ? formikValues['jcr:path'] : undefined)
-        ?? (typeof formikValues.path === 'string' ? formikValues.path : undefined);
+        ?? undefined;
 };
 
 export const extractLanguage = (props: SelectorProps): string => {
@@ -331,11 +332,15 @@ const getNodeType = (node?: GraphNode | GraphParentNode | null): string | undefi
     return node?.primaryNodeType?.name ?? undefined;
 };
 
-const parseJsonArrayValue = (rawValues: string[] = []): string[] => {
+const parseJsonArrayValue = (rawValues: string[] = []): ChoiceValue[] => {
     return rawValues.flatMap(rawValue => {
         try {
-            const parsed = JSON.parse(rawValue) as {value?: string};
-            return typeof parsed?.value === 'string' && parsed.value !== '' ? [parsed.value] : [];
+            const parsed = JSON.parse(rawValue) as {value?: string; label?: string};
+            if (typeof parsed?.value === 'string' && parsed.value !== '') {
+                return [{value: parsed.value, label: parsed.label ?? parsed.value}];
+            }
+
+            return [];
         } catch {
             return [];
         }

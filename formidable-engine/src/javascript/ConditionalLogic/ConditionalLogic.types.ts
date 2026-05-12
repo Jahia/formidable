@@ -50,10 +50,11 @@ export interface SelectorProps {
     field: SelectorField;
     id: string;
     value?: string;
+    readOnly?: boolean;
     onChange: (value: string) => void;
     editorContext?: EditorContextLike;
     context?: EditorContextLike;
-    formik?: {
+    form?: {
         values?: Record<string, unknown>;
     };
 }
@@ -83,11 +84,16 @@ export interface GraphParentNode {
     parent?: GraphParentNode | null;
 }
 
+export interface ChoiceValue {
+    value: string;
+    label: string;
+}
+
 export interface SourceFieldOption {
     id: string;
     name: string;
     path: string;
     label: string;
     type: SupportedSourceType;
-    choiceValues: string[];
+    choiceValues: ChoiceValue[];
 }

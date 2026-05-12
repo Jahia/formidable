@@ -14,6 +14,7 @@
         "dateTo": "To",
         "loadingSources": "Loading available fields...",
         "noSources": "No supported source field is available before this field.",
+        "help": "Use fields placed before this one to show or hide it. Only select, radio, checkbox, and date fields are eligible. \"No supported source field...\" means no compatible previous field was found.",
         "allSourcesUsed": "All available source fields are already used by other rules.",
         "unresolvedContext": "Unable to resolve the edited field path.",
         "formNotFound": "Unable to resolve the parent form.",

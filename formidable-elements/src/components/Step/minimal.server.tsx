@@ -1,4 +1,5 @@
-import {jahiaComponent, Render} from "@jahia/javascript-modules-library";
+import {jahiaComponent} from "@jahia/javascript-modules-library";
+import LogicAwareRender from "~/components/Form/LogicAwareRender";
 
 jahiaComponent(
 	{
@@ -13,7 +14,11 @@ jahiaComponent(
 		return (
 			<div data-fmdb-step className="fmdb-step" style={initiallyHidden ? {display: 'none'} : undefined}>
 				{elements.map((element) => (
-					<Render key={element.getIdentifier()} node={element}/>
+					<LogicAwareRender
+						key={element.getIdentifier()}
+						node={element}
+						className="fmdb-form-element"
+					/>
 				))}
 			</div>
 		);
