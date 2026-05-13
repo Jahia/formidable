@@ -42,9 +42,9 @@
         </license>
     </licenses>
     <scm>
-        <connection>scm:git:git@github.com:Jahia/formidable-modules.git</connection>
-        <developerConnection>scm:git:git@github.com:Jahia/formidable-modules.git</developerConnection>
-        <url>scm:git:git@github.com:Jahia/formidable-modules.git</url>
+        <connection>scm:git:git@github.com:Jahia/formidable.git</connection>
+        <developerConnection>scm:git:git@github.com:Jahia/formidable.git</developerConnection>
+        <url>scm:git:git@github.com:Jahia/formidable.git</url>
         <tag>HEAD</tag>
     </scm>
 
@@ -55,7 +55,7 @@
     </modules>
 
     <properties>
-        <revision>0.0.3-SNAPSHOT</revision>
+        <revision>0.1.0-SNAPSHOT</revision>
         <tika.version>3.2.3</tika.version>
         <exec-maven-plugin.version>3.6.3</exec-maven-plugin.version>
         <maven-antrun-plugin.version>3.1.0</maven-antrun-plugin.version>
