@@ -10,7 +10,7 @@ import Captcha, {type CaptchaHandle} from './Captcha.client';
 import {useTranslation} from "react-i18next";
 
 const sanitize = (html: string): string => {
-	if (typeof window === 'undefined') return '';
+	if (typeof window === 'undefined') return html;
 	return DOMPurify.sanitize(html);
 };
 
