@@ -12,4 +12,4 @@ jobs:
     secrets: inherit
     with:
       primary_release_branch: "main"
-      job_container: "ghcr.io/jahia/jahia-docker-mvn-cache:11-jdk-resolute-mvn-loaded"
+      job_container: "ghcr.io/jahia/jahia-docker-mvn-cache:17-jdk-resolute-mvn-loaded"
