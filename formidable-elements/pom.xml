@@ -5,7 +5,7 @@
     <parent>
         <artifactId>formidable-modules</artifactId>
         <groupId>org.jahia.modules</groupId>
-        <version>${revision}</version>
+        <version>0.1.0-SNAPSHOT</version>
     </parent>
     <artifactId>formidable-elements</artifactId>
     <name>Formidable Elements</name>
@@ -21,6 +21,7 @@
 
     <properties>
         <jahia-depends>formidable-engine</jahia-depends>
+        <jahia-module-signature>MCwCFFn2JaGmbMsOtS1uDORN1UI2byBnAhQ59M73aLjDwGQ7LTArc6RaBK74AA==</jahia-module-signature>
     </properties>
 
     <repositories>
