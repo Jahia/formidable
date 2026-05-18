@@ -26,7 +26,7 @@
     </parent>
     <artifactId>formidable-modules</artifactId>
     <name>Formidable</name>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>${revision}</version>
     <packaging>pom</packaging>
     <description>Multi-module project containing the Formidable front-end module and its Cypress test suite.</description>
     <licenses>
