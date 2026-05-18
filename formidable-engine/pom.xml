@@ -12,8 +12,7 @@
     <packaging>bundle</packaging>
     <description>Formidable Engine - UI Extensions (selectorTypes for Content Editor)</description>
     <properties>
-        <jahia-module-signature>MCwCFEcYYlX+fm/lMOsFX0O9fGNTz3EDAhRfNlK+mdgjYztdpadEtMNKRfSf3g==
-        </jahia-module-signature>
+        <jahia-module-signature>MCwCFDrhzuD+iBb1/3dV3AuFRlLal/ETAhRj0gskqYinAH58d9ab7G/7H3T7Lg==</jahia-module-signature>
     </properties>
     <scm>
         <connection>scm:git:git@github.com:Jahia/formidable-modules.git</connection>

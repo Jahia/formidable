@@ -5,29 +5,22 @@ import org.jahia.modules.formidable.engine.actions.FormAction;
 import org.jahia.modules.formidable.engine.actions.FormActionException;
 import org.jahia.modules.formidable.engine.actions.FormDataParser;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.modules.formidable.engine.logic.ConditionalLogicEvaluator;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionFactory;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRTemplate;
 import org.jahia.services.usermanager.JahiaUserManagerService;
-import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
-import javax.jcr.Value;
 import javax.servlet.http.HttpServletRequest;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -53,11 +46,6 @@ class FormSubmissionPipeline {
     private static final Logger log = LoggerFactory.getLogger(FormSubmissionPipeline.class);
 
     private static final String ACTIONS_NODE = "actions";
-    private static final String FIELDS_NODE  = "fields";
-    private static final Set<String> NON_SUBMITTABLE_FORM_ELEMENT_TYPES = Set.of(
-            "fmdb:fieldset",
-            "fmdb:inputButton"
-    );
 
     private final FormidableConfigService config;
     private final List<FormAction> formActions;
@@ -67,11 +55,7 @@ class FormSubmissionPipeline {
     private Locale locale;
     private JCRSessionWrapper session;
     private JCRNodeWrapper formNode;
-    private Set<String> allowedFieldNames;
-    private Map<String, String> fieldTypes;
-    private Map<String, Set<String>> allowedChoices;
-    private Map<String, Set<String>> fieldAcceptTypes;
-    private Map<String, FormDataParser.FieldConstraints> fieldConstraints;
+    private FormFieldMetadataCollector.Result fieldMetadata;
     private FormDataParser.ParseResult parsed;
 
     FormSubmissionPipeline(FormidableConfigService config, List<FormAction> formActions) {
@@ -178,131 +162,36 @@ class FormSubmissionPipeline {
     }
 
     private void collectFormFieldInfo() {
-        allowedFieldNames = new HashSet<>();
-        fieldTypes        = new HashMap<>();
-        allowedChoices    = new HashMap<>();
-        fieldAcceptTypes  = new HashMap<String, Set<String>>();
-        fieldConstraints  = new HashMap<>();
-        try {
-            JCRTemplate.getInstance().doExecuteWithSystemSession(null, "live", locale, systemSession -> {
-                JCRNodeWrapper systemFormNode = systemSession.getNodeByIdentifier(formId);
-                if (!systemFormNode.hasNode(FIELDS_NODE)) {
-                    log.debug("[FormSubmissionPipeline] No '{}' child on form node '{}'",
-                            FIELDS_NODE, systemFormNode.getPath());
-                    return null;
-                }
-
-                JCRNodeWrapper fieldList = systemFormNode.getNode(FIELDS_NODE);
-                NodeIterator it = fieldList.getNodes();
-                while (it.hasNext()) {
-                    javax.jcr.Node child = it.nextNode();
-                    if (child instanceof JCRNodeWrapper w) {
-                        collectAllowedFieldsRecursively(w);
-                    }
-                }
-
-                return null;
-            });
-        } catch (RepositoryException e) {
-            log.warn("[FormSubmissionPipeline] Could not collect form field info from form '{}': {}",
-                    formId, e.getMessage());
-        }
-        log.debug("[FormSubmissionPipeline] Allowed fields: {}", allowedFieldNames);
+        fieldMetadata = FormFieldMetadataCollector.collect(formId, locale);
     }
 
-    private void collectAllowedFieldsRecursively(JCRNodeWrapper node) {
+    private void parseMultipart(HttpServletRequest req) throws SubmissionException {
         try {
-            String nodeType = node.getPrimaryNodeTypeName();
-            if (node.isNodeType("fmdbmix:formElement")
-                    && !NON_SUBMITTABLE_FORM_ELEMENT_TYPES.contains(nodeType)) {
-                registerAllowedField(node, nodeType);
-            }
-
-            NodeIterator it = node.getNodes();
-            while (it.hasNext()) {
-                javax.jcr.Node child = it.nextNode();
-                if (child instanceof JCRNodeWrapper childNode) {
-                    collectAllowedFieldsRecursively(childNode);
-                }
-            }
-        } catch (RepositoryException e) {
-            log.debug("[FormSubmissionPipeline] Cannot traverse node '{}': {}", node.getPath(), e.getMessage());
+            parsed = FormDataParser.parseAll(req, config, fieldMetadata.toParserMetadata());
+        } catch (FormDataParser.ParseException e) {
+            ErrorCode code = e.isValidation() ? ErrorCode.FMDB_010 : ErrorCode.FMDB_007;
+            throw new SubmissionException(code, e.getMessage());
         }
     }
 
-    private void registerAllowedField(JCRNodeWrapper node, String nodeType) {
-        try {
-            String name = node.getName();
-            if (!allowedFieldNames.add(name)) {
-                log.warn("[FormSubmissionPipeline] Duplicate submitted field name '{}' detected; later metadata will overwrite earlier entries.", name);
-            }
-            fieldTypes.put(name, nodeType);
-
-            switch (nodeType) {
-                case "fmdb:checkbox", "fmdb:radio" -> collectChoices(node, name, "choices");
-                case "fmdb:select"                 -> collectChoices(node, name, "options");
-                case "fmdb:inputFile"              -> {
-                    if (node.hasProperty("accept")) {
-                        Set<String> accepted = java.util.Arrays.stream(node.getProperty("accept").getValues())
-                                .map(v -> { try { return v.getString().trim(); } catch (Exception e2) { return ""; } })
-                                .filter(s -> !s.isBlank())
-                                .map(FormDataParser::resolveAcceptToken)
-                                .collect(java.util.stream.Collectors.toSet());
-                        if (!accepted.isEmpty()) fieldAcceptTypes.put(name, accepted);
-                    }
-                }
-            }
-
-            FormDataParser.FieldConstraints c = readConstraints(node, nodeType);
-            if (c != null) fieldConstraints.put(name, c);
-        } catch (RepositoryException e) {
-            log.debug("[FormSubmissionPipeline] Cannot collect metadata for '{}': {}", node.getPath(), e.getMessage());
-        }
-    }
-
-    /**
-     * Reads field constraint properties from JCR (required, minLength, maxLength, pattern, min, max).
-     * Only collects what is relevant for the given node type.
-     */
-    private FormDataParser.FieldConstraints readConstraints(JCRNodeWrapper node, String nodeType) {
-        try {
-            boolean required  = readBooleanProperty(node, "required");
-            long minLength    = readLongProperty(node, "minLength");
-            long maxLength    = readLongProperty(node, "maxLength");
-            String pattern    = readStringProperty(node, "pattern");
-            String minDate    = null;
-            String maxDate    = null;
-
-            if ("fmdb:inputDate".equals(nodeType)) {
-                minDate = readDateAsIso(node, "min", false);
-                maxDate = readDateAsIso(node, "max", false);
-            } else if ("fmdb:inputDatetimeLocal".equals(nodeType)) {
-                minDate = readDateAsIso(node, "min", true);
-                maxDate = readDateAsIso(node, "max", true);
-            }
-
-            // Only create a constraints entry if at least one constraint is defined
-            if (!required && minLength < 0 && maxLength < 0 && pattern == null
-                    && minDate == null && maxDate == null) {
-                return null;
-            }
-            return new FormDataParser.FieldConstraints(required, minLength, maxLength, pattern, minDate, maxDate);
-        } catch (RepositoryException e) {
-            log.debug("[FormSubmissionPipeline] Cannot read constraints for '{}': {}", node.getPath(), e.getMessage());
-            return null;
-        }
-    }
-
-    /**
-     * Post-parse check: verifies that every field marked required=true is present
-     * in the parsed output. This catches fields the browser never submitted (e.g.
-     * unchecked checkboxes, or a multipart body crafted to omit a field entirely).
-     */
     private void validateRequired() throws SubmissionException {
-        for (Map.Entry<String, FormDataParser.FieldConstraints> entry : fieldConstraints.entrySet()) {
+        var logicEvaluator = new ConditionalLogicEvaluator(
+                fieldMetadata.fieldLogicRules(),
+                fieldMetadata.fieldNameToNodeId(),
+                fieldMetadata.fieldParentContainer(),
+                parsed.parameters()
+        );
+
+        for (Map.Entry<String, FormDataParser.FieldConstraints> entry : fieldMetadata.fieldConstraints().entrySet()) {
             if (!entry.getValue().required()) continue;
             String fieldName = entry.getKey();
-            String type      = fieldTypes.getOrDefault(fieldName, "");
+
+            if (logicEvaluator.isHidden(fieldName)) {
+                log.debug("[FormSubmissionPipeline] Skipping required validation for hidden field '{}'", fieldName);
+                continue;
+            }
+
+            String type = fieldMetadata.fieldTypes().getOrDefault(fieldName, "");
 
             if ("fmdb:inputFile".equals(type)) {
                 boolean hasFile = parsed.files().stream()
@@ -323,19 +212,8 @@ class FormSubmissionPipeline {
         }
     }
 
-    private void parseMultipart(HttpServletRequest req) throws SubmissionException {
-        try {
-            FormDataParser.FieldMetadata meta = new FormDataParser.FieldMetadata(
-                    allowedFieldNames, fieldTypes, allowedChoices, fieldAcceptTypes, fieldConstraints);
-            parsed = FormDataParser.parseAll(req, config, meta);
-        } catch (FormDataParser.ParseException e) {
-            ErrorCode code = e.isValidation() ? ErrorCode.FMDB_010 : ErrorCode.FMDB_007;
-            throw new SubmissionException(code, e.getMessage());
-        }
-    }
-
     private void dispatchActions(HttpServletRequest req) throws SubmissionException {
-        for (ResolvedAction action : resolveActionNodes(formId, locale)) {
+        for (ResolvedAction action : resolveActionNodes()) {
             String nodeType = action.nodeType();
             FormAction handler = formActions.stream()
                     .filter(a -> nodeType.equals(a.getNodeType()))
@@ -366,62 +244,7 @@ class FormSubmissionPipeline {
         }
     }
 
-    // --- Helpers ---
-
-    /**
-     * Reads a multi-value choices/options property and extracts the "value" field
-     * from each JSON entry produced by SelectOptionsCmp.
-     * Expected format per entry: {"value":"foo","label":"Foo","selected":true}
-     */
-    private void collectChoices(JCRNodeWrapper node, String fieldName, String propName) {
-        try {
-            if (!node.hasProperty(propName)) return;
-            Value[] values = node.getProperty(propName).getValues();
-            Set<String> choices = new HashSet<>();
-            for (Value v : values) {
-                try {
-                    JSONObject obj = new JSONObject(v.getString());
-                    String val = obj.optString("value", "").trim();
-                    if (!val.isEmpty()) choices.add(val);
-                } catch (Exception e) {
-                    log.debug("[FormSubmissionPipeline] Could not parse choice JSON for field '{}'", fieldName);
-                }
-            }
-            if (!choices.isEmpty()) allowedChoices.put(fieldName, choices);
-        } catch (RepositoryException e) {
-            log.debug("[FormSubmissionPipeline] Cannot read '{}' on '{}': {}", propName, node.getPath(), e.getMessage());
-        }
-    }
-
-    private static boolean readBooleanProperty(JCRNodeWrapper node, String prop) throws RepositoryException {
-        return node.hasProperty(prop) && node.getProperty(prop).getBoolean();
-    }
-
-    private static long readLongProperty(JCRNodeWrapper node, String prop) throws RepositoryException {
-        return node.hasProperty(prop) ? node.getProperty(prop).getLong() : -1L;
-    }
-
-    private static String readStringProperty(JCRNodeWrapper node, String prop) throws RepositoryException {
-        if (!node.hasProperty(prop)) return null;
-        String v = node.getProperty(prop).getString();
-        return v.isBlank() ? null : v;
-    }
-
-    /**
-     * Reads a JCR date property and converts it to an ISO-8601 string
-     * compatible with submitted form values (yyyy-MM-dd or yyyy-MM-ddTHH:mm).
-     */
-    private static String readDateAsIso(JCRNodeWrapper node, String prop, boolean includeTime)
-            throws RepositoryException {
-        if (!node.hasProperty(prop)) return null;
-        Calendar cal = node.getProperty(prop).getDate();
-        var ldt = cal.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
-        return includeTime
-                ? ldt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"))
-                : ldt.toLocalDate().toString();
-    }
-
-    private static List<ResolvedAction> resolveActionNodes(String formId, Locale locale) {
+    private List<ResolvedAction> resolveActionNodes() {
         List<ResolvedAction> result = new ArrayList<>();
         try {
             JCRTemplate.getInstance().doExecuteWithSystemSession(null, "live", locale, systemSession -> {
@@ -442,7 +265,6 @@ class FormSubmissionPipeline {
                         ));
                     }
                 }
-
                 return null;
             });
         } catch (RepositoryException e) {
@@ -451,8 +273,9 @@ class FormSubmissionPipeline {
         return result;
     }
 
-    private record ResolvedAction(String id, String path, String nodeType) {
-    }
+    // --- Internal types ---
+
+    private record ResolvedAction(String id, String path, String nodeType) {}
 
     private static final class WrappedFormActionException extends RuntimeException {
         private final FormActionException formActionException;
