@@ -1,4 +1,4 @@
-import {type FormEvent, useEffect, useRef, useState} from 'react';
+import {type FormEvent, useCallback, useEffect, useRef, useState} from 'react';
 import {interpolateMessage} from '~/utils/messageUtils';
 import {applyConditionalLogicVisibility} from '~/utils/conditionalLogic';
 import clsx from "clsx";
@@ -33,6 +33,7 @@ export default function Form({
 	formId,
 	locale,
 	stepLabels,
+	stepIds,
 	captcha,
 	children
 }: FormProps) {
@@ -41,6 +42,7 @@ export default function Form({
 	const [isLoading, setIsLoading] = useState(false);
 	const [isCaptchaValid, setIsCaptchaValid] = useState(false);
 	const [currentStep, setCurrentStep] = useState(0);
+	const [visibleStepIndices, setVisibleStepIndices] = useState<number[]>([]);
 	const formRef = useRef<HTMLFormElement>(null);
 	const captchaRef = useRef<CaptchaHandle>(null);
 	const resetVisibilityTimeoutRef = useRef<number | null>(null);
@@ -48,8 +50,10 @@ export default function Form({
 	const {t} = useTranslation('formidable-elements', {keyPrefix: 'fmdb_form'});
 
 	const isMultiStep = stepLabels && stepLabels.length > 0;
-	const totalSteps = isMultiStep ? stepLabels.length : 0;
-	const isLastStep = currentStep === totalSteps - 1;
+	const visibleStepCount = visibleStepIndices.length;
+	const currentVisibleIndex = visibleStepIndices.indexOf(currentStep);
+	const isLastStep = currentVisibleIndex === visibleStepCount - 1;
+	const isFirstVisibleStep = currentVisibleIndex === 0;
 
 	const isSubmitBlocked = isLoading || isSubmitDisabled || (!!captcha && (!isMultiStep || isLastStep) && !isCaptchaValid);
 	const showCaptcha = !!captcha && (!isMultiStep || isLastStep);
@@ -61,11 +65,35 @@ export default function Form({
 		}
 	}, []);
 
+	const computeVisibleSteps = useCallback(() => {
+		if (!isMultiStep || !stepIds || !formRef.current) return;
+		const indices: number[] = [];
+		for (let i = 0; i < stepIds.length; i++) {
+			const wrapper = formRef.current.querySelector<HTMLElement>(`[data-fmdb-node-id="${stepIds[i]}"]`);
+			if (!wrapper || wrapper.dataset.fmdbLogicHidden !== 'true') {
+				indices.push(i);
+			}
+		}
+		setVisibleStepIndices(prev => {
+			if (prev.length === indices.length && prev.every((v, j) => v === indices[j])) return prev;
+			return indices;
+		});
+		// If the current step is no longer visible, jump to the nearest visible step
+		setCurrentStep(current => {
+			if (indices.includes(current)) return current;
+			const nearest = indices.find(i => i >= current) ?? indices[indices.length - 1] ?? 0;
+			return nearest;
+		});
+	}, [isMultiStep, stepIds]);
+
 	useEffect(() => {
 		const form = formRef.current;
 		if (!form) return;
 
-		const syncVisibility = () => applyConditionalLogicVisibility(form);
+		const syncVisibility = () => {
+			applyConditionalLogicVisibility(form);
+			computeVisibleSteps();
+		};
 		const handleReset = () => {
 			if (resetVisibilityTimeoutRef.current !== null) {
 				window.clearTimeout(resetVisibilityTimeoutRef.current);
@@ -92,7 +120,7 @@ export default function Form({
 				resetVisibilityTimeoutRef.current = null;
 			}
 		};
-	}, []);
+	}, [computeVisibleSteps]);
 
 	const prevStepRef = useRef(0);
 	useEffect(() => {
@@ -106,8 +134,9 @@ export default function Form({
 	useEffect(() => {
 		if (formRef.current) {
 			applyConditionalLogicVisibility(formRef.current);
+			computeVisibleSteps();
 		}
-	}, [currentStep]);
+	}, [currentStep, computeVisibleSteps]);
 
 	const validateCurrentStep = (): boolean => {
 		const current = stepElsRef.current[currentStep];
@@ -119,13 +148,14 @@ export default function Form({
 	};
 
 	const handleNext = () => {
-		if (validateCurrentStep()) {
-			setCurrentStep(s => s + 1);
-		}
+		if (!validateCurrentStep()) return;
+		const nextIndex = visibleStepIndices[currentVisibleIndex + 1];
+		if (nextIndex !== undefined) setCurrentStep(nextIndex);
 	};
 
 	const handlePrevious = () => {
-		setCurrentStep(s => s - 1);
+		const prevIndex = visibleStepIndices[currentVisibleIndex - 1];
+		if (prevIndex !== undefined) setCurrentStep(prevIndex);
 	};
 
 	const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -274,19 +304,19 @@ export default function Form({
 
 				{isMultiStep && showStepsNav && (
 					<nav className={clsx("fmdb-steps-nav", classes.stepsNav)} aria-label={t('stepsNav')}>
-						{stepLabels.map((label, i) => (
+						{visibleStepIndices.map((stepIdx, visibleIdx) => (
 							<span
-								key={label}
+								key={stepLabels[stepIdx]}
 								className={clsx(
 									"fmdb-step-indicator",
 									classes.stepIndicator,
-									i === currentStep && classes.stepIndicatorActive,
-									i < currentStep && classes.stepIndicatorDone
+									stepIdx === currentStep && classes.stepIndicatorActive,
+									visibleStepIndices.indexOf(currentStep) > visibleIdx && classes.stepIndicatorDone
 								)}
-								aria-current={i === currentStep ? 'step' : undefined}
+								aria-current={stepIdx === currentStep ? 'step' : undefined}
 							>
-								<span className={clsx("fmdb-step-number", classes.stepNumber)}>{i + 1}</span>
-								<span className="fmdb-step-label">{label}</span>
+								<span className={clsx("fmdb-step-number", classes.stepNumber)}>{visibleIdx + 1}</span>
+								<span className="fmdb-step-label">{stepLabels[stepIdx]}</span>
 							</span>
 						))}
 					</nav>
@@ -307,7 +337,7 @@ export default function Form({
 			<div className="fmdb-form-actions">
 					{isMultiStep ? (
 						<>
-							{currentStep > 0 && (
+							{!isFirstVisibleStep && (
 								<button
 									type="button"
 									className="fmdb-btn fmdb-btn-secondary fmdb-prev-btn"

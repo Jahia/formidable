@@ -25,7 +25,7 @@
     </parent>
     <artifactId>formidable-modules</artifactId>
     <name>Formidable</name>
-    <version>0.2.0-SNAPSHOT</version>
+    <version>${revision}</version>
     <packaging>pom</packaging>
     <description>Multi-module project containing the Formidable front-end module and its Cypress test suite.</description>
     <licenses>
@@ -54,6 +54,7 @@
     </modules>
 
     <properties>
+        <revision>0.2.0-SNAPSHOT</revision>
         <tika.version>3.2.3</tika.version>
         <exec-maven-plugin.version>3.6.3</exec-maven-plugin.version>
         <maven-antrun-plugin.version>3.1.0</maven-antrun-plugin.version>

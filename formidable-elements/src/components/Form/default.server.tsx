@@ -58,6 +58,9 @@ jahiaComponent(
 				return label ?? title ?? `Step ${i + 1}`;
 			})
 			: undefined;
+		const stepIds = stepNodes.length > 0
+			? stepNodes.map((s) => s.getIdentifier())
+			: undefined;
 
 		// Captcha config is injected as request attributes by CaptchaRenderFilter (Java)
 		// when the fmdbmix:captcha mixin is applied to this form node.
@@ -107,6 +110,7 @@ jahiaComponent(
 				formId,
 				locale: currentNode.getLanguage(),
 				stepLabels,
+				stepIds,
 				captcha,
 			}}
 			>
