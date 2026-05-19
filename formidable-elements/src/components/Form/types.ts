@@ -1,7 +1,6 @@
 import type {JCRNodeWrapper} from "org.jahia.services.content";
 import {type ReactNode} from 'react';
 
-export type CaptchaProvider = 'turnstile' | 'hcaptcha' | 'recaptcha_v2';
 
 // Props mapped from JCR node properties by the JS modules library
 export interface FormServerProps {
@@ -28,7 +27,7 @@ export interface FormProps extends Omit<FormServerProps, 'destination'> {
 	locale: string;
 	stepLabels?: string[];
 	stepIds?: string[];
-	captcha?: {siteKey: string; provider: CaptchaProvider};
+	captcha?: {siteKey: string; widgetVar: string; tokenField: string};
 	destinationUrl?: string;
 	submitActionUrl?: string;
 	isSubmitDisabled?: boolean;

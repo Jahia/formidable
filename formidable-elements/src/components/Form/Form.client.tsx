@@ -181,12 +181,7 @@ export default function Form({
 			// Remove the CAPTCHA widget's hidden field from the body — the token is already
 			// passed as the 'ct' URL query param so it must not be sent twice.
 			if (captcha) {
-				const captchaFieldNames: Record<string, string> = {
-					turnstile: 'cf-turnstile-response',
-					hcaptcha: 'h-captcha-response',
-					recaptcha_v2: 'g-recaptcha-response',
-				};
-				formData.delete(captchaFieldNames[captcha.provider]);
+				formData.delete(captcha.tokenField);
 			}
 
 			const interpolatedSubmissionMessage = interpolateMessage(submissionMessage, formData, locale);
@@ -328,7 +323,7 @@ export default function Form({
 				<Captcha
 					ref={captchaRef}
 					siteKey={captcha!.siteKey}
-					provider={captcha!.provider}
+					widgetVar={captcha!.widgetVar}
 					onVerify={() => setIsCaptchaValid(true)}
 					onExpire={() => setIsCaptchaValid(false)}
 				/>

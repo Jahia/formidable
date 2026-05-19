@@ -6,15 +6,9 @@ import {
 	jahiaComponent,
 } from "@jahia/javascript-modules-library";
 import Form from "./Form.client";
-import {type CaptchaProvider, type FormServerProps} from "./types";
+import {type FormServerProps} from "./types";
 import LogicAwareRender from "./LogicAwareRender";
 
-const deriveProvider = (scriptUrl: string): CaptchaProvider => {
-	if (scriptUrl.includes('challenges.cloudflare.com')) return 'turnstile';
-	if (scriptUrl.includes('hcaptcha.com')) return 'hcaptcha';
-	if (scriptUrl.includes('google.com/recaptcha')) return 'recaptcha_v2';
-	return 'turnstile';
-};
 
 const ensureCaptchaExplicit = (url: string): string => {
 	if (!url.includes('challenges.cloudflare.com')) return url;
@@ -65,14 +59,16 @@ jahiaComponent(
 		// Captcha config is injected as request attributes by CaptchaRenderFilter (Java)
 		// when the fmdbmix:captcha mixin is applied to this form node.
 		const hasCaptchaMixin = currentNode.isNodeType('fmdbmix:captcha');
-		const siteKey   = renderContext.getRequest().getAttribute('formidable.captcha.siteKey') as string | null;
-		const scriptUrl = renderContext.getRequest().getAttribute('formidable.captcha.scriptUrl') as string | null;
-		const captcha = siteKey && scriptUrl
-			? {siteKey, provider: deriveProvider(scriptUrl)}
+		const siteKey     = renderContext.getRequest().getAttribute('formidable.captcha.siteKey') as string | null;
+		const scriptUrl   = renderContext.getRequest().getAttribute('formidable.captcha.scriptUrl') as string | null;
+		const widgetVar   = renderContext.getRequest().getAttribute('formidable.captcha.widgetVar') as string | null;
+		const tokenField  = renderContext.getRequest().getAttribute('formidable.captcha.tokenField') as string | null;
+		const captcha = siteKey && scriptUrl && widgetVar && tokenField
+			? {siteKey, widgetVar, tokenField}
 			: undefined;
 
 		if (hasCaptchaMixin && !captcha) {
-			console.warn(`[Formidable] fmdbmix:captcha is applied on form '${currentNode.getPath()}' but CAPTCHA is not configured (siteKey or scriptUrl missing). The widget will not be rendered.`);
+			console.warn(`[Formidable] fmdbmix:captcha is applied on form '${currentNode.getPath()}' but CAPTCHA is not fully configured (siteKey, scriptUrl, widgetVar or tokenField missing). The widget will not be rendered.`);
 		}
 
 		const isSubmitDisabled = renderContext.isEditMode() || renderContext.isPreviewMode();

@@ -39,6 +39,22 @@ public @interface FormidableConfig {
     String captchaScriptUrl() default "";
 
     @AttributeDefinition(
+            name = "CAPTCHA widget variable",
+            description = "Name of the global window object exposed by the CAPTCHA provider script " +
+                    "(e.g. turnstile, hcaptcha, grecaptcha). Used client-side as window[widgetVar].render().",
+            type = AttributeType.STRING
+    )
+    String captchaWidgetVar() default "";
+
+    @AttributeDefinition(
+            name = "CAPTCHA token field name",
+            description = "Name of the hidden form field auto-injected by the CAPTCHA widget " +
+                    "(e.g. cf-turnstile-response, h-captcha-response, g-recaptcha-response).",
+            type = AttributeType.STRING
+    )
+    String captchaTokenField() default "";
+
+    @AttributeDefinition(
             name = "CAPTCHA verification endpoint URL",
             description = "Server-side token verification endpoint of the CAPTCHA provider " +
                     "(e.g. https://challenges.cloudflare.com/turnstile/v0/siteverify).",

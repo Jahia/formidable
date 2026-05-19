@@ -50,6 +50,8 @@ public class FormidableConfigService {
     private String captchaSiteKey;
     private String captchaSecretKey;
     private String captchaScriptUrl;
+    private String captchaWidgetVar;
+    private String captchaTokenField;
     private String captchaVerifyUrl;
 
     private long uploadMaxFileSizeBytes;
@@ -69,6 +71,8 @@ public class FormidableConfigService {
         captchaSiteKey    = config.captchaSiteKey();
         captchaSecretKey  = config.captchaSecretKey();
         captchaScriptUrl  = config.captchaScriptUrl();
+        captchaWidgetVar  = config.captchaWidgetVar();
+        captchaTokenField = config.captchaTokenField();
         captchaVerifyUrl  = config.captchaVerifyUrl();
 
         uploadMaxFileSizeBytes    = config.uploadMaxFileSizeBytes();
@@ -198,8 +202,10 @@ public class FormidableConfigService {
 
     // --- CAPTCHA ---
 
-    public String getCaptchaSiteKey()   { return captchaSiteKey; }
-    public String getCaptchaScriptUrl() { return captchaScriptUrl; }
+    public String getCaptchaSiteKey()    { return captchaSiteKey; }
+    public String getCaptchaScriptUrl()  { return captchaScriptUrl; }
+    public String getCaptchaWidgetVar()  { return captchaWidgetVar; }
+    public String getCaptchaTokenField() { return captchaTokenField; }
 
     public boolean isCaptchaConfigured() {
         return captchaSiteKey != null && !captchaSiteKey.isBlank()

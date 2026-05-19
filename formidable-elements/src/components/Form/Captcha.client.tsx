@@ -1,5 +1,4 @@
 import {useEffect, useImperativeHandle, useRef} from 'react';
-import {type CaptchaProvider} from './types';
 
 export interface CaptchaHandle {
 	getToken: () => string;
@@ -8,13 +7,13 @@ export interface CaptchaHandle {
 
 interface CaptchaProps {
 	siteKey: string;
-	provider: CaptchaProvider;
+	widgetVar: string;
 	onVerify?: () => void;
 	onExpire?: () => void;
 	ref?: React.Ref<CaptchaHandle>;
 }
 
-export default function Captcha({siteKey, provider, onVerify, onExpire, ref}: CaptchaProps) {
+export default function Captcha({siteKey, widgetVar, onVerify, onExpire, ref}: CaptchaProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const tokenRef = useRef('');
 	const widgetIdRef = useRef<string | undefined>(undefined);
@@ -24,15 +23,20 @@ export default function Captcha({siteKey, provider, onVerify, onExpire, ref}: Ca
 		reset: () => {
 			tokenRef.current = '';
 			onExpire?.();
-			if (provider === 'turnstile' && widgetIdRef.current) {
-				window.turnstile?.reset(widgetIdRef.current);
-			}
+			const api = (window as unknown as Record<string, unknown>)[widgetVar] as CaptchaWidgetApi | undefined;
+			api?.reset?.(widgetIdRef.current);
 		}
-	}), [provider, onExpire]);
+	}), [widgetVar, onExpire]);
 
 	useEffect(() => {
 		const el = containerRef.current;
 		if (!el) return;
+
+		const api = (window as unknown as Record<string, unknown>)[widgetVar] as CaptchaWidgetApi | undefined;
+		if (!api?.render) {
+			console.warn(`[Formidable] Captcha widget "window.${widgetVar}" not found. Check captchaWidgetVar in your configuration.`);
+			return;
+		}
 
 		const opts: RenderOptions = {
 			'sitekey': siteKey,
@@ -40,22 +44,15 @@ export default function Captcha({siteKey, provider, onVerify, onExpire, ref}: Ca
 			'expired-callback': () => { tokenRef.current = ''; onExpire?.(); },
 		};
 
-		// Script is injected server-side with defer — always ready by the time the Island hydrates.
-		if (provider === 'turnstile' && window.turnstile) {
-			widgetIdRef.current = window.turnstile.render(el, opts);
-		} else if (provider === 'hcaptcha' && window.hcaptcha) {
-			window.hcaptcha.render(el, opts);
-		} else if (provider === 'recaptcha_v2' && window.grecaptcha) {
-			window.grecaptcha.render(el, opts);
-		}
+		widgetIdRef.current = String(api.render(el, opts));
 
 		return () => {
-			if (provider === 'turnstile' && widgetIdRef.current) {
-				window.turnstile?.remove(widgetIdRef.current);
+			if (widgetIdRef.current) {
+				api.remove?.(widgetIdRef.current);
 				widgetIdRef.current = undefined;
 			}
 		};
-	}, [siteKey, provider]);
+	}, [siteKey, widgetVar]);
 
 	return (
 		<div className="fmdb-form-group fmdb-captcha">
@@ -63,4 +60,3 @@ export default function Captcha({siteKey, provider, onVerify, onExpire, ref}: Ca
 		</div>
 	);
 }
-

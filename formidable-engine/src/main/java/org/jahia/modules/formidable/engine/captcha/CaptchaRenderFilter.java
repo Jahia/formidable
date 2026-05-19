@@ -27,8 +27,10 @@ public class CaptchaRenderFilter extends AbstractFilter {
 
     private static final Logger log = LoggerFactory.getLogger(CaptchaRenderFilter.class);
 
-    static final String ATTR_SITE_KEY   = "formidable.captcha.siteKey";
-    static final String ATTR_SCRIPT_URL = "formidable.captcha.scriptUrl";
+    static final String ATTR_SITE_KEY     = "formidable.captcha.siteKey";
+    static final String ATTR_SCRIPT_URL   = "formidable.captcha.scriptUrl";
+    static final String ATTR_WIDGET_VAR   = "formidable.captcha.widgetVar";
+    static final String ATTR_TOKEN_FIELD  = "formidable.captcha.tokenField";
 
     private FormidableConfigService config;
 
@@ -57,8 +59,10 @@ public class CaptchaRenderFilter extends AbstractFilter {
                 return null;
             }
 
-            renderContext.getRequest().setAttribute(ATTR_SITE_KEY,   config.getCaptchaSiteKey());
-            renderContext.getRequest().setAttribute(ATTR_SCRIPT_URL, config.getCaptchaScriptUrl());
+            renderContext.getRequest().setAttribute(ATTR_SITE_KEY,     config.getCaptchaSiteKey());
+            renderContext.getRequest().setAttribute(ATTR_SCRIPT_URL,   config.getCaptchaScriptUrl());
+            renderContext.getRequest().setAttribute(ATTR_WIDGET_VAR,   config.getCaptchaWidgetVar());
+            renderContext.getRequest().setAttribute(ATTR_TOKEN_FIELD,  config.getCaptchaTokenField());
         } catch (Exception e) {
             log.warn("[Formidable] Could not prepare CAPTCHA attributes for node '{}'", resource.getNodePath(), e);
         }
