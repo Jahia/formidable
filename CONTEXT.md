@@ -138,7 +138,7 @@ The provider is derived from `scriptUrl` at runtime (both in TypeScript and Java
 
 ### Server-side
 
-`CaptchaVerificationFormAction` derives the provider from `scriptUrl` via `deriveProvider()`, reads the matching token field from POST parameters, and calls the provider's `siteverify` endpoint.
+`CaptchaVerificationFormAction` reads the token from the POST parameter configured as `captchaTokenField` in the OSGi config, and calls the provider's `siteverify` endpoint.
 
 ---
 
@@ -227,9 +227,9 @@ CND (in `formidable-engine`):
  - secretKey (string) indexed=no
 ```
 
-Behaviour: derives provider from `scriptUrl` via `deriveProvider()`, reads the matching captcha token field from POST parameters, calls `siteverify` via POST `application/x-www-form-urlencoded` with `secret`, `response`, `remoteip`. Checks `result.success`.
+Behaviour: reads the captcha token from the POST parameter configured as `captchaTokenField`, calls `siteverify` via POST `application/x-www-form-urlencoded` with `secret`, `response`, `remoteip`. Checks `result.success`.
 
-Also drives the front-end: `default.server.tsx` scans the `actions` prop (`JCRNodeWrapper[]`) for a node of type `fmdb:captchaAction` and reads `siteKey` + `scriptUrl` from it to inject the widget script and render the `<Captcha>` Island component.
+Also drives the front-end: `CaptchaRenderFilter` injects `siteKey`, `scriptUrl`, `widgetVar`, and `tokenField` as request attributes when `fmdbmix:captcha` is applied. `default.server.tsx` reads these to inject the widget script and render the `<Captcha>` Island component.
 
 #### `fmdb:emailNotificationAction` → `SendEmailNotificationFormAction`
 

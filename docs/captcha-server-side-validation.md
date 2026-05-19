@@ -10,6 +10,8 @@ CAPTCHA is configured globally via `org.jahia.modules.formidable.captcha.cfg` (o
 |---|---|
 | `siteKey` | Public key — used by the front-end widget |
 | `scriptUrl` | Provider JS API URL — injected in the page to render the widget |
+| `widgetVar` | Name of the global `window` object exposed by the provider script (e.g. `turnstile`, `hcaptcha`, `grecaptcha`) |
+| `tokenField` | Name of the hidden form field auto-injected by the widget (e.g. `cf-turnstile-response`) |
 | `verifyUrl` | Provider siteverify endpoint — used for server-side verification |
 | `secretKey` | Secret key — used for server-side verification, never exposed to the client |
 

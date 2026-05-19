@@ -6,13 +6,9 @@ interface RenderOptions {
 	'expired-callback': () => void;
 }
 
-interface Window {
-	turnstile?: {
-		render: (el: HTMLElement, opts: RenderOptions) => string;
-		remove: (id: string) => void;
-		reset: (id: string) => void;
-	};
-	hcaptcha?: {render: (el: HTMLElement, opts: RenderOptions) => string};
-	grecaptcha?: {render: (el: HTMLElement, opts: RenderOptions) => number};
+interface CaptchaWidgetApi {
+	render: (el: HTMLElement, opts: RenderOptions) => string | number;
+	remove?: (id: string | undefined) => void;
+	reset?: (id: string | undefined) => void;
 }
 
