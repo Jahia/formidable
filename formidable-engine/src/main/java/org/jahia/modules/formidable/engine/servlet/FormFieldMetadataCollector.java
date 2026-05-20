@@ -24,6 +24,8 @@ class FormFieldMetadataCollector {
     private static final Logger log = LoggerFactory.getLogger(FormFieldMetadataCollector.class);
 
     private static final String FIELDS_NODE = "fields";
+    private static final String LOGICS_SRC = "logicsSrc";
+    private static final String LOGIC_NODE_SOURCE = "logicNodeSource";
     private static final Set<String> NON_SUBMITTABLE_FORM_ELEMENT_TYPES = Set.of(
             "fmdb:fieldset",
             "fmdb:inputButton"
@@ -36,7 +38,7 @@ class FormFieldMetadataCollector {
             Map<String, Set<String>> fieldAcceptTypes,
             Map<String, FormDataParser.FieldConstraints> fieldConstraints,
             Map<String, List<ConditionalLogicRule>> fieldLogicRules,
-            Map<String, String> fieldNameToNodeId,
+            Map<String, String> logicIdToFieldName,
             Map<String, String> fieldParentContainer
     ) {
         FormDataParser.FieldMetadata toParserMetadata() {
@@ -52,11 +54,11 @@ class FormFieldMetadataCollector {
         var fieldAcceptTypes     = new HashMap<String, Set<String>>();
         var fieldConstraints     = new HashMap<String, FormDataParser.FieldConstraints>();
         var fieldLogicRules      = new HashMap<String, List<ConditionalLogicRule>>();
-        var fieldNameToNodeId    = new HashMap<String, String>();
+        var logicIdToFieldName   = new HashMap<String, String>();
         var fieldParentContainer = new HashMap<String, String>();
 
         var ctx = new CollectorContext(allowedFieldNames, fieldTypes, allowedChoices,
-                fieldAcceptTypes, fieldConstraints, fieldLogicRules, fieldNameToNodeId, fieldParentContainer);
+                fieldAcceptTypes, fieldConstraints, fieldLogicRules, logicIdToFieldName, fieldParentContainer);
 
         try {
             JCRTemplate.getInstance().doExecuteWithSystemSession(null, "live", locale, systemSession -> {
@@ -84,7 +86,7 @@ class FormFieldMetadataCollector {
 
         log.debug("[FormFieldMetadataCollector] Allowed fields: {}", allowedFieldNames);
         return new Result(allowedFieldNames, fieldTypes, allowedChoices,
-                fieldAcceptTypes, fieldConstraints, fieldLogicRules, fieldNameToNodeId, fieldParentContainer);
+                fieldAcceptTypes, fieldConstraints, fieldLogicRules, logicIdToFieldName, fieldParentContainer);
     }
 
     // --- Internal ---
@@ -96,39 +98,39 @@ class FormFieldMetadataCollector {
             Map<String, Set<String>> fieldAcceptTypes,
             Map<String, FormDataParser.FieldConstraints> fieldConstraints,
             Map<String, List<ConditionalLogicRule>> fieldLogicRules,
-            Map<String, String> fieldNameToNodeId,
+            Map<String, String> logicIdToFieldName,
             Map<String, String> fieldParentContainer
     ) {}
 
-    private static void traverseRecursively(JCRNodeWrapper node, String parentContainerId, CollectorContext ctx) {
+    private static void traverseRecursively(JCRNodeWrapper node, String parentContainerName, CollectorContext ctx) {
         try {
             String nodeType = node.getPrimaryNodeTypeName();
-            String currentContainerId = parentContainerId;
+            String currentContainerName = parentContainerName;
 
             boolean isContainer = node.isNodeType("fmdbmix:formStep")
                     || (NON_SUBMITTABLE_FORM_ELEMENT_TYPES.contains(nodeType) && node.isNodeType("fmdbmix:formLogicElement"));
             if (isContainer) {
-                String containerId = node.getIdentifier();
-                ctx.fieldNameToNodeId.put(node.getName(), containerId);
+                String containerName = node.getName();
                 if (node.hasProperty("logics")) {
                     List<ConditionalLogicRule> rules = ConditionalLogicRule.parse(node.getProperty("logics").getValues());
                     if (!rules.isEmpty()) {
-                        ctx.fieldLogicRules.put(node.getName(), rules);
-                        currentContainerId = containerId;
+                        ctx.fieldLogicRules.put(containerName, rules);
+                        resolveLogicsSrc(node, rules, ctx);
+                        currentContainerName = containerName;
                     }
                 }
             }
 
             if (node.isNodeType("fmdbmix:formElement")
                     && !NON_SUBMITTABLE_FORM_ELEMENT_TYPES.contains(nodeType)) {
-                registerField(node, nodeType, currentContainerId, ctx);
+                registerField(node, nodeType, currentContainerName, ctx);
             }
 
             NodeIterator it = node.getNodes();
             while (it.hasNext()) {
                 javax.jcr.Node child = it.nextNode();
                 if (child instanceof JCRNodeWrapper childNode) {
-                    traverseRecursively(childNode, currentContainerId, ctx);
+                    traverseRecursively(childNode, currentContainerName, ctx);
                 }
             }
         } catch (RepositoryException e) {
@@ -136,27 +138,24 @@ class FormFieldMetadataCollector {
         }
     }
 
-    private static void registerField(JCRNodeWrapper node, String nodeType, String parentContainerId, CollectorContext ctx) {
+    private static void registerField(JCRNodeWrapper node, String nodeType, String parentContainerName, CollectorContext ctx) {
         try {
             String name = node.getName();
             if (!ctx.allowedFieldNames.add(name)) {
                 log.warn("[FormFieldMetadataCollector] Duplicate field name '{}'; later metadata overwrites.", name);
             }
             ctx.fieldTypes.put(name, nodeType);
-            ctx.fieldNameToNodeId.put(name, node.getIdentifier());
 
-            if (parentContainerId != null) {
-                for (Map.Entry<String, String> entry : ctx.fieldNameToNodeId.entrySet()) {
-                    if (entry.getValue().equals(parentContainerId)) {
-                        ctx.fieldParentContainer.put(name, entry.getKey());
-                        break;
-                    }
-                }
+            if (parentContainerName != null) {
+                ctx.fieldParentContainer.put(name, parentContainerName);
             }
 
             if (node.isNodeType("fmdbmix:formLogicElement") && node.hasProperty("logics")) {
                 List<ConditionalLogicRule> rules = ConditionalLogicRule.parse(node.getProperty("logics").getValues());
-                if (!rules.isEmpty()) ctx.fieldLogicRules.put(name, rules);
+                if (!rules.isEmpty()) {
+                    ctx.fieldLogicRules.put(name, rules);
+                    resolveLogicsSrc(node, rules, ctx);
+                }
             }
 
             switch (nodeType) {
@@ -178,6 +177,33 @@ class FormFieldMetadataCollector {
             if (c != null) ctx.fieldConstraints.put(name, c);
         } catch (RepositoryException e) {
             log.debug("[FormFieldMetadataCollector] Cannot collect metadata for '{}': {}", node.getPath(), e.getMessage());
+        }
+    }
+
+    private static void resolveLogicsSrc(JCRNodeWrapper node, List<ConditionalLogicRule> rules, CollectorContext ctx) {
+        try {
+            JCRNodeWrapper logicsSrc = node.getNode(LOGICS_SRC);
+            for (ConditionalLogicRule rule : rules) {
+                String logicId = rule.logicId();
+                if (logicId == null || logicId.isEmpty()) {
+                    continue;
+                }
+
+                if (!logicsSrc.hasNode(logicId)) {
+                    continue;
+                }
+
+                JCRNodeWrapper srcNode = logicsSrc.getNode(logicId);
+                try {
+                    JCRNodeWrapper sourceField = (JCRNodeWrapper) srcNode.getProperty(LOGIC_NODE_SOURCE).getNode();
+                    ctx.logicIdToFieldName.put(logicId, sourceField.getName());
+                } catch (Exception e) {
+                    log.debug("[FormFieldMetadataCollector] Broken weakref for logicId '{}' on '{}'",
+                            logicId, node.getPath());
+                }
+            }
+        } catch (RepositoryException e) {
+            log.debug("[FormFieldMetadataCollector] Cannot resolve logicsSrc on '{}': {}", node.getPath(), e.getMessage());
         }
     }
 

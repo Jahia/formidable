@@ -13,7 +13,7 @@ export type LogicOperator =
     | 'between';
 
 export interface ConditionalLogicRule {
-    sourceFieldId: string;
+    logicId: string;
     sourceFieldName: string;
     sourceFieldType: SupportedSourceType;
     operator: LogicOperator;
@@ -72,16 +72,15 @@ export interface GraphNode {
     displayName?: string | null;
     primaryNodeType?: {name?: string | null} | null;
     properties?: PropertyValue[] | null;
-    children?: {nodes?: GraphNode[] | null} | null;
-    parent?: GraphParentNode | null;
+    ancestors?: GraphAncestorNode[] | null;
+    descendants?: {nodes?: GraphNode[] | null} | null;
 }
 
-export interface GraphParentNode {
+export interface GraphAncestorNode {
     uuid: string;
     name: string;
     path: string;
     primaryNodeType?: {name?: string | null} | null;
-    parent?: GraphParentNode | null;
 }
 
 export interface ChoiceValue {

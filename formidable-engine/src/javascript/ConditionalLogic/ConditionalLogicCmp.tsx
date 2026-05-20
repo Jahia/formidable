@@ -4,17 +4,16 @@ import React, {useEffect, useMemo, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {
     buildSourceFieldOptions,
-    CURRENT_NODE_BY_PATH,
     extractCurrentNodePath,
     extractLanguage,
     extractWorkspace,
     findFormPath,
-    FORM_TREE_BY_PATH,
     getOperatorsForSource,
     normalizeStoredRule,
     parseRule,
     sanitizeOperator
 } from './ConditionalLogic.utils';
+import {CURRENT_NODE_BY_PATH, FORM_TREE_BY_PATH} from './graphql';
 import type {ConditionalLogicRule, GraphNode, LogicOperator, SelectorProps, SourceFieldOption} from './ConditionalLogic.types';
 
 
@@ -83,6 +82,10 @@ const DateValueFields = ({
     );
 };
 
+const generateLogicId = (): string => {
+    return Math.random().toString(36).substring(2, 10);
+};
+
 export const ConditionalLogicCmp = (props: SelectorProps) => {
     const {field, id, value, onChange} = props;
     const {t} = useTranslation('formidable-engine');
@@ -96,7 +99,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     const workspace = extractWorkspace(props);
     const rule = useMemo(() => parseRule(value), [value]);
 
-    const siblingSourceIds = useMemo(() => {
+    const siblingSourceNames = useMemo(() => {
         const allEntries = field.name ? props.form?.values?.[field.name] : undefined;
         if (!Array.isArray(allEntries)) {
             return new Set<string>();
@@ -105,19 +108,21 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         return new Set(
             allEntries
                 .filter((entry): entry is string => typeof entry === 'string' && entry !== value)
-                .map(entry => parseRule(entry).sourceFieldId)
-                .filter(sourceId => sourceId !== '')
+                .map(entry => parseRule(entry).sourceFieldName)
+                .filter(sourceName => sourceName !== '')
         );
     }, [field.name, props.form?.values, value]);
 
     const availableSources = useMemo(
-        () => sources.filter(source => source.id === rule.sourceFieldId || !siblingSourceIds.has(source.id)),
-        [sources, siblingSourceIds, rule.sourceFieldId]
+        () => sources.filter(source =>
+            source.name === rule.sourceFieldName
+            || !siblingSourceNames.has(source.name)),
+        [sources, siblingSourceNames, rule.sourceFieldName]
     );
 
     const selectedSource = useMemo(
-        () => availableSources.find(source => source.id === rule.sourceFieldId),
-        [rule.sourceFieldId, availableSources]
+        () => availableSources.find(source => source.name === rule.sourceFieldName),
+        [rule.sourceFieldName, availableSources]
     );
     const selectedOperator = sanitizeOperator(selectedSource, rule.operator);
 
@@ -157,9 +162,9 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     fetchPolicy: 'network-only'
                 });
 
-                const topLevelNodes = formTreeResult.data?.jcr?.nodeByPath?.children?.nodes?.[0]?.children?.nodes ?? [];
+                const descendantNodes = formTreeResult.data?.jcr?.nodeByPath?.descendants?.nodes ?? [];
                 if (!cancelled) {
-                    setSources(buildSourceFieldOptions(currentNode.uuid, topLevelNodes));
+                    setSources(buildSourceFieldOptions(currentNode.path, descendantNodes));
                 }
             } catch (error) {
                 if (!cancelled) {
@@ -182,21 +187,22 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     }, [client, currentNodePath, language, t, workspace]);
 
     const updateRule = (nextRule: ConditionalLogicRule) => {
-        const source = sources.find(source => source.id === nextRule.sourceFieldId);
+        const source = sources.find(source => source.name === nextRule.sourceFieldName);
         onChange(JSON.stringify(normalizeStoredRule(nextRule, source)));
     };
 
     const handleSourceChange = (_event: React.MouseEvent, item: {value?: string}) => {
-        const sourceId = item.value ?? '';
-        const nextSource = sources.find(source => source.id === sourceId);
+        const sourceName = item.value ?? '';
+        const nextSource = sources.find(source => source.name === sourceName);
         if (!nextSource) {
             onChange(JSON.stringify(parseRule(undefined)));
             return;
         }
 
         const nextOperator = getOperatorsForSource(nextSource)[0];
+        const logicId = rule.logicId || generateLogicId();
         updateRule({
-            sourceFieldId: nextSource.id,
+            logicId,
             sourceFieldName: nextSource.name,
             sourceFieldType: nextSource.type,
             operator: nextOperator,
@@ -213,7 +219,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         const operator = item.value as LogicOperator;
         updateRule({
             ...rule,
-            sourceFieldId: selectedSource.id,
+            logicId: rule.logicId || generateLogicId(),
             sourceFieldName: selectedSource.name,
             sourceFieldType: selectedSource.type,
             operator,
@@ -236,7 +242,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
 
         updateRule({
             ...rule,
-            sourceFieldId: selectedSource.id,
+            logicId: rule.logicId || generateLogicId(),
             sourceFieldName: selectedSource.name,
             sourceFieldType: selectedSource.type,
             operator: selectedOperator,
@@ -245,7 +251,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     };
 
     const sourceOptions = useMemo(
-        () => availableSources.map(source => ({label: source.label, value: source.id})),
+        () => availableSources.map(source => ({label: source.label, value: source.name})),
         [availableSources]
     );
     const operatorOptions = useMemo(
@@ -294,7 +300,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                 <Dropdown
                   size="big"
                     data={sourceOptions}
-                    value={selectedSource?.id}
+                    value={selectedSource?.name}
                     placeholder={t('conditionalLogic.selectSource')}
                     isDisabled={field.readOnly}
                     onChange={handleSourceChange}
@@ -337,7 +343,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                         rule={rule}
                         onChange={patch => updateRule({
                             ...rule,
-                            sourceFieldId: selectedSource.id,
+                            logicId: rule.logicId || generateLogicId(),
                             sourceFieldName: selectedSource.name,
                             sourceFieldType: selectedSource.type,
                             operator: selectedOperator,

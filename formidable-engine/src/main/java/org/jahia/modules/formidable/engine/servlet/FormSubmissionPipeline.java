@@ -177,7 +177,7 @@ class FormSubmissionPipeline {
     private void validateRequired() throws SubmissionException {
         var logicEvaluator = new ConditionalLogicEvaluator(
                 fieldMetadata.fieldLogicRules(),
-                fieldMetadata.fieldNameToNodeId(),
+                fieldMetadata.logicIdToFieldName(),
                 fieldMetadata.fieldParentContainer(),
                 parsed.parameters()
         );

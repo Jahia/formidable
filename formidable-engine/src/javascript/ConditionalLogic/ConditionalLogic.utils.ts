@@ -1,11 +1,8 @@
-import {gql} from '@apollo/client';
-import {JCR_NODE_IDENTITY} from '../graphql';
 import type {
     ChoiceValue,
     ConditionalLogicRule,
     EditorContextLike,
     GraphNode,
-    GraphParentNode,
     LogicOperator,
     SelectorProps,
     SourceFieldOption,
@@ -19,163 +16,11 @@ export const SUPPORTED_SOURCE_TYPES: SupportedSourceType[] = [
     'fmdb:inputDate'
 ];
 
-export const CURRENT_NODE_BY_PATH = gql`
-    ${JCR_NODE_IDENTITY}
-    query ConditionalLogicCurrentNodeByPath($path: String!, $workspace: Workspace!, $language: String!) {
-        jcr(workspace: $workspace) {
-            nodeByPath(path: $path) {
-                ...JcrNodeIdentity
-                displayName(language: $language)
-                primaryNodeType {
-                    name
-                }
-                parent {
-                    ...JcrNodeIdentity
-                    primaryNodeType {
-                        name
-                    }
-                    parent {
-                        ...JcrNodeIdentity
-                        primaryNodeType {
-                            name
-                        }
-                        parent {
-                            ...JcrNodeIdentity
-                            primaryNodeType {
-                                name
-                            }
-                            parent {
-                                ...JcrNodeIdentity
-                                primaryNodeType {
-                                    name
-                                }
-                                parent {
-                                    ...JcrNodeIdentity
-                                    primaryNodeType {
-                                        name
-                                    }
-                                    parent {
-                                        ...JcrNodeIdentity
-                                        primaryNodeType {
-                                            name
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-`;
-
-export const FORM_TREE_BY_PATH = gql`
-    ${JCR_NODE_IDENTITY}
-    query ConditionalLogicFormTreeByPath($path: String!, $workspace: Workspace!, $language: String!) {
-        jcr(workspace: $workspace) {
-            nodeByPath(path: $path) {
-                ...JcrNodeIdentity
-                children(names: ["fields"]) {
-                    nodes {
-                        ...JcrNodeIdentity
-                        children {
-                            nodes {
-                                ...ConditionalLogicTreeNode
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    fragment ConditionalLogicTreeNode on GenericJCRNode {
-        ...JcrNodeIdentity
-        displayName(language: $language)
-        primaryNodeType {
-            name
-        }
-        properties(names: ["choices", "options"], language: $language) {
-            name
-            value
-            values
-        }
-        children {
-            nodes {
-                ...ConditionalLogicTreeNodeLevel2
-            }
-        }
-    }
-
-    fragment ConditionalLogicTreeNodeLevel2 on GenericJCRNode {
-        ...JcrNodeIdentity
-        displayName(language: $language)
-        primaryNodeType {
-            name
-        }
-        properties(names: ["choices", "options"], language: $language) {
-            name
-            value
-            values
-        }
-        children {
-            nodes {
-                ...ConditionalLogicTreeNodeLevel3
-            }
-        }
-    }
-
-    fragment ConditionalLogicTreeNodeLevel3 on GenericJCRNode {
-        ...JcrNodeIdentity
-        displayName(language: $language)
-        primaryNodeType {
-            name
-        }
-        properties(names: ["choices", "options"], language: $language) {
-            name
-            value
-            values
-        }
-        children {
-            nodes {
-                ...ConditionalLogicTreeNodeLevel4
-            }
-        }
-    }
-
-    fragment ConditionalLogicTreeNodeLevel4 on GenericJCRNode {
-        ...JcrNodeIdentity
-        displayName(language: $language)
-        primaryNodeType {
-            name
-        }
-        properties(names: ["choices", "options"], language: $language) {
-            name
-            value
-            values
-        }
-        children {
-            nodes {
-                ...JcrNodeIdentity
-                displayName(language: $language)
-                primaryNodeType {
-                    name
-                }
-                properties(names: ["choices", "options"], language: $language) {
-                    name
-                    value
-                    values
-                }
-            }
-        }
-    }
-`;
 
 export const parseRule = (value?: string): ConditionalLogicRule => {
     if (!value) {
         return {
-            sourceFieldId: '',
+            logicId: '',
             sourceFieldName: '',
             sourceFieldType: 'fmdb:select',
             operator: 'in',
@@ -190,7 +35,7 @@ export const parseRule = (value?: string): ConditionalLogicRule => {
             : 'fmdb:select';
 
         return {
-            sourceFieldId: parsed.sourceFieldId ?? '',
+            logicId: parsed.logicId ?? '',
             sourceFieldName: parsed.sourceFieldName ?? '',
             sourceFieldType,
             operator: (parsed.operator as LogicOperator) ?? 'in',
@@ -199,7 +44,7 @@ export const parseRule = (value?: string): ConditionalLogicRule => {
         };
     } catch {
         return {
-            sourceFieldId: '',
+            logicId: '',
             sourceFieldName: '',
             sourceFieldType: 'fmdb:select',
             operator: 'in',
@@ -246,7 +91,7 @@ export const normalizeStoredRule = (
     if (source.type === 'fmdb:inputDate') {
         if (operator === 'between') {
             return {
-                sourceFieldId: source.id,
+                logicId: rule.logicId,
                 sourceFieldName: source.name,
                 sourceFieldType: source.type,
                 operator,
@@ -255,7 +100,7 @@ export const normalizeStoredRule = (
         }
 
         return {
-            sourceFieldId: source.id,
+            logicId: rule.logicId,
             sourceFieldName: source.name,
             sourceFieldType: source.type,
             operator,
@@ -265,7 +110,7 @@ export const normalizeStoredRule = (
 
     if (source.type === 'fmdb:checkbox' && source.choiceValues.length <= 1) {
         return {
-            sourceFieldId: source.id,
+            logicId: rule.logicId,
             sourceFieldName: source.name,
             sourceFieldType: source.type,
             operator
@@ -273,7 +118,7 @@ export const normalizeStoredRule = (
     }
 
     return {
-        sourceFieldId: source.id,
+        logicId: rule.logicId,
         sourceFieldName: source.name,
         sourceFieldType: source.type,
         operator,
@@ -316,19 +161,11 @@ export const extractWorkspace = (props: SelectorProps): string => {
 };
 
 export const findFormPath = (node?: GraphNode | null): string | undefined => {
-    let current = node?.parent;
-    while (current) {
-        if (current.primaryNodeType?.name === 'fmdb:form') {
-            return current.path;
-        }
-
-        current = current.parent ?? null;
-    }
-
-    return undefined;
+    const formAncestor = node?.ancestors?.find(a => a.primaryNodeType?.name === 'fmdb:form');
+    return formAncestor?.path;
 };
 
-const getNodeType = (node?: GraphNode | GraphParentNode | null): string | undefined => {
+const getNodeType = (node?: GraphNode | null): string | undefined => {
     return node?.primaryNodeType?.name ?? undefined;
 };
 
@@ -345,23 +182,6 @@ const parseJsonArrayValue = (rawValues: string[] = []): ChoiceValue[] => {
             return [];
         }
     });
-};
-
-const flattenFormNodes = (nodes: GraphNode[] = []): GraphNode[] => {
-    const flattened: GraphNode[] = [];
-
-    const visit = (node: GraphNode) => {
-        flattened.push(node);
-        for (const child of node.children?.nodes ?? []) {
-            visit(child);
-        }
-    };
-
-    for (const node of nodes) {
-        visit(node);
-    }
-
-    return flattened;
 };
 
 const mapSourceField = (node: GraphNode): SourceFieldOption | null => {
@@ -384,14 +204,13 @@ const mapSourceField = (node: GraphNode): SourceFieldOption | null => {
     };
 };
 
-export const buildSourceFieldOptions = (currentNodeId: string, nodes: GraphNode[] = []): SourceFieldOption[] => {
-    const flattened = flattenFormNodes(nodes);
-    const currentIndex = flattened.findIndex(node => node.uuid === currentNodeId);
+export const buildSourceFieldOptions = (currentNodePath: string, nodes: GraphNode[] = []): SourceFieldOption[] => {
+    const currentIndex = nodes.findIndex(node => node.path === currentNodePath);
     if (currentIndex === -1) {
         return [];
     }
 
-    return flattened
+    return nodes
         .slice(0, currentIndex)
         .map(mapSourceField)
         .filter((node): node is SourceFieldOption => node !== null);

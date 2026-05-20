@@ -13,7 +13,7 @@ export type ConditionalLogicOperator =
 	| 'between';
 
 export interface ConditionalLogicRule {
-	sourceFieldId: string;
+	logicId?: string;
 	sourceFieldName: string;
 	sourceFieldType: SupportedConditionalSourceType;
 	operator: ConditionalLogicOperator;
@@ -31,7 +31,7 @@ const SUPPORTED_TYPES: SupportedConditionalSourceType[] = [
 export const parseConditionalLogicRule = (rawValue: string): ConditionalLogicRule | null => {
 	try {
 		const parsed = JSON.parse(rawValue) as Partial<ConditionalLogicRule>;
-		if (!parsed || typeof parsed.sourceFieldId !== 'string' || typeof parsed.sourceFieldName !== 'string') {
+		if (!parsed || typeof parsed.sourceFieldName !== 'string') {
 			return null;
 		}
 
@@ -44,7 +44,6 @@ export const parseConditionalLogicRule = (rawValue: string): ConditionalLogicRul
 		}
 
 		return {
-			sourceFieldId: parsed.sourceFieldId,
 			sourceFieldName: parsed.sourceFieldName,
 			sourceFieldType: parsed.sourceFieldType as SupportedConditionalSourceType,
 			operator: parsed.operator as ConditionalLogicOperator,
@@ -65,8 +64,7 @@ export const parseConditionalLogicRules = (rawValues: string[] = []): Conditiona
 const isConditionalLogicRule = (value: unknown): value is ConditionalLogicRule => {
 	if (!value || typeof value !== 'object') return false;
 	const candidate = value as Partial<ConditionalLogicRule>;
-	return typeof candidate.sourceFieldId === 'string'
-		&& typeof candidate.sourceFieldName === 'string'
+	return typeof candidate.sourceFieldName === 'string'
 		&& SUPPORTED_TYPES.includes(candidate.sourceFieldType as SupportedConditionalSourceType)
 		&& typeof candidate.operator === 'string';
 };
@@ -211,8 +209,9 @@ const setWrapperVisibility = (wrapper: HTMLElement, visible: boolean) => {
 };
 
 export const applyConditionalLogicVisibility = (form: HTMLFormElement) => {
-	const wrappers = Array.from(form.querySelectorAll<HTMLElement>('[data-fmdb-node-id]'));
-	const wrappersById = new Map(wrappers.map(wrapper => [wrapper.dataset.fmdbNodeId ?? '', wrapper]));
+	const wrappers = Array.from(form.querySelectorAll<HTMLElement>('[data-fmdb-node-name]'));
+	// data-fmdb-node-name → dataset.fmdbNodeName (automatic camelCase conversion by the DOM)
+	const wrappersByName = new Map(wrappers.map(wrapper => [wrapper.dataset.fmdbNodeName ?? '', wrapper]));
 
 	for (const wrapper of wrappers) {
 		const rawRules = wrapper.dataset.fmdbLogics;
@@ -228,7 +227,7 @@ export const applyConditionalLogicVisibility = (form: HTMLFormElement) => {
 		}
 
 		const visible = rules.every(rule => {
-			const sourceWrapper = wrappersById.get(rule.sourceFieldId);
+			const sourceWrapper = wrappersByName.get(rule.sourceFieldName);
 			if (!sourceWrapper) return false;
 			if (sourceWrapper.closest('[data-fmdb-logic-hidden="true"]')) return false;
 			return evaluateRule(rule, sourceWrapper);
