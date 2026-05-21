@@ -172,6 +172,10 @@ public final class FormLogicSyncService {
      */
     private static void removeLogicsSrcNodes(JCRNodeWrapper element, Set<String> logicIds)
             throws RepositoryException {
+        if (!element.hasNode(LOGICS_SRC)) {
+            return;
+        }
+
         JCRNodeWrapper logicsSrc = element.getNode(LOGICS_SRC);
         for (String logicId : logicIds) {
             if (logicsSrc.hasNode(logicId)) {
@@ -187,6 +191,10 @@ public final class FormLogicSyncService {
      */
     private static Set<String> findOrphanLogicIds(JCRNodeWrapper element, Set<String> activeLogicIds)
             throws RepositoryException {
+        if (!element.hasNode(LOGICS_SRC)) {
+            return Collections.emptySet();
+        }
+
         Set<String> orphans = new HashSet<>();
         NodeIterator children = element.getNode(LOGICS_SRC).getNodes();
         while (children.hasNext()) {
@@ -204,6 +212,10 @@ public final class FormLogicSyncService {
      */
     private static Set<String> findOutOfScopeLogicIds(JCRNodeWrapper element, String formPath)
             throws RepositoryException {
+        if (!element.hasNode(LOGICS_SRC)) {
+            return Collections.emptySet();
+        }
+
         Set<String> outOfScope = new HashSet<>();
         NodeIterator children = element.getNode(LOGICS_SRC).getNodes();
         while (children.hasNext()) {
@@ -227,12 +239,23 @@ public final class FormLogicSyncService {
     // --- Node-level operations ---
 
     /**
+     * Returns the logicsSrc child, creating it on the fly if absent.
+     */
+    private static JCRNodeWrapper getOrCreateLogicsSrc(JCRNodeWrapper element) throws RepositoryException {
+        if (element.hasNode(LOGICS_SRC)) {
+            return element.getNode(LOGICS_SRC);
+        }
+
+        return element.addNode(LOGICS_SRC, "fmdb:logicList");
+    }
+
+    /**
      * Creates or updates a single logicsSrc/{logicId} child node with a weakreference
      * pointing to the resolved source field.
      */
     private static boolean ensureLogicSrcNode(JCRNodeWrapper targetNode, String logicId, JCRNodeWrapper sourceFieldNode)
             throws RepositoryException {
-        JCRNodeWrapper logicsSrc = targetNode.getNode(LOGICS_SRC);
+        JCRNodeWrapper logicsSrc = getOrCreateLogicsSrc(targetNode);
         boolean updated = false;
 
         if (logicsSrc.hasNode(logicId)) {
@@ -256,6 +279,10 @@ public final class FormLogicSyncService {
      * is cleared or removed entirely.
      */
     private static boolean removeAllLogicsSrc(JCRNodeWrapper targetNode) throws RepositoryException {
+        if (!targetNode.hasNode(LOGICS_SRC)) {
+            return false;
+        }
+
         JCRNodeWrapper logicsSrc = targetNode.getNode(LOGICS_SRC);
         NodeIterator children = logicsSrc.getNodes();
         boolean updated = false;

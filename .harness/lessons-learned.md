@@ -27,4 +27,5 @@ Mistakes made during the weakref model implementation. Do not repeat.
 - **Do not add `nodeExists()` before `getNode()` in event listeners**. In Jahia, events are processed in the same transaction — the node exists. If it somehow doesn't, let `getNode()` throw and let the catch handle it.
 - **Think about all copy/paste scopes**. A listener filtering on `fmdb:form` only catches whole-form duplication. Copying a single field between forms requires also filtering on `fmdbmix:formLogicElement`.
 - **Always resolve node references by ID, never by stored name**. Names in JSON can become stale after rename/copy/import. If a weakref or UUID exists, use it to get the current node name at read time. This applies to both server-side (`ConditionalLogicEvaluator`) and client-side (`ConditionalLogicCmp`) resolution.
+- **Do not use `autocreated` for rarely-needed child nodes**. If a child node is only needed when a specific feature is used (e.g. `logicsSrc` only when conditional logic is configured), do not mark it `autocreated` — it creates unnecessary nodes on every instance. Instead, create the node lazily (on first use) and add `hasNode()` guards before reading.
 

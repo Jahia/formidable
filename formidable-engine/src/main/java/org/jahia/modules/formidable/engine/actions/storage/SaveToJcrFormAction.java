@@ -73,7 +73,7 @@ public class SaveToJcrFormAction implements FormAction {
 
         try {
             String submitterUsername = session != null ? session.getUserID() : null;
-            JCRTemplate.getInstance().doExecuteWithSystemSession(null, "live", null, systemSession -> {
+            JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, "live", null, systemSession -> {
                 JCRNodeWrapper sysFormNode = systemSession.getNodeByIdentifier(formNodeId);
                 JCRNodeWrapper formResults = resolveOrCreateFormResults(sysFormNode, systemSession);
                 JCRNodeWrapper submissions = formResults.getNode("submissions");

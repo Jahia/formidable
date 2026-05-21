@@ -61,7 +61,7 @@ class FormFieldMetadataCollector {
                 fieldAcceptTypes, fieldConstraints, fieldLogicRules, logicIdToFieldName, fieldParentContainer);
 
         try {
-            JCRTemplate.getInstance().doExecuteWithSystemSession(null, "live", locale, systemSession -> {
+            JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, "live", locale, systemSession -> {
                 JCRNodeWrapper formNode = systemSession.getNodeByIdentifier(formId);
                 if (!formNode.hasNode(FIELDS_NODE)) {
                     log.debug("[FormFieldMetadataCollector] No '{}' child on form node '{}'",
@@ -182,6 +182,10 @@ class FormFieldMetadataCollector {
 
     private static void resolveLogicsSrc(JCRNodeWrapper node, List<ConditionalLogicRule> rules, CollectorContext ctx) {
         try {
+            if (!node.hasNode(LOGICS_SRC)) {
+                return;
+            }
+
             JCRNodeWrapper logicsSrc = node.getNode(LOGICS_SRC);
             for (ConditionalLogicRule rule : rules) {
                 String logicId = rule.logicId();

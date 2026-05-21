@@ -35,7 +35,7 @@ orderable
 
 [fmdbmix:formLogicElement] mixin
  - logics (string) multiple indexed=no
- + logicsSrc (fmdb:logicList) = fmdb:logicList autocreated mandatory hidden
+ + logicsSrc (fmdb:logicList) = fmdb:logicList hidden
 
 [fmdbmix:formElement] > mix:title, fmdbmix:formLogicElement mixin
 orderable
