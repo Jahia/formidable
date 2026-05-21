@@ -1,8 +1,9 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {useQuery} from '@apollo/client';
-import {Button, Download, Loader, Paper, Reload, Typography} from '@jahia/moonstone';
+import {Button, DeletePermanently, Download, Loader, Paper, Reload, Typography} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
 import {GET_FORM_RESULTS_LIST} from './graphql';
+import {DeleteResultsDialog} from './delete';
 import {ExportResultsDialog} from './export';
 import {FormResultsList, SubmissionDetailPanel, SubmissionsTable} from './components';
 import type {FormResultsNode, SubmissionRow} from './FormResults.utils';
@@ -16,6 +17,7 @@ export const FormResultsApp = () => {
     const [selectedFormResultsId, setSelectedFormResultsId] = useState<string | null>(null);
     const [selectedSubmission, setSelectedSubmission] = useState<SubmissionRow | null>(null);
     const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [refreshSelectedForm, setRefreshSelectedForm] = useState<(() => Promise<unknown>) | null>(null);
 
@@ -31,6 +33,10 @@ export const FormResultsApp = () => {
     const selectedFormLabel = selectedForm
         ? selectedForm.parentForm?.refNode?.displayName ?? selectedForm.displayName ?? selectedForm.name
         : '';
+    const canDeleteSelectedForm = Boolean(
+        selectedForm?.submissionsContainer?.nodes?.[0]?.canRemoveNode &&
+        selectedForm?.submissionsContainer?.nodes?.[0]?.canRemoveChildNodes
+    );
 
     useEffect(() => {
         setSelectedSubmission(null);
@@ -38,6 +44,7 @@ export const FormResultsApp = () => {
 
     useEffect(() => {
         setIsExportDialogOpen(false);
+        setIsDeleteDialogOpen(false);
     }, [selectedFormUuid]);
 
     const handleRegisterRefresh = useCallback((refresh: (() => Promise<unknown>) | null) => {
@@ -46,6 +53,22 @@ export const FormResultsApp = () => {
 
     const handleRefresh = async () => {
         if (!selectedForm || !refreshSelectedForm) {
+            return;
+        }
+
+        setIsRefreshing(true);
+        try {
+            await Promise.all([refetchForms(), refreshSelectedForm()]);
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
+
+    const handleDeleteSuccess = async () => {
+        setSelectedSubmission(null);
+
+        if (!selectedForm || !refreshSelectedForm) {
+            await refetchForms();
             return;
         }
 
@@ -127,6 +150,16 @@ export const FormResultsApp = () => {
                     isDisabled={!selectedForm}
                     onClick={() => setIsExportDialogOpen(true)}
                 />
+                {canDeleteSelectedForm && (
+                    <Button
+                        variant="ghost"
+                        color="danger"
+                        icon={<DeletePermanently/>}
+                        label={t('formResults.actions.delete')}
+                        isDisabled={!selectedForm}
+                        onClick={() => setIsDeleteDialogOpen(true)}
+                    />
+                )}
                 <Button
                     variant="ghost"
                     icon={<Reload/>}
@@ -188,6 +221,13 @@ export const FormResultsApp = () => {
                 <ExportResultsDialog
                     formResults={selectedForm}
                     onClose={() => setIsExportDialogOpen(false)}
+                />
+            )}
+            {selectedForm && canDeleteSelectedForm && isDeleteDialogOpen && (
+                <DeleteResultsDialog
+                    formResults={selectedForm}
+                    onClose={() => setIsDeleteDialogOpen(false)}
+                    onDeleted={handleDeleteSuccess}
                 />
             )}
         </div>

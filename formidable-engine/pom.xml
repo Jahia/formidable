@@ -85,7 +85,8 @@
                             org.jahia.modules.formidable.engine.actions,
                             org.jahia.modules.formidable.engine.captcha,
                             org.jahia.modules.formidable.engine.choicelist,
-                            org.jahia.modules.formidable.engine.config
+                            org.jahia.modules.formidable.engine.config,
+                            org.jahia.modules.formidable.engine.permissions
                         </Export-Package>
                         <Import-Package>
                             org.jahia.bin,

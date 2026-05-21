@@ -41,6 +41,7 @@
         },
         "actions": {
             "export": "Export",
+            "delete": "Delete",
             "refresh": "Refresh"
         },
         "empty": {
@@ -99,6 +100,30 @@
             "validation": {
                 "invalidRange": "Select a valid start and end date, or export all results.",
                 "unexpectedError": "Export failed."
+            }
+        },
+        "delete": {
+            "title": "Delete results",
+            "description": "Delete form submissions.",
+            "warning": "This action permanently deletes the selected submissions.",
+            "cancel": "Cancel",
+            "confirm": "Delete",
+            "fields": {
+                "startDate": "Start date",
+                "endDate": "End date",
+                "allResults": "Delete all results",
+                "confirmationLabel": "Confirmation",
+                "confirmationHelp": "Please type \"{{name}}\" to confirm deletion."
+            },
+            "count": {
+                "loading": "Counting matching submissions...",
+                "label": "{{count}} submissions will be deleted."
+            },
+            "validation": {
+                "invalidRange": "Select a valid start and end date, or delete all results.",
+                "noResults": "No submissions match the selected range.",
+                "confirmationMismatch": "Type the expected form name to confirm deletion.",
+                "unexpectedError": "Deletion failed."
             }
         }
     }

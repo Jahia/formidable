@@ -1,0 +1,1 @@
+export {DeleteResultsDialog} from './DeleteResultsDialog';

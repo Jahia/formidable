@@ -120,11 +120,20 @@ Typical submission-level properties:
 
 ### Field Values
 
-Field values are stored as JCR properties on:
+Field values are stored as JCR properties on the `data` child node (`fmdb:submissionData`):
 
 ```text
 <submission>/data
 ```
+
+The `fmdb:submissionData` type uses residual property definitions with `indexed=no`:
+
+```
+- * (string) indexed=no
+- * (string) multiple indexed=no
+```
+
+This ensures submitted form data (names, emails, addresses) never enters the Lucene search index — avoiding index bloat, improving re-indexing performance, and keeping personal data out of search results. The dashboard queries submissions by `jcr:created` on `fmdb:formSubmission`, then navigates to `data` to read properties directly.
 
 Rules:
 
@@ -166,6 +175,9 @@ At runtime, the action performs the following steps:
 
 ## Notes
 
+- The `files` node is not autocreated — it is only added when uploaded files are present. This avoids an empty `jnt:folder` on every text-only submission.
+- Field values use residual properties on a single `data` node rather than one child node per field. A 20-field form produces 1 node with 20 properties, not 20 child nodes. At 10,000 submissions this avoids 190,000 unnecessary nodes.
+- Submissions are written directly to the `live` workspace using a system session. There is no publish step.
 - Folder names are intended to stay readable for operators.
 - `parentForm` is the real form identity key.
 - Renaming a form does not create a second logical results folder; the existing folder is reused and renamed.
