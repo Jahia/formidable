@@ -177,7 +177,7 @@ class FormSubmissionPipeline {
     private void validateRequired() throws SubmissionException {
         var logicEvaluator = new ConditionalLogicEvaluator(
                 fieldMetadata.fieldLogicRules(),
-                fieldMetadata.fieldNameToNodeId(),
+                fieldMetadata.logicIdToFieldName(),
                 fieldMetadata.fieldParentContainer(),
                 parsed.parameters()
         );
@@ -224,7 +224,7 @@ class FormSubmissionPipeline {
                 continue;
             }
             try {
-                JCRTemplate.getInstance().doExecuteWithSystemSession(null, "live", locale, systemSession -> {
+                JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, "live", locale, systemSession -> {
                     JCRNodeWrapper actionNode = systemSession.getNodeByIdentifier(action.id());
                     try {
                         handler.execute(actionNode, req, null, session, parsed.parameters());
@@ -247,7 +247,7 @@ class FormSubmissionPipeline {
     private List<ResolvedAction> resolveActionNodes() {
         List<ResolvedAction> result = new ArrayList<>();
         try {
-            JCRTemplate.getInstance().doExecuteWithSystemSession(null, "live", locale, systemSession -> {
+            JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, "live", locale, systemSession -> {
                 JCRNodeWrapper systemFormNode = systemSession.getNodeByIdentifier(formId);
                 if (!systemFormNode.hasNode(ACTIONS_NODE)) {
                     return null;

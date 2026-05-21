@@ -49,5 +49,5 @@
 [fmdb:form] > jnt:content, fmdbmix:component, jmix:visibleInContentTree, fmdbmix:buttons, fmdbmix:responses, fmdbmix:multiStep, fmdbmix:style, mix:title
  orderable
  - intro (string, richtext) i18n indexed=no
- + fields (fmdb:fieldList) = fmdb:fieldList autocreated
- + actions (fmdb:actionList) = fmdb:actionList autocreated
+ + fields (fmdb:fieldList) = fmdb:fieldList autocreated mandatory
+ + actions (fmdb:actionList) = fmdb:actionList autocreated mandatory

@@ -14,7 +14,7 @@ import java.util.List;
  * Used server-side to determine if a field should be considered hidden (and thus skip validation).
  */
 public record ConditionalLogicRule(
-        String sourceFieldId,
+        String logicId,
         String sourceFieldName,
         String sourceFieldType,
         String operator,
@@ -31,10 +31,11 @@ public record ConditionalLogicRule(
                 if (json == null || json.isBlank()) continue;
 
                 JSONObject obj = new JSONObject(json);
-                String sourceFieldId = obj.optString("sourceFieldId", "");
+                String sourceFieldName = obj.optString("sourceFieldName", "");
                 String operator = obj.optString("operator", "");
-                if (sourceFieldId.isEmpty() || operator.isEmpty()) continue;
+                if (sourceFieldName.isEmpty() || operator.isEmpty()) continue;
 
+                String logicId = obj.optString("logicId", "");
                 String singleValue = obj.has("value") ? obj.optString("value", null) : null;
                 List<String> valuesList = new ArrayList<>();
                 if (obj.has("values")) {
@@ -47,8 +48,8 @@ public record ConditionalLogicRule(
                 }
 
                 rules.add(new ConditionalLogicRule(
-                        sourceFieldId,
-                        obj.optString("sourceFieldName", ""),
+                        logicId,
+                        sourceFieldName,
                         obj.optString("sourceFieldType", ""),
                         operator,
                         singleValue,
@@ -61,4 +62,3 @@ public record ConditionalLogicRule(
         return rules;
     }
 }
-

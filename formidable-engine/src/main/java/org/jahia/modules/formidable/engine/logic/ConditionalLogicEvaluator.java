@@ -18,18 +18,18 @@ public class ConditionalLogicEvaluator {
     private static final Logger log = LoggerFactory.getLogger(ConditionalLogicEvaluator.class);
 
     private final Map<String, List<ConditionalLogicRule>> fieldLogicRules;
-    private final Map<String, String> fieldNameToNodeId;
+    private final Map<String, String> logicIdToFieldName;
     private final Map<String, String> fieldParentContainer;
     private final Map<String, List<String>> submittedValues;
 
     public ConditionalLogicEvaluator(
             Map<String, List<ConditionalLogicRule>> fieldLogicRules,
-            Map<String, String> fieldNameToNodeId,
+            Map<String, String> logicIdToFieldName,
             Map<String, String> fieldParentContainer,
             Map<String, List<String>> submittedValues
     ) {
         this.fieldLogicRules = fieldLogicRules;
-        this.fieldNameToNodeId = fieldNameToNodeId;
+        this.logicIdToFieldName = logicIdToFieldName;
         this.fieldParentContainer = fieldParentContainer;
         this.submittedValues = submittedValues;
     }
@@ -62,13 +62,7 @@ public class ConditionalLogicEvaluator {
     }
 
     private boolean evaluateRule(ConditionalLogicRule rule, Set<String> visiting) {
-        String sourceFieldName = null;
-        for (Map.Entry<String, String> entry : fieldNameToNodeId.entrySet()) {
-            if (entry.getValue().equals(rule.sourceFieldId())) {
-                sourceFieldName = entry.getKey();
-                break;
-            }
-        }
+        String sourceFieldName = resolveSourceFieldName(rule);
         if (sourceFieldName == null) return false;
 
         if (isHidden(sourceFieldName, visiting)) return false;
@@ -95,5 +89,26 @@ public class ConditionalLogicEvaluator {
             default -> false;
         };
     }
-}
 
+    /**
+     * Resolves the source field name from a rule.
+     * Primary: logicId → resolved field name via logicsSrc weakref.
+     * Fallback: sourceFieldName from JSON metadata.
+     */
+    private String resolveSourceFieldName(ConditionalLogicRule rule) {
+        String logicId = rule.logicId();
+        if (logicId != null && !logicId.isEmpty()) {
+            String resolved = logicIdToFieldName.get(logicId);
+            if (resolved != null) {
+                return resolved;
+            }
+        }
+
+        String name = rule.sourceFieldName();
+        if (name != null && !name.isEmpty() && submittedValues.containsKey(name)) {
+            return name;
+        }
+
+        return null;
+    }
+}
