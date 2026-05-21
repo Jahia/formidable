@@ -3,6 +3,7 @@ import {Dropdown, Input, Loader, Typography} from '@jahia/moonstone';
 import React, {useEffect, useMemo, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {
+    buildLogicIdToNameMap,
     buildSourceFieldOptions,
     extractCurrentNodePath,
     extractLanguage,
@@ -91,6 +92,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     const {t} = useTranslation('formidable-engine');
     const client = useApolloClient();
     const [sources, setSources] = useState<SourceFieldOption[]>([]);
+    const [logicIdToName, setLogicIdToName] = useState<Map<string, string>>(new Map());
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -98,6 +100,19 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     const language = extractLanguage(props);
     const workspace = extractWorkspace(props);
     const rule = useMemo(() => parseRule(value), [value]);
+
+    // Resolve sourceFieldName via weakref: if the source field was renamed,
+    // the logicId → weakref → refNode.name gives the current name.
+    const resolvedSourceFieldName = useMemo(() => {
+        if (rule.logicId) {
+            const resolved = logicIdToName.get(rule.logicId);
+            if (resolved) {
+                return resolved;
+            }
+        }
+
+        return rule.sourceFieldName;
+    }, [rule, logicIdToName]);
 
     const siblingSourceNames = useMemo(() => {
         const allEntries = field.name ? props.form?.values?.[field.name] : undefined;
@@ -108,21 +123,28 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         return new Set(
             allEntries
                 .filter((entry): entry is string => typeof entry === 'string' && entry !== value)
-                .map(entry => parseRule(entry).sourceFieldName)
+                .map(entry => {
+                    const siblingRule = parseRule(entry);
+                    if (siblingRule.logicId) {
+                        return logicIdToName.get(siblingRule.logicId) ?? siblingRule.sourceFieldName;
+                    }
+
+                    return siblingRule.sourceFieldName;
+                })
                 .filter(sourceName => sourceName !== '')
         );
-    }, [field.name, props.form?.values, value]);
+    }, [field.name, props.form?.values, value, logicIdToName]);
 
     const availableSources = useMemo(
         () => sources.filter(source =>
-            source.name === rule.sourceFieldName
+            source.name === resolvedSourceFieldName
             || !siblingSourceNames.has(source.name)),
-        [sources, siblingSourceNames, rule.sourceFieldName]
+        [sources, siblingSourceNames, resolvedSourceFieldName]
     );
 
     const selectedSource = useMemo(
-        () => availableSources.find(source => source.name === rule.sourceFieldName),
-        [rule.sourceFieldName, availableSources]
+        () => availableSources.find(source => source.name === resolvedSourceFieldName),
+        [resolvedSourceFieldName, availableSources]
     );
     const selectedOperator = sanitizeOperator(selectedSource, rule.operator);
 
@@ -154,6 +176,9 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     throw new Error(t('conditionalLogic.formNotFound'));
                 }
 
+                const logicSrcNodes = currentNode.descendant?.children?.nodes ?? [];
+                const resolvedMap = buildLogicIdToNameMap(logicSrcNodes);
+
                 const formTreeResult = await client.query<{
                     jcr?: {nodeByPath?: GraphNode | null} | null;
                 }>({
@@ -165,6 +190,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                 const descendantNodes = formTreeResult.data?.jcr?.nodeByPath?.descendants?.nodes ?? [];
                 if (!cancelled) {
                     setSources(buildSourceFieldOptions(currentNode.path, descendantNodes));
+                    setLogicIdToName(resolvedMap);
                 }
             } catch (error) {
                 if (!cancelled) {

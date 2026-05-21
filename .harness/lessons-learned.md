@@ -26,4 +26,5 @@ Mistakes made during the weakref model implementation. Do not repeat.
 - **When asked to review code, check ALL CND files for autocreated/mandatory constraints**. Dead code from ignoring CND constraints was missed on multiple review passes. Cross-reference every `hasNode()` and `hasProperty()` with the CND definitions before validating.
 - **Do not add `nodeExists()` before `getNode()` in event listeners**. In Jahia, events are processed in the same transaction — the node exists. If it somehow doesn't, let `getNode()` throw and let the catch handle it.
 - **Think about all copy/paste scopes**. A listener filtering on `fmdb:form` only catches whole-form duplication. Copying a single field between forms requires also filtering on `fmdbmix:formLogicElement`.
+- **Always resolve node references by ID, never by stored name**. Names in JSON can become stale after rename/copy/import. If a weakref or UUID exists, use it to get the current node name at read time. This applies to both server-side (`ConditionalLogicEvaluator`) and client-side (`ConditionalLogicCmp`) resolution.
 

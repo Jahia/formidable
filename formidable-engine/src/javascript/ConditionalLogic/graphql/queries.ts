@@ -13,6 +13,19 @@ export const CURRENT_NODE_BY_PATH = gql`
                     ...JcrNodeIdentity
                     primaryNodeType { name }
                 }
+                descendant(relPath: "logicsSrc") {
+                    children {
+                        nodes {
+                            name
+                            property(name: "logicNodeSource") {
+                                refNode {
+                                    name
+                                    uuid
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

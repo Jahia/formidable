@@ -4,6 +4,7 @@ import type {
     EditorContextLike,
     GraphNode,
     LogicOperator,
+    LogicSrcNode,
     SelectorProps,
     SourceFieldOption,
     SupportedSourceType
@@ -215,3 +216,16 @@ export const buildSourceFieldOptions = (currentNodePath: string, nodes: GraphNod
         .map(mapSourceField)
         .filter((node): node is SourceFieldOption => node !== null);
 };
+
+export const buildLogicIdToNameMap = (logicSrcNodes: LogicSrcNode[] = []): Map<string, string> => {
+    const map = new Map<string, string>();
+    for (const node of logicSrcNodes) {
+        const resolvedName = node.property?.refNode?.name;
+        if (resolvedName) {
+            map.set(node.name, resolvedName);
+        }
+    }
+
+    return map;
+};
+

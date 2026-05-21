@@ -65,6 +65,11 @@ export interface PropertyValue {
     values?: string[] | null;
 }
 
+export interface LogicSrcNode {
+    name: string;
+    property?: {refNode?: {name: string; uuid: string} | null} | null;
+}
+
 export interface GraphNode {
     uuid: string;
     name: string;
@@ -74,6 +79,7 @@ export interface GraphNode {
     properties?: PropertyValue[] | null;
     ancestors?: GraphAncestorNode[] | null;
     descendants?: {nodes?: GraphNode[] | null} | null;
+    descendant?: {children?: {nodes?: LogicSrcNode[] | null} | null} | null;
 }
 
 export interface GraphAncestorNode {
