@@ -164,7 +164,7 @@ export const SubmissionsTable = ({
     }
 
     return (
-        <Paper hasPadding={false} style={{display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0}}>
+        <Paper hasPadding={false} style={{display: 'flex', flexDirection: 'column', height: '100%'}}>
             <div
                 ref={tableRef}
                 tabIndex={0}

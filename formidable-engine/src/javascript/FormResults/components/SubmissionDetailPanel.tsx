@@ -51,9 +51,7 @@ export const SubmissionDetailPanel = ({submission, formFieldLabels, onClose}: Su
 
     return (
         <aside style={{
-            width: '500px',
-            minWidth: '350px',
-            maxWidth: '50%',
+            flex: '0 0 500px',
             display: 'flex',
             flexDirection: 'column',
             height: '100%',

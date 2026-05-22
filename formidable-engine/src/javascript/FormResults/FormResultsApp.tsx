@@ -124,7 +124,7 @@ export const FormResultsApp = () => {
     }
 
     return (
-        <div style={{display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden'}}>
+        <div style={{display: 'flex', flexDirection: 'column', height: '100%', width: '100%', minWidth: 0, overflow: 'hidden'}}>
             <div
                 style={{
                     padding: '24px 24px 16px',
@@ -184,6 +184,7 @@ export const FormResultsApp = () => {
                     display: 'flex',
                     flex: 1,
                     minHeight: 0,
+                    minWidth: 0,
                     overflow: 'hidden',
                     gap: '16px',
                     padding: '16px',
@@ -195,39 +196,29 @@ export const FormResultsApp = () => {
                     selectedId={selectedForm?.uuid ?? ''}
                     onSelect={setSelectedFormResultsId}
                 />
-                <div style={{display: 'flex', flex: 1, minWidth: 0, gap: '16px', overflow: 'hidden'}}>
-                    <div style={{flex: 1, minWidth: 0, overflow: 'hidden'}}>
-                        {selectedForm ? (
-                            <SubmissionsTable
-                                formResults={selectedForm}
-                                selectedSubmission={selectedSubmission}
-                                onSelectSubmission={setSelectedSubmission}
-                                onRegisterRefresh={handleRegisterRefresh}
-                            />
-                        ) : (
-                            <Paper
-                                hasPadding
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    height: '100%'
-                                }}
-                            >
-                                <Typography variant="heading">
-                                    {t('formResults.empty.selectForm')}
-                                </Typography>
-                            </Paper>
-                        )}
-                    </div>
-                    {selectedSubmission && (
-                        <SubmissionDetailPanel
-                            submission={selectedSubmission}
-                            formFieldLabels={formFieldLabels}
-                            onClose={() => setSelectedSubmission(null)}
+                {selectedForm ? (
+                    <div style={{flex: '1 1 0', minWidth: 0, overflow: 'hidden'}}>
+                        <SubmissionsTable
+                            formResults={selectedForm}
+                            selectedSubmission={selectedSubmission}
+                            onSelectSubmission={setSelectedSubmission}
+                            onRegisterRefresh={handleRegisterRefresh}
                         />
-                    )}
-                </div>
+                    </div>
+                ) : (
+                    <div style={{flex: '1 1 0', minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+                        <Typography variant="heading">
+                            {t('formResults.empty.selectForm')}
+                        </Typography>
+                    </div>
+                )}
+                {selectedSubmission && (
+                    <SubmissionDetailPanel
+                        submission={selectedSubmission}
+                        formFieldLabels={formFieldLabels}
+                        onClose={() => setSelectedSubmission(null)}
+                    />
+                )}
             </div>
             {selectedForm && isExportDialogOpen && (
                 <ExportResultsDialog

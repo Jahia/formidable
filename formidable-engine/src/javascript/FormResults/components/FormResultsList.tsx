@@ -15,8 +15,7 @@ export const FormResultsList = ({forms, selectedId, onSelect}: FormResultsListPr
     return (
         <aside
             style={{
-                width: '280px',
-                minWidth: '280px',
+                flex: '0 0 280px',
                 overflow: 'hidden'
             }}
         >
