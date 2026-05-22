@@ -2,11 +2,12 @@ import React, {useCallback, useEffect, useState} from 'react';
 import {useQuery} from '@apollo/client';
 import {Button, DeletePermanently, Download, Loader, Paper, Reload, Typography} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
-import {GET_FORM_RESULTS_LIST} from './graphql';
+import {GET_FORM_RESULTS_LIST, GET_FORM_FIELD_LABELS} from './graphql';
 import {DeleteResultsDialog} from './delete';
 import {ExportResultsDialog} from './export';
 import {FormResultsList, SubmissionDetailPanel, SubmissionsTable} from './components';
 import type {FormResultsNode, SubmissionRow} from './FormResults.utils';
+import {parseFormFieldLabels} from './FormResults.utils';
 
 export const FormResultsApp = () => {
     const {t} = useTranslation('formidable-engine');
@@ -37,6 +38,14 @@ export const FormResultsApp = () => {
         selectedForm?.submissionsContainer?.nodes?.[0]?.canRemoveNode &&
         selectedForm?.submissionsContainer?.nodes?.[0]?.canRemoveChildNodes
     );
+
+    const formUuid = selectedForm?.parentForm?.refNode?.uuid;
+    const {data: fieldLabelsData} = useQuery(GET_FORM_FIELD_LABELS, {
+        variables: {formUuid: formUuid!, language, workspace: 'LIVE'},
+        skip: !formUuid,
+        fetchPolicy: 'cache-first'
+    });
+    const formFieldLabels = formUuid ? parseFormFieldLabels(fieldLabelsData) : new Map<string, string>();
 
     useEffect(() => {
         setSelectedSubmission(null);
@@ -95,7 +104,7 @@ export const FormResultsApp = () => {
     if (error) {
         if (error.graphQLErrors?.some(e => e.message?.includes('javax.jcr.PathNotFoundException'))) {
             return (
-                <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', flexDirection: 'column', gap: '1rem'}}>
+                <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', flexDirection: 'column', gap: '1rem', padding: '48px', textAlign: 'center'}}>
                     <Typography variant="heading" weight="bold">{t('formResults.empty.noForms')}</Typography>
                     <Typography>{t('formResults.empty.noFormsDescription')}</Typography>
                 </div>
@@ -107,7 +116,7 @@ export const FormResultsApp = () => {
 
     if (forms.length === 0) {
         return (
-            <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', flexDirection: 'column', gap: '1rem'}}>
+            <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', flexDirection: 'column', gap: '1rem', padding: '48px', textAlign: 'center'}}>
                 <Typography variant="heading" weight="bold">{t('formResults.empty.noForms')}</Typography>
                 <Typography>{t('formResults.empty.noFormsDescription')}</Typography>
             </div>
@@ -186,36 +195,39 @@ export const FormResultsApp = () => {
                     selectedId={selectedForm?.uuid ?? ''}
                     onSelect={setSelectedFormResultsId}
                 />
-                <div style={{flex: 1, minWidth: 0, overflow: 'hidden'}}>
-                    {selectedForm ? (
-                        <SubmissionsTable
-                            formResults={selectedForm}
-                            selectedSubmission={selectedSubmission}
-                            onSelectSubmission={setSelectedSubmission}
-                            onRegisterRefresh={handleRegisterRefresh}
+                <div style={{display: 'flex', flex: 1, minWidth: 0, gap: '16px', overflow: 'hidden'}}>
+                    <div style={{flex: 1, minWidth: 0, overflow: 'hidden'}}>
+                        {selectedForm ? (
+                            <SubmissionsTable
+                                formResults={selectedForm}
+                                selectedSubmission={selectedSubmission}
+                                onSelectSubmission={setSelectedSubmission}
+                                onRegisterRefresh={handleRegisterRefresh}
+                            />
+                        ) : (
+                            <Paper
+                                hasPadding
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    height: '100%'
+                                }}
+                            >
+                                <Typography variant="heading">
+                                    {t('formResults.empty.selectForm')}
+                                </Typography>
+                            </Paper>
+                        )}
+                    </div>
+                    {selectedSubmission && (
+                        <SubmissionDetailPanel
+                            submission={selectedSubmission}
+                            formFieldLabels={formFieldLabels}
+                            onClose={() => setSelectedSubmission(null)}
                         />
-                    ) : (
-                        <Paper
-                            hasPadding
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                height: '100%'
-                            }}
-                        >
-                            <Typography variant="heading">
-                                {t('formResults.empty.selectForm')}
-                            </Typography>
-                        </Paper>
                     )}
                 </div>
-                {selectedSubmission && (
-                    <SubmissionDetailPanel
-                        submission={selectedSubmission}
-                        onClose={() => setSelectedSubmission(null)}
-                    />
-                )}
             </div>
             {selectedForm && isExportDialogOpen && (
                 <ExportResultsDialog

@@ -32,7 +32,8 @@ const formatFilesValue = (submission: SubmissionRow): string => {
 
 const buildCsvContent = (
     submissions: SubmissionRow[],
-    t: (key: string) => string
+    t: (key: string) => string,
+    formFieldLabels: Map<string, string>
 ): string => {
     const fieldNames = Array.from(new Set(submissions.flatMap(s => s.fieldValues.map(f => f.name))));
 
@@ -47,7 +48,10 @@ const buildCsvContent = (
         t('formResults.detail.referer'),
         t('formResults.detail.userAgent'),
         t('formResults.detail.files'),
-        ...fieldNames
+        ...fieldNames.map(name => {
+            const label = formFieldLabels.get(name);
+            return label ? `${label} (${name})` : name;
+        })
     ];
 
     const rows = submissions.map(submission => {

@@ -65,6 +65,7 @@ public class SaveToJcrFormAction implements FormAction {
                     "Validated uploaded files are unavailable for fmdb:save2jcrAction.");
         }
 
+
         String formNodeId;
         try {
             formNodeId = formNode.getIdentifier();
@@ -248,6 +249,7 @@ public class SaveToJcrFormAction implements FormAction {
                 dataNode.setProperty(entry.getKey(), nonBlankValues.toArray(String[]::new));
             }
         }
+
 
         if (!files.isEmpty()) {
             JCRNodeWrapper filesNode = submission.hasNode("files")

@@ -140,6 +140,14 @@ Rules:
 - single-value fields become single JCR properties
 - multi-value fields become multi-valued JCR properties
 
+#### Field Labels in the Dashboard
+
+Field labels (human-readable names like "Email Address" instead of `email`) are resolved at read time from the form node, not stored in the submission data.
+
+The dashboard uses a GraphQL query (`GET_FORM_FIELD_LABELS`) to read `displayName` (i.e. `jcr:title`) of each field from the `parentForm` in the dashboard user's UI language (`uilang`). This provides consistent, locale-aware labels across all submissions regardless of which language the visitor submitted in.
+
+If the form has been deleted (the `parentForm` weakreference no longer resolves), the dashboard falls back to the raw JCR field name.
+
 ### Uploaded Files
 
 Uploaded files are stored under:
@@ -181,3 +189,4 @@ At runtime, the action performs the following steps:
 - Folder names are intended to stay readable for operators.
 - `parentForm` is the real form identity key.
 - Renaming a form does not create a second logical results folder; the existing folder is reused and renamed.
+- Field labels are resolved at read time from the form node via GraphQL, not stored in the submission data. If the form is deleted, the dashboard falls back to the raw field name.

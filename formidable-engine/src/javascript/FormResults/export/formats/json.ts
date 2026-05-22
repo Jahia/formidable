@@ -11,7 +11,8 @@ const toAbsoluteUrl = (url: string): string => {
 
 const buildJsonContent = (
     submissions: SubmissionRow[],
-    _t: (key: string) => string
+    _t: (key: string) => string,
+    formFieldLabels: Map<string, string>
 ): string => {
     const data = submissions.map(submission => ({
         id: submission.uuid,
@@ -24,10 +25,17 @@ const buildJsonContent = (
         userAgent: submission.userAgent,
         referer: submission.referer,
         fields: Object.fromEntries(
-            submission.fieldValues.map(field => [
-                field.name,
-                field.values.length === 1 ? field.values[0] : field.values
-            ])
+            submission.fieldValues.map(field => {
+                const label = formFieldLabels.get(field.name);
+                return [
+                    field.name,
+                    {
+                        name: field.name,
+                        ...(label ? {label} : {}),
+                        value: field.values.length === 1 ? field.values[0] : field.values
+                    }
+                ];
+            })
         ),
         files: Object.fromEntries(
             Array.from(

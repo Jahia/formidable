@@ -45,8 +45,8 @@
             "refresh": "Rafraîchir"
         },
         "empty": {
-            "noForms": "Aucun résultat de formulaire",
-            "noFormsDescription": "Aucune soumission Formidable sauvegardée n'a été trouvée pour ce site.",
+            "noForms": "Aucun résultat disponible",
+            "noFormsDescription": "Aucun formulaire n'a encore reçu de soumission, ou vous n'avez pas les droits pour consulter les résultats. Contactez l'administrateur du site si vous pensez qu'il s'agit d'une erreur.",
             "noSubmissions": "Aucune soumission",
             "selectForm": "Sélectionnez un formulaire pour voir les résultats"
         },

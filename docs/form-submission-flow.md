@@ -234,7 +234,7 @@ they appear in the list.
 
 | Node type | Description |
 |---|---|
-| `fmdb:save2jcrAction` | Saves form data as JCR child nodes (not yet implemented) |
+| `fmdb:save2jcrAction` | Saves form data as JCR child nodes under `formidable-results` (see `docs/save-to-jcr.md`) |
 | `fmdb:emailNotificationAction` | Sends a notification email via Jahia `MailService`; `${fieldName}` interpolation in subject and body; headers and HTML body sanitized |
 | `fmdb:emailContentAction` | Sends the submitted form content by email; may optionally attach validated uploaded files |
 | `fmdb:forwardAction` | Forwards declared form fields + pre-parsed files to a target endpoint resolved from config by ID |

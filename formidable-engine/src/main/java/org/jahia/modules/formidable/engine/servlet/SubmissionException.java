@@ -7,14 +7,26 @@ package org.jahia.modules.formidable.engine.servlet;
 final class SubmissionException extends Exception {
 
     final ErrorCode errorCode;
+    final int actionsCompleted;
+    final int actionsTotal;
 
     SubmissionException(ErrorCode errorCode, String internalMessage) {
+        this(errorCode, internalMessage, -1, -1);
+    }
+
+    SubmissionException(ErrorCode errorCode, String internalMessage, int actionsCompleted, int actionsTotal) {
         super(internalMessage);
         this.errorCode = errorCode;
+        this.actionsCompleted = actionsCompleted;
+        this.actionsTotal = actionsTotal;
     }
 
     int httpStatus() {
         return errorCode.httpStatus;
+    }
+
+    boolean hasActionProgress() {
+        return actionsCompleted >= 0 && actionsTotal > 0;
     }
 }
 

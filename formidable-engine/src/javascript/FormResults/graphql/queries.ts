@@ -142,3 +142,25 @@ export const DELETE_SUBMISSIONS = gql`
         }
     }
 `;
+
+export const GET_FORM_FIELD_LABELS = gql`
+    query GetFormFieldLabels($formUuid: String!, $language: String!, $workspace: Workspace = LIVE) {
+        jcr(workspace: $workspace) {
+            nodeById(uuid: $formUuid) {
+                fields: children(names: ["fields"]) {
+                    nodes {
+                        descendants(
+                            typesFilter: {types: ["fmdbmix:formElement"], multi: ANY}
+                        ) {
+                            nodes {
+                                name
+                                displayName(language: $language)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+`;
+

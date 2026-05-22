@@ -70,20 +70,26 @@ public class FormSubmitServlet extends HttpServlet {
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         try {
             new FormSubmissionPipeline(config, formActions).run(req);
-            sendJson(resp, HttpServletResponse.SC_OK, null);
+            sendJson(resp, HttpServletResponse.SC_OK, null, null);
         } catch (SubmissionException e) {
             log.warn("[FormSubmitServlet] Rejected [{}]: {}", e.errorCode.code(), e.getMessage());
-            sendJson(resp, e.httpStatus(), e.errorCode.code());
+            sendJson(resp, e.httpStatus(), e.errorCode.code(), e);
         } catch (Exception e) {
             log.error("[FormSubmitServlet] Unexpected error", e);
-            sendJson(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, ErrorCode.FMDB_500.code());
+            sendJson(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, ErrorCode.FMDB_500.code(), null);
         }
     }
 
-    private static void sendJson(HttpServletResponse resp, int status, String errorCode) throws IOException {
+    private static void sendJson(HttpServletResponse resp, int status, String errorCode, SubmissionException ex) throws IOException {
         JSONObject body = new JSONObject();
         body.put("success", errorCode == null);
-        if (errorCode != null) body.put("errorCode", errorCode);
+        if (errorCode != null) {
+            body.put("errorCode", errorCode);
+        }
+        if (ex != null && ex.hasActionProgress()) {
+            body.put("actionsCompleted", ex.actionsCompleted);
+            body.put("actionsTotal", ex.actionsTotal);
+        }
         resp.setStatus(status);
         resp.setContentType("application/json");
         resp.setCharacterEncoding(StandardCharsets.UTF_8.name());

@@ -146,6 +146,7 @@ class FormFieldMetadataCollector {
             }
             ctx.fieldTypes.put(name, nodeType);
 
+
             if (parentContainerName != null) {
                 ctx.fieldParentContainer.put(name, parentContainerName);
             }

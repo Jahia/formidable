@@ -45,8 +45,8 @@
             "refresh": "Refresh"
         },
         "empty": {
-            "noForms": "No form results",
-            "noFormsDescription": "No saved Formidable submissions were found for this site.",
+            "noForms": "No form results available",
+            "noFormsDescription": "Either no forms have received submissions yet, or you do not have permission to view results. Contact your site administrator if you believe this is an error.",
             "noSubmissions": "No submissions",
             "selectForm": "Select a form to see form results"
         },
