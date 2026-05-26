@@ -112,12 +112,25 @@ Each `SubmissionRow` contains:
 
 Each `SubmissionFile` contains `fieldName`, `fileName`, `fileUrl`, `mimeType`, and `thumbnailUrl`.
 
+## Field identification in exports
+
+Both export formats include the field **name** (the JCR node name, stable technical identifier) and the **label** (the human-readable title set by the form author). This makes exported data both human-friendly and programmatically reliable: the label helps users understand what each column or field represents, while the name provides a stable key that does not change when labels are edited.
+
 ## CSV specifics
 
 The CSV format (`formats/csv.ts`) produces:
-- A header row with fixed metadata columns followed by dynamic field name columns
+- A header row with fixed metadata columns followed by dynamic field columns
+- Field column headers use the format `Label (name)` when a label is available, or just `name` otherwise — this lets users read natural column names while still being able to identify the underlying field
 - One data row per submission
 - Multi-value fields joined with ` | `
 - Files grouped by field name with absolute download URLs
 - Proper CSV escaping (quotes, commas, newlines)
 
+## JSON specifics
+
+The JSON format (`formats/json.ts`) produces an array of submission objects. Each field entry in the `fields` object is keyed by the field name and contains:
+- `name` — the JCR node name (always present), useful for consumers that iterate over the fields object values without access to the key
+- `label` — the human-readable label (present only when set)
+- `value` — a single string or an array of strings for multi-value fields
+
+Files are grouped by field name with absolute download URLs, each entry containing `fileName`, `mimeType`, and `url`.

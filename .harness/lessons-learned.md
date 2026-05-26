@@ -10,6 +10,7 @@ Mistakes made during the weakref model implementation. Do not repeat.
 - **`setOperationTypes()` takes `Set<Integer>`**, not `int[]`. Use `Set.of(Integer.valueOf(...))` when passing `int` constants.
 - **`JCRNodeWrapper.getAncestors()` returns `List<JCRItemWrapper>`**, not `List<JCRNodeWrapper>`. Use `instanceof JCRNodeWrapper` pattern matching to cast.
 - **`JCRSessionWrapper.getNode()` already returns `JCRNodeWrapper`**. Do not redundantly cast.
+- **Do not invent JCR paths for Jahia permissions**. The path `/permissions/repository-permissions/jcr:read_live` does not exist. When creating a `jnt:role`, set `j:roleGroup` to `live-role` and let Jahia's role resolution handle derived permissions. Do not add `jnt:externalPermissions` child nodes referencing permission paths that have not been verified to exist in the target Jahia version.
 
 ## CND constraints matter at code level
 
@@ -21,6 +22,7 @@ Mistakes made during the weakref model implementation. Do not repeat.
 
 - **Do not store UUIDs in a map then re-lookup the node by UUID**. If the node is already available and the session is the same, store the node directly.
 - **Do not wrap a single `getNode()` call in a private method**. Inline it.
+- **Do not create trivial wrapper methods** (e.g. `safeNodePath(node)` that just calls `node.getPath()`). If the wrapper adds no error handling, no transformation, and no readability benefit, it is dead weight. Call the underlying method directly.
 - **Do not keep entries in a list while skipping their tracking in a companion set**. If an entry is skipped from one structure, it must be consistently skipped from all related structures.
 - **Verify every file after generating it**. Do not assume generated code compiles. Check the actual Jahia API signatures before using them.
 - **When asked to review code, check ALL CND files for autocreated/mandatory constraints**. Dead code from ignoring CND constraints was missed on multiple review passes. Cross-reference every `hasNode()` and `hasProperty()` with the CND definitions before validating.

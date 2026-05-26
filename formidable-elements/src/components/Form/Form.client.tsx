@@ -174,6 +174,7 @@ export default function Form({
 
 		const form = event.currentTarget;
 		let serverErrorCode: string | undefined;
+		let serverActionsProgress: {completed: number; total: number} | undefined;
 
 		try {
 			const formData = new FormData(form);
@@ -209,6 +210,9 @@ export default function Form({
 				try {
 					const body = JSON.parse(response.responseText);
 					if (typeof body.errorCode === 'string') serverErrorCode = body.errorCode;
+					if (typeof body.actionsCompleted === 'number' && typeof body.actionsTotal === 'number') {
+						serverActionsProgress = {completed: body.actionsCompleted, total: body.actionsTotal};
+					}
 				} catch { /* ignore non-JSON bodies */ }
 				throw new Error('Submission failed');
 			}
@@ -223,8 +227,15 @@ export default function Form({
 			const formData = new FormData(form);
 			const interpolatedErrorMessage = interpolateMessage(errorMessage, formData, locale);
 			const base = interpolatedErrorMessage || 'An error occurred while submitting the form.';
-			const full = serverErrorCode
-				? `${base}<br><small>${t('errorCode')}: ${serverErrorCode}</small>`
+			const details: string[] = [];
+			if (serverErrorCode) {
+				details.push(`${t('errorCode')}: ${serverErrorCode}`);
+			}
+			if (serverActionsProgress) {
+				details.push(t('actionsProgress', {completed: serverActionsProgress.completed, total: serverActionsProgress.total}));
+			}
+			const full = details.length > 0
+				? `${base}<br><small>${details.join(' — ')}</small>`
 				: base;
 			setMessage(full);
 			setMessageType('error');

@@ -2,8 +2,8 @@ import React, {useCallback, useMemo, useRef, useState} from 'react';
 import {useApolloClient} from '@apollo/client';
 import {Button, Checkbox, Close, Download, Dropdown, Input, Loader, Typography} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
-import {GET_SUBMISSIONS} from '../graphql';
-import {buildSubmissionsQuery, parseSubmissionNode, type FormResultsNode, type SubmissionRow} from '../FormResults.utils';
+import {GET_SUBMISSIONS, GET_FORM_FIELD_LABELS} from '../graphql';
+import {buildSubmissionsQuery, parseSubmissionNode, parseFormFieldLabels, type FormResultsNode, type SubmissionRow} from '../FormResults.utils';
 import {buildFilename, downloadFile} from './export.utils';
 import {exportFormats} from './formats';
 
@@ -59,6 +59,23 @@ export const ExportResultsDialog = ({formResults, onClose}: ExportResultsDialogP
         setIsExporting(true);
 
         try {
+            const language = (window as any).contextJsParameters?.uilang || 'en';
+            const formUuid = formResults.parentForm?.refNode?.uuid;
+
+            let formFieldLabels = new Map<string, string>();
+            if (formUuid) {
+                try {
+                    const {data: labelsData} = await client.query({
+                        query: GET_FORM_FIELD_LABELS,
+                        variables: {formUuid, language, workspace: 'LIVE'},
+                        fetchPolicy: 'network-only'
+                    });
+                    formFieldLabels = parseFormFieldLabels(labelsData);
+                } catch {
+                    // Form may have been deleted; fall back to submission labels
+                }
+            }
+
             const submissionsQuery = buildSubmissionsQuery(formResults.path, 'created', 'descending', filters);
             const submissions: SubmissionRow[] = [];
             let offset = 0;
@@ -89,7 +106,7 @@ export const ExportResultsDialog = ({formResults, onClose}: ExportResultsDialogP
             } while (offset < totalCount);
 
             for (const format of exportFormats.filter(f => selectedFormatIds.includes(f.id))) {
-                const content = format.buildContent(submissions, t);
+                const content = format.buildContent(submissions, t, formFieldLabels);
                 const filename = buildFilename(formResults, {startDate, endDate, allResults}, format.extension);
                 downloadFile(filename, content, format.mimeType);
             }
@@ -113,7 +130,7 @@ export const ExportResultsDialog = ({formResults, onClose}: ExportResultsDialogP
             onClick={handleBackdropClick}
             style={{
                 border: 'none',
-                borderRadius: '8px',
+                // borderRadius: '8px',
                 padding: 0,
                 width: '560px',
                 maxWidth: 'calc(100vw - 32px)',

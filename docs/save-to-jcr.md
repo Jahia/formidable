@@ -120,16 +120,33 @@ Typical submission-level properties:
 
 ### Field Values
 
-Field values are stored as JCR properties on:
+Field values are stored as JCR properties on the `data` child node (`fmdb:submissionData`):
 
 ```text
 <submission>/data
 ```
 
+The `fmdb:submissionData` type uses residual property definitions with `indexed=no`:
+
+```
+- * (string) indexed=no
+- * (string) multiple indexed=no
+```
+
+This ensures submitted form data (names, emails, addresses) never enters the Lucene search index — avoiding index bloat, improving re-indexing performance, and keeping personal data out of search results. The dashboard queries submissions by `jcr:created` on `fmdb:formSubmission`, then navigates to `data` to read properties directly.
+
 Rules:
 
 - single-value fields become single JCR properties
 - multi-value fields become multi-valued JCR properties
+
+#### Field Labels in the Dashboard
+
+Field labels (human-readable names like "Email Address" instead of `email`) are resolved at read time from the form node, not stored in the submission data.
+
+The dashboard uses a GraphQL query (`GET_FORM_FIELD_LABELS`) to read `displayName` (i.e. `jcr:title`) of each field from the `parentForm` in the dashboard user's UI language (`uilang`). This provides consistent, locale-aware labels across all submissions regardless of which language the visitor submitted in.
+
+If the form has been deleted (the `parentForm` weakreference no longer resolves), the dashboard falls back to the raw JCR field name.
 
 ### Uploaded Files
 
@@ -166,6 +183,10 @@ At runtime, the action performs the following steps:
 
 ## Notes
 
+- The `files` node is not autocreated — it is only added when uploaded files are present. This avoids an empty `jnt:folder` on every text-only submission.
+- Field values use residual properties on a single `data` node rather than one child node per field. A 20-field form produces 1 node with 20 properties, not 20 child nodes. At 10,000 submissions this avoids 190,000 unnecessary nodes.
+- Submissions are written directly to the `live` workspace using a system session. There is no publish step.
 - Folder names are intended to stay readable for operators.
 - `parentForm` is the real form identity key.
 - Renaming a form does not create a second logical results folder; the existing folder is reused and renamed.
+- Field labels are resolved at read time from the form node via GraphQL, not stored in the submission data. If the form is deleted, the dashboard falls back to the raw field name.

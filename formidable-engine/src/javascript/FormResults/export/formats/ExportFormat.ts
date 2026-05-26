@@ -5,6 +5,6 @@ export interface ExportFormat {
     label: string;
     extension: string;
     mimeType: string;
-    buildContent: (submissions: SubmissionRow[], t: (key: string) => string) => string;
+    buildContent: (submissions: SubmissionRow[], t: (key: string) => string, formFieldLabels: Map<string, string>) => string;
 }
 

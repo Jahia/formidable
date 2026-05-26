@@ -6,6 +6,15 @@ When a form submission fails, the servlet returns a JSON body with an opaque err
 { "success": false, "errorCode": "FMDB-006" }
 ```
 
+When an action in the pipeline fails (`FMDB-008`), the response also includes action progress:
+
+```json
+{ "success": false, "errorCode": "FMDB-008", "actionsCompleted": 1, "actionsTotal": 3 }
+```
+
+- `actionsCompleted` — number of actions that finished successfully before the failure
+- `actionsTotal` — total number of actions in the pipeline
+
 Detailed reasons are written to server logs only and are never exposed to the caller.
 
 ## Glossary

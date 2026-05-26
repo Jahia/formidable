@@ -36,9 +36,9 @@
 [fmdb:resultsFolder] > jnt:content, jmix:accessControlled
  + * (fmdb:formResults) = fmdb:formResults
 
-[fmdb:formResults] > jnt:content, mix:title
- - parentForm (weakreference) mandatory
- - buildingLang (string)
+[fmdb:formResults] > jnt:content, jmix:accessControlled
+ - parentForm (weakreference) mandatory indexed=no
+ - buildingLang (string) indexed=no
  + submissions (fmdb:submissions) = fmdb:submissions autocreated
 
 // submissions is intended to be auto-split into fmdb:splittedSubmission folders (yyyy/MM/dd).
@@ -52,12 +52,18 @@
  + * (fmdb:splittedSubmission) = fmdb:splittedSubmission
  + * (fmdb:formSubmission) = fmdb:formSubmission
 
+// Dedicated data container for submitted field values.
+// All residual properties are stored as strings but must never be indexed for live search.
+[fmdb:submissionData] > jnt:content
+ - * (string) indexed=no
+ - * (string) multiple indexed=no
+
 [fmdb:formSubmission] > jmix:unversionedBasemetadata, jmix:observable
- - origin (string) mandatory
- - ipAddress (string)
- - locale (string)
- - submitterUsername (string)
- - userAgent (string)
- - referer (string)
- + data (nt:unstructured) = nt:unstructured autocreated
- + files (jnt:folder) = jnt:folder autocreated
+ - origin (string) mandatory indexed=no
+ - ipAddress (string) indexed=no
+ - locale (string) indexed=no
+ - submitterUsername (string) indexed=no
+ - userAgent (string) indexed=no
+ - referer (string) indexed=no
+ + data (fmdb:submissionData) = fmdb:submissionData autocreated
+ + files (jnt:folder) = jnt:folder

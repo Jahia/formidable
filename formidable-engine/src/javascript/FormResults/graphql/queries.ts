@@ -11,6 +11,12 @@ export const GET_FORM_RESULTS_LIST = gql`
                     nodes {
                         ...JcrNodeIdentity
                         displayName(language: $language)
+                        submissionsContainer: children(names: ["submissions"]) {
+                            nodes {
+                                canRemoveNode: hasPermission(permissionName: "jcr:removeNode")
+                                canRemoveChildNodes: hasPermission(permissionName: "jcr:removeChildNodes")
+                            }
+                        }
                         parentForm: property(name: "parentForm") {
                             refNode {
                                 ...JcrNodeIdentity
@@ -118,6 +124,40 @@ export const GET_SUBMISSION_COUNT = gql`
             ) {
                 pageInfo {
                     totalCount
+                }
+            }
+        }
+    }
+`;
+
+export const DELETE_SUBMISSIONS = gql`
+    mutation DeleteSubmissions($submissionsQuery: String!, $workspace: Workspace = LIVE) {
+        jcr(workspace: $workspace) {
+            mutateNodesByQuery(
+                query: $submissionsQuery
+                queryLanguage: SQL2
+            ) {
+                delete
+            }
+        }
+    }
+`;
+
+export const GET_FORM_FIELD_LABELS = gql`
+    query GetFormFieldLabels($formUuid: String!, $language: String!, $workspace: Workspace = LIVE) {
+        jcr(workspace: $workspace) {
+            nodeById(uuid: $formUuid) {
+                fields: children(names: ["fields"]) {
+                    nodes {
+                        descendants(
+                            typesFilter: {types: ["fmdbmix:formElement"], multi: ANY}
+                        ) {
+                            nodes {
+                                name
+                                displayName(language: $language)
+                            }
+                        }
+                    }
                 }
             }
         }

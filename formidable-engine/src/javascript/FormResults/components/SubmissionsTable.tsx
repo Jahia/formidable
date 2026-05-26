@@ -92,6 +92,17 @@ export const SubmissionsTable = ({
         }
     }, [onSelectSubmission, selectedSubmission, submissions]);
 
+    useEffect(() => {
+        if (totalPages === 0 && currentPage !== 1) {
+            setCurrentPage(1);
+            return;
+        }
+
+        if (totalPages > 0 && currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
+
     const tableRef = useRef<HTMLDivElement | null>(null);
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -153,7 +164,7 @@ export const SubmissionsTable = ({
     }
 
     return (
-        <Paper hasPadding={false} style={{display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0}}>
+        <Paper hasPadding={false} style={{display: 'flex', flexDirection: 'column', height: '100%', borderRadius: '0'}}>
             <div
                 ref={tableRef}
                 tabIndex={0}
@@ -263,4 +274,3 @@ export const SubmissionsTable = ({
         </Paper>
     );
 };
-

@@ -3,6 +3,12 @@ export interface FormResultsNode {
     path: string;
     name: string;
     displayName: string;
+    submissionsContainer?: {
+        nodes?: Array<{
+            canRemoveNode?: boolean;
+            canRemoveChildNodes?: boolean;
+        }>;
+    };
     parentForm: {
         refNode: {
             uuid: string;
@@ -78,11 +84,15 @@ export function parseSubmissionNode(node: any): SubmissionRow {
     const fieldValues: SubmissionFieldValue[] = [];
     const dataNode = node.data?.nodes?.[0];
     const properties = dataNode?.properties as SubmissionProperty[] | undefined;
+
     if (Array.isArray(properties)) {
         for (const prop of properties) {
             const name = typeof prop.name === 'string' ? prop.name : '';
             if (name && isUserProperty(name)) {
-                fieldValues.push({name, values: normalizePropertyValues(prop)});
+                fieldValues.push({
+                    name,
+                    values: normalizePropertyValues(prop)
+                });
             }
         }
     }
@@ -131,14 +141,7 @@ const toJcrDateEndExclusive = (dateValue: string): string => {
     return new Date(year, month - 1, day + 1, 0, 0, 0, 0).toISOString();
 };
 
-export function buildSubmissionsQuery(
-    formResultsPath: string,
-    sortBy: string,
-    sortDirection: string,
-    filters: SubmissionQueryFilters = {}
-): string {
-    const orderDirection = sortDirection === 'ascending' ? 'ASC' : 'DESC';
-    const orderColumn = sortBy === 'created' ? 's.[jcr:created]' : `s.[${sortBy}]`;
+function buildSubmissionWhereClauses(formResultsPath: string, filters: SubmissionQueryFilters = {}): string[] {
     const whereClauses = [`ISDESCENDANTNODE(s, '${formResultsPath}/submissions')`];
 
     if (filters.startDate) {
@@ -149,11 +152,25 @@ export function buildSubmissionsQuery(
         whereClauses.push(`s.[jcr:created] < CAST('${toJcrDateEndExclusive(filters.endDate)}' AS DATE)`);
     }
 
+    return whereClauses;
+}
+
+export function buildSubmissionsQuery(
+    formResultsPath: string,
+    sortBy: string,
+    sortDirection: string,
+    filters: SubmissionQueryFilters = {}
+): string {
+    const orderDirection = sortDirection === 'ascending' ? 'ASC' : 'DESC';
+    const orderColumn = sortBy === 'created' ? 's.[jcr:created]' : `s.[${sortBy}]`;
+    const whereClauses = buildSubmissionWhereClauses(formResultsPath, filters);
+
     return `SELECT * FROM [fmdb:formSubmission] AS s WHERE ${whereClauses.join(' AND ')} ORDER BY ${orderColumn} ${orderDirection}`;
 }
 
-export function buildCountQuery(formResultsPath: string): string {
-    return `SELECT * FROM [fmdb:formSubmission] AS s WHERE ISDESCENDANTNODE(s, '${formResultsPath}/submissions')`;
+export function buildCountQuery(formResultsPath: string, filters: SubmissionQueryFilters = {}): string {
+    const whereClauses = buildSubmissionWhereClauses(formResultsPath, filters);
+    return `SELECT * FROM [fmdb:formSubmission] AS s WHERE ${whereClauses.join(' AND ')}`;
 }
 
 export function formatDate(isoDate: string): string {
@@ -185,5 +202,24 @@ export function formatFileSize(bytes: number | null): string {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+export function parseFormFieldLabels(data: any): Map<string, string> {
+    const labels = new Map<string, string>();
+    const fieldListNodes = data?.jcr?.nodeById?.fields?.nodes;
+    if (!Array.isArray(fieldListNodes) || fieldListNodes.length === 0) {
+        return labels;
+    }
 
+    const nodes = fieldListNodes[0]?.descendants?.nodes;
+    if (!Array.isArray(nodes)) {
+        return labels;
+    }
+
+    for (const node of nodes) {
+        if (node.displayName && node.displayName !== node.name) {
+            labels.set(node.name, node.displayName);
+        }
+    }
+
+    return labels;
+}
 

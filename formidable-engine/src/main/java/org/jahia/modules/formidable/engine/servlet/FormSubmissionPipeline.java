@@ -213,7 +213,11 @@ class FormSubmissionPipeline {
     }
 
     private void dispatchActions(HttpServletRequest req) throws SubmissionException {
-        for (ResolvedAction action : resolveActionNodes()) {
+        List<ResolvedAction> actions = resolveActionNodes();
+        int total = actions.size();
+        int executed = 0;
+
+        for (ResolvedAction action : actions) {
             String nodeType = action.nodeType();
             FormAction handler = formActions.stream()
                     .filter(a -> nodeType.equals(a.getNodeType()))
@@ -233,13 +237,16 @@ class FormSubmissionPipeline {
                     }
                     return null;
                 });
+                executed++;
             } catch (WrappedFormActionException e) {
                 FormActionException cause = e.getFormActionException();
                 throw new SubmissionException(ErrorCode.FMDB_008,
-                        "Action '" + nodeType + "' failed: " + cause.getMessage());
+                        "Action '" + nodeType + "' failed (" + executed + "/" + total + " actions completed): " + cause.getMessage(),
+                        executed, total);
             } catch (RepositoryException e) {
                 throw new SubmissionException(ErrorCode.FMDB_008,
-                        "Action '" + nodeType + "' failed: " + e.getMessage());
+                        "Action '" + nodeType + "' failed (" + executed + "/" + total + " actions completed): " + e.getMessage(),
+                        executed, total);
             }
         }
     }

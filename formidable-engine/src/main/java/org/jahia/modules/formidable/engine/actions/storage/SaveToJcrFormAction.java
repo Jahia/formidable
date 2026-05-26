@@ -3,6 +3,7 @@ package org.jahia.modules.formidable.engine.actions.storage;
 import org.jahia.modules.formidable.engine.actions.FormAction;
 import org.jahia.modules.formidable.engine.actions.FormActionException;
 import org.jahia.modules.formidable.engine.actions.FormDataParser;
+import org.jahia.modules.formidable.engine.permissions.FormResultsAclSyncService;
 import org.jahia.services.content.JCRAutoSplitUtils;
 import org.jahia.services.content.JCRContentUtils;
 import org.jahia.services.content.JCRNodeWrapper;
@@ -64,6 +65,7 @@ public class SaveToJcrFormAction implements FormAction {
                     "Validated uploaded files are unavailable for fmdb:save2jcrAction.");
         }
 
+
         String formNodeId;
         try {
             formNodeId = formNode.getIdentifier();
@@ -93,7 +95,7 @@ public class SaveToJcrFormAction implements FormAction {
                 return null;
             });
         } catch (RepositoryException e) {
-            log.error("[SaveToJcrFormAction] Failed to persist submission for form '{}'", safeNodePath(formNode), e);
+            log.error("[SaveToJcrFormAction] Failed to persist submission for form '{}'", formNode.getPath(), e);
             throw new FormActionException("Failed to save form data in JCR: " + e.getMessage(), 500, e);
         }
     }
@@ -136,13 +138,21 @@ public class SaveToJcrFormAction implements FormAction {
         session.checkout(resultsRoot);
         String availableName = JCRContentUtils.findAvailableNodeName(resultsRoot, formNode.getName());
         JCRNodeWrapper formResults = resultsRoot.addNode(availableName, "fmdb:formResults");
-        formResults.setProperty("jcr:title", resolveFormTitle(formNode));
         Value parentForm = session.getValueFactory().createValue(formNode);
         formResults.setProperty("parentForm", parentForm);
         if (formNode.getLanguage() != null && !formNode.getLanguage().isBlank()) {
             formResults.setProperty("buildingLang", formNode.getLanguage());
         }
+
+        // Break ACL inheritance so public reader role does not grant access to results
+        JCRNodeWrapper acl = formResults.addNode("j:acl", "jnt:acl");
+        acl.setProperty("j:inherit", false);
+
         session.save();
+
+        FormResultsAclSyncService.syncAclToFormResults(formNode, formResults, session);
+        session.save();
+
         return formResults;
     }
 
@@ -240,12 +250,17 @@ public class SaveToJcrFormAction implements FormAction {
             }
         }
 
-        JCRNodeWrapper filesNode = submission.getNode("files");
-        for (FormDataParser.FormFile file : files) {
-            JCRNodeWrapper fieldFolder = filesNode.hasNode(file.fieldName())
-                    ? filesNode.getNode(file.fieldName())
-                    : filesNode.addNode(file.fieldName(), "jnt:folder");
-            addFileNode(fieldFolder, file, session);
+
+        if (!files.isEmpty()) {
+            JCRNodeWrapper filesNode = submission.hasNode("files")
+                    ? submission.getNode("files")
+                    : submission.addNode("files", "jnt:folder");
+            for (FormDataParser.FormFile file : files) {
+                JCRNodeWrapper fieldFolder = filesNode.hasNode(file.fieldName())
+                        ? filesNode.getNode(file.fieldName())
+                        : filesNode.addNode(file.fieldName(), "jnt:folder");
+                addFileNode(fieldFolder, file, session);
+            }
         }
     }
 
@@ -275,27 +290,5 @@ public class SaveToJcrFormAction implements FormAction {
         if (value != null && !value.isBlank()) {
             node.setProperty(propertyName, value);
         }
-    }
-
-    private static String resolveFormTitle(JCRNodeWrapper formNode) {
-        try {
-            if (formNode.hasProperty("jcr:title")) {
-                String title = formNode.getProperty("jcr:title").getString();
-                if (title != null && !title.isBlank()) {
-                    return title;
-                }
-            }
-            String displayableName = formNode.getDisplayableName();
-            if (displayableName != null && !displayableName.isBlank()) {
-                return displayableName;
-            }
-        } catch (RepositoryException e) {
-            log.debug("[SaveToJcrFormAction] Could not resolve form title for '{}': {}", safeNodePath(formNode), e.getMessage());
-        }
-        return formNode.getName();
-    }
-
-    private static String safeNodePath(JCRNodeWrapper node) {
-        return node.getPath();
     }
 }
