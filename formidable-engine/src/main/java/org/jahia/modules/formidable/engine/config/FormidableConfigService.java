@@ -14,6 +14,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -33,6 +34,9 @@ import java.util.stream.Collectors;
 )
 @Designate(ocd = FormidableConfig.class)
 public class FormidableConfigService {
+
+    private static final Duration HTTP_CONNECT_TIMEOUT = Duration.ofSeconds(5);
+    private static final Duration HTTP_REQUEST_TIMEOUT = Duration.ofSeconds(10);
 
     /**
      * A resolved forward target entry from the operator configuration.
@@ -63,7 +67,9 @@ public class FormidableConfigService {
     /** Keyed by target id. Insertion-ordered so the choice list is stable. */
     private Map<String, ForwardTarget> forwardTargets = new LinkedHashMap<>();
 
-    private final HttpClient http = HttpClient.newHttpClient();
+    private final HttpClient http = HttpClient.newBuilder()
+            .connectTimeout(HTTP_CONNECT_TIMEOUT)
+            .build();
 
     @Activate
     @Modified
@@ -183,6 +189,10 @@ public class FormidableConfigService {
     }
 
     private static boolean isSupportedForwardTargetUri(URI uri, boolean development) {
+        if (uri.getUserInfo() != null) {
+            return false;
+        }
+
         String scheme = uri.getScheme();
         if (!development) {
             return "https".equalsIgnoreCase(scheme);
@@ -235,6 +245,7 @@ public class FormidableConfigService {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(captchaVerifyUrl))
+                    .timeout(HTTP_REQUEST_TIMEOUT)
                     .header("Content-Type", "application/x-www-form-urlencoded")
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();

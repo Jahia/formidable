@@ -25,7 +25,7 @@ import java.util.regex.Pattern;
  * Sends a notification email after a successful form submission.
  *
  * The contributor configures on the fmdb:emailNotificationAction node:
- *   - {@code to}              – recipient address (supports ${fieldName} interpolation)
+ *   - {@code to}              – recipient address
  *   - {@code from}            – optional sender override
  *   - {@code subject}         – email subject (supports ${fieldName} interpolation)
  *   - {@code templateMessage} – HTML body    (supports ${fieldName} interpolation)
@@ -68,20 +68,19 @@ public class SendEmailNotificationFormAction implements FormAction {
             throw FormActionException.serverError("MailService is unavailable. Check Jahia SMTP configuration.");
         }
 
-        String to = interpolate(readProperty(actionNode, "to"), parameters, false);
-        if (to == null || to.isBlank()) {
+        String to = FieldSanitizer.headerSafe(readProperty(actionNode, "to"));
+        if (to.isBlank()) {
             throw FormActionException.serverError("fmdb:emailNotificationAction is missing a 'to' address.");
         }
-        to = FieldSanitizer.headerSafe(to);
 
-        String from = readProperty(actionNode, "from");
+        String from = FieldSanitizer.headerSafe(readProperty(actionNode, "from"));
         String subject = FieldSanitizer.headerSafe(
                 interpolate(readProperty(actionNode, "subject"), parameters, false));
         String htmlBody = interpolate(readProperty(actionNode, "templateMessage"), parameters, true);
 
         MailMessage message = new MailMessage();
         message.setTo(to);
-        message.setFrom(from);
+        message.setFrom(from.isBlank() ? null : from);
         message.setSubject(subject != null ? subject : "");
         message.setHtmlBody(htmlBody);
 
