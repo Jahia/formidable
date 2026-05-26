@@ -175,7 +175,6 @@ export const SubmissionDetailPanel = ({submission, formFieldLabels, onClose}: Su
                                                                 maxHeight: '150px',
                                                                 objectFit: 'contain',
                                                                 padding: '16px',
-                                                                // borderRadius: '4px',
                                                                 backgroundColor: 'var(--color-gray_light40)',
                                                                 flexShrink: 0,
                                                                 cursor: isPreviewable(file.mimeType) ? 'pointer' : 'default'
