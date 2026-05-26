@@ -124,9 +124,10 @@ class FormSubmissionPipeline {
         try {
             requiresAuth = formNode.isNodeType("fmdbmix:requireAuthentication");
         } catch (RepositoryException e) {
-            log.warn("[FormSubmissionPipeline] Could not check fmdbmix:requireAuthentication on '{}': {}",
-                    formNode.getPath(), e.getMessage());
-            return;
+            log.error("[FormSubmissionPipeline] Could not check fmdbmix:requireAuthentication on form '{}' — rejecting submission (fail-closed)",
+                    formId, e);
+            throw new SubmissionException(ErrorCode.FMDB_500,
+                    "Cannot verify authentication requirement for form: " + formId);
         }
         if (!requiresAuth) return;
 
@@ -142,9 +143,10 @@ class FormSubmissionPipeline {
         try {
             hasCaptcha = formNode.isNodeType("fmdbmix:captcha");
         } catch (RepositoryException e) {
-            log.warn("[FormSubmissionPipeline] Could not check fmdbmix:captcha on '{}': {}",
-                    formNode.getPath(), e.getMessage());
-            return;
+            log.error("[FormSubmissionPipeline] Could not check fmdbmix:captcha on form '{}' — rejecting submission (fail-closed)",
+                    formId, e);
+            throw new SubmissionException(ErrorCode.FMDB_500,
+                    "Cannot verify CAPTCHA requirement for form: " + formId);
         }
         if (!hasCaptcha) return;
 
