@@ -100,7 +100,7 @@ export const DeleteResultsDialog = ({formResults, onClose, onDeleted}: DeleteRes
             onClick={handleBackdropClick}
             style={{
                 border: 'none',
-                borderRadius: '8px',
+                // borderRadius: '8px',
                 padding: 0,
                 width: '560px',
                 maxWidth: 'calc(100vw - 32px)',
@@ -141,7 +141,7 @@ export const DeleteResultsDialog = ({formResults, onClose, onDeleted}: DeleteRes
                         alignItems: 'flex-start',
                         gap: '12px',
                         padding: '12px 14px',
-                        borderRadius: '6px',
+                        // borderRadius: '6px',
                         backgroundColor: 'var(--color-warning_light40)'
                     }}>
                         <Warning/>

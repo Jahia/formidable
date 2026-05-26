@@ -32,7 +32,7 @@ export const FilePreviewDialog = ({file, onClose}: FilePreviewDialogProps) => {
             onClick={handleBackdropClick}
             style={{
                 border: 'none',
-                borderRadius: '8px',
+                // borderRadius: '8px',
                 padding: 0,
                 maxWidth: '90vw',
                 maxHeight: '90vh',

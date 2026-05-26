@@ -130,7 +130,7 @@ export const ExportResultsDialog = ({formResults, onClose}: ExportResultsDialogP
             onClick={handleBackdropClick}
             style={{
                 border: 'none',
-                borderRadius: '8px',
+                // borderRadius: '8px',
                 padding: 0,
                 width: '560px',
                 maxWidth: 'calc(100vw - 32px)',

@@ -25,7 +25,8 @@ export const FormResultsList = ({forms, selectedId, onSelect}: FormResultsListPr
                     display: 'flex',
                     flexDirection: 'column',
                     height: '100%',
-                    overflow: 'hidden'
+                    overflow: 'hidden',
+                    borderRadius: '0'
                 }}
             >
                 <div

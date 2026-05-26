@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {useQuery} from '@apollo/client';
-import {Button, DeletePermanently, Download, Loader, Paper, Reload, Typography} from '@jahia/moonstone';
+import {Button, DeletePermanently, Download, Loader, Reload, Typography} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
 import {GET_FORM_RESULTS_LIST, GET_FORM_FIELD_LABELS} from './graphql';
 import {DeleteResultsDialog} from './delete';
@@ -196,29 +196,31 @@ export const FormResultsApp = () => {
                     selectedId={selectedForm?.uuid ?? ''}
                     onSelect={setSelectedFormResultsId}
                 />
-                {selectedForm ? (
-                    <div style={{flex: '1 1 0', minWidth: 0, overflow: 'hidden'}}>
-                        <SubmissionsTable
-                            formResults={selectedForm}
-                            selectedSubmission={selectedSubmission}
-                            onSelectSubmission={setSelectedSubmission}
-                            onRegisterRefresh={handleRegisterRefresh}
+                <div role="main" style={{display: 'flex', flex: '1 1 0', minWidth: 0, gap: '1px', overflow: 'hidden', backgroundColor: 'var(--color-gray_light40)'}}>
+                    {selectedForm ? (
+                        <div style={{flex: '1 1 0', minWidth: 0, overflow: 'hidden'}}>
+                            <SubmissionsTable
+                                formResults={selectedForm}
+                                selectedSubmission={selectedSubmission}
+                                onSelectSubmission={setSelectedSubmission}
+                                onRegisterRefresh={handleRegisterRefresh}
+                            />
+                        </div>
+                    ) : (
+                        <div style={{flex: '1 1 0', minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--color-light)'}}>
+                            <Typography variant="heading">
+                                {t('formResults.empty.selectForm')}
+                            </Typography>
+                        </div>
+                    )}
+                    {selectedSubmission && (
+                        <SubmissionDetailPanel
+                            submission={selectedSubmission}
+                            formFieldLabels={formFieldLabels}
+                            onClose={() => setSelectedSubmission(null)}
                         />
-                    </div>
-                ) : (
-                    <div style={{flex: '1 1 0', minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-                        <Typography variant="heading">
-                            {t('formResults.empty.selectForm')}
-                        </Typography>
-                    </div>
-                )}
-                {selectedSubmission && (
-                    <SubmissionDetailPanel
-                        submission={selectedSubmission}
-                        formFieldLabels={formFieldLabels}
-                        onClose={() => setSelectedSubmission(null)}
-                    />
-                )}
+                    )}
+                </div>
             </div>
             {selectedForm && isExportDialogOpen && (
                 <ExportResultsDialog

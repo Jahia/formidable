@@ -11,7 +11,7 @@ export default defineConfig(() => ({
 	}),
 	managers: {
 		packages: {
-			name: "formidable-modules",
+			name: "formidable",
 			path: process.cwd(),
 			version: fs.readFileSync(".chachalog/.version", "utf-8").trim(),
 		},

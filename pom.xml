@@ -23,7 +23,7 @@
         <groupId>org.jahia.modules</groupId>
         <version>8.2.2.0</version>
     </parent>
-    <artifactId>formidable-modules</artifactId>
+    <artifactId>formidable</artifactId>
     <name>Formidable</name>
     <version>${revision}</version>
     <packaging>pom</packaging>

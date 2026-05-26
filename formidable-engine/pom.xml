@@ -2,7 +2,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <artifactId>formidable-modules</artifactId>
+        <artifactId>formidable</artifactId>
         <groupId>org.jahia.modules</groupId>
         <version>${revision}</version>
     </parent>
@@ -14,9 +14,9 @@
         <jahia-module-signature>MCwCFDrhzuD+iBb1/3dV3AuFRlLal/ETAhRj0gskqYinAH58d9ab7G/7H3T7Lg==</jahia-module-signature>
     </properties>
     <scm>
-        <connection>scm:git:git@github.com:Jahia/formidable-modules.git</connection>
-        <developerConnection>scm:git:git@github.com:Jahia/formidable-modules.git</developerConnection>
-        <url>scm:git:git@github.com:Jahia/formidable-modules.git</url>
+        <connection>scm:git:git@github.com:Jahia/formidable.git</connection>
+        <developerConnection>scm:git:git@github.com:Jahia/formidable.git</developerConnection>
+        <url>scm:git:git@github.com:Jahia/formidable.git</url>
         <tag>HEAD</tag>
     </scm>
 

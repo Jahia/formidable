@@ -56,7 +56,6 @@ export const SubmissionDetailPanel = ({submission, formFieldLabels, onClose}: Su
             flexDirection: 'column',
             height: '100%',
             backgroundColor: 'var(--color-light)',
-            borderRadius: '4px',
             overflow: 'hidden'
         }}>
             <div style={{
@@ -163,7 +162,7 @@ export const SubmissionDetailPanel = ({submission, formFieldLabels, onClose}: Su
                                             <Paper
                                                 key={file.fileName}
                                                 hasPadding
-                                                style={{display: 'flex', flexDirection: 'column', gap: '8px'}}
+                                                style={{display: 'flex', flexDirection: 'column', gap: '8px',borderRadius: '2px'}}
                                             >
                                                 <div style={{display: 'flex', gap: '12px', alignItems: 'flex-start'}}>
                                                     {file.thumbnailUrl ? (
@@ -176,7 +175,7 @@ export const SubmissionDetailPanel = ({submission, formFieldLabels, onClose}: Su
                                                                 maxHeight: '150px',
                                                                 objectFit: 'contain',
                                                                 padding: '16px',
-                                                                borderRadius: '4px',
+                                                                // borderRadius: '4px',
                                                                 backgroundColor: 'var(--color-gray_light40)',
                                                                 flexShrink: 0,
                                                                 cursor: isPreviewable(file.mimeType) ? 'pointer' : 'default'
