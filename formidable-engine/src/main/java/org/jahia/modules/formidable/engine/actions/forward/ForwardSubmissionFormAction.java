@@ -20,11 +20,9 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
-import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -53,8 +51,6 @@ public class ForwardSubmissionFormAction implements FormAction {
 
     private FormidableConfigService configService;
     private HostnameResolutionService hostnameResolutionService;
-    private volatile HttpClient forwardHttpClient;
-    private volatile Duration forwardHttpConnectTimeout;
 
     @Reference
     public void setConfigService(FormidableConfigService service) {
@@ -131,7 +127,8 @@ public class ForwardSubmissionFormAction implements FormAction {
                     .POST(HttpRequest.BodyPublishers.ofByteArray(body))
                     .build();
 
-            HttpResponse<Void> response = getForwardHttpClient().send(request, HttpResponse.BodyHandlers.discarding());
+            HttpResponse<Void> response = configService.getForwardHttpClient()
+                    .send(request, HttpResponse.BodyHandlers.discarding());
 
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 log.warn("[ForwardSubmissionFormAction] Target '{}' returned HTTP {}", targetUri, response.statusCode());
@@ -187,28 +184,6 @@ public class ForwardSubmissionFormAction implements FormAction {
 
         String host = uri.getHost();
         return "localhost".equalsIgnoreCase(host) || "host.docker.internal".equalsIgnoreCase(host);
-    }
-
-    HttpClient getForwardHttpClient() {
-        Duration desiredTimeout = configService.getForwardHttpConnectTimeout();
-        HttpClient currentClient = forwardHttpClient;
-        Duration currentTimeout = forwardHttpConnectTimeout;
-
-        if (currentClient != null && desiredTimeout.equals(currentTimeout)) {
-            return currentClient;
-        }
-
-        synchronized (this) {
-            currentClient = forwardHttpClient;
-            currentTimeout = forwardHttpConnectTimeout;
-            if (currentClient == null || !desiredTimeout.equals(currentTimeout)) {
-                forwardHttpClient = HttpClient.newBuilder()
-                        .connectTimeout(desiredTimeout)
-                        .build();
-                forwardHttpConnectTimeout = desiredTimeout;
-            }
-            return forwardHttpClient;
-        }
     }
 
     private static byte[] buildMultipartBody(

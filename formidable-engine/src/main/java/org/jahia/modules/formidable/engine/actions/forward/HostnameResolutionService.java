@@ -19,6 +19,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.LongSupplier;
 
 /**
@@ -115,15 +116,11 @@ public class HostnameResolutionService {
     }
 
     private static ExecutorService createExecutor(int threads) {
-        ThreadFactory factory = new ThreadFactory() {
-            private int index = 0;
-
-            @Override
-            public synchronized Thread newThread(Runnable runnable) {
-                Thread thread = new Thread(runnable, "formidable-dns-resolver-" + index++);
-                thread.setDaemon(true);
-                return thread;
-            }
+        AtomicInteger index = new AtomicInteger();
+        ThreadFactory factory = runnable -> {
+            Thread thread = new Thread(runnable, "formidable-dns-resolver-" + index.getAndIncrement());
+            thread.setDaemon(true);
+            return thread;
         };
         return new ThreadPoolExecutor(
                 threads,

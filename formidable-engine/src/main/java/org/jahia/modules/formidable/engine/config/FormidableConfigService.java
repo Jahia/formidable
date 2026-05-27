@@ -68,6 +68,7 @@ public class FormidableConfigService {
     private Map<String, ForwardTarget> forwardTargets = new LinkedHashMap<>();
 
     private volatile HttpClient captchaHttpClient;
+    private volatile HttpClient forwardHttpClient;
 
     @Activate
     @Modified
@@ -111,6 +112,9 @@ public class FormidableConfigService {
                 config.forwardHttpRequestTimeoutSeconds(),
                 FormidableConfig.DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS
         );
+        forwardHttpClient = HttpClient.newBuilder()
+                .connectTimeout(forwardHttpConnectTimeout)
+                .build();
 
         Map<String, ForwardTarget> standardForwardTargets =
                 parseForwardTargets(config.forwardTargets(), "forwardTargets", false);
@@ -301,6 +305,7 @@ public class FormidableConfigService {
     // --- FORWARD ACTION ---
     public Duration getForwardHttpConnectTimeout() { return forwardHttpConnectTimeout; }
     public Duration getForwardHttpRequestTimeout() { return forwardHttpRequestTimeout; }
+    public HttpClient getForwardHttpClient() { return forwardHttpClient; }
 
     /**
      * Returns all configured forward targets, in declaration order.

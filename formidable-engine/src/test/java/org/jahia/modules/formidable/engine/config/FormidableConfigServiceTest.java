@@ -2,10 +2,13 @@ package org.jahia.modules.formidable.engine.config;
 
 import org.junit.jupiter.api.Test;
 
+import java.net.http.HttpClient;
 import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FormidableConfigServiceTest {
@@ -49,6 +52,25 @@ class FormidableConfigServiceTest {
         assertEquals(Duration.ofSeconds(11), service.getCaptchaHttpRequestTimeout());
         assertEquals(Duration.ofSeconds(13), service.getForwardHttpConnectTimeout());
         assertEquals(Duration.ofSeconds(17), service.getForwardHttpRequestTimeout());
+    }
+
+    @Test
+    void activateBuildsReusableForwardHttpClientAndRefreshesItOnConfigChange() {
+        // Given one activation followed by a modified forward connect timeout,
+        // the service must reuse the same forward HttpClient within one config state and rebuild it on re-activation.
+        FormidableConfigService service = new FormidableConfigService();
+        TestFormidableConfig firstConfig = new TestFormidableConfig("", false, "", 5L, 10L, 5L, 10L);
+        TestFormidableConfig secondConfig = new TestFormidableConfig("", false, "", 5L, 10L, 7L, 10L);
+
+        service.activate(firstConfig);
+        HttpClient first = service.getForwardHttpClient();
+        HttpClient second = service.getForwardHttpClient();
+        service.activate(secondConfig);
+        HttpClient third = service.getForwardHttpClient();
+
+        // Then repeated reads within the same activation reuse the same client, and a config update replaces it.
+        assertSame(first, second);
+        assertNotSame(second, third);
     }
 
     private static final class TestFormidableConfig implements FormidableConfig {
