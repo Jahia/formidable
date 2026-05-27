@@ -14,6 +14,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -33,7 +34,6 @@ import java.util.stream.Collectors;
 )
 @Designate(ocd = FormidableConfig.class)
 public class FormidableConfigService {
-
     /**
      * A resolved forward target entry from the operator configuration.
      *
@@ -53,17 +53,22 @@ public class FormidableConfigService {
     private String captchaWidgetVar;
     private String captchaTokenField;
     private String captchaVerifyUrl;
+    private Duration captchaHttpConnectTimeout;
+    private Duration captchaHttpRequestTimeout;
 
     private long uploadMaxFileSizeBytes;
     private long uploadMaxRequestSizeBytes;
     private int  uploadMaxFileCount;
     private Set<String> uploadAllowedMimeTypes;
     private boolean enableDevForwardTargets;
+    private Duration forwardHttpConnectTimeout;
+    private Duration forwardHttpRequestTimeout;
 
     /** Keyed by target id. Insertion-ordered so the choice list is stable. */
     private Map<String, ForwardTarget> forwardTargets = new LinkedHashMap<>();
 
-    private final HttpClient http = HttpClient.newHttpClient();
+    private volatile HttpClient captchaHttpClient;
+    private volatile HttpClient forwardHttpClient;
 
     @Activate
     @Modified
@@ -74,6 +79,19 @@ public class FormidableConfigService {
         captchaWidgetVar  = config.captchaWidgetVar();
         captchaTokenField = config.captchaTokenField();
         captchaVerifyUrl  = config.captchaVerifyUrl();
+        captchaHttpConnectTimeout = readTimeoutSeconds(
+                "captchaHttpConnectTimeoutSeconds",
+                config.captchaHttpConnectTimeoutSeconds(),
+                FormidableConfig.DEFAULT_HTTP_CONNECT_TIMEOUT_SECONDS
+        );
+        captchaHttpRequestTimeout = readTimeoutSeconds(
+                "captchaHttpRequestTimeoutSeconds",
+                config.captchaHttpRequestTimeoutSeconds(),
+                FormidableConfig.DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS
+        );
+        captchaHttpClient = HttpClient.newBuilder()
+                .connectTimeout(captchaHttpConnectTimeout)
+                .build();
 
         uploadMaxFileSizeBytes    = config.uploadMaxFileSizeBytes();
         uploadMaxRequestSizeBytes = config.uploadMaxRequestSizeBytes();
@@ -84,6 +102,19 @@ public class FormidableConfigService {
                 .collect(Collectors.toSet());
 
         enableDevForwardTargets = config.enableDevForwardTargets();
+        forwardHttpConnectTimeout = readTimeoutSeconds(
+                "forwardHttpConnectTimeoutSeconds",
+                config.forwardHttpConnectTimeoutSeconds(),
+                FormidableConfig.DEFAULT_HTTP_CONNECT_TIMEOUT_SECONDS
+        );
+        forwardHttpRequestTimeout = readTimeoutSeconds(
+                "forwardHttpRequestTimeoutSeconds",
+                config.forwardHttpRequestTimeoutSeconds(),
+                FormidableConfig.DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS
+        );
+        forwardHttpClient = HttpClient.newBuilder()
+                .connectTimeout(forwardHttpConnectTimeout)
+                .build();
 
         Map<String, ForwardTarget> standardForwardTargets =
                 parseForwardTargets(config.forwardTargets(), "forwardTargets", false);
@@ -98,14 +129,18 @@ public class FormidableConfigService {
 
         forwardTargets = mergeForwardTargets(standardForwardTargets, developmentForwardTargets);
 
-        log.info("FormidableConfigService configured: captcha={}, maxFileSize={}MB, maxRequest={}MB, allowedTypes={}, forwardTargets={}, devForwardTargetsEnabled={}, devForwardTargets={}",
+        log.info("FormidableConfigService configured: captcha={}, captchaConnectTimeout={}s, captchaRequestTimeout={}s, maxFileSize={}MB, maxRequest={}MB, allowedTypes={}, forwardTargets={}, devForwardTargetsEnabled={}, devForwardTargets={}, forwardConnectTimeout={}s, forwardRequestTimeout={}s",
                 isCaptchaConfigured() ? "[set]" : "[missing]",
+                captchaHttpConnectTimeout.toSeconds(),
+                captchaHttpRequestTimeout.toSeconds(),
                 uploadMaxFileSizeBytes / 1_048_576,
                 uploadMaxRequestSizeBytes / 1_048_576,
                 uploadAllowedMimeTypes.size(),
                 forwardTargets.size(),
                 enableDevForwardTargets,
-                developmentForwardTargets.size());
+                developmentForwardTargets.size(),
+                forwardHttpConnectTimeout.toSeconds(),
+                forwardHttpRequestTimeout.toSeconds());
     }
 
     /**
@@ -148,13 +183,12 @@ public class FormidableConfigService {
                 log.warn("[FormidableConfigService] Skipping {} entry '{}': malformed URI '{}'", propertyName, id, url);
                 continue;
             }
-            if (!isSupportedForwardTargetUri(uri, development)) {
+            String unsupportedReason = getUnsupportedForwardTargetUriReason(uri, development);
+            if (unsupportedReason != null) {
                 log.warn("[FormidableConfigService] Skipping {} entry '{}': {}",
                         propertyName,
                         id,
-                        development
-                                ? "URI must use HTTP on localhost or host.docker.internal."
-                                : "URI must use HTTPS.");
+                        unsupportedReason);
                 continue;
             }
             if (result.containsKey(id)) {
@@ -182,17 +216,23 @@ public class FormidableConfigService {
         return merged;
     }
 
-    private static boolean isSupportedForwardTargetUri(URI uri, boolean development) {
+    private static String getUnsupportedForwardTargetUriReason(URI uri, boolean development) {
+        if (uri.getUserInfo() != null) {
+            return "URI must not include embedded user credentials.";
+        }
+
         String scheme = uri.getScheme();
         if (!development) {
-            return "https".equalsIgnoreCase(scheme);
+            return "https".equalsIgnoreCase(scheme) ? null : "URI must use HTTPS.";
         }
 
         if (!"http".equalsIgnoreCase(scheme)) {
-            return false;
+            return "URI must use HTTP on localhost or host.docker.internal.";
         }
 
-        return isAllowedDevelopmentEndpoint(uri);
+        return isAllowedDevelopmentEndpoint(uri)
+                ? null
+                : "URI must use HTTP on localhost or host.docker.internal.";
     }
 
     private static boolean isAllowedDevelopmentEndpoint(URI uri) {
@@ -235,11 +275,12 @@ public class FormidableConfigService {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(captchaVerifyUrl))
+                    .timeout(captchaHttpRequestTimeout)
                     .header("Content-Type", "application/x-www-form-urlencoded")
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();
 
-            HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = captchaHttpClient.send(request, HttpResponse.BodyHandlers.ofString());
             JSONObject result = new JSONObject(response.body());
             boolean success = result.optBoolean("success", false);
             if (!success) {
@@ -258,8 +299,13 @@ public class FormidableConfigService {
     public long getUploadMaxRequestSizeBytes() { return uploadMaxRequestSizeBytes; }
     public int  getUploadMaxFileCount()        { return uploadMaxFileCount; }
     public Set<String> getUploadAllowedMimeTypes() { return uploadAllowedMimeTypes; }
+    public Duration getCaptchaHttpConnectTimeout() { return captchaHttpConnectTimeout; }
+    public Duration getCaptchaHttpRequestTimeout() { return captchaHttpRequestTimeout; }
 
     // --- FORWARD ACTION ---
+    public Duration getForwardHttpConnectTimeout() { return forwardHttpConnectTimeout; }
+    public Duration getForwardHttpRequestTimeout() { return forwardHttpRequestTimeout; }
+    public HttpClient getForwardHttpClient() { return forwardHttpClient; }
 
     /**
      * Returns all configured forward targets, in declaration order.
@@ -281,5 +327,14 @@ public class FormidableConfigService {
 
     private static String encode(String value) {
         return URLEncoder.encode(value == null ? "" : value, StandardCharsets.UTF_8);
+    }
+
+    private static Duration readTimeoutSeconds(String propertyName, long seconds, long defaultSeconds) {
+        if (seconds <= 0) {
+            log.warn("[FormidableConfigService] Invalid {}={}s, falling back to {}s.",
+                    propertyName, seconds, defaultSeconds);
+            return Duration.ofSeconds(defaultSeconds);
+        }
+        return Duration.ofSeconds(seconds);
     }
 }

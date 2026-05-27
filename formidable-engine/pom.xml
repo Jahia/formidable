@@ -12,6 +12,8 @@
     <description>Formidable Engine - UI Extensions (selectorTypes for Content Editor)</description>
     <properties>
         <jahia-module-signature>MCwCFDrhzuD+iBb1/3dV3AuFRlLal/ETAhRj0gskqYinAH58d9ab7G/7H3T7Lg==</jahia-module-signature>
+        <junit.jupiter.version>5.10.2</junit.jupiter.version>
+        <mockito.version>5.12.0</mockito.version>
     </properties>
     <scm>
         <connection>scm:git:git@github.com:Jahia/formidable.git</connection>
@@ -68,6 +70,24 @@
             <artifactId>commons-fileupload</artifactId>
             <version>1.6.0</version>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>${junit.jupiter.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <version>${junit.jupiter.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 

@@ -143,3 +143,160 @@ If this JCR call throws, the submission must be **rejected**.
 **Expected:**
 - HTTP 400 with `FMDB-006` (auth passes, captcha rejects)
 
+---
+
+## 4. Forward action target validation
+
+### Scenario
+
+Forward targets are configured server-side in `org.jahia.modules.formidable.cfg`.
+Contributors only store a stable `targetId` in JCR; they do not control the final URL.
+Configuration parsing must reject malformed or unsafe target URIs before they become selectable.
+
+### 4.1 Standard HTTPS target is accepted
+
+**Precondition:**
+1. Configure `forwardTargets=crm|CRM|https://api.example.com/forms/intake`
+2. Restart or reload the module configuration
+
+**Steps:**
+1. Open the editor for an `fmdb:forwardAction`
+2. Inspect the `targetId` choice list
+
+**Expected:**
+- The `CRM` entry is present
+- Selecting it stores the stable value `crm`
+
+### 4.2 Target with embedded credentials is rejected
+
+**Precondition:**
+1. Configure
+   `forwardTargets=bad-creds|Bad creds|https://user:pass@api.example.com/forms/intake`
+2. Restart or reload the module configuration
+
+**Steps:**
+1. Open the editor for an `fmdb:forwardAction`
+2. Inspect the `targetId` choice list
+3. If possible, inspect server logs during activation
+
+**Expected:**
+- The `Bad creds` entry is absent from the choice list
+- The target cannot be resolved from its `targetId`
+- Server logs show the entry was skipped as invalid configuration
+
+### 4.3 Development targets stay constrained to explicit local hosts
+
+**Precondition:**
+1. Enable `enableDevForwardTargets=true`
+2. Configure:
+   - `devForwardTargets=local-ok|Local OK|http://localhost:8081/ingest`
+   - `devForwardTargets=bad-host|Bad host|http://example.com/ingest`
+3. Restart or reload the module configuration
+
+**Steps:**
+1. Open the editor for an `fmdb:forwardAction`
+2. Inspect the `targetId` choice list
+
+**Expected:**
+- `Local OK` is present
+- `Bad host` is absent
+
+---
+
+## 5. Outbound dependency timeouts
+
+### Scenario
+
+Outbound network calls performed during submission must fail within a bounded time budget.
+An unreachable CAPTCHA provider or a slow forward target must not leave the servlet thread
+waiting indefinitely.
+
+### 5.1 CAPTCHA verification — slow provider fails closed
+
+**Precondition:**
+1. Add the `fmdbmix:captcha` mixin to the form
+2. Configure a valid-looking `captchaVerifyUrl` that accepts the request but does not respond
+   within the application timeout budget
+3. Publish the form
+
+**Steps:**
+1. Submit the form with a non-empty `ct` token
+2. Measure total request duration
+
+**Expected:**
+- The submission fails instead of hanging indefinitely
+- HTTP 400 with error code `FMDB-006`
+- Server logs contain an error for the failed CAPTCHA verification request
+- End-to-end duration stays bounded by the configured connect/request timeouts, with normal
+  network overhead
+
+### 5.2 CAPTCHA verification — unreachable provider fails closed
+
+**Precondition:**
+1. Add the `fmdbmix:captcha` mixin to the form
+2. Configure `captchaVerifyUrl` to an unreachable host or port
+3. Publish the form
+
+**Steps:**
+1. Submit the form with a non-empty `ct` token
+2. Measure total request duration
+
+**Expected:**
+- The submission fails instead of hanging indefinitely
+- HTTP 400 with error code `FMDB-006`
+- Server logs contain an error for the failed CAPTCHA verification request
+- End-to-end duration stays bounded by the configured connect timeout, with normal
+  network overhead
+
+### 5.3 Forward action — slow upstream target fails with bounded latency
+
+**Precondition:**
+1. Configure a valid forward target URL that accepts the connection but does not return a
+   response within the application timeout budget
+2. Attach an `fmdb:forwardAction` using that target to a published form
+
+**Steps:**
+1. Submit the form
+2. Measure total request duration
+
+**Expected:**
+- The submission fails instead of hanging indefinitely
+- HTTP 502
+- Server logs contain an error for the failed forward request
+- End-to-end duration stays bounded by the configured connect/request timeouts, with normal
+  network overhead
+
+### 5.4 Forward action — unreachable upstream target fails with bounded latency
+
+**Precondition:**
+1. Configure a valid forward target URL pointing to an unreachable host or port
+2. Attach an `fmdb:forwardAction` using that target to a published form
+
+**Steps:**
+1. Submit the form
+2. Measure total request duration
+
+**Expected:**
+- The submission fails instead of hanging indefinitely
+- HTTP 502
+- Server logs contain an error for the failed forward request
+- End-to-end duration stays bounded by the configured connect timeout, with normal
+  network overhead
+
+### 5.5 Forward action — DNS resolution timeout fails with bounded latency
+
+**Precondition:**
+1. Configure a valid forward target hostname whose DNS resolution stalls beyond the
+   application timeout budget
+2. Attach an `fmdb:forwardAction` using that target to a published form
+
+**Steps:**
+1. Submit the form
+2. Measure total request duration
+
+**Expected:**
+- The submission fails instead of hanging indefinitely during hostname resolution
+- HTTP 502
+- Server logs contain a warning or error for timed-out hostname resolution
+- End-to-end duration stays bounded by the dedicated DNS resolution timeout, with normal
+  network overhead

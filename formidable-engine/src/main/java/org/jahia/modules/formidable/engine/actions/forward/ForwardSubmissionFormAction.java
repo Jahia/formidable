@@ -20,38 +20,46 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
-import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Forwards the submitted form data to a third-party endpoint as multipart/form-data.
  * Text parameters and pre-parsed files (from request attribute) are forwarded as-is.
  *
  * The target URL is never stored in JCR. The JCR node only holds a stable {@code targetId}
- * that is resolved to a URI via the operator configuration (forwardTargets and, optionally,
- * devForwardTargets in org.jahia.modules.formidable.cfg). This prevents contributors from
- * redirecting submissions to arbitrary hosts.
+ * that is resolved to a URI via operator configuration (forwardTargets and, optionally,
+ * devForwardTargets in org.jahia.modules.formidable.cfg). This is the primary defence
+ * against contributors redirecting submissions to arbitrary hosts.
  *
- * SSRF protection: private/internal IP addresses are rejected at execution time to guard
- * against DNS rebinding of the operator-configured hostnames.
+ * Defence in depth: at execution time, the resolved hostname is checked once and the
+ * request is rejected if any resolved address is loopback, site-local, link-local,
+ * any-local or multicast. This catches operator misconfiguration, such as an allowlisted
+ * hostname pointing to an internal service, but it does not provide hard guarantees
+ * against DNS rebinding because HttpClient resolves the hostname again when sending
+ * the request. The operator allowlist remains the trust boundary.
  */
 @Component(service = FormAction.class)
 public class ForwardSubmissionFormAction implements FormAction {
 
     private static final Logger log = LoggerFactory.getLogger(ForwardSubmissionFormAction.class);
 
-    private final HttpClient http = HttpClient.newHttpClient();
-
     private FormidableConfigService configService;
+    private HostnameResolutionService hostnameResolutionService;
 
     @Reference
     public void setConfigService(FormidableConfigService service) {
         this.configService = service;
+    }
+
+    @Reference
+    public void setHostnameResolutionService(HostnameResolutionService service) {
+        this.hostnameResolutionService = service;
     }
 
     @Override
@@ -114,11 +122,13 @@ public class ForwardSubmissionFormAction implements FormAction {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(targetUri)
+                    .timeout(configService.getForwardHttpRequestTimeout())
                     .header("Content-Type", "multipart/form-data; boundary=" + boundary)
                     .POST(HttpRequest.BodyPublishers.ofByteArray(body))
                     .build();
 
-            HttpResponse<Void> response = http.send(request, HttpResponse.BodyHandlers.discarding());
+            HttpResponse<Void> response = configService.getForwardHttpClient()
+                    .send(request, HttpResponse.BodyHandlers.discarding());
 
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 log.warn("[ForwardSubmissionFormAction] Target '{}' returned HTTP {}", targetUri, response.statusCode());
@@ -132,7 +142,7 @@ public class ForwardSubmissionFormAction implements FormAction {
         }
     }
 
-    private static void checkNotPrivateAddress(URI uri, boolean allowDevelopmentEndpoint) throws FormActionException {
+    void checkNotPrivateAddress(URI uri, boolean allowDevelopmentEndpoint) throws FormActionException {
         String hostname = uri.getHost();
         if (hostname == null || hostname.isBlank()) {
             throw new FormActionException("Forward target URI has no valid hostname.", 400);
@@ -141,7 +151,7 @@ public class ForwardSubmissionFormAction implements FormAction {
             return;
         }
         try {
-            InetAddress[] addresses = InetAddress.getAllByName(hostname);
+            InetAddress[] addresses = hostnameResolutionService.resolveAll(hostname);
             if (addresses.length == 0) {
                 throw new FormActionException("Forward target hostname cannot be resolved.", 400);
             }
@@ -155,9 +165,15 @@ public class ForwardSubmissionFormAction implements FormAction {
                             "Forward target resolves to a private or internal address.", 403);
                 }
             }
+        } catch (TimeoutException e) {
+            log.warn("[ForwardSubmissionFormAction] Rejected target '{}': hostname resolution timed out.", uri);
+            throw new FormActionException("Forward target hostname resolution timed out.", 502, e);
         } catch (UnknownHostException e) {
             log.warn("[ForwardSubmissionFormAction] Rejected target '{}': hostname cannot be resolved.", uri);
             throw new FormActionException("Forward target hostname cannot be resolved.", 400);
+        } catch (RuntimeException e) {
+            log.error("[ForwardSubmissionFormAction] Failed to resolve hostname for target '{}'.", uri, e);
+            throw new FormActionException("Failed to resolve forward target hostname.", 502, e);
         }
     }
 
