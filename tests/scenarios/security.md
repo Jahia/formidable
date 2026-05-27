@@ -62,8 +62,8 @@ not silently allowed through.
 
 **Expected:**
 - HTTP 500 with error code `FMDB-500`
-- Server log contains an `ERROR` entry with message:
-  `Could not check fmdbmix:requireAuthentication on form '<uuid>' — rejecting submission (fail-closed)`
+- Server log contains an `ERROR` entry containing:
+  `[FormSubmissionPipeline] Could not check fmdbmix:requireAuthentication on form '<fid>' — rejecting submission (fail-closed)`
 - No submission is stored
 
 ---
