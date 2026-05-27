@@ -32,7 +32,7 @@ not silently allowed through.
 2. Submit the form via POST
 
 **Expected:**
-- HTTP 403 with error code `FMDB-009`
+- HTTP 401 with error code `FMDB-009`
 - No submission is stored
 
 ### 1.2 Normal behavior — authenticated form accepts logged-in user
