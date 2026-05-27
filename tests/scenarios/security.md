@@ -135,8 +135,7 @@ If this JCR call throws, the submission must be **rejected**.
 1. Submit as Guest without captcha token
 
 **Expected:**
-- HTTP 403 with `FMDB-009` (auth check runs first, rejects before captcha is even evaluated)
-
+- HTTP 401 with `FMDB-009` (auth check runs first, rejects before captcha is even evaluated)
 **Steps (variant):**
 1. Log in as a valid user
 2. Submit without captcha token
