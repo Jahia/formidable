@@ -110,6 +110,7 @@ class HostnameResolutionServiceTest {
         // Given a non-interruptible resolver task occupying the only worker,
         // the service must fail fast instead of queueing more DNS lookups behind it.
         CountDownLatch resolverStarted = new CountDownLatch(1);
+        CountDownLatch firstLookupTimedOut = new CountDownLatch(1);
         CountDownLatch releaseResolver = new CountDownLatch(1);
         AtomicReference<Throwable> backgroundFailure = new AtomicReference<>();
         ExecutorService executor = new ThreadPoolExecutor(
@@ -146,6 +147,7 @@ class HostnameResolutionServiceTest {
                 backgroundFailure.set(new AssertionError("Expected first lookup to time out"));
             } catch (TimeoutException expected) {
                 // The caller times out, but the resolver worker stays occupied until released below.
+                firstLookupTimedOut.countDown();
             } catch (Throwable t) {
                 backgroundFailure.set(t);
             }
@@ -160,6 +162,7 @@ class HostnameResolutionServiceTest {
         // Then the request is rejected immediately instead of waiting behind the stuck worker.
         assertEquals("Hostname resolution executor saturated for 'second.example'", exception.getMessage());
 
+        assertTrue(firstLookupTimedOut.await(1, TimeUnit.SECONDS));
         releaseResolver.countDown();
         firstLookup.join(1_000);
         assertNull(backgroundFailure.get());
