@@ -32,7 +32,7 @@ not silently allowed through.
 2. Submit the form via POST
 
 **Expected:**
-- HTTP 403 with error code `FMDB-009`
+- HTTP 401 with error code `FMDB-009`
 - No submission is stored
 
 ### 1.2 Normal behavior — authenticated form accepts logged-in user
@@ -62,8 +62,8 @@ not silently allowed through.
 
 **Expected:**
 - HTTP 500 with error code `FMDB-500`
-- Server log contains an `ERROR` entry with message:
-  `Could not check fmdbmix:requireAuthentication on form '<uuid>' — rejecting submission (fail-closed)`
+- Server log contains an `ERROR` entry containing:
+  `[FormSubmissionPipeline] Could not check fmdbmix:requireAuthentication on form '<fid>' — rejecting submission (fail-closed)`
 - No submission is stored
 
 ---
@@ -100,7 +100,7 @@ If this JCR call throws, the submission must be **rejected**.
 1. Submit the form
 
 **Expected:**
-- HTTP 400 with error code `FMDB-005`
+- HTTP 500 with error code `FMDB-005`
 - No submission is stored
 
 ### 2.3 Repository error — submission is rejected (fail-closed)
@@ -116,8 +116,8 @@ If this JCR call throws, the submission must be **rejected**.
 
 **Expected:**
 - HTTP 500 with error code `FMDB-500`
-- Server log contains an `ERROR` entry with message:
-  `Could not check fmdbmix:captcha on form '<uuid>' — rejecting submission (fail-closed)`
+- Server log contains an `ERROR` entry containing:
+  `[FormSubmissionPipeline] Could not check fmdbmix:captcha on form '<fid>' — rejecting submission (fail-closed)`
 - No submission is stored
 
 ---
@@ -135,8 +135,7 @@ If this JCR call throws, the submission must be **rejected**.
 1. Submit as Guest without captcha token
 
 **Expected:**
-- HTTP 403 with `FMDB-009` (auth check runs first, rejects before captcha is even evaluated)
-
+- HTTP 401 with `FMDB-009` (auth check runs first, rejects before captcha is even evaluated)
 **Steps (variant):**
 1. Log in as a valid user
 2. Submit without captcha token
