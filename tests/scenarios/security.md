@@ -100,7 +100,7 @@ If this JCR call throws, the submission must be **rejected**.
 1. Submit the form
 
 **Expected:**
-- HTTP 400 with error code `FMDB-005`
+- HTTP 500 with error code `FMDB-005`
 - No submission is stored
 
 ### 2.3 Repository error — submission is rejected (fail-closed)
