@@ -3,4 +3,4 @@
 formidable: patch
 ---
 
-Fail-closed on auth and captcha security gates (#79)
+Fixed form submissions so authentication and CAPTCHA can't be bypassed during repository errors (#79)
