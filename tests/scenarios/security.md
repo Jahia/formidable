@@ -116,8 +116,8 @@ If this JCR call throws, the submission must be **rejected**.
 
 **Expected:**
 - HTTP 500 with error code `FMDB-500`
-- Server log contains an `ERROR` entry with message:
-  `Could not check fmdbmix:captcha on form '<uuid>' — rejecting submission (fail-closed)`
+- Server log contains an `ERROR` entry containing:
+  `[FormSubmissionPipeline] Could not check fmdbmix:captcha on form '<fid>' — rejecting submission (fail-closed)`
 - No submission is stored
 
 ---
