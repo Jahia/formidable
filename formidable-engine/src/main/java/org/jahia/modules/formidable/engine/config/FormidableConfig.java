@@ -14,6 +14,9 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 )
 public @interface FormidableConfig {
 
+    long DEFAULT_HTTP_CONNECT_TIMEOUT_SECONDS = 5L;
+    long DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS = 10L;
+
     // --- CAPTCHA ---
 
     @AttributeDefinition(
@@ -61,6 +64,20 @@ public @interface FormidableConfig {
             type = AttributeType.STRING
     )
     String captchaVerifyUrl() default "";
+
+    @AttributeDefinition(
+            name = "CAPTCHA HTTP connect timeout (seconds)",
+            description = "Maximum time allowed to establish the server-side connection to the CAPTCHA provider. Default: 5 seconds.",
+            type = AttributeType.LONG
+    )
+    long captchaHttpConnectTimeoutSeconds() default DEFAULT_HTTP_CONNECT_TIMEOUT_SECONDS;
+
+    @AttributeDefinition(
+            name = "CAPTCHA HTTP request timeout (seconds)",
+            description = "Maximum total time allowed for the server-side CAPTCHA verification request. Default: 10 seconds.",
+            type = AttributeType.LONG
+    )
+    long captchaHttpRequestTimeoutSeconds() default DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS;
 
     // --- FILE UPLOAD ---
 
@@ -115,6 +132,20 @@ public @interface FormidableConfig {
             type = AttributeType.STRING
     )
     String devForwardTargets() default "";
+
+    @AttributeDefinition(
+            name = "Forward action HTTP connect timeout (seconds)",
+            description = "Maximum time allowed to establish the outbound connection for fmdb:forwardAction requests. Default: 5 seconds.",
+            type = AttributeType.LONG
+    )
+    long forwardHttpConnectTimeoutSeconds() default DEFAULT_HTTP_CONNECT_TIMEOUT_SECONDS;
+
+    @AttributeDefinition(
+            name = "Forward action HTTP request timeout (seconds)",
+            description = "Maximum total time allowed for fmdb:forwardAction outbound requests. Default: 10 seconds.",
+            type = AttributeType.LONG
+    )
+    long forwardHttpRequestTimeoutSeconds() default DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS;
 
     // ---
 

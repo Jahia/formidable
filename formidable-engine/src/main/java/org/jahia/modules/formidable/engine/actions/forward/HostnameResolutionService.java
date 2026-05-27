@@ -12,9 +12,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.LongSupplier;
@@ -22,7 +24,8 @@ import java.util.function.LongSupplier;
 /**
  * Resolves hostnames off the servlet thread with an application-level timeout and a short-lived cache.
  * This bounds the time spent waiting on DNS lookups during form submission, even though the underlying
- * {@link InetAddress#getAllByName(String)} call does not expose a native timeout API.
+ * {@link InetAddress#getAllByName(String)} call does not expose a native timeout API. The resolver pool
+ * uses a bounded bulkhead with no queue so stuck DNS lookups cannot accumulate an unbounded backlog.
  */
 @Component(service = HostnameResolutionService.class, immediate = true)
 public class HostnameResolutionService {
@@ -76,7 +79,15 @@ public class HostnameResolutionService {
             cache.remove(hostname, cached);
         }
 
-        Future<InetAddress[]> future = executor.submit(() -> resolver.resolve(hostname));
+        final Future<InetAddress[]> future;
+        try {
+            future = executor.submit(() -> resolver.resolve(hostname));
+        } catch (RejectedExecutionException e) {
+            TimeoutException timeout = new TimeoutException(
+                    "Hostname resolution executor saturated for '" + hostname + "'");
+            timeout.initCause(e);
+            throw timeout;
+        }
         try {
             InetAddress[] resolved = future.get(resolutionTimeout.toMillis(), TimeUnit.MILLISECONDS);
             InetAddress[] copy = Arrays.copyOf(resolved, resolved.length);
@@ -114,7 +125,15 @@ public class HostnameResolutionService {
                 return thread;
             }
         };
-        return Executors.newFixedThreadPool(threads, factory);
+        return new ThreadPoolExecutor(
+                threads,
+                threads,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new SynchronousQueue<>(),
+                factory,
+                new ThreadPoolExecutor.AbortPolicy()
+        );
     }
 
     @FunctionalInterface

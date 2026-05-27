@@ -2,6 +2,8 @@ package org.jahia.modules.formidable.engine.config;
 
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -26,15 +28,58 @@ class FormidableConfigServiceTest {
         assertFalse(service.resolveForwardTarget("bad-creds").isPresent());
     }
 
+    @Test
+    void activateExposesConfiguredHttpTimeouts() {
+        // Given explicit timeout values in the OSGi configuration,
+        // activation must expose them through the config service getters.
+        FormidableConfigService service = new FormidableConfigService();
+
+        service.activate(new TestFormidableConfig(
+                "",
+                false,
+                "",
+                7L,
+                11L,
+                13L,
+                17L
+        ));
+
+        // Then the CAPTCHA and forward-action timeout values are available as configured durations.
+        assertEquals(Duration.ofSeconds(7), service.getCaptchaHttpConnectTimeout());
+        assertEquals(Duration.ofSeconds(11), service.getCaptchaHttpRequestTimeout());
+        assertEquals(Duration.ofSeconds(13), service.getForwardHttpConnectTimeout());
+        assertEquals(Duration.ofSeconds(17), service.getForwardHttpRequestTimeout());
+    }
+
     private static final class TestFormidableConfig implements FormidableConfig {
         private final String forwardTargets;
         private final boolean enableDevForwardTargets;
         private final String devForwardTargets;
+        private final long captchaHttpConnectTimeoutSeconds;
+        private final long captchaHttpRequestTimeoutSeconds;
+        private final long forwardHttpConnectTimeoutSeconds;
+        private final long forwardHttpRequestTimeoutSeconds;
 
         private TestFormidableConfig(String forwardTargets, boolean enableDevForwardTargets, String devForwardTargets) {
+            this(forwardTargets, enableDevForwardTargets, devForwardTargets, 5L, 10L, 5L, 10L);
+        }
+
+        private TestFormidableConfig(
+                String forwardTargets,
+                boolean enableDevForwardTargets,
+                String devForwardTargets,
+                long captchaHttpConnectTimeoutSeconds,
+                long captchaHttpRequestTimeoutSeconds,
+                long forwardHttpConnectTimeoutSeconds,
+                long forwardHttpRequestTimeoutSeconds
+        ) {
             this.forwardTargets = forwardTargets;
             this.enableDevForwardTargets = enableDevForwardTargets;
             this.devForwardTargets = devForwardTargets;
+            this.captchaHttpConnectTimeoutSeconds = captchaHttpConnectTimeoutSeconds;
+            this.captchaHttpRequestTimeoutSeconds = captchaHttpRequestTimeoutSeconds;
+            this.forwardHttpConnectTimeoutSeconds = forwardHttpConnectTimeoutSeconds;
+            this.forwardHttpRequestTimeoutSeconds = forwardHttpRequestTimeoutSeconds;
         }
 
         @Override
@@ -68,6 +113,16 @@ class FormidableConfigServiceTest {
         }
 
         @Override
+        public long captchaHttpConnectTimeoutSeconds() {
+            return captchaHttpConnectTimeoutSeconds;
+        }
+
+        @Override
+        public long captchaHttpRequestTimeoutSeconds() {
+            return captchaHttpRequestTimeoutSeconds;
+        }
+
+        @Override
         public long uploadMaxFileSizeBytes() {
             return 10_485_760L;
         }
@@ -95,6 +150,16 @@ class FormidableConfigServiceTest {
         @Override
         public String devForwardTargets() {
             return devForwardTargets;
+        }
+
+        @Override
+        public long forwardHttpConnectTimeoutSeconds() {
+            return forwardHttpConnectTimeoutSeconds;
+        }
+
+        @Override
+        public long forwardHttpRequestTimeoutSeconds() {
+            return forwardHttpRequestTimeoutSeconds;
         }
 
         @Override

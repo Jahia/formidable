@@ -24,7 +24,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -50,12 +49,6 @@ import java.util.concurrent.TimeoutException;
 public class ForwardSubmissionFormAction implements FormAction {
 
     private static final Logger log = LoggerFactory.getLogger(ForwardSubmissionFormAction.class);
-    private static final Duration HTTP_CONNECT_TIMEOUT = Duration.ofSeconds(5);
-    private static final Duration HTTP_REQUEST_TIMEOUT = Duration.ofSeconds(10);
-
-    private final HttpClient http = HttpClient.newBuilder()
-            .connectTimeout(HTTP_CONNECT_TIMEOUT)
-            .build();
 
     private FormidableConfigService configService;
     private HostnameResolutionService hostnameResolutionService;
@@ -128,9 +121,12 @@ public class ForwardSubmissionFormAction implements FormAction {
         }
 
         try {
+            HttpClient http = HttpClient.newBuilder()
+                    .connectTimeout(configService.getForwardHttpConnectTimeout())
+                    .build();
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(targetUri)
-                    .timeout(HTTP_REQUEST_TIMEOUT)
+                    .timeout(configService.getForwardHttpRequestTimeout())
                     .header("Content-Type", "multipart/form-data; boundary=" + boundary)
                     .POST(HttpRequest.BodyPublishers.ofByteArray(body))
                     .build();
