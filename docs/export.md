@@ -102,11 +102,8 @@ Each `SubmissionRow` contains:
 | `name` | `string` | JCR node name |
 | `created` | `string` | ISO date of submission |
 | `origin` | `string \| null` | Submission origin |
-| `ipAddress` | `string \| null` | Client IP address |
 | `locale` | `string \| null` | Submission locale |
-| `submitterUsername` | `string \| null` | Jahia username |
-| `userAgent` | `string \| null` | Browser user agent |
-| `referer` | `string \| null` | HTTP referer |
+| `referer` | `string \| null` | HTTP referer, still persisted when present |
 | `fieldValues` | `SubmissionFieldValue[]` | Submitted form field values |
 | `files` | `SubmissionFile[]` | Uploaded file references with URLs |
 

@@ -47,6 +47,23 @@ public final class ContentDispositionUtils {
         return result.isEmpty() ? "upload" : result;
     }
 
+    /**
+     * Serializes a multipart form-data field name for use in Content-Disposition.
+     * Double quotes are percent-encoded and CR/LF are stripped to prevent header injection.
+     */
+    public static String escapeFormFieldName(String value) {
+        if (value == null || value.isBlank()) {
+            return "field";
+        }
+
+        String sanitized = value
+                .replace("\r", "")
+                .replace("\n", "")
+                .replace("\"", "%22");
+
+        return sanitized.isBlank() ? "field" : sanitized;
+    }
+
     private static boolean isRfc5987AttrChar(int c) {
         return (c >= 'a' && c <= 'z')
                 || (c >= 'A' && c <= 'Z')

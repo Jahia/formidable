@@ -222,7 +222,8 @@ public class ForwardSubmissionFormAction implements FormAction {
         out.write(boundary);
         out.write(crlf);
 
-        String disposition = "Content-Disposition: form-data; name=\"" + name + "\"";
+        String disposition = "Content-Disposition: form-data; name=\""
+                + ContentDispositionUtils.escapeFormFieldName(name) + "\"";
         if (filename != null && !filename.isEmpty()) {
             disposition += "; filename=\"" + ContentDispositionUtils.toAsciiFilenameFallback(filename) + "\"";
             disposition += "; filename*=UTF-8''" + ContentDispositionUtils.encodeRfc5987(filename);

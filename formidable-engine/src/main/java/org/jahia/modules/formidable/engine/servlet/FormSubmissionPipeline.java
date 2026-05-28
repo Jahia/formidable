@@ -32,7 +32,7 @@ import java.util.UUID;
  *
  *   1.  verifyMultipart        — content-type guard
  *   2.  readRoutingParams      — fid (validated as UUID) + lang from URL query params
- *   3.  guardContentLength     — reject oversized requests before touching the stream
+ *   3.  guardContentLength     — early reject oversized requests when Content-Length is present
  *   4.  resolveFormNode        — JCR lookup in "live" workspace
  *   5.  verifyAuthentication   — reject Guest if fmdbmix:requireAuthentication is present
  *   6.  verifyCaptcha          — only if fmdbmix:captcha mixin is present
@@ -103,6 +103,9 @@ class FormSubmissionPipeline {
 
     private void guardContentLength(HttpServletRequest req) throws SubmissionException {
         long contentLength = req.getContentLengthLong();
+        // Early-reject optimization only: chunked requests legitimately report -1 here.
+        // The definitive request-size enforcement still happens later in FormDataParser
+        // via ServletFileUpload.setSizeMax(...) when the multipart stream is consumed.
         if (contentLength > config.getUploadMaxRequestSizeBytes()) {
             throw new SubmissionException(ErrorCode.FMDB_003,
                     "Content-Length " + contentLength + " exceeds limit " + config.getUploadMaxRequestSizeBytes());
@@ -163,8 +166,15 @@ class FormSubmissionPipeline {
         }
     }
 
-    private void collectFormFieldInfo() {
-        fieldMetadata = FormFieldMetadataCollector.collect(formId, locale);
+    private void collectFormFieldInfo() throws SubmissionException {
+        try {
+            fieldMetadata = FormFieldMetadataCollector.collect(formId, locale);
+        } catch (RepositoryException e) {
+            log.error("[FormSubmissionPipeline] Could not collect form field metadata for form '{}' — rejecting submission (fail-closed)",
+                    formId, e);
+            throw new SubmissionException(ErrorCode.FMDB_500,
+                    "Cannot collect field metadata for form: " + formId);
+        }
     }
 
     private void parseMultipart(HttpServletRequest req) throws SubmissionException {
@@ -253,7 +263,7 @@ class FormSubmissionPipeline {
         }
     }
 
-    private List<ResolvedAction> resolveActionNodes() {
+    private List<ResolvedAction> resolveActionNodes() throws SubmissionException {
         List<ResolvedAction> result = new ArrayList<>();
         try {
             JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, "live", locale, systemSession -> {
@@ -278,6 +288,8 @@ class FormSubmissionPipeline {
             });
         } catch (RepositoryException e) {
             log.warn("[FormSubmissionPipeline] Could not read actions from form '{}'", formId, e);
+            throw new SubmissionException(ErrorCode.FMDB_008,
+                    "Could not read action list for form: " + formId);
         }
         return result;
     }

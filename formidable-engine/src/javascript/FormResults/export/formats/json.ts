@@ -20,9 +20,6 @@ const buildJsonContent = (
         created: submission.created,
         origin: submission.origin,
         locale: submission.locale,
-        ipAddress: submission.ipAddress,
-        submitterUsername: submission.submitterUsername,
-        userAgent: submission.userAgent,
         referer: submission.referer,
         fields: Object.fromEntries(
             submission.fieldValues.map(field => {
@@ -63,4 +60,3 @@ export const jsonFormat: ExportFormat = {
     mimeType: 'application/json;charset=utf-8;',
     buildContent: buildJsonContent
 };
-
