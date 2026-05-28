@@ -31,9 +31,9 @@ Detailed reasons are written to server logs only and are never exposed to the ca
 | `FMDB-008` | 422 | An action in the pipeline failed (e.g. forward target returned non-2xx, email could not be sent) |
 | `FMDB-009` | 401 | Authentication required — `fmdbmix:requireAuthentication` is applied on the form and the current user is Guest |
 | `FMDB-010` | 400 | Field value validation failed — submitted value is not an allowed choice, or fails format validation (email, date, datetime-local, color) |
+| `FMDB-011` | 403 | Submission denied by the Jahia Security Filter check (for example, cross-origin request with no matching hosted `Origin` / `Referer`) |
 | `FMDB-500` | 500 | Unexpected internal error — check server logs |
 
 ## Source
 
 Error codes are defined in `formidable-engine/.../servlet/ErrorCode.java`.
-

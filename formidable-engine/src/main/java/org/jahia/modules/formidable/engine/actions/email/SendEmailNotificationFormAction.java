@@ -1,6 +1,6 @@
 package org.jahia.modules.formidable.engine.actions.email;
 
-import org.jahia.modules.formidable.engine.actions.FieldSanitizer;
+import org.jahia.modules.formidable.engine.actions.FieldEscaper;
 import org.jahia.modules.formidable.engine.actions.FormAction;
 import org.jahia.modules.formidable.engine.actions.FormActionException;
 import org.jahia.services.content.JCRNodeWrapper;
@@ -68,13 +68,13 @@ public class SendEmailNotificationFormAction implements FormAction {
             throw FormActionException.serverError("MailService is unavailable. Check Jahia SMTP configuration.");
         }
 
-        String to = FieldSanitizer.headerSafe(readProperty(actionNode, "to"));
+        String to = FieldEscaper.headerSafe(readProperty(actionNode, "to"));
         if (to.isBlank()) {
             throw FormActionException.serverError("fmdb:emailNotificationAction is missing a 'to' address.");
         }
 
-        String from = FieldSanitizer.headerSafe(readProperty(actionNode, "from"));
-        String subject = FieldSanitizer.headerSafe(
+        String from = FieldEscaper.headerSafe(readProperty(actionNode, "from"));
+        String subject = FieldEscaper.headerSafe(
                 interpolate(readProperty(actionNode, "subject"), parameters, false));
         String htmlBody = interpolate(readProperty(actionNode, "templateMessage"), parameters, true);
 
@@ -95,7 +95,7 @@ public class SendEmailNotificationFormAction implements FormAction {
 
     /**
      * Replaces {@code ${fieldName}} placeholders with form parameter values.
-     * When {@code escapeHtmlValues} is true, values are HTML-encoded via {@link FieldSanitizer#htmlEncode}
+     * When {@code escapeHtmlValues} is true, values are HTML-encoded via {@link FieldEscaper#html}
      * before insertion (use for HTML email body). Pass false for plain-text fields like
      * addresses or subjects.
      * Unknown placeholders are replaced with an empty string.
@@ -108,7 +108,7 @@ public class SendEmailNotificationFormAction implements FormAction {
             String field = m.group(1);
             List<String> values = parameters.get(field);
             String raw = (values != null && !values.isEmpty()) ? values.get(0) : "";
-            String replacement = escapeHtmlValues ? FieldSanitizer.htmlEncode(raw) : FieldSanitizer.plainText(raw);
+            String replacement = escapeHtmlValues ? FieldEscaper.html(raw) : FieldEscaper.plainText(raw);
             m.appendReplacement(sb, Matcher.quoteReplacement(replacement));
         }
         m.appendTail(sb);

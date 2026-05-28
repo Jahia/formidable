@@ -7,6 +7,9 @@ import org.jahia.services.mail.MailService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.util.List;
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
@@ -87,6 +90,24 @@ class EmailActionRecipientTest {
 
         verify(mailService).sendMessage(messageCaptor.capture());
         assertEquals("team+${email}@example.com", messageCaptor.getValue().getTo());
+    }
+
+    @Test
+    void notificationInterpolationEscapesHtmlAtOutputWithoutMutatingInput() {
+        // Given a submitted plain-text value containing HTML-like content,
+        // interpolation into an HTML email body must preserve the raw value in memory and escape it only at output.
+        String template = "<p>${comment}</p>";
+        Map<String, List<String>> parameters = Map.of(
+                "comment", List.of("<script>alert(1)</script><!-- note -->")
+        );
+
+        // When the notification template is interpolated for an HTML sink.
+        String html = SendEmailNotificationFormAction.interpolate(template, parameters, true);
+        String plainText = SendEmailNotificationFormAction.interpolate("${comment}", parameters, false);
+
+        // Then the HTML output is escaped, while the plain-text path keeps the original submitted value unchanged.
+        assertEquals("<p>&lt;script&gt;alert(1)&lt;/script&gt;&lt;!-- note --&gt;</p>", html);
+        assertEquals("<script>alert(1)</script><!-- note -->", plainText);
     }
 
     private static JCRNodeWrapper mockActionNodeWithTo(String to) throws Exception {
