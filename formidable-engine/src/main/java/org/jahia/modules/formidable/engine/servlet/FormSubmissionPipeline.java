@@ -47,8 +47,20 @@ class FormSubmissionPipeline {
 
     private static final String ACTIONS_NODE = "actions";
 
+    @FunctionalInterface
+    interface FieldMetadataCollectorAdapter {
+        FormFieldMetadataCollector.Result collect(String formId, Locale locale) throws RepositoryException;
+    }
+
+    @FunctionalInterface
+    interface JcrTemplateProvider {
+        JCRTemplate get();
+    }
+
     private final FormidableConfigService config;
     private final List<FormAction> formActions;
+    private final FieldMetadataCollectorAdapter fieldMetadataCollector;
+    private final JcrTemplateProvider jcrTemplateProvider;
 
     // State accumulated as the pipeline progresses
     private String formId;
@@ -59,8 +71,17 @@ class FormSubmissionPipeline {
     private FormDataParser.ParseResult parsed;
 
     FormSubmissionPipeline(FormidableConfigService config, List<FormAction> formActions) {
+        this(config, formActions, FormFieldMetadataCollector::collect, JCRTemplate::getInstance);
+    }
+
+    FormSubmissionPipeline(FormidableConfigService config,
+                           List<FormAction> formActions,
+                           FieldMetadataCollectorAdapter fieldMetadataCollector,
+                           JcrTemplateProvider jcrTemplateProvider) {
         this.config = config;
         this.formActions = formActions;
+        this.fieldMetadataCollector = fieldMetadataCollector;
+        this.jcrTemplateProvider = jcrTemplateProvider;
     }
 
     void run(HttpServletRequest req) throws SubmissionException {
@@ -168,7 +189,7 @@ class FormSubmissionPipeline {
 
     private void collectFormFieldInfo() throws SubmissionException {
         try {
-            fieldMetadata = FormFieldMetadataCollector.collect(formId, locale);
+            fieldMetadata = fieldMetadataCollector.collect(formId, locale);
         } catch (RepositoryException e) {
             log.error("[FormSubmissionPipeline] Could not collect form field metadata for form '{}' — rejecting submission (fail-closed)",
                     formId, e);
@@ -266,7 +287,7 @@ class FormSubmissionPipeline {
     private List<ResolvedAction> resolveActionNodes() throws SubmissionException {
         List<ResolvedAction> result = new ArrayList<>();
         try {
-            JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, "live", locale, systemSession -> {
+            jcrTemplateProvider.get().doExecuteWithSystemSessionAsUser(null, "live", locale, systemSession -> {
                 JCRNodeWrapper systemFormNode = systemSession.getNodeByIdentifier(formId);
                 if (!systemFormNode.hasNode(ACTIONS_NODE)) {
                     return null;

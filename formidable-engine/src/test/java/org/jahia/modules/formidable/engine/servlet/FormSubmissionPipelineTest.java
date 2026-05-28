@@ -7,7 +7,6 @@ import org.jahia.services.content.JCRSessionFactory;
 import org.jahia.services.content.JCRTemplate;
 import org.jahia.services.usermanager.JahiaUser;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
 
 import javax.jcr.RepositoryException;
 import java.lang.reflect.Field;
@@ -19,7 +18,6 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 class FormSubmissionPipelineTest {
@@ -74,44 +72,46 @@ class FormSubmissionPipelineTest {
     void resolveActionNodesRejectsSubmissionWhenSystemReadFails() throws Exception {
         // Verifies the action-list gate: if the system session cannot read the configured actions,
         // the submission must fail instead of silently continuing with an empty pipeline.
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of());
+        JCRTemplate template = mock(JCRTemplate.class);
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
+                mock(FormidableConfigService.class),
+                List.<FormAction>of(),
+                FormFieldMetadataCollector::collect,
+                () -> template
+        );
         setField(pipeline, "formId", "test-form-id");
 
-        JCRTemplate template = mock(JCRTemplate.class);
-        try (MockedStatic<JCRTemplate> mocked = mockStatic(JCRTemplate.class)) {
-            mocked.when(JCRTemplate::getInstance).thenReturn(template);
-            when(template.doExecuteWithSystemSessionAsUser(org.mockito.ArgumentMatchers.isNull(),
-                    org.mockito.ArgumentMatchers.eq("live"),
-                    org.mockito.ArgumentMatchers.isNull(),
-                    org.mockito.ArgumentMatchers.any()))
-                    .thenThrow(new RepositoryException("boom"));
+        when(template.doExecuteWithSystemSessionAsUser(org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.eq("live"),
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new RepositoryException("boom"));
 
-            SubmissionException error = assertThrows(SubmissionException.class,
-                    () -> invokeResolveActionNodes(pipeline));
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeResolveActionNodes(pipeline));
 
-            // Expected outcome: FMDB-008 is returned so the client can retry instead of losing the action execution.
-            assertEquals(ErrorCode.FMDB_008, error.errorCode);
-        }
+        // Expected outcome: FMDB-008 is returned so the client can retry instead of losing the action execution.
+        assertEquals(ErrorCode.FMDB_008, error.errorCode);
     }
 
     @Test
     void collectFormFieldInfoRejectsSubmissionWhenMetadataCollectionFails() throws Exception {
         // Verifies the metadata gate: if JCR field metadata cannot be collected reliably,
         // the submission must fail instead of parsing against partial metadata.
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of());
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
+                mock(FormidableConfigService.class),
+                List.<FormAction>of(),
+                (formId, locale) -> { throw new RepositoryException("boom"); },
+                JCRTemplate::getInstance
+        );
         setField(pipeline, "formId", "test-form-id");
         setField(pipeline, "locale", java.util.Locale.ENGLISH);
 
-        try (MockedStatic<FormFieldMetadataCollector> mocked = mockStatic(FormFieldMetadataCollector.class)) {
-            mocked.when(() -> FormFieldMetadataCollector.collect("test-form-id", java.util.Locale.ENGLISH))
-                    .thenThrow(new RepositoryException("boom"));
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeCollectFormFieldInfo(pipeline));
 
-            SubmissionException error = assertThrows(SubmissionException.class,
-                    () -> invokeCollectFormFieldInfo(pipeline));
-
-            // Expected outcome: FMDB-500 is returned because the submission cannot rely on partial metadata.
-            assertEquals(ErrorCode.FMDB_500, error.errorCode);
-        }
+        // Expected outcome: FMDB-500 is returned because the submission cannot rely on partial metadata.
+        assertEquals(ErrorCode.FMDB_500, error.errorCode);
     }
 
     private static FormSubmissionPipeline newPipelineWithFormNode(boolean requiresAuthentication) throws Exception {
