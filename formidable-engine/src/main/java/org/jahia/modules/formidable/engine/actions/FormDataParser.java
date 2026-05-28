@@ -35,7 +35,7 @@ import java.util.regex.PatternSyntaxException;
  *   2. Request and per-file size limits; file count limit (from config)
  *   3. Field whitelist — undeclared fields skipped before any read
  *   4. Text field validation — choice match, format (email/date/color), constraints (required/min/max/length/pattern)
- *   5. Filename sanitization (path traversal, control characters and XSS chars stripped)
+ *   5. Filename sanitization (path components removed; JCR-reserved characters normalized)
  *   6. MIME type detection via Apache Tika (content-only; filename excluded from enforcement)
  *   7. MIME type allowlist check — per-field 'accept' takes priority over global cfg fallback
  *
