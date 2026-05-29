@@ -308,8 +308,9 @@ class FormSubmissionPipeline {
                 return null;
             });
         } catch (RepositoryException e) {
-            log.warn("[FormSubmissionPipeline] Could not read actions from form '{}'", formId, e);
-            throw new SubmissionException(ErrorCode.FMDB_008,
+            log.error("[FormSubmissionPipeline] Could not read actions from form '{}' — rejecting submission (fail-closed)",
+                    formId, e);
+            throw new SubmissionException(ErrorCode.FMDB_012,
                     "Could not read action list for form: " + formId);
         }
         return result;

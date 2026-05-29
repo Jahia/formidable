@@ -90,8 +90,9 @@ class FormSubmissionPipelineTest {
         SubmissionException error = assertThrows(SubmissionException.class,
                 () -> invokeResolveActionNodes(pipeline));
 
-        // Expected outcome: FMDB-008 is returned so the client can retry instead of losing the action execution.
-        assertEquals(ErrorCode.FMDB_008, error.errorCode);
+        // Expected outcome: FMDB-012 is returned so action-list resolution failures stay
+        // distinguishable from downstream action execution failures.
+        assertEquals(ErrorCode.FMDB_012, error.errorCode);
     }
 
     @Test
