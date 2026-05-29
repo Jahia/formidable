@@ -8,14 +8,10 @@
     </parent>
     <groupId>org.jahia.test</groupId>
     <artifactId>formidable-test-modules-parent</artifactId>
-    <version>${revision}</version>
+    <version>0.2.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>Formidable Test - Modules Parent</name>
     <description>Parent POM for Jahia test modules used in the Formidable end-to-end Cypress test suite.</description>
-
-    <properties>
-        <revision>0.2.0-SNAPSHOT</revision>
-    </properties>
 
     <distributionManagement>
         <repository>
