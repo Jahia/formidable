@@ -5,6 +5,7 @@ import org.jahia.modules.formidable.engine.actions.FormAction;
 import org.jahia.modules.formidable.engine.actions.FormActionException;
 import org.jahia.modules.formidable.engine.actions.SubmittedFile;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.modules.formidable.engine.util.JcrProps;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.osgi.service.component.annotations.Component;
@@ -12,7 +13,6 @@ import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jcr.RepositoryException;
 import javax.servlet.http.HttpServletRequest;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -75,15 +75,9 @@ public class ForwardSubmissionFormAction implements FormAction {
             List<SubmittedFile> files
     ) throws FormActionException {
 
-        String targetId;
-        try {
-            if (!actionNode.hasProperty("targetId")) {
-                log.warn("[ForwardSubmissionFormAction] targetId is not set on node '{}', skipping.", actionNode.getPath());
-                return;
-            }
-            targetId = actionNode.getProperty("targetId").getString();
-        } catch (RepositoryException e) {
-            log.warn("[ForwardSubmissionFormAction] Could not read targetId from node '{}'", actionNode.getPath(), e);
+        String targetId = JcrProps.string(actionNode, "targetId", null);
+        if (targetId == null) {
+            log.warn("[ForwardSubmissionFormAction] targetId is not set on node '{}', skipping.", actionNode.getPath());
             return;
         }
 
@@ -216,7 +210,7 @@ public class ForwardSubmissionFormAction implements FormAction {
         String disposition = "Content-Disposition: form-data; name=\""
                 + ContentDispositionUtils.escapeFormFieldName(name) + "\"";
         if (filename != null && !filename.isEmpty()) {
-            disposition += "; filename=\"" + ContentDispositionUtils.toAsciiFilenameFallback(filename) + "\"";
+            disposition += "; filename=\"" + ContentDispositionUtils.toRfc6266FilenameFallback(filename) + "\"";
             disposition += "; filename*=UTF-8''" + ContentDispositionUtils.encodeRfc5987(filename);
         }
         out.write(disposition.getBytes(StandardCharsets.UTF_8));
