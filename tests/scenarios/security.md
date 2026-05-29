@@ -66,6 +66,9 @@ not silently allowed through.
   `[FormSubmissionPipeline] Could not check fmdbmix:requireAuthentication on form '<fid>' — rejecting submission (fail-closed)`
 - No submission is stored
 
+> **Note:** scenarios 1.4 and 1.5 are deferred documentation only at this stage.
+> They are not automated as Cypress tests yet and must not be counted as runtime CSRF coverage.
+
 ### 1.4 CSRFGuard — authenticated form rejects missing token
 
 **Precondition:**
