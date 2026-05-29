@@ -15,6 +15,12 @@ Formidable is based on Jahia standard technologies:
 - JavaScript modules 1.2.0+
 - jContent 3.6+
 
+## Documentation
+
+- [CND module ownership](docs/cnd-module-ownership.md) - where JCR types and mixins belong, and how to choose between `formidable-elements` and `formidable-engine`
+- [Form submission flow](docs/form-submission-flow.md) - request lifecycle, pipeline steps, and server-side safeguards
+- [CAPTCHA server-side validation](docs/captcha-server-side-validation.md) - provider verification endpoints and token handling
+
 ## Alpha version
 
 ### Scope

@@ -30,8 +30,8 @@ Browser
          Step 2   readRoutingParams       fid (UUID-validated) + lang read from URL query params  — 0 byte read
          Step 3   guardContentLength      early reject if Content-Length > max                    — 0 byte read
          Step 4   resolveFormNode         JCR getNodeByIdentifier(fid) in "live"                 — 0 byte read
-         Step 5   verifyAuthentication    if fmdbmix:requireAuthentication → reject Guest
-         Step 6   verifyCaptcha           if fmdbmix:captcha → verify 'ct' URL param             — 0 byte read
+         Step 5   verifyAuthentication    if fmdbmix:authenticatedOnlyForm → reject Guest
+         Step 6   verifyCaptcha           if fmdbmix:captchaProtectedForm → verify 'ct' URL param — 0 byte read
          Step 7   collectFormFieldInfo    walk form node: build field whitelist,
                                           per-field type, allowed choices, accept types,
                                           and field constraints (required, min/maxLength,
@@ -85,7 +85,7 @@ multipart bodies during streaming.
 |---|---|---|
 | `fid` | JCR identifier (UUID) of the `fmdb:form` node | `default.server.tsx` |
 | `lang` | BCP 47 language tag (e.g. `en`, `fr`) | `default.server.tsx` |
-| `ct` | CAPTCHA token — only when `fmdbmix:captcha` is present | `Form.client.tsx` at submit time |
+| `ct` | CAPTCHA token — only when CAPTCHA protection is enabled on the form | `Form.client.tsx` at submit time |
 
 No hidden `<input>` fields are injected into the form body for routing.
 The CAPTCHA widget field (`cf-turnstile-response`, etc.) is deleted from `FormData` by
@@ -101,10 +101,13 @@ a 400 (`FMDB-004`) because the node will not be found in `live`.
 
 | Mixin | Effect |
 |---|---|
-| `fmdbmix:captcha` | Requires a valid CAPTCHA token (`ct`) — verified at step 6 before any file data is read |
-| `fmdbmix:requireAuthentication` | Rejects Guest (anonymous) submissions at step 5 with `FMDB-009` |
+| `fmdbmix:captcha` | Author-facing wrapper mixin on `fmdb:form`; enables the engine-owned `fmdbmix:captchaProtectedForm` semantic |
+| `fmdbmix:requireAuthentication` | Author-facing wrapper mixin on `fmdb:form`; enables the engine-owned `fmdbmix:authenticatedOnlyForm` semantic |
 
 Both mixins are applied via the Content Editor. Neither requires configuration in JCR properties.
+
+Internally, the submission pipeline reads `fmdbmix:captchaProtectedForm` and
+`fmdbmix:authenticatedOnlyForm`.
 
 ---
 
@@ -148,7 +151,9 @@ into cached HTML would break that caching model. For that reason, the guest path
 depends primarily on the Security Filter's `origin: hosted` check, while authenticated users still
 benefit from CSRFGuard on top of the same-origin gate.
 
-Forms using `fmdbmix:captcha` add another barrier: the CAPTCHA token is a non-replayable credential
+Forms using `fmdbmix:captcha` add another barrier: the wrapper enables the
+engine-owned `fmdbmix:captchaProtectedForm` semantic, and the CAPTCHA token is a
+non-replayable credential
 tied to the hosting page. This is defence in depth, not the primary CSRF control.
 
 ---
@@ -263,8 +268,8 @@ Those actions do not manipulate temporary files on disk either.
 
 | Condition | Behaviour |
 |---|---|
-| `fmdbmix:captcha` mixin present on the form | Token verified at step 6 — before any file data is read |
-| `fmdbmix:captcha` mixin absent | No verification, pipeline continues |
+| `fmdbmix:captcha` mixin present on the form | Wrapper resolves to `fmdbmix:captchaProtectedForm`; token verified at step 6 before any file data is read |
+| `fmdbmix:captcha` mixin absent | No CAPTCHA semantic on the form; pipeline continues |
 
 CAPTCHA configuration (`siteKey`, `scriptUrl`, `verifyUrl`, `secretKey`) is read from
 `org.jahia.modules.formidable.cfg` — not stored in JCR.

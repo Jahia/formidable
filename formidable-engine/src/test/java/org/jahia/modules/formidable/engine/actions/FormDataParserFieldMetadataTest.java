@@ -22,6 +22,13 @@ class FormDataParserFieldMetadataTest {
         );
         FormDataParser.FieldInfo fieldInfo = new FormDataParser.FieldInfo(
                 "fmdb:inputEmail",
+                false,
+                false,
+                false,
+                true,
+                false,
+                false,
+                false,
                 Set.of("a@example.com", "b@example.com"),
                 Set.of("image/png"),
                 constraints
@@ -33,7 +40,8 @@ class FormDataParserFieldMetadataTest {
         // Expected outcome: all parser accessors resolve the declared field consistently.
         assertEquals(Set.of("email"), metadata.allowedNames());
         assertSame(fieldInfo, metadata.field("email"));
-        assertEquals("fmdb:inputEmail", metadata.fieldType("email"));
+        assertEquals("fmdb:inputEmail", metadata.field("email").nodeType());
+        assertTrue(metadata.field("email").emailField());
         assertEquals(Set.of("a@example.com", "b@example.com"), metadata.allowedChoices("email"));
         assertEquals(Set.of("image/png"), metadata.acceptTypes("email"));
         assertSame(constraints, metadata.constraints("email"));
@@ -44,13 +52,24 @@ class FormDataParserFieldMetadataTest {
         // Verifies the absent-field path: parser callers must not need null checks
         // for allowed choices or accept types when the field name is unknown.
         FormDataParser.FieldMetadata metadata = new FormDataParser.FieldMetadata(
-                Map.of("known", new FormDataParser.FieldInfo("fmdb:inputText", Set.of(), Set.of(), null))
+                Map.of("known", new FormDataParser.FieldInfo(
+                        "fmdb:inputText",
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        Set.of(),
+                        Set.of(),
+                        null
+                ))
         );
 
         // Expected outcome: unknown fields resolve to null for scalar metadata
         // and to empty sets for collection metadata.
         assertNull(metadata.field("missing"));
-        assertNull(metadata.fieldType("missing"));
         assertTrue(metadata.allowedChoices("missing").isEmpty());
         assertTrue(metadata.acceptTypes("missing").isEmpty());
         assertNull(metadata.constraints("missing"));
@@ -62,6 +81,13 @@ class FormDataParserFieldMetadataTest {
         // to empty immutable collections so downstream parser code can read them safely.
         FormDataParser.FieldInfo fieldInfo = new FormDataParser.FieldInfo(
                 "fmdb:inputFile",
+                false,
+                false,
+                true,
+                false,
+                false,
+                false,
+                false,
                 null,
                 null,
                 null
@@ -73,6 +99,7 @@ class FormDataParserFieldMetadataTest {
         // Expected outcome: the stored FieldInfo exposes empty sets instead of null collections.
         assertEquals(List.of(), List.copyOf(metadata.allowedChoices("upload")));
         assertEquals(List.of(), List.copyOf(metadata.acceptTypes("upload")));
+        assertTrue(metadata.field("upload").fileField());
         assertNull(metadata.constraints("upload"));
     }
 }

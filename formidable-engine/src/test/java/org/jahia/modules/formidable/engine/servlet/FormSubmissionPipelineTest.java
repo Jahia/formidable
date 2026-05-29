@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class FormSubmissionPipelineTest {
@@ -45,6 +46,22 @@ class FormSubmissionPipelineTest {
 
         // Expected outcome: no exception is raised and the pipeline can continue.
         assertDoesNotThrow(() -> invokeVerifyAuthentication(pipeline, authenticatedUser));
+    }
+
+    @Test
+    void verifyAuthenticationUsesEngineOwnedSemanticMixin() throws Exception {
+        // Verifies the ownership split: the pipeline must read fmdbmix:authenticatedOnlyForm
+        // instead of the elements-owned wrapper mixin applied by authors.
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of());
+        JCRNodeWrapper formNode = mock(JCRNodeWrapper.class);
+        when(formNode.isNodeType("fmdbmix:authenticatedOnlyForm")).thenReturn(false);
+        setField(pipeline, "formNode", formNode);
+        setField(pipeline, "formId", "test-form-id");
+
+        invokeVerifyAuthentication(pipeline, null);
+
+        // Expected outcome: fmdbmix:authenticatedOnlyForm is consulted directly by the pipeline.
+        verify(formNode).isNodeType("fmdbmix:authenticatedOnlyForm");
     }
 
     @Test
@@ -117,7 +134,7 @@ class FormSubmissionPipelineTest {
     private static FormSubmissionPipeline newPipelineWithFormNode(boolean requiresAuthentication) throws Exception {
         FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of());
         JCRNodeWrapper formNode = mock(JCRNodeWrapper.class);
-        when(formNode.isNodeType("fmdbmix:requireAuthentication")).thenReturn(requiresAuthentication);
+        when(formNode.isNodeType("fmdbmix:authenticatedOnlyForm")).thenReturn(requiresAuthentication);
         setField(pipeline, "formNode", formNode);
         setField(pipeline, "formId", "test-form-id");
         return pipeline;
@@ -126,7 +143,7 @@ class FormSubmissionPipelineTest {
     private static FormSubmissionPipeline newPipelineWithBrokenFormNode() throws Exception {
         FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of());
         JCRNodeWrapper formNode = mock(JCRNodeWrapper.class);
-        when(formNode.isNodeType("fmdbmix:requireAuthentication")).thenThrow(new RepositoryException("boom"));
+        when(formNode.isNodeType("fmdbmix:authenticatedOnlyForm")).thenThrow(new RepositoryException("boom"));
         setField(pipeline, "formNode", formNode);
         setField(pipeline, "formId", "test-form-id");
         return pipeline;

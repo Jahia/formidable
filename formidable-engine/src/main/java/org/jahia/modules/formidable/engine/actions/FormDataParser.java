@@ -90,6 +90,13 @@ public class FormDataParser {
      */
     public record FieldInfo(
             String nodeType,
+            boolean nonSubmittable,
+            boolean choiceField,
+            boolean fileField,
+            boolean emailField,
+            boolean dateField,
+            boolean datetimeLocalField,
+            boolean colorField,
             Set<String> allowedChoices,
             Set<String> acceptTypes,
             FieldConstraints constraints
@@ -118,11 +125,6 @@ public class FormDataParser {
 
         public FieldInfo field(String fieldName) {
             return fieldInfos.get(fieldName);
-        }
-
-        public String fieldType(String fieldName) {
-            FieldInfo fieldInfo = field(fieldName);
-            return fieldInfo != null ? fieldInfo.nodeType() : null;
         }
 
         public Set<String> allowedChoices(String fieldName) {
@@ -260,25 +262,30 @@ public class FormDataParser {
                     "Field '" + fieldName + "': submitted value is not an allowed choice.", 400, true);
         }
 
-        // Format validation by JCR node type
-        String type = meta.fieldType(fieldName);
-        if (type != null) {
-            switch (type) {
-                case "fmdb:inputEmail"         -> validateEmail(fieldName, value);
-                case "fmdb:inputDate"          -> validateDate(fieldName, value);
-                case "fmdb:inputDatetimeLocal" -> validateDatetimeLocal(fieldName, value);
-                case "fmdb:inputColor"         -> validateColor(fieldName, value);
+        FieldInfo fieldInfo = meta.field(fieldName);
+        if (fieldInfo != null) {
+            if (fieldInfo.emailField()) {
+                validateEmail(fieldName, value);
+            }
+            if (fieldInfo.dateField()) {
+                validateDate(fieldName, value);
+            }
+            if (fieldInfo.datetimeLocalField()) {
+                validateDatetimeLocal(fieldName, value);
+            }
+            if (fieldInfo.colorField()) {
+                validateColor(fieldName, value);
             }
         }
 
         // Constraint validation (minLength, maxLength, pattern, min/max date)
         FieldConstraints c = meta.constraints(fieldName);
         if (c != null) {
-            validateConstraints(fieldName, value, c, type);
+            validateConstraints(fieldName, value, c, fieldInfo);
         }
     }
 
-    private static void validateConstraints(String fieldName, String value, FieldConstraints c, String fieldType)
+    private static void validateConstraints(String fieldName, String value, FieldConstraints c, FieldInfo fieldInfo)
             throws ParseException {
         // required is enforced post-parse at pipeline level (handles absent fields too)
 
@@ -304,18 +311,18 @@ public class FormDataParser {
                 log.warn("[FormDataParser] Invalid pattern on field '{}': {}", fieldName, e.getMessage());
             }
         }
-        if (fieldType != null && c.minDate() != null) {
-            validateDateBound(fieldName, value, c.minDate(), fieldType, true);
+        if (fieldInfo != null && c.minDate() != null) {
+            validateDateBound(fieldName, value, c.minDate(), fieldInfo, true);
         }
-        if (fieldType != null && c.maxDate() != null) {
-            validateDateBound(fieldName, value, c.maxDate(), fieldType, false);
+        if (fieldInfo != null && c.maxDate() != null) {
+            validateDateBound(fieldName, value, c.maxDate(), fieldInfo, false);
         }
     }
 
     private static void validateDateBound(String fieldName, String value, String bound,
-                                           String fieldType, boolean isMin) throws ParseException {
+                                          FieldInfo fieldInfo, boolean isMin) throws ParseException {
         try {
-            if ("fmdb:inputDate".equals(fieldType)) {
+            if (fieldInfo.dateField()) {
                 LocalDate submitted = LocalDate.parse(value);
                 LocalDate limit     = LocalDate.parse(bound);
                 boolean violation   = isMin ? submitted.isBefore(limit) : submitted.isAfter(limit);
@@ -324,7 +331,7 @@ public class FormDataParser {
                     throw new ParseException(
                             "Field '" + fieldName + "': date is " + (isMin ? "before minimum" : "after maximum") + ".", 400, true);
                 }
-            } else if ("fmdb:inputDatetimeLocal".equals(fieldType)) {
+            } else if (fieldInfo.datetimeLocalField()) {
                 LocalDateTime submitted = LocalDateTime.parse(value, DATETIME_LOCAL_FMT);
                 LocalDateTime limit     = LocalDateTime.parse(bound, DATETIME_LOCAL_FMT);
                 boolean violation       = isMin ? submitted.isBefore(limit) : submitted.isAfter(limit);

@@ -1,4 +1,4 @@
 // Radio component - unified field: single radio if 1 choice, radio group if > 1
-[fmdb:radio] > jnt:content, fmdbmix:element
+[fmdb:radio] > jnt:content, fmdbmix:element, fmdbmix:choiceField
  - choices (string) i18n multiple indexed=no mandatory
  - required (boolean) = false

@@ -16,12 +16,14 @@ CAPTCHA is configured globally via `org.jahia.modules.formidable.captcha.cfg` (o
 | `secretKey` | Secret key — used for server-side verification, never exposed to the client |
 
 To enable CAPTCHA on a form, apply the `fmdbmix:captcha` mixin to the `fmdb:form` node.
+This author-facing mixin extends `fmdbmix:captchaProtectedForm`.
 
 ---
 
 ## When is the token verified server-side?
 
-Always — when `fmdbmix:captcha` is present on the form, `FormSubmitAction` verifies the token first, before any action in the pipeline runs.
+Always — when CAPTCHA is enabled on the form, the submission pipeline verifies the token first,
+before any action in the pipeline runs.
 
 ---
 
@@ -32,7 +34,7 @@ Always — when `fmdbmix:captcha` is present on the form, `FormSubmitAction` ver
 1. Reads `secretKey` and `verifyUrl` from the OSGi configuration
 2. Reads the token from the POST parameters (tries each known provider field name)
 3. POSTs to `verifyUrl` with `secret` + `response` + optional `remoteip`
-4. Returns `false` if `success` is not `true` — `FormSubmitAction` stops the pipeline with HTTP 400
+4. Returns `false` if `success` is not `true` — `FormSubmissionPipeline` stops the pipeline with HTTP 400
 
 ## Token field names (auto-injected by the widget)
 
@@ -63,4 +65,3 @@ All three share the same request shape (`secret` + `response` + optional `remote
 | `missing-input-response` | Token not provided |
 | `invalid-input-response` | Token is malformed or expired |
 | `timeout-or-duplicate` | Token already used or expired (300 s limit) |
-
