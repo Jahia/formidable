@@ -74,7 +74,7 @@ class FormSubmitServletTest {
         }
 
         @Override
-        boolean isRequestAllowed(HttpServletRequest req) {
+        boolean isRequestAllowed() {
             return allowed;
         }
 
