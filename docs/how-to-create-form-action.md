@@ -67,6 +67,8 @@ import org.jahia.modules.formidable.engine.actions.SubmittedFile;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.osgi.service.component.annotations.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.jcr.RepositoryException;
 import javax.servlet.http.HttpServletRequest;
@@ -76,6 +78,8 @@ import java.util.Map;
 
 @Component(service = FormAction.class)
 public class WebhookFormAction implements FormAction {
+
+    private static final Logger logger = LoggerFactory.getLogger(WebhookFormAction.class);
 
     @Override
     public String getNodeType() {
@@ -93,7 +97,7 @@ public class WebhookFormAction implements FormAction {
         try {
             String endpointId = actionNode.getProperty("endpointId").getString();
 
-            System.out.println("Forwarding submission to target " + endpointId + " with " + parameters.size() + " field(s).");
+            logger.info("Forwarding submission to target '{}' with {} field(s).", endpointId, parameters.size());
         } catch (RepositoryException e) {
             throw new FormActionException(
                     "Could not read the action configuration.",
@@ -156,7 +160,7 @@ If your action needs uploaded files, read them from the `files` argument passed 
 
 ```java
 for (SubmittedFile file : files) {
-    System.out.println(file.originalName() + " (" + file.mimeType() + ")");
+    logger.debug("Received uploaded file '{}' ({})", file.originalName(), file.mimeType());
 }
 ```
 
