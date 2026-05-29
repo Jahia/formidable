@@ -93,7 +93,7 @@ public class WebhookFormAction implements FormAction {
         try {
             String endpointId = actionNode.getProperty("endpointId").getString();
 
-            System.out.println("Forwarding submission to target " + endpointId + ": " + parameters);
+            System.out.println("Forwarding submission to target " + endpointId + " with " + parameters.size() + " field(s).");
         } catch (RepositoryException e) {
             throw new FormActionException(
                     "Could not read the action configuration.",
