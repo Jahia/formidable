@@ -26,8 +26,7 @@
 // CAPTCHA configuration (siteKey, scriptUrl, verifyUrl, secretKey) is read from
 // org.jahia.modules.formidable.captcha.cfg — not stored in JCR.
 // Runtime code reads fmdbmix:captchaProtectedForm.
-[fmdbmix:captcha] mixin
- > fmdbmix:captchaProtectedForm
+[fmdbmix:captcha] > fmdbmix:captchaProtectedForm mixin
  extends = fmdb:form
  itemtype = content
 
@@ -35,8 +34,7 @@
 // When this mixin is applied, Guest (anonymous) submissions are rejected server-side
 // with FMDB-009 before any file data is read from the request stream.
 // Runtime code reads fmdbmix:authenticatedOnlyForm.
-[fmdbmix:requireAuthentication] mixin
- > fmdbmix:authenticatedOnlyForm
+[fmdbmix:requireAuthentication] > fmdbmix:authenticatedOnlyForm mixin
  extends = fmdb:form
  itemtype = content
 
