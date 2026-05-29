@@ -66,6 +66,39 @@ not silently allowed through.
   `[FormSubmissionPipeline] Could not check fmdbmix:requireAuthentication on form '<fid>' — rejecting submission (fail-closed)`
 - No submission is stored
 
+### 1.4 CSRFGuard — authenticated form rejects missing token
+
+**Precondition:**
+1. Add the `fmdbmix:requireAuthentication` mixin to the form
+2. Publish the form
+3. Log in as a non-guest user
+4. Ensure the submit endpoint `/modules/formidable-engine/form-submit` is covered by
+   `org.jahia.modules.jahiacsrfguard-formidable-engine.cfg`
+
+**Steps:**
+1. Submit the form to `/modules/formidable-engine/form-submit?fid=<fid>&lang=en`
+2. Do not send any CSRF token parameter or header expected by Jahia CSRFGuard
+
+**Expected:**
+- The request is rejected before the submission pipeline completes
+- HTTP response indicates CSRF rejection for an authenticated user
+- No submission is stored
+
+### 1.5 CSRFGuard — authenticated form accepts valid token
+
+**Precondition:** same as 1.4
+
+**Steps:**
+1. Load a page as the authenticated user so Jahia CSRFGuard issues a valid token
+2. Submit the form to `/modules/formidable-engine/form-submit?fid=<fid>&lang=en`
+3. Send the valid CSRF token with the request, using the transport expected by Jahia CSRFGuard
+
+**Expected:**
+- The request passes the CSRFGuard check
+- HTTP 200 with `success: true`
+- The submission pipeline runs normally
+- Submission is stored
+
 ---
 
 ## 2. CAPTCHA gate — fail-closed
