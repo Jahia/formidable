@@ -81,21 +81,65 @@ public class FormDataParser {
     ) {}
 
     /**
+     * Shared per-field metadata used by the parser and collected upstream from JCR.
+     *
+     * @param nodeType        JCR primary node type (e.g. "fmdb:inputEmail")
+     * @param allowedChoices  allowed submitted values for choice/radio/select fields
+     * @param acceptTypes     pre-resolved MIME type allowlist for file fields
+     * @param constraints     server-side constraints collected from JCR
+     */
+    public record FieldInfo(
+            String nodeType,
+            Set<String> allowedChoices,
+            Set<String> acceptTypes,
+            FieldConstraints constraints
+    ) {
+        public FieldInfo {
+            allowedChoices = allowedChoices == null ? Set.of() : Set.copyOf(allowedChoices);
+            acceptTypes = acceptTypes == null ? Set.of() : Set.copyOf(acceptTypes);
+        }
+    }
+
+    /**
      * All per-field JCR-derived metadata needed for parsing and validation.
      *
-     * @param allowedNames      field names declared on the form; empty set disables whitelisting
-     * @param fieldTypes        fieldName → JCR primary node type (e.g. "fmdb:inputEmail")
-     * @param allowedChoices    fieldName → set of allowed submitted values (choice/radio/select fields)
-     * @param fieldAcceptTypes  fieldName → pre-resolved MIME type allowlist (file fields only)
-     * @param fieldConstraints  fieldName → server-side constraints collected from JCR
+     * @param fieldInfos fieldName → all parser-relevant field metadata
      */
     public record FieldMetadata(
-            Set<String> allowedNames,
-            Map<String, String> fieldTypes,
-            Map<String, Set<String>> allowedChoices,
-            Map<String, Set<String>> fieldAcceptTypes,
-            Map<String, FieldConstraints> fieldConstraints
-    ) {}
+            Map<String, FieldInfo> fieldInfos
+    ) {
+        public FieldMetadata {
+            fieldInfos = fieldInfos == null ? Map.of() : Map.copyOf(fieldInfos);
+        }
+
+        public Set<String> allowedNames() {
+            return fieldInfos.keySet();
+        }
+
+        public FieldInfo field(String fieldName) {
+            return fieldInfos.get(fieldName);
+        }
+
+        public String fieldType(String fieldName) {
+            FieldInfo fieldInfo = field(fieldName);
+            return fieldInfo != null ? fieldInfo.nodeType() : null;
+        }
+
+        public Set<String> allowedChoices(String fieldName) {
+            FieldInfo fieldInfo = field(fieldName);
+            return fieldInfo != null ? fieldInfo.allowedChoices() : Set.of();
+        }
+
+        public Set<String> acceptTypes(String fieldName) {
+            FieldInfo fieldInfo = field(fieldName);
+            return fieldInfo != null ? fieldInfo.acceptTypes() : Set.of();
+        }
+
+        public FieldConstraints constraints(String fieldName) {
+            FieldInfo fieldInfo = field(fieldName);
+            return fieldInfo != null ? fieldInfo.constraints() : null;
+        }
+    }
 
     /**
      * Parsed representation of a single uploaded file.
@@ -185,7 +229,7 @@ public class FormDataParser {
                     parameters.computeIfAbsent(item.getFieldName(), k -> new ArrayList<>()).add(value);
                     continue;
                 }
-                FormFile file = parseFilePart(item, fieldMetadata.fieldAcceptTypes().get(item.getFieldName()), config);
+                FormFile file = parseFilePart(item, fieldMetadata.acceptTypes(item.getFieldName()), config);
                 if (file != null) {
                     files.add(file);
                 }
@@ -209,15 +253,15 @@ public class FormDataParser {
         if (value == null || value.isEmpty()) return;
 
         // Choice validation: submitted value must be in the declared set
-        Set<String> choices = meta.allowedChoices().get(fieldName);
-        if (choices != null && !choices.isEmpty() && !choices.contains(value)) {
+        Set<String> choices = meta.allowedChoices(fieldName);
+        if (!choices.isEmpty() && !choices.contains(value)) {
             log.warn("[FormDataParser] Rejected field '{}': value not in allowed choices", fieldName);
             throw new ParseException(
                     "Field '" + fieldName + "': submitted value is not an allowed choice.", 400, true);
         }
 
         // Format validation by JCR node type
-        String type = meta.fieldTypes().get(fieldName);
+        String type = meta.fieldType(fieldName);
         if (type != null) {
             switch (type) {
                 case "fmdb:inputEmail"         -> validateEmail(fieldName, value);
@@ -228,7 +272,7 @@ public class FormDataParser {
         }
 
         // Constraint validation (minLength, maxLength, pattern, min/max date)
-        FieldConstraints c = meta.fieldConstraints().get(fieldName);
+        FieldConstraints c = meta.constraints(fieldName);
         if (c != null) {
             validateConstraints(fieldName, value, c, type);
         }

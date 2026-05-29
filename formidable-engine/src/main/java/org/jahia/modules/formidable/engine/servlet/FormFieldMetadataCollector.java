@@ -32,33 +32,23 @@ class FormFieldMetadataCollector {
     );
 
     record Result(
-            Set<String> allowedFieldNames,
-            Map<String, String> fieldTypes,
-            Map<String, Set<String>> allowedChoices,
-            Map<String, Set<String>> fieldAcceptTypes,
-            Map<String, FormDataParser.FieldConstraints> fieldConstraints,
+            Map<String, FormDataParser.FieldInfo> fieldInfos,
             Map<String, List<ConditionalLogicRule>> fieldLogicRules,
             Map<String, String> logicIdToFieldName,
             Map<String, String> fieldParentContainer
     ) {
         FormDataParser.FieldMetadata toParserMetadata() {
-            return new FormDataParser.FieldMetadata(
-                    allowedFieldNames, fieldTypes, allowedChoices, fieldAcceptTypes, fieldConstraints);
+            return new FormDataParser.FieldMetadata(fieldInfos);
         }
     }
 
     static Result collect(String formId, Locale locale) throws RepositoryException {
-        var allowedFieldNames    = new HashSet<String>();
-        var fieldTypes           = new HashMap<String, String>();
-        var allowedChoices       = new HashMap<String, Set<String>>();
-        var fieldAcceptTypes     = new HashMap<String, Set<String>>();
-        var fieldConstraints     = new HashMap<String, FormDataParser.FieldConstraints>();
+        var fieldInfos           = new HashMap<String, FormDataParser.FieldInfo>();
         var fieldLogicRules      = new HashMap<String, List<ConditionalLogicRule>>();
         var logicIdToFieldName   = new HashMap<String, String>();
         var fieldParentContainer = new HashMap<String, String>();
 
-        var ctx = new CollectorContext(allowedFieldNames, fieldTypes, allowedChoices,
-                fieldAcceptTypes, fieldConstraints, fieldLogicRules, logicIdToFieldName, fieldParentContainer);
+        var ctx = new CollectorContext(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainer);
 
         JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, "live", locale, systemSession -> {
             JCRNodeWrapper formNode = systemSession.getNodeByIdentifier(formId);
@@ -79,19 +69,14 @@ class FormFieldMetadataCollector {
             return null;
         });
 
-        log.debug("[FormFieldMetadataCollector] Allowed fields: {}", allowedFieldNames);
-        return new Result(allowedFieldNames, fieldTypes, allowedChoices,
-                fieldAcceptTypes, fieldConstraints, fieldLogicRules, logicIdToFieldName, fieldParentContainer);
+        log.debug("[FormFieldMetadataCollector] Allowed fields: {}", fieldInfos.keySet());
+        return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainer);
     }
 
     // --- Internal ---
 
     private record CollectorContext(
-            Set<String> allowedFieldNames,
-            Map<String, String> fieldTypes,
-            Map<String, Set<String>> allowedChoices,
-            Map<String, Set<String>> fieldAcceptTypes,
-            Map<String, FormDataParser.FieldConstraints> fieldConstraints,
+            Map<String, FormDataParser.FieldInfo> fieldInfos,
             Map<String, List<ConditionalLogicRule>> fieldLogicRules,
             Map<String, String> logicIdToFieldName,
             Map<String, String> fieldParentContainer
@@ -133,10 +118,9 @@ class FormFieldMetadataCollector {
     private static void registerField(JCRNodeWrapper node, String nodeType, String parentContainerName, CollectorContext ctx)
             throws RepositoryException {
         String name = node.getName();
-        if (!ctx.allowedFieldNames.add(name)) {
+        if (ctx.fieldInfos.containsKey(name)) {
             log.warn("[FormFieldMetadataCollector] Duplicate field name '{}'; later metadata overwrites.", name);
         }
-        ctx.fieldTypes.put(name, nodeType);
 
         if (parentContainerName != null) {
             ctx.fieldParentContainer.put(name, parentContainerName);
@@ -150,23 +134,17 @@ class FormFieldMetadataCollector {
             }
         }
 
+        Set<String> choices = Set.of();
+        Set<String> acceptedTypes = Set.of();
+
         switch (nodeType) {
-            case "fmdb:checkbox", "fmdb:radio" -> collectChoices(node, name, "choices", ctx);
-            case "fmdb:select"                 -> collectChoices(node, name, "options", ctx);
-            case "fmdb:inputFile"              -> {
-                if (node.hasProperty("accept")) {
-                    Set<String> accepted = java.util.Arrays.stream(node.getProperty("accept").getValues())
-                            .map(v -> { try { return v.getString().trim(); } catch (Exception e2) { return ""; } })
-                            .filter(s -> !s.isBlank())
-                            .map(FormDataParser::resolveAcceptToken)
-                            .collect(java.util.stream.Collectors.toSet());
-                    if (!accepted.isEmpty()) ctx.fieldAcceptTypes.put(name, accepted);
-                }
-            }
+            case "fmdb:checkbox", "fmdb:radio" -> choices = collectChoices(node, name, "choices");
+            case "fmdb:select"                 -> choices = collectChoices(node, name, "options");
+            case "fmdb:inputFile"              -> acceptedTypes = collectAcceptTypes(node);
         }
 
-        FormDataParser.FieldConstraints c = readConstraints(node, nodeType);
-        if (c != null) ctx.fieldConstraints.put(name, c);
+        FormDataParser.FieldConstraints constraints = readConstraints(node, nodeType);
+        ctx.fieldInfos.put(name, new FormDataParser.FieldInfo(nodeType, choices, acceptedTypes, constraints));
     }
 
     private static void resolveLogicsSrc(JCRNodeWrapper node, List<ConditionalLogicRule> rules, CollectorContext ctx)
@@ -197,9 +175,9 @@ class FormFieldMetadataCollector {
         }
     }
 
-    private static void collectChoices(JCRNodeWrapper node, String fieldName, String propName, CollectorContext ctx)
+    private static Set<String> collectChoices(JCRNodeWrapper node, String fieldName, String propName)
             throws RepositoryException {
-        if (!node.hasProperty(propName)) return;
+        if (!node.hasProperty(propName)) return Set.of();
         Value[] values = node.getProperty(propName).getValues();
         Set<String> choices = new HashSet<>();
         for (Value v : values) {
@@ -211,7 +189,27 @@ class FormFieldMetadataCollector {
                 log.debug("[FormFieldMetadataCollector] Could not parse choice JSON for field '{}'", fieldName);
             }
         }
-        if (!choices.isEmpty()) ctx.allowedChoices.put(fieldName, choices);
+        return choices.isEmpty() ? Set.of() : choices;
+    }
+
+    private static Set<String> collectAcceptTypes(JCRNodeWrapper node) throws RepositoryException {
+        if (!node.hasProperty("accept")) {
+            return Set.of();
+        }
+
+        Set<String> accepted = java.util.Arrays.stream(node.getProperty("accept").getValues())
+                .map(v -> {
+                    try {
+                        return v.getString().trim();
+                    } catch (Exception e2) {
+                        return "";
+                    }
+                })
+                .filter(s -> !s.isBlank())
+                .map(FormDataParser::resolveAcceptToken)
+                .collect(java.util.stream.Collectors.toSet());
+
+        return accepted.isEmpty() ? Set.of() : accepted;
     }
 
     private static FormDataParser.FieldConstraints readConstraints(JCRNodeWrapper node, String nodeType)

@@ -215,16 +215,19 @@ class FormSubmissionPipeline {
                 parsed.parameters()
         );
 
-        for (Map.Entry<String, FormDataParser.FieldConstraints> entry : fieldMetadata.fieldConstraints().entrySet()) {
-            if (!entry.getValue().required()) continue;
+        for (Map.Entry<String, FormDataParser.FieldInfo> entry : fieldMetadata.fieldInfos().entrySet()) {
             String fieldName = entry.getKey();
+            FormDataParser.FieldInfo fieldInfo = entry.getValue();
+            FormDataParser.FieldConstraints constraints = fieldInfo.constraints();
+
+            if (constraints == null || !constraints.required()) continue;
 
             if (logicEvaluator.isHidden(fieldName)) {
                 log.debug("[FormSubmissionPipeline] Skipping required validation for hidden field '{}'", fieldName);
                 continue;
             }
 
-            String type = fieldMetadata.fieldTypes().getOrDefault(fieldName, "");
+            String type = fieldInfo.nodeType();
 
             if ("fmdb:inputFile".equals(type)) {
                 boolean hasFile = parsed.files().stream()
