@@ -2,6 +2,7 @@ package org.jahia.modules.formidable.engine.servlet;
 
 import org.jahia.modules.formidable.engine.actions.FormAction;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.services.securityfilter.PermissionService;
 import org.json.JSONObject;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -17,7 +18,9 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
@@ -41,15 +44,22 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class FormSubmitServlet extends HttpServlet {
 
     private static final long serialVersionUID = 1L;
+    static final String SUBMIT_API = "formidable-submit";
 
     private static final Logger log = LoggerFactory.getLogger(FormSubmitServlet.class);
 
     private FormidableConfigService config;
+    private PermissionService permissionService;
     private final List<FormAction> formActions = new CopyOnWriteArrayList<>();
 
     @Reference
     public void setConfig(FormidableConfigService service) {
         this.config = service;
+    }
+
+    @Reference
+    public void setPermissionService(PermissionService permissionService) {
+        this.permissionService = permissionService;
     }
 
     @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC, unbind = "unbindFormAction")
@@ -68,8 +78,15 @@ public class FormSubmitServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        if (!isRequestAllowed()) {
+            log.warn("[FormSubmitServlet] Rejected [{}]: request did not match Security Filter scope '{}'",
+                    ErrorCode.FMDB_011.code(), SUBMIT_API);
+            sendJson(resp, HttpServletResponse.SC_FORBIDDEN, ErrorCode.FMDB_011.code(), null);
+            return;
+        }
+
         try {
-            new FormSubmissionPipeline(config, formActions).run(req);
+            createPipeline().run(req);
             sendJson(resp, HttpServletResponse.SC_OK, null, null);
         } catch (SubmissionException e) {
             log.warn("[FormSubmitServlet] Rejected [{}]: {}", e.errorCode.code(), e.getMessage());
@@ -78,6 +95,16 @@ public class FormSubmitServlet extends HttpServlet {
             log.error("[FormSubmitServlet] Unexpected error", e);
             sendJson(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, ErrorCode.FMDB_500.code(), null);
         }
+    }
+
+    FormSubmissionPipeline createPipeline() {
+        return new FormSubmissionPipeline(config, formActions);
+    }
+
+    boolean isRequestAllowed() {
+        Map<String, Object> query = new HashMap<>();
+        query.put("api", SUBMIT_API);
+        return permissionService.hasPermission(query);
     }
 
     private static void sendJson(HttpServletResponse resp, int status, String errorCode, SubmissionException ex) throws IOException {

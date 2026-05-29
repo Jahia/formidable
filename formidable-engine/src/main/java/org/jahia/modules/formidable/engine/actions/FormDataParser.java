@@ -4,8 +4,10 @@ import org.apache.commons.fileupload.FileItemIterator;
 import org.apache.commons.fileupload.FileItemStream;
 import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.apache.commons.fileupload.util.Streams;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.tika.Tika;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.services.content.JCRContentUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,11 +34,13 @@ import java.util.regex.PatternSyntaxException;
  *   1. Content-Type validation (must be multipart/form-data)
  *   2. Request and per-file size limits; file count limit (from config)
  *   3. Field whitelist — undeclared fields skipped before any read
- *   4. Text field strip — HTML tags removed from free-text fields
- *   5. Text field validation — choice match, format (email/date/color), constraints (required/min/max/length/pattern)
- *   6. Filename sanitization (path traversal, control characters and XSS chars stripped)
- *   7. MIME type detection via Apache Tika (magic bytes)
- *   8. MIME type allowlist check — per-field 'accept' takes priority over global cfg fallback
+ *   4. Text field validation — choice match, format (email/date/color), constraints (required/min/max/length/pattern)
+ *   5. Filename sanitization (path components removed; JCR-reserved characters normalized)
+ *   6. MIME type detection via Apache Tika (content-only; filename excluded from enforcement)
+ *   7. MIME type allowlist check — per-field 'accept' takes priority over global cfg fallback
+ *
+ * Plain-text fields are validated on input and preserved as submitted. XSS protection is
+ * enforced by escaping at each output sink (see {@link FieldEscaper}), never by mutating input.
  */
 public class FormDataParser {
 
@@ -48,13 +52,6 @@ public class FormDataParser {
             "^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$");
 
     private static final Pattern COLOR_PATTERN = Pattern.compile("^#[0-9a-fA-F]{6}$");
-
-    // Matches valid HTML tags (opening or closing). Used to strip user-submitted HTML
-    // from free-text fields before storing the value.
-    private static final Pattern HTML_TAG_PATTERN = Pattern.compile("</?[a-zA-Z][^>]*>");
-
-    private static final Set<String> FREE_TEXT_TYPES = Set.of(
-            "fmdb:inputText", "fmdb:textarea", "fmdb:inputHidden");
 
     private static final DateTimeFormatter DATETIME_LOCAL_FMT =
             new DateTimeFormatterBuilder()
@@ -111,7 +108,7 @@ public class FormDataParser {
      *
      * @param fieldName    the form field name
      * @param originalName sanitized original filename
-     * @param mimeType     detected MIME type (via Tika magic bytes)
+     * @param mimeType     detected MIME type (via content-only Tika detection)
      * @param data         file bytes
      */
     public record FormFile(
@@ -189,8 +186,7 @@ public class FormDataParser {
                     continue;
                 }
                 if (item.isFormField()) {
-                    String raw = Streams.asString(item.openStream(), StandardCharsets.UTF_8.name());
-                    String value = stripHtmlIfFreeText(raw, fieldMetadata.fieldTypes().get(item.getFieldName()));
+                    String value = Streams.asString(item.openStream(), StandardCharsets.UTF_8.name());
                     validateTextField(item.getFieldName(), value, fieldMetadata);
                     parameters.computeIfAbsent(item.getFieldName(), k -> new ArrayList<>()).add(value);
                     continue;
@@ -212,25 +208,6 @@ public class FormDataParser {
         }
 
         return new ParseResult(parameters, files);
-    }
-
-
-    /**
-     * Strips HTML tags from free-text field values to prevent XSS content from being stored
-     * or forwarded. Only applied to field types that accept arbitrary user text.
-     * Choice, date, email and other typed fields are left untouched: their validators
-     * already reject unexpected content.
-     */
-    private static String stripHtmlIfFreeText(String value, String fieldType) {
-        if (value == null) return "";
-        if (FREE_TEXT_TYPES.contains(fieldType)) {
-            String stripped = HTML_TAG_PATTERN.matcher(value).replaceAll("");
-            if (!stripped.equals(value)) {
-                log.warn("[FormDataParser] HTML tags stripped from free-text field (type={})", fieldType);
-            }
-            return stripped;
-        }
-        return value;
     }
 
     private static void validateTextField(String fieldName, String value, FieldMetadata meta)
@@ -390,7 +367,9 @@ public class FormDataParser {
             return null;
         }
 
-        String detectedMime = TIKA.detect(data, sanitizedName);
+        // Content-only detection for MIME allowlist enforcement.
+        // Do not pass the filename here: Tika may use it to refine ambiguous types.
+        String detectedMime = TIKA.detect(data);
         // Field-level allowlist (pre-resolved at collection time); falls back to global config
         Set<String> allowed = (fieldAllowedTypes != null && !fieldAllowedTypes.isEmpty())
                 ? fieldAllowedTypes
@@ -409,22 +388,13 @@ public class FormDataParser {
     }
 
     /**
-     * Strips path traversal sequences, CRLF (header injection), XSS characters,
-     * and JCR-invalid node name characters from the filename.
-     * All ASCII control characters (0x00–0x1F, 0x7F) are removed to prevent Content-Disposition injection.
-     * JCR reserved characters (: [ ] * | ?) are replaced with underscores.
-     * Returns "upload" if the result is blank.
+     * Normalizes the uploaded filename according to Jahia's standard JCR node-name escaping rules.
+     * Returns "upload" if the input is null/blank or if the escaped name becomes blank.
      */
     static String sanitizeFilename(String raw) {
         if (raw == null || raw.isBlank()) return "upload";
-        // Strip path separators (path traversal)
-        String name = raw.replaceAll(".*[/\\\\]", "");
-        // Strip all ASCII control chars (includes \r \n \t) and XSS chars
-        name = name.replaceAll("[\\x00-\\x1F\\x7F<>\"']", "");
-        // Replace JCR-invalid node name characters with underscores
-        name = name.replaceAll("[:\\[\\]*|?]", "_");
-        name = name.trim();
-        return name.isEmpty() ? "upload" : name;
+        String safe = JCRContentUtils.escapeLocalNodeName(FilenameUtils.getName(raw));
+        return (safe == null || safe.isBlank()) ? "upload" : safe;
     }
 
 

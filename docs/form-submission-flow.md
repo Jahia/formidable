@@ -24,6 +24,8 @@ Browser
   └─ POST multipart/form-data → /modules/formidable-engine/form-submit?fid=UUID&lang=fr[&ct=TOKEN]
        FormSubmitServlet → FormSubmissionPipeline (outside Jahia render chain):
 
+         Gate 0   checkSecurityFilter     require auto-applied `formidable-submit` scope
+                                          (same-origin via Origin/Referer)
          Step 1   verifyMultipart         Content-Type must be multipart/form-data
          Step 2   readRoutingParams       fid (UUID-validated) + lang read from URL query params  — 0 byte read
          Step 3   guardContentLength      reject if Content-Length > max                          — 0 byte read
@@ -36,8 +38,7 @@ Browser
                                           pattern, min/maxDate)                                   — 0 byte read
          Step 8   parseMultipart          FIRST AND ONLY read of the request stream
                    ├─ undeclared fields skipped inline (not read, not stored)
-                   ├─ text fields  → validated + sanitized → Map<String, List<String>>
-                   │    ├─ free-text (inputText, textarea, inputHidden): HTML tags stripped
+                   ├─ text fields  → validated → Map<String, List<String>>
                    │    ├─ choice fields (select, radio, checkbox): value checked against
                    │    │   allowed choices declared in JCR
                    │    ├─ typed fields (email, date, datetime-local, color): format validated
@@ -52,8 +53,8 @@ Browser
                                           submitted body (e.g. unchecked checkbox/radio)
          Step 10  dispatchActions         execute fmdb:actionList nodes in order
                    ├─ fmdb:emailNotificationAction:
-                   │    - subject + to sanitized with FieldSanitizer.headerSafe()
-                   │    - HTML body uses FieldSanitizer.htmlEncode() for interpolated values
+                   │    - subject + to normalized with FieldEscaper.headerSafe()
+                   │    - HTML body uses FieldEscaper.html() for interpolated values
                    └─ fmdb:forwardAction:
                         - reads targetId from JCR node
                         - resolves URI via configService.resolveForwardTarget(targetId)
@@ -66,6 +67,7 @@ Browser
 ```
 
 > **DoS mitigation (defence in depth):**
+- Gate 0: cross-origin requests are rejected before the multipart pipeline starts
 > - Step 3: oversized requests rejected on `Content-Length` header alone — 0 byte read
 > - Step 6: invalid CAPTCHA token → rejected before any file data is read
 > - Step 7: field whitelist built before parsing — undeclared fields never touch memory or disk
@@ -100,6 +102,52 @@ Both mixins are applied via the Content Editor. Neither requires configuration i
 
 ---
 
+## Trust model
+
+The submission pipeline resolves the target form node with the current user's `live` JCR session, so normal
+read permissions on the form still apply at form-resolution time. Once the form has been resolved and validated,
+the configured actions execute under a system session. This is intentional: Guest and low-privilege users must
+still be able to trigger server-side effects such as sending emails or saving submissions. The trust boundary is
+therefore the form configuration itself: contributors who can configure a form and its action list are treated as
+trusted actors, because the runtime will execute those configured actions with elevated JCR privileges.
+
+---
+
+## CSRF and cross-origin protection
+
+The submit servlet is protected by two different mechanisms depending on whether the user is
+anonymous or authenticated:
+
+1. `formidable-submit` is a Jahia Security Filter scope auto-applied for `origin: hosted`.
+   Requests that do not present a same-origin `Origin` or `Referer` never reach the multipart pipeline.
+   This is the primary CSRF control for all submissions.
+2. For authenticated users, Jahia CSRFGuard also injects and validates a `CSRFTOKEN`.
+   Because the submit endpoint is `/modules/formidable-engine/form-submit` rather than `*.do`,
+   the module ships a module-scoped CSRFGuard config extending `urlPatterns` to protect that
+   servlet path explicitly.
+
+### Protection matrix
+
+| Form configuration | Protection that applies | Residual risk |
+|---|---|---|
+| Guest form without CAPTCHA | `formidable-submit` Security Filter only (`origin: hosted`) | Relies solely on the browser-supplied same-origin `Origin` / `Referer` signal enforced by the Security Filter |
+| Guest form with `fmdbmix:captcha` | `formidable-submit` Security Filter + CAPTCHA token validation | Same residual risk as above if the origin signal is missing or downgraded, but the CAPTCHA token adds a second non-replayable credential tied to the hosting page |
+| Authenticated form without CAPTCHA | `formidable-submit` Security Filter + Jahia CSRFGuard token | Requires both a same-origin request and a valid CSRF token; residual risk is lower and mainly depends on the correctness of those platform controls |
+| Authenticated form with `fmdbmix:captcha` | `formidable-submit` Security Filter + Jahia CSRFGuard token + CAPTCHA token validation | Lowest residual risk in this flow; CAPTCHA is still defence in depth, not the primary CSRF control |
+
+### Why guests do not use CSRFGuard as the primary control
+
+Jahia-wide, guest traffic cannot rely on CSRFGuard tokens as the default CSRF mechanism because
+guest pages are expected to remain CDN-cacheable. Injecting a per-request or per-session CSRF token
+into cached HTML would break that caching model. For that reason, the guest path in Formidable
+depends primarily on the Security Filter's `origin: hosted` check, while authenticated users still
+benefit from CSRFGuard on top of the same-origin gate.
+
+Forms using `fmdbmix:captcha` add another barrier: the CAPTCHA token is a non-replayable credential
+tied to the hosting page. This is defence in depth, not the primary CSRF control.
+
+---
+
 ## Field whitelist (step 7 → step 8)
 
 `collectFormFieldInfo()` walks the `fields` child node (`fmdb:fieldList`) of the `fmdb:form`,
@@ -122,13 +170,12 @@ This prevents:
 
 ---
 
-## Input validation and sanitization (step 8)
+## Input validation (step 8)
 
-`FormDataParser` validates and sanitizes every text field before it enters the pipeline:
+`FormDataParser` validates every text field before it enters the pipeline:
 
 | Field category | Control |
 |---|---|
-| Free-text (`fmdb:inputText`, `fmdb:textarea`, `fmdb:inputHidden`) | HTML tags stripped via regex |
 | Choice fields (`fmdb:select`, `fmdb:inputRadio`, `fmdb:inputCheckbox`) | Value checked against the `allowedChoices` set built from JCR; rejected if not in set |
 | Typed fields (`email`, `date`, `datetime-local`, `color`) | Format validated with a strict regex |
 | All text fields | `FieldConstraints` applied: required, minLength, maxLength, pattern, minDate, maxDate |
@@ -137,15 +184,18 @@ Required fields that are legitimately absent from the multipart body (e.g. unche
 checkbox) are detected at step 9 (`validateRequired`) after parsing, rather than during
 parsing.
 
+Plain-text values are preserved as submitted. XSS protection is applied at each output sink
+by escaping for the target context, not by mutating input during parsing.
+
 ---
 
-## Output sanitization (steps 10 — email action)
+## Output escaping (step 10 — email actions)
 
-`FieldSanitizer` centralises all output encoding:
+`FieldEscaper` centralises output escaping:
 
 | Method | Context |
 |---|---|
-| `htmlEncode(value)` | Encodes `&`, `<`, `>`, `"`, `'` — used in HTML email body |
+| `html(value)` | Escapes a value for safe insertion into HTML element content — used in HTML email body |
 | `headerSafe(value)` | Strips `\r`, `\n`, `\t` and trims — applied to `to` and `subject` headers |
 | `plainText(value)` | Null-safe passthrough — used in plain-text email body |
 
@@ -161,7 +211,7 @@ All file parts pass through `FormDataParser` which enforces the following contro
 | 2 | Per-file size limit | `upload.setFileSizeMax()` |
 | 3 | Total request size limit | `upload.setSizeMax()` |
 | 4 | File part count limit (CVE-2023-24998) | `upload.setFileCountMax(config.getUploadMaxFileCount())` — requires commons-fileupload ≥ 1.5 |
-| 5 | Filename sanitisation | Path traversal (`../`), CRLF control chars, and XSS chars stripped; UUID used for storage name |
+| 5 | Filename sanitisation | Filename normalized with Jahia's standard JCR node-name escaping rules; blank results fall back to `upload` |
 | 6 | MIME type detection | Apache Tika magic-byte detection (ignores client-supplied `Content-Type`) |
 | 7 | MIME type allowlist | Field-level `accept` property (multiple choicelist) takes priority; falls back to global cfg allowlist |
 
@@ -235,7 +285,7 @@ they appear in the list.
 | Node type | Description |
 |---|---|
 | `fmdb:save2jcrAction` | Saves form data as JCR child nodes under `formidable-results` (see `docs/save-to-jcr.md`) |
-| `fmdb:emailNotificationAction` | Sends a notification email via Jahia `MailService`; `${fieldName}` interpolation in subject and body; headers and HTML body sanitized |
+| `fmdb:emailNotificationAction` | Sends a notification email via Jahia `MailService`; `${fieldName}` interpolation in subject and body; headers normalized and HTML body escaped |
 | `fmdb:emailContentAction` | Sends the submitted form content by email; may optionally attach validated uploaded files |
 | `fmdb:forwardAction` | Forwards declared form fields + pre-parsed files to a target endpoint resolved from config by ID |
 
@@ -289,9 +339,6 @@ Form submissions use `XMLHttpRequest` (not `fetch`). Jahia's OWASP CSRFGuard pat
 `XMLHttpRequest.prototype.send` at page load to inject the CSRF token automatically.
 `fetch` is not patched and must not be used for form submission.
 
-> **Note:** Verify that `/modules/formidable-engine/*` is covered by the CSRF filter's
-> protected pages configuration (`CSRFGuard.properties`), not only `*.do` patterns.
-
 ---
 
 ## Key files
@@ -300,13 +347,13 @@ Form submissions use `XMLHttpRequest` (not `fetch`). Jahia's OWASP CSRFGuard pat
 |---|---|
 | `src/components/Form/Form.client.tsx` | `handleSubmit` — removes CAPTCHA body field, appends `ct` URL param, POSTs via XHR |
 | `src/components/Form/default.server.tsx` | Builds `submitActionUrl` with `fid` and `lang` query params |
-| `formidable-engine/.../servlet/FormSubmitServlet.java` | OSGi entry point — thin wrapper, delegates to `FormSubmissionPipeline` |
+| `formidable-engine/.../servlet/FormSubmitServlet.java` | OSGi entry point — checks `formidable-submit` permission, then delegates to `FormSubmissionPipeline` |
 | `formidable-engine/.../servlet/FormSubmissionPipeline.java` | 10-step pipeline — all submission logic |
 | `formidable-engine/.../servlet/ErrorCode.java` | Error code enum — see `docs/error-codes.md` |
-| `formidable-engine/.../actions/FormDataParser.java` | Secure multipart parser: whitelist, input validation/sanitization, Tika, allowlist, size + count limits |
-| `formidable-engine/.../actions/FieldSanitizer.java` | Output encoding utility: `htmlEncode`, `headerSafe`, `plainText` |
+| `formidable-engine/.../actions/FormDataParser.java` | Secure multipart parser: whitelist, input validation, Tika, allowlist, size + count limits |
+| `formidable-engine/.../actions/FieldEscaper.java` | Output escaping utility: `html`, `headerSafe`, `plainText` |
 | `formidable-engine/.../actions/forward/ForwardSubmissionFormAction.java` | Resolves `targetId` via `FormidableConfigService`; forwards declared fields only |
-| `formidable-engine/.../actions/email/SendEmailNotificationFormAction.java` | Sends notification email; headers sanitized with `headerSafe()`; HTML body encodes values with `htmlEncode()` |
+| `formidable-engine/.../actions/email/SendEmailNotificationFormAction.java` | Sends notification email; headers normalized with `headerSafe()`; HTML body escapes values with `html()` |
 | `formidable-engine/.../actions/email/SendEmailContentFormAction.java` | Placeholder for sending submitted form content by email, optionally with attachments |
 | `formidable-engine/.../actions/FormAction.java` | Interface implemented by each action type |
 | `formidable-engine/.../config/FormidableConfigService.java` | Reads unified cfg; resolves forward targets by ID; verifies CAPTCHA

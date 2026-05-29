@@ -19,6 +19,7 @@ enum ErrorCode {
     FMDB_008(422),  // An action in the pipeline failed
     FMDB_009(401),  // Authentication required — form has fmdbmix:requireAuthentication and user is Guest
     FMDB_010(400),  // Field value failed validation (bad format, or not in allowed choices)
+    FMDB_011(403),  // Submission denied by the Security Filter permission check
     FMDB_500(500);  // Unexpected internal error
 
     /** HTTP status code associated with this error. */
@@ -33,4 +34,3 @@ enum ErrorCode {
         return name().replace('_', '-');
     }
 }
-

@@ -1,0 +1,9 @@
+formidable-submit:
+  description: Can submit Formidable forms
+  metadata:
+    visible: false
+  auto_apply:
+    - origin: hosted
+  grants:
+    - api: formidable-submit
+      node: none

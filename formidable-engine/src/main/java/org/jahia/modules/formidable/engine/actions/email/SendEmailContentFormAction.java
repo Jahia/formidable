@@ -1,7 +1,7 @@
 package org.jahia.modules.formidable.engine.actions.email;
 
 import org.jahia.modules.formidable.engine.actions.ContentDispositionUtils;
-import org.jahia.modules.formidable.engine.actions.FieldSanitizer;
+import org.jahia.modules.formidable.engine.actions.FieldEscaper;
 import org.jahia.modules.formidable.engine.actions.FormAction;
 import org.jahia.modules.formidable.engine.actions.FormActionException;
 import org.jahia.modules.formidable.engine.actions.FormDataParser;
@@ -79,13 +79,13 @@ public class SendEmailContentFormAction implements FormAction {
             throw FormActionException.serverError("MailService is unavailable. Check Jahia SMTP configuration.");
         }
 
-        String to = FieldSanitizer.headerSafe(readProperty(actionNode, "to"));
+        String to = FieldEscaper.headerSafe(readProperty(actionNode, "to"));
         if (to.isBlank()) {
             throw FormActionException.serverError("fmdb:emailContentAction is missing a 'to' address.");
         }
 
-        String from = FieldSanitizer.headerSafe(readProperty(actionNode, "from"));
-        String subject = FieldSanitizer.headerSafe(resolveFormSubject(actionNode));
+        String from = FieldEscaper.headerSafe(readProperty(actionNode, "from"));
+        String subject = FieldEscaper.headerSafe(resolveFormSubject(actionNode));
 
         MailMessage message = new MailMessage();
         message.setTo(to);
@@ -158,14 +158,14 @@ public class SendEmailContentFormAction implements FormAction {
     private static String buildHtmlBody(String subject, Map<String, List<String>> parameters) {
         StringBuilder body = new StringBuilder();
         body.append("<html><body>");
-        body.append("<h2>").append(FieldSanitizer.htmlEncode(subject)).append("</h2>");
+        body.append("<h2>").append(FieldEscaper.html(subject)).append("</h2>");
         body.append("<table border=\"1\" cellspacing=\"0\" cellpadding=\"6\">");
 
         for (Map.Entry<String, List<String>> entry : parameters.entrySet()) {
             body.append("<tr><th align=\"left\">")
-                    .append(FieldSanitizer.htmlEncode(entry.getKey()))
+                    .append(FieldEscaper.html(entry.getKey()))
                     .append("</th><td>")
-                    .append(htmlEncodeJoinedValues(entry.getValue()))
+                    .append(htmlEscapeJoinedValues(entry.getValue()))
                     .append("</td></tr>");
         }
 
@@ -209,16 +209,16 @@ public class SendEmailContentFormAction implements FormAction {
             return "";
         }
         return values.stream()
-                .map(FieldSanitizer::plainText)
+                .map(FieldEscaper::plainText)
                 .collect(Collectors.joining(", "));
     }
 
-    private static String htmlEncodeJoinedValues(List<String> values) {
+    private static String htmlEscapeJoinedValues(List<String> values) {
         if (values == null || values.isEmpty()) {
             return "";
         }
         return values.stream()
-                .map(FieldSanitizer::htmlEncode)
+                .map(FieldEscaper::html)
                 .collect(Collectors.joining("<br/>"));
     }
 
