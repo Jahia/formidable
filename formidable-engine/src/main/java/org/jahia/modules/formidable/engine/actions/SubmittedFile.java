@@ -14,6 +14,15 @@ public record SubmittedFile(
         String mimeType,
         byte[] data
 ) {
+    public SubmittedFile {
+        data = data == null ? new byte[0] : data.clone();
+    }
+
+    @Override
+    public byte[] data() {
+        return data.clone();
+    }
+
     public static SubmittedFile fromParsedFile(FormDataParser.FormFile file) {
         return new SubmittedFile(file.fieldName(), file.originalName(), file.mimeType(), file.data());
     }
