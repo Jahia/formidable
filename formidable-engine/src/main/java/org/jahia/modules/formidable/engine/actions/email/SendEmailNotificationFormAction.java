@@ -3,11 +3,11 @@ package org.jahia.modules.formidable.engine.actions.email;
 import org.jahia.modules.formidable.engine.actions.FieldEscaper;
 import org.jahia.modules.formidable.engine.actions.FormAction;
 import org.jahia.modules.formidable.engine.actions.FormActionException;
+import org.jahia.modules.formidable.engine.actions.SubmittedFile;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.mail.MailMessage;
 import org.jahia.services.mail.MailService;
-import org.jahia.services.render.RenderContext;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
@@ -59,9 +59,9 @@ public class SendEmailNotificationFormAction implements FormAction {
     public void execute(
             JCRNodeWrapper actionNode,
             HttpServletRequest req,
-            RenderContext renderContext,
             JCRSessionWrapper session,
-            Map<String, List<String>> parameters
+            Map<String, List<String>> parameters,
+            List<SubmittedFile> files
     ) throws FormActionException {
 
         if (mailService == null) {

@@ -32,7 +32,7 @@ class EmailActionRecipientTest {
 
         SendEmailNotificationFormAction action = new SendEmailNotificationFormAction();
         action.bindMailService(mailService);
-        action.execute(actionNode, null, null, null, java.util.Map.of("email", java.util.List.of("guest@example.net")));
+        action.execute(actionNode, null, null, java.util.Map.of("email", java.util.List.of("guest@example.net")), java.util.List.of());
 
         verify(mailService).sendMessage(messageCaptor.capture());
         assertEquals("team+${email}@example.com", messageCaptor.getValue().getTo());
@@ -50,7 +50,7 @@ class EmailActionRecipientTest {
 
         SendEmailNotificationFormAction action = new SendEmailNotificationFormAction();
         action.bindMailService(mailService);
-        action.execute(actionNode, null, null, null, java.util.Map.of());
+        action.execute(actionNode, null, null, java.util.Map.of(), java.util.List.of());
 
         verify(mailService).sendMessage(messageCaptor.capture());
         assertEquals("sender@example.com  Bcc:evil@example.com", messageCaptor.getValue().getFrom());
@@ -68,7 +68,7 @@ class EmailActionRecipientTest {
 
         SendEmailNotificationFormAction action = new SendEmailNotificationFormAction();
         action.bindMailService(mailService);
-        action.execute(actionNode, null, null, null, java.util.Map.of());
+        action.execute(actionNode, null, null, java.util.Map.of(), java.util.List.of());
 
         verify(mailService).sendMessage(messageCaptor.capture());
         assertNull(messageCaptor.getValue().getFrom());
@@ -86,7 +86,7 @@ class EmailActionRecipientTest {
 
         SendEmailContentFormAction action = new SendEmailContentFormAction();
         action.bindMailService(mailService);
-        action.execute(actionNode, null, null, null, java.util.Map.of("email", java.util.List.of("guest@example.net")));
+        action.execute(actionNode, null, null, java.util.Map.of("email", java.util.List.of("guest@example.net")), java.util.List.of());
 
         verify(mailService).sendMessage(messageCaptor.capture());
         assertEquals("team+${email}@example.com", messageCaptor.getValue().getTo());

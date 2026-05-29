@@ -2,14 +2,13 @@ package org.jahia.modules.formidable.engine.actions.storage;
 
 import org.jahia.modules.formidable.engine.actions.FormAction;
 import org.jahia.modules.formidable.engine.actions.FormActionException;
-import org.jahia.modules.formidable.engine.actions.FormDataParser;
+import org.jahia.modules.formidable.engine.actions.SubmittedFile;
 import org.jahia.modules.formidable.engine.permissions.FormResultsAclSyncService;
 import org.jahia.services.content.JCRAutoSplitUtils;
 import org.jahia.services.content.JCRContentUtils;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRTemplate;
-import org.jahia.services.render.RenderContext;
 import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,19 +50,11 @@ public class SaveToJcrFormAction implements FormAction {
     public void execute(
             JCRNodeWrapper actionNode,
             HttpServletRequest req,
-            RenderContext renderContext,
             JCRSessionWrapper session,
-            Map<String, List<String>> parameters
+            Map<String, List<String>> parameters,
+            List<SubmittedFile> files
     ) throws FormActionException {
         JCRNodeWrapper formNode = resolveFormNode(actionNode);
-
-        @SuppressWarnings("unchecked")
-        List<FormDataParser.FormFile> files =
-                (List<FormDataParser.FormFile>) req.getAttribute(FormDataParser.PARSED_FILES_ATTR);
-        if (files == null) {
-            throw FormActionException.serverError(
-                    "Validated uploaded files are unavailable for fmdb:save2jcrAction.");
-        }
         String formNodeId;
         try {
             formNodeId = formNode.getIdentifier();
@@ -220,7 +211,7 @@ public class SaveToJcrFormAction implements FormAction {
     private static void populateSubmissionData(
             JCRNodeWrapper submission,
             Map<String, List<String>> parameters,
-            List<FormDataParser.FormFile> files,
+            List<SubmittedFile> files,
             JCRSessionWrapper session
     ) throws RepositoryException {
         session.checkout(submission);
@@ -248,7 +239,7 @@ public class SaveToJcrFormAction implements FormAction {
             JCRNodeWrapper filesNode = submission.hasNode("files")
                     ? submission.getNode("files")
                     : submission.addNode("files", "jnt:folder");
-            for (FormDataParser.FormFile file : files) {
+            for (SubmittedFile file : files) {
                 JCRNodeWrapper fieldFolder = filesNode.hasNode(file.fieldName())
                         ? filesNode.getNode(file.fieldName())
                         : filesNode.addNode(file.fieldName(), "jnt:folder");
@@ -259,7 +250,7 @@ public class SaveToJcrFormAction implements FormAction {
 
     private static void addFileNode(
             JCRNodeWrapper fieldFolder,
-            FormDataParser.FormFile file,
+            SubmittedFile file,
             JCRSessionWrapper session
     ) throws RepositoryException {
         session.checkout(fieldFolder);

@@ -61,12 +61,6 @@ public class FormDataParser {
                     .toFormatter();
 
     /**
-     * Request attribute key under which the servlet stores pre-parsed files.
-     * ForwardSubmissionFormAction reads this attribute to avoid re-parsing a consumed stream.
-     */
-    public static final String PARSED_FILES_ATTR = "formidable.parsedFiles";
-
-    /**
      * Server-side constraints for a single form field, collected from JCR before parsing.
      * Values of -1 (numeric) or null (string) mean "not set — skip this check".
      *

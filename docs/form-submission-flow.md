@@ -240,14 +240,14 @@ As a consequence:
 - there is **no spool-to-`/tmp` step** performed by `FormDataParser`
 - there is **nothing to delete on disk** from `FormDataParser` itself
 
-After parsing, the validated uploads remain in memory as `List<FormFile>` and are exposed
-through the request attribute `formidable.parsedFiles` (`FormDataParser.PARSED_FILES_ATTR`).
+After parsing, the validated uploads remain in memory as `List<FormFile>` and are converted
+to the SPI-level `List<SubmittedFile>` passed to each `FormAction`.
 
 Actions that need uploaded files reuse that in-memory list:
 
-- `SendEmailContentFormAction` reads `parsedFiles` and, when enabled, attaches the in-memory
-  `byte[]` payloads to the outgoing email
-- `ForwardSubmissionFormAction` reads the same `parsedFiles` list and rebuilds a new
+- `SendEmailContentFormAction` reads the submitted files list and, when enabled, attaches the
+  in-memory `byte[]` payloads to the outgoing email
+- `ForwardSubmissionFormAction` reads the same submitted files list and rebuilds a new
   `multipart/form-data` request body in memory before POSTing it to the configured target
 
 Those actions do not manipulate temporary files on disk either.
