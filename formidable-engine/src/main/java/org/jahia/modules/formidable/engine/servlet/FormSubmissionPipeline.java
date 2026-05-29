@@ -293,7 +293,7 @@ class FormSubmissionPipeline {
         for (FormDataParser.FormFile file : parsedFiles) {
             submittedFiles.add(SubmittedFile.fromParsedFile(file));
         }
-        return submittedFiles;
+        return List.copyOf(submittedFiles);
     }
 
     private List<ResolvedAction> resolveActionNodes() throws SubmissionException {
