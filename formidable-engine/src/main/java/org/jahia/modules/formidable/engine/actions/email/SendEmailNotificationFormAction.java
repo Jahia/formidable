@@ -43,8 +43,10 @@ public class SendEmailNotificationFormAction implements FormAction {
         this.mailService = service;
     }
 
-    protected void unbindMailService() {
-        this.mailService = null;
+    protected void unbindMailService(MailService service) {
+        if (this.mailService == service) {
+            this.mailService = null;
+        }
     }
 
     @Override
