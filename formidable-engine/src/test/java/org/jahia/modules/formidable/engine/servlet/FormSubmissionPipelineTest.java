@@ -120,7 +120,7 @@ class FormSubmissionPipelineTest {
         FormidableConfigService config = mock(FormidableConfigService.class);
         FormSubmissionPipeline pipeline = newPipelineWithCaptchaFormNode(config, true);
         HttpServletRequest req = mock(HttpServletRequest.class);
-        when(config.isCaptchaConfigured()).thenReturn(false);
+        when(config.isCaptchaVerificationConfigured()).thenReturn(false);
         when(((JCRNodeWrapper) getField(pipeline, "formNode")).getPath()).thenReturn("/sites/test/form");
 
         SubmissionException error = assertThrows(SubmissionException.class,
@@ -136,7 +136,7 @@ class FormSubmissionPipelineTest {
         FormidableConfigService config = mock(FormidableConfigService.class);
         FormSubmissionPipeline pipeline = newPipelineWithCaptchaFormNode(config, true);
         HttpServletRequest req = mock(HttpServletRequest.class);
-        when(config.isCaptchaConfigured()).thenReturn(true);
+        when(config.isCaptchaVerificationConfigured()).thenReturn(true);
         when(req.getParameter("ct")).thenReturn("bad-token");
         when(req.getRemoteAddr()).thenReturn("203.0.113.10");
         when(config.verifyCaptcha("bad-token", "203.0.113.10")).thenReturn(false);
@@ -154,7 +154,7 @@ class FormSubmissionPipelineTest {
         FormidableConfigService config = mock(FormidableConfigService.class);
         FormSubmissionPipeline pipeline = newPipelineWithCaptchaFormNode(config, true);
         HttpServletRequest req = mock(HttpServletRequest.class);
-        when(config.isCaptchaConfigured()).thenReturn(true);
+        when(config.isCaptchaVerificationConfigured()).thenReturn(true);
         when(req.getParameter("ct")).thenReturn("valid-token");
         when(req.getRemoteAddr()).thenReturn("203.0.113.10");
         when(config.verifyCaptcha("valid-token", "203.0.113.10")).thenReturn(true);

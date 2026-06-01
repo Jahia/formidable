@@ -53,9 +53,9 @@ public class CaptchaRenderFilter extends AbstractFilter {
     public String prepare(RenderContext renderContext, Resource resource, RenderChain chain) throws Exception {
         try {
 
-            if (!config.isCaptchaConfigured()) {
+            if (!config.isCaptchaWidgetConfigured()) {
                 log.warn("[Formidable] {} is applied on form '{}' but CAPTCHA is not configured " +
-                        "(captchaSiteKey or captchaSecretKey missing in org.jahia.modules.formidable.cfg). The widget will not be rendered.",
+                        "(captchaSiteKey, captchaScriptUrl, captchaWidgetVar or captchaTokenField missing in org.jahia.modules.formidable.cfg). The widget will not be rendered.",
                         CAPTCHA_PROTECTED_FORM_MIXIN, resource.getNodePath());
                 return null;
             }

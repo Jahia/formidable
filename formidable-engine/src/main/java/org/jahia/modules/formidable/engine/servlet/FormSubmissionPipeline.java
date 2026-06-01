@@ -176,8 +176,8 @@ class FormSubmissionPipeline {
         }
         if (!hasCaptcha) return;
 
-        if (!config.isCaptchaConfigured()) {
-            log.warn("[FormSubmissionPipeline] CAPTCHA mixin present on '{}' but not configured server-side — blocking.",
+        if (!config.isCaptchaVerificationConfigured()) {
+            log.warn("[FormSubmissionPipeline] CAPTCHA mixin present on '{}' but server-side verification is not fully configured — blocking.",
                     formNode.getPath());
             throw new SubmissionException(ErrorCode.FMDB_005,
                     "CAPTCHA required but not configured (form: " + formId + ")");

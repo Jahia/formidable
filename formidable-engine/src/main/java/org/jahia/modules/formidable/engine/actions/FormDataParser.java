@@ -83,10 +83,17 @@ public class FormDataParser {
     /**
      * Shared per-field metadata used by the parser and collected upstream from JCR.
      *
-     * @param nodeType        JCR primary node type (e.g. "fmdb:inputEmail")
-     * @param allowedChoices  allowed submitted values for choice/radio/select fields
-     * @param acceptTypes     pre-resolved MIME type allowlist for file fields
-     * @param constraints     server-side constraints collected from JCR
+     * @param nodeType            JCR primary node type (e.g. "fmdb:inputEmail")
+     * @param nonSubmittable      true when the node must never be accepted from submitted form data
+     * @param choiceField         true when submitted text values must match a declared choice set
+     * @param fileField           true when this field accepts uploaded files rather than plain text
+     * @param emailField          true when the submitted text value must match the email validator
+     * @param dateField           true when the submitted text value must match yyyy-MM-dd
+     * @param datetimeLocalField  true when the submitted text value must match HTML datetime-local
+     * @param colorField          true when the submitted text value must match #RRGGBB
+     * @param allowedChoices      allowed submitted values for choice/radio/select fields
+     * @param acceptTypes         pre-resolved MIME type allowlist for file fields
+     * @param constraints         server-side constraints collected from JCR
      */
     public record FieldInfo(
             String nodeType,
