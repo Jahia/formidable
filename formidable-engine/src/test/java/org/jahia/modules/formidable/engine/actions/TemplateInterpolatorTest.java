@@ -32,4 +32,12 @@ class TemplateInterpolatorTest {
         assertEquals("Hello ",
                 TemplateInterpolator.interpolate("Hello ${name}", parameters, FieldEscaper::plainText));
     }
+
+    @Test
+    void treatsNullParametersAsEmptyMap() {
+        // Verifies null-safety: callers may omit parameters entirely and still get
+        // the same result as an empty parameter map.
+        assertEquals("Hello ",
+                TemplateInterpolator.interpolate("Hello ${name}", null, FieldEscaper::plainText));
+    }
 }

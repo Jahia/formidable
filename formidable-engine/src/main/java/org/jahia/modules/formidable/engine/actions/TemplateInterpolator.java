@@ -25,12 +25,13 @@ public final class TemplateInterpolator {
             return null;
         }
 
+        Map<String, List<String>> safeParameters = parameters != null ? parameters : Map.of();
         UnaryOperator<String> escaper = valueEscaper != null ? valueEscaper : UnaryOperator.identity();
         Matcher matcher = INTERPOLATION.matcher(template);
         StringBuilder buffer = new StringBuilder();
         while (matcher.find()) {
             String field = matcher.group(1);
-            List<String> values = parameters.get(field);
+            List<String> values = safeParameters.get(field);
             String raw = (values != null && !values.isEmpty()) ? values.get(0) : "";
             String replacement = escaper.apply(raw != null ? raw : "");
             matcher.appendReplacement(buffer, Matcher.quoteReplacement(replacement));

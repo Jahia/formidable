@@ -31,4 +31,11 @@ class ContentDispositionUtilsTest {
         // Expected outcome: unsupported characters are replaced while preserving a usable filename.
         assertEquals("r_sum__.pdf", fallback);
     }
+
+    @Test
+    void filenameFallbackUsesUploadWhenInputIsNullOrBlank() {
+        // Verifies defensive fallback behavior for absent or blank filenames.
+        assertEquals("upload", ContentDispositionUtils.toRfc6266FilenameFallback(null));
+        assertEquals("upload", ContentDispositionUtils.toRfc6266FilenameFallback("   "));
+    }
 }
