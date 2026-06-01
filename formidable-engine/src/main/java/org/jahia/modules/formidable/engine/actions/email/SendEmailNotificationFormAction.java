@@ -43,7 +43,7 @@ public class SendEmailNotificationFormAction implements FormAction {
         this.mailService = service;
     }
 
-    protected void unbindMailService(MailService service) {
+    protected void unbindMailService() {
         this.mailService = null;
     }
 

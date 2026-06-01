@@ -53,7 +53,7 @@ public class SendEmailContentFormAction implements FormAction {
         this.mailService = service;
     }
 
-    protected void unbindMailService(MailService service) {
+    protected void unbindMailService() {
         this.mailService = null;
     }
 
@@ -109,11 +109,11 @@ public class SendEmailContentFormAction implements FormAction {
 
     private static String resolveFormSubject(JCRNodeWrapper actionNode) {
         try {
-            JCRNodeWrapper actionsNode = (JCRNodeWrapper) actionNode.getParent();
+            JCRNodeWrapper actionsNode = actionNode.getParent();
             if (actionsNode == null) {
                 return DEFAULT_SUBJECT;
             }
-            JCRNodeWrapper formNode = (JCRNodeWrapper) actionsNode.getParent();
+            JCRNodeWrapper formNode = actionsNode.getParent();
             if (formNode == null) {
                 return DEFAULT_SUBJECT;
             }

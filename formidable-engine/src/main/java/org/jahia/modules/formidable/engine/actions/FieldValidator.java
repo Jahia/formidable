@@ -8,7 +8,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
-import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -47,7 +46,7 @@ final class FieldValidator {
 
         Set<String> choices = metadata.allowedChoices(fieldName);
         if (!choices.isEmpty() && !choices.contains(value)) {
-            log.warn("[FieldValidator] Rejected field '{}': value not in allowed choices", fieldName);
+            log.warn("[FieldValidator] Rejected submitted value: not in allowed choices");
             throw new FormDataParser.ParseException(
                     "Field '" + fieldName + "': submitted value is not an allowed choice.", 400, true);
         }
@@ -81,15 +80,13 @@ final class FieldValidator {
             FormDataParser.FieldInfo fieldInfo
     ) throws FormDataParser.ParseException {
         if (constraints.minLength() >= 0 && value.length() < constraints.minLength()) {
-            log.warn("[FieldValidator] Rejected field '{}': too short ({} < {})",
-                    fieldName, value.length(), constraints.minLength());
+            log.warn("[FieldValidator] Rejected submitted value: below minimum length");
             throw new FormDataParser.ParseException(
                     "Field '" + fieldName + "': value too short (min " + constraints.minLength() + " chars).",
                     400, true);
         }
         if (constraints.maxLength() >= 0 && value.length() > constraints.maxLength()) {
-            log.warn("[FieldValidator] Rejected field '{}': too long ({} > {})",
-                    fieldName, value.length(), constraints.maxLength());
+            log.warn("[FieldValidator] Rejected submitted value: exceeds maximum length");
             throw new FormDataParser.ParseException(
                     "Field '" + fieldName + "': value too long (max " + constraints.maxLength() + " chars).",
                     400, true);
@@ -97,12 +94,12 @@ final class FieldValidator {
         if (constraints.pattern() != null && !constraints.pattern().isBlank()) {
             try {
                 if (!value.matches(constraints.pattern())) {
-                    log.warn("[FieldValidator] Rejected field '{}': value does not match pattern", fieldName);
+                    log.warn("[FieldValidator] Rejected submitted value: does not match configured pattern");
                     throw new FormDataParser.ParseException(
                             "Field '" + fieldName + "': value does not match required format.", 400, true);
                 }
             } catch (PatternSyntaxException e) {
-                log.warn("[FieldValidator] Invalid pattern on field '{}': {}", fieldName, e.getMessage());
+                log.warn("[FieldValidator] Invalid validation pattern configuration");
             }
         }
         if (fieldInfo != null && constraints.minDate() != null) {
@@ -122,33 +119,48 @@ final class FieldValidator {
     ) throws FormDataParser.ParseException {
         try {
             if (fieldInfo.dateField()) {
-                LocalDate submitted = LocalDate.parse(value);
-                LocalDate limit = LocalDate.parse(bound);
-                boolean violation = minBound ? submitted.isBefore(limit) : submitted.isAfter(limit);
-                if (violation) {
-                    log.warn("[FieldValidator] Rejected field '{}': date {} bound '{}'",
-                            fieldName, minBound ? "before min" : "after max", bound);
-                    throw new FormDataParser.ParseException(
-                            "Field '" + fieldName + "': date is "
-                                    + (minBound ? "before minimum" : "after maximum") + ".",
-                            400, true);
-                }
-            } else if (fieldInfo.datetimeLocalField()) {
-                LocalDateTime submitted = LocalDateTime.parse(value, DATETIME_LOCAL_FMT);
-                LocalDateTime limit = LocalDateTime.parse(bound, DATETIME_LOCAL_FMT);
-                boolean violation = minBound ? submitted.isBefore(limit) : submitted.isAfter(limit);
-                if (violation) {
-                    log.warn("[FieldValidator] Rejected field '{}': datetime {} bound '{}'",
-                            fieldName, minBound ? "before min" : "after max", bound);
-                    throw new FormDataParser.ParseException(
-                            "Field '" + fieldName + "': datetime is "
-                                    + (minBound ? "before minimum" : "after maximum") + ".",
-                            400, true);
-                }
+                validateLocalDateBound(fieldName, value, bound, minBound);
+                return;
+            }
+            if (fieldInfo.datetimeLocalField()) {
+                validateDateTimeLocalBound(fieldName, value, bound, minBound);
             }
         } catch (DateTimeParseException e) {
             // Type-specific validation already handles malformed submitted values.
         }
+    }
+
+    private static void validateLocalDateBound(String fieldName, String value, String bound, boolean minBound)
+            throws FormDataParser.ParseException {
+        LocalDate submitted = LocalDate.parse(value);
+        LocalDate limit = LocalDate.parse(bound);
+        if (isOutOfBounds(submitted, limit, minBound)) {
+            log.warn("[FieldValidator] Rejected submitted value: date outside configured bounds");
+            throw boundViolation(fieldName, "date", minBound);
+        }
+    }
+
+    private static void validateDateTimeLocalBound(String fieldName, String value, String bound, boolean minBound)
+            throws FormDataParser.ParseException {
+        LocalDateTime submitted = LocalDateTime.parse(value, DATETIME_LOCAL_FMT);
+        LocalDateTime limit = LocalDateTime.parse(bound, DATETIME_LOCAL_FMT);
+        if (isOutOfBounds(submitted, limit, minBound)) {
+            log.warn("[FieldValidator] Rejected submitted value: datetime outside configured bounds");
+            throw boundViolation(fieldName, "datetime", minBound);
+        }
+    }
+
+    private static <T extends Comparable<? super T>> boolean isOutOfBounds(T submitted, T limit, boolean minBound) {
+        return minBound ? submitted.compareTo(limit) < 0 : submitted.compareTo(limit) > 0;
+    }
+
+    private static FormDataParser.ParseException boundViolation(String fieldName, String kind, boolean minBound) {
+        return new FormDataParser.ParseException(
+                "Field '" + fieldName + "': " + kind + " is "
+                        + (minBound ? "before minimum" : "after maximum") + ".",
+                400,
+                true
+        );
     }
 
     private static void validateEmail(String fieldName, String value) throws FormDataParser.ParseException {
@@ -156,7 +168,7 @@ final class FieldValidator {
         for (String part : parts) {
             String email = part.trim();
             if (!email.isEmpty() && !EMAIL_PATTERN.matcher(email).matches()) {
-                log.warn("[FieldValidator] Rejected field '{}': invalid email '{}'", fieldName, email);
+                log.warn("[FieldValidator] Rejected submitted value: invalid email format");
                 throw new FormDataParser.ParseException(
                         "Field '" + fieldName + "': invalid email format.", 400, true);
             }
@@ -167,7 +179,7 @@ final class FieldValidator {
         try {
             LocalDate.parse(value);
         } catch (DateTimeParseException e) {
-            log.warn("[FieldValidator] Rejected field '{}': invalid date '{}'", fieldName, value);
+            log.warn("[FieldValidator] Rejected submitted value: invalid date format");
             throw new FormDataParser.ParseException(
                     "Field '" + fieldName + "': invalid date format (expected yyyy-MM-dd).", 400, true);
         }
@@ -177,7 +189,7 @@ final class FieldValidator {
         try {
             LocalDateTime.parse(value, DATETIME_LOCAL_FMT);
         } catch (DateTimeParseException e) {
-            log.warn("[FieldValidator] Rejected field '{}': invalid datetime-local '{}'", fieldName, value);
+            log.warn("[FieldValidator] Rejected submitted value: invalid datetime-local format");
             throw new FormDataParser.ParseException(
                     "Field '" + fieldName + "': invalid datetime format.", 400, true);
         }
@@ -185,7 +197,7 @@ final class FieldValidator {
 
     private static void validateColor(String fieldName, String value) throws FormDataParser.ParseException {
         if (!COLOR_PATTERN.matcher(value).matches()) {
-            log.warn("[FieldValidator] Rejected field '{}': invalid color '{}'", fieldName, value);
+            log.warn("[FieldValidator] Rejected submitted value: invalid color format");
             throw new FormDataParser.ParseException(
                     "Field '" + fieldName + "': invalid color format (expected #rrggbb).", 400, true);
         }
