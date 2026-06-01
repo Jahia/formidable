@@ -150,31 +150,6 @@ class FormFieldMetadataCollector {
             if (logicId == null || logicId.isEmpty()) {
                 continue;
             }
-        }
-
-            if (!logicsSrc.hasNode(logicId)) {
-                continue;
-            }
-
-            JCRNodeWrapper srcNode = logicsSrc.getNode(logicId);
-            try {
-                JCRNodeWrapper sourceField = (JCRNodeWrapper) srcNode.getProperty(LOGIC_NODE_SOURCE).getNode();
-                ctx.logicIdToFieldName.put(logicId, sourceField.getName());
-            } catch (Exception e) {
-                log.debug("[FormFieldMetadataCollector] Broken weakref for logicId '{}' on '{}'",
-                        logicId, node.getPath());
-            }
-        }
-
-        JCRNodeWrapper logicsSrc = node.getNode(LOGICS_SRC);
-        for (ConditionalLogicRule rule : rules) {
-            String logicId = rule.logicId();
-            if (logicId == null || logicId.isEmpty()) {
-                continue;
-            }
-        }
-        return choices.isEmpty() ? Set.of() : choices;
-    }
 
             if (!logicsSrc.hasNode(logicId)) {
                 continue;
