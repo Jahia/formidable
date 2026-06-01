@@ -129,8 +129,9 @@ public class FormidableConfigService {
 
         forwardTargets = mergeForwardTargets(standardForwardTargets, developmentForwardTargets);
 
-        log.info("FormidableConfigService configured: captcha={}, captchaConnectTimeout={}s, captchaRequestTimeout={}s, maxFileSize={}MB, maxRequest={}MB, allowedTypes={}, forwardTargets={}, devForwardTargetsEnabled={}, devForwardTargets={}, forwardConnectTimeout={}s, forwardRequestTimeout={}s",
-                isCaptchaConfigured() ? "[set]" : "[missing]",
+        log.info("FormidableConfigService configured: captchaVerification={}, captchaWidget={}, captchaConnectTimeout={}s, captchaRequestTimeout={}s, maxFileSize={}MB, maxRequest={}MB, allowedTypes={}, forwardTargets={}, devForwardTargetsEnabled={}, devForwardTargets={}, forwardConnectTimeout={}s, forwardRequestTimeout={}s",
+                isCaptchaVerificationConfigured() ? "[set]" : "[missing]",
+                isCaptchaWidgetConfigured() ? "[set]" : "[missing]",
                 captchaHttpConnectTimeout.toSeconds(),
                 captchaHttpRequestTimeout.toSeconds(),
                 uploadMaxFileSizeBytes / 1_048_576,
@@ -247,9 +248,17 @@ public class FormidableConfigService {
     public String getCaptchaWidgetVar()  { return captchaWidgetVar; }
     public String getCaptchaTokenField() { return captchaTokenField; }
 
-    public boolean isCaptchaConfigured() {
+    public boolean isCaptchaVerificationConfigured() {
         return captchaSiteKey != null && !captchaSiteKey.isBlank()
-                && captchaSecretKey != null && !captchaSecretKey.isBlank();
+                && captchaSecretKey != null && !captchaSecretKey.isBlank()
+                && captchaVerifyUrl != null && !captchaVerifyUrl.isBlank();
+    }
+
+    public boolean isCaptchaWidgetConfigured() {
+        return captchaSiteKey != null && !captchaSiteKey.isBlank()
+                && captchaScriptUrl != null && !captchaScriptUrl.isBlank()
+                && captchaWidgetVar != null && !captchaWidgetVar.isBlank()
+                && captchaTokenField != null && !captchaTokenField.isBlank();
     }
 
     /**
@@ -260,7 +269,7 @@ public class FormidableConfigService {
      * @return true if the provider confirms the token is valid
      */
     public boolean verifyCaptcha(String token, String remoteIp) {
-        if (!isCaptchaConfigured()) {
+        if (!isCaptchaVerificationConfigured()) {
             log.warn("CAPTCHA verification skipped: service is not configured.");
             return false;
         }

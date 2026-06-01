@@ -22,17 +22,19 @@
 
 // Enables CAPTCHA protection on a fmdb:form.
 // When this mixin is applied, the form injects the configured CAPTCHA widget (front-end)
-// and verifies the submitted token server-side (FormSubmitAction).
-// CAPTCHA configuration (siteKey, scriptUrl, verifyUrl, secretKey) is read from
-// org.jahia.modules.formidable.captcha.cfg — not stored in JCR.
-[fmdbmix:captcha] mixin
+// and verifies the submitted token server-side in FormSubmissionPipeline.
+// CAPTCHA configuration (siteKey, scriptUrl, verifyUrl, secretKey, etc.) is read from
+// org.jahia.modules.formidable.cfg — not stored in JCR.
+// Runtime code reads fmdbmix:captchaProtectedForm.
+[fmdbmix:captcha] > fmdbmix:captchaProtectedForm mixin
  extends = fmdb:form
  itemtype = content
 
 // Restricts form submission to authenticated users only.
 // When this mixin is applied, Guest (anonymous) submissions are rejected server-side
 // with FMDB-009 before any file data is read from the request stream.
-[fmdbmix:requireAuthentication] mixin
+// Runtime code reads fmdbmix:authenticatedOnlyForm.
+[fmdbmix:requireAuthentication] > fmdbmix:authenticatedOnlyForm mixin
  extends = fmdb:form
  itemtype = content
 

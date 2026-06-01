@@ -1,10 +1,9 @@
 // Datetime-local input component properties
-[fmdb:inputDatetimeLocal] > jnt:content, fmdbmix:element
+[fmdb:inputDatetimeLocal] > jnt:content, fmdbmix:element, fmdbmix:datetimeLocalField
  - required (boolean) = false
  - defaultValue (date)
  - min (date)
  - max (date)
  - step (long)
-
 
 

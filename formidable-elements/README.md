@@ -42,6 +42,6 @@ If you don't use default configuration for the Docker container port and credent
 
 ## Documentation
 
+- [CND module ownership](../docs/cnd-module-ownership.md) — where JCR types and mixins belong, and how to choose between `formidable-elements` and `formidable-engine`
 - [Form submission flow](../docs/form-submission-flow.md) — two-phase submission, captcha pipeline, `customTarget`
 - [CAPTCHA server-side validation](../docs/captcha-server-side-validation.md) — provider verification endpoints and examples
-

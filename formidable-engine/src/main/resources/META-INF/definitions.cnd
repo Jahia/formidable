@@ -7,6 +7,42 @@
 // Actions are stored as child nodes of fmdb:actionList under a fmdb:form node.
 [fmdbmix:formAction] mixin
 
+// Logic-aware structural mixins and helper content types used by the engine to
+// resolve conditional logic, walk the form tree, and synchronize weak references.
+[fmdb:logicSrc] > jnt:content
+ - logicNodeSource (weakreference) mandatory
+
+[fmdb:logicList] > nt:base, jmix:lockable, mix:lastModified, jmix:lastPublished, mix:versionable, jmix:observable, jmix:workflow, jmix:list
+ + * (fmdb:logicSrc) = fmdb:logicSrc
+
+[fmdbmix:formLogicElement] mixin
+ - logics (string) multiple indexed=no
+ + logicsSrc (fmdb:logicList) = fmdb:logicList hidden
+
+// Marks a node that can own child form items and can therefore propagate a
+// visibility context to descendant fields.
+[fmdbmix:formContainer] > fmdbmix:formLogicElement mixin
+
+// Marks a node that is a logical form step. Steps are also containers.
+[fmdbmix:formStep] > fmdbmix:formContainer mixin
+
+// Marks a submit-capable form field. Concrete field node types in formidable-elements
+// extend this mixin, and may also opt into additional engine semantics below.
+[fmdbmix:formElement] > mix:title, fmdbmix:formLogicElement mixin
+orderable
+
+// Classification mixins used by the engine to interpret form field semantics
+// without coupling to concrete field node type names from formidable-elements.
+[fmdbmix:captchaProtectedForm] mixin
+[fmdbmix:authenticatedOnlyForm] mixin
+[fmdbmix:nonSubmittable] mixin
+[fmdbmix:choiceField] mixin
+[fmdbmix:fileField] mixin
+[fmdbmix:emailField] mixin
+[fmdbmix:dateField] mixin
+[fmdbmix:datetimeLocalField] mixin
+[fmdbmix:colorField] mixin
+
 // Sends a notification email after a successful form submission.
 // Subject and body support ${fieldName} interpolation from the submitted form data.
 [fmdb:emailNotificationAction] > jnt:content, fmdbmix:formAction, mix:title

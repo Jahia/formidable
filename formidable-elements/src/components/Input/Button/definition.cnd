@@ -1,6 +1,5 @@
 // Button input component properties
 // Note: Button inputs are used for form actions like submit, reset, or custom actions
-[fmdb:inputButton] > jnt:content, fmdbmix:element
+[fmdb:inputButton] > jnt:content, fmdbmix:element, fmdbmix:nonSubmittable
  - buttonType (string, choicelist[resourceBundle]) = 'button' < 'button', 'submit', 'reset'
  - variant (string, choicelist[resourceBundle]) = 'primary' < 'primary', 'secondary', 'danger'
-

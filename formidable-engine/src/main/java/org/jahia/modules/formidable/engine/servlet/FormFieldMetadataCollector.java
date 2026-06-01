@@ -26,10 +26,6 @@ class FormFieldMetadataCollector {
     private static final String FIELDS_NODE = "fields";
     private static final String LOGICS_SRC = "logicsSrc";
     private static final String LOGIC_NODE_SOURCE = "logicNodeSource";
-    private static final Set<String> NON_SUBMITTABLE_FORM_ELEMENT_TYPES = Set.of(
-            "fmdb:fieldset",
-            "fmdb:inputButton"
-    );
 
     record Result(
             Map<String, FormDataParser.FieldInfo> fieldInfos,
@@ -43,31 +39,34 @@ class FormFieldMetadataCollector {
     }
 
     static Result collect(String formId, Locale locale) throws RepositoryException {
-        var fieldInfos           = new HashMap<String, FormDataParser.FieldInfo>();
-        var fieldLogicRules      = new HashMap<String, List<ConditionalLogicRule>>();
-        var logicIdToFieldName   = new HashMap<String, String>();
+        return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, "live", locale, systemSession -> {
+            JCRNodeWrapper formNode = systemSession.getNodeByIdentifier(formId);
+            return collectFromFormNode(formNode);
+        });
+    }
+
+    static Result collectFromFormNode(JCRNodeWrapper formNode) throws RepositoryException {
+        var fieldInfos = new HashMap<String, FormDataParser.FieldInfo>();
+        var fieldLogicRules = new HashMap<String, List<ConditionalLogicRule>>();
+        var logicIdToFieldName = new HashMap<String, String>();
         var fieldParentContainer = new HashMap<String, String>();
 
         var ctx = new CollectorContext(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainer);
 
-        JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, "live", locale, systemSession -> {
-            JCRNodeWrapper formNode = systemSession.getNodeByIdentifier(formId);
-            if (!formNode.hasNode(FIELDS_NODE)) {
-                log.debug("[FormFieldMetadataCollector] No '{}' child on form node '{}'",
-                        FIELDS_NODE, formNode.getPath());
-                return null;
-            }
+        if (!formNode.hasNode(FIELDS_NODE)) {
+            log.debug("[FormFieldMetadataCollector] No '{}' child on form node '{}'",
+                    FIELDS_NODE, formNode.getPath());
+            return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainer);
+        }
 
-            JCRNodeWrapper fieldList = formNode.getNode(FIELDS_NODE);
-            NodeIterator it = fieldList.getNodes();
-            while (it.hasNext()) {
-                javax.jcr.Node child = it.nextNode();
-                if (child instanceof JCRNodeWrapper w) {
-                    traverseRecursively(w, null, ctx);
-                }
+        JCRNodeWrapper fieldList = formNode.getNode(FIELDS_NODE);
+        NodeIterator it = fieldList.getNodes();
+        while (it.hasNext()) {
+            javax.jcr.Node child = it.nextNode();
+            if (child instanceof JCRNodeWrapper w) {
+                traverseRecursively(w, null, ctx);
             }
-            return null;
-        });
+        }
 
         log.debug("[FormFieldMetadataCollector] Allowed fields: {}", fieldInfos.keySet());
         return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainer);
@@ -86,9 +85,11 @@ class FormFieldMetadataCollector {
             throws RepositoryException {
         String nodeType = node.getPrimaryNodeTypeName();
         String currentContainerName = parentContainerName;
+        boolean nonSubmittable = node.isNodeType("fmdbmix:nonSubmittable");
 
-        boolean isContainer = node.isNodeType("fmdbmix:formStep")
-                || (NON_SUBMITTABLE_FORM_ELEMENT_TYPES.contains(nodeType) && node.isNodeType("fmdbmix:formLogicElement"));
+        // Only explicit structural containers can propagate a conditional-logic
+        // visibility context to descendant fields.
+        boolean isContainer = node.isNodeType("fmdbmix:formContainer");
         if (isContainer) {
             String containerName = node.getName();
             if (node.hasProperty("logics")) {
@@ -102,8 +103,8 @@ class FormFieldMetadataCollector {
         }
 
         if (node.isNodeType("fmdbmix:formElement")
-                && !NON_SUBMITTABLE_FORM_ELEMENT_TYPES.contains(nodeType)) {
-            registerField(node, nodeType, currentContainerName, ctx);
+                && !nonSubmittable) {
+            registerField(node, currentContainerName, ctx);
         }
 
         NodeIterator it = node.getNodes();
@@ -115,9 +116,10 @@ class FormFieldMetadataCollector {
         }
     }
 
-    private static void registerField(JCRNodeWrapper node, String nodeType, String parentContainerName, CollectorContext ctx)
+    private static void registerField(JCRNodeWrapper node, String parentContainerName, CollectorContext ctx)
             throws RepositoryException {
         String name = node.getName();
+        String nodeType = node.getPrimaryNodeTypeName();
         if (ctx.fieldInfos.containsKey(name)) {
             log.warn("[FormFieldMetadataCollector] Duplicate field name '{}'; later metadata overwrites.", name);
         }
@@ -134,17 +136,7 @@ class FormFieldMetadataCollector {
             }
         }
 
-        Set<String> choices = Set.of();
-        Set<String> acceptedTypes = Set.of();
-
-        switch (nodeType) {
-            case "fmdb:checkbox", "fmdb:radio" -> choices = collectChoices(node, name, "choices");
-            case "fmdb:select"                 -> choices = collectChoices(node, name, "options");
-            case "fmdb:inputFile"              -> acceptedTypes = collectAcceptTypes(node);
-        }
-
-        FormDataParser.FieldConstraints constraints = readConstraints(node, nodeType);
-        ctx.fieldInfos.put(name, new FormDataParser.FieldInfo(nodeType, choices, acceptedTypes, constraints));
+        ctx.fieldInfos.put(name, buildFieldInfo(node, nodeType));
     }
 
     private static void resolveLogicsSrc(JCRNodeWrapper node, List<ConditionalLogicRule> rules, CollectorContext ctx)
@@ -212,7 +204,49 @@ class FormFieldMetadataCollector {
         return accepted.isEmpty() ? Set.of() : accepted;
     }
 
-    private static FormDataParser.FieldConstraints readConstraints(JCRNodeWrapper node, String nodeType)
+    private static FormDataParser.FieldInfo buildFieldInfo(JCRNodeWrapper node, String nodeType) throws RepositoryException {
+        boolean nonSubmittable = node.isNodeType("fmdbmix:nonSubmittable");
+        boolean choiceField = node.isNodeType("fmdbmix:choiceField");
+        boolean fileField = node.isNodeType("fmdbmix:fileField");
+        boolean emailField = node.isNodeType("fmdbmix:emailField");
+        boolean dateField = node.isNodeType("fmdbmix:dateField");
+        boolean datetimeLocalField = node.isNodeType("fmdbmix:datetimeLocalField");
+        boolean colorField = node.isNodeType("fmdbmix:colorField");
+
+        Set<String> choices = choiceField ? collectChoices(node, node.getName(), resolveChoicePropertyName(node)) : Set.of();
+        Set<String> acceptedTypes = fileField ? collectAcceptTypes(node) : Set.of();
+        FormDataParser.FieldConstraints constraints = readConstraints(node, dateField, datetimeLocalField);
+
+        return new FormDataParser.FieldInfo(
+                nodeType,
+                nonSubmittable,
+                choiceField,
+                fileField,
+                emailField,
+                dateField,
+                datetimeLocalField,
+                colorField,
+                choices,
+                acceptedTypes,
+                constraints
+        );
+    }
+
+    private static String resolveChoicePropertyName(JCRNodeWrapper node) throws RepositoryException {
+        if (node.hasProperty("choices")) {
+            return "choices";
+        }
+        if (node.hasProperty("options")) {
+            return "options";
+        }
+        return "choices";
+    }
+
+    private static FormDataParser.FieldConstraints readConstraints(
+            JCRNodeWrapper node,
+            boolean dateField,
+            boolean datetimeLocalField
+    )
             throws RepositoryException {
         boolean required  = readBoolean(node, "required");
         long minLength    = readLong(node, "minLength");
@@ -221,10 +255,10 @@ class FormFieldMetadataCollector {
         String minDate    = null;
         String maxDate    = null;
 
-        if ("fmdb:inputDate".equals(nodeType)) {
+        if (dateField) {
             minDate = readDateAsIso(node, "min", false);
             maxDate = readDateAsIso(node, "max", false);
-        } else if ("fmdb:inputDatetimeLocal".equals(nodeType)) {
+        } else if (datetimeLocalField) {
             minDate = readDateAsIso(node, "min", true);
             maxDate = readDateAsIso(node, "max", true);
         }

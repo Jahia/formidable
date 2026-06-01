@@ -33,6 +33,10 @@ As a result:
 
 ## CND model
 
+The runtime CND definitions described below now live in
+`formidable-engine/src/main/resources/META-INF/definitions.cnd`, because they are
+interpreted by engine-side logic synchronization and submission code.
+
 ### `fmdbmix:formLogicElement`
 
 Existing:
@@ -51,8 +55,7 @@ Intent:
 ### `fmdb:logicList`
 
 ```cnd
-[fmdb:logicList] > jnt:content, jmix:list
- orderable
+[fmdb:logicList] > nt:base, jmix:lockable, mix:lastModified, jmix:lastPublished, mix:versionable, jmix:observable, jmix:workflow, jmix:list
  + * (fmdb:logicSrc) = fmdb:logicSrc
 ```
 
@@ -66,7 +69,7 @@ Intent:
 
 ```cnd
 [fmdb:logicSrc] > jnt:content
- - logicNodeSource (weakreference)
+ - logicNodeSource (weakreference) mandatory
 ```
 
 Intent:

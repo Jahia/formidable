@@ -14,7 +14,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Render filter that injects CAPTCHA front-end configuration as request attributes
- * when the current fmdb:form node has the fmdbmix:captcha mixin applied.
+ * when the current fmdb:form node has fmdbmix:captchaProtectedForm applied.
  *
  * Attributes set on HttpServletRequest (readable from the GraalVM JS server view):
  *   formidable.captcha.siteKey   - public site key for the widget
@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 public class CaptchaRenderFilter extends AbstractFilter {
 
     private static final Logger log = LoggerFactory.getLogger(CaptchaRenderFilter.class);
+    private static final String CAPTCHA_PROTECTED_FORM_MIXIN = "fmdbmix:captchaProtectedForm";
 
     static final String ATTR_SITE_KEY     = "formidable.captcha.siteKey";
     static final String ATTR_SCRIPT_URL   = "formidable.captcha.scriptUrl";
@@ -42,9 +43,9 @@ public class CaptchaRenderFilter extends AbstractFilter {
     @Activate
     public void activate() {
         setPriority(10);
-        // fmdbmix:captcha is a mixin — Jahia evaluates isNodeType() so this correctly
-        // restricts the filter to form nodes that have the mixin applied.
-        setApplyOnNodeTypes("fmdbmix:captcha");
+        // fmdbmix:captcha in formidable-elements extends fmdbmix:captchaProtectedForm, so
+        // applyOnNodeTypes can target the engine-owned contract directly.
+        setApplyOnNodeTypes(CAPTCHA_PROTECTED_FORM_MIXIN);
         setApplyOnTemplateTypes("html");
     }
 
@@ -52,10 +53,10 @@ public class CaptchaRenderFilter extends AbstractFilter {
     public String prepare(RenderContext renderContext, Resource resource, RenderChain chain) throws Exception {
         try {
 
-            if (!config.isCaptchaConfigured()) {
-                log.warn("[Formidable] fmdbmix:captcha is applied on form '{}' but CAPTCHA is not configured " +
-                        "(siteKey or scriptUrl missing in org.jahia.modules.formidable.cfg). The widget will not be rendered.",
-                        resource.getNodePath());
+            if (!config.isCaptchaWidgetConfigured()) {
+                log.warn("[Formidable] {} is applied on form '{}' but CAPTCHA is not configured " +
+                        "(captchaSiteKey, captchaScriptUrl, captchaWidgetVar or captchaTokenField missing in org.jahia.modules.formidable.cfg). The widget will not be rendered.",
+                        CAPTCHA_PROTECTED_FORM_MIXIN, resource.getNodePath());
                 return null;
             }
 

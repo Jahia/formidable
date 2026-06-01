@@ -35,8 +35,8 @@ import java.util.UUID;
  *   2.  readRoutingParams      — fid (validated as UUID) + lang from URL query params
  *   3.  guardContentLength     — early reject oversized requests when Content-Length is present
  *   4.  resolveFormNode        — JCR lookup in "live" workspace
- *   5.  verifyAuthentication   — reject Guest if fmdbmix:requireAuthentication is present
- *   6.  verifyCaptcha          — only if fmdbmix:captcha mixin is present
+ *   5.  verifyAuthentication   — reject Guest if fmdbmix:authenticatedOnlyForm is present
+ *   6.  verifyCaptcha          — only if fmdbmix:captchaProtectedForm is present
  *   7.  collectFormFieldInfo   — build whitelist + types + choices + accept + constraints from JCR
  *   8.  parseMultipart         — first and only read of the stream; unknown fields discarded inline
  *   9.  validateRequired       — post-parse check for required fields (catches absent fields)
@@ -47,6 +47,8 @@ class FormSubmissionPipeline {
     private static final Logger log = LoggerFactory.getLogger(FormSubmissionPipeline.class);
 
     private static final String ACTIONS_NODE = "actions";
+    private static final String AUTHENTICATED_ONLY_FORM_MIXIN = "fmdbmix:authenticatedOnlyForm";
+    private static final String CAPTCHA_PROTECTED_FORM_MIXIN = "fmdbmix:captchaProtectedForm";
 
     @FunctionalInterface
     interface FieldMetadataCollectorAdapter {
@@ -146,10 +148,10 @@ class FormSubmissionPipeline {
     private void verifyAuthentication() throws SubmissionException {
         boolean requiresAuth;
         try {
-            requiresAuth = formNode.isNodeType("fmdbmix:requireAuthentication");
+            requiresAuth = formNode.isNodeType(AUTHENTICATED_ONLY_FORM_MIXIN);
         } catch (RepositoryException e) {
-            log.error("[FormSubmissionPipeline] Could not check fmdbmix:requireAuthentication on form '{}' — rejecting submission (fail-closed)",
-                    formId, e);
+            log.error("[FormSubmissionPipeline] Could not check {} on form '{}' — rejecting submission (fail-closed)",
+                    AUTHENTICATED_ONLY_FORM_MIXIN, formId, e);
             throw new SubmissionException(ErrorCode.FMDB_500,
                     "Cannot verify authentication requirement for form: " + formId);
         }
@@ -165,17 +167,17 @@ class FormSubmissionPipeline {
     private void verifyCaptcha(HttpServletRequest req) throws SubmissionException {
         boolean hasCaptcha;
         try {
-            hasCaptcha = formNode.isNodeType("fmdbmix:captcha");
+            hasCaptcha = formNode.isNodeType(CAPTCHA_PROTECTED_FORM_MIXIN);
         } catch (RepositoryException e) {
-            log.error("[FormSubmissionPipeline] Could not check fmdbmix:captcha on form '{}' — rejecting submission (fail-closed)",
-                    formId, e);
+            log.error("[FormSubmissionPipeline] Could not check {} on form '{}' — rejecting submission (fail-closed)",
+                    CAPTCHA_PROTECTED_FORM_MIXIN, formId, e);
             throw new SubmissionException(ErrorCode.FMDB_500,
                     "Cannot verify CAPTCHA requirement for form: " + formId);
         }
         if (!hasCaptcha) return;
 
-        if (!config.isCaptchaConfigured()) {
-            log.warn("[FormSubmissionPipeline] CAPTCHA mixin present on '{}' but not configured server-side — blocking.",
+        if (!config.isCaptchaVerificationConfigured()) {
+            log.warn("[FormSubmissionPipeline] CAPTCHA mixin present on '{}' but server-side verification is not fully configured — blocking.",
                     formNode.getPath());
             throw new SubmissionException(ErrorCode.FMDB_005,
                     "CAPTCHA required but not configured (form: " + formId + ")");
@@ -227,9 +229,7 @@ class FormSubmissionPipeline {
                 continue;
             }
 
-            String type = fieldInfo.nodeType();
-
-            if ("fmdb:inputFile".equals(type)) {
+            if (fieldInfo.fileField()) {
                 boolean hasFile = parsed.files().stream()
                         .anyMatch(f -> fieldName.equals(f.fieldName()));
                 if (!hasFile) {

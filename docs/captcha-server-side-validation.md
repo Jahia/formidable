@@ -4,35 +4,39 @@ The captcha integration covers both the front-end widget (rendering + token coll
 
 ## Configuration
 
-CAPTCHA is configured globally via `org.jahia.modules.formidable.captcha.cfg` (or Felix Web Console). No JCR node is needed.
+CAPTCHA is configured globally via `org.jahia.modules.formidable.cfg` (or Felix Web Console). No JCR node is needed.
 
 | Property | Description |
 |---|---|
-| `siteKey` | Public key — used by the front-end widget |
-| `scriptUrl` | Provider JS API URL — injected in the page to render the widget |
-| `widgetVar` | Name of the global `window` object exposed by the provider script (e.g. `turnstile`, `hcaptcha`, `grecaptcha`) |
-| `tokenField` | Name of the hidden form field auto-injected by the widget (e.g. `cf-turnstile-response`) |
-| `verifyUrl` | Provider siteverify endpoint — used for server-side verification |
-| `secretKey` | Secret key — used for server-side verification, never exposed to the client |
+| `captchaSiteKey` | Public key — used by the front-end widget |
+| `captchaScriptUrl` | Provider JS API URL — injected in the page to render the widget |
+| `captchaWidgetVar` | Name of the global `window` object exposed by the provider script (e.g. `turnstile`, `hcaptcha`, `grecaptcha`) |
+| `captchaTokenField` | Name of the hidden form field auto-injected by the widget (e.g. `cf-turnstile-response`) |
+| `captchaVerifyUrl` | Provider siteverify endpoint — used for server-side verification |
+| `captchaSecretKey` | Secret key — used for server-side verification, never exposed to the client |
 
 To enable CAPTCHA on a form, apply the `fmdbmix:captcha` mixin to the `fmdb:form` node.
+This author-facing mixin extends `fmdbmix:captchaProtectedForm`.
 
 ---
 
 ## When is the token verified server-side?
 
-Always — when `fmdbmix:captcha` is present on the form, `FormSubmitAction` verifies the token first, before any action in the pipeline runs.
+Always — when CAPTCHA is enabled on the form, the submission pipeline verifies the token first,
+before any action in the pipeline runs.
 
 ---
 
 ## How verification works
 
-`CaptchaConfigService.verify()` is called first in the pipeline. It:
+`FormSubmissionPipeline.verifyCaptcha(...)` runs in the submission pipeline. It:
 
-1. Reads `secretKey` and `verifyUrl` from the OSGi configuration
-2. Reads the token from the POST parameters (tries each known provider field name)
-3. POSTs to `verifyUrl` with `secret` + `response` + optional `remoteip`
-4. Returns `false` if `success` is not `true` — `FormSubmitAction` stops the pipeline with HTTP 400
+1. Checks that the form carries `fmdbmix:captchaProtectedForm`
+2. Reads the `ct` request parameter from the submission URL/query string
+3. Calls `FormidableConfigService.verifyCaptcha(token, remoteAddr)`
+4. `FormidableConfigService` reads `captchaSecretKey` and `captchaVerifyUrl` from OSGi config
+5. It POSTs to `captchaVerifyUrl` with `secret` + `response` + optional `remoteip`
+6. If verification fails, the pipeline stops with `FMDB-006` / HTTP 400
 
 ## Token field names (auto-injected by the widget)
 
@@ -63,4 +67,3 @@ All three share the same request shape (`secret` + `response` + optional `remote
 | `missing-input-response` | Token not provided |
 | `invalid-input-response` | Token is malformed or expired |
 | `timeout-or-duplicate` | Token already used or expired (300 s limit) |
-
