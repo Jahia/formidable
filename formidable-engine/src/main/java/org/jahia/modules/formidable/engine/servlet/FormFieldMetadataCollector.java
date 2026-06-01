@@ -151,6 +151,7 @@ class FormFieldMetadataCollector {
             if (logicId == null || logicId.isEmpty()) {
                 continue;
             }
+        }
 
             if (!logicsSrc.hasNode(logicId)) {
                 continue;
@@ -165,6 +166,9 @@ class FormFieldMetadataCollector {
                         logicId, node.getPath());
             }
         }
+
+        FormDataParser.FieldConstraints constraints = readConstraints(node, nodeType);
+        ctx.fieldInfos.put(name, new FormDataParser.FieldInfo(nodeType, choices, acceptedTypes, constraints));
     }
 
     private static Set<String> collectChoices(JCRNodeWrapper node, String fieldName, String propName)
