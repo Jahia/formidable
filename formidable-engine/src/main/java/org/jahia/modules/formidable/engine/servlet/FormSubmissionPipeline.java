@@ -176,8 +176,8 @@ class FormSubmissionPipeline {
         }
         if (!hasCaptcha) return;
 
-        if (!config.isCaptchaConfigured()) {
-            log.warn("[FormSubmissionPipeline] CAPTCHA mixin present on '{}' but not configured server-side — blocking.",
+        if (!config.isCaptchaVerificationConfigured()) {
+            log.warn("[FormSubmissionPipeline] CAPTCHA mixin present on '{}' but server-side verification is not fully configured — blocking.",
                     formNode.getPath());
             throw new SubmissionException(ErrorCode.FMDB_005,
                     "CAPTCHA required but not configured (form: " + formId + ")");
@@ -320,8 +320,9 @@ class FormSubmissionPipeline {
                 return null;
             });
         } catch (RepositoryException e) {
-            log.warn("[FormSubmissionPipeline] Could not read actions from form '{}'", formId, e);
-            throw new SubmissionException(ErrorCode.FMDB_008,
+            log.error("[FormSubmissionPipeline] Could not read actions from form '{}' — rejecting submission (fail-closed)",
+                    formId, e);
+            throw new SubmissionException(ErrorCode.FMDB_012,
                     "Could not read action list for form: " + formId);
         }
         return result;

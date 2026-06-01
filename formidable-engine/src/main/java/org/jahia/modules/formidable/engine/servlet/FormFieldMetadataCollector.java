@@ -38,31 +38,34 @@ class FormFieldMetadataCollector {
     }
 
     static Result collect(String formId, Locale locale) throws RepositoryException {
-        var fieldInfos           = new HashMap<String, FormDataParser.FieldInfo>();
-        var fieldLogicRules      = new HashMap<String, List<ConditionalLogicRule>>();
-        var logicIdToFieldName   = new HashMap<String, String>();
+        return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, "live", locale, systemSession -> {
+            JCRNodeWrapper formNode = systemSession.getNodeByIdentifier(formId);
+            return collectFromFormNode(formNode);
+        });
+    }
+
+    static Result collectFromFormNode(JCRNodeWrapper formNode) throws RepositoryException {
+        var fieldInfos = new HashMap<String, FormDataParser.FieldInfo>();
+        var fieldLogicRules = new HashMap<String, List<ConditionalLogicRule>>();
+        var logicIdToFieldName = new HashMap<String, String>();
         var fieldParentContainer = new HashMap<String, String>();
 
         var ctx = new CollectorContext(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainer);
 
-        JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, "live", locale, systemSession -> {
-            JCRNodeWrapper formNode = systemSession.getNodeByIdentifier(formId);
-            if (!formNode.hasNode(FIELDS_NODE)) {
-                log.debug("[FormFieldMetadataCollector] No '{}' child on form node '{}'",
-                        FIELDS_NODE, formNode.getPath());
-                return null;
-            }
+        if (!formNode.hasNode(FIELDS_NODE)) {
+            log.debug("[FormFieldMetadataCollector] No '{}' child on form node '{}'",
+                    FIELDS_NODE, formNode.getPath());
+            return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainer);
+        }
 
-            JCRNodeWrapper fieldList = formNode.getNode(FIELDS_NODE);
-            NodeIterator it = fieldList.getNodes();
-            while (it.hasNext()) {
-                javax.jcr.Node child = it.nextNode();
-                if (child instanceof JCRNodeWrapper w) {
-                    traverseRecursively(w, null, ctx);
-                }
+        JCRNodeWrapper fieldList = formNode.getNode(FIELDS_NODE);
+        NodeIterator it = fieldList.getNodes();
+        while (it.hasNext()) {
+            javax.jcr.Node child = it.nextNode();
+            if (child instanceof JCRNodeWrapper w) {
+                traverseRecursively(w, null, ctx);
             }
-            return null;
-        });
+        }
 
         log.debug("[FormFieldMetadataCollector] Allowed fields: {}", fieldInfos.keySet());
         return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainer);
@@ -147,6 +150,31 @@ class FormFieldMetadataCollector {
             if (logicId == null || logicId.isEmpty()) {
                 continue;
             }
+        }
+
+            if (!logicsSrc.hasNode(logicId)) {
+                continue;
+            }
+
+            JCRNodeWrapper srcNode = logicsSrc.getNode(logicId);
+            try {
+                JCRNodeWrapper sourceField = (JCRNodeWrapper) srcNode.getProperty(LOGIC_NODE_SOURCE).getNode();
+                ctx.logicIdToFieldName.put(logicId, sourceField.getName());
+            } catch (Exception e) {
+                log.debug("[FormFieldMetadataCollector] Broken weakref for logicId '{}' on '{}'",
+                        logicId, node.getPath());
+            }
+        }
+
+        JCRNodeWrapper logicsSrc = node.getNode(LOGICS_SRC);
+        for (ConditionalLogicRule rule : rules) {
+            String logicId = rule.logicId();
+            if (logicId == null || logicId.isEmpty()) {
+                continue;
+            }
+        }
+        return choices.isEmpty() ? Set.of() : choices;
+    }
 
             if (!logicsSrc.hasNode(logicId)) {
                 continue;

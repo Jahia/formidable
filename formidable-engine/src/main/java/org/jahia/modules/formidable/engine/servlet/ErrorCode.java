@@ -20,6 +20,7 @@ enum ErrorCode {
     FMDB_009(401),  // Authentication required — form has fmdbmix:authenticatedOnlyForm and user is Guest
     FMDB_010(400),  // Field value failed validation (bad format, or not in allowed choices)
     FMDB_011(403),  // Submission denied by the Security Filter permission check
+    FMDB_012(500),  // Action list could not be resolved from the repository
     FMDB_500(500);  // Unexpected internal error
 
     /** HTTP status code associated with this error. */

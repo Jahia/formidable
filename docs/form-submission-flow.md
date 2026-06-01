@@ -132,7 +132,7 @@ anonymous or authenticated:
    This is the primary CSRF control for all submissions.
 2. For authenticated users, Jahia CSRFGuard also injects and validates a `CSRFTOKEN`.
    Because the submit endpoint is `/modules/formidable-engine/form-submit` rather than `*.do`,
-   the module ships a CSRFGuard config extending `resolvedUrlPatterns` to include that servlet path.
+   the module ships a module-scoped CSRFGuard config extending `urlPatterns` to protect that servlet path explicitly.
 
 ### Protection matrix
 
@@ -154,6 +154,52 @@ benefit from CSRFGuard on top of the same-origin gate.
 Forms using `fmdbmix:captcha` add another barrier: the wrapper enables the
 engine-owned `fmdbmix:captchaProtectedForm` semantic, and the CAPTCHA token is a
 non-replayable credential
+tied to the hosting page. This is defence in depth, not the primary CSRF control.
+
+---
+
+## Trust model
+
+The submission pipeline resolves the target form node with the current user's `live` JCR session, so normal
+read permissions on the form still apply at form-resolution time. Once the form has been resolved and validated,
+the configured actions execute under a system session. This is intentional: Guest and low-privilege users must
+still be able to trigger server-side effects such as sending emails or saving submissions. The trust boundary is
+therefore the form configuration itself: contributors who can configure a form and its action list are treated as
+trusted actors, because the runtime will execute those configured actions with elevated JCR privileges.
+
+---
+
+## CSRF and cross-origin protection
+
+The submit servlet is protected by two different mechanisms depending on whether the user is
+anonymous or authenticated:
+
+1. `formidable-submit` is a Jahia Security Filter scope auto-applied for `origin: hosted`.
+   Requests that do not present a same-origin `Origin` or `Referer` never reach the multipart pipeline.
+   This is the primary CSRF control for all submissions.
+2. For authenticated users, Jahia CSRFGuard also injects and validates a `CSRFTOKEN`.
+   Because the submit endpoint is `/modules/formidable-engine/form-submit` rather than `*.do`,
+   the module ships a module-scoped CSRFGuard config extending `urlPatterns` to protect that
+   servlet path explicitly.
+
+### Protection matrix
+
+| Form configuration | Protection that applies | Residual risk |
+|---|---|---|
+| Guest form without CAPTCHA | `formidable-submit` Security Filter only (`origin: hosted`) | Relies solely on the browser-supplied same-origin `Origin` / `Referer` signal enforced by the Security Filter |
+| Guest form with `fmdbmix:captcha` | `formidable-submit` Security Filter + CAPTCHA token validation | Same residual risk as above if the origin signal is missing or downgraded, but the CAPTCHA token adds a second non-replayable credential tied to the hosting page |
+| Authenticated form without CAPTCHA | `formidable-submit` Security Filter + Jahia CSRFGuard token | Requires both a same-origin request and a valid CSRF token; residual risk is lower and mainly depends on the correctness of those platform controls |
+| Authenticated form with `fmdbmix:captcha` | `formidable-submit` Security Filter + Jahia CSRFGuard token + CAPTCHA token validation | Lowest residual risk in this flow; CAPTCHA is still defence in depth, not the primary CSRF control |
+
+### Why guests do not use CSRFGuard as the primary control
+
+Jahia-wide, guest traffic cannot rely on CSRFGuard tokens as the default CSRF mechanism because
+guest pages are expected to remain CDN-cacheable. Injecting a per-request or per-session CSRF token
+into cached HTML would break that caching model. For that reason, the guest path in Formidable
+depends primarily on the Security Filter's `origin: hosted` check, while authenticated users still
+benefit from CSRFGuard on top of the same-origin gate.
+
+Forms using `fmdbmix:captcha` add another barrier: the CAPTCHA token is a non-replayable credential
 tied to the hosting page. This is defence in depth, not the primary CSRF control.
 
 ---

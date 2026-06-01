@@ -78,7 +78,7 @@ public class FormSubmitServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        if (!isRequestAllowed(req)) {
+        if (!isRequestAllowed()) {
             log.warn("[FormSubmitServlet] Rejected [{}]: request did not match Security Filter scope '{}'",
                     ErrorCode.FMDB_011.code(), SUBMIT_API);
             sendJson(resp, HttpServletResponse.SC_FORBIDDEN, ErrorCode.FMDB_011.code(), null);
@@ -101,7 +101,7 @@ public class FormSubmitServlet extends HttpServlet {
         return new FormSubmissionPipeline(config, formActions);
     }
 
-    boolean isRequestAllowed(HttpServletRequest req) {
+    boolean isRequestAllowed() {
         Map<String, Object> query = new HashMap<>();
         query.put("api", SUBMIT_API);
         return permissionService.hasPermission(query);
