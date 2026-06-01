@@ -132,7 +132,7 @@ anonymous or authenticated:
    This is the primary CSRF control for all submissions.
 2. For authenticated users, Jahia CSRFGuard also injects and validates a `CSRFTOKEN`.
    Because the submit endpoint is `/modules/formidable-engine/form-submit` rather than `*.do`,
-   the module ships a CSRFGuard config extending `resolvedUrlPatterns` to include that servlet path.
+   the module ships a module-scoped CSRFGuard config extending `urlPatterns` to protect that servlet path explicitly.
 
 ### Protection matrix
 
