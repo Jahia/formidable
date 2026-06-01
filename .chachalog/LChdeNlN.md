@@ -3,4 +3,4 @@
 formidable: patch
 ---
 
-Review 2.7, extract field validator and shared form-action utilities (#87)
+Improved form submission validation and updated email/forward actions to use shared utilities (#87)
