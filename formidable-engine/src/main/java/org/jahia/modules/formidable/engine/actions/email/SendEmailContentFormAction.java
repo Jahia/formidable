@@ -4,13 +4,12 @@ import org.jahia.modules.formidable.engine.actions.ContentDispositionUtils;
 import org.jahia.modules.formidable.engine.actions.FieldEscaper;
 import org.jahia.modules.formidable.engine.actions.FormAction;
 import org.jahia.modules.formidable.engine.actions.FormActionException;
-import org.jahia.modules.formidable.engine.actions.FormDataParser;
+import org.jahia.modules.formidable.engine.actions.SubmittedFile;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.mail.MailMessage;
 import org.jahia.services.mail.MailService;
-import org.jahia.services.render.RenderContext;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
@@ -71,9 +70,9 @@ public class SendEmailContentFormAction implements FormAction {
     public void execute(
             JCRNodeWrapper actionNode,
             HttpServletRequest req,
-            RenderContext renderContext,
             JCRSessionWrapper session,
-            Map<String, List<String>> parameters
+            Map<String, List<String>> parameters,
+            List<SubmittedFile> files
     ) throws FormActionException {
         if (mailService == null) {
             throw FormActionException.serverError("MailService is unavailable. Check Jahia SMTP configuration.");
@@ -95,13 +94,6 @@ public class SendEmailContentFormAction implements FormAction {
         message.setHtmlBody(buildHtmlBody(subject, parameters));
 
         if (readBooleanProperty(actionNode, "attachFiles")) {
-            @SuppressWarnings("unchecked")
-            List<FormDataParser.FormFile> files =
-                    (List<FormDataParser.FormFile>) req.getAttribute(FormDataParser.PARSED_FILES_ATTR);
-            if (files == null) {
-                throw FormActionException.serverError(
-                        "Validated uploaded files are unavailable for fmdb:emailContentAction.");
-            }
             message.setAttachments(buildAttachments(actionNode, files));
         }
 
@@ -175,13 +167,13 @@ public class SendEmailContentFormAction implements FormAction {
 
     private Map<String, DataHandler> buildAttachments(
             JCRNodeWrapper actionNode,
-            List<FormDataParser.FormFile> files
+            List<SubmittedFile> files
     ) {
         long configuredBytes = readMaxAttachmentSizeBytes(actionNode);
         long effectiveMaxBytes = Math.min(configuredBytes, configService.getUploadMaxFileSizeBytes());
         Map<String, DataHandler> attachments = new LinkedHashMap<>();
 
-        for (FormDataParser.FormFile file : files) {
+        for (SubmittedFile file : files) {
             if (file.data().length > effectiveMaxBytes) {
                 log.info(
                         "Skipping attachment '{}' ({} bytes) for fmdb:emailContentAction: exceeds effective limit {} bytes.",

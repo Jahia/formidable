@@ -3,11 +3,10 @@ package org.jahia.modules.formidable.engine.actions.forward;
 import org.jahia.modules.formidable.engine.actions.ContentDispositionUtils;
 import org.jahia.modules.formidable.engine.actions.FormAction;
 import org.jahia.modules.formidable.engine.actions.FormActionException;
-import org.jahia.modules.formidable.engine.actions.FormDataParser;
+import org.jahia.modules.formidable.engine.actions.SubmittedFile;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
-import org.jahia.services.render.RenderContext;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
@@ -30,7 +29,7 @@ import java.util.concurrent.TimeoutException;
 
 /**
  * Forwards the submitted form data to a third-party endpoint as multipart/form-data.
- * Text parameters and pre-parsed files (from request attribute) are forwarded as-is.
+ * Text parameters and validated uploaded files are forwarded as-is.
  *
  * The target URL is never stored in JCR. The JCR node only holds a stable {@code targetId}
  * that is resolved to a URI via operator configuration (forwardTargets and, optionally,
@@ -71,9 +70,9 @@ public class ForwardSubmissionFormAction implements FormAction {
     public void execute(
             JCRNodeWrapper actionNode,
             HttpServletRequest req,
-            RenderContext renderContext,
             JCRSessionWrapper session,
-            Map<String, List<String>> parameters
+            Map<String, List<String>> parameters,
+            List<SubmittedFile> files
     ) throws FormActionException {
 
         String targetId;
@@ -101,14 +100,6 @@ public class ForwardSubmissionFormAction implements FormAction {
         URI targetUri = target.uri();
 
         checkNotPrivateAddress(targetUri, target.development());
-
-        @SuppressWarnings("unchecked")
-        List<FormDataParser.FormFile> files =
-                (List<FormDataParser.FormFile>) req.getAttribute(FormDataParser.PARSED_FILES_ATTR);
-        if (files == null) {
-            throw new FormActionException(
-                    "Form submission did not go through the expected servlet endpoint.", 500);
-        }
 
         String boundary = UUID.randomUUID().toString();
         byte[] body;
@@ -188,7 +179,7 @@ public class ForwardSubmissionFormAction implements FormAction {
 
     private static byte[] buildMultipartBody(
             Map<String, List<String>> parameters,
-            List<FormDataParser.FormFile> files,
+            List<SubmittedFile> files,
             String boundary
     ) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -203,7 +194,7 @@ public class ForwardSubmissionFormAction implements FormAction {
             }
         }
 
-        for (FormDataParser.FormFile file : files) {
+        for (SubmittedFile file : files) {
             writePart(out, dashdash, boundaryBytes, crlf,
                     file.fieldName(), file.originalName(), file.mimeType(), file.data());
         }

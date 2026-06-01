@@ -181,7 +181,7 @@ The storage file name is based on the parser-generated safe storage name, then n
 At runtime, the action performs the following steps:
 
 1. Resolve the parent form from the action node.
-2. Read validated uploaded files from `FormDataParser.PARSED_FILES_ATTR`.
+2. Read validated uploaded files from the `files` argument passed by the submission pipeline.
 3. Resolve or create `/sites/<site>/formidable-results`.
 4. Resolve or create the form-specific `fmdb:formResults`.
 5. Ensure auto-splitting is enabled on `submissions`.

@@ -4,6 +4,7 @@ import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.jahia.modules.formidable.engine.actions.FormAction;
 import org.jahia.modules.formidable.engine.actions.FormActionException;
 import org.jahia.modules.formidable.engine.actions.FormDataParser;
+import org.jahia.modules.formidable.engine.actions.SubmittedFile;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.modules.formidable.engine.logic.ConditionalLogicEvaluator;
 import org.jahia.services.content.JCRNodeWrapper;
@@ -94,7 +95,6 @@ class FormSubmissionPipeline {
         collectFormFieldInfo();
         parseMultipart(req);
         validateRequired();
-        req.setAttribute(FormDataParser.PARSED_FILES_ATTR, parsed.files());
         dispatchActions(req);
     }
 
@@ -215,16 +215,19 @@ class FormSubmissionPipeline {
                 parsed.parameters()
         );
 
-        for (Map.Entry<String, FormDataParser.FieldConstraints> entry : fieldMetadata.fieldConstraints().entrySet()) {
-            if (!entry.getValue().required()) continue;
+        for (Map.Entry<String, FormDataParser.FieldInfo> entry : fieldMetadata.fieldInfos().entrySet()) {
             String fieldName = entry.getKey();
+            FormDataParser.FieldInfo fieldInfo = entry.getValue();
+            FormDataParser.FieldConstraints constraints = fieldInfo.constraints();
+
+            if (constraints == null || !constraints.required()) continue;
 
             if (logicEvaluator.isHidden(fieldName)) {
                 log.debug("[FormSubmissionPipeline] Skipping required validation for hidden field '{}'", fieldName);
                 continue;
             }
 
-            String type = fieldMetadata.fieldTypes().getOrDefault(fieldName, "");
+            String type = fieldInfo.nodeType();
 
             if ("fmdb:inputFile".equals(type)) {
                 boolean hasFile = parsed.files().stream()
@@ -247,6 +250,7 @@ class FormSubmissionPipeline {
 
     private void dispatchActions(HttpServletRequest req) throws SubmissionException {
         List<ResolvedAction> actions = resolveActionNodes();
+        List<SubmittedFile> submittedFiles = toSubmittedFiles(parsed.files());
         int total = actions.size();
         int executed = 0;
 
@@ -264,7 +268,7 @@ class FormSubmissionPipeline {
                 JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, "live", locale, systemSession -> {
                     JCRNodeWrapper actionNode = systemSession.getNodeByIdentifier(action.id());
                     try {
-                        handler.execute(actionNode, req, null, session, parsed.parameters());
+                        handler.execute(actionNode, req, session, parsed.parameters(), submittedFiles);
                     } catch (FormActionException e) {
                         throw new WrappedFormActionException(e);
                     }
@@ -282,6 +286,14 @@ class FormSubmissionPipeline {
                         executed, total);
             }
         }
+    }
+
+    private static List<SubmittedFile> toSubmittedFiles(List<FormDataParser.FormFile> parsedFiles) {
+        List<SubmittedFile> submittedFiles = new ArrayList<>(parsedFiles.size());
+        for (FormDataParser.FormFile file : parsedFiles) {
+            submittedFiles.add(SubmittedFile.fromParsedFile(file));
+        }
+        return List.copyOf(submittedFiles);
     }
 
     private List<ResolvedAction> resolveActionNodes() throws SubmissionException {
