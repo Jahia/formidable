@@ -32,7 +32,7 @@ import java.util.UUID;
  *
  *   1.  verifyMultipart        — content-type guard
  *   2.  readRoutingParams      — fid (validated as UUID) + lang from URL query params
- *   3.  guardContentLength     — reject oversized requests before touching the stream
+ *   3.  guardContentLength     — early reject oversized requests when Content-Length is present
  *   4.  resolveFormNode        — JCR lookup in "live" workspace
  *   5.  verifyAuthentication   — reject Guest if fmdbmix:requireAuthentication is present
  *   6.  verifyCaptcha          — only if fmdbmix:captcha mixin is present
@@ -47,8 +47,20 @@ class FormSubmissionPipeline {
 
     private static final String ACTIONS_NODE = "actions";
 
+    @FunctionalInterface
+    interface FieldMetadataCollectorAdapter {
+        FormFieldMetadataCollector.Result collect(String formId, Locale locale) throws RepositoryException;
+    }
+
+    @FunctionalInterface
+    interface JcrTemplateProvider {
+        JCRTemplate get();
+    }
+
     private final FormidableConfigService config;
     private final List<FormAction> formActions;
+    private final FieldMetadataCollectorAdapter fieldMetadataCollector;
+    private final JcrTemplateProvider jcrTemplateProvider;
 
     // State accumulated as the pipeline progresses
     private String formId;
@@ -59,8 +71,17 @@ class FormSubmissionPipeline {
     private FormDataParser.ParseResult parsed;
 
     FormSubmissionPipeline(FormidableConfigService config, List<FormAction> formActions) {
+        this(config, formActions, FormFieldMetadataCollector::collect, JCRTemplate::getInstance);
+    }
+
+    FormSubmissionPipeline(FormidableConfigService config,
+                           List<FormAction> formActions,
+                           FieldMetadataCollectorAdapter fieldMetadataCollector,
+                           JcrTemplateProvider jcrTemplateProvider) {
         this.config = config;
         this.formActions = formActions;
+        this.fieldMetadataCollector = fieldMetadataCollector;
+        this.jcrTemplateProvider = jcrTemplateProvider;
     }
 
     void run(HttpServletRequest req) throws SubmissionException {
@@ -103,6 +124,9 @@ class FormSubmissionPipeline {
 
     private void guardContentLength(HttpServletRequest req) throws SubmissionException {
         long contentLength = req.getContentLengthLong();
+        // Early-reject optimization only: chunked requests legitimately report -1 here.
+        // The definitive request-size enforcement still happens later in FormDataParser
+        // via ServletFileUpload.setSizeMax(...) when the multipart stream is consumed.
         if (contentLength > config.getUploadMaxRequestSizeBytes()) {
             throw new SubmissionException(ErrorCode.FMDB_003,
                     "Content-Length " + contentLength + " exceeds limit " + config.getUploadMaxRequestSizeBytes());
@@ -163,8 +187,15 @@ class FormSubmissionPipeline {
         }
     }
 
-    private void collectFormFieldInfo() {
-        fieldMetadata = FormFieldMetadataCollector.collect(formId, locale);
+    private void collectFormFieldInfo() throws SubmissionException {
+        try {
+            fieldMetadata = fieldMetadataCollector.collect(formId, locale);
+        } catch (RepositoryException e) {
+            log.error("[FormSubmissionPipeline] Could not collect form field metadata for form '{}' — rejecting submission (fail-closed)",
+                    formId, e);
+            throw new SubmissionException(ErrorCode.FMDB_500,
+                    "Cannot collect field metadata for form: " + formId);
+        }
     }
 
     private void parseMultipart(HttpServletRequest req) throws SubmissionException {
@@ -253,10 +284,10 @@ class FormSubmissionPipeline {
         }
     }
 
-    private List<ResolvedAction> resolveActionNodes() {
+    private List<ResolvedAction> resolveActionNodes() throws SubmissionException {
         List<ResolvedAction> result = new ArrayList<>();
         try {
-            JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, "live", locale, systemSession -> {
+            jcrTemplateProvider.get().doExecuteWithSystemSessionAsUser(null, "live", locale, systemSession -> {
                 JCRNodeWrapper systemFormNode = systemSession.getNodeByIdentifier(formId);
                 if (!systemFormNode.hasNode(ACTIONS_NODE)) {
                     return null;
@@ -277,7 +308,10 @@ class FormSubmissionPipeline {
                 return null;
             });
         } catch (RepositoryException e) {
-            log.warn("[FormSubmissionPipeline] Could not read actions from form '{}'", formId, e);
+            log.error("[FormSubmissionPipeline] Could not read actions from form '{}' — rejecting submission (fail-closed)",
+                    formId, e);
+            throw new SubmissionException(ErrorCode.FMDB_012,
+                    "Could not read action list for form: " + formId);
         }
         return result;
     }

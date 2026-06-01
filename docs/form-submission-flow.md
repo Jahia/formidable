@@ -28,7 +28,7 @@ Browser
                                           (same-origin via Origin/Referer)
          Step 1   verifyMultipart         Content-Type must be multipart/form-data
          Step 2   readRoutingParams       fid (UUID-validated) + lang read from URL query params  — 0 byte read
-         Step 3   guardContentLength      reject if Content-Length > max                          — 0 byte read
+         Step 3   guardContentLength      early reject if Content-Length > max                    — 0 byte read
          Step 4   resolveFormNode         JCR getNodeByIdentifier(fid) in "live"                 — 0 byte read
          Step 5   verifyAuthentication    if fmdbmix:requireAuthentication → reject Guest
          Step 6   verifyCaptcha           if fmdbmix:captcha → verify 'ct' URL param             — 0 byte read
@@ -68,10 +68,16 @@ Browser
 
 > **DoS mitigation (defence in depth):**
 - Gate 0: cross-origin requests are rejected before the multipart pipeline starts
-> - Step 3: oversized requests rejected on `Content-Length` header alone — 0 byte read
+> - Step 3: oversized requests are rejected early when a `Content-Length` header is present — 0 byte read
 > - Step 6: invalid CAPTCHA token → rejected before any file data is read
 > - Step 7: field whitelist built before parsing — undeclared fields never touch memory or disk
 > - Steps 4–7 are all O(1) or cheap JCR lookups; the network stream is only read at step 8
+
+`guardContentLength` is an optimization, not the definitive size limit. When a client submits
+the request with `Transfer-Encoding: chunked`, `getContentLengthLong()` returns `-1`, so step 3
+cannot reject the request before the body is read. In that case the authoritative request-size
+enforcement still happens at step 8, where `ServletFileUpload.setSizeMax(...)` aborts oversized
+multipart bodies during streaming.
 
 ### URL parameters set by `default.server.tsx` / `Form.client.tsx`
 

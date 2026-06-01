@@ -64,8 +64,6 @@ public class SaveToJcrFormAction implements FormAction {
             throw FormActionException.serverError(
                     "Validated uploaded files are unavailable for fmdb:save2jcrAction.");
         }
-
-
         String formNodeId;
         try {
             formNodeId = formNode.getIdentifier();
@@ -74,14 +72,13 @@ public class SaveToJcrFormAction implements FormAction {
         }
 
         try {
-            String submitterUsername = session != null ? session.getUserID() : null;
             JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, "live", null, systemSession -> {
                 JCRNodeWrapper sysFormNode = systemSession.getNodeByIdentifier(formNodeId);
                 JCRNodeWrapper formResults = resolveOrCreateFormResults(sysFormNode, systemSession);
                 JCRNodeWrapper submissions = formResults.getNode("submissions");
                 ensureAutoSplit(submissions);
 
-                JCRNodeWrapper submission = createSubmissionNode(submissions, req, submitterUsername, systemSession);
+                JCRNodeWrapper submission = createSubmissionNode(submissions, req, systemSession);
                 String submissionId = submission.getIdentifier();
                 systemSession.save();
 
@@ -202,7 +199,6 @@ public class SaveToJcrFormAction implements FormAction {
     private static JCRNodeWrapper createSubmissionNode(
             JCRNodeWrapper submissions,
             HttpServletRequest req,
-            String submitterUsername,
             JCRSessionWrapper session
     ) throws RepositoryException {
         session.checkout(submissions);
@@ -210,10 +206,7 @@ public class SaveToJcrFormAction implements FormAction {
         String availableName = JCRContentUtils.findAvailableNodeName(submissions, submissionName);
         JCRNodeWrapper submission = submissions.addNode(availableName, "fmdb:formSubmission");
         submission.setProperty("origin", SUBMISSION_ORIGIN);
-        setOptionalProperty(submission, "ipAddress", req.getRemoteAddr());
         setOptionalProperty(submission, "locale", req.getParameter("lang"));
-        setOptionalProperty(submission, "submitterUsername", submitterUsername);
-        setOptionalProperty(submission, "userAgent", req.getHeader("User-Agent"));
         setOptionalProperty(submission, "referer", req.getHeader("Referer"));
         return submission;
     }

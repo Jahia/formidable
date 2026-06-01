@@ -41,12 +41,9 @@ const buildCsvContent = (
         t('formResults.export.columns.id'),
         t('formResults.export.columns.name'),
         t('formResults.table.date'),
-        t('formResults.table.user'),
         t('formResults.table.locale'),
-        t('formResults.table.ipAddress'),
         t('formResults.detail.origin'),
         t('formResults.detail.referer'),
-        t('formResults.detail.userAgent'),
         t('formResults.detail.files'),
         ...fieldNames.map(name => {
             const label = formFieldLabels.get(name);
@@ -61,12 +58,9 @@ const buildCsvContent = (
             submission.uuid,
             submission.name,
             submission.created,
-            submission.submitterUsername ?? '',
             submission.locale ?? '',
-            submission.ipAddress ?? '',
             submission.origin ?? '',
             submission.referer ?? '',
-            submission.userAgent ?? '',
             formatFilesValue(submission),
             ...fieldNames.map(name => fieldValues.get(name) ?? '')
         ];
@@ -85,4 +79,3 @@ export const csvFormat: ExportFormat = {
     mimeType: 'text/csv;charset=utf-8;',
     buildContent: buildCsvContent
 };
-

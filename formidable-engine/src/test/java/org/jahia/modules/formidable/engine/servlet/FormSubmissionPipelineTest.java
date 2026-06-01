@@ -4,6 +4,7 @@ import org.jahia.modules.formidable.engine.actions.FormAction;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionFactory;
+import org.jahia.services.content.JCRTemplate;
 import org.jahia.services.usermanager.JahiaUser;
 import org.junit.jupiter.api.Test;
 
@@ -67,6 +68,53 @@ class FormSubmissionPipelineTest {
         assertEquals(ErrorCode.FMDB_500, error.errorCode);
     }
 
+    @Test
+    void resolveActionNodesRejectsSubmissionWhenSystemReadFails() throws Exception {
+        // Verifies the action-list gate: if the system session cannot read the configured actions,
+        // the submission must fail instead of silently continuing with an empty pipeline.
+        JCRTemplate template = mock(JCRTemplate.class);
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
+                mock(FormidableConfigService.class),
+                List.<FormAction>of(),
+                FormFieldMetadataCollector::collect,
+                () -> template
+        );
+        setField(pipeline, "formId", "test-form-id");
+
+        when(template.doExecuteWithSystemSessionAsUser(org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.eq("live"),
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new RepositoryException("boom"));
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeResolveActionNodes(pipeline));
+
+        // Expected outcome: FMDB-012 is returned so action-list resolution failures stay
+        // distinguishable from downstream action execution failures.
+        assertEquals(ErrorCode.FMDB_012, error.errorCode);
+    }
+
+    @Test
+    void collectFormFieldInfoRejectsSubmissionWhenMetadataCollectionFails() throws Exception {
+        // Verifies the metadata gate: if JCR field metadata cannot be collected reliably,
+        // the submission must fail instead of parsing against partial metadata.
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
+                mock(FormidableConfigService.class),
+                List.<FormAction>of(),
+                (formId, locale) -> { throw new RepositoryException("boom"); },
+                JCRTemplate::getInstance
+        );
+        setField(pipeline, "formId", "test-form-id");
+        setField(pipeline, "locale", java.util.Locale.ENGLISH);
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeCollectFormFieldInfo(pipeline));
+
+        // Expected outcome: FMDB-500 is returned because the submission cannot rely on partial metadata.
+        assertEquals(ErrorCode.FMDB_500, error.errorCode);
+    }
+
     private static FormSubmissionPipeline newPipelineWithFormNode(boolean requiresAuthentication) throws Exception {
         FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of());
         JCRNodeWrapper formNode = mock(JCRNodeWrapper.class);
@@ -102,6 +150,38 @@ class FormSubmissionPipelineTest {
             throw e;
         } finally {
             JCRSessionFactory.getInstance().setCurrentUser(previousUser);
+        }
+    }
+
+    private static void invokeResolveActionNodes(FormSubmissionPipeline pipeline) throws Exception {
+        Method method = FormSubmissionPipeline.class.getDeclaredMethod("resolveActionNodes");
+        method.setAccessible(true);
+        try {
+            method.invoke(pipeline);
+        } catch (InvocationTargetException e) {
+            if (e.getCause() instanceof SubmissionException submissionException) {
+                throw submissionException;
+            }
+            if (e.getCause() instanceof Exception exception) {
+                throw exception;
+            }
+            throw e;
+        }
+    }
+
+    private static void invokeCollectFormFieldInfo(FormSubmissionPipeline pipeline) throws Exception {
+        Method method = FormSubmissionPipeline.class.getDeclaredMethod("collectFormFieldInfo");
+        method.setAccessible(true);
+        try {
+            method.invoke(pipeline);
+        } catch (InvocationTargetException e) {
+            if (e.getCause() instanceof SubmissionException submissionException) {
+                throw submissionException;
+            }
+            if (e.getCause() instanceof Exception exception) {
+                throw exception;
+            }
+            throw e;
         }
     }
 

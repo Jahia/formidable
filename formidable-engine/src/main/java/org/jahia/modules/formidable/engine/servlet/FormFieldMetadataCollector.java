@@ -47,7 +47,7 @@ class FormFieldMetadataCollector {
         }
     }
 
-    static Result collect(String formId, Locale locale) {
+    static Result collect(String formId, Locale locale) throws RepositoryException {
         var allowedFieldNames    = new HashSet<String>();
         var fieldTypes           = new HashMap<String, String>();
         var allowedChoices       = new HashMap<String, Set<String>>();
@@ -60,29 +60,24 @@ class FormFieldMetadataCollector {
         var ctx = new CollectorContext(allowedFieldNames, fieldTypes, allowedChoices,
                 fieldAcceptTypes, fieldConstraints, fieldLogicRules, logicIdToFieldName, fieldParentContainer);
 
-        try {
-            JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, "live", locale, systemSession -> {
-                JCRNodeWrapper formNode = systemSession.getNodeByIdentifier(formId);
-                if (!formNode.hasNode(FIELDS_NODE)) {
-                    log.debug("[FormFieldMetadataCollector] No '{}' child on form node '{}'",
-                            FIELDS_NODE, formNode.getPath());
-                    return null;
-                }
-
-                JCRNodeWrapper fieldList = formNode.getNode(FIELDS_NODE);
-                NodeIterator it = fieldList.getNodes();
-                while (it.hasNext()) {
-                    javax.jcr.Node child = it.nextNode();
-                    if (child instanceof JCRNodeWrapper w) {
-                        traverseRecursively(w, null, ctx);
-                    }
-                }
+        JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, "live", locale, systemSession -> {
+            JCRNodeWrapper formNode = systemSession.getNodeByIdentifier(formId);
+            if (!formNode.hasNode(FIELDS_NODE)) {
+                log.debug("[FormFieldMetadataCollector] No '{}' child on form node '{}'",
+                        FIELDS_NODE, formNode.getPath());
                 return null;
-            });
-        } catch (RepositoryException e) {
-            log.warn("[FormFieldMetadataCollector] Could not collect field info from form '{}': {}",
-                    formId, e.getMessage());
-        }
+            }
+
+            JCRNodeWrapper fieldList = formNode.getNode(FIELDS_NODE);
+            NodeIterator it = fieldList.getNodes();
+            while (it.hasNext()) {
+                javax.jcr.Node child = it.nextNode();
+                if (child instanceof JCRNodeWrapper w) {
+                    traverseRecursively(w, null, ctx);
+                }
+            }
+            return null;
+        });
 
         log.debug("[FormFieldMetadataCollector] Allowed fields: {}", allowedFieldNames);
         return new Result(allowedFieldNames, fieldTypes, allowedChoices,
@@ -102,162 +97,145 @@ class FormFieldMetadataCollector {
             Map<String, String> fieldParentContainer
     ) {}
 
-    private static void traverseRecursively(JCRNodeWrapper node, String parentContainerName, CollectorContext ctx) {
-        try {
-            String nodeType = node.getPrimaryNodeTypeName();
-            String currentContainerName = parentContainerName;
+    private static void traverseRecursively(JCRNodeWrapper node, String parentContainerName, CollectorContext ctx)
+            throws RepositoryException {
+        String nodeType = node.getPrimaryNodeTypeName();
+        String currentContainerName = parentContainerName;
 
-            boolean isContainer = node.isNodeType("fmdbmix:formStep")
-                    || (NON_SUBMITTABLE_FORM_ELEMENT_TYPES.contains(nodeType) && node.isNodeType("fmdbmix:formLogicElement"));
-            if (isContainer) {
-                String containerName = node.getName();
-                if (node.hasProperty("logics")) {
-                    List<ConditionalLogicRule> rules = ConditionalLogicRule.parse(node.getProperty("logics").getValues());
-                    if (!rules.isEmpty()) {
-                        ctx.fieldLogicRules.put(containerName, rules);
-                        resolveLogicsSrc(node, rules, ctx);
-                        currentContainerName = containerName;
-                    }
-                }
-            }
-
-            if (node.isNodeType("fmdbmix:formElement")
-                    && !NON_SUBMITTABLE_FORM_ELEMENT_TYPES.contains(nodeType)) {
-                registerField(node, nodeType, currentContainerName, ctx);
-            }
-
-            NodeIterator it = node.getNodes();
-            while (it.hasNext()) {
-                javax.jcr.Node child = it.nextNode();
-                if (child instanceof JCRNodeWrapper childNode) {
-                    traverseRecursively(childNode, currentContainerName, ctx);
-                }
-            }
-        } catch (RepositoryException e) {
-            log.debug("[FormFieldMetadataCollector] Cannot traverse node '{}': {}", node.getPath(), e.getMessage());
-        }
-    }
-
-    private static void registerField(JCRNodeWrapper node, String nodeType, String parentContainerName, CollectorContext ctx) {
-        try {
-            String name = node.getName();
-            if (!ctx.allowedFieldNames.add(name)) {
-                log.warn("[FormFieldMetadataCollector] Duplicate field name '{}'; later metadata overwrites.", name);
-            }
-            ctx.fieldTypes.put(name, nodeType);
-
-
-            if (parentContainerName != null) {
-                ctx.fieldParentContainer.put(name, parentContainerName);
-            }
-
-            if (node.isNodeType("fmdbmix:formLogicElement") && node.hasProperty("logics")) {
+        boolean isContainer = node.isNodeType("fmdbmix:formStep")
+                || (NON_SUBMITTABLE_FORM_ELEMENT_TYPES.contains(nodeType) && node.isNodeType("fmdbmix:formLogicElement"));
+        if (isContainer) {
+            String containerName = node.getName();
+            if (node.hasProperty("logics")) {
                 List<ConditionalLogicRule> rules = ConditionalLogicRule.parse(node.getProperty("logics").getValues());
                 if (!rules.isEmpty()) {
-                    ctx.fieldLogicRules.put(name, rules);
+                    ctx.fieldLogicRules.put(containerName, rules);
                     resolveLogicsSrc(node, rules, ctx);
+                    currentContainerName = containerName;
                 }
             }
+        }
 
-            switch (nodeType) {
-                case "fmdb:checkbox", "fmdb:radio" -> collectChoices(node, name, "choices", ctx);
-                case "fmdb:select"                 -> collectChoices(node, name, "options", ctx);
-                case "fmdb:inputFile"              -> {
-                    if (node.hasProperty("accept")) {
-                        Set<String> accepted = java.util.Arrays.stream(node.getProperty("accept").getValues())
-                                .map(v -> { try { return v.getString().trim(); } catch (Exception e2) { return ""; } })
-                                .filter(s -> !s.isBlank())
-                                .map(FormDataParser::resolveAcceptToken)
-                                .collect(java.util.stream.Collectors.toSet());
-                        if (!accepted.isEmpty()) ctx.fieldAcceptTypes.put(name, accepted);
-                    }
-                }
+        if (node.isNodeType("fmdbmix:formElement")
+                && !NON_SUBMITTABLE_FORM_ELEMENT_TYPES.contains(nodeType)) {
+            registerField(node, nodeType, currentContainerName, ctx);
+        }
+
+        NodeIterator it = node.getNodes();
+        while (it.hasNext()) {
+            javax.jcr.Node child = it.nextNode();
+            if (child instanceof JCRNodeWrapper childNode) {
+                traverseRecursively(childNode, currentContainerName, ctx);
             }
-
-            FormDataParser.FieldConstraints c = readConstraints(node, nodeType);
-            if (c != null) ctx.fieldConstraints.put(name, c);
-        } catch (RepositoryException e) {
-            log.debug("[FormFieldMetadataCollector] Cannot collect metadata for '{}': {}", node.getPath(), e.getMessage());
         }
     }
 
-    private static void resolveLogicsSrc(JCRNodeWrapper node, List<ConditionalLogicRule> rules, CollectorContext ctx) {
-        try {
-            if (!node.hasNode(LOGICS_SRC)) {
-                return;
+    private static void registerField(JCRNodeWrapper node, String nodeType, String parentContainerName, CollectorContext ctx)
+            throws RepositoryException {
+        String name = node.getName();
+        if (!ctx.allowedFieldNames.add(name)) {
+            log.warn("[FormFieldMetadataCollector] Duplicate field name '{}'; later metadata overwrites.", name);
+        }
+        ctx.fieldTypes.put(name, nodeType);
+
+        if (parentContainerName != null) {
+            ctx.fieldParentContainer.put(name, parentContainerName);
+        }
+
+        if (node.isNodeType("fmdbmix:formLogicElement") && node.hasProperty("logics")) {
+            List<ConditionalLogicRule> rules = ConditionalLogicRule.parse(node.getProperty("logics").getValues());
+            if (!rules.isEmpty()) {
+                ctx.fieldLogicRules.put(name, rules);
+                resolveLogicsSrc(node, rules, ctx);
+            }
+        }
+
+        switch (nodeType) {
+            case "fmdb:checkbox", "fmdb:radio" -> collectChoices(node, name, "choices", ctx);
+            case "fmdb:select"                 -> collectChoices(node, name, "options", ctx);
+            case "fmdb:inputFile"              -> {
+                if (node.hasProperty("accept")) {
+                    Set<String> accepted = java.util.Arrays.stream(node.getProperty("accept").getValues())
+                            .map(v -> { try { return v.getString().trim(); } catch (Exception e2) { return ""; } })
+                            .filter(s -> !s.isBlank())
+                            .map(FormDataParser::resolveAcceptToken)
+                            .collect(java.util.stream.Collectors.toSet());
+                    if (!accepted.isEmpty()) ctx.fieldAcceptTypes.put(name, accepted);
+                }
+            }
+        }
+
+        FormDataParser.FieldConstraints c = readConstraints(node, nodeType);
+        if (c != null) ctx.fieldConstraints.put(name, c);
+    }
+
+    private static void resolveLogicsSrc(JCRNodeWrapper node, List<ConditionalLogicRule> rules, CollectorContext ctx)
+            throws RepositoryException {
+        if (!node.hasNode(LOGICS_SRC)) {
+            return;
+        }
+
+        JCRNodeWrapper logicsSrc = node.getNode(LOGICS_SRC);
+        for (ConditionalLogicRule rule : rules) {
+            String logicId = rule.logicId();
+            if (logicId == null || logicId.isEmpty()) {
+                continue;
             }
 
-            JCRNodeWrapper logicsSrc = node.getNode(LOGICS_SRC);
-            for (ConditionalLogicRule rule : rules) {
-                String logicId = rule.logicId();
-                if (logicId == null || logicId.isEmpty()) {
-                    continue;
-                }
-
-                if (!logicsSrc.hasNode(logicId)) {
-                    continue;
-                }
-
-                JCRNodeWrapper srcNode = logicsSrc.getNode(logicId);
-                try {
-                    JCRNodeWrapper sourceField = (JCRNodeWrapper) srcNode.getProperty(LOGIC_NODE_SOURCE).getNode();
-                    ctx.logicIdToFieldName.put(logicId, sourceField.getName());
-                } catch (Exception e) {
-                    log.debug("[FormFieldMetadataCollector] Broken weakref for logicId '{}' on '{}'",
-                            logicId, node.getPath());
-                }
+            if (!logicsSrc.hasNode(logicId)) {
+                continue;
             }
-        } catch (RepositoryException e) {
-            log.debug("[FormFieldMetadataCollector] Cannot resolve logicsSrc on '{}': {}", node.getPath(), e.getMessage());
+
+            JCRNodeWrapper srcNode = logicsSrc.getNode(logicId);
+            try {
+                JCRNodeWrapper sourceField = (JCRNodeWrapper) srcNode.getProperty(LOGIC_NODE_SOURCE).getNode();
+                ctx.logicIdToFieldName.put(logicId, sourceField.getName());
+            } catch (Exception e) {
+                log.debug("[FormFieldMetadataCollector] Broken weakref for logicId '{}' on '{}'",
+                        logicId, node.getPath());
+            }
         }
     }
 
-    private static void collectChoices(JCRNodeWrapper node, String fieldName, String propName, CollectorContext ctx) {
-        try {
-            if (!node.hasProperty(propName)) return;
-            Value[] values = node.getProperty(propName).getValues();
-            Set<String> choices = new HashSet<>();
-            for (Value v : values) {
-                try {
-                    JSONObject obj = new JSONObject(v.getString());
-                    String val = obj.optString("value", "").trim();
-                    if (!val.isEmpty()) choices.add(val);
-                } catch (Exception e) {
-                    log.debug("[FormFieldMetadataCollector] Could not parse choice JSON for field '{}'", fieldName);
-                }
+    private static void collectChoices(JCRNodeWrapper node, String fieldName, String propName, CollectorContext ctx)
+            throws RepositoryException {
+        if (!node.hasProperty(propName)) return;
+        Value[] values = node.getProperty(propName).getValues();
+        Set<String> choices = new HashSet<>();
+        for (Value v : values) {
+            try {
+                JSONObject obj = new JSONObject(v.getString());
+                String val = obj.optString("value", "").trim();
+                if (!val.isEmpty()) choices.add(val);
+            } catch (Exception e) {
+                log.debug("[FormFieldMetadataCollector] Could not parse choice JSON for field '{}'", fieldName);
             }
-            if (!choices.isEmpty()) ctx.allowedChoices.put(fieldName, choices);
-        } catch (RepositoryException e) {
-            log.debug("[FormFieldMetadataCollector] Cannot read '{}' on '{}': {}", propName, node.getPath(), e.getMessage());
         }
+        if (!choices.isEmpty()) ctx.allowedChoices.put(fieldName, choices);
     }
 
-    private static FormDataParser.FieldConstraints readConstraints(JCRNodeWrapper node, String nodeType) {
-        try {
-            boolean required  = readBoolean(node, "required");
-            long minLength    = readLong(node, "minLength");
-            long maxLength    = readLong(node, "maxLength");
-            String pattern    = readString(node, "pattern");
-            String minDate    = null;
-            String maxDate    = null;
+    private static FormDataParser.FieldConstraints readConstraints(JCRNodeWrapper node, String nodeType)
+            throws RepositoryException {
+        boolean required  = readBoolean(node, "required");
+        long minLength    = readLong(node, "minLength");
+        long maxLength    = readLong(node, "maxLength");
+        String pattern    = readString(node, "pattern");
+        String minDate    = null;
+        String maxDate    = null;
 
-            if ("fmdb:inputDate".equals(nodeType)) {
-                minDate = readDateAsIso(node, "min", false);
-                maxDate = readDateAsIso(node, "max", false);
-            } else if ("fmdb:inputDatetimeLocal".equals(nodeType)) {
-                minDate = readDateAsIso(node, "min", true);
-                maxDate = readDateAsIso(node, "max", true);
-            }
+        if ("fmdb:inputDate".equals(nodeType)) {
+            minDate = readDateAsIso(node, "min", false);
+            maxDate = readDateAsIso(node, "max", false);
+        } else if ("fmdb:inputDatetimeLocal".equals(nodeType)) {
+            minDate = readDateAsIso(node, "min", true);
+            maxDate = readDateAsIso(node, "max", true);
+        }
 
-            if (!required && minLength < 0 && maxLength < 0 && pattern == null
-                    && minDate == null && maxDate == null) {
-                return null;
-            }
-            return new FormDataParser.FieldConstraints(required, minLength, maxLength, pattern, minDate, maxDate);
-        } catch (RepositoryException e) {
-            log.debug("[FormFieldMetadataCollector] Cannot read constraints for '{}': {}", node.getPath(), e.getMessage());
+        if (!required && minLength < 0 && maxLength < 0 && pattern == null
+                && minDate == null && maxDate == null) {
             return null;
         }
+        return new FormDataParser.FieldConstraints(required, minLength, maxLength, pattern, minDate, maxDate);
     }
 
     private static boolean readBoolean(JCRNodeWrapper node, String prop) throws RepositoryException {
@@ -284,4 +262,3 @@ class FormFieldMetadataCollector {
                 : ldt.toLocalDate().toString();
     }
 }
-

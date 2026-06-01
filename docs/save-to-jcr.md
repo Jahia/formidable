@@ -112,11 +112,24 @@ Typical submission-level properties:
 
 - `origin`
 - `status`
-- `ipAddress`
 - `locale`
-- `submitterUsername`
-- `userAgent`
 - `referer`
+
+For newly stored submissions, `SaveToJcrFormAction` does not persist `ipAddress`,
+`submitterUsername`, or `userAgent`. Older submissions may still contain those legacy
+properties if they were created before that change.
+
+### Personal Data
+
+At submission level, the only request-derived metadata still persisted by default is:
+
+- `referer` — the HTTP `Referer` header, when present
+
+This value may contain personal data or contextual URL information depending on the
+site and browser behavior. It is stored to help operators understand where a submission
+came from in the site flow and to support operational troubleshooting. Submitted field
+values and uploaded files may of course also contain personal data depending on the form
+design; those are persisted because `fmdb:save2jcrAction` is explicitly a storage action.
 
 ### Field Values
 
