@@ -27,6 +27,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACL_NODE;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACL_NODE_TYPE;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_NODE_TYPE;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_RESULTS_NODE_TYPE;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.INHERIT_PROPERTY;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.PARENT_FORM_PROPERTY;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WORKSPACE_LIVE;
+
 /**
  * Saves the submitted form data as child nodes under a site-level JCR results tree.
  */
@@ -38,6 +46,7 @@ public class SaveToJcrFormAction implements FormAction {
     private static final String SUBMISSION_ORIGIN = "formidable";
     private static final String SPLIT_CONFIG = "date,jcr:created,yyyy;date,jcr:created,MM;date,jcr:created,dd";
     private static final String SPLIT_NODE_TYPE = "fmdb:splittedSubmission";
+    private static final String FILES_NODE_NAME = "files";
     private static final DateTimeFormatter SUBMISSION_NAME_FORMATTER =
             DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
@@ -63,7 +72,7 @@ public class SaveToJcrFormAction implements FormAction {
         }
 
         try {
-            JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, "live", null, systemSession -> {
+            JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, null, systemSession -> {
                 JCRNodeWrapper sysFormNode = systemSession.getNodeByIdentifier(formNodeId);
                 JCRNodeWrapper formResults = resolveOrCreateFormResults(sysFormNode, systemSession);
                 JCRNodeWrapper submissions = formResults.getNode("submissions");
@@ -96,7 +105,7 @@ public class SaveToJcrFormAction implements FormAction {
             }
 
             JCRNodeWrapper formNode = (JCRNodeWrapper) actionListNode.getParent();
-            if (formNode == null || !formNode.isNodeType("fmdb:form")) {
+            if (formNode == null || !formNode.isNodeType(FORM_NODE_TYPE)) {
                 throw FormActionException.serverError("The JCR storage action parent form could not be resolved.");
             }
 
@@ -125,16 +134,16 @@ public class SaveToJcrFormAction implements FormAction {
 
         session.checkout(resultsRoot);
         String availableName = JCRContentUtils.findAvailableNodeName(resultsRoot, formNode.getName());
-        JCRNodeWrapper formResults = resultsRoot.addNode(availableName, "fmdb:formResults");
+        JCRNodeWrapper formResults = resultsRoot.addNode(availableName, FORM_RESULTS_NODE_TYPE);
         Value parentForm = session.getValueFactory().createValue(formNode);
-        formResults.setProperty("parentForm", parentForm);
+        formResults.setProperty(PARENT_FORM_PROPERTY, parentForm);
         if (formNode.getLanguage() != null && !formNode.getLanguage().isBlank()) {
             formResults.setProperty("buildingLang", formNode.getLanguage());
         }
 
         // Break ACL inheritance so public reader role does not grant access to results
-        JCRNodeWrapper acl = formResults.addNode("j:acl", "jnt:acl");
-        acl.setProperty("j:inherit", false);
+        JCRNodeWrapper acl = formResults.addNode(ACL_NODE, ACL_NODE_TYPE);
+        acl.setProperty(INHERIT_PROPERTY, false);
 
         session.save();
 
@@ -153,10 +162,10 @@ public class SaveToJcrFormAction implements FormAction {
             if (!(child instanceof JCRNodeWrapper candidate)) {
                 continue;
             }
-            if (!candidate.isNodeType("fmdb:formResults") || !candidate.hasProperty("parentForm")) {
+            if (!candidate.isNodeType(FORM_RESULTS_NODE_TYPE) || !candidate.hasProperty(PARENT_FORM_PROPERTY)) {
                 continue;
             }
-            if (formIdentifier.equals(candidate.getProperty("parentForm").getString())) {
+            if (formIdentifier.equals(candidate.getProperty(PARENT_FORM_PROPERTY).getString())) {
                 return candidate;
             }
         }
@@ -217,35 +226,56 @@ public class SaveToJcrFormAction implements FormAction {
         session.checkout(submission);
         JCRNodeWrapper dataNode = submission.getNode("data");
         for (Map.Entry<String, List<String>> entry : parameters.entrySet()) {
-            List<String> values = entry.getValue();
-            if (values == null || values.isEmpty()) {
-                continue;
-            }
-            List<String> nonBlankValues = values.stream()
-                    .filter(v -> v != null && !v.isBlank())
-                    .toList();
-            if (nonBlankValues.isEmpty()) {
-                continue;
-            }
-            if (nonBlankValues.size() == 1) {
-                dataNode.setProperty(entry.getKey(), nonBlankValues.get(0));
-            } else {
-                dataNode.setProperty(entry.getKey(), nonBlankValues.toArray(String[]::new));
-            }
+            writeParameterValue(dataNode, entry.getKey(), entry.getValue());
         }
 
+        persistSubmittedFiles(submission, files, session);
+    }
 
-        if (!files.isEmpty()) {
-            JCRNodeWrapper filesNode = submission.hasNode("files")
-                    ? submission.getNode("files")
-                    : submission.addNode("files", "jnt:folder");
-            for (SubmittedFile file : files) {
-                JCRNodeWrapper fieldFolder = filesNode.hasNode(file.fieldName())
-                        ? filesNode.getNode(file.fieldName())
-                        : filesNode.addNode(file.fieldName(), "jnt:folder");
-                addFileNode(fieldFolder, file, session);
-            }
+    private static void writeParameterValue(JCRNodeWrapper dataNode, String fieldName, List<String> values)
+            throws RepositoryException {
+        List<String> nonBlankValues = normalizeSubmittedValues(values);
+        if (nonBlankValues.isEmpty()) {
+            return;
         }
+        if (nonBlankValues.size() == 1) {
+            dataNode.setProperty(fieldName, nonBlankValues.get(0));
+        } else {
+            dataNode.setProperty(fieldName, nonBlankValues.toArray(String[]::new));
+        }
+    }
+
+    private static List<String> normalizeSubmittedValues(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return List.of();
+        }
+        return values.stream()
+                .filter(v -> v != null && !v.isBlank())
+                .toList();
+    }
+
+    private static void persistSubmittedFiles(
+            JCRNodeWrapper submission,
+            List<SubmittedFile> files,
+            JCRSessionWrapper session
+    ) throws RepositoryException {
+        if (files.isEmpty()) {
+            return;
+        }
+        JCRNodeWrapper filesNode = submission.hasNode(FILES_NODE_NAME)
+                ? submission.getNode(FILES_NODE_NAME)
+                : submission.addNode(FILES_NODE_NAME, "jnt:folder");
+        for (SubmittedFile file : files) {
+            JCRNodeWrapper fieldFolder = resolveOrCreateFieldFolder(filesNode, file.fieldName());
+            addFileNode(fieldFolder, file, session);
+        }
+    }
+
+    private static JCRNodeWrapper resolveOrCreateFieldFolder(JCRNodeWrapper filesNode, String fieldName)
+            throws RepositoryException {
+        return filesNode.hasNode(fieldName)
+                ? filesNode.getNode(fieldName)
+                : filesNode.addNode(fieldName, "jnt:folder");
     }
 
     private static void addFileNode(

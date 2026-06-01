@@ -11,6 +11,9 @@ import javax.jcr.RepositoryException;
 import javax.jcr.observation.Event;
 import javax.jcr.observation.EventIterator;
 
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_LOGIC_ELEMENT_MIXIN;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGICS_PROPERTY;
+
 /**
  * Keeps logicsSrc child nodes in sync with the logics JSON property during normal authoring.
  *
@@ -31,7 +34,7 @@ public class FormLogicSyncListener extends DefaultEventListener {
 
     @Override
     public String[] getNodeTypes() {
-        return new String[]{"fmdbmix:formLogicElement"};
+        return new String[]{FORM_LOGIC_ELEMENT_MIXIN};
     }
 
     @Override
@@ -40,7 +43,7 @@ public class FormLogicSyncListener extends DefaultEventListener {
             Event event = events.nextEvent();
             try {
                 String path = event.getPath();
-                if (!path.endsWith("/logics")) {
+                if (!path.endsWith("/" + LOGICS_PROPERTY)) {
                     continue;
                 }
 

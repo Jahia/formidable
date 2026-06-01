@@ -14,6 +14,16 @@ import javax.jcr.RepositoryException;
 import javax.jcr.Value;
 import java.util.*;
 
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FIELDS_NODE;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_CONTAINER_MIXIN;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_ELEMENT_MIXIN;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_LOGIC_ELEMENT_MIXIN;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGIC_NODE_SOURCE_PROPERTY;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGICS_PROPERTY;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGICS_SRC_NODE;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.NON_SUBMITTABLE_MIXIN;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WORKSPACE_LIVE;
+
 /**
  * Traverses the JCR form tree and collects all field metadata needed by the submission pipeline:
  * allowed field names, types, choices, accept types, constraints, logic rules, and container hierarchy.
@@ -21,10 +31,6 @@ import java.util.*;
 class FormFieldMetadataCollector {
 
     private static final Logger log = LoggerFactory.getLogger(FormFieldMetadataCollector.class);
-
-    private static final String FIELDS_NODE = "fields";
-    private static final String LOGICS_SRC = "logicsSrc";
-    private static final String LOGIC_NODE_SOURCE = "logicNodeSource";
 
     record Result(
             Map<String, FormDataParser.FieldInfo> fieldInfos,
@@ -38,7 +44,7 @@ class FormFieldMetadataCollector {
     }
 
     static Result collect(String formId, Locale locale) throws RepositoryException {
-        return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, "live", locale, systemSession -> {
+        return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale, systemSession -> {
             JCRNodeWrapper formNode = systemSession.getNodeByIdentifier(formId);
             return collectFromFormNode(formNode);
         });
@@ -84,15 +90,15 @@ class FormFieldMetadataCollector {
             throws RepositoryException {
         String nodeType = node.getPrimaryNodeTypeName();
         String currentContainerName = parentContainerName;
-        boolean nonSubmittable = node.isNodeType("fmdbmix:nonSubmittable");
+        boolean nonSubmittable = node.isNodeType(NON_SUBMITTABLE_MIXIN);
 
         // Only explicit structural containers can propagate a conditional-logic
         // visibility context to descendant fields.
-        boolean isContainer = node.isNodeType("fmdbmix:formContainer");
+        boolean isContainer = node.isNodeType(FORM_CONTAINER_MIXIN);
         if (isContainer) {
             String containerName = node.getName();
-            if (node.hasProperty("logics")) {
-                List<ConditionalLogicRule> rules = ConditionalLogicRule.parse(node.getProperty("logics").getValues());
+            if (node.hasProperty(LOGICS_PROPERTY)) {
+                List<ConditionalLogicRule> rules = ConditionalLogicRule.parse(node.getProperty(LOGICS_PROPERTY).getValues());
                 if (!rules.isEmpty()) {
                     ctx.fieldLogicRules.put(containerName, rules);
                     resolveLogicsSrc(node, rules, ctx);
@@ -101,7 +107,7 @@ class FormFieldMetadataCollector {
             }
         }
 
-        if (node.isNodeType("fmdbmix:formElement")
+        if (node.isNodeType(FORM_ELEMENT_MIXIN)
                 && !nonSubmittable) {
             registerField(node, currentContainerName, ctx);
         }
@@ -127,8 +133,8 @@ class FormFieldMetadataCollector {
             ctx.fieldParentContainer.put(name, parentContainerName);
         }
 
-        if (node.isNodeType("fmdbmix:formLogicElement") && node.hasProperty("logics")) {
-            List<ConditionalLogicRule> rules = ConditionalLogicRule.parse(node.getProperty("logics").getValues());
+        if (node.isNodeType(FORM_LOGIC_ELEMENT_MIXIN) && node.hasProperty(LOGICS_PROPERTY)) {
+            List<ConditionalLogicRule> rules = ConditionalLogicRule.parse(node.getProperty(LOGICS_PROPERTY).getValues());
             if (!rules.isEmpty()) {
                 ctx.fieldLogicRules.put(name, rules);
                 resolveLogicsSrc(node, rules, ctx);
@@ -140,11 +146,11 @@ class FormFieldMetadataCollector {
 
     private static void resolveLogicsSrc(JCRNodeWrapper node, List<ConditionalLogicRule> rules, CollectorContext ctx)
             throws RepositoryException {
-        if (!node.hasNode(LOGICS_SRC)) {
+        if (!node.hasNode(LOGICS_SRC_NODE)) {
             return;
         }
 
-        JCRNodeWrapper logicsSrc = node.getNode(LOGICS_SRC);
+        JCRNodeWrapper logicsSrc = node.getNode(LOGICS_SRC_NODE);
         for (ConditionalLogicRule rule : rules) {
             String logicId = rule.logicId();
             if (logicId == null || logicId.isEmpty()) {
@@ -157,7 +163,7 @@ class FormFieldMetadataCollector {
 
             JCRNodeWrapper srcNode = logicsSrc.getNode(logicId);
             try {
-                JCRNodeWrapper sourceField = (JCRNodeWrapper) srcNode.getProperty(LOGIC_NODE_SOURCE).getNode();
+                JCRNodeWrapper sourceField = (JCRNodeWrapper) srcNode.getProperty(LOGIC_NODE_SOURCE_PROPERTY).getNode();
                 ctx.logicIdToFieldName.put(logicId, sourceField.getName());
             } catch (Exception e) {
                 log.debug("[FormFieldMetadataCollector] Broken weakref for logicId '{}' on '{}'",
@@ -204,7 +210,7 @@ class FormFieldMetadataCollector {
     }
 
     private static FormDataParser.FieldInfo buildFieldInfo(JCRNodeWrapper node, String nodeType) throws RepositoryException {
-        boolean nonSubmittable = node.isNodeType("fmdbmix:nonSubmittable");
+        boolean nonSubmittable = node.isNodeType(NON_SUBMITTABLE_MIXIN);
         boolean choiceField = node.isNodeType("fmdbmix:choiceField");
         boolean fileField = node.isNodeType("fmdbmix:fileField");
         boolean emailField = node.isNodeType("fmdbmix:emailField");

@@ -15,6 +15,14 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACL_NODE;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACL_NODE_TYPE;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACE_NODE_TYPE;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_RESULTS_NODE_TYPE;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.INHERIT_PROPERTY;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.PARENT_FORM_PROPERTY;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ROLES_PROPERTY;
+
 /**
  * Idempotent service that reads fmdb-results-reader ACEs from a fmdb:form node
  * and replicates them on the corresponding fmdb:formResults node.
@@ -25,6 +33,8 @@ import java.util.Set;
 public final class FormResultsAclSyncService {
 
     private static final Logger log = LoggerFactory.getLogger(FormResultsAclSyncService.class);
+    private static final String ACE_TYPE_PROPERTY = "j:aceType";
+    private static final String PRINCIPAL_PROPERTY = "j:principal";
     private static final String RESULTS_ROOT_NAME = "formidable-results";
 
     private FormResultsAclSyncService() {
@@ -82,16 +92,11 @@ public final class FormResultsAclSyncService {
         }
 
         session.checkout(formResults);
-        JCRNodeWrapper acl;
-        if (formResults.hasNode("j:acl")) {
-            acl = formResults.getNode("j:acl");
-        } else {
-            acl = formResults.addNode("j:acl", "jnt:acl");
-        }
+        JCRNodeWrapper acl = getOrCreateAcl(formResults);
 
         // Always enforce broken inheritance so the site-level reader role cannot leak
-        if (!acl.hasProperty("j:inherit") || acl.getProperty("j:inherit").getBoolean()) {
-            acl.setProperty("j:inherit", false);
+        if (mustBreakInheritance(acl)) {
+            acl.setProperty(INHERIT_PROPERTY, false);
         }
 
         session.checkout(acl);
@@ -111,16 +116,11 @@ public final class FormResultsAclSyncService {
     private static void ensureInheritanceBroken(JCRNodeWrapper formResults, JCRSessionWrapper session)
             throws RepositoryException {
         session.checkout(formResults);
-        JCRNodeWrapper acl;
-        if (formResults.hasNode("j:acl")) {
-            acl = formResults.getNode("j:acl");
-        } else {
-            acl = formResults.addNode("j:acl", "jnt:acl");
-        }
+        JCRNodeWrapper acl = getOrCreateAcl(formResults);
 
-        if (!acl.hasProperty("j:inherit") || acl.getProperty("j:inherit").getBoolean()) {
+        if (mustBreakInheritance(acl)) {
             session.checkout(acl);
-            acl.setProperty("j:inherit", false);
+            acl.setProperty(INHERIT_PROPERTY, false);
         }
     }
 
@@ -140,11 +140,11 @@ public final class FormResultsAclSyncService {
                 continue;
             }
 
-            if (!candidate.isNodeType("fmdb:formResults") || !candidate.hasProperty("parentForm")) {
+            if (!candidate.isNodeType(FORM_RESULTS_NODE_TYPE) || !candidate.hasProperty(PARENT_FORM_PROPERTY)) {
                 continue;
             }
 
-            if (formIdentifier.equals(candidate.getProperty("parentForm").getString())) {
+            if (formIdentifier.equals(candidate.getProperty(PARENT_FORM_PROPERTY).getString())) {
                 return candidate;
             }
         }
@@ -154,55 +154,71 @@ public final class FormResultsAclSyncService {
 
     private static List<AceEntry> readAcesForRole(JCRNodeWrapper node) throws RepositoryException {
         List<AceEntry> result = new ArrayList<>();
-        if (!node.hasNode("j:acl")) {
+        if (!node.hasNode(ACL_NODE)) {
             return result;
         }
 
-        JCRNodeWrapper acl = node.getNode("j:acl");
+        JCRNodeWrapper acl = node.getNode(ACL_NODE);
         NodeIterator children = acl.getNodes();
         while (children.hasNext()) {
             javax.jcr.Node child = children.nextNode();
-            if (!(child instanceof JCRNodeWrapper ace)) {
-                continue;
+            AceEntry aceEntry = toAceEntry(child);
+            if (aceEntry != null) {
+                result.add(aceEntry);
             }
-
-            if (!ace.isNodeType("jnt:ace")) {
-                continue;
-            }
-
-            if (!ace.hasProperty("j:roles") || !ace.hasProperty("j:principal") || !ace.hasProperty("j:aceType")) {
-                continue;
-            }
-
-            Value[] roles = ace.getProperty("j:roles").getValues();
-            boolean hasTargetRole = false;
-            for (Value role : roles) {
-                if (FormResultsRoleInitializer.ROLE_NAME.equals(role.getString())) {
-                    hasTargetRole = true;
-                    break;
-                }
-            }
-
-            if (!hasTargetRole) {
-                continue;
-            }
-
-            String aceType = ace.getProperty("j:aceType").getString();
-            String principal = ace.getProperty("j:principal").getString();
-            boolean isProtected = ace.hasProperty("j:protected") && ace.getProperty("j:protected").getBoolean();
-            result.add(new AceEntry(aceType, principal, isProtected));
         }
 
         return result;
     }
 
+    private static JCRNodeWrapper getOrCreateAcl(JCRNodeWrapper node) throws RepositoryException {
+        if (node.hasNode(ACL_NODE)) {
+            return node.getNode(ACL_NODE);
+        }
+
+        return node.addNode(ACL_NODE, ACL_NODE_TYPE);
+    }
+
+    private static boolean mustBreakInheritance(JCRNodeWrapper acl) throws RepositoryException {
+        return !acl.hasProperty(INHERIT_PROPERTY) || acl.getProperty(INHERIT_PROPERTY).getBoolean();
+    }
+
+    private static AceEntry toAceEntry(javax.jcr.Node child) throws RepositoryException {
+        if (!(child instanceof JCRNodeWrapper ace) || !isRelevantAceNode(ace) || !hasTargetRole(ace)) {
+            return null;
+        }
+
+        String aceType = ace.getProperty(ACE_TYPE_PROPERTY).getString();
+        String principal = ace.getProperty(PRINCIPAL_PROPERTY).getString();
+        boolean isProtected = ace.hasProperty("j:protected") && ace.getProperty("j:protected").getBoolean();
+        return new AceEntry(aceType, principal, isProtected);
+    }
+
+    private static boolean isRelevantAceNode(JCRNodeWrapper ace) throws RepositoryException {
+        return ace.isNodeType(ACE_NODE_TYPE)
+                && ace.hasProperty(ROLES_PROPERTY)
+                && ace.hasProperty(PRINCIPAL_PROPERTY)
+                && ace.hasProperty(ACE_TYPE_PROPERTY);
+    }
+
+    private static boolean hasTargetRole(JCRNodeWrapper ace) throws RepositoryException {
+        Value[] roles = ace.getProperty(ROLES_PROPERTY).getValues();
+        for (Value role : roles) {
+            if (FormResultsRoleInitializer.ROLE_NAME.equals(role.getString())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static void addAce(JCRNodeWrapper acl, AceEntry ace) throws RepositoryException {
         String aceName = JCRContentUtils.findAvailableNodeName(acl, ace.aceType() + "_" + ace.principal()
                 .replace(":", "_").replace("/", "_"));
-        JCRNodeWrapper aceNode = acl.addNode(aceName, "jnt:ace");
-        aceNode.setProperty("j:aceType", ace.aceType());
-        aceNode.setProperty("j:principal", ace.principal());
-        aceNode.setProperty("j:roles", new String[]{FormResultsRoleInitializer.ROLE_NAME});
+        JCRNodeWrapper aceNode = acl.addNode(aceName, ACE_NODE_TYPE);
+        aceNode.setProperty(ACE_TYPE_PROPERTY, ace.aceType());
+        aceNode.setProperty(PRINCIPAL_PROPERTY, ace.principal());
+        aceNode.setProperty(ROLES_PROPERTY, new String[]{FormResultsRoleInitializer.ROLE_NAME});
         aceNode.setProperty("j:protected", ace.isProtected());
     }
 
@@ -214,22 +230,22 @@ public final class FormResultsAclSyncService {
                 continue;
             }
 
-            if (!aceNode.isNodeType("jnt:ace")) {
+            if (!aceNode.isNodeType(ACE_NODE_TYPE)) {
                 continue;
             }
 
-            if (!aceNode.hasProperty("j:aceType") || !aceNode.hasProperty("j:principal")
-                    || !aceNode.hasProperty("j:roles")) {
+            if (!aceNode.hasProperty(ACE_TYPE_PROPERTY) || !aceNode.hasProperty(PRINCIPAL_PROPERTY)
+                    || !aceNode.hasProperty(ROLES_PROPERTY)) {
                 continue;
             }
 
-            String aceType = aceNode.getProperty("j:aceType").getString();
-            String principal = aceNode.getProperty("j:principal").getString();
+            String aceType = aceNode.getProperty(ACE_TYPE_PROPERTY).getString();
+            String principal = aceNode.getProperty(PRINCIPAL_PROPERTY).getString();
             if (!ace.aceType().equals(aceType) || !ace.principal().equals(principal)) {
                 continue;
             }
 
-            Value[] roles = aceNode.getProperty("j:roles").getValues();
+            Value[] roles = aceNode.getProperty(ROLES_PROPERTY).getValues();
             for (Value role : roles) {
                 if (FormResultsRoleInitializer.ROLE_NAME.equals(role.getString())) {
                     aceNode.remove();
@@ -254,4 +270,3 @@ public final class FormResultsAclSyncService {
         }
     }
 }
-

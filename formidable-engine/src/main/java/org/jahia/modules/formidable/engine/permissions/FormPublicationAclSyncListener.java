@@ -13,6 +13,10 @@ import javax.jcr.observation.EventIterator;
 import java.util.HashSet;
 import java.util.Set;
 
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACE_NODE_TYPE;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_NODE_TYPE;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WORKSPACE_LIVE;
+
 /**
  * Detects publication of fmdb:form nodes and ACL changes in the live workspace,
  * then triggers ACL synchronisation toward the corresponding fmdb:formResults.
@@ -29,7 +33,7 @@ public class FormPublicationAclSyncListener extends DefaultEventListener {
     private static final Logger log = LoggerFactory.getLogger(FormPublicationAclSyncListener.class);
 
     public FormPublicationAclSyncListener() {
-        workspace = "live";
+        workspace = WORKSPACE_LIVE;
     }
 
     @Override
@@ -39,7 +43,7 @@ public class FormPublicationAclSyncListener extends DefaultEventListener {
 
     @Override
     public String[] getNodeTypes() {
-        return new String[]{"fmdb:form", "jnt:ace"};
+        return new String[]{FORM_NODE_TYPE, ACE_NODE_TYPE};
     }
 
     @Override
@@ -47,64 +51,69 @@ public class FormPublicationAclSyncListener extends DefaultEventListener {
         Set<String> processedFormIdentifiers = new HashSet<>();
 
         while (events.hasNext()) {
-            Event event = events.nextEvent();
             try {
-                String path = event.getPath();
-
-                // For property events, strip the property name to get the node path
-                if (event.getType() == Event.PROPERTY_ADDED || event.getType() == Event.PROPERTY_CHANGED) {
-                    path = path.substring(0, path.lastIndexOf('/'));
-                }
-
-                // For NODE_REMOVED, the node no longer exists; we must derive the form path from the event path
-                if (event.getType() == Event.NODE_REMOVED) {
-                    String formPath = resolveFormPathFromAcePath(path);
-                    if (formPath == null) {
-                        continue;
-                    }
-
-                    syncFormByPath(formPath, processedFormIdentifiers);
-                    continue;
-                }
-
-                final String nodePath = path;
-                JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, "live", null, session -> {
-                    if (!session.nodeExists(nodePath)) {
-                        return null;
-                    }
-
-                    JCRNodeWrapper node = session.getNode(nodePath);
-                    JCRNodeWrapper formNode = resolveFormNode(node);
-                    if (formNode == null) {
-                        return null;
-                    }
-
-                    String formId = formNode.getIdentifier();
-                    if (processedFormIdentifiers.add(formId)) {
-                        FormResultsAclSyncService.syncAcl(formNode, session);
-                        session.save();
-                        log.debug("[AclSyncListener] Synced ACL for form '{}'", formNode.getPath());
-                    }
-
-                    return null;
-                });
+                processEvent(events.nextEvent(), processedFormIdentifiers);
             } catch (RepositoryException e) {
                 log.warn("[AclSyncListener] Failed to process event: {}", e.getMessage());
             }
         }
     }
 
+    private void processEvent(Event event, Set<String> processedFormIdentifiers) throws RepositoryException {
+        String path = resolveObservedNodePath(event);
+        if (event.getType() == Event.NODE_REMOVED) {
+            syncRemovedAceEvent(path, processedFormIdentifiers);
+            return;
+        }
+
+        syncExistingNodeEvent(path, processedFormIdentifiers);
+    }
+
+    private static String resolveObservedNodePath(Event event) throws RepositoryException {
+        String path = event.getPath();
+        if (event.getType() == Event.PROPERTY_ADDED || event.getType() == Event.PROPERTY_CHANGED) {
+            return path.substring(0, path.lastIndexOf('/'));
+        }
+
+        return path;
+    }
+
+    private void syncRemovedAceEvent(String path, Set<String> processedFormIdentifiers) {
+        String formPath = resolveFormPathFromAcePath(path);
+        if (formPath != null) {
+            syncFormByPath(formPath, processedFormIdentifiers);
+        }
+    }
+
+    private void syncExistingNodeEvent(String nodePath, Set<String> processedFormIdentifiers)
+            throws RepositoryException {
+        JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, null, session -> {
+            if (!session.nodeExists(nodePath)) {
+                return null;
+            }
+
+            JCRNodeWrapper formNode = resolveFormNode(session.getNode(nodePath));
+            if (formNode == null) {
+                return null;
+            }
+
+            syncFormIfNeeded(formNode, processedFormIdentifiers, session,
+                    "[AclSyncListener] Synced ACL for form '{}'");
+            return null;
+        });
+    }
+
     private static JCRNodeWrapper resolveFormNode(JCRNodeWrapper node) throws RepositoryException {
-        if (node.isNodeType("fmdb:form")) {
+        if (node.isNodeType(FORM_NODE_TYPE)) {
             return node;
         }
 
         // jnt:ace → j:acl → fmdb:form
-        if (node.isNodeType("jnt:ace")) {
+        if (node.isNodeType(ACE_NODE_TYPE)) {
             JCRNodeWrapper parent = node.getParent();
             if (parent != null) {
                 JCRNodeWrapper grandParent = parent.getParent();
-                if (grandParent != null && grandParent.isNodeType("fmdb:form")) {
+                if (grandParent != null && grandParent.isNodeType(FORM_NODE_TYPE)) {
                     return grandParent;
                 }
             }
@@ -115,27 +124,36 @@ public class FormPublicationAclSyncListener extends DefaultEventListener {
 
     private void syncFormByPath(String formPath, Set<String> processedFormIdentifiers) {
         try {
-            JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, "live", null, session -> {
+            JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, null, session -> {
                 if (!session.nodeExists(formPath)) {
                     return null;
                 }
 
                 JCRNodeWrapper formNode = session.getNode(formPath);
-                if (!formNode.isNodeType("fmdb:form")) {
+                if (!formNode.isNodeType(FORM_NODE_TYPE)) {
                     return null;
                 }
 
-                String formId = formNode.getIdentifier();
-                if (processedFormIdentifiers.add(formId)) {
-                    FormResultsAclSyncService.syncAcl(formNode, session);
-                    session.save();
-                    log.debug("[AclSyncListener] Synced ACL for form '{}' (after ACE removal)", formPath);
-                }
-
+                syncFormIfNeeded(formNode, processedFormIdentifiers, session,
+                        "[AclSyncListener] Synced ACL for form '{}' (after ACE removal)");
                 return null;
             });
         } catch (RepositoryException e) {
             log.warn("[AclSyncListener] Failed to sync after ACE removal at '{}': {}", formPath, e.getMessage());
+        }
+    }
+
+    private static void syncFormIfNeeded(
+            JCRNodeWrapper formNode,
+            Set<String> processedFormIdentifiers,
+            org.jahia.services.content.JCRSessionWrapper session,
+            String logMessage
+    ) throws RepositoryException {
+        String formId = formNode.getIdentifier();
+        if (processedFormIdentifiers.add(formId)) {
+            FormResultsAclSyncService.syncAcl(formNode, session);
+            session.save();
+            log.debug(logMessage, formNode.getPath());
         }
     }
 
@@ -152,4 +170,3 @@ public class FormPublicationAclSyncListener extends DefaultEventListener {
         return acePath.substring(0, aclIdx);
     }
 }
-

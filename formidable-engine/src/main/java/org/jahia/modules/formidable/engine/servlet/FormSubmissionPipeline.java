@@ -24,6 +24,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.AUTHENTICATED_ONLY_FORM_MIXIN;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.CAPTCHA_PROTECTED_FORM_MIXIN;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WORKSPACE_LIVE;
+
 /**
  * Executes the form submission pipeline in enforced order.
  * Each step either completes successfully or throws {@link SubmissionException},
@@ -47,9 +51,6 @@ class FormSubmissionPipeline {
     private static final Logger log = LoggerFactory.getLogger(FormSubmissionPipeline.class);
 
     private static final String ACTIONS_NODE = "actions";
-    private static final String AUTHENTICATED_ONLY_FORM_MIXIN = "fmdbmix:authenticatedOnlyForm";
-    private static final String CAPTCHA_PROTECTED_FORM_MIXIN = "fmdbmix:captchaProtectedForm";
-
     @FunctionalInterface
     interface FieldMetadataCollectorAdapter {
         FormFieldMetadataCollector.Result collect(String formId, Locale locale) throws RepositoryException;
@@ -137,7 +138,7 @@ class FormSubmissionPipeline {
 
     private void resolveFormNode() throws SubmissionException {
         try {
-            session = JCRSessionFactory.getInstance().getCurrentUserSession("live", locale);
+            session = JCRSessionFactory.getInstance().getCurrentUserSession(WORKSPACE_LIVE, locale);
             formNode = session.getNodeByIdentifier(formId);
         } catch (Exception e) {
             log.warn("[FormSubmissionPipeline] Form node not found for id '{}': {}", formId, e.getMessage());
@@ -265,7 +266,7 @@ class FormSubmissionPipeline {
                 continue;
             }
             try {
-                JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, "live", locale, systemSession -> {
+                JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale, systemSession -> {
                     JCRNodeWrapper actionNode = systemSession.getNodeByIdentifier(action.id());
                     try {
                         handler.execute(actionNode, req, session, parsed.parameters(), submittedFiles);
@@ -299,7 +300,7 @@ class FormSubmissionPipeline {
     private List<ResolvedAction> resolveActionNodes() throws SubmissionException {
         List<ResolvedAction> result = new ArrayList<>();
         try {
-            jcrTemplateProvider.get().doExecuteWithSystemSessionAsUser(null, "live", locale, systemSession -> {
+            jcrTemplateProvider.get().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale, systemSession -> {
                 JCRNodeWrapper systemFormNode = systemSession.getNodeByIdentifier(formId);
                 if (!systemFormNode.hasNode(ACTIONS_NODE)) {
                     return null;

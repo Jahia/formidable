@@ -164,41 +164,57 @@ public class FormidableConfigService {
             if (trimmed.isEmpty()) {
                 continue;
             }
-            String[] parts = trimmed.split("\\|", 3);
-            if (parts.length != 3) {
-                log.warn("[FormidableConfigService] Skipping malformed {} entry (expected id|label|url): '{}'", propertyName, trimmed);
+            Optional<ForwardTarget> parsedTarget = parseForwardTargetEntry(trimmed, propertyName, development);
+            if (parsedTarget.isEmpty()) {
                 continue;
             }
-            String id    = parts[0].trim();
-            String label = parts[1].trim();
-            String url   = parts[2].trim();
-
-            if (id.isEmpty() || url.isEmpty()) {
-                log.warn("[FormidableConfigService] Skipping {} entry with empty id or url: '{}'", propertyName, trimmed);
+            ForwardTarget target = parsedTarget.get();
+            if (result.containsKey(target.id())) {
+                log.warn("[FormidableConfigService] Duplicate {} id '{}', keeping first occurrence.", propertyName, target.id());
                 continue;
             }
-            URI uri;
-            try {
-                uri = URI.create(url);
-            } catch (IllegalArgumentException e) {
-                log.warn("[FormidableConfigService] Skipping {} entry '{}': malformed URI '{}'", propertyName, id, url);
-                continue;
-            }
-            String unsupportedReason = getUnsupportedForwardTargetUriReason(uri, development);
-            if (unsupportedReason != null) {
-                log.warn("[FormidableConfigService] Skipping {} entry '{}': {}",
-                        propertyName,
-                        id,
-                        unsupportedReason);
-                continue;
-            }
-            if (result.containsKey(id)) {
-                log.warn("[FormidableConfigService] Duplicate {} id '{}', keeping first occurrence.", propertyName, id);
-                continue;
-            }
-            result.put(id, new ForwardTarget(id, label, uri, development));
+            result.put(target.id(), target);
         }
         return result;
+    }
+
+    private static Optional<ForwardTarget> parseForwardTargetEntry(
+            String entry,
+            String propertyName,
+            boolean development
+    ) {
+        String[] parts = entry.split("\\|", 3);
+        if (parts.length != 3) {
+            log.warn("[FormidableConfigService] Skipping malformed {} entry (expected id|label|url): '{}'", propertyName, entry);
+            return Optional.empty();
+        }
+
+        String id = parts[0].trim();
+        String label = parts[1].trim();
+        String url = parts[2].trim();
+        if (id.isEmpty() || url.isEmpty()) {
+            log.warn("[FormidableConfigService] Skipping {} entry with empty id or url: '{}'", propertyName, entry);
+            return Optional.empty();
+        }
+
+        URI uri;
+        try {
+            uri = URI.create(url);
+        } catch (IllegalArgumentException e) {
+            log.warn("[FormidableConfigService] Skipping {} entry '{}': malformed URI '{}'", propertyName, id, url);
+            return Optional.empty();
+        }
+
+        String unsupportedReason = getUnsupportedForwardTargetUriReason(uri, development);
+        if (unsupportedReason != null) {
+            log.warn("[FormidableConfigService] Skipping {} entry '{}': {}",
+                    propertyName,
+                    id,
+                    unsupportedReason);
+            return Optional.empty();
+        }
+
+        return Optional.of(new ForwardTarget(id, label, uri, development));
     }
 
     private static Map<String, ForwardTarget> mergeForwardTargets(

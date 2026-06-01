@@ -11,6 +11,15 @@ import javax.jcr.RepositoryException;
 import javax.jcr.Value;
 import java.util.*;
 
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FIELDS_NODE;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_ELEMENT_MIXIN;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_LOGIC_ELEMENT_MIXIN;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_NODE_TYPE;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_STEP_MIXIN;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGIC_NODE_SOURCE_PROPERTY;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGICS_PROPERTY;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGICS_SRC_NODE;
+
 /**
  * Idempotent service that keeps the logicsSrc child structure in sync
  * with the logics JSON payload on a fmdbmix:formLogicElement node.
@@ -18,8 +27,9 @@ import java.util.*;
 public final class FormLogicSyncService {
 
     private static final Logger log = LoggerFactory.getLogger(FormLogicSyncService.class);
-    private static final String LOGICS_SRC = "logicsSrc";
-    private static final String LOGIC_NODE_SOURCE = "logicNodeSource";
+    private static final String LOGIC_ID = "logicId";
+    private static final String SOURCE_FIELD_ID = "sourceFieldId";
+    private static final String SOURCE_FIELD_NAME = "sourceFieldName";
 
     private FormLogicSyncService() {}
 
@@ -35,7 +45,7 @@ public final class FormLogicSyncService {
         String formPath = formNode.getPath();
 
         List<JCRNodeWrapper> elements = new ArrayList<>();
-        collectLogicElements(formNode.getNode("fields"), elements);
+        collectLogicElements(formNode.getNode(FIELDS_NODE), elements);
 
         for (JCRNodeWrapper element : elements) {
             Set<String> outOfScope = findOutOfScopeLogicIds(element, formPath);
@@ -57,7 +67,7 @@ public final class FormLogicSyncService {
      * @return true if any repository change was made
      */
     public static boolean sync(JCRNodeWrapper targetNode) throws RepositoryException {
-        if (!targetNode.isNodeType("fmdbmix:formLogicElement")) {
+        if (!targetNode.isNodeType(FORM_LOGIC_ELEMENT_MIXIN)) {
             return false;
         }
 
@@ -72,11 +82,11 @@ public final class FormLogicSyncService {
         Map<String, JCRNodeWrapper> fieldsByName = buildFieldsByNameMap(formNode);
 
         // If logics was removed or is empty, clean up all logicsSrc children
-        if (!targetNode.hasProperty("logics")) {
+        if (!targetNode.hasProperty(LOGICS_PROPERTY)) {
             return removeAllLogicsSrc(targetNode);
         }
 
-        Value[] values = targetNode.getProperty("logics").getValues();
+        Value[] values = targetNode.getProperty(LOGICS_PROPERTY).getValues();
         if (values.length == 0) {
             return removeAllLogicsSrc(targetNode);
         }
@@ -86,46 +96,18 @@ public final class FormLogicSyncService {
         boolean updated = false;
 
         for (Value v : values) {
-            try {
-                String json = v.getString();
-                if (json == null || json.isBlank()) continue;
-
-                JSONObject obj = new JSONObject(json);
-                String sourceFieldName = obj.optString("sourceFieldName", "");
-                if (sourceFieldName.isEmpty()) {
-                    // No source field reference — nothing to sync, skip this entry entirely
-                    log.debug("[FormLogicSync] Skipping rule without sourceFieldName on '{}'",
-                            targetNode.getPath());
-                    continue;
-                }
-
-                // Assign a logicId if missing (new rule or migration from the old sourceFieldId model)
-                String logicId = obj.optString("logicId", "");
-                if (logicId.isEmpty()) {
-                    logicId = generateLogicId();
-                    obj.put("logicId", logicId);
-                    obj.remove("sourceFieldId");
-                    updated = true;
-                }
-
-                activeLogicIds.add(logicId);
-
-                // Resolve the source field name to its node and create/update the weakref
-                JCRNodeWrapper sourceFieldNode = fieldsByName.get(sourceFieldName);
-                if (sourceFieldNode != null) {
-                    updated |= ensureLogicSrcNode(targetNode, logicId, sourceFieldNode);
-                }
-
-                updatedJsonValues.add(obj.toString());
-            } catch (Exception e) {
-                log.debug("[FormLogicSync] Skipping invalid logics entry on '{}': {}",
-                        targetNode.getPath(), e.getMessage());
+            ParsedLogicEntry entry = parseLogicEntry(v, targetNode.getPath());
+            if (entry != null) {
+                activeLogicIds.add(entry.logicId());
+                updated |= entry.updated();
+                updated |= syncSourceField(targetNode, fieldsByName, entry);
+                updatedJsonValues.add(entry.json());
             }
         }
 
         // Write back the logics property only if a logicId was generated or migrated
         if (updated) {
-            targetNode.setProperty("logics", updatedJsonValues.toArray(new String[0]));
+            targetNode.setProperty(LOGICS_PROPERTY, updatedJsonValues.toArray(new String[0]));
         }
 
         // Remove logicsSrc children that no longer match any JSON rule
@@ -138,6 +120,49 @@ public final class FormLogicSyncService {
         return updated;
     }
 
+    private static ParsedLogicEntry parseLogicEntry(Value value, String targetPath) {
+        try {
+            String json = value.getString();
+            if (json == null || json.isBlank()) {
+                return null;
+            }
+
+            JSONObject obj = new JSONObject(json);
+            String sourceFieldName = obj.optString(SOURCE_FIELD_NAME, "");
+            if (sourceFieldName.isEmpty()) {
+                log.debug("[FormLogicSync] Skipping rule without sourceFieldName on '{}'", targetPath);
+                return null;
+            }
+
+            String logicId = obj.optString(LOGIC_ID, "");
+            boolean updated = false;
+            if (logicId.isEmpty()) {
+                logicId = generateLogicId();
+                obj.put(LOGIC_ID, logicId);
+                obj.remove(SOURCE_FIELD_ID);
+                updated = true;
+            }
+
+            return new ParsedLogicEntry(obj.toString(), logicId, sourceFieldName, updated);
+        } catch (Exception e) {
+            log.debug("[FormLogicSync] Skipping invalid logics entry on '{}': {}", targetPath, e.getMessage());
+            return null;
+        }
+    }
+
+    private static boolean syncSourceField(
+            JCRNodeWrapper targetNode,
+            Map<String, JCRNodeWrapper> fieldsByName,
+            ParsedLogicEntry entry
+    ) throws RepositoryException {
+        JCRNodeWrapper sourceFieldNode = fieldsByName.get(entry.sourceFieldName());
+        if (sourceFieldNode == null) {
+            return false;
+        }
+
+        return ensureLogicSrcNode(targetNode, entry.logicId(), sourceFieldNode);
+    }
+
     // --- Shared operations ---
 
     /**
@@ -147,14 +172,14 @@ public final class FormLogicSyncService {
             throws RepositoryException {
         removeLogicsSrcNodes(element, logicIdsToRemove);
 
-        if (element.hasProperty("logics")) {
-            Value[] values = element.getProperty("logics").getValues();
+        if (element.hasProperty(LOGICS_PROPERTY)) {
+            Value[] values = element.getProperty(LOGICS_PROPERTY).getValues();
             List<String> remaining = new ArrayList<>();
             for (Value v : values) {
                 try {
                     String json = v.getString();
                     JSONObject obj = new JSONObject(json);
-                    String logicId = obj.optString("logicId", "");
+                    String logicId = obj.optString(LOGIC_ID, "");
                     if (!logicId.isEmpty() && !logicIdsToRemove.contains(logicId)) {
                         remaining.add(json);
                     }
@@ -163,7 +188,7 @@ public final class FormLogicSyncService {
                 }
             }
 
-            element.setProperty("logics", remaining.toArray(new String[0]));
+            element.setProperty(LOGICS_PROPERTY, remaining.toArray(new String[0]));
         }
     }
 
@@ -172,11 +197,11 @@ public final class FormLogicSyncService {
      */
     private static void removeLogicsSrcNodes(JCRNodeWrapper element, Set<String> logicIds)
             throws RepositoryException {
-        if (!element.hasNode(LOGICS_SRC)) {
+        if (!element.hasNode(LOGICS_SRC_NODE)) {
             return;
         }
 
-        JCRNodeWrapper logicsSrc = element.getNode(LOGICS_SRC);
+        JCRNodeWrapper logicsSrc = element.getNode(LOGICS_SRC_NODE);
         for (String logicId : logicIds) {
             if (logicsSrc.hasNode(logicId)) {
                 logicsSrc.getNode(logicId).remove();
@@ -191,12 +216,12 @@ public final class FormLogicSyncService {
      */
     private static Set<String> findOrphanLogicIds(JCRNodeWrapper element, Set<String> activeLogicIds)
             throws RepositoryException {
-        if (!element.hasNode(LOGICS_SRC)) {
+        if (!element.hasNode(LOGICS_SRC_NODE)) {
             return Collections.emptySet();
         }
 
         Set<String> orphans = new HashSet<>();
-        NodeIterator children = element.getNode(LOGICS_SRC).getNodes();
+        NodeIterator children = element.getNode(LOGICS_SRC_NODE).getNodes();
         while (children.hasNext()) {
             JCRNodeWrapper child = (JCRNodeWrapper) children.nextNode();
             if (!activeLogicIds.contains(child.getName())) {
@@ -212,17 +237,17 @@ public final class FormLogicSyncService {
      */
     private static Set<String> findOutOfScopeLogicIds(JCRNodeWrapper element, String formPath)
             throws RepositoryException {
-        if (!element.hasNode(LOGICS_SRC)) {
+        if (!element.hasNode(LOGICS_SRC_NODE)) {
             return Collections.emptySet();
         }
 
         Set<String> outOfScope = new HashSet<>();
-        NodeIterator children = element.getNode(LOGICS_SRC).getNodes();
+        NodeIterator children = element.getNode(LOGICS_SRC_NODE).getNodes();
         while (children.hasNext()) {
             JCRNodeWrapper child = (JCRNodeWrapper) children.nextNode();
             boolean valid = false;
             try {
-                JCRNodeWrapper sourceNode = (JCRNodeWrapper) child.getProperty(LOGIC_NODE_SOURCE).getNode();
+                JCRNodeWrapper sourceNode = (JCRNodeWrapper) child.getProperty(LOGIC_NODE_SOURCE_PROPERTY).getNode();
                 valid = sourceNode.getPath().startsWith(formPath + "/");
             } catch (Exception e) {
                 log.debug("[FormLogicSync] Broken weakref '{}' on '{}'", child.getName(), element.getPath());
@@ -242,11 +267,11 @@ public final class FormLogicSyncService {
      * Returns the logicsSrc child, creating it on the fly if absent.
      */
     private static JCRNodeWrapper getOrCreateLogicsSrc(JCRNodeWrapper element) throws RepositoryException {
-        if (element.hasNode(LOGICS_SRC)) {
-            return element.getNode(LOGICS_SRC);
+        if (element.hasNode(LOGICS_SRC_NODE)) {
+            return element.getNode(LOGICS_SRC_NODE);
         }
 
-        return element.addNode(LOGICS_SRC, "fmdb:logicList");
+        return element.addNode(LOGICS_SRC_NODE, "fmdb:logicList");
     }
 
     /**
@@ -260,14 +285,14 @@ public final class FormLogicSyncService {
 
         if (logicsSrc.hasNode(logicId)) {
             JCRNodeWrapper existing = logicsSrc.getNode(logicId);
-            String currentRef = existing.getProperty(LOGIC_NODE_SOURCE).getNode().getIdentifier();
+            String currentRef = existing.getProperty(LOGIC_NODE_SOURCE_PROPERTY).getNode().getIdentifier();
             if (!sourceFieldNode.getIdentifier().equals(currentRef)) {
-                existing.setProperty(LOGIC_NODE_SOURCE, sourceFieldNode);
+                existing.setProperty(LOGIC_NODE_SOURCE_PROPERTY, sourceFieldNode);
                 updated = true;
             }
         } else {
             JCRNodeWrapper newNode = logicsSrc.addNode(logicId, "fmdb:logicSrc");
-            newNode.setProperty(LOGIC_NODE_SOURCE, sourceFieldNode);
+            newNode.setProperty(LOGIC_NODE_SOURCE_PROPERTY, sourceFieldNode);
             updated = true;
         }
 
@@ -279,11 +304,11 @@ public final class FormLogicSyncService {
      * is cleared or removed entirely.
      */
     private static boolean removeAllLogicsSrc(JCRNodeWrapper targetNode) throws RepositoryException {
-        if (!targetNode.hasNode(LOGICS_SRC)) {
+        if (!targetNode.hasNode(LOGICS_SRC_NODE)) {
             return false;
         }
 
-        JCRNodeWrapper logicsSrc = targetNode.getNode(LOGICS_SRC);
+        JCRNodeWrapper logicsSrc = targetNode.getNode(LOGICS_SRC_NODE);
         NodeIterator children = logicsSrc.getNodes();
         boolean updated = false;
         while (children.hasNext()) {
@@ -301,7 +326,7 @@ public final class FormLogicSyncService {
      */
     static JCRNodeWrapper findFormAncestor(JCRNodeWrapper node) throws RepositoryException {
         for (JCRItemWrapper ancestor : node.getAncestors()) {
-            if (ancestor instanceof JCRNodeWrapper ancestorNode && ancestorNode.isNodeType("fmdb:form")) {
+            if (ancestor instanceof JCRNodeWrapper ancestorNode && ancestorNode.isNodeType(FORM_NODE_TYPE)) {
                 return ancestorNode;
             }
         }
@@ -317,7 +342,7 @@ public final class FormLogicSyncService {
         NodeIterator it = node.getNodes();
         while (it.hasNext()) {
             JCRNodeWrapper child = (JCRNodeWrapper) it.nextNode();
-            if (child.isNodeType("fmdbmix:formLogicElement")) {
+            if (child.isNodeType(FORM_LOGIC_ELEMENT_MIXIN)) {
                 result.add(child);
             }
 
@@ -331,7 +356,7 @@ public final class FormLogicSyncService {
      */
     private static Map<String, JCRNodeWrapper> buildFieldsByNameMap(JCRNodeWrapper formNode) throws RepositoryException {
         Map<String, JCRNodeWrapper> map = new HashMap<>();
-        collectFields(formNode.getNode("fields"), map);
+        collectFields(formNode.getNode(FIELDS_NODE), map);
         return map;
     }
 
@@ -339,7 +364,7 @@ public final class FormLogicSyncService {
         NodeIterator it = node.getNodes();
         while (it.hasNext()) {
             JCRNodeWrapper child = (JCRNodeWrapper) it.nextNode();
-            if (child.isNodeType("fmdbmix:formElement") || child.isNodeType("fmdbmix:formStep")) {
+            if (child.isNodeType(FORM_ELEMENT_MIXIN) || child.isNodeType(FORM_STEP_MIXIN)) {
                 map.put(child.getName(), child);
             }
 
@@ -350,4 +375,6 @@ public final class FormLogicSyncService {
     private static String generateLogicId() {
         return UUID.randomUUID().toString().substring(0, 8);
     }
+
+    private record ParsedLogicEntry(String json, String logicId, String sourceFieldName, boolean updated) {}
 }
