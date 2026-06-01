@@ -27,17 +27,6 @@ class FormFieldMetadataCollector {
     private static final String LOGICS_SRC = "logicsSrc";
     private static final String LOGIC_NODE_SOURCE = "logicNodeSource";
 
-    record Result(
-            Map<String, FormDataParser.FieldInfo> fieldInfos,
-            Map<String, List<ConditionalLogicRule>> fieldLogicRules,
-            Map<String, String> logicIdToFieldName,
-            Map<String, String> fieldParentContainer
-    ) {
-        FormDataParser.FieldMetadata toParserMetadata() {
-            return new FormDataParser.FieldMetadata(fieldInfos);
-        }
-    }
-
     static Result collect(String formId, Locale locale) throws RepositoryException {
         return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, "live", locale, systemSession -> {
             JCRNodeWrapper formNode = systemSession.getNodeByIdentifier(formId);
@@ -71,15 +60,6 @@ class FormFieldMetadataCollector {
         log.debug("[FormFieldMetadataCollector] Allowed fields: {}", fieldInfos.keySet());
         return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainer);
     }
-
-    // --- Internal ---
-
-    private record CollectorContext(
-            Map<String, FormDataParser.FieldInfo> fieldInfos,
-            Map<String, List<ConditionalLogicRule>> fieldLogicRules,
-            Map<String, String> logicIdToFieldName,
-            Map<String, String> fieldParentContainer
-    ) {}
 
     private static void traverseRecursively(JCRNodeWrapper node, String parentContainerName, CollectorContext ctx)
             throws RepositoryException {
@@ -115,6 +95,8 @@ class FormFieldMetadataCollector {
             }
         }
     }
+
+    // --- Internal ---
 
     private static void registerField(JCRNodeWrapper node, String parentContainerName, CollectorContext ctx)
             throws RepositoryException {
@@ -252,12 +234,12 @@ class FormFieldMetadataCollector {
             boolean datetimeLocalField
     )
             throws RepositoryException {
-        boolean required  = readBoolean(node, "required");
-        long minLength    = readLong(node, "minLength");
-        long maxLength    = readLong(node, "maxLength");
-        String pattern    = readString(node, "pattern");
-        String minDate    = null;
-        String maxDate    = null;
+        boolean required = readBoolean(node, "required");
+        long minLength = readLong(node, "minLength");
+        long maxLength = readLong(node, "maxLength");
+        String pattern = readString(node, "pattern");
+        String minDate = null;
+        String maxDate = null;
 
         if (dateField) {
             minDate = readDateAsIso(node, "min", false);
@@ -296,5 +278,24 @@ class FormFieldMetadataCollector {
         return includeTime
                 ? ldt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"))
                 : ldt.toLocalDate().toString();
+    }
+
+    record Result(
+            Map<String, FormDataParser.FieldInfo> fieldInfos,
+            Map<String, List<ConditionalLogicRule>> fieldLogicRules,
+            Map<String, String> logicIdToFieldName,
+            Map<String, String> fieldParentContainer
+    ) {
+        FormDataParser.FieldMetadata toParserMetadata() {
+            return new FormDataParser.FieldMetadata(fieldInfos);
+        }
+    }
+
+    private record CollectorContext(
+            Map<String, FormDataParser.FieldInfo> fieldInfos,
+            Map<String, List<ConditionalLogicRule>> fieldLogicRules,
+            Map<String, String> logicIdToFieldName,
+            Map<String, String> fieldParentContainer
+    ) {
     }
 }

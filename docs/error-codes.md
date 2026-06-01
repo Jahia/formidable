@@ -23,9 +23,9 @@ Detailed reasons are written to server logs only and are never exposed to the ca
 |---|---|---|
 | `FMDB-001` | 415 | `Content-Type` is not `multipart/form-data` |
 | `FMDB-002` | 400 | Required URL parameter `fid` is missing, blank, or not a valid UUID |
-| `FMDB-003` | 413 | `Content-Length` exceeds `upload.maxRequestSizeBytes` from config |
+| `FMDB-003` | 413 | `Content-Length` exceeds `uploadMaxRequestSizeBytes` from `org.jahia.modules.formidable.cfg` |
 | `FMDB-004` | 400 | Form node not found in the `live` workspace (invalid `fid`, or form not published) |
-| `FMDB-005` | 500 | CAPTCHA is required on the form but `captcha.siteKey` / `captcha.secretKey` are not set in `org.jahia.modules.formidable.cfg` |
+| `FMDB-005` | 500 | CAPTCHA is required on the form but `captchaSiteKey` / `captchaSecretKey` are not set in `org.jahia.modules.formidable.cfg` |
 | `FMDB-006` | 400 | CAPTCHA token (`ct` URL param) is absent, expired, or rejected by the provider |
 | `FMDB-007` | 400 | Multipart parsing failed — possible causes: per-file size limit, total size limit, file count limit, or MIME type not in allowlist |
 | `FMDB-008` | 422 | An action in the pipeline failed (e.g. forward target returned non-2xx, email could not be sent) |
