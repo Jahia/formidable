@@ -3,4 +3,4 @@
 formidable: patch
 ---
 
-Review 2.6 clarify CND ownership and engine form semantics (#86)
+Clarified form type ownership and updated server-side semantics for containers, CAPTCHA, and authentication. (#86)
