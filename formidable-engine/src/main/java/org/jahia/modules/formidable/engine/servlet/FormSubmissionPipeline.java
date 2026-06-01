@@ -60,16 +60,6 @@ class FormSubmissionPipeline {
         JCRTemplate get();
     }
 
-    @FunctionalInterface
-    interface FieldMetadataCollectorAdapter {
-        FormFieldMetadataCollector.Result collect(String formId, Locale locale) throws RepositoryException;
-    }
-
-    @FunctionalInterface
-    interface JcrTemplateProvider {
-        JCRTemplate get();
-    }
-
     private final FormidableConfigService config;
     private final List<FormAction> formActions;
     private final FieldMetadataCollectorAdapter fieldMetadataCollector;
