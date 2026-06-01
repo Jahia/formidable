@@ -54,9 +54,7 @@ public final class JcrProps {
                 return defaultValue;
             }
 
-            ZoneId zoneId = calendar.getTimeZone() != null
-                    ? calendar.getTimeZone().toZoneId()
-                    : ZoneId.systemDefault();
+            ZoneId zoneId = calendar.getTimeZone().toZoneId();
             return includeTime
                     ? calendar.toInstant().atZone(zoneId).toLocalDateTime()
                     .format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"))
