@@ -276,6 +276,9 @@ class FormFieldMetadataCollector {
         long minLength    = JcrProps.longValue(node, "minLength", -1L);
         long maxLength    = JcrProps.longValue(node, "maxLength", -1L);
         String pattern    = JcrProps.string(node, "pattern", null);
+        if (pattern != null && pattern.isBlank()) {
+            pattern = null;
+        }
         String minDate    = null;
         String maxDate    = null;
 
