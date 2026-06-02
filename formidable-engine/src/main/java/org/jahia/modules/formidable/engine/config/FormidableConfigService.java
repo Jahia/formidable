@@ -22,6 +22,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
@@ -74,7 +75,7 @@ public class FormidableConfigService {
 
     private static final Logger log = LoggerFactory.getLogger(FormidableConfigService.class);
 
-    private volatile ConfigSnapshot config;
+    private final AtomicReference<ConfigSnapshot> config = new AtomicReference<>();
 
     @Activate
     @Modified
@@ -157,7 +158,7 @@ public class FormidableConfigService {
                 forwardTargets
         );
 
-        this.config = snapshot;
+        this.config.set(snapshot);
 
         log.info("FormidableConfigService configured: captchaVerification={}, captchaWidget={}, captchaConnectTimeout={}s, captchaRequestTimeout={}s, maxFileSize={}MB, maxRequest={}MB, allowedTypes={}, forwardTargets={}, devForwardTargetsEnabled={}, devForwardTargets={}, forwardConnectTimeout={}s, forwardRequestTimeout={}s",
                 isCaptchaVerificationConfigured(snapshot) ? "[set]" : "[missing]",
@@ -403,7 +404,7 @@ public class FormidableConfigService {
     }
 
     private ConfigSnapshot currentConfig() {
-        ConfigSnapshot snapshot = config;
+        ConfigSnapshot snapshot = config.get();
         if (snapshot == null) {
             throw new IllegalStateException("Formidable configuration is not initialized.");
         }
