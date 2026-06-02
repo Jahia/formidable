@@ -61,9 +61,9 @@ Example:
 ```java
 package org.example.jahia.modules.mymod.actions;
 
-import org.jahia.modules.formidable.engine.actions.FormAction;
-import org.jahia.modules.formidable.engine.actions.FormActionException;
-import org.jahia.modules.formidable.engine.actions.SubmittedFile;
+import org.jahia.modules.formidable.engine.api.FormAction;
+import org.jahia.modules.formidable.engine.api.FormActionException;
+import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.osgi.service.component.annotations.Component;

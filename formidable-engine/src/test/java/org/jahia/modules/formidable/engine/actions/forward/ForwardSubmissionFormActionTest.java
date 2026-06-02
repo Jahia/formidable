@@ -1,6 +1,6 @@
 package org.jahia.modules.formidable.engine.actions.forward;
 
-import org.jahia.modules.formidable.engine.actions.FormActionException;
+import org.jahia.modules.formidable.engine.api.FormActionException;
 import org.junit.jupiter.api.Test;
 
 import java.net.InetAddress;

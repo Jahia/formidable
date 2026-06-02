@@ -1,8 +1,8 @@
 package org.jahia.modules.formidable.engine.actions.storage;
 
-import org.jahia.modules.formidable.engine.actions.FormAction;
-import org.jahia.modules.formidable.engine.actions.FormActionException;
-import org.jahia.modules.formidable.engine.actions.SubmittedFile;
+import org.jahia.modules.formidable.engine.api.FormAction;
+import org.jahia.modules.formidable.engine.api.FormActionException;
+import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.jahia.modules.formidable.engine.permissions.FormResultsAclSyncService;
 import org.jahia.services.content.JCRAutoSplitUtils;
 import org.jahia.services.content.JCRContentUtils;

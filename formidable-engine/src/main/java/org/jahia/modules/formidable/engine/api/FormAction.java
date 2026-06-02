@@ -1,4 +1,4 @@
-package org.jahia.modules.formidable.engine.actions;
+package org.jahia.modules.formidable.engine.api;
 
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;

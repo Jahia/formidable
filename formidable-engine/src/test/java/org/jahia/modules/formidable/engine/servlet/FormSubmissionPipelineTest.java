@@ -1,6 +1,6 @@
 package org.jahia.modules.formidable.engine.servlet;
 
-import org.jahia.modules.formidable.engine.actions.FormAction;
+import org.jahia.modules.formidable.engine.api.FormAction;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionFactory;

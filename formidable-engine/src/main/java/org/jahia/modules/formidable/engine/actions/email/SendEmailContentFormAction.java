@@ -2,9 +2,9 @@ package org.jahia.modules.formidable.engine.actions.email;
 
 import org.jahia.modules.formidable.engine.actions.ContentDispositionUtils;
 import org.jahia.modules.formidable.engine.actions.FieldEscaper;
-import org.jahia.modules.formidable.engine.actions.FormAction;
-import org.jahia.modules.formidable.engine.actions.FormActionException;
-import org.jahia.modules.formidable.engine.actions.SubmittedFile;
+import org.jahia.modules.formidable.engine.api.FormAction;
+import org.jahia.modules.formidable.engine.api.FormActionException;
+import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.modules.formidable.engine.util.JcrProps;
 import org.jahia.services.content.JCRNodeWrapper;

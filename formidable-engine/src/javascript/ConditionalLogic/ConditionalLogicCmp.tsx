@@ -324,7 +324,6 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         <div className="flexRow_nowrap flexFluid alignCenter" style={{gap: '0.75rem'}}>
             <div className="flexFluid">
                 <Dropdown
-                  size="big"
                     data={sourceOptions}
                     value={selectedSource?.name}
                     placeholder={t('conditionalLogic.selectSource')}
@@ -334,7 +333,6 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
             </div>
             <div className="flexFluid">
                 <Dropdown
-                  size="big"
                     data={operatorOptions}
                     value={selectedOperator}
                     placeholder={t('conditionalLogic.operator')}
@@ -346,7 +344,6 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
             {showValueDropdown && (
                 <div className="flexFluid">
                     <Dropdown
-                      size="big"
                         data={valueOptions}
                         values={rule.values ?? []}
                         placeholder={t('conditionalLogic.values')}

@@ -12,8 +12,6 @@
     <description>Formidable Engine - UI Extensions (selectorTypes for Content Editor)</description>
     <properties>
         <jahia-module-signature>MCwCFDrhzuD+iBb1/3dV3AuFRlLal/ETAhRj0gskqYinAH58d9ab7G/7H3T7Lg==</jahia-module-signature>
-        <junit.jupiter.version>5.10.2</junit.jupiter.version>
-        <mockito.version>5.12.0</mockito.version>
     </properties>
     <scm>
         <connection>scm:git:git@github.com:Jahia/formidable.git</connection>
@@ -54,51 +52,118 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.jahia.server</groupId>
+            <artifactId>jahia-impl</artifactId>
+            <scope>provided</scope>
+            <exclusions>
+                <!-- Prevent transitive Jahia core dependencies from being used in lieu of explicit declarations. -->
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>javax.jcr</groupId>
+            <artifactId>jcr</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.osgi</groupId>
+            <artifactId>osgi.cmpn</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.osgi</groupId>
+            <artifactId>osgi.annotation</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.sun.mail</groupId>
+            <artifactId>javax.mail</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>javax.activation</groupId>
+            <artifactId>activation</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context-support</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <!--
+          Tika 3.x is embedded on purpose instead of using Jahia's platform-provided Tika line.
+          Rationale:
+          - the upload validator relies on content-only MIME detection, without filename hints
+          - this module was validated against Tika 3.x detection behavior for that use case
+          - OSGi isolates the embedded Tika jar from the platform-provided Tika packages
+          Platform-provided libraries that Tika can reuse must stay explicit in this pom.
+        -->
+        <dependency>
             <groupId>org.apache.tika</groupId>
             <artifactId>tika-core</artifactId>
-            <version>3.2.3</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-api</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>commons-io</groupId>
+                    <artifactId>commons-io</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
         <!-- Override transitive version (CVE-2023-24998, CVE-2025-48976) -->
         <dependency>
+            <groupId>commons-lang</groupId>
+            <artifactId>commons-lang</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>commons-fileupload</groupId>
             <artifactId>commons-fileupload</artifactId>
-            <version>1.6.0</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
-            <version>2.11.0</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-text</artifactId>
-            <version>1.10.0</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
-            <version>${junit.jupiter.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
-            <version>${junit.jupiter.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -114,11 +179,7 @@
                         <!-- Process OSGi Declarative Services annotations -->
                         <_dsannotations>*</_dsannotations>
                         <Export-Package>
-                            org.jahia.modules.formidable.engine.actions,
-                            org.jahia.modules.formidable.engine.captcha,
-                            org.jahia.modules.formidable.engine.choicelist,
-                            org.jahia.modules.formidable.engine.config,
-                            org.jahia.modules.formidable.engine.permissions
+                            org.jahia.modules.formidable.engine.api
                         </Export-Package>
                         <Import-Package>
                             org.jahia.bin,
@@ -184,6 +245,37 @@
                 <configuration>
                     <release>17</release>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <failOnWarning>true</failOnWarning>
+                    <ignoredUnusedDeclaredDependencies>
+                        <!-- Used through API signatures or by the test runtime, but not reliably detected by analyze-only. -->
+                        <ignoredUnusedDeclaredDependency>com.sun.mail:javax.mail</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>javax.activation:activation</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>org.osgi:osgi.annotation</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>org.springframework:spring-context-support</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>commons-lang:commons-lang</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>org.apache.commons:commons-text</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>org.junit.jupiter:junit-jupiter-api</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>org.mockito:mockito-core</ignoredUnusedDeclaredDependency>
+                        <!-- Used by Surefire/JUnit platform at test runtime, not by direct imports. -->
+                        <ignoredUnusedDeclaredDependency>org.junit.jupiter:junit-jupiter-engine</ignoredUnusedDeclaredDependency>
+                        <!-- Inherited from the Jahia modules parent and unused by formidable-engine. -->
+                        <ignoredUnusedDeclaredDependency>org.springframework:spring-webmvc</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>javax.servlet:jstl</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>org.jahia.server:jahia-taglib</ignoredUnusedDeclaredDependency>
+                    </ignoredUnusedDeclaredDependencies>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>analyze-only</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
