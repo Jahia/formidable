@@ -5,6 +5,7 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.jcr.RepositoryException;
 import javax.jcr.Value;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,14 +32,14 @@ public record ConditionalLogicRule(
                 if (rule != null) {
                     rules.add(rule);
                 }
-            } catch (Exception e) {
+            } catch (RepositoryException | RuntimeException e) {
                 log.debug("[ConditionalLogicRule] Failed to parse rule: {}", e.getMessage());
             }
         }
         return rules;
     }
 
-    private static ConditionalLogicRule parseRuleValue(Value value) throws Exception {
+    private static ConditionalLogicRule parseRuleValue(Value value) throws RepositoryException {
         String json = value.getString();
         if (json == null || json.isBlank()) {
             return null;

@@ -1,8 +1,5 @@
 package org.jahia.modules.formidable.engine.logic;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -14,8 +11,6 @@ import java.util.Set;
  * Handles transitive visibility (hidden source → rule fails) and parent container inheritance.
  */
 public class ConditionalLogicEvaluator {
-
-    private static final Logger log = LoggerFactory.getLogger(ConditionalLogicEvaluator.class);
 
     private final Map<String, List<ConditionalLogicRule>> fieldLogicRules;
     private final Map<String, String> logicIdToFieldName;

@@ -89,7 +89,6 @@ class FormFieldMetadataCollector {
 
     private static void traverseRecursively(JCRNodeWrapper node, String parentContainerName, CollectorContext ctx)
             throws RepositoryException {
-        String nodeType = node.getPrimaryNodeTypeName();
         String currentContainerName = parentContainerName;
         boolean nonSubmittable = node.isNodeType(NON_SUBMITTABLE_MIXIN);
 

@@ -115,6 +115,9 @@ public class ForwardSubmissionFormAction implements FormAction {
             }
         } catch (FormActionException e) {
             throw e;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new FormActionException("Forward request to target '" + targetUri + "' was interrupted.", 502, e);
         } catch (Exception e) {
             throw new FormActionException("Failed to forward form data to target '" + targetUri + "'.", 502, e);
         }
@@ -167,35 +170,37 @@ public class ForwardSubmissionFormAction implements FormAction {
             String boundary
     ) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        byte[] dashdash = "--".getBytes(StandardCharsets.UTF_8);
-        byte[] crlf = "\r\n".getBytes(StandardCharsets.UTF_8);
-        byte[] boundaryBytes = boundary.getBytes(StandardCharsets.UTF_8);
+        MultipartMarkers markers = new MultipartMarkers(
+                "--".getBytes(StandardCharsets.UTF_8),
+                boundary.getBytes(StandardCharsets.UTF_8),
+                "\r\n".getBytes(StandardCharsets.UTF_8)
+        );
 
         for (Map.Entry<String, List<String>> entry : parameters.entrySet()) {
             String name = entry.getKey();
             for (String value : entry.getValue()) {
-                writePart(out, dashdash, boundaryBytes, crlf, name, null, null, value.getBytes(StandardCharsets.UTF_8));
+                writePart(out, markers, name, null, null, value.getBytes(StandardCharsets.UTF_8));
             }
         }
 
         for (SubmittedFile file : files) {
-            writePart(out, dashdash, boundaryBytes, crlf,
+            writePart(out, markers,
                     file.fieldName(), file.originalName(), file.mimeType(), file.data());
         }
 
-        out.write(dashdash);
-        out.write(boundaryBytes);
-        out.write(dashdash);
-        out.write(crlf);
+        out.write(markers.dashdash());
+        out.write(markers.boundary());
+        out.write(markers.dashdash());
+        out.write(markers.crlf());
 
         return out.toByteArray();
     }
 
-    private static void writePart(ByteArrayOutputStream out, byte[] dashdash, byte[] boundary, byte[] crlf,
+    private static void writePart(ByteArrayOutputStream out, MultipartMarkers markers,
                                    String name, String filename, String contentType, byte[] data) throws IOException {
-        out.write(dashdash);
-        out.write(boundary);
-        out.write(crlf);
+        out.write(markers.dashdash());
+        out.write(markers.boundary());
+        out.write(markers.crlf());
 
         String disposition = "Content-Disposition: form-data; name=\""
                 + ContentDispositionUtils.escapeFormFieldName(name) + "\"";
@@ -204,15 +209,17 @@ public class ForwardSubmissionFormAction implements FormAction {
             disposition += "; filename*=UTF-8''" + ContentDispositionUtils.encodeRfc5987(filename);
         }
         out.write(disposition.getBytes(StandardCharsets.UTF_8));
-        out.write(crlf);
+        out.write(markers.crlf());
 
         if (contentType != null) {
             out.write(("Content-Type: " + contentType).getBytes(StandardCharsets.UTF_8));
-            out.write(crlf);
+            out.write(markers.crlf());
         }
 
-        out.write(crlf);
+        out.write(markers.crlf());
         out.write(data);
-        out.write(crlf);
+        out.write(markers.crlf());
     }
+
+    private record MultipartMarkers(byte[] dashdash, byte[] boundary, byte[] crlf) {}
 }

@@ -306,12 +306,17 @@ public class FormidableConfigService {
                     .build();
 
             HttpResponse<String> response = captchaHttpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            JSONObject result = new JSONObject(response.body());
+            String responseBody = response.body();
+            JSONObject result = new JSONObject(responseBody);
             boolean success = result.optBoolean("success", false);
-            if (!success) {
-                log.debug("CAPTCHA verification failed. Provider response: {}", response.body());
+            if (!success && log.isDebugEnabled()) {
+                log.debug("CAPTCHA verification failed. Provider response: {}", responseBody);
             }
             return success;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("CAPTCHA verification request interrupted (verifyUrl={})", captchaVerifyUrl, e);
+            return false;
         } catch (Exception e) {
             log.error("CAPTCHA verification request failed (verifyUrl={})", captchaVerifyUrl, e);
             return false;

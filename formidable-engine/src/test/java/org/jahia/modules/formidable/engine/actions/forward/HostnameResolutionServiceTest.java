@@ -87,13 +87,14 @@ class HostnameResolutionServiceTest {
     void resolveAllTimesOutSlowLookups() {
         // Given a resolver that takes longer than the configured timeout,
         // the service must abort the lookup and surface a TimeoutException.
+        CountDownLatch releaseResolver = new CountDownLatch(1);
         service = new HostnameResolutionService(
                 Duration.ofMillis(10),
                 Duration.ofSeconds(30),
                 Executors.newSingleThreadExecutor(),
                 hostname -> {
                     try {
-                        Thread.sleep(250);
+                        releaseResolver.await(250, TimeUnit.MILLISECONDS);
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                     }

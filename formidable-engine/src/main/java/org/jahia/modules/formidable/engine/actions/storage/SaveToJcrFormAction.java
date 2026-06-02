@@ -17,7 +17,6 @@ import javax.jcr.RepositoryException;
 import javax.jcr.Value;
 import javax.servlet.http.HttpServletRequest;
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
@@ -283,12 +282,12 @@ public class SaveToJcrFormAction implements FormAction {
         JCRNodeWrapper fileNode = fieldFolder.addNode(fileNodeName, "jnt:file");
         JCRNodeWrapper contentNode = fileNode.addNode("jcr:content", "jnt:resource");
 
-        try (ByteArrayInputStream input = new ByteArrayInputStream(file.data())) {
-            Binary binary = session.getValueFactory().createBinary(input);
+        ByteArrayInputStream input = new ByteArrayInputStream(file.data());
+        Binary binary = session.getValueFactory().createBinary(input);
+        try {
             contentNode.setProperty("jcr:data", binary);
+        } finally {
             binary.dispose();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
         contentNode.setProperty("jcr:mimeType", file.mimeType());
         contentNode.setProperty("jcr:lastModified", Calendar.getInstance());
