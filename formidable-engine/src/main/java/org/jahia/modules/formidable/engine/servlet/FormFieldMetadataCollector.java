@@ -126,7 +126,9 @@ class FormFieldMetadataCollector {
         String name = node.getName();
         String nodeType = node.getPrimaryNodeTypeName();
         if (ctx.fieldInfos.containsKey(name)) {
-            log.warn("[FormFieldMetadataCollector] Duplicate field name '{}'; later metadata overwrites.", name);
+            throw new RepositoryException(
+                    "Duplicate field name '" + name + "' detected in form metadata collection."
+            );
         }
 
         if (parentContainerName != null) {

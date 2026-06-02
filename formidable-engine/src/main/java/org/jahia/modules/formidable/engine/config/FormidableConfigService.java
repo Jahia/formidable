@@ -35,6 +35,12 @@ import java.util.stream.Collectors;
 )
 @Designate(ocd = FormidableConfig.class)
 public class FormidableConfigService {
+    public static class CaptchaVerificationException extends Exception {
+        public CaptchaVerificationException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
     /**
      * A resolved forward target entry from the operator configuration.
      *
@@ -281,8 +287,10 @@ public class FormidableConfigService {
      * @param token    the token submitted by the client widget
      * @param remoteIp the client's IP address (optional but recommended)
      * @return true if the provider confirms the token is valid
+     * @throws CaptchaVerificationException when verification cannot complete because of an
+     *                                      infrastructure or provider-side technical failure
      */
-    public boolean verifyCaptcha(String token, String remoteIp) {
+    public boolean verifyCaptcha(String token, String remoteIp) throws CaptchaVerificationException {
         if (!isCaptchaVerificationConfigured()) {
             log.warn("CAPTCHA verification skipped: service is not configured.");
             return false;
@@ -313,11 +321,15 @@ public class FormidableConfigService {
             return success;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            log.error("CAPTCHA verification request interrupted (verifyUrl={})", captchaVerifyUrl, e);
-            return false;
+            throw new CaptchaVerificationException(
+                    "CAPTCHA verification request interrupted (verifyUrl=" + captchaVerifyUrl + ").",
+                    e
+            );
         } catch (Exception e) {
-            log.error("CAPTCHA verification request failed (verifyUrl={})", captchaVerifyUrl, e);
-            return false;
+            throw new CaptchaVerificationException(
+                    "CAPTCHA verification request failed (verifyUrl=" + captchaVerifyUrl + ").",
+                    e
+            );
         }
     }
 

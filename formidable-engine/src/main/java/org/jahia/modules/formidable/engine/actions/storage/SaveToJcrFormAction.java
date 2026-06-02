@@ -17,8 +17,9 @@ import javax.jcr.RepositoryException;
 import javax.jcr.Value;
 import javax.servlet.http.HttpServletRequest;
 import java.io.ByteArrayInputStream;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.time.format.DateTimeFormatter;
+import java.time.ZoneOffset;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
@@ -37,7 +38,6 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WO
  */
 @Component(service = FormAction.class)
 public class SaveToJcrFormAction implements FormAction {
-    private static final String JCR_PATH_DELIMITER = "/";
     private static final String RESULTS_ROOT_NAME = "formidable-results";
     private static final String SUBMISSION_ORIGIN = "formidable";
     private static final String SPLIT_CONFIG = "date,jcr:created,yyyy;date,jcr:created,MM;date,jcr:created,dd";
@@ -113,18 +113,11 @@ public class SaveToJcrFormAction implements FormAction {
     private static JCRNodeWrapper resolveOrCreateFormResults(JCRNodeWrapper formNode, JCRSessionWrapper session)
             throws RepositoryException {
         JCRNodeWrapper siteNode = formNode.getResolveSite();
-        JCRNodeWrapper resultsRoot;
-        if (siteNode.hasNode(RESULTS_ROOT_NAME)) {
-            resultsRoot = siteNode.getNode(RESULTS_ROOT_NAME);
-        } else {
-            session.checkout(siteNode);
-            resultsRoot = siteNode.addNode(RESULTS_ROOT_NAME, "fmdb:resultsFolder");
-            session.save();
-        }
+        JCRNodeWrapper resultsRoot = getOrCreateResultsRoot(siteNode, session);
 
         JCRNodeWrapper existingFormResults = findFormResultsByParentForm(resultsRoot, formNode);
         if (existingFormResults != null) {
-            return renameFormResultsIfNeeded(existingFormResults, resultsRoot, formNode, session);
+            return existingFormResults;
         }
 
         session.checkout(resultsRoot);
@@ -148,6 +141,27 @@ public class SaveToJcrFormAction implements FormAction {
         return formResults;
     }
 
+    private static JCRNodeWrapper getOrCreateResultsRoot(JCRNodeWrapper siteNode, JCRSessionWrapper session)
+            throws RepositoryException {
+        if (siteNode.hasNode(RESULTS_ROOT_NAME)) {
+            return siteNode.getNode(RESULTS_ROOT_NAME);
+        }
+
+        session.checkout(siteNode);
+        try {
+            JCRNodeWrapper resultsRoot = siteNode.addNode(RESULTS_ROOT_NAME, "fmdb:resultsFolder");
+            session.save();
+            return resultsRoot;
+        } catch (RepositoryException e) {
+            // Another concurrent submission may have created the shared results root first.
+            session.refresh(false);
+            if (siteNode.hasNode(RESULTS_ROOT_NAME)) {
+                return siteNode.getNode(RESULTS_ROOT_NAME);
+            }
+            throw e;
+        }
+    }
+
     private static JCRNodeWrapper findFormResultsByParentForm(JCRNodeWrapper resultsRoot, JCRNodeWrapper formNode)
             throws RepositoryException {
         String formIdentifier = formNode.getIdentifier();
@@ -162,24 +176,6 @@ public class SaveToJcrFormAction implements FormAction {
             }
         }
         return null;
-    }
-
-    private static JCRNodeWrapper renameFormResultsIfNeeded(
-            JCRNodeWrapper formResults,
-            JCRNodeWrapper resultsRoot,
-            JCRNodeWrapper formNode,
-            JCRSessionWrapper session
-    ) throws RepositoryException {
-        String expectedName = formNode.getName();
-        if (expectedName.equals(formResults.getName())) {
-            return formResults;
-        }
-
-        String availableName = JCRContentUtils.findAvailableNodeName(resultsRoot, expectedName);
-        String targetPath = resultsRoot.getPath() + JCR_PATH_DELIMITER + availableName;
-        session.move(formResults.getPath(), targetPath);
-        session.save();
-        return session.getNode(targetPath);
     }
 
     private static void ensureAutoSplit(JCRNodeWrapper submissions) throws RepositoryException {
@@ -204,7 +200,8 @@ public class SaveToJcrFormAction implements FormAction {
     }
 
     private static String buildSubmissionNodeName() {
-        String timestamp = LocalDateTime.now().format(SUBMISSION_NAME_FORMATTER);
+        // Use UTC for this technical identifier so node names stay stable across server JVM timezones.
+        String timestamp = Instant.now().atZone(ZoneOffset.UTC).format(SUBMISSION_NAME_FORMATTER);
         String shortUuid = UUID.randomUUID().toString().substring(0, 3);
         return "submission-" + timestamp + "-" + shortUuid;
     }
