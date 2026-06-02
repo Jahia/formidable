@@ -37,6 +37,7 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WO
  */
 @Component(service = FormAction.class)
 public class SaveToJcrFormAction implements FormAction {
+    private static final String JCR_PATH_DELIMITER = "/";
     private static final String RESULTS_ROOT_NAME = "formidable-results";
     private static final String SUBMISSION_ORIGIN = "formidable";
     private static final String SPLIT_CONFIG = "date,jcr:created,yyyy;date,jcr:created,MM;date,jcr:created,dd";
@@ -93,12 +94,12 @@ public class SaveToJcrFormAction implements FormAction {
 
     private static JCRNodeWrapper resolveFormNode(JCRNodeWrapper actionNode) throws FormActionException {
         try {
-            JCRNodeWrapper actionListNode = (JCRNodeWrapper) actionNode.getParent();
+            JCRNodeWrapper actionListNode = actionNode.getParent();
             if (actionListNode == null) {
                 throw FormActionException.serverError("The JCR storage action is not attached to an action list.");
             }
 
-            JCRNodeWrapper formNode = (JCRNodeWrapper) actionListNode.getParent();
+            JCRNodeWrapper formNode = actionListNode.getParent();
             if (formNode == null || !formNode.isNodeType(FORM_NODE_TYPE)) {
                 throw FormActionException.serverError("The JCR storage action parent form could not be resolved.");
             }
@@ -153,13 +154,10 @@ public class SaveToJcrFormAction implements FormAction {
         NodeIterator children = resultsRoot.getNodes();
         while (children.hasNext()) {
             javax.jcr.Node child = children.nextNode();
-            if (!(child instanceof JCRNodeWrapper candidate)) {
-                continue;
-            }
-            if (!candidate.isNodeType(FORM_RESULTS_NODE_TYPE) || !candidate.hasProperty(PARENT_FORM_PROPERTY)) {
-                continue;
-            }
-            if (formIdentifier.equals(candidate.getProperty(PARENT_FORM_PROPERTY).getString())) {
+            if (child instanceof JCRNodeWrapper candidate
+                    && candidate.isNodeType(FORM_RESULTS_NODE_TYPE)
+                    && candidate.hasProperty(PARENT_FORM_PROPERTY)
+                    && formIdentifier.equals(candidate.getProperty(PARENT_FORM_PROPERTY).getString())) {
                 return candidate;
             }
         }
@@ -178,7 +176,7 @@ public class SaveToJcrFormAction implements FormAction {
         }
 
         String availableName = JCRContentUtils.findAvailableNodeName(resultsRoot, expectedName);
-        String targetPath = resultsRoot.getPath() + "/" + availableName;
+        String targetPath = resultsRoot.getPath() + JCR_PATH_DELIMITER + availableName;
         session.move(formResults.getPath(), targetPath);
         session.save();
         return session.getNode(targetPath);

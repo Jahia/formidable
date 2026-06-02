@@ -78,26 +78,26 @@ public class FormSubmitServlet extends HttpServlet {
     }
 
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) {
         if (!isRequestAllowed()) {
             String errorCode = ErrorCode.FMDB_011.code();
             if (log.isWarnEnabled()) {
                 log.warn("[FormSubmitServlet] Rejected [{}]: request did not match Security Filter scope '{}'",
                         errorCode, SUBMIT_API);
             }
-            sendJson(resp, HttpServletResponse.SC_FORBIDDEN, errorCode, null);
+            sendJsonSafely(resp, HttpServletResponse.SC_FORBIDDEN, errorCode, null);
             return;
         }
 
         try {
             createPipeline().run(req);
-            sendJson(resp, HttpServletResponse.SC_OK, null, null);
+            sendJsonSafely(resp, HttpServletResponse.SC_OK, null, null);
         } catch (SubmissionException e) {
             logSubmissionFailure(e);
-            sendJson(resp, e.httpStatus(), e.errorCode.code(), e);
+            sendJsonSafely(resp, e.httpStatus(), e.errorCode.code(), e);
         } catch (Exception e) {
             log.error("[FormSubmitServlet] Unexpected error", e);
-            sendJson(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, ErrorCode.FMDB_500.code(), null);
+            sendJsonSafely(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, ErrorCode.FMDB_500.code(), null);
         }
     }
 
@@ -139,6 +139,17 @@ public class FormSubmitServlet extends HttpServlet {
 
         if (log.isWarnEnabled()) {
             log.warn("[FormSubmitServlet] Rejected [{}]: {}", errorCode, message);
+        }
+    }
+
+    private static void sendJsonSafely(HttpServletResponse resp, int status, String errorCode, SubmissionException ex) {
+        try {
+            sendJson(resp, status, errorCode, ex);
+        } catch (IOException e) {
+            if (log.isErrorEnabled()) {
+                log.error("[FormSubmitServlet] Failed to write JSON response (status={}, errorCode={})",
+                        status, errorCode, e);
+            }
         }
     }
 

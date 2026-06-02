@@ -251,8 +251,7 @@ class FormFieldMetadataCollector {
             JCRNodeWrapper node,
             boolean dateField,
             boolean datetimeLocalField
-    )
-            throws RepositoryException {
+    ) {
         boolean required  = JcrProps.bool(node, "required", false);
         long minLength    = JcrProps.longValue(node, "minLength", -1L);
         long maxLength    = JcrProps.longValue(node, "maxLength", -1L);

@@ -157,7 +157,7 @@ class FormSubmissionPipeline {
         if (!requiresAuth) return;
 
         if (JahiaUserManagerService.isGuest(JCRSessionFactory.getInstance().getCurrentUser())) {
-            log.warn("[FormSubmissionPipeline] Anonymous submission rejected on authenticated form: {}", formId);
+            log.warn("[FormSubmissionPipeline] Anonymous submission rejected on authenticated form.");
             throw new SubmissionException(ErrorCode.FMDB_009,
                     "Authentication required for form: " + formId);
         }
@@ -219,14 +219,13 @@ class FormSubmissionPipeline {
             FormDataParser.FieldInfo fieldInfo = entry.getValue();
             FormDataParser.FieldConstraints constraints = fieldInfo.constraints();
 
-            if (constraints == null || !constraints.required()) continue;
-
-            if (logicEvaluator.isHidden(fieldName)) {
-                log.debug("[FormSubmissionPipeline] Skipping required validation for hidden field '{}'", fieldName);
-                continue;
+            if (constraints != null && constraints.required()) {
+                if (logicEvaluator.isHidden(fieldName)) {
+                    log.debug("[FormSubmissionPipeline] Skipping required validation for hidden field '{}'", fieldName);
+                } else {
+                    validateRequiredField(fieldName, fieldInfo);
+                }
             }
-
-            validateRequiredField(fieldName, fieldInfo);
         }
     }
 

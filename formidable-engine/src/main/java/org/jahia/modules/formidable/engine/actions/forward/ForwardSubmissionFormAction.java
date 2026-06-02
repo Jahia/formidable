@@ -22,8 +22,10 @@ import java.net.UnknownHostException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 
@@ -221,5 +223,34 @@ public class ForwardSubmissionFormAction implements FormAction {
         out.write(markers.crlf());
     }
 
-    private record MultipartMarkers(byte[] dashdash, byte[] boundary, byte[] crlf) {}
+    private record MultipartMarkers(byte[] dashdash, byte[] boundary, byte[] crlf) {
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof MultipartMarkers that)) {
+                return false;
+            }
+            return Arrays.equals(dashdash, that.dashdash)
+                    && Arrays.equals(boundary, that.boundary)
+                    && Arrays.equals(crlf, that.crlf);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(
+                    Arrays.hashCode(dashdash),
+                    Arrays.hashCode(boundary),
+                    Arrays.hashCode(crlf)
+            );
+        }
+
+        @Override
+        public String toString() {
+            return "MultipartMarkers[dashdash=" + Arrays.toString(dashdash)
+                    + ", boundary=" + Arrays.toString(boundary)
+                    + ", crlf=" + Arrays.toString(crlf) + "]";
+        }
+    }
 }

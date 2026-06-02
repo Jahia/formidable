@@ -21,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
@@ -60,15 +61,14 @@ public class FormidableConfigService {
     private long uploadMaxRequestSizeBytes;
     private int  uploadMaxFileCount;
     private Set<String> uploadAllowedMimeTypes;
-    private boolean enableDevForwardTargets;
     private Duration forwardHttpConnectTimeout;
     private Duration forwardHttpRequestTimeout;
 
     /** Keyed by target id. Insertion-ordered so the choice list is stable. */
     private Map<String, ForwardTarget> forwardTargets = new LinkedHashMap<>();
 
-    private volatile HttpClient captchaHttpClient;
-    private volatile HttpClient forwardHttpClient;
+    private final AtomicReference<HttpClient> captchaHttpClient = new AtomicReference<>();
+    private final AtomicReference<HttpClient> forwardHttpClient = new AtomicReference<>();
 
     @Activate
     @Modified
@@ -89,9 +89,9 @@ public class FormidableConfigService {
                 config.captchaHttpRequestTimeoutSeconds(),
                 FormidableConfig.DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS
         );
-        captchaHttpClient = HttpClient.newBuilder()
+        captchaHttpClient.set(HttpClient.newBuilder()
                 .connectTimeout(captchaHttpConnectTimeout)
-                .build();
+                .build());
 
         uploadMaxFileSizeBytes    = config.uploadMaxFileSizeBytes();
         uploadMaxRequestSizeBytes = config.uploadMaxRequestSizeBytes();
@@ -101,7 +101,7 @@ public class FormidableConfigService {
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toSet());
 
-        enableDevForwardTargets = config.enableDevForwardTargets();
+        boolean enableDevForwardTargets = config.enableDevForwardTargets();
         forwardHttpConnectTimeout = readTimeoutSeconds(
                 "forwardHttpConnectTimeoutSeconds",
                 config.forwardHttpConnectTimeoutSeconds(),
@@ -112,9 +112,9 @@ public class FormidableConfigService {
                 config.forwardHttpRequestTimeoutSeconds(),
                 FormidableConfig.DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS
         );
-        forwardHttpClient = HttpClient.newBuilder()
+        forwardHttpClient.set(HttpClient.newBuilder()
                 .connectTimeout(forwardHttpConnectTimeout)
-                .build();
+                .build());
 
         Map<String, ForwardTarget> standardForwardTargets =
                 parseForwardTargets(config.forwardTargets(), "forwardTargets", false);
@@ -161,19 +161,17 @@ public class FormidableConfigService {
         String[] entries = raw.split("[\n\r]+");
         for (String entry : entries) {
             String trimmed = entry.trim();
-            if (trimmed.isEmpty()) {
-                continue;
+            if (!trimmed.isEmpty()) {
+                Optional<ForwardTarget> parsedTarget = parseForwardTargetEntry(trimmed, propertyName, development);
+                if (parsedTarget.isPresent()) {
+                    ForwardTarget target = parsedTarget.get();
+                    if (result.containsKey(target.id())) {
+                        log.warn("[FormidableConfigService] Duplicate {} id '{}', keeping first occurrence.", propertyName, target.id());
+                    } else {
+                        result.put(target.id(), target);
+                    }
+                }
             }
-            Optional<ForwardTarget> parsedTarget = parseForwardTargetEntry(trimmed, propertyName, development);
-            if (parsedTarget.isEmpty()) {
-                continue;
-            }
-            ForwardTarget target = parsedTarget.get();
-            if (result.containsKey(target.id())) {
-                log.warn("[FormidableConfigService] Duplicate {} id '{}', keeping first occurrence.", propertyName, target.id());
-                continue;
-            }
-            result.put(target.id(), target);
         }
         return result;
     }
@@ -226,9 +224,9 @@ public class FormidableConfigService {
             if (merged.containsKey(entry.getKey())) {
                 log.warn("[FormidableConfigService] Duplicate forward target id '{}' across forwardTargets and devForwardTargets, keeping the standard target.",
                         entry.getKey());
-                continue;
+            } else {
+                merged.put(entry.getKey(), entry.getValue());
             }
-            merged.put(entry.getKey(), entry.getValue());
         }
         return merged;
     }
@@ -305,7 +303,7 @@ public class FormidableConfigService {
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();
 
-            HttpResponse<String> response = captchaHttpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = getCaptchaHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
             String responseBody = response.body();
             JSONObject result = new JSONObject(responseBody);
             boolean success = result.optBoolean("success", false);
@@ -335,7 +333,7 @@ public class FormidableConfigService {
     // --- FORWARD ACTION ---
     public Duration getForwardHttpConnectTimeout() { return forwardHttpConnectTimeout; }
     public Duration getForwardHttpRequestTimeout() { return forwardHttpRequestTimeout; }
-    public HttpClient getForwardHttpClient() { return forwardHttpClient; }
+    public HttpClient getForwardHttpClient() { return getRequiredHttpClient(forwardHttpClient, "forward"); }
 
     /**
      * Returns all configured forward targets, in declaration order.
@@ -357,6 +355,18 @@ public class FormidableConfigService {
 
     private static String encode(String value) {
         return URLEncoder.encode(value == null ? "" : value, StandardCharsets.UTF_8);
+    }
+
+    private HttpClient getCaptchaHttpClient() {
+        return getRequiredHttpClient(captchaHttpClient, "captcha");
+    }
+
+    private static HttpClient getRequiredHttpClient(AtomicReference<HttpClient> clientRef, String clientName) {
+        HttpClient client = clientRef.get();
+        if (client == null) {
+            throw new IllegalStateException("Formidable " + clientName + " HTTP client is not initialized.");
+        }
+        return client;
     }
 
     private static Duration readTimeoutSeconds(String propertyName, long seconds, long defaultSeconds) {

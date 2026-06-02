@@ -12,6 +12,8 @@ import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Objects;
+
 /**
  * Render filter that injects CAPTCHA front-end configuration as request attributes
  * when the current fmdb:form node has fmdbmix:captchaProtectedForm applied.
@@ -69,5 +71,25 @@ public class CaptchaRenderFilter extends AbstractFilter {
         }
 
         return super.prepare(renderContext, resource, chain);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) {
+            return true;
+        }
+        if (other == null || getClass() != other.getClass()) {
+            return false;
+        }
+        if (!super.equals(other)) {
+            return false;
+        }
+        CaptchaRenderFilter that = (CaptchaRenderFilter) other;
+        return Objects.equals(config, that.config);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), config);
     }
 }
