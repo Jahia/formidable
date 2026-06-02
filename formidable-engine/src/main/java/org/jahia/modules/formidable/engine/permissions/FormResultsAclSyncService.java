@@ -137,15 +137,10 @@ public final class FormResultsAclSyncService {
         NodeIterator children = resultsRoot.getNodes();
         while (children.hasNext()) {
             javax.jcr.Node child = children.nextNode();
-            if (!(child instanceof JCRNodeWrapper candidate)) {
-                continue;
-            }
-
-            if (!candidate.isNodeType(FORM_RESULTS_NODE_TYPE) || !candidate.hasProperty(PARENT_FORM_PROPERTY)) {
-                continue;
-            }
-
-            if (formIdentifier.equals(candidate.getProperty(PARENT_FORM_PROPERTY).getString())) {
+            if (child instanceof JCRNodeWrapper candidate
+                    && candidate.isNodeType(FORM_RESULTS_NODE_TYPE)
+                    && candidate.hasProperty(PARENT_FORM_PROPERTY)
+                    && formIdentifier.equals(candidate.getProperty(PARENT_FORM_PROPERTY).getString())) {
                 return candidate;
             }
         }
