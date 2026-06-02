@@ -3,4 +3,4 @@
 formidable: patch
 ---
 
-(formidable-engine) harden submission failure handling and document operational constraints (#89)
+Improved form submission error handling and documented operational limits.
