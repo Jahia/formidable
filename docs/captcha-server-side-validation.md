@@ -36,7 +36,10 @@ before any action in the pipeline runs.
 3. Calls `FormidableConfigService.verifyCaptcha(token, remoteAddr)`
 4. `FormidableConfigService` reads `captchaSecretKey` and `captchaVerifyUrl` from OSGi config
 5. It POSTs to `captchaVerifyUrl` with `secret` + `response` + optional `remoteip`
-6. If verification fails, the pipeline stops with `FMDB-006` / HTTP 400
+6. If the provider rejects the submitted token, the pipeline stops with `FMDB-006` / HTTP 400
+7. If server-side verification cannot complete because of a technical failure
+   (for example timeout, DNS failure, network error, or provider outage), the
+   pipeline stops with `FMDB-500` / HTTP 500
 
 ## Token field names (auto-injected by the widget)
 

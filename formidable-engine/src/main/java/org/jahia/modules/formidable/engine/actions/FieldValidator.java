@@ -48,7 +48,9 @@ final class FieldValidator {
         if (!choices.isEmpty() && !choices.contains(value)) {
             log.warn("[FieldValidator] Rejected submitted value: not in allowed choices");
             throw new FormDataParser.ParseException(
-                    "Field '" + fieldName + "': submitted value is not an allowed choice.", 400, true);
+                    "Field '" + fieldName + "': submitted value is not an allowed choice.",
+                    FormDataParser.ParseException.FailureType.VALIDATION
+            );
         }
 
         FormDataParser.FieldInfo fieldInfo = metadata.field(fieldName);
@@ -83,23 +85,31 @@ final class FieldValidator {
             log.warn("[FieldValidator] Rejected submitted value: below minimum length");
             throw new FormDataParser.ParseException(
                     "Field '" + fieldName + "': value too short (min " + constraints.minLength() + " chars).",
-                    400, true);
+                    FormDataParser.ParseException.FailureType.VALIDATION
+            );
         }
         if (constraints.maxLength() >= 0 && value.length() > constraints.maxLength()) {
             log.warn("[FieldValidator] Rejected submitted value: exceeds maximum length");
             throw new FormDataParser.ParseException(
                     "Field '" + fieldName + "': value too long (max " + constraints.maxLength() + " chars).",
-                    400, true);
+                    FormDataParser.ParseException.FailureType.VALIDATION
+            );
         }
         if (constraints.pattern() != null && !constraints.pattern().isBlank()) {
             try {
                 if (!value.matches(constraints.pattern())) {
                     log.warn("[FieldValidator] Rejected submitted value: does not match configured pattern");
                     throw new FormDataParser.ParseException(
-                            "Field '" + fieldName + "': value does not match required format.", 400, true);
+                            "Field '" + fieldName + "': value does not match required format.",
+                            FormDataParser.ParseException.FailureType.VALIDATION
+                    );
                 }
             } catch (PatternSyntaxException e) {
-                log.warn("[FieldValidator] Invalid validation pattern configuration");
+                throw new FormDataParser.ParseException(
+                        "Field '" + fieldName + "': invalid validation pattern configuration.",
+                        FormDataParser.ParseException.FailureType.CONFIGURATION,
+                        e
+                );
             }
         }
         if (fieldInfo != null && constraints.minDate() != null) {
@@ -158,8 +168,7 @@ final class FieldValidator {
         return new FormDataParser.ParseException(
                 "Field '" + fieldName + "': " + kind + " is "
                         + (minBound ? "before minimum" : "after maximum") + ".",
-                400,
-                true
+                FormDataParser.ParseException.FailureType.VALIDATION
         );
     }
 
@@ -170,7 +179,9 @@ final class FieldValidator {
             if (!email.isEmpty() && !EMAIL_PATTERN.matcher(email).matches()) {
                 log.warn("[FieldValidator] Rejected submitted value: invalid email format");
                 throw new FormDataParser.ParseException(
-                        "Field '" + fieldName + "': invalid email format.", 400, true);
+                        "Field '" + fieldName + "': invalid email format.",
+                        FormDataParser.ParseException.FailureType.VALIDATION
+                );
             }
         }
     }
@@ -181,7 +192,9 @@ final class FieldValidator {
         } catch (DateTimeParseException e) {
             log.warn("[FieldValidator] Rejected submitted value: invalid date format");
             throw new FormDataParser.ParseException(
-                    "Field '" + fieldName + "': invalid date format (expected yyyy-MM-dd).", 400, true);
+                    "Field '" + fieldName + "': invalid date format (expected yyyy-MM-dd).",
+                    FormDataParser.ParseException.FailureType.VALIDATION
+            );
         }
     }
 
@@ -191,7 +204,9 @@ final class FieldValidator {
         } catch (DateTimeParseException e) {
             log.warn("[FieldValidator] Rejected submitted value: invalid datetime-local format");
             throw new FormDataParser.ParseException(
-                    "Field '" + fieldName + "': invalid datetime format.", 400, true);
+                    "Field '" + fieldName + "': invalid datetime format.",
+                    FormDataParser.ParseException.FailureType.VALIDATION
+            );
         }
     }
 
@@ -199,7 +214,9 @@ final class FieldValidator {
         if (!COLOR_PATTERN.matcher(value).matches()) {
             log.warn("[FieldValidator] Rejected submitted value: invalid color format");
             throw new FormDataParser.ParseException(
-                    "Field '" + fieldName + "': invalid color format (expected #rrggbb).", 400, true);
+                    "Field '" + fieldName + "': invalid color format (expected #rrggbb).",
+                    FormDataParser.ParseException.FailureType.VALIDATION
+            );
         }
     }
 }

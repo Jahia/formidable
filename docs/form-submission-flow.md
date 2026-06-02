@@ -243,6 +243,16 @@ parsing.
 Plain-text values are preserved as submitted. XSS protection is applied at each output sink
 by escaping for the target context, not by mutating input during parsing.
 
+`FormDataParser.ParseException` carries an explicit failure type:
+- `VALIDATION` for submitted data rejected by business validation rules
+- `TECHNICAL` for multipart parsing or stream-processing failures
+- `CONFIGURATION` for invalid server-side validation metadata or form configuration
+
+`FormSubmissionPipeline` maps these parser failures to opaque API codes:
+- `VALIDATION` -> `FMDB-010`
+- `TECHNICAL` -> `FMDB-007`
+- `CONFIGURATION` -> `FMDB-500`
+
 ---
 
 ## Output escaping (step 10 — email actions)
@@ -269,7 +279,7 @@ All file parts pass through `FormDataParser` which enforces the following contro
 | 4 | File part count limit (CVE-2023-24998) | `upload.setFileCountMax(config.getUploadMaxFileCount())` — requires commons-fileupload ≥ 1.5 |
 | 5 | Filename sanitisation | Filename normalized with Jahia's standard JCR node-name escaping rules; blank results fall back to `upload` |
 | 6 | MIME type detection | Apache Tika magic-byte detection (ignores client-supplied `Content-Type`) |
-| 7 | MIME type allowlist | Field-level `accept` property (multiple choicelist) takes priority; falls back to global cfg allowlist |
+| 7 | MIME type allowlist | Field-level `accept` property (multiple choicelist) takes priority; falls back to global cfg allowlist. Rejections at this step are treated as validation failures (`FMDB-010`), not technical parse failures |
 
 Limits and the global allowlist are configured in `org.jahia.modules.formidable.cfg` via `FormidableConfig`.
 
@@ -302,6 +312,10 @@ Actions that need uploaded files reuse that in-memory list:
   `multipart/form-data` request body in memory before POSTing it to the configured target
 
 Those actions do not manipulate temporary files on disk either.
+
+Because upload payloads stay in memory for the lifetime of the submission, operators should
+cap concurrent access to the submit endpoint at the reverse-proxy or ingress layer so worst-case
+heap pressure remains bounded under large-file workloads.
 
 > **Operational note:** if temporary upload files are observed under the servlet container's
 > temp directory, they are not created by `FormDataParser` itself. They would have to come from

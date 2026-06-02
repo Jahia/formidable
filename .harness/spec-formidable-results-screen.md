@@ -1468,5 +1468,4 @@ Approche V2 : résolution des champs depuis le formulaire parent référencé pa
 
 ### Formulaire renommé
 
-Comme le dossier `fmdb:formResults` peut être renommé pour rester aligné avec le nom courant du formulaire, l’écran doit toujours utiliser l’identifiant JCR du `formResults` côté API.
-
+Le nom du dossier `fmdb:formResults` n’est pas contractuel. Il peut rester historique même si le formulaire est renommé, donc l’écran doit toujours utiliser l’identifiant JCR du `formResults` côté API et la weakreference `parentForm` pour l’identité fonctionnelle.

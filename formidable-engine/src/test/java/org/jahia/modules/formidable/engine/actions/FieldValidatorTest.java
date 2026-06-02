@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class FieldValidatorTest {
@@ -61,9 +61,9 @@ class FieldValidatorTest {
     }
 
     @Test
-    void ignoresInvalidRegexPatternInsteadOfBreakingValidation() {
-        // Verifies defensive validation: an invalid admin-configured regex pattern
-        // must not break the whole submission path for that field.
+    void rejectsInvalidRegexPatternAsConfigurationError() {
+        // Verifies fail-closed validation: an invalid admin-configured regex pattern
+        // must be treated as a form configuration error, not silently ignored.
         FormDataParser.FieldMetadata metadata = new FormDataParser.FieldMetadata(
                 Map.of("username", new FormDataParser.FieldInfo(
                         "fmdb:inputText",
@@ -80,7 +80,9 @@ class FieldValidatorTest {
                 ))
         );
 
-        // Expected outcome: the invalid pattern is ignored and no exception is raised.
-        assertDoesNotThrow(() -> FieldValidator.validateTextField("username", "alice", metadata));
+        FormDataParser.ParseException error = assertThrows(FormDataParser.ParseException.class,
+                () -> FieldValidator.validateTextField("username", "alice", metadata));
+
+        assertEquals(FormDataParser.ParseException.FailureType.CONFIGURATION, error.failureType());
     }
 }

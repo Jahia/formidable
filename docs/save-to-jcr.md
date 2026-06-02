@@ -45,13 +45,14 @@ Each form has one `fmdb:formResults` node.
 Identity is resolved through the `parentForm` weak reference stored on the `fmdb:formResults` node:
 
 - if a matching `parentForm` already exists, that node is reused
-- if the form JCR name changed, the existing `fmdb:formResults` node is renamed to the current form name
 - if no matching node exists, a new one is created
 
 This gives two properties:
 
 - stable identity across form renames
-- human-readable folder names
+- a stable, technical identity independent of the folder name
+
+The `fmdb:formResults` node name is not contractual. It is a historical folder name kept for operator readability, but functional identity is always resolved through `parentForm`.
 
 ## Submission Node Naming
 
@@ -69,8 +70,10 @@ submission-20260505-150707-a9e
 
 Where:
 
-- `YYYYMMdd-HHmmss` is the server-side timestamp
+- `YYYYMMdd-HHmmss` is a UTC timestamp generated server-side
 - `XXX` is a short UUID-derived suffix
+
+UTC is used intentionally for this technical node name so submission identifiers remain consistent across server JVM timezones. The authoritative persisted creation time is still `jcr:created`.
 
 If a collision still happens, `JCRContentUtils.findAvailableNodeName(...)` adds Jahia's standard numeric suffix.
 
@@ -199,7 +202,7 @@ At runtime, the action performs the following steps:
 - The `files` node is not autocreated — it is only added when uploaded files are present. This avoids an empty `jnt:folder` on every text-only submission.
 - Field values use residual properties on a single `data` node rather than one child node per field. A 20-field form produces 1 node with 20 properties, not 20 child nodes. At 10,000 submissions this avoids 190,000 unnecessary nodes.
 - Submissions are written directly to the `live` workspace using a system session. There is no publish step.
-- Folder names are intended to stay readable for operators.
+- Folder names are intended to stay readable for operators, but they are not a functional identifier.
 - `parentForm` is the real form identity key.
-- Renaming a form does not create a second logical results folder; the existing folder is reused and renamed.
+- Renaming a form does not create a second logical results folder; the existing folder is reused as-is.
 - Field labels are resolved at read time from the form node via GraphQL, not stored in the submission data. If the form is deleted, the dashboard falls back to the raw field name.

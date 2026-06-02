@@ -163,6 +163,23 @@ class FormSubmissionPipelineTest {
     }
 
     @Test
+    void verifyCaptchaFailsWithInternalErrorWhenVerificationIsTechnicallyUnavailable() throws Exception {
+        FormidableConfigService config = mock(FormidableConfigService.class);
+        FormSubmissionPipeline pipeline = newPipelineWithCaptchaFormNode(config, true);
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        when(config.isCaptchaVerificationConfigured()).thenReturn(true);
+        when(req.getParameter("ct")).thenReturn("valid-token");
+        when(req.getRemoteAddr()).thenReturn("203.0.113.10");
+        when(config.verifyCaptcha("valid-token", "203.0.113.10"))
+                .thenThrow(new FormidableConfigService.CaptchaVerificationException("provider unavailable", new RuntimeException("timeout")));
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeVerifyCaptcha(pipeline, req));
+
+        assertEquals(ErrorCode.FMDB_500, error.errorCode);
+    }
+
+    @Test
     void verifyCaptchaFailsClosedWhenMixinLookupThrows() throws Exception {
         // Verifies the fail-closed path: a repository error during mixin lookup must reject the submission.
         FormidableConfigService config = mock(FormidableConfigService.class);

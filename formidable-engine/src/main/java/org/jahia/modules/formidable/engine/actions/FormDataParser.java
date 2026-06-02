@@ -195,33 +195,27 @@ public class FormDataParser {
     ) {}
 
     public static class ParseException extends Exception {
-        private final int httpStatus;
-        private final boolean validation;
-
-        public ParseException(String message, int httpStatus) {
-            this(message, httpStatus, false);
+        public enum FailureType {
+            VALIDATION,
+            TECHNICAL,
+            CONFIGURATION
         }
 
-        public ParseException(String message, int httpStatus, boolean validation) {
+        private final FailureType failureType;
+
+        public ParseException(String message, FailureType failureType) {
             super(message);
-            this.httpStatus = httpStatus;
-            this.validation = validation;
+            this.failureType = failureType;
         }
 
-        public ParseException(String message, int httpStatus, Throwable cause) {
-            this(message, httpStatus, false, cause);
-        }
-
-        public ParseException(String message, int httpStatus, boolean validation, Throwable cause) {
+        public ParseException(String message, FailureType failureType, Throwable cause) {
             super(message, cause);
-            this.httpStatus = httpStatus;
-            this.validation = validation;
+            this.failureType = failureType;
         }
 
-        public int getHttpStatus() { return httpStatus; }
-
-        /** Returns true when the failure is a field-level validation error (FMDB-010). */
-        public boolean isValidation() { return validation; }
+        public FailureType failureType() {
+            return failureType;
+        }
     }
 
 
@@ -279,11 +273,21 @@ public class FormDataParser {
         } catch (ParseException e) {
             throw e;
         } catch (org.apache.commons.fileupload.FileUploadBase.FileSizeLimitExceededException e) {
-            throw new ParseException("File too large. Max allowed: " + config.getUploadMaxFileSizeBytes() + " bytes.", 413);
+            throw new ParseException(
+                    "File too large. Max allowed: " + config.getUploadMaxFileSizeBytes() + " bytes.",
+                    ParseException.FailureType.TECHNICAL
+            );
         } catch (org.apache.commons.fileupload.FileUploadBase.SizeLimitExceededException e) {
-            throw new ParseException("Request too large. Max allowed: " + config.getUploadMaxRequestSizeBytes() + " bytes.", 413);
+            throw new ParseException(
+                    "Request too large. Max allowed: " + config.getUploadMaxRequestSizeBytes() + " bytes.",
+                    ParseException.FailureType.TECHNICAL
+            );
         } catch (Exception e) {
-            throw new ParseException("Failed to parse multipart request while reading submitted fields and files.", 500, e);
+            throw new ParseException(
+                    "Failed to parse multipart request while reading submitted fields and files.",
+                    ParseException.FailureType.TECHNICAL,
+                    e
+            );
         }
 
         return new ParseResult(parameters, files);
@@ -311,7 +315,11 @@ public class FormDataParser {
             }
             data = buf.toByteArray();
         } catch (Exception e) {
-            throw new ParseException("Failed to read uploaded file part for field '" + fieldName + "' from multipart request.", 500, e);
+            throw new ParseException(
+                    "Failed to read uploaded file part for field '" + fieldName + "' from multipart request.",
+                    ParseException.FailureType.TECHNICAL,
+                    e
+            );
         }
 
         if (data.length == 0) {
@@ -330,7 +338,9 @@ public class FormDataParser {
         if (!allowed.isEmpty() && !isMimeAllowed(detectedMime, allowed)) {
             log.warn("[FormDataParser] Rejected uploaded file: detected MIME type is not in the configured allowlist");
             throw new ParseException(
-                    "File '" + sanitizedName + "': type '" + detectedMime + "' is not allowed.", 415);
+                    "File '" + sanitizedName + "': type '" + detectedMime + "' is not allowed.",
+                    ParseException.FailureType.VALIDATION
+            );
         }
 
         log.debug("[FormDataParser] Accepted uploaded file part (size={} bytes)", data.length);

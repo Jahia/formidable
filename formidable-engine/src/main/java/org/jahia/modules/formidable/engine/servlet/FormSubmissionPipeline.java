@@ -181,9 +181,17 @@ class FormSubmissionPipeline {
                     "CAPTCHA required but not configured (form: " + formId + ")");
         }
         String token = req.getParameter("ct");
-        if (!config.verifyCaptcha(token, req.getRemoteAddr())) {
-            throw new SubmissionException(ErrorCode.FMDB_006,
-                    "CAPTCHA token invalid or absent (form: " + formId + ")");
+        try {
+            if (!config.verifyCaptcha(token, req.getRemoteAddr())) {
+                throw new SubmissionException(ErrorCode.FMDB_006,
+                        "CAPTCHA token invalid or absent (form: " + formId + ")");
+            }
+        } catch (FormidableConfigService.CaptchaVerificationException e) {
+            throw new SubmissionException(
+                    ErrorCode.FMDB_500,
+                    "CAPTCHA verification failed for technical reasons (form: " + formId + ")",
+                    e
+            );
         }
     }
 
@@ -201,7 +209,11 @@ class FormSubmissionPipeline {
         try {
             parsed = FormDataParser.parseAll(req, config, fieldMetadata.toParserMetadata());
         } catch (FormDataParser.ParseException e) {
-            ErrorCode code = e.isValidation() ? ErrorCode.FMDB_010 : ErrorCode.FMDB_007;
+            ErrorCode code = switch (e.failureType()) {
+                case VALIDATION -> ErrorCode.FMDB_010;
+                case TECHNICAL -> ErrorCode.FMDB_007;
+                case CONFIGURATION -> ErrorCode.FMDB_500;
+            };
             throw new SubmissionException(code, e.getMessage(), e);
         }
     }
@@ -275,8 +287,13 @@ class FormSubmissionPipeline {
                     .findFirst()
                     .orElse(null);
             if (handler == null) {
-                log.warn("[FormSubmissionPipeline] No handler for action type '{}', skipping.", nodeType);
-                continue;
+                throw new SubmissionException(
+                        ErrorCode.FMDB_008,
+                        "Action '" + nodeType + "' failed (" + executed + "/" + total
+                                + " actions completed): no handler is registered for this action type.",
+                        executed,
+                        total
+                );
             }
             try {
                 JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale, systemSession -> {
