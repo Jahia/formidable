@@ -33,3 +33,16 @@ Mistakes made during the weakref model implementation. Do not repeat.
 - **Do not use `autocreated` for rarely-needed child nodes**. If a child node is only needed when a specific feature is used (e.g. `logicsSrc` only when conditional logic is configured), do not mark it `autocreated` — it creates unnecessary nodes on every instance. Instead, create the node lazily (on first use) and add `hasNode()` guards before reading.
 - **Treat every SPI boundary as immutable by default**. If validated data is passed to multiple actions/extensions, do not expose live mutable state. Defensively copy `byte[]` on construction and access, and pass unmodifiable collections across the SPI boundary, otherwise one handler can silently change what later handlers store, attach, or forward.
 - **Promote repeated JCR property/child names to constants once they appear multiple times in the same class**. Strings like `parentForm` or `files` are schema-level identifiers; duplicating them makes reviews noisier and copy/paste mistakes easier.
+
+## SonarQube
+
+- **Do not use `log + throw` on the same error path unless both are explicitly needed**. Prefer one final logging point and propagate the original cause with contextual exceptions.
+- **Never swallow `InterruptedException` in a broad `catch (Exception)`**. Catch it explicitly, call `Thread.currentThread().interrupt()`, then return or rethrow with context.
+- **Do not log user-controlled data by default**. IDs, request parameters, and similar input-derived values must be treated as tainted unless there is a specific operational need to log them.
+- **Guard expensive or non-trivial log arguments behind the log level**. Cache computed values and use `isDebugEnabled()` / `isWarnEnabled()` / `isErrorEnabled()` when Sonar flags method calls inside logging statements.
+- **Replace generic exceptions with specific ones or remove fake failure paths entirely**. `throws Exception`, `throw new RuntimeException(e)`, and impossible `catch` blocks are common Sonar hits.
+- **Remove redundant casts aggressively, especially with Jahia APIs that already return `JCRNodeWrapper`**. Sonar will keep finding them if code is copied between listeners, actions, and collectors.
+- **Records containing `byte[]` need explicit `equals`, `hashCode`, and `toString`**. The generated methods compare array identity, not contents.
+- **Prefer immutable/final holders over mutable servlet or service fields when Sonar flags thread-safety**. `volatile` alone is often not enough for shared component state.
+- **Flatten loops that stack multiple `continue` or `break` statements**. Rewrite them around positive conditions so Sonar does not flag flow complexity.
+- **Avoid hard-coded path delimiters and similar schema separators**. Even for JCR paths, Sonar prefers a named constant over `"/"` embedded in concatenation.

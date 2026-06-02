@@ -227,11 +227,9 @@ public final class FormResultsAclSyncService {
         NodeIterator children = acl.getNodes();
         while (children.hasNext()) {
             javax.jcr.Node child = children.nextNode();
-            if (!(child instanceof JCRNodeWrapper aceNode) || !matchesAceIdentity(aceNode, ace)) {
-                continue;
-            }
-
-            if (hasTargetRole(aceNode)) {
+            if (child instanceof JCRNodeWrapper aceNode
+                    && matchesAceIdentity(aceNode, ace)
+                    && hasTargetRole(aceNode)) {
                 aceNode.remove();
             }
         }
