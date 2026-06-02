@@ -32,7 +32,11 @@ public final class ContentDispositionUtils {
      * Builds a conservative ASCII fallback for legacy filename= usages.
      * The full UTF-8 filename should be carried separately when the protocol supports it.
      */
-    public static String toAsciiFilenameFallback(String value) {
+    public static String toRfc6266FilenameFallback(String value) {
+        if (value == null || value.isBlank()) {
+            return "upload";
+        }
+
         StringBuilder fallback = new StringBuilder(value.length());
         for (int i = 0; i < value.length(); i++) {
             char c = value.charAt(i);

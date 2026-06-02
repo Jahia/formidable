@@ -11,11 +11,25 @@ final class SubmissionException extends Exception {
     final int actionsTotal;
 
     SubmissionException(ErrorCode errorCode, String internalMessage) {
-        this(errorCode, internalMessage, -1, -1);
+        this(errorCode, internalMessage, -1, -1, null);
+    }
+
+    SubmissionException(ErrorCode errorCode, String internalMessage, Throwable cause) {
+        this(errorCode, internalMessage, -1, -1, cause);
     }
 
     SubmissionException(ErrorCode errorCode, String internalMessage, int actionsCompleted, int actionsTotal) {
-        super(internalMessage);
+        this(errorCode, internalMessage, actionsCompleted, actionsTotal, null);
+    }
+
+    SubmissionException(
+            ErrorCode errorCode,
+            String internalMessage,
+            int actionsCompleted,
+            int actionsTotal,
+            Throwable cause
+    ) {
+        super(internalMessage, cause);
         this.errorCode = errorCode;
         this.actionsCompleted = actionsCompleted;
         this.actionsTotal = actionsTotal;
@@ -29,4 +43,3 @@ final class SubmissionException extends Exception {
         return actionsCompleted >= 0 && actionsTotal > 0;
     }
 }
-

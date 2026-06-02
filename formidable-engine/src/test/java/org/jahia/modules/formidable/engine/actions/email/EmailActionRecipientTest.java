@@ -6,6 +6,7 @@ import org.jahia.services.mail.MailMessage;
 import org.jahia.services.mail.MailService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.jahia.modules.formidable.engine.actions.TemplateInterpolator;
 
 import java.util.List;
 import java.util.Map;
@@ -102,8 +103,8 @@ class EmailActionRecipientTest {
         );
 
         // When the notification template is interpolated for an HTML sink.
-        String html = SendEmailNotificationFormAction.interpolate(template, parameters, true);
-        String plainText = SendEmailNotificationFormAction.interpolate("${comment}", parameters, false);
+        String html = TemplateInterpolator.interpolate(template, parameters, org.jahia.modules.formidable.engine.actions.FieldEscaper::html);
+        String plainText = TemplateInterpolator.interpolate("${comment}", parameters, org.jahia.modules.formidable.engine.actions.FieldEscaper::plainText);
 
         // Then the HTML output is escaped, while the plain-text path keeps the original submitted value unchanged.
         assertEquals("<p>&lt;script&gt;alert(1)&lt;/script&gt;&lt;!-- note --&gt;</p>", html);

@@ -13,6 +13,9 @@ import javax.jcr.observation.Event;
 import javax.jcr.observation.EventIterator;
 import java.util.Set;
 
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_LOGIC_ELEMENT_MIXIN;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_NODE_TYPE;
+
 /**
  * Cleans up logic dependencies after a subtree duplication (copy/paste, import).
  *
@@ -43,7 +46,7 @@ public class FormDuplicationCleanupListener extends DefaultEventListener {
 
     @Override
     public String[] getNodeTypes() {
-        return new String[]{"fmdb:form", "fmdbmix:formLogicElement"};
+        return new String[]{FORM_NODE_TYPE, FORM_LOGIC_ELEMENT_MIXIN};
     }
 
     @Override
@@ -54,7 +57,7 @@ public class FormDuplicationCleanupListener extends DefaultEventListener {
                 String nodePath = event.getPath();
                 JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, workspace, null, systemSession -> {
                     JCRNodeWrapper node = systemSession.getNode(nodePath);
-                    JCRNodeWrapper formNode = node.isNodeType("fmdb:form")
+                    JCRNodeWrapper formNode = node.isNodeType(FORM_NODE_TYPE)
                             ? node
                             : FormLogicSyncService.findFormAncestor(node);
 

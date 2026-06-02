@@ -21,4 +21,21 @@ class ContentDispositionUtilsTest {
         assertEquals("field", ContentDispositionUtils.escapeFormFieldName(null));
         assertEquals("field", ContentDispositionUtils.escapeFormFieldName(" \r\n "));
     }
+
+    @Test
+    void buildsRfc6266FilenameFallbackForLegacyFilenameParameter() {
+        // Verifies the legacy filename= fallback: non-ASCII and disallowed characters
+        // must be replaced so the fallback remains conservative and header-safe.
+        String fallback = ContentDispositionUtils.toRfc6266FilenameFallback("résumé\".pdf");
+
+        // Expected outcome: unsupported characters are replaced while preserving a usable filename.
+        assertEquals("r_sum__.pdf", fallback);
+    }
+
+    @Test
+    void filenameFallbackUsesUploadWhenInputIsNullOrBlank() {
+        // Verifies defensive fallback behavior for absent or blank filenames.
+        assertEquals("upload", ContentDispositionUtils.toRfc6266FilenameFallback(null));
+        assertEquals("upload", ContentDispositionUtils.toRfc6266FilenameFallback("   "));
+    }
 }

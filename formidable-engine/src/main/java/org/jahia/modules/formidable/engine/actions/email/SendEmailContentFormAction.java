@@ -6,6 +6,7 @@ import org.jahia.modules.formidable.engine.actions.FormAction;
 import org.jahia.modules.formidable.engine.actions.FormActionException;
 import org.jahia.modules.formidable.engine.actions.SubmittedFile;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.modules.formidable.engine.util.JcrProps;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.mail.MailMessage;
@@ -53,7 +54,9 @@ public class SendEmailContentFormAction implements FormAction {
     }
 
     protected void unbindMailService(MailService service) {
-        this.mailService = null;
+        if (this.mailService == service) {
+            this.mailService = null;
+        }
     }
 
     @Reference
@@ -78,12 +81,12 @@ public class SendEmailContentFormAction implements FormAction {
             throw FormActionException.serverError("MailService is unavailable. Check Jahia SMTP configuration.");
         }
 
-        String to = FieldEscaper.headerSafe(readProperty(actionNode, "to"));
+        String to = FieldEscaper.headerSafe(JcrProps.string(actionNode, "to", ""));
         if (to.isBlank()) {
             throw FormActionException.serverError("fmdb:emailContentAction is missing a 'to' address.");
         }
 
-        String from = FieldEscaper.headerSafe(readProperty(actionNode, "from"));
+        String from = FieldEscaper.headerSafe(JcrProps.string(actionNode, "from", ""));
         String subject = FieldEscaper.headerSafe(resolveFormSubject(actionNode));
 
         MailMessage message = new MailMessage();
@@ -93,7 +96,7 @@ public class SendEmailContentFormAction implements FormAction {
         message.setTextBody(buildTextBody(subject, parameters));
         message.setHtmlBody(buildHtmlBody(subject, parameters));
 
-        if (readBooleanProperty(actionNode, "attachFiles")) {
+        if (JcrProps.bool(actionNode, "attachFiles", false)) {
             message.setAttachments(buildAttachments(actionNode, files));
         }
 
@@ -101,23 +104,25 @@ public class SendEmailContentFormAction implements FormAction {
             mailService.sendMessage(message);
             log.debug("Email content sent to '{}' with subject '{}'", to, subject);
         } catch (Exception e) {
-            log.error("Failed to send form content email to '{}'", to, e);
-            throw FormActionException.serverError("Failed to send form content email: " + e.getMessage());
+            throw FormActionException.serverError(
+                    "Failed to send form content email to '" + to + "': " + e.getMessage(),
+                    e
+            );
         }
     }
 
     private static String resolveFormSubject(JCRNodeWrapper actionNode) {
         try {
-            JCRNodeWrapper actionsNode = (JCRNodeWrapper) actionNode.getParent();
+            JCRNodeWrapper actionsNode = actionNode.getParent();
             if (actionsNode == null) {
                 return DEFAULT_SUBJECT;
             }
-            JCRNodeWrapper formNode = (JCRNodeWrapper) actionsNode.getParent();
+            JCRNodeWrapper formNode = actionsNode.getParent();
             if (formNode == null) {
                 return DEFAULT_SUBJECT;
             }
 
-            String title = readProperty(formNode, "jcr:title");
+            String title = JcrProps.string(formNode, "jcr:title", "");
             if (!title.isBlank()) {
                 return title;
             }
@@ -184,7 +189,7 @@ public class SendEmailContentFormAction implements FormAction {
                 continue;
             }
             try {
-                String attachmentName = ContentDispositionUtils.toAsciiFilenameFallback(file.originalName());
+                String attachmentName = ContentDispositionUtils.toRfc6266FilenameFallback(file.originalName());
                 ByteArrayDataSource dataSource = new ByteArrayDataSource(file.data(), file.mimeType());
                 dataSource.setName(attachmentName);
                 attachments.put(attachmentName, new DataHandler(dataSource));
@@ -214,36 +219,13 @@ public class SendEmailContentFormAction implements FormAction {
                 .collect(Collectors.joining("<br/>"));
     }
 
-    private static boolean readBooleanProperty(JCRNodeWrapper node, String name) {
-        try {
-            return node.hasProperty(name) && node.getProperty(name).getBoolean();
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
     private static long readMaxAttachmentSizeBytes(JCRNodeWrapper actionNode) {
-        long configuredMb = 10L;
-        try {
-            if (actionNode.hasProperty("maxAttachmentSizeMb")) {
-                configuredMb = actionNode.getProperty("maxAttachmentSizeMb").getLong();
-            }
-        } catch (Exception e) {
-            return 10L * 1024L * 1024L;
-        }
+        long configuredMb = JcrProps.longValue(actionNode, "maxAttachmentSizeMb", 10L);
 
         if (configuredMb <= 0) {
             configuredMb = 1L;
         }
         return configuredMb * 1024L * 1024L;
-    }
-
-    private static String readProperty(JCRNodeWrapper node, String name) {
-        try {
-            return node.hasProperty(name) ? node.getProperty(name).getString() : "";
-        } catch (Exception e) {
-            return "";
-        }
     }
 
     private static String safeNodePath(JCRNodeWrapper node) {

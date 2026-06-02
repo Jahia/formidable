@@ -47,6 +47,14 @@ public record SubmittedFile(
         return result;
     }
 
+    @Override
+    public String toString() {
+        return "SubmittedFile[fieldName=" + fieldName
+                + ", originalName=" + originalName
+                + ", mimeType=" + mimeType
+                + ", data=" + Arrays.toString(data) + "]";
+    }
+
     public static SubmittedFile fromParsedFile(FormDataParser.FormFile file) {
         return new SubmittedFile(file.fieldName(), file.originalName(), file.mimeType(), file.data());
     }

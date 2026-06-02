@@ -10,7 +10,6 @@ import org.osgi.service.component.annotations.Reference;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Populates the accept choice list for fmdb:inputFile from the
@@ -41,7 +40,7 @@ public class FormidableMimeTypesInitializer implements ModuleChoiceListInitializ
         return configService.getUploadAllowedMimeTypes().stream()
                 .sorted()
                 .map(mime -> new ChoiceListValue(mime, mime))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override

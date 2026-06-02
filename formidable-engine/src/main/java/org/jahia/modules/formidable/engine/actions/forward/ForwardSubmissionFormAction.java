@@ -5,6 +5,7 @@ import org.jahia.modules.formidable.engine.actions.FormAction;
 import org.jahia.modules.formidable.engine.actions.FormActionException;
 import org.jahia.modules.formidable.engine.actions.SubmittedFile;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.modules.formidable.engine.util.JcrProps;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.osgi.service.component.annotations.Component;
@@ -12,7 +13,6 @@ import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jcr.RepositoryException;
 import javax.servlet.http.HttpServletRequest;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -22,8 +22,10 @@ import java.net.UnknownHostException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 
@@ -73,22 +75,11 @@ public class ForwardSubmissionFormAction implements FormAction {
             JCRSessionWrapper session,
             Map<String, List<String>> parameters,
             List<SubmittedFile> files
-    ) throws FormActionException {
+        ) throws FormActionException {
 
-        String targetId;
-        try {
-            if (!actionNode.hasProperty("targetId")) {
-                log.warn("[ForwardSubmissionFormAction] targetId is not set on node '{}', skipping.", actionNode.getPath());
-                return;
-            }
-            targetId = actionNode.getProperty("targetId").getString();
-        } catch (RepositoryException e) {
-            log.warn("[ForwardSubmissionFormAction] Could not read targetId from node '{}'", actionNode.getPath(), e);
-            return;
-        }
-
+        String targetId = JcrProps.string(actionNode, "targetId", null);
         if (targetId == null || targetId.isBlank()) {
-            log.warn("[ForwardSubmissionFormAction] targetId is blank on node '{}', skipping.", actionNode.getPath());
+            log.warn("[ForwardSubmissionFormAction] targetId is missing or blank on node '{}', skipping.", actionNode.getPath());
             return;
         }
 
@@ -106,8 +97,7 @@ public class ForwardSubmissionFormAction implements FormAction {
         try {
             body = buildMultipartBody(parameters, files, boundary);
         } catch (IOException e) {
-            log.error("[ForwardSubmissionFormAction] Failed to build multipart body", e);
-            throw new FormActionException("Failed to build form data.", 500);
+            throw new FormActionException("Failed to build multipart form payload for forward target '" + targetId + "'.", 500, e);
         }
 
         try {
@@ -127,9 +117,11 @@ public class ForwardSubmissionFormAction implements FormAction {
             }
         } catch (FormActionException e) {
             throw e;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new FormActionException("Forward request to target '" + targetUri + "' was interrupted.", 502, e);
         } catch (Exception e) {
-            log.error("[ForwardSubmissionFormAction] Request to '{}' failed", targetUri, e);
-            throw new FormActionException("Failed to forward form data to target.", 502);
+            throw new FormActionException("Failed to forward form data to target '" + targetUri + "'.", 502, e);
         }
     }
 
@@ -157,13 +149,10 @@ public class ForwardSubmissionFormAction implements FormAction {
                 }
             }
         } catch (TimeoutException e) {
-            log.warn("[ForwardSubmissionFormAction] Rejected target '{}': hostname resolution timed out.", uri);
             throw new FormActionException("Forward target hostname resolution timed out.", 502, e);
         } catch (UnknownHostException e) {
-            log.warn("[ForwardSubmissionFormAction] Rejected target '{}': hostname cannot be resolved.", uri);
-            throw new FormActionException("Forward target hostname cannot be resolved.", 400);
+            throw new FormActionException("Forward target hostname cannot be resolved.", 400, e);
         } catch (RuntimeException e) {
-            log.error("[ForwardSubmissionFormAction] Failed to resolve hostname for target '{}'.", uri, e);
             throw new FormActionException("Failed to resolve forward target hostname.", 502, e);
         }
     }
@@ -183,52 +172,85 @@ public class ForwardSubmissionFormAction implements FormAction {
             String boundary
     ) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        byte[] dashdash = "--".getBytes(StandardCharsets.UTF_8);
-        byte[] crlf = "\r\n".getBytes(StandardCharsets.UTF_8);
-        byte[] boundaryBytes = boundary.getBytes(StandardCharsets.UTF_8);
+        MultipartMarkers markers = new MultipartMarkers(
+                "--".getBytes(StandardCharsets.UTF_8),
+                boundary.getBytes(StandardCharsets.UTF_8),
+                "\r\n".getBytes(StandardCharsets.UTF_8)
+        );
 
         for (Map.Entry<String, List<String>> entry : parameters.entrySet()) {
             String name = entry.getKey();
             for (String value : entry.getValue()) {
-                writePart(out, dashdash, boundaryBytes, crlf, name, null, null, value.getBytes(StandardCharsets.UTF_8));
+                writePart(out, markers, name, null, null, value.getBytes(StandardCharsets.UTF_8));
             }
         }
 
         for (SubmittedFile file : files) {
-            writePart(out, dashdash, boundaryBytes, crlf,
+            writePart(out, markers,
                     file.fieldName(), file.originalName(), file.mimeType(), file.data());
         }
 
-        out.write(dashdash);
-        out.write(boundaryBytes);
-        out.write(dashdash);
-        out.write(crlf);
+        out.write(markers.dashdash());
+        out.write(markers.boundary());
+        out.write(markers.dashdash());
+        out.write(markers.crlf());
 
         return out.toByteArray();
     }
 
-    private static void writePart(ByteArrayOutputStream out, byte[] dashdash, byte[] boundary, byte[] crlf,
+    private static void writePart(ByteArrayOutputStream out, MultipartMarkers markers,
                                    String name, String filename, String contentType, byte[] data) throws IOException {
-        out.write(dashdash);
-        out.write(boundary);
-        out.write(crlf);
+        out.write(markers.dashdash());
+        out.write(markers.boundary());
+        out.write(markers.crlf());
 
         String disposition = "Content-Disposition: form-data; name=\""
                 + ContentDispositionUtils.escapeFormFieldName(name) + "\"";
         if (filename != null && !filename.isEmpty()) {
-            disposition += "; filename=\"" + ContentDispositionUtils.toAsciiFilenameFallback(filename) + "\"";
+            disposition += "; filename=\"" + ContentDispositionUtils.toRfc6266FilenameFallback(filename) + "\"";
             disposition += "; filename*=UTF-8''" + ContentDispositionUtils.encodeRfc5987(filename);
         }
         out.write(disposition.getBytes(StandardCharsets.UTF_8));
-        out.write(crlf);
+        out.write(markers.crlf());
 
         if (contentType != null) {
             out.write(("Content-Type: " + contentType).getBytes(StandardCharsets.UTF_8));
-            out.write(crlf);
+            out.write(markers.crlf());
         }
 
-        out.write(crlf);
+        out.write(markers.crlf());
         out.write(data);
-        out.write(crlf);
+        out.write(markers.crlf());
+    }
+
+    private record MultipartMarkers(byte[] dashdash, byte[] boundary, byte[] crlf) {
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof MultipartMarkers that)) {
+                return false;
+            }
+            return Arrays.equals(dashdash, that.dashdash)
+                    && Arrays.equals(boundary, that.boundary)
+                    && Arrays.equals(crlf, that.crlf);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(
+                    Arrays.hashCode(dashdash),
+                    Arrays.hashCode(boundary),
+                    Arrays.hashCode(crlf)
+            );
+        }
+
+        @Override
+        public String toString() {
+            return "MultipartMarkers[dashdash=" + Arrays.toString(dashdash)
+                    + ", boundary=" + Arrays.toString(boundary)
+                    + ", crlf=" + Arrays.toString(crlf) + "]";
+        }
     }
 }

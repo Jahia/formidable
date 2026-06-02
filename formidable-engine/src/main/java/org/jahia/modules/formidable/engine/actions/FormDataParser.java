@@ -15,18 +15,13 @@ import javax.servlet.http.HttpServletRequest;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeFormatterBuilder;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
-import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
 
 /**
  * Parses multipart/form-data from an HttpServletRequest, applying security controls:
@@ -47,18 +42,6 @@ public class FormDataParser {
     private static final Logger log = LoggerFactory.getLogger(FormDataParser.class);
 
     private static final Tika TIKA = new Tika();
-
-    private static final Pattern EMAIL_PATTERN = Pattern.compile(
-            "^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$");
-
-    private static final Pattern COLOR_PATTERN = Pattern.compile("^#[0-9a-fA-F]{6}$");
-
-    private static final DateTimeFormatter DATETIME_LOCAL_FMT =
-            new DateTimeFormatterBuilder()
-                    .append(DateTimeFormatter.ISO_LOCAL_DATE)
-                    .appendLiteral('T')
-                    .appendPattern("HH:mm[:ss[.SSS]]")
-                    .toFormatter();
 
     /**
      * Server-side constraints for a single form field, collected from JCR before parsing.
@@ -163,7 +146,45 @@ public class FormDataParser {
             String originalName,
             String mimeType,
             byte[] data
-    ) {}
+    ) {
+        public FormFile {
+            data = data == null ? new byte[0] : data.clone();
+        }
+
+        @Override
+        public byte[] data() {
+            return data.clone();
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof FormFile that)) {
+                return false;
+            }
+            return Objects.equals(fieldName, that.fieldName)
+                    && Objects.equals(originalName, that.originalName)
+                    && Objects.equals(mimeType, that.mimeType)
+                    && Arrays.equals(data, that.data);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = Objects.hash(fieldName, originalName, mimeType);
+            result = 31 * result + Arrays.hashCode(data);
+            return result;
+        }
+
+        @Override
+        public String toString() {
+            return "FormFile[fieldName=" + fieldName
+                    + ", originalName=" + originalName
+                    + ", mimeType=" + mimeType
+                    + ", data=" + Arrays.toString(data) + "]";
+        }
+    }
 
     /**
      * Result of a full multipart parse: both text parameters and uploaded files.
@@ -183,6 +204,16 @@ public class FormDataParser {
 
         public ParseException(String message, int httpStatus, boolean validation) {
             super(message);
+            this.httpStatus = httpStatus;
+            this.validation = validation;
+        }
+
+        public ParseException(String message, int httpStatus, Throwable cause) {
+            this(message, httpStatus, false, cause);
+        }
+
+        public ParseException(String message, int httpStatus, boolean validation, Throwable cause) {
+            super(message, cause);
             this.httpStatus = httpStatus;
             this.validation = validation;
         }
@@ -227,20 +258,22 @@ public class FormDataParser {
                 FileItemStream item = iterator.next();
                 // Whitelist check: fields not declared on the form node are discarded without
                 // reading their content. The iterator advances past them automatically.
-                if (!fieldMetadata.allowedNames().isEmpty()
-                        && !fieldMetadata.allowedNames().contains(item.getFieldName())) {
+                boolean declaredField = fieldMetadata.allowedNames().isEmpty()
+                        || fieldMetadata.allowedNames().contains(item.getFieldName());
+                if (!declaredField) {
                     log.debug("[FormDataParser] Skipping undeclared field: {}", item.getFieldName());
-                    continue;
-                }
-                if (item.isFormField()) {
-                    String value = Streams.asString(item.openStream(), StandardCharsets.UTF_8.name());
+                } else if (item.isFormField()) {
+                    String value;
+                    try (InputStream inputStream = item.openStream()) {
+                        value = Streams.asString(inputStream, StandardCharsets.UTF_8.name());
+                    }
                     validateTextField(item.getFieldName(), value, fieldMetadata);
                     parameters.computeIfAbsent(item.getFieldName(), k -> new ArrayList<>()).add(value);
-                    continue;
-                }
-                FormFile file = parseFilePart(item, fieldMetadata.acceptTypes(item.getFieldName()), config);
-                if (file != null) {
-                    files.add(file);
+                } else {
+                    FormFile file = parseFilePart(item, fieldMetadata.acceptTypes(item.getFieldName()), config);
+                    if (file != null) {
+                        files.add(file);
+                    }
                 }
             }
         } catch (ParseException e) {
@@ -250,8 +283,7 @@ public class FormDataParser {
         } catch (org.apache.commons.fileupload.FileUploadBase.SizeLimitExceededException e) {
             throw new ParseException("Request too large. Max allowed: " + config.getUploadMaxRequestSizeBytes() + " bytes.", 413);
         } catch (Exception e) {
-            log.error("[FormDataParser] Failed to parse multipart request", e);
-            throw new ParseException("Failed to parse uploaded files: " + e.getMessage(), 500);
+            throw new ParseException("Failed to parse multipart request while reading submitted fields and files.", 500, e);
         }
 
         return new ParseResult(parameters, files);
@@ -259,138 +291,7 @@ public class FormDataParser {
 
     private static void validateTextField(String fieldName, String value, FieldMetadata meta)
             throws ParseException {
-        if (value == null || value.isEmpty()) return;
-
-        // Choice validation: submitted value must be in the declared set
-        Set<String> choices = meta.allowedChoices(fieldName);
-        if (!choices.isEmpty() && !choices.contains(value)) {
-            log.warn("[FormDataParser] Rejected field '{}': value not in allowed choices", fieldName);
-            throw new ParseException(
-                    "Field '" + fieldName + "': submitted value is not an allowed choice.", 400, true);
-        }
-
-        FieldInfo fieldInfo = meta.field(fieldName);
-        if (fieldInfo != null) {
-            if (fieldInfo.emailField()) {
-                validateEmail(fieldName, value);
-            }
-            if (fieldInfo.dateField()) {
-                validateDate(fieldName, value);
-            }
-            if (fieldInfo.datetimeLocalField()) {
-                validateDatetimeLocal(fieldName, value);
-            }
-            if (fieldInfo.colorField()) {
-                validateColor(fieldName, value);
-            }
-        }
-
-        // Constraint validation (minLength, maxLength, pattern, min/max date)
-        FieldConstraints c = meta.constraints(fieldName);
-        if (c != null) {
-            validateConstraints(fieldName, value, c, fieldInfo);
-        }
-    }
-
-    private static void validateConstraints(String fieldName, String value, FieldConstraints c, FieldInfo fieldInfo)
-            throws ParseException {
-        // required is enforced post-parse at pipeline level (handles absent fields too)
-
-        if (c.minLength() >= 0 && value.length() < c.minLength()) {
-            log.warn("[FormDataParser] Rejected field '{}': too short ({} < {})", fieldName, value.length(), c.minLength());
-            throw new ParseException(
-                    "Field '" + fieldName + "': value too short (min " + c.minLength() + " chars).", 400, true);
-        }
-        if (c.maxLength() >= 0 && value.length() > c.maxLength()) {
-            log.warn("[FormDataParser] Rejected field '{}': too long ({} > {})", fieldName, value.length(), c.maxLength());
-            throw new ParseException(
-                    "Field '" + fieldName + "': value too long (max " + c.maxLength() + " chars).", 400, true);
-        }
-        if (c.pattern() != null && !c.pattern().isBlank()) {
-            try {
-                // String.matches() implicitly anchors (^...$), matching HTML pattern attribute behaviour
-                if (!value.matches(c.pattern())) {
-                    log.warn("[FormDataParser] Rejected field '{}': value does not match pattern", fieldName);
-                    throw new ParseException(
-                            "Field '" + fieldName + "': value does not match required format.", 400, true);
-                }
-            } catch (PatternSyntaxException e) {
-                log.warn("[FormDataParser] Invalid pattern on field '{}': {}", fieldName, e.getMessage());
-            }
-        }
-        if (fieldInfo != null && c.minDate() != null) {
-            validateDateBound(fieldName, value, c.minDate(), fieldInfo, true);
-        }
-        if (fieldInfo != null && c.maxDate() != null) {
-            validateDateBound(fieldName, value, c.maxDate(), fieldInfo, false);
-        }
-    }
-
-    private static void validateDateBound(String fieldName, String value, String bound,
-                                          FieldInfo fieldInfo, boolean isMin) throws ParseException {
-        try {
-            if (fieldInfo.dateField()) {
-                LocalDate submitted = LocalDate.parse(value);
-                LocalDate limit     = LocalDate.parse(bound);
-                boolean violation   = isMin ? submitted.isBefore(limit) : submitted.isAfter(limit);
-                if (violation) {
-                    log.warn("[FormDataParser] Rejected field '{}': date {} bound '{}'", fieldName, isMin ? "before min" : "after max", bound);
-                    throw new ParseException(
-                            "Field '" + fieldName + "': date is " + (isMin ? "before minimum" : "after maximum") + ".", 400, true);
-                }
-            } else if (fieldInfo.datetimeLocalField()) {
-                LocalDateTime submitted = LocalDateTime.parse(value, DATETIME_LOCAL_FMT);
-                LocalDateTime limit     = LocalDateTime.parse(bound, DATETIME_LOCAL_FMT);
-                boolean violation       = isMin ? submitted.isBefore(limit) : submitted.isAfter(limit);
-                if (violation) {
-                    log.warn("[FormDataParser] Rejected field '{}': datetime {} bound '{}'", fieldName, isMin ? "before min" : "after max", bound);
-                    throw new ParseException(
-                            "Field '" + fieldName + "': datetime is " + (isMin ? "before minimum" : "after maximum") + ".", 400, true);
-                }
-            }
-        } catch (DateTimeParseException e) {
-            // if the submitted value is unparseable, the type validator already caught it
-        }
-    }
-
-    private static void validateEmail(String fieldName, String value) throws ParseException {
-        // <input type="email" multiple> submits comma-separated addresses
-        String[] parts = value.contains(",") ? value.split(",") : new String[]{value};
-        for (String part : parts) {
-            String email = part.trim();
-            if (!email.isEmpty() && !EMAIL_PATTERN.matcher(email).matches()) {
-                log.warn("[FormDataParser] Rejected field '{}': invalid email '{}'", fieldName, email);
-                throw new ParseException("Field '" + fieldName + "': invalid email format.", 400, true);
-            }
-        }
-    }
-
-    private static void validateDate(String fieldName, String value) throws ParseException {
-        try {
-            LocalDate.parse(value);
-        } catch (DateTimeParseException e) {
-            log.warn("[FormDataParser] Rejected field '{}': invalid date '{}'", fieldName, value);
-            throw new ParseException(
-                    "Field '" + fieldName + "': invalid date format (expected yyyy-MM-dd).", 400, true);
-        }
-    }
-
-    private static void validateDatetimeLocal(String fieldName, String value) throws ParseException {
-        try {
-            LocalDateTime.parse(value, DATETIME_LOCAL_FMT);
-        } catch (DateTimeParseException e) {
-            log.warn("[FormDataParser] Rejected field '{}': invalid datetime-local '{}'", fieldName, value);
-            throw new ParseException(
-                    "Field '" + fieldName + "': invalid datetime format.", 400, true);
-        }
-    }
-
-    private static void validateColor(String fieldName, String value) throws ParseException {
-        if (!COLOR_PATTERN.matcher(value).matches()) {
-            log.warn("[FormDataParser] Rejected field '{}': invalid color '{}'", fieldName, value);
-            throw new ParseException(
-                    "Field '" + fieldName + "': invalid color format (expected #rrggbb).", 400, true);
-        }
+        FieldValidator.validateTextField(fieldName, value, meta);
     }
 
 
@@ -410,12 +311,11 @@ public class FormDataParser {
             }
             data = buf.toByteArray();
         } catch (Exception e) {
-            log.error("[FormDataParser] Failed to read file part for field '{}'", fieldName, e);
-            throw new ParseException("Failed to read uploaded file: " + e.getMessage(), 500);
+            throw new ParseException("Failed to read uploaded file part for field '" + fieldName + "' from multipart request.", 500, e);
         }
 
         if (data.length == 0) {
-            log.debug("[FormDataParser] Skipping empty file part for field '{}'", fieldName);
+            log.debug("[FormDataParser] Skipping empty uploaded file part");
             return null;
         }
 
@@ -428,14 +328,12 @@ public class FormDataParser {
                 : config.getUploadAllowedMimeTypes();
 
         if (!allowed.isEmpty() && !isMimeAllowed(detectedMime, allowed)) {
-            log.warn("[FormDataParser] Rejected file '{}' field='{}': detected MIME '{}' not in allowlist {}",
-                    sanitizedName, fieldName, detectedMime, allowed);
+            log.warn("[FormDataParser] Rejected uploaded file: detected MIME type is not in the configured allowlist");
             throw new ParseException(
                     "File '" + sanitizedName + "': type '" + detectedMime + "' is not allowed.", 415);
         }
 
-        log.debug("[FormDataParser] Accepted file: field={}, name={}, mime={}, size={}",
-                fieldName, sanitizedName, detectedMime, data.length);
+        log.debug("[FormDataParser] Accepted uploaded file part (size={} bytes)", data.length);
         return new FormFile(fieldName, sanitizedName, detectedMime, data);
     }
 

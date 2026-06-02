@@ -21,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
@@ -48,18 +49,18 @@ public class FormSubmitServlet extends HttpServlet {
 
     private static final Logger log = LoggerFactory.getLogger(FormSubmitServlet.class);
 
-    private FormidableConfigService config;
-    private PermissionService permissionService;
+    private final AtomicReference<FormidableConfigService> config = new AtomicReference<>();
+    private final AtomicReference<PermissionService> permissionService = new AtomicReference<>();
     private final List<FormAction> formActions = new CopyOnWriteArrayList<>();
 
     @Reference
     public void setConfig(FormidableConfigService service) {
-        this.config = service;
+        config.set(service);
     }
 
     @Reference
     public void setPermissionService(PermissionService permissionService) {
-        this.permissionService = permissionService;
+        this.permissionService.set(permissionService);
     }
 
     @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC, unbind = "unbindFormAction")
@@ -77,34 +78,79 @@ public class FormSubmitServlet extends HttpServlet {
     }
 
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) {
         if (!isRequestAllowed()) {
-            log.warn("[FormSubmitServlet] Rejected [{}]: request did not match Security Filter scope '{}'",
-                    ErrorCode.FMDB_011.code(), SUBMIT_API);
-            sendJson(resp, HttpServletResponse.SC_FORBIDDEN, ErrorCode.FMDB_011.code(), null);
+            String errorCode = ErrorCode.FMDB_011.code();
+            if (log.isWarnEnabled()) {
+                log.warn("[FormSubmitServlet] Rejected [{}]: request did not match Security Filter scope '{}'",
+                        errorCode, SUBMIT_API);
+            }
+            sendJsonSafely(resp, HttpServletResponse.SC_FORBIDDEN, errorCode, null);
             return;
         }
 
         try {
             createPipeline().run(req);
-            sendJson(resp, HttpServletResponse.SC_OK, null, null);
+            sendJsonSafely(resp, HttpServletResponse.SC_OK, null, null);
         } catch (SubmissionException e) {
-            log.warn("[FormSubmitServlet] Rejected [{}]: {}", e.errorCode.code(), e.getMessage());
-            sendJson(resp, e.httpStatus(), e.errorCode.code(), e);
+            logSubmissionFailure(e);
+            sendJsonSafely(resp, e.httpStatus(), e.errorCode.code(), e);
         } catch (Exception e) {
             log.error("[FormSubmitServlet] Unexpected error", e);
-            sendJson(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, ErrorCode.FMDB_500.code(), null);
+            sendJsonSafely(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, ErrorCode.FMDB_500.code(), null);
         }
     }
 
     FormSubmissionPipeline createPipeline() {
-        return new FormSubmissionPipeline(config, formActions);
+        return new FormSubmissionPipeline(getConfigService(), formActions);
     }
 
     boolean isRequestAllowed() {
         Map<String, Object> query = new HashMap<>();
         query.put("api", SUBMIT_API);
-        return permissionService.hasPermission(query);
+        return getPermissionService().hasPermission(query);
+    }
+
+    private FormidableConfigService getConfigService() {
+        FormidableConfigService service = config.get();
+        if (service == null) {
+            throw new IllegalStateException("FormidableConfigService is not available.");
+        }
+        return service;
+    }
+
+    private PermissionService getPermissionService() {
+        PermissionService service = permissionService.get();
+        if (service == null) {
+            throw new IllegalStateException("PermissionService is not available.");
+        }
+        return service;
+    }
+
+    private static void logSubmissionFailure(SubmissionException e) {
+        String errorCode = e.errorCode.code();
+        String message = e.getMessage();
+        if (e.httpStatus() >= HttpServletResponse.SC_INTERNAL_SERVER_ERROR && e.getCause() != null) {
+            if (log.isErrorEnabled()) {
+                log.error("[FormSubmitServlet] Rejected [{}]: {}", errorCode, message, e);
+            }
+            return;
+        }
+
+        if (log.isWarnEnabled()) {
+            log.warn("[FormSubmitServlet] Rejected [{}]: {}", errorCode, message);
+        }
+    }
+
+    private static void sendJsonSafely(HttpServletResponse resp, int status, String errorCode, SubmissionException ex) {
+        try {
+            sendJson(resp, status, errorCode, ex);
+        } catch (IOException e) {
+            if (log.isErrorEnabled()) {
+                log.error("[FormSubmitServlet] Failed to write JSON response (status={}, errorCode={})",
+                        status, errorCode, e);
+            }
+        }
     }
 
     private static void sendJson(HttpServletResponse resp, int status, String errorCode, SubmissionException ex) throws IOException {

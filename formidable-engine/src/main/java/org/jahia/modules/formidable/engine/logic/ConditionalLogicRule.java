@@ -5,6 +5,7 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.jcr.RepositoryException;
 import javax.jcr.Value;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,38 +28,49 @@ public record ConditionalLogicRule(
         List<ConditionalLogicRule> rules = new ArrayList<>();
         for (Value v : jcrValues) {
             try {
-                String json = v.getString();
-                if (json == null || json.isBlank()) continue;
-
-                JSONObject obj = new JSONObject(json);
-                String sourceFieldName = obj.optString("sourceFieldName", "");
-                String operator = obj.optString("operator", "");
-                if (sourceFieldName.isEmpty() || operator.isEmpty()) continue;
-
-                String logicId = obj.optString("logicId", "");
-                String singleValue = obj.has("value") ? obj.optString("value", null) : null;
-                List<String> valuesList = new ArrayList<>();
-                if (obj.has("values")) {
-                    JSONArray arr = obj.optJSONArray("values");
-                    if (arr != null) {
-                        for (int i = 0; i < arr.length(); i++) {
-                            valuesList.add(arr.optString(i, ""));
-                        }
-                    }
+                ConditionalLogicRule rule = parseRuleValue(v);
+                if (rule != null) {
+                    rules.add(rule);
                 }
-
-                rules.add(new ConditionalLogicRule(
-                        logicId,
-                        sourceFieldName,
-                        obj.optString("sourceFieldType", ""),
-                        operator,
-                        singleValue,
-                        valuesList
-                ));
-            } catch (Exception e) {
+            } catch (RepositoryException | RuntimeException e) {
                 log.debug("[ConditionalLogicRule] Failed to parse rule: {}", e.getMessage());
             }
         }
         return rules;
+    }
+
+    private static ConditionalLogicRule parseRuleValue(Value value) throws RepositoryException {
+        String json = value.getString();
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+
+        JSONObject obj = new JSONObject(json);
+        String sourceFieldName = obj.optString("sourceFieldName", "");
+        String operator = obj.optString("operator", "");
+        if (sourceFieldName.isEmpty() || operator.isEmpty()) {
+            return null;
+        }
+
+        return new ConditionalLogicRule(
+                obj.optString("logicId", ""),
+                sourceFieldName,
+                obj.optString("sourceFieldType", ""),
+                operator,
+                obj.has("value") ? obj.optString("value", null) : null,
+                parseValues(obj)
+        );
+    }
+
+    private static List<String> parseValues(JSONObject obj) {
+        JSONArray valuesArray = obj.optJSONArray("values");
+        List<String> values = new ArrayList<>();
+        if (valuesArray == null) {
+            return values;
+        }
+        for (int i = 0; i < valuesArray.length(); i++) {
+            values.add(valuesArray.optString(i, ""));
+        }
+        return values;
     }
 }

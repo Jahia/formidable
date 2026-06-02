@@ -4,6 +4,8 @@ import org.jahia.modules.formidable.engine.actions.FieldEscaper;
 import org.jahia.modules.formidable.engine.actions.FormAction;
 import org.jahia.modules.formidable.engine.actions.FormActionException;
 import org.jahia.modules.formidable.engine.actions.SubmittedFile;
+import org.jahia.modules.formidable.engine.actions.TemplateInterpolator;
+import org.jahia.modules.formidable.engine.util.JcrProps;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.mail.MailMessage;
@@ -18,9 +20,6 @@ import org.slf4j.LoggerFactory;
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 /**
  * Sends a notification email after a successful form submission.
  *
@@ -37,8 +36,6 @@ public class SendEmailNotificationFormAction implements FormAction {
 
     private static final Logger log = LoggerFactory.getLogger(SendEmailNotificationFormAction.class);
 
-    private static final Pattern INTERPOLATION = Pattern.compile("\\$\\{([^}]+)}");
-
     private MailService mailService;
 
     @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, unbind = "unbindMailService")
@@ -47,7 +44,9 @@ public class SendEmailNotificationFormAction implements FormAction {
     }
 
     protected void unbindMailService(MailService service) {
-        this.mailService = null;
+        if (this.mailService == service) {
+            this.mailService = null;
+        }
     }
 
     @Override
@@ -68,15 +67,19 @@ public class SendEmailNotificationFormAction implements FormAction {
             throw FormActionException.serverError("MailService is unavailable. Check Jahia SMTP configuration.");
         }
 
-        String to = FieldEscaper.headerSafe(readProperty(actionNode, "to"));
+        String to = FieldEscaper.headerSafe(JcrProps.string(actionNode, "to", null));
         if (to.isBlank()) {
             throw FormActionException.serverError("fmdb:emailNotificationAction is missing a 'to' address.");
         }
 
-        String from = FieldEscaper.headerSafe(readProperty(actionNode, "from"));
+        String from = FieldEscaper.headerSafe(JcrProps.string(actionNode, "from", null));
         String subject = FieldEscaper.headerSafe(
-                interpolate(readProperty(actionNode, "subject"), parameters, false));
-        String htmlBody = interpolate(readProperty(actionNode, "templateMessage"), parameters, true);
+                TemplateInterpolator.interpolate(JcrProps.string(actionNode, "subject", null), parameters, FieldEscaper::plainText));
+        String htmlBody = TemplateInterpolator.interpolate(
+                JcrProps.string(actionNode, "templateMessage", null),
+                parameters,
+                FieldEscaper::html
+        );
 
         MailMessage message = new MailMessage();
         message.setTo(to);
@@ -88,38 +91,10 @@ public class SendEmailNotificationFormAction implements FormAction {
             mailService.sendMessage(message);
             log.debug("Email notification sent to '{}' with subject '{}'", to, subject);
         } catch (Exception e) {
-            log.error("Failed to send email notification to '{}'", to, e);
-            throw FormActionException.serverError("Failed to send email notification: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Replaces {@code ${fieldName}} placeholders with form parameter values.
-     * When {@code escapeHtmlValues} is true, values are HTML-encoded via {@link FieldEscaper#html}
-     * before insertion (use for HTML email body). Pass false for plain-text fields like
-     * addresses or subjects.
-     * Unknown placeholders are replaced with an empty string.
-     */
-    static String interpolate(String template, Map<String, List<String>> parameters, boolean escapeHtmlValues) {
-        if (template == null) return null;
-        Matcher m = INTERPOLATION.matcher(template);
-        StringBuilder sb = new StringBuilder();
-        while (m.find()) {
-            String field = m.group(1);
-            List<String> values = parameters.get(field);
-            String raw = (values != null && !values.isEmpty()) ? values.get(0) : "";
-            String replacement = escapeHtmlValues ? FieldEscaper.html(raw) : FieldEscaper.plainText(raw);
-            m.appendReplacement(sb, Matcher.quoteReplacement(replacement));
-        }
-        m.appendTail(sb);
-        return sb.toString();
-    }
-
-    private static String readProperty(JCRNodeWrapper node, String name) {
-        try {
-            return node.hasProperty(name) ? node.getProperty(name).getString() : null;
-        } catch (Exception e) {
-            return null;
+            throw FormActionException.serverError(
+                    "Failed to send email notification to '" + to + "': " + e.getMessage(),
+                    e
+            );
         }
     }
 }
