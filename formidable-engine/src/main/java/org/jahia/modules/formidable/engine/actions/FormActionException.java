@@ -29,8 +29,11 @@ public class FormActionException extends Exception {
         return new FormActionException(message, HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
     }
 
+    public static FormActionException serverError(String message, Throwable cause) {
+        return new FormActionException(message, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, cause);
+    }
+
     public static FormActionException badRequest(String message) {
         return new FormActionException(message, HttpServletResponse.SC_BAD_REQUEST);
     }
 }
-

@@ -13,7 +13,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Populates the targetId choice list for fmdb:forwardAction from the
@@ -47,7 +46,7 @@ public class FormidableForwardTargetsInitializer implements ModuleChoiceListInit
         }
         return targets.stream()
                 .map(target -> new ChoiceListValue(target.label(), target.id()))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override

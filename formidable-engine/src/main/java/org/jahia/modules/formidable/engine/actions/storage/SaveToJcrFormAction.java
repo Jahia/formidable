@@ -10,8 +10,6 @@ import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRTemplate;
 import org.osgi.service.component.annotations.Component;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.jcr.Binary;
 import javax.jcr.NodeIterator;
@@ -40,8 +38,6 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WO
  */
 @Component(service = FormAction.class)
 public class SaveToJcrFormAction implements FormAction {
-
-    private static final Logger log = LoggerFactory.getLogger(SaveToJcrFormAction.class);
     private static final String RESULTS_ROOT_NAME = "formidable-results";
     private static final String SUBMISSION_ORIGIN = "formidable";
     private static final String SPLIT_CONFIG = "date,jcr:created,yyyy;date,jcr:created,MM;date,jcr:created,dd";
@@ -92,7 +88,6 @@ public class SaveToJcrFormAction implements FormAction {
                 return null;
             });
         } catch (RepositoryException e) {
-            log.error("[SaveToJcrFormAction] Failed to persist submission for form '{}'", formNode.getPath(), e);
             throw new FormActionException("Failed to save form data in JCR: " + e.getMessage(), 500, e);
         }
     }

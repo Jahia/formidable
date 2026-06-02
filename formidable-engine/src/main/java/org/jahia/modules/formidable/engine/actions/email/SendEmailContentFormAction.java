@@ -104,8 +104,10 @@ public class SendEmailContentFormAction implements FormAction {
             mailService.sendMessage(message);
             log.debug("Email content sent to '{}' with subject '{}'", to, subject);
         } catch (Exception e) {
-            log.error("Failed to send form content email to '{}'", to, e);
-            throw FormActionException.serverError("Failed to send form content email: " + e.getMessage());
+            throw FormActionException.serverError(
+                    "Failed to send form content email to '" + to + "': " + e.getMessage(),
+                    e
+            );
         }
     }
 

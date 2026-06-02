@@ -73,16 +73,11 @@ public class ForwardSubmissionFormAction implements FormAction {
             JCRSessionWrapper session,
             Map<String, List<String>> parameters,
             List<SubmittedFile> files
-    ) throws FormActionException {
+        ) throws FormActionException {
 
         String targetId = JcrProps.string(actionNode, "targetId", null);
-        if (targetId == null) {
-            log.warn("[ForwardSubmissionFormAction] targetId is not set on node '{}', skipping.", actionNode.getPath());
-            return;
-        }
-
         if (targetId == null || targetId.isBlank()) {
-            log.warn("[ForwardSubmissionFormAction] targetId is blank on node '{}', skipping.", actionNode.getPath());
+            log.warn("[ForwardSubmissionFormAction] targetId is missing or blank on node '{}', skipping.", actionNode.getPath());
             return;
         }
 
@@ -100,8 +95,7 @@ public class ForwardSubmissionFormAction implements FormAction {
         try {
             body = buildMultipartBody(parameters, files, boundary);
         } catch (IOException e) {
-            log.error("[ForwardSubmissionFormAction] Failed to build multipart body", e);
-            throw new FormActionException("Failed to build form data.", 500);
+            throw new FormActionException("Failed to build multipart form payload for forward target '" + targetId + "'.", 500, e);
         }
 
         try {
@@ -122,8 +116,7 @@ public class ForwardSubmissionFormAction implements FormAction {
         } catch (FormActionException e) {
             throw e;
         } catch (Exception e) {
-            log.error("[ForwardSubmissionFormAction] Request to '{}' failed", targetUri, e);
-            throw new FormActionException("Failed to forward form data to target.", 502);
+            throw new FormActionException("Failed to forward form data to target '" + targetUri + "'.", 502, e);
         }
     }
 
@@ -151,13 +144,10 @@ public class ForwardSubmissionFormAction implements FormAction {
                 }
             }
         } catch (TimeoutException e) {
-            log.warn("[ForwardSubmissionFormAction] Rejected target '{}': hostname resolution timed out.", uri);
             throw new FormActionException("Forward target hostname resolution timed out.", 502, e);
         } catch (UnknownHostException e) {
-            log.warn("[ForwardSubmissionFormAction] Rejected target '{}': hostname cannot be resolved.", uri);
-            throw new FormActionException("Forward target hostname cannot be resolved.", 400);
+            throw new FormActionException("Forward target hostname cannot be resolved.", 400, e);
         } catch (RuntimeException e) {
-            log.error("[ForwardSubmissionFormAction] Failed to resolve hostname for target '{}'.", uri, e);
             throw new FormActionException("Failed to resolve forward target hostname.", 502, e);
         }
     }

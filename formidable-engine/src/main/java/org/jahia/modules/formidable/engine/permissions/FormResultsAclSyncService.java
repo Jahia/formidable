@@ -35,6 +35,7 @@ public final class FormResultsAclSyncService {
     private static final Logger log = LoggerFactory.getLogger(FormResultsAclSyncService.class);
     private static final String ACE_TYPE_PROPERTY = "j:aceType";
     private static final String PRINCIPAL_PROPERTY = "j:principal";
+    private static final String PROTECTED_PROPERTY = "j:protected";
     private static final String RESULTS_ROOT_NAME = "formidable-results";
 
     private FormResultsAclSyncService() {
@@ -190,7 +191,7 @@ public final class FormResultsAclSyncService {
 
         String aceType = ace.getProperty(ACE_TYPE_PROPERTY).getString();
         String principal = ace.getProperty(PRINCIPAL_PROPERTY).getString();
-        boolean isProtected = ace.hasProperty("j:protected") && ace.getProperty("j:protected").getBoolean();
+        boolean isProtected = ace.hasProperty(PROTECTED_PROPERTY) && ace.getProperty(PROTECTED_PROPERTY).getBoolean();
         return new AceEntry(aceType, principal, isProtected);
     }
 
@@ -219,40 +220,31 @@ public final class FormResultsAclSyncService {
         aceNode.setProperty(ACE_TYPE_PROPERTY, ace.aceType());
         aceNode.setProperty(PRINCIPAL_PROPERTY, ace.principal());
         aceNode.setProperty(ROLES_PROPERTY, new String[]{FormResultsRoleInitializer.ROLE_NAME});
-        aceNode.setProperty("j:protected", ace.isProtected());
+        aceNode.setProperty(PROTECTED_PROPERTY, ace.isProtected());
     }
 
     private static void removeAce(JCRNodeWrapper acl, AceEntry ace) throws RepositoryException {
         NodeIterator children = acl.getNodes();
         while (children.hasNext()) {
             javax.jcr.Node child = children.nextNode();
-            if (!(child instanceof JCRNodeWrapper aceNode)) {
+            if (!(child instanceof JCRNodeWrapper aceNode) || !matchesAceIdentity(aceNode, ace)) {
                 continue;
             }
 
-            if (!aceNode.isNodeType(ACE_NODE_TYPE)) {
-                continue;
-            }
-
-            if (!aceNode.hasProperty(ACE_TYPE_PROPERTY) || !aceNode.hasProperty(PRINCIPAL_PROPERTY)
-                    || !aceNode.hasProperty(ROLES_PROPERTY)) {
-                continue;
-            }
-
-            String aceType = aceNode.getProperty(ACE_TYPE_PROPERTY).getString();
-            String principal = aceNode.getProperty(PRINCIPAL_PROPERTY).getString();
-            if (!ace.aceType().equals(aceType) || !ace.principal().equals(principal)) {
-                continue;
-            }
-
-            Value[] roles = aceNode.getProperty(ROLES_PROPERTY).getValues();
-            for (Value role : roles) {
-                if (FormResultsRoleInitializer.ROLE_NAME.equals(role.getString())) {
-                    aceNode.remove();
-                    break;
-                }
+            if (hasTargetRole(aceNode)) {
+                aceNode.remove();
             }
         }
+    }
+
+    private static boolean matchesAceIdentity(JCRNodeWrapper aceNode, AceEntry ace) throws RepositoryException {
+        if (!isRelevantAceNode(aceNode)) {
+            return false;
+        }
+
+        String aceType = aceNode.getProperty(ACE_TYPE_PROPERTY).getString();
+        String principal = aceNode.getProperty(PRINCIPAL_PROPERTY).getString();
+        return ace.aceType().equals(aceType) && ace.principal().equals(principal);
     }
 
 

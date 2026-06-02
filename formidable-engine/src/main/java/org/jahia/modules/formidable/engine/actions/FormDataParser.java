@@ -176,6 +176,14 @@ public class FormDataParser {
             result = 31 * result + Arrays.hashCode(data);
             return result;
         }
+
+        @Override
+        public String toString() {
+            return "FormFile[fieldName=" + fieldName
+                    + ", originalName=" + originalName
+                    + ", mimeType=" + mimeType
+                    + ", data=" + Arrays.toString(data) + "]";
+        }
     }
 
     /**
@@ -275,7 +283,6 @@ public class FormDataParser {
         } catch (org.apache.commons.fileupload.FileUploadBase.SizeLimitExceededException e) {
             throw new ParseException("Request too large. Max allowed: " + config.getUploadMaxRequestSizeBytes() + " bytes.", 413);
         } catch (Exception e) {
-            log.error("[FormDataParser] Failed to parse multipart request", e);
             throw new ParseException("Failed to parse multipart request while reading submitted fields and files.", 500, e);
         }
 
@@ -304,8 +311,7 @@ public class FormDataParser {
             }
             data = buf.toByteArray();
         } catch (Exception e) {
-            log.error("[FormDataParser] Failed to read uploaded file part", e);
-            throw new ParseException("Failed to read uploaded file part from multipart request.", 500, e);
+            throw new ParseException("Failed to read uploaded file part for field '" + fieldName + "' from multipart request.", 500, e);
         }
 
         if (data.length == 0) {

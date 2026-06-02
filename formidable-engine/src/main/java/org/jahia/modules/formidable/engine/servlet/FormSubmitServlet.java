@@ -89,7 +89,7 @@ public class FormSubmitServlet extends HttpServlet {
             createPipeline().run(req);
             sendJson(resp, HttpServletResponse.SC_OK, null, null);
         } catch (SubmissionException e) {
-            log.warn("[FormSubmitServlet] Rejected [{}]: {}", e.errorCode.code(), e.getMessage());
+            logSubmissionFailure(e);
             sendJson(resp, e.httpStatus(), e.errorCode.code(), e);
         } catch (Exception e) {
             log.error("[FormSubmitServlet] Unexpected error", e);
@@ -105,6 +105,15 @@ public class FormSubmitServlet extends HttpServlet {
         Map<String, Object> query = new HashMap<>();
         query.put("api", SUBMIT_API);
         return permissionService.hasPermission(query);
+    }
+
+    private static void logSubmissionFailure(SubmissionException e) {
+        if (e.httpStatus() >= HttpServletResponse.SC_INTERNAL_SERVER_ERROR && e.getCause() != null) {
+            log.error("[FormSubmitServlet] Rejected [{}]: {}", e.errorCode.code(), e.getMessage(), e);
+            return;
+        }
+
+        log.warn("[FormSubmitServlet] Rejected [{}]: {}", e.errorCode.code(), e.getMessage());
     }
 
     private static void sendJson(HttpServletResponse resp, int status, String errorCode, SubmissionException ex) throws IOException {

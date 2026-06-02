@@ -91,8 +91,10 @@ public class SendEmailNotificationFormAction implements FormAction {
             mailService.sendMessage(message);
             log.debug("Email notification sent to '{}' with subject '{}'", to, subject);
         } catch (Exception e) {
-            log.error("Failed to send email notification to '{}'", to, e);
-            throw FormActionException.serverError("Failed to send email notification: " + e.getMessage());
+            throw FormActionException.serverError(
+                    "Failed to send email notification to '" + to + "': " + e.getMessage(),
+                    e
+            );
         }
     }
 }

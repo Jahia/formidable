@@ -141,8 +141,7 @@ class FormSubmissionPipeline {
             session = JCRSessionFactory.getInstance().getCurrentUserSession(WORKSPACE_LIVE, locale);
             formNode = session.getNodeByIdentifier(formId);
         } catch (Exception e) {
-            log.warn("[FormSubmissionPipeline] Form node not found for id '{}': {}", formId, e.getMessage());
-            throw new SubmissionException(ErrorCode.FMDB_004, "Form node not found: " + formId);
+            throw new SubmissionException(ErrorCode.FMDB_004, "Form node not found: " + formId, e);
         }
     }
 
@@ -151,10 +150,9 @@ class FormSubmissionPipeline {
         try {
             requiresAuth = formNode.isNodeType(AUTHENTICATED_ONLY_FORM_MIXIN);
         } catch (RepositoryException e) {
-            log.error("[FormSubmissionPipeline] Could not check {} on form '{}' — rejecting submission (fail-closed)",
-                    AUTHENTICATED_ONLY_FORM_MIXIN, formId, e);
             throw new SubmissionException(ErrorCode.FMDB_500,
-                    "Cannot verify authentication requirement for form: " + formId);
+                    "Cannot verify authentication requirement for form: " + formId,
+                    e);
         }
         if (!requiresAuth) return;
 
@@ -170,10 +168,9 @@ class FormSubmissionPipeline {
         try {
             hasCaptcha = formNode.isNodeType(CAPTCHA_PROTECTED_FORM_MIXIN);
         } catch (RepositoryException e) {
-            log.error("[FormSubmissionPipeline] Could not check {} on form '{}' — rejecting submission (fail-closed)",
-                    CAPTCHA_PROTECTED_FORM_MIXIN, formId, e);
             throw new SubmissionException(ErrorCode.FMDB_500,
-                    "Cannot verify CAPTCHA requirement for form: " + formId);
+                    "Cannot verify CAPTCHA requirement for form: " + formId,
+                    e);
         }
         if (!hasCaptcha) return;
 
@@ -194,10 +191,9 @@ class FormSubmissionPipeline {
         try {
             fieldMetadata = fieldMetadataCollector.collect(formId, locale);
         } catch (RepositoryException e) {
-            log.error("[FormSubmissionPipeline] Could not collect form field metadata for form '{}' — rejecting submission (fail-closed)",
-                    formId, e);
             throw new SubmissionException(ErrorCode.FMDB_500,
-                    "Cannot collect field metadata for form: " + formId);
+                    "Cannot collect field metadata for form: " + formId,
+                    e);
         }
     }
 
@@ -206,7 +202,7 @@ class FormSubmissionPipeline {
             parsed = FormDataParser.parseAll(req, config, fieldMetadata.toParserMetadata());
         } catch (FormDataParser.ParseException e) {
             ErrorCode code = e.isValidation() ? ErrorCode.FMDB_010 : ErrorCode.FMDB_007;
-            throw new SubmissionException(code, e.getMessage());
+            throw new SubmissionException(code, e.getMessage(), e);
         }
     }
 
@@ -230,23 +226,41 @@ class FormSubmissionPipeline {
                 continue;
             }
 
-            if (fieldInfo.fileField()) {
-                boolean hasFile = parsed.files().stream()
-                        .anyMatch(f -> fieldName.equals(f.fieldName()));
-                if (!hasFile) {
-                    log.warn("[FormSubmissionPipeline] Required file field '{}' has no uploaded file.", fieldName);
-                    throw new SubmissionException(ErrorCode.FMDB_010,
-                            "Required file field '" + fieldName + "' has no uploaded file.");
-                }
-            } else {
-                List<String> values = parsed.parameters().get(fieldName);
-                if (values == null || values.isEmpty() || values.stream().allMatch(String::isBlank)) {
-                    log.warn("[FormSubmissionPipeline] Required field '{}' is missing or empty.", fieldName);
-                    throw new SubmissionException(ErrorCode.FMDB_010,
-                            "Required field '" + fieldName + "' is missing or empty.");
-                }
-            }
+            validateRequiredField(fieldName, fieldInfo);
         }
+    }
+
+    private void validateRequiredField(String fieldName, FormDataParser.FieldInfo fieldInfo)
+            throws SubmissionException {
+        if (fieldInfo.fileField()) {
+            validateRequiredFileField(fieldName);
+            return;
+        }
+
+        validateRequiredParameterField(fieldName);
+    }
+
+    private void validateRequiredFileField(String fieldName) throws SubmissionException {
+        boolean hasFile = parsed.files().stream()
+                .anyMatch(f -> fieldName.equals(f.fieldName()));
+        if (hasFile) {
+            return;
+        }
+
+        log.warn("[FormSubmissionPipeline] Required file field '{}' has no uploaded file.", fieldName);
+        throw new SubmissionException(ErrorCode.FMDB_010,
+                "Required file field '" + fieldName + "' has no uploaded file.");
+    }
+
+    private void validateRequiredParameterField(String fieldName) throws SubmissionException {
+        List<String> values = parsed.parameters().get(fieldName);
+        if (values != null && !values.isEmpty() && values.stream().anyMatch(value -> !value.isBlank())) {
+            return;
+        }
+
+        log.warn("[FormSubmissionPipeline] Required field '{}' is missing or empty.", fieldName);
+        throw new SubmissionException(ErrorCode.FMDB_010,
+                "Required field '" + fieldName + "' is missing or empty.");
     }
 
     private void dispatchActions(HttpServletRequest req) throws SubmissionException {
@@ -280,11 +294,11 @@ class FormSubmissionPipeline {
                 FormActionException cause = e.getFormActionException();
                 throw new SubmissionException(ErrorCode.FMDB_008,
                         "Action '" + nodeType + "' failed (" + executed + "/" + total + " actions completed): " + cause.getMessage(),
-                        executed, total);
+                        executed, total, cause);
             } catch (RepositoryException e) {
                 throw new SubmissionException(ErrorCode.FMDB_008,
                         "Action '" + nodeType + "' failed (" + executed + "/" + total + " actions completed): " + e.getMessage(),
-                        executed, total);
+                        executed, total, e);
             }
         }
     }
@@ -321,10 +335,9 @@ class FormSubmissionPipeline {
                 return null;
             });
         } catch (RepositoryException e) {
-            log.error("[FormSubmissionPipeline] Could not read actions from form '{}' — rejecting submission (fail-closed)",
-                    formId, e);
             throw new SubmissionException(ErrorCode.FMDB_012,
-                    "Could not read action list for form: " + formId);
+                    "Could not read action list for form: " + formId,
+                    e);
         }
         return result;
     }
