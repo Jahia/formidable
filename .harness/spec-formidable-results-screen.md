@@ -1,110 +1,98 @@
-# Spécification technique — Écran de consultation des résultats Formidable sauvegardés en JCR
+# Technical Specification - Formidable Results Screen Backed by JCR
 
-## 1. Objectif
-
-Créer un écran Jahia permettant aux contributeurs autorisés de consulter les soumissions d’un formulaire Formidable sauvegardées en JCR via l’action `fmdb:save2jcrAction`.
-
-L’écran doit être accessible depuis jContent, dans la zone **Additional apps**, sur le même principe que le module `content-releases`, qui enregistre une route d’administration via `registry.add('adminRoute', ...)`.
-
-Fonctionnalités principales :
-
-- lister les formulaires ayant des résultats sauvegardés ;
-- afficher les soumissions d’un formulaire ;
-- afficher les métadonnées de soumission ;
-- afficher les valeurs saisies dans le formulaire ;
-- afficher les fichiers uploadés ;
-- permettre tri, pagination et sélection ;
-- ouvrir le détail d’une soumission ;
-- préparer des actions futures : export CSV, suppression, téléchargement des fichiers.
+This document describes the current Formidable results screen shipped by `formidable-engine`.
+It is intentionally aligned with the existing implementation rather than an earlier target architecture.
 
 ---
 
-## 2. Point d’intégration jContent
+## 1. Goal
 
-### 2.1 Enregistrement UI Extender
+Provide a Jahia admin screen that allows authorized users to inspect Formidable submissions persisted in JCR by the `fmdb:save2jcrAction` action.
 
-Créer un fichier :
+The screen is exposed from jContent in the **Additional apps** area through a UI Extender `adminRoute`.
+
+Main capabilities:
+
+- list forms that have saved results;
+- browse submissions for one form;
+- inspect submission metadata;
+- inspect submitted field values;
+- inspect uploaded files;
+- sort, paginate, and select submissions;
+- open a submission detail panel;
+- support export and deletion operations.
+
+---
+
+## 2. jContent Integration Point
+
+### 2.1 UI Extender registration
+
+File:
 
 ```text
-src/javascript/init.js
+src/javascript/init.tsx
 ```
 
-Pseudo-code :
+Current implementation:
 
-```js
-import React from 'react';
+```tsx
 import {registry} from '@jahia/ui-extender';
 import i18next from 'i18next';
-import {TableChart} from '@jahia/moonstone';
-import FormResultsApp from './FormResultsApp';
+import {Form} from '@jahia/moonstone';
+import {FormResultsApp} from './FormResults';
 
 export default function () {
-    i18next.loadNamespaces('formidable-results');
+    registry.add('callback', 'FormidableEngineEditor', {
+        targets: ['jahiaApp-init:20'],
+        callback: () => {
+            i18next.loadNamespaces('formidable-engine');
 
-    registry.add('adminRoute', 'formidableResults', {
-        targets: ['jcontent:50'],
-        icon: <TableChart/>,
-        label: 'formidable-results:label.appsAccordion.title',
-        isSelectable: true,
-        requireModuleInstalledOnSite: 'formidable',
-        requiredPermission: 'formidableResultsAccess',
-        render: () => <FormResultsApp/>
+            registry.add('adminRoute', 'formidableResults', {
+                targets: ['jcontent:50'],
+                icon: <Form/>,
+                label: 'formidable-engine:formResults.nav.title',
+                isSelectable: true,
+                requireModuleInstalledOnSite: 'formidable-engine',
+                render: () => <FormResultsApp/>
+            });
+        }
     });
-
-    console.debug('%c Formidable Results extension is activated', 'color: #3c8cba');
 }
 ```
 
-À adapter selon le nom exact du module :
+The results screen is therefore shipped by `formidable-engine`, not by a separate `formidable-results` module.
 
-```js
-requireModuleInstalledOnSite: 'formidable'
-```
+### 2.2 Permissions
 
-ou :
+There is no dedicated Jahia permission such as `formidableResultsAccess` in the current implementation.
 
-```js
-requireModuleInstalledOnSite: 'formidable-results'
-```
+Read access relies on standard `LIVE`-workspace JCR ACLs, typically through the `fmdb-results-reader` role propagated to `fmdb:formResults` nodes.
 
-si l’écran est livré dans un module séparé.
+Deletion relies on standard JCR permissions:
 
-### 2.2 Permission
+- `jcr:removeNode`
+- `jcr:removeChildNodes`
 
-Créer une permission Jahia dédiée :
-
-```text
-formidableResultsAccess
-```
-
-Elle sert à contrôler l’accès à l’application.
-
-Permissions optionnelles pour les évolutions :
-
-```text
-formidableResultsAccess
-formidableResultsExport
-formidableResultsDelete
-formidableResultsDownloadFiles
-```
+The frontend detects deletion capability by querying `hasPermission(...)` on the `submissions` container.
 
 ---
 
-## 3. Modèle JCR attendu
+## 3. Expected JCR Model
 
-Les soumissions sont stockées sous :
+Submissions are stored under:
 
 ```text
 /sites/<site>/formidable-results/<form-results>/submissions/YYYY/MM/DD/<submission>
 ```
 
-Exemple :
+Example:
 
 ```text
 /sites/industrial/formidable-results/form-actions/submissions/2026/05/05/submission-20260505-150707-a9e
 ```
 
-Chaque soumission contient :
+Each submission contains:
 
 ```text
 <submission>
@@ -117,20 +105,19 @@ Chaque soumission contient :
         jcr:content
 ```
 
-Le noeud `fmdb:formResults` est identifié fonctionnellement par sa propriété `parentForm`, et non uniquement par son nom JCR. Cela permet de conserver une identité stable si le formulaire est renommé.
+`fmdb:formResults` is functionally identified by its `parentForm` weakreference, not by its JCR node name. This keeps the logical identity stable even if the form is renamed.
 
 ---
 
-## 4. Architecture cible
+## 4. Architecture
 
 ```text
-React app jContent
+React app in jContent
   |
-  | GraphQL
+  | built-in JCR GraphQL API
   v
-Jahia GraphQL extension / DataFetcher
+LIVE JCR session
   |
-  | JCR session EDIT ou LIVE selon besoin
   v
 /sites/<site>/formidable-results
   |
@@ -139,17 +126,17 @@ Jahia GraphQL extension / DataFetcher
         +-- submissions/YYYY/MM/DD/<submission>
 ```
 
-### Décision importante
+Important decision:
 
-Le front ne doit pas parcourir directement l’arborescence JCR auto-splittée.
+The frontend does not walk the auto-split folder tree manually. Instead, it queries JCR using GraphQL and SQL2 so the split structure remains an implementation detail.
 
-Le backend doit exposer une liste logique :
+Logical model exposed to the UI:
 
 ```text
-FormResults -> Submissions[]
+FormResults -> Submission rows -> Submission detail
 ```
 
-et masquer le détail :
+Hidden storage detail:
 
 ```text
 submissions/YYYY/MM/DD
@@ -157,147 +144,162 @@ submissions/YYYY/MM/DD
 
 ---
 
-## 5. API GraphQL proposée
+## 5. GraphQL API Used by the Screen
 
-### 5.1 Types GraphQL
+The current screen uses Jahia's built-in JCR GraphQL API directly. It does not rely on a custom GraphQL extension with dedicated DTO types.
 
-```graphql
-type FormidableFormResults {
-  id: String!
-  path: String!
-  name: String!
-  displayName: String
-  parentFormId: String
-  parentFormPath: String
-  submissionCount: Int!
-  lastSubmissionDate: Date
+### 5.1 Main frontend types
+
+```ts
+interface FormResultsNode {
+  uuid: string;
+  path: string;
+  name: string;
+  displayName: string;
+  parentForm: {
+    refNode: {
+      uuid: string;
+      path: string;
+      displayName: string;
+    } | null;
+  } | null;
+  submissionsContainer?: {
+    nodes?: Array<{
+      canRemoveNode?: boolean;
+      canRemoveChildNodes?: boolean;
+    }>;
+  };
 }
 
-type FormidableSubmissionPage {
-  nodes: [FormidableSubmissionRow!]!
-  pageInfo: FormidablePageInfo!
-}
-
-type FormidablePageInfo {
-  currentPage: Int!
-  pageSize: Int!
-  totalCount: Int!
-  hasNextPage: Boolean!
-  hasPreviousPage: Boolean!
-}
-
-type FormidableSubmissionRow {
-  id: String!
-  path: String!
-  name: String!
-  created: Date!
-
-  origin: String
-  status: String
-  ipAddress: String
-  locale: String
-  submitterUsername: String
-  userAgent: String
-  referer: String
-
-  values: [FormidableFieldValue!]!
-  files: [FormidableFileSummary!]!
-}
-
-type FormidableFieldValue {
-  name: String!
-  value: [String!]!
-}
-
-type FormidableFileSummary {
-  fieldName: String!
-  fileName: String!
-  path: String!
-  mimeType: String
-  size: Long
-}
-
-type FormidableSubmissionDetail {
-  id: String!
-  path: String!
-  name: String!
-  created: Date!
-  metadata: [FormidableMetadata!]!
-  values: [FormidableFieldValue!]!
-  files: [FormidableFileSummary!]!
-}
-
-type FormidableMetadata {
-  name: String!
-  value: String
+interface SubmissionRow {
+  uuid: string;
+  path: string;
+  name: string;
+  created: string;
+  origin: string | null;
+  ipAddress: string | null;
+  locale: string | null;
+  submitterUsername: string | null;
+  userAgent: string | null;
+  referer: string | null;
+  fieldValues: SubmissionFieldValue[];
+  files: SubmissionFile[];
 }
 ```
 
-### 5.2 Queries
+### 5.2 GraphQL operations
+
+Current queries and mutation:
+
+- `GET_FORM_RESULTS_LIST`
+- `GET_SUBMISSIONS`
+- `GET_SUBMISSION_COUNT`
+- `GET_FORM_FIELD_LABELS`
+- `DELETE_SUBMISSIONS`
+
+Representative examples:
 
 ```graphql
-extend type Query {
-  formidableResults(siteKey: String!): [FormidableFormResults!]!
-
-  formidableSubmissions(
-    siteKey: String!
-    formResultsId: String!
-    page: Int = 1
-    pageSize: Int = 25
-    sortBy: String = "created"
-    sortDirection: String = "descending"
-    filters: FormidableSubmissionFilters
-  ): FormidableSubmissionPage!
-
-  formidableSubmission(
-    id: String!
-  ): FormidableSubmissionDetail
-}
-
-input FormidableSubmissionFilters {
-  fromDate: Date
-  toDate: Date
-  status: String
-  submitterUsername: String
-  text: String
+query GetFormResultsList($resultsPath: String!, $workspace: Workspace = LIVE, $language: String!) {
+  jcr(workspace: $workspace) {
+    nodeByPath(path: $resultsPath) {
+      children(typesFilter: {types: ["fmdb:formResults"]}) {
+        nodes {
+          uuid
+          path
+          name
+          displayName(language: $language)
+          submissionsContainer: children(names: ["submissions"]) {
+            nodes {
+              canRemoveNode: hasPermission(permissionName: "jcr:removeNode")
+              canRemoveChildNodes: hasPermission(permissionName: "jcr:removeChildNodes")
+            }
+          }
+          parentForm: property(name: "parentForm") {
+            refNode {
+              uuid
+              path
+              displayName(language: $language)
+            }
+          }
+        }
+      }
+    }
+  }
 }
 ```
 
-### 5.3 Mutations futures
-
 ```graphql
-extend type Mutation {
-  deleteFormidableSubmission(id: String!): Boolean!
-  exportFormidableSubmissionsCsv(formResultsId: String!): String!
+query GetSubmissions(
+  $submissionsQuery: String!
+  $limit: Int!
+  $offset: Int!
+  $workspace: Workspace = LIVE
+) {
+  jcr(workspace: $workspace) {
+    nodesByQuery(query: $submissionsQuery, queryLanguage: SQL2, limit: $limit, offset: $offset) {
+      pageInfo {
+        totalCount
+        hasNextPage
+      }
+      nodes {
+        uuid
+        path
+        name
+        created: property(name: "jcr:created") { value }
+        origin: property(name: "origin") { value }
+        ipAddress: property(name: "ipAddress") { value }
+        locale: property(name: "locale") { value }
+        submitterUsername: property(name: "submitterUsername") { value }
+        userAgent: property(name: "userAgent") { value }
+        referer: property(name: "referer") { value }
+      }
+    }
+  }
 }
 ```
 
-Pour une première version, limiter le périmètre à la lecture.
+```graphql
+mutation DeleteSubmissions($submissionsQuery: String!, $workspace: Workspace = LIVE) {
+  jcr(workspace: $workspace) {
+    mutateNodesByQuery(query: $submissionsQuery, queryLanguage: SQL2) {
+      delete
+    }
+  }
+}
+```
+
+### 5.3 Future GraphQL evolution
+
+A dedicated GraphQL schema could still be introduced later if stronger backend abstraction becomes necessary.
+
+Possible reasons:
+
+- stricter DTO contracts;
+- server-side field-label resolution;
+- backend-level filtering rules;
+- backend-managed file-download endpoints.
+
+That is not how the current screen works.
 
 ---
 
-## 6. Backend : responsabilités
+## 6. Backend Responsibilities
 
-### 6.1 Lister les formulaires ayant des résultats
+### 6.1 List form-results nodes
 
-Entrée :
+Current approach:
 
-```text
-siteKey
-```
+- open `/sites/<siteKey>/formidable-results` in `LIVE`;
+- read child nodes of type `fmdb:formResults`;
+- rely on GraphQL and JCR ACLs for visibility filtering;
+- resolve the parent form through the `parentForm` weakreference.
 
-Chemin à lire :
-
-```text
-/sites/<siteKey>/formidable-results
-```
-
-Pseudo-code Java :
+Pseudo-code:
 
 ```java
 List<FormResultsDTO> getFormidableResults(String siteKey) {
-    JCRSessionWrapper session = getCurrentUserSession("EDIT");
-
+    JCRSessionWrapper session = getCurrentUserSession("LIVE");
     String rootPath = "/sites/" + siteKey + "/formidable-results";
 
     if (!session.nodeExists(rootPath)) {
@@ -305,15 +307,10 @@ List<FormResultsDTO> getFormidableResults(String siteKey) {
     }
 
     JCRNodeWrapper root = session.getNode(rootPath);
-
     List<FormResultsDTO> results = new ArrayList<>();
 
     for (JCRNodeWrapper child : getChildren(root)) {
         if (!child.isNodeType("fmdb:formResults")) {
-            continue;
-        }
-
-        if (!hasPermission(child, "formidableResultsAccess")) {
             continue;
         }
 
@@ -324,9 +321,6 @@ List<FormResultsDTO> getFormidableResults(String siteKey) {
         dto.displayName = resolveDisplayName(child);
         dto.parentFormId = readWeakReferenceIdentifier(child, "parentForm");
         dto.parentFormPath = resolveWeakReferencePath(child, "parentForm");
-        dto.submissionCount = countSubmissions(child);
-        dto.lastSubmissionDate = findLastSubmissionDate(child);
-
         results.add(dto);
     }
 
@@ -334,31 +328,16 @@ List<FormResultsDTO> getFormidableResults(String siteKey) {
 }
 ```
 
-### 6.2 Lister les soumissions d’un formulaire
+### 6.2 List one form's submissions
 
-Entrée :
+Current approach:
 
-```text
-formResultsId
-page
-pageSize
-sortBy
-sortDirection
-filters
-```
+- resolve one `fmdb:formResults` node in `LIVE`;
+- query descendant `fmdb:formSubmission` nodes through SQL2;
+- sort by `jcr:created`;
+- apply limit and offset at the query level.
 
-Étapes :
-
-1. charger le noeud `fmdb:formResults` par identifier ;
-2. vérifier la permission ;
-3. récupérer son enfant `submissions` ;
-4. parcourir récursivement les enfants jusqu’aux noeuds `fmdb:formSubmission` ;
-5. appliquer les filtres ;
-6. trier ;
-7. paginer ;
-8. transformer en DTO table.
-
-Pseudo-code :
+Pseudo-code:
 
 ```java
 SubmissionPageDTO getSubmissions(
@@ -369,888 +348,380 @@ SubmissionPageDTO getSubmissions(
     SortDirection direction,
     Filters filters
 ) {
-    JCRSessionWrapper session = getCurrentUserSession("EDIT");
-
+    JCRSessionWrapper session = getCurrentUserSession("LIVE");
     JCRNodeWrapper formResults = session.getNodeByIdentifier(formResultsId);
 
     assertNodeType(formResults, "fmdb:formResults");
-    assertPermission(formResults, "formidableResultsAccess");
 
     if (!formResults.hasNode("submissions")) {
         return emptyPage(page, pageSize);
     }
 
-    JCRNodeWrapper submissionsRoot = formResults.getNode("submissions");
-
-    List<JCRNodeWrapper> submissions = new ArrayList<>();
-
-    collectSubmissionNodes(submissionsRoot, submissions);
-
-    submissions = submissions.stream()
-        .filter(node -> matchesFilters(node, filters))
-        .sorted(comparator(sortBy, direction))
-        .collect(toList());
-
-    int total = submissions.size();
-
-    List<JCRNodeWrapper> pageNodes = paginate(submissions, page, pageSize);
-
-    List<SubmissionRowDTO> rows = pageNodes.stream()
-        .map(this::toSubmissionRowDTO)
-        .collect(toList());
-
-    return new SubmissionPageDTO(rows, page, pageSize, total);
+    String sql2 = buildSql2(formResults.getPath(), page, pageSize, sortBy, direction, filters);
+    return execute(sql2);
 }
 ```
 
-Parcours récursif :
+### 6.3 Map one submission to a table row
 
-```java
-void collectSubmissionNodes(JCRNodeWrapper node, List<JCRNodeWrapper> result) {
-    for (JCRNodeWrapper child : getChildren(node)) {
-        if (child.isNodeType("fmdb:formSubmission")) {
-            result.add(child);
-            continue;
-        }
+The UI needs a flattened row object built from:
 
-        if (child.isNodeType("jnt:contentFolder")
-            || child.isNodeType("fmdb:splittedSubmission")
-            || child.isNodeType("fmdb:submissions")) {
-            collectSubmissionNodes(child, result);
-        }
-    }
-}
-```
+- metadata on the `fmdb:formSubmission` node itself;
+- residual properties under the `data` child node;
+- files under `files/<fieldName>/<fileName>`.
 
-Selon les types réellement déclarés pour les dossiers `YYYY/MM/DD`, le test peut être simplifié en parcourant tous les enfants tant que ce ne sont pas des fichiers.
+The current frontend performs this transformation client-side after GraphQL retrieval.
 
-### 6.3 Transformer une soumission en ligne de table
+Pseudo-code:
 
-```java
-SubmissionRowDTO toSubmissionRowDTO(JCRNodeWrapper submission) {
-    SubmissionRowDTO dto = new SubmissionRowDTO();
-
-    dto.id = submission.getIdentifier();
-    dto.path = submission.getPath();
-    dto.name = submission.getName();
-    dto.created = getDateProperty(submission, "jcr:created");
-
-    dto.origin = getStringProperty(submission, "origin");
-    dto.status = getStringProperty(submission, "status");
-    dto.ipAddress = getStringProperty(submission, "ipAddress");
-    dto.locale = getStringProperty(submission, "locale");
-    dto.submitterUsername = getStringProperty(submission, "submitterUsername");
-    dto.userAgent = getStringProperty(submission, "userAgent");
-    dto.referer = getStringProperty(submission, "referer");
-
-    dto.values = readDataValues(submission);
-    dto.files = readFileSummaries(submission);
-
-    return dto;
-}
-```
-
-Lecture de `data` :
-
-```java
-List<FieldValueDTO> readDataValues(JCRNodeWrapper submission) {
-    if (!submission.hasNode("data")) {
-        return emptyList();
-    }
-
-    JCRNodeWrapper dataNode = submission.getNode("data");
-
-    List<FieldValueDTO> values = new ArrayList<>();
-
-    PropertyIterator properties = dataNode.getProperties();
-
-    while (properties.hasNext()) {
-        Property property = properties.nextProperty();
-
-        if (property.getName().startsWith("jcr:")) {
-            continue;
-        }
-
-        FieldValueDTO dto = new FieldValueDTO();
-        dto.name = property.getName();
-
-        if (property.isMultiple()) {
-            dto.value = Arrays.stream(property.getValues())
-                .map(this::valueToString)
-                .collect(toList());
-        } else {
-            dto.value = List.of(valueToString(property.getValue()));
-        }
-
-        values.add(dto);
-    }
-
-    return values;
-}
-```
-
-Lecture de `files` :
-
-```java
-List<FileSummaryDTO> readFileSummaries(JCRNodeWrapper submission) {
-    if (!submission.hasNode("files")) {
-        return emptyList();
-    }
-
-    JCRNodeWrapper filesRoot = submission.getNode("files");
-
-    List<FileSummaryDTO> files = new ArrayList<>();
-
-    for (JCRNodeWrapper fieldFolder : getChildren(filesRoot)) {
-        String fieldName = fieldFolder.getName();
-
-        for (JCRNodeWrapper fileNode : getChildren(fieldFolder)) {
-            FileSummaryDTO dto = new FileSummaryDTO();
-
-            dto.fieldName = fieldName;
-            dto.fileName = fileNode.getName();
-            dto.path = fileNode.getPath();
-
-            if (fileNode.hasNode("jcr:content")) {
-                JCRNodeWrapper content = fileNode.getNode("jcr:content");
-                dto.mimeType = getStringProperty(content, "jcr:mimeType");
-                dto.size = getBinarySize(content, "jcr:data");
-            }
-
-            files.add(dto);
-        }
-    }
-
-    return files;
+```ts
+function parseSubmissionNode(node: any): SubmissionRow {
+  return {
+    uuid: node.uuid,
+    path: node.path,
+    name: node.name,
+    created: node.created?.value ?? '',
+    origin: node.origin?.value ?? null,
+    ipAddress: node.ipAddress?.value ?? null,
+    locale: node.locale?.value ?? null,
+    submitterUsername: node.submitterUsername?.value ?? null,
+    userAgent: node.userAgent?.value ?? null,
+    referer: node.referer?.value ?? null,
+    fieldValues: extractUserProperties(node.data),
+    files: extractFiles(node.files)
+  };
 }
 ```
 
 ---
 
-## 7. Tri et pagination
+## 7. Sorting and Pagination
 
-### 7.1 Première version simple
+### 7.1 Current simple version
 
-Pour une V1, tri et pagination peuvent être faits en mémoire côté backend après collecte récursive.
+The current screen paginates with:
 
-Avantages :
+- SQL2 query + `limit` + `offset`;
+- sort column fixed to `jcr:created`;
+- sort direction toggled between ascending and descending.
 
-- simple ;
-- robuste avec l’arborescence auto-splittée ;
-- facile à implémenter.
+### 7.2 Current scalable characteristics
 
-Limite :
+The implementation is already scalable enough for a first production version because:
 
-- peut devenir coûteux si un formulaire a beaucoup de soumissions.
+- filtering is delegated to SQL2;
+- pagination is delegated to GraphQL/JCR;
+- the UI does not load the full submissions tree at once.
 
-### 7.2 Version scalable
-
-Pour une V2, utiliser une requête JCR-SQL2 ou QueryObjectModel sur les descendants de :
-
-```text
-/sites/<site>/formidable-results/<form-results>/submissions
-```
-
-Exemple conceptuel :
+Representative SQL2 shape:
 
 ```sql
-SELECT * FROM [fmdb:formSubmission] AS s
+SELECT *
+FROM [fmdb:formSubmission] AS s
 WHERE ISDESCENDANTNODE(s, '/sites/industrial/formidable-results/contact/submissions')
 ORDER BY s.[jcr:created] DESC
 ```
 
-Le backend garderait :
-
-```text
-limit
-offset
-sort
-filters
-```
-
-mais il faut vérifier la faisabilité des filtres dynamiques sur les propriétés de `<submission>/data`, car elles sont stockées sur un noeud enfant, pas directement sur la soumission.
-
 ---
 
-## 8. Frontend React
+## 8. React Frontend
 
-### 8.1 Structure des fichiers
+### 8.1 File structure
 
 ```text
 src/javascript/
-  init.js
-  FormResultsApp/
-    FormResultsApp.jsx
-    FormResultsApp.gql-queries.js
-    FormResultsList.jsx
-    SubmissionsTable.jsx
-    SubmissionDetailDrawer.jsx
-    submissionTable.utils.js
-    index.js
-  i18n/
-    en.json
-    fr.json
+  init.tsx
+  FormResults/
+    FormResultsApp.tsx
+    FormResults.utils.ts
+    graphql/queries.ts
+    components/
+      FormResultsList.tsx
+      SubmissionsTable.tsx
+      SubmissionDetailPanel.tsx
+      FilePreviewDialog.tsx
+    export/
+      ExportResultsDialog.tsx
+    delete/
+      DeleteResultsDialog.tsx
 ```
 
-### 8.2 Composant racine
+### 8.2 Root component
 
-Responsabilités :
+`FormResultsApp` is responsible for:
 
-- récupérer `siteKey` / `siteUuid` depuis `window.contextJsParameters` ;
-- charger la liste des formulaires avec résultats ;
-- gérer le formulaire sélectionné ;
-- afficher soit un empty state, soit la table.
+- reading `siteKey` and `uilang` from `window.contextJsParameters`;
+- loading the list of `fmdb:formResults` nodes;
+- tracking selected form, selected submission, refresh state, export dialog state, and delete dialog state;
+- loading form field labels from the referenced parent form;
+- rendering the main two-panel layout.
 
-Pseudo-code :
+Pseudo-code:
 
-```jsx
-import React, {useState} from 'react';
-import {useQuery} from '@apollo/client';
-import {Loader, Typography} from '@jahia/moonstone';
-import {GET_FORM_RESULTS} from './FormResultsApp.gql-queries';
-import FormResultsList from './FormResultsList';
-import SubmissionsTable from './SubmissionsTable';
-
+```tsx
 const FormResultsApp = () => {
-    const {siteKey} = window.contextJsParameters;
-    const [selectedFormResultsId, setSelectedFormResultsId] = useState(null);
+  const siteKey = window.contextJsParameters?.siteKey;
+  const language = window.contextJsParameters?.uilang || 'en';
+  const resultsPath = `/sites/${siteKey}/formidable-results`;
 
-    const {loading, error, data} = useQuery(GET_FORM_RESULTS, {
-        variables: {siteKey},
-        fetchPolicy: 'network-only'
-    });
+  const {data, loading, error, refetch} = useQuery(GET_FORM_RESULTS_LIST, {
+    variables: {resultsPath, workspace: 'LIVE', language}
+  });
 
-    if (loading) {
-        return <Loader/>;
-    }
+  const forms = data?.jcr?.nodeByPath?.children?.nodes ?? [];
+  const selectedForm = ...;
 
-    if (error) {
-        return <Typography color="danger">{error.message}</Typography>;
-    }
-
-    const forms = data?.formidableResults || [];
-
-    if (forms.length === 0) {
-        return (
-            <EmptyState
-                title="No form results"
-                description="No saved Formidable submissions were found for this site."
-            />
-        );
-    }
-
-    const selectedForm = forms.find(form => form.id === selectedFormResultsId) || forms[0];
-
-    return (
-        <div className="formidableResultsApp">
-            <FormResultsList
-                forms={forms}
-                selectedId={selectedForm.id}
-                onSelect={setSelectedFormResultsId}
-            />
-
-            <SubmissionsTable formResults={selectedForm}/>
-        </div>
-    );
+  return (
+    <Layout>
+      <FormResultsList/>
+      <SubmissionsTable/>
+      <SubmissionDetailPanel/>
+    </Layout>
+  );
 };
-
-export default FormResultsApp;
 ```
 
 ---
 
-## 9. Liste des formulaires
+## 9. Form List
 
-```jsx
-const FormResultsList = ({forms, selectedId, onSelect}) => {
-    return (
-        <aside className="formidableResultsApp_sidebar">
-            {forms.map(form => (
-                <button
-                    key={form.id}
-                    type="button"
-                    className={form.id === selectedId ? 'selected' : ''}
-                    onClick={() => onSelect(form.id)}
-                >
-                    <span>{form.displayName || form.name}</span>
-                    <span>{form.submissionCount}</span>
-                </button>
-            ))}
-        </aside>
-    );
-};
-```
+The left panel lists available `fmdb:formResults` nodes.
 
-Variante Moonstone :
+Displayed label priority:
 
-- `Menu` ;
-- `MenuItem` ;
-- `Typography` ;
-- `Chip` ;
-- ou une `List` si disponible dans la version Moonstone utilisée.
+1. `parentForm.refNode.displayName`
+2. `formResults.displayName`
+3. `formResults.name`
+
+This keeps the screen aligned with the current form title whenever the parent form still exists.
 
 ---
 
-## 10. Table des soumissions avec Moonstone DataTable
+## 10. Submissions Table
 
-Le composant Moonstone `DataTable` supporte :
-
-- `data` ;
-- `columns` ;
-- `primaryKey` ;
-- sorting ;
-- sélection ;
-- pagination ;
-- custom rows via `renderRow`.
-
-Il est basé sur TanStack Table côté interne.
-
-### 10.1 DTO front recommandé
-
-Aplatir les valeurs dynamiques pour simplifier la table :
+### 10.1 Recommended frontend DTO
 
 ```ts
-type SubmissionTableRow = {
-    id: string;
-    path: string;
-    name: string;
-    created: string;
-    status?: string;
-    locale?: string;
-    submitterUsername?: string;
-    ipAddress?: string;
-    fileCount: number;
-
-    values: Record<string, string | string[]>;
-};
+interface SubmissionRow {
+  uuid: string;
+  path: string;
+  name: string;
+  created: string;
+  origin: string | null;
+  ipAddress: string | null;
+  locale: string | null;
+  submitterUsername: string | null;
+  userAgent: string | null;
+  referer: string | null;
+  fieldValues: Array<{name: string; values: string[]}>;
+  files: SubmissionFile[];
+}
 ```
 
-Puis créer des colonnes fixes et des colonnes dynamiques.
+### 10.2 GraphQL query behavior
 
-### 10.2 Query GraphQL
+The table queries JCR directly with:
 
-```js
-import {gql} from '@apollo/client';
+- `workspace: 'LIVE'`
+- `queryLanguage: SQL2`
+- `limit`
+- `offset`
 
-export const GET_SUBMISSIONS = gql`
-    query GetFormidableSubmissions(
-        $siteKey: String!
-        $formResultsId: String!
-        $page: Int!
-        $pageSize: Int!
-        $sortBy: String!
-        $sortDirection: String!
-    ) {
-        formidableSubmissions(
-            siteKey: $siteKey
-            formResultsId: $formResultsId
-            page: $page
-            pageSize: $pageSize
-            sortBy: $sortBy
-            sortDirection: $sortDirection
-        ) {
-            nodes {
-                id
-                path
-                name
-                created
-                status
-                locale
-                submitterUsername
-                ipAddress
-                values {
-                    name
-                    value
-                }
-                files {
-                    fieldName
-                    fileName
-                    path
-                    mimeType
-                    size
-                }
-            }
-            pageInfo {
-                currentPage
-                pageSize
-                totalCount
-                hasNextPage
-                hasPreviousPage
-            }
-        }
-    }
-`;
-```
+### 10.3 UI behavior
 
-### 10.3 Table
+The current table supports:
 
-```jsx
-import React, {useMemo, useState} from 'react';
-import {useQuery} from '@apollo/client';
-import {
-    DataTable,
-    TableRow,
-    TableCellActions
-} from '@jahia/moonstone';
-import {Button} from '@jahia/moonstone';
-import {Visibility} from '@jahia/moonstone';
-import {GET_SUBMISSIONS} from './FormResultsApp.gql-queries';
+- pagination (`10`, `25`, `50` rows per page);
+- sort direction toggle on date;
+- row selection;
+- keyboard navigation with arrow up/down;
+- opening the side detail panel.
 
-const toRow = submission => {
-    const values = {};
+Current visible columns:
 
-    submission.values.forEach(field => {
-        values[field.name] = field.value.length > 1 ? field.value : field.value[0];
-    });
-
-    return {
-        ...submission,
-        values,
-        fileCount: submission.files.length
-    };
-};
-
-const valueToString = value => {
-    if (Array.isArray(value)) {
-        return value.join(', ');
-    }
-
-    return value || '';
-};
-
-const SubmissionsTable = ({formResults}) => {
-    const {siteKey} = window.contextJsParameters;
-
-    const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(25);
-    const [sortBy, setSortBy] = useState('created');
-    const [sortDirection, setSortDirection] = useState('descending');
-    const [selectedSubmissionId, setSelectedSubmissionId] = useState(null);
-
-    const {loading, error, data} = useQuery(GET_SUBMISSIONS, {
-        variables: {
-            siteKey,
-            formResultsId: formResults.id,
-            page: currentPage,
-            pageSize: itemsPerPage,
-            sortBy,
-            sortDirection
-        },
-        fetchPolicy: 'network-only'
-    });
-
-    const submissions = data?.formidableSubmissions?.nodes || [];
-    const pageInfo = data?.formidableSubmissions?.pageInfo;
-
-    const rows = useMemo(() => submissions.map(toRow), [submissions]);
-
-    const dynamicFieldNames = useMemo(() => {
-        const names = new Set();
-
-        submissions.forEach(submission => {
-            submission.values.forEach(field => names.add(field.name));
-        });
-
-        return Array.from(names);
-    }, [submissions]);
-
-    const columns = useMemo(() => {
-        const fixedColumns = [
-            {
-                key: 'created',
-                label: 'Date',
-                isSortable: true,
-                width: '180px'
-            },
-            {
-                key: 'status',
-                label: 'Status',
-                isSortable: true,
-                width: '120px'
-            },
-            {
-                key: 'submitterUsername',
-                label: 'User',
-                isSortable: true,
-                width: '160px'
-            },
-            {
-                key: 'locale',
-                label: 'Locale',
-                width: '80px'
-            },
-            {
-                key: 'fileCount',
-                label: 'Files',
-                width: '80px',
-                align: 'right'
-            }
-        ];
-
-        const fieldColumns = dynamicFieldNames.map(fieldName => ({
-            key: fieldName,
-            label: fieldName,
-            isScrollable: true,
-            render: (_value, row) => valueToString(row.values[fieldName])
-        }));
-
-        return [...fixedColumns, ...fieldColumns];
-    }, [dynamicFieldNames]);
-
-    if (loading) {
-        return <Loader/>;
-    }
-
-    if (error) {
-        return <ErrorState message={error.message}/>;
-    }
-
-    if (rows.length === 0) {
-        return <EmptyState title="No submissions"/>;
-    }
-
-    return (
-        <>
-            <DataTable
-                data={rows}
-                columns={columns}
-                primaryKey="id"
-                enableSelection
-                enableSorting
-                enablePagination
-                sortBy={sortBy}
-                sortDirection={sortDirection}
-                currentPage={currentPage}
-                itemsPerPage={itemsPerPage}
-                totalItems={pageInfo.totalCount}
-                onSortChange={(newSortBy, newSortDirection) => {
-                    setSortBy(newSortBy);
-                    setSortDirection(newSortDirection);
-                }}
-                onPageChange={setCurrentPage}
-                onItemsPerPageChange={setItemsPerPage}
-                renderRow={(row, renderCells) => (
-                    <TableRow
-                        key={row.id}
-                        onDoubleClick={() => setSelectedSubmissionId(row.original.id)}
-                    >
-                        {renderCells({
-                            after: (
-                                <TableCellActions
-                                    actions={
-                                        <Button
-                                            icon={<Visibility/>}
-                                            variant="ghost"
-                                            aria-label="Open submission"
-                                            onClick={() => setSelectedSubmissionId(row.original.id)}
-                                        />
-                                    }
-                                />
-                            )
-                        })}
-                    </TableRow>
-                )}
-            />
-
-            {selectedSubmissionId && (
-                <SubmissionDetailDrawer
-                    submissionId={selectedSubmissionId}
-                    onClose={() => setSelectedSubmissionId(null)}
-                />
-            )}
-        </>
-    );
-};
-```
-
-Note importante : les `key` dynamiques comme `fieldName` ne sont pas des clés directes du type TypeScript si les valeurs sont sous `row.values`. En JS simple cela fonctionne, mais en TypeScript strict il faudra soit :
-
-- aplatir les champs dans la row ;
-- typer plus large ;
-- créer des colonnes custom avec une convention contrôlée.
-
-Recommandation : aplatir les valeurs côté `toRow`.
+- Date
+- User
+- Locale
+- IP address
+- Files count
+- Filled fields count
+- Action button / row selection affordance
 
 ---
 
-## 11. Version aplatie côté front
+## 11. Flattened Frontend Model
 
-```js
-const toRow = submission => {
-    const row = {
-        id: submission.id,
-        path: submission.path,
-        name: submission.name,
-        created: submission.created,
-        status: submission.status,
-        locale: submission.locale,
-        submitterUsername: submission.submitterUsername,
-        ipAddress: submission.ipAddress,
-        fileCount: submission.files.length,
-        files: submission.files
-    };
+The current implementation deliberately flattens nested GraphQL data into a compact UI model.
 
-    submission.values.forEach(field => {
-        row[field.name] = field.value.length > 1 ? field.value.join(', ') : field.value[0];
-    });
+Benefits:
 
-    return row;
-};
-```
+- components render simpler objects;
+- table rendering is decoupled from raw GraphQL node shape;
+- detail panel can reuse the same row object.
 
-Dans ce cas, les colonnes dynamiques deviennent simples :
+Residual JCR properties are filtered so only user data remains. Properties beginning with:
 
-```js
-const fieldColumns = dynamicFieldNames.map(fieldName => ({
-    key: fieldName,
-    label: fieldName,
-    isScrollable: true
-}));
-```
+- `jcr:`
+- `j:`
+- `mix:`
 
-C’est l’option la plus simple avec `DataTable`.
+are excluded from submitted field values.
 
 ---
 
-## 12. Détail d’une soumission
+## 12. Submission Detail
 
-### 12.1 Query
+### 12.1 Data source
 
-```js
-export const GET_SUBMISSION_DETAIL = gql`
-    query GetFormidableSubmission($id: String!) {
-        formidableSubmission(id: $id) {
-            id
-            path
-            name
-            created
-            metadata {
-                name
-                value
-            }
-            values {
-                name
-                value
-            }
-            files {
-                fieldName
-                fileName
-                path
-                mimeType
-                size
-            }
-        }
-    }
-`;
-```
+The detail panel currently reuses the selected `SubmissionRow` already loaded by the submissions query.
 
-### 12.2 Drawer / panneau latéral
+No separate detail query is required in the current implementation.
 
-Pseudo-code :
+### 12.2 Drawer / side panel
 
-```jsx
-const SubmissionDetailDrawer = ({submissionId, onClose}) => {
-    const {loading, error, data} = useQuery(GET_SUBMISSION_DETAIL, {
-        variables: {id: submissionId},
-        fetchPolicy: 'network-only'
-    });
+`SubmissionDetailPanel` shows:
 
-    if (loading) {
-        return <Drawer onClose={onClose}><Loader/></Drawer>;
-    }
+- metadata (`created`, `origin`, `ipAddress`, `locale`, `submitterUsername`, `userAgent`, `referer`);
+- submitted values, with labels resolved from the parent form when available;
+- uploaded files, with preview and download actions.
 
-    if (error) {
-        return <Drawer onClose={onClose}><ErrorState message={error.message}/></Drawer>;
-    }
+Field-label resolution comes from `GET_FORM_FIELD_LABELS` against the parent form in `LIVE`.
 
-    const submission = data.formidableSubmission;
-
-    return (
-        <Drawer onClose={onClose} title="Submission detail">
-            <Section title="Metadata">
-                {submission.metadata.map(item => (
-                    <KeyValue key={item.name} label={item.name} value={item.value}/>
-                ))}
-            </Section>
-
-            <Section title="Submitted values">
-                {submission.values.map(field => (
-                    <KeyValue
-                        key={field.name}
-                        label={field.name}
-                        value={field.value.join(', ')}
-                    />
-                ))}
-            </Section>
-
-            <Section title="Files">
-                {submission.files.map(file => (
-                    <FileRow
-                        key={`${file.fieldName}-${file.fileName}`}
-                        fieldName={file.fieldName}
-                        fileName={file.fileName}
-                        mimeType={file.mimeType}
-                        size={file.size}
-                        downloadUrl={buildDownloadUrl(file.path)}
-                    />
-                ))}
-            </Section>
-        </Drawer>
-    );
-};
-```
+If the parent form no longer exists, the panel falls back to raw field names.
 
 ---
 
-## 13. Gestion des fichiers
+## 13. File Handling
 
-Les fichiers sont stockés sous :
+Files are stored under:
 
 ```text
 <submission>/files/<fieldName>/<fileName>/jcr:content
 ```
 
-Pour télécharger un fichier, deux options sont possibles.
+Current implementation:
 
-### Option A : URL JCR directe
+- GraphQL returns `file.url`, `thumbnailUrl`, and MIME type;
+- the frontend reuses `file.url` for both preview and download;
+- image files open in an `<img>` preview;
+- video files open in a `<video>` preview;
+- other previewable formats fall back to an `<iframe>`.
 
-Construire une URL vers le noeud fichier si Jahia permet de le servir :
+Download pattern:
 
-```js
-const buildDownloadUrl = filePath => {
-    return `${window.contextJsParameters.contextPath}/files/${filePath}`;
-};
+```tsx
+<a href={file.fileUrl} download={file.fileName}>
+  <Button label="Download"/>
+</a>
 ```
 
-À valider selon le routing Jahia exact.
+### Option V2: dedicated endpoint
 
-### Option B : endpoint dédié
+No `/modules/formidable-results/download` endpoint exists today.
 
-Créer un endpoint backend :
+If a harder security boundary becomes necessary later, a dedicated endpoint could be added to centralize:
 
-```text
-GET /modules/formidable-results/download?path=<encodedPath>
-```
+- access checks;
+- `Content-Disposition` normalization;
+- abstraction over internal file URLs.
 
-ou un endpoint basé sur l’identifiant du fichier :
-
-```text
-GET /modules/formidable-results/download?id=<fileNodeIdentifier>
-```
-
-Recommandation : endpoint dédié, car il permet :
-
-- de vérifier la permission ;
-- d’éviter d’exposer directement des chemins JCR sensibles ;
-- de forcer `Content-Disposition: attachment`.
-
-Pseudo-code Java :
+Target pseudo-code:
 
 ```java
 void downloadFile(String fileNodeIdentifier, HttpServletResponse response) {
     JCRNodeWrapper fileNode = session.getNodeByIdentifier(fileNodeIdentifier);
-
     assertFileBelongsToAccessibleSubmission(fileNode);
-    assertPermission(fileNode, "formidableResultsDownloadFiles");
-
-    JCRNodeWrapper content = fileNode.getNode("jcr:content");
-
-    Binary binary = content.getProperty("jcr:data").getBinary();
-    String mimeType = getStringProperty(content, "jcr:mimeType");
-
-    response.setContentType(mimeType);
-    response.setHeader(
-        "Content-Disposition",
-        "attachment; filename=\"" + sanitize(fileNode.getName()) + "\""
-    );
-
-    copy(binary.getStream(), response.getOutputStream());
+    assertPermission(fileNode, "jcr:read");
+    // stream jcr:content/jcr:data
 }
 ```
 
 ---
 
-## 14. I18n
+## 14. i18n
 
-Créer un namespace :
+Current namespace:
 
 ```text
-formidable-results
+formidable-engine
 ```
 
-Exemple `fr.json` :
+Results-screen keys live under `formResults.*`.
+
+Example:
 
 ```json
 {
-  "label": {
-    "appsAccordion": {
-      "title": "Résultats de formulaires"
+  "formResults": {
+    "nav": {
+      "title": "Form Results"
+    },
+    "table": {
+      "date": "Date",
+      "user": "User",
+      "locale": "Language",
+      "files": "Files"
+    },
+    "empty": {
+      "noForms": "No results available",
+      "noSubmissions": "No submissions"
     }
-  },
-  "table": {
-    "date": "Date",
-    "status": "Statut",
-    "user": "Utilisateur",
-    "locale": "Langue",
-    "files": "Fichiers",
-    "actions": "Actions"
-  },
-  "empty": {
-    "noForms": "Aucun formulaire avec résultats",
-    "noSubmissions": "Aucune soumission"
   }
 }
 ```
 
 ---
 
-## 15. États UI à gérer
+## 15. UI States to Handle
 
 ### Loading
 
-- chargement de la liste des formulaires ;
-- chargement des soumissions ;
-- chargement du détail.
+- loading the form-results list;
+- loading submissions;
+- loading export and delete counts.
 
 ### Empty states
 
-- aucun dossier `/formidable-results` ;
-- aucun `fmdb:formResults` ;
-- aucune soumission pour un formulaire ;
-- soumission sans `data` ;
-- soumission sans `files`.
+- no `/formidable-results` folder yet;
+- no visible `fmdb:formResults` nodes;
+- no submissions for the selected form;
+- submission without `data`;
+- submission without `files`.
 
-### Erreurs
+### Errors
 
-- permissions insuffisantes ;
-- formulaire supprimé mais résultats encore présents ;
-- soumission déplacée ou supprimée entre la liste et le détail ;
-- fichier manquant ;
-- propriété JCR multi-valuée invalide ou type non textuel.
+- insufficient permissions;
+- parent form deleted while results still exist;
+- submission removed between list and detail view;
+- missing file node;
+- malformed or unexpected JCR property values.
 
 ---
 
-## 16. Sécurité
+## 16. Security
 
-À vérifier côté backend pour chaque query :
-
-```text
-formidableResultsAccess
-```
-
-À vérifier côté download :
+Current read model:
 
 ```text
-formidableResultsDownloadFiles
+standard LIVE JCR ACLs
+on `fmdb:formResults` and descendants
 ```
 
-À vérifier côté suppression future :
+Current delete model:
 
 ```text
-formidableResultsDelete
+jcr:removeNode
+jcr:removeChildNodes
 ```
 
-Ne pas s’appuyer uniquement sur le fait que l’onglet est masqué côté front. L’accès doit être contrôlé côté GraphQL / backend.
+Current file-download model:
+
+```text
+no dedicated permission;
+frontend reuses GraphQL file URL
+```
+
+The application must not rely only on route visibility in the UI. Backend enforcement still comes from GraphQL + JCR ACLs.
 
 ---
 
@@ -1258,214 +729,163 @@ Ne pas s’appuyer uniquement sur le fait que l’onglet est masqué côté fron
 
 ### V1 acceptable
 
-- lecture récursive ;
-- tri en mémoire ;
-- pagination en mémoire.
+The current design is acceptable for V1 because:
 
-Suffisant pour des volumes modestes.
+- results are queried page by page;
+- submissions are sorted and paginated server-side;
+- field labels are loaded once per selected form;
+- detail view reuses already loaded row data.
 
-### V2 recommandée
+### V2 possible improvements
 
-- requête JCR-SQL2 sur `[fmdb:formSubmission]` ;
-- `ISDESCENDANTNODE` ;
-- tri par `jcr:created` ;
-- `limit` / `offset` ;
-- index JCR si nécessaire.
+Potential future optimizations:
 
-Pseudo-code SQL2 :
-
-```sql
-SELECT * FROM [fmdb:formSubmission] AS s
-WHERE ISDESCENDANTNODE(s, '/sites/industrial/formidable-results/contact/submissions')
-ORDER BY s.[jcr:created] DESC
-```
+- dedicated backend DTOs instead of raw JCR GraphQL traversal;
+- server-side aggregation for counts and summaries;
+- explicit backend API for file access;
+- precomputed form labels or cached label lookups.
 
 ---
 
-## 18. Export CSV futur
+## 18. Future Export
 
-Endpoint ou mutation :
+The current module already ships an export dialog.
 
-```graphql
-formidableSubmissionsCsv(formResultsId: String!, filters: FormidableSubmissionFilters): String!
-```
+Current scope:
 
-Approche :
+- date-range filtering;
+- export-all mode;
+- multiple formats (`csv`, `json`);
+- filename generation client-side;
+- GraphQL-based data retrieval in `LIVE`.
 
-1. récupérer toutes les soumissions filtrées ;
-2. collecter l’union des noms de champs ;
-3. créer un header :
-
-```text
-created,status,submitterUsername,locale,ipAddress,<field1>,<field2>,...
-```
-
-4. écrire les valeurs ;
-5. retourner une URL de téléchargement ou un contenu encodé.
+The exported payload is built from the same submission query model used by the screen.
 
 ---
 
-## 19. Suppression future
+## 19. Deletion
 
-Mutation :
+Current implementation:
 
 ```graphql
-deleteFormidableSubmission(id: String!): Boolean!
+mutation DeleteSubmissions($submissionsQuery: String!, $workspace: Workspace = LIVE) {
+  jcr(workspace: $workspace) {
+    mutateNodesByQuery(query: $submissionsQuery, queryLanguage: SQL2) {
+      delete
+    }
+  }
+}
 ```
 
-Pseudo-code :
+Pseudo-code:
 
 ```java
-boolean deleteSubmission(String id) {
-    JCRNodeWrapper submission = session.getNodeByIdentifier(id);
-
-    assertNodeType(submission, "fmdb:formSubmission");
-    assertPermission(submission, "formidableResultsDelete");
-
-    submission.remove();
-    session.save();
-
+boolean deleteSubmissions(String sql2Query) {
+    // GraphQL runs in LIVE and remains subject to standard JCR delete permissions.
+    mutateNodesByQuery(sql2Query);
     return true;
 }
 ```
 
-Côté front :
-
-- sélection multiple via `enableSelection` ;
-- bouton “Delete selected” ;
-- confirmation obligatoire.
+The delete dialog additionally requires a confirmation string when deleting all results for a form.
 
 ---
 
-## 20. Spec de livraison V1
+## 20. V1 Delivery Scope
 
 ### Backend V1
 
-- GraphQL `formidableResults(siteKey)` ;
-- GraphQL `formidableSubmissions(...)` ;
-- GraphQL `formidableSubmission(id)` ;
-- permissions ;
-- lecture des fichiers en résumé ;
-- pas de suppression ;
-- pas d’export ;
-- pagination backend en mémoire.
+- rely on built-in JCR GraphQL;
+- rely on SQL2 queries for submission listing;
+- rely on standard JCR ACLs;
+- no dedicated results-download servlet.
 
 ### Frontend V1
 
-- `init.js` avec `registry.add('adminRoute', 'formidableResults', ...)` ;
-- écran React dans jContent ;
-- sidebar des formulaires ;
-- `DataTable` des soumissions ;
-- colonnes metadata fixes ;
-- colonnes dynamiques pour champs soumis ;
-- drawer de détail ;
-- i18n FR/EN ;
-- loading / empty / error states.
+- forms list;
+- submissions table;
+- detail panel;
+- file preview;
+- file download;
+- export dialog;
+- delete dialog;
+- FR/EN i18n;
+- loading, empty, and error states.
 
 ---
 
-## 21. Pseudo-code global
+## 21. Global Pseudo-code
 
 ```text
 on module initialization:
-  load i18n namespace
+  load i18n namespace "formidable-engine"
   register adminRoute "formidableResults" into jcontent additional apps
-  require module installed on site
-  require permission formidableResultsAccess
+  require module installed on site: "formidable-engine"
   render FormResultsApp
 
 FormResultsApp:
   read siteKey from contextJsParameters
-  query formidableResults(siteKey)
+  query /sites/<site>/formidable-results in LIVE
   if loading -> loader
   if error -> error state
   if no forms -> empty state
-  select first form by default
   render FormResultsList
   render SubmissionsTable(selectedForm)
+  render SubmissionDetailPanel(selectedSubmission)
+  optionally render ExportResultsDialog
+  optionally render DeleteResultsDialog
 
 SubmissionsTable:
-  keep state:
-    currentPage
-    itemsPerPage
-    sortBy
-    sortDirection
-    selectedSubmissionId
+  build SQL2 query on selected formResults path
+  query fmdb:formSubmission descendants in LIVE
+  map raw GraphQL nodes to SubmissionRow
+  support sort direction toggle
+  support pagination
+  support keyboard navigation
 
-  query formidableSubmissions(
-    siteKey,
-    formResultsId,
-    currentPage,
-    itemsPerPage,
-    sortBy,
-    sortDirection
-  )
-
-  convert submissions to table rows
-  collect dynamic field columns
-  render Moonstone DataTable:
-    data = rows
-    columns = fixed columns + field columns
-    primaryKey = id
-    enableSelection = true
-    enableSorting = true
-    enablePagination = true
-    controlled pagination
-    controlled sorting
-    renderRow adds action cell
-
-  on row action:
-    open SubmissionDetailDrawer
-
-SubmissionDetailDrawer:
-  query formidableSubmission(id)
-  render metadata
+SubmissionDetailPanel:
+  render submission metadata
   render submitted values
-  render uploaded files
+  render files
+  open preview dialog when possible
 ```
 
 ---
 
-## 22. Points d’attention spécifiques au stockage save2jcr
+## 22. Save-to-JCR Specific Attention Points
 
-Le backend doit traiter ces cas :
+The screen is tightly coupled to the storage contract of `fmdb:save2jcrAction`.
 
-```text
-submissions/<submission>
-submissions/YYYY/<submission>
-submissions/YYYY/MM/<submission>
-submissions/YYYY/MM/DD/<submission>
-```
+Key assumptions:
 
-même si le cas attendu est `YYYY/MM/DD`.
+- results live under `/sites/<site>/formidable-results`;
+- each form has one logical `fmdb:formResults` identified by `parentForm`;
+- submissions are descendants of `<form-results>/submissions`;
+- user field values are stored as properties under `data`;
+- uploaded files are stored under `files/<fieldName>/<fileName>`.
 
-Il ne faut pas supposer que tous les noeuds enfants de `submissions` sont des soumissions directes.
-
-Il faut éviter d’identifier un formulaire par le nom du dossier `fmdb:formResults`. La vraie identité est `parentForm`.
-
-Pour le détail ou les actions, il faut préférer l’`identifier` JCR à `path`, car les chemins peuvent changer si un formulaire est renommé ou si une soumission est déplacée par auto-splitting.
+If the storage contract changes, the screen queries and mapping utilities must be updated accordingly.
 
 ---
 
-## 23. Remarques d’implémentation
+## 23. Implementation Notes
 
 ### Workspace
 
-Le choix du workspace dépend de l’usage attendu :
+Current implementation uses `LIVE` consistently.
 
-- `EDIT` : cohérent avec jContent et les données de contribution ;
-- `LIVE` : seulement si les résultats doivent être consultés comme données publiées.
+That is coherent because `SaveToJcrFormAction` persists results directly in `LIVE`, and the admin screen explicitly queries `LIVE`.
 
-Pour un écran d’administration dans jContent, `EDIT` est le choix par défaut.
+`EDIT` is not used by the shipped results screen.
 
-### Colonnes dynamiques
+### Dynamic columns
 
-Idéalement, les colonnes dynamiques doivent être issues de la définition du formulaire plutôt que uniquement des soumissions retournées sur la page courante. Cela permet d’éviter que les colonnes changent d’une page à l’autre.
+The current table focuses on technical metadata and summary counts rather than rendering one column per submitted field.
 
-Approche V1 : union des champs présents dans les soumissions de la page.
+If dynamic business columns are needed later, the preferred source of truth is the parent form definition rather than only the fields present on the current page of submissions.
 
-Approche V2 : résolution des champs depuis le formulaire parent référencé par `parentForm`.
+### Renamed forms
 
-### Formulaire renommé
+The `fmdb:formResults` node name is not contractual.
 
-Le nom du dossier `fmdb:formResults` n’est pas contractuel. Il peut rester historique même si le formulaire est renommé, donc l’écran doit toujours utiliser l’identifiant JCR du `formResults` côté API et la weakreference `parentForm` pour l’identité fonctionnelle.
+The screen should always treat `parentForm` as the functional identity and use JCR identifiers internally where possible.

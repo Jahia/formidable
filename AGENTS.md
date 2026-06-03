@@ -97,32 +97,37 @@ The module also contains the **server-side form action framework** (Java / OSGi)
 ### Form action pipeline
 
 **Roles:**
-- **Admin** – creates action nodes (e.g. `fmdb:captchaAction`, `fmdb:emailNotificationAction`) anywhere in the site content tree.
-- **Contributor** – applies the `fmdbmix:actionPipeline` mixin to a `fmdb:form` node, then selects one or more action nodes via the `actions` weakreference-multiple property.
+- **Admin** – maintains the operator-side OSGi configuration used by the pipeline (for example CAPTCHA keys and forward targets in `org.jahia.modules.formidable.cfg`).
+- **Contributor** – configures action nodes directly under the autocreated `actions` child node (`fmdb:actionList`) of each `fmdb:form`.
 
-When the form has at least one referenced action (`hasProperty('actions')`), the server-side view computes a Jahia action URL:
+When the form is rendered outside edit/preview mode, the server-side view computes the submit URL:
 
 ```
-/cms/render/live/{locale}{nodePath}.formidableSubmit.do
+/modules/formidable-engine/form-submit?fid={formUuid}&lang={language}
 ```
 
-This URL is passed as `submitActionUrl` to the `Form` Island and used instead of `customTarget`.
+This URL is passed as `submitActionUrl` to the `Form` Island.
 
-The `FormSubmitAction` Java class resolves each weakreference, finds the matching `FormAction` OSGi service by primary node type, and executes them in order.
+The `FormSubmitServlet` Java class receives the multipart POST, delegates to `FormSubmissionPipeline`, then the pipeline reads the child nodes under `actions` in order, finds the matching `FormAction` OSGi service by primary node type, and executes them in sequence.
 
 **Adding a new action type:**
-1. Declare `[fmdb:myAction] > jnt:content, fmdbmix:formAction, mix:title` in `formidable-engine/src/main/resources/META-INF/definitions.cnd`.
-2. Implement `FormAction` and annotate it `@Component(service = FormAction.class)`.
-3. Return the node type string from `getNodeType()`.
+1. Declare `[fmdb:myAction] > jnt:content, fmdbmix:formAction, mix:title` in the owning module's `definitions.cnd`.
+2. Implement `org.jahia.modules.formidable.engine.api.FormAction` and annotate it `@Component(service = FormAction.class)`.
+3. Return the exact node type string from `getNodeType()`.
+4. Provide authoring support so contributors can create and configure the node under the form's `actions` list.
 
 **Built-in actions:**
 
 | Node type | Java class | Description |
 |---|---|---|
-| `fmdb:captchaAction` | `CaptchaVerificationFormAction` | Verifies the token against Turnstile / hCaptcha / reCAPTCHA. Each widget auto-injects its native field (`cf-turnstile-response`, `h-captcha-response`, `g-recaptcha-response`) into the form DOM. |
+| `fmdb:save2jcrAction` | `SaveToJcrFormAction` | Persists submissions under `/sites/<site>/formidable-results/...` in the `live` workspace |
 | `fmdb:emailNotificationAction` | `SendEmailNotificationFormAction` | Sends an email via Jahia `MailService`; subject and body support `${fieldName}` interpolation |
+| `fmdb:emailContentAction` | `SendEmailContentFormAction` | Sends the submitted form content by email and can attach validated uploaded files |
+| `fmdb:forwardAction` | `ForwardSubmissionFormAction` | Forwards declared form fields and uploaded files to a configured target resolved from OSGi config |
 
 Java sources live in `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/`.
+
+CAPTCHA verification is not a standalone action node anymore. It is handled inline at step 6 of `FormSubmissionPipeline` when the form carries `fmdbmix:captcha`.
 
 ## Toolchain Versions (see `mise.toml`)
 
