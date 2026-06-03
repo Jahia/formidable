@@ -42,9 +42,7 @@ export const SubmissionDetailPanel = ({submission, formFieldLabels, onClose}: Su
     const metadata = [
         {label: t('formResults.detail.created'), value: formatDate(submission.created)},
         {label: t('formResults.detail.origin'), value: submission.origin},
-        {label: t('formResults.detail.ipAddress'), value: submission.ipAddress},
         {label: t('formResults.detail.locale'), value: submission.locale},
-        {label: t('formResults.detail.user'), value: submission.submitterUsername},
         {label: t('formResults.detail.userAgent'), value: submission.userAgent},
         {label: t('formResults.detail.referer'), value: submission.referer}
     ].filter(item => item.value);
@@ -256,4 +254,3 @@ export const SubmissionDetailPanel = ({submission, formFieldLabels, onClose}: Su
         </aside>
     );
 };
-

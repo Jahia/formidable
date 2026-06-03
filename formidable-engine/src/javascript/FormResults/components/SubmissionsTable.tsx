@@ -177,7 +177,7 @@ export const SubmissionsTable = ({
             >
                 <Table
                     style={{
-                        minWidth: '870px'
+                        minWidth: '620px'
                     }}
                 >
                     <TableHead>
@@ -190,9 +190,7 @@ export const SubmissionsTable = ({
                             >
                                 {t('formResults.table.date')}
                             </TableHeadCell>
-                            <TableHeadCell width="110px">{t('formResults.table.user')}</TableHeadCell>
                             <TableHeadCell width="90px">{t('formResults.table.locale')}</TableHeadCell>
-                            <TableHeadCell width="140px">{t('formResults.table.ipAddress')}</TableHeadCell>
                             <TableHeadCell width="80px" textAlign="center">{t('formResults.table.files')}</TableHeadCell>
                             <TableHeadCell width="90px" textAlign="center">{t('formResults.table.filledFields')}</TableHeadCell>
                             <TableHeadCell width="110px" textAlign="right"/>
@@ -212,14 +210,8 @@ export const SubmissionsTable = ({
                                 <TableBodyCell width="180px" isScrollable>
                                     {formatDate(submission.created)}
                                 </TableBodyCell>
-                                <TableBodyCell width="110px" isScrollable>
-                                    {submission.submitterUsername ?? ''}
-                                </TableBodyCell>
                                 <TableBodyCell width="90px">
                                     {submission.locale ?? ''}
-                                </TableBodyCell>
-                                <TableBodyCell width="140px" isScrollable>
-                                    {submission.ipAddress ?? ''}
                                 </TableBodyCell>
                                 <TableBodyCell width="80px" textAlign="center">
                                     {submission.files.length}
