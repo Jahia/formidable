@@ -425,5 +425,5 @@ Form submissions use `XMLHttpRequest` (not `fetch`). Jahia's OWASP CSRFGuard pat
 | `formidable-engine/.../actions/forward/ForwardSubmissionFormAction.java` | Resolves `targetId` via `FormidableConfigService`; forwards declared fields only |
 | `formidable-engine/.../actions/email/SendEmailNotificationFormAction.java` | Sends notification email; headers normalized with `headerSafe()`; HTML body escapes values with `html()` |
 | `formidable-engine/.../actions/email/SendEmailContentFormAction.java` | Sends the submitted form content by email; can optionally attach validated uploaded files, capped by action-level and global upload limits |
-| `formidable-engine/.../actions/FormAction.java` | Interface implemented by each action type |
+| `formidable-engine/.../api/FormAction.java` | Interface implemented by each action type |
 | `formidable-engine/.../config/FormidableConfigService.java` | Reads unified cfg; resolves forward targets by ID; verifies CAPTCHA
