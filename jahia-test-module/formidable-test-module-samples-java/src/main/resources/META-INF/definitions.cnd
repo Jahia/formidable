@@ -1,0 +1,5 @@
+<jnt = 'http://www.jahia.org/jahia/nt/1.0'>
+<fmdbmix = 'http://www.jahia.org/jahia/fmdb/mix/1.0'>
+<fmdbsample = 'http://www.jahia.org/jahia/fmdbsample/nt/1.0'>
+
+[fmdbsample:logSubmissionAction] > jnt:content, fmdbmix:formAction, mix:title

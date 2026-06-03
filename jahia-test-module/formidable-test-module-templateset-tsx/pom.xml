@@ -6,7 +6,7 @@
         <artifactId>formidable-test-modules-parent</artifactId>
         <version>0.2.0-SNAPSHOT</version>
     </parent>
-    <artifactId>formidable-test-module-tsx</artifactId>
+    <artifactId>formidable-test-module-templateset-tsx</artifactId>
     <name>Formidable Test - TSX TemplateSet Module</name>
     <packaging>pom</packaging>
     <description>TSX templateSet module used by the Formidable end-to-end Cypress test suite.</description>

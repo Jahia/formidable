@@ -4,7 +4,7 @@
   xmlns:jcr="http://www.jcp.org/jcr/1.0"
   >
   <modules jcr:primaryType="jnt:modules">
-    <formidable-test-module-tsx>
+    <formidable-test-module-templateset-tsx>
       <home
         j:isHomePage="true"
         j:templateName="basic"
@@ -17,6 +17,6 @@
           jcr:title="Formidable Test Home"
           />
       </home>
-    </formidable-test-module-tsx>
+    </formidable-test-module-templateset-tsx>
   </modules>
 </content>

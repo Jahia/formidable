@@ -69,7 +69,7 @@ This project uses two distinct dependency strategies in its Java modules:
   - keep the current package-level SPI isolation as the intermediate step
   - revisit the split only if Formidable gains multiple external consumers or if OSGi refresh cascades become an operational issue
 
-## `jahia-test-module/formidable-test-module-jsp`
+## `jahia-test-module/formidable-test-module-templateset-jsp`
 
 ### Provided libraries
 

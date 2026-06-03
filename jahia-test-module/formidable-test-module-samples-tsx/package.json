@@ -1,5 +1,5 @@
 {
-	"name": "formidable-test-module-tsx",
+	"name": "formidable-test-module-samples-tsx",
 	"version": "0.2.0",
 	"type": "module",
 	"files": [
@@ -44,7 +44,7 @@
 	"jahia": {
 		"snapshot": true,
 		"module-dependencies": "default,formidable-elements",
-		"module-type": "templatesSet",
+		"module-type": "module",
 		"server": "dist/server/index.js",
 		"static-resources": "/dist/client,/dist/assets,/locales,/images,/icons"
 	}

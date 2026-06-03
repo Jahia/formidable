@@ -40,14 +40,20 @@
     </repositories>
 
     <modules>
-        <module>formidable-test-module-jsp</module>
-        <module>formidable-test-module-tsx</module>
+        <module>formidable-test-module-templateset-jsp</module>
+        <module>formidable-test-module-templateset-tsx</module>
+        <module>formidable-test-module-samples-tsx</module>
+        <module>formidable-test-module-samples-java</module>
     </modules>
 
     <properties>
         <jahia.server.version>8.2.2.0</jahia.server.version>
+        <javax.jcr.version>2.0</javax.jcr.version>
         <javax.servlet.api.version>3.0.1</javax.servlet.api.version>
         <jstl.version>1.2</jstl.version>
+        <slf4j.version>1.7.36</slf4j.version>
+        <osgi.version>7.0.0</osgi.version>
+        <osgi.annotation.version>7.0.0</osgi.annotation.version>
         <maven-dependency-plugin.version>3.6.0</maven-dependency-plugin.version>
     </properties>
 
@@ -72,9 +78,33 @@
                 <scope>provided</scope>
             </dependency>
             <dependency>
+                <groupId>javax.jcr</groupId>
+                <artifactId>jcr</artifactId>
+                <version>${javax.jcr.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
                 <groupId>javax.servlet</groupId>
                 <artifactId>javax.servlet-api</artifactId>
                 <version>${javax.servlet.api.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${slf4j.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.osgi</groupId>
+                <artifactId>osgi.cmpn</artifactId>
+                <version>${osgi.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.osgi</groupId>
+                <artifactId>osgi.annotation</artifactId>
+                <version>${osgi.annotation.version}</version>
                 <scope>provided</scope>
             </dependency>
         </dependencies>

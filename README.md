@@ -21,6 +21,7 @@ Formidable is based on Jahia standard technologies:
 - [Form submission flow](docs/form-submission-flow.md) - request lifecycle, pipeline steps, and server-side safeguards
 - [CAPTCHA server-side validation](docs/captcha-server-side-validation.md) - provider verification endpoints and token handling
 - [How to create a form action](docs/how-to-create-form-action.md) - step-by-step guide for implementing a custom `FormAction` OSGi service
+- [How to extend views and elements from a third-party module](docs/how-to-extend-views-and-elements-from-third-party-module.md) - rendering contract for external container views and custom form elements
 - [Save to JCR](docs/save-to-jcr.md) - how submissions and uploaded files are stored in JCR
 - [Results permissions](docs/results-permissions.md) - per-form access control for submission results (`fmdb-results-reader` role)
 - [Export](docs/export.md) - multi-format export architecture (CSV, JSON) with date range filtering

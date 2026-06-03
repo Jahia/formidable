@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <content xmlns:j="http://www.jahia.org/jahia/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0">
     <modules jcr:primaryType="jnt:modules">
-        <formidable-test-module-jsp j:dependencies="default"
-                                    j:installedModules="formidable-test-module-jsp"
+        <formidable-test-module-templateset-jsp j:dependencies="default"
+                                    j:installedModules="formidable-test-module-templateset-jsp"
                                     j:modulePriority="0"
                                     j:moduleType="templatesSet"
-                                    j:title="formidable-test-module-jsp"
+                                    j:title="formidable-test-module-templateset-jsp"
                                     jcr:mixinTypes="jmix:hasExternalProviderExtension"
                                     jcr:primaryType="jnt:module">
             <sources jcr:mixinTypes="jmix:sourceControl jmix:hasExternalProviderExtension"
                      jcr:primaryType="jnt:moduleVersionFolder"
-                     j:staticMountPointProviderKey="module-formidable-test-module-jsp-1.0.0-SNAPSHOT">
+                     j:staticMountPointProviderKey="module-formidable-test-module-templateset-jsp-1.0.0-SNAPSHOT">
                 <src jcr:mixinTypes="jmix:sourceControl jmix:hasExternalProviderExtension"
                      jcr:primaryType="jnt:folder">
                     <main jcr:mixinTypes="jmix:sourceControl jmix:hasExternalProviderExtension"
@@ -38,8 +38,8 @@
                     </themes>
                 </files>
                 <contents jcr:primaryType="jnt:contentFolder"/>
-                <base j:theme="#/modules/formidable-test-module-jsp/templates/files/themes/default"
-                      j:view="formidable-test-module-jsp"
+                <base j:theme="#/modules/formidable-test-module-templateset-jsp/templates/files/themes/default"
+                      j:view="formidable-test-module-templateset-jsp"
                       jcr:mixinTypes="jmix:theme"
                       jcr:primaryType="jnt:template">
                     <simple j:hiddenTemplate="false"
@@ -54,7 +54,7 @@
                 <content-template j:applyOn="jnt:content"
                                   j:hiddenTemplate="true"
                                   j:priority="1"
-                                  j:view="formidable-test-module-jsp"
+                                  j:view="formidable-test-module-templateset-jsp"
                                   jcr:primaryType="jnt:contentTemplate">
                     <pagecontent jcr:primaryType="jnt:contentList">
                         <main-resource-display j:mainResourceView="default" jcr:primaryType="jnt:mainResourceDisplay"/>
@@ -69,6 +69,6 @@
                                   jcr:primaryType="jnt:translation"
                                   jcr:title="Home"/>
             </home>
-        </formidable-test-module-jsp>
+        </formidable-test-module-templateset-jsp>
     </modules>
 </content>

@@ -9,7 +9,11 @@
 - installBundle:
     - 'mvn:org.jahia.modules/graphql-dxm-provider'
     - 'mvn:org.jahia.modules/jcontent'
-    - 'js:mvn:org.jahia.modules/formidable-elements/0.0.1-SNAPSHOT/tgz'
-    - 'mvn:org.jahia.test/formidable-test-module-jsp'
+    - 'js:mvn:org.jahia.modules/formidable-elements/0.2.0-SNAPSHOT/tgz'
+    - 'mvn:org.jahia.modules/formidable-engine/0.2.0-SNAPSHOT'
+    - 'mvn:org.jahia.test/formidable-test-module-samples-java/0.2.0-SNAPSHOT'
+    - 'js:mvn:org.jahia.test/formidable-test-module-samples-tsx/0.2.0-SNAPSHOT/tgz'
+    - 'mvn:org.jahia.test/formidable-test-module-templateset-jsp/0.2.0-SNAPSHOT'
+    - 'js:mvn:org.jahia.test/formidable-test-module-templateset-tsx/0.2.0-SNAPSHOT/tgz'
   autoStart: true
   uninstallPreviousVersion: true

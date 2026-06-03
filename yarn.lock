@@ -3393,9 +3393,31 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"formidable-test-module-tsx@workspace:jahia-test-module/formidable-test-module-tsx":
+"formidable-test-module-samples-tsx@workspace:jahia-test-module/formidable-test-module-samples-tsx":
   version: 0.0.0-use.local
-  resolution: "formidable-test-module-tsx@workspace:jahia-test-module/formidable-test-module-tsx"
+  resolution: "formidable-test-module-samples-tsx@workspace:jahia-test-module/formidable-test-module-samples-tsx"
+  dependencies:
+    "@eslint-react/eslint-plugin": "npm:^1.49.0"
+    "@eslint/compat": "npm:^1.2.9"
+    "@eslint/js": "npm:^9.26.0"
+    "@jahia/javascript-modules-library": "npm:^1.2.0"
+    "@jahia/vite-plugin": "npm:^1.2.0"
+    "@types/react": "npm:^19.1.2"
+    eslint: "npm:^9.26.0"
+    globals: "npm:^16.0.0"
+    prettier: "npm:^3.5.3"
+    react: "npm:^19.1.0"
+    rollup-plugin-sbom: "npm:^2.1.2"
+    typescript: "npm:^5.8.3"
+    typescript-eslint: "npm:^8.31.1"
+    typescript-plugin-css-modules: "npm:^5.1.0"
+    vite: "npm:^7.0.0"
+  languageName: unknown
+  linkType: soft
+
+"formidable-test-module-templateset-tsx@workspace:jahia-test-module/formidable-test-module-templateset-tsx":
+  version: 0.0.0-use.local
+  resolution: "formidable-test-module-templateset-tsx@workspace:jahia-test-module/formidable-test-module-templateset-tsx"
   dependencies:
     "@eslint-react/eslint-plugin": "npm:^1.49.0"
     "@eslint/compat": "npm:^1.2.9"
