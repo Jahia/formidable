@@ -53,11 +53,11 @@ public class LogSubmissionFormAction implements FormAction {
 
         for (SubmittedFile file : files) {
             logger.info(
-                    "Formidable sample file field='{}' originalName='{}' mimeType='{}' size={}B",
+                    "Formidable sample file field='{}' originalName='{}' mimeType='{}'",
                     file.fieldName(),
                     file.originalName(),
-                    file.mimeType(),
-                    file.data().length
+                    file.mimeType()
+            );
             );
         }
     }
