@@ -13,7 +13,7 @@ jahiaComponent(
 			<div data-fmdb-step className="fmdb-step" style={initiallyHidden ? {display: 'none'} : undefined}>
 				<Render
 					node={currentNode}
-					view="logic.hidden"
+					view="hidden.logic"
 					parameters={{childClassName: "fmdb-form-element"}}
 				/>
 			</div>

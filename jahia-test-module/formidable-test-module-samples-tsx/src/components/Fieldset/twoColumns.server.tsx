@@ -26,7 +26,7 @@ jahiaComponent(
 
           <Render
             node={currentNode}
-            view="logic.hidden"
+            view="hidden.logic"
             parameters={{
               className: classes.grid,
               childClassName: classes.item,

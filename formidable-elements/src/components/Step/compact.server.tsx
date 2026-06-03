@@ -18,7 +18,7 @@ jahiaComponent(
 				{intro && <div className="fmdb-step-intro" dangerouslySetInnerHTML={{__html: intro}}/>}
 				<Render
 					node={currentNode}
-					view="logic.hidden"
+					view="hidden.logic"
 					parameters={{childClassName: "fmdb-form-element"}}
 				/>
 			</div>

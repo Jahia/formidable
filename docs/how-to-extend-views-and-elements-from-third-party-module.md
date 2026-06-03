@@ -39,17 +39,17 @@ Current examples in Formidable:
 
 Containers must not render their children with a plain manual loop unless they deliberately reimplement Formidable's logic contract.
 
-They should delegate child rendering to the built-in `logic.hidden` view on `fmdbmix:formContainer`.
+They should delegate child rendering to the built-in `hidden.logic` view on `fmdbmix:formContainer`.
 
 ### 2. `fmdbmix:element`
 
 A form element is a leaf field such as a text input, checkbox, select, or textarea.
 
-Leaf elements do not render child nodes, so they do not need the `logic.hidden` indirection.
+Leaf elements do not render child nodes, so they do not need the `hidden.logic` indirection.
 
 They can render their own HTML directly.
 
-## Why containers must use `logic.hidden`
+## Why containers must use `hidden.logic`
 
 Formidable executes conditional visibility logic at render boundaries, not inside every individual container implementation.
 
@@ -62,7 +62,7 @@ The shared container view:
 - applies step-specific fallback behavior for multi-step forms
 - hides later steps on first render when the form uses step navigation
 
-That is why `fmdb:form` itself now delegates the rendering of its `fields` child node through `logic.hidden`, and why `fmdb:fieldset` and `fmdb:step` do the same.
+That is why `fmdb:form` itself now delegates the rendering of its `fields` child node through `hidden.logic`, and why `fmdb:fieldset` and `fmdb:step` do the same.
 
 If an external container bypasses this shared view, the usual regressions are:
 
@@ -78,7 +78,7 @@ Example: add a `twoColumns` view for `fmdb:fieldset`.
 The key point is this:
 
 - your custom container view can control layout
-- but child rendering should still go through `logic.hidden`
+- but child rendering should still go through `hidden.logic`
 
 Example:
 
@@ -110,7 +110,7 @@ jahiaComponent(
 
         <Render
           node={currentNode}
-          view="logic.hidden"
+          view="hidden.logic"
           parameters={{
             className: classes.grid,
             childClassName: classes.item,
@@ -125,7 +125,7 @@ jahiaComponent(
 What this does:
 
 - your view owns the wrapper markup and layout
-- `logic.hidden` still owns the rendering contract for child nodes
+- `hidden.logic` still owns the rendering contract for child nodes
 
 ## Case 2: add a new custom container type
 
@@ -158,7 +158,7 @@ jahiaComponent(
     <section className="my-panel">
       <Render
         node={currentNode}
-        view="logic.hidden"
+        view="hidden.logic"
         parameters={{
           className: "my-panel-content",
           childClassName: "my-panel-item",
@@ -171,7 +171,7 @@ jahiaComponent(
 
 ## Case 3: add a new leaf form element
 
-For a leaf field, there is nothing special to do for `logic.hidden`.
+For a leaf field, there is nothing special to do for `hidden.logic`.
 
 Why:
 
@@ -283,6 +283,6 @@ This lets the submission pipeline react to semantics instead of hard-coding your
 
 ## Rule of thumb
 
-If your custom view renders child form nodes, treat it as a `formContainer` and delegate child rendering to `logic.hidden`.
+If your custom view renders child form nodes, treat it as a `formContainer` and delegate child rendering to `hidden.logic`.
 
 If your custom view renders a single field and no child form nodes, treat it as a leaf `formElement` and render the HTML directly.

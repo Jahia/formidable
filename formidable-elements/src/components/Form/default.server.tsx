@@ -113,7 +113,7 @@ jahiaComponent(
 				{fieldListNode && (
 					<Render
 						node={fieldListNode}
-						view="logic.hidden"
+						view="hidden.logic"
 						parameters={{
 							preferCompactStepView: showStepsNav ? "true" : "false",
 							hideStepsAfterFirst: showStepsNav ? "true" : "false",

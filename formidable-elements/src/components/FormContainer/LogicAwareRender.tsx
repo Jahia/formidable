@@ -29,7 +29,9 @@ const LogicAwareRender = ({node, view, parameters, className}: LogicAwareRenderP
 			data-fmdb-node-type={node.getPrimaryNodeTypeName()}
 			data-fmdb-logics={hasLogic ? JSON.stringify(logics) : undefined}
 		>
-			<Render node={node} view={view} parameters={parameters}/>
+			{view
+				? <Render node={node} view={view} parameters={parameters}/>
+				: <Render node={node} parameters={parameters}/>}
 		</div>
 	);
 };

@@ -30,7 +30,7 @@ jahiaComponent(
 				{elementNodes.length > 0 && (
 					<Render
 						node={currentNode}
-						view="logic.hidden"
+						view="hidden.logic"
 						parameters={{
 							className: "fmdb-fieldset-elements",
 							childClassName: "fmdb-form-element",

@@ -18,7 +18,7 @@ jahiaComponent(
 	{
 		componentType: "view",
 		nodeType: "fmdbmix:formContainer",
-		name: "logic.hidden"
+		name: "hidden.logic"
 	},
 	(_props, {currentNode, currentResource}) => {
 		const elementNodes = Array.from(currentNode.getNodes()) as FormContainerNode[];
