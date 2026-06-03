@@ -4,8 +4,8 @@ This is the single guide for adding a server-side Formidable action, whether the
 
 Relevant runtime files:
 
-- `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/FormAction.java`
-- `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/FormActionException.java`
+- `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/FormAction.java`
+- `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/FormActionException.java`
 - `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/servlet/FormSubmissionPipeline.java`
 - `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/servlet/FormSubmitServlet.java`
 - `formidable-engine/src/main/resources/META-INF/definitions.cnd`
@@ -31,7 +31,7 @@ If the action belongs to another Jahia module:
 
 - declare the node type in that module's own `definitions.cnd`
 - add a Maven dependency on `formidable-engine`
-- make sure the bundle imports `org.jahia.modules.formidable.engine.actions`
+- make sure the bundle imports `org.jahia.modules.formidable.engine.api`
 
 If the action belongs to this repository, the same rules apply, except the node type and handler live directly in `formidable-engine`.
 
@@ -195,7 +195,7 @@ At minimum, authors must be able to:
 
 1. create a node of your action type
 2. edit its properties
-3. configure it on the form's `actions` list
+3. create or place it under the form's `actions` child node (`fmdb:actionList`)
 
 For an external action, this authoring support also belongs in that module.
 

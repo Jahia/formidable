@@ -20,6 +20,13 @@ Formidable is based on Jahia standard technologies:
 - [CND module ownership](docs/cnd-module-ownership.md) - where JCR types and mixins belong, and how to choose between `formidable-elements` and `formidable-engine`
 - [Form submission flow](docs/form-submission-flow.md) - request lifecycle, pipeline steps, and server-side safeguards
 - [CAPTCHA server-side validation](docs/captcha-server-side-validation.md) - provider verification endpoints and token handling
+- [How to create a form action](docs/how-to-create-form-action.md) - step-by-step guide for implementing a custom `FormAction` OSGi service
+- [Save to JCR](docs/save-to-jcr.md) - how submissions and uploaded files are stored in JCR
+- [Results permissions](docs/results-permissions.md) - per-form access control for submission results (`fmdb-results-reader` role)
+- [Export](docs/export.md) - multi-format export architecture (CSV, JSON) with date range filtering
+- [Conditional logic field resolution](docs/conditional-logic-field-resolution.md) - weakref-based model for conditional logic dependencies
+- [Error codes](docs/error-codes.md) - server-side error codes returned on form submission failure
+- [Dependency decisions](docs/dependency-decisions.md) - rationale for embedded vs. provided dependencies in Java modules
 
 ## Alpha version
 
@@ -42,6 +49,7 @@ It will include the ability to:
   - Hidden
   - Rich text (embeddable HTML content block)
 - Create form references (reuse an existing form via weak reference)
+- Conditional logic (show/hide fields based on other field values, using weakref-based dependency resolution)
 - 4 built-in form actions:
   - Save to JCR (persists submissions and uploaded files under `formidable-results/`)
   - Send email notification (with `${fieldName}` interpolation in subject and body)
@@ -49,14 +57,17 @@ It will include the ability to:
   - Forward to external endpoint (multipart/form-data POST to operator-configured targets)
 - CAPTCHA support (tested with Google reCAPTCHA, Cloudflare Turnstile and hCaptcha)
 - Require authenticated user (reject anonymous submissions server-side)
+- Server-side submission validation (field constraints, allowed MIME types, choice value allowlists, cross-origin request checks)
 - Form results admin panel in jContent (only for forms using the Save to JCR action):
   - Browse saved submissions per form
   - Detail panel with metadata, field values, file cards with thumbnails and preview
   - Keyboard navigation (arrow keys)
   - Multi-format export (CSV, JSON) with date range filtering
+  - Per-form access control via `fmdb-results-reader` role (results are private by default)
+  - Submission deletion (admin-only in v1)
 - Custom CSS injection per form
 - Extension points:
-  - Create your own action (implement `FormAction` OSGi service)
+  - Create your own action (implement `FormAction` OSGi service via `org.jahia.modules.formidable.engine.api`)
   - Overwrite the view for a field type
   - Create a new field type (CND + server view + optional client Island)
 
