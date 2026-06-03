@@ -3,4 +3,4 @@
 formidable: patch
 ---
 
-Update docs based on review (#91)
+Updated documentation based on review feedback.
