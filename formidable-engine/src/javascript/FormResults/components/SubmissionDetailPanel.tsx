@@ -161,7 +161,7 @@ export const SubmissionDetailPanel = ({submission, formFieldLabels, onClose}: Su
                                         <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
                                             {files.map(file => (
                                                 <Paper
-                                                    key={file.fileName}
+                                                    key={file.fileUuid}
                                                     hasPadding
                                                     style={{display: 'flex', flexDirection: 'column', gap: '8px', borderRadius: '2px'}}
                                                 >
