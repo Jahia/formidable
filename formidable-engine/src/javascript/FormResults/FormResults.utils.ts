@@ -46,9 +46,7 @@ export interface SubmissionRow {
     name: string;
     created: string;
     origin: string | null;
-    ipAddress: string | null;
     locale: string | null;
-    submitterUsername: string | null;
     userAgent: string | null;
     referer: string | null;
     fieldValues: SubmissionFieldValue[];
@@ -121,9 +119,7 @@ export function parseSubmissionNode(node: any): SubmissionRow {
         name: node.name,
         created: node.created?.value ?? '',
         origin: node.origin?.value ?? null,
-        ipAddress: node.ipAddress?.value ?? null,
         locale: node.locale?.value ?? null,
-        submitterUsername: node.submitterUsername?.value ?? null,
         userAgent: node.userAgent?.value ?? null,
         referer: node.referer?.value ?? null,
         fieldValues,
@@ -222,4 +218,3 @@ export function parseFormFieldLabels(data: any): Map<string, string> {
 
     return labels;
 }
-

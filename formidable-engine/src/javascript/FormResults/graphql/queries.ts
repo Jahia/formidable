@@ -57,13 +57,7 @@ export const GET_SUBMISSIONS = gql`
                     origin: property(name: "origin") {
                         value
                     }
-                    ipAddress: property(name: "ipAddress") {
-                        value
-                    }
                     locale: property(name: "locale") {
-                        value
-                    }
-                    submitterUsername: property(name: "submitterUsername") {
                         value
                     }
                     userAgent: property(name: "userAgent") {
@@ -163,4 +157,3 @@ export const GET_FORM_FIELD_LABELS = gql`
         }
     }
 `;
-

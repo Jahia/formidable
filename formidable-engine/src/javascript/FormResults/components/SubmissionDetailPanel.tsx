@@ -42,9 +42,7 @@ export const SubmissionDetailPanel = ({submission, formFieldLabels, onClose}: Su
     const metadata = [
         {label: t('formResults.detail.created'), value: formatDate(submission.created)},
         {label: t('formResults.detail.origin'), value: submission.origin},
-        {label: t('formResults.detail.ipAddress'), value: submission.ipAddress},
         {label: t('formResults.detail.locale'), value: submission.locale},
-        {label: t('formResults.detail.user'), value: submission.submitterUsername},
         {label: t('formResults.detail.userAgent'), value: submission.userAgent},
         {label: t('formResults.detail.referer'), value: submission.referer}
     ].filter(item => item.value);
@@ -132,118 +130,122 @@ export const SubmissionDetailPanel = ({submission, formFieldLabels, onClose}: Su
                 </section>
 
                 {submission.files.length > 0 && (
-                    <section>
-                        <Typography variant="subheading" weight="bold" style={{marginBottom: '12px'}}>
-                            {t('formResults.detail.files')}
-                        </Typography>
-                        <div style={{display: 'flex', flexDirection: 'column', gap: '16px'}}>
-                            {Object.entries(
-                                submission.files.reduce<Record<string, SubmissionFile[]>>((groups, file) => {
-                                    const key = file.fieldName;
-                                    if (!groups[key]) {
-                                        groups[key] = [];
-                                    }
+                    <>
+                        <Separator/>
 
-                                    groups[key].push(file);
-                                    return groups;
-                                }, {})
-                            ).map(([fieldName, files]) => (
-                                <div key={fieldName}>
-                                    <Typography variant="body" weight="bold" style={{marginBottom: '2px'}}>
-                                        {formFieldLabels.get(fieldName) ?? fieldName}
-                                    </Typography>
-                                    {formFieldLabels.has(fieldName) && (
-                                        <Typography variant="caption" style={{display: 'block', color: 'var(--color-gray)', marginBottom: '8px'}}>
-                                            {fieldName}
+                        <section>
+                            <Typography variant="subheading" weight="bold" style={{marginBottom: '12px'}}>
+                                {t('formResults.detail.files')}
+                            </Typography>
+                            <div style={{display: 'flex', flexDirection: 'column', gap: '16px'}}>
+                                {Object.entries(
+                                    submission.files.reduce<Record<string, SubmissionFile[]>>((groups, file) => {
+                                        const key = file.fieldName;
+                                        if (!groups[key]) {
+                                            groups[key] = [];
+                                        }
+
+                                        groups[key].push(file);
+                                        return groups;
+                                    }, {})
+                                ).map(([fieldName, files]) => (
+                                    <div key={fieldName}>
+                                        <Typography variant="body" weight="bold" style={{marginBottom: '2px'}}>
+                                            {formFieldLabels.get(fieldName) ?? fieldName}
                                         </Typography>
-                                    )}
-                                    <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
-                                        {files.map(file => (
-                                            <Paper
-                                                key={file.fileName}
-                                                hasPadding
-                                                style={{display: 'flex', flexDirection: 'column', gap: '8px',borderRadius: '2px'}}
-                                            >
-                                                <div style={{display: 'flex', gap: '12px', alignItems: 'flex-start'}}>
-                                                    {file.thumbnailUrl ? (
-                                                        <img
-                                                            src={file.thumbnailUrl}
-                                                            alt={file.fileName}
-                                                            onClick={() => isPreviewable(file.mimeType) && setPreviewFile(file)}
-                                                            style={{
-                                                                width: '150px',
-                                                                maxHeight: '150px',
-                                                                objectFit: 'contain',
-                                                                padding: '16px',
-                                                                backgroundColor: 'var(--color-gray_light40)',
-                                                                flexShrink: 0,
-                                                                cursor: isPreviewable(file.mimeType) ? 'pointer' : 'default'
-                                                            }}
-                                                        />
-                                                    ) : (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => isPreviewable(file.mimeType) && setPreviewFile(file)}
-                                                            aria-label={isPreviewable(file.mimeType) ? t('formResults.detail.preview') : file.fileName}
-                                                            style={{
-                                                                width: '150px',
-                                                                maxHeight: '150px',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                                border: 'none',
-                                                                padding: '16px 0',
-                                                                borderRadius: '4px',
-                                                                backgroundColor: 'var(--color-gray_light40)',
-                                                                color: 'var(--color-gray)',
-                                                                flexShrink: 0,
-                                                                cursor: isPreviewable(file.mimeType) ? 'pointer' : 'default'
-                                                            }}
-                                                        >
-                                                            {getFileFallbackIcon(file.mimeType)}
-                                                        </button>
-                                                    )}
-                                                    <div style={{minWidth: 0, flex: 1}}>
-                                                        <Typography variant="body" style={{wordBreak: 'break-all'}}>
-                                                            {file.fileName}
-                                                        </Typography>
-                                                        {file.mimeType && (
-                                                            <Typography variant="body" style={{display: 'block', color: 'var(--color-gray)'}}>
-                                                                {file.mimeType}
-                                                            </Typography>
+                                        {formFieldLabels.has(fieldName) && (
+                                            <Typography variant="caption" style={{display: 'block', color: 'var(--color-gray)', marginBottom: '8px'}}>
+                                                {fieldName}
+                                            </Typography>
+                                        )}
+                                        <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                                            {files.map(file => (
+                                                <Paper
+                                                    key={file.fileUuid}
+                                                    hasPadding
+                                                    style={{display: 'flex', flexDirection: 'column', gap: '8px', borderRadius: '2px'}}
+                                                >
+                                                    <div style={{display: 'flex', gap: '12px', alignItems: 'flex-start'}}>
+                                                        {file.thumbnailUrl ? (
+                                                            <img
+                                                                src={file.thumbnailUrl}
+                                                                alt={file.fileName}
+                                                                onClick={() => isPreviewable(file.mimeType) && setPreviewFile(file)}
+                                                                style={{
+                                                                    width: '150px',
+                                                                    maxHeight: '150px',
+                                                                    objectFit: 'contain',
+                                                                    padding: '16px',
+                                                                    backgroundColor: 'var(--color-gray_light40)',
+                                                                    flexShrink: 0,
+                                                                    cursor: isPreviewable(file.mimeType) ? 'pointer' : 'default'
+                                                                }}
+                                                            />
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => isPreviewable(file.mimeType) && setPreviewFile(file)}
+                                                                aria-label={isPreviewable(file.mimeType) ? t('formResults.detail.preview') : file.fileName}
+                                                                style={{
+                                                                    width: '150px',
+                                                                    maxHeight: '150px',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    border: 'none',
+                                                                    padding: '16px 0',
+                                                                    borderRadius: '4px',
+                                                                    backgroundColor: 'var(--color-gray_light40)',
+                                                                    color: 'var(--color-gray)',
+                                                                    flexShrink: 0,
+                                                                    cursor: isPreviewable(file.mimeType) ? 'pointer' : 'default'
+                                                                }}
+                                                            >
+                                                                {getFileFallbackIcon(file.mimeType)}
+                                                            </button>
                                                         )}
+                                                        <div style={{minWidth: 0, flex: 1}}>
+                                                            <Typography variant="body" style={{wordBreak: 'break-all'}}>
+                                                                {file.fileName}
+                                                            </Typography>
+                                                            {file.mimeType && (
+                                                                <Typography variant="body" style={{display: 'block', color: 'var(--color-gray)'}}>
+                                                                    {file.mimeType}
+                                                                </Typography>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                                <div style={{display: 'flex', justifyContent: 'flex-end', gap: '4px'}}>
-                                                    {isPreviewable(file.mimeType) && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="small"
-                                                            label={t('formResults.detail.preview')}
-                                                            icon={<Visibility/>}
-                                                            onClick={() => setPreviewFile(file)}
-                                                        />
-                                                    )}
-                                                    <a
-                                                        href={file.fileUrl}
-                                                        download={file.fileName}
-                                                        style={{textDecoration: 'none'}}
-                                                    >
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="small"
-                                                            label={t('formResults.detail.download')}
-                                                            icon={<Download/>}
-                                                        />
-                                                    </a>
-                                                </div>
-                                            </Paper>
-                                        ))}
+                                                    <div style={{display: 'flex', justifyContent: 'flex-end', gap: '4px'}}>
+                                                        {isPreviewable(file.mimeType) && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="small"
+                                                                label={t('formResults.detail.preview')}
+                                                                icon={<Visibility/>}
+                                                                onClick={() => setPreviewFile(file)}
+                                                            />
+                                                        )}
+                                                        <a
+                                                            href={file.fileUrl}
+                                                            download={file.fileName}
+                                                            style={{textDecoration: 'none'}}
+                                                        >
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="small"
+                                                                label={t('formResults.detail.download')}
+                                                                icon={<Download/>}
+                                                            />
+                                                        </a>
+                                                    </div>
+                                                </Paper>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
-                    </section>
+                                ))}
+                            </div>
+                        </section>
+                    </>
                 )}
             </Paper>
             </div>
@@ -256,4 +258,3 @@ export const SubmissionDetailPanel = ({submission, formFieldLabels, onClose}: Su
         </aside>
     );
 };
-
