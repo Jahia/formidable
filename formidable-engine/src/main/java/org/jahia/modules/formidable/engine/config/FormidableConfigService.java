@@ -59,7 +59,7 @@ public class FormidableConfigService {
             String captchaScriptUrl,
             String captchaWidgetVar,
             String captchaTokenField,
-            String captchaVerifyUrl,
+            URI captchaVerifyUri,
             Duration captchaHttpConnectTimeout,
             Duration captchaHttpRequestTimeout,
             HttpClient captchaHttpClient,
@@ -85,7 +85,7 @@ public class FormidableConfigService {
         String captchaScriptUrl = osgiConfig.captchaScriptUrl();
         String captchaWidgetVar = osgiConfig.captchaWidgetVar();
         String captchaTokenField = osgiConfig.captchaTokenField();
-        String captchaVerifyUrl = osgiConfig.captchaVerifyUrl();
+        URI captchaVerifyUri = parseCaptchaVerifyUri(osgiConfig.captchaVerifyUrl());
         Duration captchaHttpConnectTimeout = readTimeoutSeconds(
                 "captchaHttpConnectTimeoutSeconds",
                 osgiConfig.captchaHttpConnectTimeoutSeconds(),
@@ -144,7 +144,7 @@ public class FormidableConfigService {
                 captchaScriptUrl,
                 captchaWidgetVar,
                 captchaTokenField,
-                captchaVerifyUrl,
+                captchaVerifyUri,
                 captchaHttpConnectTimeout,
                 captchaHttpRequestTimeout,
                 captchaHttpClient,
@@ -246,6 +246,38 @@ public class FormidableConfigService {
         return Optional.of(new ForwardTarget(id, label, uri, development));
     }
 
+    private static URI parseCaptchaVerifyUri(String rawUrl) {
+        if (rawUrl == null || rawUrl.isBlank()) {
+            return null;
+        }
+
+        URI uri;
+        try {
+            uri = URI.create(rawUrl.trim());
+        } catch (IllegalArgumentException e) {
+            log.warn("[FormidableConfigService] Invalid captchaVerifyUrl '{}': malformed URI.", rawUrl);
+            return null;
+        }
+
+        if (uri.getUserInfo() != null) {
+            log.warn("[FormidableConfigService] Invalid captchaVerifyUrl '{}': embedded credentials are not allowed.", rawUrl);
+            return null;
+        }
+
+        if (!"https".equalsIgnoreCase(uri.getScheme())) {
+            log.warn("[FormidableConfigService] Invalid captchaVerifyUrl '{}': HTTPS is required.", rawUrl);
+            return null;
+        }
+
+        String host = uri.getHost();
+        if (host == null || host.isBlank()) {
+            log.warn("[FormidableConfigService] Invalid captchaVerifyUrl '{}': hostname is missing.", rawUrl);
+            return null;
+        }
+
+        return uri;
+    }
+
     private static Map<String, ForwardTarget> mergeForwardTargets(
             Map<String, ForwardTarget> standardForwardTargets,
             Map<String, ForwardTarget> developmentForwardTargets
@@ -326,7 +358,7 @@ public class FormidableConfigService {
 
         try {
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(snapshot.captchaVerifyUrl()))
+                    .uri(snapshot.captchaVerifyUri())
                     .timeout(snapshot.captchaHttpRequestTimeout())
                     .header("Content-Type", "application/x-www-form-urlencoded")
                     .POST(HttpRequest.BodyPublishers.ofString(body))
@@ -343,12 +375,12 @@ public class FormidableConfigService {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new CaptchaVerificationException(
-                    "CAPTCHA verification request interrupted (verifyUrl=" + snapshot.captchaVerifyUrl() + ").",
+                    "CAPTCHA verification request interrupted (verifyUrl=" + snapshot.captchaVerifyUri() + ").",
                     e
             );
         } catch (Exception e) {
             throw new CaptchaVerificationException(
-                    "CAPTCHA verification request failed (verifyUrl=" + snapshot.captchaVerifyUrl() + ").",
+                    "CAPTCHA verification request failed (verifyUrl=" + snapshot.captchaVerifyUri() + ").",
                     e
             );
         }
@@ -393,7 +425,7 @@ public class FormidableConfigService {
     private static boolean isCaptchaVerificationConfigured(ConfigSnapshot snapshot) {
         return snapshot.captchaSiteKey() != null && !snapshot.captchaSiteKey().isBlank()
                 && snapshot.captchaSecretKey() != null && !snapshot.captchaSecretKey().isBlank()
-                && snapshot.captchaVerifyUrl() != null && !snapshot.captchaVerifyUrl().isBlank();
+                && snapshot.captchaVerifyUri() != null;
     }
 
     private static boolean isCaptchaWidgetConfigured(ConfigSnapshot snapshot) {

@@ -51,6 +51,7 @@ class FormSubmissionPipeline {
     private static final Logger log = LoggerFactory.getLogger(FormSubmissionPipeline.class);
 
     private static final String ACTIONS_NODE = "actions";
+    private static final String CAPTCHA_TOKEN_HEADER = "X-Formidable-Captcha-Token";
     @FunctionalInterface
     interface FieldMetadataCollectorAdapter {
         FormFieldMetadataCollector.Result collect(String formId, Locale locale) throws RepositoryException;
@@ -180,7 +181,7 @@ class FormSubmissionPipeline {
             throw new SubmissionException(ErrorCode.FMDB_005,
                     "CAPTCHA required but not configured (form: " + formId + ")");
         }
-        String token = req.getParameter("ct");
+        String token = req.getHeader(CAPTCHA_TOKEN_HEADER);
         try {
             if (!config.verifyCaptcha(token, req.getRemoteAddr())) {
                 throw new SubmissionException(ErrorCode.FMDB_006,

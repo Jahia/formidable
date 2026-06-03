@@ -179,20 +179,17 @@ export default function Form({
 		try {
 			const formData = new FormData(form);
 
-			// Remove the CAPTCHA widget's hidden field from the body — the token is already
-			// passed as the 'ct' URL query param so it must not be sent twice.
+			// Remove the CAPTCHA widget's hidden field from the body — the token is sent
+			// in a dedicated HTTP header so it must not be sent twice.
 			if (captcha) {
 				formData.delete(captcha.tokenField);
 			}
 
 			const interpolatedSubmissionMessage = interpolateMessage(submissionMessage, formData, locale);
 
-			// If a CAPTCHA widget is present, append the token as a URL query param (ct) so
-			// the servlet can verify it before reading any file data from the request stream.
-			const captchaToken = captcha ? captchaRef.current?.getToken() : undefined;
-			const targetUrl = captchaToken
-				? `${submitActionUrl}&ct=${encodeURIComponent(captchaToken)}`
-				: (submitActionUrl ?? form.action ?? window.location.href);
+			const rawCaptchaToken = captcha ? captchaRef.current?.getToken() : undefined;
+			const captchaToken = rawCaptchaToken?.trim() || undefined;
+			const targetUrl = submitActionUrl ?? form.action ?? window.location.href;
 
 			// XHR is required here instead of fetch: Jahia's OWASP CSRFGuard patches
 			// XMLHttpRequest.prototype.send to inject the CSRF token automatically.
@@ -200,6 +197,9 @@ export default function Form({
 			const response = await new Promise<XMLHttpRequest>((resolve, reject) => {
 				const xhr = new XMLHttpRequest();
 				xhr.open('POST', targetUrl, true);
+				if (captchaToken) {
+					xhr.setRequestHeader('X-Formidable-Captcha-Token', captchaToken);
+				}
 				xhr.withCredentials = true;
 				xhr.onload = () => resolve(xhr);
 				xhr.onerror = () => reject(new Error('Submission failed'));
