@@ -126,7 +126,7 @@ class FormSubmissionPipeline {
     }
 
     private void guardContentLength(HttpServletRequest req) throws SubmissionException {
-        long contentLength = req.getContentLength();
+        long contentLength = req.getContentLengthLong();
         // Early-reject optimization only: chunked requests legitimately report -1 here.
         // The definitive request-size enforcement still happens later in FormDataParser
         // via ServletFileUpload.setSizeMax(...) when the multipart stream is consumed.
