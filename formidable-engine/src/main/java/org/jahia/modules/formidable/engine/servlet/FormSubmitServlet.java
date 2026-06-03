@@ -21,7 +21,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
@@ -48,10 +50,14 @@ public class FormSubmitServlet extends HttpServlet {
     static final String SUBMIT_API = "formidable-submit";
 
     private static final Logger log = LoggerFactory.getLogger(FormSubmitServlet.class);
+    private static final int RATE_LIMIT_MAX_TRACKED_CLIENTS = 50_000;
+    private static final int RATE_LIMIT_CLEANUP_INTERVAL = 256;
 
     private final AtomicReference<FormidableConfigService> config = new AtomicReference<>();
     private final AtomicReference<PermissionService> permissionService = new AtomicReference<>();
     private final List<FormAction> formActions = new CopyOnWriteArrayList<>();
+    private final ConcurrentHashMap<String, WindowCounter> rateLimitCounters = new ConcurrentHashMap<>();
+    private final AtomicLong rateLimitRequests = new AtomicLong();
 
     @Reference
     public void setConfig(FormidableConfigService service) {
@@ -89,6 +95,17 @@ public class FormSubmitServlet extends HttpServlet {
             return;
         }
 
+        RateLimitResult rateLimitResult = checkRateLimit(req);
+        if (!rateLimitResult.permitted()) {
+            String errorCode = ErrorCode.FMDB_013.code();
+            if (log.isWarnEnabled()) {
+                log.warn("[FormSubmitServlet] Rejected [{}]: client exceeded submit rate limit.", errorCode);
+            }
+            resp.setHeader("Retry-After", Long.toString(rateLimitResult.retryAfterSeconds()));
+            sendJsonSafely(resp, 429, errorCode, null);
+            return;
+        }
+
         try {
             createPipeline().run(req);
             sendJsonSafely(resp, HttpServletResponse.SC_OK, null, null);
@@ -109,6 +126,82 @@ public class FormSubmitServlet extends HttpServlet {
         Map<String, Object> query = new HashMap<>();
         query.put("api", SUBMIT_API);
         return getPermissionService().hasPermission(query);
+    }
+
+    RateLimitResult checkRateLimit(HttpServletRequest req) {
+        FormidableConfigService configService = getConfigService();
+        if (!configService.isSubmissionRateLimitEnabled()) {
+            return RateLimitResult.allow();
+        }
+
+        long now = currentEpochSecond();
+        long windowSeconds = configService.getSubmissionRateLimitWindowSeconds();
+        int maxRequests = configService.getSubmissionRateLimitMaxRequestsPerWindow();
+        String clientKey = resolveRateLimitClientKey(req, configService.getSubmissionRateLimitClientIpHeader());
+
+        if (!rateLimitCounters.containsKey(clientKey) && rateLimitCounters.size() >= RATE_LIMIT_MAX_TRACKED_CLIENTS) {
+            // Fail-open when tracker capacity is reached to avoid unbounded memory growth.
+            return RateLimitResult.allow();
+        }
+
+        AtomicReference<RateLimitResult> resultRef = new AtomicReference<>(RateLimitResult.allow());
+        rateLimitCounters.compute(clientKey, (ignored, existing) -> {
+            WindowCounter counter = existing;
+            if (counter == null) {
+                counter = new WindowCounter(now, 0, now);
+            }
+
+            counter.lastSeenEpochSecond = now;
+            if (now - counter.windowStartEpochSecond >= windowSeconds) {
+                counter.windowStartEpochSecond = now;
+                counter.count = 0;
+            }
+
+            counter.count++;
+            if (counter.count > maxRequests) {
+                long retryAfter = Math.max(1, (counter.windowStartEpochSecond + windowSeconds) - now);
+                resultRef.set(RateLimitResult.rejected(retryAfter));
+            }
+            return counter;
+        });
+
+        maybeCleanupRateLimitCounters(now, windowSeconds);
+        return resultRef.get();
+    }
+
+    long currentEpochSecond() {
+        return System.currentTimeMillis() / 1000L;
+    }
+
+    private static String resolveRateLimitClientKey(HttpServletRequest req, String clientIpHeader) {
+        if (clientIpHeader != null && !clientIpHeader.isBlank()) {
+            String headerValue = req.getHeader(clientIpHeader);
+            if (headerValue != null && !headerValue.isBlank()) {
+                int separator = headerValue.indexOf(',');
+                String client = separator >= 0 ? headerValue.substring(0, separator) : headerValue;
+                String trimmed = client.trim();
+                if (!trimmed.isEmpty()) {
+                    return trimmed;
+                }
+            }
+        }
+
+        String remote = req.getRemoteAddr();
+        if (remote == null || remote.isBlank()) {
+            return "unknown";
+        }
+        return remote.trim();
+    }
+
+    private void maybeCleanupRateLimitCounters(long nowEpochSecond, long windowSeconds) {
+        long requests = rateLimitRequests.incrementAndGet();
+        if (requests % RATE_LIMIT_CLEANUP_INTERVAL != 0) {
+            return;
+        }
+
+        long staleAfter = windowSeconds * 2;
+        rateLimitCounters.entrySet().removeIf(entry ->
+                nowEpochSecond - entry.getValue().lastSeenEpochSecond > staleAfter);
     }
 
     private FormidableConfigService getConfigService() {
@@ -167,5 +260,27 @@ public class FormSubmitServlet extends HttpServlet {
         resp.setContentType("application/json");
         resp.setCharacterEncoding(StandardCharsets.UTF_8.name());
         resp.getWriter().write(body.toString());
+    }
+
+    private static final class WindowCounter {
+        private long windowStartEpochSecond;
+        private int count;
+        private long lastSeenEpochSecond;
+
+        private WindowCounter(long windowStartEpochSecond, int count, long lastSeenEpochSecond) {
+            this.windowStartEpochSecond = windowStartEpochSecond;
+            this.count = count;
+            this.lastSeenEpochSecond = lastSeenEpochSecond;
+        }
+    }
+
+    record RateLimitResult(boolean permitted, long retryAfterSeconds) {
+        static RateLimitResult allow() {
+            return new RateLimitResult(true, 0L);
+        }
+
+        static RateLimitResult rejected(long retryAfterSeconds) {
+            return new RateLimitResult(false, retryAfterSeconds);
+        }
     }
 }

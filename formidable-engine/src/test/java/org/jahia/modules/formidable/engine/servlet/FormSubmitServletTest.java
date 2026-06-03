@@ -10,10 +10,12 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -30,7 +32,9 @@ class FormSubmitServletTest {
         when(response.getWriter()).thenReturn(new PrintWriter(body));
 
         TestableFormSubmitServlet servlet = new TestableFormSubmitServlet(false);
-        servlet.setConfig(mock(FormidableConfigService.class));
+        FormidableConfigService config = mock(FormidableConfigService.class);
+        when(config.isSubmissionRateLimitEnabled()).thenReturn(false);
+        servlet.setConfig(config);
 
         servlet.doPost(request, response);
 
@@ -54,7 +58,9 @@ class FormSubmitServletTest {
         when(response.getWriter()).thenReturn(new PrintWriter(body));
 
         TestableFormSubmitServlet servlet = new TestableFormSubmitServlet(true);
-        servlet.setConfig(mock(FormidableConfigService.class));
+        FormidableConfigService config = mock(FormidableConfigService.class);
+        when(config.isSubmissionRateLimitEnabled()).thenReturn(false);
+        servlet.setConfig(config);
 
         servlet.doPost(request, response);
 
@@ -65,12 +71,73 @@ class FormSubmitServletTest {
         assertTrue(servlet.pipelineInvoked);
     }
 
+    @Test
+    void rejectsRequestWhenRateLimitIsExceeded() throws Exception {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter body = new StringWriter();
+
+        when(response.getWriter()).thenReturn(new PrintWriter(body));
+        when(request.getRemoteAddr()).thenReturn("203.0.113.10");
+
+        FormidableConfigService config = mock(FormidableConfigService.class);
+        when(config.isSubmissionRateLimitEnabled()).thenReturn(true);
+        when(config.getSubmissionRateLimitWindowSeconds()).thenReturn(60L);
+        when(config.getSubmissionRateLimitMaxRequestsPerWindow()).thenReturn(1);
+        when(config.getSubmissionRateLimitClientIpHeader()).thenReturn("");
+
+        TestableFormSubmitServlet servlet = new TestableFormSubmitServlet(true);
+        servlet.setConfig(config);
+        servlet.setCurrentEpochSecond(1_000L);
+
+        servlet.doPost(request, response);
+        servlet.doPost(request, response);
+
+        verify(response).setStatus(HttpServletResponse.SC_OK);
+        verify(response).setStatus(429);
+        verify(response).setHeader("Retry-After", "60");
+        verify(response, times(2)).setContentType("application/json");
+        verify(response, times(2)).setCharacterEncoding("UTF-8");
+        assertTrue(body.toString().contains("\"errorCode\":\"FMDB-013\""));
+        assertEquals(1, servlet.pipelineInvocationCount);
+    }
+
+    @Test
+    void bypassesRateLimitWhenDisabled() throws Exception {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter body = new StringWriter();
+
+        when(response.getWriter()).thenReturn(new PrintWriter(body));
+        when(request.getRemoteAddr()).thenReturn("203.0.113.10");
+
+        FormidableConfigService config = mock(FormidableConfigService.class);
+        when(config.isSubmissionRateLimitEnabled()).thenReturn(false);
+
+        TestableFormSubmitServlet servlet = new TestableFormSubmitServlet(true);
+        servlet.setConfig(config);
+        servlet.setCurrentEpochSecond(1_000L);
+
+        servlet.doPost(request, response);
+        servlet.doPost(request, response);
+
+        verify(response, never()).setStatus(429);
+        assertTrue(body.toString().contains("\"success\":true"));
+        assertEquals(2, servlet.pipelineInvocationCount);
+    }
+
     private static final class TestableFormSubmitServlet extends FormSubmitServlet {
         private final boolean allowed;
         private boolean pipelineInvoked;
+        private int pipelineInvocationCount;
+        private long currentEpochSecond = 1_000L;
 
         private TestableFormSubmitServlet(boolean allowed) {
             this.allowed = allowed;
+        }
+
+        private void setCurrentEpochSecond(long currentEpochSecond) {
+            this.currentEpochSecond = currentEpochSecond;
         }
 
         @Override
@@ -79,8 +146,14 @@ class FormSubmitServletTest {
         }
 
         @Override
+        long currentEpochSecond() {
+            return currentEpochSecond;
+        }
+
+        @Override
         FormSubmissionPipeline createPipeline() {
             pipelineInvoked = true;
+            pipelineInvocationCount++;
             return new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of()) {
                 @Override
                 void run(HttpServletRequest req) {

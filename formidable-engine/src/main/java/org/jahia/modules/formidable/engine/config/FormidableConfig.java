@@ -16,6 +16,8 @@ public @interface FormidableConfig {
 
     long DEFAULT_HTTP_CONNECT_TIMEOUT_SECONDS = 5L;
     long DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS = 10L;
+    long DEFAULT_SUBMISSION_RATE_LIMIT_WINDOW_SECONDS = 60L;
+    int DEFAULT_SUBMISSION_RATE_LIMIT_MAX_REQUESTS = 60;
 
     // --- CAPTCHA ---
 
@@ -78,6 +80,37 @@ public @interface FormidableConfig {
             type = AttributeType.LONG
     )
     long captchaHttpRequestTimeoutSeconds() default DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS;
+
+    // --- SUBMISSION RATE LIMIT ---
+
+    @AttributeDefinition(
+            name = "Enable submit rate limiting",
+            description = "Enables fixed-window rate limiting on /modules/formidable-engine/form-submit.",
+            type = AttributeType.BOOLEAN
+    )
+    boolean submissionRateLimitEnabled() default true;
+
+    @AttributeDefinition(
+            name = "Submit rate-limit window (seconds)",
+            description = "Fixed window length for submit rate limiting. Default: 60 seconds.",
+            type = AttributeType.LONG
+    )
+    long submissionRateLimitWindowSeconds() default DEFAULT_SUBMISSION_RATE_LIMIT_WINDOW_SECONDS;
+
+    @AttributeDefinition(
+            name = "Submit max requests per window",
+            description = "Maximum submissions per client key in each fixed window. Default: 60.",
+            type = AttributeType.INTEGER
+    )
+    int submissionRateLimitMaxRequestsPerWindow() default DEFAULT_SUBMISSION_RATE_LIMIT_MAX_REQUESTS;
+
+    @AttributeDefinition(
+            name = "Submit client IP header",
+            description = "Optional header used as client key for rate limiting (for example X-Forwarded-For). " +
+                    "Leave empty to use request remote address.",
+            type = AttributeType.STRING
+    )
+    String submissionRateLimitClientIpHeader() default "";
 
     // --- FILE UPLOAD ---
 

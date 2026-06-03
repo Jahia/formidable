@@ -63,6 +63,10 @@ public class FormidableConfigService {
             Duration captchaHttpConnectTimeout,
             Duration captchaHttpRequestTimeout,
             HttpClient captchaHttpClient,
+            boolean submissionRateLimitEnabled,
+            long submissionRateLimitWindowSeconds,
+            int submissionRateLimitMaxRequestsPerWindow,
+            String submissionRateLimitClientIpHeader,
             long uploadMaxFileSizeBytes,
             long uploadMaxRequestSizeBytes,
             int uploadMaxFileCount,
@@ -96,6 +100,20 @@ public class FormidableConfigService {
                 osgiConfig.captchaHttpRequestTimeoutSeconds(),
                 FormidableConfig.DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS
         );
+        boolean submissionRateLimitEnabled = osgiConfig.submissionRateLimitEnabled();
+        long submissionRateLimitWindowSeconds = readPositiveLong(
+                "submissionRateLimitWindowSeconds",
+                osgiConfig.submissionRateLimitWindowSeconds(),
+                FormidableConfig.DEFAULT_SUBMISSION_RATE_LIMIT_WINDOW_SECONDS
+        );
+        int submissionRateLimitMaxRequestsPerWindow = readPositiveInt(
+                "submissionRateLimitMaxRequestsPerWindow",
+                osgiConfig.submissionRateLimitMaxRequestsPerWindow(),
+                FormidableConfig.DEFAULT_SUBMISSION_RATE_LIMIT_MAX_REQUESTS
+        );
+        String submissionRateLimitClientIpHeader = osgiConfig.submissionRateLimitClientIpHeader() == null
+                ? ""
+                : osgiConfig.submissionRateLimitClientIpHeader().trim();
         HttpClient captchaHttpClient = HttpClient.newBuilder()
                 .connectTimeout(captchaHttpConnectTimeout)
                 .build();
@@ -148,6 +166,10 @@ public class FormidableConfigService {
                 captchaHttpConnectTimeout,
                 captchaHttpRequestTimeout,
                 captchaHttpClient,
+                submissionRateLimitEnabled,
+                submissionRateLimitWindowSeconds,
+                submissionRateLimitMaxRequestsPerWindow,
+                submissionRateLimitClientIpHeader,
                 uploadMaxFileSizeBytes,
                 uploadMaxRequestSizeBytes,
                 uploadMaxFileCount,
@@ -160,11 +182,15 @@ public class FormidableConfigService {
 
         this.config.set(snapshot);
 
-        log.info("FormidableConfigService configured: captchaVerification={}, captchaWidget={}, captchaConnectTimeout={}s, captchaRequestTimeout={}s, maxFileSize={}MB, maxRequest={}MB, allowedTypes={}, forwardTargets={}, devForwardTargetsEnabled={}, devForwardTargets={}, forwardConnectTimeout={}s, forwardRequestTimeout={}s",
+        log.info("FormidableConfigService configured: captchaVerification={}, captchaWidget={}, captchaConnectTimeout={}s, captchaRequestTimeout={}s, rateLimitEnabled={}, rateLimitWindow={}s, rateLimitMaxRequests={}, rateLimitClientIpHeader={}, maxFileSize={}MB, maxRequest={}MB, allowedTypes={}, forwardTargets={}, devForwardTargetsEnabled={}, devForwardTargets={}, forwardConnectTimeout={}s, forwardRequestTimeout={}s",
                 isCaptchaVerificationConfigured(snapshot) ? "[set]" : "[missing]",
                 isCaptchaWidgetConfigured(snapshot) ? "[set]" : "[missing]",
                 snapshot.captchaHttpConnectTimeout().toSeconds(),
                 snapshot.captchaHttpRequestTimeout().toSeconds(),
+                snapshot.submissionRateLimitEnabled(),
+                snapshot.submissionRateLimitWindowSeconds(),
+                snapshot.submissionRateLimitMaxRequestsPerWindow(),
+                snapshot.submissionRateLimitClientIpHeader().isBlank() ? "[remoteAddr]" : snapshot.submissionRateLimitClientIpHeader(),
                 snapshot.uploadMaxFileSizeBytes() / 1_048_576,
                 snapshot.uploadMaxRequestSizeBytes() / 1_048_576,
                 snapshot.uploadAllowedMimeTypes().size(),
@@ -362,6 +388,10 @@ public class FormidableConfigService {
     public Set<String> getUploadAllowedMimeTypes() { return currentConfig().uploadAllowedMimeTypes(); }
     public Duration getCaptchaHttpConnectTimeout() { return currentConfig().captchaHttpConnectTimeout(); }
     public Duration getCaptchaHttpRequestTimeout() { return currentConfig().captchaHttpRequestTimeout(); }
+    public boolean isSubmissionRateLimitEnabled() { return currentConfig().submissionRateLimitEnabled(); }
+    public long getSubmissionRateLimitWindowSeconds() { return currentConfig().submissionRateLimitWindowSeconds(); }
+    public int getSubmissionRateLimitMaxRequestsPerWindow() { return currentConfig().submissionRateLimitMaxRequestsPerWindow(); }
+    public String getSubmissionRateLimitClientIpHeader() { return currentConfig().submissionRateLimitClientIpHeader(); }
 
     // --- FORWARD ACTION ---
     public Duration getForwardHttpConnectTimeout() { return currentConfig().forwardHttpConnectTimeout(); }
@@ -418,5 +448,23 @@ public class FormidableConfigService {
             return Duration.ofSeconds(defaultSeconds);
         }
         return Duration.ofSeconds(seconds);
+    }
+
+    private static long readPositiveLong(String propertyName, long value, long defaultValue) {
+        if (value <= 0) {
+            log.warn("[FormidableConfigService] Invalid {}={}, falling back to {}.",
+                    propertyName, value, defaultValue);
+            return defaultValue;
+        }
+        return value;
+    }
+
+    private static int readPositiveInt(String propertyName, int value, int defaultValue) {
+        if (value <= 0) {
+            log.warn("[FormidableConfigService] Invalid {}={}, falling back to {}.",
+                    propertyName, value, defaultValue);
+            return defaultValue;
+        }
+        return value;
     }
 }

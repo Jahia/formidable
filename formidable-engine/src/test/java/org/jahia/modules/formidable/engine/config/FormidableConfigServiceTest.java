@@ -143,7 +143,11 @@ class FormidableConfigServiceTest {
                 0L,
                 -1L,
                 0L,
-                -1L
+                -1L,
+                true,
+                0L,
+                -1,
+                "  "
         ));
 
         // Expected outcome: invalid timeout values are replaced with the documented defaults.
@@ -151,6 +155,10 @@ class FormidableConfigServiceTest {
         assertEquals(Duration.ofSeconds(FormidableConfig.DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS), service.getCaptchaHttpRequestTimeout());
         assertEquals(Duration.ofSeconds(FormidableConfig.DEFAULT_HTTP_CONNECT_TIMEOUT_SECONDS), service.getForwardHttpConnectTimeout());
         assertEquals(Duration.ofSeconds(FormidableConfig.DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS), service.getForwardHttpRequestTimeout());
+        assertTrue(service.isSubmissionRateLimitEnabled());
+        assertEquals(FormidableConfig.DEFAULT_SUBMISSION_RATE_LIMIT_WINDOW_SECONDS, service.getSubmissionRateLimitWindowSeconds());
+        assertEquals(FormidableConfig.DEFAULT_SUBMISSION_RATE_LIMIT_MAX_REQUESTS, service.getSubmissionRateLimitMaxRequestsPerWindow());
+        assertEquals("", service.getSubmissionRateLimitClientIpHeader());
     }
 
     @Test
@@ -165,7 +173,11 @@ class FormidableConfigServiceTest {
                 7L,
                 11L,
                 13L,
-                17L
+                17L,
+                false,
+                120L,
+                30,
+                "X-Forwarded-For"
         ));
 
         // Expected outcome: the service returns the configured durations for CAPTCHA and forward requests.
@@ -173,6 +185,10 @@ class FormidableConfigServiceTest {
         assertEquals(Duration.ofSeconds(11), service.getCaptchaHttpRequestTimeout());
         assertEquals(Duration.ofSeconds(13), service.getForwardHttpConnectTimeout());
         assertEquals(Duration.ofSeconds(17), service.getForwardHttpRequestTimeout());
+        assertFalse(service.isSubmissionRateLimitEnabled());
+        assertEquals(120L, service.getSubmissionRateLimitWindowSeconds());
+        assertEquals(30, service.getSubmissionRateLimitMaxRequestsPerWindow());
+        assertEquals("X-Forwarded-For", service.getSubmissionRateLimitClientIpHeader());
     }
 
     @Test
@@ -255,9 +271,42 @@ class FormidableConfigServiceTest {
         private final String captchaWidgetVar;
         private final String captchaTokenField;
         private final String captchaVerifyUrl;
+        private final boolean submissionRateLimitEnabled;
+        private final long submissionRateLimitWindowSeconds;
+        private final int submissionRateLimitMaxRequestsPerWindow;
+        private final String submissionRateLimitClientIpHeader;
 
         private TestFormidableConfig(String forwardTargets, boolean enableDevForwardTargets, String devForwardTargets) {
-            this(forwardTargets, enableDevForwardTargets, devForwardTargets, 5L, 10L, 5L, 10L);
+            this(forwardTargets, enableDevForwardTargets, devForwardTargets, 5L, 10L, 5L, 10L, true, 60L, 60, "");
+        }
+
+        private TestFormidableConfig(
+                String forwardTargets,
+                boolean enableDevForwardTargets,
+                String devForwardTargets,
+                long captchaHttpConnectTimeoutSeconds,
+                long captchaHttpRequestTimeoutSeconds,
+                long forwardHttpConnectTimeoutSeconds,
+                long forwardHttpRequestTimeoutSeconds,
+                boolean submissionRateLimitEnabled,
+                long submissionRateLimitWindowSeconds,
+                int submissionRateLimitMaxRequestsPerWindow,
+                String submissionRateLimitClientIpHeader
+        ) {
+            this(
+                    forwardTargets,
+                    enableDevForwardTargets,
+                    devForwardTargets,
+                    captchaHttpConnectTimeoutSeconds,
+                    captchaHttpRequestTimeoutSeconds,
+                    forwardHttpConnectTimeoutSeconds,
+                    forwardHttpRequestTimeoutSeconds,
+                    submissionRateLimitEnabled,
+                    submissionRateLimitWindowSeconds,
+                    submissionRateLimitMaxRequestsPerWindow,
+                    submissionRateLimitClientIpHeader,
+                    "text/plain"
+            );
         }
 
         private TestFormidableConfig(
@@ -277,6 +326,10 @@ class FormidableConfigServiceTest {
                     captchaHttpRequestTimeoutSeconds,
                     forwardHttpConnectTimeoutSeconds,
                     forwardHttpRequestTimeoutSeconds,
+                    true,
+                    60L,
+                    60,
+                    "",
                     "text/plain",
                     "",
                     "",
@@ -305,6 +358,40 @@ class FormidableConfigServiceTest {
                     captchaHttpRequestTimeoutSeconds,
                     forwardHttpConnectTimeoutSeconds,
                     forwardHttpRequestTimeoutSeconds,
+                    true,
+                    60L,
+                    60,
+                    "",
+                    uploadAllowedMimeTypes
+            );
+        }
+
+        private TestFormidableConfig(
+                String forwardTargets,
+                boolean enableDevForwardTargets,
+                String devForwardTargets,
+                long captchaHttpConnectTimeoutSeconds,
+                long captchaHttpRequestTimeoutSeconds,
+                long forwardHttpConnectTimeoutSeconds,
+                long forwardHttpRequestTimeoutSeconds,
+                boolean submissionRateLimitEnabled,
+                long submissionRateLimitWindowSeconds,
+                int submissionRateLimitMaxRequestsPerWindow,
+                String submissionRateLimitClientIpHeader,
+                String uploadAllowedMimeTypes
+        ) {
+            this(
+                    forwardTargets,
+                    enableDevForwardTargets,
+                    devForwardTargets,
+                    captchaHttpConnectTimeoutSeconds,
+                    captchaHttpRequestTimeoutSeconds,
+                    forwardHttpConnectTimeoutSeconds,
+                    forwardHttpRequestTimeoutSeconds,
+                    submissionRateLimitEnabled,
+                    submissionRateLimitWindowSeconds,
+                    submissionRateLimitMaxRequestsPerWindow,
+                    submissionRateLimitClientIpHeader,
                     uploadAllowedMimeTypes,
                     "",
                     "",
@@ -331,6 +418,48 @@ class FormidableConfigServiceTest {
                 String captchaTokenField,
                 String captchaVerifyUrl
         ) {
+            this(
+                    forwardTargets,
+                    enableDevForwardTargets,
+                    devForwardTargets,
+                    captchaHttpConnectTimeoutSeconds,
+                    captchaHttpRequestTimeoutSeconds,
+                    forwardHttpConnectTimeoutSeconds,
+                    forwardHttpRequestTimeoutSeconds,
+                    true,
+                    60L,
+                    60,
+                    "",
+                    uploadAllowedMimeTypes,
+                    captchaSiteKey,
+                    captchaSecretKey,
+                    captchaScriptUrl,
+                    captchaWidgetVar,
+                    captchaTokenField,
+                    captchaVerifyUrl
+            );
+        }
+
+        private TestFormidableConfig(
+                String forwardTargets,
+                boolean enableDevForwardTargets,
+                String devForwardTargets,
+                long captchaHttpConnectTimeoutSeconds,
+                long captchaHttpRequestTimeoutSeconds,
+                long forwardHttpConnectTimeoutSeconds,
+                long forwardHttpRequestTimeoutSeconds,
+                boolean submissionRateLimitEnabled,
+                long submissionRateLimitWindowSeconds,
+                int submissionRateLimitMaxRequestsPerWindow,
+                String submissionRateLimitClientIpHeader,
+                String uploadAllowedMimeTypes,
+                String captchaSiteKey,
+                String captchaSecretKey,
+                String captchaScriptUrl,
+                String captchaWidgetVar,
+                String captchaTokenField,
+                String captchaVerifyUrl
+        ) {
             this.forwardTargets = forwardTargets;
             this.enableDevForwardTargets = enableDevForwardTargets;
             this.devForwardTargets = devForwardTargets;
@@ -338,6 +467,10 @@ class FormidableConfigServiceTest {
             this.captchaHttpRequestTimeoutSeconds = captchaHttpRequestTimeoutSeconds;
             this.forwardHttpConnectTimeoutSeconds = forwardHttpConnectTimeoutSeconds;
             this.forwardHttpRequestTimeoutSeconds = forwardHttpRequestTimeoutSeconds;
+            this.submissionRateLimitEnabled = submissionRateLimitEnabled;
+            this.submissionRateLimitWindowSeconds = submissionRateLimitWindowSeconds;
+            this.submissionRateLimitMaxRequestsPerWindow = submissionRateLimitMaxRequestsPerWindow;
+            this.submissionRateLimitClientIpHeader = submissionRateLimitClientIpHeader;
             this.uploadAllowedMimeTypes = uploadAllowedMimeTypes;
             this.captchaSiteKey = captchaSiteKey;
             this.captchaSecretKey = captchaSecretKey;
@@ -385,6 +518,26 @@ class FormidableConfigServiceTest {
         @Override
         public long captchaHttpRequestTimeoutSeconds() {
             return captchaHttpRequestTimeoutSeconds;
+        }
+
+        @Override
+        public boolean submissionRateLimitEnabled() {
+            return submissionRateLimitEnabled;
+        }
+
+        @Override
+        public long submissionRateLimitWindowSeconds() {
+            return submissionRateLimitWindowSeconds;
+        }
+
+        @Override
+        public int submissionRateLimitMaxRequestsPerWindow() {
+            return submissionRateLimitMaxRequestsPerWindow;
+        }
+
+        @Override
+        public String submissionRateLimitClientIpHeader() {
+            return submissionRateLimitClientIpHeader;
         }
 
         @Override
