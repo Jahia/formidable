@@ -3,4 +3,4 @@
 formidable: patch
 ---
 
-Strengthen Java unit coverage for escaping, validation and config (#92)
+Improved reliability of escaping, validation, and configuration handling by expanding Java unit tests. (#92)
