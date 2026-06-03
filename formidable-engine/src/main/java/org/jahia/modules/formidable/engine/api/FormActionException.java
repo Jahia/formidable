@@ -1,4 +1,4 @@
-package org.jahia.modules.formidable.engine.actions;
+package org.jahia.modules.formidable.engine.api;
 
 import javax.servlet.http.HttpServletResponse;
 

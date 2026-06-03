@@ -1,10 +1,10 @@
 package org.jahia.modules.formidable.engine.servlet;
 
 import org.apache.commons.fileupload.servlet.ServletFileUpload;
-import org.jahia.modules.formidable.engine.actions.FormAction;
-import org.jahia.modules.formidable.engine.actions.FormActionException;
+import org.jahia.modules.formidable.engine.api.FormAction;
+import org.jahia.modules.formidable.engine.api.FormActionException;
 import org.jahia.modules.formidable.engine.actions.FormDataParser;
-import org.jahia.modules.formidable.engine.actions.SubmittedFile;
+import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.modules.formidable.engine.logic.ConditionalLogicEvaluator;
 import org.jahia.services.content.JCRNodeWrapper;
@@ -126,7 +126,7 @@ class FormSubmissionPipeline {
     }
 
     private void guardContentLength(HttpServletRequest req) throws SubmissionException {
-        long contentLength = req.getContentLengthLong();
+        long contentLength = req.getContentLength();
         // Early-reject optimization only: chunked requests legitimately report -1 here.
         // The definitive request-size enforcement still happens later in FormDataParser
         // via ServletFileUpload.setSizeMax(...) when the multipart stream is consumed.
@@ -322,7 +322,12 @@ class FormSubmissionPipeline {
     private static List<SubmittedFile> toSubmittedFiles(List<FormDataParser.FormFile> parsedFiles) {
         List<SubmittedFile> submittedFiles = new ArrayList<>(parsedFiles.size());
         for (FormDataParser.FormFile file : parsedFiles) {
-            submittedFiles.add(SubmittedFile.fromParsedFile(file));
+            submittedFiles.add(new SubmittedFile(
+                    file.fieldName(),
+                    file.originalName(),
+                    file.mimeType(),
+                    file.data()
+            ));
         }
         return List.copyOf(submittedFiles);
     }

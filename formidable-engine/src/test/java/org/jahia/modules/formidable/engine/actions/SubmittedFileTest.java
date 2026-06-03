@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.engine.actions;
 
+import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;

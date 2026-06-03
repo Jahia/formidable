@@ -1,4 +1,4 @@
-package org.jahia.modules.formidable.engine.actions;
+package org.jahia.modules.formidable.engine.api;
 
 import java.util.Arrays;
 import java.util.Objects;
@@ -53,9 +53,5 @@ public record SubmittedFile(
                 + ", originalName=" + originalName
                 + ", mimeType=" + mimeType
                 + ", data=" + Arrays.toString(data) + "]";
-    }
-
-    public static SubmittedFile fromParsedFile(FormDataParser.FormFile file) {
-        return new SubmittedFile(file.fieldName(), file.originalName(), file.mimeType(), file.data());
     }
 }

@@ -16,6 +16,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -52,102 +53,126 @@ public class FormidableConfigService {
      */
     public record ForwardTarget(String id, String label, URI uri, boolean development) {}
 
+    private record ConfigSnapshot(
+            String captchaSiteKey,
+            String captchaSecretKey,
+            String captchaScriptUrl,
+            String captchaWidgetVar,
+            String captchaTokenField,
+            String captchaVerifyUrl,
+            Duration captchaHttpConnectTimeout,
+            Duration captchaHttpRequestTimeout,
+            HttpClient captchaHttpClient,
+            long uploadMaxFileSizeBytes,
+            long uploadMaxRequestSizeBytes,
+            int uploadMaxFileCount,
+            Set<String> uploadAllowedMimeTypes,
+            Duration forwardHttpConnectTimeout,
+            Duration forwardHttpRequestTimeout,
+            HttpClient forwardHttpClient,
+            Map<String, ForwardTarget> forwardTargets
+    ) {}
+
     private static final Logger log = LoggerFactory.getLogger(FormidableConfigService.class);
 
-    private String captchaSiteKey;
-    private String captchaSecretKey;
-    private String captchaScriptUrl;
-    private String captchaWidgetVar;
-    private String captchaTokenField;
-    private String captchaVerifyUrl;
-    private Duration captchaHttpConnectTimeout;
-    private Duration captchaHttpRequestTimeout;
-
-    private long uploadMaxFileSizeBytes;
-    private long uploadMaxRequestSizeBytes;
-    private int  uploadMaxFileCount;
-    private Set<String> uploadAllowedMimeTypes;
-    private Duration forwardHttpConnectTimeout;
-    private Duration forwardHttpRequestTimeout;
-
-    /** Keyed by target id. Insertion-ordered so the choice list is stable. */
-    private Map<String, ForwardTarget> forwardTargets = new LinkedHashMap<>();
-
-    private final AtomicReference<HttpClient> captchaHttpClient = new AtomicReference<>();
-    private final AtomicReference<HttpClient> forwardHttpClient = new AtomicReference<>();
+    private final AtomicReference<ConfigSnapshot> config = new AtomicReference<>();
 
     @Activate
     @Modified
-    public void activate(FormidableConfig config) {
-        captchaSiteKey    = config.captchaSiteKey();
-        captchaSecretKey  = config.captchaSecretKey();
-        captchaScriptUrl  = config.captchaScriptUrl();
-        captchaWidgetVar  = config.captchaWidgetVar();
-        captchaTokenField = config.captchaTokenField();
-        captchaVerifyUrl  = config.captchaVerifyUrl();
-        captchaHttpConnectTimeout = readTimeoutSeconds(
+    public void activate(FormidableConfig osgiConfig) {
+        String captchaSiteKey = osgiConfig.captchaSiteKey();
+        String captchaSecretKey = osgiConfig.captchaSecretKey();
+        String captchaScriptUrl = osgiConfig.captchaScriptUrl();
+        String captchaWidgetVar = osgiConfig.captchaWidgetVar();
+        String captchaTokenField = osgiConfig.captchaTokenField();
+        String captchaVerifyUrl = osgiConfig.captchaVerifyUrl();
+        Duration captchaHttpConnectTimeout = readTimeoutSeconds(
                 "captchaHttpConnectTimeoutSeconds",
-                config.captchaHttpConnectTimeoutSeconds(),
+                osgiConfig.captchaHttpConnectTimeoutSeconds(),
                 FormidableConfig.DEFAULT_HTTP_CONNECT_TIMEOUT_SECONDS
         );
-        captchaHttpRequestTimeout = readTimeoutSeconds(
+        Duration captchaHttpRequestTimeout = readTimeoutSeconds(
                 "captchaHttpRequestTimeoutSeconds",
-                config.captchaHttpRequestTimeoutSeconds(),
+                osgiConfig.captchaHttpRequestTimeoutSeconds(),
                 FormidableConfig.DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS
         );
-        captchaHttpClient.set(HttpClient.newBuilder()
+        HttpClient captchaHttpClient = HttpClient.newBuilder()
                 .connectTimeout(captchaHttpConnectTimeout)
-                .build());
+                .build();
 
-        uploadMaxFileSizeBytes    = config.uploadMaxFileSizeBytes();
-        uploadMaxRequestSizeBytes = config.uploadMaxRequestSizeBytes();
-        uploadMaxFileCount        = config.uploadMaxFileCount();
-        uploadAllowedMimeTypes    = Arrays.stream(config.uploadAllowedMimeTypes().split(","))
+        long uploadMaxFileSizeBytes = osgiConfig.uploadMaxFileSizeBytes();
+        long uploadMaxRequestSizeBytes = osgiConfig.uploadMaxRequestSizeBytes();
+        int uploadMaxFileCount = osgiConfig.uploadMaxFileCount();
+        Set<String> uploadAllowedMimeTypes = Set.copyOf(Arrays.stream(osgiConfig.uploadAllowedMimeTypes().split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
-                .collect(Collectors.toSet());
+                .collect(Collectors.toSet()));
 
-        boolean enableDevForwardTargets = config.enableDevForwardTargets();
-        forwardHttpConnectTimeout = readTimeoutSeconds(
+        boolean enableDevForwardTargets = osgiConfig.enableDevForwardTargets();
+        Duration forwardHttpConnectTimeout = readTimeoutSeconds(
                 "forwardHttpConnectTimeoutSeconds",
-                config.forwardHttpConnectTimeoutSeconds(),
+                osgiConfig.forwardHttpConnectTimeoutSeconds(),
                 FormidableConfig.DEFAULT_HTTP_CONNECT_TIMEOUT_SECONDS
         );
-        forwardHttpRequestTimeout = readTimeoutSeconds(
+        Duration forwardHttpRequestTimeout = readTimeoutSeconds(
                 "forwardHttpRequestTimeoutSeconds",
-                config.forwardHttpRequestTimeoutSeconds(),
+                osgiConfig.forwardHttpRequestTimeoutSeconds(),
                 FormidableConfig.DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS
         );
-        forwardHttpClient.set(HttpClient.newBuilder()
+        HttpClient forwardHttpClient = HttpClient.newBuilder()
                 .connectTimeout(forwardHttpConnectTimeout)
-                .build());
+                .build();
 
         Map<String, ForwardTarget> standardForwardTargets =
-                parseForwardTargets(config.forwardTargets(), "forwardTargets", false);
+                parseForwardTargets(osgiConfig.forwardTargets(), "forwardTargets", false);
         Map<String, ForwardTarget> developmentForwardTargets = new LinkedHashMap<>();
 
         if (enableDevForwardTargets) {
             developmentForwardTargets =
-                    parseForwardTargets(config.devForwardTargets(), "devForwardTargets", true);
-        } else if (config.devForwardTargets() != null && !config.devForwardTargets().isBlank()) {
+                    parseForwardTargets(osgiConfig.devForwardTargets(), "devForwardTargets", true);
+        } else if (osgiConfig.devForwardTargets() != null && !osgiConfig.devForwardTargets().isBlank()) {
             log.info("[FormidableConfigService] Ignoring devForwardTargets because enableDevForwardTargets=false.");
         }
 
-        forwardTargets = mergeForwardTargets(standardForwardTargets, developmentForwardTargets);
+        Map<String, ForwardTarget> forwardTargets = Collections.unmodifiableMap(new LinkedHashMap<>(
+                mergeForwardTargets(standardForwardTargets, developmentForwardTargets)
+        ));
+
+        ConfigSnapshot snapshot = new ConfigSnapshot(
+                captchaSiteKey,
+                captchaSecretKey,
+                captchaScriptUrl,
+                captchaWidgetVar,
+                captchaTokenField,
+                captchaVerifyUrl,
+                captchaHttpConnectTimeout,
+                captchaHttpRequestTimeout,
+                captchaHttpClient,
+                uploadMaxFileSizeBytes,
+                uploadMaxRequestSizeBytes,
+                uploadMaxFileCount,
+                uploadAllowedMimeTypes,
+                forwardHttpConnectTimeout,
+                forwardHttpRequestTimeout,
+                forwardHttpClient,
+                forwardTargets
+        );
+
+        this.config.set(snapshot);
 
         log.info("FormidableConfigService configured: captchaVerification={}, captchaWidget={}, captchaConnectTimeout={}s, captchaRequestTimeout={}s, maxFileSize={}MB, maxRequest={}MB, allowedTypes={}, forwardTargets={}, devForwardTargetsEnabled={}, devForwardTargets={}, forwardConnectTimeout={}s, forwardRequestTimeout={}s",
-                isCaptchaVerificationConfigured() ? "[set]" : "[missing]",
-                isCaptchaWidgetConfigured() ? "[set]" : "[missing]",
-                captchaHttpConnectTimeout.toSeconds(),
-                captchaHttpRequestTimeout.toSeconds(),
-                uploadMaxFileSizeBytes / 1_048_576,
-                uploadMaxRequestSizeBytes / 1_048_576,
-                uploadAllowedMimeTypes.size(),
-                forwardTargets.size(),
+                isCaptchaVerificationConfigured(snapshot) ? "[set]" : "[missing]",
+                isCaptchaWidgetConfigured(snapshot) ? "[set]" : "[missing]",
+                snapshot.captchaHttpConnectTimeout().toSeconds(),
+                snapshot.captchaHttpRequestTimeout().toSeconds(),
+                snapshot.uploadMaxFileSizeBytes() / 1_048_576,
+                snapshot.uploadMaxRequestSizeBytes() / 1_048_576,
+                snapshot.uploadAllowedMimeTypes().size(),
+                snapshot.forwardTargets().size(),
                 enableDevForwardTargets,
                 developmentForwardTargets.size(),
-                forwardHttpConnectTimeout.toSeconds(),
-                forwardHttpRequestTimeout.toSeconds());
+                snapshot.forwardHttpConnectTimeout().toSeconds(),
+                snapshot.forwardHttpRequestTimeout().toSeconds());
     }
 
     /**
@@ -263,22 +288,17 @@ public class FormidableConfigService {
 
     // --- CAPTCHA ---
 
-    public String getCaptchaSiteKey()    { return captchaSiteKey; }
-    public String getCaptchaScriptUrl()  { return captchaScriptUrl; }
-    public String getCaptchaWidgetVar()  { return captchaWidgetVar; }
-    public String getCaptchaTokenField() { return captchaTokenField; }
+    public String getCaptchaSiteKey()    { return currentConfig().captchaSiteKey(); }
+    public String getCaptchaScriptUrl()  { return currentConfig().captchaScriptUrl(); }
+    public String getCaptchaWidgetVar()  { return currentConfig().captchaWidgetVar(); }
+    public String getCaptchaTokenField() { return currentConfig().captchaTokenField(); }
 
     public boolean isCaptchaVerificationConfigured() {
-        return captchaSiteKey != null && !captchaSiteKey.isBlank()
-                && captchaSecretKey != null && !captchaSecretKey.isBlank()
-                && captchaVerifyUrl != null && !captchaVerifyUrl.isBlank();
+        return isCaptchaVerificationConfigured(currentConfig());
     }
 
     public boolean isCaptchaWidgetConfigured() {
-        return captchaSiteKey != null && !captchaSiteKey.isBlank()
-                && captchaScriptUrl != null && !captchaScriptUrl.isBlank()
-                && captchaWidgetVar != null && !captchaWidgetVar.isBlank()
-                && captchaTokenField != null && !captchaTokenField.isBlank();
+        return isCaptchaWidgetConfigured(currentConfig());
     }
 
     /**
@@ -291,7 +311,8 @@ public class FormidableConfigService {
      *                                      infrastructure or provider-side technical failure
      */
     public boolean verifyCaptcha(String token, String remoteIp) throws CaptchaVerificationException {
-        if (!isCaptchaVerificationConfigured()) {
+        ConfigSnapshot snapshot = currentConfig();
+        if (!isCaptchaVerificationConfigured(snapshot)) {
             log.warn("CAPTCHA verification skipped: service is not configured.");
             return false;
         }
@@ -299,19 +320,19 @@ public class FormidableConfigService {
             return false;
         }
 
-        String body = "secret=" + encode(captchaSecretKey)
+        String body = "secret=" + encode(snapshot.captchaSecretKey())
                 + "&response=" + encode(token)
                 + (remoteIp != null ? "&remoteip=" + encode(remoteIp) : "");
 
         try {
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(captchaVerifyUrl))
-                    .timeout(captchaHttpRequestTimeout)
+                    .uri(URI.create(snapshot.captchaVerifyUrl()))
+                    .timeout(snapshot.captchaHttpRequestTimeout())
                     .header("Content-Type", "application/x-www-form-urlencoded")
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();
 
-            HttpResponse<String> response = getCaptchaHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = snapshot.captchaHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
             String responseBody = response.body();
             JSONObject result = new JSONObject(responseBody);
             boolean success = result.optBoolean("success", false);
@@ -322,12 +343,12 @@ public class FormidableConfigService {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new CaptchaVerificationException(
-                    "CAPTCHA verification request interrupted (verifyUrl=" + captchaVerifyUrl + ").",
+                    "CAPTCHA verification request interrupted (verifyUrl=" + snapshot.captchaVerifyUrl() + ").",
                     e
             );
         } catch (Exception e) {
             throw new CaptchaVerificationException(
-                    "CAPTCHA verification request failed (verifyUrl=" + captchaVerifyUrl + ").",
+                    "CAPTCHA verification request failed (verifyUrl=" + snapshot.captchaVerifyUrl() + ").",
                     e
             );
         }
@@ -335,23 +356,23 @@ public class FormidableConfigService {
 
     // --- UPLOAD ---
 
-    public long getUploadMaxFileSizeBytes()    { return uploadMaxFileSizeBytes; }
-    public long getUploadMaxRequestSizeBytes() { return uploadMaxRequestSizeBytes; }
-    public int  getUploadMaxFileCount()        { return uploadMaxFileCount; }
-    public Set<String> getUploadAllowedMimeTypes() { return uploadAllowedMimeTypes; }
-    public Duration getCaptchaHttpConnectTimeout() { return captchaHttpConnectTimeout; }
-    public Duration getCaptchaHttpRequestTimeout() { return captchaHttpRequestTimeout; }
+    public long getUploadMaxFileSizeBytes()    { return currentConfig().uploadMaxFileSizeBytes(); }
+    public long getUploadMaxRequestSizeBytes() { return currentConfig().uploadMaxRequestSizeBytes(); }
+    public int  getUploadMaxFileCount()        { return currentConfig().uploadMaxFileCount(); }
+    public Set<String> getUploadAllowedMimeTypes() { return currentConfig().uploadAllowedMimeTypes(); }
+    public Duration getCaptchaHttpConnectTimeout() { return currentConfig().captchaHttpConnectTimeout(); }
+    public Duration getCaptchaHttpRequestTimeout() { return currentConfig().captchaHttpRequestTimeout(); }
 
     // --- FORWARD ACTION ---
-    public Duration getForwardHttpConnectTimeout() { return forwardHttpConnectTimeout; }
-    public Duration getForwardHttpRequestTimeout() { return forwardHttpRequestTimeout; }
-    public HttpClient getForwardHttpClient() { return getRequiredHttpClient(forwardHttpClient, "forward"); }
+    public Duration getForwardHttpConnectTimeout() { return currentConfig().forwardHttpConnectTimeout(); }
+    public Duration getForwardHttpRequestTimeout() { return currentConfig().forwardHttpRequestTimeout(); }
+    public HttpClient getForwardHttpClient() { return currentConfig().forwardHttpClient(); }
 
     /**
      * Returns all configured forward targets, in declaration order.
      */
     public Collection<ForwardTarget> getForwardTargets() {
-        return forwardTargets.values();
+        return currentConfig().forwardTargets().values();
     }
 
     /**
@@ -361,7 +382,7 @@ public class FormidableConfigService {
      * @return the configured forward target, or empty if the id is unknown
      */
     public Optional<ForwardTarget> resolveForwardTarget(String id) {
-        ForwardTarget target = forwardTargets.get(id);
+        ForwardTarget target = currentConfig().forwardTargets().get(id);
         return target != null ? Optional.of(target) : Optional.empty();
     }
 
@@ -369,16 +390,25 @@ public class FormidableConfigService {
         return URLEncoder.encode(value == null ? "" : value, StandardCharsets.UTF_8);
     }
 
-    private HttpClient getCaptchaHttpClient() {
-        return getRequiredHttpClient(captchaHttpClient, "captcha");
+    private static boolean isCaptchaVerificationConfigured(ConfigSnapshot snapshot) {
+        return snapshot.captchaSiteKey() != null && !snapshot.captchaSiteKey().isBlank()
+                && snapshot.captchaSecretKey() != null && !snapshot.captchaSecretKey().isBlank()
+                && snapshot.captchaVerifyUrl() != null && !snapshot.captchaVerifyUrl().isBlank();
     }
 
-    private static HttpClient getRequiredHttpClient(AtomicReference<HttpClient> clientRef, String clientName) {
-        HttpClient client = clientRef.get();
-        if (client == null) {
-            throw new IllegalStateException("Formidable " + clientName + " HTTP client is not initialized.");
+    private static boolean isCaptchaWidgetConfigured(ConfigSnapshot snapshot) {
+        return snapshot.captchaSiteKey() != null && !snapshot.captchaSiteKey().isBlank()
+                && snapshot.captchaScriptUrl() != null && !snapshot.captchaScriptUrl().isBlank()
+                && snapshot.captchaWidgetVar() != null && !snapshot.captchaWidgetVar().isBlank()
+                && snapshot.captchaTokenField() != null && !snapshot.captchaTokenField().isBlank();
+    }
+
+    private ConfigSnapshot currentConfig() {
+        ConfigSnapshot snapshot = config.get();
+        if (snapshot == null) {
+            throw new IllegalStateException("Formidable configuration is not initialized.");
         }
-        return client;
+        return snapshot;
     }
 
     private static Duration readTimeoutSeconds(String propertyName, long seconds, long defaultSeconds) {

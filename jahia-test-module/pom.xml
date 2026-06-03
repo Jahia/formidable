@@ -3,7 +3,7 @@
     <parent>
         <artifactId>jahia-modules</artifactId>
         <groupId>org.jahia.modules</groupId>
-        <version>8.2.1.0</version>
+        <version>8.2.2.0</version>
         <relativePath />
     </parent>
     <groupId>org.jahia.test</groupId>
@@ -43,4 +43,52 @@
         <module>formidable-test-module-jsp</module>
         <module>formidable-test-module-tsx</module>
     </modules>
+
+    <properties>
+        <jahia.server.version>8.2.2.0</jahia.server.version>
+        <javax.servlet.api.version>3.0.1</javax.servlet.api.version>
+        <jstl.version>1.2</jstl.version>
+        <maven-dependency-plugin.version>3.6.0</maven-dependency-plugin.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.jahia.server</groupId>
+                <artifactId>jahia-impl</artifactId>
+                <version>${jahia.server.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.jahia.server</groupId>
+                <artifactId>jahia-taglib</artifactId>
+                <version>${jahia.server.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>javax.servlet</groupId>
+                <artifactId>jstl</artifactId>
+                <version>${jstl.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>javax.servlet</groupId>
+                <artifactId>javax.servlet-api</artifactId>
+                <version>${javax.servlet.api.version}</version>
+                <scope>provided</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <version>${maven-dependency-plugin.version}</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
 </project>
