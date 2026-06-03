@@ -40,8 +40,9 @@
     </repositories>
 
     <modules>
-        <module>formidable-test-module-jsp</module>
-        <module>formidable-test-module-tsx</module>
+        <module>formidable-test-module-templateset-jsp</module>
+        <module>formidable-test-module-templateset-tsx</module>
+        <module>formidable-test-module-samples-tsx</module>
     </modules>
 
     <properties>

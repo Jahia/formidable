@@ -42,7 +42,7 @@
  orderable
  + * (fmdbmix:formAction) = fmdbmix:formAction version
 
-[fmdb:fieldList] > jnt:content, jmix:list
+[fmdb:fieldList] > jnt:content, jmix:list, fmdbmix:formContainer
  orderable
  + * (fmdbmix:formElement) = fmdbmix:formElement
  + * (fmdbmix:formContent) = fmdbmix:formContent

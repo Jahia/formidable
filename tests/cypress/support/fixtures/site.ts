@@ -11,7 +11,7 @@ export const FORMIDABLE_TEST_SITE: {
 } = {
 	key: 'FormidableSite4Tests',
 	config: {
-		templateSet: 'formidable-test-module-jsp',
+		templateSet: 'formidable-test-module-templateset-jsp',
 		serverName: 'localhost',
 		locale: 'en',
 	},

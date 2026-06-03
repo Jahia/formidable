@@ -5,7 +5,8 @@
   "workspaces": [
     "formidable-elements",
     "formidable-engine",
-    "jahia-test-module/formidable-test-module-tsx"
+    "jahia-test-module/formidable-test-module-templateset-tsx",
+    "jahia-test-module/formidable-test-module-samples-tsx"
   ],
   "scripts": {
     "format": "prettier --write --list-different $INIT_CWD",

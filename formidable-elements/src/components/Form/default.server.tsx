@@ -4,10 +4,10 @@ import {
 	getNodeProps,
 	Island,
 	jahiaComponent,
+	Render,
 } from "@jahia/javascript-modules-library";
 import Form from "./Form.client";
 import {type FormServerProps} from "./types";
-import LogicAwareRender from "./LogicAwareRender";
 
 
 const ensureCaptchaExplicit = (url: string): string => {
@@ -110,25 +110,19 @@ jahiaComponent(
 				captcha,
 			}}
 			>
-				{formElements.map((element) => {
-						const isStep = element.isNodeType("fmdb:step");
-						const stepIndex = isStep
-							? stepNodes.findIndex((s) => s.getIdentifier() === element.getIdentifier())
-							: -1;
-						const {['j:view']: nodeView} = getNodeProps<{'j:view'?: string}>(element, ['j:view']);
-						const fallbackView = isStep && showStepsNav ? "compact" : "default";
-						return (
-							<LogicAwareRender
-								key={element.getIdentifier()}
-								node={element}
-								view={nodeView ?? fallbackView}
-								parameters={isStep && stepIndex > 0 ? {initiallyHidden: "true"} : undefined}
-							/>
-						);
-					})}
+				{fieldListNode && (
+					<Render
+						node={fieldListNode}
+						view="logic.hidden"
+						parameters={{
+							preferCompactStepView: showStepsNav ? "true" : "false",
+							hideStepsAfterFirst: showStepsNav ? "true" : "false",
+							childView: "default",
+						}}
+					/>
+				)}
 				</Island>
 			</>
 		);
 	},
 );
-

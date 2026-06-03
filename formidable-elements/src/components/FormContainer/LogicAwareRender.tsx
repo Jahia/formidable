@@ -1,17 +1,18 @@
-import type {JCRNodeWrapper} from "org.jahia.services.content";
 import {getNodeProps, Render} from "@jahia/javascript-modules-library";
 import {parseConditionalLogicRules} from "~/utils/conditionalLogic";
 
-interface LogicAwareRenderProps {
-	node: JCRNodeWrapper;
+type LogicAwareRenderNode = Parameters<typeof getNodeProps>[0];
+
+export interface LogicAwareRenderProps {
+	node: LogicAwareRenderNode;
 	view?: string;
 	parameters?: Record<string, string>;
 	className?: string;
 }
 
-export default function LogicAwareRender({node, view, parameters, className}: LogicAwareRenderProps) {
-	const {'logics': rawLogics} = getNodeProps<{logics?: string[]}>(node, ['logics']);
-	const logics = node.isNodeType('fmdbmix:formLogicElement')
+const LogicAwareRender = ({node, view, parameters, className}: LogicAwareRenderProps) => {
+	const {logics: rawLogics} = getNodeProps<{logics?: string[]}>(node, ["logics"]);
+	const logics = node.isNodeType("fmdbmix:formLogicElement")
 		? parseConditionalLogicRules(rawLogics ?? [])
 		: [];
 
@@ -20,9 +21,9 @@ export default function LogicAwareRender({node, view, parameters, className}: Lo
 	return (
 		<div
 			className={className}
-			style={hasLogic ? {display: 'none'} : undefined}
-			aria-hidden={hasLogic ? 'true' : undefined}
-			data-fmdb-logic-hidden={hasLogic ? 'true' : undefined}
+			style={hasLogic ? {display: "none"} : undefined}
+			aria-hidden={hasLogic ? "true" : undefined}
+			data-fmdb-logic-hidden={hasLogic ? "true" : undefined}
 			data-fmdb-node-id={node.getIdentifier()}
 			data-fmdb-node-name={node.getName()}
 			data-fmdb-node-type={node.getPrimaryNodeTypeName()}
@@ -31,4 +32,8 @@ export default function LogicAwareRender({node, view, parameters, className}: Lo
 			<Render node={node} view={view} parameters={parameters}/>
 		</div>
 	);
-}
+};
+
+LogicAwareRender.displayName = "LogicAwareRender";
+
+export default LogicAwareRender;

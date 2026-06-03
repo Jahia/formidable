@@ -10,6 +10,6 @@
     - 'mvn:org.jahia.modules/graphql-dxm-provider'
     - 'mvn:org.jahia.modules/jcontent'
     - 'js:mvn:org.jahia.modules/formidable-elements/0.0.1-SNAPSHOT/tgz'
-    - 'mvn:org.jahia.test/formidable-test-module-jsp'
+    - 'mvn:org.jahia.test/formidable-test-module-templateset-jsp'
   autoStart: true
   uninstallPreviousVersion: true
