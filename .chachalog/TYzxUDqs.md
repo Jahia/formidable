@@ -3,4 +3,4 @@
 formidable: patch
 ---
 
-Add samples code, split test modules, centralize container rendering (#94)
+Added sample extension modules and made conditional-logic rendering consistent across form containers.
