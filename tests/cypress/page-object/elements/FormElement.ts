@@ -38,4 +38,18 @@ export class FormElement extends BaseComponent {
 		this.getLabel().find('.fmdb-required-indicator').should('not.exist');
 		return this;
 	}
+
+	shouldBeValid(): this {
+		this.getInput().then($el => {
+			expect(($el.get(0) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).checkValidity()).to.eq(true);
+		});
+		return this;
+	}
+
+	shouldBeInvalid(): this {
+		this.getInput().then($el => {
+			expect(($el.get(0) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).checkValidity()).to.eq(false);
+		});
+		return this;
+	}
 }

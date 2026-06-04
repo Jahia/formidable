@@ -6,6 +6,19 @@ export const INPUT_TEXT_SIMPLE: InputTextData = {
 	placeholder: 'Enter your full name'
 };
 
+export const INPUT_TEXT_COMPLETE: InputTextData = {
+	name: 'employeeCode',
+	title: 'Employee code',
+	placeholder: 'AB-1234',
+	required: true,
+	defaultValue: 'AB-1234',
+	minLength: 7,
+	maxLength: 7,
+	pattern: '[A-Z]{2}-[0-9]{4}',
+	autocomplete: 'off',
+	list: ['AB-1234', 'CD-5678']
+};
+
 export const INPUT_TEXT_REQUIRED: InputTextData = {
 	name: 'firstStepName',
 	title: 'Step one name',
@@ -21,6 +34,7 @@ export const INPUT_TEXT_SECOND_STEP: InputTextData = {
 
 export function getInputTextNode(data: InputTextData = INPUT_TEXT_SIMPLE): JahiaNode {
 	const properties: NodeProperty[] = [];
+	const mixins: string[] = [];
 
 	if (data.title) properties.push({name: 'jcr:title', value: data.title, language: 'en'});
 	if (data.placeholder) properties.push({name: 'placeholder', value: data.placeholder, language: 'en'});
@@ -30,10 +44,16 @@ export function getInputTextNode(data: InputTextData = INPUT_TEXT_SIMPLE): Jahia
 	if (data.maxLength !== undefined) properties.push({name: 'maxLength', value: String(data.maxLength), type: 'LONG'});
 	if (data.pattern) properties.push({name: 'pattern', value: data.pattern});
 	if (data.autocomplete) properties.push({name: 'autocomplete', value: data.autocomplete});
+	if (data.list && data.list.length > 0) properties.push({name: 'list', values: data.list, language: 'en'});
+
+	if (data.pattern) {
+		mixins.push('fmdbmix:advancedInputTextSettings');
+	}
 
 	return {
 		name: data.name || 'textInput',
 		primaryNodeType: 'fmdb:inputText',
-		properties
+		properties,
+		mixins
 	};
 }

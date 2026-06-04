@@ -60,6 +60,14 @@ export class SelectInput extends FormElement {
 		return this;
 	}
 
+	shouldHaveSelectedOptions(options: string[]): this {
+		this.getInput().find('option:selected').then($options => {
+			const selectedTexts = Array.from($options).map(option => option.textContent?.trim() ?? '');
+			expect(selectedTexts).to.deep.equal(options);
+		});
+		return this;
+	}
+
 	shouldHaveSize(size: number): this {
 		this.getInput().should('have.attr', 'size', size.toString());
 		return this;

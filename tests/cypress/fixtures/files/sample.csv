@@ -1,2 +1,3 @@
-name,email
-Alice,alice@example.com
+Submission ID,Submission name,Date,User,Locale,IP Address,Origin,Referer,User Agent,Files,Role (role),Check Me (check-me),Firstname (firstname)
+5179a4d3-a299-475d-9ad7-4a5136205e85,submission-20260522-075353-823,2026-05-22T07:53:53.565Z,root,en,192.168.65.1,formidable,http://localhost:8080/sites/industrial/home/formidable.html,"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36","some-files:
+  Capture d’écran du 2026-05-21 21-08-22.png : http://localhost:8080/files/live/sites/industrial/formidable-results/form-actions/submissions/2026/05/22/submission-20260522-075353-823/files/some-files/Capture%20d%e2%80%99%c3%a9cran%20du%202026-05-21%2021-08-22.png",engineering,fr,Hervé

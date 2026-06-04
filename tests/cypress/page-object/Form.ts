@@ -5,6 +5,7 @@ import {EmailInput} from './elements/EmailInput';
 import {DateInput} from './elements/DateInput';
 import {CheckboxInput} from './elements/CheckboxInput';
 import {CheckboxGroup} from './elements/CheckboxGroup';
+import {RadioInput} from './elements/RadioInput';
 import {RadioGroup} from './elements/RadioGroup';
 import {SelectInput} from './elements/SelectInput';
 import {TextareaInput} from './elements/TextareaInput';
@@ -117,6 +118,12 @@ export class Form extends BaseComponent {
 		);
 	}
 
+	getRadio(name: string): RadioInput {
+		return new RadioInput(
+			this.findByName('input[type="radio"]', name)
+		);
+	}
+
 	/**
 	 * Get a select input directly in the form by its name attribute
 	 */
@@ -160,6 +167,10 @@ export class Form extends BaseComponent {
 		return new HiddenInput(
 			this.findByName('input[type="hidden"]', name)
 		);
+	}
+
+	getRichText(): Cypress.Chainable {
+		return this.get().find('.fmdb-content.fmdb-content-text');
 	}
 
 	getMessage(): Cypress.Chainable {
