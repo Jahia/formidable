@@ -214,12 +214,36 @@ class FormidableConfigServiceTest {
                 "https://captcha.example/api.js",
                 "captchaWidget",
                 "captcha-token",
-                "https://captcha.example/siteverify"
+                "https://challenges.cloudflare.com/turnstile/v0/siteverify"
         ));
 
         // Expected outcome: both verification and widget configuration are reported as complete.
         assertTrue(service.isCaptchaVerificationConfigured());
         assertTrue(service.isCaptchaWidgetConfigured());
+    }
+
+    @Test
+    void activateRejectsCaptchaVerificationUrlWhenSchemeIsNotHttps() {
+        FormidableConfigService service = new FormidableConfigService();
+
+        service.activate(new TestFormidableConfig(
+                "",
+                false,
+                "",
+                5L,
+                10L,
+                5L,
+                10L,
+                "text/plain",
+                "site-key",
+                "secret-key",
+                "https://captcha.example/api.js",
+                "captchaWidget",
+                "captcha-token",
+                "http://challenges.cloudflare.com/turnstile/v0/siteverify"
+        ));
+
+        assertFalse(service.isCaptchaVerificationConfigured());
     }
 
     @Test

@@ -137,7 +137,7 @@ class FormSubmissionPipelineTest {
         FormSubmissionPipeline pipeline = newPipelineWithCaptchaFormNode(config, true);
         HttpServletRequest req = mock(HttpServletRequest.class);
         when(config.isCaptchaVerificationConfigured()).thenReturn(true);
-        when(req.getParameter("ct")).thenReturn("bad-token");
+        when(req.getHeader("X-Formidable-Captcha-Token")).thenReturn("bad-token");
         when(req.getRemoteAddr()).thenReturn("203.0.113.10");
         when(config.verifyCaptcha("bad-token", "203.0.113.10")).thenReturn(false);
 
@@ -155,7 +155,7 @@ class FormSubmissionPipelineTest {
         FormSubmissionPipeline pipeline = newPipelineWithCaptchaFormNode(config, true);
         HttpServletRequest req = mock(HttpServletRequest.class);
         when(config.isCaptchaVerificationConfigured()).thenReturn(true);
-        when(req.getParameter("ct")).thenReturn("valid-token");
+        when(req.getHeader("X-Formidable-Captcha-Token")).thenReturn("valid-token");
         when(req.getRemoteAddr()).thenReturn("203.0.113.10");
         when(config.verifyCaptcha("valid-token", "203.0.113.10")).thenReturn(true);
 
@@ -168,7 +168,7 @@ class FormSubmissionPipelineTest {
         FormSubmissionPipeline pipeline = newPipelineWithCaptchaFormNode(config, true);
         HttpServletRequest req = mock(HttpServletRequest.class);
         when(config.isCaptchaVerificationConfigured()).thenReturn(true);
-        when(req.getParameter("ct")).thenReturn("valid-token");
+        when(req.getHeader("X-Formidable-Captcha-Token")).thenReturn("valid-token");
         when(req.getRemoteAddr()).thenReturn("203.0.113.10");
         when(config.verifyCaptcha("valid-token", "203.0.113.10"))
                 .thenThrow(new FormidableConfigService.CaptchaVerificationException("provider unavailable", new RuntimeException("timeout")));
