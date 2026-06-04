@@ -9,15 +9,5 @@ export default defineConfig(() => ({
 	platform: github({
 		base: "main"
 	}),
-	managers: {
-		packages: {
-			name: "formidable",
-			path: process.cwd(),
-			version: fs.readFileSync(".chachalog/.version", "utf-8").trim(),
-		},
-		setVersion(_pkg, version) {
-			fs.writeFileSync(".chachalog/.version", version);
-			return true;
-		},
-	},
+    managers: yarn(),
 }));
