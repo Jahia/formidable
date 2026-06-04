@@ -1,8 +1,12 @@
 import {BaseComponent} from '@jahia/cypress';
 
 export class FormElement extends BaseComponent {
+	getContainer(): Cypress.Chainable {
+		return this.get().closest('.fmdb-form-group');
+	}
+
 	getLabel(): Cypress.Chainable {
-		return this.get().parent('.fmdb-form-group').find('label, legend');
+		return this.getContainer().find('label, legend');
 	}
 
 	getInput(): Cypress.Chainable {
@@ -35,4 +39,3 @@ export class FormElement extends BaseComponent {
 		return this;
 	}
 }
-

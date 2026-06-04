@@ -19,6 +19,14 @@ import {HiddenInput} from "./elements/HiddenInput";
  * Corresponds to fmdb:form node type
  */
 export class Form extends BaseComponent {
+	private getPageRoot(): Cypress.Chainable {
+		return this.get().parent();
+	}
+
+	private findByName(selector: string, name: string): Cypress.Chainable {
+		return this.get().find(`${selector}[name="${name}"]`).first();
+	}
+
 	/**
 	 * Get the form intro content
 	 */
@@ -31,7 +39,9 @@ export class Form extends BaseComponent {
 	 */
 	getFieldset(legend: string): Fieldset {
 		return new Fieldset(
-			this.get().find('fieldset.fmdb-fieldset').filter(`:has(legend:contains("${legend}"))`).first()
+			this.get()
+				.contains('legend.fmdb-fieldset-legend', legend)
+				.closest('fieldset.fmdb-fieldset')
 		);
 	}
 
@@ -40,7 +50,7 @@ export class Form extends BaseComponent {
 	 */
 	getTextInput(name: string): TextInput {
 		return new TextInput(
-			this.get().find(`> jsm-children > .fmdb-form-group input[type="text"][name="${name}"]`)
+			this.findByName('input[type="text"]', name)
 		);
 	}
 
@@ -49,7 +59,7 @@ export class Form extends BaseComponent {
 	 */
 	getEmailInput(name: string): EmailInput {
 		return new EmailInput(
-			this.get().find(`> jsm-children > .fmdb-form-group input[type="email"][name="${name}"]`)
+			this.findByName('input[type="email"]', name)
 		);
 	}
 
@@ -58,7 +68,7 @@ export class Form extends BaseComponent {
 	 */
 	getDateInput(name: string): DateInput {
 		return new DateInput(
-			this.get().find(`> jsm-children > .fmdb-form-group input[type="date"][name="${name}"]`)
+			this.findByName('input[type="date"]', name)
 		);
 	}
 
@@ -67,7 +77,7 @@ export class Form extends BaseComponent {
 	 */
 	getDateTimeLocalInput(name: string): DateTimeLocalInput {
 		return new DateTimeLocalInput(
-			this.get().find(`> jsm-children > .fmdb-form-group input[type="datetime-local"][name="${name}"]`)
+			this.findByName('input[type="datetime-local"]', name)
 		);
 	}
 
@@ -76,7 +86,7 @@ export class Form extends BaseComponent {
 	 */
 	getColorInput(name: string): ColorInput {
 		return new ColorInput(
-			this.get().find(`> jsm-children > .fmdb-form-group input[type="color"][name="${name}"]`)
+			this.findByName('input[type="color"]', name)
 		);
 	}
 
@@ -85,7 +95,7 @@ export class Form extends BaseComponent {
 	 */
 	getCheckbox(name: string): CheckboxInput {
 		return new CheckboxInput(
-			this.get().find(`> jsm-children > .fmdb-form-group input[type="checkbox"][name="${name}"]`)
+			this.findByName('input[type="checkbox"]', name)
 		);
 	}
 
@@ -94,7 +104,7 @@ export class Form extends BaseComponent {
 	 */
 	getCheckboxGroup(name: string): CheckboxGroup {
 		return new CheckboxGroup(
-			this.get().find(`> jsm-children fieldset.fmdb-checkbox-group:has(input[name="${name}"])`).first()
+			this.get().find(`fieldset.fmdb-checkbox-group:has(input[name="${name}"])`).first()
 		);
 	}
 
@@ -103,7 +113,7 @@ export class Form extends BaseComponent {
 	 */
 	getRadioGroup(name: string): RadioGroup {
 		return new RadioGroup(
-			this.get().find(`> jsm-children fieldset.fmdb-radio-group:has(input[name="${name}"])`).first()
+			this.get().find(`fieldset.fmdb-radio-group:has(input[name="${name}"])`).first()
 		);
 	}
 
@@ -112,7 +122,7 @@ export class Form extends BaseComponent {
 	 */
 	getSelectInput(name: string): SelectInput {
 		return new SelectInput(
-			this.get().find(`> jsm-children > .fmdb-form-group select[name="${name}"]`)
+			this.findByName('select', name)
 		);
 	}
 
@@ -121,7 +131,7 @@ export class Form extends BaseComponent {
 	 */
 	getTextarea(name: string): TextareaInput {
 		return new TextareaInput(
-			this.get().find(`> jsm-children > .fmdb-form-group textarea[name="${name}"]`)
+			this.findByName('textarea', name)
 		);
 	}
 
@@ -130,7 +140,7 @@ export class Form extends BaseComponent {
 	 */
 	getFileInput(name: string): FileInput {
 		return new FileInput(
-			this.get().find(`> jsm-children > .fmdb-form-group input[type="file"][name="${name}"]`)
+			this.findByName('input[type="file"]', name)
 		);
 	}
 
@@ -139,7 +149,7 @@ export class Form extends BaseComponent {
 	 */
 	getButton(identifier: string): ButtonInput {
 		return new ButtonInput(
-			this.get().find(`> jsm-children button:contains("${identifier}"), > jsm-children button[name="${identifier}"]`).first()
+			this.get().find(`button:contains("${identifier}"), button[name="${identifier}"]`).first()
 		);
 	}
 
@@ -148,8 +158,50 @@ export class Form extends BaseComponent {
 	 */
 	getHiddenInput(name: string): HiddenInput {
 		return new HiddenInput(
-			this.get().find(`> jsm-children input[type="hidden"][name="${name}"]`)
+			this.findByName('input[type="hidden"]', name)
 		);
+	}
+
+	getMessage(): Cypress.Chainable {
+		return this.getPageRoot().find('.fmdb-message[role="alert"]');
+	}
+
+	getSuccessMessage(): Cypress.Chainable {
+		return this.getPageRoot().find('.fmdb-message.fmdb-message-success[role="alert"]');
+	}
+
+	getErrorMessage(): Cypress.Chainable {
+		return this.getPageRoot().find('.fmdb-message.fmdb-message-error[role="alert"]');
+	}
+
+	getNextButton(): ButtonInput {
+		return new ButtonInput(
+			this.get().find('.fmdb-form-actions .fmdb-next-btn').first()
+		);
+	}
+
+	getPreviousButton(): ButtonInput {
+		return new ButtonInput(
+			this.get().find('.fmdb-form-actions .fmdb-prev-btn').first()
+		);
+	}
+
+	getNewFormButton(): ButtonInput {
+		return new ButtonInput(
+			this.getPageRoot().find('.fmdb-message .fmdb-new-form-btn').first()
+		);
+	}
+
+	getStepIndicators(): Cypress.Chainable {
+		return this.get().find('.fmdb-steps-nav .fmdb-step-indicator');
+	}
+
+	getCurrentStepIndicator(): Cypress.Chainable {
+		return this.get().find('.fmdb-steps-nav .fmdb-step-indicator[aria-current="step"]').first();
+	}
+
+	getVisibleStep(): Cypress.Chainable {
+		return this.get().find('[data-fmdb-step]:visible').first();
 	}
 
 
@@ -158,7 +210,7 @@ export class Form extends BaseComponent {
 	 */
 	getSubmitButton(): ButtonInput {
 		return new ButtonInput(
-			this.get().find('button[type="submit"]')
+			this.get().find('.fmdb-form-actions button[type="submit"]').first()
 		);
 	}
 
@@ -167,7 +219,7 @@ export class Form extends BaseComponent {
 	 */
 	getResetButton(): ButtonInput {
 		return new ButtonInput(
-			this.get().find('button[type="reset"]')
+			this.get().find('.fmdb-form-actions button[type="reset"]').first()
 		);
 	}
 
@@ -183,6 +235,14 @@ export class Form extends BaseComponent {
 	 */
 	reset(): void {
 		this.getResetButton().get().click();
+	}
+
+	nextStep(): void {
+		this.getNextButton().click();
+	}
+
+	previousStep(): void {
+		this.getPreviousButton().click();
 	}
 
 	shouldExist(): this {
@@ -201,17 +261,27 @@ export class Form extends BaseComponent {
 	}
 
 	shouldHaveSubmissionMessage(text: string): this {
-		this.get().find('.fmdb-form-submission').should('contain', text);
+		this.getSuccessMessage().should('contain', text);
 		return this;
 	}
 
 	shouldHaveErrorMessage(text: string): this {
-		this.get().find('.fmdb-form-error').should('contain', text);
+		this.getErrorMessage().should('contain', text);
 		return this;
 	}
 
 	waitForSubmit(): this {
-		this.get().find('.fmdb-form-submission, .fmdb-form-error').should('be.visible');
+		this.getMessage().should('be.visible');
+		return this;
+	}
+
+	shouldHaveCurrentStep(label: string): this {
+		this.getCurrentStepIndicator().should('contain', label);
+		return this;
+	}
+
+	shouldHaveVisibleStepCount(count: number): this {
+		this.getStepIndicators().should('have.length', count);
 		return this;
 	}
 }

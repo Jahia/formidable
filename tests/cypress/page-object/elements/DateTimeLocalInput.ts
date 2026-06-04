@@ -2,7 +2,10 @@ import {FormElement} from './FormElement';
 
 export class DateTimeLocalInput extends FormElement {
 	setDateTime(datetime: string): this {
-		this.getInput().invoke('val', datetime).trigger('change');
+		this.getInput()
+			.invoke('val', datetime)
+			.trigger('input')
+			.trigger('change');
 		return this;
 	}
 

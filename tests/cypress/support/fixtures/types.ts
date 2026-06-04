@@ -11,7 +11,7 @@ export interface NodeProperty {
 	value?: string;
 	values?: string[];
 	language?: string;
-	type?: 'STRING' | 'BOOLEAN' | 'LONG' | 'DATE';
+	type?: 'STRING' | 'BOOLEAN' | 'LONG' | 'DATE' | 'WEAKREFERENCE';
 }
 
 /**
@@ -126,3 +126,17 @@ export interface InputEmailData extends InputWithLength {
 	list?: string[];
 }
 
+export interface InputTextData extends InputWithLength {
+	autocomplete?: string;
+}
+
+export interface InputFileData extends BaseInputData {
+	accept?: string[];
+	multiple?: boolean;
+}
+
+export interface StepData extends BaseFormElementData {
+	label?: string;
+	intro?: string;
+	children?: JahiaNode[];
+}

@@ -1,19 +1,32 @@
 {
   "extends": "../tsconfig.json",
   "include": [
-    "**/*/*.ts",
-    "support/e2e.js"
+    "e2e/**/*.ts",
+    "page-object/**/*.ts",
+    "support/**/*.ts",
+    "support/**/*.js"
   ],
   "compilerOptions": {
     "allowSyntheticDefaultImports": true,
-    "noEmit": false,
+    "allowJs": true,
+    "checkJs": false,
+    "moduleResolution": "node",
+    "noEmit": true,
     "isolatedModules": false,
     "types": [
       "cypress",
       "node",
+      "cypress-iframe",
+      "cypress-real-events",
+      "@4tw/cypress-drag-drop",
       "cypress-wait-until",
       "@jahia/cypress"
     ],
-    "lib": [ "es2015" ]
+    "lib": [
+      "es2022",
+      "dom",
+      "dom.iterable"
+    ],
+    "skipLibCheck": true
   }
 }

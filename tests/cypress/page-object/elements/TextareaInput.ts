@@ -9,8 +9,10 @@ export class TextareaInput extends FormElement {
 	 * Type a value into the textarea
 	 */
 	type(value: string): this {
-		// Directly set value using invoke - faster and more reliable than .type()
-		this.getInput().invoke('val', value);
+		this.getInput()
+			.invoke('val', value)
+			.trigger('input')
+			.trigger('change');
 		return this;
 	}
 
@@ -18,7 +20,10 @@ export class TextareaInput extends FormElement {
 	 * Clear the textarea
 	 */
 	clear(): this {
-		this.getInput().invoke('val', '');
+		this.getInput()
+			.invoke('val', '')
+			.trigger('input')
+			.trigger('change');
 		return this;
 	}
 

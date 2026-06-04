@@ -1,5 +1,5 @@
 import {createSite, deleteSite, enableModule} from '@jahia/cypress';
-import {FORMIDABLE_MODULE_ID} from '../support/constants';
+import {FORMIDABLE_MODULE_IDS} from '../support/constants';
 import {FORMIDABLE_TEST_SITE, getInputColorNode, INPUT_COLOR_COMPLETE, INPUT_COLOR_SIMPLE} from '../support/fixtures';
 import {createFormNode, getFormPreview} from "../support/fixtures/forms";
 
@@ -7,7 +7,7 @@ describe('Color Input Component', () => {
 	before(() => {
 		deleteSite(FORMIDABLE_TEST_SITE.key);
 		createSite(FORMIDABLE_TEST_SITE.key, FORMIDABLE_TEST_SITE.config);
-		enableModule(FORMIDABLE_MODULE_ID, FORMIDABLE_TEST_SITE.key);
+		FORMIDABLE_MODULE_IDS.forEach(moduleId => enableModule(moduleId, FORMIDABLE_TEST_SITE.key));
 	});
 
 	beforeEach(() => {
