@@ -2451,7 +2451,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"dompurify@npm:*, dompurify@npm:^3.3.1":
+"dompurify@npm:*":
   version: 3.3.3
   resolution: "dompurify@npm:3.3.3"
   dependencies:
@@ -2460,6 +2460,18 @@ __metadata:
     "@types/trusted-types":
       optional: true
   checksum: 10c0/097c14a21a3f6cb95beded9ecd255f7c3512c42767b048390c747b0fe35736f6a71e02320fc50a9ac2be645834b463e4760915d595d502a56452daf339d0ea9c
+  languageName: node
+  linkType: hard
+
+"dompurify@npm:3.4.0":
+  version: 3.4.0
+  resolution: "dompurify@npm:3.4.0"
+  dependencies:
+    "@types/trusted-types": "npm:^2.0.7"
+  dependenciesMeta:
+    "@types/trusted-types":
+      optional: true
+  checksum: 10c0/5593ac44ee20b9aa521c2120884effc98927fb9128c548183c75e79e0a04357c62ee913a049a267c8f396cb8c9d520ecf72562826c5524c46d4fe03c12063638
   languageName: node
   linkType: hard
 
@@ -3339,7 +3351,7 @@ __metadata:
     "@types/dompurify": "npm:^3.2.0"
     "@types/react": "npm:^19.1.2"
     clsx: "npm:^2.1.1"
-    dompurify: "npm:^3.3.1"
+    dompurify: "npm:3.4.0"
     eslint: "npm:^9.26.0"
     globals: "npm:^16.0.0"
     i18next: "npm:^25.5.3"
@@ -3350,7 +3362,7 @@ __metadata:
     typescript: "npm:^5.8.3"
     typescript-eslint: "npm:^8.31.1"
     typescript-plugin-css-modules: "npm:^5.1.0"
-    vite: "npm:^7.0.0"
+    vite: "npm:7.3.5"
   languageName: unknown
   linkType: soft
 
@@ -3371,7 +3383,7 @@ __metadata:
     react-dom: "npm:^18.3.1"
     react-i18next: "npm:^11.2.2"
     typescript: "npm:^5.9.3"
-    vite: "npm:^7.3.1"
+    vite: "npm:7.3.5"
   languageName: unknown
   linkType: soft
 
@@ -3411,7 +3423,7 @@ __metadata:
     typescript: "npm:^5.8.3"
     typescript-eslint: "npm:^8.31.1"
     typescript-plugin-css-modules: "npm:^5.1.0"
-    vite: "npm:^7.0.0"
+    vite: "npm:7.3.5"
   languageName: unknown
   linkType: soft
 
@@ -3433,7 +3445,7 @@ __metadata:
     typescript: "npm:^5.8.3"
     typescript-eslint: "npm:^8.31.1"
     typescript-plugin-css-modules: "npm:^5.1.0"
-    vite: "npm:^7.0.0"
+    vite: "npm:7.3.5"
   languageName: unknown
   linkType: soft
 
@@ -6678,9 +6690,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"vite@npm:^7.0.0, vite@npm:^7.3.1":
-  version: 7.3.1
-  resolution: "vite@npm:7.3.1"
+"vite@npm:7.3.5":
+  version: 7.3.5
+  resolution: "vite@npm:7.3.5"
   dependencies:
     esbuild: "npm:^0.27.0"
     fdir: "npm:^6.5.0"
@@ -6729,7 +6741,7 @@ __metadata:
       optional: true
   bin:
     vite: bin/vite.js
-  checksum: 10c0/5c7548f5f43a23533e53324304db4ad85f1896b1bfd3ee32ae9b866bac2933782c77b350eb2b52a02c625c8ad1ddd4c000df077419410650c982cd97fde8d014
+  checksum: 10c0/4ad700649ed2ebd1e726d32f3f6e41eecbec4e29bcb5977805f3d43a5659280518aa431b0fc61adc1879df4fe1978d7cfc7dbbe54cdf014022385052967721e8
   languageName: node
   linkType: hard
 
