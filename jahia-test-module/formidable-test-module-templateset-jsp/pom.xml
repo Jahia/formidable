@@ -49,7 +49,7 @@
     <parent>
         <groupId>org.jahia.test</groupId>
         <artifactId>formidable-test-modules-parent</artifactId>
-        <version>0.2.0-SNAPSHOT</version>
+        <version>0.2.0</version>
     </parent>
     <artifactId>formidable-test-module-templateset-jsp</artifactId>
     <packaging>bundle</packaging>
