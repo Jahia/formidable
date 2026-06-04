@@ -32,7 +32,7 @@ interface SubmissionsTableProps {
     onRegisterRefresh: (refresh: (() => Promise<unknown>) | null) => void;
 }
 
-const PAGE_SIZE_OPTIONS = [10, 25, 50];
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 export const SubmissionsTable = ({
     formResults,
@@ -93,6 +93,12 @@ export const SubmissionsTable = ({
     }, [onSelectSubmission, selectedSubmission, submissions]);
 
     useEffect(() => {
+        // During page transitions Apollo can briefly expose an empty result while the next page is loading.
+        // Clamping the page number in that transient state sends the user back to page 1.
+        if (loading || !queryResult?.pageInfo) {
+            return;
+        }
+
         if (totalPages === 0 && currentPage !== 1) {
             setCurrentPage(1);
             return;
@@ -101,7 +107,7 @@ export const SubmissionsTable = ({
         if (totalPages > 0 && currentPage > totalPages) {
             setCurrentPage(totalPages);
         }
-    }, [currentPage, totalPages]);
+    }, [currentPage, loading, queryResult?.pageInfo, totalPages]);
 
     const tableRef = useRef<HTMLDivElement | null>(null);
 
