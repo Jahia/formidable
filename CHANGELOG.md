@@ -2,13 +2,21 @@
 
 ## 0.2.0
 
+### Breaking Changes
+
+* Implement weakref model for conditional logic field resolution (#73)
+
+* Clarified form type ownership and updated server-side semantics for containers, CAPTCHA, and authentication. (#86)
+
+* Conditional step visibility in multi-step forms (#62)
+
+* Conditional required field verification based on conditional rule (#62)
+
 ### New Features
 
 * Hardened form CAPTCHA handling by validating verification endpoints and moving CAPTCHA tokens from URL parameters to secure request headers.
 
 * Changed the public Java package for custom form actions to `org.jahia.modules.formidable.engine.api`. If you have custom form action implementations that import from the previous package, update your imports to use the new package and recompile your module.
-
-* Implement weakref model for conditional logic field resolution (#73)
 
 * Add results permissions and delete action (#76)
 
@@ -17,8 +25,6 @@
 * Fixed form submissions so authentication and CAPTCHA can't be bypassed during repository errors (#79)
 
 * Updated documentation based on review feedback.
-
-* Clarified form type ownership and updated server-side semantics for containers, CAPTCHA, and authentication. (#86)
 
 * Improved form submission error handling and documented operational limits.
 
