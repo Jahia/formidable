@@ -1,6 +1,6 @@
 ---
 # Allowed version bumps: patch, minor, major
-formidable-modules: minor
+formidable: minor
 ---
 
 Add results permissions and delete action (#76)
