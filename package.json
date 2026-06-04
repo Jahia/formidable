@@ -1,5 +1,6 @@
 {
-  "name": "formidable-monorepo",
+  "name": "formidable",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "workspaces": [
