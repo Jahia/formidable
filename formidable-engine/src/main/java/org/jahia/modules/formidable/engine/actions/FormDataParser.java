@@ -335,7 +335,7 @@ public class FormDataParser {
                 ? fieldAllowedTypes
                 : config.getUploadAllowedMimeTypes();
 
-        if (!allowed.isEmpty() && !isMimeAllowed(detectedMime, allowed)) {
+        if (!allowed.isEmpty() && !isMimeAllowed(detectedMime, sanitizedName, allowed)) {
             log.warn("[FormDataParser] Rejected uploaded file: detected MIME type is not in the configured allowlist");
             throw new ParseException(
                     "File '" + sanitizedName + "': type '" + detectedMime + "' is not allowed.",
@@ -373,11 +373,23 @@ public class FormDataParser {
     /**
      * Checks whether the detected MIME type is permitted by the allowlist.
      * Supports wildcards (e.g. "image/*").
+     *
+     * CSV files are a special case: content-only detection often reports simple CSV payloads
+     * as {@code text/plain}. When the field explicitly allows {@code text/csv}, we accept
+     * {@code text/plain} only for files whose name ends with {@code .csv}.
      */
-    private static boolean isMimeAllowed(String detectedMime, Set<String> allowed) {
+    static boolean isMimeAllowed(String detectedMime, String filename, Set<String> allowed) {
         if (allowed.contains(detectedMime)) return true;
+        if (isCsvPlainTextAlias(detectedMime, filename, allowed)) return true;
         String prefix = detectedMime.contains("/") ? detectedMime.substring(0, detectedMime.indexOf('/')) : "";
         return !prefix.isEmpty() && allowed.contains(prefix + "/*");
+    }
+
+    private static boolean isCsvPlainTextAlias(String detectedMime, String filename, Set<String> allowed) {
+        return "text/plain".equals(detectedMime)
+                && allowed.contains("text/csv")
+                && filename != null
+                && filename.toLowerCase().endsWith(".csv");
     }
 
 }
