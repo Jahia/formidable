@@ -138,7 +138,7 @@ public class FormDataParser {
      *
      * @param fieldName    the form field name
      * @param originalName sanitized original filename
-     * @param mimeType     detected MIME type (via content-only Tika detection)
+     * @param mimeType     detected MIME type (via filename-aware Tika detection)
      * @param data         file bytes
      */
     public record FormFile(
@@ -327,15 +327,16 @@ public class FormDataParser {
             return null;
         }
 
-        // Content-only detection for MIME allowlist enforcement.
-        // Do not pass the filename here: Tika may use it to refine ambiguous types.
-        String detectedMime = TIKA.detect(data);
+        // Use filename-aware detection so Tika can disambiguate common cases where content-only
+        // detection is too generic, such as CSV, Matroska/WebM containers, and other formats
+        // whose final MIME type benefits from the original extension hint.
+        String detectedMime = TIKA.detect(data, sanitizedName);
         // Field-level allowlist (pre-resolved at collection time); falls back to global config
         Set<String> allowed = (fieldAllowedTypes != null && !fieldAllowedTypes.isEmpty())
                 ? fieldAllowedTypes
                 : config.getUploadAllowedMimeTypes();
 
-        if (!allowed.isEmpty() && !isMimeAllowed(detectedMime, sanitizedName, allowed)) {
+        if (!allowed.isEmpty() && !isMimeAllowed(detectedMime, allowed)) {
             log.warn("[FormDataParser] Rejected uploaded file: detected MIME type is not in the configured allowlist");
             throw new ParseException(
                     "File '" + sanitizedName + "': type '" + detectedMime + "' is not allowed.",
@@ -373,23 +374,11 @@ public class FormDataParser {
     /**
      * Checks whether the detected MIME type is permitted by the allowlist.
      * Supports wildcards (e.g. "image/*").
-     *
-     * CSV files are a special case: content-only detection often reports simple CSV payloads
-     * as {@code text/plain}. When the field explicitly allows {@code text/csv}, we accept
-     * {@code text/plain} only for files whose name ends with {@code .csv}.
      */
-    static boolean isMimeAllowed(String detectedMime, String filename, Set<String> allowed) {
+    static boolean isMimeAllowed(String detectedMime, Set<String> allowed) {
         if (allowed.contains(detectedMime)) return true;
-        if (isCsvPlainTextAlias(detectedMime, filename, allowed)) return true;
         String prefix = detectedMime.contains("/") ? detectedMime.substring(0, detectedMime.indexOf('/')) : "";
         return !prefix.isEmpty() && allowed.contains(prefix + "/*");
-    }
-
-    private static boolean isCsvPlainTextAlias(String detectedMime, String filename, Set<String> allowed) {
-        return "text/plain".equals(detectedMime)
-                && allowed.contains("text/csv")
-                && filename != null
-                && filename.toLowerCase().endsWith(".csv");
     }
 
 }
