@@ -278,10 +278,56 @@ All file parts pass through `FormDataParser` which enforces the following contro
 | 3 | Total request size limit | `upload.setSizeMax()` |
 | 4 | File part count limit (CVE-2023-24998) | `upload.setFileCountMax(config.getUploadMaxFileCount())` — requires commons-fileupload ≥ 1.5 |
 | 5 | Filename sanitisation | Filename normalized with Jahia's standard JCR node-name escaping rules; blank results fall back to `upload` |
-| 6 | MIME type detection | Apache Tika magic-byte detection (ignores client-supplied `Content-Type`) |
+| 6 | MIME type detection | Apache Tika filename-aware detection via `Tika.detect(byte[], String)` (ignores client-supplied `Content-Type`, but uses the original filename extension to disambiguate ambiguous formats) |
 | 7 | MIME type allowlist | Field-level `accept` property (multiple choicelist) takes priority; falls back to global cfg allowlist. Rejections at this step are treated as validation failures (`FMDB-010`), not technical parse failures |
 
 Limits and the global allowlist are configured in `org.jahia.modules.formidable.cfg` via `FormidableConfig`.
+
+### Why the parser uses `Tika.detect(byte[], String)`
+
+`FormDataParser` intentionally uses filename-aware Tika detection:
+
+- `Tika.detect(byte[], String)`
+
+instead of content-only detection:
+
+- `Tika.detect(byte[])`
+
+Some formats are ambiguous when Tika only sees raw bytes. The original filename
+extension gives Tika enough context to classify the file more accurately.
+
+Typical examples observed in this codebase:
+
+- `sample.csv`
+  - `detect(byte[])` can fall back to `text/plain`
+  - `detect(byte[], "sample.csv")` resolves cleanly to `text/csv`
+- `cats.mkv`
+  - content-only detection can return a generic Matroska/container type
+  - filename-aware detection aligns better with the expected `video/x-matroska`
+- `webm` and similar media/container formats
+  - content-only detection can be too generic for allowlist validation
+  - filename-aware detection is usually closer to the MIME authors expect
+
+Using `detect(byte[], String)` keeps the server-side allowlist logic simpler:
+
+- no CSV-specific fallback from `text/plain` to `text/csv`
+- fewer ad hoc aliases for ambiguous container formats
+- better alignment between:
+  - author-configured `accept` values
+  - browser-selected files
+  - server-side MIME validation
+
+This is less strict than pure content-only detection because the filename
+participates in classification. That tradeoff is accepted here because the
+allowlist is meant to provide predictable validation for legitimate user uploads,
+not only maximal resistance to ambiguous-but-benign file formats.
+
+If stricter hardening is needed later, the alternative would be to compare both:
+
+1. `detect(byte[])`
+2. `detect(byte[], String)`
+
+and only accept curated divergences explicitly.
 
 ### Uploaded file lifecycle and temporary-file handling
 
