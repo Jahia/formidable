@@ -1,6 +1,16 @@
 import {TextInput} from './TextInput';
 
 export class EmailInput extends TextInput {
+	type(value: string): this {
+		this.getInput().type(value);
+		return this;
+	}
+
+	clear(): this {
+		this.getInput().clear();
+		return this;
+	}
+
 	shouldBeValidEmail(): this {
 		this.getInput().should('have.attr', 'type', 'email');
 		return this;

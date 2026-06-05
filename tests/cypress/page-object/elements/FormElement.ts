@@ -52,4 +52,12 @@ export class FormElement extends BaseComponent {
 		});
 		return this;
 	}
+
+	shouldHaveValidityState(state: keyof ValidityState, expected: boolean): this {
+		this.getInput().then($el => {
+			const input = $el.get(0) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+			expect(input.validity[state]).to.eq(expected);
+		});
+		return this;
+	}
 }

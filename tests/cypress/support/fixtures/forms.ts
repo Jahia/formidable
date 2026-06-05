@@ -114,7 +114,7 @@ export const createPublishedLiveFormPage = (
  * Opens a form in preview mode and returns the Form page object
  */
 export function getFormPreview(formTitle: string): Form {
-	const jcontent = JContent.visit(FORMIDABLE_TEST_SITE.key, 'en', 'content-folders/contents').switchToStructuredView();
+	const jcontent = JContent.visit(FORMIDABLE_TEST_SITE.key, 'en', 'content-folders/contents').switchToListMode();
 	jcontent.getTable().getRowByLabel(formTitle).contextMenu().select('Preview');
 
 	const formBody = cy.get(JCONTENT_SELECTORS.previewIframe)

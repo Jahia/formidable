@@ -8,7 +8,7 @@ import {useFormidableSite} from './support';
 describe('Form fields - 26 Email pattern suggestions and length', () => {
 	useFormidableSite();
 
-	it('applies pattern, suggestions, min and max length validation as configured', () => {
+	it('renders email constraints and enforces stable native validation on submit', () => {
 		createPublishedLiveFormPage(
 			'email-validation-form',
 			'Email Validation Form',
@@ -34,17 +34,30 @@ describe('Form fields - 26 Email pattern suggestions and length', () => {
 				.shouldHaveDatalist()
 				.shouldHaveDatalistOptions(INPUT_EMAIL_WITH_LIST.list!);
 
+			// An empty required email must block submission before the form submit handler runs.
+			form.submit();
+			emailInput
+				.shouldBeInvalid()
+				.shouldHaveValidityState('valueMissing', true);
+			form.getMessage().should('not.exist');
+
+			// A malformed email address must fail native email validation.
 			emailInput.type('bad');
-			emailInput.shouldBeInvalid();
+			emailInput
+				.shouldBeInvalid()
+				.shouldHaveValidityState('typeMismatch', true);
+			form.submit();
+			form.getMessage().should('not.exist');
 
-			emailInput.clear().type('user@gmail.com');
-			emailInput.shouldBeInvalid();
-
-			emailInput.clear().type('qa@example.com');
-			emailInput.shouldBeInvalid();
-
+			// A valid example.com address within the configured length limits should submit successfully.
 			emailInput.clear().type('product.team@example.com');
 			emailInput.shouldBeValid();
+			emailInput
+				.shouldHaveValidityState('valueMissing', false)
+				.shouldHaveValidityState('typeMismatch', false);
+
+			form.submit();
+			form.waitForSubmit().shouldHaveSubmissionMessage('Form submitted successfully!');
 		});
 	});
 });
