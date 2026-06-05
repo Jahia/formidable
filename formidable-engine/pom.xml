@@ -4,14 +4,14 @@
     <parent>
         <artifactId>formidable</artifactId>
         <groupId>org.jahia.modules</groupId>
-        <version>0.2.0-SNAPSHOT</version>
+        <version>0.3.0-SNAPSHOT</version>
     </parent>
     <artifactId>formidable-engine</artifactId>
     <name>Formidable Engine</name>
     <packaging>bundle</packaging>
     <description>Formidable Engine - UI Extensions (selectorTypes for Content Editor)</description>
     <properties>
-        <jahia-module-signature>MCwCFDrhzuD+iBb1/3dV3AuFRlLal/ETAhRj0gskqYinAH58d9ab7G/7H3T7Lg==</jahia-module-signature>
+        <jahia-module-signature>MC0CFHGKb8Qfp9ZwIWS1bdW9Pkd1GEfGAhUAkR/6gsPSkED1Z2AHEbddDhjJVps=</jahia-module-signature>
     </properties>
     <scm>
         <connection>scm:git:git@github.com:Jahia/formidable.git</connection>
