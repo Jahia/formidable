@@ -32,11 +32,8 @@ services:
   cypress:
     profiles: [ "test" ]
     image: '${TESTS_IMAGE}'
+    ipc: host
     container_name: cypress
-    deploy:
-      resources:
-        limits:
-          memory: 4gb
     depends_on:
       - jahia
     environment:
