@@ -11,7 +11,7 @@ export interface NodeProperty {
 	value?: string;
 	values?: string[];
 	language?: string;
-	type?: 'STRING' | 'BOOLEAN' | 'LONG' | 'DATE';
+	type?: 'STRING' | 'BOOLEAN' | 'LONG' | 'DATE' | 'WEAKREFERENCE';
 }
 
 /**
@@ -22,6 +22,7 @@ export interface JahiaNode {
 	primaryNodeType: string;
 	properties: NodeProperty[];
 	children?: JahiaNode[];
+	mixins?: string[];
 }
 
 /**
@@ -82,9 +83,9 @@ export interface InputButtonData extends BaseFormElementData {
 }
 
 /**
- * Checkbox choice based on SelectOptions JSON structure
+ * Choice item based on SelectOptions JSON structure
  */
-export interface CheckboxChoiceData {
+export interface ChoiceData {
 	value: string;
 	label: string;
 	selected?: boolean;
@@ -95,7 +96,26 @@ export interface CheckboxChoiceData {
  * 1 choice → standalone checkbox, N choices → checkbox group
  */
 export interface CheckboxData extends BaseInputData {
-	choices: CheckboxChoiceData[];
+	choices: ChoiceData[];
+}
+
+/**
+ * Radio data based on fmdb:radio CND
+ * 1 choice → standalone radio, N choices → radio group
+ */
+export interface RadioData extends BaseInputData {
+	choices: ChoiceData[];
+}
+
+/**
+ * Select data based on fmdb:select CND
+ */
+export interface SelectData extends BaseInputData {
+	options: ChoiceData[];
+	multiple?: boolean;
+	size?: number;
+	disabled?: boolean;
+	autofocus?: boolean;
 }
 
 /**
@@ -126,3 +146,39 @@ export interface InputEmailData extends InputWithLength {
 	list?: string[];
 }
 
+export interface InputTextData extends InputWithLength {
+	autocomplete?: string;
+	list?: string[];
+}
+
+export interface InputFileData extends BaseInputData {
+	accept?: string[];
+	multiple?: boolean;
+}
+
+export interface TextareaData extends InputWithLength {
+	rows?: number;
+	cols?: number;
+	autocomplete?: string;
+	spellcheck?: boolean;
+	readonly?: boolean;
+	autofocus?: boolean;
+	disabled?: boolean;
+	wrap?: 'soft' | 'hard' | 'off';
+	resize?: 'none' | 'both' | 'horizontal' | 'vertical';
+}
+
+export interface FieldsetData extends BaseFormElementData {
+	children?: JahiaNode[];
+}
+
+export interface RichTextData {
+	name?: string;
+	text: string;
+}
+
+export interface StepData extends BaseFormElementData {
+	label?: string;
+	intro?: string;
+	children?: JahiaNode[];
+}

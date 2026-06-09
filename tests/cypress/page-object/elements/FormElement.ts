@@ -1,8 +1,12 @@
 import {BaseComponent} from '@jahia/cypress';
 
 export class FormElement extends BaseComponent {
+	getContainer(): Cypress.Chainable {
+		return this.get().closest('.fmdb-form-group');
+	}
+
 	getLabel(): Cypress.Chainable {
-		return this.get().parent('.fmdb-form-group').find('label, legend');
+		return this.getContainer().find('label, legend');
 	}
 
 	getInput(): Cypress.Chainable {
@@ -34,5 +38,26 @@ export class FormElement extends BaseComponent {
 		this.getLabel().find('.fmdb-required-indicator').should('not.exist');
 		return this;
 	}
-}
 
+	shouldBeValid(): this {
+		this.getInput().then($el => {
+			expect(($el.get(0) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).checkValidity()).to.eq(true);
+		});
+		return this;
+	}
+
+	shouldBeInvalid(): this {
+		this.getInput().then($el => {
+			expect(($el.get(0) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).checkValidity()).to.eq(false);
+		});
+		return this;
+	}
+
+	shouldHaveValidityState(state: keyof ValidityState, expected: boolean): this {
+		this.getInput().then($el => {
+			const input = $el.get(0) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+			expect(input.validity[state]).to.eq(expected);
+		});
+		return this;
+	}
+}

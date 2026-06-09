@@ -152,12 +152,21 @@ public @interface FormidableConfig {
     @AttributeDefinition(
             name = "Allowed MIME types (fallback)",
             description = "Global MIME type allowlist applied as fallback when no 'accept' property is defined " +
-                    "on the fmdb:inputFile field. Comma-separated list of MIME types.",
+                    "on the fmdb:inputFile field. Comma-separated list of MIME types or wildcards (for example image/*). " +
+                    "Supported allowlist values: image/jpeg, image/png, image/gif, image/webp, application/pdf, " +
+                    "application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document, " +
+                    "application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, " +
+                    "application/vnd.oasis.opendocument.text, application/vnd.oasis.opendocument.spreadsheet, " +
+                    "text/plain, text/csv, video/mp4, video/webm, video/ogg, video/x-matroska. " +
+                    "Validation uses Tika filename-aware detection (detect(byte[], String)) so ambiguous formats " +
+                    "such as CSV, Matroska, WebM, and similar container or text-based files are resolved from " +
+                    "both content and original filename extension.",
             type = AttributeType.STRING
     )
     String uploadAllowedMimeTypes() default "image/jpeg,image/png,image/gif,image/webp,application/pdf," +
             "application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document," +
             "application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet," +
+            "application/vnd.oasis.opendocument.text,application/vnd.oasis.opendocument.spreadsheet," +
             "text/plain,text/csv," +
             "video/mp4,video/webm,video/ogg,video/x-matroska";
 }
