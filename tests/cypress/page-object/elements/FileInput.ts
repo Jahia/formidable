@@ -53,12 +53,16 @@ export class FileInput extends FormElement {
 		return this.getContainer().find('.fmdb-file-label');
 	}
 
+	getFileContainer(): Cypress.Chainable {
+		return this.getInput().closest('.fmdb-file-input-container');
+	}
+
 	getSelectionNotice(): Cypress.Chainable {
-		return this.getContainer().find('.fmdb-file-selection-note');
+		return this.getFileContainer().find('.fmdb-file-selection-note');
 	}
 
 	getSelectedFiles(): Cypress.Chainable {
-		return this.getContainer().find('.fmdb-file-item');
+		return this.getFileContainer().find('.fmdb-file-item');
 	}
 
 	removeSelectedFile(index: number): this {
