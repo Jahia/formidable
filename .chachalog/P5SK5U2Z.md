@@ -3,4 +3,4 @@
 formidable: patch
 ---
 
-Feat! replace native browser validation with inline custom error messages (#115)
+Changed form validation to show inline error messages instead of native browser tooltips (#115).
