@@ -3,8 +3,9 @@
 ## Overview
 
 Formidable replaces native browser validation tooltips with inline error messages displayed
-directly in the DOM. The `<form>` element always renders with `noValidate`, which suppresses
-the browser's default tooltip UI while keeping the Constraint Validation API fully functional.
+directly in the DOM. The `Form` client component sets `form.noValidate = true` on mount,
+which suppresses the browser's default tooltip UI while keeping the Constraint Validation API
+fully functional.
 
 When a field is invalid, a styled `<div>` is injected below it (or appended to its
 `.fmdb-form-group` wrapper) with the resolved error message.
@@ -98,7 +99,7 @@ only the relevant properties for each mixin level.
 ## Data flow: server → client
 
 Validation messages follow the standard Formidable server/client split. No Island is needed
-for individual inputs — the messages are passed as HTML data attributes.
+for most individual inputs — the messages are passed as HTML data attributes.
 
 ```
 Server (default.server.tsx)
@@ -126,6 +127,7 @@ Client (Form.client.tsx)
   │  validateInputs(container):
   │    - called at form submit and step navigation
   │    - iterates all inputs, validates each, shows/clears errors
+  │    - deduplicates radio/checkbox groups by name so each group is handled once
   │    - focuses the first invalid field
   │
   ▼
@@ -215,11 +217,20 @@ checked" requires client-side JavaScript across multiple `<input>` elements.
 
 The group validation uses `setCustomValidity()` on all checkboxes in the group:
 
-- If the contributor set `msgValueMissing` via the mixin → that message is used
+- If a checkbox in the group exposes `data-fmdb-msg-value-missing` → that message is used
+- Otherwise, if the Island receives an `errorMessage` prop → that message is used
 - Otherwise → the i18n key `fmdb_inputCheckbox.error` is used as fallback
 
-The `data-fmdb-msg-value-missing` attribute is set on the first checkbox of the group so
-that `resolveValidationMessage()` can pick it up during form-level validation.
+Current implementation detail:
+
+- A single checkbox uses the standard server-side `validationDataAttributes()` flow
+- A multi-checkbox group is rendered through `Checkbox.client.tsx`
+- In the current `default.server.tsx` implementation for multi-checkbox groups, validation
+  data attributes are not spread onto the individual `<input>` elements and no
+  `errorMessage` prop is passed to the Island
+- In practice, multi-checkbox groups therefore currently fall back to the translated
+  `fmdb_inputCheckbox.error` message when the group is required and none of the boxes is
+  checked
 
 ---
 
@@ -235,4 +246,3 @@ that `resolveValidationMessage()` can pick it up during form-level validation.
 | `settings/jahia-content-editor-forms/forms/fmdbmix_validationMessages.json` | Content Editor form for base mixin |
 | `settings/jahia-content-editor-forms/forms/fmdbmix_textValidationMessages.json` | Content Editor form for text mixin |
 | `settings/jahia-content-editor-forms/forms/fmdbmix_rangeValidationMessages.json` | Content Editor form for range mixin |
-
