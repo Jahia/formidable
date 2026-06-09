@@ -1,4 +1,4 @@
-import {useRef} from 'react';
+import {useEffect, useRef} from 'react';
 import clsx from "clsx";
 import classes from './Form.client.module.css';
 import '~/design/validation.css';
@@ -41,6 +41,12 @@ export default function Form({
 }: FormProps) {
 	const formRef = useRef<HTMLFormElement>(null);
 	const {t} = useTranslation('formidable-elements', {keyPrefix: 'fmdb_form'});
+
+	useEffect(() => {
+		if (formRef.current) {
+			formRef.current.noValidate = true;
+		}
+	}, []);
 
 	const {
 		currentStep,
@@ -135,8 +141,9 @@ export default function Form({
 				ref={formRef}
 				className={clsx("fmdb-form", classes.form, (hasMessage || isLoading) && classes.hidden)}
 				method="post"
+				action={submitActionUrl}
+				encType="multipart/form-data"
 				id={formId}
-				noValidate
 				onSubmit={e => handleSubmit(e, () => validateInputs(e.currentTarget))}
 			>
 				{intro && (
