@@ -36,6 +36,46 @@ const FLAG_TO_DATA_ATTR: Record<ValidityFlag, string> = {
 const ERROR_CLASS = 'fmdb-validation-error';
 const INVALID_CLASS = 'fmdb-invalid';
 
+const getGroupedInputs = (
+	input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+): Array<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement> => {
+	if (!(input instanceof HTMLInputElement)) return [input];
+	if ((input.type !== 'radio' && input.type !== 'checkbox') || !input.name || !input.form) return [input];
+
+	return Array.from(
+		input.form.querySelectorAll<HTMLInputElement>(`input[type="${input.type}"][name="${CSS.escape(input.name)}"]`)
+	);
+};
+
+const buildErrorId = (input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): string => {
+	const base = input.id || input.name || 'field';
+	return `fmdb-validation-error-${base}`;
+};
+
+const updateDescribedBy = (
+	input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
+	errorId: string,
+	add: boolean
+): void => {
+	const current = (input.getAttribute('aria-describedby') ?? '')
+		.split(/\s+/)
+		.filter(Boolean);
+	const next = add
+		? Array.from(new Set([...current, errorId]))
+		: current.filter(token => token !== errorId);
+
+	if (next.length > 0) {
+		input.setAttribute('aria-describedby', next.join(' '));
+	} else {
+		input.removeAttribute('aria-describedby');
+	}
+};
+
+const clearFieldAria = (input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): void => {
+	input.removeAttribute('aria-invalid');
+	updateDescribedBy(input, buildErrorId(input), false);
+};
+
 export const resolveValidationMessage = (
 	input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
 ): string => {
@@ -58,13 +98,18 @@ export const showFieldError = (
 	message: string,
 ): void => {
 	clearFieldError(input);
-	input.classList.add(INVALID_CLASS);
+	const groupedInputs = getGroupedInputs(input);
+	groupedInputs.forEach(groupedInput => {
+		groupedInput.classList.add(INVALID_CLASS);
+		groupedInput.setAttribute('aria-invalid', 'true');
+	});
 
 	const errorEl = document.createElement('div');
+	errorEl.id = buildErrorId(input);
 	errorEl.className = ERROR_CLASS;
-	errorEl.setAttribute('role', 'alert');
-	errorEl.setAttribute('aria-live', 'polite');
+	errorEl.setAttribute('role', 'status');
 	errorEl.textContent = message;
+	groupedInputs.forEach(groupedInput => updateDescribedBy(groupedInput, errorEl.id, true));
 
 	const formGroup = input.closest('.fmdb-form-group');
 	if (formGroup) {
@@ -77,7 +122,11 @@ export const showFieldError = (
 export const clearFieldError = (
 	input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
 ): void => {
-	input.classList.remove(INVALID_CLASS);
+	const groupedInputs = getGroupedInputs(input);
+	groupedInputs.forEach(groupedInput => {
+		groupedInput.classList.remove(INVALID_CLASS);
+		clearFieldAria(groupedInput);
+	});
 
 	const formGroup = input.closest('.fmdb-form-group');
 	const container = formGroup ?? input.parentElement;
@@ -89,6 +138,9 @@ export const clearFieldError = (
 
 export const clearAllFieldErrors = (form: HTMLFormElement): void => {
 	form.querySelectorAll(`.${ERROR_CLASS}`).forEach(el => el.remove());
-	form.querySelectorAll(`.${INVALID_CLASS}`).forEach(el => el.classList.remove(INVALID_CLASS));
+	form.querySelectorAll(`.${INVALID_CLASS}`).forEach(el => {
+		el.classList.remove(INVALID_CLASS);
+	});
+	form.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input, select, textarea')
+		.forEach(input => clearFieldAria(input));
 };
-

@@ -44,8 +44,18 @@ export function useCustomFormValidation({formRef}: UseCustomValidationOptions) {
 }
 
 export function validateInputs(container: HTMLElement): boolean {
-	const inputs = container.querySelectorAll<FormInputElement>('input, select, textarea');
+	const allInputs = Array.from(container.querySelectorAll<FormInputElement>('input, select, textarea'));
+	const seenGroups = new Set<string>();
+	const inputs = allInputs.filter(input => {
+		if (!(input instanceof HTMLInputElement)) return true;
+		if (input.type !== 'radio' && input.type !== 'checkbox') return true;
+		if (!input.name) return true;
 
+		const groupKey = `${input.type}:${input.name}`;
+		if (seenGroups.has(groupKey)) return false;
+		seenGroups.add(groupKey);
+		return true;
+	});
 
 	let firstInvalid: HTMLElement | null = null;
 	let allValid = true;
@@ -63,4 +73,3 @@ export function validateInputs(container: HTMLElement): boolean {
 	if (firstInvalid) (firstInvalid as HTMLElement).focus();
 	return allValid;
 }
-
