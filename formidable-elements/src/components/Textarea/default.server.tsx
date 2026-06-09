@@ -1,6 +1,7 @@
 import {jahiaComponent} from "@jahia/javascript-modules-library";
+import {type TextValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
 
-interface TextareaProps {
+interface TextareaProps extends TextValidationMessageProps {
 	"jcr:title"?: string;
 	placeholder?: string;
 	defaultValue?: string;
@@ -45,7 +46,8 @@ jahiaComponent(
 			autofocus,
 			disabled,
 			form,
-			dirname
+			dirname,
+			...validationMsgs
 		}: TextareaProps,
 		{currentNode}
 	) => {
@@ -88,6 +90,7 @@ jahiaComponent(
 					disabled={disabled}
 					form={form}
 					{...(dirname && {'dirname': `${textareaName}.dir`})}
+					{...validationDataAttributes(validationMsgs)}
 				/>
 			</div>
 		);

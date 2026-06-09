@@ -6,6 +6,6 @@
 // - colorspace (string) = 'limited-srgb' < 'limited-srgb', 'display-p3'
 
 // Color input component properties
-[fmdb:inputColor] > jnt:content, fmdbmix:element, fmdbmix:colorField
+[fmdb:inputColor] > jnt:content, fmdbmix:element, fmdbmix:colorField, fmdbmix:validationMessages
  - required (boolean) = false
  - defaultValue (string) indexed=no

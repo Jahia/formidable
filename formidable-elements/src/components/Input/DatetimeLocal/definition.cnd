@@ -1,5 +1,5 @@
 // Datetime-local input component properties
-[fmdb:inputDatetimeLocal] > jnt:content, fmdbmix:element, fmdbmix:datetimeLocalField
+[fmdb:inputDatetimeLocal] > jnt:content, fmdbmix:element, fmdbmix:datetimeLocalField, fmdbmix:rangeValidationMessages
  - required (boolean) = false
  - defaultValue (date)
  - min (date)

@@ -1,8 +1,9 @@
 import {Island, jahiaComponent} from "@jahia/javascript-modules-library";
 import Checkbox from "./Checkbox.client";
 import {parseChoices} from "~/utils/choiceUtils";
+import {type BaseValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
 
-interface CheckboxProps {
+interface CheckboxProps extends BaseValidationMessageProps {
 	"jcr:title"?: string;
 	choices?: string[];
 	required?: boolean;
@@ -14,12 +15,13 @@ jahiaComponent(
 		name: "default"
 	},
 	(
-		{"jcr:title": label, choices: rawChoices = [], required}: CheckboxProps,
+		{"jcr:title": label, choices: rawChoices = [], required, ...validationMsgs}: CheckboxProps,
 		{currentNode}
 	) => {
 		const inputName = currentNode.getName();
 		const nodeId = currentNode.getIdentifier();
 		const parsedChoices = parseChoices(rawChoices);
+		const vAttrs = validationDataAttributes(validationMsgs);
 		if (parsedChoices.length === 1) {
 			const choice = parsedChoices[0];
 			const inputId = `checkbox-${nodeId}`;
@@ -33,6 +35,7 @@ jahiaComponent(
 						value={choice.value}
 						defaultChecked={choice.selected}
 						required={required}
+						{...vAttrs}
 					/>
 					<label htmlFor={inputId} className="fmdb-checkbox-label">
 						{choice.label}

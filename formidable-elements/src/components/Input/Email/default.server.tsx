@@ -1,6 +1,7 @@
 import {jahiaComponent} from "@jahia/javascript-modules-library";
+import {type TextValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
 
-interface InputEmailProps {
+interface InputEmailProps extends TextValidationMessageProps {
 	"jcr:title"?: string;
 	placeholder?: string;
 	defaultValue?: string;
@@ -33,7 +34,8 @@ jahiaComponent(
 			maxLength,
 			required,
 			autocomplete,
-			multiple
+			multiple,
+			...validationMsgs
 		}: InputEmailProps,
 		{currentNode}
 	) => {
@@ -70,6 +72,7 @@ jahiaComponent(
 					required={required}
 					multiple={multiple}
 					autoComplete={autocomplete}
+					{...validationDataAttributes(validationMsgs)}
 				/>
 
 				{/* Render datalist for autocomplete if options are provided */}

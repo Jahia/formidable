@@ -25,6 +25,7 @@ Formidable is based on Jahia standard technologies:
 - [Save to JCR](docs/save-to-jcr.md) - how submissions and uploaded files are stored in JCR
 - [Results permissions](docs/results-permissions.md) - per-form access control for submission results (`fmdb-results-reader` role)
 - [Export](docs/export.md) - multi-format export architecture (CSV, JSON) with date range filtering
+- [Custom validation](docs/custom-validation.md) - inline validation messages replacing native browser tooltips, with per-field contributor overrides
 - [Conditional logic field resolution](docs/conditional-logic-field-resolution.md) - weakref-based model for conditional logic dependencies
 - [Error codes](docs/error-codes.md) - server-side error codes returned on form submission failure
 - [Dependency decisions](docs/dependency-decisions.md) - rationale for embedded vs. provided dependencies in Java modules

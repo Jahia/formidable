@@ -14,7 +14,7 @@
  - dirname (boolean) = false
  - size (long)
 
-[fmdb:inputText] > jnt:content, fmdbmix:element
+[fmdb:inputText] > jnt:content, fmdbmix:element, fmdbmix:textValidationMessages
  - required (boolean) = false
  - placeholder (string) i18n indexed=no
  - defaultValue (string) i18n indexed=no

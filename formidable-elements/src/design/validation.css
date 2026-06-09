@@ -1,0 +1,15 @@
+/* Custom validation error messages (displayed when useCustomValidation is enabled) */
+
+.fmdb-validation-error {
+	color: var(--fmdb-validation-error-color, #dc2626);
+	font-size: var(--fmdb-validation-error-font-size, 0.875rem);
+	margin-top: var(--fmdb-validation-error-mt, 0.25rem);
+	padding: var(--fmdb-validation-error-padding, 0);
+	line-height: var(--fmdb-validation-error-line-height, 1.25);
+}
+
+.fmdb-invalid {
+	border-color: var(--fmdb-invalid-border-color, #dc2626) !important;
+	outline-color: var(--fmdb-invalid-outline-color, #dc2626);
+}
+

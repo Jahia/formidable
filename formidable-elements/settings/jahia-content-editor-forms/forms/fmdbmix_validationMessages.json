@@ -1,0 +1,20 @@
+{
+	"nodeType": "fmdbmix:validationMessages",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "validationMessages",
+			"labelKey": "fmdb.section.validationMessages",
+			"rank": 1.50,
+			"fieldSets": [
+				{
+					"name": "required",
+					"rank": 0.0,
+					"fields": [
+						{ "name": "msgValueMissing" }
+					]
+				}
+			]
+		}
+	]
+}

@@ -17,7 +17,27 @@
 // Apply this mixin in any module to extend the list of allowed content in a form.
 [fmdbmix:formContent] mixin
 
-// If we later want contributor-defined custom validation rules, prefer a mechanism
-// similar to form actions: define reusable validation nodes/mixins in the engine and
-// let forms reference them.
+// Custom validation messages per field. Each property maps to a ValidityState flag.
+// Native browser validation tooltips are replaced by inline error messages.
+// The contributor can override any message per-field; if left empty the Form client
+// falls back to the browser default message.
+
+// Base: applies to all validatable elements (checkbox, radio, select, file, color)
+[fmdbmix:validationMessages] mixin
+ - msgValueMissing (string) i18n indexed=no
+
+// Text constraints: applies to text, email, textarea
+[fmdbmix:textValidationMessages] > fmdbmix:validationMessages mixin
+ - msgTypeMismatch (string) i18n indexed=no
+ - msgPatternMismatch (string) i18n indexed=no
+ - msgTooShort (string) i18n indexed=no
+ - msgTooLong (string) i18n indexed=no
+
+// Range constraints: applies to date, datetime-local
+[fmdbmix:rangeValidationMessages] > fmdbmix:validationMessages mixin
+ - msgRangeUnderflow (string) i18n indexed=no
+ - msgRangeOverflow (string) i18n indexed=no
+ - msgStepMismatch (string) i18n indexed=no
+ - msgBadInput (string) i18n indexed=no
+
 [fmdbmix:element] > fmdbmix:formElement mixin

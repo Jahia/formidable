@@ -1,5 +1,5 @@
 // File input component properties
-[fmdb:inputFile] > jnt:content, fmdbmix:element, fmdbmix:fileField
+[fmdb:inputFile] > jnt:content, fmdbmix:element, fmdbmix:fileField, fmdbmix:validationMessages
  - accept (string, choicelist[formidableMimeTypes,resourceBundle]) multiple indexed=no
  - multiple (boolean) = false
  - required (boolean) = false

@@ -1,7 +1,8 @@
 import {jahiaComponent} from "@jahia/javascript-modules-library";
 import {parseChoices} from "~/utils/choiceUtils";
+import {type BaseValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
 
-interface SelectProps {
+interface SelectProps extends BaseValidationMessageProps {
 	"jcr:title"?: string;
 	options?: string[];
 	required?: boolean;
@@ -26,7 +27,8 @@ jahiaComponent(
 			multiple,
 			size,
 			disabled,
-			autofocus
+			autofocus,
+			...validationMsgs
 		}: SelectProps,
 		{currentNode}
 	) => {
@@ -58,6 +60,7 @@ jahiaComponent(
 					disabled={disabled}
 					autoFocus={autofocus}
 					defaultValue={defaultValue}
+					{...validationDataAttributes(validationMsgs)}
 				>
 					{parsedOptions.map((option) => (
 						<option
