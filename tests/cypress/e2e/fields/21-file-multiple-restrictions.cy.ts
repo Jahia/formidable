@@ -21,17 +21,17 @@ describe('Form fields - 21 File multiple and restrictions', () => {
 				.shouldBeRequired()
 				.shouldBeMultiple();
 
-			fileInput.attachFile([
+			fileInput.attachFileAndWaitForCount([
 				'cypress/fixtures/files/document.pdf',
 				'cypress/fixtures/files/invalid.txt'
-			]);
+			], 1);
 
 			fileInput
 				.shouldHaveSelectedFileCount(1)
 				.shouldHaveSelectedFile('document.pdf')
 				.shouldHaveSelectionNotice('.txt');
 
-			fileInput.attachFile('cypress/fixtures/files/sample.csv');
+			fileInput.attachFileAndWaitForCount('cypress/fixtures/files/sample.csv', 2);
 			fileInput
 				.shouldHaveSelectedFileCount(2)
 				.shouldHaveSelectedFile('sample.csv');

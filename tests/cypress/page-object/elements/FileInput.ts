@@ -5,12 +5,47 @@ import {FormElement} from './FormElement';
  * Handles file upload and validation
  */
 export class FileInput extends FormElement {
+	private attachFileAndConfirmCount(
+		filePath: string | string[],
+		expectedCount: number,
+		attempt: number,
+		maxAttempts: number
+	): Cypress.Chainable {
+		return this.getInput()
+			.selectFile(filePath)
+			.then(() => cy.wait(200, {log: false}))
+			.then(() => this.getFileContainer())
+			.then($container => {
+				const actualCount = $container.find('.fmdb-file-item').length;
+				if (actualCount === expectedCount) {
+					return;
+				}
+
+				if (attempt >= maxAttempts) {
+					throw new Error(
+						`Expected ${expectedCount} selected file(s) after ${maxAttempts} attempt(s), but got ${actualCount}.`
+					);
+				}
+
+				return this.attachFileAndConfirmCount(filePath, expectedCount, attempt + 1, maxAttempts);
+			});
+	}
+
 	/**
 	 * Attach a file to the input
 	 * @param filePath - Path to the file relative to fixtures folder
 	 */
 	attachFile(filePath: string | string[]): this {
 		this.getInput().selectFile(filePath);
+		return this;
+	}
+
+	/**
+	 * Attach file(s) and retry until the rendered selection reaches the expected count.
+	 * Use this only for scenarios where the client-side file list is known to be flaky or delayed.
+	 */
+	attachFileAndWaitForCount(filePath: string | string[], expectedCount: number, maxAttempts = 3): this {
+		this.attachFileAndConfirmCount(filePath, expectedCount, 1, maxAttempts);
 		return this;
 	}
 
