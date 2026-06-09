@@ -61,7 +61,7 @@ export function validateInputs(container: HTMLElement): boolean {
 	let allValid = true;
 
 	inputs.forEach(input => {
-		if (!input.checkValidity()) {
+		if (!input.validity.valid) {
 			showFieldError(input, resolveValidationMessage(input));
 			if (!firstInvalid) firstInvalid = input;
 			allValid = false;

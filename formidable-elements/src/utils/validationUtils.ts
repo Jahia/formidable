@@ -47,9 +47,19 @@ const getGroupedInputs = (
 	);
 };
 
+const sanitizeIdPart = (value: string): string => {
+	const sanitized = value.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+	return sanitized || 'field';
+};
+
 const buildErrorId = (input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): string => {
+	if (input instanceof HTMLInputElement && (input.type === 'radio' || input.type === 'checkbox') && input.name) {
+		const formPrefix = input.form?.id ? `${sanitizeIdPart(input.form.id)}-` : '';
+		return `fmdb-validation-error-${formPrefix}${sanitizeIdPart(input.type)}-${sanitizeIdPart(input.name)}`;
+	}
+
 	const base = input.id || input.name || 'field';
-	return `fmdb-validation-error-${base}`;
+	return `fmdb-validation-error-${sanitizeIdPart(base)}`;
 };
 
 const updateDescribedBy = (
