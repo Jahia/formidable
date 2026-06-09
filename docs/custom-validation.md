@@ -130,11 +130,11 @@ Client (Form.client.tsx)
   │
   ▼
 DOM
+DOM
   <div class="fmdb-form-group">
     <label>Employee code</label>
     <input class="fmdb-form-control fmdb-invalid" ... />
-    <div class="fmdb-validation-error" role="alert">Use format AB-1234</div>
-  </div>
+    <div class="fmdb-validation-error" role="status">Use format AB-1234</div>
 ```
 
 ### Server-side helper
