@@ -10,9 +10,9 @@ export class TextareaInput extends FormElement {
 	 */
 	type(value: string): this {
 		this.getInput()
-			.invoke('val', value)
-			.trigger('input')
-			.trigger('change');
+			.clear()
+			.click();
+		cy.realType(value);
 		return this;
 	}
 
@@ -20,10 +20,7 @@ export class TextareaInput extends FormElement {
 	 * Clear the textarea
 	 */
 	clear(): this {
-		this.getInput()
-			.invoke('val', '')
-			.trigger('input')
-			.trigger('change');
+		this.getInput().clear();
 		return this;
 	}
 

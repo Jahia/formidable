@@ -238,6 +238,9 @@ export class Form extends BaseComponent {
 	 * Submit the form
 	 */
 	submit(): void {
+		this.get().should($form => {
+			expect(($form[0] as HTMLFormElement).noValidate).to.equal(true);
+		});
 		this.getSubmitButton().get().click();
 	}
 

@@ -5,6 +5,10 @@ export class FormElement extends BaseComponent {
 		return this.get().closest('.fmdb-form-group');
 	}
 
+	getValidationError(): Cypress.Chainable {
+		return this.getContainer().find('.fmdb-validation-error');
+	}
+
 	getLabel(): Cypress.Chainable {
 		return this.getContainer().find('label, legend');
 	}
@@ -50,6 +54,31 @@ export class FormElement extends BaseComponent {
 		this.getInput().then($el => {
 			expect(($el.get(0) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).checkValidity()).to.eq(false);
 		});
+		return this;
+	}
+
+	shouldHaveValidationError(text: string): this {
+		this.getValidationError().should('contain', text);
+		return this;
+	}
+
+	shouldNotHaveValidationError(): this {
+		this.getValidationError().should('not.exist');
+		return this;
+	}
+
+	shouldBeMarkedInvalid(): this {
+		this.getInput().should('have.class', 'fmdb-invalid');
+		return this;
+	}
+
+	shouldNotBeMarkedInvalid(): this {
+		this.getInput().should('not.have.class', 'fmdb-invalid');
+		return this;
+	}
+
+	shouldBeFocused(): this {
+		this.getInput().should('be.focused');
 		return this;
 	}
 
