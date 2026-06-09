@@ -2,7 +2,10 @@ import {FormElement} from './FormElement';
 
 export class ColorInput extends FormElement {
 	setColor(color: string): this {
-		this.getInput().invoke('val', color).trigger('input');
+		this.getInput()
+			.invoke('val', color)
+			.trigger('input')
+			.trigger('change');
 		return this;
 	}
 

@@ -4,6 +4,7 @@ import {EmailInput} from './elements/EmailInput';
 import {DateInput} from './elements/DateInput';
 import {CheckboxInput} from './elements/CheckboxInput';
 import {CheckboxGroup} from './elements/CheckboxGroup';
+import {RadioInput} from './elements/RadioInput';
 import {RadioGroup} from './elements/RadioGroup';
 import {SelectInput} from './elements/SelectInput';
 import {TextareaInput} from './elements/TextareaInput';
@@ -102,6 +103,12 @@ export class Fieldset extends BaseComponent {
 	getRadioGroup(name: string): RadioGroup {
 		return new RadioGroup(
 			this.getElements().find(`fieldset.fmdb-radio-group:has(input[name="${name}"])`).first()
+		);
+	}
+
+	getRadio(name: string): RadioInput {
+		return new RadioInput(
+			this.getElements().find(`input[type="radio"][name="${name}"]`)
 		);
 	}
 

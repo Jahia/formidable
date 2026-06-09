@@ -1,6 +1,16 @@
 import {TextInput} from './TextInput';
 
 export class EmailInput extends TextInput {
+	type(value: string): this {
+		this.getInput().type(value);
+		return this;
+	}
+
+	clear(): this {
+		this.getInput().clear();
+		return this;
+	}
+
 	shouldBeValidEmail(): this {
 		this.getInput().should('have.attr', 'type', 'email');
 		return this;
@@ -49,14 +59,11 @@ export class EmailInput extends TextInput {
 	}
 
 	shouldHaveDatalistOptions(options: string[]): this {
-		// Get the list attribute value (datalist ID)
 		this.getInput().invoke('attr', 'list').then((listId: string) => {
 			if (listId) {
-				// Find the datalist within the same parent container as the input
-				this.getInput().parent().find(`datalist#${listId}`).should('exist');
-				// Check that each option exists in the datalist
+				this.getContainer().find(`datalist#${listId}`).should('exist');
 				options.forEach((option) => {
-					this.getInput().parent().find(`datalist#${listId} option[value="${option}"]`).should('exist');
+					this.getContainer().find(`datalist#${listId} option[value="${option}"]`).should('exist');
 				});
 			}
 		});

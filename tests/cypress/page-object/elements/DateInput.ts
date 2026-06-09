@@ -2,7 +2,10 @@ import {FormElement} from './FormElement';
 
 export class DateInput extends FormElement {
 	setDate(date: string): this {
-		this.getInput().invoke('val', date).trigger('change');
+		this.getInput()
+			.invoke('val', date)
+			.trigger('input')
+			.trigger('change');
 		return this;
 	}
 

@@ -18,6 +18,8 @@ const MIME_EXTENSION_MAP: Record<string, string[]> = {
 	"application/msword": [".doc"],
 	"application/pdf": [".pdf"],
 	"application/vnd.ms-excel": [".xls"],
+	"application/vnd.oasis.opendocument.spreadsheet": [".ods"],
+	"application/vnd.oasis.opendocument.text": [".odt"],
 	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
 	"application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
 	"image/gif": [".gif"],
