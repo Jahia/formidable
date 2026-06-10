@@ -1,6 +1,7 @@
 import {jahiaComponent} from "@jahia/javascript-modules-library";
+import {type RangeValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
 
-interface InputDatetimeLocalProps {
+interface InputDatetimeLocalProps extends RangeValidationMessageProps {
 	"jcr:title"?: string;
 	defaultValue?: string;
 	min?: string;
@@ -37,7 +38,7 @@ jahiaComponent(
 		name: "default"
 	},
 	(
-		{"jcr:title": label, defaultValue, min, max, step, required}: InputDatetimeLocalProps,
+		{"jcr:title": label, defaultValue, min, max, step, required, ...validationMsgs}: InputDatetimeLocalProps,
 		{currentNode}
 	) => {
 
@@ -64,6 +65,7 @@ jahiaComponent(
 					max={formatDatetimeForInput(max)}
 					step={step}
 					required={required}
+					{...validationDataAttributes(validationMsgs)}
 				/>
 			</div>
 		);

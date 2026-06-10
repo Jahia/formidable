@@ -1,6 +1,7 @@
 import {jahiaComponent} from "@jahia/javascript-modules-library";
+import {type TextValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
 
-interface InputTextProps {
+interface InputTextProps extends TextValidationMessageProps {
 	"jcr:title"?: string;
 	placeholder?: string;
 	defaultValue?: string;
@@ -73,7 +74,8 @@ jahiaComponent(
 			spellcheck = true,
 			pattern: customPattern,
 			size,
-			title
+			title,
+			...validationMsgs
 		}: InputTextProps,
 		{currentNode}
 	) => {
@@ -110,7 +112,7 @@ jahiaComponent(
 					maxLength={maxLength}
 					pattern={finalPattern}
 					required={required}
-					data-mask={mask} // For optional client-side enhancement
+					data-mask={mask}
 					autoComplete={autocomplete}
 					readOnly={readonly}
 					autoFocus={autofocus}
@@ -120,6 +122,7 @@ jahiaComponent(
 					spellCheck={spellcheck}
 					size={size}
 					title={title}
+					{...validationDataAttributes(validationMsgs)}
 				/>
 
 				{/* Render datalist for autocomplete if options are provided */}

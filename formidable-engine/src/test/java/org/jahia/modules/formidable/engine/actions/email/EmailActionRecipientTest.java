@@ -27,6 +27,7 @@ class EmailActionRecipientTest {
         // the action must keep it literal and send exactly that address as-is.
         JCRNodeWrapper actionNode = mockActionNodeWithTo("team+${email}@example.com");
         MailService mailService = mock(MailService.class);
+        when(mailService.isEnabled()).thenReturn(true);
         ArgumentCaptor<MailMessage> messageCaptor = ArgumentCaptor.forClass(MailMessage.class);
 
         doNothing().when(mailService).sendMessage(any(MailMessage.class));
@@ -45,6 +46,7 @@ class EmailActionRecipientTest {
         // the action must flatten them before building the outgoing message.
         JCRNodeWrapper actionNode = mockActionNode("team@example.com", "sender@example.com\r\nBcc:evil@example.com");
         MailService mailService = mock(MailService.class);
+        when(mailService.isEnabled()).thenReturn(true);
         ArgumentCaptor<MailMessage> messageCaptor = ArgumentCaptor.forClass(MailMessage.class);
 
         doNothing().when(mailService).sendMessage(any(MailMessage.class));
@@ -63,6 +65,7 @@ class EmailActionRecipientTest {
         // the action must omit the sender override instead of sending an empty header.
         JCRNodeWrapper actionNode = mockActionNode("team@example.com", " \r\n\t ");
         MailService mailService = mock(MailService.class);
+        when(mailService.isEnabled()).thenReturn(true);
         ArgumentCaptor<MailMessage> messageCaptor = ArgumentCaptor.forClass(MailMessage.class);
 
         doNothing().when(mailService).sendMessage(any(MailMessage.class));
@@ -81,6 +84,7 @@ class EmailActionRecipientTest {
         // the action must also keep it literal to match the notification action contract.
         JCRNodeWrapper actionNode = mockActionNodeWithTo("team+${email}@example.com");
         MailService mailService = mock(MailService.class);
+        when(mailService.isEnabled()).thenReturn(true);
         ArgumentCaptor<MailMessage> messageCaptor = ArgumentCaptor.forClass(MailMessage.class);
 
         doNothing().when(mailService).sendMessage(any(MailMessage.class));

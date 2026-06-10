@@ -1,7 +1,8 @@
 import {Island, jahiaComponent} from "@jahia/javascript-modules-library";
 import FileInput from "./File.client";
+import {type BaseValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
 
-interface InputFileProps {
+interface InputFileProps extends BaseValidationMessageProps {
 	"jcr:title"?: string;
 	accept?: string[];
 	multiple?: boolean;
@@ -15,7 +16,7 @@ jahiaComponent(
 		name: "default"
 	},
 	(
-		{"jcr:title": label, accept, multiple, required}: InputFileProps,
+		{"jcr:title": label, accept, multiple, required, ...validationMsgs}: InputFileProps,
 		{currentNode}
 	) => {
 		// Generate unique id and name
@@ -37,7 +38,8 @@ jahiaComponent(
 						inputName,
 						accept,
 						multiple,
-						required
+						required,
+						validationAttributes: validationDataAttributes(validationMsgs)
 					}}
 				/>
 			</div>

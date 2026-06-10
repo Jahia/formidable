@@ -1,5 +1,5 @@
 // Select component properties
-[fmdb:select] > jnt:content, fmdbmix:element, fmdbmix:choiceField
+[fmdb:select] > jnt:content, fmdbmix:element, fmdbmix:choiceField, fmdbmix:validationMessages
  - options (string) i18n multiple indexed=no
  - size (long)
  - required (boolean) = false

@@ -1,6 +1,7 @@
 import {jahiaComponent} from "@jahia/javascript-modules-library";
+import {type BaseValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
 
-interface InputColorProps {
+interface InputColorProps extends BaseValidationMessageProps {
 	"jcr:title"?: string;
 	defaultValue?: string;
 	alpha?: boolean;
@@ -20,7 +21,8 @@ jahiaComponent(
 			defaultValue,
 			// alpha, //Not standard in HTML5 input type color only supported in ios safari
 			// colorspace, //Not standard in HTML5 input type color only supported in ios safari
-			required
+			required,
+			...validationMsgs
 		}: InputColorProps,
 		{currentNode}
 	) => {
@@ -47,6 +49,7 @@ jahiaComponent(
 					// alpha={alpha}
 					// colorspace={colorspace}
 					required={required}
+					{...validationDataAttributes(validationMsgs)}
 				/>
 			</div>
 		);

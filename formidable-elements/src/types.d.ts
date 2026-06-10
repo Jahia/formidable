@@ -11,4 +11,3 @@ interface CaptchaWidgetApi {
 	remove?: (id: string | undefined) => void;
 	reset?: (id: string | undefined) => void;
 }
-

@@ -2,7 +2,10 @@ import {TextInput} from './TextInput';
 
 export class EmailInput extends TextInput {
 	type(value: string): this {
-		this.getInput().type(value);
+		this.getInput()
+			.clear()
+			.click();
+		cy.realType(value);
 		return this;
 	}
 

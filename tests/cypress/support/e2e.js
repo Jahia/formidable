@@ -15,6 +15,7 @@
 
 // Import commands.js using ES2015 syntax:
 import './commands'
+import 'cypress-real-events'
 import 'cypress-wait-until'
 
 // Ensure fetch is always bound to window

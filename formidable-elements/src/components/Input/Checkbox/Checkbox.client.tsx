@@ -14,15 +14,16 @@ export default function Checkbox({ label, required = false, errorMessage, childr
 	const fieldsetRef = useRef<HTMLFieldSetElement>(null);
 	const {t} = useTranslation("formidable-elements", { keyPrefix: "fmdb_inputCheckbox" });
 
-	// Validation logic extracted to a callback
 	const validateGroup = useCallback(
 		(checkboxes: HTMLInputElement[]) => {
 			const hasChecked = checkboxes.some((cb) => cb.checked);
 
-			// Use custom error message or fallback to translation
-			const validationMessage = errorMessage || t("error");
+			// Priority: data attribute from mixin > errorMessage prop > i18n fallback
+			const validationMessage =
+				checkboxes[0]?.getAttribute('data-fmdb-msg-value-missing')
+				|| errorMessage
+				|| t("error");
 
-			// Update custom validity on all checkboxes in the group
 			checkboxes.forEach((checkbox) => {
 				checkbox.setCustomValidity(hasChecked ? "" : validationMessage);
 			});

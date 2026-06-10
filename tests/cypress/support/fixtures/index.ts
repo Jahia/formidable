@@ -1,5 +1,6 @@
 export * from './types';
 export * from './site';
+export * from './forms';
 export * from './inputButton';
 export * from './inputCheckbox';
 export * from './inputColor';
@@ -14,4 +15,5 @@ export * from './textarea';
 export * from './fieldset';
 export * from './richText';
 export * from './step';
+export * from './validation';
 // export * from './inputHidden';

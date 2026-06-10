@@ -1,5 +1,5 @@
 // Email input component properties
-[fmdb:inputEmail] > jnt:content, fmdbmix:element, fmdbmix:emailField
+[fmdb:inputEmail] > jnt:content, fmdbmix:element, fmdbmix:emailField, fmdbmix:textValidationMessages
  - required (boolean) = false
  - multiple (boolean) = false
  - placeholder (string) i18n indexed=no

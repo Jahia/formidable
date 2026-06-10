@@ -8,6 +8,7 @@ interface FileInputProps {
 	accept?: string[];
 	multiple?: boolean;
 	required?: boolean;
+	validationAttributes?: Record<string, string | undefined>;
 }
 
 const normalizeAccept = (accept?: string[]): string[] =>
@@ -113,7 +114,8 @@ export default function FileInput(
 		inputName,
 		accept,
 		multiple,
-		required
+		required,
+		validationAttributes
 	}: FileInputProps
 ) {
 	const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
@@ -241,6 +243,7 @@ export default function FileInput(
 				multiple={multiple}
 				required={required}
 				onChange={handleFileChange}
+				{...(validationAttributes ?? {})}
 			/>
 
 			{selectionNotice && (

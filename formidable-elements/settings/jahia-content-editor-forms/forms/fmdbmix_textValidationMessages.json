@@ -1,0 +1,25 @@
+{
+	"nodeType": "fmdbmix:textValidationMessages",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "validationMessages",
+			"labelKey": "fmdb.section.validationMessages",
+			"rank": 1.50,
+			"fieldSets": [
+				{
+					"name": "textConstraints",
+					"labelKey": "fmdb.fieldset.textConstraints",
+					"rank": 1.0,
+					"fields": [
+						{ "name": "msgTypeMismatch" },
+						{ "name": "msgPatternMismatch" },
+						{ "name": "msgTooShort" },
+						{ "name": "msgTooLong" }
+					]
+				}
+			]
+		}
+	]
+}
+

@@ -1,4 +1,4 @@
 // Checkbox component - unified field: single checkbox if 1 choice, checkbox group if > 1
-[fmdb:checkbox] > jnt:content, fmdbmix:element, fmdbmix:choiceField
+[fmdb:checkbox] > jnt:content, fmdbmix:element, fmdbmix:choiceField, fmdbmix:validationMessages
  - choices (string) i18n multiple indexed=no mandatory
  - required (boolean) = false

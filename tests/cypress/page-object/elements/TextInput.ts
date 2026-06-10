@@ -7,17 +7,14 @@ import {FormElement} from './FormElement';
 export class TextInput extends FormElement {
 	type(value: string): this {
 		this.getInput()
-			.invoke('val', value)
-			.trigger('input')
-			.trigger('change');
+			.clear()
+			.click();
+		cy.realType(value);
 		return this;
 	}
 
 	clear(): this {
-		this.getInput()
-			.invoke('val', '')
-			.trigger('input')
-			.trigger('change');
+		this.getInput().clear();
 		return this;
 	}
 
