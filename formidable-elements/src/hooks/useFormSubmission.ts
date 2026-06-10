@@ -125,7 +125,7 @@ export function useFormSubmission({
 				details.push(labels.actionsProgress(serverActionsProgress.completed, serverActionsProgress.total));
 			}
 			const full = details.length > 0
-				? `${base}<br><small>${details.join(' — ')}</small>`
+				? `${base}<br><small class="fmdb-message-details fmdb-message-error-details">${details.join(' — ')}</small>`
 				: base;
 			setMessage(full);
 			setMessageType('error');
@@ -156,4 +156,3 @@ export function useFormSubmission({
 		showForm,
 	};
 }
-

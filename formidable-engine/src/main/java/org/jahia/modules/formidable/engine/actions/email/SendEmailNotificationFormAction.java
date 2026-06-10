@@ -88,6 +88,10 @@ public class SendEmailNotificationFormAction implements FormAction {
         message.setHtmlBody(htmlBody);
 
         try {
+            // Note: Jahia's MailService.sendMessage() queues the message through a Camel route.
+            // SMTP delivery failures on the asynchronous delivery path are logged by Jahia/Camel
+            // and do not propagate back to this call site. The catch block below only handles
+            // synchronous failures raised while invoking the mail service.
             mailService.sendMessage(message);
             log.debug("Email notification sent to '{}' with subject '{}'", to, subject);
         } catch (Exception e) {

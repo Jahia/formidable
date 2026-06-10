@@ -187,6 +187,13 @@ throw FormActionException.serverError("MailService is unavailable.");
 throw new FormActionException("Forward target returned an error.", 502);
 ```
 
+> **Caveat — Jahia MailService:** `MailService.sendMessage()` queues the message through
+> an Apache Camel route. SMTP delivery failures on the asynchronous delivery path are
+> logged by Jahia/Camel and do not propagate back to the caller. A `try/catch` around
+> `sendMessage()` only handles synchronous failures raised while invoking the mail
+> service. To guard against a missing SMTP configuration, check `mailService.isEnabled()`
+> before calling `sendMessage()`.
+
 ## Step 7: Add authoring support
 
 The runtime code is not enough by itself. Contributors still need to be able to create and configure the action node.
