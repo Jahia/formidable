@@ -58,6 +58,7 @@ jahiaComponent(
 									className="fmdb-form-control"
 									value={choice.value}
 									defaultChecked={choice.selected}
+									{...vAttrs}
 								/>
 								<label htmlFor={inputId} className="fmdb-checkbox-label">
 									{choice.label}

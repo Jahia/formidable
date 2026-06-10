@@ -27,6 +27,16 @@ const REQUIRED_CHECKBOX = {
 	choices: [{value: 'accepted', label: 'I accept the terms and conditions', selected: false}]
 };
 
+const REQUIRED_CHECKBOX_GROUP = {
+	name: 'preferredTopics',
+	title: 'Preferred topics',
+	required: true,
+	choices: [
+		{value: 'news', label: 'News', selected: false},
+		{value: 'events', label: 'Events', selected: false}
+	]
+};
+
 const REQUIRED_FILE = {
 	name: 'requiredDocument',
 	title: 'Required document',
@@ -45,6 +55,7 @@ const REQUIRED_RADIO = {
 
 const REQUIRED_SELECT_MESSAGE = 'Pick an office before submitting.';
 const CHECKBOX_MESSAGE = 'You must accept the terms and conditions to continue.';
+const CHECKBOX_GROUP_MESSAGE = 'Select at least one preferred topic before continuing.';
 const FILE_MESSAGE = 'Please attach a document before submitting.';
 const RADIO_MESSAGE = 'Choose a preferred contact method before continuing.';
 
@@ -104,6 +115,39 @@ describe('Validation - 30 Required validation', () => {
 
 			checkbox
 				.check()
+				.shouldBeValid()
+				.shouldNotHaveValidationError()
+				.shouldNotBeMarkedInvalid();
+		});
+	});
+
+	it('shows a custom required message for a checkbox group and clears it after checking one option', () => {
+		createPublishedLiveFormPage(
+			'validation-required-checkbox-group-form',
+			'Validation Required Checkbox Group Form',
+			[
+				withValidationMessages(
+					getCheckboxNode(REQUIRED_CHECKBOX_GROUP),
+					{msgValueMissing: CHECKBOX_GROUP_MESSAGE}
+				)
+			]
+		).then(({livePath}) => {
+			const form = visitLiveForm(livePath);
+			const checkbox = form.getCheckbox(REQUIRED_CHECKBOX_GROUP.name);
+			const checkboxGroup = form.getCheckboxGroup(REQUIRED_CHECKBOX_GROUP.name);
+
+			form.submit();
+
+			checkbox
+				.shouldHaveValidationError(CHECKBOX_GROUP_MESSAGE)
+				.shouldBeMarkedInvalid();
+
+			checkboxGroup
+				.getCheckbox('News')
+				.check()
+				.shouldBeChecked();
+
+			checkbox
 				.shouldBeValid()
 				.shouldNotHaveValidationError()
 				.shouldNotBeMarkedInvalid();

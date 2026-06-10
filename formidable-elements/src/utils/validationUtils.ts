@@ -138,12 +138,8 @@ export const clearFieldError = (
 		clearFieldAria(groupedInput);
 	});
 
-	const formGroup = input.closest('.fmdb-form-group');
-	const container = formGroup ?? input.parentElement;
-	if (container) {
-		const existing = container.querySelector(`.${ERROR_CLASS}`);
-		existing?.remove();
-	}
+	const errorId = buildErrorId(input);
+	input.ownerDocument.getElementById(errorId)?.remove();
 };
 
 export const clearAllFieldErrors = (form: HTMLFormElement): void => {

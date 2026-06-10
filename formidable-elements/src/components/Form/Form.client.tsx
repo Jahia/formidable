@@ -154,7 +154,7 @@ export default function Form({
 					<nav className={clsx("fmdb-steps-nav", classes.stepsNav)} aria-label={t('stepsNav')}>
 						{visibleStepIndices.map((stepIdx, visibleIdx) => (
 							<span
-								key={stepLabels![stepIdx]}
+								key={stepIds![stepIdx]}
 								className={clsx(
 									"fmdb-step-indicator",
 									classes.stepIndicator,
