@@ -78,7 +78,7 @@ public class SendEmailContentFormAction implements FormAction {
             List<SubmittedFile> files
     ) throws FormActionException {
         if (mailService == null || !mailService.isEnabled()) {
-            throw FormActionException.serverError("MailService is unavailable. Check Jahia SMTP configuration.");
+            throw FormActionException.serverError("MailService is unavailable or disabled. Check Jahia SMTP configuration.");
         }
 
         String to = FieldEscaper.headerSafe(JcrProps.string(actionNode, "to", ""));
