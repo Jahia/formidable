@@ -224,13 +224,9 @@ The group validation uses `setCustomValidity()` on all checkboxes in the group:
 Current implementation detail:
 
 - A single checkbox uses the standard server-side `validationDataAttributes()` flow
-- A multi-checkbox group is rendered through `Checkbox.client.tsx`
-- In the current `default.server.tsx` implementation for multi-checkbox groups, validation
-  data attributes are not spread onto the individual `<input>` elements and no
-  `errorMessage` prop is passed to the Island
-- In practice, multi-checkbox groups therefore currently fall back to the translated
-  `fmdb_inputCheckbox.error` message when the group is required and none of the boxes is
-  checked
+- A multi-checkbox group is rendered through `Checkbox.client.tsx` and receives the `required` flag
+- For multi-checkbox groups, `validationDataAttributes(...)` are spread onto each `<input>` so `data-fmdb-msg-value-missing` overrides work
+- If no custom message is provided (and no `errorMessage` prop is passed), the group falls back to the translated `fmdb_inputCheckbox.error` message
 
 ---
 
