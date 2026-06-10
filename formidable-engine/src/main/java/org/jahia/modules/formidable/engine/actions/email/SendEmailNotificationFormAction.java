@@ -63,7 +63,7 @@ public class SendEmailNotificationFormAction implements FormAction {
             List<SubmittedFile> files
     ) throws FormActionException {
 
-        if (mailService == null) {
+        if (mailService == null || !mailService.isEnabled()) {
             throw FormActionException.serverError("MailService is unavailable. Check Jahia SMTP configuration.");
         }
 

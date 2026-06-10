@@ -77,7 +77,7 @@ public class SendEmailContentFormAction implements FormAction {
             Map<String, List<String>> parameters,
             List<SubmittedFile> files
     ) throws FormActionException {
-        if (mailService == null) {
+        if (mailService == null || !mailService.isEnabled()) {
             throw FormActionException.serverError("MailService is unavailable. Check Jahia SMTP configuration.");
         }
 
