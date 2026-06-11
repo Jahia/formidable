@@ -224,6 +224,7 @@ class FormidableConfigServiceTest {
 
     @Test
     void activateRejectsCaptchaVerificationUrlWhenSchemeIsNotHttps() {
+        // Verifies the CAPTCHA verification endpoint scheme guard.
         FormidableConfigService service = new FormidableConfigService();
 
         service.activate(new TestFormidableConfig(
@@ -243,6 +244,7 @@ class FormidableConfigServiceTest {
                 "http://challenges.cloudflare.com/turnstile/v0/siteverify"
         ));
 
+        // Expected outcome: a non-HTTPS verification endpoint disables CAPTCHA verification.
         assertFalse(service.isCaptchaVerificationConfigured());
     }
 

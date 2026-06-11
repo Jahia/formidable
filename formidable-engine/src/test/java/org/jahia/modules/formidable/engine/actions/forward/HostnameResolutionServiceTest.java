@@ -35,8 +35,7 @@ class HostnameResolutionServiceTest {
 
     @Test
     void resolveAllCachesResultsWithinTtl() throws Exception {
-        // Given repeated lookups within the cache TTL,
-        // the service must return the cached addresses and perform only one resolver call.
+        // Verifies the positive cache path for repeated DNS lookups within the TTL window.
         AtomicInteger calls = new AtomicInteger();
         AtomicLong now = new AtomicLong(1_000_000_000L);
         InetAddress[] expected = {InetAddress.getByAddress("public.example", new byte[]{1, 2, 3, 4})};
@@ -54,13 +53,13 @@ class HostnameResolutionServiceTest {
 
         assertArrayEquals(expected, service.resolveAll("public.example"));
         assertArrayEquals(expected, service.resolveAll("public.example"));
+        // Expected outcome: both lookups return the same addresses and only hit the resolver once.
         assertEquals(1, calls.get());
     }
 
     @Test
     void resolveAllRefreshesCacheAfterTtlExpires() throws Exception {
-        // Given a second lookup after the cache TTL has expired,
-        // the service must refresh the entry and call the resolver again.
+        // Verifies cache refresh once an existing DNS entry ages past its TTL.
         AtomicInteger calls = new AtomicInteger();
         AtomicLong now = new AtomicLong(1_000_000_000L);
         InetAddress[] expected = {InetAddress.getByAddress("public.example", new byte[]{1, 2, 3, 4})};
@@ -80,13 +79,13 @@ class HostnameResolutionServiceTest {
         now.addAndGet(Duration.ofSeconds(31).toNanos());
         service.resolveAll("public.example");
 
+        // Expected outcome: the expired cache entry is refreshed through a second resolver call.
         assertEquals(2, calls.get());
     }
 
     @Test
     void resolveAllTimesOutSlowLookups() {
-        // Given a resolver that takes longer than the configured timeout,
-        // the service must abort the lookup and surface a TimeoutException.
+        // Verifies the timeout guard around slow DNS resolution work.
         CountDownLatch releaseResolver = new CountDownLatch(1);
         service = new HostnameResolutionService(
                 Duration.ofMillis(10),
@@ -103,13 +102,14 @@ class HostnameResolutionServiceTest {
                 System::nanoTime
         );
 
+        // Expected outcome: the lookup aborts with a TimeoutException.
         assertThrows(TimeoutException.class, () -> service.resolveAll("slow.example"));
     }
 
     @Test
     void resolveAllFailsFastWhenResolverPoolIsSaturated() throws Exception {
-        // Given a non-interruptible resolver task occupying the only worker,
-        // the service must fail fast instead of queueing more DNS lookups behind it.
+        // Verifies executor saturation handling when the DNS worker pool has no spare capacity.
+        // Expected outcome: a second lookup is rejected immediately instead of waiting in line.
         CountDownLatch resolverStarted = new CountDownLatch(1);
         CountDownLatch firstLookupTimedOut = new CountDownLatch(1);
         CountDownLatch releaseResolver = new CountDownLatch(1);
@@ -156,11 +156,9 @@ class HostnameResolutionServiceTest {
         firstLookup.start();
         assertTrue(resolverStarted.await(1, TimeUnit.SECONDS));
 
-        // When a second lookup arrives while the resolver pool is already saturated.
         TimeoutException exception =
                 assertThrows(TimeoutException.class, () -> service.resolveAll("second.example"));
 
-        // Then the request is rejected immediately instead of waiting behind the stuck worker.
         assertEquals("Hostname resolution executor saturated for 'second.example'", exception.getMessage());
 
         assertTrue(firstLookupTimedOut.await(1, TimeUnit.SECONDS));

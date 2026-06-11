@@ -18,8 +18,7 @@ class ForwardSubmissionFormActionTest {
 
     @Test
     void checkNotPrivateAddressRejectsPrivateAddress() throws Exception {
-        // Given a public HTTPS target whose hostname resolves to a private address,
-        // the forward action must reject it with a 403 response.
+        // Verifies that HTTPS forward targets resolving to private IP space are rejected.
         HostnameResolutionService resolver = mock(HostnameResolutionService.class);
         when(resolver.resolveAll("api.example.com"))
                 .thenReturn(new InetAddress[]{InetAddress.getByAddress("api.example.com", new byte[]{10, 0, 0, 5})});
@@ -30,13 +29,13 @@ class ForwardSubmissionFormActionTest {
         FormActionException exception = assertThrows(FormActionException.class,
                 () -> action.checkNotPrivateAddress(URI.create("https://api.example.com/forms"), false));
 
+        // Expected outcome: the action fails closed with HTTP 403.
         assertEquals(403, exception.getHttpStatus());
     }
 
     @Test
     void checkNotPrivateAddressRejectsResolutionTimeout() throws Exception {
-        // Given a target whose DNS resolution times out,
-        // the forward action must fail with a 502 response.
+        // Verifies timeout hardening when DNS resolution cannot complete in time.
         HostnameResolutionService resolver = mock(HostnameResolutionService.class);
         when(resolver.resolveAll("api.example.com")).thenThrow(new TimeoutException("timed out"));
 
@@ -46,18 +45,19 @@ class ForwardSubmissionFormActionTest {
         FormActionException exception = assertThrows(FormActionException.class,
                 () -> action.checkNotPrivateAddress(URI.create("https://api.example.com/forms"), false));
 
+        // Expected outcome: the action surfaces the resolution failure as HTTP 502.
         assertEquals(502, exception.getHttpStatus());
     }
 
     @Test
     void checkNotPrivateAddressAllowsExplicitDevelopmentLocalhostWithoutDnsLookup() {
-        // Given an explicit localhost development endpoint,
-        // the forward action must allow it and skip DNS resolution entirely.
+        // Verifies the localhost development bypass for explicitly allowed dev targets.
         HostnameResolutionService resolver = mock(HostnameResolutionService.class);
 
         ForwardSubmissionFormAction action = new ForwardSubmissionFormAction();
         action.setHostnameResolutionService(resolver);
 
+        // Expected outcome: localhost is accepted and DNS resolution is never invoked.
         assertDoesNotThrow(() -> action.checkNotPrivateAddress(URI.create("http://localhost:8081/ingest"), true));
         verifyNoInteractions(resolver);
     }

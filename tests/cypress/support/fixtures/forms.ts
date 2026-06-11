@@ -7,10 +7,12 @@ import {JahiaNode, NodeProperty} from './types';
 
 interface CreateFormNodeOptions {
 	actions?: JahiaNode[];
+	mixins?: string[];
 	properties?: NodeProperty[];
 }
 
 export interface LiveFormPageInfo {
+	formId: string;
 	formPath: string;
 	pagePath: string;
 	livePath: string;
@@ -43,6 +45,7 @@ export const createFormNode = (
 		parentPathOrId: CONTENT_PATH,
 		name: formName,
 		primaryNodeType: 'fmdb:form',
+		mixins: options.mixins || [],
 		properties: [
 			{name: 'jcr:title', value: formTitle, language: 'en'},
 			...(options.properties || [])
@@ -62,11 +65,12 @@ export const createPublishedLiveFormPage = (
 	const formPath = `${CONTENT_PATH}/${formName}`;
 	const pagePath = `${SITE_HOME_PATH}/${pageName}`;
 	const livePath = `home/${pageName}.html`;
+	let formId: string;
 
 	return createFormNode(formName, formTitle, formElements, options)
 		.then((response: any) => {
-			const formUuid = response?.data?.jcr?.addNode?.uuid;
-			if (!formUuid) {
+			formId = response?.data?.jcr?.addNode?.uuid;
+			if (!formId) {
 				throw new Error(`Could not resolve UUID for form '${formName}'`);
 			}
 
@@ -93,7 +97,7 @@ export const createPublishedLiveFormPage = (
 								name: `${formName}-reference`,
 								primaryNodeType: 'fmdb:formReference',
 								properties: [
-									{name: 'j:node', value: formUuid, type: 'WEAKREFERENCE'}
+									{name: 'j:node', value: formId, type: 'WEAKREFERENCE'}
 								]
 							}
 						]
@@ -105,7 +109,7 @@ export const createPublishedLiveFormPage = (
 			publishAndWaitJobEnding(formPath);
 			publishAndWaitJobEnding(pagePath);
 
-			return cy.wrap<LiveFormPageInfo>({formPath, pagePath, livePath}, {log: false});
+			return cy.wrap<LiveFormPageInfo>({formId, formPath, pagePath, livePath}, {log: false});
 		});
 };
 

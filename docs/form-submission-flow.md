@@ -21,7 +21,8 @@ contributor.
 
 ```
 Browser
-  └─ POST multipart/form-data → /modules/formidable-engine/form-submit?fid=UUID&lang=fr[&ct=TOKEN]
+  └─ POST multipart/form-data → /modules/formidable-engine/form-submit?fid=UUID&lang=fr
+       + header X-Formidable-Captcha-Token: TOKEN when CAPTCHA is enabled
        FormSubmitServlet → FormSubmissionPipeline (outside Jahia render chain):
 
          Gate 0   checkSecurityFilter     require auto-applied `formidable-submit` scope
@@ -31,7 +32,7 @@ Browser
          Step 3   guardContentLength      early reject if Content-Length > max                    — 0 byte read
          Step 4   resolveFormNode         JCR getNodeByIdentifier(fid) in "live"                 — 0 byte read
          Step 5   verifyAuthentication    if fmdbmix:authenticatedOnlyForm → reject Guest
-         Step 6   verifyCaptcha           if fmdbmix:captchaProtectedForm → verify 'ct' URL param — 0 byte read
+         Step 6   verifyCaptcha           if fmdbmix:captchaProtectedForm → verify CAPTCHA header — 0 byte read
          Step 7   collectFormFieldInfo    walk form node: build field whitelist,
                                           per-field type, allowed choices, accept types,
                                           and field constraints (required, min/maxLength,
@@ -79,17 +80,18 @@ cannot reject the request before the body is read. In that case the authoritativ
 enforcement still happens at step 8, where `ServletFileUpload.setSizeMax(...)` aborts oversized
 multipart bodies during streaming.
 
-### URL parameters set by `default.server.tsx` / `Form.client.tsx`
+### Routing query params and security header
 
-| URL param | Value | Set by |
+| Transport | Value | Set by |
 |---|---|---|
-| `fid` | JCR identifier (UUID) of the `fmdb:form` node | `default.server.tsx` |
-| `lang` | BCP 47 language tag (e.g. `en`, `fr`) | `default.server.tsx` |
-| `ct` | CAPTCHA token — only when CAPTCHA protection is enabled on the form | `Form.client.tsx` at submit time |
+| `fid` query param | JCR identifier (UUID) of the `fmdb:form` node | `default.server.tsx` |
+| `lang` query param | BCP 47 language tag (e.g. `en`, `fr`) | `default.server.tsx` |
+| `X-Formidable-Captcha-Token` header | CAPTCHA token — only when CAPTCHA protection is enabled on the form | `useFormSubmission.ts` at submit time |
 
 No hidden `<input>` fields are injected into the form body for routing.
 The CAPTCHA widget field (`cf-turnstile-response`, etc.) is deleted from `FormData` by
-`Form.client.tsx` before submission — it is never in the body, only in `ct`.
+the submit hook before submission — it is never in the body, and the effective token is sent
+in the `X-Formidable-Captcha-Token` header.
 
 Submissions are always processed against the `live` workspace.
 Edit and preview modes disable the submit button server-side; any bypass attempt receives
@@ -380,9 +382,9 @@ heap pressure remains bounded under large-file workloads.
 CAPTCHA configuration (`siteKey`, `scriptUrl`, `verifyUrl`, `secretKey`) is read from
 `org.jahia.modules.formidable.cfg` — not stored in JCR.
 
-The CAPTCHA widget injects a hidden field into the DOM, but `Form.client.tsx` removes it
-from `FormData` before submission and passes the token as the `ct` URL query param instead.
-The token never appears in the request body.
+The CAPTCHA widget injects a hidden field into the DOM, but the submit hook removes it
+from `FormData` before submission and sends the token through the
+`X-Formidable-Captcha-Token` header instead. The token never appears in the request body.
 
 | Provider | Widget field (removed client-side) |
 |---|---|
@@ -461,7 +463,7 @@ Form submissions use `XMLHttpRequest` (not `fetch`). Jahia's OWASP CSRFGuard pat
 
 | File | Role |
 |---|---|
-| `src/components/Form/Form.client.tsx` | `handleSubmit` — removes CAPTCHA body field, appends `ct` URL param, POSTs via XHR |
+| `src/hooks/useFormSubmission.ts` | `handleSubmit` — removes the CAPTCHA widget field from `FormData`, sets `X-Formidable-Captcha-Token`, POSTs via XHR |
 | `src/components/Form/default.server.tsx` | Builds `submitActionUrl` with `fid` and `lang` query params |
 | `formidable-engine/.../servlet/FormSubmitServlet.java` | OSGi entry point — checks `formidable-submit` permission, then delegates to `FormSubmissionPipeline` |
 | `formidable-engine/.../servlet/FormSubmissionPipeline.java` | 10-step pipeline — all submission logic |

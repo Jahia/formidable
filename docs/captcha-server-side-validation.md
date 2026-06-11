@@ -32,7 +32,7 @@ before any action in the pipeline runs.
 `FormSubmissionPipeline.verifyCaptcha(...)` runs in the submission pipeline. It:
 
 1. Checks that the form carries `fmdbmix:captchaProtectedForm`
-2. Reads the `ct` request parameter from the submission URL/query string
+2. Reads the `X-Formidable-Captcha-Token` request header
 3. Calls `FormidableConfigService.verifyCaptcha(token, remoteAddr)`
 4. `FormidableConfigService` reads `captchaSecretKey` and `captchaVerifyUrl` from OSGi config
 5. It POSTs to `captchaVerifyUrl` with `secret` + `response` + optional `remoteip`
