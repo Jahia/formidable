@@ -489,6 +489,50 @@ class FormSubmissionPipelineTest {
         verify(formNode, never()).isNodeType("fmdbmix:captchaProtectedForm");
     }
 
+    @Test
+    void runRejectsAuthenticatedUserWithoutCaptchaTokenWhenFormRequiresBothGuards() throws Exception {
+        // Verifies combined gate ordering: once authentication passes for a logged-in user,
+        // the CAPTCHA gate must still reject submissions that lack the token header.
+        FormidableConfigService config = mock(FormidableConfigService.class);
+        org.jahia.services.content.JCRSessionWrapper session = mock(org.jahia.services.content.JCRSessionWrapper.class);
+        JCRNodeWrapper formNode = mock(JCRNodeWrapper.class);
+        String formId = UUID.randomUUID().toString();
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        JahiaUser authenticatedUser = mock(JahiaUser.class);
+
+        when(session.getNodeByIdentifier(formId)).thenReturn(formNode);
+        when(formNode.isNodeType("fmdbmix:authenticatedOnlyForm")).thenReturn(true);
+        when(formNode.isNodeType("fmdbmix:captchaProtectedForm")).thenReturn(true);
+        when(formNode.getPath()).thenReturn("/sites/test/form");
+        when(req.getMethod()).thenReturn("POST");
+        when(req.getContentType()).thenReturn("multipart/form-data; boundary=test");
+        when(req.getParameter("fid")).thenReturn(formId);
+        when(req.getParameter("lang")).thenReturn("en");
+        when(req.getContentLengthLong()).thenReturn(-1L);
+        when(authenticatedUser.getName()).thenReturn("editor");
+        when(config.isCaptchaVerificationConfigured()).thenReturn(true);
+        when(req.getHeader("X-Formidable-Captcha-Token")).thenReturn(null);
+        when(req.getRemoteAddr()).thenReturn("203.0.113.10");
+        when(config.verifyCaptcha(null, "203.0.113.10")).thenReturn(false);
+
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
+                config,
+                List.<FormAction>of(),
+                (ignoredFormId, ignoredLocale) -> emptyFieldMetadata(),
+                JCRTemplate::getInstance,
+                (request, cfg, metadata) -> new FormDataParser.ParseResult(java.util.Map.of(), List.of()),
+                locale -> session
+        );
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeRun(pipeline, req, authenticatedUser));
+
+        // Expected outcome: authentication passes but the missing CAPTCHA token triggers FMDB-006.
+        assertEquals(ErrorCode.FMDB_006, error.errorCode);
+        verify(formNode).isNodeType("fmdbmix:authenticatedOnlyForm");
+        verify(formNode).isNodeType("fmdbmix:captchaProtectedForm");
+    }
+
     private static FormSubmissionPipeline newPipelineWithFormNode(boolean requiresAuthentication) throws Exception {
         FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of());
         JCRNodeWrapper formNode = mock(JCRNodeWrapper.class);

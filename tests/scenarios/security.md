@@ -166,6 +166,10 @@ If the JCR type check throws, the submission must be rejected.
 
 ### 3.4 Authenticated user without CSRF token is rejected
 
+**Note:** CSRF token behavior is owned and tested by the Jahia CSRFGuard module.
+Simulating the browser-level CSRF flow from Cypress is not reliably possible.
+These scenarios (3.4 and 3.5) are intentionally excluded from Formidable's test suite.
+
 **Precondition:**
 1. The form carries `fmdbmix:requireAuthentication`.
 2. The submit servlet path is covered by the module-scoped CSRFGuard config.
