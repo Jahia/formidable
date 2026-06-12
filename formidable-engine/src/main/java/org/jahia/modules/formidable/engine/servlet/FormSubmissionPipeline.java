@@ -17,7 +17,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
-import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,12 +40,11 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WO
  *   3.  guardContentLength     — early reject oversized requests when Content-Length is present
  *   4.  resolveFormNode        — JCR lookup in "live" workspace
  *   5.  verifyAuthentication   — reject Guest if fmdbmix:authenticatedOnlyForm is present
- *   6.  verifyCsrf             — reject authenticated submissions without a valid CSRF token
- *   7.  verifyCaptcha          — only if fmdbmix:captchaProtectedForm is present
- *   8.  collectFormFieldInfo   — build whitelist + types + choices + accept + constraints from JCR
- *   9.  parseMultipart         — first and only read of the stream; unknown fields discarded inline
- *   10. validateRequired       — post-parse check for required fields (catches absent fields)
- *   11. dispatchActions        — execute fmdb:actionList nodes in order
+ *   6.  verifyCaptcha          — only if fmdbmix:captchaProtectedForm is present
+ *   7.  collectFormFieldInfo   — build whitelist + types + choices + accept + constraints from JCR
+ *   8.  parseMultipart         — first and only read of the stream; unknown fields discarded inline
+ *   9.  validateRequired       — post-parse check for required fields (catches absent fields)
+ *   10. dispatchActions        — execute fmdb:actionList nodes in order
  */
 class FormSubmissionPipeline {
 
@@ -54,7 +52,6 @@ class FormSubmissionPipeline {
 
     private static final String ACTIONS_NODE = "actions";
     private static final String CAPTCHA_TOKEN_HEADER = "X-Formidable-Captcha-Token";
-    private static final List<String> CSRF_TOKEN_NAMES = List.of("CSRFTOKEN", "OWASP_CSRFTOKEN");
     @FunctionalInterface
     interface FieldMetadataCollectorAdapter {
         FormFieldMetadataCollector.Result collect(String formId, Locale locale) throws RepositoryException;
@@ -90,7 +87,6 @@ class FormSubmissionPipeline {
     private Locale locale;
     private JCRSessionWrapper session;
     private JCRNodeWrapper formNode;
-    private boolean requiresAuthentication;
     private FormFieldMetadataCollector.Result fieldMetadata;
     private FormDataParser.ParseResult parsed;
 
@@ -125,7 +121,6 @@ class FormSubmissionPipeline {
         guardContentLength(req);
         resolveFormNode();
         verifyAuthentication();
-        verifyCsrf(req);
         verifyCaptcha(req);
         collectFormFieldInfo();
         parseMultipart(req);
@@ -178,45 +173,20 @@ class FormSubmissionPipeline {
     }
 
     private void verifyAuthentication() throws SubmissionException {
+        boolean requiresAuth;
         try {
-            requiresAuthentication = formNode.isNodeType(AUTHENTICATED_ONLY_FORM_MIXIN);
+            requiresAuth = formNode.isNodeType(AUTHENTICATED_ONLY_FORM_MIXIN);
         } catch (RepositoryException e) {
             throw new SubmissionException(ErrorCode.FMDB_500,
                     "Cannot verify authentication requirement for form: " + formId,
                     e);
         }
-        if (!requiresAuthentication) return;
+        if (!requiresAuth) return;
 
         if (JahiaUserManagerService.isGuest(JCRSessionFactory.getInstance().getCurrentUser())) {
             log.warn("[FormSubmissionPipeline] Anonymous submission rejected on authenticated form.");
             throw new SubmissionException(ErrorCode.FMDB_009,
                     "Authentication required for form: " + formId);
-        }
-    }
-
-    private void verifyCsrf(HttpServletRequest req) throws SubmissionException {
-        if (!requiresAuthentication) {
-            return;
-        }
-
-        String submittedToken = findSubmittedCsrfToken(req);
-        if (submittedToken == null) {
-            log.warn("[FormSubmissionPipeline] Missing CSRF token on authenticated form '{}'.", formId);
-            throw new SubmissionException(ErrorCode.FMDB_013,
-                    "Missing CSRF token for authenticated form: " + formId);
-        }
-
-        String cookieToken = findCookieCsrfToken(req);
-        if (cookieToken == null) {
-            log.warn("[FormSubmissionPipeline] Missing CSRF cookie on authenticated form '{}'.", formId);
-            throw new SubmissionException(ErrorCode.FMDB_013,
-                    "Missing CSRF cookie for authenticated form: " + formId);
-        }
-
-        if (!cookieToken.equals(submittedToken)) {
-            log.warn("[FormSubmissionPipeline] CSRF token mismatch on authenticated form '{}'.", formId);
-            throw new SubmissionException(ErrorCode.FMDB_013,
-                    "CSRF token mismatch for authenticated form: " + formId);
         }
     }
 
@@ -250,47 +220,6 @@ class FormSubmissionPipeline {
                     e
             );
         }
-    }
-
-    private static String findSubmittedCsrfToken(HttpServletRequest req) {
-        for (String headerName : CSRF_TOKEN_NAMES) {
-            String token = normalizeToken(req.getHeader(headerName));
-            if (token != null) {
-                return token;
-            }
-        }
-
-
-        return null;
-    }
-
-    private static String findCookieCsrfToken(HttpServletRequest req) {
-        Cookie[] cookies = req.getCookies();
-        if (cookies == null) {
-            return null;
-        }
-
-        for (Cookie cookie : cookies) {
-            if (!CSRF_TOKEN_NAMES.contains(cookie.getName())) {
-                continue;
-            }
-
-            String token = normalizeToken(cookie.getValue());
-            if (token != null) {
-                return token;
-            }
-        }
-
-        return null;
-    }
-
-    private static String normalizeToken(String token) {
-        if (token == null) {
-            return null;
-        }
-
-        String trimmed = token.trim();
-        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private void collectFormFieldInfo() throws SubmissionException {

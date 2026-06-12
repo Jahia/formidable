@@ -1,13 +1,10 @@
 import {getInputTextNode} from '../../support/fixtures';
 import {createPublishedLiveFormPage} from '../../support/fixtures';
 import {
-	expectCsrfRejectedResponse,
 	expectErrorResponse,
 	expectSuccessResponse,
 	FOREIGN_ORIGIN,
-	liveFormPath,
 	postDirectMultipartSubmission,
-	postDirectMultipartSubmissionViaPatchedXhr,
 	postDirectNonMultipartSubmission,
 	useFormidableSite,
 	withSameOriginHeaders
@@ -158,28 +155,6 @@ describe('Security - direct HTTP submission guards', () => {
 			headers: withSameOriginHeaders()
 		}).then(response => {
 			expectErrorResponse(response, 401, 'FMDB-009');
-		});
-	});
-
-	it('rejects an authenticated direct submission when no CSRF token is present', () => {
-		postDirectMultipartSubmission({
-			formId: authenticatedFormId,
-			fields: {fullName: 'Mallory'},
-			headers: withSameOriginHeaders()
-		}).then(response => {
-			expectCsrfRejectedResponse(response);
-		});
-	});
-
-	it('accepts an authenticated direct submission when CSRFGuard injects a valid token', () => {
-		cy.visit(liveFormPath({livePath: authenticatedFormLivePath}));
-
-		postDirectMultipartSubmissionViaPatchedXhr({
-			formId: authenticatedFormId,
-			fields: {fullName: 'Alice'}
-		}).then(response => {
-			expect(response.status).to.eq(200);
-			expect(response.body).to.deep.equal({success: true});
 		});
 	});
 

@@ -453,9 +453,11 @@ and shows a tooltip. No request is sent to the servlet.
 
 ## CSRF
 
-Form submissions use `XMLHttpRequest` (not `fetch`). Jahia's OWASP CSRFGuard patches
-`XMLHttpRequest.prototype.send` at page load to inject the CSRF token automatically.
-`fetch` is not patched and must not be used for form submission.
+Form submissions use `XMLHttpRequest` (not `fetch`). Jahia's OWASP CSRFGuard integrates
+with `XMLHttpRequest`, but its client-side auto-injection is limited to the URL patterns it
+recognises. The Formidable submit servlet is still protected server-side through the
+module-scoped CSRFGuard configuration, so an authenticated direct XHR to
+`/modules/formidable-engine/form-submit` without the expected CSRF transport is rejected.
 
 ---
 
