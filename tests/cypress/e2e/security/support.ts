@@ -63,6 +63,7 @@ export const expectSuccessResponse = (response: Cypress.Response<any>) => {
 
 export const expectCsrfRejectedResponse = (response: Cypress.Response<any>) => {
 	expect(response.status).to.eq(403);
+	expect(response.body).to.deep.equal({success: false, errorCode: 'FMDB-013'});
 };
 
 export const postDirectMultipartSubmission = ({

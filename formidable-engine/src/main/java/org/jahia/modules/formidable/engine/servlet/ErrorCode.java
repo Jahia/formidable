@@ -21,6 +21,7 @@ enum ErrorCode {
     FMDB_010(400),  // Field value failed validation (bad format, or not in allowed choices)
     FMDB_011(403),  // Submission denied by the Security Filter permission check
     FMDB_012(500),  // Action list could not be resolved from the repository
+    FMDB_013(403),  // Authenticated submission missing or mismatched CSRF token
     FMDB_500(500);  // Unexpected internal error
 
     /** HTTP status code associated with this error. */

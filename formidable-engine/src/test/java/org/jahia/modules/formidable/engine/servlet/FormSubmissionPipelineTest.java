@@ -10,6 +10,7 @@ import org.jahia.services.usermanager.JahiaUser;
 import org.junit.jupiter.api.Test;
 
 import javax.jcr.RepositoryException;
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -189,6 +190,75 @@ class FormSubmissionPipelineTest {
 
         // Expected outcome: no exception is raised because the form is public.
         assertDoesNotThrow(() -> invokeVerifyAuthentication(pipeline, null));
+    }
+
+    @Test
+    void verifyCsrfRejectsAuthenticatedSubmissionWhenTokenIsMissing() throws Exception {
+        // Verifies the authenticated CSRF gate: once the user passes the auth check,
+        // a CSRF token must still be present before multipart parsing can continue.
+        FormSubmissionPipeline pipeline = newPipelineWithAuthRequirement(true);
+        HttpServletRequest req = mock(HttpServletRequest.class);
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeVerifyCsrf(pipeline, req));
+
+        // Expected outcome: FMDB-013 is returned for authenticated submissions without a token.
+        assertEquals(ErrorCode.FMDB_013, error.errorCode);
+    }
+
+    @Test
+    void verifyCsrfRejectsAuthenticatedSubmissionWhenCookieIsMissing() throws Exception {
+        // Verifies the double-submit cookie requirement: a submitted token without
+        // a matching cookie must be rejected to prevent forged header attacks.
+        FormSubmissionPipeline pipeline = newPipelineWithAuthRequirement(true);
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        when(req.getHeader("CSRFTOKEN")).thenReturn("submitted-token");
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeVerifyCsrf(pipeline, req));
+
+        // Expected outcome: FMDB-013 is returned when the CSRF cookie is absent.
+        assertEquals(ErrorCode.FMDB_013, error.errorCode);
+    }
+
+    @Test
+    void verifyCsrfRejectsAuthenticatedSubmissionWhenTokenMismatchesCookie() throws Exception {
+        // Verifies the token-matching gate: submitted token and cookie token must be identical.
+        FormSubmissionPipeline pipeline = newPipelineWithAuthRequirement(true);
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        when(req.getHeader("CSRFTOKEN")).thenReturn("submitted-token");
+        when(req.getCookies()).thenReturn(new Cookie[]{new Cookie("CSRFTOKEN", "different-token")});
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeVerifyCsrf(pipeline, req));
+
+        // Expected outcome: FMDB-013 is returned when the tokens do not match.
+        assertEquals(ErrorCode.FMDB_013, error.errorCode);
+    }
+
+    @Test
+    void verifyCsrfAllowsAuthenticatedSubmissionWhenHeaderMatchesCookie() throws Exception {
+        // Verifies the positive authenticated path with a CSRFGuard-style double-submit token.
+        FormSubmissionPipeline pipeline = newPipelineWithAuthRequirement(true);
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        when(req.getHeader("CSRFTOKEN")).thenReturn("csrf-token");
+        when(req.getCookies()).thenReturn(new Cookie[]{new Cookie("CSRFTOKEN", "csrf-token")});
+
+        // Expected outcome: no exception is raised when the submitted token matches the cookie token.
+        assertDoesNotThrow(() -> invokeVerifyCsrf(pipeline, req));
+    }
+
+
+    @Test
+    void verifyCsrfSkipsCheckWhenFormDoesNotRequireAuthentication() throws Exception {
+        // Verifies the bypass case: the CSRF double-submit check only applies to
+        // authenticated forms. Public forms rely on the Security Filter's same-origin
+        // gate (FMDB-011) for cross-origin protection instead.
+        FormSubmissionPipeline pipeline = newPipelineWithAuthRequirement(false);
+        HttpServletRequest req = mock(HttpServletRequest.class);
+
+        // Expected outcome: no exception is raised because the form is public.
+        assertDoesNotThrow(() -> invokeVerifyCsrf(pipeline, req));
     }
 
     @Test
@@ -489,12 +559,55 @@ class FormSubmissionPipelineTest {
         verify(formNode, never()).isNodeType("fmdbmix:captchaProtectedForm");
     }
 
+    @Test
+    void runRejectsAuthenticatedSubmissionBeforeEvaluatingCaptchaWhenCsrfTokenIsMissing() throws Exception {
+        // Verifies gate ordering for authenticated users: the CSRF check runs before CAPTCHA,
+        // so missing tokens fail closed without reaching provider-side validation.
+        FormidableConfigService config = mock(FormidableConfigService.class);
+        org.jahia.services.content.JCRSessionWrapper session = mock(org.jahia.services.content.JCRSessionWrapper.class);
+        JCRNodeWrapper formNode = mock(JCRNodeWrapper.class);
+        String formId = UUID.randomUUID().toString();
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        JahiaUser authenticatedUser = mock(JahiaUser.class);
+
+        when(session.getNodeByIdentifier(formId)).thenReturn(formNode);
+        when(formNode.isNodeType("fmdbmix:authenticatedOnlyForm")).thenReturn(true);
+        when(req.getMethod()).thenReturn("POST");
+        when(req.getContentType()).thenReturn("multipart/form-data; boundary=test");
+        when(req.getParameter("fid")).thenReturn(formId);
+        when(req.getParameter("lang")).thenReturn("en");
+        when(req.getContentLengthLong()).thenReturn(-1L);
+        when(authenticatedUser.getName()).thenReturn("editor");
+
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
+                config,
+                List.<FormAction>of(),
+                (ignoredFormId, ignoredLocale) -> emptyFieldMetadata(),
+                JCRTemplate::getInstance,
+                (request, cfg, metadata) -> new FormDataParser.ParseResult(java.util.Map.of(), List.of()),
+                locale -> session
+        );
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeRun(pipeline, req, authenticatedUser));
+
+        assertEquals(ErrorCode.FMDB_013, error.errorCode);
+        verify(formNode).isNodeType("fmdbmix:authenticatedOnlyForm");
+        verify(formNode, never()).isNodeType("fmdbmix:captchaProtectedForm");
+    }
+
     private static FormSubmissionPipeline newPipelineWithFormNode(boolean requiresAuthentication) throws Exception {
         FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of());
         JCRNodeWrapper formNode = mock(JCRNodeWrapper.class);
         when(formNode.isNodeType("fmdbmix:authenticatedOnlyForm")).thenReturn(requiresAuthentication);
         setField(pipeline, "formNode", formNode);
         setField(pipeline, "formId", "test-form-id");
+        return pipeline;
+    }
+
+    private static FormSubmissionPipeline newPipelineWithAuthRequirement(boolean requiresAuthentication) throws Exception {
+        FormSubmissionPipeline pipeline = newPipelineWithFormNode(requiresAuthentication);
+        setField(pipeline, "requiresAuthentication", requiresAuthentication);
         return pipeline;
     }
 
@@ -572,6 +685,12 @@ class FormSubmissionPipelineTest {
 
     private static void invokeVerifyCaptcha(FormSubmissionPipeline pipeline, HttpServletRequest req) throws Exception {
         Method method = FormSubmissionPipeline.class.getDeclaredMethod("verifyCaptcha", HttpServletRequest.class);
+        method.setAccessible(true);
+        invokeSubmissionStep(method, pipeline, req);
+    }
+
+    private static void invokeVerifyCsrf(FormSubmissionPipeline pipeline, HttpServletRequest req) throws Exception {
+        Method method = FormSubmissionPipeline.class.getDeclaredMethod("verifyCsrf", HttpServletRequest.class);
         method.setAccessible(true);
         invokeSubmissionStep(method, pipeline, req);
     }
