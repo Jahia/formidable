@@ -1,5 +1,9 @@
 # formidable Changelog
 
+## 0.3.0
+
+* Changed form validation to show inline error messages instead of native browser tooltips (#115).
+
 ## 0.2.0
 
 ### Breaking Changes
