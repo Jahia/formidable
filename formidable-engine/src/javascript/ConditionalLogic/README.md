@@ -175,8 +175,19 @@ For each rule, the repository also maintains:
 `FormLogicSyncService` keeps both representations aligned:
 
 - during normal authoring, it updates or creates weakrefs from the JSON rule
-- after copy/import, it removes out-of-scope weakrefs and tries to rebuild them
+- after subtree duplication, it removes out-of-scope weakrefs and tries to rebuild them
 - source resolution prefers `sourceNodeId`, then a valid existing weakref, then `sourceFieldName`
+
+`FormDuplicationCleanupListener` is the backend trigger for that duplication cleanup. It now covers:
+
+- import paths
+- workspace copy paths
+- regular session-save copy paths such as GraphQL `copyNode`
+
+To avoid unnecessary work on ordinary node creation, the listener only processes:
+
+- a copied `fmdbmix:formLogicElement` that already carries `logics` or `logicsSrc`
+- a copied `fmdb:form` subtree that contains at least one descendant with `logics` or `logicsSrc`
 
 ## Why the source-field lookup is done in TSX
 

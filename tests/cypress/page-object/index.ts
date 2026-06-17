@@ -10,6 +10,8 @@
 // Main components
 export {Form} from './Form';
 export {Fieldset} from './Fieldset';
+export {ConditionalLogicEditor} from './ConditionalLogicEditor';
+export {ConditionalLogicField} from './ConditionalLogicField';
 
 // Form elements
 export {FormElement} from './elements/FormElement';
@@ -27,4 +29,3 @@ export {TextareaInput} from './elements/TextareaInput';
 export {FileInput} from './elements/FileInput';
 export {ButtonInput} from './elements/ButtonInput';
 export {HiddenInput} from './elements/HiddenInput';
-

@@ -75,7 +75,7 @@ When `logics` is added, changed, or removed:
 5. create or update `logicsSrc/<logicId>`
 6. remove orphan `logicsSrc` children not referenced by any remaining JSON rule
 
-### After import or workspace copy
+### After duplication, import, or session-save copy
 
 When a subtree duplication occurs:
 
@@ -115,6 +115,14 @@ Copying remains the sensitive case:
 - broken external weakrefs are removed
 - surviving JSON rules are rebound when possible
 - unresolved rules may remain degraded until a valid source can be resolved again
+
+The duplication cleanup listener currently runs for:
+
+- `IMPORT`
+- `WORKSPACE_COPY`
+- `SESSION_SAVE` copy paths such as GraphQL `copyNode`
+
+The `SESSION_SAVE` support exists because some supported copy flows do not surface as `WORKSPACE_COPY`. The listener is guarded and only runs when the added node or copied form subtree already contains `logics` or `logicsSrc`.
 
 ## Known limitation: duplicate system names
 

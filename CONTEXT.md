@@ -281,8 +281,84 @@ Pure marker — no properties. Enables the editor `contentpicker` to list all av
 Entry point: `src/javascript/init.ts`
 Registers extensions into the Jahia registry (`@jahia/ui-extender`):
 - `SelectOptions`: custom selectorType for list-field options
+- 
+- `ConditionalLogicCmp`: custom selectorType for the `logics` property on `fmdbmix:formLogicElement` nodes
 
 Build: `@jahia/vite-federation-plugin` (Module Federation), output in `src/main/resources/javascript/apps/`.
+
+---
+
+## formidable-engine – Conditional Logic (weakref model)
+
+### Model overview
+
+A field that depends on another field's value carries:
+- A `logics` multi-value string property (JSON rules)
+- An autocreated `logicsSrc` child node (`fmdb:logicList`) with one `fmdb:logicSrc` child per rule, each holding a `logicNodeSource` weakreference
+
+The canonical source of truth for which field a rule targets is the weakreference, not the JSON `sourceFieldName` (which is kept as metadata for editor display and fallback).
+
+### JSON format in `logics`
+
+```json
+{
+  "logicId": "c0b7e4a9",
+  "sourceNodeId": "uuid-of-source-field",
+  "sourceFieldName": "role",
+  "sourceFieldType": "fmdb:select",
+  "operator": "in",
+  "values": ["admin", "editor"]
+}
+```
+
+- `logicId` → matches the name of a child node under `logicsSrc`
+- `sourceNodeId` → UUID shortcut (set by the editor, used as first resolution strategy)
+- `sourceFieldName` → name-based fallback (last resort)
+
+### Source resolution order (`FormLogicSourceResolver`)
+
+1. **UUID** (`sourceNodeId`) — direct session lookup; must be in form scope AND before target in document order
+2. **Weakref** (`logicsSrc/{logicId}/logicNodeSource`) — same validation: in scope AND before target
+3. **Name** (`sourceFieldName`) — first match before target in depth-first traversal
+
+### Java class layout (after refactoring)
+
+```
+org.jahia.modules.formidable.engine.logic
+├── FormLogicSyncService.java        ← orchestrator: sync() and cleanupAfterDuplication()
+├── FormLogicJsonEntry.java          ← JSON parsing/migration (logicId auto-gen, sourceNodeId update)
+├── FormLogicSourceResolver.java     ← 3-step source resolution with document-order validation
+├── FormSourceFieldIndex.java        ← index of valid source fields before target in document order
+├── FormLogicReferenceStore.java     ← CRUD on logicsSrc child nodes
+└── ConditionalLogicEvaluator.java   ← server-side rule evaluation for submission validation
+```
+
+### Key design decisions
+
+- **Document-order validation**: a source field is only valid if it appears before the target in depth-first form tree traversal. This prevents rules from referencing a homonymous field in a later fieldset (e.g. two `select-an-option` under different fieldsets).
+- **cleanupAfterDuplication()**: removes only broken `logicsSrc` nodes (weakrefs pointing outside the new form's subtree). Preserves the JSON `logics` entries so that `sync()` can re-resolve via `sourceFieldName` fallback.
+- **Import resilience**: after import, weakrefs may point to the correct imported nodes or be stale. The 3-step resolution handles both cases.
+
+### Test scenarios
+
+Full behavioral specification: `tests/scenarios/conditional-logic.md` (11 sections, from backend sync to runtime visibility).
+
+### Cypress test specs
+
+| Spec | Covers |
+|---|---|
+| `50-conditional-logic-selector-type.cy.ts` | Content Editor UI: source filtering, operators by type, value dropdowns, sibling exclusion, save/reload |
+| `51-conditional-logic-copy-paste.cy.ts` | Backend duplication: whole-form copy rebinding, duplicate source names, single-field copy degradation |
+| `52-conditional-logic-backend.cy.ts` | Backend sync: sourceNodeId persistence, logicsSrc weakref creation |
+| `53-conditional-logic-import.cy.ts` | Backend import: XML import rebinding, sourceNodeId repair after import, duplicate source names |
+
+### Cypress fixtures and page objects
+
+- `tests/cypress/support/fixtures/logics.ts` — form factories, XML import helpers, GraphQL query for `logicsSrc`, `parseStoredLogicRule()`
+- `tests/cypress/page-object/ConditionalLogicEditor.ts` — opens Content Editor on a target field's logic tab
+- `tests/cypress/page-object/ConditionalLogicField.ts` — interacts with the conditional logic selector (dropdowns, menus, rules)
+- `tests/cypress/fixtures/imports/conditional-logic-form.xml` — minimal import fixture with one source and one target logic
+- `tests/cypress/fixtures/imports/conditional-logic-duplicates.xml` — import fixture covering duplicate source names
 
 ---
 
@@ -329,10 +405,14 @@ yarn format
 Page-object pattern:
 - `tests/cypress/page-object/Form.ts` and `Fieldset.ts` – top-level page objects
 - `tests/cypress/page-object/elements/` – per-element wrappers
-- `tests/cypress/support/fixtures/` – typed JCR node factories per element type
+- `tests/cypress/page-object/ConditionalLogicEditor.ts` and `ConditionalLogicField.ts` – conditional logic editor
+- `tests/cypress/support/fixtures/` – typed JCR node factories per element type (including `logics.ts` for conditional logic forms)
 
 Each test creates JCR content via `addNode()`, navigates into the JContent preview iframe, and asserts against `fmdb-` CSS selectors.
+Conditional logic tests (`tests/cypress/e2e/logics/`) use GraphQL mutations (`copyNode`, `setNodeProperty`, `importContent`), XML fixtures for import, and the Content Editor page object.
 Disabled specs use the `.cy.ts.disabled` extension.
+
+Test scenarios specification: `tests/scenarios/conditional-logic.md`
 
 ---
 

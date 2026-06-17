@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DUPLICATE_FORM_NAME_PLACEHOLDER
+	xmlns:fmdb="http://www.jahia.org/jahia/fmdb/nt/1.0"
+	xmlns:fmdbmix="http://www.jahia.org/jahia/fmdb/mix/1.0"
+	xmlns:j="http://www.jahia.org/jahia/1.0"
+	xmlns:jcr="http://www.jcp.org/jcr/1.0"
+	xmlns:jnt="http://www.jahia.org/jahia/nt/1.0"
+	jcr:primaryType="fmdb:form">
+	<j:translation_en
+		jcr:language="en"
+		jcr:primaryType="jnt:translation"
+		jcr:title="DUPLICATE_FORM_TITLE_PLACEHOLDER"
+		submitBtnLabel="Submit"/>
+	<fields jcr:primaryType="fmdb:fieldList">
+		<termination jcr:primaryType="fmdb:fieldset">
+			<j:translation_en
+				jcr:language="en"
+				jcr:primaryType="jnt:translation"
+				jcr:title="termination"/>
+			<select-an-option jcr:primaryType="fmdb:radio">
+				<j:translation_en
+					choices="{&quot;value&quot;:&quot;alpha&quot;,&quot;label&quot;:&quot;alpha&quot;,&quot;selected&quot;:false} {&quot;value&quot;:&quot;beta&quot;,&quot;label&quot;:&quot;beta&quot;,&quot;selected&quot;:false}"
+					jcr:language="en"
+					jcr:primaryType="jnt:translation"
+					jcr:title="select-an-option"/>
+			</select-an-option>
+		</termination>
+		<reduction jcr:primaryType="fmdb:fieldset">
+			<j:translation_en
+				jcr:language="en"
+				jcr:primaryType="jnt:translation"
+				jcr:title="reduction"/>
+			<select-an-option jcr:primaryType="fmdb:radio">
+				<j:translation_en
+					choices="{&quot;value&quot;:&quot;manager&quot;,&quot;label&quot;:&quot;manager&quot;,&quot;selected&quot;:false} {&quot;value&quot;:&quot;staff&quot;,&quot;label&quot;:&quot;staff&quot;,&quot;selected&quot;:false}"
+					jcr:language="en"
+					jcr:primaryType="jnt:translation"
+					jcr:title="select-an-option"/>
+			</select-an-option>
+		</reduction>
+		<nickname
+			jcr:primaryType="fmdb:inputText"
+			logics="{&quot;logicId&quot;:&quot;logic-import-duplicate&quot;,&quot;sourceNodeId&quot;:&quot;22222222-2222-2222-2222-222222222222&quot;,&quot;sourceFieldName&quot;:&quot;select-an-option&quot;,&quot;sourceFieldType&quot;:&quot;fmdb:radio&quot;,&quot;operator&quot;:&quot;in&quot;,&quot;values&quot;:[&quot;manager&quot;]}">
+			<j:translation_en
+				jcr:language="en"
+				jcr:primaryType="jnt:translation"
+				jcr:title="nickname"/>
+			<logicsSrc jcr:primaryType="fmdb:logicList">
+				<logic-import-duplicate
+					jcr:primaryType="fmdb:logicSrc"
+					logicNodeSource="#/fields/reduction/select-an-option"/>
+			</logicsSrc>
+		</nickname>
+	</fields>
+	<actions jcr:primaryType="fmdb:actionList"/>
+</DUPLICATE_FORM_NAME_PLACEHOLDER>
