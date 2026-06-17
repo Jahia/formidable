@@ -26,6 +26,6 @@ and progression rules when a form has several steps.
 ## Not covered here
 
 - Field rendering and successful submission paths are documented in
-  [fields.md](/home/hduchesn/Jahia/modules/Formidable/modules/formidable/tests/scenarios/fields.md).
+  [fields.md](./fields.md).
 - Server-side fail-closed and submit-endpoint security behavior are outside the
   scope of this document.
