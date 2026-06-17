@@ -13,7 +13,7 @@ interface DirectSubmissionOptions {
 	lang?: string;
 }
 
-export const SAME_ORIGIN = 'http://localhost:8080';
+export const SAME_ORIGIN = (Cypress.config('baseUrl') as string | null) ?? 'http://localhost:8080';
 export const FOREIGN_ORIGIN = 'https://evil.example';
 
 export const useFormidableSite = () => {
