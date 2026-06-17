@@ -15,6 +15,7 @@ export type ConditionalLogicOperator =
 export interface ConditionalLogicRule {
 	logicId?: string;
 	sourceFieldName: string;
+	sourceNodeId?: string;
 	sourceFieldType: SupportedConditionalSourceType;
 	operator: ConditionalLogicOperator;
 	value?: string;
@@ -44,7 +45,9 @@ export const parseConditionalLogicRule = (rawValue: string): ConditionalLogicRul
 		}
 
 		return {
+			logicId: typeof parsed.logicId === 'string' ? parsed.logicId : undefined,
 			sourceFieldName: parsed.sourceFieldName,
+			sourceNodeId: typeof parsed.sourceNodeId === 'string' ? parsed.sourceNodeId : undefined,
 			sourceFieldType: parsed.sourceFieldType as SupportedConditionalSourceType,
 			operator: parsed.operator as ConditionalLogicOperator,
 			value: typeof parsed.value === 'string' ? parsed.value : undefined,
@@ -210,8 +213,16 @@ const setWrapperVisibility = (wrapper: HTMLElement, visible: boolean) => {
 
 export const applyConditionalLogicVisibility = (form: HTMLFormElement) => {
 	const wrappers = Array.from(form.querySelectorAll<HTMLElement>('[data-fmdb-node-name]'));
-	// data-fmdb-node-name → dataset.fmdbNodeName (automatic camelCase conversion by the DOM)
-	const wrappersByName = new Map(wrappers.map(wrapper => [wrapper.dataset.fmdbNodeName ?? '', wrapper]));
+	const wrappersByNodeId = new Map(
+		wrappers
+			.filter(w => w.dataset.fmdbNodeId)
+			.map(w => [w.dataset.fmdbNodeId!, w])
+	);
+	const wrappersByName = new Map(
+		wrappers
+			.filter(w => w.dataset.fmdbNodeName)
+			.map(w => [w.dataset.fmdbNodeName!, w])
+	);
 
 	for (const wrapper of wrappers) {
 		const rawRules = wrapper.dataset.fmdbLogics;
@@ -227,7 +238,10 @@ export const applyConditionalLogicVisibility = (form: HTMLFormElement) => {
 		}
 
 		const visible = rules.every(rule => {
-			const sourceWrapper = wrappersByName.get(rule.sourceFieldName);
+			const sourceWrapper = rule.sourceNodeId
+				? wrappersByNodeId.get(rule.sourceNodeId)
+				: wrappersByName.get(rule.sourceFieldName);
+
 			if (!sourceWrapper) return false;
 			if (sourceWrapper.closest('[data-fmdb-logic-hidden="true"]')) return false;
 			return evaluateRule(rule, sourceWrapper);

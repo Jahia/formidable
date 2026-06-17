@@ -22,6 +22,7 @@ export const parseRule = (value?: string): ConditionalLogicRule => {
     if (!value) {
         return {
             logicId: '',
+            sourceNodeId: '',
             sourceFieldName: '',
             sourceFieldType: 'fmdb:select',
             operator: 'in',
@@ -37,6 +38,7 @@ export const parseRule = (value?: string): ConditionalLogicRule => {
 
         return {
             logicId: parsed.logicId ?? '',
+            sourceNodeId: parsed.sourceNodeId ?? '',
             sourceFieldName: parsed.sourceFieldName ?? '',
             sourceFieldType,
             operator: (parsed.operator as LogicOperator) ?? 'in',
@@ -46,6 +48,7 @@ export const parseRule = (value?: string): ConditionalLogicRule => {
     } catch {
         return {
             logicId: '',
+            sourceNodeId: '',
             sourceFieldName: '',
             sourceFieldType: 'fmdb:select',
             operator: 'in',
@@ -93,6 +96,7 @@ export const normalizeStoredRule = (
         if (operator === 'between') {
             return {
                 logicId: rule.logicId,
+                sourceNodeId: source.id,
                 sourceFieldName: source.name,
                 sourceFieldType: source.type,
                 operator,
@@ -102,6 +106,7 @@ export const normalizeStoredRule = (
 
         return {
             logicId: rule.logicId,
+            sourceNodeId: source.id,
             sourceFieldName: source.name,
             sourceFieldType: source.type,
             operator,
@@ -112,6 +117,7 @@ export const normalizeStoredRule = (
     if (source.type === 'fmdb:checkbox' && source.choiceValues.length <= 1) {
         return {
             logicId: rule.logicId,
+            sourceNodeId: source.id,
             sourceFieldName: source.name,
             sourceFieldType: source.type,
             operator
@@ -120,6 +126,7 @@ export const normalizeStoredRule = (
 
     return {
         logicId: rule.logicId,
+        sourceNodeId: source.id,
         sourceFieldName: source.name,
         sourceFieldType: source.type,
         operator,
@@ -211,18 +218,34 @@ export const buildSourceFieldOptions = (currentNodePath: string, nodes: GraphNod
         return [];
     }
 
-    return nodes
+    const options = nodes
         .slice(0, currentIndex)
         .map(mapSourceField)
         .filter((node): node is SourceFieldOption => node !== null);
+
+    const labelCounts = new Map<string, number>();
+    for (const option of options) {
+        labelCounts.set(option.label, (labelCounts.get(option.label) ?? 0) + 1);
+    }
+
+    const labelCounters = new Map<string, number>();
+    for (const option of options) {
+        if ((labelCounts.get(option.label) ?? 0) > 1) {
+            const counter = (labelCounters.get(option.label) ?? 0) + 1;
+            labelCounters.set(option.label, counter);
+            option.label = `${option.label}:${counter}`;
+        }
+    }
+
+    return options;
 };
 
-export const buildLogicIdToNameMap = (logicSrcNodes: LogicSrcNode[] = []): Map<string, string> => {
-    const map = new Map<string, string>();
+export const buildLogicIdToSourceMap = (logicSrcNodes: LogicSrcNode[] = []): Map<string, {name: string; uuid: string}> => {
+    const map = new Map<string, {name: string; uuid: string}>();
     for (const node of logicSrcNodes) {
-        const resolvedName = node.property?.refNode?.name;
-        if (resolvedName) {
-            map.set(node.name, resolvedName);
+        const refNode = node.property?.refNode;
+        if (refNode) {
+            map.set(node.name, {name: refNode.name, uuid: refNode.uuid});
         }
     }
 

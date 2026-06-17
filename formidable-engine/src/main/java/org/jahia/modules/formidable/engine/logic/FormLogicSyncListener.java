@@ -18,8 +18,9 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LO
  * Keeps logicsSrc child nodes in sync with the logics JSON property during normal authoring.
  *
  * Triggered when a contributor saves a fmdbmix:formLogicElement node and its logics property
- * is added, changed, or removed. Delegates to FormLogicSyncService which resolves sourceFieldName
- * to a JCR weakreference and maintains the logicsSrc structure.
+ * is added, changed, or removed. Delegates to FormLogicSyncService which resolves the
+ * source field primarily from sourceNodeId, then from a valid existing weakref, and
+ * finally from sourceFieldName when recovery is needed.
  *
  * Counterpart: FormDuplicationCleanupListener handles copy/paste and import cleanup.
  */

@@ -37,7 +37,7 @@ class FormFieldMetadataCollector {
             Map<String, FormDataParser.FieldInfo> fieldInfos,
             Map<String, List<ConditionalLogicRule>> fieldLogicRules,
             Map<String, String> logicIdToFieldName,
-            Map<String, String> fieldParentContainer
+            Map<String, Set<String>> fieldParentContainers
     ) {
         FormDataParser.FieldMetadata toParserMetadata() {
             return new FormDataParser.FieldMetadata(fieldInfos);
@@ -55,14 +55,14 @@ class FormFieldMetadataCollector {
         var fieldInfos = new HashMap<String, FormDataParser.FieldInfo>();
         var fieldLogicRules = new HashMap<String, List<ConditionalLogicRule>>();
         var logicIdToFieldName = new HashMap<String, String>();
-        var fieldParentContainer = new HashMap<String, String>();
+        var fieldParentContainers = new HashMap<String, Set<String>>();
 
-        var ctx = new CollectorContext(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainer);
+        var ctx = new CollectorContext(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers);
 
         if (!formNode.hasNode(FIELDS_NODE)) {
             log.debug("[FormFieldMetadataCollector] No '{}' child on form node '{}'",
                     FIELDS_NODE, formNode.getPath());
-            return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainer);
+            return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers);
         }
 
         JCRNodeWrapper fieldList = formNode.getNode(FIELDS_NODE);
@@ -75,7 +75,7 @@ class FormFieldMetadataCollector {
         }
 
         log.debug("[FormFieldMetadataCollector] Allowed fields: {}", fieldInfos.keySet());
-        return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainer);
+        return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers);
     }
 
     // --- Internal ---
@@ -84,7 +84,7 @@ class FormFieldMetadataCollector {
             Map<String, FormDataParser.FieldInfo> fieldInfos,
             Map<String, List<ConditionalLogicRule>> fieldLogicRules,
             Map<String, String> logicIdToFieldName,
-            Map<String, String> fieldParentContainer
+            Map<String, Set<String>> fieldParentContainers
     ) {}
 
     private static void traverseRecursively(JCRNodeWrapper node, String parentContainerName, CollectorContext ctx)
@@ -125,14 +125,18 @@ class FormFieldMetadataCollector {
             throws RepositoryException {
         String name = node.getName();
         String nodeType = node.getPrimaryNodeTypeName();
-        if (ctx.fieldInfos.containsKey(name)) {
-            throw new RepositoryException(
-                    "Duplicate field name '" + name + "' detected in form metadata collection."
-            );
+
+        // Track parent container before the duplicate check so that all containers
+        // are recorded. isHidden() treats a field as hidden only when ALL its parents
+        // are hidden, mirroring the front-end closest() logic.
+        if (parentContainerName != null) {
+            ctx.fieldParentContainers.computeIfAbsent(name, k -> new HashSet<>()).add(parentContainerName);
         }
 
-        if (parentContainerName != null) {
-            ctx.fieldParentContainer.put(name, parentContainerName);
+        if (ctx.fieldInfos.containsKey(name)) {
+            log.debug("[FormFieldMetadataCollector] Duplicate field name '{}' — parent containers: {}",
+                    name, ctx.fieldParentContainers.get(name));
+            return;
         }
 
         if (node.isNodeType(FORM_LOGIC_ELEMENT_MIXIN) && node.hasProperty(LOGICS_PROPERTY)) {

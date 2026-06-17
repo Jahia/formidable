@@ -24,7 +24,8 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FO
  * - a single fmdbmix:formLogicElement is copied from one form to another
  *
  * Delegates to FormLogicSyncService.cleanupAfterDuplication which purges weakrefs
- * pointing outside the form boundary, then re-syncs from sourceFieldName.
+ * pointing outside the form boundary, preserves the JSON rules, then attempts
+ * to rebuild weakrefs from sourceNodeId, an in-scope weakref, or sourceFieldName.
  *
  * Counterpart: FormLogicSyncListener handles normal authoring (logics property changes).
  */

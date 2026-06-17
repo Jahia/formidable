@@ -1,5 +1,5 @@
 import {getNodeProps, Render} from "@jahia/javascript-modules-library";
-import {parseConditionalLogicRules} from "~/utils/conditionalLogic";
+import {type ConditionalLogicRule, parseConditionalLogicRules} from "~/utils/conditionalLogic";
 
 type LogicAwareRenderNode = Parameters<typeof getNodeProps>[0];
 
@@ -10,6 +10,32 @@ export interface LogicAwareRenderProps {
 	className?: string;
 }
 
+/**
+ * Enriches rendered rules with source node UUIDs from logicsSrc weakreferences.
+ * Each logicId in the parsed rules maps to a child node under logicsSrc
+ * whose logicNodeSource property points to the actual source field.
+ * Mutates rules in place to add or refresh sourceNodeId for runtime evaluation.
+ */
+const resolveSourceNodeIds = (node: LogicAwareRenderNode, logics: ConditionalLogicRule[]) => {
+	try {
+		if (!node.hasNode("logicsSrc")) return;
+		const logicsSrcNode = node.getNode("logicsSrc");
+		for (const rule of logics) {
+			if (!rule.logicId) continue;
+			try {
+				if (!logicsSrcNode.hasNode(rule.logicId)) continue;
+				const srcChild = logicsSrcNode.getNode(rule.logicId);
+				const sourceNode = srcChild.getProperty("logicNodeSource").getNode();
+				rule.sourceNodeId = sourceNode.getIdentifier();
+			} catch (e) {
+				console.error(`[LogicAwareRender] Broken weakref for logicId '${rule.logicId}' on node '${node.getPath()}':`, e);
+			}
+		}
+	} catch (e) {
+		console.error(`[LogicAwareRender] Failed to access logicsSrc on node '${node.getPath()}':`, e);
+	}
+};
+
 const LogicAwareRender = ({node, view, parameters, className}: LogicAwareRenderProps) => {
 	const {logics: rawLogics} = getNodeProps<{logics?: string[]}>(node, ["logics"]);
 	const logics = node.isNodeType("fmdbmix:formLogicElement")
@@ -17,6 +43,10 @@ const LogicAwareRender = ({node, view, parameters, className}: LogicAwareRenderP
 		: [];
 
 	const hasLogic = logics.length > 0;
+
+	if (hasLogic) {
+		resolveSourceNodeIds(node, logics);
+	}
 
 	return (
 		<div

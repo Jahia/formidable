@@ -223,7 +223,7 @@ class FormSubmissionPipeline {
         var logicEvaluator = new ConditionalLogicEvaluator(
                 fieldMetadata.fieldLogicRules(),
                 fieldMetadata.logicIdToFieldName(),
-                fieldMetadata.fieldParentContainer(),
+                fieldMetadata.fieldParentContainers(),
                 parsed.parameters()
         );
 
