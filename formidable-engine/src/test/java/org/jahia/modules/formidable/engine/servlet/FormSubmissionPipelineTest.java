@@ -29,7 +29,7 @@ import static org.mockito.Mockito.when;
 class FormSubmissionPipelineTest {
 
     @Test
-    void verifyMultipartRejectsNonMultipartRequest() throws Exception {
+    void verifyMultipartRejectsNonMultipartRequest() {
         // Verifies the content-type gate: non-multipart requests must be rejected
         // before any routing, JCR lookup, or parsing is attempted.
         HttpServletRequest req = mock(HttpServletRequest.class);
@@ -44,7 +44,7 @@ class FormSubmissionPipelineTest {
     }
 
     @Test
-    void readRoutingParamsRejectsWhenFidIsMissing() throws Exception {
+    void readRoutingParamsRejectsWhenFidIsMissing() {
         // Verifies the routing gate: submissions without the mandatory form UUID
         // must be rejected before the pipeline can resolve any form node.
         HttpServletRequest req = mock(HttpServletRequest.class);
@@ -58,7 +58,7 @@ class FormSubmissionPipelineTest {
     }
 
     @Test
-    void readRoutingParamsRejectsWhenFidIsNotAUuid() throws Exception {
+    void readRoutingParamsRejectsWhenFidIsNotAUuid() {
         // Verifies UUID validation on the routing parameter.
         HttpServletRequest req = mock(HttpServletRequest.class);
         when(req.getParameter("fid")).thenReturn("not-a-uuid");
@@ -86,7 +86,7 @@ class FormSubmissionPipelineTest {
     }
 
     @Test
-    void guardContentLengthRejectsOversizedRequest() throws Exception {
+    void guardContentLengthRejectsOversizedRequest() {
         // Verifies the early size gate: when Content-Length is present and exceeds
         // the configured limit, the servlet should fail before body parsing starts.
         FormidableConfigService config = mock(FormidableConfigService.class);
@@ -103,7 +103,7 @@ class FormSubmissionPipelineTest {
     }
 
     @Test
-    void guardContentLengthAllowsChunkedRequestWithoutEarlyRejection() throws Exception {
+    void guardContentLengthAllowsChunkedRequestWithoutEarlyRejection() {
         // Verifies the chunked-request path: the early guard must not reject
         // when Content-Length is unavailable and returns -1.
         FormidableConfigService config = mock(FormidableConfigService.class);
@@ -452,7 +452,7 @@ class FormSubmissionPipelineTest {
     }
 
     @Test
-    void runRejectsGuestBeforeEvaluatingCaptchaWhenFormRequiresBothGuards() throws Exception {
+    void runRejectsGuestBeforeEvaluatingCaptchaWhenFormRequiresBothGuards() {
         // Verifies gate ordering: authenticated-only forms must reject Guest users
         // before the CAPTCHA requirement is even evaluated.
         // Expected outcome: the pipeline returns FMDB-009 and never checks the CAPTCHA mixin.
@@ -490,7 +490,7 @@ class FormSubmissionPipelineTest {
     }
 
     @Test
-    void runRejectsAuthenticatedUserWithoutCaptchaTokenWhenFormRequiresBothGuards() throws Exception {
+    void runRejectsAuthenticatedUserWithoutCaptchaTokenWhenFormRequiresBothGuards() {
         // Verifies combined gate ordering: once authentication passes for a logged-in user,
         // the CAPTCHA gate must still reject submissions that lack the token header.
         FormidableConfigService config = mock(FormidableConfigService.class);

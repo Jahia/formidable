@@ -72,7 +72,7 @@ class FormSubmissionPipeline {
 
     @FunctionalInterface
     interface CurrentUserSessionProvider {
-        JCRSessionWrapper get(Locale locale) throws Exception;
+        JCRSessionWrapper get(Locale locale) throws RepositoryException;
     }
 
     private final FormidableConfigService config;
@@ -167,7 +167,7 @@ class FormSubmissionPipeline {
         try {
             session = currentUserSessionProvider.get(locale);
             formNode = session.getNodeByIdentifier(formId);
-        } catch (Exception e) {
+        } catch (RepositoryException e) {
             throw new SubmissionException(ErrorCode.FMDB_004, "Form node not found: " + formId, e);
         }
     }
