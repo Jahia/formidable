@@ -32,6 +32,6 @@ submission flows involving the supported field types.
 ## Not covered here
 
 - Inline validation behavior and validation flow are documented in
-  [validation.md](/home/hduchesn/Jahia/modules/Formidable/modules/formidable/tests/scenarios/validation.md).
+  [validation.md](./validation.md).
 - Server-side fail-closed and submit-endpoint security behavior are outside the
   scope of this document.
