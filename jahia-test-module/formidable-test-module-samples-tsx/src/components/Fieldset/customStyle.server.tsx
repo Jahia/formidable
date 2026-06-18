@@ -18,10 +18,9 @@ jahiaComponent(
 		{currentNode}
 	) => {
 		const elementNodes = Array.from(currentNode.getNodes());
-		const extraClasses = customCssClassname?.join(" ") ?? "";
 
 		return (
-			<fieldset className={clsx("fmdb-fieldset",extraClasses)}>
+			<fieldset className={clsx("fmdb-fieldset", customCssClassname)}>
 				{title && (
 					<legend className="fmdb-fieldset-legend">
 						{title}
