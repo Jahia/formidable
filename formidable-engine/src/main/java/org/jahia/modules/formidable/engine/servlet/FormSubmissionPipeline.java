@@ -62,10 +62,25 @@ class FormSubmissionPipeline {
         JCRTemplate get();
     }
 
+    @FunctionalInterface
+    interface MultipartParserAdapter {
+        FormDataParser.ParseResult parse(HttpServletRequest req,
+                                         FormidableConfigService config,
+                                         FormDataParser.FieldMetadata fieldMetadata)
+                throws FormDataParser.ParseException;
+    }
+
+    @FunctionalInterface
+    interface CurrentUserSessionProvider {
+        JCRSessionWrapper get(Locale locale) throws RepositoryException;
+    }
+
     private final FormidableConfigService config;
     private final List<FormAction> formActions;
     private final FieldMetadataCollectorAdapter fieldMetadataCollector;
     private final JcrTemplateProvider jcrTemplateProvider;
+    private final MultipartParserAdapter multipartParser;
+    private final CurrentUserSessionProvider currentUserSessionProvider;
 
     // State accumulated as the pipeline progresses
     private String formId;
@@ -76,17 +91,28 @@ class FormSubmissionPipeline {
     private FormDataParser.ParseResult parsed;
 
     FormSubmissionPipeline(FormidableConfigService config, List<FormAction> formActions) {
-        this(config, formActions, FormFieldMetadataCollector::collect, JCRTemplate::getInstance);
+        this(
+                config,
+                formActions,
+                FormFieldMetadataCollector::collect,
+                JCRTemplate::getInstance,
+                FormDataParser::parseAll,
+                locale -> JCRSessionFactory.getInstance().getCurrentUserSession(WORKSPACE_LIVE, locale)
+        );
     }
 
     FormSubmissionPipeline(FormidableConfigService config,
                            List<FormAction> formActions,
                            FieldMetadataCollectorAdapter fieldMetadataCollector,
-                           JcrTemplateProvider jcrTemplateProvider) {
+                           JcrTemplateProvider jcrTemplateProvider,
+                           MultipartParserAdapter multipartParser,
+                           CurrentUserSessionProvider currentUserSessionProvider) {
         this.config = config;
         this.formActions = formActions;
         this.fieldMetadataCollector = fieldMetadataCollector;
         this.jcrTemplateProvider = jcrTemplateProvider;
+        this.multipartParser = multipartParser;
+        this.currentUserSessionProvider = currentUserSessionProvider;
     }
 
     void run(HttpServletRequest req) throws SubmissionException {
@@ -139,9 +165,9 @@ class FormSubmissionPipeline {
 
     private void resolveFormNode() throws SubmissionException {
         try {
-            session = JCRSessionFactory.getInstance().getCurrentUserSession(WORKSPACE_LIVE, locale);
+            session = currentUserSessionProvider.get(locale);
             formNode = session.getNodeByIdentifier(formId);
-        } catch (Exception e) {
+        } catch (RepositoryException e) {
             throw new SubmissionException(ErrorCode.FMDB_004, "Form node not found: " + formId, e);
         }
     }
@@ -208,7 +234,7 @@ class FormSubmissionPipeline {
 
     private void parseMultipart(HttpServletRequest req) throws SubmissionException {
         try {
-            parsed = FormDataParser.parseAll(req, config, fieldMetadata.toParserMetadata());
+            parsed = multipartParser.parse(req, config, fieldMetadata.toParserMetadata());
         } catch (FormDataParser.ParseException e) {
             ErrorCode code = switch (e.failureType()) {
                 case VALIDATION -> ErrorCode.FMDB_010;
