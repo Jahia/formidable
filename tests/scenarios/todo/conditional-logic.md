@@ -54,7 +54,7 @@ Field visible only when `role=admin` AND `accept-terms=accepted`. Test partial a
 
 ---
 
-## 6. Operator-specific scenarios (Cypress E2E)
+## 6. Operator-specific scenarios (not covered by Cypress E2E)
 
 Each scenario submits directly via HTTP POST. Covered by Java unit tests but not by Cypress.
 
