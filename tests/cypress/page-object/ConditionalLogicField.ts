@@ -32,6 +32,17 @@ export class ConditionalLogicField extends BaseComponent {
 		});
 	}
 
+	private getDropdown(ruleIndex: number, dropdownIndex: number): Cypress.Chainable<JQuery<HTMLElement>> {
+		return this.getRule(ruleIndex).get()
+			.find('.moonstone-dropdown_container')
+			.eq(dropdownIndex);
+	}
+
+	private getOpenMenu(ruleIndex: number, dropdownIndex: number): Cypress.Chainable<JQuery<HTMLElement>> {
+		return this.getDropdown(ruleIndex, dropdownIndex)
+			.find(ConditionalLogicField.menuSelector, {timeout: 15000});
+	}
+
 	waitUntilReady(): this {
 		this.get().should('be.visible');
 		this.get().find('.moonstone-loader').should('have.length', 0);
@@ -59,24 +70,23 @@ export class ConditionalLogicField extends BaseComponent {
 	}
 
 	openDropdown(ruleIndex: number, dropdownIndex: number): this {
+		this.dismissOpenMenu();
 		this.getRule(ruleIndex).get().find('.moonstone-loader').should('have.length', 0);
-		this.getRule(ruleIndex).get()
-			.find('.moonstone-dropdown_container')
-			.eq(dropdownIndex)
-			.scrollIntoView()
-			.click({force: true});
-		cy.get(ConditionalLogicField.menuSelector, {timeout: 15000}).should('be.visible');
+		this.getDropdown(ruleIndex, dropdownIndex).scrollIntoView().click();
+		// eslint-disable-next-line cypress/no-unnecessary-waiting
+		cy.wait(500);
+		this.getOpenMenu(ruleIndex, dropdownIndex).should('be.visible');
 		return this;
 	}
 
 	selectMenuItem(label: string): this {
-		cy.get(ConditionalLogicField.menuSelector).contains('.moonstone-menuItem', label).click();
+		cy.get(ConditionalLogicField.menuSelector).contains('.moonstone-menuItem', label).trigger('click');
 		return this;
 	}
 
 	menuShouldHaveItems(labels: string[]): this {
 		for (const label of labels) {
-			cy.get(ConditionalLogicField.menuSelector).contains('.moonstone-menuItem', label).should('be.visible');
+			cy.get(ConditionalLogicField.menuSelector).contains('.moonstone-menuItem', label).scrollIntoView().should('be.visible');
 		}
 
 		return this;
