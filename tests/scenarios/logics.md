@@ -4,12 +4,12 @@ This document describes the conditional logic scenarios covered by the automated
 
 ## Covered by Cypress specs
 
-| Spec | Section | Description |
-|------|---------|-------------|
-| `50-conditional-logic-selector-type.cy.ts` | 7 | Content Editor selectorType UI (source filtering, operator switching, date inputs, exclusion of used sources, reload) |
-| `51-conditional-logic-copy-paste.cy.ts` | 3 | Form duplication via GraphQL `copyNode` (weakref rebinding, duplicate source names, single-field degradation) |
-| `52-conditional-logic-backend.cy.ts` | 1, 2 | Backend synchronization (logicsSrc creation/update/removal, rename resilience, logicId/sourceNodeId persistence) |
-| `53-conditional-logic-import.cy.ts` | 4.1 | Import via GraphQL `importContent` (weakref rebinding to imported nodes, duplicate source names) |
+| Spec | Coverage area | Description |
+|------|--------------|-------------|
+| `50-conditional-logic-selector-type.cy.ts` | Content Editor selectorType UI | Source filtering, operator switching, date inputs, exclusion of used sources, reload |
+| `51-conditional-logic-copy-paste.cy.ts` | Form duplication (GraphQL `copyNode`) | Weakref rebinding, duplicate source names, single-field degradation |
+| `52-conditional-logic-backend.cy.ts` | Backend synchronization | logicsSrc creation/update/removal, rename resilience, logicId/sourceNodeId persistence |
+| `53-conditional-logic-import.cy.ts` | Import (GraphQL `importContent`) | Weakref rebinding to imported nodes, duplicate source names |
 
 ## Covered by Java unit tests
 
