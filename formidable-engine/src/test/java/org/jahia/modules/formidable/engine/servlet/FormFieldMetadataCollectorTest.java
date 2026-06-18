@@ -26,6 +26,8 @@ class FormFieldMetadataCollectorTest {
 
     @Test
     void collectsChoiceFieldMetadataFromSemanticMixin() throws Exception {
+        // Verifies that choice fields declared through semantic mixins expose their node type
+        // and allowed option values to the submission parser.
         JCRNodeWrapper choiceField = node(
                 "plan",
                 "fmdb:radio",
@@ -42,6 +44,7 @@ class FormFieldMetadataCollectorTest {
         );
 
         FormDataParser.FieldInfo info = result.fieldInfos().get("plan");
+        // Expected outcome: the field is recognized as a choice field with both configured options.
         assertNotNull(info);
         assertEquals("fmdb:radio", info.nodeType());
         assertTrue(info.choiceField());
@@ -50,6 +53,7 @@ class FormFieldMetadataCollectorTest {
 
     @Test
     void collectsFileFieldMetadataAndAcceptTypes() throws Exception {
+        // Verifies that file-field metadata includes the configured accept allowlist.
         JCRNodeWrapper fileField = node(
                 "resume",
                 "fmdb:inputFile",
@@ -63,6 +67,7 @@ class FormFieldMetadataCollectorTest {
         );
 
         FormDataParser.FieldInfo info = result.fieldInfos().get("resume");
+        // Expected outcome: the field is flagged as a file input with both accept tokens preserved.
         assertNotNull(info);
         assertTrue(info.fileField());
         assertEquals(Set.of("application/pdf", "image/*"), info.acceptTypes());
@@ -70,6 +75,7 @@ class FormFieldMetadataCollectorTest {
 
     @Test
     void collectsDateAndDatetimeConstraintsFromSemanticMixins() throws Exception {
+        // Verifies that date and datetime-local field mixins contribute normalized min/max constraints.
         JCRNodeWrapper dateField = node(
                 "birthday",
                 "fmdb:inputDate",
@@ -96,6 +102,7 @@ class FormFieldMetadataCollectorTest {
         );
 
         FormDataParser.FieldInfo dateInfo = result.fieldInfos().get("birthday");
+        // Expected outcome: date constraints are normalized as ISO local-date strings.
         assertNotNull(dateInfo);
         assertTrue(dateInfo.dateField());
         assertNotNull(dateInfo.constraints());
@@ -103,6 +110,7 @@ class FormFieldMetadataCollectorTest {
         assertEquals("2026-06-30", dateInfo.constraints().maxDate());
 
         FormDataParser.FieldInfo datetimeInfo = result.fieldInfos().get("appointment");
+        // Expected outcome: datetime-local constraints are normalized as ISO local-date-time strings.
         assertNotNull(datetimeInfo);
         assertTrue(datetimeInfo.datetimeLocalField());
         assertNotNull(datetimeInfo.constraints());
@@ -112,6 +120,7 @@ class FormFieldMetadataCollectorTest {
 
     @Test
     void skipsNonSubmittableNodes() throws Exception {
+        // Verifies that helper nodes marked non-submittable are excluded from parser metadata.
         JCRNodeWrapper nonSubmittable = node(
                 "csrfToken",
                 "fmdb:hidden",
@@ -124,6 +133,7 @@ class FormFieldMetadataCollectorTest {
                 formNodeWithFields(nonSubmittable)
         );
 
+        // Expected outcome: the non-submittable helper node is omitted entirely.
         assertFalse(result.fieldInfos().containsKey("csrfToken"));
     }
 

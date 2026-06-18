@@ -26,7 +26,7 @@ Detailed reasons are written to server logs only and are never exposed to the ca
 | `FMDB-003` | 413 | `Content-Length` exceeds `uploadMaxRequestSizeBytes` from `org.jahia.modules.formidable.cfg` |
 | `FMDB-004` | 400 | Form node not found in the `live` workspace (invalid `fid`, or form not published) |
 | `FMDB-005` | 500 | CAPTCHA is required on the form but server-side verification is not fully configured (`captchaSiteKey` / `captchaSecretKey` / `captchaVerifyUrl` missing in `org.jahia.modules.formidable.cfg`) |
-| `FMDB-006` | 400 | CAPTCHA token (`ct` URL param) is absent, expired, or rejected by the provider |
+| `FMDB-006` | 400 | CAPTCHA token (`X-Formidable-Captcha-Token` header) is absent, expired, or rejected by the provider |
 | `FMDB-007` | 400 | Multipart parsing failed for a technical reason — possible causes: per-file size limit, total request size limit, file count limit, or low-level stream parsing/read failure |
 | `FMDB-008` | 422 | An action in the pipeline failed (e.g. forward target returned non-2xx, email could not be sent) |
 | `FMDB-009` | 401 | Authentication required — the form carries `fmdbmix:authenticatedOnlyForm` and the current user is Guest |

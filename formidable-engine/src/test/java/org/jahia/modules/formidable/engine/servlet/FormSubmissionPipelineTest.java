@@ -1,6 +1,7 @@
 package org.jahia.modules.formidable.engine.servlet;
 
 import org.jahia.modules.formidable.engine.api.FormAction;
+import org.jahia.modules.formidable.engine.actions.FormDataParser;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionFactory;
@@ -13,16 +14,132 @@ import javax.servlet.http.HttpServletRequest;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Locale;
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class FormSubmissionPipelineTest {
+
+    @Test
+    void verifyMultipartRejectsNonMultipartRequest() {
+        // Verifies the content-type gate: non-multipart requests must be rejected
+        // before any routing, JCR lookup, or parsing is attempted.
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        when(req.getMethod()).thenReturn("POST");
+        when(req.getContentType()).thenReturn("application/json");
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeVerifyMultipart(new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of()), req));
+
+        // Expected outcome: FMDB-001 is returned for non-multipart submissions.
+        assertEquals(ErrorCode.FMDB_001, error.errorCode);
+    }
+
+    @Test
+    void readRoutingParamsRejectsWhenFidIsMissing() {
+        // Verifies the routing gate: submissions without the mandatory form UUID
+        // must be rejected before the pipeline can resolve any form node.
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        when(req.getParameter("fid")).thenReturn(null);
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeReadRoutingParams(new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of()), req));
+
+        // Expected outcome: FMDB-002 is returned for a missing fid.
+        assertEquals(ErrorCode.FMDB_002, error.errorCode);
+    }
+
+    @Test
+    void readRoutingParamsRejectsWhenFidIsNotAUuid() {
+        // Verifies UUID validation on the routing parameter.
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        when(req.getParameter("fid")).thenReturn("not-a-uuid");
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeReadRoutingParams(new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of()), req));
+
+        // Expected outcome: FMDB-002 is returned for a malformed fid.
+        assertEquals(ErrorCode.FMDB_002, error.errorCode);
+    }
+
+    @Test
+    void readRoutingParamsDefaultsLocaleToEnglishWhenLangIsMissing() throws Exception {
+        // Verifies locale fallback: if the caller omits lang,
+        // the pipeline must keep the documented English default.
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of());
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        when(req.getParameter("fid")).thenReturn(UUID.randomUUID().toString());
+        when(req.getParameter("lang")).thenReturn(null);
+
+        invokeReadRoutingParams(pipeline, req);
+
+        // Expected outcome: the pipeline stores Locale.ENGLISH.
+        assertEquals(Locale.ENGLISH, getField(pipeline, "locale"));
+    }
+
+    @Test
+    void guardContentLengthRejectsOversizedRequest() {
+        // Verifies the early size gate: when Content-Length is present and exceeds
+        // the configured limit, the servlet should fail before body parsing starts.
+        FormidableConfigService config = mock(FormidableConfigService.class);
+        when(config.getUploadMaxRequestSizeBytes()).thenReturn(10L);
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(config, List.<FormAction>of());
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        when(req.getContentLengthLong()).thenReturn(11L);
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeGuardContentLength(pipeline, req));
+
+        // Expected outcome: FMDB-003 is returned for oversized requests.
+        assertEquals(ErrorCode.FMDB_003, error.errorCode);
+    }
+
+    @Test
+    void guardContentLengthAllowsChunkedRequestWithoutEarlyRejection() {
+        // Verifies the chunked-request path: the early guard must not reject
+        // when Content-Length is unavailable and returns -1.
+        FormidableConfigService config = mock(FormidableConfigService.class);
+        when(config.getUploadMaxRequestSizeBytes()).thenReturn(10L);
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(config, List.<FormAction>of());
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        when(req.getContentLengthLong()).thenReturn(-1L);
+
+        // Expected outcome: the pipeline defers definitive size enforcement to multipart parsing.
+        assertDoesNotThrow(() -> invokeGuardContentLength(pipeline, req));
+    }
+
+    @Test
+    void resolveFormNodeRejectsWhenFormCannotBeResolvedInLiveWorkspace() throws Exception {
+        // Verifies the live-workspace lookup gate: if the target form UUID cannot
+        // be resolved, the submission must be rejected as an invalid target form.
+        org.jahia.services.content.JCRSessionWrapper session = mock(org.jahia.services.content.JCRSessionWrapper.class);
+        when(session.getNodeByIdentifier("test-form-id")).thenThrow(new RepositoryException("missing"));
+
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
+                mock(FormidableConfigService.class),
+                List.<FormAction>of(),
+                FormFieldMetadataCollector::collect,
+                JCRTemplate::getInstance,
+                FormDataParser::parseAll,
+                locale -> session
+        );
+        setField(pipeline, "formId", "test-form-id");
+        setField(pipeline, "locale", Locale.ENGLISH);
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeResolveFormNode(pipeline));
+
+        // Expected outcome: FMDB-004 is returned when the live form node is unavailable.
+        assertEquals(ErrorCode.FMDB_004, error.errorCode);
+    }
 
     @Test
     void verifyAuthenticationRejectsGuestWhenFormRequiresAuthentication() throws Exception {
@@ -111,6 +228,7 @@ class FormSubmissionPipelineTest {
         FormSubmissionPipeline pipeline = newPipelineWithCaptchaFormNode(config, false);
         HttpServletRequest req = mock(HttpServletRequest.class);
 
+        // Expected outcome: no exception is raised because CAPTCHA is not enabled on the form.
         assertDoesNotThrow(() -> invokeVerifyCaptcha(pipeline, req));
     }
 
@@ -149,6 +267,25 @@ class FormSubmissionPipelineTest {
     }
 
     @Test
+    void verifyCaptchaRejectsWhenTokenHeaderIsMissing() throws Exception {
+        // Verifies the missing-token path with the current transport contract:
+        // the provider token must be carried by the dedicated request header.
+        FormidableConfigService config = mock(FormidableConfigService.class);
+        FormSubmissionPipeline pipeline = newPipelineWithCaptchaFormNode(config, true);
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        when(config.isCaptchaVerificationConfigured()).thenReturn(true);
+        when(req.getHeader("X-Formidable-Captcha-Token")).thenReturn(null);
+        when(req.getRemoteAddr()).thenReturn("203.0.113.10");
+        when(config.verifyCaptcha(null, "203.0.113.10")).thenReturn(false);
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeVerifyCaptcha(pipeline, req));
+
+        // Expected outcome: FMDB-006 is returned when the CAPTCHA header is absent.
+        assertEquals(ErrorCode.FMDB_006, error.errorCode);
+    }
+
+    @Test
     void verifyCaptchaAllowsSubmissionWhenTokenIsValid() throws Exception {
         // Verifies the positive path: a valid token on a CAPTCHA-protected form must pass the gate.
         FormidableConfigService config = mock(FormidableConfigService.class);
@@ -159,11 +296,14 @@ class FormSubmissionPipelineTest {
         when(req.getRemoteAddr()).thenReturn("203.0.113.10");
         when(config.verifyCaptcha("valid-token", "203.0.113.10")).thenReturn(true);
 
+        // Expected outcome: no exception is raised and the pipeline can continue.
         assertDoesNotThrow(() -> invokeVerifyCaptcha(pipeline, req));
     }
 
     @Test
     void verifyCaptchaFailsWithInternalErrorWhenVerificationIsTechnicallyUnavailable() throws Exception {
+        // Verifies the provider-failure path: technical verification errors must surface
+        // as internal failures rather than validation failures.
         FormidableConfigService config = mock(FormidableConfigService.class);
         FormSubmissionPipeline pipeline = newPipelineWithCaptchaFormNode(config, true);
         HttpServletRequest req = mock(HttpServletRequest.class);
@@ -176,6 +316,7 @@ class FormSubmissionPipelineTest {
         SubmissionException error = assertThrows(SubmissionException.class,
                 () -> invokeVerifyCaptcha(pipeline, req));
 
+        // Expected outcome: FMDB-500 is returned for technical provider failures.
         assertEquals(ErrorCode.FMDB_500, error.errorCode);
     }
 
@@ -202,7 +343,9 @@ class FormSubmissionPipelineTest {
                 mock(FormidableConfigService.class),
                 List.<FormAction>of(),
                 FormFieldMetadataCollector::collect,
-                () -> template
+                () -> template,
+                FormDataParser::parseAll,
+                locale -> mock(org.jahia.services.content.JCRSessionWrapper.class)
         );
         setField(pipeline, "formId", "test-form-id");
 
@@ -228,7 +371,9 @@ class FormSubmissionPipelineTest {
                 mock(FormidableConfigService.class),
                 List.<FormAction>of(),
                 (formId, locale) -> { throw new RepositoryException("boom"); },
-                JCRTemplate::getInstance
+                JCRTemplate::getInstance,
+                FormDataParser::parseAll,
+                locale -> mock(org.jahia.services.content.JCRSessionWrapper.class)
         );
         setField(pipeline, "formId", "test-form-id");
         setField(pipeline, "locale", java.util.Locale.ENGLISH);
@@ -238,6 +383,154 @@ class FormSubmissionPipelineTest {
 
         // Expected outcome: FMDB-500 is returned because the submission cannot rely on partial metadata.
         assertEquals(ErrorCode.FMDB_500, error.errorCode);
+    }
+
+    @Test
+    void parseMultipartMapsValidationFailuresToFMDB010() throws Exception {
+        // Verifies the parser error mapping for user-data validation failures.
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
+                mock(FormidableConfigService.class),
+                List.<FormAction>of(),
+                FormFieldMetadataCollector::collect,
+                JCRTemplate::getInstance,
+                (req, config, metadata) -> {
+                    throw new FormDataParser.ParseException("bad data", FormDataParser.ParseException.FailureType.VALIDATION);
+                },
+                locale -> mock(org.jahia.services.content.JCRSessionWrapper.class)
+        );
+        setField(pipeline, "fieldMetadata", emptyFieldMetadata());
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeParseMultipart(pipeline, mock(HttpServletRequest.class)));
+
+        // Expected outcome: parser validation failures map to FMDB-010.
+        assertEquals(ErrorCode.FMDB_010, error.errorCode);
+    }
+
+    @Test
+    void parseMultipartMapsTechnicalFailuresToFMDB007() throws Exception {
+        // Verifies the parser error mapping for low-level multipart or stream failures.
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
+                mock(FormidableConfigService.class),
+                List.<FormAction>of(),
+                FormFieldMetadataCollector::collect,
+                JCRTemplate::getInstance,
+                (req, config, metadata) -> {
+                    throw new FormDataParser.ParseException("stream failed", FormDataParser.ParseException.FailureType.TECHNICAL);
+                },
+                locale -> mock(org.jahia.services.content.JCRSessionWrapper.class)
+        );
+        setField(pipeline, "fieldMetadata", emptyFieldMetadata());
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeParseMultipart(pipeline, mock(HttpServletRequest.class)));
+
+        // Expected outcome: parser technical failures map to FMDB-007.
+        assertEquals(ErrorCode.FMDB_007, error.errorCode);
+    }
+
+    @Test
+    void parseMultipartMapsConfigurationFailuresToFMDB500() throws Exception {
+        // Verifies the parser error mapping for invalid server-side metadata or configuration.
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
+                mock(FormidableConfigService.class),
+                List.<FormAction>of(),
+                FormFieldMetadataCollector::collect,
+                JCRTemplate::getInstance,
+                (req, config, metadata) -> {
+                    throw new FormDataParser.ParseException("bad config", FormDataParser.ParseException.FailureType.CONFIGURATION);
+                },
+                locale -> mock(org.jahia.services.content.JCRSessionWrapper.class)
+        );
+        setField(pipeline, "fieldMetadata", emptyFieldMetadata());
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeParseMultipart(pipeline, mock(HttpServletRequest.class)));
+
+        // Expected outcome: parser configuration failures map to FMDB-500.
+        assertEquals(ErrorCode.FMDB_500, error.errorCode);
+    }
+
+    @Test
+    void runRejectsGuestBeforeEvaluatingCaptchaWhenFormRequiresBothGuards() throws Exception {
+        // Verifies gate ordering: authenticated-only forms must reject Guest users
+        // before the CAPTCHA requirement is even evaluated.
+        // Expected outcome: the pipeline returns FMDB-009 and never checks the CAPTCHA mixin.
+        FormidableConfigService config = mock(FormidableConfigService.class);
+        org.jahia.services.content.JCRSessionWrapper session = mock(org.jahia.services.content.JCRSessionWrapper.class);
+        JCRNodeWrapper formNode = mock(JCRNodeWrapper.class);
+        String formId = UUID.randomUUID().toString();
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        JahiaUser guestUser = mock(JahiaUser.class);
+
+        when(session.getNodeByIdentifier(formId)).thenReturn(formNode);
+        when(formNode.isNodeType("fmdbmix:authenticatedOnlyForm")).thenReturn(true);
+        when(req.getMethod()).thenReturn("POST");
+        when(req.getContentType()).thenReturn("multipart/form-data; boundary=test");
+        when(req.getParameter("fid")).thenReturn(formId);
+        when(req.getParameter("lang")).thenReturn("en");
+        when(req.getContentLengthLong()).thenReturn(-1L);
+        when(guestUser.getName()).thenReturn("guest");
+
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
+                config,
+                List.<FormAction>of(),
+                (ignoredFormId, ignoredLocale) -> emptyFieldMetadata(),
+                JCRTemplate::getInstance,
+                (request, cfg, metadata) -> new FormDataParser.ParseResult(java.util.Map.of(), List.of()),
+                locale -> session
+        );
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeRun(pipeline, req, guestUser));
+
+        assertEquals(ErrorCode.FMDB_009, error.errorCode);
+        verify(formNode).isNodeType("fmdbmix:authenticatedOnlyForm");
+        verify(formNode, never()).isNodeType("fmdbmix:captchaProtectedForm");
+    }
+
+    @Test
+    void runRejectsAuthenticatedUserWithoutCaptchaTokenWhenFormRequiresBothGuards() throws Exception {
+        // Verifies combined gate ordering: once authentication passes for a logged-in user,
+        // the CAPTCHA gate must still reject submissions that lack the token header.
+        FormidableConfigService config = mock(FormidableConfigService.class);
+        org.jahia.services.content.JCRSessionWrapper session = mock(org.jahia.services.content.JCRSessionWrapper.class);
+        JCRNodeWrapper formNode = mock(JCRNodeWrapper.class);
+        String formId = UUID.randomUUID().toString();
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        JahiaUser authenticatedUser = mock(JahiaUser.class);
+
+        when(session.getNodeByIdentifier(formId)).thenReturn(formNode);
+        when(formNode.isNodeType("fmdbmix:authenticatedOnlyForm")).thenReturn(true);
+        when(formNode.isNodeType("fmdbmix:captchaProtectedForm")).thenReturn(true);
+        when(formNode.getPath()).thenReturn("/sites/test/form");
+        when(req.getMethod()).thenReturn("POST");
+        when(req.getContentType()).thenReturn("multipart/form-data; boundary=test");
+        when(req.getParameter("fid")).thenReturn(formId);
+        when(req.getParameter("lang")).thenReturn("en");
+        when(req.getContentLengthLong()).thenReturn(-1L);
+        when(authenticatedUser.getName()).thenReturn("editor");
+        when(config.isCaptchaVerificationConfigured()).thenReturn(true);
+        when(req.getHeader("X-Formidable-Captcha-Token")).thenReturn(null);
+        when(req.getRemoteAddr()).thenReturn("203.0.113.10");
+        when(config.verifyCaptcha(null, "203.0.113.10")).thenReturn(false);
+
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
+                config,
+                List.<FormAction>of(),
+                (ignoredFormId, ignoredLocale) -> emptyFieldMetadata(),
+                JCRTemplate::getInstance,
+                (request, cfg, metadata) -> new FormDataParser.ParseResult(java.util.Map.of(), List.of()),
+                locale -> session
+        );
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeRun(pipeline, req, authenticatedUser));
+
+        // Expected outcome: authentication passes but the missing CAPTCHA token triggers FMDB-006.
+        assertEquals(ErrorCode.FMDB_006, error.errorCode);
+        verify(formNode).isNodeType("fmdbmix:authenticatedOnlyForm");
+        verify(formNode).isNodeType("fmdbmix:captchaProtectedForm");
     }
 
     private static FormSubmissionPipeline newPipelineWithFormNode(boolean requiresAuthentication) throws Exception {
@@ -297,20 +590,34 @@ class FormSubmissionPipelineTest {
         }
     }
 
+    private static void invokeVerifyMultipart(FormSubmissionPipeline pipeline, HttpServletRequest req) throws Exception {
+        Method method = FormSubmissionPipeline.class.getDeclaredMethod("verifyMultipart", HttpServletRequest.class);
+        method.setAccessible(true);
+        invokeSubmissionStep(method, pipeline, req);
+    }
+
+    private static void invokeReadRoutingParams(FormSubmissionPipeline pipeline, HttpServletRequest req) throws Exception {
+        Method method = FormSubmissionPipeline.class.getDeclaredMethod("readRoutingParams", HttpServletRequest.class);
+        method.setAccessible(true);
+        invokeSubmissionStep(method, pipeline, req);
+    }
+
+    private static void invokeGuardContentLength(FormSubmissionPipeline pipeline, HttpServletRequest req) throws Exception {
+        Method method = FormSubmissionPipeline.class.getDeclaredMethod("guardContentLength", HttpServletRequest.class);
+        method.setAccessible(true);
+        invokeSubmissionStep(method, pipeline, req);
+    }
+
+    private static void invokeResolveFormNode(FormSubmissionPipeline pipeline) throws Exception {
+        Method method = FormSubmissionPipeline.class.getDeclaredMethod("resolveFormNode");
+        method.setAccessible(true);
+        invokeSubmissionStep(method, pipeline);
+    }
+
     private static void invokeVerifyCaptcha(FormSubmissionPipeline pipeline, HttpServletRequest req) throws Exception {
         Method method = FormSubmissionPipeline.class.getDeclaredMethod("verifyCaptcha", HttpServletRequest.class);
         method.setAccessible(true);
-        try {
-            method.invoke(pipeline, req);
-        } catch (InvocationTargetException e) {
-            if (e.getCause() instanceof SubmissionException submissionException) {
-                throw submissionException;
-            }
-            if (e.getCause() instanceof Exception exception) {
-                throw exception;
-            }
-            throw e;
-        }
+        invokeSubmissionStep(method, pipeline, req);
     }
 
     private static void invokeResolveActionNodes(FormSubmissionPipeline pipeline) throws Exception {
@@ -332,8 +639,36 @@ class FormSubmissionPipelineTest {
     private static void invokeCollectFormFieldInfo(FormSubmissionPipeline pipeline) throws Exception {
         Method method = FormSubmissionPipeline.class.getDeclaredMethod("collectFormFieldInfo");
         method.setAccessible(true);
+        invokeSubmissionStep(method, pipeline);
+    }
+
+    private static void invokeParseMultipart(FormSubmissionPipeline pipeline, HttpServletRequest req) throws Exception {
+        Method method = FormSubmissionPipeline.class.getDeclaredMethod("parseMultipart", HttpServletRequest.class);
+        method.setAccessible(true);
+        invokeSubmissionStep(method, pipeline, req);
+    }
+
+    private static void invokeRun(FormSubmissionPipeline pipeline,
+                                  HttpServletRequest req,
+                                  JahiaUser currentUser) throws Exception {
+        Method method = FormSubmissionPipeline.class.getDeclaredMethod("run", HttpServletRequest.class);
+        method.setAccessible(true);
+        JahiaUser previousUser = JCRSessionFactory.getInstance().getCurrentUser();
         try {
-            method.invoke(pipeline);
+            JCRSessionFactory.getInstance().setCurrentUser(currentUser);
+            invokeSubmissionStep(method, pipeline, req);
+        } finally {
+            JCRSessionFactory.getInstance().setCurrentUser(previousUser);
+        }
+    }
+
+    private static FormFieldMetadataCollector.Result emptyFieldMetadata() {
+        return new FormFieldMetadataCollector.Result(java.util.Map.of(), java.util.Map.of(), java.util.Map.of(), java.util.Map.of());
+    }
+
+    private static void invokeSubmissionStep(Method method, Object target, Object... args) throws Exception {
+        try {
+            method.invoke(target, args);
         } catch (InvocationTargetException e) {
             if (e.getCause() instanceof SubmissionException submissionException) {
                 throw submissionException;

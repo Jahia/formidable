@@ -80,6 +80,7 @@ class ContentDispositionUtilsTest {
     @Test
     void filenameFallbackUsesUploadWhenInputIsNullOrBlank() {
         // Verifies defensive fallback behavior for absent or blank filenames.
+        // Expected outcome: missing or blank filenames fall back to the default upload token.
         assertEquals("upload", ContentDispositionUtils.toRfc6266FilenameFallback(null));
         assertEquals("upload", ContentDispositionUtils.toRfc6266FilenameFallback("   "));
     }

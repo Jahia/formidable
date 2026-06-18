@@ -81,9 +81,9 @@ export function useFormSubmission({
 			const captchaToken = rawCaptchaToken?.trim() || undefined;
 			const targetUrl = submitActionUrl ?? form.action ?? window.location.href;
 
-			// XHR is required here instead of fetch: Jahia's OWASP CSRFGuard patches
-			// XMLHttpRequest.prototype.send to inject the CSRF token automatically.
-			// The fetch API is not patched by CSRFGuard and would result in a CSRF rejection.
+			// XHR is kept here because Jahia's CSRFGuard integrates with XMLHttpRequest rather than fetch.
+			// Direct authenticated submissions to this servlet path are still protected server-side and
+			// are not made valid purely by switching from fetch to XHR.
 			const response = await new Promise<XMLHttpRequest>((resolve, reject) => {
 				const xhr = new XMLHttpRequest();
 				xhr.open('POST', targetUrl, true);

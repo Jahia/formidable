@@ -101,6 +101,7 @@ class FieldEscaperTest {
     @Test
     void plainTextReturnsEmptyStringForNull() {
         // Verifies null-safety for plain-text output.
+        // Expected outcome: null values are converted to an empty string.
         assertEquals("", FieldEscaper.plainText(null));
     }
 }

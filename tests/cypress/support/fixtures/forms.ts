@@ -7,13 +7,47 @@ import {JahiaNode, NodeProperty} from './types';
 
 interface CreateFormNodeOptions {
 	actions?: JahiaNode[];
+	mixins?: string[];
 	properties?: NodeProperty[];
 }
 
 export interface LiveFormPageInfo {
+	formId: string;
 	formPath: string;
 	pagePath: string;
 	livePath: string;
+}
+
+export interface LiveFormSubmissionInfo {
+	name: string;
+	path: string;
+}
+
+interface LatestSubmissionQueryResponse {
+	data?: {
+		jcr?: {
+			nodeByPath?: {
+				descendants?: {
+					nodes?: Array<{
+						name: string;
+						path: string;
+						created: {value: string};
+					}>;
+				};
+			};
+		};
+	};
+	errors?: Array<{message?: string}>;
+}
+
+interface AddNodeResponse {
+	data?: {
+		jcr?: {
+			addNode?: {
+				uuid?: string;
+			};
+		};
+	};
 }
 
 const buildFormChildren = (formElements: JahiaNode[], actions: JahiaNode[] = []): JahiaNode[] => ([
@@ -43,6 +77,7 @@ export const createFormNode = (
 		parentPathOrId: CONTENT_PATH,
 		name: formName,
 		primaryNodeType: 'fmdb:form',
+		mixins: options.mixins || [],
 		properties: [
 			{name: 'jcr:title', value: formTitle, language: 'en'},
 			...(options.properties || [])
@@ -62,11 +97,12 @@ export const createPublishedLiveFormPage = (
 	const formPath = `${CONTENT_PATH}/${formName}`;
 	const pagePath = `${SITE_HOME_PATH}/${pageName}`;
 	const livePath = `home/${pageName}.html`;
+	let formId: string;
 
 	return createFormNode(formName, formTitle, formElements, options)
-		.then((response: any) => {
-			const formUuid = response?.data?.jcr?.addNode?.uuid;
-			if (!formUuid) {
+		.then((response: AddNodeResponse) => {
+			formId = response?.data?.jcr?.addNode?.uuid;
+			if (!formId) {
 				throw new Error(`Could not resolve UUID for form '${formName}'`);
 			}
 
@@ -93,7 +129,7 @@ export const createPublishedLiveFormPage = (
 								name: `${formName}-reference`,
 								primaryNodeType: 'fmdb:formReference',
 								properties: [
-									{name: 'j:node', value: formUuid, type: 'WEAKREFERENCE'}
+									{name: 'j:node', value: formId, type: 'WEAKREFERENCE'}
 								]
 							}
 						]
@@ -105,7 +141,7 @@ export const createPublishedLiveFormPage = (
 			publishAndWaitJobEnding(formPath);
 			publishAndWaitJobEnding(pagePath);
 
-			return cy.wrap<LiveFormPageInfo>({formPath, pagePath, livePath}, {log: false});
+			return cy.wrap<LiveFormPageInfo>({formId, formPath, pagePath, livePath}, {log: false});
 		});
 };
 
@@ -117,21 +153,66 @@ export function getFormPreview(formTitle: string): Form {
 	const jcontent = JContent.visit(FORMIDABLE_TEST_SITE.key, 'en', 'content-folders/contents').switchToListMode();
 	jcontent.getTable().getRowByLabel(formTitle).contextMenu().select('Preview');
 
-	const formBody = cy.get(JCONTENT_SELECTORS.previewIframe)
-		.its('0.contentDocument.body')
-		.should('be.visible')
-		.then(cy.wrap)
-		.find('form');
-
-	return new Form(formBody);
+	return new Form(
+		cy.get(JCONTENT_SELECTORS.previewIframe)
+			.its('0.contentDocument.body')
+			.should('be.visible')
+			.then(cy.wrap)
+			.find('form')
+	);
 }
 
 export function visitLiveForm(livePath: string): Form {
 	cy.visit(`/en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`);
 
-	const formBody = cy.get('form.fmdb-form')
-		.should('exist')
-		.first();
-
-	return new Form(formBody);
+	return new Form(
+		cy.get('form.fmdb-form')
+			.should('exist')
+			.first()
+	);
 }
+
+export const getLatestLiveFormSubmission = (formName: string): Cypress.Chainable<LiveFormSubmissionInfo> => {
+	const submissionsRootPath = `/sites/${FORMIDABLE_TEST_SITE.key}/formidable-results/${formName}/submissions`;
+
+	return cy.request<LatestSubmissionQueryResponse>({
+		method: 'POST',
+		url: '/modules/graphql',
+		headers: {
+			Origin: (Cypress.config('baseUrl') as string | null) ?? 'http://localhost:8080'
+		},
+		body: {
+			query: `
+				query LatestFormSubmission($submissionsRootPath: String!) {
+					jcr(workspace: LIVE) {
+						nodeByPath(path: $submissionsRootPath) {
+							descendants(typesFilter: {types: ["fmdb:formSubmission"]}) {
+								nodes {
+									name
+									path
+									created: property(name: "jcr:created") {value}
+								}
+							}
+						}
+					}
+				}
+			`,
+			variables: {submissionsRootPath}
+		}
+	}).then(response => {
+		const graphQlError = response.body.errors?.[0]?.message;
+		if (graphQlError) {
+			throw new Error(`Could not query latest form submission: ${graphQlError}`);
+		}
+
+		const submissions = response.body.data?.jcr?.nodeByPath?.descendants?.nodes ?? [];
+		const submission = submissions.sort((left, right) =>
+			new Date(right.created.value).getTime() - new Date(left.created.value).getTime()
+		)[0];
+		if (!submission) {
+			throw new Error(`No form submissions found under ${submissionsRootPath}`);
+		}
+
+		return cy.wrap({name: submission.name, path: submission.path}, {log: false});
+	});
+};

@@ -1,6 +1,6 @@
 import {getNodeByPath} from '@jahia/cypress';
-import {FORMIDABLE_TEST_SITE, getInputFileNode, type JahiaNode} from '../../support/fixtures';
-import {createPublishedLiveFormPage, visitLiveForm} from '../../support/fixtures/forms';
+import {getInputFileNode, type JahiaNode} from '../../support/fixtures';
+import {createPublishedLiveFormPage, getLatestLiveFormSubmission, visitLiveForm} from '../../support/fixtures/forms';
 import {useFormidableSite} from './support';
 
 interface JcrPropertyResponse {
@@ -110,11 +110,6 @@ const getChildNodes = (response: NodeByPathResponse): JcrChildNodeResponse[] =>
 const getPropertyValue = (properties: JcrPropertyResponse[] | undefined, propertyName: string): string | undefined =>
 	properties?.find(property => property.name === propertyName)?.value ?? undefined;
 
-const buildSubmissionDayPath = (formName: string, submissionDate: Date): string => {
-	const [year, month, day] = submissionDate.toISOString().slice(0, 10).split('-');
-	return `/sites/${FORMIDABLE_TEST_SITE.key}/formidable-results/${formName}/submissions/${year}/${month}/${day}`;
-};
-
 describe('Form fields - 28 File upload saved fixtures', () => {
 	useFormidableSite();
 
@@ -156,22 +151,16 @@ describe('Form fields - 28 File upload saved fixtures', () => {
 				fileInput.shouldHaveSelectedFile(file.fileName);
 			});
 
-			const submittedAt = new Date();
-			const submissionDayPath = buildSubmissionDayPath(formName, submittedAt);
-
 			form.submit();
 			form.waitForSubmit().shouldHaveSubmissionMessage('Form submitted successfully!');
 
-			// SaveToJcr stores submissions under a date-based folder tree in LIVE workspace.
-			getNodeByPath(submissionDayPath, [], '', ['fmdb:formSubmission'], 'LIVE')
-				.then((response: NodeByPathResponse) => {
-					const submissions = getChildNodes(response);
-					expect(submissions).to.have.length(1);
-					expect(submissions[0].name).to.match(/^submission-/);
+			getLatestLiveFormSubmission(formName)
+				.then(({name, path}) => {
+					expect(name).to.match(/^submission-/);
 
 					// Uploaded files are persisted under /files/<fieldName> as jnt:file nodes.
 					return getNodeByPath(
-						`${submissionDayPath}/${submissions[0].name}/files/${FILE_UPLOAD_FIELD.name}`,
+						`${path}/files/${FILE_UPLOAD_FIELD.name}`,
 						[],
 						'',
 						['jnt:file'],
