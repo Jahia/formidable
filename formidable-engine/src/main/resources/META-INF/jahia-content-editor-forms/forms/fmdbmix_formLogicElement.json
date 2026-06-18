@@ -5,7 +5,7 @@
 		{
 			"name": "logic",
 			"labelKey": "fmdb.section.logic",
-			"rank": 2.0,
+			"rank": 1.10,
 			"fieldSets": [
 				{
 					"name": "fmdbmix:formLogicElement",

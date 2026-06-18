@@ -1,0 +1,12 @@
+{
+	"nodeType": "fmdbsamplemix:customStyle",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "fmdbSampleStyle",
+			"labelKey": "fmdbsamplemix.section.style",
+			"rank": 1.40
+		}
+	]
+}
+

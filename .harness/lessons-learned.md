@@ -46,3 +46,35 @@ Mistakes made during the weakref model implementation. Do not repeat.
 - **Prefer immutable/final holders over mutable servlet or service fields when Sonar flags thread-safety**. `volatile` alone is often not enough for shared component state.
 - **Flatten loops that stack multiple `continue` or `break` statements**. Rewrite them around positive conditions so Sonar does not flag flow complexity.
 - **Avoid hard-coded path delimiters and similar schema separators**. Even for JCR paths, Sonar prefers a named constant over `"/"` embedded in concatenation.
+
+## Jahia Content Editor Forms & CND mixins
+
+- **`itemtype` in CND controls which section a mixin's properties appear in**. The value of `itemtype` must match the `name` of the section defined in the corresponding JSON content editor form. For example, `itemtype = sampleStyle` maps to `"name": "sampleStyle"` in the JSON.
+- **`itemtype = content` places properties in the "Content" section**. Do not use it when you want a dedicated section — use a custom itemtype name instead.
+- **Without `itemtype`, a mixin with `extends` shows a toggle switch** in the "Content" section that the contributor must manually activate. Add `itemtype = <sectionName>` to make the mixin automatically applied (no switch).
+- **The JSON form file only needs to declare the section label and rank** when `itemtype` already routes the properties into the correct section. Do not redundantly declare `fieldSets` and `fields` — the properties arrive automatically via `itemtype`.
+- **File naming convention**: the JSON form file must be named `<nodeType_with_underscores>.json` where colons are replaced by underscores (e.g. `fmdbsamplemix:customStyle` → `fmdbsamplemix_customStyle.json`). If the filename doesn't match the nodeType, Jahia ignores it silently.
+- **The `nodeType` in the JSON must exactly match the CND mixin name**. A stale reference (e.g. old name after rename) causes the JSON to be silently ignored, and properties fall back to the default section.
+
+## Jahia namespace conventions
+
+- **Never define new node types or mixins in the project's namespaces (`fmdb:`, `fmdbmix:`) in external/sample modules**. Define your own namespaces for any new types/mixins (e.g. `fmdbsample:` / `fmdbsamplemix:`) and only reference `fmdb:`/`fmdbmix:` when extending Formidable.
+- **Follow the `<prefix>` / `<prefix>mix` convention** for concrete types vs mixins, matching the project's `fmdb:` / `fmdbmix:` pattern.
+
+## Jahia GraphQL API
+
+- **`JCRNode` has no `created` field**. To access the creation date, use `property(name: "jcr:created") { value }` with a GraphQL alias: `created: property(name: "jcr:created") { value }`.
+- **Always check `schema.graphql`** before writing a GraphQL query. Do not assume field names from memory.
+
+## Cypress / Moonstone UI testing
+
+- **Use the `Dropdown` and `Menu` patterns from `@jahia/cypress`** when interacting with Moonstone dropdowns. The official pattern is: `this.get().click()` → `cy.wait(500)` → scope the menu search to the dropdown parent via `getComponent(Menu, this)`.
+- **Never use `force: true` on Moonstone dropdown clicks**. It bypasses visibility checks and can click through overlays, causing the menu to never appear.
+- **Never search for `.moonstone-menu:not(.moonstone-hidden)` globally** with `cy.get()`. The menu must be found scoped to its parent `.moonstone-dropdown_container` — otherwise you can match a stale menu from a different dropdown.
+- **Always dismiss any open menu before opening a new dropdown**. Moonstone menus can linger and block subsequent interactions.
+- **Use `trigger('click')` instead of `.click()` for menu items**, matching the `Menu.select()` pattern in `@jahia/cypress`.
+
+## Cypress test reliability
+
+- **Re-login before GraphQL queries that require authentication**. If a test logs out to simulate anonymous submission, it must `cy.login()` before calling helpers like `getLatestLiveFormSubmission()` that query the JCR via GraphQL.
+- **Do not rely on node name sorting for "latest" submission lookup**. Submission names like `submission-20260618-085619-abc` contain a 3-char random UUID suffix — two submissions within the same second have unpredictable alphabetical order. Sort by `jcr:created` date instead.

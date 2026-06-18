@@ -1,2 +1,12 @@
 <jnt = 'http://www.jahia.org/jahia/nt/1.0'>
 <jmix = 'http://www.jahia.org/jahia/mix/1.0'>
+<fmdb = 'http://www.jahia.org/jahia/fmdb/nt/1.0'>
+<fmdbsamplemix = 'http://www.jahia.org/jahia/fmdb/sample/mix/1.0'>
+
+// Adds contributor-defined CSS class names to a content type.
+// Demonstrates how a third-party module can extend a Formidable content type
+// with additional properties and a dedicated editor section.
+[fmdbsamplemix:customStyle] mixin
+ extends = fmdb:fieldset
+ itemtype = fmdbSampleStyle
+ - customCssClassname (string) multiple indexed=no
