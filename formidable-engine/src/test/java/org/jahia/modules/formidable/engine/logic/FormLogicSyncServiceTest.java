@@ -433,7 +433,9 @@ class FormLogicSyncServiceTest {
                 }
                 return found;
             });
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            // Cannot happen: Mockito stubbing setup does not actually invoke the method
+        }
     }
 
     private static JCRNodeWrapper node(String name,
