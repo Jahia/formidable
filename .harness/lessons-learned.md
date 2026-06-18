@@ -58,7 +58,7 @@ Mistakes made during the weakref model implementation. Do not repeat.
 
 ## Jahia namespace conventions
 
-- **Never use the project's own namespaces (`fmdb:`, `fmdbmix:`) in external/sample modules**. Define your own namespace pair: one for concrete types, one for mixins (e.g. `fmdbsamplemix` for sample mixins). This prevents ownership conflicts.
+- **Never define new node types or mixins in the project's namespaces (`fmdb:`, `fmdbmix:`) in external/sample modules**. Define your own namespaces for any new types/mixins (e.g. `fmdbsample:` / `fmdbsamplemix:`) and only reference `fmdb:`/`fmdbmix:` when extending Formidable.
 - **Follow the `<prefix>` / `<prefix>mix` convention** for concrete types vs mixins, matching the project's `fmdb:` / `fmdbmix:` pattern.
 
 ## Jahia GraphQL API
