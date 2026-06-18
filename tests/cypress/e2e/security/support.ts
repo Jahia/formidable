@@ -39,7 +39,7 @@ export const withSameOriginHeaders = (headers: Record<string, string> = {}): Rec
 });
 
 export const expectErrorResponse = (
-		response: Cypress.Response<any>,
+		response: Cypress.Response<unknown>,
 		status: number,
 		errorCode: string
 ) => {
@@ -50,7 +50,7 @@ export const expectErrorResponse = (
 	});
 };
 
-export const expectSuccessResponse = (response: Cypress.Response<any>) => {
+export const expectSuccessResponse = (response: Cypress.Response<unknown>) => {
 	expect(response.status).to.eq(200);
 	expect(response.body).to.deep.equal({success: true});
 };
@@ -61,20 +61,21 @@ export const postDirectMultipartSubmission = ({
 	formId,
 	headers = {},
 	lang = 'en'
-}: DirectSubmissionOptions): Cypress.Chainable<Cypress.Response<any>> => {
+}: DirectSubmissionOptions): Cypress.Chainable<Cypress.Response<unknown>> => {
 	const query = new URLSearchParams({lang});
 	if (formId) {
 		query.set('fid', formId);
 	}
 
 	const multipart = body ?? buildMultipartBody(fields);
+	const boundary = body ? getMultipartBoundary(body) : DEFAULT_BOUNDARY;
 
 	return cy.request({
 		method: 'POST',
 		url: `${DIRECT_SUBMIT_PATH}?${query.toString()}`,
 		failOnStatusCode: false,
 		headers: {
-			'Content-Type': `multipart/form-data; boundary=${DEFAULT_BOUNDARY}`,
+			'Content-Type': `multipart/form-data; boundary=${boundary}`,
 			...headers
 		},
 		body: multipart
@@ -84,7 +85,7 @@ export const postDirectMultipartSubmission = ({
 export const postDirectNonMultipartSubmission = (
 	formId: string,
 	headers: Record<string, string> = {}
-): Cypress.Chainable<Cypress.Response<any>> => {
+): Cypress.Chainable<Cypress.Response<unknown>> => {
 	const query = new URLSearchParams({fid: formId, lang: 'en'});
 
 	return cy.request({
@@ -108,4 +109,13 @@ function buildMultipartBody(fields: Record<string, string>): string {
 		)),
 		`--${DEFAULT_BOUNDARY}--\r\n`
 	].join('');
+}
+
+function getMultipartBoundary(body: string): string {
+	const firstLine = body.match(/^--([^\r\n]+)(?:\r?\n|$)/);
+	if (!firstLine || firstLine[1].endsWith('--')) {
+		throw new Error('Custom multipart body must start with a boundary delimiter line');
+	}
+
+	return firstLine[1];
 }

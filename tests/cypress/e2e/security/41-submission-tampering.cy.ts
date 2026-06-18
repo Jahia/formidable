@@ -1,6 +1,5 @@
 import {getNodeByPath} from '@jahia/cypress';
-import {createPublishedLiveFormPage, getInputTextNode} from '../../support/fixtures';
-import {FORMIDABLE_TEST_SITE} from '../../support/fixtures';
+import {createPublishedLiveFormPage, getInputTextNode, getLatestLiveFormSubmission} from '../../support/fixtures';
 import {
 	expectSuccessResponse,
 	postDirectMultipartSubmission,
@@ -42,11 +41,6 @@ const SAVE_TO_JCR_ACTION = {
 	properties: [] as Array<{name: string; value: string}>
 };
 
-const buildSubmissionDayPath = (formName: string, submissionDate: Date): string => {
-	const [year, month, day] = submissionDate.toISOString().slice(0, 10).split('-');
-	return `/sites/${FORMIDABLE_TEST_SITE.key}/formidable-results/${formName}/submissions/${year}/${month}/${day}`;
-};
-
 describe('Security - submission tampering', () => {
 	useFormidableSite();
 
@@ -72,8 +66,6 @@ describe('Security - submission tampering', () => {
 	it('ignores an undeclared text field in the submitted multipart body', () => {
 		cy.logout();
 
-		const submittedAt = new Date();
-
 		postDirectMultipartSubmission({
 			formId: publicFormId,
 			fields: {fullName: 'Alice', role: 'admin'},
@@ -81,18 +73,12 @@ describe('Security - submission tampering', () => {
 		}).then(response => {
 			expectSuccessResponse(response);
 
-			const dayPath = buildSubmissionDayPath('tampering-form', submittedAt);
-
-			getNodeByPath(dayPath, [], '', ['fmdb:formSubmission'], 'LIVE')
-				.then((nodeResponse: NodeByPathResponse) => {
-					const submissions = nodeResponse.data?.jcr?.nodeByPath?.children?.nodes ?? [];
-					expect(submissions).to.have.length.greaterThan(0);
-
-					const submissionName = submissions[submissions.length - 1].name;
-
+			cy.login();
+			getLatestLiveFormSubmission('tampering-form')
+				.then(({path}) => {
 					// Read the data child node to inspect stored field values.
 					getNodeByPath(
-						`${dayPath}/${submissionName}/data`,
+						`${path}/data`,
 						['fullName', 'role'],
 						'',
 						[],
@@ -117,7 +103,6 @@ describe('Security - submission tampering', () => {
 	it('ignores an undeclared file part in the submitted multipart body', () => {
 		cy.logout();
 
-		const submittedAt = new Date();
 		const boundary = '----FormidableCypressBoundary';
 
 		// Build a multipart body with the declared text field and an undeclared file part.
@@ -138,18 +123,12 @@ describe('Security - submission tampering', () => {
 		}).then(response => {
 			expectSuccessResponse(response);
 
-			const dayPath = buildSubmissionDayPath('tampering-form', submittedAt);
-
-			getNodeByPath(dayPath, [], '', ['fmdb:formSubmission'], 'LIVE')
-				.then((nodeResponse: NodeByPathResponse) => {
-					const submissions = nodeResponse.data?.jcr?.nodeByPath?.children?.nodes ?? [];
-					expect(submissions).to.have.length.greaterThan(0);
-
-					const submissionName = submissions[submissions.length - 1].name;
-
+			cy.login();
+			getLatestLiveFormSubmission('tampering-form')
+				.then(({path}) => {
 					// Verify the declared text field is stored.
 					getNodeByPath(
-						`${dayPath}/${submissionName}/data`,
+						`${path}/data`,
 						['fullName', 'maliciousFile'],
 						'',
 						[],
@@ -167,7 +146,7 @@ describe('Security - submission tampering', () => {
 
 					// Verify no file metadata or binary is stored for the undeclared file field.
 					getNodeByPath(
-						`${dayPath}/${submissionName}`,
+						path,
 						[],
 						'',
 						['jnt:folder'],
@@ -188,4 +167,3 @@ describe('Security - submission tampering', () => {
 		});
 	});
 });
-

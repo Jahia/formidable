@@ -4,6 +4,31 @@
 <!-- APM Version: 0.14.1 -->
 <!-- Source: local -->
 
+## Project Overview
+
+**Formidable** is Jahia's form management solution (replacement for Jahia Forms). It enables form creation with multi-step support, fieldsets, 12 field types, conditional logic, CAPTCHA, and a pluggable action pipeline (save to JCR, email, forward to endpoint).
+
+### Monorepo Structure
+
+Yarn 4 workspaces + Maven multi-module. Toolchain: Java 17 (Temurin), Node LTS, Yarn 4, Maven 3 (see `mise.toml`).
+
+| Module | Role | Tech |
+|---|---|---|
+| `formidable-elements/` | Front-end — form rendering (React 19 SSR + client hydration via Islands) | Vite, `@jahia/vite-plugin`, TypeScript |
+| `formidable-engine/` | Java/OSGi action pipeline + editor extensions (custom selectors, form results panel) | Maven bundle, `@jahia/vite-federation-plugin` (Module Federation, React 18) |
+| `jahia-test-module/` | Java/JSP helper module for Cypress tests | Maven |
+| `tests/` | Cypress E2E suite (not a Maven module) | Cypress 14, `@jahia/cypress` |
+
+### Key Documentation
+
+Architecture decisions and internal flows are documented in `docs/`:
+- `form-submission-flow.md` — request lifecycle, pipeline steps, server-side safeguards
+- `how-to-create-form-action.md` — step-by-step guide for a custom `FormAction` OSGi service
+- `how-to-extend-views-and-elements-from-third-party-module.md` — rendering contract for external views and custom elements
+- `cnd-module-ownership.md` — where JCR types belong (`formidable-elements` vs `formidable-engine`)
+- `error-codes.md` — server-side error codes (FMDB-xxx)
+- `captcha-server-side-validation.md` — provider verification and token handling
+
 ## Global Instructions
 
 <!-- Source: local .apm/instructions/jahia.instructions.md -->
@@ -26,9 +51,119 @@ You are helping develop a **Jahia JavaScript Module** — a React-based template
 9. **Run one accessibility audit at the end** — after all components are built and content is published, invoke `/jahia-dev-accessibility` once to catch any remaining violations. Do not audit after every individual component; it wastes time on pages that are not yet complete.
 10. **Batch builds and deploys** — build all components together, then run `yarn build && yarn jahia-deploy` once rather than after each individual component. Deploy once before populating content.
 
+## Formidable Conventions
+
+### CND Namespaces & Ownership
+
+- `fmdb:` — concrete types (`fmdb:form`, `fmdb:step`, `fmdb:inputText`, …)
+- `fmdbmix:` — mixins (`fmdbmix:formElement`, `fmdbmix:formAction`, `fmdbmix:captchaProtectedForm`, …)
+
+CND locations:
+- **Shared global types** (mixins, validation messages): `formidable-elements/settings/definitions.cnd`
+- **Component-specific types**: `formidable-elements/src/components/<ComponentName>/definition.cnd`
+- **Action & engine types** (actions, submissions, results, logic): `formidable-engine/src/main/resources/META-INF/definitions.cnd`
+
+See `docs/cnd-module-ownership.md` for the decision framework.
+
+### Component File Layout
+
+Every component lives in `formidable-elements/src/components/<ComponentName>/`:
+
+```
+ComponentName/
+├── definition.cnd          ← JCR type declaration
+├── default.server.tsx      ← jahiaComponent() SSR view
+├── Component.client.tsx    ← (optional) interactive Island
+├── Component.client.module.css  ← (optional) CSS Module
+└── types.ts                ← (optional) prop interfaces
+```
+
+Field types are nested under `Input/`: `Input/Text/`, `Input/Checkbox/`, `Input/Email/`, `Input/File/`, etc.
+
+### CSS Conventions
+
+- All class names use the `fmdb-` prefix (e.g. `fmdb-form`, `fmdb-form-group`, `fmdb-form-control`)
+- Structural classes = plain strings; scoped overrides = CSS Modules (`*.module.css`) imported as `classes`
+- Both coexist: `<div className={clsx("fmdb-form-group", classes.group)}>`
+- **Never rename `fmdb-` classes** — Cypress tests target them directly
+
+### Island Boundary
+
+The `<Island>` is the SSR-to-client hydration boundary. **Props must be serialisable** — never pass `JCRNodeWrapper` objects. Extract scalars server-side with `getNodeProps()`.
+
+### i18n
+
+`react-i18next`, namespace `formidable-elements`, key prefix = node type name (e.g. `fmdb_form`, `fmdb_inputCheckbox`). Translation files: `formidable-elements/settings/locales/{en,fr}.json`.
+
+### Action Pipeline (Java)
+
+The public API for custom actions lives in `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/`:
+- `FormAction.java` — strategy interface (`getNodeType()` + `execute()`)
+- `FormActionException.java` — exception with HTTP status (`badRequest()`, `serverError()`)
+- `SubmittedFile.java` — file upload abstraction
+
+Built-in actions: `CaptchaVerificationFormAction`, `SaveToJcrFormAction`, `SendEmailNotificationFormAction`, `SendEmailContentFormAction`, `ForwardSubmissionFormAction`.
+
+### Adding a New Field Type
+
+1. Create `formidable-elements/src/components/Input/MyField/definition.cnd`:
+   ```cnd
+   [fmdb:myField] > jnt:content, fmdbmix:element
+   ```
+2. Create `default.server.tsx` with `jahiaComponent({ componentType: "view", nodeType: "fmdb:myField", name: "default" }, ...)`
+3. HTML `name` = `currentNode.getName()`; HTML `id` = `input-${currentNode.getIdentifier()}`
+
+### Adding a New Action Type
+
+1. Add CND to `formidable-engine/src/main/resources/META-INF/definitions.cnd`:
+   ```cnd
+   [fmdb:myAction] > jnt:content, fmdbmix:formAction, mix:title
+   ```
+2. Create Java class with `@Component(service = FormAction.class)` implementing `FormAction`
+3. Read config from `actionNode` properties, not from hardcoded values
+
+## Developer Commands
+
+```bash
+# Install dependencies (from repo root)
+yarn install
+
+# Front-end build (formidable-elements)
+cd formidable-elements && yarn build
+
+# Watch mode (rebuild + auto-redeploy to local Jahia)
+cd formidable-elements && yarn dev
+
+# Editor extension build (formidable-engine JS)
+cd formidable-engine && yarn build
+
+# Full Maven build (all modules)
+mvn clean install
+
+# Start local Jahia via Docker
+cd formidable-elements && docker compose up --wait
+
+# Cypress tests (Jahia must be running on localhost:8080)
+cd tests && yarn e2e:ci      # headless
+cd tests && yarn e2e:debug   # interactive (Cypress UI)
+
+# Lint / format (from repo root or any workspace)
+yarn lint
+yarn format
+```
+
+## Test Conventions
+
+- Test suites: `tests/cypress/e2e/{fields,validation,security}/`
+- Page objects: `tests/cypress/page-object/` (Form.ts, Fieldset.ts, per-element wrappers in `elements/`)
+- Fixtures: `tests/cypress/fixtures/` — typed JCR node factories per element type
+- Tests create JCR content via `addNode()`, navigate into the jContent preview iframe, assert against `fmdb-` CSS selectors
+- Disabled specs use `.cy.ts.disabled` extension
+- Scenario documents: `tests/scenarios/` (coverage summaries + regression scenarios)
+
 ## Skill Map
 
-Start with `/jahia` if unsure where to begin.
+Skills are stored in `.agents/skills/`. Each skill has a `SKILL.md` file with detailed instructions. Start with `/jahia` if unsure where to begin.
 
 ### Development
 
@@ -46,6 +181,15 @@ Start with `/jahia` if unsure where to begin.
 | `/jahia-dev-accessibility` | Audit live pages with axe-core, fix WCAG 2.1 AA violations |
 | `/jahia-dev-screenshot` | Screenshot reference + local render for visual comparison |
 | `/jahia-dev-debug` | Debug build/deploy/runtime errors end-to-end |
+| `/jahia-dev-cypress` | Scaffold and write Cypress E2E tests for Jahia JS modules |
+| `/jahia-dev-import-from` | Build a component inspired by an external URL |
+| `/jahia-dev-ui-extension` | Build Jahia back-office UI extensions (actions, panels, dialogs) |
+| `/jahia-dev-osgi-module` | Conventions for Jahia OSGi/Java bundle modules |
+| `/jahia-dev-jexperience` | Integrate with jExperience and jCustomer |
+| `/jahia-dev-apis` | Jahia API reference |
+| `/jahia-dev-ops` | Operational tooling |
+| `/jahia-dev-java` | Java-specific development patterns |
+| `/jahia-dev-properties` | Jahia property handling |
 
 ### Content Management
 
@@ -57,6 +201,17 @@ Start with `/jahia` if unsure where to begin.
 | `/jahia-content-create-content` | Create nodes, folders, articles, bulk-populate |
 | `/jahia-content-move-content` | Restructure the content tree |
 | `/jahia-content-translate-content` | Translate existing nodes to a new language and publish |
+
+### Java Backend Review
+
+| Skill | Purpose |
+|-------|---------|
+| `/jahia-review-java` | Full 6-pass review of a Jahia Java/backend module |
+| `/jahia-java-security` | Security model — Security Filter, CSRF Guard, ACLs, captcha |
+| `/jahia-java-osgi` | OSGi component patterns — @Component, @Reference, lifecycle |
+| `/jahia-java-jcr` | JCR patterns — sessions, workspaces, nodes, mixins, versioning |
+| `/jahia-java-concurrency` | Thread safety — volatile, locking, atomics, CopyOnWriteArrayList |
+| `/jahia-java-persistence` | Persistence — JPA/Hibernate with JCR, N+1, transactions |
 
 ## Canonical References
 

@@ -15,7 +15,6 @@ describe('Security - direct HTTP submission guards', () => {
 
 	let publicFormId: string;
 	let authenticatedFormId: string;
-	let authenticatedFormLivePath: string;
 	let captchaFormId: string;
 	let authenticatedCaptchaFormId: string;
 
@@ -37,9 +36,8 @@ describe('Security - direct HTTP submission guards', () => {
 			'security-auth-form-page',
 			'Security auth form page',
 			{mixins: ['fmdbmix:requireAuthentication']}
-		).then(({formId, livePath}) => {
+		).then(({formId}) => {
 			authenticatedFormId = formId;
-			authenticatedFormLivePath = livePath;
 		});
 
 		createPublishedLiveFormPage(
