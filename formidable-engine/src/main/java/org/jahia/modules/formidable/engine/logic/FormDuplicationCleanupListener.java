@@ -8,6 +8,7 @@ import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import javax.jcr.observation.Event;
 import javax.jcr.observation.EventIterator;
@@ -15,6 +16,8 @@ import java.util.Set;
 
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_LOGIC_ELEMENT_MIXIN;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_NODE_TYPE;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGICS_PROPERTY;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGICS_SRC_NODE;
 
 /**
  * Cleans up logic dependencies after a subtree duplication (copy/paste, import).
@@ -22,9 +25,11 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FO
  * Triggered when:
  * - a whole fmdb:form is imported or copied (e.g. site import, form duplication)
  * - a single fmdbmix:formLogicElement is copied from one form to another
+ * - a copy is persisted through a regular session save path (for example GraphQL copyNode)
  *
  * Delegates to FormLogicSyncService.cleanupAfterDuplication which purges weakrefs
- * pointing outside the form boundary, then re-syncs from sourceFieldName.
+ * pointing outside the form boundary, preserves the JSON rules, then attempts
+ * to rebuild weakrefs from sourceNodeId, an in-scope weakref, or sourceFieldName.
  *
  * Counterpart: FormLogicSyncListener handles normal authoring (logics property changes).
  */
@@ -34,6 +39,7 @@ public class FormDuplicationCleanupListener extends DefaultEventListener {
 
     public FormDuplicationCleanupListener() {
         setOperationTypes(Set.of(
+                Integer.valueOf(JCRObservationManager.SESSION_SAVE),
                 Integer.valueOf(JCRObservationManager.IMPORT),
                 Integer.valueOf(JCRObservationManager.WORKSPACE_COPY)
         ));
@@ -57,6 +63,10 @@ public class FormDuplicationCleanupListener extends DefaultEventListener {
                 String nodePath = event.getPath();
                 JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, workspace, null, systemSession -> {
                     JCRNodeWrapper node = systemSession.getNode(nodePath);
+                    if (!shouldProcessNode(node)) {
+                        return null;
+                    }
+
                     JCRNodeWrapper formNode = node.isNodeType(FORM_NODE_TYPE)
                             ? node
                             : FormLogicSyncService.findFormAncestor(node);
@@ -72,5 +82,32 @@ public class FormDuplicationCleanupListener extends DefaultEventListener {
                 log.warn("[FormDuplicationCleanup] Cleanup failed: {}", e.getMessage());
             }
         }
+    }
+
+    static boolean shouldProcessNode(JCRNodeWrapper node) throws RepositoryException {
+        if (node.isNodeType(FORM_LOGIC_ELEMENT_MIXIN)) {
+            return hasLogicContent(node);
+        }
+
+        return node.isNodeType(FORM_NODE_TYPE) && containsLogicContent(node);
+    }
+
+    private static boolean containsLogicContent(JCRNodeWrapper node) throws RepositoryException {
+        if (hasLogicContent(node)) {
+            return true;
+        }
+
+        NodeIterator children = node.getNodes();
+        while (children.hasNext()) {
+            if (containsLogicContent((JCRNodeWrapper) children.nextNode())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean hasLogicContent(JCRNodeWrapper node) throws RepositoryException {
+        return node.hasProperty(LOGICS_PROPERTY) || node.hasNode(LOGICS_SRC_NODE);
     }
 }

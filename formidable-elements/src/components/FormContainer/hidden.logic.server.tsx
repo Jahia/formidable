@@ -21,7 +21,8 @@ jahiaComponent(
 		name: "hidden.logic"
 	},
 	(_props, {currentNode, currentResource}) => {
-		const elementNodes = Array.from(currentNode.getNodes()) as FormContainerNode[];
+		const elementNodes = (Array.from(currentNode.getNodes()) as FormContainerNode[])
+			.filter(node => !node.isNodeType("fmdb:logicList"));
 		const className = currentResource.getModuleParams().get("className")?.toString();
 		const childClassName = currentResource.getModuleParams().get("childClassName")?.toString();
 		const childView = currentResource.getModuleParams().get("childView")?.toString();

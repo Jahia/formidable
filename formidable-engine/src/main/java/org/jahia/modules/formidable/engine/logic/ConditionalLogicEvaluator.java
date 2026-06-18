@@ -14,18 +14,18 @@ public class ConditionalLogicEvaluator {
 
     private final Map<String, List<ConditionalLogicRule>> fieldLogicRules;
     private final Map<String, String> logicIdToFieldName;
-    private final Map<String, String> fieldParentContainer;
+    private final Map<String, Set<String>> fieldParentContainers;
     private final Map<String, List<String>> submittedValues;
 
     public ConditionalLogicEvaluator(
             Map<String, List<ConditionalLogicRule>> fieldLogicRules,
             Map<String, String> logicIdToFieldName,
-            Map<String, String> fieldParentContainer,
+            Map<String, Set<String>> fieldParentContainers,
             Map<String, List<String>> submittedValues
     ) {
         this.fieldLogicRules = fieldLogicRules;
         this.logicIdToFieldName = logicIdToFieldName;
-        this.fieldParentContainer = fieldParentContainer;
+        this.fieldParentContainers = fieldParentContainers;
         this.submittedValues = submittedValues;
     }
 
@@ -34,9 +34,13 @@ public class ConditionalLogicEvaluator {
     }
 
     private boolean isHidden(String fieldName, Set<String> visiting) {
-        String parentName = fieldParentContainer.get(fieldName);
-        if (parentName != null && isHidden(parentName, visiting)) {
-            return true;
+        Set<String> parentNames = fieldParentContainers.get(fieldName);
+        if (parentNames != null && !parentNames.isEmpty()) {
+            // A field with multiple parent containers (duplicate name across conditional
+            // fieldsets) is hidden only when ALL its parents are hidden. If any parent
+            // is visible, the field is reachable and its submitted value is valid.
+            boolean allParentsHidden = parentNames.stream().allMatch(p -> isHidden(p, visiting));
+            if (allParentsHidden) return true;
         }
 
         List<ConditionalLogicRule> rules = fieldLogicRules.get(fieldName);

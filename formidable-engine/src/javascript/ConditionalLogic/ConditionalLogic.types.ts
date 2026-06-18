@@ -14,6 +14,7 @@ export type LogicOperator =
 
 export interface ConditionalLogicRule {
     logicId: string;
+    sourceNodeId: string;
     sourceFieldName: string;
     sourceFieldType: SupportedSourceType;
     operator: LogicOperator;

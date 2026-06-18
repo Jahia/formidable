@@ -125,11 +125,16 @@ These tests verify that renaming a source field does not break existing logic ru
 
 ## 3. Backend – Form duplication (copy/paste)
 
+Coverage note:
+
+- The current automated coverage for this section uses GraphQL/JCR duplication paths.
+- The equivalent jContent clipboard UI flow is not covered yet by the Cypress suite.
+
 ### 3.1 Copying a form preserves internal logic
 
 **Given** a form with `nickname` → logic on `role`.
 
-**When** the entire form is copied (paste in jContent).
+**When** the entire form is copied through a supported duplication path.
 
 **Then** in the copied form:
 - `nickname` has a `logicsSrc` child.
@@ -154,11 +159,18 @@ These tests verify that renaming a source field does not break existing logic ru
 **Then:**
 - The weakref in the copied `nickname` points outside form B's subtree.
 - The duplication cleanup listener removes the out-of-scope weakref.
-- The orphaned logics JSON entry is also removed.
+- The JSON `logics` entry is preserved.
+- The copied rule remains degraded until a valid local source can be rebound from `sourceNodeId`, an in-scope weakref, or `sourceFieldName`.
 
 ---
 
 ## 4. Backend – Import/Export
+
+Coverage note:
+
+- The current automated coverage for this section uses GraphQL `importContent` with XML fixtures.
+- The happy path and duplicate-source-name import cases are covered by Cypress.
+- Import of a form without conditional logic (4.2) is not covered yet.
 
 ### 4.1 Import creates logicsSrc nodes
 
@@ -487,5 +499,98 @@ A form with conditional logic but no `saveToJcr` or other action still processes
 
 ### 10.3 Existing form migration
 
-A form created before the weakref model (with `sourceFieldId` in JSON, no `logicsSrc`) gets a `logicId` assigned and `logicsSrc` created on first save.
+A legacy form rule with `sourceFieldName` but no `logicId`, no `sourceNodeId`, and no `logicsSrc` gets normalized on first save:
 
+- a `logicId` is assigned
+- `sourceNodeId` is written back when the source resolves
+- the matching `logicsSrc/<logicId>` weakref node is created
+
+---
+
+## 11. Test implementation map
+
+This document is the source of truth for expected behavior. The concrete automated tests map to it as follows.
+
+### 11.1 TypeScript unit tests
+
+Target location:
+
+- `formidable-engine/src/javascript/ConditionalLogic/__tests__/`
+
+Priority targets:
+
+- `parseRule`
+- `normalizeStoredRule`
+- `getOperatorsForSource`
+- `sanitizeOperator`
+- `buildSourceFieldOptions`
+- `buildLogicIdToSourceMap`
+- editor context extraction helpers
+
+The goal of these tests is to lock down pure parsing, normalization, source discovery, and fallback behavior without Jahia runtime dependencies.
+
+### 11.2 Java unit tests
+
+Target location:
+
+- `formidable-engine/src/test/java/org/jahia/modules/formidable/engine/logic/`
+
+Priority targets:
+
+- `ConditionalLogicRule.parse`
+- `ConditionalLogicEvaluator`
+- `FormLogicSyncService`
+
+The current Java coverage should exercise:
+
+- `logicId` and `sourceNodeId` normalization
+- weakref preservation and rebinding
+- duplicate-parent visibility behavior
+- degraded fallback to `sourceFieldName` when needed
+
+### 11.3 Cypress coverage
+
+Target specs:
+
+- `tests/cypress/e2e/logics/50-conditional-logic-selector-type.cy.ts`
+- `tests/cypress/e2e/logics/51-conditional-logic-copy-paste.cy.ts`
+- `tests/cypress/e2e/logics/52-conditional-logic-backend.cy.ts`
+- `tests/cypress/e2e/logics/53-conditional-logic-import.cy.ts`
+
+Current Cypress fixture:
+
+1. `role` — `fmdb:select`
+2. `accept-terms` — `fmdb:checkbox`
+3. `start-date` — `fmdb:inputDate`
+4. `notes` — `fmdb:textarea`
+5. `nickname` — `fmdb:inputText`
+
+The Cypress specs should cover:
+
+- presence of the `Logic` section and `logics` selector
+- source dropdown filtering by supported type and ordering
+- operator switching for select, checkbox, and date sources
+- whole-form GraphQL `copyNode` rebinding to copied source nodes
+- whole-form GraphQL `copyNode` with duplicate source names
+- single-field GraphQL `copyNode` degradation when no local source can be rebound
+- persistence of `logicId` and `sourceNodeId` in JSON
+- synchronization of `logicsSrc/<logicId>/logicNodeSource`
+- GraphQL `importContent` rebinding to imported source nodes
+- GraphQL `importContent` with duplicate source names
+- exclusion of already used sibling sources
+- correct reloading of persisted rules in the Content Editor
+
+Coverage boundary:
+
+- `50` covers the Content Editor selector UI itself.
+- `51` covers backend duplication behavior through GraphQL/JCR (`copyNode`, `setNodeProperty`, repository reads).
+- `52` covers backend synchronization after editor-driven rule authoring.
+- `53` covers backend import behavior through GraphQL/XML (`importContent`, repository reads).
+- The real jContent clipboard UI flow (copy/paste from the UI toolbar or contextual actions) is not covered by the current automated suite.
+- Section 4.2 (import of a form without conditional logic), sections 5–6 (server-side submission and operators), and section 8 (frontend runtime visibility) still have no Cypress coverage. Section 4.2 remains partially covered by Java unit tests (`FormLogicSyncServiceTest`). Sections 5–6 and 8 would require additional test infrastructure.
+
+### 11.4 CI pickup
+
+- Java tests are picked up by `mvn clean install`
+- Cypress specs are picked up automatically by the integration test job
+- TypeScript unit tests need an explicit `vitest` step if they are added

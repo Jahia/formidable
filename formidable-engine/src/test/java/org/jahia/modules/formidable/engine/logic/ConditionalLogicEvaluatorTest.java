@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -276,7 +277,7 @@ class ConditionalLogicEvaluatorTest {
         ConditionalLogicEvaluator evaluator = evaluator(
                 Map.of("container", List.of(rule("gate", "in", null, List.of("open")))),
                 Map.of("gate", List.of("closed")),
-                Map.of("child", "container")
+                Map.of("child", Set.of("container"))
         );
 
         // Expected outcome: the child inherits the hidden state from its parent container.
@@ -326,9 +327,9 @@ class ConditionalLogicEvaluatorTest {
     private static ConditionalLogicEvaluator evaluator(
             Map<String, List<ConditionalLogicRule>> fieldLogicRules,
             Map<String, List<String>> submittedValues,
-            Map<String, String> fieldParentContainer
+            Map<String, Set<String>> fieldParentContainers
     ) {
-        return new ConditionalLogicEvaluator(fieldLogicRules, Map.of(), fieldParentContainer, submittedValues);
+        return new ConditionalLogicEvaluator(fieldLogicRules, Map.of(), fieldParentContainers, submittedValues);
     }
 
     private static ConditionalLogicRule rule(

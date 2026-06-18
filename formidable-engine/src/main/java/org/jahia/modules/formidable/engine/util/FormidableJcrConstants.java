@@ -8,6 +8,8 @@ public final class FormidableJcrConstants {
     public static final String ACE_NODE_TYPE = "jnt:ace";
     public static final String FORM_NODE_TYPE = "fmdb:form";
     public static final String FORM_RESULTS_NODE_TYPE = "fmdb:formResults";
+    public static final String LOGIC_LIST_NODE_TYPE = "fmdb:logicList";
+    public static final String LOGIC_SRC_NODE_TYPE = "fmdb:logicSrc";
 
     public static final String AUTHENTICATED_ONLY_FORM_MIXIN = "fmdbmix:authenticatedOnlyForm";
     public static final String CAPTCHA_PROTECTED_FORM_MIXIN = "fmdbmix:captchaProtectedForm";

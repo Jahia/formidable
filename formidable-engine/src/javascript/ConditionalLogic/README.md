@@ -2,6 +2,10 @@
 
 This folder contains the custom Content Editor selector used to configure conditional field visibility for Formidable fields carrying the `fmdbmix:formLogicElement` mixin.
 
+Related docs:
+
+- [`../../../docs/conditional-logic-field-resolution.md`](../../../docs/conditional-logic-field-resolution.md) for the repository-side persistence and source resolution model
+
 ## Goal
 
 The editor exposes one logical rule per multivalue entry of the `logics` property.
@@ -9,6 +13,7 @@ The editor exposes one logical rule per multivalue entry of the `logics` propert
 Each rule defines:
 
 - the source field
+- the source field UUID
 - the comparison operator
 - the comparison value or values
 
@@ -26,6 +31,7 @@ Its responsibilities are intentionally narrow:
 - render the editor controls
 - react to user changes
 - serialize the edited rule back to JSON through `onChange`
+- preserve or recover the selected source by UUID whenever possible
 
 The component uses Moonstone controls:
 
@@ -56,6 +62,7 @@ This file contains the non-visual logic:
 - parsing of the stored JSON rule
 - extraction of editor context values such as path, language, and workspace
 - discovery of valid source fields located before the current target field
+- logicId and source-field weakref resolution for existing rules
 - mapping of source field types to supported operators
 - normalization of the stored JSON payload
 
@@ -75,12 +82,18 @@ Keeping them together made the main component harder to read and harder to evolv
 5. It flattens the form structure in display order.
 6. It keeps only supported source field types that appear before the current field.
 7. It excludes source fields already used by sibling `logics` entries (read from `formik.values`).
-8. If no source fields are available (none exist or all are taken), a text message is shown instead of the dropdowns.
-9. The user selects:
+8. It identifies each source option by node UUID, not by system name.
+9. If several candidate sources have the same display label, the editor disambiguates them visually by appending `:1`, `:2`, and so on to the label shown in the dropdown.
+10. When an existing rule is edited, the selector resolves the source in this order:
+   - `sourceNodeId` stored in the JSON rule
+   - `logicId -> logicsSrc -> logicNodeSource` weakref
+   - legacy `sourceFieldName` fallback
+11. If no source fields are available (none exist or all are taken), a text message is shown instead of the dropdowns.
+12. The user selects:
    - a source field
    - an operator
    - zero, one, or multiple values depending on the source type
-10. The selector serializes the rule as JSON and writes it back through `onChange`.
+13. The selector serializes the rule as JSON and writes it back through `onChange`.
 
 ## Supported source field types in V1
 
@@ -121,7 +134,8 @@ Each `logics` entry is stored as JSON. Example:
 
 ```json
 {
-  "sourceFieldId": "4028c1e2934f2f9201934f6ac4f00041",
+  "logicId": "a1b2c3d4",
+  "sourceNodeId": "4028c1e2-934f-2f92-0193-4f6ac4f00041",
   "sourceFieldName": "iAm",
   "sourceFieldType": "fmdb:radio",
   "operator": "in",
@@ -133,13 +147,47 @@ Date example:
 
 ```json
 {
-  "sourceFieldId": "4028c1e2934f2f9201934f6ac4f00077",
+  "logicId": "e5f6a7b8",
+  "sourceNodeId": "4028c1e2-934f-2f92-0193-4f6ac4f00077",
   "sourceFieldName": "startDate",
   "sourceFieldType": "fmdb:inputDate",
   "operator": "between",
   "values": ["2026-01-01", "2026-12-31"]
 }
 ```
+
+Notes:
+
+- `sourceNodeId` is the canonical source identifier for new and normalized rules.
+- `sourceFieldName` is still kept as metadata and legacy fallback.
+- `logicId` is used to bind the JSON rule to its `logicsSrc/<logicId>` child node.
+
+## Repository-side synchronization
+
+The editor JSON is not the only persisted representation.
+
+For each rule, the repository also maintains:
+
+- a hidden `logicsSrc` child node under the target field
+- one `fmdb:logicSrc` child per `logicId`
+- a `logicNodeSource` weakreference pointing to the actual source node
+
+`FormLogicSyncService` keeps both representations aligned:
+
+- during normal authoring, it updates or creates weakrefs from the JSON rule
+- after subtree duplication, it removes out-of-scope weakrefs and tries to rebuild them
+- source resolution prefers `sourceNodeId`, then a valid existing weakref, then `sourceFieldName`
+
+`FormDuplicationCleanupListener` is the backend trigger for that duplication cleanup. It now covers:
+
+- import paths
+- workspace copy paths
+- regular session-save copy paths such as GraphQL `copyNode`
+
+To avoid unnecessary work on ordinary node creation, the listener only processes:
+
+- a copied `fmdbmix:formLogicElement` that already carries `logics` or `logicsSrc`
+- a copied `fmdb:form` subtree that contains at least one descendant with `logics` or `logicsSrc`
 
 ## Why the source-field lookup is done in TSX
 
@@ -159,8 +207,43 @@ This folder only covers the Content Editor side.
 The runtime visibility evaluation is implemented in `formidable-elements`:
 
 - server wrappers add field metadata and serialized logics
+- server wrappers enrich rendered rules with `sourceNodeId` from `logicsSrc` when available
 - `Form.client.tsx` listens to form changes
 - `conditionalLogic.ts` evaluates the rules and hides or shows the target wrappers
+- browser-side evaluation prefers `sourceNodeId` and falls back to `sourceFieldName` only for legacy or degraded cases
+
+## Limitation: duplicate system names
+
+Conditional logic is not fully safe when two different form fields share the same JCR/system name.
+
+The current implementation strongly prefers UUID-based resolution, but some recovery paths still fall back to `sourceFieldName`, especially:
+
+- legacy rules that were saved before `sourceNodeId` was introduced
+- imported or copied rules whose weakref is broken and must be rebound
+- runtime fallback when a rendered rule has no usable `sourceNodeId`
+
+In those cases, the feature may bind a rule to the wrong homonymous field.
+
+Example:
+
+- fieldset `termination` contains a radio field named `select-an-option`
+- fieldset `reduction` also contains a radio field named `select-an-option`
+- a target field should depend on `reduction/select-an-option`
+- if the UUID and weakref are unavailable, the fallback by name may resolve `termination/select-an-option` instead
+
+Editor behavior in that situation:
+
+- the source dropdown tries to help the contributor by showing labels such as `select-an-option:1` and `select-an-option:2`
+- this suffix is only a visual disambiguation in the editor
+- it does not create a new system name and does not remove the underlying ambiguity of same-name fields
+
+What the user can observe:
+
+- the target field appears or disappears based on the wrong answer
+- a field may stay hidden in the browser when it should be visible
+- server-side required validation may treat the field as hidden or visible from the wrong source field state
+
+Recommendation: keep system names unique across the form whenever a field can participate in conditional logic.
 
 ## Maintenance note
 

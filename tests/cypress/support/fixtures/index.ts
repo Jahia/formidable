@@ -1,6 +1,7 @@
 export * from './types';
 export * from './site';
 export * from './forms';
+export * from './logics';
 export * from './inputButton';
 export * from './inputCheckbox';
 export * from './inputColor';

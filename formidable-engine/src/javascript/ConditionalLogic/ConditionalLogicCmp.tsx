@@ -3,7 +3,7 @@ import {Dropdown, Input, Loader, Typography} from '@jahia/moonstone';
 import React, {useEffect, useMemo, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {
-    buildLogicIdToNameMap,
+    buildLogicIdToSourceMap,
     buildSourceFieldOptions,
     extractCurrentNodePath,
     extractLanguage,
@@ -92,7 +92,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     const {t} = useTranslation('formidable-engine');
     const client = useApolloClient();
     const [sources, setSources] = useState<SourceFieldOption[]>([]);
-    const [logicIdToName, setLogicIdToName] = useState<Map<string, string>>(new Map());
+    const [logicIdToSource, setLogicIdToSource] = useState<Map<string, {name: string; uuid: string}>>(new Map());
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -101,20 +101,31 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     const workspace = extractWorkspace(props);
     const rule = useMemo(() => parseRule(value), [value]);
 
-    // Resolve sourceFieldName via weakref: if the source field was renamed,
-    // the logicId → weakref → refNode.name gives the current name.
-    const resolvedSourceFieldName = useMemo(() => {
+    // Resolve sourceNodeId: prefer the stored UUID, then use weakref resolution via logicId
+    const resolvedSourceNodeId = useMemo(() => {
+        if (rule.sourceNodeId) {
+            return rule.sourceNodeId;
+        }
+
         if (rule.logicId) {
-            const resolved = logicIdToName.get(rule.logicId);
+            const resolved = logicIdToSource.get(rule.logicId);
             if (resolved) {
-                return resolved;
+                return resolved.uuid;
             }
         }
 
-        return rule.sourceFieldName;
-    }, [rule, logicIdToName]);
+        // Legacy fallback: find source by name
+        if (rule.sourceFieldName) {
+            const match = sources.find(source => source.name === rule.sourceFieldName);
+            if (match) {
+                return match.id;
+            }
+        }
 
-    const siblingSourceNames = useMemo(() => {
+        return '';
+    }, [rule, logicIdToSource, sources]);
+
+    const siblingSourceNodeIds = useMemo(() => {
         const allEntries = field.name ? props.form?.values?.[field.name] : undefined;
         if (!Array.isArray(allEntries)) {
             return new Set<string>();
@@ -125,26 +136,41 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                 .filter((entry): entry is string => typeof entry === 'string' && entry !== value)
                 .map(entry => {
                     const siblingRule = parseRule(entry);
-                    if (siblingRule.logicId) {
-                        return logicIdToName.get(siblingRule.logicId) ?? siblingRule.sourceFieldName;
+                    if (siblingRule.sourceNodeId) {
+                        return siblingRule.sourceNodeId;
                     }
 
-                    return siblingRule.sourceFieldName;
+                    if (siblingRule.logicId) {
+                        const resolved = logicIdToSource.get(siblingRule.logicId);
+                        if (resolved) {
+                            return resolved.uuid;
+                        }
+                    }
+
+                    // Legacy fallback
+                    if (siblingRule.sourceFieldName) {
+                        const match = sources.find(s => s.name === siblingRule.sourceFieldName);
+                        if (match) {
+                            return match.id;
+                        }
+                    }
+
+                    return '';
                 })
-                .filter(sourceName => sourceName !== '')
+                .filter(id => id !== '')
         );
-    }, [field.name, props.form?.values, value, logicIdToName]);
+    }, [field.name, props.form?.values, value, logicIdToSource, sources]);
 
     const availableSources = useMemo(
         () => sources.filter(source =>
-            source.name === resolvedSourceFieldName
-            || !siblingSourceNames.has(source.name)),
-        [sources, siblingSourceNames, resolvedSourceFieldName]
+            source.id === resolvedSourceNodeId
+            || !siblingSourceNodeIds.has(source.id)),
+        [sources, siblingSourceNodeIds, resolvedSourceNodeId]
     );
 
     const selectedSource = useMemo(
-        () => availableSources.find(source => source.name === resolvedSourceFieldName),
-        [resolvedSourceFieldName, availableSources]
+        () => availableSources.find(source => source.id === resolvedSourceNodeId),
+        [resolvedSourceNodeId, availableSources]
     );
     const selectedOperator = sanitizeOperator(selectedSource, rule.operator);
 
@@ -177,7 +203,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                 }
 
                 const logicSrcNodes = currentNode.descendant?.children?.nodes ?? [];
-                const resolvedMap = buildLogicIdToNameMap(logicSrcNodes);
+                const resolvedMap = buildLogicIdToSourceMap(logicSrcNodes);
 
                 const formTreeResult = await client.query<{
                     jcr?: {nodeByPath?: GraphNode | null} | null;
@@ -190,7 +216,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                 const descendantNodes = formTreeResult.data?.jcr?.nodeByPath?.descendants?.nodes ?? [];
                 if (!cancelled) {
                     setSources(buildSourceFieldOptions(currentNode.path, descendantNodes));
-                    setLogicIdToName(resolvedMap);
+                    setLogicIdToSource(resolvedMap);
                 }
             } catch (error) {
                 if (!cancelled) {
@@ -213,13 +239,13 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     }, [client, currentNodePath, language, t, workspace]);
 
     const updateRule = (nextRule: ConditionalLogicRule) => {
-        const source = sources.find(source => source.name === nextRule.sourceFieldName);
+        const source = sources.find(source => source.id === nextRule.sourceNodeId);
         onChange(JSON.stringify(normalizeStoredRule(nextRule, source)));
     };
 
     const handleSourceChange = (_event: React.MouseEvent, item: {value?: string}) => {
-        const sourceName = item.value ?? '';
-        const nextSource = sources.find(source => source.name === sourceName);
+        const sourceId = item.value ?? '';
+        const nextSource = sources.find(source => source.id === sourceId);
         if (!nextSource) {
             onChange(JSON.stringify(parseRule(undefined)));
             return;
@@ -229,6 +255,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         const logicId = rule.logicId || generateLogicId();
         updateRule({
             logicId,
+            sourceNodeId: nextSource.id,
             sourceFieldName: nextSource.name,
             sourceFieldType: nextSource.type,
             operator: nextOperator,
@@ -246,6 +273,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         updateRule({
             ...rule,
             logicId: rule.logicId || generateLogicId(),
+            sourceNodeId: selectedSource.id,
             sourceFieldName: selectedSource.name,
             sourceFieldType: selectedSource.type,
             operator,
@@ -269,6 +297,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         updateRule({
             ...rule,
             logicId: rule.logicId || generateLogicId(),
+            sourceNodeId: selectedSource.id,
             sourceFieldName: selectedSource.name,
             sourceFieldType: selectedSource.type,
             operator: selectedOperator,
@@ -277,7 +306,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     };
 
     const sourceOptions = useMemo(
-        () => availableSources.map(source => ({label: source.label, value: source.name})),
+        () => availableSources.map(source => ({label: source.label, value: source.id})),
         [availableSources]
     );
     const operatorOptions = useMemo(
@@ -325,7 +354,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
             <div className="flexFluid">
                 <Dropdown
                     data={sourceOptions}
-                    value={selectedSource?.name}
+                    value={selectedSource?.id}
                     placeholder={t('conditionalLogic.selectSource')}
                     isDisabled={field.readOnly}
                     onChange={handleSourceChange}
@@ -367,6 +396,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                         onChange={patch => updateRule({
                             ...rule,
                             logicId: rule.logicId || generateLogicId(),
+                            sourceNodeId: selectedSource.id,
                             sourceFieldName: selectedSource.name,
                             sourceFieldType: selectedSource.type,
                             operator: selectedOperator,
