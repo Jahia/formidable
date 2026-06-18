@@ -16,7 +16,7 @@ Scenarios not yet covered by the automated suite. See `tests/scenarios/logics.md
 
 ---
 
-## 5. Server-side submission with conditional logic (Cypress)
+## 5. Server-side submission with conditional logic (not yet covered by Cypress)
 
 These scenarios are covered by Java unit tests (`ConditionalLogicEvaluator`) but not yet by Cypress E2E tests using direct HTTP POST.
 
