@@ -281,9 +281,7 @@ Pure marker — no properties. Enables the editor `contentpicker` to list all av
 Entry point: `src/javascript/init.ts`
 Registers extensions into the Jahia registry (`@jahia/ui-extender`):
 - `SelectOptions`: custom selectorType for list-field options
-- 
 - `ConditionalLogicCmp`: custom selectorType for the `logics` property on `fmdbmix:formLogicElement` nodes
-
 Build: `@jahia/vite-federation-plugin` (Module Federation), output in `src/main/resources/javascript/apps/`.
 
 ---
