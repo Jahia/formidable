@@ -452,7 +452,7 @@ class FormSubmissionPipelineTest {
     }
 
     @Test
-    void runRejectsGuestBeforeEvaluatingCaptchaWhenFormRequiresBothGuards() {
+    void runRejectsGuestBeforeEvaluatingCaptchaWhenFormRequiresBothGuards() throws Exception {
         // Verifies gate ordering: authenticated-only forms must reject Guest users
         // before the CAPTCHA requirement is even evaluated.
         // Expected outcome: the pipeline returns FMDB-009 and never checks the CAPTCHA mixin.
@@ -490,7 +490,7 @@ class FormSubmissionPipelineTest {
     }
 
     @Test
-    void runRejectsAuthenticatedUserWithoutCaptchaTokenWhenFormRequiresBothGuards() {
+    void runRejectsAuthenticatedUserWithoutCaptchaTokenWhenFormRequiresBothGuards() throws Exception {
         // Verifies combined gate ordering: once authentication passes for a logged-in user,
         // the CAPTCHA gate must still reject submissions that lack the token header.
         FormidableConfigService config = mock(FormidableConfigService.class);
