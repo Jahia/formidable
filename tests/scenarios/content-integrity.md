@@ -23,7 +23,7 @@ This document started as a design note and is now implemented as active regressi
 - the deployed `content-integrity` module surfaces available in the local test stack
 
 Status at the time of writing:
-- `content-integrity` is provisioned in the local Jahia runtime through `formidable-elements/docker/provisioning.yml`
+- `content-integrity` is provisioned in the Cypress test stack via `tests/provisioning-manifest-build.yml` and `tests/provisioning-manifest-snapshot.yml`
 - the test Java module contains custom Formidable checks under `jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/integrity/`
 - the samples Java module is enabled on the test site through `FORMIDABLE_MODULE_IDS`
 - integrity scans run from Cypress through the GraphQL API exposed by `content-integrity`
