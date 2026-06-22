@@ -3,4 +3,4 @@
 formidable: minor
 ---
 
-(content-integrity) add custom Java checks, Cypress integrity tests, and coverage documentation (#132)
+Added automated integrity checks and regression tests to detect corrupted Formidable form content and submissions.
