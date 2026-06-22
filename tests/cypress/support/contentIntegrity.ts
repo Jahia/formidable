@@ -235,16 +235,23 @@ const getChecksToRun = (checksToRun?: string[]): Cypress.Chainable<string[]> => 
 		}
 
 		const checks = response.data?.contentIntegrity?.integrityChecks ?? [];
+		const availableChecks = checks
+			.map(check => check.id)
+			.filter(Boolean);
 		const enabledChecks = checks
 			.filter(check => check.enabled !== false)
 			.map(check => check.id)
 			.filter(Boolean);
 
-		if (enabledChecks.length === 0) {
-			throw new Error('No enabled content-integrity checks are available for execution.');
+		if (enabledChecks.length > 0) {
+			return enabledChecks;
 		}
 
-		return enabledChecks;
+		if (availableChecks.length > 0) {
+			return availableChecks;
+		}
+
+		throw new Error('No content-integrity checks are available for execution.');
 	});
 };
 
