@@ -158,9 +158,17 @@ public class FormLogicReferenceIntegrityCheck extends AbstractFormidableIntegrit
             errors = trackError(errors, error);
         }
 
+        // Ensure we only inspect expected fmdb:logicSrc nodes (corruption can introduce wrong types)
+        if (!child.isNodeType(FMDB_LOGIC_SRC)) {
+            ContentIntegrityError error = createError(targetNode, INVALID_CHILD_NODE_TYPE)
+                    .addExtraInfo("child-name", LOGICS_SRC_NODE + "/" + child.getName())
+                    .addExtraInfo(EXTRA_INFO_EXPECTED_NODE_TYPE, FMDB_LOGIC_SRC)
+                    .addExtraInfo(EXTRA_INFO_ACTUAL_NODE_TYPE, child.getPrimaryNodeTypeName(), true);
+            return trackError(errors, error);
+        }
+
         // Ensure the logicNodeSource reference stays within the owning form subtree
         JCRNodeWrapper sourceNode = (JCRNodeWrapper) child.getProperty(LOGIC_NODE_SOURCE).getNode();
-        if (!isWithinForm(sourceNode, formNode)) {
             ContentIntegrityError error = createPropertyRelatedError(targetNode, OUT_OF_SCOPE_LOGIC_SOURCE)
                     .addExtraInfo(EXTRA_INFO_LOGIC_ID, child.getName())
                     .addExtraInfo("source-node-path", sourceNode.getPath(), true);
