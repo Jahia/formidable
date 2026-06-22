@@ -304,16 +304,18 @@ abstract class AbstractFormidableIntegrityCheck extends AbstractContentIntegrity
         }
 
         for (Value value : node.getProperty(LOGICS_PROPERTY).getValues()) {
+            String rawJson = value.getString();
             try {
-                JSONObject json = new JSONObject(value.getString());
+                JSONObject json = new JSONObject(rawJson);
                 // Extract the two key fields; default to empty string when absent
                 rules.add(new LogicRule(
                         json.optString(LOGIC_ID, ""),
                         json.optString(SOURCE_NODE_ID, ""),
-                        value.getString()
+                        rawJson
                 ));
             } catch (JSONException e) {
-                throw new RepositoryException("Invalid JSON in logics property", e);
+                // Defer JSON validation to the caller so it can be reported as INVALID_LOGIC_RULE.
+                rules.add(new LogicRule("", "", rawJson));
             }
         }
 
