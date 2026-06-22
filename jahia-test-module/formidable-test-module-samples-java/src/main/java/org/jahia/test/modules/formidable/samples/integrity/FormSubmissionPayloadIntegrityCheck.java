@@ -54,7 +54,7 @@ public class FormSubmissionPayloadIntegrityCheck extends AbstractFormidableInteg
                 for (String propertyName : getUserPropertyNames(dataNode)) {
                     if (!declaredFieldNames.contains(propertyName)) {
                         ContentIntegrityError error = createPropertyRelatedError(node, UNDECLARED_SUBMISSION_FIELD)
-                                .addExtraInfo("property-name", propertyName)
+                                .addExtraInfo(EXTRA_INFO_PROPERTY_NAME, propertyName)
                                 .addExtraInfo("data-node-path", dataNode.getPath(), true);
                         errors = trackError(errors, error);
                     }

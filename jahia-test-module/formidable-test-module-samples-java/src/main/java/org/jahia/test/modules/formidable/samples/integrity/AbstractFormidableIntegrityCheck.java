@@ -52,6 +52,13 @@ abstract class AbstractFormidableIntegrityCheck extends AbstractContentIntegrity
     protected static final String SOURCE_NODE_ID = "sourceNodeId";
     protected static final String SUBMISSIONS_NODE = "submissions";
 
+    // -- Shared extra-info keys --
+
+    protected static final String EXTRA_INFO_ACTUAL_NODE_TYPE = "actual-node-type";
+    protected static final String EXTRA_INFO_EXPECTED_NODE_TYPE = "expected-node-type";
+    protected static final String EXTRA_INFO_LOGIC_ID = "logic-id";
+    protected static final String EXTRA_INFO_PROPERTY_NAME = "property-name";
+
     // -- Shared error types used across all Formidable integrity checks --
 
     protected static final ContentIntegrityErrorType INVALID_TARGET_NODE_TYPE =
@@ -96,9 +103,9 @@ abstract class AbstractFormidableIntegrityCheck extends AbstractContentIntegrity
 
             // Type mismatch: report the expected vs actual node type
             ContentIntegrityError error = createPropertyRelatedError(node, INVALID_TARGET_NODE_TYPE)
-                    .addExtraInfo("property-name", propertyName)
-                    .addExtraInfo("expected-node-type", expectedNodeType)
-                    .addExtraInfo("actual-node-type", referencedNode.getPrimaryNodeTypeName(), true);
+                    .addExtraInfo(EXTRA_INFO_PROPERTY_NAME, propertyName)
+                    .addExtraInfo(EXTRA_INFO_EXPECTED_NODE_TYPE, expectedNodeType)
+                    .addExtraInfo(EXTRA_INFO_ACTUAL_NODE_TYPE, referencedNode.getPrimaryNodeTypeName(), true);
             return createSingleError(error);
         } catch (RepositoryException e) {
             return createSingleError(createFrameworkError(node, "Failed to resolve property '" + propertyName + "'", e));
@@ -120,7 +127,7 @@ abstract class AbstractFormidableIntegrityCheck extends AbstractContentIntegrity
             if (!node.hasNode(childName)) {
                 ContentIntegrityError error = createError(node, MISSING_REQUIRED_CHILD)
                         .addExtraInfo("child-name", childName)
-                        .addExtraInfo("expected-node-type", expectedNodeType, true);
+                        .addExtraInfo(EXTRA_INFO_EXPECTED_NODE_TYPE, expectedNodeType, true);
                 return createSingleError(error);
             }
 
@@ -133,8 +140,8 @@ abstract class AbstractFormidableIntegrityCheck extends AbstractContentIntegrity
             // Node type mismatch
             ContentIntegrityError error = createError(node, INVALID_CHILD_NODE_TYPE)
                     .addExtraInfo("child-name", childName)
-                    .addExtraInfo("expected-node-type", expectedNodeType)
-                    .addExtraInfo("actual-node-type", child.getPrimaryNodeTypeName(), true);
+                    .addExtraInfo(EXTRA_INFO_EXPECTED_NODE_TYPE, expectedNodeType)
+                    .addExtraInfo(EXTRA_INFO_ACTUAL_NODE_TYPE, child.getPrimaryNodeTypeName(), true);
             return createSingleError(error);
         } catch (RepositoryException e) {
             return createSingleError(createFrameworkError(node, "Failed to validate child '" + childName + "'", e));

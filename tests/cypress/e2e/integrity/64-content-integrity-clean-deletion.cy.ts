@@ -6,7 +6,7 @@ import {
 } from '../../support/fixtures';
 import {createPublishedLiveFormPage, visitLiveForm} from '../../support/fixtures/forms';
 import {CONTENT_PATH, SITE_HOME_PATH} from '../../support/constants';
-import {useFormidableSite} from './support';
+import {useFormidableSite} from '../support/useFormidableSite';
 
 const SAVE_TO_JCR_ACTION: JahiaNode = {
 	name: 'storeSubmission',

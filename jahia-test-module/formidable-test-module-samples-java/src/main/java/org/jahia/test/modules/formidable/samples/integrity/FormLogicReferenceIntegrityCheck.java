@@ -41,7 +41,7 @@ public class FormLogicReferenceIntegrityCheck extends AbstractFormidableIntegrit
                 // Every rule must have a non-blank logicId (used as the node name under logicsSrc/)
                 if (rule.logicId().isBlank()) {
                     ContentIntegrityError error = createPropertyRelatedError(node, INVALID_LOGIC_RULE)
-                            .addExtraInfo("property-name", LOGICS_PROPERTY)
+                            .addExtraInfo(EXTRA_INFO_PROPERTY_NAME, LOGICS_PROPERTY)
                             .addExtraInfo("rule-json", rule.rawJson(), true);
                     errors = trackError(errors, error);
                     continue;
@@ -103,7 +103,7 @@ public class FormLogicReferenceIntegrityCheck extends AbstractFormidableIntegrit
         // Check that logicsSrc/<logicId> exists — every in-scope rule needs a matching JCR child
         if (!targetNode.hasNode(LOGICS_SRC_NODE) || !targetNode.getNode(LOGICS_SRC_NODE).hasNode(rule.logicId())) {
             ContentIntegrityError error = createPropertyRelatedError(targetNode, MISSING_LOGICSRC_ENTRY)
-                    .addExtraInfo("logic-id", rule.logicId())
+                    .addExtraInfo(EXTRA_INFO_LOGIC_ID, rule.logicId())
                     .addExtraInfo("source-node-id", rule.sourceNodeId(), true);
             return trackError(errors, error);
         }
@@ -113,8 +113,8 @@ public class FormLogicReferenceIntegrityCheck extends AbstractFormidableIntegrit
         if (!logicSrcNode.isNodeType(FMDB_LOGIC_SRC)) {
             ContentIntegrityError error = createError(targetNode, INVALID_CHILD_NODE_TYPE)
                     .addExtraInfo("child-name", LOGICS_SRC_NODE + "/" + rule.logicId())
-                    .addExtraInfo("expected-node-type", FMDB_LOGIC_SRC)
-                    .addExtraInfo("actual-node-type", logicSrcNode.getPrimaryNodeTypeName(), true);
+                    .addExtraInfo(EXTRA_INFO_EXPECTED_NODE_TYPE, FMDB_LOGIC_SRC)
+                    .addExtraInfo(EXTRA_INFO_ACTUAL_NODE_TYPE, logicSrcNode.getPrimaryNodeTypeName(), true);
             return trackError(errors, error);
         }
 
@@ -122,7 +122,7 @@ public class FormLogicReferenceIntegrityCheck extends AbstractFormidableIntegrit
         JCRNodeWrapper actualSource = (JCRNodeWrapper) logicSrcNode.getProperty(LOGIC_NODE_SOURCE).getNode();
         if (!isWithinForm(actualSource, formNode)) {
             ContentIntegrityError error = createPropertyRelatedError(targetNode, OUT_OF_SCOPE_LOGIC_SOURCE)
-                    .addExtraInfo("logic-id", rule.logicId())
+                    .addExtraInfo(EXTRA_INFO_LOGIC_ID, rule.logicId())
                     .addExtraInfo("source-node-path", actualSource.getPath(), true);
             return trackError(errors, error);
         }
@@ -130,7 +130,7 @@ public class FormLogicReferenceIntegrityCheck extends AbstractFormidableIntegrit
         // Cross-check: the JCR reference must point to the same node as the JSON sourceNodeId
         if (!actualSource.getIdentifier().equals(rule.sourceNodeId())) {
             ContentIntegrityError error = createPropertyRelatedError(targetNode, MISMATCHED_LOGIC_SOURCE)
-                    .addExtraInfo("logic-id", rule.logicId())
+                    .addExtraInfo(EXTRA_INFO_LOGIC_ID, rule.logicId())
                     .addExtraInfo("expected-source-node-id", rule.sourceNodeId())
                     .addExtraInfo("actual-source-node-id", actualSource.getIdentifier(), true);
             return trackError(errors, error);
@@ -162,7 +162,7 @@ public class FormLogicReferenceIntegrityCheck extends AbstractFormidableIntegrit
         JCRNodeWrapper sourceNode = (JCRNodeWrapper) child.getProperty(LOGIC_NODE_SOURCE).getNode();
         if (!isWithinForm(sourceNode, formNode)) {
             ContentIntegrityError error = createPropertyRelatedError(targetNode, OUT_OF_SCOPE_LOGIC_SOURCE)
-                    .addExtraInfo("logic-id", child.getName())
+                    .addExtraInfo(EXTRA_INFO_LOGIC_ID, child.getName())
                     .addExtraInfo("source-node-path", sourceNode.getPath(), true);
             errors = trackError(errors, error);
         }

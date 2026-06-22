@@ -8,7 +8,7 @@ import {
 	createConditionalLogicForm,
 	findConditionalLogicNode
 } from '../../support/fixtures';
-import {useFormidableSite} from './support';
+import {useFormidableSite} from '../support/useFormidableSite';
 
 interface NodeByPathResponse {
 	data?: {

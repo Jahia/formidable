@@ -1,6 +1,6 @@
 import {ConditionalLogicEditor} from '../../page-object';
 import {createConditionalLogicForm} from '../../support/fixtures';
-import {useFormidableSite} from './support';
+import {useFormidableSite} from '../support/useFormidableSite';
 
 describe('Form logic - 50 Conditional logic selector type', () => {
 	useFormidableSite();

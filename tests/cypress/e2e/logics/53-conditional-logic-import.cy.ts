@@ -6,7 +6,7 @@ import {
 	parseStoredLogicRule
 } from '../../support/fixtures';
 import {assertContentIntegrityClean} from '../../support/contentIntegrity';
-import {useFormidableSite} from './support';
+import {useFormidableSite} from '../support/useFormidableSite';
 
 const waitForReferencedSourcePath = (targetPath: string, expectedSourcePath: string) => {
 	cy.waitUntil(() => findConditionalLogicNode(targetPath).then(node => {

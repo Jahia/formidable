@@ -5,7 +5,7 @@ import {
 	parseStoredLogicRule
 } from '../../support/fixtures';
 import {assertContentIntegrityClean} from '../../support/contentIntegrity';
-import {useFormidableSite} from './support';
+import {useFormidableSite} from '../support/useFormidableSite';
 
 describe('Form logic - 52 Conditional logic backend sync', () => {
 	useFormidableSite();
