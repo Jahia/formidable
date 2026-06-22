@@ -250,16 +250,13 @@ abstract class AbstractFormidableIntegrityCheck extends AbstractContentIntegrity
         PropertyIterator properties = node.getProperties();
         while (properties.hasNext()) {
             Property property = properties.nextProperty();
-            if (property.getDefinition().isProtected()) {
-                continue;
-            }
-
             String propertyName = property.getName();
-            if (propertyName.startsWith("jcr:") || propertyName.startsWith("j:")) {
-                continue;
+            boolean isUserProperty = !property.getDefinition().isProtected()
+                    && !propertyName.startsWith("jcr:")
+                    && !propertyName.startsWith("j:");
+            if (isUserProperty) {
+                propertyNames.add(propertyName);
             }
-
-            propertyNames.add(propertyName);
         }
 
         return propertyNames;

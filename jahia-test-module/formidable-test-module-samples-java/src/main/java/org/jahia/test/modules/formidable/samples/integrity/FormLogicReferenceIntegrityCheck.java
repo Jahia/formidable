@@ -171,7 +171,7 @@ public class FormLogicReferenceIntegrityCheck extends AbstractFormidableIntegrit
     }
 
     /** Returns true if the candidate node is the form node itself or a descendant of it. */
-    private boolean isWithinForm(JCRNodeWrapper candidate, JCRNodeWrapper formNode) throws RepositoryException {
+    private boolean isWithinForm(JCRNodeWrapper candidate, JCRNodeWrapper formNode) {
         String formPath = formNode.getPath();
         String candidatePath = candidate.getPath();
         return candidatePath.equals(formPath) || candidatePath.startsWith(formPath + "/");
