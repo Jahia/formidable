@@ -12,6 +12,11 @@
     <name>Formidable Test - Java Samples Module</name>
     <description>Jahia Java sample module providing external Formidable FormAction examples.</description>
 
+    <properties>
+        <content.integrity.version>3.34</content.integrity.version>
+        <json.version>20231013</json.version>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.jahia.server</groupId>
@@ -28,6 +33,12 @@
             <groupId>org.jahia.modules</groupId>
             <artifactId>formidable-engine</artifactId>
             <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jahia.modules</groupId>
+            <artifactId>content-integrity</artifactId>
+            <version>${content.integrity.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -55,6 +66,12 @@
             <artifactId>osgi.annotation</artifactId>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>${json.version}</version>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -67,7 +84,7 @@
                     <instructions>
                         <_dsannotations>*</_dsannotations>
                         <Jahia-Module-Type>module</Jahia-Module-Type>
-                        <Jahia-Depends>default,formidable-engine</Jahia-Depends>
+                        <Jahia-Depends>default,formidable-engine,content-integrity</Jahia-Depends>
                     </instructions>
                 </configuration>
             </plugin>

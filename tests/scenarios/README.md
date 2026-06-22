@@ -15,6 +15,9 @@ This directory contains two kinds of documents:
 
 ## Active scenarios
 
+- `content-integrity.md` - integrity-scan coverage for Formidable-specific JCR
+  invariants across logic, submissions, deletion, and targeted corruption
+  scenarios.
 - `permissions.md` - results access-control and ACL propagation scenarios.
 - `security.md` - submission security and fail-closed behavior scenarios.
 

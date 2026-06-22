@@ -9,6 +9,7 @@ import {
 	getConditionalLogicNode,
 	parseStoredLogicRule
 } from '../../support/fixtures';
+import {assertContentIntegrityClean} from '../../support/contentIntegrity';
 import {useFormidableSite} from './support';
 
 interface NodeByPathResponse {
@@ -91,6 +92,8 @@ describe('Form logic - 51 Conditional logic copy and paste', () => {
 				expect(logicChild?.property?.refNode?.path).to.equal(copiedRolePath);
 				expect(logicChild?.property?.refNode?.path).not.to.equal(rolePath);
 			});
+
+			assertContentIntegrityClean({startNode: copiedFormPath});
 		});
 	});
 
@@ -149,6 +152,8 @@ describe('Form logic - 51 Conditional logic copy and paste', () => {
 				expect(optionValues.join(' ')).to.include('super-admin');
 				expect(optionValues.join(' ')).not.to.include('"alpha"');
 			});
+
+			assertContentIntegrityClean({startNode: copiedFormPath});
 		});
 	});
 
@@ -181,6 +186,8 @@ describe('Form logic - 51 Conditional logic copy and paste', () => {
 					expect(node.descendant?.name).to.equal('logicsSrc');
 					expect(node.descendant?.children?.nodes ?? []).to.have.length(0);
 				});
+
+				assertContentIntegrityClean({startNode: formPath});
 			});
 		});
 	});

@@ -5,6 +5,7 @@ import {
 	importDuplicateSourceNameConditionalLogicForm,
 	parseStoredLogicRule
 } from '../../support/fixtures';
+import {assertContentIntegrityClean} from '../../support/contentIntegrity';
 import {useFormidableSite} from './support';
 
 const waitForReferencedSourcePath = (targetPath: string, expectedSourcePath: string) => {
@@ -19,6 +20,7 @@ describe('Form logic - 53 Conditional logic import', () => {
 
 	it('imports a form and rebinds the weakref and sourceNodeId to the imported source node', () => {
 		importConditionalLogicForm(`${Date.now()}-happy-path`).then(({
+			formPath,
 			legacySourceNodeId,
 			rolePath,
 			targetPath
@@ -40,11 +42,14 @@ describe('Form logic - 53 Conditional logic import', () => {
 				expect(storedRule.sourceNodeId).not.to.equal(legacySourceNodeId);
 				expect(logicChild?.property?.refNode?.path).to.equal(rolePath);
 			});
+
+			assertContentIntegrityClean({startNode: formPath});
 		});
 	});
 
 	it('imports a form with duplicate source names and keeps the weakref bound to the intended source node', () => {
 		importDuplicateSourceNameConditionalLogicForm(`${Date.now()}-duplicates`).then(({
+			formPath,
 			firstSourcePath,
 			legacySourceNodeId,
 			secondSourcePath,
@@ -68,6 +73,8 @@ describe('Form logic - 53 Conditional logic import', () => {
 				expect(logicChild?.property?.refNode?.path).to.equal(secondSourcePath);
 				expect(logicChild?.property?.refNode?.path).not.to.equal(firstSourcePath);
 			});
+
+			assertContentIntegrityClean({startNode: formPath});
 		});
 	});
 });
