@@ -208,6 +208,7 @@ export const ExportResultsDialog = ({formResults, onClose}: ExportResultsDialogP
                             {t('formResults.export.fields.format')}
                         </Typography>
                         <Dropdown
+                            variant="outlined"
                             data={exportFormats.map(f => ({label: f.label, value: f.id}))}
                             values={selectedFormatIds}
                             isDisabled={isExporting}
