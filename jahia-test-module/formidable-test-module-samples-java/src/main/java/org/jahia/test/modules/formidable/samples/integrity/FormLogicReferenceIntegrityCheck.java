@@ -112,7 +112,7 @@ public class FormLogicReferenceIntegrityCheck extends AbstractFormidableIntegrit
         JCRNodeWrapper logicSrcNode = targetNode.getNode(LOGICS_SRC_NODE).getNode(rule.logicId());
         if (!logicSrcNode.isNodeType(FMDB_LOGIC_SRC)) {
             ContentIntegrityError error = createError(targetNode, INVALID_CHILD_NODE_TYPE)
-                    .addExtraInfo("child-name", LOGICS_SRC_NODE + "/" + rule.logicId())
+                    .addExtraInfo(EXTRA_INFO_CHILD_NAME, LOGICS_SRC_NODE + "/" + rule.logicId())
                     .addExtraInfo(EXTRA_INFO_EXPECTED_NODE_TYPE, FMDB_LOGIC_SRC)
                     .addExtraInfo(EXTRA_INFO_ACTUAL_NODE_TYPE, logicSrcNode.getPrimaryNodeTypeName(), true);
             return trackError(errors, error);
@@ -154,14 +154,14 @@ public class FormLogicReferenceIntegrityCheck extends AbstractFormidableIntegrit
         // Detect orphan: this logicsSrc child has no corresponding JSON rule
         if (!ruleIds.contains(child.getName())) {
             ContentIntegrityError error = createError(targetNode, ORPHAN_LOGICSRC_ENTRY)
-                    .addExtraInfo("child-name", LOGICS_SRC_NODE + "/" + child.getName(), true);
+                    .addExtraInfo(EXTRA_INFO_CHILD_NAME, LOGICS_SRC_NODE + "/" + child.getName(), true);
             errors = trackError(errors, error);
         }
 
         // Ensure we only inspect expected fmdb:logicSrc nodes (corruption can introduce wrong types)
         if (!child.isNodeType(FMDB_LOGIC_SRC)) {
             ContentIntegrityError error = createError(targetNode, INVALID_CHILD_NODE_TYPE)
-                    .addExtraInfo("child-name", LOGICS_SRC_NODE + "/" + child.getName())
+                    .addExtraInfo(EXTRA_INFO_CHILD_NAME, LOGICS_SRC_NODE + "/" + child.getName())
                     .addExtraInfo(EXTRA_INFO_EXPECTED_NODE_TYPE, FMDB_LOGIC_SRC)
                     .addExtraInfo(EXTRA_INFO_ACTUAL_NODE_TYPE, child.getPrimaryNodeTypeName(), true);
             return trackError(errors, error);

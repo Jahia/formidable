@@ -69,7 +69,7 @@ public class FormSubmissionPayloadIntegrityCheck extends AbstractFormidableInteg
                     JCRNodeWrapper child = (JCRNodeWrapper) children.nextNode();
                     if (!declaredFileFieldNames.contains(child.getName())) {
                         ContentIntegrityError error = createError(node, UNDECLARED_FILE_STORAGE_FIELD)
-                                .addExtraInfo("child-name", FILES_NODE + "/" + child.getName())
+                                .addExtraInfo(EXTRA_INFO_CHILD_NAME, FILES_NODE + "/" + child.getName())
                                 .addExtraInfo("files-node-path", filesNode.getPath(), true);
                         errors = trackError(errors, error);
                     }

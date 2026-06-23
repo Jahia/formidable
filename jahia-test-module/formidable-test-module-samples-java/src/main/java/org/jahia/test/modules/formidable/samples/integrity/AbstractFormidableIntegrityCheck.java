@@ -55,6 +55,7 @@ abstract class AbstractFormidableIntegrityCheck extends AbstractContentIntegrity
     // -- Shared extra-info keys --
 
     protected static final String EXTRA_INFO_ACTUAL_NODE_TYPE = "actual-node-type";
+    protected static final String EXTRA_INFO_CHILD_NAME = "child-name";
     protected static final String EXTRA_INFO_EXPECTED_NODE_TYPE = "expected-node-type";
     protected static final String EXTRA_INFO_LOGIC_ID = "logic-id";
     protected static final String EXTRA_INFO_PROPERTY_NAME = "property-name";
@@ -126,7 +127,7 @@ abstract class AbstractFormidableIntegrityCheck extends AbstractContentIntegrity
             // Child is missing entirely
             if (!node.hasNode(childName)) {
                 ContentIntegrityError error = createError(node, MISSING_REQUIRED_CHILD)
-                        .addExtraInfo("child-name", childName)
+                        .addExtraInfo(EXTRA_INFO_CHILD_NAME, childName)
                         .addExtraInfo(EXTRA_INFO_EXPECTED_NODE_TYPE, expectedNodeType, true);
                 return createSingleError(error);
             }
@@ -139,7 +140,7 @@ abstract class AbstractFormidableIntegrityCheck extends AbstractContentIntegrity
 
             // Node type mismatch
             ContentIntegrityError error = createError(node, INVALID_CHILD_NODE_TYPE)
-                    .addExtraInfo("child-name", childName)
+                    .addExtraInfo(EXTRA_INFO_CHILD_NAME, childName)
                     .addExtraInfo(EXTRA_INFO_EXPECTED_NODE_TYPE, expectedNodeType)
                     .addExtraInfo(EXTRA_INFO_ACTUAL_NODE_TYPE, child.getPrimaryNodeTypeName(), true);
             return createSingleError(error);
