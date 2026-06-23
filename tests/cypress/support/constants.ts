@@ -3,7 +3,11 @@ import {FORMIDABLE_TEST_SITE} from './fixtures'
 /**
  * Formidable modules required by the runtime and editor features under test.
  */
-export const FORMIDABLE_MODULE_IDS = ['formidable-elements', 'formidable-engine'] as const
+export const FORMIDABLE_MODULE_IDS = [
+	'formidable-elements',
+	'formidable-engine',
+	'formidable-test-module-samples-java'
+] as const
 
 /**
  * Base content path for the test site

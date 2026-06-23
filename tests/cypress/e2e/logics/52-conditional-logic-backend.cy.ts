@@ -4,13 +4,14 @@ import {
 	getConditionalLogicNode,
 	parseStoredLogicRule
 } from '../../support/fixtures';
-import {useFormidableSite} from './support';
+import {assertContentIntegrityClean} from '../../support/contentIntegrity';
+import {useFormidableSite} from '../support/useFormidableSite';
 
 describe('Form logic - 52 Conditional logic backend sync', () => {
 	useFormidableSite();
 
 	it('persists sourceNodeId in JSON and synchronizes logicsSrc weakrefs', () => {
-		createConditionalLogicForm(`${Date.now()}-persist`).then(({rolePath, targetPath}) => {
+		createConditionalLogicForm(`${Date.now()}-persist`).then(({formPath, rolePath, targetPath}) => {
 			const editor = ConditionalLogicEditor.visit(targetPath);
 			const logicField = editor.logicField;
 
@@ -49,6 +50,8 @@ describe('Form logic - 52 Conditional logic backend sync', () => {
 				expect(logicChild.property?.refNode?.name).to.equal('role');
 				expect(logicChild.property?.refNode?.uuid).to.equal(storedRule.sourceNodeId);
 			});
+
+			assertContentIntegrityClean({startNode: formPath});
 		});
 	});
 });
