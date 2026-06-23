@@ -3,6 +3,3 @@
 - installBundle:
     - 'mvn:org.jahia.modules/content-integrity'
     - 'mvn:org.jahia.modules/jcontent'
-    - 'mvn:org.jahia.test/formidable-test-module-samples-java'
-- karafCommand: "bundle:list | grep formidable-test-module-samples-java"
-- karafCommand: "bundle:diag formidable-test-module-samples-java"
