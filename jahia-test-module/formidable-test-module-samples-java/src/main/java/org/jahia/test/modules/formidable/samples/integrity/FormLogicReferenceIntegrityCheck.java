@@ -169,6 +169,7 @@ public class FormLogicReferenceIntegrityCheck extends AbstractFormidableIntegrit
 
         // Ensure the logicNodeSource reference stays within the owning form subtree
         JCRNodeWrapper sourceNode = (JCRNodeWrapper) child.getProperty(LOGIC_NODE_SOURCE).getNode();
+        if (!isWithinForm(sourceNode, formNode)) {
             ContentIntegrityError error = createPropertyRelatedError(targetNode, OUT_OF_SCOPE_LOGIC_SOURCE)
                     .addExtraInfo(EXTRA_INFO_LOGIC_ID, child.getName())
                     .addExtraInfo("source-node-path", sourceNode.getPath(), true);
