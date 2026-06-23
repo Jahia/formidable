@@ -3,3 +3,5 @@
 - installBundle:
     - 'mvn:org.jahia.modules/content-integrity'
     - 'mvn:org.jahia.modules/jcontent'
+  autoStart: true
+  uninstallPreviousVersion: true
