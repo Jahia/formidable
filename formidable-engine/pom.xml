@@ -4,7 +4,7 @@
     <parent>
         <artifactId>formidable</artifactId>
         <groupId>org.jahia.modules</groupId>
-        <version>0.3.0</version>
+        <version>0.4.0-SNAPSHOT</version>
     </parent>
     <artifactId>formidable-engine</artifactId>
     <name>Formidable Engine</name>
@@ -17,7 +17,7 @@
         <connection>scm:git:git@github.com:Jahia/formidable.git</connection>
         <developerConnection>scm:git:git@github.com:Jahia/formidable.git</developerConnection>
         <url>scm:git:git@github.com:Jahia/formidable.git</url>
-        <tag>0_3_0</tag>
+        <tag>HEAD</tag>
     </scm>
 
     <repositories>
