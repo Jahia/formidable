@@ -76,7 +76,7 @@ export default function Checkbox({ label, required = false, errorMessage, childr
 				<legend className="fmdb-group-legend">
 					{label}
 					{required && (
-						<span className="fmdb-required-indicator" aria-label="required">
+						<span className="fmdb-required-indicator" aria-hidden="true">
 							*
 						</span>
 					)}
