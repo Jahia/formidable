@@ -28,7 +28,7 @@ jahiaComponent(
 				{label && (
 					<label htmlFor={inputId} className="fmdb-file-label">
 						{label}
-						{required && <span className="fmdb-required-indicator">*</span>}
+						{required && <span className="fmdb-required-indicator" aria-hidden="true">*</span>}
 					</label>
 				)}
 				<Island

@@ -40,7 +40,7 @@ jahiaComponent(
 					/>
 					<label htmlFor={inputId} className="fmdb-radio-label">
 						{choice.label}
-						{required && <span className="fmdb-required-indicator">*</span>}
+						{required && <span className="fmdb-required-indicator" aria-hidden="true">*</span>}
 					</label>
 				</div>
 			);
@@ -51,7 +51,7 @@ jahiaComponent(
 				{label && (
 					<legend className="fmdb-group-legend">
 						{label}
-						{required && <span className="fmdb-required-indicator">*</span>}
+						{required && <span className="fmdb-required-indicator" aria-hidden="true">*</span>}
 					</legend>
 				)}
 				<div className="fmdb-group-items">
