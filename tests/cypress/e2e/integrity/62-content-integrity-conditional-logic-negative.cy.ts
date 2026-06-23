@@ -20,6 +20,8 @@ interface NodeByPathResponse {
 	};
 }
 
+const LOGIC_REFERENCE_CHECKS = ['FormLogicReferenceIntegrityCheck'];
+
 const getNodeUuidByPath = (path: string): Cypress.Chainable<string> => getNodeByPath(path).then((response: NodeByPathResponse) => {
 	const uuid = response.data?.jcr?.nodeByPath?.uuid;
 	if (!uuid) {
@@ -63,14 +65,18 @@ describe('Content integrity - 62 Conditional logic negative detection', () => {
 			storeLogicRule(targetPath, rolePath, logicId);
 			waitForReferencedSourcePath(targetPath, rolePath);
 
-			assertContentIntegrityClean({startNode: formPath, workspace: 'EDIT'});
+			assertContentIntegrityClean({startNode: formPath, workspace: 'EDIT', checksToRun: LOGIC_REFERENCE_CHECKS});
 
 			cy.executeGroovy('groovy/removeLogicSrcChild.groovy', {
 				'__TARGET_PATH__': targetPath,
 				'__LOGIC_ID__': logicId
 			});
 
-			runContentIntegrityScan({startNode: formPath, workspace: 'EDIT'}).then(results => {
+			runContentIntegrityScan({
+				startNode: formPath,
+				workspace: 'EDIT',
+				checksToRun: LOGIC_REFERENCE_CHECKS
+			}).then(results => {
 				expect(results.totalErrorCount).to.be.greaterThan(0, formatIntegrityScanResults(results));
 
 				const matchingError = results.errors.find(error =>

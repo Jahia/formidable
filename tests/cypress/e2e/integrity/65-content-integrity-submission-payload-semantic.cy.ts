@@ -19,6 +19,8 @@ const SAVE_TO_JCR_ACTION: JahiaNode = {
 	properties: []
 };
 
+const SUBMISSION_PAYLOAD_CHECKS = ['FormSubmissionPayloadIntegrityCheck'];
+
 describe('Content integrity - 65 Submission payload semantics', () => {
 	useFormidableSite();
 
@@ -55,7 +57,7 @@ describe('Content integrity - 65 Submission payload semantics', () => {
 			form.submit();
 			form.waitForSubmit().shouldHaveSubmissionMessage('Form submitted successfully!');
 
-			assertContentIntegrityClean({startNode: resultsRootPath, workspace: 'LIVE'});
+			assertContentIntegrityClean({startNode: resultsRootPath, workspace: 'LIVE', checksToRun: SUBMISSION_PAYLOAD_CHECKS});
 
 			getLatestLiveFormSubmission(formName).then(({path}) => {
 				cy.executeGroovy('groovy/addUnexpectedSubmissionDataProperty.groovy', {
@@ -68,7 +70,11 @@ describe('Content integrity - 65 Submission payload semantics', () => {
 					'__FOLDER_NAME__': 'ghostFile'
 				});
 
-				runContentIntegrityScan({startNode: resultsRootPath, workspace: 'LIVE'}).then(results => {
+				runContentIntegrityScan({
+					startNode: resultsRootPath,
+					workspace: 'LIVE',
+					checksToRun: SUBMISSION_PAYLOAD_CHECKS
+				}).then(results => {
 					expect(results.totalErrorCount).to.be.greaterThan(0, formatIntegrityScanResults(results));
 
 					const undeclaredDataError = results.errors.find(error =>

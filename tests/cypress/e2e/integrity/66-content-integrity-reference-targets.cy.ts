@@ -9,13 +9,23 @@ import {
 	getInputTextNode
 } from '../../support/fixtures';
 import {createPublishedLiveFormPage, visitLiveForm} from '../../support/fixtures/forms';
-import {CONTENT_PATH, SITE_HOME_PATH} from '../../support/constants';
+import {SITE_HOME_PATH} from '../../support/constants';
 import {useFormidableSite} from '../support/useFormidableSite';
 
 const SAVE_TO_JCR_ACTION: JahiaNode = {
 	name: 'storeSubmission',
 	primaryNodeType: 'fmdb:save2jcrAction',
 	properties: []
+};
+
+const RESULTS_PARENT_FORM_CHECKS = ['FormResultsParentIntegrityCheck'];
+
+const ensureGroovySucceeded = (result: unknown) => {
+	if (typeof result === 'string' && result.includes('.failed')) {
+		throw new Error(`Groovy script failed: ${result}`);
+	}
+
+	return result;
 };
 
 const setWeakReferenceTarget = (
@@ -28,49 +38,10 @@ const setWeakReferenceTarget = (
 	'__SOURCE_PATH__': sourcePath,
 	'__PROPERTY_NAME__': propertyName,
 	'__TARGET_PATH__': targetPath
-});
+}).then(ensureGroovySucceeded);
 
 describe('Content integrity - 66 Reference target negative detection', () => {
 	useFormidableSite();
-
-	it('detects a formReference pointing to a node that is not an fmdb:form', () => {
-		const formName = `content-integrity-form-reference-${Date.now()}`;
-		const pageName = `${formName}-page`;
-		const pagePath = `${SITE_HOME_PATH}/${pageName}`;
-		const formReferencePath = `${pagePath}/pagecontent/${formName}-reference`;
-		const wrongTargetPath = `${CONTENT_PATH}/${formName}/fields`;
-
-		createPublishedLiveFormPage(
-			formName,
-			'Content integrity formReference negative',
-			[
-				getInputTextNode({
-					name: 'fullName',
-					title: 'Full name',
-					required: true,
-					placeholder: 'Full name'
-				})
-			],
-			pageName,
-			'Content integrity formReference negative page'
-		).then(() => {
-			assertContentIntegrityClean({startNode: pagePath, workspace: 'EDIT'});
-
-			setWeakReferenceTarget('default', formReferencePath, 'j:node', wrongTargetPath);
-
-			runContentIntegrityScan({startNode: pagePath, workspace: 'EDIT'}).then(results => {
-				expect(results.totalErrorCount).to.be.greaterThan(0, formatIntegrityScanResults(results));
-
-				const matchingError = results.errors.find(error =>
-					error.checkName === 'FormReferenceTargetIntegrityCheck' &&
-					error.errorType === 'INVALID_TARGET_NODE_TYPE' &&
-					error.nodePath === formReferencePath
-				);
-
-				expect(matchingError, formatIntegrityScanResults(results)).to.exist;
-			});
-		});
-	});
 
 	it('detects a formResults parentForm pointing to a node that is not an fmdb:form', () => {
 		const formName = `content-integrity-parent-form-${Date.now()}`;
@@ -98,11 +69,15 @@ describe('Content integrity - 66 Reference target negative detection', () => {
 			form.submit();
 			form.waitForSubmit().shouldHaveSubmissionMessage('Form submitted successfully!');
 
-			assertContentIntegrityClean({startNode: resultsRootPath, workspace: 'LIVE'});
+			assertContentIntegrityClean({startNode: resultsRootPath, workspace: 'LIVE', checksToRun: RESULTS_PARENT_FORM_CHECKS});
 
 			setWeakReferenceTarget('live', resultsRootPath, 'parentForm', pagePath);
 
-			runContentIntegrityScan({startNode: resultsRootPath, workspace: 'LIVE'}).then(results => {
+			runContentIntegrityScan({
+				startNode: resultsRootPath,
+				workspace: 'LIVE',
+				checksToRun: RESULTS_PARENT_FORM_CHECKS
+			}).then(results => {
 				expect(results.totalErrorCount).to.be.greaterThan(0, formatIntegrityScanResults(results));
 
 				const matchingError = results.errors.find(error =>

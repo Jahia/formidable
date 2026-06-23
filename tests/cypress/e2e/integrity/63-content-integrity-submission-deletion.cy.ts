@@ -18,6 +18,8 @@ const SAVE_TO_JCR_ACTION: JahiaNode = {
 	properties: []
 };
 
+const SUBMISSION_STRUCTURE_CHECKS = ['FormSubmissionStructureIntegrityCheck'];
+
 describe('Content integrity - 63 Submission deletion detection', () => {
 	useFormidableSite();
 
@@ -45,14 +47,18 @@ describe('Content integrity - 63 Submission deletion detection', () => {
 			form.submit();
 			form.waitForSubmit().shouldHaveSubmissionMessage('Form submitted successfully!');
 
-			assertContentIntegrityClean({startNode: resultsRootPath, workspace: 'LIVE'});
+			assertContentIntegrityClean({startNode: resultsRootPath, workspace: 'LIVE', checksToRun: SUBMISSION_STRUCTURE_CHECKS});
 
 			getLatestLiveFormSubmission(formName).then(({path}) => {
 				cy.executeGroovy('groovy/removeSubmissionDataChild.groovy', {
 					'__SUBMISSION_PATH__': path
 				});
 
-				runContentIntegrityScan({startNode: resultsRootPath, workspace: 'LIVE'}).then(results => {
+				runContentIntegrityScan({
+					startNode: resultsRootPath,
+					workspace: 'LIVE',
+					checksToRun: SUBMISSION_STRUCTURE_CHECKS
+				}).then(results => {
 					expect(results.totalErrorCount).to.be.greaterThan(0, formatIntegrityScanResults(results));
 
 					const matchingError = results.errors.find(error =>

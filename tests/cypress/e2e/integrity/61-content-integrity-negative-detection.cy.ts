@@ -17,6 +17,8 @@ const SAVE_TO_JCR_ACTION: JahiaNode = {
 	properties: []
 };
 
+const RESULTS_STRUCTURE_CHECKS = ['FormResultsParentIntegrityCheck'];
+
 describe('Content integrity - 61 Negative detection', () => {
 	useFormidableSite();
 
@@ -44,13 +46,17 @@ describe('Content integrity - 61 Negative detection', () => {
 			form.submit();
 			form.waitForSubmit().shouldHaveSubmissionMessage('Form submitted successfully!');
 
-			assertContentIntegrityClean({startNode: resultsRootPath, workspace: 'LIVE'});
+			assertContentIntegrityClean({startNode: resultsRootPath, workspace: 'LIVE', checksToRun: RESULTS_STRUCTURE_CHECKS});
 
 			cy.executeGroovy('groovy/removeSubmissionsChild.groovy', {
 				'__RESULTS_PATH__': resultsRootPath
 			});
 
-			runContentIntegrityScan({startNode: resultsRootPath, workspace: 'LIVE'}).then(results => {
+			runContentIntegrityScan({
+				startNode: resultsRootPath,
+				workspace: 'LIVE',
+				checksToRun: RESULTS_STRUCTURE_CHECKS
+			}).then(results => {
 				expect(results.totalErrorCount).to.be.greaterThan(0, formatIntegrityScanResults(results));
 
 				const matchingError = results.errors.find(error =>

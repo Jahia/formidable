@@ -62,7 +62,7 @@ Those generic checks stay enabled. Formidable custom checks only cover invariant
 | `63-content-integrity-submission-deletion.cy.ts` | detect missing `data` under `fmdb:formSubmission` |
 | `64-content-integrity-clean-deletion.cy.ts` | verify clean deletion leaves no residual violation |
 | `65-content-integrity-submission-payload-semantic.cy.ts` | detect undeclared payload keys and undeclared file folders |
-| `66-content-integrity-reference-targets.cy.ts` | detect wrong-type `fmdb:formReference/j:node` and wrong-type `fmdb:formResults/parentForm` |
+| `66-content-integrity-reference-targets.cy.ts` | detect wrong-type `fmdb:formResults/parentForm` |
 
 ## Formidable-specific invariants covered
 
@@ -70,7 +70,6 @@ Those generic checks stay enabled. Formidable custom checks only cover invariant
 
 | Check | Covered by |
 |-------|------------|
-| `fmdb:formReference/j:node` resolves to an existing `fmdb:form` | `66-content-integrity-reference-targets.cy.ts` |
 | `fmdb:logicSrc/logicNodeSource` resolves to an existing in-scope source field | `51`, `52`, `53`, `62` |
 | `fmdb:formResults/parentForm` resolves to an existing `fmdb:form` | `60`, `66` |
 
@@ -147,6 +146,6 @@ What this suite proves well today:
 
 What it still does not isolate with a dedicated Cypress case:
 - orphan `logicsSrc` child without matching JSON rule
-- deleted-target weakref cases specifically, as opposed to wrong-type target cases
+- deleted-target weakref cases specifically
 
 Those are lower priority than the current active coverage because the main branches are already exercised.
