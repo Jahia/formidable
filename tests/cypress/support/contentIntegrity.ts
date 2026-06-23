@@ -221,7 +221,12 @@ const formatIntegrityErrors = (errors: IntegrityScanError[]) => errors.map(error
 	return `- ${details.join(' | ')}`;
 }).join('\n');
 
-const getChecksToRun = (checksToRun?: string[]): Cypress.Chainable<string[]> => {
+const getChecksToRun = (
+	checksToRun?: string[],
+	pollIntervalMs = 500,
+	maxPollAttempts = 40,
+	attempt = 0
+): Cypress.Chainable<string[]> => {
 	if (checksToRun && checksToRun.length > 0) {
 		return cy.wrap(checksToRun, {log: false});
 	}
@@ -251,7 +256,16 @@ const getChecksToRun = (checksToRun?: string[]): Cypress.Chainable<string[]> => 
 			return availableChecks;
 		}
 
-		throw new Error('No content-integrity checks are available for execution.');
+		if (attempt >= maxPollAttempts) {
+			throw new Error(`No content-integrity checks are available for execution after ${maxPollAttempts} polling attempts.`);
+		}
+
+		return cy.wait(pollIntervalMs, {log: false}).then(() => getChecksToRun(
+			checksToRun,
+			pollIntervalMs,
+			maxPollAttempts,
+			attempt + 1
+		));
 	});
 };
 
@@ -336,7 +350,7 @@ export const runContentIntegrityScan = ({
 	pageSize = 200
 }: RunContentIntegrityScanOptions): Cypress.Chainable<IntegrityScanResults> => {
 	const id = buildScanId(startNode);
-	return getChecksToRun(checksToRun).then(resolvedChecksToRun => cy.apollo({
+	return getChecksToRun(checksToRun, pollIntervalMs, maxPollAttempts).then(resolvedChecksToRun => cy.apollo({
 		query: START_CONTENT_INTEGRITY_SCAN,
 		variables: {
 			id,
