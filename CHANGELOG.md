@@ -1,5 +1,17 @@
 # formidable Changelog
 
+## 0.3.0
+
+### New Features
+
+* Added automated integrity checks and regression tests to detect corrupted Formidable form content and submissions.
+
+* Changed form validation to show inline error messages instead of native browser tooltips (#115).
+
+### Bug Fixes
+
+* Conditional logic source resolution around sourceNodeId (#124)
+
 ## 0.2.0
 
 ### Breaking Changes
