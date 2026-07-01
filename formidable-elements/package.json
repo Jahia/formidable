@@ -49,9 +49,13 @@
 		"yarn": ">=4.0.0"
 	},
 	"jahia": {
+		"maven": {
+			"groupId": "org.jahia.modules.javascript"
+		},
 		"snapshot": false,
 		"module-dependencies": "default",
 		"module-type": "module",
+		"required-version": "8.2.2.0",
 		"server": "dist/server/index.js",
 		"static-resources": "/dist/client,/dist/assets,/locales,/images,/icons"
 	}
