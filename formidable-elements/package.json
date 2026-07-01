@@ -53,7 +53,7 @@
       "groupId": "org.jahia.modules.javascript"
     },
 		"snapshot": false,
-		"module-dependencies": "default,javascript-modules-engine",
+		"module-dependencies": "default",
 		"module-type": "module",
     "required-version": "8.2.2.0",
 		"server": "dist/server/index.js",
