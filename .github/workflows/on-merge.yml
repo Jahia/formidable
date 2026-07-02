@@ -40,6 +40,7 @@ jobs:
           nexus_username: ${{ secrets.NEXUS_USERNAME }}
           nexus_password: ${{ secrets.NEXUS_PASSWORD }}
           module_id: formidable
+          required_version_exclude: '*/jahia-test-module/*'
 
   sbom:
     name: SBOM processing
