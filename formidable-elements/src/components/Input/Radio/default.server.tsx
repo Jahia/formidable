@@ -1,9 +1,11 @@
 import {jahiaComponent} from "@jahia/javascript-modules-library";
 import {parseChoices} from "~/utils/choiceUtils";
 import {type BaseValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
+import HelpText, {helpTextId} from "~/design/HelpText";
 
 interface RadiosProps extends BaseValidationMessageProps {
 	"jcr:title"?: string;
+	helpText?: string;
 	choices?: string[];
 	required?: boolean;
 }
@@ -15,13 +17,15 @@ jahiaComponent(
 		name: "default"
 	},
 	(
-		{"jcr:title": label, choices: rawChoices = [], required, ...validationMsgs}: RadiosProps,
+		{"jcr:title": label, helpText, choices: rawChoices = [], required, ...validationMsgs}: RadiosProps,
 		{currentNode}
 	) => {
 		const inputName = currentNode.getName();
 		const nodeId = currentNode.getIdentifier();
 		const parsedChoices = parseChoices(rawChoices);
 		const vAttrs = validationDataAttributes(validationMsgs);
+
+		const helpId = helpText ? helpTextId(nodeId) : undefined;
 
 		if (parsedChoices.length === 1) {
 			const choice = parsedChoices[0];
@@ -36,24 +40,27 @@ jahiaComponent(
 						value={choice.value}
 						defaultChecked={choice.selected}
 						required={required}
+						aria-describedby={helpId}
 						{...vAttrs}
 					/>
 					<label htmlFor={inputId} className="fmdb-radio-label">
 						{choice.label}
 						{required && <span className="fmdb-required-indicator" aria-hidden="true">*</span>}
 					</label>
+					<HelpText id={helpId} text={helpText}/>
 				</div>
 			);
 		}
 
 		return (
-			<fieldset className="fmdb-form-group fmdb-radio-group">
+			<fieldset className="fmdb-form-group fmdb-radio-group" aria-describedby={helpId}>
 				{label && (
 					<legend className="fmdb-group-legend">
 						{label}
 						{required && <span className="fmdb-required-indicator" aria-hidden="true">*</span>}
 					</legend>
 				)}
+				<HelpText id={helpId} text={helpText}/>
 				<div className="fmdb-group-items">
 					{parsedChoices.map((choice, idx) => {
 						const inputId = `radio-${nodeId}-${idx}`;

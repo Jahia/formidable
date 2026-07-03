@@ -1,5 +1,6 @@
 // File input component properties
 [fmdb:inputFile] > jnt:content, fmdbmix:element, fmdbmix:fileField, fmdbmix:validationMessages
+ - helpText (string, richtext[ckeditor.toolbar='FormidableHelp',ckeditor.customConfig='$context/modules/formidable-engine/javascript/ckeditor/helpTextConfig.js']) i18n indexed=no
  - accept (string, choicelist[formidableMimeTypes,resourceBundle]) multiple indexed=no
  - multiple (boolean) = false
  - required (boolean) = false

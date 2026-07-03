@@ -32,6 +32,7 @@ export interface JahiaNode {
 export interface BaseFormElementData {
 	name?: string;
 	title?: string; // From mix:title (jcr:title)
+	helpText?: string; // Rich text (i18n) declared on each field definition
 }
 
 /**

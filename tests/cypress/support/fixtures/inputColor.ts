@@ -11,6 +11,7 @@ export const INPUT_COLOR_COMPLETE: InputColorData = {
 export function getInputColorNode(data: InputColorData = INPUT_COLOR_SIMPLE): JahiaNode {
 	const properties: NodeProperty[] = [];
 	if (data.title) properties.push({name: 'jcr:title', value: data.title, language: 'en'});
+	if (data.helpText) properties.push({name: 'helpText', value: data.helpText, language: 'en'});
 	if (data.required !== undefined) properties.push({name: 'required', value: String(data.required), type: 'BOOLEAN'});
 	if (data.defaultValue !== undefined) properties.push({name: 'defaultValue', value: data.defaultValue});
 	return {name: data.name || 'colorInput', primaryNodeType: 'fmdb:inputColor', properties};

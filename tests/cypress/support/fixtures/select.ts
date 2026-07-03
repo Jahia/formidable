@@ -41,6 +41,7 @@ export function getSelectNode(data: SelectData = SELECT_SINGLE): JahiaNode {
 	const properties: NodeProperty[] = [];
 
 	if (data.title) properties.push({name: 'jcr:title', value: data.title, language: 'en'});
+	if (data.helpText) properties.push({name: 'helpText', value: data.helpText, language: 'en'});
 	if (data.required !== undefined) properties.push({name: 'required', value: String(data.required), type: 'BOOLEAN'});
 	if (data.multiple !== undefined) properties.push({name: 'multiple', value: String(data.multiple), type: 'BOOLEAN'});
 	if (data.size !== undefined) properties.push({name: 'size', value: String(data.size), type: 'LONG'});

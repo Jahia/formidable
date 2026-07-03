@@ -17,6 +17,7 @@ export const INPUT_DATETIME_LOCAL_COMPLETE: InputDatetimeLocalData = {
 export function getInputDatetimeLocalNode(data: InputDatetimeLocalData = INPUT_DATETIME_LOCAL_SIMPLE): JahiaNode {
 	const properties: NodeProperty[] = [];
 	if (data.title) properties.push({name: 'jcr:title', value: data.title, language: 'en'});
+	if (data.helpText) properties.push({name: 'helpText', value: data.helpText, language: 'en'});
 	if (data.defaultValue) properties.push({name: 'defaultValue', value: data.defaultValue, type: 'DATE'});
 	if (data.required !== undefined) properties.push({name: 'required', value: String(data.required), type: 'BOOLEAN'});
 	if (data.min) properties.push({name: 'min', value: data.min, type: 'DATE'});
