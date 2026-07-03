@@ -11,6 +11,7 @@
     <packaging>bundle</packaging>
     <description>Formidable Engine - UI Extensions (selectorTypes for Content Editor)</description>
     <properties>
+        <jahia-depends>javascript-modules-engine</jahia-depends>
         <jahia-module-signature>MC0CFCsezCCkSHeVEiGfshvFz5ApRNv4AhUAlVf3dc7c8eEM0PlP1h2W6YJ4zAc=</jahia-module-signature>
     </properties>
     <scm>
