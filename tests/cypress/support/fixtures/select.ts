@@ -5,7 +5,10 @@ export const SELECT_SINGLE: SelectData = {
 	title: 'Department',
 	required: true,
 	options: [
-		{value: 'engineering', label: 'Engineering', selected: true},
+		// Empty first option (no value) so the field starts empty instead of
+		// defaulting to the first valid value. Treated as empty by required validation.
+		{value: '', label: 'Please select', selected: false},
+		{value: 'engineering', label: 'Engineering', selected: false},
 		{value: 'sales', label: 'Sales', selected: false},
 		{value: 'support', label: 'Support', selected: false}
 	]

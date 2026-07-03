@@ -68,6 +68,7 @@ describe('Form fields - 20 All field types', () => {
 				.select('Pickup')
 				.shouldHaveSelected('Pickup');
 			form.getSelectInput(SELECT_SINGLE.name!)
+				.shouldHaveSelectedOption('Please select')
 				.select('Support')
 				.shouldHaveSelectedOption('Support');
 			form.getTextarea(TEXTAREA_COMPLETE.name!)
@@ -120,7 +121,9 @@ describe('Form fields - 20 All field types', () => {
 			form.getEmailInput(INPUT_EMAIL_COMPLETE.name!).type('step@example.com');
 			form.getCheckboxGroup(CHECKBOX_GROUP_COMPLETE.name!).checkByLabels(['Sports']);
 			form.getRadioGroup(RADIO_GROUP.name!).select('Express');
-			form.getSelectInput(SELECT_SINGLE.name!).select('Sales');
+			form.getSelectInput(SELECT_SINGLE.name!)
+				.shouldHaveSelectedOption('Please select')
+				.select('Sales');
 			form.nextStep();
 
 			form.shouldHaveCurrentStep('Details');

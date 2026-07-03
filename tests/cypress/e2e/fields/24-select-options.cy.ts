@@ -24,8 +24,8 @@ describe('Form fields - 24 Select options', () => {
 
 			form.getSelectInput(SELECT_SINGLE.name!)
 				.shouldBeVisible()
-				.shouldHaveOptionCount(3)
-				.shouldHaveSelectedOption('Engineering')
+				.shouldHaveOptionCount(4)
+				.shouldHaveSelectedOption('Please select')
 				.select('Support')
 				.shouldHaveSelectedOption('Support');
 
