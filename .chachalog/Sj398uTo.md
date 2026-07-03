@@ -3,4 +3,4 @@
 formidable: minor
 ---
 
-Contributor-authored rich text help on form fields (#142)
+Added contributor-authored rich text help under form field labels (#142)
