@@ -22,8 +22,22 @@ import {
 	SELECT_SINGLE,
 	TEXTAREA_COMPLETE
 } from '../../support/fixtures';
-import {createPublishedLiveFormPage, visitLiveForm} from '../../support/fixtures/forms';
+import {publishAndWaitJobEnding, setNodeProperty, uploadFile} from '@jahia/cypress';
+import {createPublishedLiveFormPage, visitLiveForm, visitPreviewForm} from '../../support/fixtures/forms';
+import {SITE_HOME_PATH} from '../../support/constants';
 import {useFormidableSite} from './support';
+import type {Form} from '../../page-object';
+
+// Form intro authored with the Content Editor picker formats: an internal page
+// link (/cms/{mode}/{lang}/...) and an internal image (/files/{workspace}/...).
+// The intro travels through the Form island props, so the placeholders must be
+// resolved server-side, in every language and in both live and preview modes.
+const SITE_FILES_PATH = `/sites/${FORMIDABLE_TEST_SITE.key}/files`;
+const homeLink = (label: string) =>
+	`<a href="/cms/{mode}/{lang}/sites/${FORMIDABLE_TEST_SITE.key}/home.html">${label}</a>`;
+const CATS_IMAGE = `<img src="/files/{workspace}/sites/${FORMIDABLE_TEST_SITE.key}/files/cats.jpg" alt="cats"/>`;
+const INTRO_EN = `<p>Welcome! Have a look at ${homeLink('our home page')} before starting. ${CATS_IMAGE}</p>`;
+const INTRO_FR = `<p>Bienvenue ! Consultez ${homeLink('notre page d’accueil')} avant de commencer. ${CATS_IMAGE}</p>`;
 
 describe('Form fields - 20 All field types', () => {
 	useFormidableSite();
@@ -80,6 +94,79 @@ describe('Form fields - 20 All field types', () => {
 
 			form.submit();
 			form.waitForSubmit().shouldHaveSubmissionMessage('Form submitted successfully!');
+		});
+	});
+
+	it('renders a multilingual intro with a resolved internal link and image', () => {
+		uploadFile('files/cats.jpg', SITE_FILES_PATH, 'cats.jpg', 'image/jpeg').then(() => {
+			publishAndWaitJobEnding(`${SITE_FILES_PATH}/cats.jpg`);
+			// The intro links to the site home page: give it a french translation
+			// and publish it so its live URL serves in both languages
+			setNodeProperty(SITE_HOME_PATH, 'jcr:title', 'Accueil', 'fr');
+			publishAndWaitJobEnding(SITE_HOME_PATH, ['en', 'fr']);
+
+			createPublishedLiveFormPage(
+				'all-fields-intro-form',
+				'All Fields Intro Form',
+				[getInputTextNode({name: 'contactName', title: 'Contact name'})],
+				undefined,
+				undefined,
+				{
+					properties: [
+						{name: 'intro', value: INTRO_EN, language: 'en'},
+						{name: 'intro', value: INTRO_FR, language: 'fr'},
+						{name: 'jcr:title', value: 'Formulaire avec intro', language: 'fr'}
+					],
+					pageProperties: [{name: 'jcr:title', value: 'Formulaire avec intro', language: 'fr'}],
+					publishLanguages: ['en', 'fr']
+				}
+			).then(({livePath}) => {
+				const assertIntro = (
+					label: string,
+					pageUrl: string,
+					openForm: () => Form,
+					welcome: string,
+					linkLabel: string
+				) => {
+					// No unresolved placeholders anywhere, island props included
+					cy.request(pageUrl).its('body').should(body => {
+						expect(body, `${label} no unresolved placeholders in page source`).to.not.contain('/cms/{mode}');
+						expect(body, `${label} no unresolved placeholders in page source`).to.not.contain('{workspace}');
+					});
+
+					const form = openForm();
+					form.getIntro().should('contain', welcome);
+
+					form.getIntro().find('a')
+						.should('contain', linkLabel)
+						.invoke('attr', 'href')
+						.then(href => {
+							expect(href, `${label} intro link is resolved`).to.not.contain('{mode}');
+							expect(href, `${label} intro link is resolved`).to.not.contain('{lang}');
+							expect(href, `${label} intro link is resolved`).to.not.contain('##');
+							cy.request({url: href, retryOnStatusCodeFailure: true}).its('status').should('eq', 200);
+						});
+
+					form.getIntro().find('img')
+						.invoke('attr', 'src')
+						.then(src => {
+							expect(src, `${label} intro image is resolved`).to.not.contain('{workspace}');
+							expect(src, `${label} intro image is resolved`).to.not.contain('##');
+							expect(src, `${label} intro image targets the media`).to.contain('cats.jpg');
+							cy.request({url: src, retryOnStatusCodeFailure: true}).its('status').should('eq', 200);
+						});
+				};
+
+				const liveUrl = (lang: string) => `/${lang}/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`;
+				const previewUrl = (lang: string) => `/cms/render/default/${lang}/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`;
+
+				assertIntro('[en live]', liveUrl('en'), () => visitLiveForm(livePath, 'en'), 'Welcome!', 'our home page');
+				assertIntro('[fr live]', liveUrl('fr'), () => visitLiveForm(livePath, 'fr'), 'Bienvenue !', 'notre page d’accueil');
+
+				// Preview mode rewrites the same stored URLs differently (render/default servlet)
+				assertIntro('[en preview]', previewUrl('en'), () => visitPreviewForm(livePath, 'en'), 'Welcome!', 'our home page');
+				assertIntro('[fr preview]', previewUrl('fr'), () => visitPreviewForm(livePath, 'fr'), 'Bienvenue !', 'notre page d’accueil');
+			});
 		});
 	});
 

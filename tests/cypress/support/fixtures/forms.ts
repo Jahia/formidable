@@ -9,6 +9,8 @@ interface CreateFormNodeOptions {
 	actions?: JahiaNode[];
 	mixins?: string[];
 	properties?: NodeProperty[];
+	pageProperties?: NodeProperty[];
+	publishLanguages?: string[];
 }
 
 export interface LiveFormPageInfo {
@@ -103,7 +105,7 @@ export const createPublishedLiveFormPage = (
 		.then((response: AddNodeResponse) => {
 			formId = response?.data?.jcr?.addNode?.uuid;
 			if (!formId) {
-				throw new Error(`Could not resolve UUID for form '${formName}'`);
+				throw new Error(`Could not resolve UUID for form '${formName}': ${JSON.stringify(response)}`);
 			}
 
 			return addNode({
@@ -112,7 +114,8 @@ export const createPublishedLiveFormPage = (
 				primaryNodeType: 'jnt:page',
 				properties: [
 					{name: 'jcr:title', value: pageTitle, language: 'en'},
-					{name: 'j:templateName', value: 'simple'}
+					{name: 'j:templateName', value: 'simple'},
+					...(options.pageProperties || [])
 				],
 				children: [
 					{
@@ -138,8 +141,8 @@ export const createPublishedLiveFormPage = (
 			});
 		})
 		.then(() => {
-			publishAndWaitJobEnding(formPath);
-			publishAndWaitJobEnding(pagePath);
+			publishAndWaitJobEnding(formPath, options.publishLanguages);
+			publishAndWaitJobEnding(pagePath, options.publishLanguages);
 
 			return cy.wrap<LiveFormPageInfo>({formId, formPath, pagePath, livePath}, {log: false});
 		});
@@ -162,8 +165,22 @@ export function getFormPreview(formTitle: string): Form {
 	);
 }
 
-export function visitLiveForm(livePath: string): Form {
-	cy.visit(`/en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`);
+export function visitLiveForm(livePath: string, lang: string = 'en'): Form {
+	cy.visit(`/${lang}/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`);
+
+	return new Form(
+		cy.get('form.fmdb-form')
+			.should('exist')
+			.first()
+	);
+}
+
+/**
+ * Opens a form page in preview (default workspace, render servlet) and returns
+ * the Form page object. Requires an authenticated session (cy.login()).
+ */
+export function visitPreviewForm(livePath: string, lang: string = 'en'): Form {
+	cy.visit(`/cms/render/default/${lang}/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`);
 
 	return new Form(
 		cy.get('form.fmdb-form')

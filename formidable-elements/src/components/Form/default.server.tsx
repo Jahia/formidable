@@ -8,6 +8,7 @@ import {
 } from "@jahia/javascript-modules-library";
 import Form from "./Form.client";
 import {type FormServerProps} from "./types";
+import {resolveUrlPlaceholders} from "~/utils/richTextUtils";
 
 
 const ensureCaptchaExplicit = (url: string): string => {
@@ -88,9 +89,11 @@ jahiaComponent(
 				<Island
 			component={Form}
 			props={{
-				intro,
-				submissionMessage,
-				errorMessage,
+				// Rich text island props: resolve Jahia URL placeholders that the
+				// HTML-level rewriting cannot reach inside serialized props
+				intro: resolveUrlPlaceholders(intro, renderContext),
+				submissionMessage: resolveUrlPlaceholders(submissionMessage, renderContext),
+				errorMessage: resolveUrlPlaceholders(errorMessage, renderContext),
 				submitActionUrl,
 				isSubmitDisabled,
 				showResetBtn,
