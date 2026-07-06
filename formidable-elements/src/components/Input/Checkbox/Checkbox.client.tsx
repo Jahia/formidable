@@ -1,15 +1,18 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import type {ReactNode} from "react";
 import {useTranslation} from "react-i18next";
+import HelpText from '~/design/HelpText';
 
 interface CheckboxClientProps {
 	label?: string;
 	required?: boolean;
 	errorMessage?: string;
+	helpText?: string;
+	helpId?: string;
 	children: ReactNode;
 }
 
-export default function Checkbox({ label, required = false, errorMessage, children }: CheckboxClientProps) {
+export default function Checkbox({ label, required = false, errorMessage, helpText, helpId, children }: CheckboxClientProps) {
 	const [isValid, setIsValid] = useState(true);
 	const fieldsetRef = useRef<HTMLFieldSetElement>(null);
 	const {t} = useTranslation("formidable-elements", { keyPrefix: "fmdb_inputCheckbox" });
@@ -71,6 +74,7 @@ export default function Checkbox({ label, required = false, errorMessage, childr
 			className="fmdb-form-group fmdb-checkbox-group"
 			aria-invalid={!isValid}
 			aria-required={required}
+			aria-describedby={helpId}
 		>
 			{label && (
 				<legend className="fmdb-group-legend">
@@ -82,6 +86,7 @@ export default function Checkbox({ label, required = false, errorMessage, childr
 					)}
 				</legend>
 			)}
+			<HelpText id={helpId} text={helpText}/>
 			{children}
 		</fieldset>
 	);

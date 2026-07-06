@@ -11,7 +11,9 @@ submission flows involving the supported field types.
 ## Covered areas
 
 - `20-all-field-types.cy.ts` - end-to-end submission of a live form using the
-  supported field set, in single-step and multi-step variants.
+  supported field set, in single-step and multi-step variants, plus the
+  multilingual form intro with resolved internal link and image (Jahia URL
+  placeholders through the Form island props).
 - `21-file-multiple-restrictions.cy.ts` - multiple file selection, client-side
   filtering of invalid files, and merge behavior across selections.
 - `22-checkbox.cy.ts` - standalone checkbox and checkbox-group rendering and
@@ -28,6 +30,12 @@ submission flows involving the supported field types.
   action, including saved metadata for the fixture set.
 - `29-file-fake-txt-rejected.cy.ts` - backend MIME detection rejects disguised
   uploads even when the browser-side accept filter allows them.
+- `210-help-text.cy.ts` - contributor-authored help text (`helpText` rich text
+  property on each field definition): HTML rendering below the label,
+  `aria-describedby` wiring on controls and group fieldsets, multilingual
+  resolution of internal page links and images (Jahia URL placeholders) on
+  both the island-props path (checkbox group) and the server-rendered path
+  (text input), and coexistence with inline validation errors.
 
 ## Not covered here
 

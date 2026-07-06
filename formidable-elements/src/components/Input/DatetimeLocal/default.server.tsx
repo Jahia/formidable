@@ -1,8 +1,10 @@
 import {jahiaComponent} from "@jahia/javascript-modules-library";
 import {type RangeValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
+import HelpText, {helpTextId} from "~/design/HelpText";
 
 interface InputDatetimeLocalProps extends RangeValidationMessageProps {
 	"jcr:title"?: string;
+	helpText?: string;
 	defaultValue?: string;
 	min?: string;
 	max?: string;
@@ -38,13 +40,15 @@ jahiaComponent(
 		name: "default"
 	},
 	(
-		{"jcr:title": label, defaultValue, min, max, step, required, ...validationMsgs}: InputDatetimeLocalProps,
+		{"jcr:title": label, helpText, defaultValue, min, max, step, required, ...validationMsgs}: InputDatetimeLocalProps,
 		{currentNode}
 	) => {
 
 		// Generate unique id and name for the input
 		const inputId = `input-${currentNode.getIdentifier()}`;
 		const inputName = currentNode.getName();
+
+		const helpId = helpText ? helpTextId(currentNode.getIdentifier()) : undefined;
 
 		return (
 			<div className="fmdb-form-group">
@@ -55,10 +59,13 @@ jahiaComponent(
 					</label>
 				)}
 
+				<HelpText id={helpId} text={helpText}/>
+
 				<input
 					type="datetime-local"
 					id={inputId}
 					name={inputName}
+					aria-describedby={helpId}
 					className="fmdb-form-control"
 					defaultValue={formatDatetimeForInput(defaultValue)}
 					min={formatDatetimeForInput(min)}

@@ -1,5 +1,6 @@
 // Datetime-local input component properties
 [fmdb:inputDatetimeLocal] > jnt:content, fmdbmix:element, fmdbmix:datetimeLocalField, fmdbmix:rangeValidationMessages
+ - helpText (string, richtext[ckeditor.toolbar='FormidableHelp',ckeditor.customConfig='$context/modules/formidable-engine/javascript/ckeditor/helpTextConfig.js']) i18n indexed=no
  - required (boolean) = false
  - defaultValue (date)
  - min (date)

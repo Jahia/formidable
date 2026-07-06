@@ -3,6 +3,7 @@
 // so "today" keyword handling is not possible.
 // To support this, these props should be defined as string type
 [fmdb:inputDate] > jnt:content, fmdbmix:element, fmdbmix:dateField, fmdbmix:rangeValidationMessages
+ - helpText (string, richtext[ckeditor.toolbar='FormidableHelp',ckeditor.customConfig='$context/modules/formidable-engine/javascript/ckeditor/helpTextConfig.js']) i18n indexed=no
  - required (boolean) = false
  - defaultValue (date, DatePicker)
  - min (date, DatePicker)

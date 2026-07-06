@@ -1,8 +1,10 @@
 import {jahiaComponent} from "@jahia/javascript-modules-library";
 import {type RangeValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
+import HelpText, {helpTextId} from "~/design/HelpText";
 
 interface InputDateProps extends RangeValidationMessageProps {
 	"jcr:title"?: string;
+	helpText?: string;
 	defaultValue?: string;
 	min?: string;
 	max?: string;
@@ -26,13 +28,15 @@ jahiaComponent(
 		name: "default"
 	},
 	(
-		{"jcr:title": label, defaultValue, min, max, step, required, ...validationMsgs}: InputDateProps,
+		{"jcr:title": label, helpText, defaultValue, min, max, step, required, ...validationMsgs}: InputDateProps,
 		{currentNode}
 	) => {
 
 		// Generate unique id and name for the input
 		const inputId = `input-${currentNode.getIdentifier()}`;
 		const inputName = currentNode.getName();
+
+		const helpId = helpText ? helpTextId(currentNode.getIdentifier()) : undefined;
 
 		return (
 			<div className="fmdb-form-group">
@@ -43,10 +47,13 @@ jahiaComponent(
 					</label>
 				)}
 
+				<HelpText id={helpId} text={helpText}/>
+
 				<input
 					type="date"
 					id={inputId}
 					name={inputName}
+					aria-describedby={helpId}
 					className="fmdb-form-control"
 					defaultValue={formatDateForInput(defaultValue)}
 					min={formatDateForInput(min)}

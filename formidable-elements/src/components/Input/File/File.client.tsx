@@ -8,6 +8,7 @@ interface FileInputProps {
 	accept?: string[];
 	multiple?: boolean;
 	required?: boolean;
+	describedBy?: string;
 	validationAttributes?: Record<string, string | undefined>;
 }
 
@@ -115,6 +116,7 @@ export default function FileInput(
 		accept,
 		multiple,
 		required,
+		describedBy,
 		validationAttributes
 	}: FileInputProps
 ) {
@@ -242,6 +244,7 @@ export default function FileInput(
 				accept={acceptAttr}
 				multiple={multiple}
 				required={required}
+				aria-describedby={describedBy}
 				onChange={handleFileChange}
 				{...(validationAttributes ?? {})}
 			/>

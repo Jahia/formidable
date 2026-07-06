@@ -1,9 +1,11 @@
 import {jahiaComponent} from "@jahia/javascript-modules-library";
 import {parseChoices} from "~/utils/choiceUtils";
 import {type BaseValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
+import HelpText, {helpTextId} from "~/design/HelpText";
 
 interface SelectProps extends BaseValidationMessageProps {
 	"jcr:title"?: string;
+	helpText?: string;
 	options?: string[];
 	required?: boolean;
 	multiple?: boolean;
@@ -22,6 +24,7 @@ jahiaComponent(
 	(
 		{
 			"jcr:title": label,
+			helpText,
 			options = [],
 			required,
 			multiple,
@@ -41,6 +44,8 @@ jahiaComponent(
 		const selectedValues = parsedOptions.filter(o => o.selected).map(o => o.value);
 		const defaultValue = multiple ? selectedValues : (selectedValues[0] ?? undefined);
 
+		const helpId = helpText ? helpTextId(currentNode.getIdentifier()) : undefined;
+
 		return (
 			<div className="fmdb-form-group">
 				{label && (
@@ -50,9 +55,12 @@ jahiaComponent(
 					</label>
 				)}
 
+				<HelpText id={helpId} text={helpText}/>
+
 				<select
 					id={selectId}
 					name={selectName}
+					aria-describedby={helpId}
 					className="fmdb-form-control"
 					required={required}
 					multiple={multiple}

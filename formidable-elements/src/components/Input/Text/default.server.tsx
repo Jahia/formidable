@@ -1,8 +1,10 @@
 import {jahiaComponent} from "@jahia/javascript-modules-library";
 import {type TextValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
+import HelpText, {helpTextId} from "~/design/HelpText";
 
 interface InputTextProps extends TextValidationMessageProps {
 	"jcr:title"?: string;
+	helpText?: string;
 	placeholder?: string;
 	defaultValue?: string;
 	list?: string[];
@@ -58,6 +60,7 @@ jahiaComponent(
 	(
 		{
 			"jcr:title": label,
+			helpText,
 			placeholder,
 			defaultValue,
 			list = DEFAULT_LIST,
@@ -91,6 +94,8 @@ jahiaComponent(
 		// Use custom pattern if provided, otherwise use mask-derived pattern
 		const finalPattern = customPattern || maskToPattern(mask);
 
+		const helpId = helpText ? helpTextId(currentNode.getIdentifier()) : undefined;
+
 		return (
 			<div className="fmdb-form-group">
 				{label && (
@@ -100,10 +105,13 @@ jahiaComponent(
 					</label>
 				)}
 
+				<HelpText id={helpId} text={helpText}/>
+
 				<input
 					type="text"
 					id={inputId}
 					name={inputName}
+					aria-describedby={helpId}
 					className="fmdb-form-control"
 					placeholder={placeholder}
 					defaultValue={defaultValue}
