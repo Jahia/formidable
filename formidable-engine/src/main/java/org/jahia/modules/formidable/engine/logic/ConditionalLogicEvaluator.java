@@ -61,6 +61,14 @@ public class ConditionalLogicEvaluator {
     }
 
     private boolean evaluateRule(ConditionalLogicRule rule, Set<String> visiting) {
+        if (rule.isDatalayer()) {
+            // Datalayer rules depend on browser-only state (window.* variables) that
+            // cannot be verified server-side. Treat them as not satisfied so the field
+            // counts as hidden and required validation is skipped, which avoids
+            // rejecting legitimate submissions where the field was hidden client-side.
+            return false;
+        }
+
         String sourceFieldName = resolveSourceFieldName(rule);
         if (sourceFieldName == null) return false;
 

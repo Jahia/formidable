@@ -288,7 +288,7 @@ class ConditionalLogicEvaluatorTest {
     void logicIdResolutionUsesResolvedSourceFieldName() {
         // Verifies source resolution: the evaluator must resolve logicId through the pre-built logicId->field map.
         ConditionalLogicEvaluator evaluator = new ConditionalLogicEvaluator(
-                Map.of("target", List.of(new ConditionalLogicRule("logic-1", "", "fmdb:select", "in", null, List.of("pro")))),
+                Map.of("target", List.of(new ConditionalLogicRule("logic-1", "", "", "fmdb:select", "", "in", null, List.of("pro")))),
                 Map.of("logic-1", "source"),
                 Map.of(),
                 Map.of("source", List.of("pro"))
@@ -338,6 +338,20 @@ class ConditionalLogicEvaluatorTest {
             String value,
             List<String> values
     ) {
-        return new ConditionalLogicRule("", sourceFieldName, "fmdb:select", operator, value, values);
+        return new ConditionalLogicRule("", "", sourceFieldName, "fmdb:select", "", operator, value, values);
+    }
+
+    @Test
+    void datalayerRulesAreTreatedAsHiddenServerSide() {
+        // Verifies fail-safe behavior: datalayer rules depend on browser-only state,
+        // so the field must count as hidden and skip required validation.
+        ConditionalLogicEvaluator evaluator = evaluator(
+                Map.of("target", List.of(new ConditionalLogicRule(
+                        "logic-1", "datalayer", "", "", "window.cxs.profileProperties.firstName",
+                        "equals", "John", List.of()))),
+                Map.of()
+        );
+
+        assertTrue(evaluator.isHidden("target"));
     }
 }

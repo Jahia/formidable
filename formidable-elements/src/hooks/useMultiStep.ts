@@ -1,5 +1,9 @@
 import {type RefObject, useCallback, useEffect, useRef, useState} from 'react';
-import {applyConditionalLogicVisibility} from '~/utils/conditionalLogic';
+import {
+	applyConditionalLogicVisibility,
+	collectDatalayerVariables,
+	getDatalayerSnapshot
+} from '~/utils/conditionalLogic';
 
 interface UseMultiStepOptions {
 	formRef: RefObject<HTMLFormElement | null>;
@@ -78,10 +82,30 @@ export function useMultiStep({formRef, stepIds}: UseMultiStepOptions): UseMultiS
 		form.addEventListener('change', syncVisibility);
 		form.addEventListener('reset', handleReset);
 
+		// Datalayer variables (e.g. window.cxs.*) are populated asynchronously and
+		// change without any form event, so rules based on them are re-evaluated by
+		// watching the referenced variables for value changes.
+		let datalayerWatcher: number | null = null;
+		const datalayerVariables = collectDatalayerVariables(form);
+		if (datalayerVariables.length > 0) {
+			let lastSnapshot = getDatalayerSnapshot(datalayerVariables);
+			datalayerWatcher = window.setInterval(() => {
+				const snapshot = getDatalayerSnapshot(datalayerVariables);
+				if (snapshot !== lastSnapshot) {
+					lastSnapshot = snapshot;
+					syncVisibility();
+				}
+			}, 100);
+		}
+
 		return () => {
 			form.removeEventListener('input', syncVisibility);
 			form.removeEventListener('change', syncVisibility);
 			form.removeEventListener('reset', handleReset);
+			if (datalayerWatcher !== null) {
+				window.clearInterval(datalayerWatcher);
+			}
+
 			if (resetVisibilityTimeoutRef.current !== null) {
 				window.clearTimeout(resetVisibilityTimeoutRef.current);
 				resetVisibilityTimeoutRef.current = null;

@@ -19,6 +19,11 @@
         "unresolvedContext": "Impossible de résoudre le chemin du champ édité.",
         "formNotFound": "Impossible de retrouver le formulaire parent.",
         "loadError": "Impossible de charger les champs source disponibles.",
+        "sourceTypes": {
+            "field": "Valeur d'un champ",
+            "datalayer": "Valeur du datalayer"
+        },
+        "datalayerVariablePlaceholder": "window.cxs.profileProperties.firstName",
         "operators": {
             "in": "est l'une des valeurs suivantes",
             "notIn": "n'est pas l'une des valeurs suivantes",
@@ -29,7 +34,12 @@
             "before": "est avant",
             "after": "est après",
             "on": "est le",
-            "between": "est entre"
+            "between": "est entre",
+            "equals": "est égal à",
+            "notEquals": "est différent de",
+            "contains": "contient",
+            "exists": "est défini",
+            "notExists": "n'est pas défini"
         }
     },
     "formResults": {

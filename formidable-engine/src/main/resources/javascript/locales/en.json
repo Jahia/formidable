@@ -19,6 +19,11 @@
         "unresolvedContext": "Unable to resolve the edited field path.",
         "formNotFound": "Unable to resolve the parent form.",
         "loadError": "Unable to load available source fields.",
+        "sourceTypes": {
+            "field": "Field value",
+            "datalayer": "Datalayer value"
+        },
+        "datalayerVariablePlaceholder": "window.cxs.profileProperties.firstName",
         "operators": {
             "in": "is one of",
             "notIn": "is not one of",
@@ -29,7 +34,12 @@
             "before": "is before",
             "after": "is after",
             "on": "is on",
-            "between": "is between"
+            "between": "is between",
+            "equals": "equals",
+            "notEquals": "does not equal",
+            "contains": "contains",
+            "exists": "is defined",
+            "notExists": "is not defined"
         }
     },
     "formResults": {

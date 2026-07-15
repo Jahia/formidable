@@ -85,7 +85,12 @@ public final class FormLogicSyncService {
             }
 
             activeLogicIds.add(entry.logicId());
-            updated |= resolver.resolveAndBind(entry);
+            // Datalayer rules reference a browser variable, not a form field:
+            // nothing to resolve or bind in logicsSrc.
+            if (!entry.isDatalayer()) {
+                updated |= resolver.resolveAndBind(entry);
+            }
+
             updated |= entry.isUpdated();
             updatedJsonValues.add(entry.toJsonString());
         }

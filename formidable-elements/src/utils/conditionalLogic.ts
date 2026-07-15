@@ -1,5 +1,7 @@
 export type SupportedConditionalSourceType = 'fmdb:select' | 'fmdb:radio' | 'fmdb:checkbox' | 'fmdb:inputDate';
 
+export type ConditionalLogicSourceType = 'field' | 'datalayer';
+
 export type ConditionalLogicOperator =
 	| 'in'
 	| 'notIn'
@@ -10,13 +12,21 @@ export type ConditionalLogicOperator =
 	| 'before'
 	| 'after'
 	| 'on'
-	| 'between';
+	| 'between'
+	| 'equals'
+	| 'notEquals'
+	| 'contains'
+	| 'exists'
+	| 'notExists';
 
 export interface ConditionalLogicRule {
 	logicId?: string;
-	sourceFieldName: string;
+	// Absent on rules stored before datalayer support; treated as 'field'.
+	sourceType?: ConditionalLogicSourceType;
+	sourceFieldName?: string;
 	sourceNodeId?: string;
-	sourceFieldType: SupportedConditionalSourceType;
+	sourceFieldType?: SupportedConditionalSourceType;
+	datalayerVariable?: string;
 	operator: ConditionalLogicOperator;
 	value?: string;
 	values?: string[];
@@ -29,18 +39,33 @@ const SUPPORTED_TYPES: SupportedConditionalSourceType[] = [
 	'fmdb:inputDate'
 ];
 
+const isDatalayerRuleShape = (parsed: Partial<ConditionalLogicRule>): boolean =>
+	parsed.sourceType === 'datalayer'
+	&& typeof parsed.datalayerVariable === 'string'
+	&& parsed.datalayerVariable.trim() !== '';
+
 export const parseConditionalLogicRule = (rawValue: string): ConditionalLogicRule | null => {
 	try {
 		const parsed = JSON.parse(rawValue) as Partial<ConditionalLogicRule>;
-		if (!parsed || typeof parsed.sourceFieldName !== 'string') {
+		if (!parsed || typeof parsed.operator !== 'string') {
+			return null;
+		}
+
+		if (isDatalayerRuleShape(parsed)) {
+			return {
+				logicId: typeof parsed.logicId === 'string' ? parsed.logicId : undefined,
+				sourceType: 'datalayer',
+				datalayerVariable: parsed.datalayerVariable!.trim(),
+				operator: parsed.operator as ConditionalLogicOperator,
+				value: typeof parsed.value === 'string' ? parsed.value : undefined
+			};
+		}
+
+		if (typeof parsed.sourceFieldName !== 'string') {
 			return null;
 		}
 
 		if (!SUPPORTED_TYPES.includes(parsed.sourceFieldType as SupportedConditionalSourceType)) {
-			return null;
-		}
-
-		if (typeof parsed.operator !== 'string') {
 			return null;
 		}
 
@@ -67,9 +92,10 @@ export const parseConditionalLogicRules = (rawValues: string[] = []): Conditiona
 const isConditionalLogicRule = (value: unknown): value is ConditionalLogicRule => {
 	if (!value || typeof value !== 'object') return false;
 	const candidate = value as Partial<ConditionalLogicRule>;
+	if (typeof candidate.operator !== 'string') return false;
+	if (isDatalayerRuleShape(candidate)) return true;
 	return typeof candidate.sourceFieldName === 'string'
-		&& SUPPORTED_TYPES.includes(candidate.sourceFieldType as SupportedConditionalSourceType)
-		&& typeof candidate.operator === 'string';
+		&& SUPPORTED_TYPES.includes(candidate.sourceFieldType as SupportedConditionalSourceType);
 };
 
 const deserializeConditionalLogicRules = (rawValue: string): ConditionalLogicRule[] => {
@@ -147,6 +173,79 @@ const compareDate = (left: string, right: string): number => {
 	if (left === right) return 0;
 	return left < right ? -1 : 1;
 };
+
+const DATALAYER_PATH_PATTERN = /^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/;
+
+/**
+ * Safely resolves a dotted variable path (e.g. "window.cxs.profileProperties.firstName")
+ * against the window object. Returns undefined when any segment is missing or the
+ * path is not a plain dotted identifier chain.
+ */
+export const resolveDatalayerValue = (variable: string): unknown => {
+	if (typeof window === 'undefined') return undefined;
+	const path = variable.trim().replace(/^window\./, '');
+	if (!DATALAYER_PATH_PATTERN.test(path)) return undefined;
+
+	let current: unknown = window;
+	for (const segment of path.split('.')) {
+		if (current === null || current === undefined) return undefined;
+		current = (current as Record<string, unknown>)[segment];
+	}
+
+	return current;
+};
+
+const evaluateDatalayerRule = (rule: ConditionalLogicRule): boolean => {
+	const raw = resolveDatalayerValue(rule.datalayerVariable ?? '');
+	const defined = raw !== undefined && raw !== null;
+	const actual = defined ? String(raw) : undefined;
+	const expected = rule.value ?? '';
+
+	switch (rule.operator) {
+		case 'equals':
+			return actual !== undefined && actual === expected;
+		case 'notEquals':
+			return actual !== undefined && actual !== expected;
+		case 'contains':
+			return actual !== undefined && expected !== '' && actual.includes(expected);
+		case 'exists':
+			return defined;
+		case 'notExists':
+			return !defined;
+		default:
+			return false;
+	}
+};
+
+/**
+ * Lists the distinct datalayer variables referenced by conditional logic rules
+ * inside the form. Used to decide whether a datalayer watcher is needed.
+ */
+export const collectDatalayerVariables = (form: HTMLFormElement): string[] => {
+	const variables = new Set<string>();
+	for (const wrapper of Array.from(form.querySelectorAll<HTMLElement>('[data-fmdb-logics]'))) {
+		for (const rule of deserializeConditionalLogicRules(wrapper.dataset.fmdbLogics ?? '')) {
+			if (rule.sourceType === 'datalayer' && rule.datalayerVariable) {
+				variables.add(rule.datalayerVariable);
+			}
+		}
+	}
+
+	return Array.from(variables);
+};
+
+/**
+ * Builds a comparable snapshot of the current datalayer values so a watcher can
+ * detect changes cheaply. Undefined/null are encoded distinctly from their
+ * string representations.
+ */
+export const getDatalayerSnapshot = (variables: string[]): string =>
+	JSON.stringify(variables.map(variable => {
+		const raw = resolveDatalayerValue(variable);
+		if (raw === undefined) return '\u0000undefined';
+		if (raw === null) return '\u0000null';
+		return String(raw);
+	}));
 
 const evaluateRule = (rule: ConditionalLogicRule, sourceWrapper: HTMLElement): boolean => {
 	const state = getSourceFieldState(sourceWrapper);
@@ -238,9 +337,13 @@ export const applyConditionalLogicVisibility = (form: HTMLFormElement) => {
 		}
 
 		const visible = rules.every(rule => {
+			if (rule.sourceType === 'datalayer') {
+				return evaluateDatalayerRule(rule);
+			}
+
 			const sourceWrapper = rule.sourceNodeId
 				? wrappersByNodeId.get(rule.sourceNodeId)
-				: wrappersByName.get(rule.sourceFieldName);
+				: wrappersByName.get(rule.sourceFieldName ?? '');
 
 			if (!sourceWrapper) return false;
 			if (sourceWrapper.closest('[data-fmdb-logic-hidden="true"]')) return false;

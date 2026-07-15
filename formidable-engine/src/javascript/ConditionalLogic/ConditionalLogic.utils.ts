@@ -17,11 +17,22 @@ export const SUPPORTED_SOURCE_TYPES: SupportedSourceType[] = [
     'fmdb:inputDate'
 ];
 
+export const DATALAYER_OPERATORS: LogicOperator[] = [
+    'equals',
+    'notEquals',
+    'contains',
+    'exists',
+    'notExists'
+];
+
+export const datalayerOperatorNeedsValue = (operator: LogicOperator): boolean =>
+    operator !== 'exists' && operator !== 'notExists';
 
 export const parseRule = (value?: string): ConditionalLogicRule => {
     if (!value) {
         return {
             logicId: '',
+            sourceType: 'field',
             sourceNodeId: '',
             sourceFieldName: '',
             sourceFieldType: 'fmdb:select',
@@ -38,9 +49,11 @@ export const parseRule = (value?: string): ConditionalLogicRule => {
 
         return {
             logicId: parsed.logicId ?? '',
+            sourceType: parsed.sourceType === 'datalayer' ? 'datalayer' : 'field',
             sourceNodeId: parsed.sourceNodeId ?? '',
             sourceFieldName: parsed.sourceFieldName ?? '',
             sourceFieldType,
+            datalayerVariable: typeof parsed.datalayerVariable === 'string' ? parsed.datalayerVariable : undefined,
             operator: (parsed.operator as LogicOperator) ?? 'in',
             value: typeof parsed.value === 'string' ? parsed.value : undefined,
             values: Array.isArray(parsed.values) ? parsed.values.filter(value => typeof value === 'string') : []
@@ -48,6 +61,7 @@ export const parseRule = (value?: string): ConditionalLogicRule => {
     } catch {
         return {
             logicId: '',
+            sourceType: 'field',
             sourceNodeId: '',
             sourceFieldName: '',
             sourceFieldType: 'fmdb:select',
@@ -80,6 +94,28 @@ export const getOperatorsForSource = (source?: SourceFieldOption): LogicOperator
 export const sanitizeOperator = (source: SourceFieldOption | undefined, operator: LogicOperator): LogicOperator => {
     const operators = getOperatorsForSource(source);
     return operators.includes(operator) ? operator : operators[0];
+};
+
+export const sanitizeDatalayerOperator = (operator: LogicOperator): LogicOperator =>
+    DATALAYER_OPERATORS.includes(operator) ? operator : DATALAYER_OPERATORS[0];
+
+export const normalizeStoredDatalayerRule = (rule: ConditionalLogicRule): ConditionalLogicRule => {
+    const operator = sanitizeDatalayerOperator(rule.operator);
+    const normalized: ConditionalLogicRule = {
+        logicId: rule.logicId,
+        sourceType: 'datalayer',
+        sourceNodeId: '',
+        sourceFieldName: '',
+        sourceFieldType: 'fmdb:select',
+        datalayerVariable: (rule.datalayerVariable ?? '').trim(),
+        operator
+    };
+
+    if (datalayerOperatorNeedsValue(operator)) {
+        normalized.value = rule.value ?? '';
+    }
+
+    return normalized;
 };
 
 export const normalizeStoredRule = (

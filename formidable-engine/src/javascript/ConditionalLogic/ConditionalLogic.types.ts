@@ -1,5 +1,7 @@
 export type SupportedSourceType = 'fmdb:select' | 'fmdb:radio' | 'fmdb:checkbox' | 'fmdb:inputDate';
 
+export type RuleSourceType = 'field' | 'datalayer';
+
 export type LogicOperator =
     | 'in'
     | 'notIn'
@@ -10,13 +12,21 @@ export type LogicOperator =
     | 'before'
     | 'after'
     | 'on'
-    | 'between';
+    | 'between'
+    | 'equals'
+    | 'notEquals'
+    | 'contains'
+    | 'exists'
+    | 'notExists';
 
 export interface ConditionalLogicRule {
     logicId: string;
+    // Absent on rules stored before datalayer support; treated as 'field'.
+    sourceType?: RuleSourceType;
     sourceNodeId: string;
     sourceFieldName: string;
     sourceFieldType: SupportedSourceType;
+    datalayerVariable?: string;
     operator: LogicOperator;
     value?: string;
     values?: string[];
