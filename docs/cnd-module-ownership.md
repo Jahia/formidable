@@ -53,6 +53,7 @@ Examples:
 - `fmdbmix:formContainer`
 - `fmdbmix:formStep`
 - `fmdbmix:formElement`
+- `fmdbmix:formItem`, `fmdbmix:stepItem`, `fmdbmix:fieldsetItem` (placement-scope chain, see `pagebuilder-form-editing.md`)
 - `fmdbmix:formAction`
 - `fmdbmix:nonSubmittable`
 - `fmdbmix:choiceField`

@@ -37,6 +37,7 @@ export default function Form({
 	stepLabels,
 	stepIds,
 	captcha,
+	isEditMode = false,
 	children
 }: FormProps) {
 	const formRef = useRef<HTMLFormElement>(null);
@@ -48,6 +49,8 @@ export default function Form({
 		}
 	}, []);
 
+	// In Page Builder, steps are rendered stacked and always visible: multi-step
+	// navigation and conditional-logic hiding would make elements uneditable.
 	const {
 		currentStep,
 		setCurrentStep,
@@ -57,7 +60,7 @@ export default function Form({
 		isMultiStep,
 		handleNext,
 		handlePrevious,
-	} = useMultiStep({formRef, stepIds});
+	} = useMultiStep({formRef, stepIds: isEditMode ? undefined : stepIds, disabled: isEditMode});
 
 	useCustomFormValidation({formRef});
 

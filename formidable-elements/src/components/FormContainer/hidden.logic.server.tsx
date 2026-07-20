@@ -1,4 +1,4 @@
-import {getNodeProps, jahiaComponent} from "@jahia/javascript-modules-library";
+import {AddContentButtons, getNodeProps, jahiaComponent} from "@jahia/javascript-modules-library";
 import LogicAwareRender from "./LogicAwareRender";
 
 type FormContainerNode = Parameters<typeof getNodeProps>[0];
@@ -20,7 +20,7 @@ jahiaComponent(
 		nodeType: "fmdbmix:formContainer",
 		name: "hidden.logic"
 	},
-	(_props, {currentNode, currentResource}) => {
+	(_props, {currentNode, currentResource, renderContext}) => {
 		const elementNodes = (Array.from(currentNode.getNodes()) as FormContainerNode[])
 			.filter(node => !node.isNodeType("fmdb:logicList"));
 		const className = currentResource.getModuleParams().get("className")?.toString();
@@ -51,10 +51,16 @@ jahiaComponent(
 			);
 		});
 
+		// In Page Builder, let contributors add new elements directly in place.
+		// Each container constrains its children to a single placement-scope mixin
+		// (fmdbmix:formItem / stepItem / fieldsetItem), so this renders one single
+		// "New content" button whose type picker lists the allowed concrete types.
+		const addButtons = renderContext.isEditMode() ? <AddContentButtons/> : undefined;
+
 		if (!className) {
-			return children;
+			return <>{children}{addButtons}</>;
 		}
 
-		return <div className={className}>{children}</div>;
+		return <div className={className}>{children}{addButtons}</div>;
 	}
 );

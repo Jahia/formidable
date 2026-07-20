@@ -139,9 +139,10 @@ Example CND:
 <mymod = 'http://www.example.com/jahia/mymod/nt/1.0'>
 
 [mymod:panel] > jnt:content, fmdbmix:formElement, fmdbmix:formContainer, fmdbmix:nonSubmittable
- + * (fmdbmix:element) = fmdbmix:element
- + * (fmdbmix:formContent) = fmdbmix:formContent
+ + * (fmdbmix:fieldsetItem) = fmdbmix:fieldsetItem
 ```
+
+The single `fmdbmix:fieldsetItem` constraint (leaf fields + editorial content) matches what `fmdb:fieldset` allows and keeps a single "New content" button per insertion point in Page Builder (see `pagebuilder-form-editing.md`).
 
 Its view should follow the same pattern as `fieldset`:
 

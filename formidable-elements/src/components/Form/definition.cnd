@@ -44,11 +44,9 @@
 
 [fmdb:fieldList] > jnt:content, jmix:list, fmdbmix:formContainer
  orderable
- + * (fmdbmix:formElement) = fmdbmix:formElement
- + * (fmdbmix:formContent) = fmdbmix:formContent
- + * (fmdbmix:formStep) = fmdbmix:formStep
+ + * (fmdbmix:formItem) = fmdbmix:formItem
 
-[fmdb:form] > jnt:content, fmdbmix:component, jmix:visibleInContentTree, fmdbmix:buttons, fmdbmix:responses, fmdbmix:multiStep, fmdbmix:style, mix:title
+[fmdb:form] > jnt:content, jmix:mainResource, fmdbmix:component, jmix:visibleInContentTree, fmdbmix:buttons, fmdbmix:responses, fmdbmix:multiStep, fmdbmix:style, mix:title
  orderable
  - intro (string, richtext) i18n indexed=no
  + fields (fmdb:fieldList) = fmdb:fieldList autocreated mandatory

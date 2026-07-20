@@ -4,6 +4,9 @@ import {applyConditionalLogicVisibility} from '~/utils/conditionalLogic';
 interface UseMultiStepOptions {
 	formRef: RefObject<HTMLFormElement | null>;
 	stepIds?: string[];
+	// Disables all DOM side effects (step hiding, conditional-logic visibility).
+	// Used in Page Builder edit mode where every element must stay visible.
+	disabled?: boolean;
 }
 
 interface UseMultiStepReturn {
@@ -18,7 +21,7 @@ interface UseMultiStepReturn {
 	handlePrevious: () => void;
 }
 
-export function useMultiStep({formRef, stepIds}: UseMultiStepOptions): UseMultiStepReturn {
+export function useMultiStep({formRef, stepIds, disabled = false}: UseMultiStepOptions): UseMultiStepReturn {
 	const [currentStep, setCurrentStep] = useState(0);
 	const [visibleStepIndices, setVisibleStepIndices] = useState<number[]>([]);
 	const resetVisibilityTimeoutRef = useRef<number | null>(null);
@@ -56,7 +59,7 @@ export function useMultiStep({formRef, stepIds}: UseMultiStepOptions): UseMultiS
 
 	useEffect(() => {
 		const form = formRef.current;
-		if (!form) return;
+		if (!form || disabled) return;
 
 		const syncVisibility = () => {
 			applyConditionalLogicVisibility(form);
@@ -87,7 +90,7 @@ export function useMultiStep({formRef, stepIds}: UseMultiStepOptions): UseMultiS
 				resetVisibilityTimeoutRef.current = null;
 			}
 		};
-	}, [formRef, computeVisibleSteps]);
+	}, [formRef, computeVisibleSteps, disabled]);
 
 	const prevStepRef = useRef(0);
 	useEffect(() => {
@@ -99,11 +102,11 @@ export function useMultiStep({formRef, stepIds}: UseMultiStepOptions): UseMultiS
 	}, [currentStep, isMultiStep]);
 
 	useEffect(() => {
-		if (formRef.current) {
+		if (formRef.current && !disabled) {
 			applyConditionalLogicVisibility(formRef.current);
 			computeVisibleSteps();
 		}
-	}, [currentStep, formRef, computeVisibleSteps]);
+	}, [currentStep, formRef, computeVisibleSteps, disabled]);
 
 	const handleNext = (validate: () => boolean) => {
 		if (!validate()) return;

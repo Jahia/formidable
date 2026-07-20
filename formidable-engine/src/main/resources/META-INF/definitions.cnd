@@ -21,16 +21,27 @@
  - logics (string) multiple indexed=no
  + logicsSrc (fmdb:logicList) = fmdb:logicList hidden
 
+// Placement-scope classification. Each form container (field list, step,
+// fieldset) declares a single one of these as its child constraint, so every
+// Page Builder insertion point renders a single "New content" button whose
+// type picker then lists the concrete types allowed at that spot.
+// Scopes nest: allowed-in-fieldset < allowed-in-step < allowed-at-form-root.
+[fmdbmix:formItem] mixin
+[fmdbmix:stepItem] > fmdbmix:formItem mixin
+[fmdbmix:fieldsetItem] > fmdbmix:stepItem mixin
+
 // Marks a node that can own child form items and can therefore propagate a
 // visibility context to descendant fields.
 [fmdbmix:formContainer] > fmdbmix:formLogicElement mixin
 
 // Marks a node that is a logical form step. Steps are also containers.
-[fmdbmix:formStep] > fmdbmix:formContainer mixin
+// Steps live at form-root scope only: they cannot nest.
+[fmdbmix:formStep] > fmdbmix:formContainer, fmdbmix:formItem mixin
 
 // Marks a submit-capable form field. Concrete field node types in formidable-elements
 // extend this mixin, and may also opt into additional engine semantics below.
-[fmdbmix:formElement] > mix:title, fmdbmix:formLogicElement mixin
+// Step scope: form fields (including fieldsets) can live at form root or in a step.
+[fmdbmix:formElement] > mix:title, fmdbmix:formLogicElement, fmdbmix:stepItem mixin
 orderable
 
 // Classification mixins used by the engine to interpret form field semantics

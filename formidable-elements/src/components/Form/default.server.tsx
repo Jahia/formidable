@@ -72,7 +72,10 @@ jahiaComponent(
 			console.warn(`[Formidable] fmdbmix:captcha is applied on form '${currentNode.getPath()}' but CAPTCHA is not fully configured (siteKey, scriptUrl, widgetVar or tokenField missing). The widget will not be rendered.`);
 		}
 
-		const isSubmitDisabled = renderContext.isEditMode() || renderContext.isPreviewMode();
+		// In edit mode (Page Builder), interactive hiding is disabled: all steps and
+		// logic-hidden fields stay visible so contributors can select and edit them.
+		const isEditMode = renderContext.isEditMode();
+		const isSubmitDisabled = isEditMode || renderContext.isPreviewMode();
 		const submitActionUrl = `/modules/formidable-engine/form-submit?fid=${currentNode.getIdentifier()}&lang=${currentNode.getLanguage()}`;
 
 		return (
@@ -111,6 +114,7 @@ jahiaComponent(
 				stepLabels,
 				stepIds,
 				captcha,
+				isEditMode,
 			}}
 			>
 				{fieldListNode && (
@@ -118,8 +122,8 @@ jahiaComponent(
 						node={fieldListNode}
 						view="hidden.logic"
 						parameters={{
-							preferCompactStepView: showStepsNav ? "true" : "false",
-							hideStepsAfterFirst: showStepsNav ? "true" : "false",
+							preferCompactStepView: showStepsNav && !isEditMode ? "true" : "false",
+							hideStepsAfterFirst: showStepsNav && !isEditMode ? "true" : "false",
 							childView: "default",
 						}}
 					/>

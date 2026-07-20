@@ -31,5 +31,8 @@ export interface FormProps extends Omit<FormServerProps, 'destination'> {
 	destinationUrl?: string;
 	submitActionUrl?: string;
 	isSubmitDisabled?: boolean;
+	// True when rendered in Page Builder: disables multi-step navigation and
+	// client-side conditional-logic hiding so every element stays editable
+	isEditMode?: boolean;
 	children: ReactNode;
 }

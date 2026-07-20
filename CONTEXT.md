@@ -44,6 +44,7 @@ default.server.tsx        ← jahiaComponent() for fmdb:form, reads JCR props
 | `src/components/Form/Captcha.client.tsx` | Renders the captcha widget via the provider's native API |
 | `src/components/Form/types.ts` | `FormServerProps`, `FormProps`, `CaptchaProvider` |
 | `src/components/Form/definition.cnd` | Mixins `fmdbmix:responses`, `fmdbmix:buttons`, `fmdbmix:multiStep`, `fmdbmix:captcha`, `fmdbmix:actionPipeline`, and the `fmdb:form` type |
+| `src/templates/Form/default.server.tsx` | Template making `fmdb:form` (a `jmix:mainResource`) editable in jContent Page Builder — see `docs/pagebuilder-form-editing.md` |
 
 ### Vite
 

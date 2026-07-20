@@ -15,7 +15,8 @@
 
 // Mixin to mark any content type as embeddable in a fmdb:form or fmdb:fieldset.
 // Apply this mixin in any module to extend the list of allowed content in a form.
-[fmdbmix:formContent] mixin
+// Fieldset scope: editorial content is allowed everywhere in a form.
+[fmdbmix:formContent] > fmdbmix:fieldsetItem mixin
 
 // Custom validation messages per field. Each property maps to a ValidityState flag.
 // Native browser validation tooltips are replaced by inline error messages.
@@ -40,4 +41,6 @@
  - msgStepMismatch (string) i18n indexed=no
  - msgBadInput (string) i18n indexed=no
 
-[fmdbmix:element] > fmdbmix:formElement mixin
+// Fieldset scope: plain fields can additionally live inside a fieldset
+// (unlike fieldsets themselves, which only carry the step scope).
+[fmdbmix:element] > fmdbmix:formElement, fmdbmix:fieldsetItem mixin
