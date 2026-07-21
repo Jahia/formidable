@@ -1,0 +1,125 @@
+/* Switch field — toggle and yes/no button pair modes */
+.fmdbext-switch-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+}
+
+/* --- toggle mode --- */
+.fmdbext-switch-toggle-wrapper {
+  display: inline-flex;
+}
+
+.fmdbext-switch-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.fmdbext-switch-track {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 1.4rem;
+  border-radius: 0.7rem;
+  background: var(--fmdbext-switch-off-bg, #c7c7c7);
+  transition: background 120ms ease-in-out;
+}
+
+.fmdbext-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 0.15rem;
+  left: 0.15rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background: var(--fmdbext-switch-knob, #fff);
+  transition: transform 120ms ease-in-out;
+}
+
+.fmdbext-switch-input:checked + .fmdbext-switch-toggle-label .fmdbext-switch-track {
+  background: var(--fmdbext-switch-on-bg, #36b37e);
+}
+
+.fmdbext-switch-input:checked + .fmdbext-switch-toggle-label .fmdbext-switch-track::after {
+  transform: translateX(1.1rem);
+}
+
+.fmdbext-switch-input:focus-visible + .fmdbext-switch-toggle-label .fmdbext-switch-track {
+  outline: 2px solid var(--fmdbext-focus, #4c9aff);
+  outline-offset: 2px;
+}
+
+.fmdbext-switch-state {
+  font-size: 0.85rem;
+  color: var(--fmdbext-end-labels-color, #666);
+}
+
+.fmdbext-switch-state-on {
+  display: none;
+}
+
+.fmdbext-switch-input:checked + .fmdbext-switch-toggle-label .fmdbext-switch-state-on {
+  display: inline;
+}
+
+.fmdbext-switch-input:checked + .fmdbext-switch-toggle-label .fmdbext-switch-state-off {
+  display: none;
+}
+
+/* --- buttons mode --- */
+.fmdbext-switch-buttons {
+  display: inline-flex;
+  gap: 0;
+}
+
+.fmdbext-switch-button {
+  display: inline-flex;
+}
+
+.fmdbext-switch-button-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 4rem;
+  min-height: 2.25rem;
+  padding: 0 1rem;
+  cursor: pointer;
+  border: 1px solid var(--fmdbext-chip-border, #c7c7c7);
+  background: var(--fmdbext-chip-bg, transparent);
+  transition:
+    background 120ms ease-in-out,
+    border-color 120ms ease-in-out;
+  user-select: none;
+}
+
+.fmdbext-switch-button:first-child .fmdbext-switch-button-label {
+  border-radius: var(--fmdbext-chip-radius, 4px) 0 0 var(--fmdbext-chip-radius, 4px);
+}
+
+.fmdbext-switch-button:last-child .fmdbext-switch-button-label {
+  border-radius: 0 var(--fmdbext-chip-radius, 4px) var(--fmdbext-chip-radius, 4px) 0;
+  border-left: none;
+}
+
+.fmdbext-switch-button-label:hover {
+  border-color: var(--fmdbext-chip-on-bg, #4c9aff);
+}
+
+.fmdbext-switch-input:checked + .fmdbext-switch-button-label {
+  background: var(--fmdbext-chip-on-bg, #4c9aff);
+  border-color: var(--fmdbext-chip-on-bg, #4c9aff);
+  color: var(--fmdbext-chip-on-fg, #fff);
+}
+
+.fmdbext-switch-input:focus-visible + .fmdbext-switch-button-label {
+  outline: 2px solid var(--fmdbext-focus, #4c9aff);
+  outline-offset: 2px;
+}

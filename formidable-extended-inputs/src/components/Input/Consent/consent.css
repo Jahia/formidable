@@ -1,0 +1,29 @@
+/* Consent field */
+.fmdbext-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.fmdbext-consent-input {
+  margin-top: 0.25rem;
+  flex-shrink: 0;
+}
+
+.fmdbext-consent-label {
+  flex: 1;
+  min-width: 12rem;
+  cursor: pointer;
+}
+
+.fmdbext-consent-statement p {
+  display: inline;
+  margin: 0;
+}
+
+.fmdbext-consent-terms-link {
+  flex-basis: 100%;
+  margin-left: 1.5rem;
+  font-size: 0.9rem;
+}

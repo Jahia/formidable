@@ -1,0 +1,9 @@
+{
+  "fmdbext_scale": {
+    "npsMinLabel": "Not at all likely",
+    "npsMaxLabel": "Extremely likely"
+  },
+  "fmdbext_consent": {
+    "defaultTermsLinkLabel": "Read the full terms"
+  }
+}
