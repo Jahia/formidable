@@ -126,10 +126,10 @@ jExperience injects `window.wem` (Web Experience Manager) into every page. It is
 
 Every event has two parts:
 
-| Part | What it is | Helper |
-|------|------------|--------|
-| **source** | Where the event happened (usually the current page) | `wem.buildSourcePage()` |
-| **target** | What happened (the action) | `wem.buildTarget(id, type, properties)` |
+| Part       | What it is                                          | Helper                                  |
+| ---------- | --------------------------------------------------- | --------------------------------------- |
+| **source** | Where the event happened (usually the current page) | `wem.buildSourcePage()`                 |
+| **target** | What happened (the action)                          | `wem.buildTarget(id, type, properties)` |
 
 ### Full example — feedback widget
 
@@ -159,8 +159,12 @@ export default function Widget({ question }: { question: string }) {
   return (
     <aside>
       {question}
-      <button type="button" onClick={handler(true)}>Yes</button>
-      <button type="button" onClick={handler(false)}>No</button>
+      <button type="button" onClick={handler(true)}>
+        Yes
+      </button>
+      <button type="button" onClick={handler(false)}>
+        No
+      </button>
     </aside>
   );
 }
@@ -171,7 +175,9 @@ export default function Widget({ question }: { question: string }) {
 import { jahiaComponent, Island } from "@jahia/javascript-modules-library";
 import Widget from "./Widget.client.jsx";
 
-interface Props { question: string; }
+interface Props {
+  question: string;
+}
 
 jahiaComponent(
   { nodeType: "hydrogen:feedbackWidget", componentType: "view" },
@@ -185,12 +191,12 @@ jahiaComponent(
 
 ### `window.wem` API reference
 
-| Method | Signature | Returns |
-|--------|-----------|---------|
-| `buildSourcePage` | `()` | Source object for the current page |
-| `buildTarget` | `(id: string, type: string, properties?: object)` | Target object |
-| `buildEvent` | `(eventType: string, target, source)` | Event object |
-| `collectEvents` | `({ events: Event[] })` | Sends events to jCustomer |
+| Method            | Signature                                         | Returns                            |
+| ----------------- | ------------------------------------------------- | ---------------------------------- |
+| `buildSourcePage` | `()`                                              | Source object for the current page |
+| `buildTarget`     | `(id: string, type: string, properties?: object)` | Target object                      |
+| `buildEvent`      | `(eventType: string, target, source)`             | Event object                       |
+| `collectEvents`   | `({ events: Event[] })`                           | Sends events to jCustomer          |
 
 `buildTarget` properties are free-form — pass any serializable data you want to analyse downstream (e.g. `{ happy: true }`, `{ productId: "p-123" }`).
 
@@ -219,6 +225,7 @@ dataLayer.push({ event: "feedback", happy });
 ### Create a saved search
 
 In **Discover**, add column filters for:
+
 - `eventType` = `click`
 - `itemType` = `event`
 - `target.itemId` = `feedback`
@@ -254,6 +261,7 @@ Dashboards exported from Kibana are automatically imported when the module is de
 ---
 
 ## Validation checklist
+
 - [ ] `docker compose up --wait` completed with elasticsearch, kibana, jcustomer healthy
 - [ ] jExperience and jExperience Dashboards enabled on the target site
 - [ ] jExperience tab visible in jContent
@@ -264,6 +272,7 @@ Dashboards exported from Kibana are automatically imported when the module is de
 - [ ] Dashboard `.ndjson` saved to `settings/kibana-dashboard/dashboards/` for packaging
 
 ## References
+
 - Apache Unomi tracker: https://github.com/apache/unomi-tracker
 - KQL query syntax: https://www.elastic.co/guide/en/kibana/current/kuery-query.html
 - jExperience guide: https://github.com/Jahia/javascript-modules/blob/main/docs/2-guides/1-building-a-feedback-form/README.md

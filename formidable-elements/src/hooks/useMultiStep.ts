@@ -1,5 +1,5 @@
-import {type RefObject, useCallback, useEffect, useRef, useState} from 'react';
-import {applyConditionalLogicVisibility} from '~/utils/conditionalLogic';
+import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { applyConditionalLogicVisibility } from "~/utils/conditionalLogic";
 
 interface UseMultiStepOptions {
 	formRef: RefObject<HTMLFormElement | null>;
@@ -18,7 +18,7 @@ interface UseMultiStepReturn {
 	handlePrevious: () => void;
 }
 
-export function useMultiStep({formRef, stepIds}: UseMultiStepOptions): UseMultiStepReturn {
+export function useMultiStep({ formRef, stepIds }: UseMultiStepOptions): UseMultiStepReturn {
 	const [currentStep, setCurrentStep] = useState(0);
 	const [visibleStepIndices, setVisibleStepIndices] = useState<number[]>([]);
 	const resetVisibilityTimeoutRef = useRef<number | null>(null);
@@ -31,7 +31,9 @@ export function useMultiStep({formRef, stepIds}: UseMultiStepOptions): UseMultiS
 	const stepElsRef = useRef<HTMLElement[]>([]);
 	useEffect(() => {
 		if (formRef.current) {
-			stepElsRef.current = Array.from(formRef.current.querySelectorAll<HTMLElement>('[data-fmdb-step]'));
+			stepElsRef.current = Array.from(
+				formRef.current.querySelectorAll<HTMLElement>("[data-fmdb-step]"),
+			);
 		}
 	}, [formRef]);
 
@@ -39,18 +41,20 @@ export function useMultiStep({formRef, stepIds}: UseMultiStepOptions): UseMultiS
 		if (!isMultiStep || !formRef.current) return;
 		const indices: number[] = [];
 		for (let i = 0; i < stepIds!.length; i++) {
-			const wrapper = formRef.current.querySelector<HTMLElement>(`[data-fmdb-node-id="${stepIds![i]}"]`);
-			if (!wrapper || wrapper.dataset.fmdbLogicHidden !== 'true') {
+			const wrapper = formRef.current.querySelector<HTMLElement>(
+				`[data-fmdb-node-id="${stepIds![i]}"]`,
+			);
+			if (!wrapper || wrapper.dataset.fmdbLogicHidden !== "true") {
 				indices.push(i);
 			}
 		}
-		setVisibleStepIndices(prev => {
+		setVisibleStepIndices((prev) => {
 			if (prev.length === indices.length && prev.every((v, j) => v === indices[j])) return prev;
 			return indices;
 		});
-		setCurrentStep(current => {
+		setCurrentStep((current) => {
 			if (indices.includes(current)) return current;
-			return indices.find(i => i >= current) ?? indices[indices.length - 1] ?? 0;
+			return indices.find((i) => i >= current) ?? indices[indices.length - 1] ?? 0;
 		});
 	}, [isMultiStep, stepIds, formRef]);
 
@@ -74,14 +78,14 @@ export function useMultiStep({formRef, stepIds}: UseMultiStepOptions): UseMultiS
 
 		syncVisibility();
 
-		form.addEventListener('input', syncVisibility);
-		form.addEventListener('change', syncVisibility);
-		form.addEventListener('reset', handleReset);
+		form.addEventListener("input", syncVisibility);
+		form.addEventListener("change", syncVisibility);
+		form.addEventListener("reset", handleReset);
 
 		return () => {
-			form.removeEventListener('input', syncVisibility);
-			form.removeEventListener('change', syncVisibility);
-			form.removeEventListener('reset', handleReset);
+			form.removeEventListener("input", syncVisibility);
+			form.removeEventListener("change", syncVisibility);
+			form.removeEventListener("reset", handleReset);
 			if (resetVisibilityTimeoutRef.current !== null) {
 				window.clearTimeout(resetVisibilityTimeoutRef.current);
 				resetVisibilityTimeoutRef.current = null;
@@ -93,8 +97,8 @@ export function useMultiStep({formRef, stepIds}: UseMultiStepOptions): UseMultiS
 	useEffect(() => {
 		if (!isMultiStep) return;
 		const stepEls = stepElsRef.current;
-		if (stepEls[prevStepRef.current]) stepEls[prevStepRef.current].style.display = 'none';
-		if (stepEls[currentStep]) stepEls[currentStep].style.display = '';
+		if (stepEls[prevStepRef.current]) stepEls[prevStepRef.current].style.display = "none";
+		if (stepEls[currentStep]) stepEls[currentStep].style.display = "";
 		prevStepRef.current = currentStep;
 	}, [currentStep, isMultiStep]);
 
@@ -128,4 +132,3 @@ export function useMultiStep({formRef, stepIds}: UseMultiStepOptions): UseMultiS
 		handlePrevious,
 	};
 }
-

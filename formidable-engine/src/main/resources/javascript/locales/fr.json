@@ -1,130 +1,130 @@
 {
-    "selectOptions": {
-        "value": "Valeur",
-        "label": "Libellé",
-        "selected": "Sélectionné"
-    },
-    "conditionalLogic": {
-        "sourceField": "Champ source",
-        "selectSource": "Sélectionner un champ source",
-        "operator": "Opérateur",
-        "value": "Valeur",
-        "values": "Valeurs",
-        "dateFrom": "De",
-        "dateTo": "À",
-        "loadingSources": "Chargement des champs disponibles...",
-        "noSources": "Aucun champ source supporté n'est disponible avant ce champ.",
-        "help": "Utilise des champs placés avant celui-ci pour afficher ou masquer ce champ. Seuls les champs liste, radio, case à cocher et date sont éligibles. \"Aucun champ source supporté...\" signifie qu'aucun champ compatible précédent n'a été trouvé.",
-        "allSourcesUsed": "Tous les champs source disponibles sont déjà utilisés par les règles au-dessus.",
-        "unresolvedContext": "Impossible de résoudre le chemin du champ édité.",
-        "formNotFound": "Impossible de retrouver le formulaire parent.",
-        "loadError": "Impossible de charger les champs source disponibles.",
-        "operators": {
-            "in": "est l'une des valeurs suivantes",
-            "notIn": "n'est pas l'une des valeurs suivantes",
-            "isChecked": "est cochée",
-            "isUnchecked": "est décochée",
-            "containsAny": "contient au moins une des valeurs suivantes",
-            "containsAll": "contient toutes les valeurs suivantes",
-            "before": "est avant",
-            "after": "est après",
-            "on": "est le",
-            "between": "est entre"
-        }
-    },
-    "formResults": {
-        "nav": {
-            "title": "Résultats de formulaires"
-        },
-        "sidebar": {
-            "title": "Formulaires"
-        },
-        "actions": {
-            "export": "Exporter",
-            "delete": "Supprimer",
-            "refresh": "Rafraîchir"
-        },
-        "empty": {
-            "noForms": "Aucun résultat disponible",
-            "noFormsDescription": "Aucun formulaire n'a encore reçu de soumission, ou vous n'avez pas les droits pour consulter les résultats. Contactez l'administrateur du site si vous pensez qu'il s'agit d'une erreur.",
-            "noSubmissions": "Aucune soumission",
-            "selectForm": "Sélectionnez un formulaire pour voir les résultats"
-        },
-        "error": {
-            "noSite": "Aucun site sélectionné."
-        },
-        "table": {
-            "date": "Date",
-            "user": "Utilisateur",
-            "locale": "Langue",
-            "ipAddress": "Adresse IP",
-            "files": "Fichiers",
-            "filledFields": "Champs",
-            "view": "Voir",
-            "rowsPerPage": "Lignes par page :",
-            "of": "sur",
-            "pageInfo": "Page {{current}} sur {{total}} ({{count}} résultats)"
-        },
-        "detail": {
-            "title": "Détail de la soumission",
-            "close": "Fermer",
-            "metadata": "Métadonnées",
-            "submittedValues": "Valeurs des champs",
-            "files": "Fichiers",
-            "noValues": "Aucune valeur de champ.",
-            "download": "Télécharger",
-            "preview": "Aperçu",
-            "created": "Soumis le",
-            "origin": "Origine",
-            "ipAddress": "Adresse IP",
-            "locale": "Langue",
-            "user": "Utilisateur",
-            "userAgent": "User Agent",
-            "referer": "Provenance"
-        },
-        "export": {
-            "title": "Exporter les résultats",
-            "description": "Exporte les soumissions du formulaire.",
-            "cancel": "Annuler",
-            "confirm": "Exporter",
-            "fields": {
-                "startDate": "Date de début",
-                "endDate": "Date de fin",
-                "allResults": "Exporter tous les résultats",
-                "format": "Format"
-            },
-            "columns": {
-                "id": "ID de soumission",
-                "name": "Nom de soumission"
-            },
-            "validation": {
-                "invalidRange": "Sélectionnez une plage de dates valide, ou exportez tous les résultats.",
-                "unexpectedError": "Échec de l'export."
-            }
-        },
-        "delete": {
-            "title": "Supprimer les résultats",
-            "description": "Supprime les soumissions du formulaire.",
-            "warning": "Cette action supprime définitivement les soumissions sélectionnées.",
-            "cancel": "Annuler",
-            "confirm": "Supprimer",
-            "fields": {
-                "startDate": "Date de début",
-                "endDate": "Date de fin",
-                "allResults": "Supprimer tous les résultats",
-                "confirmationLabel": "Confirmation",
-                "confirmationHelp": "Veuillez saisir \"{{name}}\" pour confirmer la suppression."
-            },
-            "count": {
-                "loading": "Comptage des soumissions correspondantes...",
-                "label": "{{count}} soumissions seront supprimées."
-            },
-            "validation": {
-                "invalidRange": "Sélectionnez une plage de dates valide, ou supprimez tous les résultats.",
-                "noResults": "Aucune soumission ne correspond à la plage sélectionnée.",
-                "confirmationMismatch": "Saisissez le nom attendu du formulaire pour confirmer la suppression.",
-                "unexpectedError": "Échec de la suppression."
-            }
-        }
+  "selectOptions": {
+    "value": "Valeur",
+    "label": "Libellé",
+    "selected": "Sélectionné"
+  },
+  "conditionalLogic": {
+    "sourceField": "Champ source",
+    "selectSource": "Sélectionner un champ source",
+    "operator": "Opérateur",
+    "value": "Valeur",
+    "values": "Valeurs",
+    "dateFrom": "De",
+    "dateTo": "À",
+    "loadingSources": "Chargement des champs disponibles...",
+    "noSources": "Aucun champ source supporté n'est disponible avant ce champ.",
+    "help": "Utilise des champs placés avant celui-ci pour afficher ou masquer ce champ. Seuls les champs liste, radio, case à cocher et date sont éligibles. \"Aucun champ source supporté...\" signifie qu'aucun champ compatible précédent n'a été trouvé.",
+    "allSourcesUsed": "Tous les champs source disponibles sont déjà utilisés par les règles au-dessus.",
+    "unresolvedContext": "Impossible de résoudre le chemin du champ édité.",
+    "formNotFound": "Impossible de retrouver le formulaire parent.",
+    "loadError": "Impossible de charger les champs source disponibles.",
+    "operators": {
+      "in": "est l'une des valeurs suivantes",
+      "notIn": "n'est pas l'une des valeurs suivantes",
+      "isChecked": "est cochée",
+      "isUnchecked": "est décochée",
+      "containsAny": "contient au moins une des valeurs suivantes",
+      "containsAll": "contient toutes les valeurs suivantes",
+      "before": "est avant",
+      "after": "est après",
+      "on": "est le",
+      "between": "est entre"
     }
+  },
+  "formResults": {
+    "nav": {
+      "title": "Résultats de formulaires"
+    },
+    "sidebar": {
+      "title": "Formulaires"
+    },
+    "actions": {
+      "export": "Exporter",
+      "delete": "Supprimer",
+      "refresh": "Rafraîchir"
+    },
+    "empty": {
+      "noForms": "Aucun résultat disponible",
+      "noFormsDescription": "Aucun formulaire n'a encore reçu de soumission, ou vous n'avez pas les droits pour consulter les résultats. Contactez l'administrateur du site si vous pensez qu'il s'agit d'une erreur.",
+      "noSubmissions": "Aucune soumission",
+      "selectForm": "Sélectionnez un formulaire pour voir les résultats"
+    },
+    "error": {
+      "noSite": "Aucun site sélectionné."
+    },
+    "table": {
+      "date": "Date",
+      "user": "Utilisateur",
+      "locale": "Langue",
+      "ipAddress": "Adresse IP",
+      "files": "Fichiers",
+      "filledFields": "Champs",
+      "view": "Voir",
+      "rowsPerPage": "Lignes par page :",
+      "of": "sur",
+      "pageInfo": "Page {{current}} sur {{total}} ({{count}} résultats)"
+    },
+    "detail": {
+      "title": "Détail de la soumission",
+      "close": "Fermer",
+      "metadata": "Métadonnées",
+      "submittedValues": "Valeurs des champs",
+      "files": "Fichiers",
+      "noValues": "Aucune valeur de champ.",
+      "download": "Télécharger",
+      "preview": "Aperçu",
+      "created": "Soumis le",
+      "origin": "Origine",
+      "ipAddress": "Adresse IP",
+      "locale": "Langue",
+      "user": "Utilisateur",
+      "userAgent": "User Agent",
+      "referer": "Provenance"
+    },
+    "export": {
+      "title": "Exporter les résultats",
+      "description": "Exporte les soumissions du formulaire.",
+      "cancel": "Annuler",
+      "confirm": "Exporter",
+      "fields": {
+        "startDate": "Date de début",
+        "endDate": "Date de fin",
+        "allResults": "Exporter tous les résultats",
+        "format": "Format"
+      },
+      "columns": {
+        "id": "ID de soumission",
+        "name": "Nom de soumission"
+      },
+      "validation": {
+        "invalidRange": "Sélectionnez une plage de dates valide, ou exportez tous les résultats.",
+        "unexpectedError": "Échec de l'export."
+      }
+    },
+    "delete": {
+      "title": "Supprimer les résultats",
+      "description": "Supprime les soumissions du formulaire.",
+      "warning": "Cette action supprime définitivement les soumissions sélectionnées.",
+      "cancel": "Annuler",
+      "confirm": "Supprimer",
+      "fields": {
+        "startDate": "Date de début",
+        "endDate": "Date de fin",
+        "allResults": "Supprimer tous les résultats",
+        "confirmationLabel": "Confirmation",
+        "confirmationHelp": "Veuillez saisir \"{{name}}\" pour confirmer la suppression."
+      },
+      "count": {
+        "loading": "Comptage des soumissions correspondantes...",
+        "label": "{{count}} soumissions seront supprimées."
+      },
+      "validation": {
+        "invalidRange": "Sélectionnez une plage de dates valide, ou supprimez tous les résultats.",
+        "noResults": "Aucune soumission ne correspond à la plage sélectionnée.",
+        "confirmationMismatch": "Saisissez le nom attendu du formulaire pour confirmer la suppression.",
+        "unexpectedError": "Échec de la suppression."
+      }
+    }
+  }
 }

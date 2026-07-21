@@ -1,6 +1,7 @@
 # Jahia JCR API Reference
 
 ## Table of contents
+
 1. [JCR Java API — sessions](#jcr-java-api--sessions)
 2. [CRUD operations](#crud-operations)
 3. [Auto-splitting nodes](#auto-splitting-nodes)
@@ -111,6 +112,7 @@ Semicolon-separated levels; each level is comma-separated tokens:
 ```
 
 Token types:
+
 - `constant,<name>` — fixed folder name
 - `property,<propertyName>` — value of the given property (`jcr:creator`, `jcr:nodename`, etc.)
 - `firstChars,<propertyName>,<count>` — first N characters of property value
@@ -231,13 +233,13 @@ All URIs use `<basecontext>` = `/modules/api/jcr/v1`.
 
 ### Entry points
 
-| Pattern | Description |
-|---------|-------------|
-| `/{workspace}/{lang}/nodes/{uuid}[/children\|mixins\|properties\|versions][/{name}]` | Access node by UUID |
-| `/{workspace}/{lang}/paths{/absolute/path}` | Access node by path |
-| `/{workspace}/{lang}/types/{type}` | List nodes by type (disabled by default) |
-| `/{workspace}/{lang}/query` | JCR-SQL2 query endpoint (disabled by default) |
-| `/{workspace}/{lang}/version` | API version info |
+| Pattern                                                                              | Description                                   |
+| ------------------------------------------------------------------------------------ | --------------------------------------------- |
+| `/{workspace}/{lang}/nodes/{uuid}[/children\|mixins\|properties\|versions][/{name}]` | Access node by UUID                           |
+| `/{workspace}/{lang}/paths{/absolute/path}`                                          | Access node by path                           |
+| `/{workspace}/{lang}/types/{type}`                                                   | List nodes by type (disabled by default)      |
+| `/{workspace}/{lang}/query`                                                          | JCR-SQL2 query endpoint (disabled by default) |
+| `/{workspace}/{lang}/version`                                                        | API version info                              |
 
 ### Authentication
 
@@ -403,13 +405,13 @@ POST /cms/render/{workspace}/{lang}/{node/path}.{actionName}.do
 
 ### Key action parameters (hidden form fields)
 
-| Parameter | Purpose |
-|-----------|---------|
-| `jcrNodeType` | Type of node to create |
-| `jcrRedirectTo` | Redirect URL after action |
-| `jcrNewNodeOutputFormat` | Output format (default: `html`) |
-| `jcrMethodToCall` | `post` (required for tokenized forms) |
-| `jcrCaptcha` | Captcha response value |
+| Parameter                | Purpose                               |
+| ------------------------ | ------------------------------------- |
+| `jcrNodeType`            | Type of node to create                |
+| `jcrRedirectTo`          | Redirect URL after action             |
+| `jcrNewNodeOutputFormat` | Output format (default: `html`)       |
+| `jcrMethodToCall`        | `post` (required for tokenized forms) |
+| `jcrCaptcha`             | Captcha response value                |
 
 ### CSRF guard (Jahia 8.0.1+)
 
@@ -441,7 +443,7 @@ Wrap forms in `<template:tokenizedForm>` to allow guest users to submit content:
 
 ```html
 <form action="mynode.chain.do" method="post">
-  <input type="hidden" name="chainOfAction" value="mail,redirect"/>
+  <input type="hidden" name="chainOfAction" value="mail,redirect" />
 </form>
 ```
 

@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - 'main'
+      - "main"
     tags-ignore:
-      - '**'
+      - "**"
 
 jobs:
   update-signature:
@@ -52,7 +52,7 @@ jobs:
         with:
           dependencytrack_hostname: ${{ vars.DEPENDENCYTRACK_HOSTNAME }}
           dependencytrack_apikey: ${{ secrets.DEPENDENCYTRACK_APIKEY }}
-          sbom_artifacts: 'build-artifacts'
+          sbom_artifacts: "build-artifacts"
 
   integration-tests:
     uses: Jahia/jahia-modules-action/.github/workflows/reusable-integration-tests.yml@v2

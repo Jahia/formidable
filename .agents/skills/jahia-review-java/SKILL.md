@@ -20,12 +20,12 @@ You are a senior Java/Jahia reviewer. Audit a Jahia Java module (OSGi, JCR, CND,
 
 Detect from context. Ask once if genuinely ambiguous.
 
-| Mode | Trigger | Output |
-|---|---|---|
-| **PR review** | GitHub MCP available + PR diff in context | Inline PR comments + one summary comment with the prioritised table |
-| **Module audit** | Checked-out source, no PR context | Single `code-review-{module}-{YYYY-MM-DD}.md` at repo root |
-| **PoC review** | PR/branch explicitly described as a PoC | Surface risks, missing next steps, and unknowns — not a production readiness checklist |
-| **Follow-up** | A prior `code-review-*.md` exists in the repo | Update the prior doc in place — mark each finding resolved / deferred / still-open |
+| Mode             | Trigger                                       | Output                                                                                 |
+| ---------------- | --------------------------------------------- | -------------------------------------------------------------------------------------- |
+| **PR review**    | GitHub MCP available + PR diff in context     | Inline PR comments + one summary comment with the prioritised table                    |
+| **Module audit** | Checked-out source, no PR context             | Single `code-review-{module}-{YYYY-MM-DD}.md` at repo root                             |
+| **PoC review**   | PR/branch explicitly described as a PoC       | Surface risks, missing next steps, and unknowns — not a production readiness checklist |
+| **Follow-up**    | A prior `code-review-*.md` exists in the repo | Update the prior doc in place — mark each finding resolved / deferred / still-open     |
 
 **PoC mode distinction:** A PoC review does not expect production-grade code. Its goal is to surface every risk, weak spot, missing business logic, and open architectural question so the team can make informed decisions before committing to the implementation. Frame each finding as "next step: team decision" rather than demanding immediate fixes. The PoC owner is not expected to have all the answers.
 
@@ -77,12 +77,13 @@ Cross-reference with `/jahia-java-concurrency` for thread safety — `volatile`,
 
 - `jahia-impl` is `<scope>provided</scope>` with all transitives excluded; each used library declared explicitly.
 - `Export-Package` lists only SPI surface, not implementation packages.
-- Embedded libraries are commented in the POM with a *why*.
+- Embedded libraries are commented in the POM with a _why_.
 - If the module advertises an SPI for third parties, that SPI lives in a separate `*-api` artifact.
 
 ### Pass 4 — Documentation drift
 
 Compare every doc, harness file, and `AGENTS.md` claim against the code:
+
 - URLs, endpoints, class names, config PIDs — do they match?
 - "Not yet implemented" claims for code that is in fact implemented.
 - Known-limitations sections that omit critical risks actually present in the code.
@@ -104,12 +105,12 @@ In PoC mode, the known-limitations/next-steps gap is the primary documentation f
 
 ## Severity discipline
 
-| Level | When to use |
-|---|---|
+| Level | When to use                                                                                                          |
+| ----- | -------------------------------------------------------------------------------------------------------------------- |
 | 🔴 P0 | Active security hole, data loss, fail-open auth, broken public contract, dangerous active code (not just a PoC TODO) |
-| 🟠 P1 | Significant gap defensible only by accepting documented risk, silent partial failure, broken SPI promise |
-| 🟡 P2 | Code health that compounds over time, doc drift, missing tests for critical paths |
-| 🟢 P3 | Refactor opportunities, nice-to-have abstractions, minor cleanup |
+| 🟠 P1 | Significant gap defensible only by accepting documented risk, silent partial failure, broken SPI promise             |
+| 🟡 P2 | Code health that compounds over time, doc drift, missing tests for critical paths                                    |
+| 🟢 P3 | Refactor opportunities, nice-to-have abstractions, minor cleanup                                                     |
 
 When in doubt, drop one level. Inflated severity loses the reader's trust.
 
@@ -118,6 +119,7 @@ When in doubt, drop one level. Inflated severity loses the reader's trust.
 Read `references/code-review-output.md` before writing. It defines section order, finding template, and summary table schema.
 
 Two non-negotiable rules:
+
 1. **Each finding ends with a concrete next step** — a code change, a ticket, or an explicit "accept as-is, document the tradeoff".
 2. **Surface honest doubts.** When you cannot verify a claim, say so. The author would rather have an explicit unknown than a false certainty.
 

@@ -65,6 +65,7 @@ The configuration is a list of named **scopes**. Each scope grants access to one
 - If a request holds **no** scope that grants the API → access **denied**
 
 Scopes can be associated with a request via:
+
 - Personal API tokens (explicitly carrying scopes)
 - JWT tokens (deprecated — see below)
 - Automatic rules based on request origin
@@ -100,12 +101,14 @@ A scope contains one or more grants. Within a single grant, **all conditions mus
 **Grant conditions:**
 
 **`api`** — API identifier (dot-separated). Examples:
+
 - `graphql.MyGqlType` — specific GraphQL type
 - `graphql.JcrNode, graphql.JcrProperty` — multiple types (comma-separated)
 - `view.json.tree` — the `tree.json` view
 - `jcrestapi` — all JCRest API calls
 
 API names by subsystem:
+
 - GraphQL: `graphql.<gql-type>.<gql-field>`
 - JCRest API: `jcrestapi.<query-type>`
 - AJAX views: `view.<template-type>.<view-name>`
@@ -126,7 +129,7 @@ grants:
   - node:
       pathPattern: /,/sites(/.*)?
       excludedPathPattern: /sites/[^/]+/users(/.*)?
-      workspace: live           # or: default
+      workspace: live # or: default
       nodeType: jnt:page
       excludedNodeType: jnt:file
       withPermission: myPermission
@@ -156,9 +159,9 @@ Scopes can be automatically applied based on request origin (checked against `Or
 
 ```yaml
 auto_apply:
-  - origin: hosted    # same server as Jahia (same origin)
-  - origin: same      # alias for hosted
-  - origin: http://www.mysite.com   # specific trusted origin
+  - origin: hosted # same server as Jahia (same origin)
+  - origin: same # alias for hosted
+  - origin: http://www.mysite.com # specific trusted origin
 ```
 
 To always apply a scope regardless of origin:
@@ -190,11 +193,11 @@ The scope will **never** be applied to users who do not meet the constraints.
 
 Set a profile in `org.jahia.bundles.api.security.cfg` via `security.profile`:
 
-| Profile | Description | Recommendation |
-|---------|-------------|----------------|
-| `default` | No API calls from external origins or non-privileged users | **Recommended** |
-| `compat` | More open; compatible with pre-8.1 behavior | Not recommended for production |
-| `open` | Allows every call | Never use in production |
+| Profile   | Description                                                | Recommendation                 |
+| --------- | ---------------------------------------------------------- | ------------------------------ |
+| `default` | No API calls from external origins or non-privileged users | **Recommended**                |
+| `compat`  | More open; compatible with pre-8.1 behavior                | Not recommended for production |
+| `open`    | Allows every call                                          | Never use in production        |
 
 The `compat` profile was introduced in 2021 as a migration aid and is not intended for ongoing production use.
 
@@ -278,11 +281,11 @@ HTML filtering applies to content saves. It does not filter rendered output.
 
 Three configuration levels (highest to lowest priority):
 
-| Level | Filename | Purpose |
-|-------|----------|---------|
-| Site-specific | `org.jahia.modules.htmlfiltering.site-<SITE_KEY>.yml` | Per-site overrides |
-| Global custom | `org.jahia.modules.htmlfiltering.global.custom.yml` | Admin customizations for all sites |
-| Global default | `org.jahia.modules.htmlfiltering.global.default.yml` | Shipped with module; do not modify |
+| Level          | Filename                                              | Purpose                            |
+| -------------- | ----------------------------------------------------- | ---------------------------------- |
+| Site-specific  | `org.jahia.modules.htmlfiltering.site-<SITE_KEY>.yml` | Per-site overrides                 |
+| Global custom  | `org.jahia.modules.htmlfiltering.global.custom.yml`   | Admin customizations for all sites |
+| Global default | `org.jahia.modules.htmlfiltering.global.default.yml`  | Shipped with module; do not modify |
 
 If a configuration file is invalid, it is skipped and the next level in the chain is used. Check logs to confirm your configuration loaded.
 
@@ -299,7 +302,7 @@ htmlFiltering:
   editWorkspace:
     strategy: REJECT
     skipOnPermissions: []
-    process: ['nt:base.*']
+    process: ["nt:base.*"]
     skip: []
     allowedRuleSet:
       elements:
@@ -308,7 +311,7 @@ htmlFiltering:
   liveWorkspace:
     strategy: SANITIZE
     skipOnPermissions: []
-    process: ['nt:base.*']
+    process: ["nt:base.*"]
     skip: []
     allowedRuleSet:
       elements:
@@ -318,12 +321,13 @@ htmlFiltering:
 
 ### Strategies: SANITIZE vs REJECT
 
-| Strategy | Behavior | Recommended for |
-|----------|----------|----------------|
-| `SANITIZE` | Removes disallowed tags/attributes silently | `liveWorkspace` (no direct user feedback) |
-| `REJECT` | Rejects the save operation if any disallowed content found | `editWorkspace` (editors can correct) |
+| Strategy   | Behavior                                                   | Recommended for                           |
+| ---------- | ---------------------------------------------------------- | ----------------------------------------- |
+| `SANITIZE` | Removes disallowed tags/attributes silently                | `liveWorkspace` (no direct user feedback) |
+| `REJECT`   | Rejects the save operation if any disallowed content found | `editWorkspace` (editors can correct)     |
 
 **SANITIZE behavior by tag type:**
+
 - Block-level tags (e.g., `<p>`): tag is removed but text content is kept (`<p>hello</p>` → `hello`)
 - Other tags (e.g., `<script>`): tag and all its content are removed entirely
 
@@ -344,7 +348,7 @@ skip: ['nt:myNodeType.myProp']  # Skip a specific property
 Bypass filtering for users holding specific permissions:
 
 ```yaml
-skipOnPermissions: ['view-full-wysiwyg-editor', 'site-admin']
+skipOnPermissions: ["view-full-wysiwyg-editor", "site-admin"]
 ```
 
 **Warning:** If a privileged user saves HTML content with elements that would be filtered for less privileged users, those users will be unable to later edit that content (their save will be rejected). Use `skipOnPermissions` with care and only for trusted users.
@@ -354,21 +358,57 @@ skipOnPermissions: ['view-full-wysiwyg-editor', 'site-admin']
 ```yaml
 allowedRuleSet:
   elements:
-    - attributes: [class, dir, hidden, lang, role, style, title]    # on any tag
+    - attributes: [class, dir, hidden, lang, role, style, title] # on any tag
     - attributes:
         - id
-      format: HTML_ID                                               # must match regex
+      format: HTML_ID # must match regex
     - attributes: [align]
       tags: [caption, col, colgroup, hr, img, table, tbody, td, tfoot, th, thead, tr]
     - attributes: [alt]
       tags: [img]
-    - tags: [h1, h2, h3, h4, h5, h6, p, a, img, figure, div, ul, ol, li,
-             table, tbody, thead, tfoot, tr, td, th, blockquote, code, pre,
-             br, strong, em, span, nav, article, main, aside, section, header, footer]
+    - tags:
+        [
+          h1,
+          h2,
+          h3,
+          h4,
+          h5,
+          h6,
+          p,
+          a,
+          img,
+          figure,
+          div,
+          ul,
+          ol,
+          li,
+          table,
+          tbody,
+          thead,
+          tfoot,
+          tr,
+          td,
+          th,
+          blockquote,
+          code,
+          pre,
+          br,
+          strong,
+          em,
+          span,
+          nav,
+          article,
+          main,
+          aside,
+          section,
+          header,
+          footer,
+        ]
   protocols: [http, https, mailto]
 ```
 
 Each rule can specify:
+
 - `tags` — HTML tags the rule applies to (omit to apply to all tags)
 - `attributes` — allowed attributes for those tags
 - `format` — regex pattern name from `formatDefinitions` that attribute values must match
@@ -398,6 +438,7 @@ query HtmlFiltering($html: String!, $workspace: Workspace = EDIT, $siteKey: Stri
 ```
 
 Response fields:
+
 - `removedTags` — list of tags removed during sanitization
 - `removedAttributes` — list of attributes removed, with their parent tags
 - `sanitizedHtml` — the sanitized output
@@ -434,33 +475,55 @@ As soon as v2 is installed, it replaces v1 entirely. v1 custom configurations ar
 
 **Key changes in v2:**
 
-| Area | v1 | v2 |
-|------|----|----|
-| Strategy | SANITIZE only | SANITIZE or REJECT per workspace |
-| Workspaces | Single config | Separate `editWorkspace`/`liveWorkspace` sections |
-| Format definitions | Hardcoded (e.g., `HTML_ID`) | Configurable in `formatDefinitions` |
-| Config files | `org.jahia.modules.htmlfiltering.config-*.yml` | Three-tier: global default, global custom, site-specific |
-| `htmlSanitizerDryRun` | Available | Removed |
+| Area                  | v1                                             | v2                                                       |
+| --------------------- | ---------------------------------------------- | -------------------------------------------------------- |
+| Strategy              | SANITIZE only                                  | SANITIZE or REJECT per workspace                         |
+| Workspaces            | Single config                                  | Separate `editWorkspace`/`liveWorkspace` sections        |
+| Format definitions    | Hardcoded (e.g., `HTML_ID`)                    | Configurable in `formatDefinitions`                      |
+| Config files          | `org.jahia.modules.htmlfiltering.config-*.yml` | Three-tier: global default, global custom, site-specific |
+| `htmlSanitizerDryRun` | Available                                      | Removed                                                  |
 
 **GraphQL API change:**
 
 v1 (mutation):
+
 ```graphql
-mutation { htmlFilteringConfiguration { htmlFiltering {
-  testFiltering(siteKey: $siteKey, html: $text) { html, removedElements, removedAttributes { element, attributes } }
-}}}
+mutation {
+  htmlFilteringConfiguration {
+    htmlFiltering {
+      testFiltering(siteKey: $siteKey, html: $text) {
+        html
+        removedElements
+        removedAttributes {
+          element
+          attributes
+        }
+      }
+    }
+  }
+}
 ```
 
 v2 (query):
+
 ```graphql
-query { htmlFiltering {
-  validate(html: $html, workspace: $workspace, siteKey: $siteKey) {
-    sanitizedHtml, removedTags, removedAttributes { attributes, tag }, safe
+query {
+  htmlFiltering {
+    validate(html: $html, workspace: $workspace, siteKey: $siteKey) {
+      sanitizedHtml
+      removedTags
+      removedAttributes {
+        attributes
+        tag
+      }
+      safe
+    }
   }
-}}
+}
 ```
 
 **Migration steps:**
+
 1. Review existing v1 configs; note all custom rules.
 2. Create `org.jahia.modules.htmlfiltering.global.custom.yml` for global customizations.
 3. Create `org.jahia.modules.htmlfiltering.site-<SITE_KEY>.yml` for site-specific rules.
@@ -536,6 +599,7 @@ connect-src 'self' https://*.google-analytics.com https://*.googletagmanager.com
 The `'nonce-'` string is a placeholder — Jahia replaces it with a generated random value per request.
 
 **References:**
+
 - MDN CSP: https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
 - OWASP CSP Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html
 - CSP Reference: https://content-security-policy.com/

@@ -1,21 +1,21 @@
-import {jahiaComponent} from "@jahia/javascript-modules-library";
-import {type BaseValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
-import HelpText, {helpTextId} from "~/design/HelpText";
+import { jahiaComponent } from "@jahia/javascript-modules-library";
+import { type BaseValidationMessageProps, validationDataAttributes } from "~/utils/validationProps";
+import HelpText, { helpTextId } from "~/design/HelpText";
 
 interface InputColorProps extends BaseValidationMessageProps {
 	"jcr:title"?: string;
-	helpText?: string;
-	defaultValue?: string;
-	alpha?: boolean;
-	colorspace?: string;
-	required?: boolean;
+	"helpText"?: string;
+	"defaultValue"?: string;
+	"alpha"?: boolean;
+	"colorspace"?: string;
+	"required"?: boolean;
 }
 
 jahiaComponent(
 	{
 		componentType: "view",
 		nodeType: "fmdb:inputColor",
-		name: "default"
+		name: "default",
 	},
 	(
 		{
@@ -27,9 +27,8 @@ jahiaComponent(
 			required,
 			...validationMsgs
 		}: InputColorProps,
-		{currentNode}
+		{ currentNode },
 	) => {
-
 		// Generate unique id and name for the input
 		const inputId = `input-${currentNode.getIdentifier()}`;
 		const inputName = currentNode.getName();
@@ -41,11 +40,15 @@ jahiaComponent(
 				{label && (
 					<label htmlFor={inputId} className="fmdb-form-label">
 						{label}
-						{required && <span className="fmdb-required-indicator" aria-hidden="true">*</span>}
+						{required && (
+							<span className="fmdb-required-indicator" aria-hidden="true">
+								*
+							</span>
+						)}
 					</label>
 				)}
 
-				<HelpText id={helpId} text={helpText}/>
+				<HelpText id={helpId} text={helpText} />
 
 				<input
 					type="color"
@@ -61,5 +64,5 @@ jahiaComponent(
 				/>
 			</div>
 		);
-	}
+	},
 );

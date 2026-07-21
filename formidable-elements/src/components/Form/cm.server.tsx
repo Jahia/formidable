@@ -1,4 +1,4 @@
-import {jahiaComponent, Render} from "@jahia/javascript-modules-library";
+import { jahiaComponent, Render } from "@jahia/javascript-modules-library";
 
 jahiaComponent(
 	{
@@ -7,7 +7,5 @@ jahiaComponent(
 		name: "cm",
 		displayName: "jContent internal view",
 	},
-	(_, {currentNode}) => (
-		<Render node={currentNode}/>
-	),
+	(_, { currentNode }) => <Render node={currentNode} />,
 );

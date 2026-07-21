@@ -97,15 +97,18 @@ Common violations in Jahia JS modules and their fixes:
 ### 🔴 Critical / Serious
 
 **`color-contrast`** — text fails WCAG AA contrast ratio (4.5:1 for normal text, 3:1 for large text)
+
 ```css
 /* Bad */
-color: #aaa; background: #fff;
+color: #aaa;
+background: #fff;
 
 /* Fix — use a contrast checker: https://webaim.org/resources/contrastchecker/ */
 color: #595959; /* 7:1 ratio on white */
 ```
 
 **`image-alt`** — `<img>` missing `alt` attribute
+
 ```tsx
 /* Bad */
 <img src={buildNodeUrl(props.image)} />
@@ -113,9 +116,11 @@ color: #595959; /* 7:1 ratio on white */
 /* Fix — use content from CND, fall back to empty string for decorative */
 <img src={buildNodeUrl(props.image)} alt={props.imageAlt ?? ""} />
 ```
+
 Add `- imageAlt (string) i18n` to the CND and `imageAlt?: string` to `types.ts`.
 
 **`button-name`** — `<button>` or `<a>` is empty (icon-only without label)
+
 ```tsx
 /* Bad */
 <button><svg>...</svg></button>
@@ -125,20 +130,21 @@ Add `- imageAlt (string) i18n` to the CND and `imageAlt?: string` to `types.ts`.
 ```
 
 **`landmark-one-main`** — page has no `<main>` landmark
+
 ```tsx
 /* Fix — wrap page content in <main> */
-<main id="main-content">
-  {/* page content */}
-</main>
+<main id="main-content">{/* page content */}</main>
 ```
 
 **`page-has-heading-one`** — page has no `<h1>` element
+
 ```tsx
 /* Fix — ensure the hero or first section renders an <h1> */
 <h1>{props.title}</h1>
 ```
 
 **`link-name`** — `<a>` with no accessible text
+
 ```tsx
 /* Bad */
 <a href={url}><img src="..." /></a>
@@ -150,6 +156,7 @@ Add `- imageAlt (string) i18n` to the CND and `imageAlt?: string` to `types.ts`.
 ### 🟡 Moderate
 
 **`heading-order`** — headings skip levels (e.g. `<h1>` → `<h3>`)
+
 ```tsx
 /* Review: the first heading in a component should be h2 (after the page h1) */
 /* Section titles: h2, subsections: h3 */
@@ -159,6 +166,7 @@ Add `- imageAlt (string) i18n` to the CND and `imageAlt?: string` to `types.ts`.
 Wrap page sections in semantic elements: `<header>`, `<nav>`, `<main>`, `<footer>`, `<section aria-label="...">`.
 
 **`list`** — `<ul>` or `<ol>` contains elements other than `<li>`
+
 ```tsx
 /* Bad */
 <ul>
@@ -173,11 +181,14 @@ Wrap page sections in semantic elements: `<header>`, `<nav>`, `<main>`, `<footer
 
 **`html-has-lang`** — `<html>` element missing `lang` attribute  
 This is set at the page template level. Verify the template registered in `src/templates/` includes `lang`:
+
 ```tsx
 /* In the page template */
 <html lang={currentLanguage ?? "en"}>
 ```
+
 Jahia provides the language via `useServerContext()`:
+
 ```tsx
 import { useServerContext } from "@jahia/javascript-modules-library";
 const { currentLanguage } = useServerContext();
@@ -217,13 +228,20 @@ axe-core catches ~30–40% of WCAG issues automatically. Also check manually:
   ```css
   /* Ensure focus ring is never suppressed globally */
   /* Bad */
-  * { outline: none; }
+  * {
+    outline: none;
+  }
   /* Fix — use :focus-visible */
-  :focus-visible { outline: 2px solid #0969da; outline-offset: 2px; }
+  :focus-visible {
+    outline: 2px solid #0969da;
+    outline-offset: 2px;
+  }
   ```
 - **Skip link**: add a "Skip to main content" link as the first focusable element
   ```tsx
-  <a href="#main-content" className={styles.skipLink}>Skip to main content</a>
+  <a href="#main-content" className={styles.skipLink}>
+    Skip to main content
+  </a>
   ```
   ```css
   .skipLink {
@@ -235,7 +253,9 @@ axe-core catches ~30–40% of WCAG issues automatically. Also check manually:
     padding: 8px 16px;
     z-index: 999;
   }
-  .skipLink:focus { top: 0; }
+  .skipLink:focus {
+    top: 0;
+  }
   ```
 - **Motion**: if any CSS animation exists, wrap it in `@media (prefers-reduced-motion: no-preference)`
 - **Touch targets**: interactive elements should be at least 44×44px

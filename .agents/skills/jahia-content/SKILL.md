@@ -25,6 +25,7 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/cms/login
 Run both checks in parallel to understand what's currently in the CMS:
 
 ### A. List available sites
+
 ```bash
 curl -s -u root:root1234 \
   -H "Content-Type: application/json" \
@@ -34,6 +35,7 @@ curl -s -u root:root1234 \
 ```
 
 ### B. List top-level content folders
+
 ```bash
 curl -s -u root:root1234 \
   -H "Content-Type: application/json" \
@@ -60,16 +62,16 @@ curl -s -u root:root1234 \
 
 Use the task description to pick the right skill(s):
 
-| What the user wants to do | Skill |
-|---------------------------|-------|
-| Explore an unknown site's content types, property names, enum values, mixins | **`/jahia-content-explore-structure`** |
-| Find out what content exists, audit the tree, run a search | **`/jahia-content-query-content`** |
-| Create pages, articles, tutorials, folders, populate a site | **`/jahia-content-create-content`** |
-| Move, rename, restructure content into sub-folders | **`/jahia-content-move-content`** |
-| Translate existing content to another language | **`/jahia-content-translate-content`** |
-| Publish content to the live site | Use `publish` mutation (see below) |
-| Delete content | Use `deleteNode` mutation (see below) |
-| Do several of the above in sequence | Run the skills in order — start with **explore-structure** if site is unfamiliar, then create or move |
+| What the user wants to do                                                    | Skill                                                                                                 |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Explore an unknown site's content types, property names, enum values, mixins | **`/jahia-content-explore-structure`**                                                                |
+| Find out what content exists, audit the tree, run a search                   | **`/jahia-content-query-content`**                                                                    |
+| Create pages, articles, tutorials, folders, populate a site                  | **`/jahia-content-create-content`**                                                                   |
+| Move, rename, restructure content into sub-folders                           | **`/jahia-content-move-content`**                                                                     |
+| Translate existing content to another language                               | **`/jahia-content-translate-content`**                                                                |
+| Publish content to the live site                                             | Use `publish` mutation (see below)                                                                    |
+| Delete content                                                               | Use `deleteNode` mutation (see below)                                                                 |
+| Do several of the above in sequence                                          | Run the skills in order — start with **explore-structure** if site is unfamiliar, then create or move |
 
 ---
 
@@ -78,6 +80,7 @@ Use the task description to pick the right skill(s):
 Use these when the task is simple enough to not need a full sub-skill.
 
 ### Publish a node (and all its children)
+
 ```bash
 curl -s -u root:root1234 \
   -H "Content-Type: application/json" \
@@ -87,6 +90,7 @@ curl -s -u root:root1234 \
 ```
 
 ### Publish all content at once
+
 ```bash
 curl -s -u root:root1234 \
   -H "Content-Type: application/json" \
@@ -96,6 +100,7 @@ curl -s -u root:root1234 \
 ```
 
 ### Delete a node
+
 ```bash
 curl -s -u root:root1234 \
   -H "Content-Type: application/json" \
@@ -105,6 +110,7 @@ curl -s -u root:root1234 \
 ```
 
 ### Update a property on an existing node
+
 ```bash
 curl -s -u root:root1234 \
   -H "Content-Type: application/json" \

@@ -1,6 +1,6 @@
-import {type ChangeEvent, useRef, useState} from 'react';
-import {formatFileSize} from '~/utils/fileUtils';
-import {useTranslation} from "react-i18next";
+import { type ChangeEvent, useRef, useState } from "react";
+import { formatFileSize } from "~/utils/fileUtils";
+import { useTranslation } from "react-i18next";
 
 interface FileInputProps {
 	inputId: string;
@@ -13,7 +13,7 @@ interface FileInputProps {
 }
 
 const normalizeAccept = (accept?: string[]): string[] =>
-	(accept ?? []).map(token => token.trim()).filter(Boolean);
+	(accept ?? []).map((token) => token.trim()).filter(Boolean);
 
 const MIME_EXTENSION_MAP: Record<string, string[]> = {
 	"application/msword": [".doc"],
@@ -43,26 +43,30 @@ const getKnownExtensionsForWildcard = (wildcardMimeType: string): string[] => {
 		new Set(
 			Object.entries(MIME_EXTENSION_MAP)
 				.filter(([mimeType]) => mimeType.startsWith(prefix))
-				.flatMap(([, extensions]) => extensions)
-		)
+				.flatMap(([, extensions]) => extensions),
+		),
 	);
 };
 
 const getDisplayFormats = (acceptTokens: string[]): string[] =>
-	Array.from(new Set(acceptTokens.flatMap(token => {
-		const loweredToken = token.toLowerCase();
-		if (loweredToken.startsWith(".")) {
-			return [loweredToken];
-		}
+	Array.from(
+		new Set(
+			acceptTokens.flatMap((token) => {
+				const loweredToken = token.toLowerCase();
+				if (loweredToken.startsWith(".")) {
+					return [loweredToken];
+				}
 
-		if (loweredToken.endsWith("/*")) {
-			const wildcardExtensions = getKnownExtensionsForWildcard(loweredToken);
-			return wildcardExtensions.length > 0 ? wildcardExtensions : [token];
-		}
+				if (loweredToken.endsWith("/*")) {
+					const wildcardExtensions = getKnownExtensionsForWildcard(loweredToken);
+					return wildcardExtensions.length > 0 ? wildcardExtensions : [token];
+				}
 
-		const mimeExtensions = getKnownExtensionsForMime(loweredToken);
-		return mimeExtensions.length > 0 ? mimeExtensions : [token];
-	})));
+				const mimeExtensions = getKnownExtensionsForMime(loweredToken);
+				return mimeExtensions.length > 0 ? mimeExtensions : [token];
+			}),
+		),
+	);
 
 const extensionFromName = (fileName: string): string => {
 	const dotIndex = fileName.lastIndexOf(".");
@@ -85,7 +89,10 @@ const matchesAcceptToken = (file: File, token: string): boolean => {
 		}
 
 		const wildcardExtensions = getKnownExtensionsForWildcard(loweredToken);
-		return wildcardExtensions.length === 0 || wildcardExtensions.some(extension => loweredName.endsWith(extension));
+		return (
+			wildcardExtensions.length === 0 ||
+			wildcardExtensions.some((extension) => loweredName.endsWith(extension))
+		);
 	}
 
 	if (loweredType && loweredType === loweredToken) {
@@ -93,12 +100,15 @@ const matchesAcceptToken = (file: File, token: string): boolean => {
 	}
 
 	const knownExtensions = getKnownExtensionsForMime(loweredToken);
-	return knownExtensions.length === 0 || knownExtensions.some(extension => loweredName.endsWith(extension));
+	return (
+		knownExtensions.length === 0 ||
+		knownExtensions.some((extension) => loweredName.endsWith(extension))
+	);
 };
 
 const deduplicateFiles = (files: File[]): File[] => {
 	const seen = new Set<string>();
-	return files.filter(file => {
+	return files.filter((file) => {
 		const key = `${file.name}-${file.size}-${file.lastModified}`;
 		if (seen.has(key)) {
 			return false;
@@ -109,31 +119,29 @@ const deduplicateFiles = (files: File[]): File[] => {
 	});
 };
 
-export default function FileInput(
-	{
-		inputId,
-		inputName,
-		accept,
-		multiple,
-		required,
-		describedBy,
-		validationAttributes
-	}: FileInputProps
-) {
+export default function FileInput({
+	inputId,
+	inputName,
+	accept,
+	multiple,
+	required,
+	describedBy,
+	validationAttributes,
+}: FileInputProps) {
 	const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
 	const [selectionNotice, setSelectionNotice] = useState<string | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
-	const {t} = useTranslation('formidable-elements', {keyPrefix: 'fmdb_inputFile'});
+	const { t } = useTranslation("formidable-elements", { keyPrefix: "fmdb_inputFile" });
 	const acceptTokens = normalizeAccept(accept);
 	const allowedTypesLabel = getDisplayFormats(acceptTokens)
-		.map(format => `"${format}"`)
+		.map((format) => `"${format}"`)
 		.join(", ");
 
 	const syncInputFiles = (files: File[]) => {
 		if (!fileInputRef.current) return;
 
 		const dt = new DataTransfer();
-		files.forEach(file => dt.items.add(file));
+		files.forEach((file) => dt.items.add(file));
 		fileInputRef.current.files = dt.files;
 		setSelectedFiles(dt.files.length > 0 ? dt.files : null);
 	};
@@ -162,8 +170,10 @@ export default function FileInput(
 			return;
 		}
 
-		const validFiles = newFiles.filter(file => acceptTokens.some(token => matchesAcceptToken(file, token)));
-		const invalidFiles = newFiles.filter(file => !validFiles.includes(file));
+		const validFiles = newFiles.filter((file) =>
+			acceptTokens.some((token) => matchesAcceptToken(file, token)),
+		);
+		const invalidFiles = newFiles.filter((file) => !validFiles.includes(file));
 
 		if (invalidFiles.length === 0) {
 			const merged = deduplicateFiles([...previousFiles, ...validFiles]);
@@ -173,14 +183,19 @@ export default function FileInput(
 			return;
 		}
 
-		const invalidFormats = Array.from(new Set(invalidFiles.map(file => extensionFromName(file.name))))
-			.map(format => `"${format}"`)
+		const invalidFormats = Array.from(
+			new Set(invalidFiles.map((file) => extensionFromName(file.name))),
+		)
+			.map((format) => `"${format}"`)
 			.join(", ");
-		const blockingMessage = t(invalidFiles.length > 1 ? "multipleInvalidFiles" : "singleInvalidFile", {
-			invalidFormats,
-			allowedTypes: allowedTypesLabel,
-			interpolation: {escapeValue: false},
-		});
+		const blockingMessage = t(
+			invalidFiles.length > 1 ? "multipleInvalidFiles" : "singleInvalidFile",
+			{
+				invalidFormats,
+				allowedTypes: allowedTypesLabel,
+				interpolation: { escapeValue: false },
+			},
+		);
 		if (validFiles.length === 0 && previousFiles.length === 0) {
 			syncInputFiles([]);
 			setSelectionNotice(null);
@@ -191,11 +206,13 @@ export default function FileInput(
 
 		const merged = deduplicateFiles([...previousFiles, ...validFiles]);
 		syncInputFiles(merged);
-		setSelectionNotice(t(invalidFiles.length > 1 ? "ignoredMultipleInvalidFiles" : "ignoredSingleInvalidFile", {
-			invalidFormats,
-			allowedTypes: allowedTypesLabel,
-			interpolation: {escapeValue: false},
-		}));
+		setSelectionNotice(
+			t(invalidFiles.length > 1 ? "ignoredMultipleInvalidFiles" : "ignoredSingleInvalidFile", {
+				invalidFormats,
+				allowedTypes: allowedTypesLabel,
+				interpolation: { escapeValue: false },
+			}),
+		);
 		input.setCustomValidity("");
 	};
 
@@ -209,7 +226,7 @@ export default function FileInput(
 		// Filter out the file to remove, then add remaining files
 		Array.from(selectedFiles)
 			.filter((_, i) => i !== index)
-			.forEach(file => dt.items.add(file));
+			.forEach((file) => dt.items.add(file));
 
 		fileInputRef.current.files = dt.files;
 		fileInputRef.current.setCustomValidity("");

@@ -14,29 +14,28 @@
 // ***********************************************************
 
 // Import commands.js using ES2015 syntax:
-import './commands'
-import 'cypress-real-events'
-import 'cypress-wait-until'
+import "./commands";
+import "cypress-real-events";
+import "cypress-wait-until";
 
 // Ensure fetch is always bound to window
-if (typeof window !== 'undefined' && window.fetch) {
-
-	globalThis.fetch = window.fetch.bind(window)
+if (typeof window !== "undefined" && window.fetch) {
+  globalThis.fetch = window.fetch.bind(window);
 }
 
-require('@jahia/cypress/dist/support/registerSupport').registerSupport()
-Cypress.on('uncaught:exception', (/* err, runnable */) => {
-	// Returning false here prevents Cypress from
-	// failing the test
-	return false
-})
-if (Cypress.browser.family === 'chromium') {
-	Cypress.automation('remote:debugger:protocol', {
-		command: 'Network.enable',
-		params: {},
-	})
-	Cypress.automation('remote:debugger:protocol', {
-		command: 'Network.setCacheDisabled',
-		params: {cacheDisabled: true},
-	})
+require("@jahia/cypress/dist/support/registerSupport").registerSupport();
+Cypress.on("uncaught:exception", (/* err, runnable */) => {
+  // Returning false here prevents Cypress from
+  // failing the test
+  return false;
+});
+if (Cypress.browser.family === "chromium") {
+  Cypress.automation("remote:debugger:protocol", {
+    command: "Network.enable",
+    params: {},
+  });
+  Cypress.automation("remote:debugger:protocol", {
+    command: "Network.setCacheDisabled",
+    params: { cacheDisabled: true },
+  });
 }

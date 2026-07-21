@@ -10,6 +10,7 @@ description: Conventions and patterns for building Jahia OSGi UI extensions — 
 You are extending the **jcontent back-office** — adding toolbar actions, admin panels, dialogs, or sidebar panels that editors see inside jcontent / Page Builder. This is **not** about rendering the public-facing site (that is the JS template set track).
 
 Key indicators:
+
 - `@jahia/ui-extender` in `package.json`
 - `@jahia/webpack-config` / `webpack.config.js` (not Vite)
 - Output to `src/main/resources/javascript/apps/`
@@ -19,10 +20,10 @@ Key indicators:
 
 ## React version distinction — critical
 
-| Module type | React version | Build tool | Library |
-|---|---|---|---|
-| **JS template set** (public site) | React **19** | Vite | `@jahia/javascript-modules-library` |
-| **OSGi UI extension** (back-office) | React **18** | Webpack + Module Federation | `@jahia/ui-extender` |
+| Module type                         | React version | Build tool                  | Library                             |
+| ----------------------------------- | ------------- | --------------------------- | ----------------------------------- |
+| **JS template set** (public site)   | React **19**  | Vite                        | `@jahia/javascript-modules-library` |
+| **OSGi UI extension** (back-office) | React **18**  | Webpack + Module Federation | `@jahia/ui-extender`                |
 
 Never mix them. A UI extension that imports React 19 APIs will silently break in jcontent. A template set that uses `@jahia/ui-extender` won't work in the page renderer.
 
@@ -37,18 +38,19 @@ mvn archetype:generate -Dfilter=org.jahia.archetypes:
 ```
 
 At the prompts:
+
 1. Enter `4` → `jahia-reactjs-admin-module-archetype` (Jahia DXP >= 8)
 2. Enter the latest version
 3. Fill in the properties, then confirm with `Y`
 
-| Property | Example | Notes |
-|---|---|---|
-| `artifactId` | `my-ui-extension` | Maven artifact ID and folder name |
-| `moduleName` | `My UI Extension` | Human-readable name shown in Jahia UI |
-| `groupId` | `org.example.modules` | Java package root |
-| `jahiaVersion` | `8.2.0.0` | **Always `8.2.0.0`** — the archetype default is outdated |
-| `version` | `1.0.0-SNAPSHOT` | Module version |
-| `package` | `org.example.modules` | Java package |
+| Property       | Example               | Notes                                                    |
+| -------------- | --------------------- | -------------------------------------------------------- |
+| `artifactId`   | `my-ui-extension`     | Maven artifact ID and folder name                        |
+| `moduleName`   | `My UI Extension`     | Human-readable name shown in Jahia UI                    |
+| `groupId`      | `org.example.modules` | Java package root                                        |
+| `jahiaVersion` | `8.2.0.0`             | **Always `8.2.0.0`** — the archetype default is outdated |
+| `version`      | `1.0.0-SNAPSHOT`      | Module version                                           |
+| `package`      | `org.example.modules` | Java package                                             |
 
 > ⚠️ After generation, update `react` and `react-dom` in `package.json` to `^18.3.1`. The archetype may scaffold an older React 18 minor — always pin to the latest React 18.x.
 
@@ -125,28 +127,29 @@ mvn clean install   # runs yarn build:production via frontend-maven-plugin
 ### webpack.config.js
 
 ```javascript
-const { getModuleFederationConfig } = require('@jahia/webpack-config');
-const packageJson = require('./package.json');
-const ModuleFederationPlugin = require('webpack/lib/container/ModuleFederationPlugin');
+const { getModuleFederationConfig } = require("@jahia/webpack-config");
+const packageJson = require("./package.json");
+const ModuleFederationPlugin = require("webpack/lib/container/ModuleFederationPlugin");
 
 module.exports = (env, argv) => ({
-    entry: { main: './src/javascript/index' },
-    output: {
-        path: path.join(__dirname, 'src/main/resources/javascript/apps/'),
-        publicPath: 'auto',
-        filename: 'jahia.bundle.js',
-        chunkFilename: '[name].jahia.[chunkhash:6].js',
-    },
-    module: {
-        rules: [
-            { test: /\.(js|jsx)$/, use: 'babel-loader', exclude: /node_modules/ },
-            { test: /\.module\.css$/, use: ['style-loader', { loader: 'css-loader', options: { modules: true } }] },
-            { test: /\.css$/, exclude: /\.module\.css$/, use: ['style-loader', 'css-loader'] },
-        ],
-    },
-    plugins: [
-        new ModuleFederationPlugin(getModuleFederationConfig(packageJson)),
+  entry: { main: "./src/javascript/index" },
+  output: {
+    path: path.join(__dirname, "src/main/resources/javascript/apps/"),
+    publicPath: "auto",
+    filename: "jahia.bundle.js",
+    chunkFilename: "[name].jahia.[chunkhash:6].js",
+  },
+  module: {
+    rules: [
+      { test: /\.(js|jsx)$/, use: "babel-loader", exclude: /node_modules/ },
+      {
+        test: /\.module\.css$/,
+        use: ["style-loader", { loader: "css-loader", options: { modules: true } }],
+      },
+      { test: /\.css$/, exclude: /\.module\.css$/, use: ["style-loader", "css-loader"] },
     ],
+  },
+  plugins: [new ModuleFederationPlugin(getModuleFederationConfig(packageJson))],
 });
 ```
 
@@ -183,6 +186,7 @@ module.exports = (env, argv) => ({
 ```
 
 Build scripts in `package.json`:
+
 - `build`: `yarn lint && webpack` (dev — fast, no minification)
 - `build:production`: `webpack --mode=production` (for Maven/CI)
 - `dev`: `webpack --watch` (interactive dev only — never run from an agent)
@@ -205,27 +209,27 @@ yarn build && mvn install -DskipTests
 
 ```javascript
 // src/javascript/index.js
-import { registry } from '@jahia/ui-extender';
+import { registry } from "@jahia/ui-extender";
 
 export default function () {
-    registry.add('callback', 'my-module', {
-        targets: ['jahiaApp-init:50'],   // runs early in jcontent lifecycle
-        callback: async () => {
-            const { default: register } = await import('./init');
-            register();
-        }
-    });
+  registry.add("callback", "my-module", {
+    targets: ["jahiaApp-init:50"], // runs early in jcontent lifecycle
+    callback: async () => {
+      const { default: register } = await import("./init");
+      register();
+    },
+  });
 }
 ```
 
 ```javascript
 // src/javascript/init.js
-import i18next from 'i18next';
-import { registerMyAction } from './MyAction';
+import i18next from "i18next";
+import { registerMyAction } from "./MyAction";
 
 export default async function () {
-    await i18next.loadNamespaces('my-module');   // load translations before registering UI
-    registerMyAction();
+  await i18next.loadNamespaces("my-module"); // load translations before registering UI
+  registerMyAction();
 }
 ```
 
@@ -237,23 +241,24 @@ The `jahiaApp-init:N` priority controls load order. Use 50 for normal modules; u
 
 ```javascript
 // src/javascript/MyAction/registerMyAction.js
-import React from 'react';
-import { registry } from '@jahia/ui-extender';
-import { Download } from '@jahia/moonstone';
-import { MyAction } from './MyAction';
+import React from "react";
+import { registry } from "@jahia/ui-extender";
+import { Download } from "@jahia/moonstone";
+import { MyAction } from "./MyAction";
 
 export const registerMyAction = () => {
-    registry.addOrReplace('action', 'myActionName', {
-        targets: ['contentActions:900'],    // toolbar position (higher number = lower priority)
-        buttonIcon: <Download />,
-        buttonLabel: 'my-module:action.myAction.label',
-        showOnNodeTypes: ['jnt:page'],      // visibility filter
-        component: MyAction,
-    });
+  registry.addOrReplace("action", "myActionName", {
+    targets: ["contentActions:900"], // toolbar position (higher number = lower priority)
+    buttonIcon: <Download />,
+    buttonLabel: "my-module:action.myAction.label",
+    showOnNodeTypes: ["jnt:page"], // visibility filter
+    component: MyAction,
+  });
 };
 ```
 
 Common targets:
+
 - `contentActions:N` — jcontent content toolbar
 - `headerPrimaryActions:N` — jcontent header
 - `publishMenu:N` — publish menu
@@ -263,24 +268,27 @@ Common targets:
 
 ```jsx
 // src/javascript/MyAction/MyAction.jsx
-import React from 'react';
-import { Language } from '@jahia/moonstone';
-import { useNodeChecks } from '@jahia/data-helper';
+import React from "react";
+import { Language } from "@jahia/moonstone";
+import { useNodeChecks } from "@jahia/data-helper";
 
 export const MyAction = ({ path, render: Render, ...otherProps }) => {
-    const { checksResult } = useNodeChecks({ path, Language }, {
-        showOnNodeTypes: ['jnt:page'],
-        hideOnNodeTypes: ['jmix:someExcludedMixin'],
-        hideForPaths: ['^/sites/((?!/).)+/SomeFolder/?$'],  // regex supported
-        requiredPermission: ['myPermission'],                // always an array
-        requireModuleInstalledOnSite: ['my-module'],
-    });
+  const { checksResult } = useNodeChecks(
+    { path, Language },
+    {
+      showOnNodeTypes: ["jnt:page"],
+      hideOnNodeTypes: ["jmix:someExcludedMixin"],
+      hideForPaths: ["^/sites/((?!/).)+/SomeFolder/?$"], // regex supported
+      requiredPermission: ["myPermission"], // always an array
+      requireModuleInstalledOnSite: ["my-module"],
+    },
+  );
 
-    if (Render && checksResult) {
-        return <Render {...otherProps} onClick={handleClick} />;
-    }
+  if (Render && checksResult) {
+    return <Render {...otherProps} onClick={handleClick} />;
+  }
 
-    return null;
+  return null;
 };
 ```
 
@@ -293,16 +301,19 @@ export const MyAction = ({ path, render: Render, ...otherProps }) => {
 All options are optional. An action is visible only when all provided conditions pass.
 
 ```jsx
-const { checksResult } = useNodeChecks({ path, Language }, {
-  showOnNodeTypes: ['jnt:page', 'jnt:file'],
-  hideOnNodeTypes: ['jmix:externalLink'],
-  requiredPermission: ['jcr:write'],               // always use arrays
-  requiredSitePermission: 'adminTemplates',
-  requireModuleInstalledOnSite: ['my-module'],     // always include — scopes to active sites
-  showForPaths: ['/sites/mySite/home'],
-  hideForPaths: ['^/sites/((?!/).)+/Drafts/?$'],   // regex supported
-  hideOnExternal: true,
-});
+const { checksResult } = useNodeChecks(
+  { path, Language },
+  {
+    showOnNodeTypes: ["jnt:page", "jnt:file"],
+    hideOnNodeTypes: ["jmix:externalLink"],
+    requiredPermission: ["jcr:write"], // always use arrays
+    requiredSitePermission: "adminTemplates",
+    requireModuleInstalledOnSite: ["my-module"], // always include — scopes to active sites
+    showForPaths: ["/sites/mySite/home"],
+    hideForPaths: ["^/sites/((?!/).)+/Drafts/?$"], // regex supported
+    hideOnExternal: true,
+  },
+);
 ```
 
 ---
@@ -313,37 +324,37 @@ When an action opens a dialog, use a portal manager — the dialog must be rende
 
 ```javascript
 // dialogManager.js
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { ApolloProvider } from '@apollo/client';
-import { I18nextProvider } from 'react-i18next';
-import i18next from 'i18next';
-import { MyDialog } from './MyDialog';
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { ApolloProvider } from "@apollo/client";
+import { I18nextProvider } from "react-i18next";
+import i18next from "i18next";
+import { MyDialog } from "./MyDialog";
 
 class DialogManager {
-    _init() {
-        if (!this.root) {
-            const container = document.createElement('div');
-            container.id = 'my-module-dialog-root';
-            document.body.appendChild(container);
-            this.root = ReactDOM.createRoot(container);
-        }
+  _init() {
+    if (!this.root) {
+      const container = document.createElement("div");
+      container.id = "my-module-dialog-root";
+      document.body.appendChild(container);
+      this.root = ReactDOM.createRoot(container);
     }
+  }
 
-    open({ path, language, apolloClient }) {
-        this._init();
-        this.root.render(
-            <ApolloProvider client={apolloClient}>
-                <I18nextProvider i18n={i18next}>
-                    <MyDialog path={path} language={language} onClose={() => this.close()} />
-                </I18nextProvider>
-            </ApolloProvider>
-        );
-    }
+  open({ path, language, apolloClient }) {
+    this._init();
+    this.root.render(
+      <ApolloProvider client={apolloClient}>
+        <I18nextProvider i18n={i18next}>
+          <MyDialog path={path} language={language} onClose={() => this.close()} />
+        </I18nextProvider>
+      </ApolloProvider>,
+    );
+  }
 
-    close() {
-        this.root?.render(null);
-    }
+  close() {
+    this.root?.render(null);
+  }
 }
 
 export default new DialogManager();
@@ -353,47 +364,49 @@ export default new DialogManager();
 
 ```jsx
 // MyDialog.jsx
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button } from "@mui/material";
 
 export const MyDialog = ({ path, language, onClose }) => (
-    <Dialog open fullWidth maxWidth="sm" disableEnforceFocus onClose={onClose}>
-        <DialogTitle>...</DialogTitle>
-        <DialogContent>...</DialogContent>
-        <DialogActions>
-            <Button onClick={onClose}>Cancel</Button>
-            <Button variant="contained" onClick={handleAction}>Confirm</Button>
-        </DialogActions>
-    </Dialog>
+  <Dialog open fullWidth maxWidth="sm" disableEnforceFocus onClose={onClose}>
+    <DialogTitle>...</DialogTitle>
+    <DialogContent>...</DialogContent>
+    <DialogActions>
+      <Button onClick={onClose}>Cancel</Button>
+      <Button variant="contained" onClick={handleAction}>
+        Confirm
+      </Button>
+    </DialogActions>
+  </Dialog>
 );
 ```
 
 ---
 
-## Runtime APIs (window.jahia.*)
+## Runtime APIs (window.jahia.\*)
 
 These are injected by jcontent at runtime. Always check for existence before calling.
 
 ```javascript
 // Toast notification
 if (window.jahia?.toastDispatcher) {
-    window.jahia.toastDispatcher.add({
-        message: t('myMessage'),
-        variant: 'success'   // 'success' | 'error' | 'warning' | 'info'
-    });
+  window.jahia.toastDispatcher.add({
+    message: t("myMessage"),
+    variant: "success", // 'success' | 'error' | 'warning' | 'info'
+  });
 }
 
 // JCR node/folder picker
 if (window.CE_API?.openPicker) {
-    window.CE_API.openPicker({
-        type: 'folder',           // 'folder' | 'image' | 'file' | 'page' | 'content'
-        isMultiple: false,
-        site: window.contextJsParameters?.siteKey,
-        lang: window.contextJsParameters?.uilang,
-        initialSelectedItem: [],
-        setValue: ([selected]) => {
-            if (selected?.path) setPath(selected.path);
-        }
-    });
+  window.CE_API.openPicker({
+    type: "folder", // 'folder' | 'image' | 'file' | 'page' | 'content'
+    isMultiple: false,
+    site: window.contextJsParameters?.siteKey,
+    lang: window.contextJsParameters?.uilang,
+    initialSelectedItem: [],
+    setValue: ([selected]) => {
+      if (selected?.path) setPath(selected.path);
+    },
+  });
 }
 
 // Runtime context
@@ -529,6 +542,7 @@ try {
 ## Validation checklist
 
 ### JavaScript side
+
 - [ ] `package.json` lists React 18, not 19
 - [ ] `@jahia/webpack-config` used for Module Federation
 - [ ] Entry point registers at `jahiaApp-init:N` via `registry.add('callback', ...)`
@@ -541,6 +555,7 @@ try {
 - [ ] Webpack output goes to `src/main/resources/javascript/apps/`
 
 ### Java side
+
 - [ ] Action class: `@Component(service = Action.class)`, `getName()` matches CSRF whitelist key
 - [ ] CSRF Guard config file present and correctly named
 - [ ] RenderContext set in order: site → workspace → servletPath → mainResource

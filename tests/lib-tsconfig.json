@@ -18,8 +18,6 @@
       "cypress-wait-until"
     ]
   },
-  "include": [
-    "./cypress/page-object/**/*"
-  ],
-   "exclude": [ "node_modules" ]
+  "include": ["./cypress/page-object/**/*"],
+  "exclude": ["node_modules"]
 }

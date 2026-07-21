@@ -1,1 +1,1 @@
-export {DeleteResultsDialog} from './DeleteResultsDialog';
+export { DeleteResultsDialog } from "./DeleteResultsDialog";

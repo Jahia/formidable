@@ -1,4 +1,4 @@
-import {useEffect, useImperativeHandle, useRef} from 'react';
+import { useEffect, useImperativeHandle, useRef } from "react";
 
 export interface CaptchaHandle {
 	getToken: () => string;
@@ -13,35 +13,51 @@ interface CaptchaProps {
 	ref?: React.Ref<CaptchaHandle>;
 }
 
-export default function Captcha({siteKey, widgetVar, onVerify, onExpire, ref}: CaptchaProps) {
+export default function Captcha({ siteKey, widgetVar, onVerify, onExpire, ref }: CaptchaProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
-	const tokenRef = useRef('');
+	const tokenRef = useRef("");
 	const widgetIdRef = useRef<string | undefined>(undefined);
 
-	useImperativeHandle(ref, () => ({
-		getToken: () => tokenRef.current,
-		reset: () => {
-			tokenRef.current = '';
-			onExpire?.();
-			const api = (window as unknown as Record<string, unknown>)[widgetVar] as CaptchaWidgetApi | undefined;
-			api?.reset?.(widgetIdRef.current);
-		}
-	}), [widgetVar, onExpire]);
+	useImperativeHandle(
+		ref,
+		() => ({
+			getToken: () => tokenRef.current,
+			reset: () => {
+				tokenRef.current = "";
+				onExpire?.();
+				const api = (window as unknown as Record<string, unknown>)[widgetVar] as
+					| CaptchaWidgetApi
+					| undefined;
+				api?.reset?.(widgetIdRef.current);
+			},
+		}),
+		[widgetVar, onExpire],
+	);
 
 	useEffect(() => {
 		const el = containerRef.current;
 		if (!el) return;
 
-		const api = (window as unknown as Record<string, unknown>)[widgetVar] as CaptchaWidgetApi | undefined;
+		const api = (window as unknown as Record<string, unknown>)[widgetVar] as
+			| CaptchaWidgetApi
+			| undefined;
 		if (!api?.render) {
-			console.warn(`[Formidable] Captcha widget "window.${widgetVar}" not found. Check captchaWidgetVar in your configuration.`);
+			console.warn(
+				`[Formidable] Captcha widget "window.${widgetVar}" not found. Check captchaWidgetVar in your configuration.`,
+			);
 			return;
 		}
 
 		const opts: RenderOptions = {
-			'sitekey': siteKey,
-			'callback': token => { tokenRef.current = token; onVerify?.(); },
-			'expired-callback': () => { tokenRef.current = ''; onExpire?.(); },
+			"sitekey": siteKey,
+			"callback": (token) => {
+				tokenRef.current = token;
+				onVerify?.();
+			},
+			"expired-callback": () => {
+				tokenRef.current = "";
+				onExpire?.();
+			},
 		};
 
 		widgetIdRef.current = String(api.render(el, opts));
@@ -56,7 +72,7 @@ export default function Captcha({siteKey, widgetVar, onVerify, onExpire, ref}: C
 
 	return (
 		<div className="fmdb-form-group fmdb-captcha">
-			<div ref={containerRef}/>
+			<div ref={containerRef} />
 		</div>
 	);
 }

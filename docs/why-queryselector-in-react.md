@@ -48,12 +48,12 @@ or server-rendered markup — all cases where direct DOM access is the standard 
 
 ## Alternatives considered
 
-| Approach | Why it was not chosen |
-|---|---|
-| Shared React context / provider | Impossible — Islands are separate React roots that do not share a provider tree. |
-| Global state store (e.g. Zustand) | Adds a dependency and synchronization layer for a problem that `data-*` attributes solve simply. |
-| Custom DOM events | Viable but more complex — each field would need to emit events and the Form would need listeners. Provides no benefit over reading `data-*` attributes directly. |
-| Single React root for the entire form | Would break the Island architecture and require all field components to be client-side, losing the benefits of server-side rendering. |
+| Approach                              | Why it was not chosen                                                                                                                                            |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shared React context / provider       | Impossible — Islands are separate React roots that do not share a provider tree.                                                                                 |
+| Global state store (e.g. Zustand)     | Adds a dependency and synchronization layer for a problem that `data-*` attributes solve simply.                                                                 |
+| Custom DOM events                     | Viable but more complex — each field would need to emit events and the Form would need listeners. Provides no benefit over reading `data-*` attributes directly. |
+| Single React root for the entire form | Would break the Island architecture and require all field components to be client-side, losing the benefits of server-side rendering.                            |
 
 ## Summary
 
@@ -62,4 +62,3 @@ Jahia's Island rendering model. It is scoped to the `<form>` element (never the 
 document), and limited to reading `data-*` attributes and toggling visibility. This keeps
 the implementation simple and avoids introducing unnecessary abstractions across isolated
 React roots.
-

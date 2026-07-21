@@ -1,7 +1,7 @@
-import {useCallback, useEffect, useRef, useState} from 'react';
-import type {ReactNode} from "react";
-import {useTranslation} from "react-i18next";
-import HelpText from '~/design/HelpText';
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import HelpText from "~/design/HelpText";
 
 interface CheckboxClientProps {
 	label?: string;
@@ -12,10 +12,17 @@ interface CheckboxClientProps {
 	children: ReactNode;
 }
 
-export default function Checkbox({ label, required = false, errorMessage, helpText, helpId, children }: CheckboxClientProps) {
+export default function Checkbox({
+	label,
+	required = false,
+	errorMessage,
+	helpText,
+	helpId,
+	children,
+}: CheckboxClientProps) {
 	const [isValid, setIsValid] = useState(true);
 	const fieldsetRef = useRef<HTMLFieldSetElement>(null);
-	const {t} = useTranslation("formidable-elements", { keyPrefix: "fmdb_inputCheckbox" });
+	const { t } = useTranslation("formidable-elements", { keyPrefix: "fmdb_inputCheckbox" });
 
 	const validateGroup = useCallback(
 		(checkboxes: HTMLInputElement[]) => {
@@ -23,9 +30,7 @@ export default function Checkbox({ label, required = false, errorMessage, helpTe
 
 			// Priority: data attribute from mixin > errorMessage prop > i18n fallback
 			const validationMessage =
-				checkboxes[0]?.getAttribute('data-fmdb-msg-value-missing')
-				|| errorMessage
-				|| t("error");
+				checkboxes[0]?.getAttribute("data-fmdb-msg-value-missing") || errorMessage || t("error");
 
 			checkboxes.forEach((checkbox) => {
 				checkbox.setCustomValidity(hasChecked ? "" : validationMessage);
@@ -86,7 +91,7 @@ export default function Checkbox({ label, required = false, errorMessage, helpTe
 					)}
 				</legend>
 			)}
-			<HelpText id={helpId} text={helpText}/>
+			<HelpText id={helpId} text={helpText} />
 			{children}
 		</fieldset>
 	);

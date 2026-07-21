@@ -1,6 +1,7 @@
 # Jahia UI Extensions Reference
 
 ## Table of Contents
+
 1. [Overview: two extension layers](#1-overview-two-extension-layers)
 2. [Component registry](#2-component-registry)
 3. [Content Editor JSON overrides](#3-content-editor-json-overrides)
@@ -17,10 +18,10 @@
 
 ## 1. Overview: two extension layers
 
-| Mechanism | What it controls | Format |
-|-----------|-----------------|--------|
-| **Content Editor JSON overrides** | Form layout, field visibility, labels, sections, field order | JSON files in module JAR |
-| **Component registry** | Actions, accordions, nav items, selectors, routes, settings pages | JavaScript (React/JSX) |
+| Mechanism                         | What it controls                                                  | Format                   |
+| --------------------------------- | ----------------------------------------------------------------- | ------------------------ |
+| **Content Editor JSON overrides** | Form layout, field visibility, labels, sections, field order      | JSON files in module JAR |
+| **Component registry**            | Actions, accordions, nav items, selectors, routes, settings pages | JavaScript (React/JSX)   |
 
 The component registry lives in the JavaScript layer. JSON overrides live in the Java module under `META-INF/jahia-content-editor-forms/`.
 
@@ -29,50 +30,51 @@ The component registry lives in the JavaScript layer. JSON overrides live in the
 ## 2. Component registry
 
 ```javascript
-import { registry } from '@jahia/ui-extender';
+import { registry } from "@jahia/ui-extender";
 
-registry.add('action', 'myAction', myActionObj, {
-    targets: ['contentActions:5'],
-    label: 'myModule:myAction.label'
+registry.add("action", "myAction", myActionObj, {
+  targets: ["contentActions:5"],
+  label: "myModule:myAction.label",
 });
 
-registry.addOrReplace('adminRoute', 'mySettings', {
-    targets: ['administration-sites:10'],
-    label: 'myModule:settings.label',
-    isSelectable: true,
-    iframeUrl: window.contextJsParameters.contextPath + '/cms/adminframe/default/en/settings.myPage.html'
+registry.addOrReplace("adminRoute", "mySettings", {
+  targets: ["administration-sites:10"],
+  label: "myModule:settings.label",
+  isSelectable: true,
+  iframeUrl:
+    window.contextJsParameters.contextPath + "/cms/adminframe/default/en/settings.myPage.html",
 });
 
-const existing = registry.get('action', 'createContent');
-const allActions = registry.find({ target: 'contentActions' });
-registry.remove('action', 'myAction');
+const existing = registry.get("action", "createContent");
+const allActions = registry.find({ target: "contentActions" });
+registry.remove("action", "myAction");
 ```
 
 ### Registration timing
 
 ```javascript
-import { registry } from '@jahia/ui-extender';
-import register from './myModule.register';
+import { registry } from "@jahia/ui-extender";
+import register from "./myModule.register";
 
 export default function () {
-    registry.add('callback', 'myModule', {
-        targets: ['jahiaApp-init:50'],
-        callback: register
-    });
+  registry.add("callback", "myModule", {
+    targets: ["jahiaApp-init:50"],
+    callback: register,
+  });
 }
 ```
 
 ### Common registry types
 
-| Type | Purpose |
-|------|---------|
-| `action` | UI action in menus, headers, or toolbars |
-| `selectorType` | Custom field input in Content Editor |
-| `adminRoute` | Admin panel page |
-| `route` | Custom top-level route |
-| `primary-nav-item` | Top-level navigation entry |
-| `accordionItem` | Secondary navigation accordion in jContent |
-| `callback` | Initialization callback |
+| Type               | Purpose                                    |
+| ------------------ | ------------------------------------------ |
+| `action`           | UI action in menus, headers, or toolbars   |
+| `selectorType`     | Custom field input in Content Editor       |
+| `adminRoute`       | Admin panel page                           |
+| `route`            | Custom top-level route                     |
+| `primary-nav-item` | Top-level navigation entry                 |
+| `accordionItem`    | Secondary navigation accordion in jContent |
+| `callback`         | Initialization callback                    |
 
 ---
 
@@ -126,13 +128,13 @@ Naming convention: replace `:` with `_` — `jnt:article` → `jnt_article.json`
 
 ### Key override actions
 
-| Goal | JSON |
-|------|------|
-| Hide a section | `{"name": "layout", "hide": true}` |
-| Hide a field | In field: `"hide": true` |
-| Make a field mandatory | In field: `"mandatory": true` |
-| Reorder a field | In field: `"rank": 3.0` |
-| Change a field label | In field: `"labelKey": "basename:myKey"` |
+| Goal                   | JSON                                     |
+| ---------------------- | ---------------------------------------- |
+| Hide a section         | `{"name": "layout", "hide": true}`       |
+| Hide a field           | In field: `"hide": true`                 |
+| Make a field mandatory | In field: `"mandatory": true`            |
+| Reorder a field        | In field: `"rank": 3.0`                  |
+| Change a field label   | In field: `"labelKey": "basename:myKey"` |
 
 ### `declaringNodeType` requirement
 
@@ -158,14 +160,14 @@ Use when the field comes from a mixin or parent type:
 ### Adding an accordion
 
 ```javascript
-const baseAccordion = registry.get('accordionItem', 'pages');
-registry.add('accordionItem', 'myCustomAccordion', baseAccordion, {
-    targets: ['jcontent:99'],
-    label: 'myModule:accordion.label',
-    rootPath: '/sites/{site}/contents/my-section',
-    requiredSitePermission: 'myCustomPermission',
-    isEnabled: (siteKey) => siteKey !== 'systemsite',
-    treeConfig: Object.assign({}, baseAccordion.treeConfig, { hideRoot: false })
+const baseAccordion = registry.get("accordionItem", "pages");
+registry.add("accordionItem", "myCustomAccordion", baseAccordion, {
+  targets: ["jcontent:99"],
+  label: "myModule:accordion.label",
+  rootPath: "/sites/{site}/contents/my-section",
+  requiredSitePermission: "myCustomPermission",
+  isEnabled: (siteKey) => siteKey !== "systemsite",
+  treeConfig: Object.assign({}, baseAccordion.treeConfig, { hideRoot: false }),
 });
 ```
 
@@ -177,26 +179,26 @@ registry.add('accordionItem', 'myCustomAccordion', baseAccordion, {
 
 ### Available action targets
 
-| Target | Location |
-|--------|----------|
+| Target                      | Location                          |
+| --------------------------- | --------------------------------- |
 | `contentItemContextActions` | Right-click menu on content items |
-| `contentItemActions` | Three-dot menu on content items |
-| `browseControlBar` | Three-dot menu in header |
-| `headerPrimaryActions` | Header primary action buttons |
-| `selectedContentActions` | Actions for selected content |
-| `publishMenu` | Publish dropdown menu items |
+| `contentItemActions`        | Three-dot menu on content items   |
+| `browseControlBar`          | Three-dot menu in header          |
+| `headerPrimaryActions`      | Header primary action buttons     |
+| `selectedContentActions`    | Actions for selected content      |
+| `publishMenu`               | Publish dropdown menu items       |
 
 ### Registering an action
 
 ```javascript
-registry.add('action', 'myCustomAction', {
-    buttonLabel: 'myModule:actions.myAction.label',
-    targets: ['contentItemActions:5', 'contentItemContextActions:5'],
-    showOnNodeTypes: ['jnt:article', 'jnt:page'],
-    requiredPermission: ['jcr:modifyProperties'],
-    onClick: ({ path, paths, client, notificationContext }) => {
-        console.log('Action on:', path);
-    }
+registry.add("action", "myCustomAction", {
+  buttonLabel: "myModule:actions.myAction.label",
+  targets: ["contentItemActions:5", "contentItemContextActions:5"],
+  showOnNodeTypes: ["jnt:article", "jnt:page"],
+  requiredPermission: ["jcr:modifyProperties"],
+  onClick: ({ path, paths, client, notificationContext }) => {
+    console.log("Action on:", path);
+  },
 });
 ```
 
@@ -205,49 +207,51 @@ registry.add('action', 'myCustomAction', {
 ## 6. Adding settings pages (admin routes)
 
 ```javascript
-registry.add('adminRoute', 'mySettings', {
-    targets: ['administration-sites:50'],
-    requiredPermission: 'adminTemplates',
-    label: 'myModule:settings.label',
-    isSelectable: true,
-    render: () => <MySettingsPage/>
+registry.add("adminRoute", "mySettings", {
+  targets: ["administration-sites:50"],
+  requiredPermission: "adminTemplates",
+  label: "myModule:settings.label",
+  isSelectable: true,
+  render: () => <MySettingsPage />,
 });
 ```
 
 ### iFrame-based admin route
 
 ```javascript
-registry.add('adminRoute', 'myLegacySettings', {
-    targets: ['administration-server-systemComponents:10'],
-    requiredPermission: 'adminTemplates',
-    label: 'myModule:legacy.label',
-    isSelectable: true,
-    iframeUrl: window.contextJsParameters.contextPath +
-        '/cms/adminframe/default/$lang/settings.myLegacyPage.html?redirect=false'
+registry.add("adminRoute", "myLegacySettings", {
+  targets: ["administration-server-systemComponents:10"],
+  requiredPermission: "adminTemplates",
+  label: "myModule:legacy.label",
+  isSelectable: true,
+  iframeUrl:
+    window.contextJsParameters.contextPath +
+    "/cms/adminframe/default/$lang/settings.myLegacyPage.html?redirect=false",
 });
 ```
 
 ### Administration target groups
 
-| Target group | Description |
-|-------------|-------------|
-| `administration-server-usersAndRoles` | Server > Users and Roles |
+| Target group                             | Description                |
+| ---------------------------------------- | -------------------------- |
+| `administration-server-usersAndRoles`    | Server > Users and Roles   |
 | `administration-server-systemComponents` | Server > System Components |
-| `administration-sites` | Sites section |
+| `administration-sites`                   | Sites section              |
 
 ---
 
 ## 7. Custom selector types
 
 ```javascript
-registry.add('selectorType', 'MyColorPicker', {
-    targets: ['BuiltInTypes:10'],
-    cmp: MyColorPickerComponent,
-    supportedTypes: ['String'],
+registry.add("selectorType", "MyColorPicker", {
+  targets: ["BuiltInTypes:10"],
+  cmp: MyColorPickerComponent,
+  supportedTypes: ["String"],
 });
 ```
 
 Reference in CND:
+
 ```cnd
 - myColor (string, MyColorPicker)
 ```
@@ -257,15 +261,16 @@ Reference in CND:
 ## 8. Custom picker configuration
 
 ```javascript
-registry.add('pickerConfig', 'myPicker', {
-    accordionItem: 'pages',
-    searchSelectorType: ['jnt:article', 'jnt:page'],
-    selectableTypes: ['jnt:article'],
-    openableTypes: ['jnt:page', 'jnt:contentFolder']
+registry.add("pickerConfig", "myPicker", {
+  accordionItem: "pages",
+  searchSelectorType: ["jnt:article", "jnt:page"],
+  selectableTypes: ["jnt:article"],
+  openableTypes: ["jnt:page", "jnt:contentFolder"],
 });
 ```
 
 Reference in CND:
+
 ```cnd
 - relatedArticle (weakreference, picker[type='myPicker'])
 ```
@@ -299,9 +304,9 @@ public class MyDynamicExtractor implements DynamicFieldSetExtractor {
 ### CKEditor 5 (Jahia 8.2+)
 
 ```javascript
-registry.add('ckeditor5Plugin', 'myPlugin', {
-    plugin: MyCKEditorPlugin,
-    config: { toolbar: { items: ['myButton'] } }
+registry.add("ckeditor5Plugin", "myPlugin", {
+  plugin: MyCKEditorPlugin,
+  config: { toolbar: { items: ["myButton"] } },
 });
 ```
 
@@ -316,6 +321,7 @@ Place custom configuration in `src/main/resources/javascript/ckeditor/config.js`
 ### Checking JSON override registration
 
 Look in Jahia startup logs for `StaticDefinitionsRegistry` entries:
+
 ```
 INFO  [StaticDefinitionsRegistry] - Successfully loaded static form for name myns:myContent
 ```
@@ -328,7 +334,15 @@ INFO  [StaticDefinitionsRegistry] - Successfully loaded static form for name myn
     editForm(uiLocale: "en", locale: "en", uuidOrPath: "/sites/mySite/home/myContent") {
       sections {
         name
-        fieldSets { name fields { name selectorType mandatory hide } }
+        fieldSets {
+          name
+          fields {
+            name
+            selectorType
+            mandatory
+            hide
+          }
+        }
       }
     }
   }
@@ -338,7 +352,7 @@ INFO  [StaticDefinitionsRegistry] - Successfully loaded static form for name myn
 ### Inspecting the component registry in browser console
 
 ```javascript
-window.jahia.uiExtender.registry.find({ type: 'action' });
-window.jahia.uiExtender.registry.get('accordionItem', 'pages');
-window.jahia.uiExtender.registry.find({ target: 'contentItemActions' });
+window.jahia.uiExtender.registry.find({ type: "action" });
+window.jahia.uiExtender.registry.get("accordionItem", "pages");
+window.jahia.uiExtender.registry.find({ target: "contentItemActions" });
 ```

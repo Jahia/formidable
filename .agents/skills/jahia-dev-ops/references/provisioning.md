@@ -98,9 +98,10 @@ curl -u root:changeme \
 ### Create a virtual site
 
 > ⚠️ **CRITICAL — Jahia 8.2 syntax**: use `- createSite: ""` with properties at the **same indentation level**. There are **two common mistakes that both silently return HTTP 200 but create nothing**:
+>
 > - ❌ `- createSite:` with nested properties (missing `""`)
 > - ❌ `- createVirtualSite:` (old name, no longer valid)
-> 
+>
 > **Always use a file-based approach** to avoid shell quoting issues:
 
 ```bash

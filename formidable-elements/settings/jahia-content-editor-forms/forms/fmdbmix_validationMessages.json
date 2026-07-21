@@ -5,14 +5,12 @@
 		{
 			"name": "validationMessages",
 			"labelKey": "fmdb.section.validationMessages",
-			"rank": 1.50,
+			"rank": 1.5,
 			"fieldSets": [
 				{
 					"name": "required",
 					"rank": 0.0,
-					"fields": [
-						{ "name": "msgValueMissing" }
-					]
+					"fields": [{ "name": "msgValueMissing" }]
 				}
 			]
 		}

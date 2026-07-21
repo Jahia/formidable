@@ -1,4 +1,4 @@
-import {useEffect, useRef} from "react";
+import { useEffect, useRef } from "react";
 
 interface UseMaskOptions {
 	mask?: string;
@@ -13,15 +13,16 @@ interface MaskConfig {
 // Define mask pattern configurations
 // Each character in the mask corresponds to a specific input validation rule
 const MASK_PATTERNS: Record<string, MaskConfig> = {
-	'9': {pattern: /\d/}, // Digit only (0-9)
-	'A': {pattern: /[a-zA-Z]/, transform: (char) => char.toUpperCase()}, // Letter converted to uppercase
-	'a': {pattern: /[a-zA-Z]/, transform: (char) => char.toLowerCase()}, // Letter converted to lowercase
-	'X': {pattern: /[a-zA-Z0-9]/, transform: (char) => char.toUpperCase()}, // Alphanumeric uppercase
-	'x': {pattern: /[a-zA-Z0-9]/, transform: (char) => char.toLowerCase()} // Alphanumeric lowercase
+	"9": { pattern: /\d/ }, // Digit only (0-9)
+	"A": { pattern: /[a-zA-Z]/, transform: (char) => char.toUpperCase() }, // Letter converted to uppercase
+	"a": { pattern: /[a-zA-Z]/, transform: (char) => char.toLowerCase() }, // Letter converted to lowercase
+	"X": { pattern: /[a-zA-Z0-9]/, transform: (char) => char.toUpperCase() }, // Alphanumeric uppercase
+	"x": { pattern: /[a-zA-Z0-9]/, transform: (char) => char.toLowerCase() }, // Alphanumeric lowercase
 };
 
 /**
  * Apply mask pattern to input value
+ *
  * @param value - Raw input value
  * @param mask - Mask pattern (e.g., "(99) 9999-9999")
  * @returns Formatted value according to mask
@@ -29,7 +30,7 @@ const MASK_PATTERNS: Record<string, MaskConfig> = {
 const applyMask = (value: string, mask: string): string => {
 	if (!mask) return value;
 
-	let maskedValue = '';
+	let maskedValue = "";
 	let valueIndex = 0;
 
 	// Iterate through each character in the mask pattern
@@ -59,15 +60,13 @@ const applyMask = (value: string, mask: string): string => {
 };
 
 /**
- * Custom hook for input masking functionality
- * Provides input ref, event handler, and value formatting utilities
+ * Custom hook for input masking functionality Provides input ref, event handler, and value
+ * formatting utilities
  */
-export const useMask = ({mask, defaultValue}: UseMaskOptions) => {
+export const useMask = ({ mask, defaultValue }: UseMaskOptions) => {
 	const inputRef = useRef<HTMLInputElement>(null);
 
-	/**
-	 * Handle input events and apply mask formatting in real-time
-	 */
+	/** Handle input events and apply mask formatting in real-time */
 	const handleInput = (e: React.FormEvent<HTMLInputElement>) => {
 		if (!mask) return;
 
@@ -75,7 +74,7 @@ export const useMask = ({mask, defaultValue}: UseMaskOptions) => {
 		const cursorPos = input.selectionStart || 0;
 
 		// Remove non-alphanumeric characters to get raw value
-		const rawValue = input.value.replace(/[^\w]/g, '');
+		const rawValue = input.value.replace(/[^\w]/g, "");
 		const maskedValue = applyMask(rawValue, mask);
 
 		// Update input value with formatted result
@@ -91,7 +90,7 @@ export const useMask = ({mask, defaultValue}: UseMaskOptions) => {
 	// Apply mask to default value on component mount
 	useEffect(() => {
 		if (mask && inputRef.current && defaultValue) {
-			const rawValue = defaultValue.replace(/[^\w]/g, '');
+			const rawValue = defaultValue.replace(/[^\w]/g, "");
 			inputRef.current.value = applyMask(rawValue, mask);
 		}
 	}, [mask, defaultValue]);
@@ -100,6 +99,6 @@ export const useMask = ({mask, defaultValue}: UseMaskOptions) => {
 		inputRef,
 		handleInput,
 		// Utility function to format values programmatically
-		formatValue: (value: string) => mask ? applyMask(value || '', mask) : value
+		formatValue: (value: string) => (mask ? applyMask(value || "", mask) : value),
 	};
 };

@@ -78,13 +78,13 @@ export const apolloClient = (token: string): ApolloClient => {
     link: new HttpLink({
       uri: `JAHIA_URL/modules/graphql`,
       headers: {
-        authorization: `APIToken ${token}`
-      }
+        authorization: `APIToken ${token}`,
+      },
     }),
     cache: new InMemoryCache(),
     defaultOptions: {
-      query: { fetchPolicy: 'no-cache' }
-    }
+      query: { fetchPolicy: "no-cache" },
+    },
   });
 };
 ```
@@ -172,11 +172,11 @@ No code is required to use the built-in connectors; login buttons are added via 
 
 ### Required modules
 
-| Module | Purpose |
-|--------|---------|
-| Jahia Authentication | Backbone SSO framework |
-| Jahia OAuth | OAuth connectors (Google, Facebook, etc.) |
-| JCR Authentication Provider | Maps social profile attributes to Jahia user attributes |
+| Module                       | Purpose                                                                        |
+| ---------------------------- | ------------------------------------------------------------------------------ |
+| Jahia Authentication         | Backbone SSO framework                                                         |
+| Jahia OAuth                  | OAuth connectors (Google, Facebook, etc.)                                      |
+| JCR Authentication Provider  | Maps social profile attributes to Jahia user attributes                        |
 | jExperience Auth data mapper | (Optional) Maps attributes to jExperience visitor profiles for personalization |
 
 Install all required modules via **Jahia Administration > Modules and Extensions > Modules** before configuring.
@@ -445,11 +445,12 @@ Two modules from the [Jahia Store](https://store.jahia.com/):
 Configure where users are redirected when accessing protected resources (choose one option):
 
 **Option A (recommended):** Set `loginUrl` in OSGi console (`org.jahia.modules.upa` configuration):
+
 - Navigate to **Tools > OSGi Console > OSGi > Configuration**
 - Set `loginUrl` to the login page URL (e.g., `/sites/mySite/login.html`)
 - The URL must include the site key for email template resolution
 
-**Option B:** Install the community *Site Settings - Customize Error Pages* module.
+**Option B:** Install the community _Site Settings - Customize Error Pages_ module.
 
 **Option C:** Implement a custom `LoginUrlProvider` interface.
 
@@ -463,6 +464,7 @@ After configuring the URL provider, create the login page in Page Builder, add t
 4. On success: user is redirected to the originally requested resource
 
 MFA follows a two-step model per factor:
+
 - **Prepare** — generates and sends the challenge (e.g., email code)
 - **Verify** — validates the user's response
 
@@ -476,9 +478,9 @@ MFA follows a two-step model per factor:
 
 ### Known limitations
 
-| Limitation | Detail |
-|-----------|--------|
-| Global login URL | `loginUrl` applies platform-wide, across all sites |
-| Cluster lockout | Max failed attempts per cluster node: `((T-1) × N) + 1` where T = tries configured, N = node count |
-| Multiple providers | Only one custom `LoginUrlProvider` can be active at a time |
-| Legacy endpoint | `/cms/login` bypasses UPA; must be blocked at the proxy level |
+| Limitation         | Detail                                                                                             |
+| ------------------ | -------------------------------------------------------------------------------------------------- |
+| Global login URL   | `loginUrl` applies platform-wide, across all sites                                                 |
+| Cluster lockout    | Max failed attempts per cluster node: `((T-1) × N) + 1` where T = tries configured, N = node count |
+| Multiple providers | Only one custom `LoginUrlProvider` can be active at a time                                         |
+| Legacy endpoint    | `/cms/login` bypasses UPA; must be blocked at the proxy level                                      |

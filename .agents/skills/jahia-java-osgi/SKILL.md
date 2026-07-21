@@ -71,6 +71,7 @@ A single `volatile` write (the reference swap) is atomically visible to all read
 Every side effect created in `@Activate` must be undone in `@Deactivate`. Components can be deactivated and re-activated on config changes (depending on `@Modified` policy). Failing to undo side effects causes them to accumulate across activations.
 
 Checklist:
+
 - Thread started in `@Activate` → stopped in `@Deactivate` (interrupt + join).
 - JCR event listener registered → unregistered.
 - Scheduled task registered → cancelled.

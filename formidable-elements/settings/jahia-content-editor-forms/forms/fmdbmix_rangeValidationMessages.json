@@ -5,7 +5,7 @@
 		{
 			"name": "validationMessages",
 			"labelKey": "fmdb.section.validationMessages",
-			"rank": 1.50,
+			"rank": 1.5,
 			"fieldSets": [
 				{
 					"name": "rangeConstraints",
@@ -22,4 +22,3 @@
 		}
 	]
 }
-

@@ -1,9 +1,9 @@
 /// <reference types="vite/client" />
 
 interface RenderOptions {
-	sitekey: string;
-	callback: (token: string) => void;
-	'expired-callback': () => void;
+	"sitekey": string;
+	"callback": (token: string) => void;
+	"expired-callback": () => void;
 }
 
 interface CaptchaWidgetApi {

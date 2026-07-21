@@ -16,6 +16,7 @@ Creates content nodes in a running Jahia instance using the GraphQL JCR mutation
 - GraphQL endpoint: `http://localhost:8080/modules/graphql`
 
 **Auth pattern — always use both flags:**
+
 ```bash
 curl -u root:root1234 \
      -H "Content-Type: application/json" \
@@ -64,6 +65,7 @@ wait  # all uploads complete in parallel
 > ⚠️ Always include `mixins: ["jmix:image"]` in the upload. Without it, the file node **cannot be used as a WEAKREFERENCE** in image properties.
 
 To collect UUIDs after parallel uploads, query them in one batch:
+
 ```bash
 curl -s -u root:root1234 -H "Content-Type: application/json" -H "Origin: http://localhost:8080" \
   -X POST http://localhost:8080/modules/graphql \
@@ -113,8 +115,18 @@ curl -s -u root:root1234 \
 ```
 
 The response contains the UUID:
+
 ```json
-{"data":{"jcr":{"addNode":{"addChild":{"content":{"setValue":true},"contentType":{"setValue":true}},"uuid":"xxxxxxxx-..."}}}}
+{
+  "data": {
+    "jcr": {
+      "addNode": {
+        "addChild": { "content": { "setValue": true }, "contentType": { "setValue": true } },
+        "uuid": "xxxxxxxx-..."
+      }
+    }
+  }
+}
 ```
 
 ### Use a file UUID as an image property
@@ -128,6 +140,7 @@ properties: [
 ```
 
 > After uploading, publish the files folder so images are accessible on the live site:
+>
 > ```bash
 > curl -s -u root:root1234 -H "Content-Type: application/json" -H "Origin: http://localhost:8080" \
 >   -X POST http://localhost:8080/modules/graphql \
@@ -202,6 +215,7 @@ curl -s -u root:root1234 -H "Content-Type: application/json" -H "Origin: http://
 ## Step 1 — Identify target site and content folder
 
 Standard content folder paths:
+
 - `/sites/<siteKey>/contents/articles/` — for article nodes
 - `/sites/<siteKey>/contents/tutorials/` — for tutorial nodes
 - `/sites/<siteKey>/contents/` — for any other content folder
@@ -238,15 +252,16 @@ curl -s -u root:root1234 \
 
 ### Property rules
 
-| Situation | GraphQL syntax |
-|-----------|---------------|
-| i18n property (declared `i18n` in CND) | `{name: "body", value: "...", language: "en"}` |
-| Non-i18n property | `{name: "product", value: "jahia"}` |
-| Title (from `mix:title`) | `{name: "jcr:title", value: "...", language: "en"}` |
-| Date property | `{name: "updatedAt", value: "2024-01-15T00:00:00.000Z", type: DATE}` |
-| Multiple values | `{name: "tags", values: ["a", "b"]}` |
+| Situation                              | GraphQL syntax                                                       |
+| -------------------------------------- | -------------------------------------------------------------------- |
+| i18n property (declared `i18n` in CND) | `{name: "body", value: "...", language: "en"}`                       |
+| Non-i18n property                      | `{name: "product", value: "jahia"}`                                  |
+| Title (from `mix:title`)               | `{name: "jcr:title", value: "...", language: "en"}`                  |
+| Date property                          | `{name: "updatedAt", value: "2024-01-15T00:00:00.000Z", type: DATE}` |
+| Multiple values                        | `{name: "tags", values: ["a", "b"]}`                                 |
 
 ### Node name rules
+
 - Use lowercase kebab-case: `my-article`, `getting-started`
 - No spaces, no special characters
 - Must be unique within the parent folder
@@ -314,14 +329,14 @@ curl -s -u root:root1234 \
 
 ## Common errors
 
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `Permission denied` | Missing `Origin` header | Add `-H "Origin: http://localhost:8080"` |
-| `Couldn't find definition for property X` | Wrong property name or non-i18n prop given with `language:` | Check CND definition; remove `language:` for non-i18n props |
-| `ConstraintViolationException: mandatory property` | A mandatory CND property was not provided | Provide all mandatory properties |
-| `ItemExistsException` | Node name already taken | Use `useAvailableNodeName: true` or choose a different name |
-| WEAKREFERENCE image constraint error | Uploaded file missing `jmix:image` mixin | Always include `mixins: ["jmix:image"]` in the `addNode` upload mutation |
-| `deletePropertiesBatch fails with missing required fields` | `language` is NON_NULL in `InputJCRDeletedProperty` — required even for non-i18n properties | Always provide `language: "en"` in every `deletePropertiesBatch` entry |
+| Error                                                      | Cause                                                                                       | Fix                                                                      |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `Permission denied`                                        | Missing `Origin` header                                                                     | Add `-H "Origin: http://localhost:8080"`                                 |
+| `Couldn't find definition for property X`                  | Wrong property name or non-i18n prop given with `language:`                                 | Check CND definition; remove `language:` for non-i18n props              |
+| `ConstraintViolationException: mandatory property`         | A mandatory CND property was not provided                                                   | Provide all mandatory properties                                         |
+| `ItemExistsException`                                      | Node name already taken                                                                     | Use `useAvailableNodeName: true` or choose a different name              |
+| WEAKREFERENCE image constraint error                       | Uploaded file missing `jmix:image` mixin                                                    | Always include `mixins: ["jmix:image"]` in the `addNode` upload mutation |
+| `deletePropertiesBatch fails with missing required fields` | `language` is NON_NULL in `InputJCRDeletedProperty` — required even for non-i18n properties | Always provide `language: "en"` in every `deletePropertiesBatch` entry   |
 
 ---
 
@@ -339,9 +354,9 @@ mutation {
   jcr {
     mutateNode(pathOrId: "/sites/mySite/home/features/my-card") {
       addMixins(mixins: ["jmix:internalLink"])
-      setPropertiesBatch(properties: [
-        {name: "j:linkType", value: "internal"}
-      ]) { path }
+      setPropertiesBatch(properties: [{ name: "j:linkType", value: "internal" }]) {
+        path
+      }
     }
   }
 }
@@ -365,11 +380,15 @@ mutation {
   jcr {
     mutateNode(pathOrId: "/sites/mySite/home/features/my-card") {
       addMixins(mixins: ["jmix:externalLink"])
-      setPropertiesBatch(properties: [
-        {name: "j:linkType", value: "external"}
-        {name: "j:url", value: "https://example.com", language: "en"}
-        {name: "j:linkTitle", value: "Visit Example", language: "en"}
-      ]) { path }
+      setPropertiesBatch(
+        properties: [
+          { name: "j:linkType", value: "external" }
+          { name: "j:url", value: "https://example.com", language: "en" }
+          { name: "j:linkTitle", value: "Visit Example", language: "en" }
+        ]
+      ) {
+        path
+      }
     }
   }
 }

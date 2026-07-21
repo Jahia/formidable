@@ -2,6 +2,7 @@ package org.jahia.modules.formidable.engine.servlet;
 
 import org.jahia.modules.formidable.engine.api.FormAction;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.modules.javascript.modules.engine.sdk.JSServerExtensionInvoker;
 import org.jahia.services.securityfilter.PermissionService;
 import org.json.JSONObject;
 import org.osgi.service.component.annotations.Activate;
@@ -51,11 +52,23 @@ public class FormSubmitServlet extends HttpServlet {
 
     private final AtomicReference<FormidableConfigService> config = new AtomicReference<>();
     private final AtomicReference<PermissionService> permissionService = new AtomicReference<>();
+    private final AtomicReference<JSServerExtensionInvoker> jsInvoker = new AtomicReference<>();
     private final List<FormAction> formActions = new CopyOnWriteArrayList<>();
 
     @Reference
     public void setConfig(FormidableConfigService service) {
         config.set(service);
+    }
+
+    // Optional: provided by the js-modules engine SDK. When absent (older engine), JS field validation is
+    // simply skipped and submissions still work. DYNAMIC so deploying the SDK engine later binds it live.
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, unbind = "unbindJsInvoker")
+    public void setJsInvoker(JSServerExtensionInvoker invoker) {
+        jsInvoker.set(invoker);
+    }
+
+    public void unbindJsInvoker(JSServerExtensionInvoker invoker) {
+        jsInvoker.compareAndSet(invoker, null);
     }
 
     @Reference
@@ -102,7 +115,9 @@ public class FormSubmitServlet extends HttpServlet {
     }
 
     FormSubmissionPipeline createPipeline() {
-        return new FormSubmissionPipeline(getConfigService(), formActions);
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(getConfigService(), formActions);
+        pipeline.setJsInvoker(jsInvoker.get());
+        return pipeline;
     }
 
     boolean isRequestAllowed() {

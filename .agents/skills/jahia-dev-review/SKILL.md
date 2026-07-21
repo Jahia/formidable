@@ -70,6 +70,7 @@ Fix: never set expiration to 0. If truly fresh data is needed, use a small value
 **C8 — Generic area type used for every Area**
 Check: page templates where every `<Area>` uses the same generic area type (e.g. `nodeType="namespace:pageArea"` everywhere). This means editors see ALL `pageComponent` types as droppable options in every area — a hero section will appear as an option in a feature card grid.
 Fix: create **one typed area node per section** in `settings/definitions.cnd`, each with a tight child constraint:
+
 ```cnd
 [namespace:heroArea] > jnt:content, jmix:list, jmix:hiddenType orderable
  + * (namespace:heroSection)
@@ -77,6 +78,7 @@ Fix: create **one typed area node per section** in `settings/definitions.cnd`, e
 [namespace:featuresArea] > jnt:content, jmix:list, jmix:hiddenType orderable
  + * (namespace:featureCard)
 ```
+
 Only use a generic `pageArea` for flexible areas (e.g. footer) where any component is valid.
 
 ---
@@ -135,6 +137,7 @@ Fix: add descriptive alt text. Decorative images should have `alt=""` with a com
 **S3 — Accessibility violations (axe-core audit)**
 Check: run `/jahia-dev-accessibility` against all live pages. A clean module has zero `critical` or `serious` violations.
 Common issues in Jahia modules:
+
 - `color-contrast`: hardcoded colours with insufficient contrast ratio — check with https://webaim.org/resources/contrastchecker/
 - `image-alt`: `<img>` missing a meaningful `alt` prop sourced from CND
 - `button-name`: icon-only `<button>` or `<a>` without `aria-label`
@@ -176,10 +179,12 @@ Fix: add a `namespace:contentStack > jnt:content, namespacemix:component + * (jm
 
 **S11 — Scaffold/boilerplate components still present**
 Check: components under `src/components/Hello/` (or any other archetype-generated boilerplate) that are no longer referenced in `settings/import.xml` and no longer used by any view or page template.
+
 ```bash
 # Check if Hello components are still referenced anywhere
 grep -r "helloWorld\|helloCard\|Hello/" src/templates/ settings/ --include="*.tsx" --include="*.xml" --include="*.cnd"
 ```
+
 Fix: once `import.xml` no longer provisions Hello World content and no template uses them, delete the entire `src/components/Hello/` directory, remove their entries from `.properties` files, and delete their icons from `settings/content-types-icons/`. Keeping dead components inflates the content picker and confuses editors.
 
 ---

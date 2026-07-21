@@ -7,14 +7,15 @@
   password: ${env:NEXUS_PASSWORD}
 
 - installBundle:
-    - 'mvn:org.jahia.modules/graphql-dxm-provider'
-    - 'mvn:org.jahia.modules/content-integrity'
-    - 'mvn:org.jahia.modules/jcontent'
-    - 'mvn:org.jahia.modules/formidable-engine'
-    - 'js:mvn:org.jahia.modules/formidable-elements/LATEST/tgz'
-    - 'mvn:org.jahia.test/formidable-test-module-samples-java'
-    - 'js:mvn:org.jahia.test/formidable-test-module-samples-tsx/LATEST/tgz'
-    - 'mvn:org.jahia.test/formidable-test-module-templateset-jsp'
-    - 'js:mvn:org.jahia.test/formidable-test-module-templateset-tsx/LATEST/tgz'
+    - "mvn:org.jahia.modules/graphql-dxm-provider"
+    - "mvn:org.jahia.modules/content-integrity"
+    - "mvn:org.jahia.modules/jcontent"
+    - "mvn:org.jahia.modules/formidable-engine"
+    - "js:mvn:org.jahia.modules/formidable-elements/LATEST/tgz"
+    - "js:mvn:org.jahia.modules/formidable-extended-inputs/LATEST/tgz"
+    - "mvn:org.jahia.test/formidable-test-module-samples-java"
+    - "js:mvn:org.jahia.test/formidable-test-module-samples-tsx/LATEST/tgz"
+    - "mvn:org.jahia.test/formidable-test-module-templateset-jsp"
+    - "js:mvn:org.jahia.test/formidable-test-module-templateset-tsx/LATEST/tgz"
   autoStart: true
   uninstallPreviousVersion: true

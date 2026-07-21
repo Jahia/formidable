@@ -1,6 +1,7 @@
 # Jahia GraphQL API Reference
 
 ## Table of contents
+
 1. [Endpoint and transport](#endpoint-and-transport)
 2. [Authentication and authorization](#authentication-and-authorization)
 3. [Workspaces and internationalization](#workspaces-and-internationalization)
@@ -32,7 +33,7 @@ From a view (JSP), you can call it with plain XHR:
 
 ```javascript
 var xhr = new XMLHttpRequest();
-xhr.responseType = 'json';
+xhr.responseType = "json";
 xhr.open("POST", "/modules/graphql");
 xhr.setRequestHeader("Content-Type", "application/json");
 xhr.setRequestHeader("Accept", "application/json");
@@ -96,7 +97,8 @@ Every JCR query or mutation must be wrapped in a `jcr` block specifying the work
 
 ```graphql
 {
-  jcr(workspace: LIVE) {   # LIVE or EDIT (default is EDIT)
+  jcr(workspace: LIVE) {
+    # LIVE or EDIT (default is EDIT)
     nodeByPath(path: "/sites/digitall/home") {
       displayName(language: "en")
       displayName_fr: displayName(language: "fr")
@@ -142,9 +144,15 @@ type JCRQuery {
 query highlight {
   jcr {
     nodeByPath(path: "/sites/digitall/home/area-main/highlights/our-companies") {
-      title: property(language: "en", name: "jcr:title") { value }
-      description: property(language: "en", name: "description") { value }
-      internalLink: property(language: "en", name: "internalLink") { value }
+      title: property(language: "en", name: "jcr:title") {
+        value
+      }
+      description: property(language: "en", name: "description") {
+        value
+      }
+      internalLink: property(language: "en", name: "internalLink") {
+        value
+      }
     }
   }
 }
@@ -160,8 +168,10 @@ query {
         view: "imgView"
         contextConfiguration: "module"
         templateType: "html"
-        requestAttributes: [{name: "someAttribute", value: "someValue"}]
-      ) { output }
+        requestAttributes: [{ name: "someAttribute", value: "someValue" }]
+      ) {
+        output
+      }
     }
   }
 }
@@ -173,7 +183,11 @@ query {
 query {
   jcr {
     nodeByPath(path: "/sites/digitall") {
-      properties { name value values }
+      properties {
+        name
+        value
+        values
+      }
     }
   }
 }
@@ -186,13 +200,15 @@ query {
   jcr(workspace: LIVE) {
     nodeByPath(path: "/sites/digitall/home") {
       children(
-        typesFilter: {types: ["jnt:page"]}
-        propertiesFilter: {filters: [{property: "j:templateName", value: "home"}]}
+        typesFilter: { types: ["jnt:page"] }
+        propertiesFilter: { filters: [{ property: "j:templateName", value: "home" }] }
       ) {
         nodes {
           name
           name_en: displayName(language: "en")
-          createdBy: property(name: "jcr:createdBy") { value }
+          createdBy: property(name: "jcr:createdBy") {
+            value
+          }
         }
       }
     }
@@ -209,13 +225,19 @@ query paginatedContents {
       descendants(
         first: 3
         after: "NTE3ZjE1YmMtZTViYS00YzVkLWIxNmUtMDhiMTgzYTkzMTli"
-        typesFilter: {types: ["jmix:editorialContent"], multi: ANY}
-        recursionTypesFilter: {multi: NONE, types: ["jnt:page", "jnt:contentFolder"]}
+        typesFilter: { types: ["jmix:editorialContent"], multi: ANY }
+        recursionTypesFilter: { multi: NONE, types: ["jnt:page", "jnt:contentFolder"] }
       ) {
         edges {
           index
           cursor
-          node { displayName path primaryNodeType { displayName(language: "en") } }
+          node {
+            displayName
+            path
+            primaryNodeType {
+              displayName(language: "en")
+            }
+          }
         }
       }
     }
@@ -232,7 +254,9 @@ query paginatedContents {
       edges {
         index
         cursor
-        node { displayName(language: "en") }
+        node {
+          displayName(language: "en")
+        }
       }
     }
   }
@@ -244,12 +268,16 @@ query paginatedContents {
 ```graphql
 query {
   jcr {
-    nodesByCriteria(criteria: {
-      nodeType: "jnt:bigText"
-      paths: ["/sites/digitall/home"]
-      nodeConstraint: { property: "text", contains: "test" }
-    }) {
-      nodes { uuid }
+    nodesByCriteria(
+      criteria: {
+        nodeType: "jnt:bigText"
+        paths: ["/sites/digitall/home"]
+        nodeConstraint: { property: "text", contains: "test" }
+      }
+    ) {
+      nodes {
+        uuid
+      }
     }
   }
 }
@@ -260,7 +288,11 @@ query {
 
 ```graphql
 extend type JCRNode {
-  aggregatedPublicationInfo(language: String, includesReferences: Boolean, includesSubNodes: Boolean): PublicationInfo
+  aggregatedPublicationInfo(
+    language: String
+    includesReferences: Boolean
+    includesSubNodes: Boolean
+  ): PublicationInfo
   vanityURLs(languages: [String], onlyActive: Boolean, onlyDefault: Boolean): [VanityURL]
   lockInfo: LockInfo
 }
@@ -272,8 +304,10 @@ extend type JCRNode {
 query pagesCount {
   jcr {
     nodeByPath(path: "/sites/digitall") {
-      descendants(typesFilter: {types: ["jnt:page"]}) {
-        pageInfo { totalCount }
+      descendants(typesFilter: { types: ["jnt:page"] }) {
+        pageInfo {
+          totalCount
+        }
       }
     }
   }
@@ -297,7 +331,9 @@ mutation mutationExample {
         setValue(type: BOOLEAN, value: "false")
       }
     }
-    modifiedNodes { path }
+    modifiedNodes {
+      path
+    }
   }
 }
 ```
@@ -312,11 +348,16 @@ mutation {
       name: "page"
       primaryNodeType: "jnt:page"
       properties: [
-        {language: "en", name: "jcr:title", type: STRING, value: "Page"}
-        {name: "j:templateName", type: STRING, value: "2col"}
+        { language: "en", name: "jcr:title", type: STRING, value: "Page" }
+        { name: "j:templateName", type: STRING, value: "2col" }
       ]
-    ) { uuid }
-    modifiedNodes { uuid name }
+    ) {
+      uuid
+    }
+    modifiedNodes {
+      uuid
+      name
+    }
   }
 }
 ```
@@ -352,7 +393,9 @@ mutation {
 ```graphql
 mutation publishContent {
   jcr {
-    mutateNode(pathOrId: "/sites/digitall/home/about") { publish }
+    mutateNode(pathOrId: "/sites/digitall/home/about") {
+      publish
+    }
   }
 }
 ```
@@ -362,7 +405,9 @@ mutation publishContent {
 ```graphql
 mutation {
   jcr(workspace: EDIT) {
-    mutateNode(pathOrId: "/sites/mySite/home") { delete }
+    mutateNode(pathOrId: "/sites/mySite/home") {
+      delete
+    }
   }
 }
 ```
@@ -375,7 +420,10 @@ mutation {
     jahia {
       configuration(pid: "org.jahia.modules.automatedtags.service.impl.AutomatedTagServiceImpl") {
         accessKey: value(name: "automated-tags.accessKey", value: "xxxxxx")
-        endpoint: value(name: "automated-tags.endpoint", value: "https://rekognition.eu-central-1.amazonaws.com")
+        endpoint: value(
+          name: "automated-tags.endpoint"
+          value: "https://rekognition.eu-central-1.amazonaws.com"
+        )
       }
     }
   }
@@ -411,8 +459,8 @@ type PageInfo {
   hasPreviousPage: Boolean!
   startCursor: String
   endCursor: String
-  nodesCount: Int        # items in current page
-  totalCount: Int        # total items
+  nodesCount: Int # items in current page
+  totalCount: Int # total items
 }
 ```
 
@@ -422,7 +470,7 @@ type PageInfo {
 type XxxConnection {
   edges: [XxxEdge]
   pageInfo: PageInfo
-  nodes: [Xxx]           # shortcut for edges { node }
+  nodes: [Xxx] # shortcut for edges { node }
 }
 type XxxEdge {
   node: Xxx
@@ -473,7 +521,7 @@ type hotel @mapping(node: "jnt:hotel") {
   city: String @mapping(property: "city")
   address: String @mapping(property: "address")
   country: String @mapping(property: "country")
-  metadata: Metadata          # built-in Jahia composite type
+  metadata: Metadata # built-in Jahia composite type
   rooms: [Room]
 }
 
@@ -485,16 +533,19 @@ type Room @mapping(node: "jnt:room") {
 ```
 
 **Directives**:
+
 - `@mapping(node: "jnt:hotel")` on a type — maps to a JCR node type
 - `@mapping(property: "jcr:title")` on a field — maps to a JCR property
 
 **Common mistakes**:
+
 - Extending a type that doesn't exist (`extend type ParagraphSDL { ... }`) → error
 - Mapping to an invalid node type or property → error shown in SDL Report Tool
 - `hotelByPropertyConnection` returning a non-list → connection error
 - All custom queries **must** use `extend type Query { ... }` not `type Query`
 
 **Built-in Jahia composite types** (no `@mapping` needed):
+
 - `Metadata` → `{created, createdBy, lastModified, lastModifiedBy, lastPublished, lastPublishedBy}`
 - `Asset` → `{type, size, metadata}`
 - `ImageAsset` → `{type, size, height, width, metadata}`
@@ -543,13 +594,13 @@ export const apolloClient = (token: string): ApolloClient<any> => {
     link: new HttpLink({
       uri: `${JAHIA_URL}/modules/graphql`,
       headers: {
-        authorization: `APIToken ${token}`
-      }
+        authorization: `APIToken ${token}`,
+      },
     }),
     cache: new InMemoryCache(),
     defaultOptions: {
-      query: { fetchPolicy: 'no-cache' }
-    }
+      query: { fetchPolicy: "no-cache" },
+    },
   });
 };
 ```
@@ -559,10 +610,10 @@ export const apolloClient = (token: string): ApolloClient<any> => {
 ```javascript
 const client = new ApolloClient({
   link: new HttpLink({
-    uri: 'http://localhost:8080/modules/graphql',
-    headers: { 'Authorization': `Bearer ${JWTDXToken}` }
+    uri: "http://localhost:8080/modules/graphql",
+    headers: { Authorization: `Bearer ${JWTDXToken}` },
   }),
-  cache: new InMemoryCache()
+  cache: new InMemoryCache(),
 });
 ```
 
@@ -579,9 +630,13 @@ const COMPANIES_QUERY = gql`
         nodes {
           uuid
           title: displayName(language: $language)
-          description: property(name: "overview", language: $language) { value }
+          description: property(name: "overview", language: $language) {
+            value
+          }
           thumbnail: property(name: "thumbnail", language: $language) {
-            url: refNode { path }
+            url: refNode {
+              path
+            }
           }
         }
       }

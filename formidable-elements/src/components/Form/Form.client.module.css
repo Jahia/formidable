@@ -5,7 +5,9 @@
 
 /* Form styles */
 .form {
-	transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+	transition:
+		opacity 0.3s ease-in-out,
+		transform 0.3s ease-in-out;
 	opacity: 1;
 	transform: translateY(0);
 }
@@ -53,7 +55,7 @@
 }
 
 .stepIndicator:not(:last-child)::after {
-	content: '';
+	content: "";
 	flex: 1;
 }
 
@@ -92,4 +94,3 @@
 	background-color: var(--fmdb-step-done-number-bg, #16a34a);
 	color: var(--fmdb-step-done-number-color, #fff);
 }
-

@@ -3,7 +3,7 @@ name: Nightly Test run (Jahia RL)
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 1 * * *'
+    - cron: "0 1 * * *"
 
 jobs:
   integration-tests:

@@ -4,12 +4,12 @@ This document describes the conditional logic scenarios covered by the automated
 
 ## Covered by Cypress specs
 
-| Spec | Coverage area | Description |
-|------|--------------|-------------|
-| `50-conditional-logic-selector-type.cy.ts` | Content Editor selectorType UI | Source filtering, operator switching, date inputs, exclusion of used sources, reload |
-| `51-conditional-logic-copy-paste.cy.ts` | Form duplication (GraphQL `copyNode`) | Weakref rebinding, duplicate source names, single-field degradation |
-| `52-conditional-logic-backend.cy.ts` | Backend synchronization | logicsSrc creation/update/removal, rename resilience, logicId/sourceNodeId persistence |
-| `53-conditional-logic-import.cy.ts` | Import (GraphQL `importContent`) | Weakref rebinding to imported nodes, duplicate source names |
+| Spec                                       | Coverage area                         | Description                                                                            |
+| ------------------------------------------ | ------------------------------------- | -------------------------------------------------------------------------------------- |
+| `50-conditional-logic-selector-type.cy.ts` | Content Editor selectorType UI        | Source filtering, operator switching, date inputs, exclusion of used sources, reload   |
+| `51-conditional-logic-copy-paste.cy.ts`    | Form duplication (GraphQL `copyNode`) | Weakref rebinding, duplicate source names, single-field degradation                    |
+| `52-conditional-logic-backend.cy.ts`       | Backend synchronization               | logicsSrc creation/update/removal, rename resilience, logicId/sourceNodeId persistence |
+| `53-conditional-logic-import.cy.ts`        | Import (GraphQL `importContent`)      | Weakref rebinding to imported nodes, duplicate source names                            |
 
 ## Covered by Java unit tests
 
@@ -22,6 +22,7 @@ Location: `formidable-engine/src/test/java/org/jahia/modules/formidable/engine/l
 ## Test fixture (Cypress)
 
 Fields created for conditional logic tests:
+
 1. `role` — `fmdb:select` with choices: `admin`, `editor`, `viewer`
 2. `accept-terms` — `fmdb:checkbox` (single) with choice: `accepted` / `I accept`
 3. `start-date` — `fmdb:inputDate`
@@ -38,4 +39,3 @@ Fields created for conditional logic tests:
 
 - Java tests: `mvn clean install`
 - Cypress specs: picked up automatically by the integration test job
-

@@ -4,12 +4,12 @@
 
 Yarn monorepo + Maven multi-module. Root: `/formidable-modules/`.
 
-| Module | Role |
-|---|---|
+| Module                 | Role                                                                   |
+| ---------------------- | ---------------------------------------------------------------------- |
 | `formidable-elements/` | Jahia front-end module – form rendering (React SSR + client hydration) |
-| `formidable-engine/` | Jahia editor extension + Java/OSGi action pipeline |
-| `jahia-test-module/` | Java/JSP helper module for Cypress tests |
-| `tests/` | Cypress E2E suite (not a Maven module) |
+| `formidable-engine/`   | Jahia editor extension + Java/OSGi action pipeline                     |
+| `jahia-test-module/`   | Java/JSP helper module for Cypress tests                               |
+| `tests/`               | Cypress E2E suite (not a Maven module)                                 |
 
 Toolchain: Java 17 (Temurin), Node LTS, Yarn 4, Maven 3 (see `mise.toml`).
 
@@ -37,13 +37,13 @@ default.server.tsx        ← jahiaComponent() for fmdb:form, reads JCR props
 
 ### Key files – Form
 
-| File | Role |
-|---|---|
-| `src/components/Form/default.server.tsx` | Computes `submitActionUrl`, `captcha`, `stepLabels`; passes everything to the Island |
-| `src/components/Form/Form.client.tsx` | `fetch` submission, multi-step, DOMPurify, CAPTCHA guard |
-| `src/components/Form/Captcha.client.tsx` | Renders the captcha widget via the provider's native API |
-| `src/components/Form/types.ts` | `FormServerProps`, `FormProps`, `CaptchaProvider` |
-| `src/components/Form/definition.cnd` | Mixins `fmdbmix:responses`, `fmdbmix:buttons`, `fmdbmix:multiStep`, `fmdbmix:captcha`, `fmdbmix:actionPipeline`, and the `fmdb:form` type |
+| File                                     | Role                                                                                                                                      |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/Form/default.server.tsx` | Computes `submitActionUrl`, `captcha`, `stepLabels`; passes everything to the Island                                                      |
+| `src/components/Form/Form.client.tsx`    | `fetch` submission, multi-step, DOMPurify, CAPTCHA guard                                                                                  |
+| `src/components/Form/Captcha.client.tsx` | Renders the captcha widget via the provider's native API                                                                                  |
+| `src/components/Form/types.ts`           | `FormServerProps`, `FormProps`, `CaptchaProvider`                                                                                         |
+| `src/components/Form/definition.cnd`     | Mixins `fmdbmix:responses`, `fmdbmix:buttons`, `fmdbmix:multiStep`, `fmdbmix:captcha`, `fmdbmix:actionPipeline`, and the `fmdb:form` type |
 
 ### Vite
 
@@ -74,6 +74,7 @@ Server-side labels come from JCR properties (`jcr:title`).
 ## CND – Type declaration conventions
 
 Namespaces:
+
 - `fmdb:` – concrete types (`fmdb:form`, `fmdb:step`, `fmdb:inputText`, …)
 - `fmdbmix:` – mixins (`fmdbmix:formElement`, `fmdbmix:formStep`, `fmdbmix:formAction`, …)
 
@@ -120,6 +121,7 @@ fmdbmix:component            ← makes a type visible/droppable in the editor
 The captcha widget config and server-side verification are unified in a single `fmdb:captchaAction` node (no separate `fmdb:captchaProvider`).
 
 The admin creates one `fmdb:captchaAction` node with:
+
 - `siteKey` – public key for the front-end widget
 - `scriptUrl` – provider JS API URL (default: Cloudflare Turnstile)
 - `secretKey` – private key for server-side `siteverify` call
@@ -130,11 +132,11 @@ The provider is derived from `scriptUrl` at runtime (both in TypeScript and Java
 
 ### Native token field names
 
-| Provider | `scriptUrl` contains | Field name in POST |
-|---|---|---|
+| Provider             | `scriptUrl` contains        | Field name in POST      |
+| -------------------- | --------------------------- | ----------------------- |
 | Cloudflare Turnstile | `challenges.cloudflare.com` | `cf-turnstile-response` |
-| hCaptcha | `hcaptcha.com` | `h-captcha-response` |
-| Google reCAPTCHA v2 | `google.com/recaptcha` | `g-recaptcha-response` |
+| hCaptcha             | `hcaptcha.com`              | `h-captcha-response`    |
+| Google reCAPTCHA v2  | `google.com/recaptcha`      | `g-recaptcha-response`  |
 
 ### Server-side
 
@@ -147,6 +149,7 @@ The provider is derived from `scriptUrl` at runtime (both in TypeScript and Java
 ### Overview
 
 When the `fmdbmix:actionPipeline` mixin is applied to a `fmdb:form`, or when a captcha is configured, `default.server.tsx` sets:
+
 ```
 submitActionUrl = /cms/render/live/{locale}{nodePath}.formidableSubmit.do
 ```
@@ -155,16 +158,17 @@ submitActionUrl = /cms/render/live/{locale}{nodePath}.formidableSubmit.do
 
 `handleSubmit` fires requests **in parallel** via `Promise.all` — full `FormData` always:
 
-| submitActionUrl | customTarget | Behaviour |
-|---|---|---|
-| ✓ | — | Pipeline handles everything (captcha + email + etc.) |
-| — | ✓ | Direct POST to `customTarget`; it handles captcha |
-| ✓ | ✓ | Both fire in parallel; `customTarget` handles captcha |
-| — | — | POST to `form.action` / current URL |
+| submitActionUrl | customTarget | Behaviour                                             |
+| --------------- | ------------ | ----------------------------------------------------- |
+| ✓               | —            | Pipeline handles everything (captcha + email + etc.)  |
+| —               | ✓            | Direct POST to `customTarget`; it handles captcha     |
+| ✓               | ✓            | Both fire in parallel; `customTarget` handles captcha |
+| —               | —            | POST to `form.action` / current URL                   |
 
 When `customTarget` is set, **do not add `fmdb:captchaAction` to the pipeline** — captcha is `customTarget`'s responsibility. The token is single-use.
 
 `FormSubmitAction` (Jahia `Action`, OSGi):
+
 1. Reads the `actions` weak-references from the form node
 2. For each referenced node, finds the OSGi `FormAction` service whose `getNodeType()` matches the node's primary type
 3. Calls `handler.execute(actionNode, req, renderContext, session, parameters)` in order
@@ -220,6 +224,7 @@ FormActionException.serverError("message");   // HTTP 500
 #### `fmdb:captchaAction` → `CaptchaVerificationFormAction`
 
 CND (in `formidable-engine`):
+
 ```cnd
 [fmdb:captchaAction] > jnt:content, fmdbmix:formAction, mix:title
  - siteKey (string) indexed=no
@@ -234,6 +239,7 @@ Also drives the front-end: `CaptchaRenderFilter` injects `siteKey`, `scriptUrl`,
 #### `fmdb:emailNotificationAction` → `SendEmailNotificationFormAction`
 
 CND:
+
 ```cnd
 [fmdb:emailNotificationAction] > jnt:content, fmdbmix:formAction, mix:title
  - to (string) indexed=no
@@ -243,6 +249,7 @@ CND:
 ```
 
 Behaviour:
+
 - `${fieldName}` interpolation in `to`, `subject`, `templateMessage` from form parameters
 - Requires Jahia `MailService` configured (SMTP in Jahia admin)
 - Call: `mailService.sendMessage(from, to, null, null, subject, null, htmlBody)`
@@ -272,6 +279,7 @@ Behaviour:
 ```cnd
 [fmdbmix:formAction] mixin
 ```
+
 Pure marker — no properties. Enables the editor `contentpicker` to list all available action nodes across the site.
 
 ---
@@ -280,9 +288,10 @@ Pure marker — no properties. Enables the editor `contentpicker` to list all av
 
 Entry point: `src/javascript/init.ts`
 Registers extensions into the Jahia registry (`@jahia/ui-extender`):
+
 - `SelectOptions`: custom selectorType for list-field options
 - `ConditionalLogicCmp`: custom selectorType for the `logics` property on `fmdbmix:formLogicElement` nodes
-Build: `@jahia/vite-federation-plugin` (Module Federation), output in `src/main/resources/javascript/apps/`.
+  Build: `@jahia/vite-federation-plugin` (Module Federation), output in `src/main/resources/javascript/apps/`.
 
 ---
 
@@ -291,6 +300,7 @@ Build: `@jahia/vite-federation-plugin` (Module Federation), output in `src/main/
 ### Model overview
 
 A field that depends on another field's value carries:
+
 - A `logics` multi-value string property (JSON rules)
 - An autocreated `logicsSrc` child node (`fmdb:logicList`) with one `fmdb:logicSrc` child per rule, each holding a `logicNodeSource` weakreference
 
@@ -343,12 +353,12 @@ Full behavioral specification: `tests/scenarios/conditional-logic.md` (11 sectio
 
 ### Cypress test specs
 
-| Spec | Covers |
-|---|---|
+| Spec                                       | Covers                                                                                                  |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
 | `50-conditional-logic-selector-type.cy.ts` | Content Editor UI: source filtering, operators by type, value dropdowns, sibling exclusion, save/reload |
-| `51-conditional-logic-copy-paste.cy.ts` | Backend duplication: whole-form copy rebinding, duplicate source names, single-field copy degradation |
-| `52-conditional-logic-backend.cy.ts` | Backend sync: sourceNodeId persistence, logicsSrc weakref creation |
-| `53-conditional-logic-import.cy.ts` | Backend import: XML import rebinding, sourceNodeId repair after import, duplicate source names |
+| `51-conditional-logic-copy-paste.cy.ts`    | Backend duplication: whole-form copy rebinding, duplicate source names, single-field copy degradation   |
+| `52-conditional-logic-backend.cy.ts`       | Backend sync: sourceNodeId persistence, logicsSrc weakref creation                                      |
+| `53-conditional-logic-import.cy.ts`        | Backend import: XML import rebinding, sourceNodeId repair after import, duplicate source names          |
 
 ### Cypress fixtures and page objects
 
@@ -362,10 +372,10 @@ Full behavioral specification: `tests/scenarios/conditional-logic.md` (11 sectio
 
 ## User roles
 
-| Role | Action |
-|---|---|
-| **Admin** | Creates action nodes (`fmdb:captchaAction`, `fmdb:emailNotificationAction`, …) anywhere in the site content tree |
-| **Contributor** | Creates a `fmdb:form`, applies `fmdbmix:actionPipeline`, selects actions via the `actions` property |
+| Role            | Action                                                                                                           |
+| --------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **Admin**       | Creates action nodes (`fmdb:captchaAction`, `fmdb:emailNotificationAction`, …) anywhere in the site content tree |
+| **Contributor** | Creates a `fmdb:form`, applies `fmdbmix:actionPipeline`, selects actions via the `actions` property              |
 
 ---
 
@@ -401,6 +411,7 @@ yarn format
 ## Cypress tests
 
 Page-object pattern:
+
 - `tests/cypress/page-object/Form.ts` and `Fieldset.ts` – top-level page objects
 - `tests/cypress/page-object/elements/` – per-element wrappers
 - `tests/cypress/page-object/ConditionalLogicEditor.ts` and `ConditionalLogicField.ts` – conditional logic editor

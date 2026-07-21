@@ -24,6 +24,7 @@ Formidable **breaks ACL inheritance** (`j:inherit = false`) on every
 `fmdb-results-reader` grant (or site administrators) can access submission data.
 
 This protection is enforced at two levels:
+
 - at `formResults` creation time by `SaveToJcrFormAction`
 - on every ACL sync by `FormResultsAclSyncService` (repairs inheritance if
   it was accidentally restored)
@@ -43,10 +44,10 @@ all submissions and files under that node are also accessible.
 
 Two components handle the synchronisation:
 
-| Component | Trigger | Action |
-|-----------|---------|--------|
-| `FormPublicationAclSyncListener` | Form or ACE published to live | Reads `fmdb-results-reader` ACEs from the form, replicates them on `formResults` |
-| `SaveToJcrFormAction` | First submission creates `formResults` | Immediately syncs ACEs from the form onto the newly created `formResults` |
+| Component                        | Trigger                                | Action                                                                           |
+| -------------------------------- | -------------------------------------- | -------------------------------------------------------------------------------- |
+| `FormPublicationAclSyncListener` | Form or ACE published to live          | Reads `fmdb-results-reader` ACEs from the form, replicates them on `formResults` |
+| `SaveToJcrFormAction`            | First submission creates `formResults` | Immediately syncs ACEs from the form onto the newly created `formResults`        |
 
 Both delegate to `FormResultsAclSyncService`, which is idempotent: it compares
 source and target ACEs, adds missing ones, and removes obsolete ones. Calling it
@@ -101,11 +102,11 @@ at least be handled gracefully.
 
 If finer delegation is needed later, two options remain open:
 
-| Option | Approach | Trade-off |
-|--------|----------|-----------|
-| A | Keep the current model | Simplest. Only admins delete. |
-| B | Add `fmdb-results-manager` | Clear separation between read and delete capabilities. Requires ACL propagation similar to `fmdb-results-reader`. |
-| C | Enrich `fmdb-results-reader` with delete rights | Technically possible, but the role name becomes misleading. |
+| Option | Approach                                        | Trade-off                                                                                                         |
+| ------ | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| A      | Keep the current model                          | Simplest. Only admins delete.                                                                                     |
+| B      | Add `fmdb-results-manager`                      | Clear separation between read and delete capabilities. Requires ACL propagation similar to `fmdb-results-reader`. |
+| C      | Enrich `fmdb-results-reader` with delete rights | Technically possible, but the role name becomes misleading.                                                       |
 
 At this stage, option A is the chosen default. Option B is the most likely
 evolution path if non-admin deletion becomes a real requirement.
@@ -134,10 +135,10 @@ formidable-results/ (fmdb:resultsFolder, jmix:accessControlled)
 
 ## Implementation files
 
-| File | Role |
-|------|------|
-| `formidable-engine/.../permissions/FormResultsRoleInitializer.java` | Creates the `fmdb-results-reader` role under `/roles/reader/` at module activation |
-| `formidable-engine/.../permissions/FormResultsAclSyncService.java` | Idempotent ACL sync (reads source ACEs, writes target ACEs, enforces `j:inherit = false`) |
-| `formidable-engine/.../permissions/FormPublicationAclSyncListener.java` | Live workspace listener for form publication and ACE changes |
-| `formidable-engine/.../actions/storage/SaveToJcrFormAction.java` | Calls ACL sync when creating a new `formResults` node, sets `j:inherit = false` |
-| `formidable-engine/src/main/resources/META-INF/definitions.cnd` | `fmdb:formResults` declared with `jmix:accessControlled` |
+| File                                                                    | Role                                                                                      |
+| ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `formidable-engine/.../permissions/FormResultsRoleInitializer.java`     | Creates the `fmdb-results-reader` role under `/roles/reader/` at module activation        |
+| `formidable-engine/.../permissions/FormResultsAclSyncService.java`      | Idempotent ACL sync (reads source ACEs, writes target ACEs, enforces `j:inherit = false`) |
+| `formidable-engine/.../permissions/FormPublicationAclSyncListener.java` | Live workspace listener for form publication and ACE changes                              |
+| `formidable-engine/.../actions/storage/SaveToJcrFormAction.java`        | Calls ACL sync when creating a new `formResults` node, sets `j:inherit = false`           |
+| `formidable-engine/src/main/resources/META-INF/definitions.cnd`         | `fmdb:formResults` declared with `jmix:accessControlled`                                  |

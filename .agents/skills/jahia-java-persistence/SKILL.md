@@ -15,6 +15,7 @@ This skill covers how to design and implement the persistence layer correctly wh
 ### Correct approach
 
 Use the database's native mechanisms for generating ordered identifiers:
+
 - `IDENTITY` / `AUTO_INCREMENT` on the primary key for insertion order.
 - A `SEQUENCE` object (reserved inside a serialized transaction) if you need a stable ordering column separate from the PK.
 
@@ -38,6 +39,7 @@ Two concurrent inserts for the same `(contentId, locale)` read the same `MAX`, p
 ### Correct approach
 
 Load parent and child data in one round-trip:
+
 - SQL: `JOIN` or a `WHERE id IN (...)` batch query.
 - JPA: `JOIN FETCH` in JPQL or `@EntityGraph`.
 
@@ -88,6 +90,7 @@ Multiple independent `Instant.now()` calls within the same logical operation pro
 A separate table/entity is justified when it carries state that would be annoyingly denormalised across every member row: operation type, author, workflow status, retry counters, approval metadata, referential integrity constraints.
 
 If the only purpose of the separate table is to group rows (no meaningful payload of its own), a plain `operationId` UUID column on the member table is sufficient:
+
 - "All operations for a content": `SELECT DISTINCT operationId, createdAt FROM NodeVersion WHERE contentId = ? ORDER BY createdAt DESC`
 - "All versions of one operation": `SELECT * FROM NodeVersion WHERE operationId = ?`
 
@@ -118,6 +121,7 @@ A correlation-only entity adds a table, a JOIN on every group query, a separate 
 SQL (Hibernate) and JCR do not share a transaction. Treat every mixed write path as requiring explicit reasoning about failure modes.
 
 Options in order of preference:
+
 1. **JCR as system of record:** write to JCR first; only commit to SQL after a successful `session.save()`. If the SQL commit fails, log the orphaned JCR state and add it to a retry or cleanup queue.
 2. **Outbox pattern:** write to SQL only (including a status/outbox column); a separate process reads and applies the JCR write idempotently.
 3. **Accept the asymmetry:** document the inconsistency window explicitly, add a compensating cleanup path, and add monitoring to detect orphaned rows.
@@ -141,10 +145,12 @@ A failure in the JCR write leaves the SQL committed and the JCR unchanged — si
 ### Correct approach
 
 Document the thread-safety contract of every write path that involves locking, restoration, or multi-step state transitions:
+
 - Is the path safe to call concurrently? If not, what external lock must the caller hold?
 - Does the path clear existing locks? If yes, whose lock? Under what conditions is clearing safe?
 
 Before clearing a JCR lock in a write path:
+
 1. Verify the lock is not owned by an unrelated operation (active publication job, workflow, concurrent editor).
 2. If the lock is external, fail with a clear error — do not continue.
 
@@ -167,6 +173,7 @@ This pattern is dangerous in any path that is not the sole writer. A publication
 ### Correct approach
 
 For any module that introduces relational tables, include a schema summary in `docs/` or a README section covering:
+
 - Table names and purpose.
 - Key column types and constraints (primary keys, foreign keys, unique constraints, indexed columns).
 - How SQL tables relate to JCR nodes (which JCR property or node UUID maps to which SQL column).

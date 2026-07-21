@@ -1,6 +1,7 @@
 # Jahia OSGi Reference
 
 ## Table of Contents
+
 1. [OSGi fundamentals](#1-osgi-fundamentals)
 2. [Jahia OSGi architecture](#2-jahia-osgi-architecture)
 3. [Declarative Services (preferred)](#3-declarative-services-preferred)
@@ -16,6 +17,7 @@
 ## 1. OSGi fundamentals
 
 Each bundle:
+
 - Has its own class loader (isolation)
 - Declares what packages it imports (`Import-Package`)
 - Declares what packages it exports (`Export-Package`)
@@ -40,6 +42,7 @@ Jahia Application (DX)
 Declarative Services (DS) is the **only recommended** way to register OSGi services in Jahia 8.2.
 
 ### Enable DS annotation scanning in pom.xml
+
 ```xml
 <_dsannotations>*</_dsannotations>
 ```
@@ -115,6 +118,7 @@ Do not use for new development. For legacy modules only. Files go in `OSGI-INF/b
 ```
 
 Or in bundle plugin instructions:
+
 ```xml
 <Import-Package>
   org.example.api,
@@ -170,6 +174,7 @@ public class MyConsumer {
 ```
 
 pom.xml:
+
 ```xml
 <jahia-depends>moduleA-artifactId</jahia-depends>
 <jahia.modules.importPackage>org.example.moduleA.api</jahia.modules.importPackage>
@@ -181,28 +186,28 @@ pom.xml:
 
 Key Jahia services accessible via `@Reference`:
 
-| Interface | Description |
-|-----------|-------------|
+| Interface                     | Description                                 |
+| ----------------------------- | ------------------------------------------- |
 | `JahiaTemplateManagerService` | Template package registry, module lifecycle |
-| `JahiaUserManagerService` | User CRUD and lookup |
-| `JahiaGroupManagerService` | Group management |
-| `JCRSessionFactory` | JCR session factory |
-| `JahiaSitesService` | Site management |
-| `RenderService` | Content rendering |
-| `CacheService` | Cache management |
-| `WorkflowService` | Workflow management |
+| `JahiaUserManagerService`     | User CRUD and lookup                        |
+| `JahiaGroupManagerService`    | Group management                            |
+| `JCRSessionFactory`           | JCR session factory                         |
+| `JahiaSitesService`           | Site management                             |
+| `RenderService`               | Content rendering                           |
+| `CacheService`                | Cache management                            |
+| `WorkflowService`             | Workflow management                         |
 
 ---
 
 ## 9. Bundle lifecycle states
 
-| State | Description |
-|-------|-------------|
-| `INSTALLED` | Bundle JAR is installed but requirements not resolved yet |
-| `RESOLVED` | All package dependencies resolved but not started |
-| `STARTING` | Bundle activator is running |
-| `ACTIVE` | Bundle is fully started and operational |
-| `STOPPING` | Bundle is being stopped |
-| `UNINSTALLED` | Bundle has been removed |
+| State         | Description                                               |
+| ------------- | --------------------------------------------------------- |
+| `INSTALLED`   | Bundle JAR is installed but requirements not resolved yet |
+| `RESOLVED`    | All package dependencies resolved but not started         |
+| `STARTING`    | Bundle activator is running                               |
+| `ACTIVE`      | Bundle is fully started and operational                   |
+| `STOPPING`    | Bundle is being stopped                                   |
+| `UNINSTALLED` | Bundle has been removed                                   |
 
 A bundle stuck in `RESOLVED` but not `ACTIVE` usually means an `@Activate` method threw an exception or a required `@Reference` could not be resolved.

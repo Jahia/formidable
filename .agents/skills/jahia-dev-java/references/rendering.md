@@ -1,6 +1,7 @@
 # Jahia Rendering Reference
 
 ## Table of Contents
+
 1. [View script selection](#1-view-script-selection)
 2. [JSP rendering with taglibs](#2-jsp-rendering-with-taglibs)
 3. [Templates, areas, and cascading](#3-templates-areas-and-cascading)
@@ -14,11 +15,13 @@
 ## 1. View script selection
 
 **JSP naming convention:**
+
 ```
 src/main/webapp/{nodeType_with_slash}/{templateType}/{viewName}.{displayType}.jsp
 ```
 
 Examples:
+
 ```
 src/main/webapp/jnt_article/html/article.jsp          # default view
 src/main/webapp/jnt_article/html/article.summary.jsp  # "summary" named view
@@ -33,6 +36,7 @@ src/main/webapp/jnt_article/html/article.hidden.header.jsp  # hidden view
 ## 2. JSP rendering with taglibs
 
 ### Standard taglib declarations
+
 ```jsp
 <%@ taglib prefix="template" uri="http://www.jahia.org/tags/templateLib" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
@@ -44,14 +48,15 @@ src/main/webapp/jnt_article/html/article.hidden.header.jsp  # hidden view
 
 ### Key implicit variables
 
-| Variable | Type | Description |
-|----------|------|-------------|
-| `currentNode` | `JCRNodeWrapper` | The node being rendered |
-| `currentUser` | `JahiaUser` | The currently logged-in user |
-| `renderContext` | `RenderContext` | Current rendering context |
-| `url` | `URLGenerator` | URL generation helper |
+| Variable        | Type             | Description                  |
+| --------------- | ---------------- | ---------------------------- |
+| `currentNode`   | `JCRNodeWrapper` | The node being rendered      |
+| `currentUser`   | `JahiaUser`      | The currently logged-in user |
+| `renderContext` | `RenderContext`  | Current rendering context    |
+| `url`           | `URLGenerator`   | URL generation helper        |
 
 ### Common template taglib usage
+
 ```jsp
 <template:module node="${currentNode}" view="summary"/>
 <template:area path="maincontent"/>
@@ -60,6 +65,7 @@ src/main/webapp/jnt_article/html/article.hidden.header.jsp  # hidden view
 ```
 
 ### Full JSP view example
+
 ```jsp
 <%@ taglib prefix="template" uri="http://www.jahia.org/tags/templateLib" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
@@ -82,6 +88,7 @@ src/main/webapp/jnt_article/html/article.hidden.header.jsp  # hidden view
 Page rendering cascades: page → home template → base template → template view.
 
 **Absolute areas** (`level` attribute): use an ancestor path instead of the template sequence.
+
 - Level 0 = home page
 - Level 1 = first sub-page level
 
@@ -139,10 +146,12 @@ cache.mainResource=true  # Cache depends on the main resource
 Filters intercept every module render. Extend `AbstractFilter` and register as OSGi `RenderFilter` services.
 
 ### Priority rules
+
 - Priority > 16: runs once, result is cached
 - Priority < 16: runs on EVERY request (very expensive — avoid)
 
 ### Filter implementation
+
 ```java
 @Component(service = RenderFilter.class)
 public class MyFilter extends AbstractFilter {
@@ -172,16 +181,17 @@ The `jmix:list` mixin provides built-in list rendering.
 
 ### moduleMap parameters
 
-| Parameter | Description |
-|-----------|-------------|
-| `currentList` | Iterable of nodes to display |
-| `begin` | Start index |
-| `end` | End index |
-| `listQuery` | JCR SQL2 query |
-| `subNodesView` | View name used for child nodes |
-| `editable` | Whether list is editable (default: true) |
+| Parameter      | Description                              |
+| -------------- | ---------------------------------------- |
+| `currentList`  | Iterable of nodes to display             |
+| `begin`        | Start index                              |
+| `end`          | End index                                |
+| `listQuery`    | JCR SQL2 query                           |
+| `subNodesView` | View name used for child nodes           |
+| `editable`     | Whether list is editable (default: true) |
 
 ### Query-based list example (`hidden.load.jsp`)
+
 ```jsp
 <query:definition var="listQuery"
     statement="SELECT * FROM [jnt:article] WHERE ISDESCENDANTNODE('${renderContext.mainResource.node.path}') ORDER BY [jcr:lastModified] DESC"

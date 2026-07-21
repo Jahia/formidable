@@ -9,6 +9,7 @@ allowed-tools: Bash, Read, Write, Edit, WebFetch
 Jahia stores all content in a tree-based **Java Content Repository (JCR)**. Content can be queried using **JCR-SQL2**, a SQL-like language. This is used to build listings (blogs, news, team members, etc.) from content stored in **Content Folders**.
 
 There are **three ways** to query content in Jahia JS modules:
+
 1. **No-code**: built-in `Jahia - Queries` component in Page Builder
 2. **Server-side hook**: `useJCRQuery` in a `.server.tsx` view
 3. **Client-side hook**: `useJCRQuery` in a `.client.tsx` island (for dynamic, browser-triggered queries)
@@ -20,6 +21,7 @@ There are **three ways** to query content in Jahia JS modules:
 Instead of placing content directly on a page, reusable content (blog posts, team members, etc.) is stored in **Content Folders** under the `contents/` tree of the site.
 
 To create a content folder in Jahia UI:
+
 1. Open **jContent** (the content manager)
 2. Navigate to **Content Folders** in the left sidebar
 3. Right-click → **New Folder**, name it (e.g. `blog`)
@@ -87,13 +89,13 @@ WHERE ISCHILDNODE(post, '/sites/<siteKey>/contents/blog')
 
 ### Common query clauses
 
-| Clause | Usage |
-|---|---|
-| `ISDESCENDANTNODE(x, '/path')` | Filter by location in the tree |
-| `x.[prop] IS NOT NULL` | Exclude items without a property (draft filter) |
-| `x.[prop] = 'value'` | Filter by property value |
-| `ORDER BY x.[prop] DESC` | Sort descending |
-| `ORDER BY x.[prop] ASC` | Sort ascending |
+| Clause                         | Usage                                           |
+| ------------------------------ | ----------------------------------------------- |
+| `ISDESCENDANTNODE(x, '/path')` | Filter by location in the tree                  |
+| `x.[prop] IS NOT NULL`         | Exclude items without a property (draft filter) |
+| `x.[prop] = 'value'`           | Filter by property value                        |
+| `ORDER BY x.[prop] DESC`       | Sort descending                                 |
+| `ORDER BY x.[prop] ASC`        | Sort ascending                                  |
 
 ---
 
@@ -119,10 +121,10 @@ import classes from "./component.module.css";
 
 jahiaComponent(
   {
-    componentType: "view",           // ← "view", NOT "template"
+    componentType: "view", // ← "view", NOT "template"
     nodeType: "namespace:blogPost",
     displayName: "Blog Post Full Page",
-    name: "fullPage",                // ← this name is what MainResource routes to
+    name: "fullPage", // ← this name is what MainResource routes to
   },
   ({ "jcr:title": title, body, subtitle }: Props) => (
     <article className={classes.article}>
@@ -164,14 +166,15 @@ ORDER BY post.[publicationDate] DESC
 Display the date in the view:
 
 ```tsx
-{publicationDate && (
-  <time dateTime={publicationDate}>
-    {new Date(publicationDate).toLocaleDateString(
-      currentResource.getLocale().toString(),
-      { dateStyle: "long" }
-    )}
-  </time>
-)}
+{
+  publicationDate && (
+    <time dateTime={publicationDate}>
+      {new Date(publicationDate).toLocaleDateString(currentResource.getLocale().toString(), {
+        dateStyle: "long",
+      })}
+    </time>
+  );
+}
 ```
 
 ---
@@ -217,37 +220,35 @@ For sites with multiple languages, build a language switcher by combining `getSi
 ```tsx
 import { getSiteLocales, buildNodeUrl, jahiaComponent } from "@jahia/javascript-modules-library";
 
-jahiaComponent(
-  { componentType: "view", nodeType: "ns:languageSwitcher" },
-  (_, { currentNode }) => {
-    const locales = getSiteLocales(); // Record<string, java.util.Locale>
+jahiaComponent({ componentType: "view", nodeType: "ns:languageSwitcher" }, (_, { currentNode }) => {
+  const locales = getSiteLocales(); // Record<string, java.util.Locale>
 
-    // Read j:invalidLanguages (languages disabled on this node)
-    const invalidCodes = currentNode.hasProperty("j:invalidLanguages")
-      ? currentNode.getProperty("j:invalidLanguages").getValues().map((v: any) => v.getString())
-      : [];
-    const invalidSet = new Set(invalidCodes);
+  // Read j:invalidLanguages (languages disabled on this node)
+  const invalidCodes = currentNode.hasProperty("j:invalidLanguages")
+    ? currentNode
+        .getProperty("j:invalidLanguages")
+        .getValues()
+        .map((v: any) => v.getString())
+    : [];
+  const invalidSet = new Set(invalidCodes);
 
-    const links = Object.entries(locales)
-      .filter(([code, locale]) =>
-        !invalidSet.has(code) && currentNode.hasI18N(locale),
-      )
-      .map(([code]) => ({
-        code,
-        url: buildNodeUrl(currentNode, { language: code }),
-      }));
+  const links = Object.entries(locales)
+    .filter(([code, locale]) => !invalidSet.has(code) && currentNode.hasI18N(locale))
+    .map(([code]) => ({
+      code,
+      url: buildNodeUrl(currentNode, { language: code }),
+    }));
 
-    return (
-      <nav aria-label="Language switcher">
-        {links.map(({ code, url }) => (
-          <a key={code} href={url} lang={code} hrefLang={code}>
-            {code.toUpperCase()}
-          </a>
-        ))}
-      </nav>
-    );
-  },
-);
+  return (
+    <nav aria-label="Language switcher">
+      {links.map(({ code, url }) => (
+        <a key={code} href={url} lang={code} hrefLang={code}>
+          {code.toUpperCase()}
+        </a>
+      ))}
+    </nav>
+  );
+});
 ```
 
 > `getSiteLocales()` returns all locales configured for the site — not just the active language. Always filter by `j:invalidLanguages` and `hasI18N()` before displaying.
@@ -266,15 +267,20 @@ const BLOG_QUERY = gql`
   query LatestPosts($path: String!) {
     jcr {
       nodeByPath(path: $path) {
-        descendants(typesFilter: { types: ["namespace:blogPost"] }, fieldFilter: {
-          filters: [{ fieldName: "publicationDate", evaluation: NOT_EMPTY }]
-        }) {
+        descendants(
+          typesFilter: { types: ["namespace:blogPost"] }
+          fieldFilter: { filters: [{ fieldName: "publicationDate", evaluation: NOT_EMPTY }] }
+        ) {
           nodes {
             name
             path
             displayName
-            property(name: "publicationDate") { value }
-            property(name: "jcr:title") { value }
+            property(name: "publicationDate") {
+              value
+            }
+            property(name: "jcr:title") {
+              value
+            }
           }
         }
       }
@@ -317,9 +323,11 @@ import { useServerContext } from "@jahia/javascript-modules-library";
 import type { JCRNodeWrapper } from "org.jahia.services.content";
 
 const { renderContext } = useServerContext();
-const folderNode = renderContext.getMainResource().getNode().getSession().getNode(
-  `/sites/${siteKey}/contents/tutorials`
-) as JCRNodeWrapper;
+const folderNode = renderContext
+  .getMainResource()
+  .getNode()
+  .getSession()
+  .getNode(`/sites/${siteKey}/contents/tutorials`) as JCRNodeWrapper;
 ```
 
 ### Walk up to the section root
@@ -329,7 +337,10 @@ function findSectionRoot(node: JCRNodeWrapper): JCRNodeWrapper {
   const parts = node.getPath().split("/");
   const contentsPath = parts.slice(0, 4).join("/"); // /sites/siteKey/contents
   let current = node;
-  while (current.getParent() && (current.getParent() as JCRNodeWrapper).getPath() !== contentsPath) {
+  while (
+    current.getParent() &&
+    (current.getParent() as JCRNodeWrapper).getPath() !== contentsPath
+  ) {
     current = current.getParent() as JCRNodeWrapper;
   }
   return current;
@@ -396,6 +407,7 @@ Use `folder.getNodes()` (returns a `NodeIterator`) — call `.hasNext()` / `.nex
 ---
 
 ## Validation checklist
+
 - [ ] Content folder exists in Jahia UI under `contents/`
 - [ ] Site key in query matches the actual site key (use `renderContext.getSite().getName()` in code)
 - [ ] Query returns expected results in the built-in query component
@@ -404,4 +416,5 @@ Use `folder.getNodes()` (returns a `NodeIterator`) — call `.hasNext()` / `.nex
 - [ ] `buildNodeUrl(currentNode)` used for item links
 
 ## Troubleshooting
+
 > https://academy.jahia.com/tutorials-get-started/front-end-developer/making-a-blog

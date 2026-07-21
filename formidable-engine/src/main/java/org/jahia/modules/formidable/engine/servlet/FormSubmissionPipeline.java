@@ -7,6 +7,7 @@ import org.jahia.modules.formidable.engine.actions.FormDataParser;
 import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.modules.formidable.engine.logic.ConditionalLogicEvaluator;
+import org.jahia.modules.javascript.modules.engine.sdk.JSServerExtensionInvoker;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionFactory;
 import org.jahia.services.content.JCRSessionWrapper;
@@ -82,6 +83,10 @@ class FormSubmissionPipeline {
     private final MultipartParserAdapter multipartParser;
     private final CurrentUserSessionProvider currentUserSessionProvider;
 
+    // Optional: JS-declared field validators, run server-side when the js-modules SDK is available.
+    // Null when the deployed js-modules engine predates the SDK — Formidable then degrades gracefully.
+    private JSServerExtensionInvoker jsInvoker;
+
     // State accumulated as the pipeline progresses
     private String formId;
     private Locale locale;
@@ -115,6 +120,11 @@ class FormSubmissionPipeline {
         this.currentUserSessionProvider = currentUserSessionProvider;
     }
 
+    /** Supplies the optional JS field-validator bridge; called by the servlet when the SDK service is present. */
+    void setJsInvoker(JSServerExtensionInvoker jsInvoker) {
+        this.jsInvoker = jsInvoker;
+    }
+
     void run(HttpServletRequest req) throws SubmissionException {
         verifyMultipart(req);
         readRoutingParams(req);
@@ -125,6 +135,7 @@ class FormSubmissionPipeline {
         collectFormFieldInfo();
         parseMultipart(req);
         validateRequired();
+        validateFieldsWithJs();
         dispatchActions(req);
     }
 
@@ -242,6 +253,61 @@ class FormSubmissionPipeline {
                 case CONFIGURATION -> ErrorCode.FMDB_500;
             };
             throw new SubmissionException(code, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Runs JavaScript-declared field validators (registered via {@code registerFormFieldValidator}) against
+     * the submitted values, on the server. This re-enforces field-type constraints (rating range, scale
+     * bounds, switch boolean, consent) that a client bypassing the browser could otherwise violate.
+     *
+     * <p>Field nodes are re-loaded with a system session — mirroring how field metadata is collected — so
+     * validators can read the field's own configuration. Skipped entirely when the SDK service is absent.
+     */
+    private void validateFieldsWithJs() throws SubmissionException {
+        if (jsInvoker == null) {
+            return;
+        }
+        Map<String, String> fieldNodeIds = fieldMetadata.fieldNodeIds();
+        Map<String, List<String>> params = parsed.parameters();
+        if (fieldNodeIds.isEmpty() || params.isEmpty()) {
+            return;
+        }
+
+        // [fieldName, message] of the first violation found, filled inside the system-session callback.
+        List<String> violation = new ArrayList<>(2);
+        try {
+            JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale, systemSession -> {
+                for (Map.Entry<String, List<String>> entry : params.entrySet()) {
+                    String fieldName = entry.getKey();
+                    String nodeId = fieldNodeIds.get(fieldName);
+                    if (nodeId == null) {
+                        continue;
+                    }
+                    JCRNodeWrapper fieldNode;
+                    try {
+                        fieldNode = systemSession.getNodeByIdentifier(nodeId);
+                    } catch (RepositoryException e) {
+                        log.debug("[FormSubmissionPipeline] Field node '{}' not found for JS validation", nodeId);
+                        continue;
+                    }
+                    List<String> messages = JsFieldValidator.validate(jsInvoker, fieldNode, entry.getValue(), locale);
+                    if (!messages.isEmpty()) {
+                        violation.add(fieldName);
+                        violation.add(messages.get(0));
+                        return null;
+                    }
+                }
+                return null;
+            });
+        } catch (RepositoryException e) {
+            throw new SubmissionException(ErrorCode.FMDB_500, "JavaScript field validation could not run", e);
+        }
+
+        if (!violation.isEmpty()) {
+            log.warn("[FormSubmissionPipeline] JS validation rejected field '{}'", violation.get(0));
+            throw new SubmissionException(ErrorCode.FMDB_010,
+                    "Field '" + violation.get(0) + "' failed validation: " + violation.get(1));
         }
     }
 

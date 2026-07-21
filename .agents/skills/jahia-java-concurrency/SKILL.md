@@ -95,12 +95,12 @@ Bundle related fields into a single immutable record and swap the reference atom
 
 Use `java.util.concurrent.atomic` for lock-free, thread-safe single-value updates:
 
-| Need | Type |
-|---|---|
-| Thread-safe counter | `AtomicInteger` / `AtomicLong` |
-| Thread-safe reference swap | `AtomicReference<T>` |
-| Conditional update (compare-and-swap) | `AtomicReference.compareAndSet()` |
-| Accumulator under high contention | `LongAdder` (more scalable than `AtomicLong` for pure counting) |
+| Need                                  | Type                                                            |
+| ------------------------------------- | --------------------------------------------------------------- |
+| Thread-safe counter                   | `AtomicInteger` / `AtomicLong`                                  |
+| Thread-safe reference swap            | `AtomicReference<T>`                                            |
+| Conditional update (compare-and-swap) | `AtomicReference.compareAndSet()`                               |
+| Accumulator under high contention     | `LongAdder` (more scalable than `AtomicLong` for pure counting) |
 
 ### Check-then-act with `compareAndSet`
 
@@ -122,6 +122,7 @@ Two threads calling `tryStart()` concurrently: only one gets `true`. No lock nee
 ### When to use
 
 Use explicit locking when:
+
 - The critical section spans multiple statements that must execute atomically.
 - You need read/write distinction (`ReadWriteLock`).
 - You need a timed or interruptible lock attempt (`ReentrantLock.tryLock(timeout)`).
@@ -178,13 +179,13 @@ Multiple readers proceed concurrently; a writer gets exclusive access. Worth the
 
 ## Thread-safe collections
 
-| Use case | Correct type | What NOT to use |
-|---|---|---|
-| Concurrent map (read-heavy or write-heavy) | `ConcurrentHashMap` | `HashMap` (not thread-safe), `Collections.synchronizedMap` (full lock on every op) |
-| Concurrent list, infrequent writes | `CopyOnWriteArrayList` | `ArrayList`, `Collections.synchronizedList` |
-| Concurrent queue / work queue | `LinkedBlockingQueue`, `ArrayBlockingQueue` | `LinkedList` |
-| Set | `ConcurrentHashMap.newKeySet()` | `HashSet` |
-| Cache with eviction | `Caffeine` or `Guava Cache` | `HashMap` with manual cleanup |
+| Use case                                   | Correct type                                | What NOT to use                                                                    |
+| ------------------------------------------ | ------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Concurrent map (read-heavy or write-heavy) | `ConcurrentHashMap`                         | `HashMap` (not thread-safe), `Collections.synchronizedMap` (full lock on every op) |
+| Concurrent list, infrequent writes         | `CopyOnWriteArrayList`                      | `ArrayList`, `Collections.synchronizedList`                                        |
+| Concurrent queue / work queue              | `LinkedBlockingQueue`, `ArrayBlockingQueue` | `LinkedList`                                                                       |
+| Set                                        | `ConcurrentHashMap.newKeySet()`             | `HashSet`                                                                          |
+| Cache with eviction                        | `Caffeine` or `Guava Cache`                 | `HashMap` with manual cleanup                                                      |
 
 ### Pitfall — compound actions on `ConcurrentHashMap`
 
@@ -215,6 +216,7 @@ private static Map<String, Object> cache = new HashMap<>();
 ```
 
 **Rule:** static fields in a Jahia module must be either:
+
 - `final` and truly immutable (constants, loggers), or
 - `volatile` / concurrent-typed with documented thread-safety, or
 - `ThreadLocal` (thread-scoped, not shared).

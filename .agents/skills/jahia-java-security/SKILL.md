@@ -35,7 +35,7 @@ Every reachable surface in a Jahia module is protected by zero, one, or several 
 - **Enforcement:** `JCRSessionWrapper` (user session — permissions apply) vs `JCRSessionFactory.getCurrentSystemSession()` / `JCRTemplate.doExecuteWithSystemSession` (system session — permissions bypassed).
 - **GraphQL:** `@GraphQLField` operations should declare `@RequirePermission` annotations. An admin operation without `@RequirePermission` is a finding.
 - **When to use:** any operation that reads/writes JCR content with content-level access rules — jContent admin screens, content workflows, operations that respect site/node permissions.
-- **Audit rule:** when code uses a system session, the security boundary is whatever check happened *before* the `doExecuteWithSystemSession` call. Find that check explicitly. If there is none, the operation is anonymous-privileged — P0 for writes, P1 for reads.
+- **Audit rule:** when code uses a system session, the security boundary is whatever check happened _before_ the `doExecuteWithSystemSession` call. Find that check explicitly. If there is none, the operation is anonymous-privileged — P0 for writes, P1 for reads.
 
 ### 4. Captcha and one-time tokens
 
@@ -49,13 +49,13 @@ Every reachable surface in a Jahia module is protected by zero, one, or several 
 
 For each surface you implement or review, fill this in:
 
-| Surface | Guests? | Auth users? | Side effects? | Required protection |
-|---|---|---|---|---|
-| Public form submit | Yes | Yes | Email, JCR write | Security Filter `origin: hosted` (primary) + captcha (defense-in-depth) |
-| Admin GraphQL query | No | Yes (with permission) | Read JCR | Security Filter `origin: hosted` + `@RequirePermission(...)` |
-| Admin GraphQL mutation | No | Yes (with permission) | Write JCR | Same + verify ACL when system session is used |
-| OSGi servlet at `/modules/...` | Depends | Depends | Depends | At minimum: `origin: hosted` |
-| Choicelist initializer | Indirect (editor UI) | Yes (editor) | Read config | Inherits editor auth — verify it does not leak cross-tenant data |
+| Surface                        | Guests?              | Auth users?           | Side effects?    | Required protection                                                     |
+| ------------------------------ | -------------------- | --------------------- | ---------------- | ----------------------------------------------------------------------- |
+| Public form submit             | Yes                  | Yes                   | Email, JCR write | Security Filter `origin: hosted` (primary) + captcha (defense-in-depth) |
+| Admin GraphQL query            | No                   | Yes (with permission) | Read JCR         | Security Filter `origin: hosted` + `@RequirePermission(...)`            |
+| Admin GraphQL mutation         | No                   | Yes (with permission) | Write JCR        | Same + verify ACL when system session is used                           |
+| OSGi servlet at `/modules/...` | Depends              | Depends               | Depends          | At minimum: `origin: hosted`                                            |
+| Choicelist initializer         | Indirect (editor UI) | Yes (editor)          | Read config      | Inherits editor auth — verify it does not leak cross-tenant data        |
 
 ---
 

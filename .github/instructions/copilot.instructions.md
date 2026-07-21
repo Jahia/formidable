@@ -44,5 +44,6 @@
 - Keep inline comments to a minimum and only when they are genuinely useful for understanding non-obvious logic.
 
 ## Language
+
 - Respond in French.
 - Write comments or documentation in English.

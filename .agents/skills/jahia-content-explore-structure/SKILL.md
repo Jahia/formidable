@@ -25,6 +25,7 @@ Use this skill **before** creating content on an unfamiliar Jahia site. It produ
 Use GraphQL aliases to retrieve everything you need in a **single HTTP request**: site metadata, page structure, file assets, and available content types.
 
 First, find the site key:
+
 ```bash
 curl -s -u root:root1234 -H "Content-Type: application/json" -H "Origin: http://localhost:8080" \
   -X POST http://localhost:8080/modules/graphql \
@@ -32,6 +33,7 @@ curl -s -u root:root1234 -H "Content-Type: application/json" -H "Origin: http://
 ```
 
 Then run the full batch query (replace `SITE_KEY` and `TEMPLATE_MODULE`):
+
 ```bash
 curl -s -u root:root1234 \
   -H "Content-Type: application/json" -H "Origin: http://localhost:8080" \
@@ -40,6 +42,7 @@ curl -s -u root:root1234 \
 ```
 
 From the response:
+
 - `site.properties` → `j:templatesSet` (the template module name) and `j:defaultLanguage`
 - `home.children` → page area structure; look for area nodes and check their children to see which content types are in use
 - `files.children` → existing file folders and UUIDs

@@ -16,6 +16,7 @@ Retrieves JCR content from a running Jahia instance using the GraphQL JCR query 
 - GraphQL endpoint: `http://localhost:8080/modules/graphql`
 
 **Auth pattern — always use both flags:**
+
 ```bash
 curl -u root:root1234 \
      -H "Content-Type: application/json" \
@@ -130,11 +131,11 @@ SELECT * FROM [ns:typeName] WHERE ISDESCENDANTNODE('/sites/mySite') ORDER BY [jc
 
 ## Common errors
 
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `Permission denied` | Missing `Origin` header | Add `-H "Origin: http://localhost:8080"` |
-| i18n properties returned empty | `language:` not specified | Add `language: "en"` to `properties()` call |
-| Node not found | Wrong path or node doesn't exist | Verify path with `nodeByPath(path: "/sites")` first |
+| Error                          | Cause                            | Fix                                                 |
+| ------------------------------ | -------------------------------- | --------------------------------------------------- |
+| `Permission denied`            | Missing `Origin` header          | Add `-H "Origin: http://localhost:8080"`            |
+| i18n properties returned empty | `language:` not specified        | Add `language: "en"` to `properties()` call         |
+| Node not found                 | Wrong path or node doesn't exist | Verify path with `nodeByPath(path: "/sites")` first |
 
 ---
 

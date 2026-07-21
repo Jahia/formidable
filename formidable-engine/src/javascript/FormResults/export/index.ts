@@ -1,2 +1,1 @@
-export {ExportResultsDialog} from './ExportResultsDialog';
-
+export { ExportResultsDialog } from "./ExportResultsDialog";
