@@ -5,15 +5,12 @@
 		{
 			"name": "responses",
 			"labelKey": "fmdb.section.responses",
-			"rank": 1.10,
+			"rank": 1.1,
 			"fieldSets": [
 				{
 					"name": "messages",
 					"rank": 0.0,
-					"fields": [
-						{ "name": "submissionMessage" },
-						{ "name": "errorMessage" }
-					]
+					"fields": [{ "name": "submissionMessage" }, { "name": "errorMessage" }]
 				}
 			]
 		}

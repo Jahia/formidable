@@ -1,4 +1,4 @@
-import {useServerContext} from "@jahia/javascript-modules-library";
+import { useServerContext } from "@jahia/javascript-modules-library";
 import type { ReactNode } from "react";
 
 /** Places `children` in an html page. */

@@ -12,26 +12,24 @@
 // This function is called when a project is opened or re-opened (e.g. due to
 // the project's config changing)
 
-const env = require('./env')
+const env = require("./env");
 
-/**
- * @type {Cypress.PluginConfig}
- */
+/** @type {Cypress.PluginConfig} */
 module.exports = (on, config) => {
-	env(on, config)
-	require('@jahia/cypress/dist/plugins/registerPlugins').registerPlugins(on, config)
+  env(on, config);
+  require("@jahia/cypress/dist/plugins/registerPlugins").registerPlugins(on, config);
 
-	const optionsPrinter = {
-		// Logging to file to reduce verbosity in the CI platform
-		outputRoot: config.projectRoot + '/results/logs/',
-		outputTarget: {
-			'cypress-logs|txt': 'txt',
-		},
-		printLogsToConsole: 'always',
-		includeSuccessfulHookLogs: true,
-		logToFilesOnAfterRun: true,
-	}
+  const optionsPrinter = {
+    // Logging to file to reduce verbosity in the CI platform
+    outputRoot: config.projectRoot + "/results/logs/",
+    outputTarget: {
+      "cypress-logs|txt": "txt",
+    },
+    printLogsToConsole: "always",
+    includeSuccessfulHookLogs: true,
+    logToFilesOnAfterRun: true,
+  };
 
-	require('cypress-terminal-report/src/installLogsPrinter')(on, optionsPrinter)
-	return config
-}
+  require("cypress-terminal-report/src/installLogsPrinter")(on, optionsPrinter);
+  return config;
+};

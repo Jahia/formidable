@@ -1,25 +1,31 @@
-import {Island, jahiaComponent} from "@jahia/javascript-modules-library";
+import { Island, jahiaComponent } from "@jahia/javascript-modules-library";
 import Checkbox from "./Checkbox.client";
-import {parseChoices} from "~/utils/choiceUtils";
-import {type BaseValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
-import {resolveUrlPlaceholders} from "~/utils/richTextUtils";
-import HelpText, {helpTextId} from "~/design/HelpText";
+import { parseChoices } from "~/utils/choiceUtils";
+import { type BaseValidationMessageProps, validationDataAttributes } from "~/utils/validationProps";
+import { resolveUrlPlaceholders } from "~/utils/richTextUtils";
+import HelpText, { helpTextId } from "~/design/HelpText";
 
 interface CheckboxProps extends BaseValidationMessageProps {
 	"jcr:title"?: string;
-	helpText?: string;
-	choices?: string[];
-	required?: boolean;
+	"helpText"?: string;
+	"choices"?: string[];
+	"required"?: boolean;
 }
 jahiaComponent(
 	{
 		componentType: "view",
 		nodeType: "fmdb:checkbox",
-		name: "default"
+		name: "default",
 	},
 	(
-		{"jcr:title": label, helpText, choices: rawChoices = [], required, ...validationMsgs}: CheckboxProps,
-		{currentNode, renderContext}
+		{
+			"jcr:title": label,
+			helpText,
+			"choices": rawChoices = [],
+			required,
+			...validationMsgs
+		}: CheckboxProps,
+		{ currentNode, renderContext },
 	) => {
 		const inputName = currentNode.getName();
 		const nodeId = currentNode.getIdentifier();
@@ -44,14 +50,26 @@ jahiaComponent(
 					/>
 					<label htmlFor={inputId} className="fmdb-checkbox-label">
 						{choice.label}
-						{required && <span className="fmdb-required-indicator" aria-hidden="true">*</span>}
+						{required && (
+							<span className="fmdb-required-indicator" aria-hidden="true">
+								*
+							</span>
+						)}
 					</label>
-					<HelpText id={helpId} text={helpText}/>
+					<HelpText id={helpId} text={helpText} />
 				</div>
 			);
 		}
 		return (
-			<Island component={Checkbox} props={{ label, required, helpText: resolveUrlPlaceholders(helpText, renderContext), helpId }}>
+			<Island
+				component={Checkbox}
+				props={{
+					label,
+					required,
+					helpText: resolveUrlPlaceholders(helpText, renderContext),
+					helpId,
+				}}
+			>
 				<div className="fmdb-group-items">
 					{parsedChoices.map((choice, idx) => {
 						const inputId = `checkbox-${nodeId}-${idx}`;
@@ -75,5 +93,5 @@ jahiaComponent(
 				</div>
 			</Island>
 		);
-	}
+	},
 );

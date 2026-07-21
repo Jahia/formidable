@@ -1,34 +1,34 @@
-import {jahiaComponent} from "@jahia/javascript-modules-library";
-import {type TextValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
-import HelpText, {helpTextId} from "~/design/HelpText";
+import { jahiaComponent } from "@jahia/javascript-modules-library";
+import { type TextValidationMessageProps, validationDataAttributes } from "~/utils/validationProps";
+import HelpText, { helpTextId } from "~/design/HelpText";
 
 interface TextareaProps extends TextValidationMessageProps {
 	"jcr:title"?: string;
-	helpText?: string;
-	placeholder?: string;
-	defaultValue?: string;
-	minLength?: number;
-	maxLength?: number;
-	rows?: number;
-	cols?: number;
+	"helpText"?: string;
+	"placeholder"?: string;
+	"defaultValue"?: string;
+	"minLength"?: number;
+	"maxLength"?: number;
+	"rows"?: number;
+	"cols"?: number;
 	// Advanced settings from mixin
-	required?: boolean;
-	autocomplete?: string;
-	spellcheck?: boolean;
-	readonly?: boolean;
-	autofocus?: boolean;
-	disabled?: boolean;
-	form?: string;
-	dirname?: boolean;
-	wrap?: 'soft' | 'hard' | 'off';
-	resize?: 'none' | 'both' | 'horizontal' | 'vertical';
+	"required"?: boolean;
+	"autocomplete"?: string;
+	"spellcheck"?: boolean;
+	"readonly"?: boolean;
+	"autofocus"?: boolean;
+	"disabled"?: boolean;
+	"form"?: string;
+	"dirname"?: boolean;
+	"wrap"?: "soft" | "hard" | "off";
+	"resize"?: "none" | "both" | "horizontal" | "vertical";
 }
 
 jahiaComponent(
 	{
 		componentType: "view",
 		nodeType: "fmdb:textarea",
-		name: "default"
+		name: "default",
 	},
 	(
 		{
@@ -40,8 +40,8 @@ jahiaComponent(
 			maxLength,
 			rows = 4,
 			cols,
-			wrap = 'soft',
-			resize = 'vertical',
+			wrap = "soft",
+			resize = "vertical",
 			required,
 			autocomplete,
 			spellcheck = true,
@@ -52,16 +52,15 @@ jahiaComponent(
 			dirname,
 			...validationMsgs
 		}: TextareaProps,
-		{currentNode}
+		{ currentNode },
 	) => {
-
 		// Generate unique id and name for the textarea
 		const textareaId = `textarea-${currentNode.getIdentifier()}`;
 		const textareaName = currentNode.getName();
 
 		// Build style object for resize control
 		const textareaStyle: React.CSSProperties = {
-			resize: resize
+			resize: resize,
 		};
 
 		const helpId = helpText ? helpTextId(currentNode.getIdentifier()) : undefined;
@@ -71,11 +70,15 @@ jahiaComponent(
 				{label && (
 					<label htmlFor={textareaId} className="fmdb-form-label">
 						{label}
-						{required && <span className="fmdb-required-indicator" aria-hidden="true">*</span>}
+						{required && (
+							<span className="fmdb-required-indicator" aria-hidden="true">
+								*
+							</span>
+						)}
 					</label>
 				)}
 
-				<HelpText id={helpId} text={helpText}/>
+				<HelpText id={helpId} text={helpText} />
 
 				<textarea
 					id={textareaId}
@@ -97,10 +100,10 @@ jahiaComponent(
 					autoFocus={autofocus}
 					disabled={disabled}
 					form={form}
-					{...(dirname && {'dirname': `${textareaName}.dir`})}
+					{...(dirname && { dirname: `${textareaName}.dir` })}
 					{...validationDataAttributes(validationMsgs)}
 				/>
 			</div>
 		);
-	}
+	},
 );

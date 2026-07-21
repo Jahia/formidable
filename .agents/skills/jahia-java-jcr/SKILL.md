@@ -44,6 +44,7 @@ Hand-rolled filename sanitization (regex replacements, `String.replace`) is almo
 ### Correct approach
 
 Two children with the same name under the same parent are indexed `node[1]`, `node[2]`. If you need to find-or-create by name under concurrent load, either:
+
 - Lock the parent node before the check-then-create sequence.
 - Use a unique-by-construction name (UUID, slug+timestamp) and store the display name as a property.
 
@@ -86,6 +87,7 @@ Writing to a versioned node without `checkout()` throws `VersionException`. Code
 ### Correct approach
 
 Respect existing locks before performing write operations. Before clearing a lock:
+
 1. Check whether the lock is owned by the current operation or by an external caller (another user, a publication job, a workflow).
 2. If the lock is external, **fail the operation** with a clear error — do not clear it silently and continue.
 3. Document the thread-safety contract of any write path that involves locking.

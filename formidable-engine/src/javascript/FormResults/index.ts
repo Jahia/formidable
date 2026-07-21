@@ -1,2 +1,1 @@
-export {FormResultsApp} from './FormResultsApp';
-
+export { FormResultsApp } from "./FormResultsApp";

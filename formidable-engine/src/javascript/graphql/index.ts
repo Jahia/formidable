@@ -1,2 +1,1 @@
-export {JCR_NODE_IDENTITY} from './fragments';
-
+export { JCR_NODE_IDENTITY } from "./fragments";

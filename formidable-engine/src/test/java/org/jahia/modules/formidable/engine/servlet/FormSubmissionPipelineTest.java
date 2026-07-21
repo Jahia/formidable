@@ -663,7 +663,7 @@ class FormSubmissionPipelineTest {
     }
 
     private static FormFieldMetadataCollector.Result emptyFieldMetadata() {
-        return new FormFieldMetadataCollector.Result(java.util.Map.of(), java.util.Map.of(), java.util.Map.of(), java.util.Map.of());
+        return new FormFieldMetadataCollector.Result(java.util.Map.of(), java.util.Map.of(), java.util.Map.of(), java.util.Map.of(), java.util.Map.of());
     }
 
     private static void invokeSubmissionStep(Method method, Object target, Object... args) throws Exception {

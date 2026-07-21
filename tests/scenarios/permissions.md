@@ -29,8 +29,11 @@ Execute `GET_FORM_RESULTS_LIST` as `test-reader`:
 query {
   jcr(workspace: LIVE) {
     nodeByPath(path: "/sites/<siteKey>/formidable-results") {
-      children(typesFilter: {types: ["fmdb:formResults"]}) {
-        nodes { uuid name }
+      children(typesFilter: { types: ["fmdb:formResults"] }) {
+        nodes {
+          uuid
+          name
+        }
       }
     }
   }
@@ -53,7 +56,9 @@ query {
       limit: 10
       offset: 0
     ) {
-      nodes { uuid }
+      nodes {
+        uuid
+      }
     }
   }
 }
@@ -174,6 +179,7 @@ exists under `formResults/j:acl`.
 1. Submit the form
 
 **Expected:**
+
 - `formResults` is created in live
 - `formResults/j:acl` has `j:inherit = false`
 - A `jnt:ace` granting `fmdb-results-reader` to `test-reader` exists
@@ -191,6 +197,7 @@ exists under `formResults/j:acl`.
 2. Trigger an ACL sync (publish the form)
 
 **Expected:**
+
 - `j:inherit` is reset to `false` after sync
 - A user without `fmdb-results-reader` still cannot access results
 
@@ -215,4 +222,3 @@ println session.nodeExists("/roles/reader/fmdb-results-reader")
 Select a `fmdb:form` node → Permissions → LIVE ROLES.
 
 **Expected:** `fmdb-results-reader` appears in the list of available roles.
-

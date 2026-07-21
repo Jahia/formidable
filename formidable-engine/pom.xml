@@ -69,6 +69,21 @@
             <artifactId>jcr</artifactId>
             <scope>provided</scope>
         </dependency>
+        <!-- JavaScript modules server-extension SDK (JSServerExtensionInvoker), exported by the
+             javascript-modules-engine bundle. Compile-only; transitives excluded because the SDK
+             interface uses JDK types only and the package is provided at runtime by that bundle. -->
+        <dependency>
+            <groupId>org.jahia.modules</groupId>
+            <artifactId>javascript-modules-engine-java</artifactId>
+            <version>1.3.0-SNAPSHOT</version>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
         <dependency>
             <groupId>javax.servlet</groupId>
             <artifactId>javax.servlet-api</artifactId>
@@ -183,6 +198,9 @@
                             org.jahia.modules.formidable.engine.api
                         </Export-Package>
                         <Import-Package>
+                            <!-- JS server-extension SDK, exported by javascript-modules-engine. Version-less
+                                 so it resolves against the SNAPSHOT export without range fragility. -->
+                            org.jahia.modules.javascript.modules.engine.sdk,
                             org.jahia.bin,
                             org.jahia.services.content,
                             org.jahia.services.mail,

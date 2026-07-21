@@ -37,27 +37,27 @@ src/javascript/init.tsx
 Current implementation:
 
 ```tsx
-import {registry} from '@jahia/ui-extender';
-import i18next from 'i18next';
-import {Form} from '@jahia/moonstone';
-import {FormResultsApp} from './FormResults';
+import { registry } from "@jahia/ui-extender";
+import i18next from "i18next";
+import { Form } from "@jahia/moonstone";
+import { FormResultsApp } from "./FormResults";
 
 export default function () {
-    registry.add('callback', 'FormidableEngineEditor', {
-        targets: ['jahiaApp-init:20'],
-        callback: () => {
-            i18next.loadNamespaces('formidable-engine');
+  registry.add("callback", "FormidableEngineEditor", {
+    targets: ["jahiaApp-init:20"],
+    callback: () => {
+      i18next.loadNamespaces("formidable-engine");
 
-            registry.add('adminRoute', 'formidableResults', {
-                targets: ['jcontent:50'],
-                icon: <Form/>,
-                label: 'formidable-engine:formResults.nav.title',
-                isSelectable: true,
-                requireModuleInstalledOnSite: 'formidable-engine',
-                render: () => <FormResultsApp/>
-            });
-        }
-    });
+      registry.add("adminRoute", "formidableResults", {
+        targets: ["jcontent:50"],
+        icon: <Form />,
+        label: "formidable-engine:formResults.nav.title",
+        isSelectable: true,
+        requireModuleInstalledOnSite: "formidable-engine",
+        render: () => <FormResultsApp />,
+      });
+    },
+  });
 }
 ```
 
@@ -203,7 +203,7 @@ Representative examples:
 query GetFormResultsList($resultsPath: String!, $workspace: Workspace = LIVE, $language: String!) {
   jcr(workspace: $workspace) {
     nodeByPath(path: $resultsPath) {
-      children(typesFilter: {types: ["fmdb:formResults"]}) {
+      children(typesFilter: { types: ["fmdb:formResults"] }) {
         nodes {
           uuid
           path
@@ -246,13 +246,27 @@ query GetSubmissions(
         uuid
         path
         name
-        created: property(name: "jcr:created") { value }
-        origin: property(name: "origin") { value }
-        ipAddress: property(name: "ipAddress") { value }
-        locale: property(name: "locale") { value }
-        submitterUsername: property(name: "submitterUsername") { value }
-        userAgent: property(name: "userAgent") { value }
-        referer: property(name: "referer") { value }
+        created: property(name: "jcr:created") {
+          value
+        }
+        origin: property(name: "origin") {
+          value
+        }
+        ipAddress: property(name: "ipAddress") {
+          value
+        }
+        locale: property(name: "locale") {
+          value
+        }
+        submitterUsername: property(name: "submitterUsername") {
+          value
+        }
+        userAgent: property(name: "userAgent") {
+          value
+        }
+        referer: property(name: "referer") {
+          value
+        }
       }
     }
   }
@@ -380,7 +394,7 @@ function parseSubmissionNode(node: any): SubmissionRow {
     uuid: node.uuid,
     path: node.path,
     name: node.name,
-    created: node.created?.value ?? '',
+    created: node.created?.value ?? "",
     origin: node.origin?.value ?? null,
     ipAddress: node.ipAddress?.value ?? null,
     locale: node.locale?.value ?? null,
@@ -388,7 +402,7 @@ function parseSubmissionNode(node: any): SubmissionRow {
     userAgent: node.userAgent?.value ?? null,
     referer: node.referer?.value ?? null,
     fieldValues: extractUserProperties(node.data),
-    files: extractFiles(node.files)
+    files: extractFiles(node.files),
   };
 }
 ```
@@ -513,7 +527,7 @@ interface SubmissionRow {
   submitterUsername: string | null;
   userAgent: string | null;
   referer: string | null;
-  fieldValues: Array<{name: string; values: string[]}>;
+  fieldValues: Array<{ name: string; values: string[] }>;
   files: SubmissionFile[];
 }
 ```
@@ -611,7 +625,7 @@ Download pattern:
 
 ```tsx
 <a href={file.fileUrl} download={file.fileName}>
-  <Button label="Download"/>
+  <Button label="Download" />
 </a>
 ```
 

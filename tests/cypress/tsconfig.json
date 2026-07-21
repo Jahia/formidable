@@ -1,11 +1,6 @@
 {
   "extends": "../tsconfig.json",
-  "include": [
-    "e2e/**/*.ts",
-    "page-object/**/*.ts",
-    "support/**/*.ts",
-    "support/**/*.js"
-  ],
+  "include": ["e2e/**/*.ts", "page-object/**/*.ts", "support/**/*.ts", "support/**/*.js"],
   "compilerOptions": {
     "allowSyntheticDefaultImports": true,
     "allowJs": true,
@@ -22,11 +17,7 @@
       "cypress-wait-until",
       "@jahia/cypress"
     ],
-    "lib": [
-      "es2022",
-      "dom",
-      "dom.iterable"
-    ],
+    "lib": ["es2022", "dom", "dom.iterable"],
     "skipLibCheck": true
   }
 }

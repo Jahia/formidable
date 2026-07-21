@@ -1,25 +1,24 @@
-import {jahiaComponent} from "@jahia/javascript-modules-library";
-import {parseChoices} from "~/utils/choiceUtils";
-import {type BaseValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
-import HelpText, {helpTextId} from "~/design/HelpText";
+import { jahiaComponent } from "@jahia/javascript-modules-library";
+import { parseChoices } from "~/utils/choiceUtils";
+import { type BaseValidationMessageProps, validationDataAttributes } from "~/utils/validationProps";
+import HelpText, { helpTextId } from "~/design/HelpText";
 
 interface SelectProps extends BaseValidationMessageProps {
 	"jcr:title"?: string;
-	helpText?: string;
-	options?: string[];
-	required?: boolean;
-	multiple?: boolean;
-	size?: number;
-	disabled?: boolean;
-	autofocus?: boolean;
+	"helpText"?: string;
+	"options"?: string[];
+	"required"?: boolean;
+	"multiple"?: boolean;
+	"size"?: number;
+	"disabled"?: boolean;
+	"autofocus"?: boolean;
 }
-
 
 jahiaComponent(
 	{
 		componentType: "view",
 		nodeType: "fmdb:select",
-		name: "default"
+		name: "default",
 	},
 	(
 		{
@@ -33,15 +32,14 @@ jahiaComponent(
 			autofocus,
 			...validationMsgs
 		}: SelectProps,
-		{currentNode}
+		{ currentNode },
 	) => {
-
 		const selectId = `select-${currentNode.getIdentifier()}`;
 		const selectName = currentNode.getName();
 
 		const parsedOptions = parseChoices(options);
 
-		const selectedValues = parsedOptions.filter(o => o.selected).map(o => o.value);
+		const selectedValues = parsedOptions.filter((o) => o.selected).map((o) => o.value);
 		const defaultValue = multiple ? selectedValues : (selectedValues[0] ?? undefined);
 
 		const helpId = helpText ? helpTextId(currentNode.getIdentifier()) : undefined;
@@ -51,11 +49,15 @@ jahiaComponent(
 				{label && (
 					<label htmlFor={selectId} className="fmdb-form-label">
 						{label}
-						{required && <span className="fmdb-required-indicator" aria-hidden="true">*</span>}
+						{required && (
+							<span className="fmdb-required-indicator" aria-hidden="true">
+								*
+							</span>
+						)}
 					</label>
 				)}
 
-				<HelpText id={helpId} text={helpText}/>
+				<HelpText id={helpId} text={helpText} />
 
 				<select
 					id={selectId}
@@ -71,15 +73,12 @@ jahiaComponent(
 					{...validationDataAttributes(validationMsgs)}
 				>
 					{parsedOptions.map((option) => (
-						<option
-							key={option.value || option.label}
-							value={option.value}
-						>
+						<option key={option.value || option.label} value={option.value}>
 							{option.label}
 						</option>
 					))}
 				</select>
 			</div>
 		);
-	}
+	},
 );

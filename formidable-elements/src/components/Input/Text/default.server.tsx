@@ -1,28 +1,28 @@
-import {jahiaComponent} from "@jahia/javascript-modules-library";
-import {type TextValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
-import HelpText, {helpTextId} from "~/design/HelpText";
+import { jahiaComponent } from "@jahia/javascript-modules-library";
+import { type TextValidationMessageProps, validationDataAttributes } from "~/utils/validationProps";
+import HelpText, { helpTextId } from "~/design/HelpText";
 
 interface InputTextProps extends TextValidationMessageProps {
 	"jcr:title"?: string;
-	helpText?: string;
-	placeholder?: string;
-	defaultValue?: string;
-	list?: string[];
-	minLength?: number;
-	maxLength?: number;
+	"helpText"?: string;
+	"placeholder"?: string;
+	"defaultValue"?: string;
+	"list"?: string[];
+	"minLength"?: number;
+	"maxLength"?: number;
 	// Advanced settings from mixin
-	mask?: string;
-	required?: boolean;
-	autocomplete?: string;
-	readonly?: boolean;
-	autofocus?: boolean;
-	disabled?: boolean;
-	form?: string;
-	dirname?: string;
-	spellcheck?: boolean;
-	pattern?: string;
-	size?: number;
-	title?: string;
+	"mask"?: string;
+	"required"?: boolean;
+	"autocomplete"?: string;
+	"readonly"?: boolean;
+	"autofocus"?: boolean;
+	"disabled"?: boolean;
+	"form"?: string;
+	"dirname"?: string;
+	"spellcheck"?: boolean;
+	"pattern"?: string;
+	"size"?: number;
+	"title"?: string;
 }
 
 // Default values declared outside component to prevent re-render issues
@@ -30,23 +30,25 @@ const DEFAULT_LIST: string[] = [];
 
 // Mask tokens aligned with useMask hook
 const MASK_TOKEN_PATTERNS: Record<string, string> = {
-	'9': '[0-9]',
-	'A': '[A-Za-z]',
-	'a': '[A-Za-z]',
-	'X': '[A-Za-z0-9]',
-	'x': '[A-Za-z0-9]'
+	"9": "[0-9]",
+	"A": "[A-Za-z]",
+	"a": "[A-Za-z]",
+	"X": "[A-Za-z0-9]",
+	"x": "[A-Za-z0-9]",
 };
 
 // Convert mask to a regex pattern string suitable for <input pattern>
 const maskToPattern = (mask?: string): string | undefined => {
 	if (!mask) return undefined;
 
-	const pattern = Array.from(mask).map(char => {
-		const token = MASK_TOKEN_PATTERNS[char];
-		if (token) return token;
-		// Escape fixed characters so they match literally in the regex
-		return char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-	}).join('');
+	const pattern = Array.from(mask)
+		.map((char) => {
+			const token = MASK_TOKEN_PATTERNS[char];
+			if (token) return token;
+			// Escape fixed characters so they match literally in the regex
+			return char.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+		})
+		.join("");
 
 	return `^${pattern}$`;
 };
@@ -55,7 +57,7 @@ jahiaComponent(
 	{
 		componentType: "view",
 		nodeType: "fmdb:inputText",
-		name: "default"
+		name: "default",
 	},
 	(
 		{
@@ -75,14 +77,13 @@ jahiaComponent(
 			form,
 			dirname,
 			spellcheck = true,
-			pattern: customPattern,
+			"pattern": customPattern,
 			size,
 			title,
 			...validationMsgs
 		}: InputTextProps,
-		{currentNode}
+		{ currentNode },
 	) => {
-
 		// Generate unique datalist ID for autocomplete functionality
 		const generateDatalistId = () => `datalist-${currentNode.getIdentifier()}`;
 		const datalistId = list.length > 0 ? generateDatalistId() : undefined;
@@ -101,11 +102,15 @@ jahiaComponent(
 				{label && (
 					<label htmlFor={inputId} className="fmdb-form-label">
 						{label}
-						{required && <span className="fmdb-required-indicator" aria-hidden="true">*</span>}
+						{required && (
+							<span className="fmdb-required-indicator" aria-hidden="true">
+								*
+							</span>
+						)}
 					</label>
 				)}
 
-				<HelpText id={helpId} text={helpText}/>
+				<HelpText id={helpId} text={helpText} />
 
 				<input
 					type="text"
@@ -137,11 +142,11 @@ jahiaComponent(
 				{list.length > 0 && (
 					<datalist id={datalistId}>
 						{list.map((option) => (
-							<option key={option} value={option}/>
+							<option key={option} value={option} />
 						))}
 					</datalist>
 				)}
 			</div>
 		);
-	}
+	},
 );

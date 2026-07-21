@@ -1,2 +1,2 @@
-export {default, helpTextId} from './HelpText';
-export type {HelpTextProps} from './HelpText';
+export { default, helpTextId } from "./HelpText";
+export type { HelpTextProps } from "./HelpText";

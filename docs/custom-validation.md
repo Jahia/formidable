@@ -16,10 +16,10 @@ When a field is invalid, a styled `<div>` is injected below it (or appended to i
 
 When a field fails validation, the message is resolved using a two-level cascade:
 
-| Priority | Source | How it works |
-|---|---|---|
-| 1 | Contributor-defined message | Read from `data-fmdb-msg-*` attributes on the `<input>` / `<select>` / `<textarea>` element |
-| 2 | Browser default | `input.validationMessage` — the browser's built-in message, already localized to the user's language |
+| Priority | Source                      | How it works                                                                                         |
+| -------- | --------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 1        | Contributor-defined message | Read from `data-fmdb-msg-*` attributes on the `<input>` / `<select>` / `<textarea>` element          |
+| 2        | Browser default             | `input.validationMessage` — the browser's built-in message, already localized to the user's language |
 
 The first non-empty value wins. If the contributor has not set a custom message for the
 specific validity failure, the browser's native message is used as a fallback.
@@ -47,33 +47,33 @@ mixins:
 
 Applies to: checkbox, radio, select, file, color — elements where only `required` can fail.
 
-| Property | ValidityState flag | Example trigger |
-|---|---|---|
-| `msgValueMissing` | `valueMissing` | Required field left empty |
+| Property          | ValidityState flag | Example trigger           |
+| ----------------- | ------------------ | ------------------------- |
+| `msgValueMissing` | `valueMissing`     | Required field left empty |
 
 ### `fmdbmix:textValidationMessages` (extends base)
 
 Applies to: text, email, textarea — elements with text-specific constraints.
 
-| Property | ValidityState flag | Example trigger |
-|---|---|---|
-| `msgValueMissing` | `valueMissing` | Required field left empty |
-| `msgTypeMismatch` | `typeMismatch` | Invalid email format |
-| `msgPatternMismatch` | `patternMismatch` | Value does not match `pattern` regex |
-| `msgTooShort` | `tooShort` | Value shorter than `minLength` |
-| `msgTooLong` | `tooLong` | Value longer than `maxLength` |
+| Property             | ValidityState flag | Example trigger                      |
+| -------------------- | ------------------ | ------------------------------------ |
+| `msgValueMissing`    | `valueMissing`     | Required field left empty            |
+| `msgTypeMismatch`    | `typeMismatch`     | Invalid email format                 |
+| `msgPatternMismatch` | `patternMismatch`  | Value does not match `pattern` regex |
+| `msgTooShort`        | `tooShort`         | Value shorter than `minLength`       |
+| `msgTooLong`         | `tooLong`          | Value longer than `maxLength`        |
 
 ### `fmdbmix:rangeValidationMessages` (extends base)
 
 Applies to: date, datetime-local — elements with range and step constraints.
 
-| Property | ValidityState flag | Example trigger |
-|---|---|---|
-| `msgValueMissing` | `valueMissing` | Required field left empty |
-| `msgRangeUnderflow` | `rangeUnderflow` | Value before `min` date |
-| `msgRangeOverflow` | `rangeOverflow` | Value after `max` date |
-| `msgStepMismatch` | `stepMismatch` | Value does not match `step` increment |
-| `msgBadInput` | `badInput` | Unparseable input (e.g. letters in a date field) |
+| Property            | ValidityState flag | Example trigger                                  |
+| ------------------- | ------------------ | ------------------------------------------------ |
+| `msgValueMissing`   | `valueMissing`     | Required field left empty                        |
+| `msgRangeUnderflow` | `rangeUnderflow`   | Value before `min` date                          |
+| `msgRangeOverflow`  | `rangeOverflow`    | Value after `max` date                           |
+| `msgStepMismatch`   | `stepMismatch`     | Value does not match `step` increment            |
+| `msgBadInput`       | `badInput`         | Unparseable input (e.g. letters in a date field) |
 
 ### Mixin assignment
 
@@ -148,11 +148,7 @@ to `data-fmdb-msg-*` HTML attributes. Each server component uses it:
 // In default.server.tsx
 const { "jcr:title": label, required, ...validationMsgs } = props;
 
-<input
-    type="text"
-    required={required}
-    {...validationDataAttributes(validationMsgs)}
-/>
+<input type="text" required={required} {...validationDataAttributes(validationMsgs)} />;
 ```
 
 Only non-empty messages are rendered as attributes. Empty strings are converted to
@@ -164,10 +160,10 @@ Only non-empty messages are rendered as attributes. Empty strings are converted 
 
 Error messages and invalid fields use CSS classes with custom properties for full control:
 
-| CSS class | Applied to | Purpose |
-|---|---|---|
-| `fmdb-validation-error` | Injected `<div>` | Error message text |
-| `fmdb-invalid` | `<input>` / `<select>` / `<textarea>` | Visual invalid state (border highlight) |
+| CSS class               | Applied to                            | Purpose                                 |
+| ----------------------- | ------------------------------------- | --------------------------------------- |
+| `fmdb-validation-error` | Injected `<div>`                      | Error message text                      |
+| `fmdb-invalid`          | `<input>` / `<select>` / `<textarea>` | Visual invalid state (border highlight) |
 
 ### CSS custom properties
 
@@ -175,13 +171,13 @@ Override these in your theme or in the form's `fmdbmix:style` CSS field:
 
 ```css
 :root {
-    --fmdb-validation-error-color: #dc2626;
-    --fmdb-validation-error-font-size: 0.875rem;
-    --fmdb-validation-error-mt: 0.25rem;
-    --fmdb-validation-error-padding: 0;
-    --fmdb-validation-error-line-height: 1.25;
-    --fmdb-invalid-border-color: #dc2626;
-    --fmdb-invalid-outline-color: #dc2626;
+  --fmdb-validation-error-color: #dc2626;
+  --fmdb-validation-error-font-size: 0.875rem;
+  --fmdb-validation-error-mt: 0.25rem;
+  --fmdb-validation-error-padding: 0;
+  --fmdb-validation-error-line-height: 1.25;
+  --fmdb-invalid-border-color: #dc2626;
+  --fmdb-invalid-outline-color: #dc2626;
 }
 ```
 
@@ -189,9 +185,9 @@ Override these in your theme or in the form's `fmdbmix:style` CSS field:
 
 ```css
 :root {
-    --fmdb-validation-error-color: #b45309;
-    --fmdb-validation-error-font-size: 0.8rem;
-    --fmdb-invalid-border-color: #b45309;
+  --fmdb-validation-error-color: #b45309;
+  --fmdb-validation-error-font-size: 0.8rem;
+  --fmdb-invalid-border-color: #b45309;
 }
 ```
 
@@ -232,13 +228,13 @@ Current implementation detail:
 
 ## Key files
 
-| File | Role |
-|---|---|
-| `src/utils/validationUtils.ts` | `resolveValidationMessage`, `showFieldError`, `clearFieldError`, `clearAllFieldErrors` |
-| `src/utils/validationProps.ts` | `validationDataAttributes` — server-side helper to convert mixin props to data attributes |
-| `src/hooks/useCustomFormValidation.ts` | `useCustomFormValidation` hook + `validateInputs` function |
-| `src/design/validation.css` | CSS classes and custom properties |
-| `settings/definitions.cnd` | `fmdbmix:validationMessages`, `fmdbmix:textValidationMessages`, `fmdbmix:rangeValidationMessages` |
-| `settings/jahia-content-editor-forms/forms/fmdbmix_validationMessages.json` | Content Editor form for base mixin |
-| `settings/jahia-content-editor-forms/forms/fmdbmix_textValidationMessages.json` | Content Editor form for text mixin |
-| `settings/jahia-content-editor-forms/forms/fmdbmix_rangeValidationMessages.json` | Content Editor form for range mixin |
+| File                                                                             | Role                                                                                              |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `src/utils/validationUtils.ts`                                                   | `resolveValidationMessage`, `showFieldError`, `clearFieldError`, `clearAllFieldErrors`            |
+| `src/utils/validationProps.ts`                                                   | `validationDataAttributes` — server-side helper to convert mixin props to data attributes         |
+| `src/hooks/useCustomFormValidation.ts`                                           | `useCustomFormValidation` hook + `validateInputs` function                                        |
+| `src/design/validation.css`                                                      | CSS classes and custom properties                                                                 |
+| `settings/definitions.cnd`                                                       | `fmdbmix:validationMessages`, `fmdbmix:textValidationMessages`, `fmdbmix:rangeValidationMessages` |
+| `settings/jahia-content-editor-forms/forms/fmdbmix_validationMessages.json`      | Content Editor form for base mixin                                                                |
+| `settings/jahia-content-editor-forms/forms/fmdbmix_textValidationMessages.json`  | Content Editor form for text mixin                                                                |
+| `settings/jahia-content-editor-forms/forms/fmdbmix_rangeValidationMessages.json` | Content Editor form for range mixin                                                               |

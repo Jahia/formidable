@@ -5,14 +5,12 @@
 		{
 			"name": "style",
 			"labelKey": "fmdb.section.style",
-			"rank": 1.40,
+			"rank": 1.4,
 			"fieldSets": [
 				{
 					"name": "customCss",
 					"rank": 0.0,
-					"fields": [
-						{ "name": "css" }
-					]
+					"fields": [{ "name": "css" }]
 				}
 			]
 		}

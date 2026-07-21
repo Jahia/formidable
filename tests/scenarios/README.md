@@ -1,6 +1,7 @@
 # Test Scenarios
 
 This directory contains two kinds of documents:
+
 - coverage summaries for the Cypress E2E suites
 - scenario documents for areas that are driven as explicit regression topics
 

@@ -4,10 +4,7 @@
 		"checkJs": true,
 		"esModuleInterop": true,
 		"jsx": "preserve",
-		"lib": [
-			"esnext",
-			"dom"
-		],
+		"lib": ["esnext", "dom"],
 		"module": "esnext",
 		"moduleResolution": "bundler",
 		"noEmit": true,
@@ -23,15 +20,9 @@
 		"verbatimModuleSyntax": true,
 		"baseUrl": ".",
 		"paths": {
-			"~/*": [
-				"./src/*"
-			]
+			"~/*": ["./src/*"]
 		}
 	},
-	"include": [
-		"src"
-	],
-	"exclude": [
-		"node_modules"
-	]
+	"include": ["src"],
+	"exclude": ["node_modules"]
 }

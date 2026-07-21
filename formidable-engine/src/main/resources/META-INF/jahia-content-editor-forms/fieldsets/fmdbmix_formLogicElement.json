@@ -1,9 +1,9 @@
 {
-	"name": "fmdbmix:formLogicElement",
-	"fields": [
-		{
-			"name": "logics",
-			"selectorType": "ConditionalLogic"
-		}
-	]
+  "name": "fmdbmix:formLogicElement",
+  "fields": [
+    {
+      "name": "logics",
+      "selectorType": "ConditionalLogic"
+    }
+  ]
 }

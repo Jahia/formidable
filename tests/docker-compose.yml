@@ -1,25 +1,25 @@
 services:
   jahia:
-    image: '${JAHIA_IMAGE}'
+    image: "${JAHIA_IMAGE}"
     container_name: jahia
     ports:
-      - '8000:8000'
-      - '8080:8080'
-      - '8101:8101'
+      - "8000:8000"
+      - "8080:8080"
+      - "8101:8101"
     environment:
       JAHIA_LICENSE: ${JAHIA_LICENSE}
       SUPER_USER_PASSWORD: ${SUPER_USER_PASSWORD}
       CATALINA_OPTS: ${CATALINA_OPTS}
       NEXUS_USERNAME: ${NEXUS_USERNAME}
       NEXUS_PASSWORD: ${NEXUS_PASSWORD}
-      JPDA: 'true'
+      JPDA: "true"
     extra_hosts:
       - jahia:127.0.0.1
     networks:
       - stack
   # Cypress container
   cypress:
-    image: '${TESTS_IMAGE}'
+    image: "${TESTS_IMAGE}"
     ipc: host
     container_name: cypress
     depends_on:

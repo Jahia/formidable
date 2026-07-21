@@ -1,15 +1,18 @@
-import {jahiaComponent} from "@jahia/javascript-modules-library";
-import {type RangeValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
-import HelpText, {helpTextId} from "~/design/HelpText";
+import { jahiaComponent } from "@jahia/javascript-modules-library";
+import {
+	type RangeValidationMessageProps,
+	validationDataAttributes,
+} from "~/utils/validationProps";
+import HelpText, { helpTextId } from "~/design/HelpText";
 
 interface InputDateProps extends RangeValidationMessageProps {
 	"jcr:title"?: string;
-	helpText?: string;
-	defaultValue?: string;
-	min?: string;
-	max?: string;
-	step?: number;
-	required?: boolean;
+	"helpText"?: string;
+	"defaultValue"?: string;
+	"min"?: string;
+	"max"?: string;
+	"step"?: number;
+	"required"?: boolean;
 }
 
 // Convert ISO date string to HTML date format (YYYY-MM-DD)
@@ -25,13 +28,21 @@ jahiaComponent(
 	{
 		componentType: "view",
 		nodeType: "fmdb:inputDate",
-		name: "default"
+		name: "default",
 	},
 	(
-		{"jcr:title": label, helpText, defaultValue, min, max, step, required, ...validationMsgs}: InputDateProps,
-		{currentNode}
+		{
+			"jcr:title": label,
+			helpText,
+			defaultValue,
+			min,
+			max,
+			step,
+			required,
+			...validationMsgs
+		}: InputDateProps,
+		{ currentNode },
 	) => {
-
 		// Generate unique id and name for the input
 		const inputId = `input-${currentNode.getIdentifier()}`;
 		const inputName = currentNode.getName();
@@ -43,11 +54,15 @@ jahiaComponent(
 				{label && (
 					<label htmlFor={inputId} className="fmdb-form-label">
 						{label}
-						{required && <span className="fmdb-required-indicator" aria-hidden="true">*</span>}
+						{required && (
+							<span className="fmdb-required-indicator" aria-hidden="true">
+								*
+							</span>
+						)}
 					</label>
 				)}
 
-				<HelpText id={helpId} text={helpText}/>
+				<HelpText id={helpId} text={helpText} />
 
 				<input
 					type="date"
@@ -64,5 +79,5 @@ jahiaComponent(
 				/>
 			</div>
 		);
-	}
+	},
 );

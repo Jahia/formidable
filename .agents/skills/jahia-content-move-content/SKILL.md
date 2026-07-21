@@ -16,6 +16,7 @@ Reorganizes the JCR content tree — moving nodes into sub-folders, renaming the
 - GraphQL endpoint: `http://localhost:8080/modules/graphql`
 
 **Always include both auth flags:**
+
 ```bash
 curl -s -u root:root1234 \
      -H "Content-Type: application/json" \
@@ -214,13 +215,13 @@ curl -s -u root:root1234 \
 
 ## Common errors
 
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `Permission denied` | Missing `Origin` header | Add `-H "Origin: http://localhost:8080"` |
-| `ItemExistsException` | A node with that name already exists at the destination | Choose a different name or use `rename` after moving |
-| `PathNotFoundException` | Source or destination path doesn't exist | Verify paths with `nodeByPath` first |
-| `move` returns `null` | Node was already at that location | Verify the current path first |
-| Content disappears from live after move | Move unpublishes — normal JCR behaviour | Run `publish` after every move |
+| Error                                   | Cause                                                   | Fix                                                  |
+| --------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------- |
+| `Permission denied`                     | Missing `Origin` header                                 | Add `-H "Origin: http://localhost:8080"`             |
+| `ItemExistsException`                   | A node with that name already exists at the destination | Choose a different name or use `rename` after moving |
+| `PathNotFoundException`                 | Source or destination path doesn't exist                | Verify paths with `nodeByPath` first                 |
+| `move` returns `null`                   | Node was already at that location                       | Verify the current path first                        |
+| Content disappears from live after move | Move unpublishes — normal JCR behaviour                 | Run `publish` after every move                       |
 
 ---
 

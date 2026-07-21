@@ -16,6 +16,7 @@ Adds languages to a Jahia site and populates i18n properties on existing content
 - GraphQL endpoint: `http://localhost:8080/modules/graphql`
 
 **Always include both auth flags:**
+
 ```bash
 curl -s -u root:root1234 \
      -H "Content-Type: application/json" \
@@ -274,13 +275,13 @@ curl -s -u root:root1234 \
 
 ## Common errors
 
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `Permission denied` | Missing `Origin` header | Add `-H "Origin: http://localhost:8080"` |
-| i18n property returned empty after set | Missing `language:` in `properties()` query | Add `language: "fr"` to read call |
-| `ConstraintViolationException` on title set | Mandatory i18n field not set first | Use `setPropertiesBatch` with all mandatory fields in one call |
-| Language not appearing in site | `j:languages` mutation only had the new language | Pass the full list: `["en", "fr"]` |
-| Choicelist key changed per language | Property incorrectly declared `i18n` in CND | Remove `i18n` from the CND property; translate keys in the view |
+| Error                                       | Cause                                            | Fix                                                             |
+| ------------------------------------------- | ------------------------------------------------ | --------------------------------------------------------------- |
+| `Permission denied`                         | Missing `Origin` header                          | Add `-H "Origin: http://localhost:8080"`                        |
+| i18n property returned empty after set      | Missing `language:` in `properties()` query      | Add `language: "fr"` to read call                               |
+| `ConstraintViolationException` on title set | Mandatory i18n field not set first               | Use `setPropertiesBatch` with all mandatory fields in one call  |
+| Language not appearing in site              | `j:languages` mutation only had the new language | Pass the full list: `["en", "fr"]`                              |
+| Choicelist key changed per language         | Property incorrectly declared `i18n` in CND      | Remove `i18n` from the CND property; translate keys in the view |
 
 ---
 

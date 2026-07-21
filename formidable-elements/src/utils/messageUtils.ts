@@ -1,7 +1,7 @@
 export const interpolateMessage = (
 	message: string | undefined,
 	formData: FormData,
-	locale: string = 'fr-FR'
+	locale: string = "fr-FR",
 ): string | undefined => {
 	if (!message) return message;
 
@@ -14,12 +14,12 @@ export const interpolateMessage = (
 		const values = formData.getAll(fieldName);
 
 		if (values.length === 0) {
-			return '';
+			return "";
 		} else if (values.length === 1) {
 			return formatValue(String(values[0]), locale);
 		} else {
 			// Join multiple values with commas for readability
-			return values.map(value => formatValue(String(value), locale)).join(', ');
+			return values.map((value) => formatValue(String(value), locale)).join(", ");
 		}
 	});
 
@@ -27,7 +27,7 @@ export const interpolateMessage = (
 };
 
 const formatValue = (value: string, locale: string): string => {
-	if (!value) return '';
+	if (!value) return "";
 
 	// Check if value is a date (YYYY-MM-DD or YYYY-MM-DDTHH:MM)
 	const dateRegex = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?$/;
@@ -35,15 +35,15 @@ const formatValue = (value: string, locale: string): string => {
 		const date = new Date(value);
 		if (!isNaN(date.getTime())) {
 			// Format as date with time if time is included
-			const hasTime = value.includes('T');
+			const hasTime = value.includes("T");
 			return date.toLocaleString(locale, {
-				year: 'numeric',
-				month: 'long',
-				day: 'numeric',
+				year: "numeric",
+				month: "long",
+				day: "numeric",
 				...(hasTime && {
-					hour: '2-digit',
-					minute: '2-digit'
-				})
+					hour: "2-digit",
+					minute: "2-digit",
+				}),
 			});
 		}
 	}

@@ -75,13 +75,13 @@ Print a clear, scannable status summary:
 
 Use the matrix below to pick exactly one recommendation to highlight:
 
-| Condition | Recommendation |
-|-----------|---------------|
-| No module found | 🚀 **Start here:** invoke `/jahia-dev-create-template-set` to scaffold a new Jahia JavaScript module. |
-| Module found, Jahia not running | 🐳 Your module is ready. Invoke `/jahia-dev-start-local` to start Jahia locally (Docker recommended). |
-| Module + Jahia running, 0 content types | 🎯 Jahia is running! Time to build your first component. Invoke `/jahia-dev-build-component` to create a content type + view. |
-| Module + Jahia running, content types exist, ≤1 page template | 📐 You have components. Invoke `/jahia-dev-create-page-template` to create a page template and start assembling pages. |
-| Module + Jahia running, templates exist (>1) | 🏗 Your module is taking shape! Choose what to do next (see options below). |
+| Condition                                                     | Recommendation                                                                                                                |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| No module found                                               | 🚀 **Start here:** invoke `/jahia-dev-create-template-set` to scaffold a new Jahia JavaScript module.                         |
+| Module found, Jahia not running                               | 🐳 Your module is ready. Invoke `/jahia-dev-start-local` to start Jahia locally (Docker recommended).                         |
+| Module + Jahia running, 0 content types                       | 🎯 Jahia is running! Time to build your first component. Invoke `/jahia-dev-build-component` to create a content type + view. |
+| Module + Jahia running, content types exist, ≤1 page template | 📐 You have components. Invoke `/jahia-dev-create-page-template` to create a page template and start assembling pages.        |
+| Module + Jahia running, templates exist (>1)                  | 🏗 Your module is taking shape! Choose what to do next (see options below).                                                   |
 
 When the last condition applies, present all options:
 

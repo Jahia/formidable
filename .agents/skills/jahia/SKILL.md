@@ -14,20 +14,21 @@ You are the top-level GPS for all Jahia work. Your job is to understand what the
 
 Read the user's request and classify it using the table below. A task can span multiple categories.
 
-| Category | Keywords / intent | Skill |
-|----------|-------------------|-------|
-| **Module development** | create module, scaffold, content type, CND, view, React, TSX, page template, CSS, build, deploy, compile | `/jahia-dev` |
-| **Personalization / analytics** | jExperience, jCustomer, window.wem, visitor events, Kibana dashboard, personalization, DXP | `/jahia-dev-jexperience` |
-| **Content management** | create content, add article, populate, move, reorganize, publish, query what's in the CMS | `/jahia-content` |
-| **OSGi / back-office** | Java bundle, OSGi service, jcontent action, admin panel, toolbar button, Webpack, Module Federation | `/jahia-dev-osgi-module` or `/jahia-dev-ui-extension` |
-| **E2E testing** | Cypress, test spec, edit mode, component interaction, publish workflow | `/jahia-dev-cypress` |
-| **Java module reference** | OSGi DS, CND definitions, JSP rendering, Drools rules, JCR SQL2, Content Editor JSON, component registry | `/jahia-dev-java` |
-| **API reference** | GraphQL schema, JCR Java/REST API, OAuth/SAML auth, personal tokens, HTML filtering, CSP, security scopes | `/jahia-dev-apis` |
-| **Operations / DevOps** | Docker Compose, Kubernetes, health endpoints, logs, Karaf, provisioning YAML scripts | `/jahia-dev-ops` |
-| **Configuration reference** | jahia.properties keys, cluster setup, operating mode, auth settings, JCR/search tuning | `/jahia-dev-properties` |
-| **Both** | build a component AND fill it with content, design a section AND add pages to it, set up a site end-to-end | Run `/jahia-dev` first, then `/jahia-content` |
+| Category                        | Keywords / intent                                                                                          | Skill                                                 |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| **Module development**          | create module, scaffold, content type, CND, view, React, TSX, page template, CSS, build, deploy, compile   | `/jahia-dev`                                          |
+| **Personalization / analytics** | jExperience, jCustomer, window.wem, visitor events, Kibana dashboard, personalization, DXP                 | `/jahia-dev-jexperience`                              |
+| **Content management**          | create content, add article, populate, move, reorganize, publish, query what's in the CMS                  | `/jahia-content`                                      |
+| **OSGi / back-office**          | Java bundle, OSGi service, jcontent action, admin panel, toolbar button, Webpack, Module Federation        | `/jahia-dev-osgi-module` or `/jahia-dev-ui-extension` |
+| **E2E testing**                 | Cypress, test spec, edit mode, component interaction, publish workflow                                     | `/jahia-dev-cypress`                                  |
+| **Java module reference**       | OSGi DS, CND definitions, JSP rendering, Drools rules, JCR SQL2, Content Editor JSON, component registry   | `/jahia-dev-java`                                     |
+| **API reference**               | GraphQL schema, JCR Java/REST API, OAuth/SAML auth, personal tokens, HTML filtering, CSP, security scopes  | `/jahia-dev-apis`                                     |
+| **Operations / DevOps**         | Docker Compose, Kubernetes, health endpoints, logs, Karaf, provisioning YAML scripts                       | `/jahia-dev-ops`                                      |
+| **Configuration reference**     | jahia.properties keys, cluster setup, operating mode, auth settings, JCR/search tuning                     | `/jahia-dev-properties`                               |
+| **Both**                        | build a component AND fill it with content, design a section AND add pages to it, set up a site end-to-end | Run `/jahia-dev` first, then `/jahia-content`         |
 
 If the request is ambiguous, ask one clarifying question:
+
 > "Are you building or changing **code** (module, views, templates) — or managing **content** (articles, pages, folders) inside a running Jahia site?"
 
 ---
@@ -35,9 +36,11 @@ If the request is ambiguous, ask one clarifying question:
 ## Step 2 — Run the right GPS(es)
 
 ### Dev only → invoke `/jahia-dev`
+
 `/jahia-dev` will detect the project state and route to the correct dev sub-skill.
 
 ### CMS only → invoke `/jahia-content`
+
 `/jahia-content` will check the live site and route to the right content management sub-skill.
 
 ### Both → run in order
@@ -59,6 +62,7 @@ Rationale: content types must exist in the CMS before you can create nodes of th
 Use these recipes as starting points when the task maps to a known pattern.
 
 ### "Build a new section on the site"
+
 ```
 1. /jahia-dev-build-component       → define the content type + create the view
 2. /jahia-dev-create-page-template  → (if a new page layout is needed)
@@ -67,6 +71,7 @@ Use these recipes as starting points when the task maps to a known pattern.
 ```
 
 ### "Add an article to the site"
+
 ```
 1. Check the CND — does the article content type exist?
    → Yes: jump to step 2
@@ -75,6 +80,7 @@ Use these recipes as starting points when the task maps to a known pattern.
 ```
 
 ### "Redesign the layout of a page"
+
 ```
 1. /jahia-dev-screenshot       → capture current state for before/after comparison
 2. /jahia-dev-create-view      → update the view / CSS
@@ -83,6 +89,7 @@ Use these recipes as starting points when the task maps to a known pattern.
 ```
 
 ### "Set up a new site from scratch"
+
 ```
 1. /jahia-dev-create-template-set   → scaffold the module
 2. /jahia-dev-start-local           → start Jahia locally
@@ -133,4 +140,3 @@ Always print this at the end so the user can jump anywhere:
 /jahia-dev-ops               Docker Compose, Kubernetes, health monitoring, Karaf, provisioning YAML API
 /jahia-dev-properties        jahia.properties and OSGi .cfg configuration keys reference
 ```
-

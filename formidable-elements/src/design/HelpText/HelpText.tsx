@@ -10,12 +10,10 @@ export const helpTextId = (nodeId: string) => `help-${nodeId}`;
 
 // text is contributor-authored rich text (bold, italic, links) coming from a
 // richtext property — rendered as HTML, same trust model as fmdb:richText.
-export default function HelpText({id, text}: HelpTextProps) {
+export default function HelpText({ id, text }: HelpTextProps) {
 	if (!text) {
 		return null;
 	}
 
-	return (
-		<div id={id} className="fmdb-form-help" dangerouslySetInnerHTML={{__html: text}}/>
-	);
+	return <div id={id} className="fmdb-form-help" dangerouslySetInnerHTML={{ __html: text }} />;
 }

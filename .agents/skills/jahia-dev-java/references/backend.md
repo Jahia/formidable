@@ -1,6 +1,7 @@
 # Jahia Backend Capabilities Reference
 
 ## Table of Contents
+
 1. [Drools rule engine](#1-drools-rule-engine)
 2. [JCR event listeners](#2-jcr-event-listeners)
 3. [JCR SQL2 cheat sheet](#3-jcr-sql2-cheat-sheet)
@@ -16,12 +17,12 @@ Jahia uses JBoss Drools 6 for a rules engine that reacts to JCR events.
 
 ### Rule file locations
 
-| File | Scope |
-|------|-------|
-| `META-INF/rules.drl` | All workspaces (default and live) |
-| `META-INF/default-rules.drl` | Edit/preview workspace only |
-| `META-INF/live-rules.drl` | Live workspace only |
-| `META-INF/rules.dsl` | Custom DSL extensions |
+| File                         | Scope                             |
+| ---------------------------- | --------------------------------- |
+| `META-INF/rules.drl`         | All workspaces (default and live) |
+| `META-INF/default-rules.drl` | Edit/preview workspace only       |
+| `META-INF/live-rules.drl`    | Live workspace only               |
+| `META-INF/rules.dsl`         | Custom DSL extensions             |
 
 ### Basic rule structure
 
@@ -71,17 +72,18 @@ A node is modified                # ChangedPropertyFact
 
 ### Built-in global objects
 
-| Global | Type | Description |
-|--------|------|-------------|
-| `user` | `org.jahia.services.content.rules.User` | Current user context |
-| `service` | `org.jahia.services.content.rules.Service` | Core JCR service shortcuts |
-| `logger` | `org.slf4j.Logger` | SLF4J logger |
-| `imageService` | `org.jahia.services.content.rules.ImageService` | Image operations |
-| `extractionService` | `org.jahia.services.content.rules.ExtractionService` | Content extraction |
+| Global              | Type                                                 | Description                |
+| ------------------- | ---------------------------------------------------- | -------------------------- |
+| `user`              | `org.jahia.services.content.rules.User`              | Current user context       |
+| `service`           | `org.jahia.services.content.rules.Service`           | Core JCR service shortcuts |
+| `logger`            | `org.slf4j.Logger`                                   | SLF4J logger               |
+| `imageService`      | `org.jahia.services.content.rules.ImageService`      | Image operations           |
+| `extractionService` | `org.jahia.services.content.rules.ExtractionService` | Content extraction         |
 
 ### Registering a custom service as a rules global
 
 Step 1 — Declare the service component:
+
 ```java
 @Component(service = MyService.class)
 public class MyService {
@@ -90,6 +92,7 @@ public class MyService {
 ```
 
 Step 2 — Register as a global rules object:
+
 ```java
 @Component(service = ModuleGlobalObject.class)
 public class MyRulesGlobalObjects extends ModuleGlobalObject {
@@ -104,6 +107,7 @@ public class MyRulesGlobalObjects extends ModuleGlobalObject {
 ```
 
 Step 3 — Declare global and import in rules.drl:
+
 ```drools
 import org.example.mymodule.MyService
 global MyService myService
@@ -257,12 +261,12 @@ The External Provider API allows exposing non-JCR data as virtual JCR nodes.
 
 ### Key interfaces
 
-| Interface | Purpose |
-|-----------|---------|
-| `ExternalDataSource` | Main interface to implement for external data |
-| `ExternalDataSource.Searchable` | Add search support |
-| `ExternalDataSource.Writable` | Add write support |
-| `ExternalContentStoreProvider` | OSGi service to mount the provider |
+| Interface                       | Purpose                                       |
+| ------------------------------- | --------------------------------------------- |
+| `ExternalDataSource`            | Main interface to implement for external data |
+| `ExternalDataSource.Searchable` | Add search support                            |
+| `ExternalDataSource.Writable`   | Add write support                             |
+| `ExternalContentStoreProvider`  | OSGi service to mount the provider            |
 
 ### Minimal ExternalDataSource implementation
 
@@ -305,11 +309,11 @@ public class MyExternalDataSource implements ExternalDataSource {
 
 ### Permission hierarchy
 
-| Level | Description |
-|-------|-------------|
-| Server level | Global roles (e.g., Server Administrator) |
-| Site level | Site-specific roles (e.g., Site Administrator, Editor) |
-| Node level | Per-node ACL inheritance |
+| Level        | Description                                            |
+| ------------ | ------------------------------------------------------ |
+| Server level | Global roles (e.g., Server Administrator)              |
+| Site level   | Site-specific roles (e.g., Site Administrator, Editor) |
+| Node level   | Per-node ACL inheritance                               |
 
 ### Checking permissions in code
 
@@ -322,10 +326,10 @@ if (currentNode.hasPermission("jcr:write")) { }
 
 ### Standard JCR permissions
 
-| Permission | Description |
-|------------|-------------|
-| `jcr:read` | Read node and properties |
-| `jcr:write` | Modify properties and children |
-| `jcr:addChildNodes` | Add child nodes |
-| `jcr:removeNode` | Delete the node |
-| `jcr:modifyProperties` | Modify properties |
+| Permission             | Description                    |
+| ---------------------- | ------------------------------ |
+| `jcr:read`             | Read node and properties       |
+| `jcr:write`            | Modify properties and children |
+| `jcr:addChildNodes`    | Add child nodes                |
+| `jcr:removeNode`       | Delete the node                |
+| `jcr:modifyProperties` | Modify properties              |

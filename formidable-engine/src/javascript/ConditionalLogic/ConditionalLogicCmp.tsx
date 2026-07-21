@@ -1,412 +1,437 @@
-import {useApolloClient} from '@apollo/client';
-import {Dropdown, Input, Loader, Typography} from '@jahia/moonstone';
-import React, {useEffect, useMemo, useState} from 'react';
-import {useTranslation} from 'react-i18next';
+import { useApolloClient } from "@apollo/client";
+import { Dropdown, Input, Loader, Typography } from "@jahia/moonstone";
+import React, { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
-    buildLogicIdToSourceMap,
-    buildSourceFieldOptions,
-    extractCurrentNodePath,
-    extractLanguage,
-    extractWorkspace,
-    findFormPath,
-    getOperatorsForSource,
-    normalizeStoredRule,
-    parseRule,
-    sanitizeOperator
-} from './ConditionalLogic.utils';
-import {CURRENT_NODE_BY_PATH, FORM_TREE_BY_PATH} from './graphql';
-import type {ConditionalLogicRule, GraphNode, LogicOperator, SelectorProps, SourceFieldOption} from './ConditionalLogic.types';
-
-
+  buildLogicIdToSourceMap,
+  buildSourceFieldOptions,
+  extractCurrentNodePath,
+  extractLanguage,
+  extractWorkspace,
+  findFormPath,
+  getOperatorsForSource,
+  normalizeStoredRule,
+  parseRule,
+  sanitizeOperator,
+} from "./ConditionalLogic.utils";
+import { CURRENT_NODE_BY_PATH, FORM_TREE_BY_PATH } from "./graphql";
+import type {
+  ConditionalLogicRule,
+  GraphNode,
+  LogicOperator,
+  SelectorProps,
+  SourceFieldOption,
+} from "./ConditionalLogic.types";
 
 const DateValueFields = ({
-    id,
-    readOnly,
-    operator,
-    rule,
-    onChange
+  id,
+  readOnly,
+  operator,
+  rule,
+  onChange,
 }: {
-    id: string;
-    readOnly?: boolean;
-    operator: LogicOperator;
-    rule: ConditionalLogicRule;
-    onChange: (patch: Partial<ConditionalLogicRule>) => void;
+  id: string;
+  readOnly?: boolean;
+  operator: LogicOperator;
+  rule: ConditionalLogicRule;
+  onChange: (patch: Partial<ConditionalLogicRule>) => void;
 }) => {
-    const {t} = useTranslation('formidable-engine');
+  const { t } = useTranslation("formidable-engine");
 
-    if (operator === 'between') {
-        const values = (rule.values ?? ['', '']).slice(0, 2);
-        while (values.length < 2) {
-            values.push('');
-        }
-
-        return (
-            <div className="flexRow_nowrap" style={{gap: '0.5rem'}}>
-                <div className="flexFluid">
-                    <Input
-                        id={`${id}-date-from`}
-                        type="date"
-                        isReadOnly={readOnly}
-                        placeholder={t('conditionalLogic.dateFrom')}
-                        value={values[0]}
-                        onChange={event => onChange({values: [event.target.value, values[1]]})}
-                        size="big"
-                    />
-                </div>
-                <div className="flexFluid">
-                    <Input
-                        id={`${id}-date-to`}
-                        type="date"
-                        isReadOnly={readOnly}
-                        placeholder={t('conditionalLogic.dateTo')}
-                        value={values[1]}
-                        onChange={event => onChange({values: [values[0], event.target.value]})}
-                        size="big"
-                    />
-                </div>
-            </div>
-        );
+  if (operator === "between") {
+    const values = (rule.values ?? ["", ""]).slice(0, 2);
+    while (values.length < 2) {
+      values.push("");
     }
 
     return (
-        <div>
-            <Input
-                id={`${id}-date-value`}
-                type="date"
-                isReadOnly={readOnly}
-                placeholder={t('conditionalLogic.value')}
-                value={rule.value ?? ''}
-                onChange={event => onChange({value: event.target.value})}
-                size="big"
-            />
+      <div className="flexRow_nowrap" style={{ gap: "0.5rem" }}>
+        <div className="flexFluid">
+          <Input
+            id={`${id}-date-from`}
+            type="date"
+            isReadOnly={readOnly}
+            placeholder={t("conditionalLogic.dateFrom")}
+            value={values[0]}
+            onChange={(event) => onChange({ values: [event.target.value, values[1]] })}
+            size="big"
+          />
         </div>
+        <div className="flexFluid">
+          <Input
+            id={`${id}-date-to`}
+            type="date"
+            isReadOnly={readOnly}
+            placeholder={t("conditionalLogic.dateTo")}
+            value={values[1]}
+            onChange={(event) => onChange({ values: [values[0], event.target.value] })}
+            size="big"
+          />
+        </div>
+      </div>
     );
+  }
+
+  return (
+    <div>
+      <Input
+        id={`${id}-date-value`}
+        type="date"
+        isReadOnly={readOnly}
+        placeholder={t("conditionalLogic.value")}
+        value={rule.value ?? ""}
+        onChange={(event) => onChange({ value: event.target.value })}
+        size="big"
+      />
+    </div>
+  );
 };
 
 const generateLogicId = (): string => {
-    return Math.random().toString(36).substring(2, 10);
+  return Math.random().toString(36).substring(2, 10);
 };
 
 export const ConditionalLogicCmp = (props: SelectorProps) => {
-    const {field, id, value, onChange} = props;
-    const {t} = useTranslation('formidable-engine');
-    const client = useApolloClient();
-    const [sources, setSources] = useState<SourceFieldOption[]>([]);
-    const [logicIdToSource, setLogicIdToSource] = useState<Map<string, {name: string; uuid: string}>>(new Map());
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+  const { field, id, value, onChange } = props;
+  const { t } = useTranslation("formidable-engine");
+  const client = useApolloClient();
+  const [sources, setSources] = useState<SourceFieldOption[]>([]);
+  const [logicIdToSource, setLogicIdToSource] = useState<
+    Map<string, { name: string; uuid: string }>
+  >(new Map());
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-    const currentNodePath = extractCurrentNodePath(props);
-    const language = extractLanguage(props);
-    const workspace = extractWorkspace(props);
-    const rule = useMemo(() => parseRule(value), [value]);
+  const currentNodePath = extractCurrentNodePath(props);
+  const language = extractLanguage(props);
+  const workspace = extractWorkspace(props);
+  const rule = useMemo(() => parseRule(value), [value]);
 
-    // Resolve sourceNodeId: prefer the stored UUID, then use weakref resolution via logicId
-    const resolvedSourceNodeId = useMemo(() => {
-        if (rule.sourceNodeId) {
-            return rule.sourceNodeId;
-        }
+  // Resolve sourceNodeId: prefer the stored UUID, then use weakref resolution via logicId
+  const resolvedSourceNodeId = useMemo(() => {
+    if (rule.sourceNodeId) {
+      return rule.sourceNodeId;
+    }
 
-        if (rule.logicId) {
-            const resolved = logicIdToSource.get(rule.logicId);
+    if (rule.logicId) {
+      const resolved = logicIdToSource.get(rule.logicId);
+      if (resolved) {
+        return resolved.uuid;
+      }
+    }
+
+    // Legacy fallback: find source by name
+    if (rule.sourceFieldName) {
+      const match = sources.find((source) => source.name === rule.sourceFieldName);
+      if (match) {
+        return match.id;
+      }
+    }
+
+    return "";
+  }, [rule, logicIdToSource, sources]);
+
+  const siblingSourceNodeIds = useMemo(() => {
+    const allEntries = field.name ? props.form?.values?.[field.name] : undefined;
+    if (!Array.isArray(allEntries)) {
+      return new Set<string>();
+    }
+
+    return new Set(
+      allEntries
+        .filter((entry): entry is string => typeof entry === "string" && entry !== value)
+        .map((entry) => {
+          const siblingRule = parseRule(entry);
+          if (siblingRule.sourceNodeId) {
+            return siblingRule.sourceNodeId;
+          }
+
+          if (siblingRule.logicId) {
+            const resolved = logicIdToSource.get(siblingRule.logicId);
             if (resolved) {
-                return resolved.uuid;
+              return resolved.uuid;
             }
-        }
+          }
 
-        // Legacy fallback: find source by name
-        if (rule.sourceFieldName) {
-            const match = sources.find(source => source.name === rule.sourceFieldName);
+          // Legacy fallback
+          if (siblingRule.sourceFieldName) {
+            const match = sources.find((s) => s.name === siblingRule.sourceFieldName);
             if (match) {
-                return match.id;
+              return match.id;
             }
-        }
+          }
 
-        return '';
-    }, [rule, logicIdToSource, sources]);
-
-    const siblingSourceNodeIds = useMemo(() => {
-        const allEntries = field.name ? props.form?.values?.[field.name] : undefined;
-        if (!Array.isArray(allEntries)) {
-            return new Set<string>();
-        }
-
-        return new Set(
-            allEntries
-                .filter((entry): entry is string => typeof entry === 'string' && entry !== value)
-                .map(entry => {
-                    const siblingRule = parseRule(entry);
-                    if (siblingRule.sourceNodeId) {
-                        return siblingRule.sourceNodeId;
-                    }
-
-                    if (siblingRule.logicId) {
-                        const resolved = logicIdToSource.get(siblingRule.logicId);
-                        if (resolved) {
-                            return resolved.uuid;
-                        }
-                    }
-
-                    // Legacy fallback
-                    if (siblingRule.sourceFieldName) {
-                        const match = sources.find(s => s.name === siblingRule.sourceFieldName);
-                        if (match) {
-                            return match.id;
-                        }
-                    }
-
-                    return '';
-                })
-                .filter(id => id !== '')
-        );
-    }, [field.name, props.form?.values, value, logicIdToSource, sources]);
-
-    const availableSources = useMemo(
-        () => sources.filter(source =>
-            source.id === resolvedSourceNodeId
-            || !siblingSourceNodeIds.has(source.id)),
-        [sources, siblingSourceNodeIds, resolvedSourceNodeId]
+          return "";
+        })
+        .filter((id) => id !== ""),
     );
+  }, [field.name, props.form?.values, value, logicIdToSource, sources]);
 
-    const selectedSource = useMemo(
-        () => availableSources.find(source => source.id === resolvedSourceNodeId),
-        [resolvedSourceNodeId, availableSources]
-    );
-    const selectedOperator = sanitizeOperator(selectedSource, rule.operator);
+  const availableSources = useMemo(
+    () =>
+      sources.filter(
+        (source) => source.id === resolvedSourceNodeId || !siblingSourceNodeIds.has(source.id),
+      ),
+    [sources, siblingSourceNodeIds, resolvedSourceNodeId],
+  );
 
-    useEffect(() => {
-        let cancelled = false;
+  const selectedSource = useMemo(
+    () => availableSources.find((source) => source.id === resolvedSourceNodeId),
+    [resolvedSourceNodeId, availableSources],
+  );
+  const selectedOperator = sanitizeOperator(selectedSource, rule.operator);
 
-        const loadSources = async () => {
-            if (!currentNodePath) {
-                setSources([]);
-                setError(t('conditionalLogic.unresolvedContext'));
-                return;
-            }
+  useEffect(() => {
+    let cancelled = false;
 
-            setLoading(true);
-            setError(null);
+    const loadSources = async () => {
+      if (!currentNodePath) {
+        setSources([]);
+        setError(t("conditionalLogic.unresolvedContext"));
+        return;
+      }
 
-            try {
-                const currentNodeResult = await client.query<{
-                    jcr?: {nodeByPath?: GraphNode | null} | null;
-                }>({
-                    query: CURRENT_NODE_BY_PATH,
-                    variables: {path: currentNodePath, workspace, language},
-                    fetchPolicy: 'network-only'
-                });
+      setLoading(true);
+      setError(null);
 
-                const currentNode = currentNodeResult.data?.jcr?.nodeByPath;
-                const formPath = findFormPath(currentNode);
-                if (!currentNode || !formPath) {
-                    throw new Error(t('conditionalLogic.formNotFound'));
-                }
-
-                const logicSrcNodes = currentNode.descendant?.children?.nodes ?? [];
-                const resolvedMap = buildLogicIdToSourceMap(logicSrcNodes);
-
-                const formTreeResult = await client.query<{
-                    jcr?: {nodeByPath?: GraphNode | null} | null;
-                }>({
-                    query: FORM_TREE_BY_PATH,
-                    variables: {path: formPath, workspace, language},
-                    fetchPolicy: 'network-only'
-                });
-
-                const descendantNodes = formTreeResult.data?.jcr?.nodeByPath?.descendants?.nodes ?? [];
-                if (!cancelled) {
-                    setSources(buildSourceFieldOptions(currentNode.path, descendantNodes));
-                    setLogicIdToSource(resolvedMap);
-                }
-            } catch (error) {
-                if (!cancelled) {
-                    console.error('[ConditionalLogicCmp] failed to load source fields', error);
-                    setSources([]);
-                    setError(t('conditionalLogic.loadError'));
-                }
-            } finally {
-                if (!cancelled) {
-                    setLoading(false);
-                }
-            }
-        };
-
-        void loadSources();
-
-        return () => {
-            cancelled = true;
-        };
-    }, [client, currentNodePath, language, t, workspace]);
-
-    const updateRule = (nextRule: ConditionalLogicRule) => {
-        const source = sources.find(source => source.id === nextRule.sourceNodeId);
-        onChange(JSON.stringify(normalizeStoredRule(nextRule, source)));
-    };
-
-    const handleSourceChange = (_event: React.MouseEvent, item: {value?: string}) => {
-        const sourceId = item.value ?? '';
-        const nextSource = sources.find(source => source.id === sourceId);
-        if (!nextSource) {
-            onChange(JSON.stringify(parseRule(undefined)));
-            return;
-        }
-
-        const nextOperator = getOperatorsForSource(nextSource)[0];
-        const logicId = rule.logicId || generateLogicId();
-        updateRule({
-            logicId,
-            sourceNodeId: nextSource.id,
-            sourceFieldName: nextSource.name,
-            sourceFieldType: nextSource.type,
-            operator: nextOperator,
-            value: nextSource.type === 'fmdb:inputDate' ? '' : undefined,
-            values: nextSource.type === 'fmdb:inputDate' && nextOperator === 'between' ? ['', ''] : []
+      try {
+        const currentNodeResult = await client.query<{
+          jcr?: { nodeByPath?: GraphNode | null } | null;
+        }>({
+          query: CURRENT_NODE_BY_PATH,
+          variables: { path: currentNodePath, workspace, language },
+          fetchPolicy: "network-only",
         });
-    };
 
-    const handleOperatorChange = (_event: React.MouseEvent, item: {value?: string}) => {
-        if (!selectedSource || !item.value) {
-            return;
+        const currentNode = currentNodeResult.data?.jcr?.nodeByPath;
+        const formPath = findFormPath(currentNode);
+        if (!currentNode || !formPath) {
+          throw new Error(t("conditionalLogic.formNotFound"));
         }
 
-        const operator = item.value as LogicOperator;
-        updateRule({
-            ...rule,
-            logicId: rule.logicId || generateLogicId(),
-            sourceNodeId: selectedSource.id,
-            sourceFieldName: selectedSource.name,
-            sourceFieldType: selectedSource.type,
-            operator,
-            value: selectedSource.type === 'fmdb:inputDate' && operator !== 'between' ? (rule.value ?? '') : undefined,
-            values: selectedSource.type === 'fmdb:inputDate' && operator === 'between'
-                ? (rule.values ?? ['', '']).slice(0, 2)
-                : (selectedSource.type === 'fmdb:inputDate' ? [] : (rule.values ?? []))
-        });
-    };
+        const logicSrcNodes = currentNode.descendant?.children?.nodes ?? [];
+        const resolvedMap = buildLogicIdToSourceMap(logicSrcNodes);
 
-    const handleValuesChange = (_event: React.MouseEvent, item: {value?: string}) => {
-        if (!selectedSource || !item.value) {
-            return;
+        const formTreeResult = await client.query<{
+          jcr?: { nodeByPath?: GraphNode | null } | null;
+        }>({
+          query: FORM_TREE_BY_PATH,
+          variables: { path: formPath, workspace, language },
+          fetchPolicy: "network-only",
+        });
+
+        const descendantNodes = formTreeResult.data?.jcr?.nodeByPath?.descendants?.nodes ?? [];
+        if (!cancelled) {
+          setSources(buildSourceFieldOptions(currentNode.path, descendantNodes));
+          setLogicIdToSource(resolvedMap);
         }
-
-        const currentValues = rule.values ?? [];
-        const nextValues = currentValues.includes(item.value)
-            ? currentValues.filter(value => value !== item.value)
-            : [...currentValues, item.value];
-
-        updateRule({
-            ...rule,
-            logicId: rule.logicId || generateLogicId(),
-            sourceNodeId: selectedSource.id,
-            sourceFieldName: selectedSource.name,
-            sourceFieldType: selectedSource.type,
-            operator: selectedOperator,
-            values: nextValues
-        });
+      } catch (error) {
+        if (!cancelled) {
+          console.error("[ConditionalLogicCmp] failed to load source fields", error);
+          setSources([]);
+          setError(t("conditionalLogic.loadError"));
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
     };
 
-    const sourceOptions = useMemo(
-        () => availableSources.map(source => ({label: source.label, value: source.id})),
-        [availableSources]
-    );
-    const operatorOptions = useMemo(
-        () => getOperatorsForSource(selectedSource).map(operator => ({
-            label: t(`conditionalLogic.operators.${operator}`),
-            value: operator
-        })),
-        [selectedSource, t]
-    );
-    const valueOptions = useMemo(
-        () => (selectedSource?.choiceValues ?? []).map(choice => ({label: choice.label, value: choice.value})),
-        [selectedSource]
-    );
+    void loadSources();
 
-    const showValueDropdown = selectedSource
-        && selectedSource.type !== 'fmdb:inputDate'
-        && !(selectedSource.type === 'fmdb:checkbox' && selectedSource.choiceValues.length <= 1);
+    return () => {
+      cancelled = true;
+    };
+  }, [client, currentNodePath, language, t, workspace]);
 
-    if (loading) {
-        return <Loader size="small"/>;
+  const updateRule = (nextRule: ConditionalLogicRule) => {
+    const source = sources.find((source) => source.id === nextRule.sourceNodeId);
+    onChange(JSON.stringify(normalizeStoredRule(nextRule, source)));
+  };
+
+  const handleSourceChange = (_event: React.MouseEvent, item: { value?: string }) => {
+    const sourceId = item.value ?? "";
+    const nextSource = sources.find((source) => source.id === sourceId);
+    if (!nextSource) {
+      onChange(JSON.stringify(parseRule(undefined)));
+      return;
     }
 
-    if (error) {
-        return <Typography variant="body" style={{color: 'var(--color-danger)'}}>{error}</Typography>;
+    const nextOperator = getOperatorsForSource(nextSource)[0];
+    const logicId = rule.logicId || generateLogicId();
+    updateRule({
+      logicId,
+      sourceNodeId: nextSource.id,
+      sourceFieldName: nextSource.name,
+      sourceFieldType: nextSource.type,
+      operator: nextOperator,
+      value: nextSource.type === "fmdb:inputDate" ? "" : undefined,
+      values: nextSource.type === "fmdb:inputDate" && nextOperator === "between" ? ["", ""] : [],
+    });
+  };
+
+  const handleOperatorChange = (_event: React.MouseEvent, item: { value?: string }) => {
+    if (!selectedSource || !item.value) {
+      return;
     }
 
-    if (sources.length === 0) {
-        return (
-            <Typography variant="body" style={{color: 'var(--color-gray)'}}>
-                {t('conditionalLogic.noSources')}
-            </Typography>
-        );
+    const operator = item.value as LogicOperator;
+    updateRule({
+      ...rule,
+      logicId: rule.logicId || generateLogicId(),
+      sourceNodeId: selectedSource.id,
+      sourceFieldName: selectedSource.name,
+      sourceFieldType: selectedSource.type,
+      operator,
+      value:
+        selectedSource.type === "fmdb:inputDate" && operator !== "between"
+          ? (rule.value ?? "")
+          : undefined,
+      values:
+        selectedSource.type === "fmdb:inputDate" && operator === "between"
+          ? (rule.values ?? ["", ""]).slice(0, 2)
+          : selectedSource.type === "fmdb:inputDate"
+            ? []
+            : (rule.values ?? []),
+    });
+  };
+
+  const handleValuesChange = (_event: React.MouseEvent, item: { value?: string }) => {
+    if (!selectedSource || !item.value) {
+      return;
     }
 
-    if (availableSources.length === 0) {
-        return (
-            <Typography variant="body" style={{color: 'var(--color-gray)'}}>
-                {t('conditionalLogic.allSourcesUsed')}
-            </Typography>
-        );
-    }
+    const currentValues = rule.values ?? [];
+    const nextValues = currentValues.includes(item.value)
+      ? currentValues.filter((value) => value !== item.value)
+      : [...currentValues, item.value];
 
+    updateRule({
+      ...rule,
+      logicId: rule.logicId || generateLogicId(),
+      sourceNodeId: selectedSource.id,
+      sourceFieldName: selectedSource.name,
+      sourceFieldType: selectedSource.type,
+      operator: selectedOperator,
+      values: nextValues,
+    });
+  };
+
+  const sourceOptions = useMemo(
+    () => availableSources.map((source) => ({ label: source.label, value: source.id })),
+    [availableSources],
+  );
+  const operatorOptions = useMemo(
+    () =>
+      getOperatorsForSource(selectedSource).map((operator) => ({
+        label: t(`conditionalLogic.operators.${operator}`),
+        value: operator,
+      })),
+    [selectedSource, t],
+  );
+  const valueOptions = useMemo(
+    () =>
+      (selectedSource?.choiceValues ?? []).map((choice) => ({
+        label: choice.label,
+        value: choice.value,
+      })),
+    [selectedSource],
+  );
+
+  const showValueDropdown =
+    selectedSource &&
+    selectedSource.type !== "fmdb:inputDate" &&
+    !(selectedSource.type === "fmdb:checkbox" && selectedSource.choiceValues.length <= 1);
+
+  if (loading) {
+    return <Loader size="small" />;
+  }
+
+  if (error) {
     return (
-        <div className="flexRow_nowrap flexFluid alignCenter" style={{gap: '0.75rem'}}>
-            <div className="flexFluid">
-                <Dropdown
-                    data={sourceOptions}
-                    value={selectedSource?.id}
-                    placeholder={t('conditionalLogic.selectSource')}
-                    isDisabled={field.readOnly}
-                    onChange={handleSourceChange}
-                />
-            </div>
-            <div className="flexFluid">
-                <Dropdown
-                    data={operatorOptions}
-                    value={selectedOperator}
-                    placeholder={t('conditionalLogic.operator')}
-                    isDisabled={field.readOnly || !selectedSource}
-                    onChange={handleOperatorChange}
-                />
-            </div>
-
-            {showValueDropdown && (
-                <div className="flexFluid">
-                    <Dropdown
-                        data={valueOptions}
-                        values={rule.values ?? []}
-                        placeholder={t('conditionalLogic.values')}
-                        isDisabled={field.readOnly}
-                        onChange={handleValuesChange}
-                    />
-                </div>
-            )}
-
-            {!showValueDropdown && selectedSource?.type !== 'fmdb:inputDate' && (
-                <div className="flexFluid"/>
-            )}
-
-            {selectedSource?.type === 'fmdb:inputDate' && (
-                <div className="flexFluid">
-                    <DateValueFields
-                        id={id}
-                        readOnly={field.readOnly}
-                        operator={selectedOperator}
-                        rule={rule}
-                        onChange={patch => updateRule({
-                            ...rule,
-                            logicId: rule.logicId || generateLogicId(),
-                            sourceNodeId: selectedSource.id,
-                            sourceFieldName: selectedSource.name,
-                            sourceFieldType: selectedSource.type,
-                            operator: selectedOperator,
-                            ...patch
-                        })}
-                    />
-                </div>
-            )}
-        </div>
+      <Typography variant="body" style={{ color: "var(--color-danger)" }}>
+        {error}
+      </Typography>
     );
+  }
+
+  if (sources.length === 0) {
+    return (
+      <Typography variant="body" style={{ color: "var(--color-gray)" }}>
+        {t("conditionalLogic.noSources")}
+      </Typography>
+    );
+  }
+
+  if (availableSources.length === 0) {
+    return (
+      <Typography variant="body" style={{ color: "var(--color-gray)" }}>
+        {t("conditionalLogic.allSourcesUsed")}
+      </Typography>
+    );
+  }
+
+  return (
+    <div className="flexRow_nowrap flexFluid alignCenter" style={{ gap: "0.75rem" }}>
+      <div className="flexFluid">
+        <Dropdown
+          data={sourceOptions}
+          value={selectedSource?.id}
+          placeholder={t("conditionalLogic.selectSource")}
+          isDisabled={field.readOnly}
+          onChange={handleSourceChange}
+        />
+      </div>
+      <div className="flexFluid">
+        <Dropdown
+          data={operatorOptions}
+          value={selectedOperator}
+          placeholder={t("conditionalLogic.operator")}
+          isDisabled={field.readOnly || !selectedSource}
+          onChange={handleOperatorChange}
+        />
+      </div>
+
+      {showValueDropdown && (
+        <div className="flexFluid">
+          <Dropdown
+            data={valueOptions}
+            values={rule.values ?? []}
+            placeholder={t("conditionalLogic.values")}
+            isDisabled={field.readOnly}
+            onChange={handleValuesChange}
+          />
+        </div>
+      )}
+
+      {!showValueDropdown && selectedSource?.type !== "fmdb:inputDate" && (
+        <div className="flexFluid" />
+      )}
+
+      {selectedSource?.type === "fmdb:inputDate" && (
+        <div className="flexFluid">
+          <DateValueFields
+            id={id}
+            readOnly={field.readOnly}
+            operator={selectedOperator}
+            rule={rule}
+            onChange={(patch) =>
+              updateRule({
+                ...rule,
+                logicId: rule.logicId || generateLogicId(),
+                sourceNodeId: selectedSource.id,
+                sourceFieldName: selectedSource.name,
+                sourceFieldType: selectedSource.type,
+                operator: selectedOperator,
+                ...patch,
+              })
+            }
+          />
+        </div>
+      )}
+    </div>
+  );
 };
 
-ConditionalLogicCmp.displayName = 'ConditionalLogicCmp';
+ConditionalLogicCmp.displayName = "ConditionalLogicCmp";

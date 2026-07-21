@@ -201,9 +201,9 @@ import { jahiaComponent } from "@jahia/javascript-modules-library";
 
 interface InputTextLikeProps {
   "jcr:title"?: string;
-  placeholder?: string;
-  defaultValue?: string;
-  required?: boolean;
+  "placeholder"?: string;
+  "defaultValue"?: string;
+  "required"?: boolean;
 }
 
 jahiaComponent(
@@ -213,12 +213,7 @@ jahiaComponent(
     name: "default",
   },
   (
-    {
-      "jcr:title": label,
-      placeholder,
-      defaultValue,
-      required,
-    }: InputTextLikeProps,
+    { "jcr:title": label, placeholder, defaultValue, required }: InputTextLikeProps,
     { currentNode },
   ) => {
     const inputId = `input-${currentNode.getIdentifier()}`;

@@ -7,14 +7,13 @@ import {
 	Render,
 } from "@jahia/javascript-modules-library";
 import Form from "./Form.client";
-import {type FormServerProps} from "./types";
-import {resolveUrlPlaceholders} from "~/utils/richTextUtils";
-
+import { type FormServerProps } from "./types";
+import { resolveUrlPlaceholders } from "~/utils/richTextUtils";
 
 const ensureCaptchaExplicit = (url: string): string => {
-	if (!url.includes('challenges.cloudflare.com')) return url;
-	if (url.includes('render=explicit')) return url;
-	return url + (url.includes('?') ? '&' : '?') + 'render=explicit';
+	if (!url.includes("challenges.cloudflare.com")) return url;
+	if (url.includes("render=explicit")) return url;
+	return url + (url.includes("?") ? "&" : "?") + "render=explicit";
 };
 
 jahiaComponent(
@@ -23,7 +22,7 @@ jahiaComponent(
 		nodeType: "fmdb:form",
 		name: "default",
 	},
-		(
+	(
 		{
 			intro,
 			submissionMessage,
@@ -47,29 +46,42 @@ jahiaComponent(
 		const formId = `form-${currentNode.getIdentifier()}`;
 
 		const stepNodes = formElements.filter((el) => el.isNodeType("fmdb:step"));
-		const stepLabels = stepNodes.length > 0
-			? stepNodes.map((s, i) => {
-				const {label, 'jcr:title': title} = getNodeProps<{label?: string; 'jcr:title'?: string}>(s, ['label', 'jcr:title']);
-				return label ?? title ?? `Step ${i + 1}`;
-			})
-			: undefined;
-		const stepIds = stepNodes.length > 0
-			? stepNodes.map((s) => s.getIdentifier())
-			: undefined;
+		const stepLabels =
+			stepNodes.length > 0
+				? stepNodes.map((s, i) => {
+						const { label, "jcr:title": title } = getNodeProps<{
+							"label"?: string;
+							"jcr:title"?: string;
+						}>(s, ["label", "jcr:title"]);
+						return label ?? title ?? `Step ${i + 1}`;
+					})
+				: undefined;
+		const stepIds = stepNodes.length > 0 ? stepNodes.map((s) => s.getIdentifier()) : undefined;
 
 		// Captcha config is injected as request attributes by CaptchaRenderFilter (Java)
 		// when the fmdbmix:captcha mixin is applied to this form node.
-		const hasCaptchaMixin = currentNode.isNodeType('fmdbmix:captcha');
-		const siteKey     = renderContext.getRequest().getAttribute('formidable.captcha.siteKey') as string | null;
-		const scriptUrl   = renderContext.getRequest().getAttribute('formidable.captcha.scriptUrl') as string | null;
-		const widgetVar   = renderContext.getRequest().getAttribute('formidable.captcha.widgetVar') as string | null;
-		const tokenField  = renderContext.getRequest().getAttribute('formidable.captcha.tokenField') as string | null;
-		const captcha = siteKey && scriptUrl && widgetVar && tokenField
-			? {siteKey, widgetVar, tokenField}
-			: undefined;
+		const hasCaptchaMixin = currentNode.isNodeType("fmdbmix:captcha");
+		const siteKey = renderContext.getRequest().getAttribute("formidable.captcha.siteKey") as
+			| string
+			| null;
+		const scriptUrl = renderContext.getRequest().getAttribute("formidable.captcha.scriptUrl") as
+			| string
+			| null;
+		const widgetVar = renderContext.getRequest().getAttribute("formidable.captcha.widgetVar") as
+			| string
+			| null;
+		const tokenField = renderContext.getRequest().getAttribute("formidable.captcha.tokenField") as
+			| string
+			| null;
+		const captcha =
+			siteKey && scriptUrl && widgetVar && tokenField
+				? { siteKey, widgetVar, tokenField }
+				: undefined;
 
 		if (hasCaptchaMixin && !captcha) {
-			console.warn(`[Formidable] fmdbmix:captcha is applied on form '${currentNode.getPath()}' but CAPTCHA is not fully configured (siteKey, scriptUrl, widgetVar or tokenField missing). The widget will not be rendered.`);
+			console.warn(
+				`[Formidable] fmdbmix:captcha is applied on form '${currentNode.getPath()}' but CAPTCHA is not fully configured (siteKey, scriptUrl, widgetVar or tokenField missing). The widget will not be rendered.`,
+			);
 		}
 
 		const isSubmitDisabled = renderContext.isEditMode() || renderContext.isPreviewMode();
@@ -80,50 +92,46 @@ jahiaComponent(
 				{css && <style>{css}</style>}
 				<AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")} />
 				{scriptUrl && (
-				<AddResources
-					type="javascript"
-					resources={ensureCaptchaExplicit(scriptUrl)}
-					defer
-				/>
-			)}
-				<Island
-			component={Form}
-			props={{
-				// Rich text island props: resolve Jahia URL placeholders that the
-				// HTML-level rewriting cannot reach inside serialized props
-				intro: resolveUrlPlaceholders(intro, renderContext),
-				submissionMessage: resolveUrlPlaceholders(submissionMessage, renderContext),
-				errorMessage: resolveUrlPlaceholders(errorMessage, renderContext),
-				submitActionUrl,
-				isSubmitDisabled,
-				showResetBtn,
-				showNewFormBtn,
-				showTryAgainBtn,
-				submitBtnLabel,
-				resetBtnLabel,
-				newFormBtnLabel,
-				tryAgainBtnLabel,
-				previousBtnLabel,
-				nextBtnLabel,
-				showStepsNav,
-				formId,
-				locale: currentNode.getLanguage(),
-				stepLabels,
-				stepIds,
-				captcha,
-			}}
-			>
-				{fieldListNode && (
-					<Render
-						node={fieldListNode}
-						view="hidden.logic"
-						parameters={{
-							preferCompactStepView: showStepsNav ? "true" : "false",
-							hideStepsAfterFirst: showStepsNav ? "true" : "false",
-							childView: "default",
-						}}
-					/>
+					<AddResources type="javascript" resources={ensureCaptchaExplicit(scriptUrl)} defer />
 				)}
+				<Island
+					component={Form}
+					props={{
+						// Rich text island props: resolve Jahia URL placeholders that the
+						// HTML-level rewriting cannot reach inside serialized props
+						intro: resolveUrlPlaceholders(intro, renderContext),
+						submissionMessage: resolveUrlPlaceholders(submissionMessage, renderContext),
+						errorMessage: resolveUrlPlaceholders(errorMessage, renderContext),
+						submitActionUrl,
+						isSubmitDisabled,
+						showResetBtn,
+						showNewFormBtn,
+						showTryAgainBtn,
+						submitBtnLabel,
+						resetBtnLabel,
+						newFormBtnLabel,
+						tryAgainBtnLabel,
+						previousBtnLabel,
+						nextBtnLabel,
+						showStepsNav,
+						formId,
+						locale: currentNode.getLanguage(),
+						stepLabels,
+						stepIds,
+						captcha,
+					}}
+				>
+					{fieldListNode && (
+						<Render
+							node={fieldListNode}
+							view="hidden.logic"
+							parameters={{
+								preferCompactStepView: showStepsNav ? "true" : "false",
+								hideStepsAfterFirst: showStepsNav ? "true" : "false",
+								childView: "default",
+							}}
+						/>
+					)}
 				</Island>
 			</>
 		);

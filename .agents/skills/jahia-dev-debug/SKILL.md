@@ -29,6 +29,7 @@ yarn jahia-deploy
 ```
 
 Interpret the output:
+
 - `"Operation successful"` in the response → deployment was accepted. Proceed to Step 3 — the module may still fail at runtime.
 - `"{}"` or empty JSON → deployment was **rejected** (usually a CND parse error or missing dependency). Proceed to Step 3 to find the cause in the logs.
 - Any other error → fix the connection issue (is Docker running?) then retry.
@@ -73,6 +74,7 @@ docker logs <container-name> 2>&1 | grep "Registered Jahia component"
 ```
 
 Expected: one line per view registered, e.g.:
+
 ```
 Registered Jahia component: mymodule_view_ns:hero_default
 Registered Jahia component: mymodule_view_ns:hero_small
@@ -86,15 +88,15 @@ If a component you just deployed is **absent** from this list, its `jahiaCompone
 
 Scan the captured log output for the **first** error that appears **after** the deploy timestamp. Common patterns to look for:
 
-| Pattern | Likely cause |
-|---|---|
-| `CND parse error` / `invalid node type` | CND syntax error or illegal field declaration |
-| `NoSuchNodeTypeException` | A referenced type doesn't exist (wrong namespace, typo, missing dependency) |
-| `ClassNotFoundException` / `NoClassDefFoundError` | Java dependency missing |
-| `Cannot set property` / `TypeError` in JS stack | View runtime error |
-| `Module ... failed to start` | Any of the above |
-| `Unresolved requirement` | OSGi dependency not satisfied |
-| Missing `Registered Jahia component` for a specific type | View file has a syntax/import error, or `jahiaComponent` not reached |
+| Pattern                                                  | Likely cause                                                                |
+| -------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `CND parse error` / `invalid node type`                  | CND syntax error or illegal field declaration                               |
+| `NoSuchNodeTypeException`                                | A referenced type doesn't exist (wrong namespace, typo, missing dependency) |
+| `ClassNotFoundException` / `NoClassDefFoundError`        | Java dependency missing                                                     |
+| `Cannot set property` / `TypeError` in JS stack          | View runtime error                                                          |
+| `Module ... failed to start`                             | Any of the above                                                            |
+| `Unresolved requirement`                                 | OSGi dependency not satisfied                                               |
+| Missing `Registered Jahia component` for a specific type | View file has a syntax/import error, or `jahiaComponent` not reached        |
 
 **Focus on the first error, not the last.** Later errors are often cascading failures caused by the first one.
 
@@ -115,21 +117,27 @@ Repeat until `yarn jahia-deploy` succeeds and the module loads cleanly (no error
 ## Common fixes by error type
 
 ### CND: `j:linknode` or `j:url` declared explicitly
+
 These fields are injected by Jahia's `linkTypeInitializer` mixin. Remove them from the CND.
 
 ### CND: unknown mixin or type
+
 Check that the namespace is declared at the top of `settings/definitions.cnd` and that all referenced types exist.
 
 ### import.xml: reference to a non-existent type
+
 Any `jcr:primaryType` or `jcr:mixinTypes` value in `import.xml` must exist in the deployed CND. Check for typos.
 
 ### import.xml: `jmix:nolive` used as `jcr:primaryType`
+
 `jmix:nolive` is a mixin — it goes in `jcr:mixinTypes`, not `jcr:primaryType`.
 
 ### import.xml: OSGi fails with `missing requirement … (nodetypes=jmix:nolive)`
+
 Every `jcr:mixinTypes` value in `import.xml` is scanned by the OSGi bundle resolver. If the mixin is not declared in the module's own CND and is not provided by a resolvable dependency, the bundle will not start. Correct spelling is `jmix:nolive` (all lowercase). Verify the mixin exists in your Jahia instance before using it in `import.xml`.
 
 ### View: module loads but page is blank
+
 Run `yarn dev` and check the Vite / SSR console for a React render error.
 
 ---

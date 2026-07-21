@@ -1,25 +1,25 @@
-import {Island, jahiaComponent} from "@jahia/javascript-modules-library";
+import { Island, jahiaComponent } from "@jahia/javascript-modules-library";
 import FileInput from "./File.client";
-import {type BaseValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
-import HelpText, {helpTextId} from "~/design/HelpText";
+import { type BaseValidationMessageProps, validationDataAttributes } from "~/utils/validationProps";
+import HelpText, { helpTextId } from "~/design/HelpText";
 
 interface InputFileProps extends BaseValidationMessageProps {
 	"jcr:title"?: string;
-	helpText?: string;
-	accept?: string[];
-	multiple?: boolean;
-	required?: boolean;
+	"helpText"?: string;
+	"accept"?: string[];
+	"multiple"?: boolean;
+	"required"?: boolean;
 }
 
 jahiaComponent(
 	{
 		componentType: "view",
 		nodeType: "fmdb:inputFile",
-		name: "default"
+		name: "default",
 	},
 	(
-		{"jcr:title": label, helpText, accept, multiple, required, ...validationMsgs}: InputFileProps,
-		{currentNode}
+		{ "jcr:title": label, helpText, accept, multiple, required, ...validationMsgs }: InputFileProps,
+		{ currentNode },
 	) => {
 		// Generate unique id and name
 		const inputId = `input-${currentNode.getIdentifier()}`;
@@ -32,10 +32,14 @@ jahiaComponent(
 				{label && (
 					<label htmlFor={inputId} className="fmdb-file-label">
 						{label}
-						{required && <span className="fmdb-required-indicator" aria-hidden="true">*</span>}
+						{required && (
+							<span className="fmdb-required-indicator" aria-hidden="true">
+								*
+							</span>
+						)}
 					</label>
 				)}
-				<HelpText id={helpId} text={helpText}/>
+				<HelpText id={helpId} text={helpText} />
 				<Island
 					component={FileInput}
 					props={{
@@ -45,10 +49,10 @@ jahiaComponent(
 						multiple,
 						required,
 						describedBy: helpId,
-						validationAttributes: validationDataAttributes(validationMsgs)
+						validationAttributes: validationDataAttributes(validationMsgs),
 					}}
 				/>
 			</div>
 		);
-	}
+	},
 );

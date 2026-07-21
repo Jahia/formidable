@@ -1,6 +1,7 @@
 # Jahia Java Module Development Reference
 
 ## Table of Contents
+
 1. [Module types and structure](#1-module-types-and-structure)
 2. [Maven pom.xml patterns](#2-maven-pomxml-patterns)
 3. [Deployment methods](#3-deployment-methods)
@@ -14,11 +15,11 @@
 
 ## 1. Module types and structure
 
-| Type | Purpose |
-|------|---------|
-| `module` | Standard content module (default) |
-| `system` | System-level services, loaded early |
-| `templatesSet` | Provides site page templates |
+| Type           | Purpose                             |
+| -------------- | ----------------------------------- |
+| `module`       | Standard content module (default)   |
+| `system`       | System-level services, loaded early |
+| `templatesSet` | Provides site page templates        |
 
 ### Directory structure
 
@@ -106,9 +107,11 @@ Icons naming: replace `:` with `_` — `jnt:news` → `jnt_news.png`.
 ## 3. Deployment methods
 
 ### Method 1: Copy to modules directory (development)
+
 Drop the JAR into `digital-factory-data/modules/`. Jahia auto-deploys.
 
 ### Method 2: Maven deploy goal (recommended)
+
 ```xml
 <profile>
   <id>jahia-local</id>
@@ -118,6 +121,7 @@ Drop the JAR into `digital-factory-data/modules/`. Jahia auto-deploys.
   </properties>
 </profile>
 ```
+
 ```bash
 mvn clean install jahia:deploy -P jahia-local
 # For Docker:
@@ -125,6 +129,7 @@ mvn jahia:deploy -Djahia.deploy.targetContainerName=CONTAINER_NAME
 ```
 
 ### Creating a new module from archetype
+
 ```bash
 mvn archetype:generate -Dfilter=org.jahia.archetypes:
 # Select: jahia-module-archetype
@@ -145,6 +150,7 @@ Deploy-free coding allows JSP, CSS, JS, and CND changes to be reflected without 
 ## 5. Static asset management
 
 Assets are served from within the OSGi bundle JAR:
+
 ```xml
 <Jahia-Static-Resources>/css,/icons,/images,/javascript</Jahia-Static-Resources>
 ```
@@ -153,6 +159,7 @@ OSGi configuration files shipped with a module go in:
 `src/main/resources/META-INF/configurations/` → auto-deployed to `digital-factory-data/karaf/etc/`
 
 To prevent overwriting on upgrade, start the file with:
+
 ```
 # default configuration
 ```
@@ -162,6 +169,7 @@ To prevent overwriting on upgrade, start the file with:
 ## 6. Java 11 / 17 configuration
 
 For Java 17, add to JVM startup arguments:
+
 ```
 --add-opens java.base/java.lang=ALL-UNNAMED
 --add-opens java.base/java.io=ALL-UNNAMED
@@ -195,11 +203,13 @@ mvn jahia:osgi-inspect          # Dump MANIFEST headers of built JAR
 ### Bundle stuck in Installed/Resolved (not Started)
 
 Causes:
+
 1. Missing package import
 2. Unsatisfied Jahia-Depends
 3. CND dependency not met
 
 Diagnosis:
+
 ```bash
 bundle:requirements --namespace=osgi.wiring.package <bundleId>
 bundle:requirements --namespace=com.jahia.services.content <bundleId>

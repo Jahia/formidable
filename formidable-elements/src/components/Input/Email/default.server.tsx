@@ -1,19 +1,19 @@
-import {jahiaComponent} from "@jahia/javascript-modules-library";
-import {type TextValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
-import HelpText, {helpTextId} from "~/design/HelpText";
+import { jahiaComponent } from "@jahia/javascript-modules-library";
+import { type TextValidationMessageProps, validationDataAttributes } from "~/utils/validationProps";
+import HelpText, { helpTextId } from "~/design/HelpText";
 
 interface InputEmailProps extends TextValidationMessageProps {
 	"jcr:title"?: string;
-	helpText?: string;
-	placeholder?: string;
-	defaultValue?: string;
-	list?: string[];
-	pattern?: string;
-	minLength?: number;
-	maxLength?: number;
-	required?: boolean;
-	autocomplete?: string;
-	multiple?: boolean;
+	"helpText"?: string;
+	"placeholder"?: string;
+	"defaultValue"?: string;
+	"list"?: string[];
+	"pattern"?: string;
+	"minLength"?: number;
+	"maxLength"?: number;
+	"required"?: boolean;
+	"autocomplete"?: string;
+	"multiple"?: boolean;
 }
 
 // Default values declared outside component to prevent re-render issues
@@ -23,7 +23,7 @@ jahiaComponent(
 	{
 		componentType: "view",
 		nodeType: "fmdb:inputEmail",
-		name: "default"
+		name: "default",
 	},
 	(
 		{
@@ -40,10 +40,8 @@ jahiaComponent(
 			multiple,
 			...validationMsgs
 		}: InputEmailProps,
-		{currentNode}
+		{ currentNode },
 	) => {
-
-
 		// Generate unique datalist ID for autocomplete functionality
 		const generateDatalistId = () => `datalist-${currentNode.getIdentifier()}`;
 		const datalistId = list.length > 0 ? generateDatalistId() : undefined;
@@ -59,11 +57,15 @@ jahiaComponent(
 				{label && (
 					<label htmlFor={inputId} className="fmdb-form-label">
 						{label}
-						{required && <span className="fmdb-required-indicator" aria-hidden="true">*</span>}
+						{required && (
+							<span className="fmdb-required-indicator" aria-hidden="true">
+								*
+							</span>
+						)}
 					</label>
 				)}
 
-				<HelpText id={helpId} text={helpText}/>
+				<HelpText id={helpId} text={helpText} />
 
 				<input
 					type="email"
@@ -87,11 +89,11 @@ jahiaComponent(
 				{list.length > 0 && (
 					<datalist id={datalistId}>
 						{list.map((option) => (
-							<option key={option} value={option}/>
+							<option key={option} value={option} />
 						))}
 					</datalist>
 				)}
 			</div>
 		);
-	}
+	},
 );

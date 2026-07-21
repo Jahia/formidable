@@ -21,24 +21,23 @@ Each format implements the `ExportFormat` interface defined in `formats/ExportFo
 
 ```ts
 interface ExportFormat {
-    id: string;          // Unique identifier (e.g. "csv", "json")
-    label: string;       // Display label in the UI (e.g. "CSV")
-    extension: string;   // File extension without dot (e.g. "csv")
-    mimeType: string;    // MIME type for the Blob (e.g. "text/csv;charset=utf-8;")
-    buildContent: (
-        submissions: SubmissionRow[],
-        t: (key: string) => string
-    ) => string;         // Builds the file content from submissions
+  id: string; // Unique identifier (e.g. "csv", "json")
+  label: string; // Display label in the UI (e.g. "CSV")
+  extension: string; // File extension without dot (e.g. "csv")
+  mimeType: string; // MIME type for the Blob (e.g. "text/csv;charset=utf-8;")
+  buildContent: (submissions: SubmissionRow[], t: (key: string) => string) => string; // Builds the file content from submissions
 }
 ```
 
 The `buildContent` function receives:
+
 - `submissions` — an array of parsed submission rows with metadata, field values, and file references
 - `t` — the i18n translation function, scoped to the `formidable-engine` namespace
 
 ### ExportResultsDialog
 
 The dialog component handles:
+
 - Date range filtering (start date, end date, or all results)
 - Batched GraphQL fetching of all matching submissions
 - Delegating content generation to the active format
@@ -57,35 +56,32 @@ It does not contain any formatting logic.
 1. Create a new file in `formats/`, e.g. `formats/json.ts`:
 
 ```ts
-import type {SubmissionRow} from '../../FormResults.utils';
-import type {ExportFormat} from './ExportFormat';
+import type { SubmissionRow } from "../../FormResults.utils";
+import type { ExportFormat } from "./ExportFormat";
 
-const buildJsonContent = (
-    submissions: SubmissionRow[],
-    _t: (key: string) => string
-): string => {
-    return JSON.stringify(submissions, null, 2);
+const buildJsonContent = (submissions: SubmissionRow[], _t: (key: string) => string): string => {
+  return JSON.stringify(submissions, null, 2);
 };
 
 export const jsonFormat: ExportFormat = {
-    id: 'json',
-    label: 'JSON',
-    extension: 'json',
-    mimeType: 'application/json;charset=utf-8;',
-    buildContent: buildJsonContent
+  id: "json",
+  label: "JSON",
+  extension: "json",
+  mimeType: "application/json;charset=utf-8;",
+  buildContent: buildJsonContent,
 };
 ```
 
 2. Register it in `formats/index.ts`:
 
 ```ts
-export type {ExportFormat} from './ExportFormat';
-export {csvFormat} from './csv';
-export {jsonFormat} from './json';
+export type { ExportFormat } from "./ExportFormat";
+export { csvFormat } from "./csv";
+export { jsonFormat } from "./json";
 
-import {csvFormat} from './csv';
-import {jsonFormat} from './json';
-import type {ExportFormat} from './ExportFormat';
+import { csvFormat } from "./csv";
+import { jsonFormat } from "./json";
+import type { ExportFormat } from "./ExportFormat";
 
 export const exportFormats: ExportFormat[] = [csvFormat, jsonFormat];
 ```
@@ -96,16 +92,16 @@ export const exportFormats: ExportFormat[] = [csvFormat, jsonFormat];
 
 Each `SubmissionRow` contains:
 
-| Field | Type | Description |
-|---|---|---|
-| `uuid` | `string` | JCR node identifier |
-| `name` | `string` | JCR node name |
-| `created` | `string` | ISO date of submission |
-| `origin` | `string \| null` | Submission origin |
-| `locale` | `string \| null` | Submission locale |
-| `referer` | `string \| null` | HTTP referer, still persisted when present |
-| `fieldValues` | `SubmissionFieldValue[]` | Submitted form field values |
-| `files` | `SubmissionFile[]` | Uploaded file references with URLs |
+| Field         | Type                     | Description                                |
+| ------------- | ------------------------ | ------------------------------------------ |
+| `uuid`        | `string`                 | JCR node identifier                        |
+| `name`        | `string`                 | JCR node name                              |
+| `created`     | `string`                 | ISO date of submission                     |
+| `origin`      | `string \| null`         | Submission origin                          |
+| `locale`      | `string \| null`         | Submission locale                          |
+| `referer`     | `string \| null`         | HTTP referer, still persisted when present |
+| `fieldValues` | `SubmissionFieldValue[]` | Submitted form field values                |
+| `files`       | `SubmissionFile[]`       | Uploaded file references with URLs         |
 
 Each `SubmissionFile` contains `fieldName`, `fileName`, `fileUrl`, `mimeType`, and `thumbnailUrl`.
 
@@ -116,16 +112,18 @@ Both export formats include the field **name** (the JCR node name, stable techni
 ## CSV specifics
 
 The CSV format (`formats/csv.ts`) produces:
+
 - A header row with fixed metadata columns followed by dynamic field columns
 - Field column headers use the format `Label (name)` when a label is available, or just `name` otherwise — this lets users read natural column names while still being able to identify the underlying field
 - One data row per submission
-- Multi-value fields joined with ` | `
+- Multi-value fields joined with `|`
 - Files grouped by field name with absolute download URLs
 - Proper CSV escaping (quotes, commas, newlines)
 
 ## JSON specifics
 
 The JSON format (`formats/json.ts`) produces an array of submission objects. Each field entry in the `fields` object is keyed by the field name and contains:
+
 - `name` — the JCR node name (always present), useful for consumers that iterate over the fields object values without access to the key
 - `label` — the human-readable label (present only when set)
 - `value` — a single string or an array of strings for multi-value fields

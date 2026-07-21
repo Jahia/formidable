@@ -89,6 +89,7 @@ src/components/<Category>/<Name>/
 ```
 
 Optional additions:
+
 - `small.server.tsx` — named view (compact/alternate rendering)
 - `<name>.client.tsx` — client-side interactive component
 
@@ -104,6 +105,7 @@ If the component has child nodes (e.g. a hero with CTA buttons), repeat Steps 2�
 ---
 
 ## Troubleshooting
+
 > https://academy.jahia.com/tutorials-get-started/front-end-developer/making-a-hero-section
 
 ## References
@@ -113,6 +115,7 @@ If the component has child nodes (e.g. a hero with CTA buttons), repeat Steps 2�
 ---
 
 ## Validation checklist
+
 - [ ] Spec written before any code
 - [ ] Component count within scale of thumbs (1–4 templates, 5–10 types, 2–5 mixins, 1–4 views/type)
 - [ ] `definition.cnd` created with correct namespace and mixins

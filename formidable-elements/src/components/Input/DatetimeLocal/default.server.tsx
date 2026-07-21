@@ -1,15 +1,18 @@
-import {jahiaComponent} from "@jahia/javascript-modules-library";
-import {type RangeValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
-import HelpText, {helpTextId} from "~/design/HelpText";
+import { jahiaComponent } from "@jahia/javascript-modules-library";
+import {
+	type RangeValidationMessageProps,
+	validationDataAttributes,
+} from "~/utils/validationProps";
+import HelpText, { helpTextId } from "~/design/HelpText";
 
 interface InputDatetimeLocalProps extends RangeValidationMessageProps {
 	"jcr:title"?: string;
-	helpText?: string;
-	defaultValue?: string;
-	min?: string;
-	max?: string;
-	step?: number;
-	required?: boolean;
+	"helpText"?: string;
+	"defaultValue"?: string;
+	"min"?: string;
+	"max"?: string;
+	"step"?: number;
+	"required"?: boolean;
 }
 
 // Convert ISO datetime string to HTML datetime-local format (YYYY-MM-DDTHH:mm)
@@ -21,10 +24,10 @@ const formatDatetimeForInput = (isoDatetime?: string): string | undefined => {
 		const date = new Date(isoDatetime);
 		// Get local datetime in YYYY-MM-DDTHH:mm format
 		const year = date.getFullYear();
-		const month = String(date.getMonth() + 1).padStart(2, '0');
-		const day = String(date.getDate()).padStart(2, '0');
-		const hours = String(date.getHours()).padStart(2, '0');
-		const minutes = String(date.getMinutes()).padStart(2, '0');
+		const month = String(date.getMonth() + 1).padStart(2, "0");
+		const day = String(date.getDate()).padStart(2, "0");
+		const hours = String(date.getHours()).padStart(2, "0");
+		const minutes = String(date.getMinutes()).padStart(2, "0");
 
 		return `${year}-${month}-${day}T${hours}:${minutes}`;
 	} catch {
@@ -37,13 +40,21 @@ jahiaComponent(
 	{
 		componentType: "view",
 		nodeType: "fmdb:inputDatetimeLocal",
-		name: "default"
+		name: "default",
 	},
 	(
-		{"jcr:title": label, helpText, defaultValue, min, max, step, required, ...validationMsgs}: InputDatetimeLocalProps,
-		{currentNode}
+		{
+			"jcr:title": label,
+			helpText,
+			defaultValue,
+			min,
+			max,
+			step,
+			required,
+			...validationMsgs
+		}: InputDatetimeLocalProps,
+		{ currentNode },
 	) => {
-
 		// Generate unique id and name for the input
 		const inputId = `input-${currentNode.getIdentifier()}`;
 		const inputName = currentNode.getName();
@@ -55,11 +66,15 @@ jahiaComponent(
 				{label && (
 					<label htmlFor={inputId} className="fmdb-form-label">
 						{label}
-						{required && <span className="fmdb-required-indicator" aria-hidden="true">*</span>}
+						{required && (
+							<span className="fmdb-required-indicator" aria-hidden="true">
+								*
+							</span>
+						)}
 					</label>
 				)}
 
-				<HelpText id={helpId} text={helpText}/>
+				<HelpText id={helpId} text={helpText} />
 
 				<input
 					type="datetime-local"
@@ -76,5 +91,5 @@ jahiaComponent(
 				/>
 			</div>
 		);
-	}
+	},
 );

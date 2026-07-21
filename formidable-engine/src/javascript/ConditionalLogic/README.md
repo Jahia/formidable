@@ -85,14 +85,18 @@ Keeping them together made the main component harder to read and harder to evolv
 8. It identifies each source option by node UUID, not by system name.
 9. If several candidate sources have the same display label, the editor disambiguates them visually by appending `:1`, `:2`, and so on to the label shown in the dropdown.
 10. When an existing rule is edited, the selector resolves the source in this order:
-   - `sourceNodeId` stored in the JSON rule
-   - `logicId -> logicsSrc -> logicNodeSource` weakref
-   - legacy `sourceFieldName` fallback
+
+- `sourceNodeId` stored in the JSON rule
+- `logicId -> logicsSrc -> logicNodeSource` weakref
+- legacy `sourceFieldName` fallback
+
 11. If no source fields are available (none exist or all are taken), a text message is shown instead of the dropdowns.
 12. The user selects:
-   - a source field
-   - an operator
-   - zero, one, or multiple values depending on the source type
+
+- a source field
+- an operator
+- zero, one, or multiple values depending on the source type
+
 13. The selector serializes the rule as JSON and writes it back through `onChange`.
 
 ## Supported source field types in V1

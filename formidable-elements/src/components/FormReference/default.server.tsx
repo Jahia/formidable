@@ -1,5 +1,5 @@
-import {jahiaComponent, Render} from "@jahia/javascript-modules-library";
-import {useTranslation} from "react-i18next";
+import { jahiaComponent, Render } from "@jahia/javascript-modules-library";
+import { useTranslation } from "react-i18next";
 
 jahiaComponent(
 	{
@@ -7,8 +7,8 @@ jahiaComponent(
 		nodeType: "fmdb:formReference",
 		name: "default",
 	},
-	({'j:node': node, 'j:referenceView': referenceView}, {renderContext}) => {
-		const {t} = useTranslation("formidable-elements", {keyPrefix: "fmdb_formReference"});
+	({ "j:node": node, "j:referenceView": referenceView }, { renderContext }) => {
+		const { t } = useTranslation("formidable-elements", { keyPrefix: "fmdb_formReference" });
 
 		if (!node) {
 			if (renderContext.isEditMode()) {
@@ -20,4 +20,3 @@ jahiaComponent(
 		return <Render node={node} view={referenceView ?? "default"} />;
 	},
 );
-

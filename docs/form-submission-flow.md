@@ -68,11 +68,12 @@ Browser
 ```
 
 > **DoS mitigation (defence in depth):**
+
 - Gate 0: cross-origin requests are rejected before the multipart pipeline starts
-> - Step 3: oversized requests are rejected early when a `Content-Length` header is present — 0 byte read
-> - Step 6: invalid CAPTCHA token → rejected before any file data is read
-> - Step 7: field whitelist built before parsing — undeclared fields never touch memory or disk
-> - Steps 4–7 are all O(1) or cheap JCR lookups; the network stream is only read at step 8
+  > - Step 3: oversized requests are rejected early when a `Content-Length` header is present — 0 byte read
+  > - Step 6: invalid CAPTCHA token → rejected before any file data is read
+  > - Step 7: field whitelist built before parsing — undeclared fields never touch memory or disk
+  > - Steps 4–7 are all O(1) or cheap JCR lookups; the network stream is only read at step 8
 
 `guardContentLength` is an optimization, not the definitive size limit. When a client submits
 the request with `Transfer-Encoding: chunked`, `getContentLengthLong()` returns `-1`, so step 3
@@ -82,10 +83,10 @@ multipart bodies during streaming.
 
 ### Routing query params and security header
 
-| Transport | Value | Set by |
-|---|---|---|
-| `fid` query param | JCR identifier (UUID) of the `fmdb:form` node | `default.server.tsx` |
-| `lang` query param | BCP 47 language tag (e.g. `en`, `fr`) | `default.server.tsx` |
+| Transport                           | Value                                                               | Set by                                |
+| ----------------------------------- | ------------------------------------------------------------------- | ------------------------------------- |
+| `fid` query param                   | JCR identifier (UUID) of the `fmdb:form` node                       | `default.server.tsx`                  |
+| `lang` query param                  | BCP 47 language tag (e.g. `en`, `fr`)                               | `default.server.tsx`                  |
 | `X-Formidable-Captcha-Token` header | CAPTCHA token — only when CAPTCHA protection is enabled on the form | `useFormSubmission.ts` at submit time |
 
 No hidden `<input>` fields are injected into the form body for routing.
@@ -101,9 +102,9 @@ a 400 (`FMDB-004`) because the node will not be found in `live`.
 
 ## Security mixins on `fmdb:form`
 
-| Mixin | Effect |
-|---|---|
-| `fmdbmix:captcha` | Author-facing wrapper mixin on `fmdb:form`; enables the engine-owned `fmdbmix:captchaProtectedForm` semantic |
+| Mixin                           | Effect                                                                                                        |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `fmdbmix:captcha`               | Author-facing wrapper mixin on `fmdb:form`; enables the engine-owned `fmdbmix:captchaProtectedForm` semantic  |
 | `fmdbmix:requireAuthentication` | Author-facing wrapper mixin on `fmdb:form`; enables the engine-owned `fmdbmix:authenticatedOnlyForm` semantic |
 
 Both mixins are applied via the Content Editor. Neither requires configuration in JCR properties.
@@ -138,12 +139,12 @@ anonymous or authenticated:
 
 ### Protection matrix
 
-| Form configuration | Protection that applies | Residual risk |
-|---|---|---|
-| Guest form without CAPTCHA | `formidable-submit` Security Filter only (`origin: hosted`) | Relies solely on the browser-supplied same-origin `Origin` / `Referer` signal enforced by the Security Filter |
-| Guest form with `fmdbmix:captcha` | `formidable-submit` Security Filter + CAPTCHA token validation | Same residual risk as above if the origin signal is missing or downgraded, but the CAPTCHA token adds a second non-replayable credential tied to the hosting page |
-| Authenticated form without CAPTCHA | `formidable-submit` Security Filter + Jahia CSRFGuard token | Requires both a same-origin request and a valid CSRF token; residual risk is lower and mainly depends on the correctness of those platform controls |
-| Authenticated form with `fmdbmix:captcha` | `formidable-submit` Security Filter + Jahia CSRFGuard token + CAPTCHA token validation | Lowest residual risk in this flow; CAPTCHA is still defence in depth, not the primary CSRF control |
+| Form configuration                        | Protection that applies                                                                | Residual risk                                                                                                                                                     |
+| ----------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Guest form without CAPTCHA                | `formidable-submit` Security Filter only (`origin: hosted`)                            | Relies solely on the browser-supplied same-origin `Origin` / `Referer` signal enforced by the Security Filter                                                     |
+| Guest form with `fmdbmix:captcha`         | `formidable-submit` Security Filter + CAPTCHA token validation                         | Same residual risk as above if the origin signal is missing or downgraded, but the CAPTCHA token adds a second non-replayable credential tied to the hosting page |
+| Authenticated form without CAPTCHA        | `formidable-submit` Security Filter + Jahia CSRFGuard token                            | Requires both a same-origin request and a valid CSRF token; residual risk is lower and mainly depends on the correctness of those platform controls               |
+| Authenticated form with `fmdbmix:captcha` | `formidable-submit` Security Filter + Jahia CSRFGuard token + CAPTCHA token validation | Lowest residual risk in this flow; CAPTCHA is still defence in depth, not the primary CSRF control                                                                |
 
 ### Why guests do not use CSRFGuard as the primary control
 
@@ -186,12 +187,12 @@ anonymous or authenticated:
 
 ### Protection matrix
 
-| Form configuration | Protection that applies | Residual risk |
-|---|---|---|
-| Guest form without CAPTCHA | `formidable-submit` Security Filter only (`origin: hosted`) | Relies solely on the browser-supplied same-origin `Origin` / `Referer` signal enforced by the Security Filter |
-| Guest form with `fmdbmix:captcha` | `formidable-submit` Security Filter + CAPTCHA token validation | Same residual risk as above if the origin signal is missing or downgraded, but the CAPTCHA token adds a second non-replayable credential tied to the hosting page |
-| Authenticated form without CAPTCHA | `formidable-submit` Security Filter + Jahia CSRFGuard token | Requires both a same-origin request and a valid CSRF token; residual risk is lower and mainly depends on the correctness of those platform controls |
-| Authenticated form with `fmdbmix:captcha` | `formidable-submit` Security Filter + Jahia CSRFGuard token + CAPTCHA token validation | Lowest residual risk in this flow; CAPTCHA is still defence in depth, not the primary CSRF control |
+| Form configuration                        | Protection that applies                                                                | Residual risk                                                                                                                                                     |
+| ----------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Guest form without CAPTCHA                | `formidable-submit` Security Filter only (`origin: hosted`)                            | Relies solely on the browser-supplied same-origin `Origin` / `Referer` signal enforced by the Security Filter                                                     |
+| Guest form with `fmdbmix:captcha`         | `formidable-submit` Security Filter + CAPTCHA token validation                         | Same residual risk as above if the origin signal is missing or downgraded, but the CAPTCHA token adds a second non-replayable credential tied to the hosting page |
+| Authenticated form without CAPTCHA        | `formidable-submit` Security Filter + Jahia CSRFGuard token                            | Requires both a same-origin request and a valid CSRF token; residual risk is lower and mainly depends on the correctness of those platform controls               |
+| Authenticated form with `fmdbmix:captcha` | `formidable-submit` Security Filter + Jahia CSRFGuard token + CAPTCHA token validation | Lowest residual risk in this flow; CAPTCHA is still defence in depth, not the primary CSRF control                                                                |
 
 ### Why guests do not use CSRFGuard as the primary control
 
@@ -222,6 +223,7 @@ During `parseAll()`, any multipart item whose field name is absent from `allowed
 undeclared items automatically.
 
 This prevents:
+
 - Injection of arbitrary fields into forwarded data
 - Exploitation of `${fieldName}` interpolation in email templates
 - Storage or processing of data the form was not designed to collect
@@ -232,11 +234,11 @@ This prevents:
 
 `FormDataParser` validates every text field before it enters the pipeline:
 
-| Field category | Control |
-|---|---|
+| Field category                                                         | Control                                                                               |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | Choice fields (`fmdb:select`, `fmdb:inputRadio`, `fmdb:inputCheckbox`) | Value checked against the `allowedChoices` set built from JCR; rejected if not in set |
-| Typed fields (`email`, `date`, `datetime-local`, `color`) | Format validated with a strict regex |
-| All text fields | `FieldConstraints` applied: required, minLength, maxLength, pattern, minDate, maxDate |
+| Typed fields (`email`, `date`, `datetime-local`, `color`)              | Format validated with a strict regex                                                  |
+| All text fields                                                        | `FieldConstraints` applied: required, minLength, maxLength, pattern, minDate, maxDate |
 
 Required fields that are legitimately absent from the multipart body (e.g. unchecked
 checkbox) are detected at step 9 (`validateRequired`) after parsing, rather than during
@@ -246,11 +248,13 @@ Plain-text values are preserved as submitted. XSS protection is applied at each 
 by escaping for the target context, not by mutating input during parsing.
 
 `FormDataParser.ParseException` carries an explicit failure type:
+
 - `VALIDATION` for submitted data rejected by business validation rules
 - `TECHNICAL` for multipart parsing or stream-processing failures
 - `CONFIGURATION` for invalid server-side validation metadata or form configuration
 
 `FormSubmissionPipeline` maps these parser failures to opaque API codes:
+
 - `VALIDATION` -> `FMDB-010`
 - `TECHNICAL` -> `FMDB-007`
 - `CONFIGURATION` -> `FMDB-500`
@@ -261,11 +265,11 @@ by escaping for the target context, not by mutating input during parsing.
 
 `FieldEscaper` centralises output escaping:
 
-| Method | Context |
-|---|---|
-| `html(value)` | Escapes a value for safe insertion into HTML element content — used in HTML email body |
-| `headerSafe(value)` | Strips `\r`, `\n`, `\t` and trims — applied to `to` and `subject` headers |
-| `plainText(value)` | Null-safe passthrough — used in plain-text email body |
+| Method              | Context                                                                                |
+| ------------------- | -------------------------------------------------------------------------------------- |
+| `html(value)`       | Escapes a value for safe insertion into HTML element content — used in HTML email body |
+| `headerSafe(value)` | Strips `\r`, `\n`, `\t` and trims — applied to `to` and `subject` headers              |
+| `plainText(value)`  | Null-safe passthrough — used in plain-text email body                                  |
 
 ---
 
@@ -273,15 +277,15 @@ by escaping for the target context, not by mutating input during parsing.
 
 All file parts pass through `FormDataParser` which enforces the following controls in order:
 
-| # | Control | Implementation |
-|---|---|---|
-| 1 | Field whitelist | Undeclared fields skipped before any read |
-| 2 | Per-file size limit | `upload.setFileSizeMax()` |
-| 3 | Total request size limit | `upload.setSizeMax()` |
-| 4 | File part count limit (CVE-2023-24998) | `upload.setFileCountMax(config.getUploadMaxFileCount())` — requires commons-fileupload ≥ 1.5 |
-| 5 | Filename sanitisation | Filename normalized with Jahia's standard JCR node-name escaping rules; blank results fall back to `upload` |
-| 6 | MIME type detection | Apache Tika filename-aware detection via `Tika.detect(byte[], String)` (ignores client-supplied `Content-Type`, but uses the original filename extension to disambiguate ambiguous formats) |
-| 7 | MIME type allowlist | Field-level `accept` property (multiple choicelist) takes priority; falls back to global cfg allowlist. Rejections at this step are treated as validation failures (`FMDB-010`), not technical parse failures |
+| #   | Control                                | Implementation                                                                                                                                                                                                |
+| --- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Field whitelist                        | Undeclared fields skipped before any read                                                                                                                                                                     |
+| 2   | Per-file size limit                    | `upload.setFileSizeMax()`                                                                                                                                                                                     |
+| 3   | Total request size limit               | `upload.setSizeMax()`                                                                                                                                                                                         |
+| 4   | File part count limit (CVE-2023-24998) | `upload.setFileCountMax(config.getUploadMaxFileCount())` — requires commons-fileupload ≥ 1.5                                                                                                                  |
+| 5   | Filename sanitisation                  | Filename normalized with Jahia's standard JCR node-name escaping rules; blank results fall back to `upload`                                                                                                   |
+| 6   | MIME type detection                    | Apache Tika filename-aware detection via `Tika.detect(byte[], String)` (ignores client-supplied `Content-Type`, but uses the original filename extension to disambiguate ambiguous formats)                   |
+| 7   | MIME type allowlist                    | Field-level `accept` property (multiple choicelist) takes priority; falls back to global cfg allowlist. Rejections at this step are treated as validation failures (`FMDB-010`), not technical parse failures |
 
 Limits and the global allowlist are configured in `org.jahia.modules.formidable.cfg` via `FormidableConfig`.
 
@@ -374,10 +378,10 @@ heap pressure remains bounded under large-file workloads.
 
 ## CAPTCHA
 
-| Condition | Behaviour |
-|---|---|
+| Condition                                   | Behaviour                                                                                                 |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | `fmdbmix:captcha` mixin present on the form | Wrapper resolves to `fmdbmix:captchaProtectedForm`; token verified at step 6 before any file data is read |
-| `fmdbmix:captcha` mixin absent | No CAPTCHA semantic on the form; pipeline continues |
+| `fmdbmix:captcha` mixin absent              | No CAPTCHA semantic on the form; pipeline continues                                                       |
 
 CAPTCHA configuration (`siteKey`, `scriptUrl`, `verifyUrl`, `secretKey`) is read from
 `org.jahia.modules.formidable.cfg` — not stored in JCR.
@@ -386,11 +390,11 @@ The CAPTCHA widget injects a hidden field into the DOM, but the submit hook remo
 from `FormData` before submission and sends the token through the
 `X-Formidable-Captcha-Token` header instead. The token never appears in the request body.
 
-| Provider | Widget field (removed client-side) |
-|---|---|
-| Cloudflare Turnstile | `cf-turnstile-response` |
-| hCaptcha | `h-captcha-response` |
-| Google reCAPTCHA v2 | `g-recaptcha-response` |
+| Provider             | Widget field (removed client-side) |
+| -------------------- | ---------------------------------- |
+| Cloudflare Turnstile | `cf-turnstile-response`            |
+| hCaptcha             | `h-captcha-response`               |
+| Google reCAPTCHA v2  | `g-recaptcha-response`             |
 
 ---
 
@@ -400,12 +404,12 @@ Every `fmdb:form` has an autocreated `actions` child node of type `fmdb:actionLi
 contributor adds action nodes inside via the Content Editor. Actions are executed in the order
 they appear in the list.
 
-| Node type | Description |
-|---|---|
-| `fmdb:save2jcrAction` | Saves form data as JCR child nodes under `formidable-results` (see `docs/save-to-jcr.md`) |
+| Node type                      | Description                                                                                                                                    |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fmdb:save2jcrAction`          | Saves form data as JCR child nodes under `formidable-results` (see `docs/save-to-jcr.md`)                                                      |
 | `fmdb:emailNotificationAction` | Sends a notification email via Jahia `MailService`; `${fieldName}` interpolation in subject and body; headers normalized and HTML body escaped |
-| `fmdb:emailContentAction` | Sends the submitted form content by email; may optionally attach validated uploaded files |
-| `fmdb:forwardAction` | Forwards declared form fields + pre-parsed files to a target endpoint resolved from config by ID |
+| `fmdb:emailContentAction`      | Sends the submitted form content by email; may optionally attach validated uploaded files                                                      |
+| `fmdb:forwardAction`           | Forwards declared form fields + pre-parsed files to a target endpoint resolved from config by ID                                               |
 
 ### forwardAction — target registry
 
@@ -432,7 +436,7 @@ docker-api|Docker API|http://host.docker.internal:8080/hook
 throws if the ID is unknown. This design prevents SSRF: contributors can only reach
 pre-approved endpoints.
 
-To add a new action type, see `AGENTS.md` → *Form action pipeline*.
+To add a new action type, see `AGENTS.md` → _Form action pipeline_.
 
 ---
 
@@ -463,17 +467,17 @@ module-scoped CSRFGuard configuration, so an authenticated direct XHR to
 
 ## Key files
 
-| File | Role |
-|---|---|
-| `src/hooks/useFormSubmission.ts` | `handleSubmit` — removes the CAPTCHA widget field from `FormData`, sets `X-Formidable-Captcha-Token`, POSTs via XHR |
-| `src/components/Form/default.server.tsx` | Builds `submitActionUrl` with `fid` and `lang` query params |
-| `formidable-engine/.../servlet/FormSubmitServlet.java` | OSGi entry point — checks `formidable-submit` permission, then delegates to `FormSubmissionPipeline` |
-| `formidable-engine/.../servlet/FormSubmissionPipeline.java` | 10-step pipeline — all submission logic |
-| `formidable-engine/.../servlet/ErrorCode.java` | Error code enum — see `docs/error-codes.md` |
-| `formidable-engine/.../actions/FormDataParser.java` | Secure multipart parser: whitelist, input validation, Tika, allowlist, size + count limits |
-| `formidable-engine/.../actions/FieldEscaper.java` | Output escaping utility: `html`, `headerSafe`, `plainText` |
-| `formidable-engine/.../actions/forward/ForwardSubmissionFormAction.java` | Resolves `targetId` via `FormidableConfigService`; forwards declared fields only |
-| `formidable-engine/.../actions/email/SendEmailNotificationFormAction.java` | Sends notification email; headers normalized with `headerSafe()`; HTML body escapes values with `html()` |
-| `formidable-engine/.../actions/email/SendEmailContentFormAction.java` | Sends the submitted form content by email; can optionally attach validated uploaded files, capped by action-level and global upload limits |
-| `formidable-engine/.../api/FormAction.java` | Interface implemented by each action type |
-| `formidable-engine/.../config/FormidableConfigService.java` | Reads unified cfg; resolves forward targets by ID; verifies CAPTCHA
+| File                                                                       | Role                                                                                                                                       |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/hooks/useFormSubmission.ts`                                           | `handleSubmit` — removes the CAPTCHA widget field from `FormData`, sets `X-Formidable-Captcha-Token`, POSTs via XHR                        |
+| `src/components/Form/default.server.tsx`                                   | Builds `submitActionUrl` with `fid` and `lang` query params                                                                                |
+| `formidable-engine/.../servlet/FormSubmitServlet.java`                     | OSGi entry point — checks `formidable-submit` permission, then delegates to `FormSubmissionPipeline`                                       |
+| `formidable-engine/.../servlet/FormSubmissionPipeline.java`                | 10-step pipeline — all submission logic                                                                                                    |
+| `formidable-engine/.../servlet/ErrorCode.java`                             | Error code enum — see `docs/error-codes.md`                                                                                                |
+| `formidable-engine/.../actions/FormDataParser.java`                        | Secure multipart parser: whitelist, input validation, Tika, allowlist, size + count limits                                                 |
+| `formidable-engine/.../actions/FieldEscaper.java`                          | Output escaping utility: `html`, `headerSafe`, `plainText`                                                                                 |
+| `formidable-engine/.../actions/forward/ForwardSubmissionFormAction.java`   | Resolves `targetId` via `FormidableConfigService`; forwards declared fields only                                                           |
+| `formidable-engine/.../actions/email/SendEmailNotificationFormAction.java` | Sends notification email; headers normalized with `headerSafe()`; HTML body escapes values with `html()`                                   |
+| `formidable-engine/.../actions/email/SendEmailContentFormAction.java`      | Sends the submitted form content by email; can optionally attach validated uploaded files, capped by action-level and global upload limits |
+| `formidable-engine/.../api/FormAction.java`                                | Interface implemented by each action type                                                                                                  |
+| `formidable-engine/.../config/FormidableConfigService.java`                | Reads unified cfg; resolves forward targets by ID; verifies CAPTCHA                                                                        |

@@ -11,6 +11,7 @@ Scenarios not yet covered by the automated suite. See `tests/scenarios/logics.md
 **When** it is imported.
 
 **Then:**
+
 - No `logicsSrc` node is created on any element.
 - No WARN logs related to `logicsSrc` appear.
 
@@ -23,6 +24,7 @@ These scenarios are covered by Java unit tests (`ConditionalLogicEvaluator`) but
 ### Setup
 
 Create a form with:
+
 - **show-details** — `fmdb:radio` with choices: `yes`, `no`
 - **firstname** — `fmdb:inputText` (required), with logic: visible when `show-details` = `yes`
 - **lastname** — `fmdb:inputText` (required), with logic: visible when `show-details` = `yes`
@@ -59,8 +61,11 @@ Field visible only when `role=admin` AND `accept-terms=accepted`. Test partial a
 Each scenario submits directly via HTTP POST. Covered by Java unit tests but not by Cypress.
 
 ### 6.1 Select / Radio operators: `in`, `notIn`
+
 ### 6.2 Checkbox (single): `isChecked`, `isUnchecked`
+
 ### 6.3 Checkbox (group): `containsAny`, `containsAll`
+
 ### 6.4 Date: `before`, `after`, `on`, `between` (including boundary values)
 
 ---
@@ -70,12 +75,19 @@ Each scenario submits directly via HTTP POST. Covered by Java unit tests but not
 Tests that render the form in jContent preview or live mode and interact with it.
 
 ### 8.1 Field without logic is always visible
+
 ### 8.2 Field hidden when condition not met (page load)
+
 ### 8.3 Field shown when condition met (interaction)
+
 ### 8.4 Field re-hidden when condition no longer met
+
 ### 8.5 Hidden field inputs are disabled
+
 ### 8.6 Shown field inputs are re-enabled
+
 ### 8.7 Multiple rules (AND) in the UI
+
 ### 8.8 Step navigation with hidden required fields
 
 ---
@@ -83,8 +95,11 @@ Tests that render the form in jContent preview or live mode and interact with it
 ## 9. Form structure scenarios
 
 ### 9.1 Logic on a field inside a fieldset (source outside fieldset)
+
 ### 9.2 Logic on a step (entire step conditionally shown/hidden)
+
 ### 9.3 Cross-step logic (source in step 1, target in step 2)
+
 ### 9.4 Source in later step not offered (ordering constraint)
 
 ---
@@ -92,5 +107,7 @@ Tests that render the form in jContent preview or live mode and interact with it
 ## 10. Regression
 
 ### 10.1 Non-conditional fields render normally
+
 ### 10.2 Form without actions submits without error
+
 ### 10.3 Existing form migration (legacy rules without logicId get normalized on first save)

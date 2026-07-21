@@ -1,5 +1,5 @@
-import {getNodeProps, Render} from "@jahia/javascript-modules-library";
-import {type ConditionalLogicRule, parseConditionalLogicRules} from "~/utils/conditionalLogic";
+import { getNodeProps, Render } from "@jahia/javascript-modules-library";
+import { type ConditionalLogicRule, parseConditionalLogicRules } from "~/utils/conditionalLogic";
 
 type LogicAwareRenderNode = Parameters<typeof getNodeProps>[0];
 
@@ -11,10 +11,10 @@ export interface LogicAwareRenderProps {
 }
 
 /**
- * Enriches rendered rules with source node UUIDs from logicsSrc weakreferences.
- * Each logicId in the parsed rules maps to a child node under logicsSrc
- * whose logicNodeSource property points to the actual source field.
- * Mutates rules in place to add or refresh sourceNodeId for runtime evaluation.
+ * Enriches rendered rules with source node UUIDs from logicsSrc weakreferences. Each logicId in the
+ * parsed rules maps to a child node under logicsSrc whose logicNodeSource property points to the
+ * actual source field. Mutates rules in place to add or refresh sourceNodeId for runtime
+ * evaluation.
  */
 const resolveSourceNodeIds = (node: LogicAwareRenderNode, logics: ConditionalLogicRule[]) => {
 	try {
@@ -28,7 +28,10 @@ const resolveSourceNodeIds = (node: LogicAwareRenderNode, logics: ConditionalLog
 				const sourceNode = srcChild.getProperty("logicNodeSource").getNode();
 				rule.sourceNodeId = sourceNode.getIdentifier();
 			} catch (e) {
-				console.error(`[LogicAwareRender] Broken weakref for logicId '${rule.logicId}' on node '${node.getPath()}':`, e);
+				console.error(
+					`[LogicAwareRender] Broken weakref for logicId '${rule.logicId}' on node '${node.getPath()}':`,
+					e,
+				);
 			}
 		}
 	} catch (e) {
@@ -36,8 +39,8 @@ const resolveSourceNodeIds = (node: LogicAwareRenderNode, logics: ConditionalLog
 	}
 };
 
-const LogicAwareRender = ({node, view, parameters, className}: LogicAwareRenderProps) => {
-	const {logics: rawLogics} = getNodeProps<{logics?: string[]}>(node, ["logics"]);
+const LogicAwareRender = ({ node, view, parameters, className }: LogicAwareRenderProps) => {
+	const { logics: rawLogics } = getNodeProps<{ logics?: string[] }>(node, ["logics"]);
 	const logics = node.isNodeType("fmdbmix:formLogicElement")
 		? parseConditionalLogicRules(rawLogics ?? [])
 		: [];
@@ -51,7 +54,7 @@ const LogicAwareRender = ({node, view, parameters, className}: LogicAwareRenderP
 	return (
 		<div
 			className={className}
-			style={hasLogic ? {display: "none"} : undefined}
+			style={hasLogic ? { display: "none" } : undefined}
 			aria-hidden={hasLogic ? "true" : undefined}
 			data-fmdb-logic-hidden={hasLogic ? "true" : undefined}
 			data-fmdb-node-id={node.getIdentifier()}
@@ -59,9 +62,11 @@ const LogicAwareRender = ({node, view, parameters, className}: LogicAwareRenderP
 			data-fmdb-node-type={node.getPrimaryNodeTypeName()}
 			data-fmdb-logics={hasLogic ? JSON.stringify(logics) : undefined}
 		>
-			{view
-				? <Render node={node} view={view} parameters={parameters}/>
-				: <Render node={node} parameters={parameters}/>}
+			{view ? (
+				<Render node={node} view={view} parameters={parameters} />
+			) : (
+				<Render node={node} parameters={parameters} />
+			)}
 		</div>
 	);
 };

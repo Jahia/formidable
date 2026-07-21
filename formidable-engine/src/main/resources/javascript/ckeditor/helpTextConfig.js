@@ -7,10 +7,10 @@
 // Mirrors the CKEditor 5 helpText toolbar registered by the engine UI extension.
 // The Link and Image dialogs keep the Jahia pickers wired by Content Editor.
 CKEDITOR.editorConfig = function (config) {
-	config.toolbar_FormidableHelp = [
-		['Bold', 'Italic', 'Underline'],
-		['Image'],
-		['Link', 'Unlink'],
-		['BulletedList', 'NumberedList']
-	];
+  config.toolbar_FormidableHelp = [
+    ["Bold", "Italic", "Underline"],
+    ["Image"],
+    ["Link", "Unlink"],
+    ["BulletedList", "NumberedList"],
+  ];
 };

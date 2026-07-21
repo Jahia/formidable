@@ -10,11 +10,11 @@ Always, just before writing the deliverable. Do not load during analysis passes.
 
 Detect from context:
 
-| Signal | Mode |
-|---|---|
-| GitHub MCP tools available + a PR number in context | **PR mode**: inline comments + one summary comment |
-| Local filesystem only, module checked out, no PR | **File mode**: single markdown at repo root |
-| A prior `code-review-*.md` exists in the repo | **Follow-up mode**: see `skills/review-followup/SKILL.md` |
+| Signal                                              | Mode                                                      |
+| --------------------------------------------------- | --------------------------------------------------------- |
+| GitHub MCP tools available + a PR number in context | **PR mode**: inline comments + one summary comment        |
+| Local filesystem only, module checked out, no PR    | **File mode**: single markdown at repo root               |
+| A prior `code-review-*.md` exists in the repo       | **Follow-up mode**: see `skills/review-followup/SKILL.md` |
 
 When unclear, default to **File mode**.
 
@@ -86,10 +86,10 @@ See the parent `AGENTS.md` severity table. One reminder: **the prioritised summa
 
 The penultimate section. Schema:
 
-| Priority | Item | Effort |
-|---|---|---|
-| 🔴 P0 | {one-line description with §X.Y backref} | XS/S/M/L |
-| ... |
+| Priority | Item                                     | Effort   |
+| -------- | ---------------------------------------- | -------- |
+| 🔴 P0    | {one-line description with §X.Y backref} | XS/S/M/L |
+| ...      |
 
 Sort by priority, then by section number. P3 items can be grouped if numerous.
 

@@ -37,7 +37,10 @@ class FormFieldMetadataCollector {
             Map<String, FormDataParser.FieldInfo> fieldInfos,
             Map<String, List<ConditionalLogicRule>> fieldLogicRules,
             Map<String, String> logicIdToFieldName,
-            Map<String, Set<String>> fieldParentContainers
+            Map<String, Set<String>> fieldParentContainers,
+            // fieldName -> JCR identifier of the field node, so the submission pipeline can re-load
+            // the node and run JavaScript-declared field validators against the submitted value.
+            Map<String, String> fieldNodeIds
     ) {
         FormDataParser.FieldMetadata toParserMetadata() {
             return new FormDataParser.FieldMetadata(fieldInfos);
@@ -56,13 +59,14 @@ class FormFieldMetadataCollector {
         var fieldLogicRules = new HashMap<String, List<ConditionalLogicRule>>();
         var logicIdToFieldName = new HashMap<String, String>();
         var fieldParentContainers = new HashMap<String, Set<String>>();
+        var fieldNodeIds = new HashMap<String, String>();
 
-        var ctx = new CollectorContext(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers);
+        var ctx = new CollectorContext(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, fieldNodeIds);
 
         if (!formNode.hasNode(FIELDS_NODE)) {
             log.debug("[FormFieldMetadataCollector] No '{}' child on form node '{}'",
                     FIELDS_NODE, formNode.getPath());
-            return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers);
+            return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, fieldNodeIds);
         }
 
         JCRNodeWrapper fieldList = formNode.getNode(FIELDS_NODE);
@@ -75,7 +79,7 @@ class FormFieldMetadataCollector {
         }
 
         log.debug("[FormFieldMetadataCollector] Allowed fields: {}", fieldInfos.keySet());
-        return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers);
+        return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, fieldNodeIds);
     }
 
     // --- Internal ---
@@ -84,7 +88,8 @@ class FormFieldMetadataCollector {
             Map<String, FormDataParser.FieldInfo> fieldInfos,
             Map<String, List<ConditionalLogicRule>> fieldLogicRules,
             Map<String, String> logicIdToFieldName,
-            Map<String, Set<String>> fieldParentContainers
+            Map<String, Set<String>> fieldParentContainers,
+            Map<String, String> fieldNodeIds
     ) {}
 
     private static void traverseRecursively(JCRNodeWrapper node, String parentContainerName, CollectorContext ctx)
@@ -148,6 +153,7 @@ class FormFieldMetadataCollector {
         }
 
         ctx.fieldInfos.put(name, buildFieldInfo(node, nodeType));
+        ctx.fieldNodeIds.put(name, node.getIdentifier());
     }
 
     private static void resolveLogicsSrc(JCRNodeWrapper node, List<ConditionalLogicRule> rules, CollectorContext ctx)

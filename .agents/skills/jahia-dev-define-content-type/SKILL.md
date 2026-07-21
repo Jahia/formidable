@@ -14,13 +14,13 @@ All Jahia development starts with content modeling. Content types are defined in
 
 Before writing any CND, capture the content type spec. Ask the user to confirm:
 
-| Field | Answer |
-|---|---|
-| **Name** | e.g. `BlogPost` |
-| **Description** | What is this type for? |
-| **Fields** | name / type / i18n? / mandatory? |
-| **Views** | default only, or also: small / card / fullPage |
-| **Used where** | Inside an Area? Nested in another type? |
+| Field           | Answer                                         |
+| --------------- | ---------------------------------------------- |
+| **Name**        | e.g. `BlogPost`                                |
+| **Description** | What is this type for?                         |
+| **Fields**      | name / type / i18n? / mandatory?               |
+| **Views**       | default only, or also: small / card / fullPage |
+| **Used where**  | Inside an Area? Nested in another type?        |
 
 Only proceed to the CND once this spec is agreed.
 
@@ -30,19 +30,19 @@ Only proceed to the CND once this spec is agreed.
 
 ### Semantic vs generic types
 
-| Use **semantic types** for… | Use **generic types** for… |
-|---|---|
+| Use **semantic types** for…                       | Use **generic types** for…                |
+| ------------------------------------------------- | ----------------------------------------- |
 | Business entities: articles, team members, events | Visual composition: banners, feature rows |
-| Items that appear in listings | One-off sections, layout containers |
-| Anything reused across pages | Unique per-page UI blocks |
+| Items that appear in listings                     | One-off sections, layout containers       |
+| Anything reused across pages                      | Unique per-page UI blocks                 |
 
 ### Children vs weakreference
 
-| Use **child nodes** when… | Use **weakreference** when… |
-|---|---|
-| Parent is the visual container (e.g. CTA buttons inside a hero) | Linking to content managed elsewhere |
-| Children have no life outside the parent | Many-to-many relationships |
-| You always create the children together | Content editors need to reuse the referenced item |
+| Use **child nodes** when…                                       | Use **weakreference** when…                       |
+| --------------------------------------------------------------- | ------------------------------------------------- |
+| Parent is the visual container (e.g. CTA buttons inside a hero) | Linking to content managed elsewhere              |
+| Children have no life outside the parent                        | Many-to-many relationships                        |
+| You always create the children together                         | Content editors need to reuse the referenced item |
 
 ### Mixins are the primary reuse mechanism
 
@@ -74,13 +74,13 @@ The `ctaLabel`, `ctaType`, `j:linknode`, `j:url` fields are inherited and ready 
 
 **Common reusable mixin patterns:**
 
-| Mixin | Properties it adds | When to use |
-|---|---|---|
-| `nsmix:cta` | `ctaLabel`, `ctaType` (+ injected `j:linknode`/`j:url`) | Any type with a button or link |
-| `nsmix:badge` | `badgeText`, `badgeColor` | Cards, teasers, any labelled content |
-| `nsmix:seo` | `metaTitle`, `metaDescription`, `seoKeywords` | Any `jmix:mainResource` type |
-| `nsmix:media` | `image` (weakreference), `imageAltText`, `imageCaption` | Any type with a visual asset |
-| `nsmix:trackable` | `analyticsId`, `trackingLabel` | Any CTA or interactive element |
+| Mixin             | Properties it adds                                      | When to use                          |
+| ----------------- | ------------------------------------------------------- | ------------------------------------ |
+| `nsmix:cta`       | `ctaLabel`, `ctaType` (+ injected `j:linknode`/`j:url`) | Any type with a button or link       |
+| `nsmix:badge`     | `badgeText`, `badgeColor`                               | Cards, teasers, any labelled content |
+| `nsmix:seo`       | `metaTitle`, `metaDescription`, `seoKeywords`           | Any `jmix:mainResource` type         |
+| `nsmix:media`     | `image` (weakreference), `imageAltText`, `imageCaption` | Any type with a visual asset         |
+| `nsmix:trackable` | `analyticsId`, `trackingLabel`                          | Any CTA or interactive element       |
 
 **Generic container — accept any droppable child:**
 
@@ -118,11 +118,11 @@ If the module uses a custom area type with `pageComponent` (see `jahia-dev-creat
 
 **When creating a new content type, choose the right mixin:**
 
-| Component will be… | Extend |
-|---|---|
-| Dropped in page areas (hero, sections, cards on a page) | `namespacemix:pageComponent` |
-| Used only as a child of another component (e.g. CTA inside a hero) | `namespacemix:component` |
-| A `jmix:mainResource` type stored in a content folder and listed programmatically | `namespacemix:component` |
+| Component will be…                                                                | Extend                       |
+| --------------------------------------------------------------------------------- | ---------------------------- |
+| Dropped in page areas (hero, sections, cards on a page)                           | `namespacemix:pageComponent` |
+| Used only as a child of another component (e.g. CTA inside a hero)                | `namespacemix:component`     |
+| A `jmix:mainResource` type stored in a content folder and listed programmatically | `namespacemix:component`     |
 
 > ⚠️ A component that extends only `namespacemix:component` **cannot be dropped in page areas** that use a `namespacemix:pageComponent` area type. This is the most common cause of editors not being able to contribute content to a new page.
 
@@ -163,20 +163,20 @@ The short prefix (e.g. `ns`) is the namespace to use for all node types in this 
 
 ### Property types
 
-| Type | Usage |
-|---|---|
-| `string` | Single-line text |
-| `string, textarea` | Multi-line text |
-| `string, richtext` | Rich text editor |
-| `weakreference, picker[type='image']` | Image picker |
-| `weakreference multiple` | List of references (e.g. links to multiple pages) |
-| `string, choicelist[linkTypeInitializer]` | Link type discriminator (internal page / external URL / none) — **special initializer, not a value list** |
-| `string, choicelist` with `< 'val1', 'val2'` constraints | Dropdown with fixed choices (see below) |
-| `date` | Date picker |
-| `boolean` | Checkbox |
-| `double` | Decimal number (e.g. latitude/longitude) |
-| `long` | Integer number |
-| `string multiple` | List of strings |
+| Type                                                     | Usage                                                                                                     |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `string`                                                 | Single-line text                                                                                          |
+| `string, textarea`                                       | Multi-line text                                                                                           |
+| `string, richtext`                                       | Rich text editor                                                                                          |
+| `weakreference, picker[type='image']`                    | Image picker                                                                                              |
+| `weakreference multiple`                                 | List of references (e.g. links to multiple pages)                                                         |
+| `string, choicelist[linkTypeInitializer]`                | Link type discriminator (internal page / external URL / none) — **special initializer, not a value list** |
+| `string, choicelist` with `< 'val1', 'val2'` constraints | Dropdown with fixed choices (see below)                                                                   |
+| `date`                                                   | Date picker                                                                                               |
+| `boolean`                                                | Checkbox                                                                                                  |
+| `double`                                                 | Decimal number (e.g. latitude/longitude)                                                                  |
+| `long`                                                   | Integer number                                                                                            |
+| `string multiple`                                        | List of strings                                                                                           |
 
 ### Fixed-choice dropdowns (constrained string)
 
@@ -192,14 +192,14 @@ Use `(string, choicelist)` combined with value constraints (`< 'val1', 'val2'`) 
 
 `choicelist[...]` takes an **initializer keyword**, not a value list. Valid initializers:
 
-| Initializer | What editor sees |
-|---|---|
-| `choicelist[linkTypeInitializer]` | Internal page / External URL / None link picker |
-| `choicelist[nodes=/path/to/folder;type=jnt:content]` | Picker populated from JCR nodes under a path |
-| `choicelist[componentTypes=jnt:page]` | Picker showing all registered views of a node type |
-| `choicelist[country]` | Country selector (ISO codes with localized labels) |
-| `choicelist[menus]` | Picker for existing menus defined on the site |
-| `choicelist[resourceBundle]` | Labels come from `.properties` file keys matching `ns_type.field.value` |
+| Initializer                                          | What editor sees                                                        |
+| ---------------------------------------------------- | ----------------------------------------------------------------------- |
+| `choicelist[linkTypeInitializer]`                    | Internal page / External URL / None link picker                         |
+| `choicelist[nodes=/path/to/folder;type=jnt:content]` | Picker populated from JCR nodes under a path                            |
+| `choicelist[componentTypes=jnt:page]`                | Picker showing all registered views of a node type                      |
+| `choicelist[country]`                                | Country selector (ISO codes with localized labels)                      |
+| `choicelist[menus]`                                  | Picker for existing menus defined on the site                           |
+| `choicelist[resourceBundle]`                         | Labels come from `.properties` file keys matching `ns_type.field.value` |
 
 ```cnd
 // Country picker — stores ISO code, shows localized country name in editor
@@ -229,10 +229,10 @@ Use `< "[-90,90]"` to restrict a numeric property to a range:
 
 ### `weakreference multiple` vs child nodes
 
-| Use `weakreference multiple` when… | Use child nodes when… |
-|---|---|
+| Use `weakreference multiple` when…                    | Use child nodes when…                           |
+| ----------------------------------------------------- | ----------------------------------------------- |
 | Each item is just a reference (a page link, an image) | Each item has multiple properties (label + URL) |
-| The list is simpler to author and implement | Items need a rich editing interface |
+| The list is simpler to author and implement           | Items need a rich editing interface             |
 
 ```cnd
 // Simpler: list of page links (weakreference multiple)
@@ -248,23 +248,27 @@ Render a `weakreference multiple` list in the view:
 
 ```tsx
 // links is JCRNodeWrapper[] | undefined
-{links?.filter(link => link !== null).map(link => (
-  <a key={link.getPath()} href={buildNodeUrl(link)}>
-    {link.getDisplayableName()}
-  </a>
-))}
+{
+  links
+    ?.filter((link) => link !== null)
+    .map((link) => (
+      <a key={link.getPath()} href={buildNodeUrl(link)}>
+        {link.getDisplayableName()}
+      </a>
+    ));
+}
 ```
 
 ### Common attributes
 
-| Attribute | Meaning |
-|---|---|
-| `i18n` | Translatable per language |
-| `mandatory` | Required field |
-| `multiple` | Allows a list of values |
+| Attribute     | Meaning                                                                                 |
+| ------------- | --------------------------------------------------------------------------------------- |
+| `i18n`        | Translatable per language                                                               |
+| `mandatory`   | Required field                                                                          |
+| `multiple`    | Allows a list of values                                                                 |
 | `autocreated` | Auto-creates the property on node creation — always combine with a default: `= 'value'` |
-| `primary` | Marks the most important field — Jahia's editor UI highlights it. One per type only. |
-| `orderable` | Allows reordering child nodes |
+| `primary`     | Marks the most important field — Jahia's editor UI highlights it. One per type only.    |
+| `orderable`   | Allows reordering child nodes                                                           |
 
 ```cnd
 [ns:blogPost] > jnt:content, nsmix:component
@@ -274,7 +278,7 @@ Render a `weakreference multiple` list in the view:
 
 ### `linkTypeInitializer` — the full link pattern
 
-`choicelist[linkTypeInitializer]` creates a link picker where the editor selects *internal page*, *external URL*, or *none*. Declare **only the `j:linkType` field** in the CND — the companion fields `j:linknode` and `j:url` are **added automatically by Jahia's mixins** at runtime. Do NOT add them to your CND.
+`choicelist[linkTypeInitializer]` creates a link picker where the editor selects _internal page_, _external URL_, or _none_. Declare **only the `j:linkType` field** in the CND — the companion fields `j:linknode` and `j:url` are **added automatically by Jahia's mixins** at runtime. Do NOT add them to your CND.
 
 ```cnd
 [namespace:callToAction] > jnt:content, namespacemix:component
@@ -289,9 +293,9 @@ In `types.ts`, use a **discriminated union** — the mixin fields ARE available 
 import type { JCRNodeWrapper } from "org.jahia.services.content";
 
 export type Props =
-  | { label?: string; "j:linkType": "none" }
-  | { label?: string; "j:linkType": "internal"; "j:linknode"?: JCRNodeWrapper }
-  | { label?: string; "j:linkType": "external"; "j:url"?: string; "j:linkTitle"?: string };
+  | { "label"?: string; "j:linkType": "none" }
+  | { "label"?: string; "j:linkType": "internal"; "j:linknode"?: JCRNodeWrapper }
+  | { "label"?: string; "j:linkType": "external"; "j:url"?: string; "j:linkTitle"?: string };
 ```
 
 In the view, use a `switch` on `props["j:linkType"]` (see `jahia-dev-create-view` skill).
@@ -306,16 +310,16 @@ In the view, use a `switch` on `props["j:linkType"]` (see `jahia-dev-create-view
 
 ### Common mixins to extend
 
-| Mixin | Adds |
-|---|---|
-| `jnt:content` | Base type for all user content (always include) |
-| `namespacemix:component` | Makes this type available as a droppable component in Page Builder |
-| `mix:title` | Adds a `jcr:title` field |
-| `jmix:mainResource` | Makes the node accessible at its own URL — use only for content that needs **both a listing card AND a full detail page** (e.g. blog posts). Do not add to navigation-only or visual composition types. |
-| `jmix:hiddenType` | Hides a type from the Page Builder component picker (use for structural/container nodes editors should not add manually). Prefer over `jmix:studioOnly` which can cause silent rendering issues. |
-| `jmix:accessControllableContent` | Enables per-component access control in jcontent — add to the base module mixin |
-| `jmix:image` | Constraint: only image nodes |
-| `jmix:link` | Built-in link type |
+| Mixin                            | Adds                                                                                                                                                                                                    |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `jnt:content`                    | Base type for all user content (always include)                                                                                                                                                         |
+| `namespacemix:component`         | Makes this type available as a droppable component in Page Builder                                                                                                                                      |
+| `mix:title`                      | Adds a `jcr:title` field                                                                                                                                                                                |
+| `jmix:mainResource`              | Makes the node accessible at its own URL — use only for content that needs **both a listing card AND a full detail page** (e.g. blog posts). Do not add to navigation-only or visual composition types. |
+| `jmix:hiddenType`                | Hides a type from the Page Builder component picker (use for structural/container nodes editors should not add manually). Prefer over `jmix:studioOnly` which can cause silent rendering issues.        |
+| `jmix:accessControllableContent` | Enables per-component access control in jcontent — add to the base module mixin                                                                                                                         |
+| `jmix:image`                     | Constraint: only image nodes                                                                                                                                                                            |
+| `jmix:link`                      | Built-in link type                                                                                                                                                                                      |
 
 ### Constraints
 
@@ -394,16 +398,16 @@ export interface Props {
 
 Map CND types to TypeScript:
 
-| CND type | TypeScript type |
-|---|---|
-| `string` | `string` |
-| `string` multiple | `string[]` |
-| `weakreference` | `JCRNodeWrapper` |
-| `weakreference` multiple | `JCRNodeWrapper[]` |
-| `date` | `string` (ISO 8601) |
-| `boolean` | `boolean` |
-| `double` | `number` |
-| `long` | `number` |
+| CND type                 | TypeScript type     |
+| ------------------------ | ------------------- |
+| `string`                 | `string`            |
+| `string` multiple        | `string[]`          |
+| `weakreference`          | `JCRNodeWrapper`    |
+| `weakreference` multiple | `JCRNodeWrapper[]`  |
+| `date`                   | `string` (ISO 8601) |
+| `boolean`                | `boolean`           |
+| `double`                 | `number`            |
+| `long`                   | `number`            |
 
 All fields use `?:` regardless of whether they are mandatory in the CND.
 
@@ -447,35 +451,39 @@ Example — override `ctaTarget` to render as a radio group and `ctaVariant` as 
 {
   "nodeType": "ns:card",
   "priority": 1,
-  "sections": [{
-    "name": "content",
-    "fieldSets": [{
-      "name": "ns:card",
-      "fields": [
+  "sections": [
+    {
+      "name": "content",
+      "fieldSets": [
         {
-          "name": "ctaTarget",
-          "selectorType": "RadioChoiceList"
-        },
-        {
-          "name": "ctaVariant",
-          "selectorType": "Choicelist",
-          "selectorOptions": [{ "name": "context", "value": "true" }]
+          "name": "ns:card",
+          "fields": [
+            {
+              "name": "ctaTarget",
+              "selectorType": "RadioChoiceList"
+            },
+            {
+              "name": "ctaVariant",
+              "selectorType": "Choicelist",
+              "selectorOptions": [{ "name": "context", "value": "true" }]
+            }
+          ]
         }
       ]
-    }]
-  }]
+    }
+  ]
 }
 ```
 
 `selectorType` overrides the default editor widget for the field. Common overrides:
 
-| `selectorType` | Use for |
-|---|---|
-| `RadioChoiceList` | Short fixed-value lists (2–4 options) |
-| `Choicelist` | Longer dropdowns, dynamic lists |
-| `RichText` | Force rich text editor on a `string, richtext` property |
-| `DateTimePicker` | Date + time (vs date only) |
-| `Tag` | Free-form tag input |
+| `selectorType`    | Use for                                                 |
+| ----------------- | ------------------------------------------------------- |
+| `RadioChoiceList` | Short fixed-value lists (2–4 options)                   |
+| `Choicelist`      | Longer dropdowns, dynamic lists                         |
+| `RichText`        | Force rich text editor on a `string, richtext` property |
+| `DateTimePicker`  | Date + time (vs date only)                              |
+| `Tag`             | Free-form tag input                                     |
 
 Fieldset files are optional — only create them when the default editor rendering is insufficient.
 
@@ -488,6 +496,7 @@ settings/content-types-icons/<cnd-namespace>_<typeName>.png
 ```
 
 The prefix is the **CND namespace** (e.g. `ns`, `nsmix`), **not** the module name. For example:
+
 - `ns_heroSection.png` ✅
 - `my-module_heroSection.png` ❌ (module name with hyphen — wrong)
 
@@ -505,11 +514,13 @@ yarn build && yarn jahia-deploy
 ```
 
 If Jahia rejects the type definition (e.g. breaking change), use the **Installed definitions browser** to remove the old definition first:
+
 > http://localhost:8080/modules/tools/definitionsBrowser.jsp
 
 ---
 
 ## Validation checklist
+
 - [ ] Spec confirmed before writing CND (name, fields, views, usage)
 - [ ] Namespace matches the module (check `settings/definitions.cnd`)
 - [ ] Extends `jnt:content` and appropriate mixins
@@ -525,6 +536,7 @@ If Jahia rejects the type definition (e.g. breaking change), use the **Installed
 - [ ] `yarn build && yarn jahia-deploy` run and type appears in Jahia content editor with correct label and icon
 
 ## Troubleshooting
+
 > https://academy.jahia.com/tutorials-get-started/front-end-developer/making-a-hero-section
 
 ## References

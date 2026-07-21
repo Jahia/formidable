@@ -9,15 +9,15 @@ This skill only covers **JavaScript Modules** — React-based template sets for 
 
 ### JS modules vs Java modules vs Next.js
 
-| | Java Modules | JS Modules | Next.js (Headless) |
-|---|---|---|---|
-| Availability | All versions | 8.2+ | Depends on setup |
-| Separate runtime | No | No | Yes |
-| GraphQL required | No | No | Yes |
-| CMS navigation/cache/auth | Yes | Yes | No |
-| Packaging | Maven/jar | NPM/tgz | NPM/tgz |
-| Templating | JSP | JSX | JSX |
-| Module descriptor | pom.xml | package.json | Separate module |
+|                           | Java Modules | JS Modules   | Next.js (Headless) |
+| ------------------------- | ------------ | ------------ | ------------------ |
+| Availability              | All versions | 8.2+         | Depends on setup   |
+| Separate runtime          | No           | No           | Yes                |
+| GraphQL required          | No           | No           | Yes                |
+| CMS navigation/cache/auth | Yes          | Yes          | No                 |
+| Packaging                 | Maven/jar    | NPM/tgz      | NPM/tgz            |
+| Templating                | JSP          | JSX          | JSX                |
+| Module descriptor         | pom.xml      | package.json | Separate module    |
 
 Jahia recommends JS or Java modules for most projects. Next.js should only be chosen when integrating with an existing Next.js codebase.
 
@@ -29,15 +29,16 @@ Jahia JS modules run inside **GraalJS** (part of GraalVM) — a fully ECMAScript
 
 **tgz → OSGi transformation:** On install, Jahia converts the NPM tgz into an OSGi bundle. Key `package.json` → `MANIFEST.MF` mappings:
 
-| package.json field | MANIFEST.MF clause |
-|---|---|
-| `jahia.module-dependencies` | `Jahia-Depends` |
-| `jahia.server` | `Jahia-NPM-InitScript` |
-| `jahia.required-version` | `Jahia-Required-Version` |
-| `jahia.module-type` | `Jahia-Module-Type` |
-| `jahia.static-resources` | `Jahia-Static-Resources` |
+| package.json field          | MANIFEST.MF clause       |
+| --------------------------- | ------------------------ |
+| `jahia.module-dependencies` | `Jahia-Depends`          |
+| `jahia.server`              | `Jahia-NPM-InitScript`   |
+| `jahia.required-version`    | `Jahia-Required-Version` |
+| `jahia.module-type`         | `Jahia-Module-Type`      |
+| `jahia.static-resources`    | `Jahia-Static-Resources` |
 
 **Request flow:**
+
 1. Browser request → Jahia servlet
 2. `TemplateNodeFilter` resolves the template identifier
 3. `ViewsRegistrar` resolves the JS script for the template
@@ -84,13 +85,14 @@ npm init @jahia/module@latest <project-name>
 
 The CLI will prompt interactively for:
 
-| Prompt | Guidance |
-|--------|----------|
-| Module name | kebab-case, e.g. `my-site` |
+| Prompt           | Guidance                               |
+| ---------------- | -------------------------------------- |
+| Module name      | kebab-case, e.g. `my-site`             |
 | Output directory | accept the default (`./<module-name>`) |
-| Module type | see below |
+| Module type      | see below                              |
 
 **Module type — always choose a template set:**
+
 - `A minimal Hello World template set` ✅ — best starting point, includes working components
 - `An empty template set` — blank canvas, for experienced developers
 
@@ -171,6 +173,7 @@ curl -u root:root1234 -X POST -H "Content-Type: application/yaml" \
 ```
 
 Verify the site was created:
+
 ```bash
 curl -s -u root:root1234 \
   -H "Content-Type: application/json" -H "Origin: http://localhost:8080" \
@@ -213,6 +216,7 @@ The response must contain `"name": "<module-name>"`. If the path returns `null`,
 ---
 
 ## References
+
 - https://github.com/Jahia/javascript-modules (monorepo — includes the `create-module` archetype)
 
 ## Troubleshooting
@@ -224,6 +228,7 @@ If anything goes wrong during setup or scaffolding, refer to the official Jahia 
 ---
 
 ## Validation checklist
+
 - [ ] `node --version` reports 22.14+
 - [ ] `yarn --version` reports 4.9+ (via Corepack)
 - [ ] Module directory created with expected structure
