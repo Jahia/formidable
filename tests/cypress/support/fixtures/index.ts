@@ -17,4 +17,5 @@ export * from "./fieldset";
 export * from "./richText";
 export * from "./step";
 export * from "./validation";
+export * from "./extendedInputs";
 // export * from './inputHidden';
