@@ -9,6 +9,7 @@ import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.osgi.service.component.annotations.ReferencePolicy;
+import org.osgi.service.component.annotations.ReferencePolicyOption;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,6 +52,7 @@ public class FormSubmitServlet extends HttpServlet {
 
     private final AtomicReference<FormidableConfigService> config = new AtomicReference<>();
     private final AtomicReference<PermissionService> permissionService = new AtomicReference<>();
+    private final AtomicReference<JsFormActionDispatcher> jsFormActionDispatcher = new AtomicReference<>();
     private final List<FormAction> formActions = new CopyOnWriteArrayList<>();
 
     @Reference
@@ -70,6 +72,18 @@ public class FormSubmitServlet extends HttpServlet {
 
     protected void unbindFormAction(FormAction action) {
         formActions.remove(action);
+    }
+
+    // Optional: only present when a javascript-modules-engine exporting the SDK package is
+    // deployed. Without it, submission keeps working with Java FormAction services only.
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC,
+            policyOption = ReferencePolicyOption.GREEDY, unbind = "unbindJsFormActionDispatcher")
+    protected void bindJsFormActionDispatcher(JsFormActionDispatcher dispatcher) {
+        jsFormActionDispatcher.set(dispatcher);
+    }
+
+    protected void unbindJsFormActionDispatcher(JsFormActionDispatcher dispatcher) {
+        jsFormActionDispatcher.compareAndSet(dispatcher, null);
     }
 
     @Activate
@@ -102,7 +116,9 @@ public class FormSubmitServlet extends HttpServlet {
     }
 
     FormSubmissionPipeline createPipeline() {
-        return new FormSubmissionPipeline(getConfigService(), formActions);
+        JsFormActionDispatcher dispatcher = jsFormActionDispatcher.get();
+        return new FormSubmissionPipeline(getConfigService(), formActions,
+                dispatcher != null ? dispatcher::tryExecute : null);
     }
 
     boolean isRequestAllowed() {

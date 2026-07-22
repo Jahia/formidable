@@ -636,6 +636,128 @@ class FormSubmissionPipelineTest {
         }
     }
 
+    @Test
+    void dispatchActionsFallsBackToJsHandlerWhenNoJavaActionMatches() throws Exception {
+        // Verifies the JS dispatch path: with no Java FormAction registered for the node
+        // type, the pipeline must delegate to the JS adapter and count the action as executed.
+        java.util.concurrent.atomic.AtomicReference<String> dispatchedNodeType = new java.util.concurrent.atomic.AtomicReference<>();
+        FormSubmissionPipeline pipeline = newDispatchPipeline(
+                (nodeType, actionNode, req, session, parameters, files) -> {
+                    dispatchedNodeType.set(nodeType);
+                    return true;
+                });
+
+        assertDoesNotThrow(() -> invokeDispatchActions(pipeline, mock(HttpServletRequest.class)));
+        assertEquals("fmdbjs:testAction", dispatchedNodeType.get());
+    }
+
+    @Test
+    void dispatchActionsFailsWithFMDB008WhenNeitherJavaNorJsHandlerMatches() throws Exception {
+        // Verifies that a JS adapter returning false (no handler registered) yields the
+        // same FMDB-008 as the historical Java-only path.
+        FormSubmissionPipeline pipeline = newDispatchPipeline(
+                (nodeType, actionNode, req, session, parameters, files) -> false);
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeDispatchActions(pipeline, mock(HttpServletRequest.class)));
+
+        assertEquals(ErrorCode.FMDB_008, error.errorCode);
+        assertEquals(0, error.actionsCompleted);
+        assertEquals(1, error.actionsTotal);
+    }
+
+    @Test
+    void dispatchActionsFailsWithFMDB008WhenNoJsAdapterIsAvailable() throws Exception {
+        // Verifies graceful degradation: without a JS dispatcher (pre-SDK engine), unknown
+        // action types are rejected exactly as before.
+        FormSubmissionPipeline pipeline = newDispatchPipeline(null);
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeDispatchActions(pipeline, mock(HttpServletRequest.class)));
+
+        assertEquals(ErrorCode.FMDB_008, error.errorCode);
+    }
+
+    @Test
+    void dispatchActionsPropagatesJsFailureThroughFMDB008() throws Exception {
+        // Verifies that a failing JS action is reported exactly like a failing Java action:
+        // FMDB-008 with progress counters, the FormActionException kept as the cause.
+        org.jahia.modules.formidable.engine.api.FormActionException jsFailure =
+                new org.jahia.modules.formidable.engine.api.FormActionException("rejected by JS handler", 422);
+        FormSubmissionPipeline pipeline = newDispatchPipeline(
+                (nodeType, actionNode, req, session, parameters, files) -> {
+                    throw jsFailure;
+                });
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeDispatchActions(pipeline, mock(HttpServletRequest.class)));
+
+        assertEquals(ErrorCode.FMDB_008, error.errorCode);
+        assertEquals(jsFailure, error.getCause());
+        assertEquals(0, error.actionsCompleted);
+        assertEquals(1, error.actionsTotal);
+    }
+
+    /**
+     * Builds a pipeline whose action list resolves to a single 'fmdbjs:testAction' node
+     * (a type no Java FormAction handles), backed by a mocked system-session template.
+     */
+    private static FormSubmissionPipeline newDispatchPipeline(
+            FormSubmissionPipeline.JsActionInvokerAdapter jsActionInvoker) throws Exception {
+        String actionId = "action-node-id";
+
+        JCRNodeWrapper actionChild = mock(JCRNodeWrapper.class);
+        when(actionChild.getIdentifier()).thenReturn(actionId);
+        when(actionChild.getPath()).thenReturn("/sites/test/form/actions/jsAction");
+        when(actionChild.getPrimaryNodeTypeName()).thenReturn("fmdbjs:testAction");
+
+        org.jahia.services.content.JCRNodeIteratorWrapper actionIterator =
+                mock(org.jahia.services.content.JCRNodeIteratorWrapper.class);
+        when(actionIterator.hasNext()).thenReturn(true, false);
+        when(actionIterator.nextNode()).thenReturn(actionChild);
+
+        JCRNodeWrapper actionList = mock(JCRNodeWrapper.class);
+        when(actionList.getNodes()).thenReturn(actionIterator);
+
+        JCRNodeWrapper systemFormNode = mock(JCRNodeWrapper.class);
+        when(systemFormNode.hasNode("actions")).thenReturn(true);
+        when(systemFormNode.getNode("actions")).thenReturn(actionList);
+
+        org.jahia.services.content.JCRSessionWrapper systemSession =
+                mock(org.jahia.services.content.JCRSessionWrapper.class);
+        when(systemSession.getNodeByIdentifier("test-form-id")).thenReturn(systemFormNode);
+        when(systemSession.getNodeByIdentifier(actionId)).thenReturn(actionChild);
+
+        JCRTemplate template = mock(JCRTemplate.class);
+        when(template.doExecuteWithSystemSessionAsUser(org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.eq("live"),
+                org.mockito.ArgumentMatchers.eq(Locale.ENGLISH),
+                org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(invocation -> invocation
+                        .<org.jahia.services.content.JCRCallback<Object>>getArgument(3)
+                        .doInJCR(systemSession));
+
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
+                mock(FormidableConfigService.class),
+                List.<FormAction>of(),
+                FormFieldMetadataCollector::collect,
+                () -> template,
+                FormDataParser::parseAll,
+                locale -> mock(org.jahia.services.content.JCRSessionWrapper.class),
+                jsActionInvoker
+        );
+        setField(pipeline, "formId", "test-form-id");
+        setField(pipeline, "locale", Locale.ENGLISH);
+        setField(pipeline, "parsed", new FormDataParser.ParseResult(new java.util.HashMap<>(), List.of()));
+        return pipeline;
+    }
+
+    private static void invokeDispatchActions(FormSubmissionPipeline pipeline, HttpServletRequest req) throws Exception {
+        Method method = FormSubmissionPipeline.class.getDeclaredMethod("dispatchActions", HttpServletRequest.class);
+        method.setAccessible(true);
+        invokeSubmissionStep(method, pipeline, req);
+    }
+
     private static void invokeCollectFormFieldInfo(FormSubmissionPipeline pipeline) throws Exception {
         Method method = FormSubmissionPipeline.class.getDeclaredMethod("collectFormFieldInfo");
         method.setAccessible(true);

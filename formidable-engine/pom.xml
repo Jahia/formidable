@@ -53,6 +53,21 @@
 
     <dependencies>
         <dependency>
+            <!-- Public SDK (org.jahia.modules.javascript.modules.engine.sdk) used to invoke
+                 TypeScript-declared form actions. The Import-Package below is optional so this
+                 bundle still resolves against a pre-SDK javascript-modules-engine. -->
+            <groupId>org.jahia.modules</groupId>
+            <artifactId>javascript-modules-engine</artifactId>
+            <version>1.3.0-SNAPSHOT</version>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
             <groupId>org.jahia.server</groupId>
             <artifactId>jahia-impl</artifactId>
             <scope>provided</scope>
@@ -184,6 +199,7 @@
                         </Export-Package>
                         <Import-Package>
                             org.jahia.bin,
+                            org.jahia.modules.javascript.modules.engine.sdk;resolution:=optional;version="[1.3,2)",
                             org.jahia.services.content,
                             org.jahia.services.mail,
                             org.jahia.services.render,

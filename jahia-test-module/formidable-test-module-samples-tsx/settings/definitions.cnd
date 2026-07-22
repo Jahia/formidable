@@ -1,7 +1,10 @@
 <jnt = 'http://www.jahia.org/jahia/nt/1.0'>
 <jmix = 'http://www.jahia.org/jahia/mix/1.0'>
+<mix = 'http://www.jcp.org/jcr/mix/1.0'>
 <fmdb = 'http://www.jahia.org/jahia/fmdb/nt/1.0'>
+<fmdbmix = 'http://www.jahia.org/jahia/fmdb/mix/1.0'>
 <fmdbsamplemix = 'http://www.jahia.org/jahia/fmdb/sample/mix/1.0'>
+<fmdbsampletsx = 'http://www.jahia.org/jahia/fmdbsampletsx/nt/1.0'>
 
 // Adds contributor-defined CSS class names to a content type.
 // Demonstrates how a third-party module can extend a Formidable content type
@@ -10,3 +13,14 @@
  extends = fmdb:fieldset
  itemtype = fmdbSampleStyle
  - customCssClassname (string) multiple indexed=no
+
+// TypeScript form actions registered in src/server/formActions.server.tsx through the
+// raw "formidable-form-action" registry contract (TS twin of fmdbsample:logSubmissionAction).
+[fmdbsampletsx:logSubmissionTsAction] > jnt:content, fmdbmix:formAction, mix:title
+
+// Always fails with HTTP 422 — used by e2e tests to assert failure decoding.
+[fmdbsampletsx:alwaysFailTsAction] > jnt:content, fmdbmix:formAction, mix:title
+
+// Deliberately has NO registered handler (neither Java nor JS) — used by e2e tests to
+// assert the FMDB-008 "no handler" rejection.
+[fmdbsampletsx:noHandlerAction] > jnt:content, fmdbmix:formAction, mix:title

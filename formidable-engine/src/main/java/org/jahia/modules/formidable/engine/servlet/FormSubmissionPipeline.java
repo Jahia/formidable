@@ -75,12 +75,24 @@ class FormSubmissionPipeline {
         JCRSessionWrapper get(Locale locale) throws RepositoryException;
     }
 
+    /**
+     * Fallback dispatch to JavaScript-declared form actions ({@link JsFormActionDispatcher}).
+     * Returns {@code true} when a JS handler matched the node type, {@code false} otherwise.
+     */
+    @FunctionalInterface
+    interface JsActionInvokerAdapter {
+        boolean tryExecute(String nodeType, JCRNodeWrapper actionNode, HttpServletRequest req,
+                           JCRSessionWrapper session, Map<String, List<String>> parameters,
+                           List<SubmittedFile> files) throws FormActionException;
+    }
+
     private final FormidableConfigService config;
     private final List<FormAction> formActions;
     private final FieldMetadataCollectorAdapter fieldMetadataCollector;
     private final JcrTemplateProvider jcrTemplateProvider;
     private final MultipartParserAdapter multipartParser;
     private final CurrentUserSessionProvider currentUserSessionProvider;
+    private final JsActionInvokerAdapter jsActionInvoker;
 
     // State accumulated as the pipeline progresses
     private String formId;
@@ -91,13 +103,19 @@ class FormSubmissionPipeline {
     private FormDataParser.ParseResult parsed;
 
     FormSubmissionPipeline(FormidableConfigService config, List<FormAction> formActions) {
+        this(config, formActions, (JsActionInvokerAdapter) null);
+    }
+
+    FormSubmissionPipeline(FormidableConfigService config, List<FormAction> formActions,
+                           JsActionInvokerAdapter jsActionInvoker) {
         this(
                 config,
                 formActions,
                 FormFieldMetadataCollector::collect,
                 JCRTemplate::getInstance,
                 FormDataParser::parseAll,
-                locale -> JCRSessionFactory.getInstance().getCurrentUserSession(WORKSPACE_LIVE, locale)
+                locale -> JCRSessionFactory.getInstance().getCurrentUserSession(WORKSPACE_LIVE, locale),
+                jsActionInvoker
         );
     }
 
@@ -107,12 +125,24 @@ class FormSubmissionPipeline {
                            JcrTemplateProvider jcrTemplateProvider,
                            MultipartParserAdapter multipartParser,
                            CurrentUserSessionProvider currentUserSessionProvider) {
+        this(config, formActions, fieldMetadataCollector, jcrTemplateProvider, multipartParser,
+                currentUserSessionProvider, null);
+    }
+
+    FormSubmissionPipeline(FormidableConfigService config,
+                           List<FormAction> formActions,
+                           FieldMetadataCollectorAdapter fieldMetadataCollector,
+                           JcrTemplateProvider jcrTemplateProvider,
+                           MultipartParserAdapter multipartParser,
+                           CurrentUserSessionProvider currentUserSessionProvider,
+                           JsActionInvokerAdapter jsActionInvoker) {
         this.config = config;
         this.formActions = formActions;
         this.fieldMetadataCollector = fieldMetadataCollector;
         this.jcrTemplateProvider = jcrTemplateProvider;
         this.multipartParser = multipartParser;
         this.currentUserSessionProvider = currentUserSessionProvider;
+        this.jsActionInvoker = jsActionInvoker;
     }
 
     void run(HttpServletRequest req) throws SubmissionException {
@@ -313,26 +343,30 @@ class FormSubmissionPipeline {
                     .filter(a -> nodeType.equals(a.getNodeType()))
                     .findFirst()
                     .orElse(null);
-            if (handler == null) {
-                throw new SubmissionException(
-                        ErrorCode.FMDB_008,
-                        "Action '" + nodeType + "' failed (" + executed + "/" + total
-                                + " actions completed): no handler is registered for this action type.",
-                        executed,
-                        total
-                );
+            // Java FormAction services win over JS handlers for the same node type; JS
+            // dispatch is only attempted (inside the system-session block below) when no
+            // Java handler matches and a JS dispatcher is available.
+            if (handler == null && jsActionInvoker == null) {
+                throw noHandlerRegistered(nodeType, executed, total);
             }
             try {
-                JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale, systemSession -> {
+                jcrTemplateProvider.get().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale, systemSession -> {
                     JCRNodeWrapper actionNode = systemSession.getNodeByIdentifier(action.id());
                     try {
-                        handler.execute(actionNode, req, session, parsed.parameters(), submittedFiles);
+                        if (handler != null) {
+                            handler.execute(actionNode, req, session, parsed.parameters(), submittedFiles);
+                        } else if (!jsActionInvoker.tryExecute(nodeType, actionNode, req, session,
+                                parsed.parameters(), submittedFiles)) {
+                            throw new NoJsHandlerException();
+                        }
                     } catch (FormActionException e) {
                         throw new WrappedFormActionException(e);
                     }
                     return null;
                 });
                 executed++;
+            } catch (NoJsHandlerException e) {
+                throw noHandlerRegistered(nodeType, executed, total);
             } catch (WrappedFormActionException e) {
                 FormActionException cause = e.getFormActionException();
                 throw new SubmissionException(ErrorCode.FMDB_008,
@@ -344,6 +378,16 @@ class FormSubmissionPipeline {
                         executed, total, e);
             }
         }
+    }
+
+    private static SubmissionException noHandlerRegistered(String nodeType, int executed, int total) {
+        return new SubmissionException(
+                ErrorCode.FMDB_008,
+                "Action '" + nodeType + "' failed (" + executed + "/" + total
+                        + " actions completed): no handler is registered for this action type.",
+                executed,
+                total
+        );
     }
 
     private static List<SubmittedFile> toSubmittedFiles(List<FormDataParser.FormFile> parsedFiles) {
@@ -393,6 +437,10 @@ class FormSubmissionPipeline {
     // --- Internal types ---
 
     private record ResolvedAction(String id, String path, String nodeType) {}
+
+    /** Signals, from inside the system-session block, that no JS handler matched the node type. */
+    private static final class NoJsHandlerException extends RuntimeException {
+    }
 
     private static final class WrappedFormActionException extends RuntimeException {
         private final FormActionException formActionException;

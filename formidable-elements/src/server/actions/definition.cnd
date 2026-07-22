@@ -1,0 +1,25 @@
+// Built-in form actions implemented in TypeScript (see the *.server.ts files next to this
+// definition). Dispatched by formidable-engine's submission pipeline through the
+// "formidable-form-action" JavaScript registry type.
+
+// Sends a notification email after a successful form submission.
+// Subject and body support ${fieldName} interpolation from the submitted form data.
+[fmdb:emailNotificationAction] > jnt:content, fmdbmix:formAction, mix:title
+ - to (string) indexed=no
+ - from (string) indexed=no
+ - subject (string) i18n indexed=no
+ - templateMessage (string, textarea) i18n indexed=no
+
+// Sends the submitted form content by email. The subject comes from the submitted form title.
+// Can optionally attach the validated uploaded files.
+[fmdb:emailContentAction] > jnt:content, fmdbmix:formAction, mix:title
+ - to (string) indexed=no
+ - from (string) indexed=no
+ - attachFiles (boolean) = false autocreated
+ - maxAttachmentSizeMb (long) = 10 autocreated
+
+// Forwards the full form data to a third-party endpoint (multipart/form-data).
+// targetId references a named target configured in forward_targets (org.jahia.modules.formidable.cfg).
+// The actual URL is never stored in JCR; it is resolved server-side from the operator configuration.
+[fmdb:forwardAction] > jnt:content, fmdbmix:formAction, mix:title
+ - targetId (string, choicelist[formidableForwardTargets]) indexed=no mandatory

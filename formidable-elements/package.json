@@ -9,13 +9,14 @@
 		"static"
 	],
 	"scripts": {
-		"build": "tsc --noEmit && vite build && run package",
+		"build": "tsc --noEmit && vitest run && vite build && run package",
 		"clean": "rm -rf dist/",
 		"deploy": "jahia-deploy",
 		"dev": "vite build --watch",
 		"format": "prettier --write --list-different .",
 		"lint": "eslint .",
 		"package": "yarn pack --out dist/package.tgz",
+		"test": "vitest run",
 		"watch": "run dev",
 		"watch:callback": "run package && run deploy"
 	},
@@ -41,7 +42,8 @@
 		"typescript": "^5.8.3",
 		"typescript-eslint": "^8.31.1",
 		"typescript-plugin-css-modules": "^5.1.0",
-		"vite": "7.3.5"
+		"vite": "7.3.5",
+		"vitest": "^4.1.10"
 	},
 	"packageManager": "yarn@4.12.0",
 	"engines": {

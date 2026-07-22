@@ -1,19 +1,17 @@
-package org.jahia.modules.formidable.engine.actions.forward;
+package org.jahia.modules.formidable.engine.actions;
 
-import org.jahia.modules.formidable.engine.actions.ContentDispositionUtils;
-import org.jahia.modules.formidable.engine.api.FormAction;
+import org.jahia.modules.formidable.engine.actions.forward.HostnameResolutionService;
 import org.jahia.modules.formidable.engine.api.FormActionException;
+import org.jahia.modules.formidable.engine.api.FormActionSupport;
 import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
-import org.jahia.modules.formidable.engine.util.JcrProps;
-import org.jahia.services.content.JCRNodeWrapper;
-import org.jahia.services.content.JCRSessionWrapper;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.servlet.http.HttpServletRequest;
+import javax.activation.DataHandler;
+import javax.mail.util.ByteArrayDataSource;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -23,6 +21,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -30,25 +29,22 @@ import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 
 /**
- * Forwards the submitted form data to a third-party endpoint as multipart/form-data.
- * Text parameters and validated uploaded files are forwarded as-is.
+ * Default {@link FormActionSupport}. Hosts the security-sensitive pieces shared with
+ * out-of-bundle (TypeScript) form actions.
  *
- * The target URL is never stored in JCR. The JCR node only holds a stable {@code targetId}
- * that is resolved to a URI via operator configuration (forwardTargets and, optionally,
- * devForwardTargets in org.jahia.modules.formidable.cfg). This is the primary defence
- * against contributors redirecting submissions to arbitrary hosts.
- *
- * Defence in depth: at execution time, the resolved hostname is checked once and the
- * request is rejected if any resolved address is loopback, site-local, link-local,
- * any-local or multicast. This catches operator misconfiguration, such as an allowlisted
- * hostname pointing to an internal service, but it does not provide hard guarantees
- * against DNS rebinding because HttpClient resolves the hostname again when sending
- * the request. The operator allowlist remains the trust boundary.
+ * Forwarding: the target URL is never stored in JCR nor exposed to callers. The
+ * {@code targetId} is resolved to a URI via operator configuration (forwardTargets and,
+ * optionally, devForwardTargets in org.jahia.modules.formidable.cfg). Defence in depth:
+ * at execution time, the resolved hostname is checked once and the request is rejected
+ * if any resolved address is loopback, site-local, link-local, any-local or multicast.
+ * This catches operator misconfiguration but does not provide hard guarantees against
+ * DNS rebinding because HttpClient resolves the hostname again when sending the request.
+ * The operator allowlist remains the trust boundary.
  */
-@Component(service = FormAction.class)
-public class ForwardSubmissionFormAction implements FormAction {
+@Component(service = FormActionSupport.class)
+public class FormActionSupportImpl implements FormActionSupport {
 
-    private static final Logger log = LoggerFactory.getLogger(ForwardSubmissionFormAction.class);
+    private static final Logger log = LoggerFactory.getLogger(FormActionSupportImpl.class);
 
     private FormidableConfigService configService;
     private HostnameResolutionService hostnameResolutionService;
@@ -64,28 +60,47 @@ public class ForwardSubmissionFormAction implements FormAction {
     }
 
     @Override
-    public String getNodeType() {
-        return "fmdb:forwardAction";
+    public long getUploadMaxFileSizeBytes() {
+        return configService.getUploadMaxFileSizeBytes();
     }
 
     @Override
-    public void execute(
-            JCRNodeWrapper actionNode,
-            HttpServletRequest req,
-            JCRSessionWrapper session,
-            Map<String, List<String>> parameters,
-            List<SubmittedFile> files
-        ) throws FormActionException {
+    public Map<String, DataHandler> buildEmailAttachments(List<SubmittedFile> files, long maxAttachmentSizeBytes) {
+        long effectiveMaxBytes = Math.min(maxAttachmentSizeBytes, configService.getUploadMaxFileSizeBytes());
+        Map<String, DataHandler> attachments = new LinkedHashMap<>();
 
-        String targetId = JcrProps.string(actionNode, "targetId", null);
+        for (SubmittedFile file : files) {
+            if (file.data().length > effectiveMaxBytes) {
+                log.info(
+                        "Skipping attachment '{}' ({} bytes): exceeds effective limit {} bytes.",
+                        file.originalName(),
+                        file.data().length,
+                        effectiveMaxBytes
+                );
+                continue;
+            }
+            try {
+                String attachmentName = ContentDispositionUtils.toRfc6266FilenameFallback(file.originalName());
+                ByteArrayDataSource dataSource = new ByteArrayDataSource(file.data(), file.mimeType());
+                dataSource.setName(attachmentName);
+                attachments.put(attachmentName, new DataHandler(dataSource));
+            } catch (Exception e) {
+                log.warn("Could not build email attachment for file '{}': {}", file.originalName(), e.getMessage());
+            }
+        }
+
+        return attachments;
+    }
+
+    @Override
+    public void forwardSubmission(String targetId, Map<String, List<String>> parameters, List<SubmittedFile> files)
+            throws FormActionException {
         if (targetId == null || targetId.isBlank()) {
-            log.warn("[ForwardSubmissionFormAction] targetId is missing or blank on node '{}', skipping.", actionNode.getPath());
-            return;
+            throw FormActionException.badRequest("Forward target id must not be blank.");
         }
 
         FormidableConfigService.ForwardTarget target = configService.resolveForwardTarget(targetId).orElseThrow(() -> {
-            log.warn("[ForwardSubmissionFormAction] targetId '{}' on node '{}' does not match any configured forward target.",
-                    targetId, actionNode.getPath());
+            log.warn("[FormActionSupport] targetId '{}' does not match any configured forward target.", targetId);
             return new FormActionException("Forward target '" + targetId + "' is not configured.", 403);
         });
         URI targetUri = target.uri();
@@ -112,7 +127,7 @@ public class ForwardSubmissionFormAction implements FormAction {
                     .send(request, HttpResponse.BodyHandlers.discarding());
 
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                log.warn("[ForwardSubmissionFormAction] Target '{}' returned HTTP {}", targetUri, response.statusCode());
+                log.warn("[FormActionSupport] Target '{}' returned HTTP {}", targetUri, response.statusCode());
                 throw new FormActionException("Forward target returned HTTP " + response.statusCode(), 502);
             }
         } catch (FormActionException e) {
@@ -142,7 +157,7 @@ public class ForwardSubmissionFormAction implements FormAction {
                 if (addr.isLoopbackAddress() || addr.isSiteLocalAddress()
                         || addr.isLinkLocalAddress() || addr.isAnyLocalAddress()
                         || addr.isMulticastAddress()) {
-                    log.warn("[ForwardSubmissionFormAction] Rejected target '{}': '{}' resolves to a private/internal address ({}).",
+                    log.warn("[FormActionSupport] Rejected target '{}': '{}' resolves to a private/internal address ({}).",
                             uri, hostname, addr.getHostAddress());
                     throw new FormActionException(
                             "Forward target resolves to a private or internal address.", 403);
