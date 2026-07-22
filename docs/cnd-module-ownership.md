@@ -74,15 +74,14 @@ Examples:
 
 - `fmdb:logicSrc`
 - `fmdb:logicList`
-- `fmdb:emailNotificationAction`
-- `fmdb:emailContentAction`
-- `fmdb:forwardAction`
 - `fmdb:save2jcrAction`
 - `fmdb:resultsFolder`
 - `fmdb:formResults`
 - `fmdb:formSubmission`
 
 These types are part of the engine contract. They support submission handling, persistence, exports, and action execution.
+
+Note: concrete action types follow their handler. `fmdb:save2jcrAction` stays in `formidable-engine` next to its Java `FormAction`; `fmdb:emailNotificationAction`, `fmdb:emailContentAction`, and `fmdb:forwardAction` live in `formidable-elements` (`src/server/actions/definition.cnd`), next to their TypeScript handlers. The `fmdbmix:formAction` contract mixin they extend remains engine-owned.
 
 ## Decision rules
 
