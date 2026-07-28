@@ -1,10 +1,11 @@
+import type {ComponentProps} from "react";
 import {useMask} from "~/hooks/useMask";
 
 interface MaskedTextInputProps {
 	mask: string;
 	defaultValue?: string;
-	/** All input attributes are computed server-side and must stay serialisable. */
-	inputAttributes: Record<string, string | number | boolean | undefined>;
+	/** All input attributes are computed server-side and must stay serialisable (no handlers). */
+	inputAttributes: ComponentProps<"input">;
 }
 
 /**

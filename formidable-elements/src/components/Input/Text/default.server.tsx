@@ -20,7 +20,7 @@ interface InputTextProps extends TextValidationMessageProps {
 	autofocus?: boolean;
 	disabled?: boolean;
 	form?: string;
-	dirname?: string;
+	dirname?: boolean;
 	spellcheck?: boolean;
 	pattern?: string;
 	size?: number;
@@ -94,7 +94,8 @@ jahiaComponent(
 			autoFocus: autofocus,
 			disabled,
 			form,
-			dir: dirname,
+			// When enabled, submits the field text direction as `{name}.dir` (same as Textarea)
+			dirName: dirname ? `${inputName}.dir` : undefined,
 			spellCheck: spellcheck,
 			size,
 			title,
