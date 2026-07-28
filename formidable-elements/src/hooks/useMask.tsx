@@ -19,13 +19,18 @@ export const useMask = ({mask}: UseMaskOptions) => {
 
 		const input = e.currentTarget;
 		const cursorPos = input.selectionStart ?? input.value.length;
+		const caretAtEnd = cursorPos >= input.value.length;
 		// Count raw characters before the caret to restore its logical position after reformatting
 		const rawBeforeCursor = extractRawValue(input.value.slice(0, cursorPos)).length;
 
-		const maskedValue = applyMask(input.value, mask);
+		// Do not re-append trailing literals while the user is deleting, or they could never be removed
+		const isDeletion = ((e.nativeEvent as InputEvent).inputType ?? "").startsWith("delete");
+		const maskedValue = applyMask(input.value, mask, {fillTrailingLiterals: !isDeletion});
 		input.value = maskedValue;
 
-		const newCursorPos = Math.min(maskedCursorPosition(mask, rawBeforeCursor), maskedValue.length);
+		const newCursorPos = caretAtEnd
+			? maskedValue.length
+			: Math.min(maskedCursorPosition(mask, rawBeforeCursor), maskedValue.length);
 		input.setSelectionRange(newCursorPos, newCursorPos);
 	};
 

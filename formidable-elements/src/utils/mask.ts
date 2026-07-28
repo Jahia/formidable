@@ -19,7 +19,7 @@ interface MaskTokenConfig {
 }
 
 export const MASK_TOKENS: Record<string, MaskTokenConfig> = {
-	"9": {pattern: /\d/, patternSource: "[0-9]"},
+	"9": {pattern: /[0-9]/, patternSource: "[0-9]"},
 	"A": {pattern: /[a-zA-Z]/, patternSource: "[A-Za-z]", transform: (char) => char.toUpperCase()},
 	"a": {pattern: /[a-zA-Z]/, patternSource: "[A-Za-z]", transform: (char) => char.toLowerCase()},
 	"X": {pattern: /[a-zA-Z0-9]/, patternSource: "[A-Za-z0-9]", transform: (char) => char.toUpperCase()},
@@ -29,17 +29,28 @@ export const MASK_TOKENS: Record<string, MaskTokenConfig> = {
 /** Strip everything that can never match a mask token, keeping only alphanumerics. */
 export const extractRawValue = (value: string): string => value.replace(/[^a-zA-Z0-9]/g, "");
 
+interface ApplyMaskOptions {
+	/**
+	 * Complete trailing fixed literals once every remaining mask position is a
+	 * literal (e.g. `(99)` -> `(12)`), so the mask-derived pattern can be
+	 * satisfied. Disabled during deletions, otherwise removing a trailing
+	 * literal would immediately re-append it.
+	 */
+	fillTrailingLiterals?: boolean;
+}
+
 /**
  * Format a value according to the mask. Characters rejected by the current
  * token are dropped (not truncating the rest of the input), literals are
  * inserted automatically once a following token character is typed, and input
  * beyond the mask length is ignored.
  */
-export const applyMask = (value: string, mask: string): string => {
+export const applyMask = (value: string, mask: string, {fillTrailingLiterals = true}: ApplyMaskOptions = {}): string => {
 	if (!mask) return value;
 
 	let masked = "";
 	let maskIndex = 0;
+	let consumedToken = false;
 
 	for (const char of extractRawValue(value)) {
 		// Emit any fixed literals sitting before the next token position
@@ -54,8 +65,16 @@ export const applyMask = (value: string, mask: string): string => {
 		if (token.pattern.test(char)) {
 			masked += token.transform ? token.transform(char) : char;
 			maskIndex++;
+			consumedToken = true;
 		}
 		// Rejected characters are silently dropped
+	}
+
+	if (fillTrailingLiterals && consumedToken && maskIndex < mask.length) {
+		const remainder = mask.slice(maskIndex);
+		if (Array.from(remainder).every((char) => !MASK_TOKENS[char])) {
+			masked += remainder;
+		}
 	}
 
 	return masked;

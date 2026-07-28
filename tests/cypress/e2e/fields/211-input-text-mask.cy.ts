@@ -9,12 +9,19 @@ describe('Form fields - 211 Text input mask', () => {
 		createPublishedLiveFormPage(
 			'text-mask-form',
 			'Text Mask Form',
-			[getInputTextNode({
-				name: 'employeeCode',
-				title: 'Employee code',
-				mask: 'AA-9999',
-				placeholder: 'AB-1234'
-			})]
+			[
+				getInputTextNode({
+					name: 'employeeCode',
+					title: 'Employee code',
+					mask: 'AA-9999',
+					placeholder: 'AB-1234'
+				}),
+				getInputTextNode({
+					name: 'extension',
+					title: 'Phone extension',
+					mask: '(99)'
+				})
+			]
 		).then(({livePath}) => {
 			const form = visitLiveForm(livePath);
 			const input = form.getTextInput('employeeCode');
@@ -36,6 +43,15 @@ describe('Form fields - 211 Text input mask', () => {
 			// Input beyond the mask length is ignored.
 			input.clear().type('ab12345678');
 			input.shouldHaveValue('AB-1234');
+
+			// Trailing fixed literals are completed automatically so the derived pattern can be satisfied.
+			const extension = form.getTextInput('extension');
+			extension
+				.shouldHaveMask('(99)')
+				.shouldHavePattern('^\\([0-9][0-9]\\)$');
+			extension.type('12');
+			extension.shouldHaveValue('(12)');
+			extension.shouldBeValid();
 
 			// The masked value satisfies the derived pattern and the form submits.
 			input.shouldBeValid();
