@@ -44,10 +44,11 @@ export function getInputTextNode(data: InputTextData = INPUT_TEXT_SIMPLE): Jahia
 	if (data.minLength !== undefined) properties.push({name: 'minLength', value: String(data.minLength), type: 'LONG'});
 	if (data.maxLength !== undefined) properties.push({name: 'maxLength', value: String(data.maxLength), type: 'LONG'});
 	if (data.pattern) properties.push({name: 'pattern', value: data.pattern});
+	if (data.mask) properties.push({name: 'mask', value: data.mask});
 	if (data.autocomplete) properties.push({name: 'autocomplete', value: data.autocomplete});
 	if (data.list && data.list.length > 0) properties.push({name: 'list', values: data.list, language: 'en'});
 
-	if (data.pattern) {
+	if (data.pattern || data.mask) {
 		mixins.push('fmdbmix:advancedInputTextSettings');
 	}
 
