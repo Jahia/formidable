@@ -33,7 +33,6 @@ export const SelectOptionsCmp = ({field,id, value, onChange}: SelectOptionsCmpPr
 
     const handleChange = (patch: Partial<SelectOption>) => {
         const updated = {...option, ...patch};
-        console.log('[SelectOptionsCmp] handleChange', {id, currentValue: value, option, patch, updated, json: JSON.stringify(updated)});
         onChange(JSON.stringify(updated));
     };
 
@@ -54,6 +53,7 @@ export const SelectOptionsCmp = ({field,id, value, onChange}: SelectOptionsCmpPr
             id={`select-option-value-${id}`}
             name={`select-option-value-${id}`}
             placeholder={t("selectOptions.value")}
+            title={t("selectOptions.value")}
             value={option.value}
             isReadOnly={field.readOnly}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
@@ -68,6 +68,7 @@ export const SelectOptionsCmp = ({field,id, value, onChange}: SelectOptionsCmpPr
             id={`select-option-label-${id}`}
             name={`select-option-label-${id}`}
             placeholder={t("selectOptions.label")}
+            title={t("selectOptions.label")}
             value={option.label}
             isReadOnly={field.readOnly}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
