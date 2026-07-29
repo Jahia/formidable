@@ -150,6 +150,7 @@ export interface InputEmailData extends InputWithLength {
 export interface InputTextData extends InputWithLength {
 	autocomplete?: string;
 	list?: string[];
+	mask?: string;
 }
 
 export interface InputFileData extends BaseInputData {
