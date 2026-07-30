@@ -26,7 +26,7 @@ const GET_CREATE_FORM_TITLE_DEFAULT = gql`
 `;
 
 type CreateFormResponse = {
-	errors?: unknown;
+	errors?: Array<{message: string}>;
 	data?: {
 		forms?: {
 			createForm?: {
