@@ -3,4 +3,4 @@
 formidable: minor
 ---
 
-Clarify select options rows with explicit placeholders and hover titles (#168)
+Clarified select option rows in the Content Editor with clearer placeholders and hover hints (#168)
