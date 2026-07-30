@@ -23,3 +23,6 @@ node_modules
 !.yarn/versions
 
 ._*
+
+# Local MCP config (contains per-developer Jahia credentials)
+.mcp.json

@@ -1,8 +1,8 @@
 {
     "selectOptions": {
-        "value": "Value",
-        "label": "Label",
-        "selected": "Selected"
+        "value": "Value sent to server",
+        "label": "Label displayed to user",
+        "selected": "If enabled, the option is selected by default"
     },
     "conditionalLogic": {
         "sourceField": "Source field",

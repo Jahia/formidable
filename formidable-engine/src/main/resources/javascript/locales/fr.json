@@ -1,8 +1,8 @@
 {
     "selectOptions": {
-        "value": "Valeur",
-        "label": "Libellé",
-        "selected": "Sélectionné"
+        "value": "Valeur envoyée au serveur",
+        "label": "Libellé affiché à l'utilisateur",
+        "selected": "Si activé, l'option est sélectionnée par défaut"
     },
     "conditionalLogic": {
         "sourceField": "Champ source",
