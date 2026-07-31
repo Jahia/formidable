@@ -14,6 +14,7 @@ import javax.jcr.observation.Event;
 import javax.jcr.observation.EventIterator;
 import java.util.Set;
 
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FIELD_KEY_PROPERTY;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_LOGIC_ELEMENT_MIXIN;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_NODE_TYPE;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGICS_PROPERTY;
@@ -71,7 +72,19 @@ public class FormDuplicationCleanupListener extends DefaultEventListener {
                             ? node
                             : FormLogicSyncService.findFormAncestor(node);
 
-                    if (formNode != null && FormLogicSyncService.cleanupAfterDuplication(formNode)) {
+                    if (formNode == null) {
+                        return null;
+                    }
+
+                    // A copied subtree inside an existing form may collide with the
+                    // original's fieldKeys; remap them before the weakref cleanup so
+                    // key-based resolution binds the copy to its own internal sources.
+                    boolean changed = !node.isNodeType(FORM_NODE_TYPE)
+                            && FormLogicSyncService.remapFieldKeysAfterCopy(node, formNode);
+
+                    changed |= FormLogicSyncService.cleanupAfterDuplication(formNode);
+
+                    if (changed) {
                         systemSession.save();
                         log.info("[FormDuplicationCleanup] Cleaned up logic dependencies on '{}'", formNode.getPath());
                     }
@@ -108,6 +121,11 @@ public class FormDuplicationCleanupListener extends DefaultEventListener {
     }
 
     private static boolean hasLogicContent(JCRNodeWrapper node) throws RepositoryException {
-        return node.hasProperty(LOGICS_PROPERTY) || node.hasNode(LOGICS_SRC_NODE);
+        // fieldKey counts as logic content: a copied element carrying one may collide
+        // with the original's key even when it has no rule of its own (pure source copy).
+        // Freshly created elements have no fieldKey yet, so authoring stays unaffected.
+        return node.hasProperty(LOGICS_PROPERTY)
+                || node.hasNode(LOGICS_SRC_NODE)
+                || node.hasProperty(FIELD_KEY_PROPERTY);
     }
 }

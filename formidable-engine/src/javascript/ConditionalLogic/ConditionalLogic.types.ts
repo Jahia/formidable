@@ -23,6 +23,9 @@ export interface ConditionalLogicRule {
     sourceType?: RuleSourceType;
     // Field-rule keys; never serialized on jsVariable rules.
     sourceNodeId?: string;
+    // Stable business reference to the source field (its fieldKey); primary
+    // resolution criterion. Absent on rules stored before fieldKey existed.
+    sourceFieldKey?: string;
     sourceFieldName?: string;
     sourceFieldType?: string;
     // jsVariable-rule key: dotted window variable path (e.g. a datalayer entry).
@@ -107,6 +110,9 @@ export interface ChoiceValue {
 
 export interface SourceFieldOption {
     id: string;
+    // Stable business identity of the field; assigned server-side, may be briefly
+    // absent on a field that has never been saved through the engine listeners.
+    fieldKey?: string;
     name: string;
     path: string;
     label: string;

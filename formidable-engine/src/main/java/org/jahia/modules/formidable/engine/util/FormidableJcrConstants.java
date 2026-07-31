@@ -20,6 +20,7 @@ public final class FormidableJcrConstants {
     public static final String NON_SUBMITTABLE_MIXIN = "fmdbmix:nonSubmittable";
 
     public static final String ACL_NODE = "j:acl";
+    public static final String FIELD_KEY_PROPERTY = "fieldKey";
     public static final String FIELDS_NODE = "fields";
     public static final String INHERIT_PROPERTY = "j:inherit";
     public static final String LOGIC_NODE_SOURCE_PROPERTY = "logicNodeSource";

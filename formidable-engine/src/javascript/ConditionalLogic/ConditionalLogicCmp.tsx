@@ -104,8 +104,16 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     const workspace = extractWorkspace(props);
     const rule = useMemo(() => parseRule(value), [value]);
 
-    // Resolve sourceNodeId: prefer the stored UUID, then use weakref resolution via logicId
+    // Resolve the selected source: sourceFieldKey is the business identity and wins,
+    // then the stored UUID, then weakref resolution via logicId, then the legacy name.
     const resolvedSourceNodeId = useMemo(() => {
+        if (rule.sourceFieldKey) {
+            const match = sources.find(source => source.fieldKey === rule.sourceFieldKey);
+            if (match) {
+                return match.id;
+            }
+        }
+
         if (rule.sourceNodeId) {
             return rule.sourceNodeId;
         }
@@ -139,6 +147,13 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                 .filter((entry): entry is string => typeof entry === 'string' && entry !== value)
                 .map(entry => {
                     const siblingRule = parseRule(entry);
+                    if (siblingRule.sourceFieldKey) {
+                        const match = sources.find(s => s.fieldKey === siblingRule.sourceFieldKey);
+                        if (match) {
+                            return match.id;
+                        }
+                    }
+
                     if (siblingRule.sourceNodeId) {
                         return siblingRule.sourceNodeId;
                     }

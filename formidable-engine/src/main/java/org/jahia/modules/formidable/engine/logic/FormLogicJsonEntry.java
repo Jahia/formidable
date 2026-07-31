@@ -13,6 +13,7 @@ final class FormLogicJsonEntry {
     private static final String LOGIC_ID = "logicId";
     private static final String SOURCE_NODE_ID = "sourceNodeId";
     private static final String SOURCE_FIELD_NAME = "sourceFieldName";
+    private static final String SOURCE_FIELD_KEY = "sourceFieldKey";
     private static final String SOURCE_TYPE = "sourceType";
     private static final String VARIABLE = "variable";
     private static final String SOURCE_TYPE_JS_VARIABLE = "jsVariable";
@@ -22,6 +23,7 @@ final class FormLogicJsonEntry {
     private final String sourceFieldName;
     private final boolean jsVariable;
     private String sourceNodeId;
+    private String sourceFieldKey;
     private boolean updated;
 
     private FormLogicJsonEntry(
@@ -29,6 +31,7 @@ final class FormLogicJsonEntry {
             String logicId,
             String sourceNodeId,
             String sourceFieldName,
+            String sourceFieldKey,
             boolean jsVariable,
             boolean updated
     ) {
@@ -36,6 +39,7 @@ final class FormLogicJsonEntry {
         this.logicId = logicId;
         this.sourceNodeId = sourceNodeId;
         this.sourceFieldName = sourceFieldName;
+        this.sourceFieldKey = sourceFieldKey;
         this.jsVariable = jsVariable;
         this.updated = updated;
     }
@@ -62,6 +66,7 @@ final class FormLogicJsonEntry {
 
             String logicId = json.optString(LOGIC_ID, "");
             String sourceNodeId = json.optString(SOURCE_NODE_ID, "");
+            String sourceFieldKey = json.optString(SOURCE_FIELD_KEY, "");
             boolean updated = false;
 
             if (logicId.isEmpty()) {
@@ -70,7 +75,7 @@ final class FormLogicJsonEntry {
                 updated = true;
             }
 
-            return new FormLogicJsonEntry(json, logicId, sourceNodeId, sourceFieldName, jsVariable, updated);
+            return new FormLogicJsonEntry(json, logicId, sourceNodeId, sourceFieldName, sourceFieldKey, jsVariable, updated);
         } catch (Exception e) {
             log.debug("[FormLogicSync] Skipping invalid logics entry on '{}': {}", targetPath, e.getMessage());
             return null;
@@ -93,6 +98,10 @@ final class FormLogicJsonEntry {
         return sourceFieldName;
     }
 
+    String sourceFieldKey() {
+        return sourceFieldKey;
+    }
+
     boolean isUpdated() {
         return updated;
     }
@@ -104,6 +113,16 @@ final class FormLogicJsonEntry {
 
         json.put(SOURCE_NODE_ID, resolvedUuid);
         sourceNodeId = resolvedUuid;
+        updated = true;
+    }
+
+    void updateSourceFieldKey(String resolvedKey) {
+        if (resolvedKey.equals(sourceFieldKey)) {
+            return;
+        }
+
+        json.put(SOURCE_FIELD_KEY, resolvedKey);
+        sourceFieldKey = resolvedKey;
         updated = true;
     }
 

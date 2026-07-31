@@ -44,7 +44,7 @@ export const FORM_TREE_BY_PATH = gql`
                         ...JcrNodeIdentity
                         displayName(language: $language)
                         primaryNodeType { name }
-                        properties(names: ["choices", "options"], language: $language) {
+                        properties(names: ["choices", "options", "fieldKey"], language: $language) {
                             name
                             value
                             values

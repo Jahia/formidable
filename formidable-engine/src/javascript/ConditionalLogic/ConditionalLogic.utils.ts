@@ -32,6 +32,7 @@ export const parseRule = (value?: string): ConditionalLogicRule => {
             logicId: parsed.logicId ?? '',
             sourceType: parsed.sourceType === 'jsVariable' ? 'jsVariable' : 'field',
             sourceNodeId: parsed.sourceNodeId ?? '',
+            sourceFieldKey: typeof parsed.sourceFieldKey === 'string' ? parsed.sourceFieldKey : undefined,
             sourceFieldName: parsed.sourceFieldName ?? '',
             sourceFieldType: parsed.sourceFieldType ?? '',
             variable: typeof parsed.variable === 'string' ? parsed.variable : undefined,
@@ -90,6 +91,9 @@ export const normalizeStoredRule = (
     const base: ConditionalLogicRule = {
         logicId: rule.logicId,
         sourceNodeId: source.id,
+        // JSON.stringify drops it when the source has no fieldKey yet; the Java
+        // sync backfills it from the resolved source on save.
+        sourceFieldKey: source.fieldKey,
         sourceFieldName: source.name,
         sourceFieldType: source.type,
         operator
@@ -177,9 +181,11 @@ const mapSourceField = (node: GraphNode): SourceFieldOption | null => {
 
     const choiceProperty = node.properties?.find(property => property.name === descriptor.choiceProperty);
     const choiceValues = descriptor.valueKind === 'choice' ? parseJsonArrayValue(choiceProperty?.values ?? []) : [];
+    const fieldKey = node.properties?.find(property => property.name === 'fieldKey')?.value ?? undefined;
 
     return {
         id: node.uuid,
+        fieldKey,
         name: node.name,
         path: node.path,
         label: node.displayName ?? node.name,

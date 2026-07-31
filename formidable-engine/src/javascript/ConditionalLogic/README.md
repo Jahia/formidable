@@ -85,6 +85,7 @@ Keeping them together made the main component harder to read and harder to evolv
 8. It identifies each source option by node UUID, not by system name.
 9. If several candidate sources have the same display label, the editor disambiguates them visually by appending `:1`, `:2`, and so on to the label shown in the dropdown.
 10. When an existing rule is edited, the selector resolves the source in this order:
+   - `sourceFieldKey` stored in the JSON rule, matched against the fields' `fieldKey`
    - `sourceNodeId` stored in the JSON rule
    - `logicId -> logicsSrc -> logicNodeSource` weakref
    - legacy `sourceFieldName` fallback
@@ -136,6 +137,7 @@ Each `logics` entry is stored as JSON. Example:
 {
   "logicId": "a1b2c3d4",
   "sourceNodeId": "4028c1e2-934f-2f92-0193-4f6ac4f00041",
+  "sourceFieldKey": "550e8400-e29b-41d4-a716-446655440000",
   "sourceFieldName": "iAm",
   "sourceFieldType": "fmdb:radio",
   "operator": "in",
@@ -158,7 +160,10 @@ Date example:
 
 Notes:
 
-- `sourceNodeId` is the canonical source identifier for new and normalized rules.
+- `sourceFieldKey` is the stable business reference to the source field (its `fieldKey`,
+  a hidden server-assigned UUID that survives renames, copies, and imports). The editor
+  writes it when the source carries a key; the Java sync backfills it otherwise.
+- `sourceNodeId` is the technical source identifier for new and normalized rules.
 - `sourceFieldName` is still kept as metadata and legacy fallback.
 - `logicId` is used to bind the JSON rule to its `logicsSrc/<logicId>` child node.
 
@@ -175,8 +180,8 @@ For each rule, the repository also maintains:
 `FormLogicSyncService` keeps both representations aligned:
 
 - during normal authoring, it updates or creates weakrefs from the JSON rule
-- after subtree duplication, it removes out-of-scope weakrefs and tries to rebuild them
-- source resolution prefers `sourceNodeId`, then a valid existing weakref, then `sourceFieldName`
+- after subtree duplication, it remaps colliding `fieldKey`s, removes out-of-scope weakrefs and tries to rebuild them
+- source resolution prefers `sourceFieldKey`, then `sourceNodeId`, then a valid existing weakref, then `sourceFieldName` (see `docs/conditional-logic-field-resolution.md`)
 
 `FormDuplicationCleanupListener` is the backend trigger for that duplication cleanup. It now covers:
 
