@@ -19,17 +19,17 @@ public record ConditionalLogicRule(
         String sourceType,
         String sourceFieldName,
         String sourceFieldType,
-        String datalayerVariable,
+        String variable,
         String operator,
         String value,
         List<String> values
 ) {
     private static final Logger log = LoggerFactory.getLogger(ConditionalLogicRule.class);
 
-    public static final String SOURCE_TYPE_DATALAYER = "datalayer";
+    public static final String SOURCE_TYPE_JS_VARIABLE = "jsVariable";
 
-    public boolean isDatalayer() {
-        return SOURCE_TYPE_DATALAYER.equals(sourceType);
+    public boolean isJsVariable() {
+        return SOURCE_TYPE_JS_VARIABLE.equals(sourceType);
     }
 
     public static List<ConditionalLogicRule> parse(Value[] jcrValues) {
@@ -56,14 +56,14 @@ public record ConditionalLogicRule(
         JSONObject obj = new JSONObject(json);
         String sourceType = obj.optString("sourceType", "");
         String sourceFieldName = obj.optString("sourceFieldName", "");
-        String datalayerVariable = obj.optString("datalayerVariable", "");
+        String variable = obj.optString("variable", "");
         String operator = obj.optString("operator", "");
         if (operator.isEmpty()) {
             return null;
         }
 
-        boolean datalayer = SOURCE_TYPE_DATALAYER.equals(sourceType);
-        if (datalayer ? datalayerVariable.isBlank() : sourceFieldName.isEmpty()) {
+        boolean jsVariable = SOURCE_TYPE_JS_VARIABLE.equals(sourceType);
+        if (jsVariable ? variable.isBlank() : sourceFieldName.isEmpty()) {
             return null;
         }
 
@@ -72,7 +72,7 @@ public record ConditionalLogicRule(
                 sourceType,
                 sourceFieldName,
                 obj.optString("sourceFieldType", ""),
-                datalayerVariable,
+                variable,
                 operator,
                 obj.has("value") ? obj.optString("value", null) : null,
                 parseValues(obj)

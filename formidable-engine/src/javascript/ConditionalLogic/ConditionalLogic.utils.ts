@@ -6,89 +6,51 @@ import type {
     LogicOperator,
     LogicSrcNode,
     SelectorProps,
-    SourceFieldOption,
-    SupportedSourceType
+    SourceFieldOption
 } from './ConditionalLogic.types';
+import {getSourceDescriptor, JS_VARIABLE_OPERATORS, operatorNeedsValue} from './sourceDescriptors';
 
-export const SUPPORTED_SOURCE_TYPES: SupportedSourceType[] = [
-    'fmdb:select',
-    'fmdb:radio',
-    'fmdb:checkbox',
-    'fmdb:inputDate'
-];
-
-export const DATALAYER_OPERATORS: LogicOperator[] = [
-    'equals',
-    'notEquals',
-    'contains',
-    'exists',
-    'notExists'
-];
-
-export const datalayerOperatorNeedsValue = (operator: LogicOperator): boolean =>
-    operator !== 'exists' && operator !== 'notExists';
+const EMPTY_FIELD_RULE: ConditionalLogicRule = {
+    logicId: '',
+    sourceType: 'field',
+    sourceNodeId: '',
+    sourceFieldName: '',
+    sourceFieldType: '',
+    operator: 'in',
+    values: []
+};
 
 export const parseRule = (value?: string): ConditionalLogicRule => {
     if (!value) {
-        return {
-            logicId: '',
-            sourceType: 'field',
-            sourceNodeId: '',
-            sourceFieldName: '',
-            sourceFieldType: 'fmdb:select',
-            operator: 'in',
-            values: []
-        };
+        return {...EMPTY_FIELD_RULE};
     }
 
     try {
         const parsed = JSON.parse(value) as Partial<ConditionalLogicRule>;
-        const sourceFieldType = SUPPORTED_SOURCE_TYPES.includes(parsed.sourceFieldType as SupportedSourceType)
-            ? parsed.sourceFieldType as SupportedSourceType
-            : 'fmdb:select';
 
         return {
             logicId: parsed.logicId ?? '',
-            sourceType: parsed.sourceType === 'datalayer' ? 'datalayer' : 'field',
+            sourceType: parsed.sourceType === 'jsVariable' ? 'jsVariable' : 'field',
             sourceNodeId: parsed.sourceNodeId ?? '',
             sourceFieldName: parsed.sourceFieldName ?? '',
-            sourceFieldType,
-            datalayerVariable: typeof parsed.datalayerVariable === 'string' ? parsed.datalayerVariable : undefined,
+            sourceFieldType: parsed.sourceFieldType ?? '',
+            variable: typeof parsed.variable === 'string' ? parsed.variable : undefined,
             operator: (parsed.operator as LogicOperator) ?? 'in',
             value: typeof parsed.value === 'string' ? parsed.value : undefined,
             values: Array.isArray(parsed.values) ? parsed.values.filter(value => typeof value === 'string') : []
         };
     } catch {
-        return {
-            logicId: '',
-            sourceType: 'field',
-            sourceNodeId: '',
-            sourceFieldName: '',
-            sourceFieldType: 'fmdb:select',
-            operator: 'in',
-            values: []
-        };
+        return {...EMPTY_FIELD_RULE};
     }
 };
 
 export const getOperatorsForSource = (source?: SourceFieldOption): LogicOperator[] => {
-    if (!source) {
+    const descriptor = getSourceDescriptor(source?.type);
+    if (!source || !descriptor) {
         return ['in'];
     }
 
-    switch (source.type) {
-        case 'fmdb:select':
-        case 'fmdb:radio':
-            return ['in', 'notIn'];
-        case 'fmdb:checkbox':
-            return source.choiceValues.length <= 1
-                ? ['isChecked', 'isUnchecked']
-                : ['containsAny', 'containsAll'];
-        case 'fmdb:inputDate':
-            return ['before', 'after', 'on', 'between'];
-        default:
-            return ['in'];
-    }
+    return descriptor.getOperators(source);
 };
 
 export const sanitizeOperator = (source: SourceFieldOption | undefined, operator: LogicOperator): LogicOperator => {
@@ -96,22 +58,19 @@ export const sanitizeOperator = (source: SourceFieldOption | undefined, operator
     return operators.includes(operator) ? operator : operators[0];
 };
 
-export const sanitizeDatalayerOperator = (operator: LogicOperator): LogicOperator =>
-    DATALAYER_OPERATORS.includes(operator) ? operator : DATALAYER_OPERATORS[0];
+export const sanitizeJsVariableOperator = (operator: LogicOperator): LogicOperator =>
+    JS_VARIABLE_OPERATORS.includes(operator) ? operator : JS_VARIABLE_OPERATORS[0];
 
-export const normalizeStoredDatalayerRule = (rule: ConditionalLogicRule): ConditionalLogicRule => {
-    const operator = sanitizeDatalayerOperator(rule.operator);
+export const normalizeStoredJsVariableRule = (rule: ConditionalLogicRule): ConditionalLogicRule => {
+    const operator = sanitizeJsVariableOperator(rule.operator);
     const normalized: ConditionalLogicRule = {
         logicId: rule.logicId,
-        sourceType: 'datalayer',
-        sourceNodeId: '',
-        sourceFieldName: '',
-        sourceFieldType: 'fmdb:select',
-        datalayerVariable: (rule.datalayerVariable ?? '').trim(),
+        sourceType: 'jsVariable',
+        variable: (rule.variable ?? '').trim(),
         operator
     };
 
-    if (datalayerOperatorNeedsValue(operator)) {
+    if (operatorNeedsValue(operator)) {
         normalized.value = rule.value ?? '';
     }
 
@@ -122,52 +81,33 @@ export const normalizeStoredRule = (
     rule: ConditionalLogicRule,
     source: SourceFieldOption | undefined
 ): ConditionalLogicRule => {
-    if (!source) {
+    const descriptor = getSourceDescriptor(source?.type);
+    if (!source || !descriptor) {
         return parseRule(undefined);
     }
 
     const operator = sanitizeOperator(source, rule.operator);
-
-    if (source.type === 'fmdb:inputDate') {
-        if (operator === 'between') {
-            return {
-                logicId: rule.logicId,
-                sourceNodeId: source.id,
-                sourceFieldName: source.name,
-                sourceFieldType: source.type,
-                operator,
-                values: (rule.values ?? []).slice(0, 2)
-            };
-        }
-
-        return {
-            logicId: rule.logicId,
-            sourceNodeId: source.id,
-            sourceFieldName: source.name,
-            sourceFieldType: source.type,
-            operator,
-            value: rule.value ?? ''
-        };
-    }
-
-    if (source.type === 'fmdb:checkbox' && source.choiceValues.length <= 1) {
-        return {
-            logicId: rule.logicId,
-            sourceNodeId: source.id,
-            sourceFieldName: source.name,
-            sourceFieldType: source.type,
-            operator
-        };
-    }
-
-    return {
+    const base: ConditionalLogicRule = {
         logicId: rule.logicId,
         sourceNodeId: source.id,
         sourceFieldName: source.name,
         sourceFieldType: source.type,
-        operator,
-        values: rule.values ?? []
+        operator
     };
+
+    if (descriptor.valueKind === 'date') {
+        if (operator === 'between') {
+            return {...base, values: (rule.values ?? []).slice(0, 2)};
+        }
+
+        return {...base, value: rule.value ?? ''};
+    }
+
+    if (!operatorNeedsValue(operator)) {
+        return base;
+    }
+
+    return {...base, values: rule.values ?? []};
 };
 
 export const extractEditorContext = (props: SelectorProps): EditorContextLike | undefined => {
@@ -230,20 +170,20 @@ const parseJsonArrayValue = (rawValues: string[] = []): ChoiceValue[] => {
 
 const mapSourceField = (node: GraphNode): SourceFieldOption | null => {
     const type = getNodeType(node);
-    if (!type || !SUPPORTED_SOURCE_TYPES.includes(type as SupportedSourceType)) {
+    const descriptor = getSourceDescriptor(type);
+    if (!type || !descriptor) {
         return null;
     }
 
-    const choicePropertyName = type === 'fmdb:select' ? 'options' : 'choices';
-    const choiceProperty = node.properties?.find(property => property.name === choicePropertyName);
-    const choiceValues = type === 'fmdb:inputDate' ? [] : parseJsonArrayValue(choiceProperty?.values ?? []);
+    const choiceProperty = node.properties?.find(property => property.name === descriptor.choiceProperty);
+    const choiceValues = descriptor.valueKind === 'choice' ? parseJsonArrayValue(choiceProperty?.values ?? []) : [];
 
     return {
         id: node.uuid,
         name: node.name,
         path: node.path,
         label: node.displayName ?? node.name,
-        type: type as SupportedSourceType,
+        type,
         choiceValues
     };
 };
@@ -287,4 +227,3 @@ export const buildLogicIdToSourceMap = (logicSrcNodes: LogicSrcNode[] = []): Map
 
     return map;
 };
-

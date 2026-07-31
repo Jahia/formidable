@@ -5,19 +5,18 @@ import {useTranslation} from 'react-i18next';
 import {
     buildLogicIdToSourceMap,
     buildSourceFieldOptions,
-    DATALAYER_OPERATORS,
-    datalayerOperatorNeedsValue,
     extractCurrentNodePath,
     extractLanguage,
     extractWorkspace,
     findFormPath,
     getOperatorsForSource,
-    normalizeStoredDatalayerRule,
+    normalizeStoredJsVariableRule,
     normalizeStoredRule,
     parseRule,
-    sanitizeDatalayerOperator,
+    sanitizeJsVariableOperator,
     sanitizeOperator
 } from './ConditionalLogic.utils';
+import {getSourceDescriptor, JS_VARIABLE_OPERATORS, operatorNeedsValue} from './sourceDescriptors';
 import {CURRENT_NODE_BY_PATH, FORM_TREE_BY_PATH} from './graphql';
 import type {ConditionalLogicRule, GraphNode, LogicOperator, RuleSourceType, SelectorProps, SourceFieldOption} from './ConditionalLogic.types';
 
@@ -176,6 +175,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         () => availableSources.find(source => source.id === resolvedSourceNodeId),
         [resolvedSourceNodeId, availableSources]
     );
+    const selectedDescriptor = getSourceDescriptor(selectedSource?.type);
     const selectedOperator = sanitizeOperator(selectedSource, rule.operator);
 
     useEffect(() => {
@@ -256,6 +256,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         }
 
         const nextOperator = getOperatorsForSource(nextSource)[0];
+        const nextIsDate = getSourceDescriptor(nextSource.type)?.valueKind === 'date';
         const logicId = rule.logicId || generateLogicId();
         updateRule({
             logicId,
@@ -263,8 +264,8 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
             sourceFieldName: nextSource.name,
             sourceFieldType: nextSource.type,
             operator: nextOperator,
-            value: nextSource.type === 'fmdb:inputDate' ? '' : undefined,
-            values: nextSource.type === 'fmdb:inputDate' && nextOperator === 'between' ? ['', ''] : []
+            value: nextIsDate ? '' : undefined,
+            values: nextIsDate && nextOperator === 'between' ? ['', ''] : []
         });
     };
 
@@ -274,6 +275,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         }
 
         const operator = item.value as LogicOperator;
+        const isDate = selectedDescriptor?.valueKind === 'date';
         updateRule({
             ...rule,
             logicId: rule.logicId || generateLogicId(),
@@ -281,10 +283,10 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
             sourceFieldName: selectedSource.name,
             sourceFieldType: selectedSource.type,
             operator,
-            value: selectedSource.type === 'fmdb:inputDate' && operator !== 'between' ? (rule.value ?? '') : undefined,
-            values: selectedSource.type === 'fmdb:inputDate' && operator === 'between'
+            value: isDate && operator !== 'between' ? (rule.value ?? '') : undefined,
+            values: isDate && operator === 'between'
                 ? (rule.values ?? ['', '']).slice(0, 2)
-                : (selectedSource.type === 'fmdb:inputDate' ? [] : (rule.values ?? []))
+                : (isDate ? [] : (rule.values ?? []))
         });
     };
 
@@ -326,11 +328,11 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     );
 
     const showValueDropdown = selectedSource
-        && selectedSource.type !== 'fmdb:inputDate'
-        && !(selectedSource.type === 'fmdb:checkbox' && selectedSource.choiceValues.length <= 1);
+        && selectedDescriptor?.valueKind === 'choice'
+        && operatorNeedsValue(selectedOperator);
 
-    const ruleSourceType: RuleSourceType = rule.sourceType === 'datalayer' ? 'datalayer' : 'field';
-    const datalayerOperator = sanitizeDatalayerOperator(rule.operator);
+    const ruleSourceType: RuleSourceType = rule.sourceType === 'jsVariable' ? 'jsVariable' : 'field';
+    const jsVariableOperator = sanitizeJsVariableOperator(rule.operator);
 
     const handleSourceTypeChange = (_event: React.MouseEvent, item: {value?: string}) => {
         const nextType = (item.value ?? 'field') as RuleSourceType;
@@ -338,12 +340,12 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
             return;
         }
 
-        if (nextType === 'datalayer') {
-            onChange(JSON.stringify(normalizeStoredDatalayerRule({
+        if (nextType === 'jsVariable') {
+            onChange(JSON.stringify(normalizeStoredJsVariableRule({
                 ...rule,
                 logicId: rule.logicId || generateLogicId(),
-                datalayerVariable: '',
-                operator: DATALAYER_OPERATORS[0],
+                variable: '',
+                operator: JS_VARIABLE_OPERATORS[0],
                 value: ''
             })));
             return;
@@ -352,20 +354,20 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         onChange(JSON.stringify(parseRule(undefined)));
     };
 
-    const updateDatalayerRule = (patch: Partial<ConditionalLogicRule>) => {
-        onChange(JSON.stringify(normalizeStoredDatalayerRule({
+    const updateJsVariableRule = (patch: Partial<ConditionalLogicRule>) => {
+        onChange(JSON.stringify(normalizeStoredJsVariableRule({
             ...rule,
             logicId: rule.logicId || generateLogicId(),
-            operator: datalayerOperator,
+            operator: jsVariableOperator,
             ...patch
         })));
     };
 
     const sourceTypeOptions = [
         {label: t('conditionalLogic.sourceTypes.field'), value: 'field'},
-        {label: t('conditionalLogic.sourceTypes.datalayer'), value: 'datalayer'}
+        {label: t('conditionalLogic.sourceTypes.jsVariable'), value: 'jsVariable'}
     ];
-    const datalayerOperatorOptions = DATALAYER_OPERATORS.map(operator => ({
+    const jsVariableOperatorOptions = JS_VARIABLE_OPERATORS.map(operator => ({
         label: t(`conditionalLogic.operators.${operator}`),
         value: operator
     }));
@@ -436,11 +438,11 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     </div>
                 )}
 
-                {!showValueDropdown && selectedSource?.type !== 'fmdb:inputDate' && (
+                {!showValueDropdown && selectedDescriptor?.valueKind !== 'date' && (
                     <div className="flexFluid"/>
                 )}
 
-                {selectedSource?.type === 'fmdb:inputDate' && (
+                {selectedSource && selectedDescriptor?.valueKind === 'date' && (
                     <div className="flexFluid">
                         <DateValueFields
                             id={id}
@@ -463,40 +465,40 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         );
     };
 
-    const renderDatalayerRule = () => (
+    const renderJsVariableRule = () => (
         <>
             <div className="flexFluid">
                 <Input
-                    id={`${id}-datalayer-variable`}
+                    id={`${id}-js-variable`}
                     isReadOnly={field.readOnly}
-                    placeholder={t('conditionalLogic.datalayerVariablePlaceholder')}
-                    value={rule.datalayerVariable ?? ''}
+                    placeholder={t('conditionalLogic.jsVariablePlaceholder')}
+                    value={rule.variable ?? ''}
                     size="big"
-                    onChange={event => updateDatalayerRule({datalayerVariable: event.target.value})}
+                    onChange={event => updateJsVariableRule({variable: event.target.value})}
                 />
             </div>
             <div className="flexFluid">
                 <Dropdown
-                    data={datalayerOperatorOptions}
-                    value={datalayerOperator}
+                    data={jsVariableOperatorOptions}
+                    value={jsVariableOperator}
                     placeholder={t('conditionalLogic.operator')}
                     isDisabled={field.readOnly}
                     onChange={(_event, item) => {
                         if (item.value) {
-                            updateDatalayerRule({operator: item.value as LogicOperator});
+                            updateJsVariableRule({operator: item.value as LogicOperator});
                         }
                     }}
                 />
             </div>
-            {datalayerOperatorNeedsValue(datalayerOperator) ? (
+            {operatorNeedsValue(jsVariableOperator) ? (
                 <div className="flexFluid">
                     <Input
-                        id={`${id}-datalayer-value`}
+                        id={`${id}-js-variable-value`}
                         isReadOnly={field.readOnly}
                         placeholder={t('conditionalLogic.value')}
                         value={rule.value ?? ''}
                         size="big"
-                        onChange={event => updateDatalayerRule({value: event.target.value})}
+                        onChange={event => updateJsVariableRule({value: event.target.value})}
                     />
                 </div>
             ) : (
@@ -515,7 +517,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     onChange={handleSourceTypeChange}
                 />
             </div>
-            {ruleSourceType === 'field' ? renderFieldRule() : renderDatalayerRule()}
+            {ruleSourceType === 'field' ? renderFieldRule() : renderJsVariableRule()}
         </div>
     );
 };

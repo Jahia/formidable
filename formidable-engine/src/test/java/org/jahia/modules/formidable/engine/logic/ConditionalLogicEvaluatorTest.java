@@ -342,12 +342,12 @@ class ConditionalLogicEvaluatorTest {
     }
 
     @Test
-    void datalayerRulesAreTreatedAsHiddenServerSide() {
-        // Verifies fail-safe behavior: datalayer rules depend on browser-only state,
+    void jsVariableRulesAreTreatedAsHiddenServerSide() {
+        // Verifies fail-safe behavior: jsVariable rules depend on browser-only state,
         // so the field must count as hidden and skip required validation.
         ConditionalLogicEvaluator evaluator = evaluator(
                 Map.of("target", List.of(new ConditionalLogicRule(
-                        "logic-1", "datalayer", "", "", "window.cxs.profileProperties.firstName",
+                        "logic-1", "jsVariable", "", "", "window.cxs.profileProperties.firstName",
                         "equals", "John", List.of()))),
                 Map.of()
         );

@@ -14,13 +14,13 @@ final class FormLogicJsonEntry {
     private static final String SOURCE_NODE_ID = "sourceNodeId";
     private static final String SOURCE_FIELD_NAME = "sourceFieldName";
     private static final String SOURCE_TYPE = "sourceType";
-    private static final String DATALAYER_VARIABLE = "datalayerVariable";
-    private static final String SOURCE_TYPE_DATALAYER = "datalayer";
+    private static final String VARIABLE = "variable";
+    private static final String SOURCE_TYPE_JS_VARIABLE = "jsVariable";
 
     private final JSONObject json;
     private final String logicId;
     private final String sourceFieldName;
-    private final boolean datalayer;
+    private final boolean jsVariable;
     private String sourceNodeId;
     private boolean updated;
 
@@ -29,14 +29,14 @@ final class FormLogicJsonEntry {
             String logicId,
             String sourceNodeId,
             String sourceFieldName,
-            boolean datalayer,
+            boolean jsVariable,
             boolean updated
     ) {
         this.json = json;
         this.logicId = logicId;
         this.sourceNodeId = sourceNodeId;
         this.sourceFieldName = sourceFieldName;
-        this.datalayer = datalayer;
+        this.jsVariable = jsVariable;
         this.updated = updated;
     }
 
@@ -48,11 +48,11 @@ final class FormLogicJsonEntry {
             }
 
             JSONObject json = new JSONObject(rawJson);
-            boolean datalayer = SOURCE_TYPE_DATALAYER.equals(json.optString(SOURCE_TYPE, ""));
+            boolean jsVariable = SOURCE_TYPE_JS_VARIABLE.equals(json.optString(SOURCE_TYPE, ""));
             String sourceFieldName = json.optString(SOURCE_FIELD_NAME, "");
-            if (datalayer) {
-                if (json.optString(DATALAYER_VARIABLE, "").isBlank()) {
-                    log.debug("[FormLogicSync] Skipping datalayer rule without variable on '{}'", targetPath);
+            if (jsVariable) {
+                if (json.optString(VARIABLE, "").isBlank()) {
+                    log.debug("[FormLogicSync] Skipping jsVariable rule without variable on '{}'", targetPath);
                     return null;
                 }
             } else if (sourceFieldName.isEmpty()) {
@@ -70,15 +70,15 @@ final class FormLogicJsonEntry {
                 updated = true;
             }
 
-            return new FormLogicJsonEntry(json, logicId, sourceNodeId, sourceFieldName, datalayer, updated);
+            return new FormLogicJsonEntry(json, logicId, sourceNodeId, sourceFieldName, jsVariable, updated);
         } catch (Exception e) {
             log.debug("[FormLogicSync] Skipping invalid logics entry on '{}': {}", targetPath, e.getMessage());
             return null;
         }
     }
 
-    boolean isDatalayer() {
-        return datalayer;
+    boolean isJsVariable() {
+        return jsVariable;
     }
 
     String logicId() {

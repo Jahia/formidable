@@ -21,9 +21,9 @@
         "loadError": "Impossible de charger les champs source disponibles.",
         "sourceTypes": {
             "field": "Valeur d'un champ",
-            "datalayer": "Valeur du datalayer"
+            "jsVariable": "Valeur du datalayer"
         },
-        "datalayerVariablePlaceholder": "window.cxs.profileProperties.firstName",
+        "jsVariablePlaceholder": "window.cxs.profileProperties.firstName",
         "operators": {
             "in": "est l'une des valeurs suivantes",
             "notIn": "n'est pas l'une des valeurs suivantes",

@@ -21,9 +21,9 @@
         "loadError": "Unable to load available source fields.",
         "sourceTypes": {
             "field": "Field value",
-            "datalayer": "Datalayer value"
+            "jsVariable": "Datalayer value"
         },
-        "datalayerVariablePlaceholder": "window.cxs.profileProperties.firstName",
+        "jsVariablePlaceholder": "window.cxs.profileProperties.firstName",
         "operators": {
             "in": "is one of",
             "notIn": "is not one of",

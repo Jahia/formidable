@@ -1,6 +1,4 @@
-export type SupportedSourceType = 'fmdb:select' | 'fmdb:radio' | 'fmdb:checkbox' | 'fmdb:inputDate';
-
-export type RuleSourceType = 'field' | 'datalayer';
+export type RuleSourceType = 'field' | 'jsVariable';
 
 export type LogicOperator =
     | 'in'
@@ -21,12 +19,14 @@ export type LogicOperator =
 
 export interface ConditionalLogicRule {
     logicId: string;
-    // Absent on rules stored before datalayer support; treated as 'field'.
+    // Absent on rules stored before jsVariable support; treated as 'field'.
     sourceType?: RuleSourceType;
-    sourceNodeId: string;
-    sourceFieldName: string;
-    sourceFieldType: SupportedSourceType;
-    datalayerVariable?: string;
+    // Field-rule keys; never serialized on jsVariable rules.
+    sourceNodeId?: string;
+    sourceFieldName?: string;
+    sourceFieldType?: string;
+    // jsVariable-rule key: dotted window variable path (e.g. a datalayer entry).
+    variable?: string;
     operator: LogicOperator;
     value?: string;
     values?: string[];
@@ -110,6 +110,6 @@ export interface SourceFieldOption {
     name: string;
     path: string;
     label: string;
-    type: SupportedSourceType;
+    type: string;
     choiceValues: ChoiceValue[];
 }

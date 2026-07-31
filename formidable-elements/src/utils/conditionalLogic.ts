@@ -1,6 +1,4 @@
-export type SupportedConditionalSourceType = 'fmdb:select' | 'fmdb:radio' | 'fmdb:checkbox' | 'fmdb:inputDate';
-
-export type ConditionalLogicSourceType = 'field' | 'datalayer';
+export type ConditionalLogicSourceType = 'field' | 'jsVariable';
 
 export type ConditionalLogicOperator =
 	| 'in'
@@ -21,28 +19,22 @@ export type ConditionalLogicOperator =
 
 export interface ConditionalLogicRule {
 	logicId?: string;
-	// Absent on rules stored before datalayer support; treated as 'field'.
+	// Absent on rules stored before jsVariable support; treated as 'field'.
 	sourceType?: ConditionalLogicSourceType;
 	sourceFieldName?: string;
 	sourceNodeId?: string;
-	sourceFieldType?: SupportedConditionalSourceType;
-	datalayerVariable?: string;
+	// Informative metadata; source eligibility is enforced at authoring time.
+	sourceFieldType?: string;
+	variable?: string;
 	operator: ConditionalLogicOperator;
 	value?: string;
 	values?: string[];
 }
 
-const SUPPORTED_TYPES: SupportedConditionalSourceType[] = [
-	'fmdb:select',
-	'fmdb:radio',
-	'fmdb:checkbox',
-	'fmdb:inputDate'
-];
-
-const isDatalayerRuleShape = (parsed: Partial<ConditionalLogicRule>): boolean =>
-	parsed.sourceType === 'datalayer'
-	&& typeof parsed.datalayerVariable === 'string'
-	&& parsed.datalayerVariable.trim() !== '';
+const isJsVariableRuleShape = (parsed: Partial<ConditionalLogicRule>): boolean =>
+	parsed.sourceType === 'jsVariable'
+	&& typeof parsed.variable === 'string'
+	&& parsed.variable.trim() !== '';
 
 export const parseConditionalLogicRule = (rawValue: string): ConditionalLogicRule | null => {
 	try {
@@ -51,11 +43,11 @@ export const parseConditionalLogicRule = (rawValue: string): ConditionalLogicRul
 			return null;
 		}
 
-		if (isDatalayerRuleShape(parsed)) {
+		if (isJsVariableRuleShape(parsed)) {
 			return {
 				logicId: typeof parsed.logicId === 'string' ? parsed.logicId : undefined,
-				sourceType: 'datalayer',
-				datalayerVariable: parsed.datalayerVariable!.trim(),
+				sourceType: 'jsVariable',
+				variable: parsed.variable!.trim(),
 				operator: parsed.operator as ConditionalLogicOperator,
 				value: typeof parsed.value === 'string' ? parsed.value : undefined
 			};
@@ -65,15 +57,11 @@ export const parseConditionalLogicRule = (rawValue: string): ConditionalLogicRul
 			return null;
 		}
 
-		if (!SUPPORTED_TYPES.includes(parsed.sourceFieldType as SupportedConditionalSourceType)) {
-			return null;
-		}
-
 		return {
 			logicId: typeof parsed.logicId === 'string' ? parsed.logicId : undefined,
 			sourceFieldName: parsed.sourceFieldName,
 			sourceNodeId: typeof parsed.sourceNodeId === 'string' ? parsed.sourceNodeId : undefined,
-			sourceFieldType: parsed.sourceFieldType as SupportedConditionalSourceType,
+			sourceFieldType: typeof parsed.sourceFieldType === 'string' ? parsed.sourceFieldType : undefined,
 			operator: parsed.operator as ConditionalLogicOperator,
 			value: typeof parsed.value === 'string' ? parsed.value : undefined,
 			values: Array.isArray(parsed.values) ? parsed.values.filter(value => typeof value === 'string') : undefined
@@ -93,9 +81,8 @@ const isConditionalLogicRule = (value: unknown): value is ConditionalLogicRule =
 	if (!value || typeof value !== 'object') return false;
 	const candidate = value as Partial<ConditionalLogicRule>;
 	if (typeof candidate.operator !== 'string') return false;
-	if (isDatalayerRuleShape(candidate)) return true;
-	return typeof candidate.sourceFieldName === 'string'
-		&& SUPPORTED_TYPES.includes(candidate.sourceFieldType as SupportedConditionalSourceType);
+	if (isJsVariableRuleShape(candidate)) return true;
+	return typeof candidate.sourceFieldName === 'string';
 };
 
 const deserializeConditionalLogicRules = (rawValue: string): ConditionalLogicRule[] => {
@@ -118,55 +105,44 @@ interface SourceFieldState {
 	checked: boolean;
 }
 
+const NON_VALUE_INPUT_TYPES = new Set(['submit', 'reset', 'button', 'file', 'image']);
+
+/**
+ * Reads the current value(s) of a source field from its wrapper, whatever its widget:
+ * every named form control inside the wrapper contributes its value — selected options
+ * for selects, checked values for checkables (radio/checkbox), the raw value otherwise.
+ * Any field rendered with native named controls is therefore readable without
+ * field-type-specific code.
+ */
 const getSourceFieldState = (wrapper: HTMLElement): SourceFieldState => {
-	const select = wrapper.querySelector<HTMLSelectElement>('select');
-	if (select) {
-		if (select.multiple) {
-			return {
-				values: Array.from(select.selectedOptions).map(option => option.value).filter(Boolean),
-				checked: false
-			};
+	const controls = Array.from(wrapper.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+		'input[name], select[name], textarea[name]'
+	));
+
+	const values: string[] = [];
+	const checkables: HTMLInputElement[] = [];
+
+	for (const control of controls) {
+		if (control instanceof HTMLSelectElement) {
+			values.push(...Array.from(control.selectedOptions).map(option => option.value).filter(Boolean));
+		} else if (control instanceof HTMLInputElement && (control.type === 'checkbox' || control.type === 'radio')) {
+			checkables.push(control);
+			if (control.checked && control.value) {
+				values.push(control.value);
+			}
+		} else if (!(control instanceof HTMLInputElement) || !NON_VALUE_INPUT_TYPES.has(control.type)) {
+			if (control.value) {
+				values.push(control.value);
+			}
 		}
-
-		return {
-			values: select.value ? [select.value] : [],
-			checked: false
-		};
 	}
 
-	const radioInputs = Array.from(wrapper.querySelectorAll<HTMLInputElement>('input[type="radio"]'));
-	if (radioInputs.length > 0) {
-		const selected = radioInputs.find(input => input.checked);
-		return {
-			values: selected?.value ? [selected.value] : [],
-			checked: false
-		};
-	}
-
-	const checkboxInputs = Array.from(wrapper.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'));
-	if (checkboxInputs.length > 0) {
-		if (checkboxInputs.length === 1) {
-			return {
-				values: checkboxInputs[0].checked && checkboxInputs[0].value ? [checkboxInputs[0].value] : [],
-				checked: checkboxInputs[0].checked
-			};
-		}
-
-		return {
-			values: checkboxInputs.filter(input => input.checked).map(input => input.value).filter(Boolean),
-			checked: false
-		};
-	}
-
-	const dateInput = wrapper.querySelector<HTMLInputElement>('input[type="date"]');
-	if (dateInput) {
-		return {
-			values: dateInput.value ? [dateInput.value] : [],
-			checked: false
-		};
-	}
-
-	return {values: [], checked: false};
+	return {
+		values,
+		// isChecked/isUnchecked are only offered on fields rendered as a single
+		// checkable control (e.g. a lone checkbox); groups always compare values.
+		checked: checkables.length === 1 && checkables[0].checked
+	};
 };
 
 const compareDate = (left: string, right: string): number => {
@@ -174,17 +150,17 @@ const compareDate = (left: string, right: string): number => {
 	return left < right ? -1 : 1;
 };
 
-const DATALAYER_PATH_PATTERN = /^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/;
+const JS_VARIABLE_PATH_PATTERN = /^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/;
 
 /**
  * Safely resolves a dotted variable path (e.g. "window.cxs.profileProperties.firstName")
  * against the window object. Returns undefined when any segment is missing or the
  * path is not a plain dotted identifier chain.
  */
-export const resolveDatalayerValue = (variable: string): unknown => {
+export const resolveJsVariableValue = (variable: string): unknown => {
 	if (typeof window === 'undefined') return undefined;
 	const path = variable.trim().replace(/^window\./, '');
-	if (!DATALAYER_PATH_PATTERN.test(path)) return undefined;
+	if (!JS_VARIABLE_PATH_PATTERN.test(path)) return undefined;
 
 	let current: unknown = window;
 	for (const segment of path.split('.')) {
@@ -195,8 +171,8 @@ export const resolveDatalayerValue = (variable: string): unknown => {
 	return current;
 };
 
-const evaluateDatalayerRule = (rule: ConditionalLogicRule): boolean => {
-	const raw = resolveDatalayerValue(rule.datalayerVariable ?? '');
+const evaluateJsVariableRule = (rule: ConditionalLogicRule): boolean => {
+	const raw = resolveJsVariableValue(rule.variable ?? '');
 	const defined = raw !== undefined && raw !== null;
 	const actual = defined ? String(raw) : undefined;
 	const expected = rule.value ?? '';
@@ -218,15 +194,15 @@ const evaluateDatalayerRule = (rule: ConditionalLogicRule): boolean => {
 };
 
 /**
- * Lists the distinct datalayer variables referenced by conditional logic rules
- * inside the form. Used to decide whether a datalayer watcher is needed.
+ * Lists the distinct JS context variables (e.g. datalayer entries) referenced by
+ * conditional logic rules inside the form. Used to decide whether a watcher is needed.
  */
-export const collectDatalayerVariables = (form: HTMLFormElement): string[] => {
+export const collectJsVariables = (form: HTMLFormElement): string[] => {
 	const variables = new Set<string>();
 	for (const wrapper of Array.from(form.querySelectorAll<HTMLElement>('[data-fmdb-logics]'))) {
 		for (const rule of deserializeConditionalLogicRules(wrapper.dataset.fmdbLogics ?? '')) {
-			if (rule.sourceType === 'datalayer' && rule.datalayerVariable) {
-				variables.add(rule.datalayerVariable);
+			if (rule.sourceType === 'jsVariable' && rule.variable) {
+				variables.add(rule.variable);
 			}
 		}
 	}
@@ -235,13 +211,13 @@ export const collectDatalayerVariables = (form: HTMLFormElement): string[] => {
 };
 
 /**
- * Builds a comparable snapshot of the current datalayer values so a watcher can
+ * Builds a comparable snapshot of the current variable values so a watcher can
  * detect changes cheaply. Undefined/null are encoded distinctly from their
  * string representations.
  */
-export const getDatalayerSnapshot = (variables: string[]): string =>
+export const getJsVariablesSnapshot = (variables: string[]): string =>
 	JSON.stringify(variables.map(variable => {
-		const raw = resolveDatalayerValue(variable);
+		const raw = resolveJsVariableValue(variable);
 		if (raw === undefined) return '\u0000undefined';
 		if (raw === null) return '\u0000null';
 		return String(raw);
@@ -337,8 +313,8 @@ export const applyConditionalLogicVisibility = (form: HTMLFormElement) => {
 		}
 
 		const visible = rules.every(rule => {
-			if (rule.sourceType === 'datalayer') {
-				return evaluateDatalayerRule(rule);
+			if (rule.sourceType === 'jsVariable') {
+				return evaluateJsVariableRule(rule);
 			}
 
 			const sourceWrapper = rule.sourceNodeId

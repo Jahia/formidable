@@ -1,8 +1,8 @@
 import {type RefObject, useCallback, useEffect, useRef, useState} from 'react';
 import {
 	applyConditionalLogicVisibility,
-	collectDatalayerVariables,
-	getDatalayerSnapshot
+	collectJsVariables,
+	getJsVariablesSnapshot
 } from '~/utils/conditionalLogic';
 
 interface UseMultiStepOptions {
@@ -82,15 +82,15 @@ export function useMultiStep({formRef, stepIds}: UseMultiStepOptions): UseMultiS
 		form.addEventListener('change', syncVisibility);
 		form.addEventListener('reset', handleReset);
 
-		// Datalayer variables (e.g. window.cxs.*) are populated asynchronously and
-		// change without any form event, so rules based on them are re-evaluated by
-		// watching the referenced variables for value changes.
-		let datalayerWatcher: number | null = null;
-		const datalayerVariables = collectDatalayerVariables(form);
-		if (datalayerVariables.length > 0) {
-			let lastSnapshot = getDatalayerSnapshot(datalayerVariables);
-			datalayerWatcher = window.setInterval(() => {
-				const snapshot = getDatalayerSnapshot(datalayerVariables);
+		// JS context variables (e.g. datalayer entries like window.cxs.*) are populated
+		// asynchronously and change without any form event, so rules based on them are
+		// re-evaluated by watching the referenced variables for value changes.
+		let jsVariableWatcher: number | null = null;
+		const jsVariables = collectJsVariables(form);
+		if (jsVariables.length > 0) {
+			let lastSnapshot = getJsVariablesSnapshot(jsVariables);
+			jsVariableWatcher = window.setInterval(() => {
+				const snapshot = getJsVariablesSnapshot(jsVariables);
 				if (snapshot !== lastSnapshot) {
 					lastSnapshot = snapshot;
 					syncVisibility();
@@ -102,8 +102,8 @@ export function useMultiStep({formRef, stepIds}: UseMultiStepOptions): UseMultiS
 			form.removeEventListener('input', syncVisibility);
 			form.removeEventListener('change', syncVisibility);
 			form.removeEventListener('reset', handleReset);
-			if (datalayerWatcher !== null) {
-				window.clearInterval(datalayerWatcher);
+			if (jsVariableWatcher !== null) {
+				window.clearInterval(jsVariableWatcher);
 			}
 
 			if (resetVisibilityTimeoutRef.current !== null) {
