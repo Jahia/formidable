@@ -16,13 +16,21 @@ import java.util.List;
  */
 public record ConditionalLogicRule(
         String logicId,
+        String sourceType,
         String sourceFieldName,
         String sourceFieldType,
+        String datalayerVariable,
         String operator,
         String value,
         List<String> values
 ) {
     private static final Logger log = LoggerFactory.getLogger(ConditionalLogicRule.class);
+
+    public static final String SOURCE_TYPE_DATALAYER = "datalayer";
+
+    public boolean isDatalayer() {
+        return SOURCE_TYPE_DATALAYER.equals(sourceType);
+    }
 
     public static List<ConditionalLogicRule> parse(Value[] jcrValues) {
         List<ConditionalLogicRule> rules = new ArrayList<>();
@@ -46,16 +54,25 @@ public record ConditionalLogicRule(
         }
 
         JSONObject obj = new JSONObject(json);
+        String sourceType = obj.optString("sourceType", "");
         String sourceFieldName = obj.optString("sourceFieldName", "");
+        String datalayerVariable = obj.optString("datalayerVariable", "");
         String operator = obj.optString("operator", "");
-        if (sourceFieldName.isEmpty() || operator.isEmpty()) {
+        if (operator.isEmpty()) {
+            return null;
+        }
+
+        boolean datalayer = SOURCE_TYPE_DATALAYER.equals(sourceType);
+        if (datalayer ? datalayerVariable.isBlank() : sourceFieldName.isEmpty()) {
             return null;
         }
 
         return new ConditionalLogicRule(
                 obj.optString("logicId", ""),
+                sourceType,
                 sourceFieldName,
                 obj.optString("sourceFieldType", ""),
+                datalayerVariable,
                 operator,
                 obj.has("value") ? obj.optString("value", null) : null,
                 parseValues(obj)

@@ -5,17 +5,21 @@ import {useTranslation} from 'react-i18next';
 import {
     buildLogicIdToSourceMap,
     buildSourceFieldOptions,
+    DATALAYER_OPERATORS,
+    datalayerOperatorNeedsValue,
     extractCurrentNodePath,
     extractLanguage,
     extractWorkspace,
     findFormPath,
     getOperatorsForSource,
+    normalizeStoredDatalayerRule,
     normalizeStoredRule,
     parseRule,
+    sanitizeDatalayerOperator,
     sanitizeOperator
 } from './ConditionalLogic.utils';
 import {CURRENT_NODE_BY_PATH, FORM_TREE_BY_PATH} from './graphql';
-import type {ConditionalLogicRule, GraphNode, LogicOperator, SelectorProps, SourceFieldOption} from './ConditionalLogic.types';
+import type {ConditionalLogicRule, GraphNode, LogicOperator, RuleSourceType, SelectorProps, SourceFieldOption} from './ConditionalLogic.types';
 
 
 
@@ -325,86 +329,193 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         && selectedSource.type !== 'fmdb:inputDate'
         && !(selectedSource.type === 'fmdb:checkbox' && selectedSource.choiceValues.length <= 1);
 
+    const ruleSourceType: RuleSourceType = rule.sourceType === 'datalayer' ? 'datalayer' : 'field';
+    const datalayerOperator = sanitizeDatalayerOperator(rule.operator);
+
+    const handleSourceTypeChange = (_event: React.MouseEvent, item: {value?: string}) => {
+        const nextType = (item.value ?? 'field') as RuleSourceType;
+        if (nextType === ruleSourceType) {
+            return;
+        }
+
+        if (nextType === 'datalayer') {
+            onChange(JSON.stringify(normalizeStoredDatalayerRule({
+                ...rule,
+                logicId: rule.logicId || generateLogicId(),
+                datalayerVariable: '',
+                operator: DATALAYER_OPERATORS[0],
+                value: ''
+            })));
+            return;
+        }
+
+        onChange(JSON.stringify(parseRule(undefined)));
+    };
+
+    const updateDatalayerRule = (patch: Partial<ConditionalLogicRule>) => {
+        onChange(JSON.stringify(normalizeStoredDatalayerRule({
+            ...rule,
+            logicId: rule.logicId || generateLogicId(),
+            operator: datalayerOperator,
+            ...patch
+        })));
+    };
+
+    const sourceTypeOptions = [
+        {label: t('conditionalLogic.sourceTypes.field'), value: 'field'},
+        {label: t('conditionalLogic.sourceTypes.datalayer'), value: 'datalayer'}
+    ];
+    const datalayerOperatorOptions = DATALAYER_OPERATORS.map(operator => ({
+        label: t(`conditionalLogic.operators.${operator}`),
+        value: operator
+    }));
+
     if (loading) {
         return <Loader size="small"/>;
     }
 
-    if (error) {
-        return <Typography variant="body" style={{color: 'var(--color-danger)'}}>{error}</Typography>;
-    }
+    const renderFieldRule = () => {
+        if (error) {
+            return (
+                <div className="flexFluid">
+                    <Typography variant="body" style={{color: 'var(--color-danger)'}}>{error}</Typography>
+                </div>
+            );
+        }
 
-    if (sources.length === 0) {
-        return (
-            <Typography variant="body" style={{color: 'var(--color-gray)'}}>
-                {t('conditionalLogic.noSources')}
-            </Typography>
-        );
-    }
+        if (sources.length === 0) {
+            return (
+                <div className="flexFluid">
+                    <Typography variant="body" style={{color: 'var(--color-gray)'}}>
+                        {t('conditionalLogic.noSources')}
+                    </Typography>
+                </div>
+            );
+        }
 
-    if (availableSources.length === 0) {
+        if (availableSources.length === 0) {
+            return (
+                <div className="flexFluid">
+                    <Typography variant="body" style={{color: 'var(--color-gray)'}}>
+                        {t('conditionalLogic.allSourcesUsed')}
+                    </Typography>
+                </div>
+            );
+        }
+
         return (
-            <Typography variant="body" style={{color: 'var(--color-gray)'}}>
-                {t('conditionalLogic.allSourcesUsed')}
-            </Typography>
+            <>
+                <div className="flexFluid">
+                    <Dropdown
+                        data={sourceOptions}
+                        value={selectedSource?.id}
+                        placeholder={t('conditionalLogic.selectSource')}
+                        isDisabled={field.readOnly}
+                        onChange={handleSourceChange}
+                    />
+                </div>
+                <div className="flexFluid">
+                    <Dropdown
+                        data={operatorOptions}
+                        value={selectedOperator}
+                        placeholder={t('conditionalLogic.operator')}
+                        isDisabled={field.readOnly || !selectedSource}
+                        onChange={handleOperatorChange}
+                    />
+                </div>
+
+                {showValueDropdown && (
+                    <div className="flexFluid">
+                        <Dropdown
+                            data={valueOptions}
+                            values={rule.values ?? []}
+                            placeholder={t('conditionalLogic.values')}
+                            isDisabled={field.readOnly}
+                            onChange={handleValuesChange}
+                        />
+                    </div>
+                )}
+
+                {!showValueDropdown && selectedSource?.type !== 'fmdb:inputDate' && (
+                    <div className="flexFluid"/>
+                )}
+
+                {selectedSource?.type === 'fmdb:inputDate' && (
+                    <div className="flexFluid">
+                        <DateValueFields
+                            id={id}
+                            readOnly={field.readOnly}
+                            operator={selectedOperator}
+                            rule={rule}
+                            onChange={patch => updateRule({
+                                ...rule,
+                                logicId: rule.logicId || generateLogicId(),
+                                sourceNodeId: selectedSource.id,
+                                sourceFieldName: selectedSource.name,
+                                sourceFieldType: selectedSource.type,
+                                operator: selectedOperator,
+                                ...patch
+                            })}
+                        />
+                    </div>
+                )}
+            </>
         );
-    }
+    };
+
+    const renderDatalayerRule = () => (
+        <>
+            <div className="flexFluid">
+                <Input
+                    id={`${id}-datalayer-variable`}
+                    isReadOnly={field.readOnly}
+                    placeholder={t('conditionalLogic.datalayerVariablePlaceholder')}
+                    value={rule.datalayerVariable ?? ''}
+                    size="big"
+                    onChange={event => updateDatalayerRule({datalayerVariable: event.target.value})}
+                />
+            </div>
+            <div className="flexFluid">
+                <Dropdown
+                    data={datalayerOperatorOptions}
+                    value={datalayerOperator}
+                    placeholder={t('conditionalLogic.operator')}
+                    isDisabled={field.readOnly}
+                    onChange={(_event, item) => {
+                        if (item.value) {
+                            updateDatalayerRule({operator: item.value as LogicOperator});
+                        }
+                    }}
+                />
+            </div>
+            {datalayerOperatorNeedsValue(datalayerOperator) ? (
+                <div className="flexFluid">
+                    <Input
+                        id={`${id}-datalayer-value`}
+                        isReadOnly={field.readOnly}
+                        placeholder={t('conditionalLogic.value')}
+                        value={rule.value ?? ''}
+                        size="big"
+                        onChange={event => updateDatalayerRule({value: event.target.value})}
+                    />
+                </div>
+            ) : (
+                <div className="flexFluid"/>
+            )}
+        </>
+    );
 
     return (
         <div className="flexRow_nowrap flexFluid alignCenter" style={{gap: '0.75rem'}}>
-            <div className="flexFluid">
+            <div style={{minWidth: '10rem'}}>
                 <Dropdown
-                    data={sourceOptions}
-                    value={selectedSource?.id}
-                    placeholder={t('conditionalLogic.selectSource')}
+                    data={sourceTypeOptions}
+                    value={ruleSourceType}
                     isDisabled={field.readOnly}
-                    onChange={handleSourceChange}
+                    onChange={handleSourceTypeChange}
                 />
             </div>
-            <div className="flexFluid">
-                <Dropdown
-                    data={operatorOptions}
-                    value={selectedOperator}
-                    placeholder={t('conditionalLogic.operator')}
-                    isDisabled={field.readOnly || !selectedSource}
-                    onChange={handleOperatorChange}
-                />
-            </div>
-
-            {showValueDropdown && (
-                <div className="flexFluid">
-                    <Dropdown
-                        data={valueOptions}
-                        values={rule.values ?? []}
-                        placeholder={t('conditionalLogic.values')}
-                        isDisabled={field.readOnly}
-                        onChange={handleValuesChange}
-                    />
-                </div>
-            )}
-
-            {!showValueDropdown && selectedSource?.type !== 'fmdb:inputDate' && (
-                <div className="flexFluid"/>
-            )}
-
-            {selectedSource?.type === 'fmdb:inputDate' && (
-                <div className="flexFluid">
-                    <DateValueFields
-                        id={id}
-                        readOnly={field.readOnly}
-                        operator={selectedOperator}
-                        rule={rule}
-                        onChange={patch => updateRule({
-                            ...rule,
-                            logicId: rule.logicId || generateLogicId(),
-                            sourceNodeId: selectedSource.id,
-                            sourceFieldName: selectedSource.name,
-                            sourceFieldType: selectedSource.type,
-                            operator: selectedOperator,
-                            ...patch
-                        })}
-                    />
-                </div>
-            )}
+            {ruleSourceType === 'field' ? renderFieldRule() : renderDatalayerRule()}
         </div>
     );
 };
