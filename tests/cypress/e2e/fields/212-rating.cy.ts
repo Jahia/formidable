@@ -51,10 +51,13 @@ describe('Form fields - 212 Rating (extended-inputs)', () => {
 			const form = visitLiveForm(livePath);
 
 			form.get().find('input[name="stars7"]').should('have.length', 7);
-			// Number mode prints the value inside the visible chip label.
+			// Number mode prints the value inside the visible chip label; DOM order is
+			// natural 1..max so keyboard arrows follow the visual direction.
 			form.get().find('input[name="stars7"][value="7"]').should('exist');
 			form.get().find('fieldset.fmdbext-rating').first()
-				.find('.fmdbext-rating-label').first().should('contain.text', '7');
+				.find('.fmdbext-rating-label').first().should('contain.text', '1');
+			form.get().find('fieldset.fmdbext-rating').first()
+				.find('.fmdbext-rating-label').last().should('contain.text', '7');
 
 			// maxValue is clamped to the 10-item ceiling.
 			form.get().find('input[name="starsMax"]').should('have.length', 10);

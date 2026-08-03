@@ -1,7 +1,9 @@
-/* Rating field — pure CSS fill-up effect, themeable via custom properties */
+/* Rating field — pure CSS fill-up effect, themeable via custom properties.
+   DOM and visual order are both 1..max (keyboard arrows follow the visual
+   direction); the fill-up selects the checked item and its preceding siblings
+   via :has(~ :checked). */
 .fmdbext-rating-items {
   display: inline-flex;
-  flex-direction: row-reverse; /* DOM is max..1, visual order becomes 1..max */
   gap: var(--fmdbext-rating-gap, 0.25rem);
 }
 
@@ -40,10 +42,9 @@
   filter: grayscale(1) opacity(0.45);
 }
 
-/* Fill the selected icon and everything before it (following siblings in reversed DOM) */
+/* Fill the selected icon and everything before it (preceding siblings) */
 .fmdbext-rating-item:has(.fmdbext-rating-input:checked) .fmdbext-rating-label,
-.fmdbext-rating-item:has(.fmdbext-rating-input:checked)
-  ~ .fmdbext-rating-item
+.fmdbext-rating-item:has(~ .fmdbext-rating-item .fmdbext-rating-input:checked)
   .fmdbext-rating-label {
   color: var(--fmdbext-rating-on, #f5a623);
 }
@@ -52,8 +53,7 @@
   .fmdbext-rating-item:has(.fmdbext-rating-input:checked)
   .fmdbext-rating-label::before,
 .fmdbext-rating-items[data-fmdbext-icon="thumb"]
-  .fmdbext-rating-item:has(.fmdbext-rating-input:checked)
-  ~ .fmdbext-rating-item
+  .fmdbext-rating-item:has(~ .fmdbext-rating-item .fmdbext-rating-input:checked)
   .fmdbext-rating-label::before {
   filter: none;
 }
@@ -64,7 +64,7 @@
 }
 
 .fmdbext-rating-item:hover .fmdbext-rating-label,
-.fmdbext-rating-item:hover ~ .fmdbext-rating-item .fmdbext-rating-label {
+.fmdbext-rating-item:has(~ .fmdbext-rating-item:hover) .fmdbext-rating-label {
   color: var(--fmdbext-rating-on, #f5a623);
 }
 
@@ -85,8 +85,7 @@
   .fmdbext-rating-item:has(.fmdbext-rating-input:checked)
   .fmdbext-rating-label,
 .fmdbext-rating-items[data-fmdbext-icon="number"]
-  .fmdbext-rating-item:has(.fmdbext-rating-input:checked)
-  ~ .fmdbext-rating-item
+  .fmdbext-rating-item:has(~ .fmdbext-rating-item .fmdbext-rating-input:checked)
   .fmdbext-rating-label {
   background: var(--fmdbext-chip-on-bg, #f5a623);
   border-color: var(--fmdbext-chip-on-bg, #f5a623);

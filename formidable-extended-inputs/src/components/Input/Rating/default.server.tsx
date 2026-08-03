@@ -44,9 +44,9 @@ jahiaComponent(
     const helpId = helpText ? helpTextId(nodeId) : undefined;
 
     const max = Math.min(Math.max(Number(maxValue) || 5, 2), MAX_ITEMS);
-    // DOM order is max..1: combined with row-reverse this lets pure CSS
-    // (input:checked ~ label) fill every icon up to the selected one.
-    const values = Array.from({ length: max }, (_, i) => max - i);
+    // Natural 1..max DOM order so keyboard arrows follow the visual direction;
+    // the CSS fill-up effect selects preceding siblings with :has(~ :checked).
+    const values = Array.from({ length: max }, (_, i) => i + 1);
 
     return (
       <>
