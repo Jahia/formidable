@@ -6,6 +6,7 @@ import {FORMIDABLE_TEST_SITE} from './fixtures'
 export const FORMIDABLE_MODULE_IDS = [
 	'formidable-elements',
 	'formidable-engine',
+	'formidable-extended-inputs',
 	'formidable-test-module-samples-java'
 ] as const
 

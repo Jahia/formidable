@@ -93,7 +93,8 @@ export class ConditionalLogicField extends BaseComponent {
 
 	menuShouldHaveItems(labels: string[]): this {
 		for (const label of labels) {
-			cy.get(ConditionalLogicField.menuSelector).contains('.moonstone-menuItem', label).scrollIntoView().should('be.visible');
+			cy.get(ConditionalLogicField.menuSelector).contains('.moonstone-menuItem', label).scrollIntoView();
+			cy.get(ConditionalLogicField.menuSelector).contains('.moonstone-menuItem', label).should('be.visible');
 		}
 
 		return this;
@@ -159,6 +160,17 @@ export class ConditionalLogicField extends BaseComponent {
 
 	ruleShouldHaveDateInputCount(ruleIndex: number, count: number): this {
 		this.getRule(ruleIndex).get().find('input[type="date"]').should('have.length', count);
+		return this;
+	}
+
+	ruleShouldHaveNumberInputCount(ruleIndex: number, count: number): this {
+		this.getRule(ruleIndex).get().find('input[type="number"]').should('have.length', count);
+		return this;
+	}
+
+	typeNumberValue(ruleIndex: number, value: string): this {
+		this.getRule(ruleIndex).get().find('input[type="number"]').first().clear();
+		this.getRule(ruleIndex).get().find('input[type="number"]').first().type(value);
 		return this;
 	}
 

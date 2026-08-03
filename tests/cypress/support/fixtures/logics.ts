@@ -62,6 +62,7 @@ export interface ConditionalLogicRule {
 	sourceNodeId: string;
 	sourceFieldName: string;
 	sourceFieldType: string;
+	valueKind?: string;
 	operator: string;
 	value?: string;
 	values?: string[];
@@ -222,6 +223,49 @@ export const createConditionalLogicForm = (suffix: string): Cypress.Chainable<Co
 		formName,
 		formPath: `${CONTENT_PATH}/${formName}`,
 		rolePath: `${CONTENT_PATH}/${formName}/fields/role`,
+		targetPath: `${CONTENT_PATH}/${formName}/fields/nickname`
+	}));
+};
+
+export interface MixinSourcesConditionalLogicFormInfo {
+	formName: string;
+	formPath: string;
+	ratingPath: string;
+	switchPath: string;
+	targetPath: string;
+}
+
+// Add-on fields from formidable-extended-inputs: they become logic sources purely
+// by carrying fmdbmix:numberField / fmdbmix:booleanField in their CND, which is
+// exactly what this fixture exercises.
+const MIXIN_SOURCES_FORM_ELEMENTS: JahiaNode[] = [
+	{
+		name: 'satisfaction',
+		primaryNodeType: 'fmdbext:rating',
+		properties: [{name: 'jcr:title', value: 'satisfaction', language: 'en'}]
+	},
+	{
+		name: 'newsletter',
+		primaryNodeType: 'fmdbext:switch',
+		properties: [{name: 'jcr:title', value: 'newsletter', language: 'en'}]
+	},
+	getInputTextNode({
+		name: 'nickname',
+		title: 'nickname',
+		placeholder: 'nickname'
+	})
+];
+
+export const createMixinSourcesConditionalLogicForm = (
+	suffix: string
+): Cypress.Chainable<MixinSourcesConditionalLogicFormInfo> => {
+	const formName = `conditional-logic-mixin-${suffix}`;
+
+	return createFormNode(formName, formName, MIXIN_SOURCES_FORM_ELEMENTS).then(() => ({
+		formName,
+		formPath: `${CONTENT_PATH}/${formName}`,
+		ratingPath: `${CONTENT_PATH}/${formName}/fields/satisfaction`,
+		switchPath: `${CONTENT_PATH}/${formName}/fields/newsletter`,
 		targetPath: `${CONTENT_PATH}/${formName}/fields/nickname`
 	}));
 };
