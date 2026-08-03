@@ -7,11 +7,12 @@ jahiaComponent(
     nodeType: "fmdbext:scale",
     name: "default",
   },
-  (props: ScaleProps, { currentNode }) => (
+  (props: ScaleProps, { currentNode, renderContext }) => (
     <ScaleField
       props={props}
       inputName={currentNode.getName()}
       nodeId={currentNode.getIdentifier()}
+      editMode={renderContext.isEditMode()}
     />
   ),
 );

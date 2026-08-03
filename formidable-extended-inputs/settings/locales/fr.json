@@ -1,9 +1,19 @@
 {
+  "fmdbext_rating": {
+    "configClamped": "Notation : maxValue {{configured}} sort de la plage supportée 2-{{max}} et sera rendu avec {{effective}} icônes."
+  },
   "fmdbext_scale": {
     "npsMinLabel": "Pas du tout probable",
-    "npsMaxLabel": "Extrêmement probable"
+    "npsMaxLabel": "Extrêmement probable",
+    "configTruncated": "Échelle : la configuration min/max/step produit plus de {{max}} valeurs ; l'échelle est tronquée.",
+    "configMaxUnreachable": "Échelle : maxValue {{configured}} est sauté par le pas {{step}} ; la dernière valeur sélectionnable est {{effective}}."
+  },
+  "fmdbext_switch": {
+    "defaultOnLabel": "Oui",
+    "defaultOffLabel": "Non"
   },
   "fmdbext_consent": {
-    "defaultTermsLinkLabel": "Lire les conditions complètes"
+    "defaultTermsLinkLabel": "Lire les conditions complètes",
+    "termsTargetUnresolved": "Consentement : la cible des conditions ne peut pas être résolue (non publiée ou non visible des visiteurs) ; le lien ne sera pas affiché."
   }
 }

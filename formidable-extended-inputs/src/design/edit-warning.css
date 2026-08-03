@@ -1,0 +1,11 @@
+/* Contributor-facing configuration warnings, rendered in edit mode only */
+.fmdbext-edit-warning {
+  display: block;
+  margin-top: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+  color: var(--fmdbext-warning-fg, #7a4d05);
+  background: var(--fmdbext-warning-bg, #fff3d6);
+  border: 1px solid var(--fmdbext-warning-border, #f0c36d);
+  border-radius: 3px;
+}

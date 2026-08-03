@@ -87,6 +87,7 @@ export function getConsentNode(data: ConsentData): JahiaNode {
 		{name: 'statement', value: data.statement, language: 'en'}
 	];
 	if (data.title) properties.push({name: 'jcr:title', value: data.title, language: 'en'});
+	if (data.helpText) properties.push({name: 'helpText', value: data.helpText, language: 'en'});
 	if (data.termsTargetUuid) properties.push({name: 'termsTarget', value: data.termsTargetUuid, type: 'WEAKREFERENCE'});
 	if (data.termsLinkLabel) properties.push({name: 'termsLinkLabel', value: data.termsLinkLabel, language: 'en'});
 	if (data.required !== undefined) properties.push({name: 'required', value: String(data.required), type: 'BOOLEAN'});

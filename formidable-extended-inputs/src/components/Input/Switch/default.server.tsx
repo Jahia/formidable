@@ -3,6 +3,7 @@ import {
   buildModuleFileUrl,
   jahiaComponent,
 } from "@jahia/javascript-modules-library";
+import { useTranslation } from "react-i18next";
 import { type BaseValidationMessageProps, validationDataAttributes } from "~/utils/validationProps";
 import HelpText, { helpTextId } from "~/design/HelpText";
 import "./switch.css";
@@ -28,18 +29,24 @@ jahiaComponent(
       "jcr:title": label,
       helpText,
       displayMode = "toggle",
-      onLabel = "Yes",
-      offLabel = "No",
+      onLabel,
+      offLabel,
       defaultState,
       required,
       ...validationMsgs
     }: SwitchProps,
     { currentNode },
   ) => {
+    const { t } = useTranslation("formidable-extended-inputs", { keyPrefix: "fmdbext_switch" });
     const inputName = currentNode.getName();
     const nodeId = currentNode.getIdentifier();
     const vAttrs = validationDataAttributes(validationMsgs);
     const helpId = helpText ? helpTextId(nodeId) : undefined;
+    // The CND autocreates onLabel/offLabel from the resource bundle, but an i18n
+    // property can still be empty in a given language — fall back to the current
+    // locale's bundle value rather than a hardcoded English string.
+    const onText = onLabel || t("defaultOnLabel");
+    const offText = offLabel || t("defaultOffLabel");
 
     if (displayMode === "buttons") {
       const onId = `switch-${nodeId}-on`;
@@ -72,7 +79,7 @@ jahiaComponent(
                   {...vAttrs}
                 />
                 <label htmlFor={onId} className="fmdbext-switch-button-label">
-                  {onLabel}
+                  {onText}
                 </label>
               </span>
               {/* Never precheck OFF: a stored defaultState=false (any editor save writes it)
@@ -89,7 +96,7 @@ jahiaComponent(
                   {...vAttrs}
                 />
                 <label htmlFor={offId} className="fmdbext-switch-button-label">
-                  {offLabel}
+                  {offText}
                 </label>
               </span>
             </div>
@@ -126,8 +133,8 @@ jahiaComponent(
                 )}
               </span>
               <span className="fmdbext-switch-state" aria-hidden="true">
-                <span className="fmdbext-switch-state-on">{onLabel}</span>
-                <span className="fmdbext-switch-state-off">{offLabel}</span>
+                <span className="fmdbext-switch-state-on">{onText}</span>
+                <span className="fmdbext-switch-state-off">{offText}</span>
               </span>
             </label>
           </span>

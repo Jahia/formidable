@@ -7,6 +7,7 @@
 // e.g. to reveal fields only once consent is given.
 [fmdbext:consent] > jnt:content, fmdbmix:element, fmdbmix:booleanField, fmdbmix:validationMessages
  - statement (string, richtext) i18n indexed=no mandatory
+ - helpText (string, richtext[ckeditor.toolbar='FormidableHelp',ckeditor.customConfig='$context/modules/formidable-engine/javascript/ckeditor/helpTextConfig.js']) i18n indexed=no
  - termsTarget (weakreference) indexed=no < 'jnt:page', 'jnt:file'
  - termsLinkLabel (string) i18n indexed=no
  - required (boolean) = true autocreated

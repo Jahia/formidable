@@ -1,6 +1,8 @@
 import { AddResources, buildModuleFileUrl } from "@jahia/javascript-modules-library";
+import { useTranslation } from "react-i18next";
 import { validationDataAttributes, type BaseValidationMessageProps } from "~/utils/validationProps";
 import HelpText, { helpTextId } from "~/design/HelpText";
+import "~/design/edit-warning.css";
 import "./scale.css";
 
 export interface ScaleProps extends BaseValidationMessageProps {
@@ -18,6 +20,8 @@ export interface ScaleRenderInput {
   props: ScaleProps;
   inputName: string;
   nodeId: string;
+  // True when rendering in edit mode: configuration warnings are shown to the contributor
+  editMode?: boolean;
   // Set by the nps view to force the standard NPS presentation
   forced?: {
     min: number;
@@ -30,7 +34,8 @@ export interface ScaleRenderInput {
 
 const MAX_ITEMS = 21;
 
-export default function ScaleField({ props, inputName, nodeId, forced }: ScaleRenderInput) {
+export default function ScaleField({ props, inputName, nodeId, editMode, forced }: ScaleRenderInput) {
+  const { t } = useTranslation("formidable-extended-inputs", { keyPrefix: "fmdbext_scale" });
   const { "jcr:title": label, helpText, minLabel, maxLabel, required, ...rest } = props;
   const { minValue, maxValue, step, ...validationMsgs } = rest;
   const vAttrs = validationDataAttributes(validationMsgs);
@@ -44,6 +49,17 @@ export default function ScaleField({ props, inputName, nodeId, forced }: ScaleRe
   const values: number[] = [];
   for (let v = min; v <= max && values.length < MAX_ITEMS; v += inc) {
     values.push(v);
+  }
+
+  // Both adjustments are silent for visitors; tell the contributor in edit mode.
+  const lastValue = values[values.length - 1];
+  const configWarnings: string[] = [];
+  if (editMode && !forced) {
+    if (lastValue + inc <= max) {
+      configWarnings.push(t("configTruncated", { max: MAX_ITEMS }));
+    } else if (lastValue !== max) {
+      configWarnings.push(t("configMaxUnreachable", { configured: max, step: inc, effective: lastValue }));
+    }
   }
 
   const startLabel = minLabel || forced?.defaultMinLabel;
@@ -91,6 +107,11 @@ export default function ScaleField({ props, inputName, nodeId, forced }: ScaleRe
             <span>{endLabel}</span>
           </div>
         )}
+        {configWarnings.map((warning) => (
+          <span key={warning} className="fmdbext-edit-warning">
+            {warning}
+          </span>
+        ))}
       </fieldset>
     </>
   );

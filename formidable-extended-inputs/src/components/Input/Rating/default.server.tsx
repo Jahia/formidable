@@ -3,8 +3,10 @@ import {
   buildModuleFileUrl,
   jahiaComponent,
 } from "@jahia/javascript-modules-library";
+import { useTranslation } from "react-i18next";
 import { type BaseValidationMessageProps, validationDataAttributes } from "~/utils/validationProps";
 import HelpText, { helpTextId } from "~/design/HelpText";
+import "~/design/edit-warning.css";
 import "./rating.css";
 
 interface RatingProps extends BaseValidationMessageProps {
@@ -36,14 +38,20 @@ jahiaComponent(
       required,
       ...validationMsgs
     }: RatingProps,
-    { currentNode },
+    { currentNode, renderContext },
   ) => {
+    const { t } = useTranslation("formidable-extended-inputs", { keyPrefix: "fmdbext_rating" });
     const inputName = currentNode.getName();
     const nodeId = currentNode.getIdentifier();
     const vAttrs = validationDataAttributes(validationMsgs);
     const helpId = helpText ? helpTextId(nodeId) : undefined;
 
-    const max = Math.min(Math.max(Number(maxValue) || 5, 2), MAX_ITEMS);
+    const configuredMax = Number(maxValue) || 5;
+    const max = Math.min(Math.max(configuredMax, 2), MAX_ITEMS);
+    // The clamp is silent for visitors; tell the contributor in edit mode.
+    const clampWarning = renderContext.isEditMode() && configuredMax !== max
+      ? t("configClamped", { configured: configuredMax, max: MAX_ITEMS, effective: max })
+      : undefined;
     // Natural 1..max DOM order so keyboard arrows follow the visual direction;
     // the CSS fill-up effect selects preceding siblings with :has(~ :checked).
     const values = Array.from({ length: max }, (_, i) => i + 1);
@@ -91,6 +99,7 @@ jahiaComponent(
               <span>{maxLabel}</span>
             </div>
           )}
+          {clampWarning && <span className="fmdbext-edit-warning">{clampWarning}</span>}
         </fieldset>
       </>
     );

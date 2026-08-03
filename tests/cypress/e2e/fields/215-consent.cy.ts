@@ -21,7 +21,8 @@ describe('Form fields - 215 Consent (extended-inputs)', () => {
 			'Consent Basic Form',
 			[getConsentNode({
 				name: 'gdpr',
-				statement: '<p>I accept the <strong>terms of service</strong></p>'
+				statement: '<p>I accept the <strong>terms of service</strong></p>',
+				helpText: '<p>Why we ask for consent</p>'
 			})]
 		).then(({livePath}) => {
 			const form = visitLiveForm(livePath);
@@ -38,6 +39,10 @@ describe('Form fields - 215 Consent (extended-inputs)', () => {
 			// The statement is contributor-authored rich text, rendered as HTML.
 			cy.get('@consent').find('.fmdbext-consent-statement strong')
 				.should('contain.text', 'terms of service');
+
+			// Consent supports help text like the other fields, linked via aria-describedby.
+			cy.get('@consent').find('.fmdb-form-help').should('contain.text', 'Why we ask for consent');
+			cy.get('@consent').find('input[name="gdpr"]').should('have.attr', 'aria-describedby');
 
 			cy.get('@consent').find('input[name="gdpr"]').check({force: true});
 			cy.get('@consent').find('input[name="gdpr"]').should('be.checked');

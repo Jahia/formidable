@@ -6,11 +6,14 @@ import {
 } from "@jahia/javascript-modules-library";
 import { useTranslation } from "react-i18next";
 import { type BaseValidationMessageProps, validationDataAttributes } from "~/utils/validationProps";
+import HelpText, { helpTextId } from "~/design/HelpText";
+import "~/design/edit-warning.css";
 import "./consent.css";
 
 interface ConsentProps extends BaseValidationMessageProps {
   "jcr:title"?: string;
   "statement"?: string;
+  "helpText"?: string;
   "termsTarget"?: Parameters<typeof buildNodeUrl>[0];
   "termsLinkLabel"?: string;
   "required"?: boolean;
@@ -23,14 +26,20 @@ jahiaComponent(
     name: "default",
   },
   (
-    { statement, termsTarget, termsLinkLabel, required, ...validationMsgs }: ConsentProps,
-    { currentNode },
+    { statement, helpText, termsTarget, termsLinkLabel, required, ...validationMsgs }: ConsentProps,
+    { currentNode, renderContext },
   ) => {
     const { t } = useTranslation("formidable-extended-inputs", { keyPrefix: "fmdbext_consent" });
     const inputName = currentNode.getName();
     const nodeId = currentNode.getIdentifier();
     const inputId = `consent-${nodeId}`;
     const vAttrs = validationDataAttributes(validationMsgs);
+    const helpId = helpText ? helpTextId(nodeId) : undefined;
+    // The property is set but its target is not resolvable in this workspace
+    // (unpublished or not visible): the link is silently dropped for visitors,
+    // so surface it to the contributor in edit mode.
+    const termsTargetBroken =
+      !termsTarget && renderContext.isEditMode() && currentNode.hasProperty("termsTarget");
 
     return (
       <>
@@ -43,6 +52,7 @@ jahiaComponent(
             className="fmdb-form-control fmdbext-consent-input"
             value="true"
             required={required}
+            aria-describedby={helpId}
             {...vAttrs}
           />
           <label htmlFor={inputId} className="fmdbext-consent-label">
@@ -59,6 +69,7 @@ jahiaComponent(
               </span>
             )}
           </label>
+          <HelpText id={helpId} text={helpText} />
           {termsTarget && (
             <a
               className="fmdbext-consent-terms-link"
@@ -68,6 +79,9 @@ jahiaComponent(
             >
               {termsLinkLabel || t("defaultTermsLinkLabel")}
             </a>
+          )}
+          {termsTargetBroken && (
+            <span className="fmdbext-edit-warning">{t("termsTargetUnresolved")}</span>
           )}
         </div>
       </>

@@ -27,3 +27,9 @@
   margin-left: 1.5rem;
   font-size: 0.9rem;
 }
+
+.fmdbext-consent .fmdb-form-help,
+.fmdbext-consent .fmdbext-edit-warning {
+  flex-basis: 100%;
+  margin-left: 1.5rem;
+}
