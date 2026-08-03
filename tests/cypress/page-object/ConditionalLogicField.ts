@@ -10,6 +10,13 @@ export class ConditionalLogicField extends BaseComponent {
 	private static readonly menuSelector = '.moonstone-menu:not(.moonstone-hidden)';
 	private static readonly menuOverlaySelector = '.moonstone-menu_overlay';
 
+	// Dropdown order within a "Field value" rule row: the leading dropdown picks
+	// the source type (Field value / Datalayer value), then source, operator, value.
+	static readonly sourceTypeDropdownIndex = 0;
+	static readonly sourceDropdownIndex = 1;
+	static readonly operatorDropdownIndex = 2;
+	static readonly valueDropdownIndex = 3;
+
 	private getAddRuleButton(): Cypress.Chainable<JQuery<HTMLElement>> {
 		return this.get().find('button[data-sel-action="addField"]', {timeout: 15000});
 	}
@@ -108,20 +115,38 @@ export class ConditionalLogicField extends BaseComponent {
 		return this;
 	}
 
+	openSourceTypeDropdown(ruleIndex: number): this {
+		return this.openDropdown(ruleIndex, ConditionalLogicField.sourceTypeDropdownIndex);
+	}
+
+	openSourceDropdown(ruleIndex: number): this {
+		return this.openDropdown(ruleIndex, ConditionalLogicField.sourceDropdownIndex);
+	}
+
+	openOperatorDropdown(ruleIndex: number): this {
+		return this.openDropdown(ruleIndex, ConditionalLogicField.operatorDropdownIndex);
+	}
+
+	selectSourceType(ruleIndex: number, label: string): this {
+		this.openSourceTypeDropdown(ruleIndex);
+		this.selectMenuItem(label);
+		return this;
+	}
+
 	selectSource(ruleIndex: number, label: string): this {
-		this.openDropdown(ruleIndex, 0);
+		this.openSourceDropdown(ruleIndex);
 		this.selectMenuItem(label);
 		return this;
 	}
 
 	selectOperator(ruleIndex: number, label: string): this {
-		this.openDropdown(ruleIndex, 1);
+		this.openOperatorDropdown(ruleIndex);
 		this.selectMenuItem(label);
 		return this;
 	}
 
 	selectValue(ruleIndex: number, label: string): this {
-		this.openDropdown(ruleIndex, 2);
+		this.openDropdown(ruleIndex, ConditionalLogicField.valueDropdownIndex);
 		this.selectMenuItem(label);
 		this.dismissOpenMenu();
 		return this;
