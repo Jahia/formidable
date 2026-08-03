@@ -1,5 +1,12 @@
 export type RuleSourceType = 'field' | 'jsVariable';
 
+/**
+ * Shape of the values a source field produces, which drives the offered operators
+ * and the value widget shown next to them. Declared by the field type through the
+ * engine's semantic mixins (fmdbmix:choiceField, dateField, numberField, booleanField).
+ */
+export type SourceValueKind = 'choice' | 'date' | 'number' | 'boolean';
+
 export type LogicOperator =
     | 'in'
     | 'notIn'
@@ -11,6 +18,14 @@ export type LogicOperator =
     | 'after'
     | 'on'
     | 'between'
+    | 'eq'
+    | 'neq'
+    | 'lt'
+    | 'lte'
+    | 'gt'
+    | 'gte'
+    | 'isTrue'
+    | 'isFalse'
     | 'equals'
     | 'notEquals'
     | 'contains'
@@ -28,6 +43,10 @@ export interface ConditionalLogicRule {
     sourceFieldKey?: string;
     sourceFieldName?: string;
     sourceFieldType?: string;
+    // Denormalized value kind of the source at authoring time; lets the runtime
+    // evaluators pick the right comparison semantics (e.g. numeric vs date
+    // 'between') without knowing the source type. Absent on older rules.
+    valueKind?: SourceValueKind;
     // jsVariable-rule key: dotted window variable path (e.g. a datalayer entry).
     variable?: string;
     operator: LogicOperator;
@@ -90,6 +109,11 @@ export interface GraphNode {
     path: string;
     displayName?: string | null;
     primaryNodeType?: {name?: string | null} | null;
+    // Semantic-mixin flags fetched by FORM_TREE_BY_PATH; drive source eligibility.
+    isChoiceField?: boolean;
+    isDateField?: boolean;
+    isNumberField?: boolean;
+    isBooleanField?: boolean;
     properties?: PropertyValue[] | null;
     ancestors?: GraphAncestorNode[] | null;
     descendants?: {nodes?: GraphNode[] | null} | null;
@@ -117,5 +141,8 @@ export interface SourceFieldOption {
     path: string;
     label: string;
     type: string;
+    // Declared by the field type's semantic mixin; undefined when the type
+    // carries none (the field is then not eligible as a source).
+    valueKind?: SourceValueKind;
     choiceValues: ChoiceValue[];
 }

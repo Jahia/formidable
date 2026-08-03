@@ -10,6 +10,7 @@ import {
     extractWorkspace,
     findFormPath,
     getOperatorsForSource,
+    isScalarValueKind,
     normalizeStoredJsVariableRule,
     normalizeStoredRule,
     parseRule,
@@ -22,14 +23,16 @@ import type {ConditionalLogicRule, GraphNode, LogicOperator, RuleSourceType, Sel
 
 
 
-const DateValueFields = ({
+const ScalarValueFields = ({
     id,
+    inputType,
     readOnly,
     operator,
     rule,
     onChange
 }: {
     id: string;
+    inputType: 'date' | 'number';
     readOnly?: boolean;
     operator: LogicOperator;
     rule: ConditionalLogicRule;
@@ -47,10 +50,10 @@ const DateValueFields = ({
             <div className="flexRow_nowrap" style={{gap: '0.5rem'}}>
                 <div className="flexFluid">
                     <Input
-                        id={`${id}-date-from`}
-                        type="date"
+                        id={`${id}-${inputType}-from`}
+                        type={inputType}
                         isReadOnly={readOnly}
-                        placeholder={t('conditionalLogic.dateFrom')}
+                        placeholder={t('conditionalLogic.valueFrom')}
                         value={values[0]}
                         onChange={event => onChange({values: [event.target.value, values[1]]})}
                         size="big"
@@ -58,10 +61,10 @@ const DateValueFields = ({
                 </div>
                 <div className="flexFluid">
                     <Input
-                        id={`${id}-date-to`}
-                        type="date"
+                        id={`${id}-${inputType}-to`}
+                        type={inputType}
                         isReadOnly={readOnly}
-                        placeholder={t('conditionalLogic.dateTo')}
+                        placeholder={t('conditionalLogic.valueTo')}
                         value={values[1]}
                         onChange={event => onChange({values: [values[0], event.target.value]})}
                         size="big"
@@ -74,8 +77,8 @@ const DateValueFields = ({
     return (
         <div>
             <Input
-                id={`${id}-date-value`}
-                type="date"
+                id={`${id}-${inputType}-value`}
+                type={inputType}
                 isReadOnly={readOnly}
                 placeholder={t('conditionalLogic.value')}
                 value={rule.value ?? ''}
@@ -190,7 +193,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         () => availableSources.find(source => source.id === resolvedSourceNodeId),
         [resolvedSourceNodeId, availableSources]
     );
-    const selectedDescriptor = getSourceDescriptor(selectedSource?.type);
+    const selectedDescriptor = getSourceDescriptor(selectedSource?.type, selectedSource?.valueKind);
     const selectedOperator = sanitizeOperator(selectedSource, rule.operator);
 
     useEffect(() => {
@@ -271,7 +274,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         }
 
         const nextOperator = getOperatorsForSource(nextSource)[0];
-        const nextIsDate = getSourceDescriptor(nextSource.type)?.valueKind === 'date';
+        const nextIsScalar = isScalarValueKind(getSourceDescriptor(nextSource.type, nextSource.valueKind)?.valueKind);
         const logicId = rule.logicId || generateLogicId();
         updateRule({
             logicId,
@@ -279,8 +282,8 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
             sourceFieldName: nextSource.name,
             sourceFieldType: nextSource.type,
             operator: nextOperator,
-            value: nextIsDate ? '' : undefined,
-            values: nextIsDate && nextOperator === 'between' ? ['', ''] : []
+            value: nextIsScalar ? '' : undefined,
+            values: nextIsScalar && nextOperator === 'between' ? ['', ''] : []
         });
     };
 
@@ -290,7 +293,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         }
 
         const operator = item.value as LogicOperator;
-        const isDate = selectedDescriptor?.valueKind === 'date';
+        const isScalar = isScalarValueKind(selectedDescriptor?.valueKind);
         updateRule({
             ...rule,
             logicId: rule.logicId || generateLogicId(),
@@ -298,10 +301,10 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
             sourceFieldName: selectedSource.name,
             sourceFieldType: selectedSource.type,
             operator,
-            value: isDate && operator !== 'between' ? (rule.value ?? '') : undefined,
-            values: isDate && operator === 'between'
+            value: isScalar && operator !== 'between' ? (rule.value ?? '') : undefined,
+            values: isScalar && operator === 'between'
                 ? (rule.values ?? ['', '']).slice(0, 2)
-                : (isDate ? [] : (rule.values ?? []))
+                : (isScalar ? [] : (rule.values ?? []))
         });
     };
 
@@ -453,14 +456,15 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     </div>
                 )}
 
-                {!showValueDropdown && selectedDescriptor?.valueKind !== 'date' && (
+                {!showValueDropdown && !isScalarValueKind(selectedDescriptor?.valueKind) && (
                     <div className="flexFluid"/>
                 )}
 
-                {selectedSource && selectedDescriptor?.valueKind === 'date' && (
+                {selectedSource && isScalarValueKind(selectedDescriptor?.valueKind) && (
                     <div className="flexFluid">
-                        <DateValueFields
+                        <ScalarValueFields
                             id={id}
+                            inputType={selectedDescriptor?.valueKind === 'number' ? 'number' : 'date'}
                             readOnly={field.readOnly}
                             operator={selectedOperator}
                             rule={rule}

@@ -1,5 +1,7 @@
 export type ConditionalLogicSourceType = 'field' | 'jsVariable';
 
+export type ConditionalLogicValueKind = 'choice' | 'date' | 'number' | 'boolean';
+
 export type ConditionalLogicOperator =
 	| 'in'
 	| 'notIn'
@@ -11,6 +13,14 @@ export type ConditionalLogicOperator =
 	| 'after'
 	| 'on'
 	| 'between'
+	| 'eq'
+	| 'neq'
+	| 'lt'
+	| 'lte'
+	| 'gt'
+	| 'gte'
+	| 'isTrue'
+	| 'isFalse'
 	| 'equals'
 	| 'notEquals'
 	| 'contains'
@@ -25,11 +35,16 @@ export interface ConditionalLogicRule {
 	sourceNodeId?: string;
 	// Informative metadata; source eligibility is enforced at authoring time.
 	sourceFieldType?: string;
+	// Value kind of the source at authoring time; picks the comparison semantics
+	// where an operator is shared across kinds ('between': number vs date).
+	valueKind?: ConditionalLogicValueKind;
 	variable?: string;
 	operator: ConditionalLogicOperator;
 	value?: string;
 	values?: string[];
 }
+
+const VALUE_KINDS: ConditionalLogicValueKind[] = ['choice', 'date', 'number', 'boolean'];
 
 const isJsVariableRuleShape = (parsed: Partial<ConditionalLogicRule>): boolean =>
 	parsed.sourceType === 'jsVariable'
@@ -62,6 +77,7 @@ export const parseConditionalLogicRule = (rawValue: string): ConditionalLogicRul
 			sourceFieldName: parsed.sourceFieldName,
 			sourceNodeId: typeof parsed.sourceNodeId === 'string' ? parsed.sourceNodeId : undefined,
 			sourceFieldType: typeof parsed.sourceFieldType === 'string' ? parsed.sourceFieldType : undefined,
+			valueKind: VALUE_KINDS.includes(parsed.valueKind as ConditionalLogicValueKind) ? parsed.valueKind : undefined,
 			operator: parsed.operator as ConditionalLogicOperator,
 			value: typeof parsed.value === 'string' ? parsed.value : undefined,
 			values: Array.isArray(parsed.values) ? parsed.values.filter(value => typeof value === 'string') : undefined
@@ -108,13 +124,53 @@ interface SourceFieldState {
 const NON_VALUE_INPUT_TYPES = new Set(['submit', 'reset', 'button', 'file', 'image']);
 
 /**
+ * Escape hatch for widgets not rendered as native named controls: an element
+ * inside the source wrapper (or the wrapper itself) carrying a
+ * `data-fmdb-logic-value` attribute is read INSTEAD of probing form controls.
+ * The attribute holds the widget's current value — a plain string, or a JSON
+ * array of strings for multi-value widgets. The widget is responsible for
+ * keeping the attribute up to date (logic re-evaluates on form input/change
+ * events, so the widget should also dispatch one after updating it).
+ */
+const readLogicValueOverride = (wrapper: HTMLElement): string[] | null => {
+	const host = wrapper.hasAttribute('data-fmdb-logic-value')
+		? wrapper
+		: wrapper.querySelector<HTMLElement>('[data-fmdb-logic-value]');
+	if (!host) {
+		return null;
+	}
+
+	const raw = host.getAttribute('data-fmdb-logic-value') ?? '';
+	if (raw.startsWith('[')) {
+		try {
+			const parsed = JSON.parse(raw) as unknown;
+			if (Array.isArray(parsed)) {
+				return parsed.filter((entry): entry is string => typeof entry === 'string');
+			}
+		} catch {
+			// Fall through: treat the raw attribute as a single scalar value.
+		}
+	}
+
+	return raw === '' ? [] : [raw];
+};
+
+/**
  * Reads the current value(s) of a source field from its wrapper, whatever its widget:
  * every named form control inside the wrapper contributes its value — selected options
  * for selects, checked values for checkables (radio/checkbox), the raw value otherwise.
  * Any field rendered with native named controls is therefore readable without
- * field-type-specific code.
+ * field-type-specific code; others can expose `data-fmdb-logic-value`.
  */
 const getSourceFieldState = (wrapper: HTMLElement): SourceFieldState => {
+	const override = readLogicValueOverride(wrapper);
+	if (override !== null) {
+		return {
+			values: override,
+			checked: override.length === 1 && override[0] === 'true'
+		};
+	}
+
 	const controls = Array.from(wrapper.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
 		'input[name], select[name], textarea[name]'
 	));
@@ -149,6 +205,28 @@ const compareDate = (left: string, right: string): number => {
 	if (left === right) return 0;
 	return left < right ? -1 : 1;
 };
+
+/**
+ * Numeric comparison of a source value against an expected value. Returns null
+ * when either side is not a finite number, so the calling operator fails safe.
+ */
+const compareNumber = (left?: string, right?: string): number | null => {
+	const leftNumber = Number.parseFloat(left ?? '');
+	const rightNumber = Number.parseFloat(right ?? '');
+	if (!Number.isFinite(leftNumber) || !Number.isFinite(rightNumber)) {
+		return null;
+	}
+
+	return leftNumber === rightNumber ? 0 : (leftNumber < rightNumber ? -1 : 1);
+};
+
+/**
+ * Boolean state of a source field: a single checkable control reports its
+ * checked state; value-based widgets (hidden input, data-fmdb-logic-value)
+ * report whether their current value is the literal "true".
+ */
+const getBooleanState = (state: SourceFieldState): boolean =>
+	state.checked || state.values[0] === 'true';
 
 const JS_VARIABLE_PATH_PATTERN = /^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/;
 
@@ -247,13 +325,42 @@ const evaluateRule = (rule: ConditionalLogicRule, sourceWrapper: HTMLElement): b
 			return values.length > 0 && !!rule.value && compareDate(values[0], rule.value) > 0;
 		case 'on':
 			return values.length > 0 && !!rule.value && compareDate(values[0], rule.value) === 0;
-		case 'between':
-			return values.length > 0
-				&& expectedValues.length >= 2
-				&& expectedValues[0] !== ''
-				&& expectedValues[1] !== ''
-				&& compareDate(values[0], expectedValues[0]) >= 0
+		case 'between': {
+			if (values.length === 0 || expectedValues.length < 2 || expectedValues[0] === '' || expectedValues[1] === '') {
+				return false;
+			}
+
+			// 'between' is shared by the date and number kinds: dates compare as
+			// ISO strings, numbers numerically ("9" < "10").
+			if (rule.valueKind === 'number') {
+				const fromCompare = compareNumber(values[0], expectedValues[0]);
+				const toCompare = compareNumber(values[0], expectedValues[1]);
+				return fromCompare !== null && toCompare !== null && fromCompare >= 0 && toCompare <= 0;
+			}
+
+			return compareDate(values[0], expectedValues[0]) >= 0
 				&& compareDate(values[0], expectedValues[1]) <= 0;
+		}
+
+		case 'eq':
+			return compareNumber(values[0], rule.value) === 0;
+		case 'neq': {
+			const comparison = compareNumber(values[0], rule.value);
+			return comparison !== null && comparison !== 0;
+		}
+
+		case 'lt':
+			return (compareNumber(values[0], rule.value) ?? 1) < 0;
+		case 'lte':
+			return (compareNumber(values[0], rule.value) ?? 1) <= 0;
+		case 'gt':
+			return (compareNumber(values[0], rule.value) ?? -1) > 0;
+		case 'gte':
+			return (compareNumber(values[0], rule.value) ?? -1) >= 0;
+		case 'isTrue':
+			return getBooleanState(state);
+		case 'isFalse':
+			return !getBooleanState(state);
 		default:
 			return false;
 	}

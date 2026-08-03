@@ -19,6 +19,7 @@ public record ConditionalLogicRule(
         String sourceType,
         String sourceFieldName,
         String sourceFieldType,
+        String valueKind,
         String variable,
         String operator,
         String value,
@@ -27,6 +28,7 @@ public record ConditionalLogicRule(
     private static final Logger log = LoggerFactory.getLogger(ConditionalLogicRule.class);
 
     public static final String SOURCE_TYPE_JS_VARIABLE = "jsVariable";
+    public static final String VALUE_KIND_NUMBER = "number";
 
     public boolean isJsVariable() {
         return SOURCE_TYPE_JS_VARIABLE.equals(sourceType);
@@ -72,6 +74,7 @@ public record ConditionalLogicRule(
                 sourceType,
                 sourceFieldName,
                 obj.optString("sourceFieldType", ""),
+                obj.optString("valueKind", ""),
                 variable,
                 operator,
                 obj.has("value") ? obj.optString("value", null) : null,

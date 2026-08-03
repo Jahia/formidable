@@ -44,6 +44,10 @@ export const FORM_TREE_BY_PATH = gql`
                         ...JcrNodeIdentity
                         displayName(language: $language)
                         primaryNodeType { name }
+                        isChoiceField: isNodeType(type: {types: ["fmdbmix:choiceField"]})
+                        isDateField: isNodeType(type: {types: ["fmdbmix:dateField"]})
+                        isNumberField: isNodeType(type: {types: ["fmdbmix:numberField"]})
+                        isBooleanField: isNodeType(type: {types: ["fmdbmix:booleanField"]})
                         properties(names: ["choices", "options", "fieldKey"], language: $language) {
                             name
                             value

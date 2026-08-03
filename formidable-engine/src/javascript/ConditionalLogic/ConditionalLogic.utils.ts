@@ -6,9 +6,12 @@ import type {
     LogicOperator,
     LogicSrcNode,
     SelectorProps,
-    SourceFieldOption
+    SourceFieldOption,
+    SourceValueKind
 } from './ConditionalLogic.types';
 import {getSourceDescriptor, JS_VARIABLE_OPERATORS, operatorNeedsValue} from './sourceDescriptors';
+
+const VALUE_KINDS: SourceValueKind[] = ['choice', 'date', 'number', 'boolean'];
 
 const EMPTY_FIELD_RULE: ConditionalLogicRule = {
     logicId: '',
@@ -35,6 +38,7 @@ export const parseRule = (value?: string): ConditionalLogicRule => {
             sourceFieldKey: typeof parsed.sourceFieldKey === 'string' ? parsed.sourceFieldKey : undefined,
             sourceFieldName: parsed.sourceFieldName ?? '',
             sourceFieldType: parsed.sourceFieldType ?? '',
+            valueKind: VALUE_KINDS.includes(parsed.valueKind as SourceValueKind) ? parsed.valueKind : undefined,
             variable: typeof parsed.variable === 'string' ? parsed.variable : undefined,
             operator: (parsed.operator as LogicOperator) ?? 'in',
             value: typeof parsed.value === 'string' ? parsed.value : undefined,
@@ -46,7 +50,7 @@ export const parseRule = (value?: string): ConditionalLogicRule => {
 };
 
 export const getOperatorsForSource = (source?: SourceFieldOption): LogicOperator[] => {
-    const descriptor = getSourceDescriptor(source?.type);
+    const descriptor = getSourceDescriptor(source?.type, source?.valueKind);
     if (!source || !descriptor) {
         return ['in'];
     }
@@ -78,11 +82,16 @@ export const normalizeStoredJsVariableRule = (rule: ConditionalLogicRule): Condi
     return normalized;
 };
 
+// Kinds whose operators compare against contributor-typed scalar value(s)
+// (a single input, or two for 'between') instead of a choice list.
+export const isScalarValueKind = (valueKind?: SourceValueKind): boolean =>
+    valueKind === 'date' || valueKind === 'number';
+
 export const normalizeStoredRule = (
     rule: ConditionalLogicRule,
     source: SourceFieldOption | undefined
 ): ConditionalLogicRule => {
-    const descriptor = getSourceDescriptor(source?.type);
+    const descriptor = getSourceDescriptor(source?.type, source?.valueKind);
     if (!source || !descriptor) {
         return parseRule(undefined);
     }
@@ -96,10 +105,11 @@ export const normalizeStoredRule = (
         sourceFieldKey: source.fieldKey,
         sourceFieldName: source.name,
         sourceFieldType: source.type,
+        valueKind: descriptor.valueKind,
         operator
     };
 
-    if (descriptor.valueKind === 'date') {
+    if (isScalarValueKind(descriptor.valueKind)) {
         if (operator === 'between') {
             return {...base, values: (rule.values ?? []).slice(0, 2)};
         }
@@ -172,9 +182,20 @@ const parseJsonArrayValue = (rawValues: string[] = []): ChoiceValue[] => {
     });
 };
 
+// The declared value kind of a field node, from its semantic mixin. A well-formed
+// type carries at most one; the order below just makes conflicts deterministic.
+const getDeclaredValueKind = (node: GraphNode): SourceValueKind | undefined => {
+    if (node.isChoiceField) return 'choice';
+    if (node.isDateField) return 'date';
+    if (node.isNumberField) return 'number';
+    if (node.isBooleanField) return 'boolean';
+    return undefined;
+};
+
 const mapSourceField = (node: GraphNode): SourceFieldOption | null => {
     const type = getNodeType(node);
-    const descriptor = getSourceDescriptor(type);
+    const valueKind = getDeclaredValueKind(node);
+    const descriptor = getSourceDescriptor(type, valueKind);
     if (!type || !descriptor) {
         return null;
     }
@@ -190,6 +211,7 @@ const mapSourceField = (node: GraphNode): SourceFieldOption | null => {
         path: node.path,
         label: node.displayName ?? node.name,
         type,
+        valueKind: descriptor.valueKind,
         choiceValues
     };
 };

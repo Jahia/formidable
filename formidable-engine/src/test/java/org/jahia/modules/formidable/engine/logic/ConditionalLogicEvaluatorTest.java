@@ -288,7 +288,7 @@ class ConditionalLogicEvaluatorTest {
     void logicIdResolutionUsesResolvedSourceFieldName() {
         // Verifies source resolution: the evaluator must resolve logicId through the pre-built logicId->field map.
         ConditionalLogicEvaluator evaluator = new ConditionalLogicEvaluator(
-                Map.of("target", List.of(new ConditionalLogicRule("logic-1", "", "", "fmdb:select", "", "in", null, List.of("pro")))),
+                Map.of("target", List.of(new ConditionalLogicRule("logic-1", "", "", "fmdb:select", "", "", "in", null, List.of("pro")))),
                 Map.of("logic-1", "source"),
                 Map.of(),
                 Map.of("source", List.of("pro"))
@@ -338,7 +338,94 @@ class ConditionalLogicEvaluatorTest {
             String value,
             List<String> values
     ) {
-        return new ConditionalLogicRule("", "", sourceFieldName, "fmdb:select", "", operator, value, values);
+        return rule(sourceFieldName, "", operator, value, values);
+    }
+
+    private static ConditionalLogicRule rule(
+            String sourceFieldName,
+            String valueKind,
+            String operator,
+            String value,
+            List<String> values
+    ) {
+        return new ConditionalLogicRule("", "", sourceFieldName, "fmdb:select", valueKind, "", operator, value, values);
+    }
+
+    @Test
+    void numberOperatorsCompareNumerically() {
+        // Verifies the number value kind: "9" is less than "10" numerically even
+        // though it is greater lexicographically.
+        ConditionalLogicEvaluator evaluator = evaluator(
+                Map.of(
+                        "ltTarget", List.of(rule("score", "number", "lt", "10", List.of())),
+                        "gteTarget", List.of(rule("score", "number", "gte", "9", List.of())),
+                        "eqTarget", List.of(rule("score", "number", "eq", "9.0", List.of())),
+                        "neqTarget", List.of(rule("score", "number", "neq", "9", List.of()))
+                ),
+                Map.of("score", List.of("9"))
+        );
+
+        assertFalse(evaluator.isHidden("ltTarget"));
+        assertFalse(evaluator.isHidden("gteTarget"));
+        assertFalse(evaluator.isHidden("eqTarget"));
+        assertTrue(evaluator.isHidden("neqTarget"));
+    }
+
+    @Test
+    void numberBetweenComparesNumericallyWhileDateBetweenStaysLexicographic() {
+        // Verifies the shared 'between' operator: the number kind compares numerically
+        // ("9" is between "5" and "10"), while rules without a valueKind keep the
+        // historical string comparison used by date rules.
+        ConditionalLogicEvaluator evaluator = evaluator(
+                Map.of(
+                        "numberTarget", List.of(rule("score", "number", "between", null, List.of("5", "10"))),
+                        "legacyTarget", List.of(rule("score", "", "between", null, List.of("5", "10")))
+                ),
+                Map.of("score", List.of("9"))
+        );
+
+        assertFalse(evaluator.isHidden("numberTarget"));
+        // Lexicographically "9" > "10", so the legacy comparison fails the rule.
+        assertTrue(evaluator.isHidden("legacyTarget"));
+    }
+
+    @Test
+    void nonNumericValuesFailNumberOperatorsSafely() {
+        // Verifies fail-safe behavior: a non-numeric submitted value satisfies no
+        // number operator, so the target counts as hidden.
+        ConditionalLogicEvaluator evaluator = evaluator(
+                Map.of("target", List.of(rule("score", "number", "lt", "10", List.of()))),
+                Map.of("score", List.of("abc"))
+        );
+
+        assertTrue(evaluator.isHidden("target"));
+    }
+
+    @Test
+    void booleanOperatorsMirrorSubmittedPresence() {
+        // Verifies the boolean value kind: like a lone checkbox, an on switch submits
+        // its value and an off switch submits nothing.
+        ConditionalLogicEvaluator onEvaluator = evaluator(
+                Map.of(
+                        "shownWhenOn", List.of(rule("switch", "boolean", "isTrue", null, List.of())),
+                        "shownWhenOff", List.of(rule("switch", "boolean", "isFalse", null, List.of()))
+                ),
+                Map.of("switch", List.of("true"))
+        );
+
+        assertFalse(onEvaluator.isHidden("shownWhenOn"));
+        assertTrue(onEvaluator.isHidden("shownWhenOff"));
+
+        ConditionalLogicEvaluator offEvaluator = evaluator(
+                Map.of(
+                        "shownWhenOn", List.of(rule("switch", "boolean", "isTrue", null, List.of())),
+                        "shownWhenOff", List.of(rule("switch", "boolean", "isFalse", null, List.of()))
+                ),
+                Map.of("switch", List.of())
+        );
+
+        assertTrue(offEvaluator.isHidden("shownWhenOn"));
+        assertFalse(offEvaluator.isHidden("shownWhenOff"));
     }
 
     @Test
@@ -347,7 +434,7 @@ class ConditionalLogicEvaluatorTest {
         // so the field must count as hidden and skip required validation.
         ConditionalLogicEvaluator evaluator = evaluator(
                 Map.of("target", List.of(new ConditionalLogicRule(
-                        "logic-1", "jsVariable", "", "", "window.cxs.profileProperties.firstName",
+                        "logic-1", "jsVariable", "", "", "", "window.cxs.profileProperties.firstName",
                         "equals", "John", List.of()))),
                 Map.of()
         );

@@ -96,16 +96,28 @@ Keeping them together made the main component harder to read and harder to evolv
    - zero, one, or multiple values depending on the source type
 13. The selector serializes the rule as JSON and writes it back through `onChange`.
 
-## Supported source field types in V1
+## Source eligibility: semantic mixins
 
-- `fmdb:select`
-- `fmdb:radio`
-- `fmdb:checkbox`
-- `fmdb:inputDate`
+Eligibility is mixin-driven, not type-name driven. A field type becomes a logic
+source by carrying one of the engine's semantic value-kind mixins in its CND —
+including field types contributed by third-party modules (see
+`docs/how-to-extend-views-and-elements-from-third-party-module.md`):
 
-## Supported operators in V1
+| Mixin | valueKind | Core types carrying it |
+|---|---|---|
+| `fmdbmix:choiceField` | `choice` | `fmdb:select`, `fmdb:radio`, `fmdb:checkbox` |
+| `fmdbmix:dateField` | `date` | `fmdb:inputDate` |
+| `fmdbmix:numberField` | `number` | — (third-party, e.g. rating/scale fields) |
+| `fmdbmix:booleanField` | `boolean` | — (third-party, e.g. switch/consent fields) |
 
-### Select and radio
+`sourceDescriptors.ts` maps each valueKind to a default descriptor (operators,
+value widget, choice property). Per-type overrides exist only where a core type
+deviates from the kind default: `fmdb:select` stores choices under `options`,
+and `fmdb:checkbox` swaps its operators based on how many choices it defines.
+
+## Supported operators
+
+### Choice (select, radio)
 
 - `in`
 - `notIn`
@@ -129,6 +141,16 @@ Checkbox group:
 - `on`
 - `between`
 
+### Number
+
+- `eq`, `neq`, `lt`, `lte`, `gt`, `gte`
+- `between` (numeric comparison, disambiguated from the date kind by the stored `valueKind`)
+
+### Boolean
+
+- `isTrue`
+- `isFalse`
+
 ## Stored rule format
 
 Each `logics` entry is stored as JSON. Example:
@@ -140,6 +162,7 @@ Each `logics` entry is stored as JSON. Example:
   "sourceFieldKey": "550e8400-e29b-41d4-a716-446655440000",
   "sourceFieldName": "iAm",
   "sourceFieldType": "fmdb:radio",
+  "valueKind": "choice",
   "operator": "in",
   "values": ["individual", "professional"]
 }
@@ -165,6 +188,10 @@ Notes:
   writes it when the source carries a key; the Java sync backfills it otherwise.
 - `sourceNodeId` is the technical source identifier for new and normalized rules.
 - `sourceFieldName` is still kept as metadata and legacy fallback.
+- `valueKind` denormalizes the source's kind at authoring time so both runtime
+  evaluators (browser and Java) pick the right comparison semantics — 'between'
+  compares numerically for `number` and lexicographically (ISO dates) otherwise.
+  Rules stored before it existed have no `valueKind` and keep date semantics.
 - `logicId` is used to bind the JSON rule to its `logicsSrc/<logicId>` child node.
 
 ## Repository-side synchronization

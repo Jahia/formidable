@@ -43,6 +43,11 @@ orderable
 [fmdbmix:authenticatedOnlyForm] mixin
 [fmdbmix:nonSubmittable] mixin
 [fmdbmix:choiceField] mixin
+// Semantic value-kind mixins: a field type carrying one becomes eligible as a
+// conditional-logic source with the operators of that kind (number: comparisons,
+// boolean: is true / is false). Third-party field types opt in from their own CND.
+[fmdbmix:numberField] mixin
+[fmdbmix:booleanField] mixin
 [fmdbmix:fileField] mixin
 [fmdbmix:emailField] mixin
 [fmdbmix:dateField] mixin
