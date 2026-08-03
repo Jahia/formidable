@@ -75,6 +75,9 @@ jahiaComponent(
                   {onLabel}
                 </label>
               </span>
+              {/* Never precheck OFF: a stored defaultState=false (any editor save writes it)
+                  must keep the field unanswered, so 'required' still means "pick one" and
+                  results can tell "answered no" from "not answered". */}
               <span className="fmdbext-switch-button">
                 <input
                   type="radio"
@@ -82,7 +85,6 @@ jahiaComponent(
                   name={inputName}
                   className="fmdb-form-control fmdbext-switch-input"
                   value="false"
-                  defaultChecked={defaultState === false}
                   required={required}
                   {...vAttrs}
                 />

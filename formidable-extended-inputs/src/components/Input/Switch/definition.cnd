@@ -3,6 +3,8 @@
 // Display modes:
 //  - 'buttons': two radio buttons styled as a button pair; both states are explicit,
 //    so an unanswered field submits nothing and 'required' means "pick one".
+//    defaultState=true prechecks the ON button; defaultState=false prechecks NOTHING
+//    (prechecking OFF would silently pre-answer the question and defeat 'required').
 //  - 'toggle': a single styled checkbox; checked submits true, unchecked submits nothing
 //    (standard HTML checkbox semantics, same as fmdb:checkbox). 'required' means "must be ON" -
 //    use it for acknowledgement-style questions only.

@@ -74,4 +74,22 @@ describe('Form fields - 214 Switch (extended-inputs)', () => {
 			form.get().find('input[name="optin"]').should('be.checked');
 		});
 	});
+
+	it('keeps the buttons mode unanswered when defaultState is false', () => {
+		// A stored defaultState=false (any editor save writes it) must NOT precheck
+		// "No": the question stays unanswered so 'required' still means "pick one".
+		createPublishedLiveFormPage(
+			'switch-buttons-default-form',
+			'Switch Buttons Default Form',
+			[
+				getSwitchNode({name: 'unanswered', title: 'Unanswered', displayMode: 'buttons', defaultState: false}),
+				getSwitchNode({name: 'preanswered', title: 'Preanswered', displayMode: 'buttons', defaultState: true})
+			]
+		).then(({livePath}) => {
+			const form = visitLiveForm(livePath);
+
+			form.get().find('input[name="unanswered"]:checked').should('have.length', 0);
+			form.get().find('input[name="preanswered"][value="true"]').should('be.checked');
+		});
+	});
 });
