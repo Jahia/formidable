@@ -12,6 +12,7 @@ import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import javax.jcr.observation.Event;
 import javax.jcr.observation.EventIterator;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FIELD_KEY_PROPERTY;
@@ -58,10 +59,18 @@ public class FormDuplicationCleanupListener extends DefaultEventListener {
 
     @Override
     public void onEvent(EventIterator events) {
+        Set<String> addedPaths = new LinkedHashSet<>();
         while (events.hasNext()) {
             Event event = events.nextEvent();
             try {
-                String nodePath = event.getPath();
+                addedPaths.add(event.getPath());
+            } catch (RepositoryException e) {
+                log.warn("[FormDuplicationCleanup] Cannot read event path: {}", e.getMessage());
+            }
+        }
+
+        for (String nodePath : topmostPaths(addedPaths)) {
+            try {
                 JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, workspace, null, systemSession -> {
                     JCRNodeWrapper node = systemSession.getNode(nodePath);
                     if (!shouldProcessNode(node)) {
@@ -95,6 +104,33 @@ public class FormDuplicationCleanupListener extends DefaultEventListener {
                 log.warn("[FormDuplicationCleanup] Cleanup failed: {}", e.getMessage());
             }
         }
+    }
+
+    /**
+     * Reduces the added-node paths of one event batch to the roots of the copied
+     * subtrees: a path is dropped when one of its ancestors was added in the same
+     * batch. A subtree copy must be processed once, from its root — processing the
+     * leaves individually would regenerate their colliding fieldKeys one element at
+     * a time, so the remap would never see the old key alongside the copied rule
+     * that references it, and the rule would keep pointing at the original source.
+     */
+    static Set<String> topmostPaths(Set<String> paths) {
+        Set<String> roots = new LinkedHashSet<>();
+        for (String path : paths) {
+            boolean ancestorAdded = false;
+            for (String candidate : paths) {
+                if (path.startsWith(candidate + "/")) {
+                    ancestorAdded = true;
+                    break;
+                }
+            }
+
+            if (!ancestorAdded) {
+                roots.add(path);
+            }
+        }
+
+        return roots;
     }
 
     static boolean shouldProcessNode(JCRNodeWrapper node) throws RepositoryException {
