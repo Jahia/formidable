@@ -1,0 +1,10 @@
+// Consent component - explicit terms / GDPR consent checkbox.
+// Distinct from a generic checkbox so consent semantics are explicit in stored results.
+// Submitted/stored value is simply 'true'; consent metadata (timestamp, terms version) is out of scope (issue #158).
+// The linked terms target MUST be readable by anonymous visitors (guest permissions),
+// otherwise the link will 404 for non-authenticated users.
+[fmdbext:consent] > jnt:content, fmdbmix:element, fmdbmix:validationMessages
+ - statement (string, richtext) i18n indexed=no mandatory
+ - termsTarget (weakreference) indexed=no < 'jnt:page', 'jnt:file'
+ - termsLinkLabel (string) i18n indexed=no
+ - required (boolean) = true autocreated

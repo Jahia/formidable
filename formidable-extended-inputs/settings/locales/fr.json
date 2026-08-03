@@ -1,0 +1,9 @@
+{
+  "fmdbext_scale": {
+    "npsMinLabel": "Pas du tout probable",
+    "npsMaxLabel": "Extrêmement probable"
+  },
+  "fmdbext_consent": {
+    "defaultTermsLinkLabel": "Lire les conditions complètes"
+  }
+}

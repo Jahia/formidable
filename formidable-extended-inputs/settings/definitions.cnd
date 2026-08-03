@@ -1,0 +1,10 @@
+<jnt = 'http://www.jahia.org/jahia/nt/1.0'>
+<jmix = 'http://www.jahia.org/jahia/mix/1.0'>
+<fmdb = 'http://www.jahia.org/jahia/fmdb/nt/1.0'>
+<fmdbmix = 'http://www.jahia.org/jahia/fmdb/mix/1.0'>
+<fmdbext = 'http://www.jahia.org/jahia/fmdbext/nt/1.0'>
+
+// Formidable Extended Inputs - optional add-on field types for Formidable.
+// Concrete field types live next to their views in src/components/Input/<Name>/definition.cnd.
+// All types extend fmdbmix:element (owned by formidable-elements) so they are accepted by
+// fmdb:fieldList and participate in the standard Formidable rendering and logic contracts.

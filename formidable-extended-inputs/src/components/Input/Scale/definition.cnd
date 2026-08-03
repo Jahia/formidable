@@ -1,0 +1,11 @@
+// Scale component - accessible linear scale rendered as a row of number chips (radio group).
+// Submitted/stored value is a plain number; aggregation is out of scope (issue #158).
+// The dedicated "nps" view forces the standard 0-10 Net Promoter Score presentation.
+[fmdbext:scale] > jnt:content, fmdbmix:element, fmdbmix:validationMessages
+ - helpText (string, richtext[ckeditor.toolbar='FormidableHelp',ckeditor.customConfig='$context/modules/formidable-engine/javascript/ckeditor/helpTextConfig.js']) i18n indexed=no
+ - minValue (long) = 0 autocreated indexed=no
+ - maxValue (long) = 10 autocreated indexed=no
+ - step (long) = 1 autocreated indexed=no
+ - minLabel (string) i18n indexed=no
+ - maxLabel (string) i18n indexed=no
+ - required (boolean) = false
