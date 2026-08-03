@@ -30,6 +30,14 @@ public final class JcrProps {
         }
     }
 
+    public static Double doubleOrNull(JCRNodeWrapper node, String name) {
+        try {
+            return node.hasProperty(name) ? node.getProperty(name).getDouble() : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     public static String string(JCRNodeWrapper node, String name, String defaultValue) {
         try {
             return node.hasProperty(name) ? node.getProperty(name).getString() : defaultValue;
