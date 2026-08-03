@@ -13,6 +13,7 @@ export * from './inputText';
 export * from './radio';
 export * from './select';
 export * from './textarea';
+export * from './extendedInputs';
 export * from './fieldset';
 export * from './richText';
 export * from './step';
