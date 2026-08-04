@@ -324,9 +324,12 @@ checkbox, work with zero client code.
 Semantics to know:
 
 - **boolean**: a single checkable control reports its checked state; the field
-  should submit its value when on and either nothing (native checkbox behavior)
+  should submit `"true"` when on and either nothing (native checkbox behavior)
   or an explicit `"false"` (e.g. a yes/no radio pair) when off. Both evaluators
-  treat any other non-empty submitted value as on, and empty or `"false"` as off.
+  treat any other non-empty submitted value as on, and empty or `"false"` as off;
+  server-side validation accepts `"true"`/`"false"` (case-insensitive) and `"on"`
+  (the browser default for a checkbox without a `value` attribute) — anything
+  else is rejected at submission.
 - **choice**: the editor reads the choice list from your `choices` property
   (same JSON-encoded `{value, label}` entries as the built-in radio/checkbox).
 

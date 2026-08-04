@@ -274,9 +274,11 @@ final class FieldValidator {
     }
 
     // Boolean fields (fmdbmix:booleanField, e.g. switch/consent) submit their state as
-    // "true" (lone checkbox / on radio) or "false" (explicit off radio).
+    // "true" (lone checkbox / on radio) or "false" (explicit off radio). "on" is also
+    // accepted — it is what a plain checkbox without a value attribute submits, and the
+    // evaluators treat it as on — so third-party boolean fields are not rejected here.
     private static void validateBoolean(String fieldName, String value) throws FormDataParser.ParseException {
-        if (!"true".equals(value) && !"false".equals(value)) {
+        if (!"true".equalsIgnoreCase(value) && !"false".equalsIgnoreCase(value) && !"on".equalsIgnoreCase(value)) {
             log.warn("[FieldValidator] Rejected submitted value: not a boolean");
             throw new FormDataParser.ParseException(
                     "Field '" + fieldName + "': value is not a boolean.",

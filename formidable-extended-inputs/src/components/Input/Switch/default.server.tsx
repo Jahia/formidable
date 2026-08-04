@@ -54,7 +54,13 @@ jahiaComponent(
       return (
         <>
           <AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")} />
-          <fieldset className="fmdb-form-group fmdbext-switch" aria-describedby={helpId}>
+          {/* aria-label fallback: without a title the fieldset has no legend, and the
+              group would otherwise have no accessible name */}
+          <fieldset
+            className="fmdb-form-group fmdbext-switch"
+            aria-describedby={helpId}
+            aria-label={label ? undefined : inputName}
+          >
             {label && (
               <legend className="fmdb-group-legend">
                 {label}
@@ -120,6 +126,9 @@ jahiaComponent(
               defaultChecked={defaultState}
               required={required}
               aria-describedby={helpId}
+              // aria-label fallback: the visible label text is {label}; when empty, the
+              // state texts are aria-hidden and the checkbox would have no accessible name
+              aria-label={label ? undefined : inputName}
               {...vAttrs}
             />
             <label htmlFor={inputId} className="fmdbext-switch-toggle-label">

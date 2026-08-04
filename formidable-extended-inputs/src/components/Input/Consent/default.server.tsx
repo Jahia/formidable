@@ -54,6 +54,9 @@ jahiaComponent(
             value="true"
             required={required}
             aria-describedby={helpId}
+            // aria-label fallback: statement is mandatory but only enforced on edited
+            // locales — an untouched language would leave the checkbox unnamed
+            aria-label={statement ? undefined : inputName}
             {...vAttrs}
           />
           <label htmlFor={inputId} className="fmdbext-consent-label">

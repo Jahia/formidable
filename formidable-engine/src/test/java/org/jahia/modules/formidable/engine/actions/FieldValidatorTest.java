@@ -253,18 +253,19 @@ class FieldValidatorTest {
     }
 
     @Test
-    void acceptsOnlyTrueOrFalseForBooleanField() {
+    void acceptsBooleanValuesIncludingCheckboxDefaultForBooleanField() {
         // Verifies the boolean value kind (fmdbmix:booleanField, e.g. switch/consent):
-        // the field submits "true" (lone checkbox / on radio) or "false" (off radio).
+        // "true"/"false" case-insensitively, plus "on" — the browser default for a plain
+        // checkbox without a value attribute, treated as on by both evaluators.
         FormDataParser.FieldMetadata metadata = metadata("newsletter",
                 booleanFieldInfo("fmdbext:switch"));
 
         assertDoesNotThrow(() -> FieldValidator.validateTextField("newsletter", "true", metadata));
         assertDoesNotThrow(() -> FieldValidator.validateTextField("newsletter", "false", metadata));
+        assertDoesNotThrow(() -> FieldValidator.validateTextField("newsletter", "TRUE", metadata));
+        assertDoesNotThrow(() -> FieldValidator.validateTextField("newsletter", "on", metadata));
         assertThrows(FormDataParser.ParseException.class,
                 () -> FieldValidator.validateTextField("newsletter", "yes", metadata));
-        assertThrows(FormDataParser.ParseException.class,
-                () -> FieldValidator.validateTextField("newsletter", "TRUE", metadata));
     }
 
     private static FormDataParser.FieldMetadata metadata(String fieldName, FormDataParser.FieldInfo info) {
