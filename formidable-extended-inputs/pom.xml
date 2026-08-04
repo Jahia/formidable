@@ -126,6 +126,24 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <!-- expose the tgz under target/ so CI build artifacts pick it up for integration tests -->
+                        <id>copy-dist-package - Formidable Extended Inputs</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <copy file="dist/package.tgz" tofile="${project.build.directory}/${project.build.finalName}.tgz" />
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 </project>
