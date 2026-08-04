@@ -41,6 +41,7 @@ jahiaComponent(
     const termsTargetBroken =
       !termsTarget && renderContext.isEditMode() && currentNode.hasProperty("termsTarget");
 
+
     return (
       <>
         <AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")} />
@@ -56,20 +57,15 @@ jahiaComponent(
             {...vAttrs}
           />
           <label htmlFor={inputId} className="fmdbext-consent-label">
-            {/* statement is contributor-authored rich text — same trust model as fmdb:richText */}
-            {statement && (
-              <span
-                className="fmdbext-consent-statement"
-                dangerouslySetInnerHTML={{ __html: statement }}
-              />
-            )}
+            {statement && <span className="fmdbext-consent-statement">{statement}</span>}
             {required && (
               <span className="fmdb-required-indicator" aria-hidden="true">
                 *
               </span>
             )}
           </label>
-          <HelpText id={helpId} text={helpText} />
+          {/* The terms link belongs to the consent statement: keep them together,
+              with the generic help text after. */}
           {termsTarget && (
             <a
               className="fmdbext-consent-terms-link"
@@ -80,6 +76,7 @@ jahiaComponent(
               {termsLinkLabel || t("defaultTermsLinkLabel")}
             </a>
           )}
+          <HelpText id={helpId} text={helpText} />
           {termsTargetBroken && (
             <span className="fmdbext-edit-warning">{t("termsTargetUnresolved")}</span>
           )}

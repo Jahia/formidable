@@ -17,11 +17,6 @@
   cursor: pointer;
 }
 
-.fmdbext-consent-statement p {
-  display: inline;
-  margin: 0;
-}
-
 .fmdbext-consent-terms-link {
   flex-basis: 100%;
   margin-left: 1.5rem;

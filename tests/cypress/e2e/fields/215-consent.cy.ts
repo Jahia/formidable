@@ -15,13 +15,13 @@ interface NodeByPathResponse {
 describe('Form fields - 215 Consent (extended-inputs)', () => {
 	useFormidableSite();
 
-	it('renders the rich-text statement as a required checkbox and checks it', () => {
+	it('renders the statement as a required checkbox and checks it', () => {
 		createPublishedLiveFormPage(
 			'consent-basic-form',
 			'Consent Basic Form',
 			[getConsentNode({
 				name: 'gdpr',
-				statement: '<p>I accept the <strong>terms of service</strong></p>',
+				statement: 'I accept the terms of service',
 				helpText: '<p>Why we ask for consent</p>'
 			})]
 		).then(({livePath}) => {
@@ -36,9 +36,9 @@ describe('Form fields - 215 Consent (extended-inputs)', () => {
 				.and('have.attr', 'required');
 			cy.get('@consent').find('.fmdb-required-indicator').should('exist');
 
-			// The statement is contributor-authored rich text, rendered as HTML.
-			cy.get('@consent').find('.fmdbext-consent-statement strong')
-				.should('contain.text', 'terms of service');
+			// The statement is plain text (it renders inside the checkbox label).
+			cy.get('@consent').find('.fmdbext-consent-statement')
+				.should('have.text', 'I accept the terms of service');
 
 			// Consent supports help text like the other fields, linked via aria-describedby.
 			cy.get('@consent').find('.fmdb-form-help').should('contain.text', 'Why we ask for consent');
@@ -63,7 +63,7 @@ describe('Form fields - 215 Consent (extended-inputs)', () => {
 				'Consent Terms Form',
 				[getConsentNode({
 					name: 'gdpr-terms',
-					statement: '<p>I accept the terms</p>',
+					statement: 'I accept the terms',
 					termsTargetUuid: homeUuid,
 					termsLinkLabel: 'Read our terms'
 				})]
