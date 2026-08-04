@@ -207,12 +207,21 @@ const compareDate = (left: string, right: string): number => {
 };
 
 /**
+ * Strict numeric parsing: the whole trimmed string must be a number, mirroring
+ * the server-side Double.parseDouble ("9abc" is not a number, unlike parseFloat).
+ */
+const parseNumber = (value?: string): number => {
+	const trimmed = value?.trim() ?? '';
+	return trimmed === '' ? Number.NaN : Number(trimmed);
+};
+
+/**
  * Numeric comparison of a source value against an expected value. Returns null
  * when either side is not a finite number, so the calling operator fails safe.
  */
 const compareNumber = (left?: string, right?: string): number | null => {
-	const leftNumber = Number.parseFloat(left ?? '');
-	const rightNumber = Number.parseFloat(right ?? '');
+	const leftNumber = parseNumber(left);
+	const rightNumber = parseNumber(right);
 	if (!Number.isFinite(leftNumber) || !Number.isFinite(rightNumber)) {
 		return null;
 	}

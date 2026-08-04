@@ -118,8 +118,8 @@ public class FormDuplicationCleanupListener extends DefaultEventListener {
         Set<String> roots = new LinkedHashSet<>();
         for (String path : paths) {
             boolean ancestorAdded = false;
-            for (String candidate : paths) {
-                if (path.startsWith(candidate + "/")) {
+            for (int slash = path.lastIndexOf('/'); slash > 0; slash = path.lastIndexOf('/', slash - 1)) {
+                if (paths.contains(path.substring(0, slash))) {
                     ancestorAdded = true;
                     break;
                 }

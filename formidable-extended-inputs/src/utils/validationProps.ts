@@ -1,6 +1,7 @@
-// Local copy of the formidable-elements validation contract.
-// The Form client reads these data attributes to display inline error messages;
-// external modules must emit the same attributes to participate.
+// Deliberately minimal subset of the formidable-elements validation contract
+// (data-fmdb-msg-* attributes read by the Form client to display inline errors):
+// these fields only use required-field messages today. Sharing the full contract
+// through a common package is tracked in https://github.com/Jahia/formidable/issues/170.
 export interface BaseValidationMessageProps {
   msgValueMissing?: string;
 }

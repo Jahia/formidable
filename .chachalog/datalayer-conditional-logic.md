@@ -3,4 +3,4 @@
 formidable: minor
 ---
 
-Conditional logic rules can now target browser JS variables such as datalayer entries (e.g. `window.cxs.profileProperties.firstName`) in addition to form field values (#172)
+Conditional logic rules can now target browser JS variables (e.g. datalayer entries) in addition to form field values (#172)
