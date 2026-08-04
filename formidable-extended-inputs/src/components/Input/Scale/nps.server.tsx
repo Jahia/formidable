@@ -9,7 +9,7 @@ jahiaComponent(
     componentType: "view",
     nodeType: "fmdbext:scale",
     name: "nps",
-    displayName: "Scale - NPS (0-10)",
+    displayName: "Scale - Net Promoter Score (0-10)",
   },
   (props: ScaleProps, { currentNode }) => {
     const { t } = useTranslation("formidable-extended-inputs", { keyPrefix: "fmdbext_scale" });
