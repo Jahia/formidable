@@ -103,7 +103,7 @@
 .fmdbext-end-labels {
   display: flex;
   justify-content: space-between;
-  max-width: 24rem;
+  max-width: var(--fmdbext-end-labels-max-width, 24rem);
   font-size: 0.85rem;
   color: var(--fmdbext-end-labels-color, #666);
   margin-top: 0.25rem;

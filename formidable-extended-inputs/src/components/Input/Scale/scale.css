@@ -3,7 +3,9 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--fmdbext-scale-gap, 0.25rem);
-  max-width: 32rem;
+  /* Anchors the space-between end labels to the actual ends of the chip row,
+     and makes long scales wrap; override from the site CSS if needed. */
+  max-width: var(--fmdbext-scale-max-width, 32rem);
 }
 
 .fmdbext-scale-item {
@@ -52,5 +54,5 @@
 }
 
 .fmdbext-scale .fmdbext-end-labels {
-  max-width: 32rem;
+  max-width: var(--fmdbext-scale-max-width, 32rem);
 }
