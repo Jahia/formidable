@@ -71,34 +71,37 @@ jahiaComponent(
             </legend>
           )}
           <HelpText id={helpId} text={helpText} />
-          <div className="fmdbext-rating-items" data-fmdbext-icon={icon}>
-            {values.map((value) => {
-              const inputId = `rating-${nodeId}-${value}`;
-              return (
-                <span key={value} className="fmdbext-rating-item">
-                  <input
-                    type="radio"
-                    id={inputId}
-                    name={inputName}
-                    className="fmdb-form-control fmdbext-rating-input"
-                    value={value}
-                    required={required}
-                    aria-label={`${value}/${max}`}
-                    {...vAttrs}
-                  />
-                  <label htmlFor={inputId} className="fmdbext-rating-label" aria-hidden="true">
-                    {icon === "number" ? value : null}
-                  </label>
-                </span>
-              );
-            })}
-          </div>
-          {(minLabel || maxLabel) && (
-            <div className="fmdbext-end-labels" aria-hidden="true">
-              <span>{minLabel}</span>
-              <span>{maxLabel}</span>
+          {/* Shared shrink-wrapped body: the end labels span exactly the icon row's width */}
+          <div className="fmdbext-rating-body">
+            <div className="fmdbext-rating-items" data-fmdbext-icon={icon}>
+              {values.map((value) => {
+                const inputId = `rating-${nodeId}-${value}`;
+                return (
+                  <span key={value} className="fmdbext-rating-item">
+                    <input
+                      type="radio"
+                      id={inputId}
+                      name={inputName}
+                      className="fmdb-form-control fmdbext-rating-input"
+                      value={value}
+                      required={required}
+                      aria-label={`${value}/${max}`}
+                      {...vAttrs}
+                    />
+                    <label htmlFor={inputId} className="fmdbext-rating-label" aria-hidden="true">
+                      {icon === "number" ? value : null}
+                    </label>
+                  </span>
+                );
+              })}
             </div>
-          )}
+            {(minLabel || maxLabel) && (
+              <div className="fmdbext-end-labels" aria-hidden="true">
+                <span>{minLabel}</span>
+                <span>{maxLabel}</span>
+              </div>
+            )}
+          </div>
           {clampWarning && <span className="fmdbext-edit-warning">{clampWarning}</span>}
         </fieldset>
       </>

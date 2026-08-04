@@ -1,14 +1,23 @@
 /* Rating field — pure CSS fill-up effect, themeable via custom properties.
    DOM and visual order are both 1..max (keyboard arrows follow the visual
    direction); the fill-up selects the checked item and its preceding siblings
-   via :has(~ :checked). */
+   via :has(~ :checked).
+   Icons are hand-drawn SVG stencils (sources in ./icons/) applied as masks and
+   painted with currentColor, so every variant — thumb included — tints through
+   the same --fmdbext-rating-on/off variables. */
 .fmdbext-rating-items {
   display: inline-flex;
-  gap: var(--fmdbext-rating-gap, 0.25rem);
 }
 
 .fmdbext-rating-item {
   display: inline-flex;
+}
+
+/* The spacing lives INSIDE the items (not a flex gap) so the pointer never
+   leaves an item while sweeping the row: a gap would reset the hover fill-up
+   between two chips and make the whole row flash. */
+.fmdbext-rating-item + .fmdbext-rating-item {
+  padding-left: var(--fmdbext-rating-gap, 0.25rem);
 }
 
 .fmdbext-rating-input {
@@ -25,21 +34,36 @@
   font-size: var(--fmdbext-rating-size, 1.75rem);
   line-height: 1;
   color: var(--fmdbext-rating-off, #c7c7c7);
-  transition: color 120ms ease-in-out;
+  transition:
+    color 120ms ease-in-out,
+    background 120ms ease-in-out,
+    border-color 120ms ease-in-out;
   user-select: none;
 }
 
-.fmdbext-rating-items[data-fmdbext-icon="star"] .fmdbext-rating-label::before {
-  content: "★";
-}
-
-.fmdbext-rating-items[data-fmdbext-icon="heart"] .fmdbext-rating-label::before {
-  content: "♥";
-}
-
+/* Icon stencil: a currentColor box revealed through the variant's mask */
+.fmdbext-rating-items[data-fmdbext-icon="star"] .fmdbext-rating-label::before,
+.fmdbext-rating-items[data-fmdbext-icon="heart"] .fmdbext-rating-label::before,
 .fmdbext-rating-items[data-fmdbext-icon="thumb"] .fmdbext-rating-label::before {
-  content: "👍";
-  filter: grayscale(1) opacity(0.45);
+  content: "";
+  display: block;
+  width: 1em;
+  height: 1em;
+  background: currentColor;
+  -webkit-mask: var(--fmdbext-rating-icon) center / contain no-repeat;
+  mask: var(--fmdbext-rating-icon) center / contain no-repeat;
+}
+
+.fmdbext-rating-items[data-fmdbext-icon="star"] {
+  --fmdbext-rating-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2l2.6 6.4 6.9.5-5.2 4.5 1.6 6.7L12 16.5 6.1 20.1l1.6-6.7L2.5 8.9l6.9-.5z'/%3E%3C/svg%3E");
+}
+
+.fmdbext-rating-items[data-fmdbext-icon="heart"] {
+  --fmdbext-rating-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21C6.3 16.2 2 12.6 2 8.5 2 5.4 4.4 3 7.5 3c1.9 0 3.5.9 4.5 2.4C13 3.9 14.6 3 16.5 3 19.6 3 22 5.4 22 8.5c0 4.1-4.3 7.7-10 12.5z'/%3E%3C/svg%3E");
+}
+
+.fmdbext-rating-items[data-fmdbext-icon="thumb"] {
+  --fmdbext-rating-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2.5' y='10' width='4' height='10.5' rx='1'/%3E%3Cpath d='M9 20.2V11l4.2-7.4a1.8 1.8 0 0 1 3.3 1.2L15.6 9h4.8a2.2 2.2 0 0 1 2.1 2.8l-1.8 6.5a2.6 2.6 0 0 1-2.5 1.9z' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
 /* Fill the selected icon and everything before it (preceding siblings) */
@@ -49,16 +73,7 @@
   color: var(--fmdbext-rating-on, #f5a623);
 }
 
-.fmdbext-rating-items[data-fmdbext-icon="thumb"]
-  .fmdbext-rating-item:has(.fmdbext-rating-input:checked)
-  .fmdbext-rating-label::before,
-.fmdbext-rating-items[data-fmdbext-icon="thumb"]
-  .fmdbext-rating-item:has(~ .fmdbext-rating-item .fmdbext-rating-input:checked)
-  .fmdbext-rating-label::before {
-  filter: none;
-}
-
-/* Hover preview */
+/* Hover preview — the fill-up follows the hovered item */
 .fmdbext-rating-items:hover .fmdbext-rating-label {
   color: var(--fmdbext-rating-off, #c7c7c7);
 }
@@ -92,6 +107,23 @@
   color: var(--fmdbext-chip-on-fg, #fff);
 }
 
+.fmdbext-rating-items[data-fmdbext-icon="number"]:hover .fmdbext-rating-label {
+  background: var(--fmdbext-chip-bg, transparent);
+  border-color: var(--fmdbext-chip-border, #c7c7c7);
+  color: inherit;
+}
+
+.fmdbext-rating-items[data-fmdbext-icon="number"]
+  .fmdbext-rating-item:hover
+  .fmdbext-rating-label,
+.fmdbext-rating-items[data-fmdbext-icon="number"]
+  .fmdbext-rating-item:has(~ .fmdbext-rating-item:hover)
+  .fmdbext-rating-label {
+  background: var(--fmdbext-chip-on-bg, #f5a623);
+  border-color: var(--fmdbext-chip-on-bg, #f5a623);
+  color: var(--fmdbext-chip-on-fg, #fff);
+}
+
 /* Keyboard focus ring */
 .fmdbext-rating-input:focus-visible + .fmdbext-rating-label {
   outline: 2px solid var(--fmdbext-focus, #4c9aff);
@@ -99,11 +131,16 @@
   border-radius: 2px;
 }
 
-/* Min/max end labels (shared with scale) */
+/* Shrink-wraps to the icon row so the end labels span exactly the row's width */
+.fmdbext-rating-body {
+  width: fit-content;
+  max-width: 100%;
+}
+
+/* Min/max end labels (shared with scale); the width comes from the -body wrapper */
 .fmdbext-end-labels {
   display: flex;
   justify-content: space-between;
-  max-width: var(--fmdbext-end-labels-max-width, 24rem);
   font-size: 0.85rem;
   color: var(--fmdbext-end-labels-color, #666);
   margin-top: 0.25rem;
