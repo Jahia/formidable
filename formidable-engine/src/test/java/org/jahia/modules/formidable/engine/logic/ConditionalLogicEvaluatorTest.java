@@ -429,6 +429,30 @@ class ConditionalLogicEvaluatorTest {
     }
 
     @Test
+    void booleanOperatorsTreatExplicitFalseAsOff() {
+        // A yes/no button pair (switch buttons mode) submits an explicit "false" for the
+        // off state: an answered "no" must not satisfy isTrue.
+        ConditionalLogicEvaluator explicitNoEvaluator = evaluator(
+                Map.of(
+                        "shownWhenOn", List.of(rule("switch", "boolean", "isTrue", null, List.of())),
+                        "shownWhenOff", List.of(rule("switch", "boolean", "isFalse", null, List.of()))
+                ),
+                Map.of("switch", List.of("FALSE"))
+        );
+
+        assertTrue(explicitNoEvaluator.isHidden("shownWhenOn"));
+        assertFalse(explicitNoEvaluator.isHidden("shownWhenOff"));
+
+        // A plain checkbox without a value attribute submits the browser default "on".
+        ConditionalLogicEvaluator defaultValueEvaluator = evaluator(
+                Map.of("shownWhenOn", List.of(rule("switch", "boolean", "isTrue", null, List.of()))),
+                Map.of("switch", List.of("on"))
+        );
+
+        assertFalse(defaultValueEvaluator.isHidden("shownWhenOn"));
+    }
+
+    @Test
     void jsVariableRulesAreTreatedAsHiddenServerSide() {
         // Verifies fail-safe behavior: jsVariable rules depend on browser-only state,
         // so the field must count as hidden and skip required validation.

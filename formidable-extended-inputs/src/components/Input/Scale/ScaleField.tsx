@@ -34,6 +34,14 @@ export interface ScaleRenderInput {
 
 const MAX_ITEMS = 21;
 
+// Configured JCR numbers arrive as string | number | undefined; fall back only
+// when the property is absent or not a number, so an explicit 0 is honored.
+const configuredNumber = (value: unknown, fallback: number): number => {
+  if (value === undefined || value === null || value === "") return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
 export default function ScaleField({ props, inputName, nodeId, editMode, forced }: ScaleRenderInput) {
   const { t } = useTranslation("formidable-extended-inputs", { keyPrefix: "fmdbext_scale" });
   const { "jcr:title": label, helpText, minLabel, maxLabel, required, ...rest } = props;
@@ -41,9 +49,9 @@ export default function ScaleField({ props, inputName, nodeId, editMode, forced 
   const vAttrs = validationDataAttributes(validationMsgs);
   const helpId = helpText ? helpTextId(nodeId) : undefined;
 
-  const min = forced ? forced.min : Number(minValue) || 0;
-  const rawMax = forced ? forced.max : Number(maxValue) || 10;
-  const inc = forced ? forced.step : Math.max(Number(step) || 1, 1);
+  const min = forced ? forced.min : configuredNumber(minValue, 0);
+  const rawMax = forced ? forced.max : configuredNumber(maxValue, 10);
+  const inc = forced ? forced.step : Math.max(configuredNumber(step, 1), 1);
   const max = Math.max(rawMax, min + inc);
 
   const values: number[] = [];

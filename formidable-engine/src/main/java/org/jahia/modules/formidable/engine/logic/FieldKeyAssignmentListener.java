@@ -11,6 +11,8 @@ import javax.jcr.PathNotFoundException;
 import javax.jcr.RepositoryException;
 import javax.jcr.observation.Event;
 import javax.jcr.observation.EventIterator;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_LOGIC_ELEMENT_MIXIN;
 
@@ -41,28 +43,47 @@ public class FieldKeyAssignmentListener extends DefaultEventListener {
 
     @Override
     public void onEvent(EventIterator events) {
+        // Imports and subtree copies deliver one NODE_ADDED per node: process the whole
+        // batch in a single system session with a single save instead of one per node.
+        List<String> nodePaths = new ArrayList<>();
         while (events.hasNext()) {
             Event event = events.nextEvent();
             try {
-                String nodePath = event.getPath();
-                JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, workspace, null, systemSession -> {
+                nodePaths.add(event.getPath());
+            } catch (RepositoryException e) {
+                log.warn("[FieldKey] Failed to read event path: {}", e.getMessage());
+            }
+        }
+
+        if (nodePaths.isEmpty()) {
+            return;
+        }
+
+        try {
+            JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, workspace, null, systemSession -> {
+                boolean assigned = false;
+                for (String nodePath : nodePaths) {
                     JCRNodeWrapper node;
                     try {
                         node = systemSession.getNode(nodePath);
                     } catch (PathNotFoundException e) {
-                        return null;
+                        continue;
                     }
 
                     if (FieldKeys.assignIfMissing(node)) {
-                        systemSession.save();
+                        assigned = true;
                         log.debug("[FieldKey] Assigned fieldKey to '{}'", nodePath);
                     }
+                }
 
-                    return null;
-                });
-            } catch (RepositoryException e) {
-                log.warn("[FieldKey] Failed to assign fieldKey: {}", e.getMessage());
-            }
+                if (assigned) {
+                    systemSession.save();
+                }
+
+                return null;
+            });
+        } catch (RepositoryException e) {
+            log.warn("[FieldKey] Failed to assign fieldKeys: {}", e.getMessage());
         }
     }
 }

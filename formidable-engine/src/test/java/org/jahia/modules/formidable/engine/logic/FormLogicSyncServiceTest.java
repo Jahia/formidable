@@ -18,6 +18,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -543,6 +544,77 @@ class FormLogicSyncServiceTest {
                 "The rule must be backfilled with the source's fieldKey");
         assertTrue(dependentTarget.hasProperty("fieldKey"),
                 "The target itself must receive a fieldKey");
+    }
+
+    @Test
+    void syncRemovesStaleWeakrefWhenRuleBecameJsVariable() throws Exception {
+        // A rule keeps its logicId when the contributor switches its source from a form
+        // field to a JS variable: the weakref bound while it was a field rule must be
+        // cleaned up as an orphan, not kept alive by the jsVariable rule's logicId.
+        JCRNodeWrapper formerSource = node(
+                "former-source",
+                "/form/fields/former-source",
+                "fmdb:radio",
+                Set.of("fmdbmix:formElement"),
+                Map.of(),
+                List.of(),
+                List.of()
+        );
+        JCRNodeWrapper staleLogicSrcChild = node(
+                "jsv12345",
+                "/form/fields/target/logicsSrc/jsv12345",
+                "fmdb:logicSrc",
+                Set.of(),
+                Map.of("logicNodeSource", nodeReferenceProperty(formerSource)),
+                List.of(),
+                List.of()
+        );
+        JCRNodeWrapper existingLogicsSrc = node(
+                "logicsSrc",
+                "/form/fields/target/logicsSrc",
+                "fmdb:logicList",
+                Set.of(),
+                Map.of(),
+                List.of(staleLogicSrcChild),
+                List.of()
+        );
+        JCRNodeWrapper dependentTarget = node(
+                "target",
+                "/form/fields/target",
+                "fmdb:fieldset",
+                Set.of("fmdbmix:formElement", "fmdbmix:formLogicElement"),
+                Map.of("logics", multiValueProperty(
+                        "{\"logicId\":\"jsv12345\",\"sourceType\":\"jsVariable\",\"config\":{\"variable\":\"window.dataLayer.userType\"},\"operator\":\"eq\",\"value\":\"member\"}"
+                )),
+                List.of(existingLogicsSrc),
+                List.of()
+        );
+
+        JCRNodeWrapper fields = node(
+                "fields",
+                "/form/fields",
+                "fmdb:fieldList",
+                Set.of(),
+                Map.of(),
+                List.of(formerSource, dependentTarget),
+                List.of()
+        );
+        JCRNodeWrapper form = node(
+                "form",
+                "/form",
+                "fmdb:form",
+                Set.of(),
+                Map.of(),
+                List.of(fields),
+                List.of()
+        );
+
+        when(dependentTarget.getAncestors()).thenReturn(List.of(form));
+
+        assertTrue(FormLogicSyncService.sync(dependentTarget),
+                "removing the stale weakref must be reported as an update");
+        assertFalse(dependentTarget.getNode("logicsSrc").hasNode("jsv12345"),
+                "the weakref left over from the former field rule must be removed");
     }
 
     @Test

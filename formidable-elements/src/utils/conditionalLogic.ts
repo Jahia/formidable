@@ -231,11 +231,12 @@ const compareNumber = (left?: string, right?: string): number | null => {
 
 /**
  * Boolean state of a source field: a single checkable control reports its
- * checked state; value-based widgets (hidden input, data-fmdb-logic-value)
- * report whether their current value is the literal "true".
+ * checked state; value-based widgets (radio pairs, hidden input,
+ * data-fmdb-logic-value) report a truthy current value — anything non-empty
+ * except the explicit "false", mirroring the server-side evaluator.
  */
 const getBooleanState = (state: SourceFieldState): boolean =>
-	state.checked || state.values[0] === 'true';
+	state.checked || (Boolean(state.values[0]) && state.values[0].trim().toLowerCase() !== 'false');
 
 const JS_VARIABLE_PATH_PATTERN = /^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/;
 

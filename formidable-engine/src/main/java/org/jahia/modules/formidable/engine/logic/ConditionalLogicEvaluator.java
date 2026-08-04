@@ -97,10 +97,11 @@ public class ConditionalLogicEvaluator {
             case "lte" -> compareNumbers(rule, values, comparison -> comparison <= 0);
             case "gt" -> compareNumbers(rule, values, comparison -> comparison > 0);
             case "gte" -> compareNumbers(rule, values, comparison -> comparison >= 0);
-            // Boolean sources submit their value when on and nothing when off,
-            // exactly like a lone checkbox: mirror isChecked / isUnchecked.
-            case "isTrue" -> !values.isEmpty() && values.stream().anyMatch(v -> !v.isBlank());
-            case "isFalse" -> values.isEmpty() || values.stream().allMatch(String::isBlank);
+            // Boolean sources submit a truthy value when on (a checkbox posts "true" or
+            // the browser default "on") and either nothing (checkbox off) or an explicit
+            // "false" (yes/no button pair): an answered "no" must NOT satisfy isTrue.
+            case "isTrue" -> values.stream().anyMatch(ConditionalLogicEvaluator::isTruthy);
+            case "isFalse" -> values.stream().noneMatch(ConditionalLogicEvaluator::isTruthy);
             default -> false;
         };
     }
@@ -135,6 +136,11 @@ public class ConditionalLogicEvaluator {
 
         Integer comparison = compareAsNumbers(values.get(0), rule.value());
         return comparison != null && predicate.test(comparison);
+    }
+
+    /** A submitted boolean value is truthy unless blank or the explicit "false". */
+    private static boolean isTruthy(String value) {
+        return value != null && !value.isBlank() && !"false".equalsIgnoreCase(value.trim());
     }
 
     /** Numeric comparison; null (operator fails safe) when either side is not a number. */

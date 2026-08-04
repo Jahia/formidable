@@ -185,10 +185,11 @@ public final class FormLogicSyncService {
                 continue;
             }
 
-            activeLogicIds.add(entry.logicId());
-            // JS variable rules reference a browser variable, not a form field:
-            // nothing to resolve or bind in logicsSrc.
+            // JS variable rules reference a browser variable, not a form field: nothing
+            // to resolve or bind, and their logicId must not keep a logicsSrc weakref
+            // alive (the rule may have been a field rule before its source type changed).
             if (!entry.isJsVariable()) {
+                activeLogicIds.add(entry.logicId());
                 jsonUpdated |= resolver.resolveAndBind(entry);
             }
 
