@@ -144,6 +144,58 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <artifactId>maven-release-plugin</artifactId>
+                <configuration>
+                    <!-- when releasing, the checksum of the javascript-modules-library package in the
+                    yarn.lock files changes -->
+                    <!-- 'clean verify/install' is used to recompute the checksum of the yarn.lock files as
+                    part of the regular Maven build -->
+                    <!-- scm:checkin allows to commit those files -->
+                    <preparationGoals>-P release-prepare clean verify scm:checkin</preparationGoals>
+                    <completionGoals>-P release-prepare clean install scm:checkin</completionGoals>
+                    <releaseProfiles>release-perform</releaseProfiles>
+                    <useReleaseProfile>true</useReleaseProfile>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>release-prepare</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-scm-plugin</artifactId>
+                        <configuration>
+                            <includes>yarn.lock,package.json</includes>
+                            <message>chore(release): Prepare release ${project.version}</message>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <executions>
+                            <!-- Keep the package.json in sync with the maven version -->
+                            <execution>
+                                <id>sync-version</id>
+                                <phase>process-resources</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>node</executable>
+                                    <arguments>
+                                        <argument>${basedir}/.m2/sync-version.js</argument>
+                                        <argument>${project.version}</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
