@@ -88,33 +88,36 @@ export default function ScaleField({ props, inputName, nodeId, editMode, forced 
           </legend>
         )}
         <HelpText id={helpId} text={helpText} />
-        <div className="fmdbext-scale-items">
-          {values.map((value) => {
-            const inputId = `scale-${nodeId}-${value}`;
-            return (
-              <span key={value} className="fmdbext-scale-item">
-                <input
-                  type="radio"
-                  id={inputId}
-                  name={inputName}
-                  className="fmdb-form-control fmdbext-scale-input"
-                  value={value}
-                  required={required}
-                  {...vAttrs}
-                />
-                <label htmlFor={inputId} className="fmdbext-scale-label">
-                  {value}
-                </label>
-              </span>
-            );
-          })}
-        </div>
-        {(startLabel || endLabel) && (
-          <div className="fmdbext-end-labels">
-            <span>{startLabel}</span>
-            <span>{endLabel}</span>
+        {/* Shared shrink-wrapped body: the end labels span exactly the chip row's width */}
+        <div className="fmdbext-scale-body">
+          <div className="fmdbext-scale-items">
+            {values.map((value) => {
+              const inputId = `scale-${nodeId}-${value}`;
+              return (
+                <span key={value} className="fmdbext-scale-item">
+                  <input
+                    type="radio"
+                    id={inputId}
+                    name={inputName}
+                    className="fmdb-form-control fmdbext-scale-input"
+                    value={value}
+                    required={required}
+                    {...vAttrs}
+                  />
+                  <label htmlFor={inputId} className="fmdbext-scale-label">
+                    {value}
+                  </label>
+                </span>
+              );
+            })}
           </div>
-        )}
+          {(startLabel || endLabel) && (
+            <div className="fmdbext-end-labels">
+              <span>{startLabel}</span>
+              <span>{endLabel}</span>
+            </div>
+          )}
+        </div>
         {configWarnings.map((warning) => (
           <span key={warning} className="fmdbext-edit-warning">
             {warning}

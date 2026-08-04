@@ -1,15 +1,21 @@
 /* Scale / NPS field — number chips as an accessible radio group */
+
+/* The chip grid always fills the body, so the space-between end labels are
+   aligned with the row ends by construction; the optional var caps the width. */
+.fmdbext-scale-body {
+  max-width: min(100%, var(--fmdbext-scale-max-width, 100%));
+}
+
+/* Fluid chips: auto-fit stretches them to fill the width and, when the row
+   wraps, keeps identical column sizes on every line. */
 .fmdbext-scale-items {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--fmdbext-chip-min-width, 2.25rem), 1fr));
   gap: var(--fmdbext-scale-gap, 0.25rem);
-  /* Anchors the space-between end labels to the actual ends of the chip row,
-     and makes long scales wrap; override from the site CSS if needed. */
-  max-width: var(--fmdbext-scale-max-width, 32rem);
 }
 
 .fmdbext-scale-item {
-  display: inline-flex;
+  display: flex;
 }
 
 .fmdbext-scale-input {
@@ -22,12 +28,13 @@
 }
 
 .fmdbext-scale-label {
-  display: inline-flex;
+  display: flex;
+  flex: 1;
   align-items: center;
   justify-content: center;
-  min-width: 2.25rem;
+  box-sizing: border-box;
   min-height: 2.25rem;
-  padding: 0 0.5rem;
+  padding: 0 0.25rem;
   cursor: pointer;
   border: 1px solid var(--fmdbext-chip-border, #c7c7c7);
   border-radius: var(--fmdbext-chip-radius, 4px);
@@ -51,8 +58,4 @@
 .fmdbext-scale-input:focus-visible + .fmdbext-scale-label {
   outline: 2px solid var(--fmdbext-focus, #4c9aff);
   outline-offset: 2px;
-}
-
-.fmdbext-scale .fmdbext-end-labels {
-  max-width: var(--fmdbext-scale-max-width, 32rem);
 }
