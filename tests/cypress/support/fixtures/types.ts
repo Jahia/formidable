@@ -11,7 +11,7 @@ export interface NodeProperty {
 	value?: string;
 	values?: string[];
 	language?: string;
-	type?: 'STRING' | 'BOOLEAN' | 'LONG' | 'DATE' | 'WEAKREFERENCE';
+	type?: 'STRING' | 'BOOLEAN' | 'LONG' | 'DOUBLE' | 'DATE' | 'WEAKREFERENCE';
 }
 
 /**
@@ -151,6 +151,13 @@ export interface InputTextData extends InputWithLength {
 	autocomplete?: string;
 	list?: string[];
 	mask?: string;
+}
+
+export interface InputNumberData extends InputWithPlaceholder {
+	defaultValue?: number;
+	minValue?: number;
+	maxValue?: number;
+	step?: number;
 }
 
 export interface InputFileData extends BaseInputData {

@@ -14,6 +14,7 @@ import {ColorInput} from './elements/ColorInput';
 import {DateTimeLocalInput} from './elements/DateTimeLocalInput';
 import {ButtonInput} from "./elements/ButtonInput";
 import {HiddenInput} from "./elements/HiddenInput";
+import {NumberInput} from './elements/NumberInput';
 
 /**
  * Form component - Main form container
@@ -61,6 +62,15 @@ export class Form extends BaseComponent {
 	getEmailInput(name: string): EmailInput {
 		return new EmailInput(
 			this.findByName('input[type="email"]', name)
+		);
+	}
+
+	/**
+	 * Get a number input directly in the form by its name attribute
+	 */
+	getNumberInput(name: string): NumberInput {
+		return new NumberInput(
+			this.findByName('input[type="number"]', name)
 		);
 	}
 
