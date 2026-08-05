@@ -49,4 +49,21 @@ export class NumberInput extends FormElement {
 		});
 		return this;
 	}
+
+	shouldHaveDatalist(): this {
+		this.getInput().should('have.attr', 'list');
+		return this;
+	}
+
+	shouldHaveDatalistOptions(options: string[]): this {
+		this.getInput().invoke('attr', 'list').then((listId: string) => {
+			if (listId) {
+				this.getContainer().find(`datalist#${listId}`).should('exist');
+				options.forEach(option => {
+					this.getContainer().find(`datalist#${listId} option[value="${option}"]`).should('exist');
+				});
+			}
+		});
+		return this;
+	}
 }

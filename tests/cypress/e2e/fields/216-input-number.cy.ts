@@ -29,7 +29,9 @@ describe('Form fields - 216 Input number', () => {
 				.shouldHaveValue('5')
 				.shouldHaveMin(1)
 				.shouldHaveMax(10)
-				.shouldHaveStep(0.5);
+				.shouldHaveStep(0.5)
+				.shouldHaveDatalist()
+				.shouldHaveDatalistOptions(INPUT_NUMBER_COMPLETE.list!);
 
 			// An empty required number must block submission before the submit handler runs.
 			numberInput.clear();

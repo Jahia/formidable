@@ -10,8 +10,18 @@ interface InputNumberProps extends RangeValidationMessageProps {
 	minValue?: number;
 	maxValue?: number;
 	step?: number;
+	list?: string[];
 	required?: boolean;
+	// Advanced settings from mixin
+	title?: string;
+	readonly?: boolean;
+	autofocus?: boolean;
+	disabled?: boolean;
+	form?: string;
 }
+
+// Default values declared outside component to prevent re-render issues
+const DEFAULT_LIST: string[] = [];
 
 jahiaComponent(
 	{
@@ -28,11 +38,20 @@ jahiaComponent(
 			minValue,
 			maxValue,
 			step,
+			list = DEFAULT_LIST,
 			required,
+			title,
+			readonly,
+			autofocus,
+			disabled,
+			form,
 			...validationMsgs
 		}: InputNumberProps,
 		{currentNode}
 	) => {
+
+		// Generate unique datalist ID for autocomplete functionality
+		const datalistId = list.length > 0 ? `datalist-${currentNode.getIdentifier()}` : undefined;
 
 		// Generate unique id and name for the input
 		const inputId = `input-${currentNode.getIdentifier()}`;
@@ -62,9 +81,24 @@ jahiaComponent(
 					min={minValue}
 					max={maxValue}
 					step={step}
+					list={datalistId}
 					required={required}
+					title={title}
+					readOnly={readonly}
+					autoFocus={autofocus}
+					disabled={disabled}
+					form={form}
 					{...validationDataAttributes(validationMsgs)}
 				/>
+
+				{/* Render datalist for autocomplete if options are provided */}
+				{list.length > 0 && (
+					<datalist id={datalistId}>
+						{list.map((option) => (
+							<option key={option} value={option}/>
+						))}
+					</datalist>
+				)}
 			</div>
 		);
 	}

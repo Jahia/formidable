@@ -14,6 +14,7 @@ export const INPUT_NUMBER_COMPLETE: InputNumberData = {
 	minValue: 1,
 	maxValue: 10,
 	step: 0.5,
+	list: ['1', '5', '7.5', '10'],
 	required: true
 };
 
@@ -27,6 +28,8 @@ export function getInputNumberNode(data: InputNumberData = INPUT_NUMBER_SIMPLE):
 	if (data.minValue !== undefined) properties.push({name: 'minValue', value: String(data.minValue), type: 'DOUBLE'});
 	if (data.maxValue !== undefined) properties.push({name: 'maxValue', value: String(data.maxValue), type: 'DOUBLE'});
 	if (data.step !== undefined) properties.push({name: 'step', value: String(data.step), type: 'DOUBLE'});
+	// The list property is not i18n (numeric suggestions are language-independent)
+	if (data.list && data.list.length > 0) properties.push({name: 'list', values: data.list});
 	if (data.required !== undefined) properties.push({name: 'required', value: String(data.required), type: 'BOOLEAN'});
 
 	return {

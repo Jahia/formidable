@@ -158,6 +158,7 @@ export interface InputNumberData extends InputWithPlaceholder {
 	minValue?: number;
 	maxValue?: number;
 	step?: number;
+	list?: string[];
 }
 
 export interface InputFileData extends BaseInputData {
