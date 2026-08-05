@@ -50,12 +50,15 @@ export default function RangeInput({
 	const [value, setValue] = useState<string>(initialValue);
 	const answered = value !== '';
 	const rangeRef = useRef<HTMLInputElement>(null);
-	const hiddenRef = useRef<HTMLInputElement>(null);
 	const mountedRef = useRef(false);
 
 	// The thumb needs a position even while unanswered; the midpoint mirrors the
-	// browser default for a valueless range.
-	const displayValue = answered ? value : String(minValue + ((maxValue - minValue) / 2));
+	// browser default for a valueless range, snapped to the step grid so the
+	// browser's own value sanitization cannot desync the controlled value
+	// (toFixed absorbs float noise like 0.1 * 3).
+	const stepValue = step && step > 0 ? step : 1;
+	const snappedMidpoint = minValue + (Math.round(((maxValue - minValue) / 2) / stepValue) * stepValue);
+	const displayValue = answered ? value : String(Math.min(maxValue, Number(snappedMidpoint.toFixed(6))));
 
 	// Selecting exactly the displayed position fires no change event, so any
 	// completed interaction (pointer release, key release) also counts as an answer.
@@ -83,15 +86,17 @@ export default function RangeInput({
 	}, [required, answered, t]);
 
 	// Conditional logic evaluates on the bubbling input event, BEFORE React commits
-	// the new value to the hidden input — re-dispatch a change event after the commit
-	// so rules see the fresh value.
+	// the new value to the hidden mirror — re-dispatch a change event after the
+	// commit so rules see the fresh value. Dispatched from the visible slider so the
+	// shared form validation also clears its inline error, which is attached to the
+	// slider (the customValidity reset above runs first, in the same effects flush).
 	useEffect(() => {
 		if (!mountedRef.current) {
 			mountedRef.current = true;
 			return;
 		}
 
-		hiddenRef.current?.dispatchEvent(new Event('change', {bubbles: true}));
+		rangeRef.current?.dispatchEvent(new Event('change', {bubbles: true}));
 	}, [value]);
 
 	// A controlled slider does not follow native form reset: restore the initial state.
@@ -136,7 +141,7 @@ export default function RangeInput({
 					{answered ? value : '–'}
 				</output>
 			</div>
-			<input ref={hiddenRef} type="hidden" name={name} value={value} form={form}/>
+			<input type="hidden" name={name} value={value} form={form}/>
 		</>
 	);
 }

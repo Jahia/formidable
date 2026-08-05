@@ -54,6 +54,8 @@ describe('Form fields - 217 Input range', () => {
 			range.setValue('7');
 			range.shouldBeAnswered('7');
 			range.shouldBeValid();
+			// Answering clears the inline error immediately, without another submit.
+			range.getValidationError().should('not.exist');
 
 			form.submit();
 			form.waitForSubmit().shouldHaveSubmissionMessage('Form submitted successfully!');
