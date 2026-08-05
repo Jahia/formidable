@@ -45,7 +45,9 @@ mixins:
 
 ### `fmdbmix:validationMessages` (base)
 
-Applies to: checkbox, radio, select, file, color — elements where only `required` can fail.
+Applies to: checkbox, radio, select, file, color, range — elements where only `required` can
+fail (the range slider surfaces it through the constraint-validation API while untouched, since
+the browser clamps the thumb into range and rangeOverflow/stepMismatch are unreachable).
 
 | Property | ValidityState flag | Example trigger |
 |---|---|---|

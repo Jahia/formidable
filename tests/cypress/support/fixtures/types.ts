@@ -161,6 +161,16 @@ export interface InputNumberData extends InputWithPlaceholder {
 	list?: string[];
 }
 
+export interface InputRangeData extends BaseInputData {
+	defaultValue?: number;
+	minValue?: number;
+	maxValue?: number;
+	step?: number;
+	minLabel?: string;
+	maxLabel?: string;
+	list?: string[];
+}
+
 export interface InputFileData extends BaseInputData {
 	accept?: string[];
 	multiple?: boolean;

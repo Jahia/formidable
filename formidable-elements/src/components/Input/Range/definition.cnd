@@ -1,0 +1,35 @@
+// Range input advanced settings mixin.
+// Only the attributes HTML defines for type="range": readonly does not apply to
+// range inputs, and pattern/mask/size/spellcheck/dirname are text-input settings.
+[fmdbmix:advancedInputRangeSettings] mixin
+ extends = fmdb:inputRange
+ itemtype = content
+ - title (string) i18n indexed=no
+ - autofocus (boolean) = false
+ - disabled (boolean) = false
+ - form (string) indexed=no
+
+// Range (slider) input component properties.
+// A native range control always has a thumb position, so an untouched slider would be
+// indistinguishable from an answered one (the pre-answered bias the switch buttons mode
+// solved). The view therefore submits NOTHING until the visitor interacts: the visible
+// slider is unnamed and mirrors its value into a hidden named input, empty until the
+// first interaction — or preset when defaultValue is configured (an explicit editorial
+// choice to start answered).
+// Range convention: server-side validation for fmdbmix:numberField types reads the
+// minValue/maxValue properties (FormFieldMetadataCollector), shared with rating/scale;
+// they are autocreated to the HTML defaults (0/100) so the server always knows the range.
+// Base fmdbmix:validationMessages only: user interaction can only fail 'required' (the
+// browser clamps the thumb into range, so rangeOverflow/stepMismatch are unreachable
+// client-side); forged out-of-range submissions are still rejected server-side.
+[fmdb:inputRange] > jnt:content, fmdbmix:element, fmdbmix:numberField, fmdbmix:validationMessages
+ - helpText (string, richtext[ckeditor.toolbar='FormidableHelp',ckeditor.customConfig='$context/modules/formidable-engine/javascript/ckeditor/helpTextConfig.js']) i18n indexed=no
+ - required (boolean) = false
+ - defaultValue (double)
+ - minValue (double) = 0 autocreated indexed=no
+ - maxValue (double) = 100 autocreated indexed=no
+ - step (double)
+ - minLabel (string) i18n indexed=no
+ - maxLabel (string) i18n indexed=no
+ // Datalist entries render as slider tick marks; numeric values, hence not i18n
+ - list (string) multiple indexed=no

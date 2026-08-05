@@ -10,6 +10,7 @@ export * from './inputDatetimeLocal';
 export * from './inputEmail';
 export * from './inputFile';
 export * from './inputNumber';
+export * from './inputRange';
 export * from './inputText';
 export * from './radio';
 export * from './select';
