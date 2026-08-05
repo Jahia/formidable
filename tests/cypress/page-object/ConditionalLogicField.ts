@@ -174,6 +174,17 @@ export class ConditionalLogicField extends BaseComponent {
 		return this;
 	}
 
+	ruleShouldHaveTextInputCount(ruleIndex: number, count: number): this {
+		this.getRule(ruleIndex).get().find('input[type="text"]').should('have.length', count);
+		return this;
+	}
+
+	typeTextValue(ruleIndex: number, value: string): this {
+		this.getRule(ruleIndex).get().find('input[type="text"]').first().clear();
+		this.getRule(ruleIndex).get().find('input[type="text"]').first().type(value);
+		return this;
+	}
+
 	ruleShouldContainText(ruleIndex: number, text: string): this {
 		this.getRule(ruleIndex).should('contain.text', text);
 		return this;

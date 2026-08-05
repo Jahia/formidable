@@ -1,6 +1,6 @@
 export type ConditionalLogicSourceType = 'field' | 'jsVariable';
 
-export type ConditionalLogicValueKind = 'choice' | 'date' | 'number' | 'boolean';
+export type ConditionalLogicValueKind = 'choice' | 'date' | 'number' | 'boolean' | 'text';
 
 export type ConditionalLogicOperator =
 	| 'in'
@@ -21,6 +21,8 @@ export type ConditionalLogicOperator =
 	| 'gte'
 	| 'isTrue'
 	| 'isFalse'
+	| 'isEmpty'
+	| 'isNotEmpty'
 	| 'equals'
 	| 'notEquals'
 	| 'contains'
@@ -44,7 +46,7 @@ export interface ConditionalLogicRule {
 	values?: string[];
 }
 
-const VALUE_KINDS: ConditionalLogicValueKind[] = ['choice', 'date', 'number', 'boolean'];
+const VALUE_KINDS: ConditionalLogicValueKind[] = ['choice', 'date', 'number', 'boolean', 'text'];
 
 const isJsVariableRuleShape = (parsed: Partial<ConditionalLogicRule>): boolean =>
 	parsed.sourceType === 'jsVariable'
@@ -238,6 +240,13 @@ const compareNumber = (left?: string, right?: string): number | null => {
 const getBooleanState = (state: SourceFieldState): boolean =>
 	state.checked || (Boolean(state.values[0]) && state.values[0].trim().toLowerCase() !== 'false');
 
+/**
+ * A text source counts as filled when any of its values holds non-whitespace
+ * content, mirroring the server-side String::isBlank check.
+ */
+const hasTextContent = (values: string[]): boolean =>
+	values.some(value => value.trim() !== '');
+
 const JS_VARIABLE_PATH_PATTERN = /^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/;
 
 /**
@@ -371,6 +380,18 @@ const evaluateRule = (rule: ConditionalLogicRule, sourceWrapper: HTMLElement): b
 			return getBooleanState(state);
 		case 'isFalse':
 			return !getBooleanState(state);
+		case 'isEmpty':
+			return !hasTextContent(values);
+		case 'isNotEmpty':
+			return hasTextContent(values);
+		// Text comparisons require a non-empty expected value on BOTH evaluators:
+		// an empty text input submits "" server-side but yields no value here, so
+		// allowing an empty expected value would make the two sides disagree
+		// (emptiness is what isEmpty/isNotEmpty are for).
+		case 'equals':
+			return values.length > 0 && !!rule.value && values[0] === rule.value;
+		case 'contains':
+			return values.length > 0 && !!rule.value && values[0].includes(rule.value);
 		default:
 			return false;
 	}

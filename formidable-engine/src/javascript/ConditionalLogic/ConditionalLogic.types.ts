@@ -3,9 +3,10 @@ export type RuleSourceType = 'field' | 'jsVariable';
 /**
  * Shape of the values a source field produces, which drives the offered operators
  * and the value widget shown next to them. Declared by the field type through the
- * engine's semantic mixins (fmdbmix:choiceField, dateField, numberField, booleanField).
+ * engine's semantic mixins (fmdbmix:choiceField, dateField, numberField,
+ * booleanField, textField).
  */
-export type SourceValueKind = 'choice' | 'date' | 'number' | 'boolean';
+export type SourceValueKind = 'choice' | 'date' | 'number' | 'boolean' | 'text';
 
 export type LogicOperator =
     | 'in'
@@ -26,6 +27,8 @@ export type LogicOperator =
     | 'gte'
     | 'isTrue'
     | 'isFalse'
+    | 'isEmpty'
+    | 'isNotEmpty'
     | 'equals'
     | 'notEquals'
     | 'contains'
@@ -114,6 +117,7 @@ export interface GraphNode {
     isDateField?: boolean;
     isNumberField?: boolean;
     isBooleanField?: boolean;
+    isTextField?: boolean;
     properties?: PropertyValue[] | null;
     ancestors?: GraphAncestorNode[] | null;
     descendants?: {nodes?: GraphNode[] | null} | null;

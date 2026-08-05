@@ -13,8 +13,10 @@ describe('Form logic - 50 Conditional logic selector type', () => {
 			logicField.addRule();
 
 			logicField.openSourceDropdown(0);
-			logicField.menuShouldHaveItems(['role', 'accept-terms', 'start-date']);
-			logicField.menuShouldNotHaveItems(['notes', 'nickname']);
+			// 'notes' (textarea) is eligible since fmdbmix:textField; 'nickname' is
+			// the target field itself, so it must stay out of its own source list.
+			logicField.menuShouldHaveItems(['role', 'accept-terms', 'start-date', 'notes']);
+			logicField.menuShouldNotHaveItems(['nickname']);
 			logicField.selectMenuItem('role');
 
 			logicField.openOperatorDropdown(0);
@@ -52,8 +54,8 @@ describe('Form logic - 50 Conditional logic selector type', () => {
 
 			logicField.addRule();
 			logicField.openSourceDropdown(1);
-			logicField.menuShouldHaveItems(['accept-terms', 'start-date']);
-			logicField.menuShouldNotHaveItems(['role', 'notes', 'nickname']);
+			logicField.menuShouldHaveItems(['accept-terms', 'start-date', 'notes']);
+			logicField.menuShouldNotHaveItems(['role', 'nickname']);
 			logicField.selectMenuItem('accept-terms');
 
 			editor.save();

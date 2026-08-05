@@ -153,6 +153,14 @@ export interface InputTextData extends InputWithLength {
 	mask?: string;
 }
 
+export interface InputNumberData extends InputWithPlaceholder {
+	defaultValue?: number;
+	minValue?: number;
+	maxValue?: number;
+	step?: number;
+	list?: string[];
+}
+
 export interface InputRangeData extends BaseInputData {
 	defaultValue?: number;
 	minValue?: number;

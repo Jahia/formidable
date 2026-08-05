@@ -6,8 +6,8 @@ import type {LogicOperator, SourceFieldOption, SourceValueKind} from './Conditio
  * descriptor — nothing else in the editor branches on concrete type names.
  *
  * A field type declares its value kind by carrying one of the engine's semantic
- * mixins (fmdbmix:choiceField, dateField, numberField, booleanField), which maps
- * to a kind-default descriptor below. Types needing more than the default
+ * mixins (fmdbmix:choiceField, dateField, numberField, booleanField, textField),
+ * which maps to a kind-default descriptor below. Types needing more than the default
  * (a different choice property, specialized operators) get an explicit per-type
  * override entry; third-party types only need the mixin in their CND.
  */
@@ -35,6 +35,10 @@ const KIND_DEFAULTS: Record<SourceValueKind, LogicSourceDescriptor> = {
     boolean: {
         valueKind: 'boolean',
         getOperators: () => ['isTrue', 'isFalse']
+    },
+    text: {
+        valueKind: 'text',
+        getOperators: () => ['isNotEmpty', 'isEmpty', 'equals', 'contains']
     }
 };
 
@@ -72,7 +76,7 @@ export const getSourceDescriptor = (type?: string, valueKind?: SourceValueKind):
  * (checked/true/defined states) need no value widget at all.
  */
 export const operatorNeedsValue = (operator: LogicOperator): boolean =>
-    !['isChecked', 'isUnchecked', 'isTrue', 'isFalse', 'exists', 'notExists'].includes(operator);
+    !['isChecked', 'isUnchecked', 'isTrue', 'isFalse', 'isEmpty', 'isNotEmpty', 'exists', 'notExists'].includes(operator);
 
 // Operators available on jsVariable rules (dotted window variable paths).
 export const JS_VARIABLE_OPERATORS: LogicOperator[] = [

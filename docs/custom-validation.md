@@ -67,7 +67,7 @@ Applies to: text, email, textarea — elements with text-specific constraints.
 
 ### `fmdbmix:rangeValidationMessages` (extends base)
 
-Applies to: date, datetime-local — elements with range and step constraints.
+Applies to: date, datetime-local, number — elements with range and step constraints.
 
 | Property | ValidityState flag | Example trigger |
 |---|---|---|
@@ -87,6 +87,9 @@ Each element type extends the appropriate mixin in its `definition.cnd`:
 
 // Date input — has range constraints
 [fmdb:inputDate] > ... fmdbmix:rangeValidationMessages
+
+// Number input — has range constraints
+[fmdb:inputNumber] > ... fmdbmix:rangeValidationMessages
 
 // Checkbox — only required can fail
 [fmdb:checkbox] > ... fmdbmix:validationMessages
