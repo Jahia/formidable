@@ -28,5 +28,9 @@
 	},
 	"fmdb_formReference": {
 		"noFormSelected": "No form selected"
+	},
+	"fmdb_inputRange": {
+		"required": "Please select a value",
+		"unanswered": "No value selected yet"
 	}
 }
