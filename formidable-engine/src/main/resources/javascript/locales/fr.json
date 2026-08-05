@@ -43,6 +43,8 @@
             "gte": "est supérieur ou égal à",
             "isTrue": "est vrai (activé)",
             "isFalse": "est faux (désactivé)",
+            "isEmpty": "est vide",
+            "isNotEmpty": "est rempli",
             "equals": "est égal à",
             "notEquals": "est différent de",
             "contains": "contient",

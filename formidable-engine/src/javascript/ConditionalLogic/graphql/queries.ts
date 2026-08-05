@@ -48,6 +48,7 @@ export const FORM_TREE_BY_PATH = gql`
                         isDateField: isNodeType(type: {types: ["fmdbmix:dateField"]})
                         isNumberField: isNodeType(type: {types: ["fmdbmix:numberField"]})
                         isBooleanField: isNodeType(type: {types: ["fmdbmix:booleanField"]})
+                        isTextField: isNodeType(type: {types: ["fmdbmix:textField"]})
                         properties(names: ["choices", "options", "fieldKey"], language: $language) {
                             name
                             value

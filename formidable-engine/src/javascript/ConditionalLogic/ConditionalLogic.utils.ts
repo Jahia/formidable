@@ -11,7 +11,7 @@ import type {
 } from './ConditionalLogic.types';
 import {getSourceDescriptor, JS_VARIABLE_OPERATORS, operatorNeedsValue} from './sourceDescriptors';
 
-const VALUE_KINDS: SourceValueKind[] = ['choice', 'date', 'number', 'boolean'];
+const VALUE_KINDS: SourceValueKind[] = ['choice', 'date', 'number', 'boolean', 'text'];
 
 const EMPTY_FIELD_RULE: ConditionalLogicRule = {
     logicId: '',
@@ -85,7 +85,7 @@ export const normalizeStoredJsVariableRule = (rule: ConditionalLogicRule): Condi
 // Kinds whose operators compare against contributor-typed scalar value(s)
 // (a single input, or two for 'between') instead of a choice list.
 export const isScalarValueKind = (valueKind?: SourceValueKind): boolean =>
-    valueKind === 'date' || valueKind === 'number';
+    valueKind === 'date' || valueKind === 'number' || valueKind === 'text';
 
 export const normalizeStoredRule = (
     rule: ConditionalLogicRule,
@@ -109,16 +109,16 @@ export const normalizeStoredRule = (
         operator
     };
 
+    if (!operatorNeedsValue(operator)) {
+        return base;
+    }
+
     if (isScalarValueKind(descriptor.valueKind)) {
         if (operator === 'between') {
             return {...base, values: (rule.values ?? []).slice(0, 2)};
         }
 
         return {...base, value: rule.value ?? ''};
-    }
-
-    if (!operatorNeedsValue(operator)) {
-        return base;
     }
 
     return {...base, values: rule.values ?? []};
@@ -189,6 +189,7 @@ const getDeclaredValueKind = (node: GraphNode): SourceValueKind | undefined => {
     if (node.isDateField) return 'date';
     if (node.isNumberField) return 'number';
     if (node.isBooleanField) return 'boolean';
+    if (node.isTextField) return 'text';
     return undefined;
 };
 

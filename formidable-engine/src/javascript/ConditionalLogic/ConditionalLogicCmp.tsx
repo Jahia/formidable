@@ -32,7 +32,7 @@ const ScalarValueFields = ({
     onChange
 }: {
     id: string;
-    inputType: 'date' | 'number';
+    inputType: 'date' | 'number' | 'text';
     readOnly?: boolean;
     operator: LogicOperator;
     rule: ConditionalLogicRule;
@@ -349,6 +349,15 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         && selectedDescriptor?.valueKind === 'choice'
         && operatorNeedsValue(selectedOperator);
 
+    // Scalar kinds (date/number/text) show input(s) only for operators that
+    // compare against a value; isEmpty/isNotEmpty need none.
+    const showScalarInput = Boolean(selectedSource)
+        && isScalarValueKind(selectedDescriptor?.valueKind)
+        && operatorNeedsValue(selectedOperator);
+    const scalarInputType: 'date' | 'number' | 'text' = selectedDescriptor?.valueKind === 'number'
+        ? 'number'
+        : (selectedDescriptor?.valueKind === 'text' ? 'text' : 'date');
+
     const ruleSourceType: RuleSourceType = rule.sourceType === 'jsVariable' ? 'jsVariable' : 'field';
     const jsVariableOperator = sanitizeJsVariableOperator(rule.operator);
 
@@ -456,15 +465,15 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     </div>
                 )}
 
-                {!showValueDropdown && !isScalarValueKind(selectedDescriptor?.valueKind) && (
+                {!showValueDropdown && !showScalarInput && (
                     <div className="flexFluid"/>
                 )}
 
-                {selectedSource && isScalarValueKind(selectedDescriptor?.valueKind) && (
+                {showScalarInput && selectedSource && (
                     <div className="flexFluid">
                         <ScalarValueFields
                             id={id}
-                            inputType={selectedDescriptor?.valueKind === 'number' ? 'number' : 'date'}
+                            inputType={scalarInputType}
                             readOnly={field.readOnly}
                             operator={selectedOperator}
                             rule={rule}
