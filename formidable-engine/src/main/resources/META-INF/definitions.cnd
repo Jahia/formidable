@@ -19,6 +19,10 @@
 
 [fmdbmix:formLogicElement] mixin
  - logics (string) multiple indexed=no
+ // Stable business identity of the element (random UUID string), independent from the
+ // JCR UUID, the node name and the visible label. Assigned server-side on creation and
+ // used as the persisted source reference (sourceFieldKey) in conditional logic rules.
+ - fieldKey (string) hidden indexed=no
  + logicsSrc (fmdb:logicList) = fmdb:logicList hidden
 
 // Marks a node that can own child form items and can therefore propagate a
@@ -39,6 +43,11 @@ orderable
 [fmdbmix:authenticatedOnlyForm] mixin
 [fmdbmix:nonSubmittable] mixin
 [fmdbmix:choiceField] mixin
+// Semantic value-kind mixins: a field type carrying one becomes eligible as a
+// conditional-logic source with the operators of that kind (number: comparisons,
+// boolean: is true / is false). Third-party field types opt in from their own CND.
+[fmdbmix:numberField] mixin
+[fmdbmix:booleanField] mixin
 [fmdbmix:fileField] mixin
 [fmdbmix:emailField] mixin
 [fmdbmix:dateField] mixin

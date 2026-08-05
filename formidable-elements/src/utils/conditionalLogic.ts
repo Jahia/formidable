@@ -1,4 +1,6 @@
-export type SupportedConditionalSourceType = 'fmdb:select' | 'fmdb:radio' | 'fmdb:checkbox' | 'fmdb:inputDate';
+export type ConditionalLogicSourceType = 'field' | 'jsVariable';
+
+export type ConditionalLogicValueKind = 'choice' | 'date' | 'number' | 'boolean';
 
 export type ConditionalLogicOperator =
 	| 'in'
@@ -10,37 +12,63 @@ export type ConditionalLogicOperator =
 	| 'before'
 	| 'after'
 	| 'on'
-	| 'between';
+	| 'between'
+	| 'eq'
+	| 'neq'
+	| 'lt'
+	| 'lte'
+	| 'gt'
+	| 'gte'
+	| 'isTrue'
+	| 'isFalse'
+	| 'equals'
+	| 'notEquals'
+	| 'contains'
+	| 'exists'
+	| 'notExists';
 
 export interface ConditionalLogicRule {
 	logicId?: string;
-	sourceFieldName: string;
+	// Absent on rules stored before jsVariable support; treated as 'field'.
+	sourceType?: ConditionalLogicSourceType;
+	sourceFieldName?: string;
 	sourceNodeId?: string;
-	sourceFieldType: SupportedConditionalSourceType;
+	// Informative metadata; source eligibility is enforced at authoring time.
+	sourceFieldType?: string;
+	// Value kind of the source at authoring time; picks the comparison semantics
+	// where an operator is shared across kinds ('between': number vs date).
+	valueKind?: ConditionalLogicValueKind;
+	variable?: string;
 	operator: ConditionalLogicOperator;
 	value?: string;
 	values?: string[];
 }
 
-const SUPPORTED_TYPES: SupportedConditionalSourceType[] = [
-	'fmdb:select',
-	'fmdb:radio',
-	'fmdb:checkbox',
-	'fmdb:inputDate'
-];
+const VALUE_KINDS: ConditionalLogicValueKind[] = ['choice', 'date', 'number', 'boolean'];
+
+const isJsVariableRuleShape = (parsed: Partial<ConditionalLogicRule>): boolean =>
+	parsed.sourceType === 'jsVariable'
+	&& typeof parsed.variable === 'string'
+	&& parsed.variable.trim() !== '';
 
 export const parseConditionalLogicRule = (rawValue: string): ConditionalLogicRule | null => {
 	try {
 		const parsed = JSON.parse(rawValue) as Partial<ConditionalLogicRule>;
-		if (!parsed || typeof parsed.sourceFieldName !== 'string') {
+		if (!parsed || typeof parsed.operator !== 'string') {
 			return null;
 		}
 
-		if (!SUPPORTED_TYPES.includes(parsed.sourceFieldType as SupportedConditionalSourceType)) {
-			return null;
+		if (isJsVariableRuleShape(parsed)) {
+			return {
+				logicId: typeof parsed.logicId === 'string' ? parsed.logicId : undefined,
+				sourceType: 'jsVariable',
+				variable: parsed.variable!.trim(),
+				operator: parsed.operator as ConditionalLogicOperator,
+				value: typeof parsed.value === 'string' ? parsed.value : undefined
+			};
 		}
 
-		if (typeof parsed.operator !== 'string') {
+		if (typeof parsed.sourceFieldName !== 'string') {
 			return null;
 		}
 
@@ -48,7 +76,8 @@ export const parseConditionalLogicRule = (rawValue: string): ConditionalLogicRul
 			logicId: typeof parsed.logicId === 'string' ? parsed.logicId : undefined,
 			sourceFieldName: parsed.sourceFieldName,
 			sourceNodeId: typeof parsed.sourceNodeId === 'string' ? parsed.sourceNodeId : undefined,
-			sourceFieldType: parsed.sourceFieldType as SupportedConditionalSourceType,
+			sourceFieldType: typeof parsed.sourceFieldType === 'string' ? parsed.sourceFieldType : undefined,
+			valueKind: VALUE_KINDS.includes(parsed.valueKind as ConditionalLogicValueKind) ? parsed.valueKind : undefined,
 			operator: parsed.operator as ConditionalLogicOperator,
 			value: typeof parsed.value === 'string' ? parsed.value : undefined,
 			values: Array.isArray(parsed.values) ? parsed.values.filter(value => typeof value === 'string') : undefined
@@ -67,9 +96,9 @@ export const parseConditionalLogicRules = (rawValues: string[] = []): Conditiona
 const isConditionalLogicRule = (value: unknown): value is ConditionalLogicRule => {
 	if (!value || typeof value !== 'object') return false;
 	const candidate = value as Partial<ConditionalLogicRule>;
-	return typeof candidate.sourceFieldName === 'string'
-		&& SUPPORTED_TYPES.includes(candidate.sourceFieldType as SupportedConditionalSourceType)
-		&& typeof candidate.operator === 'string';
+	if (typeof candidate.operator !== 'string') return false;
+	if (isJsVariableRuleShape(candidate)) return true;
+	return typeof candidate.sourceFieldName === 'string';
 };
 
 const deserializeConditionalLogicRules = (rawValue: string): ConditionalLogicRule[] => {
@@ -92,61 +121,195 @@ interface SourceFieldState {
 	checked: boolean;
 }
 
+const NON_VALUE_INPUT_TYPES = new Set(['submit', 'reset', 'button', 'file', 'image']);
+
+/**
+ * Escape hatch for widgets not rendered as native named controls: an element
+ * inside the source wrapper (or the wrapper itself) carrying a
+ * `data-fmdb-logic-value` attribute is read INSTEAD of probing form controls.
+ * The attribute holds the widget's current value — a plain string, or a JSON
+ * array of strings for multi-value widgets. The widget is responsible for
+ * keeping the attribute up to date (logic re-evaluates on form input/change
+ * events, so the widget should also dispatch one after updating it).
+ */
+const readLogicValueOverride = (wrapper: HTMLElement): string[] | null => {
+	const host = wrapper.hasAttribute('data-fmdb-logic-value')
+		? wrapper
+		: wrapper.querySelector<HTMLElement>('[data-fmdb-logic-value]');
+	if (!host) {
+		return null;
+	}
+
+	const raw = host.getAttribute('data-fmdb-logic-value') ?? '';
+	if (raw.startsWith('[')) {
+		try {
+			const parsed = JSON.parse(raw) as unknown;
+			if (Array.isArray(parsed)) {
+				return parsed.filter((entry): entry is string => typeof entry === 'string');
+			}
+		} catch {
+			// Fall through: treat the raw attribute as a single scalar value.
+		}
+	}
+
+	return raw === '' ? [] : [raw];
+};
+
+/**
+ * Reads the current value(s) of a source field from its wrapper, whatever its widget:
+ * every named form control inside the wrapper contributes its value — selected options
+ * for selects, checked values for checkables (radio/checkbox), the raw value otherwise.
+ * Any field rendered with native named controls is therefore readable without
+ * field-type-specific code; others can expose `data-fmdb-logic-value`.
+ */
 const getSourceFieldState = (wrapper: HTMLElement): SourceFieldState => {
-	const select = wrapper.querySelector<HTMLSelectElement>('select');
-	if (select) {
-		if (select.multiple) {
-			return {
-				values: Array.from(select.selectedOptions).map(option => option.value).filter(Boolean),
-				checked: false
-			};
+	const override = readLogicValueOverride(wrapper);
+	if (override !== null) {
+		return {
+			values: override,
+			checked: override.length === 1 && override[0] === 'true'
+		};
+	}
+
+	const controls = Array.from(wrapper.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+		'input[name], select[name], textarea[name]'
+	));
+
+	const values: string[] = [];
+	const checkables: HTMLInputElement[] = [];
+
+	for (const control of controls) {
+		if (control instanceof HTMLSelectElement) {
+			values.push(...Array.from(control.selectedOptions).map(option => option.value).filter(Boolean));
+		} else if (control instanceof HTMLInputElement && (control.type === 'checkbox' || control.type === 'radio')) {
+			checkables.push(control);
+			if (control.checked && control.value) {
+				values.push(control.value);
+			}
+		} else if (!(control instanceof HTMLInputElement) || !NON_VALUE_INPUT_TYPES.has(control.type)) {
+			if (control.value) {
+				values.push(control.value);
+			}
 		}
-
-		return {
-			values: select.value ? [select.value] : [],
-			checked: false
-		};
 	}
 
-	const radioInputs = Array.from(wrapper.querySelectorAll<HTMLInputElement>('input[type="radio"]'));
-	if (radioInputs.length > 0) {
-		const selected = radioInputs.find(input => input.checked);
-		return {
-			values: selected?.value ? [selected.value] : [],
-			checked: false
-		};
-	}
-
-	const checkboxInputs = Array.from(wrapper.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'));
-	if (checkboxInputs.length > 0) {
-		if (checkboxInputs.length === 1) {
-			return {
-				values: checkboxInputs[0].checked && checkboxInputs[0].value ? [checkboxInputs[0].value] : [],
-				checked: checkboxInputs[0].checked
-			};
-		}
-
-		return {
-			values: checkboxInputs.filter(input => input.checked).map(input => input.value).filter(Boolean),
-			checked: false
-		};
-	}
-
-	const dateInput = wrapper.querySelector<HTMLInputElement>('input[type="date"]');
-	if (dateInput) {
-		return {
-			values: dateInput.value ? [dateInput.value] : [],
-			checked: false
-		};
-	}
-
-	return {values: [], checked: false};
+	return {
+		values,
+		// isChecked/isUnchecked are only offered on fields rendered as a single
+		// checkable control (e.g. a lone checkbox); groups always compare values.
+		checked: checkables.length === 1 && checkables[0].checked
+	};
 };
 
 const compareDate = (left: string, right: string): number => {
 	if (left === right) return 0;
 	return left < right ? -1 : 1;
 };
+
+/**
+ * Strict numeric parsing: the whole trimmed string must be a number, mirroring
+ * the server-side Double.parseDouble ("9abc" is not a number, unlike parseFloat).
+ */
+const parseNumber = (value?: string): number => {
+	const trimmed = value?.trim() ?? '';
+	return trimmed === '' ? Number.NaN : Number(trimmed);
+};
+
+/**
+ * Numeric comparison of a source value against an expected value. Returns null
+ * when either side is not a finite number, so the calling operator fails safe.
+ */
+const compareNumber = (left?: string, right?: string): number | null => {
+	const leftNumber = parseNumber(left);
+	const rightNumber = parseNumber(right);
+	if (!Number.isFinite(leftNumber) || !Number.isFinite(rightNumber)) {
+		return null;
+	}
+
+	return leftNumber === rightNumber ? 0 : (leftNumber < rightNumber ? -1 : 1);
+};
+
+/**
+ * Boolean state of a source field: a single checkable control reports its
+ * checked state; value-based widgets (radio pairs, hidden input,
+ * data-fmdb-logic-value) report a truthy current value — anything non-empty
+ * except the explicit "false", mirroring the server-side evaluator.
+ */
+const getBooleanState = (state: SourceFieldState): boolean =>
+	state.checked || (Boolean(state.values[0]) && state.values[0].trim().toLowerCase() !== 'false');
+
+const JS_VARIABLE_PATH_PATTERN = /^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/;
+
+/**
+ * Safely resolves a dotted variable path (e.g. "window.cxs.profileProperties.firstName")
+ * against the window object. Returns undefined when any segment is missing or the
+ * path is not a plain dotted identifier chain.
+ */
+export const resolveJsVariableValue = (variable: string): unknown => {
+	if (typeof window === 'undefined') return undefined;
+	const path = variable.trim().replace(/^window\./, '');
+	if (!JS_VARIABLE_PATH_PATTERN.test(path)) return undefined;
+
+	let current: unknown = window;
+	for (const segment of path.split('.')) {
+		if (current === null || current === undefined) return undefined;
+		current = (current as Record<string, unknown>)[segment];
+	}
+
+	return current;
+};
+
+const evaluateJsVariableRule = (rule: ConditionalLogicRule): boolean => {
+	const raw = resolveJsVariableValue(rule.variable ?? '');
+	const defined = raw !== undefined && raw !== null;
+	const actual = defined ? String(raw) : undefined;
+	const expected = rule.value ?? '';
+
+	switch (rule.operator) {
+		case 'equals':
+			return actual !== undefined && actual === expected;
+		case 'notEquals':
+			return actual !== undefined && actual !== expected;
+		case 'contains':
+			return actual !== undefined && expected !== '' && actual.includes(expected);
+		case 'exists':
+			return defined;
+		case 'notExists':
+			return !defined;
+		default:
+			return false;
+	}
+};
+
+/**
+ * Lists the distinct JS context variables (e.g. datalayer entries) referenced by
+ * conditional logic rules inside the form. Used to decide whether a watcher is needed.
+ */
+export const collectJsVariables = (form: HTMLFormElement): string[] => {
+	const variables = new Set<string>();
+	for (const wrapper of Array.from(form.querySelectorAll<HTMLElement>('[data-fmdb-logics]'))) {
+		for (const rule of deserializeConditionalLogicRules(wrapper.dataset.fmdbLogics ?? '')) {
+			if (rule.sourceType === 'jsVariable' && rule.variable) {
+				variables.add(rule.variable);
+			}
+		}
+	}
+
+	return Array.from(variables);
+};
+
+/**
+ * Builds a comparable snapshot of the current variable values so a watcher can
+ * detect changes cheaply. Undefined/null are encoded distinctly from their
+ * string representations.
+ */
+export const getJsVariablesSnapshot = (variables: string[]): string =>
+	JSON.stringify(variables.map(variable => {
+		const raw = resolveJsVariableValue(variable);
+		if (raw === undefined) return '\u0000undefined';
+		if (raw === null) return '\u0000null';
+		return String(raw);
+	}));
 
 const evaluateRule = (rule: ConditionalLogicRule, sourceWrapper: HTMLElement): boolean => {
 	const state = getSourceFieldState(sourceWrapper);
@@ -172,13 +335,42 @@ const evaluateRule = (rule: ConditionalLogicRule, sourceWrapper: HTMLElement): b
 			return values.length > 0 && !!rule.value && compareDate(values[0], rule.value) > 0;
 		case 'on':
 			return values.length > 0 && !!rule.value && compareDate(values[0], rule.value) === 0;
-		case 'between':
-			return values.length > 0
-				&& expectedValues.length >= 2
-				&& expectedValues[0] !== ''
-				&& expectedValues[1] !== ''
-				&& compareDate(values[0], expectedValues[0]) >= 0
+		case 'between': {
+			if (values.length === 0 || expectedValues.length < 2 || expectedValues[0] === '' || expectedValues[1] === '') {
+				return false;
+			}
+
+			// 'between' is shared by the date and number kinds: dates compare as
+			// ISO strings, numbers numerically ("9" < "10").
+			if (rule.valueKind === 'number') {
+				const fromCompare = compareNumber(values[0], expectedValues[0]);
+				const toCompare = compareNumber(values[0], expectedValues[1]);
+				return fromCompare !== null && toCompare !== null && fromCompare >= 0 && toCompare <= 0;
+			}
+
+			return compareDate(values[0], expectedValues[0]) >= 0
 				&& compareDate(values[0], expectedValues[1]) <= 0;
+		}
+
+		case 'eq':
+			return compareNumber(values[0], rule.value) === 0;
+		case 'neq': {
+			const comparison = compareNumber(values[0], rule.value);
+			return comparison !== null && comparison !== 0;
+		}
+
+		case 'lt':
+			return (compareNumber(values[0], rule.value) ?? 1) < 0;
+		case 'lte':
+			return (compareNumber(values[0], rule.value) ?? 1) <= 0;
+		case 'gt':
+			return (compareNumber(values[0], rule.value) ?? -1) > 0;
+		case 'gte':
+			return (compareNumber(values[0], rule.value) ?? -1) >= 0;
+		case 'isTrue':
+			return getBooleanState(state);
+		case 'isFalse':
+			return !getBooleanState(state);
 		default:
 			return false;
 	}
@@ -238,9 +430,13 @@ export const applyConditionalLogicVisibility = (form: HTMLFormElement) => {
 		}
 
 		const visible = rules.every(rule => {
+			if (rule.sourceType === 'jsVariable') {
+				return evaluateJsVariableRule(rule);
+			}
+
 			const sourceWrapper = rule.sourceNodeId
 				? wrappersByNodeId.get(rule.sourceNodeId)
-				: wrappersByName.get(rule.sourceFieldName);
+				: wrappersByName.get(rule.sourceFieldName ?? '');
 
 			if (!sourceWrapper) return false;
 			if (sourceWrapper.closest('[data-fmdb-logic-hidden="true"]')) return false;

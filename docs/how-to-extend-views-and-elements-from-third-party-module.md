@@ -278,8 +278,78 @@ Examples:
 - `fmdbmix:datetimeLocalField`
 - `fmdbmix:colorField`
 - `fmdbmix:choiceField`
+- `fmdbmix:numberField`
+- `fmdbmix:booleanField`
 
 This lets the submission pipeline react to semantics instead of hard-coding your concrete node type name.
+
+## Make your field a conditional-logic source
+
+Any field type can let contributors build "show/hide other fields based on my value"
+rules. Opting in is CND-only — no JavaScript registration is needed.
+
+### 1. Declare the value kind in your CND
+
+Add the engine semantic mixin matching the kind of values your field produces:
+
+| Mixin | Value kind | Operators offered in the rules editor |
+|---|---|---|
+| `fmdbmix:choiceField` | choice list | is one of / is not one of |
+| `fmdbmix:dateField` | date | before / after / on / between |
+| `fmdbmix:numberField` | number | = / ≠ / < / ≤ / > / ≥ / between (numeric comparison) |
+| `fmdbmix:booleanField` | boolean (on/off) | is true / is false |
+
+Example — a rating field (number) and a switch field (boolean):
+
+```cnd
+[mymod:rating] > jnt:content, fmdbmix:element, fmdbmix:numberField
+ - max (long) = 5
+
+[mymod:switch] > jnt:content, fmdbmix:element, fmdbmix:booleanField
+```
+
+The rules editor discovers eligible sources through these mixins (the
+`FORM_TREE_BY_PATH` query checks `isNodeType`), so your field appears in the
+source dropdown of every later field, with the operators of its kind.
+
+### 2. Render native named controls (usually nothing to do)
+
+At runtime the browser reads the field's current value generically: every named
+form control (`input`, `select`, `textarea`) inside the field's logic wrapper
+contributes its value — selected options for selects, checked values for
+radios/checkboxes, the raw value otherwise. A rating rendered as
+`<input type="number" name={...}>` or radios, and a switch rendered as a single
+checkbox, work with zero client code.
+
+Semantics to know:
+
+- **boolean**: a single checkable control reports its checked state; the field
+  should submit `"true"` when on and either nothing (native checkbox behavior)
+  or an explicit `"false"` (e.g. a yes/no radio pair) when off. Both evaluators
+  treat any other non-empty submitted value as on, and empty or `"false"` as off;
+  server-side validation accepts `"true"`/`"false"` (case-insensitive) and `"on"`
+  (the browser default for a checkbox without a `value` attribute) — anything
+  else is rejected at submission.
+- **choice**: the editor reads the choice list from your `choices` property
+  (same JSON-encoded `{value, label}` entries as the built-in radio/checkbox).
+
+### 3. Exotic widgets: the `data-fmdb-logic-value` escape hatch
+
+If your widget is not built on native named controls (canvas slider, custom
+web component…), expose its current value on any element inside the field —
+the runtime reads it instead of probing controls:
+
+```html
+<div data-fmdb-logic-value="4">…custom widget…</div>
+<!-- multi-value widgets use a JSON array -->
+<div data-fmdb-logic-value='["a","b"]'>…</div>
+<!-- boolean widgets expose "true" / "false" -->
+<div data-fmdb-logic-value="true">…</div>
+```
+
+Keep the attribute up to date, and dispatch a bubbling `change` (or `input`)
+event on the form after updating it: conditional logic re-evaluates on those
+events.
 
 ## Rule of thumb
 

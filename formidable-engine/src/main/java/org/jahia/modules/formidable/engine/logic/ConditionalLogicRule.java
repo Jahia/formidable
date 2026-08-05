@@ -16,13 +16,23 @@ import java.util.List;
  */
 public record ConditionalLogicRule(
         String logicId,
+        String sourceType,
         String sourceFieldName,
         String sourceFieldType,
+        String valueKind,
+        String variable,
         String operator,
         String value,
         List<String> values
 ) {
     private static final Logger log = LoggerFactory.getLogger(ConditionalLogicRule.class);
+
+    public static final String SOURCE_TYPE_JS_VARIABLE = "jsVariable";
+    public static final String VALUE_KIND_NUMBER = "number";
+
+    public boolean isJsVariable() {
+        return SOURCE_TYPE_JS_VARIABLE.equals(sourceType);
+    }
 
     public static List<ConditionalLogicRule> parse(Value[] jcrValues) {
         List<ConditionalLogicRule> rules = new ArrayList<>();
@@ -46,16 +56,26 @@ public record ConditionalLogicRule(
         }
 
         JSONObject obj = new JSONObject(json);
+        String sourceType = obj.optString("sourceType", "");
         String sourceFieldName = obj.optString("sourceFieldName", "");
+        String variable = obj.optString("variable", "");
         String operator = obj.optString("operator", "");
-        if (sourceFieldName.isEmpty() || operator.isEmpty()) {
+        if (operator.isEmpty()) {
+            return null;
+        }
+
+        boolean jsVariable = SOURCE_TYPE_JS_VARIABLE.equals(sourceType);
+        if (jsVariable ? variable.isBlank() : sourceFieldName.isEmpty()) {
             return null;
         }
 
         return new ConditionalLogicRule(
                 obj.optString("logicId", ""),
+                sourceType,
                 sourceFieldName,
                 obj.optString("sourceFieldType", ""),
+                obj.optString("valueKind", ""),
+                variable,
                 operator,
                 obj.has("value") ? obj.optString("value", null) : null,
                 parseValues(obj)

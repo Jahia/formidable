@@ -10,15 +10,20 @@
         "operator": "Operator",
         "value": "Value",
         "values": "Values",
-        "dateFrom": "From",
-        "dateTo": "To",
+        "valueFrom": "From",
+        "valueTo": "To",
         "loadingSources": "Loading available fields...",
         "noSources": "No supported source field is available before this field.",
-        "help": "Use fields placed before this one to show or hide it. Only select, radio, checkbox, and date fields are eligible. \"No supported source field...\" means no compatible previous field was found.",
+        "help": "Use fields placed before this one to show or hide it. Eligible fields are those declaring a value kind: choice (select, radio, checkbox), date, number and boolean — including fields contributed by other modules. \"No supported source field...\" means no compatible previous field was found.",
         "allSourcesUsed": "All available source fields are already used by rules above.",
         "unresolvedContext": "Unable to resolve the edited field path.",
         "formNotFound": "Unable to resolve the parent form.",
         "loadError": "Unable to load available source fields.",
+        "sourceTypes": {
+            "field": "Field value",
+            "jsVariable": "Datalayer value"
+        },
+        "jsVariablePlaceholder": "window.cxs.profileProperties.firstName",
         "operators": {
             "in": "is one of",
             "notIn": "is not one of",
@@ -29,7 +34,20 @@
             "before": "is before",
             "after": "is after",
             "on": "is on",
-            "between": "is between"
+            "between": "is between",
+            "eq": "equals",
+            "neq": "does not equal",
+            "lt": "is less than",
+            "lte": "is less than or equal to",
+            "gt": "is greater than",
+            "gte": "is greater than or equal to",
+            "isTrue": "is true (on)",
+            "isFalse": "is false (off)",
+            "equals": "equals",
+            "notEquals": "does not equal",
+            "contains": "contains",
+            "exists": "is defined",
+            "notExists": "is not defined"
         }
     },
     "formResults": {

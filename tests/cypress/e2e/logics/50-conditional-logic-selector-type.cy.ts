@@ -12,24 +12,24 @@ describe('Form logic - 50 Conditional logic selector type', () => {
 
 			logicField.addRule();
 
-			logicField.openDropdown(0, 0);
+			logicField.openSourceDropdown(0);
 			logicField.menuShouldHaveItems(['role', 'accept-terms', 'start-date']);
 			logicField.menuShouldNotHaveItems(['notes', 'nickname']);
 			logicField.selectMenuItem('role');
 
-			logicField.openDropdown(0, 1);
+			logicField.openOperatorDropdown(0);
 			logicField.menuShouldHaveItems(['is one of', 'is not one of']);
 			logicField.selectMenuItem('is one of');
-			logicField.ruleShouldHaveDropdownCount(0, 3);
+			logicField.ruleShouldHaveDropdownCount(0, 4);
 
 			logicField.selectSource(0, 'accept-terms');
-			logicField.openDropdown(0, 1);
+			logicField.openOperatorDropdown(0);
 			logicField.menuShouldHaveItems(['is checked', 'is unchecked']);
 			logicField.selectMenuItem('is checked');
-			logicField.ruleShouldHaveDropdownCount(0, 2);
+			logicField.ruleShouldHaveDropdownCount(0, 3);
 
 			logicField.selectSource(0, 'start-date');
-			logicField.openDropdown(0, 1);
+			logicField.openOperatorDropdown(0);
 			logicField.menuShouldHaveItems(['is before', 'is after', 'is on', 'is between']);
 			logicField.selectMenuItem('is after');
 			logicField.ruleShouldHaveDateInputCount(0, 1);
@@ -51,7 +51,7 @@ describe('Form logic - 50 Conditional logic selector type', () => {
 			logicField.selectValue(0, 'admin');
 
 			logicField.addRule();
-			logicField.openDropdown(1, 0);
+			logicField.openSourceDropdown(1);
 			logicField.menuShouldHaveItems(['accept-terms', 'start-date']);
 			logicField.menuShouldNotHaveItems(['role', 'notes', 'nickname']);
 			logicField.selectMenuItem('accept-terms');

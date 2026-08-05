@@ -1,0 +1,20 @@
+// Switch component - boolean yes/no question.
+// Submitted/stored value is boolean (true/false); state labels are presentation-only (issue #158).
+// Display modes:
+//  - 'buttons': two radio buttons styled as a button pair; both states are explicit,
+//    so an unanswered field submits nothing and 'required' means "pick one".
+//    defaultState=true prechecks the ON button; defaultState=false prechecks NOTHING
+//    (prechecking OFF would silently pre-answer the question and defeat 'required').
+//  - 'toggle': a single styled checkbox; checked submits true, unchecked submits nothing
+//    (standard HTML checkbox semantics, same as fmdb:checkbox). 'required' means "must be ON" -
+//    use it for acknowledgement-style questions only.
+// fmdbmix:booleanField makes the field a conditional-logic source (is true / is false).
+// Both display modes expose the state to the generic logic reader: 'toggle' as a lone
+// checkbox (checked state), 'buttons' as a radio pair submitting "true"/"false".
+[fmdbext:switch] > jnt:content, fmdbmix:element, fmdbmix:booleanField, fmdbmix:validationMessages
+ - helpText (string, richtext[ckeditor.toolbar='FormidableHelp',ckeditor.customConfig='$context/modules/formidable-engine/javascript/ckeditor/helpTextConfig.js']) i18n indexed=no
+ - displayMode (string, choicelist[resourceBundle]) = 'toggle' autocreated indexed=no < 'toggle', 'buttons'
+ - onLabel (string) = resourceBundle('fmdbext_switch.defaultOnLabel') autocreated i18n indexed=no
+ - offLabel (string) = resourceBundle('fmdbext_switch.defaultOffLabel') autocreated i18n indexed=no
+ - defaultState (boolean) = false indexed=no
+ - required (boolean) = false

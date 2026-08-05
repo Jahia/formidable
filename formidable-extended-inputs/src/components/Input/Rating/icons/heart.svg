@@ -1,0 +1,5 @@
+<!-- Hand-drawn heart silhouette (Lucide-inspired metaphor, own path).
+     Used as a CSS mask stencil in rating.css: only the alpha channel matters. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+  <path d="M12 21C6.3 16.2 2 12.6 2 8.5 2 5.4 4.4 3 7.5 3c1.9 0 3.5.9 4.5 2.4C13 3.9 14.6 3 16.5 3 19.6 3 22 5.4 22 8.5c0 4.1-4.3 7.7-10 12.5z"/>
+</svg>

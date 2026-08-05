@@ -1,4 +1,11 @@
-export type SupportedSourceType = 'fmdb:select' | 'fmdb:radio' | 'fmdb:checkbox' | 'fmdb:inputDate';
+export type RuleSourceType = 'field' | 'jsVariable';
+
+/**
+ * Shape of the values a source field produces, which drives the offered operators
+ * and the value widget shown next to them. Declared by the field type through the
+ * engine's semantic mixins (fmdbmix:choiceField, dateField, numberField, booleanField).
+ */
+export type SourceValueKind = 'choice' | 'date' | 'number' | 'boolean';
 
 export type LogicOperator =
     | 'in'
@@ -10,13 +17,38 @@ export type LogicOperator =
     | 'before'
     | 'after'
     | 'on'
-    | 'between';
+    | 'between'
+    | 'eq'
+    | 'neq'
+    | 'lt'
+    | 'lte'
+    | 'gt'
+    | 'gte'
+    | 'isTrue'
+    | 'isFalse'
+    | 'equals'
+    | 'notEquals'
+    | 'contains'
+    | 'exists'
+    | 'notExists';
 
 export interface ConditionalLogicRule {
     logicId: string;
-    sourceNodeId: string;
-    sourceFieldName: string;
-    sourceFieldType: SupportedSourceType;
+    // Absent on rules stored before jsVariable support; treated as 'field'.
+    sourceType?: RuleSourceType;
+    // Field-rule keys; never serialized on jsVariable rules.
+    sourceNodeId?: string;
+    // Stable business reference to the source field (its fieldKey); primary
+    // resolution criterion. Absent on rules stored before fieldKey existed.
+    sourceFieldKey?: string;
+    sourceFieldName?: string;
+    sourceFieldType?: string;
+    // Denormalized value kind of the source at authoring time; lets the runtime
+    // evaluators pick the right comparison semantics (e.g. numeric vs date
+    // 'between') without knowing the source type. Absent on older rules.
+    valueKind?: SourceValueKind;
+    // jsVariable-rule key: dotted window variable path (e.g. a datalayer entry).
+    variable?: string;
     operator: LogicOperator;
     value?: string;
     values?: string[];
@@ -77,6 +109,11 @@ export interface GraphNode {
     path: string;
     displayName?: string | null;
     primaryNodeType?: {name?: string | null} | null;
+    // Semantic-mixin flags fetched by FORM_TREE_BY_PATH; drive source eligibility.
+    isChoiceField?: boolean;
+    isDateField?: boolean;
+    isNumberField?: boolean;
+    isBooleanField?: boolean;
     properties?: PropertyValue[] | null;
     ancestors?: GraphAncestorNode[] | null;
     descendants?: {nodes?: GraphNode[] | null} | null;
@@ -97,9 +134,15 @@ export interface ChoiceValue {
 
 export interface SourceFieldOption {
     id: string;
+    // Stable business identity of the field; assigned server-side, may be briefly
+    // absent on a field that has never been saved through the engine listeners.
+    fieldKey?: string;
     name: string;
     path: string;
     label: string;
-    type: SupportedSourceType;
+    type: string;
+    // Declared by the field type's semantic mixin; undefined when the type
+    // carries none (the field is then not eligible as a source).
+    valueKind?: SourceValueKind;
     choiceValues: ChoiceValue[];
 }

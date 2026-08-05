@@ -217,10 +217,12 @@ class FormFieldMetadataCollector {
         boolean dateField = node.isNodeType("fmdbmix:dateField");
         boolean datetimeLocalField = node.isNodeType("fmdbmix:datetimeLocalField");
         boolean colorField = node.isNodeType("fmdbmix:colorField");
+        boolean numberField = node.isNodeType("fmdbmix:numberField");
+        boolean booleanField = node.isNodeType("fmdbmix:booleanField");
 
         Set<String> choices = choiceField ? collectChoices(node, node.getName(), resolveChoicePropertyName(node)) : Set.of();
         Set<String> acceptedTypes = fileField ? collectAcceptTypes(node) : Set.of();
-        FormDataParser.FieldConstraints constraints = readConstraints(node, dateField, datetimeLocalField);
+        FormDataParser.FieldConstraints constraints = readConstraints(node, dateField, datetimeLocalField, numberField);
 
         return new FormDataParser.FieldInfo(
                 nodeType,
@@ -231,6 +233,8 @@ class FormFieldMetadataCollector {
                 dateField,
                 datetimeLocalField,
                 colorField,
+                numberField,
+                booleanField,
                 choices,
                 acceptedTypes,
                 constraints
@@ -250,7 +254,8 @@ class FormFieldMetadataCollector {
     private static FormDataParser.FieldConstraints readConstraints(
             JCRNodeWrapper node,
             boolean dateField,
-            boolean datetimeLocalField
+            boolean datetimeLocalField,
+            boolean numberField
     ) {
         boolean required  = JcrProps.bool(node, "required", false);
         long minLength    = JcrProps.longValue(node, "minLength", -1L);
@@ -261,6 +266,8 @@ class FormFieldMetadataCollector {
         }
         String minDate    = null;
         String maxDate    = null;
+        Double minNumber  = null;
+        Double maxNumber  = null;
 
         if (dateField) {
             minDate = JcrProps.dateAsIso(node, "min", false, null);
@@ -268,12 +275,19 @@ class FormFieldMetadataCollector {
         } else if (datetimeLocalField) {
             minDate = JcrProps.dateAsIso(node, "min", true, null);
             maxDate = JcrProps.dateAsIso(node, "max", true, null);
+        } else if (numberField) {
+            // Convention of the number field types (e.g. fmdbext:rating/scale): the
+            // rendered range is declared through minValue/maxValue LONG properties.
+            minNumber = JcrProps.doubleOrNull(node, "minValue");
+            maxNumber = JcrProps.doubleOrNull(node, "maxValue");
         }
 
         if (!required && minLength < 0 && maxLength < 0 && pattern == null
-                && minDate == null && maxDate == null) {
+                && minDate == null && maxDate == null
+                && minNumber == null && maxNumber == null) {
             return null;
         }
-        return new FormDataParser.FieldConstraints(required, minLength, maxLength, pattern, minDate, maxDate);
+        return new FormDataParser.FieldConstraints(
+                required, minLength, maxLength, pattern, minDate, maxDate, minNumber, maxNumber);
     }
 }

@@ -214,8 +214,77 @@ class FieldValidatorTest {
         assertEquals(FormDataParser.ParseException.FailureType.VALIDATION, error.failureType());
     }
 
+    @Test
+    void acceptsNumericValueForNumberField() {
+        // Verifies the positive number-validation path (fmdbmix:numberField, e.g. rating/scale).
+        FormDataParser.FieldMetadata metadata = metadata("satisfaction",
+                numberFieldInfo("fmdbext:rating", null, null));
+
+        assertDoesNotThrow(() -> FieldValidator.validateTextField("satisfaction", "4", metadata));
+        assertDoesNotThrow(() -> FieldValidator.validateTextField("satisfaction", "4.5", metadata));
+    }
+
+    @Test
+    void rejectsNonNumericValueForNumberField() {
+        // Verifies tampering protection: the rendered control constrains values browser-side
+        // only, so a forged non-numeric submission must be rejected server-side.
+        FormDataParser.FieldMetadata metadata = metadata("satisfaction",
+                numberFieldInfo("fmdbext:rating", null, null));
+
+        assertThrows(FormDataParser.ParseException.class,
+                () -> FieldValidator.validateTextField("satisfaction", "abc", metadata));
+        assertThrows(FormDataParser.ParseException.class,
+                () -> FieldValidator.validateTextField("satisfaction", "Infinity", metadata));
+    }
+
+    @Test
+    void enforcesNumberBoundsFromMinValueMaxValue() {
+        // Verifies range enforcement: rating/scale declare their range through
+        // minValue/maxValue, and out-of-range submissions must be rejected.
+        FormDataParser.FieldMetadata metadata = metadata("agreement",
+                numberFieldInfo("fmdbext:scale", 0.0, 10.0));
+
+        assertDoesNotThrow(() -> FieldValidator.validateTextField("agreement", "0", metadata));
+        assertDoesNotThrow(() -> FieldValidator.validateTextField("agreement", "10", metadata));
+        assertThrows(FormDataParser.ParseException.class,
+                () -> FieldValidator.validateTextField("agreement", "11", metadata));
+        assertThrows(FormDataParser.ParseException.class,
+                () -> FieldValidator.validateTextField("agreement", "-1", metadata));
+    }
+
+    @Test
+    void acceptsBooleanValuesIncludingCheckboxDefaultForBooleanField() {
+        // Verifies the boolean value kind (fmdbmix:booleanField, e.g. switch/consent):
+        // "true"/"false" case-insensitively, plus "on" — the browser default for a plain
+        // checkbox without a value attribute, treated as on by both evaluators.
+        FormDataParser.FieldMetadata metadata = metadata("newsletter",
+                booleanFieldInfo("fmdbext:switch"));
+
+        assertDoesNotThrow(() -> FieldValidator.validateTextField("newsletter", "true", metadata));
+        assertDoesNotThrow(() -> FieldValidator.validateTextField("newsletter", "false", metadata));
+        assertDoesNotThrow(() -> FieldValidator.validateTextField("newsletter", "TRUE", metadata));
+        assertDoesNotThrow(() -> FieldValidator.validateTextField("newsletter", "on", metadata));
+        assertThrows(FormDataParser.ParseException.class,
+                () -> FieldValidator.validateTextField("newsletter", "yes", metadata));
+    }
+
     private static FormDataParser.FieldMetadata metadata(String fieldName, FormDataParser.FieldInfo info) {
         return new FormDataParser.FieldMetadata(Map.of(fieldName, info));
+    }
+
+    private static FormDataParser.FieldInfo numberFieldInfo(String nodeType, Double minNumber, Double maxNumber) {
+        FormDataParser.FieldConstraints constraints = minNumber == null && maxNumber == null
+                ? null
+                : new FormDataParser.FieldConstraints(false, -1, -1, null, null, null, minNumber, maxNumber);
+        return new FormDataParser.FieldInfo(
+                nodeType, false, false, false, false, false, false, false,
+                true, false, Set.of(), Set.of(), constraints);
+    }
+
+    private static FormDataParser.FieldInfo booleanFieldInfo(String nodeType) {
+        return new FormDataParser.FieldInfo(
+                nodeType, false, false, false, false, false, false, false,
+                false, true, Set.of(), Set.of(), null);
     }
 
     private static FormDataParser.FieldInfo fieldInfo(

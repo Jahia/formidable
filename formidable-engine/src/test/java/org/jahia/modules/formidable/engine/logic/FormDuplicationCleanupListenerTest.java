@@ -31,6 +31,34 @@ class FormDuplicationCleanupListenerTest {
     }
 
     @Test
+    void keepsOnlySubtreeRootsFromOneEventBatch() {
+        Set<String> paths = new java.util.LinkedHashSet<>(java.util.List.of(
+                "/sites/s/contents/form/fields/fs-copy/fs-target",
+                "/sites/s/contents/form/fields/fs-copy/fs-source",
+                "/sites/s/contents/form/fields/fs-copy",
+                "/sites/s/contents/form/fields/other-copy"
+        ));
+
+        assertEquals(
+                Set.of(
+                        "/sites/s/contents/form/fields/fs-copy",
+                        "/sites/s/contents/form/fields/other-copy"
+                ),
+                FormDuplicationCleanupListener.topmostPaths(paths)
+        );
+    }
+
+    @Test
+    void keepsSiblingWhoseNameIsAPrefixOfAnother() {
+        Set<String> paths = Set.of(
+                "/sites/s/contents/form/fields/fs",
+                "/sites/s/contents/form/fields/fs-copy"
+        );
+
+        assertEquals(paths, FormDuplicationCleanupListener.topmostPaths(paths));
+    }
+
+    @Test
     void skipsLogicElementWithoutLogicsOrLogicsSrc() throws Exception {
         JCRNodeWrapper node = mock(JCRNodeWrapper.class);
         when(node.isNodeType("fmdbmix:formLogicElement")).thenReturn(true);

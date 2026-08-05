@@ -10,23 +10,29 @@ import {
     extractWorkspace,
     findFormPath,
     getOperatorsForSource,
+    isScalarValueKind,
+    normalizeStoredJsVariableRule,
     normalizeStoredRule,
     parseRule,
+    sanitizeJsVariableOperator,
     sanitizeOperator
 } from './ConditionalLogic.utils';
+import {getSourceDescriptor, JS_VARIABLE_OPERATORS, operatorNeedsValue} from './sourceDescriptors';
 import {CURRENT_NODE_BY_PATH, FORM_TREE_BY_PATH} from './graphql';
-import type {ConditionalLogicRule, GraphNode, LogicOperator, SelectorProps, SourceFieldOption} from './ConditionalLogic.types';
+import type {ConditionalLogicRule, GraphNode, LogicOperator, RuleSourceType, SelectorProps, SourceFieldOption} from './ConditionalLogic.types';
 
 
 
-const DateValueFields = ({
+const ScalarValueFields = ({
     id,
+    inputType,
     readOnly,
     operator,
     rule,
     onChange
 }: {
     id: string;
+    inputType: 'date' | 'number';
     readOnly?: boolean;
     operator: LogicOperator;
     rule: ConditionalLogicRule;
@@ -44,10 +50,10 @@ const DateValueFields = ({
             <div className="flexRow_nowrap" style={{gap: '0.5rem'}}>
                 <div className="flexFluid">
                     <Input
-                        id={`${id}-date-from`}
-                        type="date"
+                        id={`${id}-${inputType}-from`}
+                        type={inputType}
                         isReadOnly={readOnly}
-                        placeholder={t('conditionalLogic.dateFrom')}
+                        placeholder={t('conditionalLogic.valueFrom')}
                         value={values[0]}
                         onChange={event => onChange({values: [event.target.value, values[1]]})}
                         size="big"
@@ -55,10 +61,10 @@ const DateValueFields = ({
                 </div>
                 <div className="flexFluid">
                     <Input
-                        id={`${id}-date-to`}
-                        type="date"
+                        id={`${id}-${inputType}-to`}
+                        type={inputType}
                         isReadOnly={readOnly}
-                        placeholder={t('conditionalLogic.dateTo')}
+                        placeholder={t('conditionalLogic.valueTo')}
                         value={values[1]}
                         onChange={event => onChange({values: [values[0], event.target.value]})}
                         size="big"
@@ -71,8 +77,8 @@ const DateValueFields = ({
     return (
         <div>
             <Input
-                id={`${id}-date-value`}
-                type="date"
+                id={`${id}-${inputType}-value`}
+                type={inputType}
                 isReadOnly={readOnly}
                 placeholder={t('conditionalLogic.value')}
                 value={rule.value ?? ''}
@@ -101,8 +107,16 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     const workspace = extractWorkspace(props);
     const rule = useMemo(() => parseRule(value), [value]);
 
-    // Resolve sourceNodeId: prefer the stored UUID, then use weakref resolution via logicId
+    // Resolve the selected source: sourceFieldKey is the business identity and wins,
+    // then the stored UUID, then weakref resolution via logicId, then the legacy name.
     const resolvedSourceNodeId = useMemo(() => {
+        if (rule.sourceFieldKey) {
+            const match = sources.find(source => source.fieldKey === rule.sourceFieldKey);
+            if (match) {
+                return match.id;
+            }
+        }
+
         if (rule.sourceNodeId) {
             return rule.sourceNodeId;
         }
@@ -136,6 +150,13 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                 .filter((entry): entry is string => typeof entry === 'string' && entry !== value)
                 .map(entry => {
                     const siblingRule = parseRule(entry);
+                    if (siblingRule.sourceFieldKey) {
+                        const match = sources.find(s => s.fieldKey === siblingRule.sourceFieldKey);
+                        if (match) {
+                            return match.id;
+                        }
+                    }
+
                     if (siblingRule.sourceNodeId) {
                         return siblingRule.sourceNodeId;
                     }
@@ -172,6 +193,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         () => availableSources.find(source => source.id === resolvedSourceNodeId),
         [resolvedSourceNodeId, availableSources]
     );
+    const selectedDescriptor = getSourceDescriptor(selectedSource?.type, selectedSource?.valueKind);
     const selectedOperator = sanitizeOperator(selectedSource, rule.operator);
 
     useEffect(() => {
@@ -252,6 +274,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         }
 
         const nextOperator = getOperatorsForSource(nextSource)[0];
+        const nextIsScalar = isScalarValueKind(getSourceDescriptor(nextSource.type, nextSource.valueKind)?.valueKind);
         const logicId = rule.logicId || generateLogicId();
         updateRule({
             logicId,
@@ -259,8 +282,8 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
             sourceFieldName: nextSource.name,
             sourceFieldType: nextSource.type,
             operator: nextOperator,
-            value: nextSource.type === 'fmdb:inputDate' ? '' : undefined,
-            values: nextSource.type === 'fmdb:inputDate' && nextOperator === 'between' ? ['', ''] : []
+            value: nextIsScalar ? '' : undefined,
+            values: nextIsScalar && nextOperator === 'between' ? ['', ''] : []
         });
     };
 
@@ -270,6 +293,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         }
 
         const operator = item.value as LogicOperator;
+        const isScalar = isScalarValueKind(selectedDescriptor?.valueKind);
         updateRule({
             ...rule,
             logicId: rule.logicId || generateLogicId(),
@@ -277,10 +301,10 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
             sourceFieldName: selectedSource.name,
             sourceFieldType: selectedSource.type,
             operator,
-            value: selectedSource.type === 'fmdb:inputDate' && operator !== 'between' ? (rule.value ?? '') : undefined,
-            values: selectedSource.type === 'fmdb:inputDate' && operator === 'between'
+            value: isScalar && operator !== 'between' ? (rule.value ?? '') : undefined,
+            values: isScalar && operator === 'between'
                 ? (rule.values ?? ['', '']).slice(0, 2)
-                : (selectedSource.type === 'fmdb:inputDate' ? [] : (rule.values ?? []))
+                : (isScalar ? [] : (rule.values ?? []))
         });
     };
 
@@ -322,89 +346,197 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     );
 
     const showValueDropdown = selectedSource
-        && selectedSource.type !== 'fmdb:inputDate'
-        && !(selectedSource.type === 'fmdb:checkbox' && selectedSource.choiceValues.length <= 1);
+        && selectedDescriptor?.valueKind === 'choice'
+        && operatorNeedsValue(selectedOperator);
+
+    const ruleSourceType: RuleSourceType = rule.sourceType === 'jsVariable' ? 'jsVariable' : 'field';
+    const jsVariableOperator = sanitizeJsVariableOperator(rule.operator);
+
+    const handleSourceTypeChange = (_event: React.MouseEvent, item: {value?: string}) => {
+        const nextType = (item.value ?? 'field') as RuleSourceType;
+        if (nextType === ruleSourceType) {
+            return;
+        }
+
+        if (nextType === 'jsVariable') {
+            onChange(JSON.stringify(normalizeStoredJsVariableRule({
+                ...rule,
+                logicId: rule.logicId || generateLogicId(),
+                variable: '',
+                operator: JS_VARIABLE_OPERATORS[0],
+                value: ''
+            })));
+            return;
+        }
+
+        onChange(JSON.stringify(parseRule(undefined)));
+    };
+
+    const updateJsVariableRule = (patch: Partial<ConditionalLogicRule>) => {
+        onChange(JSON.stringify(normalizeStoredJsVariableRule({
+            ...rule,
+            logicId: rule.logicId || generateLogicId(),
+            operator: jsVariableOperator,
+            ...patch
+        })));
+    };
+
+    const sourceTypeOptions = [
+        {label: t('conditionalLogic.sourceTypes.field'), value: 'field'},
+        {label: t('conditionalLogic.sourceTypes.jsVariable'), value: 'jsVariable'}
+    ];
+    const jsVariableOperatorOptions = JS_VARIABLE_OPERATORS.map(operator => ({
+        label: t(`conditionalLogic.operators.${operator}`),
+        value: operator
+    }));
 
     if (loading) {
         return <Loader size="small"/>;
     }
 
-    if (error) {
-        return <Typography variant="body" style={{color: 'var(--color-danger)'}}>{error}</Typography>;
-    }
+    const renderFieldRule = () => {
+        if (error) {
+            return (
+                <div className="flexFluid">
+                    <Typography variant="body" style={{color: 'var(--color-danger)'}}>{error}</Typography>
+                </div>
+            );
+        }
 
-    if (sources.length === 0) {
-        return (
-            <Typography variant="body" style={{color: 'var(--color-gray)'}}>
-                {t('conditionalLogic.noSources')}
-            </Typography>
-        );
-    }
+        if (sources.length === 0) {
+            return (
+                <div className="flexFluid">
+                    <Typography variant="body" style={{color: 'var(--color-gray)'}}>
+                        {t('conditionalLogic.noSources')}
+                    </Typography>
+                </div>
+            );
+        }
 
-    if (availableSources.length === 0) {
+        if (availableSources.length === 0) {
+            return (
+                <div className="flexFluid">
+                    <Typography variant="body" style={{color: 'var(--color-gray)'}}>
+                        {t('conditionalLogic.allSourcesUsed')}
+                    </Typography>
+                </div>
+            );
+        }
+
         return (
-            <Typography variant="body" style={{color: 'var(--color-gray)'}}>
-                {t('conditionalLogic.allSourcesUsed')}
-            </Typography>
+            <>
+                <div className="flexFluid">
+                    <Dropdown
+                        data={sourceOptions}
+                        value={selectedSource?.id}
+                        placeholder={t('conditionalLogic.selectSource')}
+                        isDisabled={field.readOnly}
+                        onChange={handleSourceChange}
+                    />
+                </div>
+                <div className="flexFluid">
+                    <Dropdown
+                        data={operatorOptions}
+                        value={selectedOperator}
+                        placeholder={t('conditionalLogic.operator')}
+                        isDisabled={field.readOnly || !selectedSource}
+                        onChange={handleOperatorChange}
+                    />
+                </div>
+
+                {showValueDropdown && (
+                    <div className="flexFluid">
+                        <Dropdown
+                            data={valueOptions}
+                            values={rule.values ?? []}
+                            placeholder={t('conditionalLogic.values')}
+                            isDisabled={field.readOnly}
+                            onChange={handleValuesChange}
+                        />
+                    </div>
+                )}
+
+                {!showValueDropdown && !isScalarValueKind(selectedDescriptor?.valueKind) && (
+                    <div className="flexFluid"/>
+                )}
+
+                {selectedSource && isScalarValueKind(selectedDescriptor?.valueKind) && (
+                    <div className="flexFluid">
+                        <ScalarValueFields
+                            id={id}
+                            inputType={selectedDescriptor?.valueKind === 'number' ? 'number' : 'date'}
+                            readOnly={field.readOnly}
+                            operator={selectedOperator}
+                            rule={rule}
+                            onChange={patch => updateRule({
+                                ...rule,
+                                logicId: rule.logicId || generateLogicId(),
+                                sourceNodeId: selectedSource.id,
+                                sourceFieldName: selectedSource.name,
+                                sourceFieldType: selectedSource.type,
+                                operator: selectedOperator,
+                                ...patch
+                            })}
+                        />
+                    </div>
+                )}
+            </>
         );
-    }
+    };
+
+    const renderJsVariableRule = () => (
+        <>
+            <div className="flexFluid">
+                <Input
+                    id={`${id}-js-variable`}
+                    isReadOnly={field.readOnly}
+                    placeholder={t('conditionalLogic.jsVariablePlaceholder')}
+                    value={rule.variable ?? ''}
+                    size="big"
+                    onChange={event => updateJsVariableRule({variable: event.target.value})}
+                />
+            </div>
+            <div className="flexFluid">
+                <Dropdown
+                    data={jsVariableOperatorOptions}
+                    value={jsVariableOperator}
+                    placeholder={t('conditionalLogic.operator')}
+                    isDisabled={field.readOnly}
+                    onChange={(_event, item) => {
+                        if (item.value) {
+                            updateJsVariableRule({operator: item.value as LogicOperator});
+                        }
+                    }}
+                />
+            </div>
+            {operatorNeedsValue(jsVariableOperator) ? (
+                <div className="flexFluid">
+                    <Input
+                        id={`${id}-js-variable-value`}
+                        isReadOnly={field.readOnly}
+                        placeholder={t('conditionalLogic.value')}
+                        value={rule.value ?? ''}
+                        size="big"
+                        onChange={event => updateJsVariableRule({value: event.target.value})}
+                    />
+                </div>
+            ) : (
+                <div className="flexFluid"/>
+            )}
+        </>
+    );
 
     return (
         <div className="flexRow_nowrap flexFluid alignCenter" style={{gap: '0.75rem'}}>
-            <div className="flexFluid">
+            <div style={{minWidth: '10rem'}}>
                 <Dropdown
-                    data={sourceOptions}
-                    value={selectedSource?.id}
-                    placeholder={t('conditionalLogic.selectSource')}
+                    data={sourceTypeOptions}
+                    value={ruleSourceType}
                     isDisabled={field.readOnly}
-                    onChange={handleSourceChange}
+                    onChange={handleSourceTypeChange}
                 />
             </div>
-            <div className="flexFluid">
-                <Dropdown
-                    data={operatorOptions}
-                    value={selectedOperator}
-                    placeholder={t('conditionalLogic.operator')}
-                    isDisabled={field.readOnly || !selectedSource}
-                    onChange={handleOperatorChange}
-                />
-            </div>
-
-            {showValueDropdown && (
-                <div className="flexFluid">
-                    <Dropdown
-                        data={valueOptions}
-                        values={rule.values ?? []}
-                        placeholder={t('conditionalLogic.values')}
-                        isDisabled={field.readOnly}
-                        onChange={handleValuesChange}
-                    />
-                </div>
-            )}
-
-            {!showValueDropdown && selectedSource?.type !== 'fmdb:inputDate' && (
-                <div className="flexFluid"/>
-            )}
-
-            {selectedSource?.type === 'fmdb:inputDate' && (
-                <div className="flexFluid">
-                    <DateValueFields
-                        id={id}
-                        readOnly={field.readOnly}
-                        operator={selectedOperator}
-                        rule={rule}
-                        onChange={patch => updateRule({
-                            ...rule,
-                            logicId: rule.logicId || generateLogicId(),
-                            sourceNodeId: selectedSource.id,
-                            sourceFieldName: selectedSource.name,
-                            sourceFieldType: selectedSource.type,
-                            operator: selectedOperator,
-                            ...patch
-                        })}
-                    />
-                </div>
-            )}
+            {ruleSourceType === 'field' ? renderFieldRule() : renderJsVariableRule()}
         </div>
     );
 };

@@ -61,6 +61,15 @@ public class ConditionalLogicEvaluator {
     }
 
     private boolean evaluateRule(ConditionalLogicRule rule, Set<String> visiting) {
+        if (rule.isJsVariable()) {
+            // JS variable rules (e.g. datalayer entries) depend on browser-only state
+            // (window.* variables) that cannot be verified server-side. Treat them as
+            // not satisfied so the field counts as hidden and required validation is
+            // skipped, which avoids rejecting legitimate submissions where the field
+            // was hidden client-side.
+            return false;
+        }
+
         String sourceFieldName = resolveSourceFieldName(rule);
         if (sourceFieldName == null) return false;
 
@@ -81,12 +90,66 @@ public class ConditionalLogicEvaluator {
                     && values.get(0).compareTo(rule.value()) > 0;
             case "on" -> !values.isEmpty() && rule.value() != null
                     && values.get(0).equals(rule.value());
-            case "between" -> !values.isEmpty() && rule.values().size() >= 2
-                    && !rule.values().get(0).isEmpty() && !rule.values().get(1).isEmpty()
-                    && values.get(0).compareTo(rule.values().get(0)) >= 0
-                    && values.get(0).compareTo(rule.values().get(1)) <= 0;
+            case "between" -> evaluateBetween(rule, values);
+            case "eq" -> compareNumbers(rule, values, comparison -> comparison == 0);
+            case "neq" -> compareNumbers(rule, values, comparison -> comparison != 0);
+            case "lt" -> compareNumbers(rule, values, comparison -> comparison < 0);
+            case "lte" -> compareNumbers(rule, values, comparison -> comparison <= 0);
+            case "gt" -> compareNumbers(rule, values, comparison -> comparison > 0);
+            case "gte" -> compareNumbers(rule, values, comparison -> comparison >= 0);
+            // Boolean sources submit a truthy value when on (a checkbox posts "true" or
+            // the browser default "on") and either nothing (checkbox off) or an explicit
+            // "false" (yes/no button pair): an answered "no" must NOT satisfy isTrue.
+            case "isTrue" -> values.stream().anyMatch(ConditionalLogicEvaluator::isTruthy);
+            case "isFalse" -> values.stream().noneMatch(ConditionalLogicEvaluator::isTruthy);
             default -> false;
         };
+    }
+
+    /**
+     * 'between' is shared by the date and number value kinds: dates compare as ISO
+     * strings, numbers numerically ("9" < "10"). Older rules carry no valueKind and
+     * can only be date rules, so string comparison stays their behavior.
+     */
+    private static boolean evaluateBetween(ConditionalLogicRule rule, List<String> values) {
+        if (values.isEmpty() || rule.values().size() < 2
+                || rule.values().get(0).isEmpty() || rule.values().get(1).isEmpty()) {
+            return false;
+        }
+
+        if (ConditionalLogicRule.VALUE_KIND_NUMBER.equals(rule.valueKind())) {
+            Integer fromComparison = compareAsNumbers(values.get(0), rule.values().get(0));
+            Integer toComparison = compareAsNumbers(values.get(0), rule.values().get(1));
+            return fromComparison != null && toComparison != null
+                    && fromComparison >= 0 && toComparison <= 0;
+        }
+
+        return values.get(0).compareTo(rule.values().get(0)) >= 0
+                && values.get(0).compareTo(rule.values().get(1)) <= 0;
+    }
+
+    private static boolean compareNumbers(
+            ConditionalLogicRule rule, List<String> values, java.util.function.IntPredicate predicate) {
+        if (values.isEmpty() || rule.value() == null) {
+            return false;
+        }
+
+        Integer comparison = compareAsNumbers(values.get(0), rule.value());
+        return comparison != null && predicate.test(comparison);
+    }
+
+    /** A submitted boolean value is truthy unless blank or the explicit "false". */
+    private static boolean isTruthy(String value) {
+        return value != null && !value.isBlank() && !"false".equalsIgnoreCase(value.trim());
+    }
+
+    /** Numeric comparison; null (operator fails safe) when either side is not a number. */
+    private static Integer compareAsNumbers(String left, String right) {
+        try {
+            return Double.compare(Double.parseDouble(left), Double.parseDouble(right));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**
