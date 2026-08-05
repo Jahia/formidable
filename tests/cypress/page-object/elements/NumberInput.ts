@@ -2,8 +2,10 @@ import {FormElement} from './FormElement';
 
 export class NumberInput extends FormElement {
 	type(value: string): this {
-		this.getInput().clear();
-		this.getInput().type(value);
+		this.getInput()
+			.clear()
+			.click();
+		cy.realType(value);
 		return this;
 	}
 
