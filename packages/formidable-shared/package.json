@@ -1,5 +1,5 @@
 {
-	"name": "formidable-ui-contract",
+	"name": "formidable-shared",
 	"private": true,
 	"type": "module",
 	"exports": {

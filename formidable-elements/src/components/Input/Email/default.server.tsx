@@ -1,6 +1,6 @@
 import {jahiaComponent} from "@jahia/javascript-modules-library";
-import {type TextValidationMessageProps, validationDataAttributes} from "formidable-ui-contract";
-import {HelpText, helpTextId} from "formidable-ui-contract";
+import {type TextValidationMessageProps, validationDataAttributes} from "formidable-shared";
+import {HelpText, helpTextId} from "formidable-shared";
 
 interface InputEmailProps extends TextValidationMessageProps {
 	"jcr:title"?: string;

@@ -1,7 +1,7 @@
 import {Island, jahiaComponent} from "@jahia/javascript-modules-library";
 import FileInput from "./File.client";
-import {type BaseValidationMessageProps, validationDataAttributes} from "formidable-ui-contract";
-import {HelpText, helpTextId} from "formidable-ui-contract";
+import {type BaseValidationMessageProps, validationDataAttributes} from "formidable-shared";
+import {HelpText, helpTextId} from "formidable-shared";
 
 interface InputFileProps extends BaseValidationMessageProps {
 	"jcr:title"?: string;

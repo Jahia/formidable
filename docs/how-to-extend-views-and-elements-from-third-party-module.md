@@ -272,7 +272,7 @@ Two more contracts matter for help texts and inline validation errors:
   (see `docs/custom-validation.md` for the full attribute table).
 
 Modules living in this monorepo consume both contracts from the private
-`formidable-ui-contract` workspace package (`HelpText`, `helpTextId`,
+`formidable-shared` workspace package (`HelpText`, `helpTextId`,
 `validationDataAttributes`) instead of copying them. Genuinely third-party modules
 cannot depend on that unpublished package: implement the documented markup contract
 directly.

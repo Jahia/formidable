@@ -1,7 +1,7 @@
 import { AddResources, buildModuleFileUrl } from "@jahia/javascript-modules-library";
 import { useTranslation } from "react-i18next";
-import { validationDataAttributes, type BaseValidationMessageProps } from "formidable-ui-contract";
-import { HelpText, helpTextId } from "formidable-ui-contract";
+import { validationDataAttributes, type BaseValidationMessageProps } from "formidable-shared";
+import { HelpText, helpTextId } from "formidable-shared";
 import "~/design/edit-warning.css";
 import "./scale.css";
 
