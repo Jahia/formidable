@@ -26,3 +26,6 @@ node_modules
 
 # Local MCP config (contains per-developer Jahia credentials)
 .mcp.json
+
+# Local working notes (personal session/spec docs, never meant for the repo)
+.harness/
