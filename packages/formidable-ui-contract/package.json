@@ -1,0 +1,16 @@
+{
+	"name": "formidable-ui-contract",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": {
+			"import": "./src/index.ts"
+		}
+	},
+	"dependencies": {
+		"react": "^19.1.0"
+	},
+	"devDependencies": {
+		"@types/react": "^19.1.2"
+	}
+}

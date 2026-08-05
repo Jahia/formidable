@@ -1,7 +1,7 @@
 import {jahiaComponent} from "@jahia/javascript-modules-library";
 import {parseChoices} from "~/utils/choiceUtils";
-import {type BaseValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
-import HelpText, {helpTextId} from "~/design/HelpText";
+import {type BaseValidationMessageProps, validationDataAttributes} from "formidable-ui-contract";
+import {HelpText, helpTextId} from "formidable-ui-contract";
 
 interface RadiosProps extends BaseValidationMessageProps {
 	"jcr:title"?: string;

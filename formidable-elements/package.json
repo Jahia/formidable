@@ -21,7 +21,8 @@
 	},
 	"dependencies": {
 		"clsx": "^2.1.1",
-		"dompurify": "3.4.0"
+		"dompurify": "3.4.0",
+		"formidable-ui-contract": "workspace:*"
 	},
 	"devDependencies": {
 		"@eslint-react/eslint-plugin": "^1.49.0",

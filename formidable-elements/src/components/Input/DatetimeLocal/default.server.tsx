@@ -1,6 +1,6 @@
 import {jahiaComponent} from "@jahia/javascript-modules-library";
-import {type RangeValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
-import HelpText, {helpTextId} from "~/design/HelpText";
+import {type RangeValidationMessageProps, validationDataAttributes} from "formidable-ui-contract";
+import {HelpText, helpTextId} from "formidable-ui-contract";
 
 interface InputDatetimeLocalProps extends RangeValidationMessageProps {
 	"jcr:title"?: string;
