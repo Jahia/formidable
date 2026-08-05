@@ -1,6 +1,10 @@
-import {useEffect, useRef, useState} from 'react';
+import {useEffect, useRef, useState, type KeyboardEvent} from 'react';
 import {useTranslation} from 'react-i18next';
 import './range.css';
+
+// Keys that operate a range slider: releasing a focus-navigation key (e.g. Tab
+// landing on the slider) must not count as an answer.
+const SLIDER_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown']);
 
 interface RangeInputProps {
 	name: string;
@@ -60,11 +64,18 @@ export default function RangeInput({
 	const snappedMidpoint = minValue + (Math.round(((maxValue - minValue) / 2) / stepValue) * stepValue);
 	const displayValue = answered ? value : String(Math.min(maxValue, Number(snappedMidpoint.toFixed(6))));
 
-	// Selecting exactly the displayed position fires no change event, so any
-	// completed interaction (pointer release, key release) also counts as an answer.
+	// Selecting exactly the displayed position fires no change event, so a
+	// completed interaction (pointer release, slider-operating key release) also
+	// counts as an answer.
 	const confirmCurrentPosition = () => {
 		if (!answered && rangeRef.current) {
 			setValue(rangeRef.current.value);
+		}
+	};
+
+	const confirmOnSliderKey = (event: KeyboardEvent<HTMLInputElement>) => {
+		if (SLIDER_KEYS.has(event.key)) {
+			confirmCurrentPosition();
 		}
 	};
 
@@ -133,7 +144,7 @@ export default function RangeInput({
 					form={form}
 					onChange={event => setValue(event.target.value)}
 					onPointerUp={confirmCurrentPosition}
-					onKeyUp={confirmCurrentPosition}
+					onKeyUp={confirmOnSliderKey}
 					{...validationAttributes}
 				/>
 				{maxLabel && <span className="fmdb-range-end-label">{maxLabel}</span>}
