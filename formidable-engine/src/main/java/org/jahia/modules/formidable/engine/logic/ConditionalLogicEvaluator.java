@@ -102,6 +102,16 @@ public class ConditionalLogicEvaluator {
             // "false" (yes/no button pair): an answered "no" must NOT satisfy isTrue.
             case "isTrue" -> values.stream().anyMatch(ConditionalLogicEvaluator::isTruthy);
             case "isFalse" -> values.stream().noneMatch(ConditionalLogicEvaluator::isTruthy);
+            // Text sources: an empty text input still submits "" so emptiness is
+            // whitespace-blankness, and equals/contains require a non-empty expected
+            // value (the browser evaluator sees no value at all for an empty input;
+            // allowing "" as expected value would make the two sides disagree).
+            case "isEmpty" -> values.stream().allMatch(String::isBlank);
+            case "isNotEmpty" -> values.stream().anyMatch(v -> !v.isBlank());
+            case "equals" -> !values.isEmpty() && rule.value() != null && !rule.value().isEmpty()
+                    && values.get(0).equals(rule.value());
+            case "contains" -> !values.isEmpty() && rule.value() != null && !rule.value().isEmpty()
+                    && values.get(0).contains(rule.value());
             default -> false;
         };
     }

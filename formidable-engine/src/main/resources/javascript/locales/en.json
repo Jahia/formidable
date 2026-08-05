@@ -43,6 +43,8 @@
             "gte": "is greater than or equal to",
             "isTrue": "is true (on)",
             "isFalse": "is false (off)",
+            "isEmpty": "is empty",
+            "isNotEmpty": "is filled",
             "equals": "equals",
             "notEquals": "does not equal",
             "contains": "contains",

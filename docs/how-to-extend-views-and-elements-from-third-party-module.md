@@ -280,6 +280,7 @@ Examples:
 - `fmdbmix:choiceField`
 - `fmdbmix:numberField`
 - `fmdbmix:booleanField`
+- `fmdbmix:textField`
 
 This lets the submission pipeline react to semantics instead of hard-coding your concrete node type name.
 
@@ -298,6 +299,7 @@ Add the engine semantic mixin matching the kind of values your field produces:
 | `fmdbmix:dateField` | date | before / after / on / between |
 | `fmdbmix:numberField` | number | = / ≠ / < / ≤ / > / ≥ / between (numeric comparison) |
 | `fmdbmix:booleanField` | boolean (on/off) | is true / is false |
+| `fmdbmix:textField` | free text | is filled / is empty / equals / contains |
 
 Example — a rating field (number) and a switch field (boolean):
 
@@ -332,6 +334,12 @@ Semantics to know:
   else is rejected at submission.
 - **choice**: the editor reads the choice list from your `choices` property
   (same JSON-encoded `{value, label}` entries as the built-in radio/checkbox).
+- **text**: emptiness is whitespace-blankness on both evaluators (a value of
+  spaces counts as empty); `equals` is an exact match on the raw submitted
+  value and `contains` a substring match, both case-sensitive, and both require
+  a non-empty expected value (use *is empty* to match the empty case — an empty
+  text input submits `""` server-side but exposes no value browser-side, so an
+  empty expected value would make the two evaluators disagree).
 
 ### 3. Exotic widgets: the `data-fmdb-logic-value` escape hatch
 

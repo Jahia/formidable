@@ -453,6 +453,70 @@ class ConditionalLogicEvaluatorTest {
     }
 
     @Test
+    void textEmptinessOperatorsTreatBlankSubmittedValueAsEmpty() {
+        // Verifies the text value kind: an empty text input still submits "" (unlike
+        // an off checkbox which submits nothing), so emptiness is whitespace-blankness.
+        ConditionalLogicEvaluator blankEvaluator = evaluator(
+                Map.of(
+                        "shownWhenFilled", List.of(rule("comment", "text", "isNotEmpty", null, List.of())),
+                        "shownWhenEmpty", List.of(rule("comment", "text", "isEmpty", null, List.of()))
+                ),
+                Map.of("comment", List.of("   "))
+        );
+
+        assertTrue(blankEvaluator.isHidden("shownWhenFilled"));
+        assertFalse(blankEvaluator.isHidden("shownWhenEmpty"));
+
+        ConditionalLogicEvaluator filledEvaluator = evaluator(
+                Map.of(
+                        "shownWhenFilled", List.of(rule("comment", "text", "isNotEmpty", null, List.of())),
+                        "shownWhenEmpty", List.of(rule("comment", "text", "isEmpty", null, List.of()))
+                ),
+                Map.of("comment", List.of("hello"))
+        );
+
+        assertFalse(filledEvaluator.isHidden("shownWhenFilled"));
+        assertTrue(filledEvaluator.isHidden("shownWhenEmpty"));
+    }
+
+    @Test
+    void textEqualsAndContainsCompareSubmittedText() {
+        // Verifies the text comparison operators: equals is an exact match on the
+        // raw submitted value, contains is a substring match.
+        ConditionalLogicEvaluator evaluator = evaluator(
+                Map.of(
+                        "equalsTarget", List.of(rule("comment", "text", "equals", "hello world", List.of())),
+                        "equalsMismatch", List.of(rule("comment", "text", "equals", "hello", List.of())),
+                        "containsTarget", List.of(rule("comment", "text", "contains", "lo wo", List.of())),
+                        "containsMismatch", List.of(rule("comment", "text", "contains", "goodbye", List.of()))
+                ),
+                Map.of("comment", List.of("hello world"))
+        );
+
+        assertFalse(evaluator.isHidden("equalsTarget"));
+        assertTrue(evaluator.isHidden("equalsMismatch"));
+        assertFalse(evaluator.isHidden("containsTarget"));
+        assertTrue(evaluator.isHidden("containsMismatch"));
+    }
+
+    @Test
+    void textComparisonsRequireANonEmptyExpectedValue() {
+        // An empty expected value never satisfies equals/contains: the browser
+        // evaluator sees no value at all for an empty input while the server sees "",
+        // so allowing "" would make the two sides disagree (isEmpty covers that case).
+        ConditionalLogicEvaluator evaluator = evaluator(
+                Map.of(
+                        "equalsTarget", List.of(rule("comment", "text", "equals", "", List.of())),
+                        "containsTarget", List.of(rule("comment", "text", "contains", "", List.of()))
+                ),
+                Map.of("comment", List.of(""))
+        );
+
+        assertTrue(evaluator.isHidden("equalsTarget"));
+        assertTrue(evaluator.isHidden("containsTarget"));
+    }
+
+    @Test
     void jsVariableRulesAreTreatedAsHiddenServerSide() {
         // Verifies fail-safe behavior: jsVariable rules depend on browser-only state,
         // so the field must count as hidden and skip required validation.

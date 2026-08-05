@@ -109,6 +109,7 @@ including field types contributed by third-party modules (see
 | `fmdbmix:dateField` | `date` | `fmdb:inputDate` |
 | `fmdbmix:numberField` | `number` | — (third-party, e.g. rating/scale fields) |
 | `fmdbmix:booleanField` | `boolean` | — (third-party, e.g. switch/consent fields) |
+| `fmdbmix:textField` | `text` | `fmdb:inputText`, `fmdb:textarea`, `fmdb:inputEmail` |
 
 `sourceDescriptors.ts` maps each valueKind to a default descriptor (operators,
 value widget, choice property). Per-type overrides exist only where a core type
@@ -150,6 +151,12 @@ Checkbox group:
 
 - `isTrue`
 - `isFalse`
+
+### Text
+
+- `isNotEmpty` ("field is filled"), `isEmpty` — emptiness is whitespace-blankness
+- `equals`, `contains` — case-sensitive comparison against a required non-empty
+  expected value (an empty expected value never matches; `isEmpty` covers that case)
 
 ## Stored rule format
 
