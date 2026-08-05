@@ -14,6 +14,7 @@ import {ColorInput} from './elements/ColorInput';
 import {DateTimeLocalInput} from './elements/DateTimeLocalInput';
 import {ButtonInput} from "./elements/ButtonInput";
 import {HiddenInput} from "./elements/HiddenInput";
+import {RangeInput} from './elements/RangeInput';
 
 /**
  * Form component - Main form container
@@ -61,6 +62,17 @@ export class Form extends BaseComponent {
 	getEmailInput(name: string): EmailInput {
 		return new EmailInput(
 			this.findByName('input[type="email"]', name)
+		);
+	}
+
+	/**
+	 * Get a range input directly in the form. The visible slider is unnamed (the
+	 * submitted value lives in a hidden mirror input), so the lookup goes through
+	 * the hidden input's name.
+	 */
+	getRangeInput(name: string): RangeInput {
+		return new RangeInput(
+			this.get().find(`.fmdb-form-group:has(input[type="hidden"][name="${name}"]) input[type="range"]`).first()
 		);
 	}
 
