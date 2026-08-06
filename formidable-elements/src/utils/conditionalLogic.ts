@@ -48,6 +48,69 @@ export interface ConditionalLogicRule {
 
 const VALUE_KINDS: ConditionalLogicValueKind[] = ['choice', 'date', 'number', 'boolean', 'text'];
 
+/**
+ * Which operators each rule kind can actually evaluate here. Declared as a Record over
+ * the operator union, so adding an operator to the union without deciding whether the
+ * field evaluator implements it fails the type-check instead of silently falling through
+ * to `default` — where an unevaluable rule hides its target field and skips the field's
+ * required validation server-side.
+ */
+const FIELD_OPERATOR_IMPLEMENTED: Record<ConditionalLogicOperator, boolean> = {
+	in: true,
+	notIn: true,
+	isChecked: true,
+	isUnchecked: true,
+	containsAny: true,
+	containsAll: true,
+	before: true,
+	after: true,
+	on: true,
+	between: true,
+	eq: true,
+	neq: true,
+	lt: true,
+	lte: true,
+	gt: true,
+	gte: true,
+	isTrue: true,
+	isFalse: true,
+	isEmpty: true,
+	isNotEmpty: true,
+	equals: true,
+	contains: true,
+	// jsVariable-only, by design: no field-source counterpart.
+	notEquals: false,
+	exists: false,
+	notExists: false
+};
+
+const JS_VARIABLE_OPERATORS = new Set<string>(['equals', 'notEquals', 'contains', 'exists', 'notExists']);
+
+/**
+ * A stored rule can name any operator (the JSON is authored data, and a form may have
+ * been authored against a newer module version), so eligibility is checked at runtime.
+ */
+const isOperatorEvaluable = (rule: ConditionalLogicRule): boolean =>
+	rule.sourceType === 'jsVariable'
+		? JS_VARIABLE_OPERATORS.has(rule.operator)
+		: FIELD_OPERATOR_IMPLEMENTED[rule.operator] === true;
+
+const reportedUnresolvedOperators = new Set<string>();
+
+/**
+ * Reports an operator this runtime cannot evaluate. Once per operator per page: the
+ * visibility pass runs on every input event, and a silent unevaluable rule looks exactly
+ * like a legitimately hidden field.
+ */
+const reportUnresolvedOperator = (operator: string) => {
+	if (reportedUnresolvedOperators.has(operator)) return;
+	reportedUnresolvedOperators.add(operator);
+	console.warn(
+		`[formidable] Unknown conditional logic operator "${operator}": the rule cannot be `
+		+ 'evaluated, so its target field stays hidden. Check the stored rule or the module version.'
+	);
+};
+
 const isJsVariableRuleShape = (parsed: Partial<ConditionalLogicRule>): boolean =>
 	parsed.sourceType === 'jsVariable'
 	&& typeof parsed.variable === 'string'
@@ -448,6 +511,19 @@ export const applyConditionalLogicVisibility = (form: HTMLFormElement) => {
 		if (rules.length === 0) {
 			setWrapperVisibility(wrapper, true);
 			continue;
+		}
+
+		// Diagnostic only — the evaluators already fail such rules closed. Surfacing it on the
+		// wrapper is what makes the difference between "hidden because the condition is false"
+		// and "hidden because we could not tell" visible to a developer and to a test.
+		const unresolvedOperators = rules
+			.filter(rule => !isOperatorEvaluable(rule))
+			.map(rule => rule.operator);
+		if (unresolvedOperators.length > 0) {
+			wrapper.dataset.fmdbLogicUnresolved = unresolvedOperators.join(',');
+			unresolvedOperators.forEach(reportUnresolvedOperator);
+		} else {
+			delete wrapper.dataset.fmdbLogicUnresolved;
 		}
 
 		const visible = rules.every(rule => {
