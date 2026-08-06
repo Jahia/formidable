@@ -50,8 +50,67 @@ Meaning:
 - `sourceNodeId` is the technical source identifier (JCR UUID); fast path and tie-breaker
 - `sourceFieldName` and `sourceFieldType` remain editor/runtime metadata and legacy fallback
 
-`jsVariable` rules (`sourceType: "jsVariable"`) reference a browser variable instead of a
-field and carry none of the source-field keys.
+## Sources outside the form: providers
+
+A rule may designate something other than a previous field. `sourceType` names the provider,
+and the rule carries that provider's single config key instead of any source-field key:
+
+| `sourceType` | Config key | Designates |
+|---|---|---|
+| absent, or `field` | — (uses `sourceFieldKey` & co.) | another field of the same form |
+| `jsVariable` | `variable` | a dotted `window.*` path, e.g. a datalayer entry |
+| `urlParam` | `param` | a query-string parameter of the page URL |
+| `cookie` | `cookie` | a cookie readable from JavaScript |
+
+```json
+{
+  "logicId": "e5f6a7b8",
+  "sourceType": "urlParam",
+  "param": "utm_campaign",
+  "operator": "equals",
+  "value": "spring-sale"
+}
+```
+
+Every provider state is a single optional string, so all of them offer the same operators:
+`exists`, `notExists`, `equals`, `notEquals`, `contains`.
+
+### Server-side consequence
+
+Provider state lives in the browser, and the submission does not carry it. The server
+therefore treats a provider rule as **not satisfied**, which makes its target field count as
+hidden and **skips that field's required validation**. Submitted values are never discarded —
+only the required check is relaxed. In practice: *a required field shown only by a provider
+rule is optional as far as the server is concerned.* Use a field source when required-ness
+must be enforced.
+
+### A field that becomes hidden loses what was typed in it
+
+Hiding a field disables every control inside it, and a disabled control is not submitted. So if
+a condition turns false *after* the visitor filled the field, the value they typed is dropped
+silently — it is not stored, and no error is shown.
+
+This is intended for field sources: a field the visitor can no longer see must not contribute a
+value. It is worth knowing for providers, because their state moves without any visitor action —
+a consent cookie revoked in another tab, a datalayer entry replaced by a client-side route
+change — so the case is reachable without anyone doing anything wrong. Prefer conditions on
+state that is stable for the lifetime of the page, and avoid gating an already-filled field on
+something that can flip late.
+
+### Asking for a re-evaluation
+
+A JS variable is sampled, because a plain object gives no change notification. Anything that
+changes provider state can instead ask for an immediate re-evaluation by dispatching a
+bubbling `fmdb:logic-invalidate` event — after pushing to a datalayer, after a consent banner
+is answered, after a client-side route change:
+
+```js
+document.dispatchEvent(new Event("fmdb:logic-invalidate", {bubbles: true}));
+```
+
+Note that only **leaf** values are watched reliably: a variable pointing at an object
+stringifies identically whatever changes inside it, so mutating the object without replacing
+the watched value produces no re-evaluation. Dispatch the event in that case.
 
 ## Repository-side structure
 
