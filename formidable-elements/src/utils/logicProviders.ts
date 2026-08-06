@@ -170,9 +170,11 @@ export const logicProviderConfigKeys = (): LogicProviderConfigKey[] =>
 	PROVIDERS.map(provider => provider.configKey);
 
 /**
- * Event any integrator can dispatch on a form (or on the document, since it bubbles) to
- * have its conditional logic re-evaluated — after pushing to a datalayer, after a consent
- * banner is answered, after a client-side route change. It is the exact mechanism where
- * sampling is only an approximation.
+ * Event any integrator can dispatch to have conditional logic re-evaluated — after pushing
+ * to a datalayer, after a consent banner is answered, after a client-side route change. It
+ * is the exact mechanism where sampling is only an approximation.
+ *
+ * Listened for on the document, so dispatching it on the document or on any element inside
+ * the page reaches every form on it.
  */
 export const FORM_LOGIC_INVALIDATE_EVENT = 'fmdb:logic-invalidate';

@@ -82,7 +82,12 @@ export function useMultiStep({formRef, stepIds}: UseMultiStepOptions): UseMultiS
 		// Any integrator can ask for a re-evaluation — after pushing to a datalayer, after a
 		// consent banner is answered, after a client-side route change. This is the exact
 		// mechanism; a provider's own watcher is only an approximation of it.
-		form.addEventListener(FORM_LOGIC_INVALIDATE_EVENT, syncVisibility);
+		//
+		// Listened for on the document, not on the form: an integrator such as a consent
+		// banner has no reason to know the form element, and an event dispatched on the form
+		// bubbles up to the document anyway. The reverse would not work — events do not
+		// travel downwards.
+		document.addEventListener(FORM_LOGIC_INVALIDATE_EVENT, syncVisibility);
 
 		// Sources outside the form (a JS variable such as a datalayer entry, a cookie) change
 		// without any form event, so each provider that needs to is given the references it
@@ -96,7 +101,7 @@ export function useMultiStep({formRef, stepIds}: UseMultiStepOptions): UseMultiS
 			form.removeEventListener('input', syncVisibility);
 			form.removeEventListener('change', syncVisibility);
 			form.removeEventListener('reset', handleReset);
-			form.removeEventListener(FORM_LOGIC_INVALIDATE_EVENT, syncVisibility);
+			document.removeEventListener(FORM_LOGIC_INVALIDATE_EVENT, syncVisibility);
 			unsubscribes.forEach(unsubscribe => unsubscribe());
 
 			if (resetVisibilityTimeoutRef.current !== null) {

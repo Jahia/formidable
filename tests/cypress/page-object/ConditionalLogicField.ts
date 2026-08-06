@@ -16,6 +16,8 @@ export class ConditionalLogicField extends BaseComponent {
 	// types the name of what it designates instead.
 	static readonly sourceTypeDropdownIndex = 0;
 	static readonly sourceDropdownIndex = 1;
+	// Provider rules skip the source dropdown, so their operator is at index 1.
+	static readonly providerOperatorDropdownIndex = 1;
 	static readonly operatorDropdownIndex = 2;
 	static readonly valueDropdownIndex = 3;
 
@@ -130,6 +132,11 @@ export class ConditionalLogicField extends BaseComponent {
 		return this.openDropdown(ruleIndex, ConditionalLogicField.operatorDropdownIndex);
 	}
 
+	// A provider rule has no source dropdown, so its operator sits one position earlier.
+	openProviderOperatorDropdown(ruleIndex: number): this {
+		return this.openDropdown(ruleIndex, ConditionalLogicField.providerOperatorDropdownIndex);
+	}
+
 	selectSourceType(ruleIndex: number, label: string): this {
 		this.openSourceTypeDropdown(ruleIndex);
 		this.selectMenuItem(label);
@@ -144,6 +151,12 @@ export class ConditionalLogicField extends BaseComponent {
 
 	selectOperator(ruleIndex: number, label: string): this {
 		this.openOperatorDropdown(ruleIndex);
+		this.selectMenuItem(label);
+		return this;
+	}
+
+	selectProviderOperator(ruleIndex: number, label: string): this {
+		this.openProviderOperatorDropdown(ruleIndex);
 		this.selectMenuItem(label);
 		return this;
 	}

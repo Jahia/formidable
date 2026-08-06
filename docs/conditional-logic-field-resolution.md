@@ -101,8 +101,9 @@ something that can flip late.
 
 A JS variable is sampled, because a plain object gives no change notification. Anything that
 changes provider state can instead ask for an immediate re-evaluation by dispatching a
-bubbling `fmdb:logic-invalidate` event — after pushing to a datalayer, after a consent banner
-is answered, after a client-side route change:
+`fmdb:logic-invalidate` event — after pushing to a datalayer, after a consent banner is
+answered, after a client-side route change. It is listened for on the document, so
+dispatching it there reaches every form on the page:
 
 ```js
 document.dispatchEvent(new Event("fmdb:logic-invalidate", {bubbles: true}));
