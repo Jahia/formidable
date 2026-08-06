@@ -8,8 +8,10 @@
  * provider is a `read` function and, when the value can change without a form event, a
  * `subscribe`.
  *
- * This registry is internal to the module: providers ship with Formidable. Nothing here is
- * a public extension point yet (see .harness/spec-phase3-logic-providers-and-pluggable-operators.md).
+ * This list is internal: providers ship with Formidable, and nothing here is a public
+ * extension point yet. The editor half lives in
+ * formidable-engine/src/javascript/ConditionalLogic/providers.ts and must declare the same
+ * ids and config keys — nothing checks that today.
  */
 
 /** Config keys a provider rule may carry in its stored JSON, one per provider. */

@@ -8,9 +8,8 @@ import type {LogicOperator, ProviderConfigKey, RuleSourceType} from './Condition
  * A provider is therefore fully declarative here: no per-provider React, and no
  * per-provider code in the runtime evaluator either (see
  * formidable-elements/src/utils/logicProviders.ts, which must declare the same ids and
- * config keys). This registry is internal to the engine; it is deliberately not a public
- * extension point yet — see
- * .harness/spec-phase3-logic-providers-and-pluggable-operators.md §5bis.
+ * config keys — nothing checks that today). This list is internal to the engine; it is
+ * deliberately not a public extension point yet.
  */
 export interface LogicProviderDescriptor {
     id: Exclude<RuleSourceType, 'field'>;
