@@ -264,6 +264,19 @@ Those conventions keep the field compatible with:
 - Cypress selectors
 - label/input linkage
 
+Two more contracts matter for help texts and inline validation errors:
+
+- the help block is a `div.fmdb-form-help` with id `help-<nodeId>`, referenced by the
+  control through `aria-describedby`;
+- custom validation messages are emitted as `data-fmdb-msg-*` attributes on the control
+  (see `docs/custom-validation.md` for the full attribute table).
+
+Modules living in this monorepo consume both contracts from the private
+`formidable-shared` workspace package (`HelpText`, `helpTextId`,
+`validationDataAttributes`) instead of copying them. Genuinely third-party modules
+cannot depend on that unpublished package: implement the documented markup contract
+directly.
+
 ## When to add more engine mixins
 
 `fmdbmix:element` is enough for a simple text-like field.

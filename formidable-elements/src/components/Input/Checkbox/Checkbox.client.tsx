@@ -1,7 +1,7 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import type {ReactNode} from "react";
 import {useTranslation} from "react-i18next";
-import HelpText from '~/design/HelpText';
+import {HelpText} from 'formidable-shared';
 
 interface CheckboxClientProps {
 	label?: string;
