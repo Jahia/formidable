@@ -3,4 +3,4 @@
 formidable: patch
 ---
 
-Help texts and validation messages now come from a single shared implementation across the form modules, preventing inconsistencies between built-in and add-on fields (#178)
+Unified help texts and validation messages across the form modules, so built-in and add-on fields behave consistently (#178)
