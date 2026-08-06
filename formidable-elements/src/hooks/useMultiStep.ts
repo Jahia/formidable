@@ -1,9 +1,6 @@
 import {type RefObject, useCallback, useEffect, useRef, useState} from 'react';
-import {
-	applyConditionalLogicVisibility,
-	collectJsVariables,
-	getJsVariablesSnapshot
-} from '~/utils/conditionalLogic';
+import {applyConditionalLogicVisibility, collectProviderRefs} from '~/utils/conditionalLogic';
+import {FORM_LOGIC_INVALIDATE_EVENT, getLogicProvider} from '~/utils/logicProviders';
 
 interface UseMultiStepOptions {
 	formRef: RefObject<HTMLFormElement | null>;
@@ -82,29 +79,25 @@ export function useMultiStep({formRef, stepIds}: UseMultiStepOptions): UseMultiS
 		form.addEventListener('change', syncVisibility);
 		form.addEventListener('reset', handleReset);
 
-		// JS context variables (e.g. datalayer entries like window.cxs.*) are populated
-		// asynchronously and change without any form event, so rules based on them are
-		// re-evaluated by watching the referenced variables for value changes.
-		let jsVariableWatcher: number | null = null;
-		const jsVariables = collectJsVariables(form);
-		if (jsVariables.length > 0) {
-			let lastSnapshot = getJsVariablesSnapshot(jsVariables);
-			jsVariableWatcher = window.setInterval(() => {
-				const snapshot = getJsVariablesSnapshot(jsVariables);
-				if (snapshot !== lastSnapshot) {
-					lastSnapshot = snapshot;
-					syncVisibility();
-				}
-			}, 100);
-		}
+		// Any integrator can ask for a re-evaluation — after pushing to a datalayer, after a
+		// consent banner is answered, after a client-side route change. This is the exact
+		// mechanism; a provider's own watcher is only an approximation of it.
+		form.addEventListener(FORM_LOGIC_INVALIDATE_EVENT, syncVisibility);
+
+		// Sources outside the form (a JS variable such as a datalayer entry, a cookie) change
+		// without any form event, so each provider that needs to is given the references it
+		// must watch and reports back when their state may have moved.
+		const unsubscribes = Array.from(collectProviderRefs(form), ([providerId, refs]) => {
+			const provider = getLogicProvider(providerId);
+			return provider?.subscribe?.(refs, syncVisibility);
+		}).filter((unsubscribe): unsubscribe is () => void => typeof unsubscribe === 'function');
 
 		return () => {
 			form.removeEventListener('input', syncVisibility);
 			form.removeEventListener('change', syncVisibility);
 			form.removeEventListener('reset', handleReset);
-			if (jsVariableWatcher !== null) {
-				window.clearInterval(jsVariableWatcher);
-			}
+			form.removeEventListener(FORM_LOGIC_INVALIDATE_EVENT, syncVisibility);
+			unsubscribes.forEach(unsubscribe => unsubscribe());
 
 			if (resetVisibilityTimeoutRef.current !== null) {
 				window.clearTimeout(resetVisibilityTimeoutRef.current);

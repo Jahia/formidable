@@ -9,7 +9,8 @@ import type {
     SourceFieldOption,
     SourceValueKind
 } from './ConditionalLogic.types';
-import {getSourceDescriptor, JS_VARIABLE_OPERATORS, operatorNeedsValue} from './sourceDescriptors';
+import {getSourceDescriptor, operatorNeedsValue} from './sourceDescriptors';
+import {getLogicProvider, PROVIDER_OPERATORS, providerConfigKeys} from './providers';
 
 const VALUE_KINDS: SourceValueKind[] = ['choice', 'date', 'number', 'boolean', 'text'];
 
@@ -33,13 +34,15 @@ export const parseRule = (value?: string): ConditionalLogicRule => {
 
         return {
             logicId: parsed.logicId ?? '',
-            sourceType: parsed.sourceType === 'jsVariable' ? 'jsVariable' : 'field',
+            sourceType: getLogicProvider(parsed.sourceType)?.id ?? 'field',
             sourceNodeId: parsed.sourceNodeId ?? '',
             sourceFieldKey: typeof parsed.sourceFieldKey === 'string' ? parsed.sourceFieldKey : undefined,
             sourceFieldName: parsed.sourceFieldName ?? '',
             sourceFieldType: parsed.sourceFieldType ?? '',
             valueKind: VALUE_KINDS.includes(parsed.valueKind as SourceValueKind) ? parsed.valueKind : undefined,
             variable: typeof parsed.variable === 'string' ? parsed.variable : undefined,
+            param: typeof parsed.param === 'string' ? parsed.param : undefined,
+            cookie: typeof parsed.cookie === 'string' ? parsed.cookie : undefined,
             operator: (parsed.operator as LogicOperator) ?? 'in',
             value: typeof parsed.value === 'string' ? parsed.value : undefined,
             values: Array.isArray(parsed.values) ? parsed.values.filter(value => typeof value === 'string') : []
@@ -63,15 +66,25 @@ export const sanitizeOperator = (source: SourceFieldOption | undefined, operator
     return operators.includes(operator) ? operator : operators[0];
 };
 
-export const sanitizeJsVariableOperator = (operator: LogicOperator): LogicOperator =>
-    JS_VARIABLE_OPERATORS.includes(operator) ? operator : JS_VARIABLE_OPERATORS[0];
+export const sanitizeProviderOperator = (operator: LogicOperator): LogicOperator =>
+    PROVIDER_OPERATORS.includes(operator) ? operator : PROVIDER_OPERATORS[0];
 
-export const normalizeStoredJsVariableRule = (rule: ConditionalLogicRule): ConditionalLogicRule => {
-    const operator = sanitizeJsVariableOperator(rule.operator);
+/**
+ * Serializes a provider rule to its stored shape: the provider's own config key and
+ * nothing else. Field-rule keys and the other providers' keys are dropped, so switching a
+ * rule's source type never leaves stale metadata behind.
+ */
+export const normalizeStoredProviderRule = (rule: ConditionalLogicRule): ConditionalLogicRule => {
+    const provider = getLogicProvider(rule.sourceType);
+    if (!provider) {
+        return parseRule(undefined);
+    }
+
+    const operator = sanitizeProviderOperator(rule.operator);
     const normalized: ConditionalLogicRule = {
         logicId: rule.logicId,
-        sourceType: 'jsVariable',
-        variable: (rule.variable ?? '').trim(),
+        sourceType: provider.id,
+        [provider.configKey]: (rule[provider.configKey] ?? '').trim(),
         operator
     };
 
@@ -81,6 +94,10 @@ export const normalizeStoredJsVariableRule = (rule: ConditionalLogicRule): Condi
 
     return normalized;
 };
+
+/** Clears every provider config key, used when a rule's source type changes. */
+export const clearedProviderConfig = (): Partial<ConditionalLogicRule> =>
+    Object.fromEntries(providerConfigKeys().map(key => [key, undefined]));
 
 // Kinds whose operators compare against contributor-typed scalar value(s)
 // (a single input, or two for 'between') instead of a choice list.

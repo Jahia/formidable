@@ -1,4 +1,11 @@
-export type RuleSourceType = 'field' | 'jsVariable';
+/**
+ * What a rule designates: another form field, or one of the providers declared in
+ * logicProviders.ts (state outside the form, read in the browser only).
+ */
+export type RuleSourceType = 'field' | 'jsVariable' | 'urlParam' | 'cookie';
+
+/** Rule keys holding what a provider designates, one per provider. */
+export type ProviderConfigKey = 'variable' | 'param' | 'cookie';
 
 /**
  * Shape of the values a source field produces, which drives the offered operators
@@ -50,8 +57,12 @@ export interface ConditionalLogicRule {
     // evaluators pick the right comparison semantics (e.g. numeric vs date
     // 'between') without knowing the source type. Absent on older rules.
     valueKind?: SourceValueKind;
-    // jsVariable-rule key: dotted window variable path (e.g. a datalayer entry).
+    // Provider-rule config, exactly one of these per rule, named by the provider's
+    // configKey: a dotted window variable path (e.g. a datalayer entry), a URL query
+    // parameter name, a cookie name.
     variable?: string;
+    param?: string;
+    cookie?: string;
     operator: LogicOperator;
     value?: string;
     values?: string[];

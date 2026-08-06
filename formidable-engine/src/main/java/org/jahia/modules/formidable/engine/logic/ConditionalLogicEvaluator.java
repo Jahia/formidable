@@ -75,15 +75,15 @@ public class ConditionalLogicEvaluator {
     }
 
     private boolean evaluateRule(ConditionalLogicRule rule, Set<String> visiting) {
-        if (rule.isJsVariable()) {
-            // JS variable rules (e.g. datalayer entries) depend on browser-only state
-            // (window.* variables) that cannot be verified server-side. Treat them as
-            // not satisfied so the field counts as hidden and required validation is
-            // skipped, which avoids rejecting legitimate submissions where the field
-            // was hidden client-side. Expected by design, hence debug and not warn.
-            log.debug("Conditional logic rule {} is not evaluable server-side (source type {}): "
+        if (!rule.isFieldRule()) {
+            // Provider rules (a JS variable such as a datalayer entry, a URL parameter, a
+            // cookie…) depend on browser-only state the submission does not carry. Treat
+            // them as not satisfied so the field counts as hidden and required validation
+            // is skipped, which avoids rejecting legitimate submissions where the field was
+            // hidden client-side. Expected by design, hence debug and not warn.
+            log.debug("Conditional logic rule {} is not evaluable server-side (source type '{}'): "
                     + "the target field counts as hidden and its required validation is skipped.",
-                    rule.logicId(), ConditionalLogicRule.SOURCE_TYPE_JS_VARIABLE);
+                    rule.logicId(), rule.sourceType());
             return false;
         }
 
