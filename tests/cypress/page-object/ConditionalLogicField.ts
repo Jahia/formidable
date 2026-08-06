@@ -10,8 +10,10 @@ export class ConditionalLogicField extends BaseComponent {
 	private static readonly menuSelector = '.moonstone-menu:not(.moonstone-hidden)';
 	private static readonly menuOverlaySelector = '.moonstone-menu_overlay';
 
-	// Dropdown order within a "Field value" rule row: the leading dropdown picks
-	// the source type (Field value / Datalayer value), then source, operator, value.
+	// Dropdown order within a "Field value" rule row: the leading dropdown picks the
+	// source type (Field value, or one of the providers: Datalayer value, URL parameter,
+	// Cookie), then source, operator, value. A provider rule has no source dropdown — it
+	// types the name of what it designates instead.
 	static readonly sourceTypeDropdownIndex = 0;
 	static readonly sourceDropdownIndex = 1;
 	static readonly operatorDropdownIndex = 2;
