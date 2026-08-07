@@ -24,23 +24,21 @@ describe('Form logic - 59 Provider state declaration at submit', () => {
 		operator: 'exists'
 	});
 
-	const createFormPage = (suffix: string, extras: object = {}) => createPublishedLiveFormPage(
-		`declaration-live-${suffix}-${Date.now()}`,
-		'Declaration live form',
-		[
-			getInputTextNode({name: 'fullname', title: 'fullname'}),
-			{
-				...getInputTextNode({name: 'preferences', title: 'preferences', ...extras}),
-				properties: [
-					{name: 'jcr:title', value: 'preferences', language: 'en'},
-					{name: 'logics', values: [cookieRule]}
-				]
-			}
-		],
-		undefined,
-		undefined,
-		{actions: [SAVE_TO_JCR_ACTION]}
-	);
+	const createFormPage = (suffix: string, extras: object = {}) => {
+		// Append the rule to the fixture-built properties: replacing them would silently
+		// drop what the extras produced (required, constraints…).
+		const gated = getInputTextNode({name: 'preferences', title: 'preferences', ...extras});
+		gated.properties = [...(gated.properties ?? []), {name: 'logics', values: [cookieRule]}];
+
+		return createPublishedLiveFormPage(
+			`declaration-live-${suffix}-${Date.now()}`,
+			'Declaration live form',
+			[getInputTextNode({name: 'fullname', title: 'fullname'}), gated],
+			undefined,
+			undefined,
+			{actions: [SAVE_TO_JCR_ACTION]}
+		);
+	};
 
 	it('submits a visible provider-gated field and its value is accepted', () => {
 		createFormPage('visible').then(({livePath}) => {

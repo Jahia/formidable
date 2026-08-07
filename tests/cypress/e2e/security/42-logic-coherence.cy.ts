@@ -39,21 +39,18 @@ describe('Security - 42 Conditional logic coherence', () => {
 		operator: 'exists'
 	});
 
-	const gatedForm = (suffix: string, rule: string, gatedFieldExtras: object = {}) =>
-		createPublishedLiveFormPage(
+	const gatedForm = (suffix: string, rule: string, gatedFieldExtras: object = {}) => {
+		// Append the rule to the fixture-built properties: replacing them would silently
+		// drop what the extras produced (required, constraints…).
+		const gated = getInputTextNode({name: 'details', title: 'details', ...gatedFieldExtras});
+		gated.properties = [...(gated.properties ?? []), {name: 'logics', values: [rule]}];
+
+		return createPublishedLiveFormPage(
 			`coherence-${suffix}-${Date.now()}`,
 			`Coherence form ${suffix}`,
-			[
-				getInputTextNode({name: 'gate', title: 'gate'}),
-				{
-					...getInputTextNode({name: 'details', title: 'details', ...gatedFieldExtras}),
-					properties: [
-						{name: 'jcr:title', value: 'details', language: 'en'},
-						{name: 'logics', values: [rule]}
-					]
-				}
-			]
+			[getInputTextNode({name: 'gate', title: 'gate'}), gated]
 		);
+	};
 
 	it('rejects a value for a field provably hidden by a field-sourced rule', () => {
 		gatedForm('field-tamper', fieldGateRule).then(({formId}) => {
