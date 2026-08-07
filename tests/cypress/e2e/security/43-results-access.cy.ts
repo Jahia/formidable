@@ -74,6 +74,12 @@ describe('Security - 43 Form results access', () => {
 	before(() => {
 		cy.login();
 		createUser(READER.name, READER.password);
+		// A results reader is a back-office user: editor on the site makes the account
+		// privileged, which is what the platform requires to call the GraphQL API at
+		// all (the real results screen lives in jContent under the same requirement).
+		// It grants NOTHING on stored results: their ACL inheritance is broken, so the
+		// deny assertions below hold with it — which is exactly the point.
+		grantRoles(`/sites/${FORMIDABLE_TEST_SITE.key}`, ['editor'], READER.name, 'USER');
 
 		createPublishedLiveFormPage(
 			FORM_NAME,
