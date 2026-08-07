@@ -60,6 +60,7 @@ describe('Security - 43 Form results access', () => {
 			}
 		}).then(response => {
 			const body = response.body as {
+				errors?: Array<{message?: string}>;
 				data?: {
 					currentUser?: {name: string};
 					jcr?: {nodeByPath?: {name: string; fullName?: {value: string} | null} | null} | null;
@@ -68,6 +69,13 @@ describe('Security - 43 Form results access', () => {
 			// The whole point of these tests is WHO reads: fail loudly if the request
 			// was not authenticated as the intended user (e.g. a leaked session cookie).
 			expect(body.data?.currentUser?.name, 'authenticated user for the read').to.eq(expectedUser);
+			// A denied read comes back as nodeByPath:null WITH a PathNotFoundException
+			// for the queried path — that pair IS the expected deny signal. Any other
+			// GraphQL error would make a null indistinguishable from a deny, so it
+			// fails loudly instead of producing a false verdict.
+			const unexpectedErrors = (body.errors ?? [])
+				.filter(error => !(error.message ?? '').includes(`PathNotFoundException: ${path}`));
+			expect(unexpectedErrors, 'unexpected GraphQL errors').to.deep.eq([]);
 			return cy.wrap(body.data?.jcr?.nodeByPath ?? null, {log: false});
 		});
 
