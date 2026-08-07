@@ -1,6 +1,7 @@
 /**
  * What a rule designates: another form field, or one of the providers declared in
- * logicProviders.ts (state outside the form, read in the browser only).
+ * providers.ts (state outside the form, read in the browser only — the runtime
+ * counterpart lives in formidable-elements/src/utils/logicProviders.ts).
  */
 export type RuleSourceType = 'field' | 'jsVariable' | 'urlParam' | 'cookie';
 

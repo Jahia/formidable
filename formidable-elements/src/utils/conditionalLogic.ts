@@ -86,7 +86,7 @@ const FIELD_OPERATOR_IMPLEMENTED: Record<ConditionalLogicOperator, boolean> = {
 	isNotEmpty: true,
 	equals: true,
 	contains: true,
-	// jsVariable-only, by design: no field-source counterpart.
+	// Provider-only (jsVariable, urlParam, cookie…), by design: no field-source counterpart.
 	notEquals: false,
 	exists: false,
 	notExists: false
