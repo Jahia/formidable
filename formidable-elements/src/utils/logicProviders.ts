@@ -144,9 +144,9 @@ const cookieProvider: ScalarLogicProvider = {
 	id: 'cookie',
 	configKey: 'cookie',
 	read: readCookie,
-	// A cookie can be written by another tab or by a consent banner, neither of which
-	// raises an event here; re-reading when the tab becomes visible again covers the
-	// common case without a timer.
+	// A cookie written by another tab is noticed when this tab becomes visible again,
+	// without a timer. A same-tab write (a consent banner answered on this very page)
+	// never fires visibilitychange: that case needs the invalidation event below.
 	subscribe: (_refs, onChange) => {
 		const handler = () => {
 			if (document.visibilityState === 'visible') onChange();
@@ -176,7 +176,7 @@ export const logicProviderConfigKeys = (): LogicProviderConfigKey[] =>
  * to a datalayer, after a consent banner is answered, after a client-side route change. It
  * is the exact mechanism where sampling is only an approximation.
  *
- * Listened for on the document, so dispatching it on the document or on any element inside
- * the page reaches every form on it.
+ * Listened for on the document. Dispatch it there; dispatching on an element inside the
+ * page also works, but only with `bubbles: true` (not the Event default).
  */
 export const FORM_LOGIC_INVALIDATE_EVENT = 'fmdb:logic-invalidate';

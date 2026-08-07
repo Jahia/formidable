@@ -75,6 +75,12 @@ and the rule carries that provider's single config key instead of any source-fie
 Every provider state is a single optional string, so all of them offer the same operators:
 `exists`, `notExists`, `equals`, `notEquals`, `contains`.
 
+A rule that cannot be evaluated — a `sourceType` this module version does not ship, a
+missing reference, an unknown operator — fails closed everywhere: the target field stays
+hidden, its wrapper carries `data-fmdb-logic-unresolved` naming the reason, and a console
+warning is emitted once per reason. An unevaluable rule therefore never silently behaves
+like an evaluated one.
+
 ### Server-side consequence
 
 Provider state lives in the browser, and the submission does not carry it. The server
@@ -108,6 +114,9 @@ dispatching it there reaches every form on the page:
 ```js
 document.dispatchEvent(new Event("fmdb:logic-invalidate", {bubbles: true}));
 ```
+
+Dispatching it on an element inside the page works too, but only with `bubbles: true` —
+the event has to bubble up to the document.
 
 Note that only **leaf** values are watched reliably: a variable pointing at an object
 stringifies identically whatever changes inside it, so mutating the object without replacing

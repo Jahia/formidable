@@ -33,8 +33,11 @@ export type ConditionalLogicOperator =
 
 export interface ConditionalLogicRule {
 	logicId?: string;
-	// Absent on rules stored before jsVariable support; treated as 'field'.
-	sourceType?: ConditionalLogicSourceType;
+	// Absent on rules stored before jsVariable support; treated as 'field'. Wider than
+	// LogicSourceType on purpose: a stored rule may name a provider this runtime does not
+	// ship (authored against a newer module), and such a rule must be kept so it can fail
+	// closed instead of vanishing.
+	sourceType?: string;
 	sourceFieldName?: string;
 	sourceNodeId?: string;
 	// Informative metadata; source eligibility is enforced at authoring time.
@@ -95,28 +98,40 @@ const FIELD_OPERATOR_IMPLEMENTED: Record<ConditionalLogicOperator, boolean> = {
  */
 const PROVIDER_OPERATORS = new Set<string>(['equals', 'notEquals', 'contains', 'exists', 'notExists']);
 
-/**
- * A stored rule can name any operator (the JSON is authored data, and a form may have
- * been authored against a newer module version), so eligibility is checked at runtime.
- */
-const isOperatorEvaluable = (rule: ConditionalLogicRule): boolean =>
-	getLogicProvider(rule.sourceType)
-		? PROVIDER_OPERATORS.has(rule.operator)
-		: FIELD_OPERATOR_IMPLEMENTED[rule.operator] === true;
-
-const reportedUnresolvedOperators = new Set<string>();
+/** A rule that designates something other than a previous field, known provider or not. */
+const isNonFieldRule = (rule: Partial<ConditionalLogicRule>): boolean =>
+	typeof rule.sourceType === 'string' && rule.sourceType !== '' && rule.sourceType !== 'field';
 
 /**
- * Reports an operator this runtime cannot evaluate. Once per operator per page: the
- * visibility pass runs on every input event, and a silent unevaluable rule looks exactly
- * like a legitimately hidden field.
+ * Why a rule cannot be evaluated here, or null when it can. A stored rule is authored
+ * data and may come from a newer module version, so everything is checked at runtime:
+ * the source type may name a provider this runtime does not ship, the provider's
+ * reference may be missing, and the operator may not exist for the rule's kind.
  */
-const reportUnresolvedOperator = (operator: string) => {
-	if (reportedUnresolvedOperators.has(operator)) return;
-	reportedUnresolvedOperators.add(operator);
+const ruleUnresolvedReason = (rule: ConditionalLogicRule): string | null => {
+	if (isNonFieldRule(rule)) {
+		const provider = getLogicProvider(rule.sourceType);
+		if (!provider) return `source:${rule.sourceType}`;
+		if (providerRuleRef(rule) === null) return `ref:${provider.id}`;
+		return PROVIDER_OPERATORS.has(rule.operator) ? null : `operator:${rule.operator}`;
+	}
+
+	return FIELD_OPERATOR_IMPLEMENTED[rule.operator] === true ? null : `operator:${rule.operator}`;
+};
+
+const reportedUnresolvedReasons = new Set<string>();
+
+/**
+ * Reports a rule this runtime cannot evaluate. Once per reason per page: the visibility
+ * pass runs on every input event, and a silent unevaluable rule looks exactly like a
+ * legitimately hidden field.
+ */
+const reportUnresolvedRule = (reason: string) => {
+	if (reportedUnresolvedReasons.has(reason)) return;
+	reportedUnresolvedReasons.add(reason);
 	console.warn(
-		`[formidable] Unknown conditional logic operator "${operator}": the rule cannot be `
-		+ 'evaluated, so its target field stays hidden. Check the stored rule or the module version.'
+		`[formidable] Conditional logic rule cannot be evaluated (${reason}): its target `
+		+ 'field stays hidden. Check the stored rule or the module version.'
 	);
 };
 
@@ -152,6 +167,18 @@ export const parseConditionalLogicRule = (rawValue: string): ConditionalLogicRul
 			};
 		}
 
+		// A non-field rule that is not usable here — unknown provider, missing reference —
+		// is kept rather than dropped: the evaluator fails it closed and reports it, so the
+		// field stays hidden everywhere instead of client-visible but server-hidden.
+		if (isNonFieldRule(parsed)) {
+			return {
+				logicId: typeof parsed.logicId === 'string' ? parsed.logicId : undefined,
+				sourceType: parsed.sourceType,
+				operator: parsed.operator as ConditionalLogicOperator,
+				value: typeof parsed.value === 'string' ? parsed.value : undefined
+			};
+		}
+
 		if (typeof parsed.sourceFieldName !== 'string') {
 			return null;
 		}
@@ -181,7 +208,9 @@ const isConditionalLogicRule = (value: unknown): value is ConditionalLogicRule =
 	if (!value || typeof value !== 'object') return false;
 	const candidate = value as Partial<ConditionalLogicRule>;
 	if (typeof candidate.operator !== 'string') return false;
-	if (providerRuleRef(candidate) !== null) return true;
+	// Non-field rules are always kept, usable or not (unknown provider, missing
+	// reference): they must fail closed in the evaluator, not silently vanish here.
+	if (isNonFieldRule(candidate)) return true;
 	return typeof candidate.sourceFieldName === 'string';
 };
 
@@ -507,22 +536,29 @@ export const applyConditionalLogicVisibility = (form: HTMLFormElement) => {
 			continue;
 		}
 
-		// Diagnostic only — the evaluators already fail such rules closed. Surfacing it on the
-		// wrapper is what makes the difference between "hidden because the condition is false"
-		// and "hidden because we could not tell" visible to a developer and to a test.
-		const unresolvedOperators = rules
-			.filter(rule => !isOperatorEvaluable(rule))
-			.map(rule => rule.operator);
-		if (unresolvedOperators.length > 0) {
-			wrapper.dataset.fmdbLogicUnresolved = unresolvedOperators.join(',');
-			unresolvedOperators.forEach(reportUnresolvedOperator);
+		// Diagnostic only — the evaluation below already fails such rules closed. Surfacing
+		// it on the wrapper is what makes the difference between "hidden because the
+		// condition is false" and "hidden because we could not tell" visible to a developer
+		// and to a test.
+		const unresolvedReasons = rules
+			.map(ruleUnresolvedReason)
+			.filter((reason): reason is string => reason !== null);
+		if (unresolvedReasons.length > 0) {
+			wrapper.dataset.fmdbLogicUnresolved = unresolvedReasons.join(',');
+			unresolvedReasons.forEach(reportUnresolvedRule);
 		} else {
 			delete wrapper.dataset.fmdbLogicUnresolved;
 		}
 
 		const visible = rules.every(rule => {
-			const provider = getLogicProvider(rule.sourceType);
-			if (provider) {
+			if (isNonFieldRule(rule)) {
+				const provider = getLogicProvider(rule.sourceType);
+				// Unknown provider or missing reference: unevaluable (reported above), so
+				// the field stays hidden — the same verdict the server reaches.
+				if (!provider || providerRuleRef(rule) === null) {
+					return false;
+				}
+
 				return evaluateProviderRule(rule, provider);
 			}
 

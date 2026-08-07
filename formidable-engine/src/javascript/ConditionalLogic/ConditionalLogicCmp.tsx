@@ -501,7 +501,18 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
 
     // One shape for every provider: the name of the thing designated, an operator, and a
     // value when the operator compares against one. Adding a provider adds no markup here.
-    const renderProviderRule = (provider: LogicProviderDescriptor) => (
+    const renderProviderRule = (provider: LogicProviderDescriptor) => {
+        // The stored rule is what the runtime gets, so problems are surfaced here rather
+        // than blocked: an empty reference makes the rule unevaluable (the field stays
+        // hidden), an invalid one can never be read on the page.
+        const providerRef = (rule[provider.configKey] ?? '').trim();
+        const providerRefError = providerRef === ''
+            ? t('conditionalLogic.providerRefMissing')
+            : (provider.isValidRef && !provider.isValidRef(providerRef)
+                ? t('conditionalLogic.providerRefInvalid')
+                : null);
+
+        return (
         <>
             <div className="flexFluid">
                 <Input
@@ -513,6 +524,11 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     size="big"
                     onChange={event => updateProviderRule({[provider.configKey]: event.target.value})}
                 />
+                {providerRefError && (
+                    <Typography variant="caption" style={{color: 'var(--color-danger)'}}>
+                        {providerRefError}
+                    </Typography>
+                )}
             </div>
             <div className="flexFluid">
                 <Dropdown
@@ -542,7 +558,8 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                 <div className="flexFluid"/>
             )}
         </>
-    );
+        );
+    };
 
     return (
         <div className="flexRow_nowrap flexFluid alignCenter" style={{gap: '0.75rem'}}>

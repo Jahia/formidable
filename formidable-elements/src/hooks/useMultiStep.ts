@@ -85,8 +85,8 @@ export function useMultiStep({formRef, stepIds}: UseMultiStepOptions): UseMultiS
 		//
 		// Listened for on the document, not on the form: an integrator such as a consent
 		// banner has no reason to know the form element, and an event dispatched on the form
-		// bubbles up to the document anyway. The reverse would not work — events do not
-		// travel downwards.
+		// with `bubbles: true` reaches the document anyway. The reverse would not work —
+		// events do not travel downwards.
 		document.addEventListener(FORM_LOGIC_INVALIDATE_EVENT, syncVisibility);
 
 		// Sources outside the form (a JS variable such as a datalayer entry, a cookie) change

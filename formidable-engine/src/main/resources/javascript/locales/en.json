@@ -39,6 +39,8 @@
                 "configPlaceholder": "consent-marketing"
             }
         },
+        "providerRefMissing": "Required: a rule without a name cannot be evaluated and keeps the field hidden.",
+        "providerRefInvalid": "This name is not in the expected format and cannot be read on the page.",
         "operators": {
             "in": "is one of",
             "notIn": "is not one of",

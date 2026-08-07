@@ -39,6 +39,8 @@
                 "configPlaceholder": "consent-marketing"
             }
         },
+        "providerRefMissing": "Obligatoire : une règle sans nom ne peut pas être évaluée et laisse le champ masqué.",
+        "providerRefInvalid": "Ce nom n'est pas au format attendu et ne pourra pas être lu sur la page.",
         "operators": {
             "in": "est l'une des valeurs suivantes",
             "notIn": "n'est pas l'une des valeurs suivantes",
