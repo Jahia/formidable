@@ -34,7 +34,12 @@ export const parseRule = (value?: string): ConditionalLogicRule => {
 
         return {
             logicId: parsed.logicId ?? '',
-            sourceType: getLogicProvider(parsed.sourceType)?.id ?? 'field',
+            // Kept verbatim even when it names no known provider: normalizing an unknown
+            // sourceType to 'field' would present the rule as a field rule and rewrite it
+            // on save, destroying data authored against a newer module version.
+            sourceType: typeof parsed.sourceType === 'string' && parsed.sourceType !== ''
+                ? parsed.sourceType
+                : 'field',
             sourceNodeId: parsed.sourceNodeId ?? '',
             sourceFieldKey: typeof parsed.sourceFieldKey === 'string' ? parsed.sourceFieldKey : undefined,
             sourceFieldName: parsed.sourceFieldName ?? '',

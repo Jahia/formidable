@@ -45,8 +45,12 @@ export type LogicOperator =
 
 export interface ConditionalLogicRule {
     logicId: string;
-    // Absent on rules stored before jsVariable support; treated as 'field'.
-    sourceType?: RuleSourceType;
+    // Absent on rules stored before jsVariable support; treated as 'field'. Wider than
+    // RuleSourceType on purpose: a stored rule may name a provider this module version
+    // does not ship (authored against a newer one), and it must keep that sourceType
+    // verbatim so the rule round-trips unchanged instead of being rewritten as a field
+    // rule on save.
+    sourceType?: string;
     // Field-rule keys; never serialized on jsVariable rules.
     sourceNodeId?: string;
     // Stable business reference to the source field (its fieldKey); primary

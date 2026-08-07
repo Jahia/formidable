@@ -361,7 +361,12 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         : (selectedDescriptor?.valueKind === 'text' ? 'text' : 'date');
 
     const selectedProvider = getLogicProvider(rule.sourceType);
-    const ruleSourceType: RuleSourceType = selectedProvider?.id ?? 'field';
+    // A sourceType naming no provider this module ships comes from a rule authored
+    // against a newer version: it gets its own rendering below, never the field-rule UI,
+    // and keeps its raw sourceType so nothing rewrites the stored rule.
+    const isUnknownSourceType = !selectedProvider
+        && Boolean(rule.sourceType) && rule.sourceType !== 'field';
+    const ruleSourceType = selectedProvider?.id ?? (isUnknownSourceType ? rule.sourceType! : 'field');
     const providerOperator = sanitizeProviderOperator(rule.operator);
 
     const handleSourceTypeChange = (_event: React.MouseEvent, item: {value?: string}) => {
@@ -499,6 +504,20 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         );
     };
 
+    // A rule authored against a newer module version (unknown sourceType) is shown as-is
+    // and never serialized from here: nothing in this branch fires onChange, so the
+    // stored JSON round-trips unchanged. The runtime fails such rules closed (field
+    // hidden, wrapper flagged) — this is the authoring-side mirror of that stance.
+    // Picking another source type in the dropdown remains possible and is a deliberate
+    // rewrite by the contributor.
+    const renderUnknownSourceRule = () => (
+        <div className="flexFluid">
+            <Typography variant="body" style={{color: 'var(--color-danger)'}}>
+                {t('conditionalLogic.unknownSourceType', {type: rule.sourceType})}
+            </Typography>
+        </div>
+    );
+
     // One shape for every provider: the name of the thing designated, an operator, and a
     // value when the operator compares against one. Adding a provider adds no markup here.
     const renderProviderRule = (provider: LogicProviderDescriptor) => {
@@ -520,12 +539,14 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     isReadOnly={field.readOnly}
                     placeholder={t(provider.configPlaceholderKey)}
                     aria-label={t(provider.configLabelKey)}
+                    aria-invalid={providerRefError ? true : undefined}
+                    aria-describedby={providerRefError ? `${id}-provider-ref-error` : undefined}
                     value={rule[provider.configKey] ?? ''}
                     size="big"
                     onChange={event => updateProviderRule({[provider.configKey]: event.target.value})}
                 />
                 {providerRefError && (
-                    <Typography variant="caption" style={{color: 'var(--color-danger)'}}>
+                    <Typography id={`${id}-provider-ref-error`} variant="caption" style={{color: 'var(--color-danger)'}}>
                         {providerRefError}
                     </Typography>
                 )}
@@ -571,7 +592,9 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     onChange={handleSourceTypeChange}
                 />
             </div>
-            {selectedProvider ? renderProviderRule(selectedProvider) : renderFieldRule()}
+            {selectedProvider
+                ? renderProviderRule(selectedProvider)
+                : (isUnknownSourceType ? renderUnknownSourceRule() : renderFieldRule())}
         </div>
     );
 };
