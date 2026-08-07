@@ -7,6 +7,7 @@ import org.jahia.modules.formidable.engine.actions.FormDataParser;
 import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.modules.formidable.engine.logic.ConditionalLogicEvaluator;
+import org.jahia.modules.formidable.engine.logic.LogicStateDeclaration;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionFactory;
 import org.jahia.services.content.JCRSessionWrapper;
@@ -18,10 +19,14 @@ import org.slf4j.LoggerFactory;
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import javax.servlet.http.HttpServletRequest;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.AUTHENTICATED_ONLY_FORM_MIXIN;
@@ -43,8 +48,9 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WO
  *   6.  verifyCaptcha          — only if fmdbmix:captchaProtectedForm is present
  *   7.  collectFormFieldInfo   — build whitelist + types + choices + accept + constraints from JCR
  *   8.  parseMultipart         — first and only read of the stream; unknown fields discarded inline
- *   9.  validateRequired       — post-parse check for required fields (catches absent fields)
- *   10. dispatchActions        — execute fmdb:actionList nodes in order
+ *   9.  validateLogicCoherence — reject values for fields provably hidden by conditional logic
+ *   10. validateRequired       — post-parse check for required fields (catches absent fields)
+ *   11. dispatchActions        — execute fmdb:actionList nodes in order
  */
 class FormSubmissionPipeline {
 
@@ -52,6 +58,20 @@ class FormSubmissionPipeline {
 
     private static final String ACTIONS_NODE = "actions";
     private static final String CAPTCHA_TOKEN_HEADER = "X-Formidable-Captcha-Token";
+
+    /**
+     * Header carrying the browser's conditional-logic state declaration: base64-encoded
+     * UTF-8 JSON (header values must stay ASCII; declared values may not be), parsed by
+     * {@link LogicStateDeclaration}. Same transport pattern as the captcha token — request
+     * metadata travels in headers, never among the form's own fields.
+     */
+    static final String LOGIC_STATE_HEADER = "X-Formidable-Logic-State";
+
+    /**
+     * A declaration only lists the provider references the form's rules read, so this is
+     * already generous; anything larger is not a declaration and is ignored.
+     */
+    private static final int LOGIC_STATE_HEADER_MAX_CHARS = 16 * 1024;
     @FunctionalInterface
     interface FieldMetadataCollectorAdapter {
         FormFieldMetadataCollector.Result collect(String formId, Locale locale) throws RepositoryException;
@@ -89,6 +109,7 @@ class FormSubmissionPipeline {
     private JCRNodeWrapper formNode;
     private FormFieldMetadataCollector.Result fieldMetadata;
     private FormDataParser.ParseResult parsed;
+    private ConditionalLogicEvaluator logicEvaluator;
 
     FormSubmissionPipeline(FormidableConfigService config, List<FormAction> formActions) {
         this(
@@ -124,6 +145,7 @@ class FormSubmissionPipeline {
         verifyCaptcha(req);
         collectFormFieldInfo();
         parseMultipart(req);
+        validateLogicCoherence(req);
         validateRequired();
         dispatchActions(req);
     }
@@ -245,14 +267,67 @@ class FormSubmissionPipeline {
         }
     }
 
-    private void validateRequired() throws SubmissionException {
-        var logicEvaluator = new ConditionalLogicEvaluator(
+    /**
+     * Rejects a submission that carries a value for a field the server can prove was
+     * hidden. The verdict is only acted on when it is a measurement — computed from
+     * submitted values and, for provider rules, from the state the browser declared in
+     * the {@value #LOGIC_STATE_HEADER} header. An honest browser cannot trip this: a
+     * hidden field's controls are disabled and disabled controls are not submitted. A
+     * fail-safe verdict (no declaration, unknown operator…) keeps today's behaviour:
+     * required validation skipped, values kept.
+     *
+     * This is a coherence check, not enforcement — the declaration is forgeable. What it
+     * guarantees is that one single declared state backs every rule reading it, and that
+     * a value smuggled into a provably hidden field is detected instead of stored.
+     */
+    private void validateLogicCoherence(HttpServletRequest req) throws SubmissionException {
+        logicEvaluator = new ConditionalLogicEvaluator(
                 fieldMetadata.fieldLogicRules(),
                 fieldMetadata.logicIdToFieldName(),
                 fieldMetadata.fieldParentContainers(),
-                parsed.parameters()
+                parsed.parameters(),
+                readLogicStateDeclaration(req)
         );
 
+        Set<String> submittedFieldNames = new LinkedHashSet<>();
+        for (Map.Entry<String, List<String>> entry : parsed.parameters().entrySet()) {
+            if (entry.getValue().stream().anyMatch(value -> value != null && !value.isBlank())) {
+                submittedFieldNames.add(entry.getKey());
+            }
+        }
+        for (FormDataParser.FormFile file : parsed.files()) {
+            submittedFieldNames.add(file.fieldName());
+        }
+
+        for (String fieldName : submittedFieldNames) {
+            if (logicEvaluator.visibility(fieldName) == ConditionalLogicEvaluator.Visibility.HIDDEN_MEASURED) {
+                log.warn("[FormSubmissionPipeline] Field '{}' is provably hidden by conditional logic "
+                        + "but the submission carries a value for it.", fieldName);
+                throw new SubmissionException(ErrorCode.FMDB_013,
+                        "Field '" + fieldName + "' is hidden by conditional logic but the submission "
+                                + "carries a value for it.");
+            }
+        }
+    }
+
+    private static LogicStateDeclaration readLogicStateDeclaration(HttpServletRequest req) {
+        String header = req.getHeader(LOGIC_STATE_HEADER);
+        if (header == null || header.isBlank() || header.length() > LOGIC_STATE_HEADER_MAX_CHARS) {
+            return LogicStateDeclaration.EMPTY;
+        }
+
+        try {
+            String json = new String(Base64.getDecoder().decode(header), StandardCharsets.UTF_8);
+            return LogicStateDeclaration.parse(json);
+        } catch (IllegalArgumentException e) {
+            // Anything unreadable is simply no declaration: the fail-safe applies, the
+            // submission is never failed over its metadata.
+            log.debug("[FormSubmissionPipeline] Undecodable logic state header, ignoring");
+            return LogicStateDeclaration.EMPTY;
+        }
+    }
+
+    private void validateRequired() throws SubmissionException {
         for (Map.Entry<String, FormDataParser.FieldInfo> entry : fieldMetadata.fieldInfos().entrySet()) {
             String fieldName = entry.getKey();
             FormDataParser.FieldInfo fieldInfo = entry.getValue();

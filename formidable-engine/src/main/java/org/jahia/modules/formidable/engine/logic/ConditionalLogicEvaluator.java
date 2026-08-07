@@ -26,10 +26,33 @@ public class ConditionalLogicEvaluator {
     private static final Set<String> REPORTED_UNKNOWN_OPERATORS = ConcurrentHashMap.newKeySet();
     private static final int REPORTED_UNKNOWN_OPERATORS_CAP = 100;
 
+    /** How a field's visibility verdict was reached. */
+    public enum Visibility {
+        VISIBLE,
+        /**
+         * Hidden, and provable: every deciding rule was evaluated from submitted values
+         * or from the declared provider state. A submitted value for such a field cannot
+         * come from an honest browser (a hidden field's controls are disabled and not
+         * submitted), so it is actionable.
+         */
+        HIDDEN_MEASURED,
+        /**
+         * Hidden as a fail-safe: at least one deciding rule could not be evaluated (no
+         * declaration for its provider reference, unknown operator, broken binding).
+         * Required validation is skipped but nothing else may act on it — the field may
+         * well have been legitimately visible and filled in the browser.
+         */
+        HIDDEN_FAILSAFE
+    }
+
+    /** A rule either holds, or fails with the provenance of that failure. */
+    private enum RuleResult { SATISFIED, FAILED_MEASURED, FAILED_FAILSAFE }
+
     private final Map<String, List<ConditionalLogicRule>> fieldLogicRules;
     private final Map<String, String> logicIdToFieldName;
     private final Map<String, Set<String>> fieldParentContainers;
     private final Map<String, List<String>> submittedValues;
+    private final LogicStateDeclaration declaration;
 
     public ConditionalLogicEvaluator(
             Map<String, List<ConditionalLogicRule>> fieldLogicRules,
@@ -37,64 +60,107 @@ public class ConditionalLogicEvaluator {
             Map<String, Set<String>> fieldParentContainers,
             Map<String, List<String>> submittedValues
     ) {
+        this(fieldLogicRules, logicIdToFieldName, fieldParentContainers, submittedValues,
+                LogicStateDeclaration.EMPTY);
+    }
+
+    public ConditionalLogicEvaluator(
+            Map<String, List<ConditionalLogicRule>> fieldLogicRules,
+            Map<String, String> logicIdToFieldName,
+            Map<String, Set<String>> fieldParentContainers,
+            Map<String, List<String>> submittedValues,
+            LogicStateDeclaration declaration
+    ) {
         this.fieldLogicRules = fieldLogicRules;
         this.logicIdToFieldName = logicIdToFieldName;
         this.fieldParentContainers = fieldParentContainers;
         this.submittedValues = submittedValues;
+        this.declaration = declaration;
     }
 
     public boolean isHidden(String fieldName) {
-        return isHidden(fieldName, new HashSet<>());
+        return visibility(fieldName) != Visibility.VISIBLE;
     }
 
-    private boolean isHidden(String fieldName, Set<String> visiting) {
+    public Visibility visibility(String fieldName) {
+        return visibility(fieldName, new HashSet<>());
+    }
+
+    private Visibility visibility(String fieldName, Set<String> visiting) {
         Set<String> parentNames = fieldParentContainers.get(fieldName);
         if (parentNames != null && !parentNames.isEmpty()) {
             // A field with multiple parent containers (duplicate name across conditional
             // fieldsets) is hidden only when ALL its parents are hidden. If any parent
-            // is visible, the field is reachable and its submitted value is valid.
-            boolean allParentsHidden = parentNames.stream().allMatch(p -> isHidden(p, visiting));
-            if (allParentsHidden) return true;
+            // is visible, the field is reachable and its submitted value is valid. The
+            // combined verdict is only as strong as its weakest link: one fail-safe
+            // parent degrades it.
+            boolean allParentsHidden = true;
+            boolean allParentsMeasured = true;
+            for (String parentName : parentNames) {
+                Visibility parentVisibility = visibility(parentName, visiting);
+                if (parentVisibility == Visibility.VISIBLE) {
+                    allParentsHidden = false;
+                    break;
+                }
+                if (parentVisibility == Visibility.HIDDEN_FAILSAFE) {
+                    allParentsMeasured = false;
+                }
+            }
+            if (allParentsHidden) {
+                return allParentsMeasured ? Visibility.HIDDEN_MEASURED : Visibility.HIDDEN_FAILSAFE;
+            }
         }
 
         List<ConditionalLogicRule> rules = fieldLogicRules.get(fieldName);
-        if (rules == null || rules.isEmpty()) return false;
+        if (rules == null || rules.isEmpty()) return Visibility.VISIBLE;
 
-        if (!visiting.add(fieldName)) return false;
+        if (!visiting.add(fieldName)) return Visibility.VISIBLE;
 
         try {
+            // Rules are ANDed: any failing rule hides the field. One measured failure is
+            // enough to prove the verdict, however many other rules fell back to the
+            // fail-safe — the field was hidden for that measurable reason alone.
+            boolean anyFailsafeFailure = false;
             for (ConditionalLogicRule rule : rules) {
-                if (!evaluateRule(rule, visiting)) {
-                    return true;
+                switch (evaluateRule(rule, visiting)) {
+                    case FAILED_MEASURED -> {
+                        return Visibility.HIDDEN_MEASURED;
+                    }
+                    case FAILED_FAILSAFE -> anyFailsafeFailure = true;
+                    case SATISFIED -> { /* keep looking */ }
                 }
             }
-            return false;
+            return anyFailsafeFailure ? Visibility.HIDDEN_FAILSAFE : Visibility.VISIBLE;
         } finally {
             visiting.remove(fieldName);
         }
     }
 
-    private boolean evaluateRule(ConditionalLogicRule rule, Set<String> visiting) {
+    private RuleResult evaluateRule(ConditionalLogicRule rule, Set<String> visiting) {
         if (!rule.isFieldRule()) {
-            // Provider rules (a JS variable such as a datalayer entry, a URL parameter, a
-            // cookie…) depend on browser-only state the submission does not carry. Treat
-            // them as not satisfied so the field counts as hidden and required validation
-            // is skipped, which avoids rejecting legitimate submissions where the field was
-            // hidden client-side. Expected by design, hence debug and not warn.
-            log.debug("Conditional logic rule {} is not evaluable server-side (source type '{}'): "
-                    + "the target field counts as hidden and its required validation is skipped.",
-                    rule.logicId(), rule.sourceType());
-            return false;
+            return evaluateProviderRule(rule);
         }
 
         String sourceFieldName = resolveSourceFieldName(rule);
-        if (sourceFieldName == null) return false;
+        if (sourceFieldName == null) {
+            // Broken binding: the rule references a field this submission does not know.
+            // Not measurable, so the target field counts as hidden without consequences
+            // beyond skipping its required validation.
+            return RuleResult.FAILED_FAILSAFE;
+        }
 
-        if (isHidden(sourceFieldName, visiting)) return false;
+        Visibility sourceVisibility = visibility(sourceFieldName, visiting);
+        if (sourceVisibility != Visibility.VISIBLE) {
+            // A hidden source cannot satisfy a rule; the failure is only as provable as
+            // the source's own verdict.
+            return sourceVisibility == Visibility.HIDDEN_MEASURED
+                    ? RuleResult.FAILED_MEASURED
+                    : RuleResult.FAILED_FAILSAFE;
+        }
 
         List<String> values = submittedValues.getOrDefault(sourceFieldName, List.of());
 
-        return switch (rule.operator()) {
+        Boolean satisfied = switch (rule.operator()) {
             case "in" -> rule.values().stream().anyMatch(values::contains);
             case "notIn" -> !values.isEmpty() && rule.values().stream().noneMatch(values::contains);
             case "isChecked" -> !values.isEmpty() && values.stream().anyMatch(v -> !v.isBlank());
@@ -129,11 +195,55 @@ public class ConditionalLogicEvaluator {
                     && values.get(0).equals(rule.value());
             case "contains" -> !values.isEmpty() && rule.value() != null && !rule.value().isEmpty()
                     && values.get(0).contains(rule.value());
-            default -> {
-                reportUnknownOperator(rule);
-                yield false;
-            }
+            default -> null;
         };
+
+        if (satisfied == null) {
+            reportUnknownOperator(rule);
+            return RuleResult.FAILED_FAILSAFE;
+        }
+
+        return satisfied ? RuleResult.SATISFIED : RuleResult.FAILED_MEASURED;
+    }
+
+    /**
+     * Provider rules (a JS variable such as a datalayer entry, a URL parameter, a
+     * cookie…) read browser state the submission itself does not carry. When the browser
+     * declared the referenced state at submit time, the rule is evaluated against that
+     * declaration — the same semantics as the client evaluator, and one single declared
+     * state for every rule reading it. Without a declaration this is the historical
+     * fail-safe: not satisfied, so the field counts as hidden and required validation is
+     * skipped, which avoids rejecting legitimate submissions where the field was hidden
+     * client-side. Expected by design, hence debug and not warn.
+     */
+    private RuleResult evaluateProviderRule(ConditionalLogicRule rule) {
+        String ref = rule.providerRef();
+        if (ref == null || !declaration.isDeclared(rule.sourceType(), ref)) {
+            log.debug("Conditional logic rule {} has no declared state (source type '{}'): "
+                    + "the target field counts as hidden and its required validation is skipped.",
+                    rule.logicId(), rule.sourceType());
+            return RuleResult.FAILED_FAILSAFE;
+        }
+
+        String actual = declaration.declaredValue(rule.sourceType(), ref);
+        boolean defined = actual != null;
+        String expected = rule.value() == null ? "" : rule.value();
+
+        Boolean satisfied = switch (rule.operator()) {
+            case "equals" -> defined && actual.equals(expected);
+            case "notEquals" -> defined && !actual.equals(expected);
+            case "contains" -> defined && !expected.isEmpty() && actual.contains(expected);
+            case "exists" -> defined;
+            case "notExists" -> !defined;
+            default -> null;
+        };
+
+        if (satisfied == null) {
+            reportUnknownOperator(rule);
+            return RuleResult.FAILED_FAILSAFE;
+        }
+
+        return satisfied ? RuleResult.SATISFIED : RuleResult.FAILED_MEASURED;
     }
 
     /**

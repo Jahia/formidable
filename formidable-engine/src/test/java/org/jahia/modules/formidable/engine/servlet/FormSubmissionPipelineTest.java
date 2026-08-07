@@ -3,6 +3,7 @@ package org.jahia.modules.formidable.engine.servlet;
 import org.jahia.modules.formidable.engine.api.FormAction;
 import org.jahia.modules.formidable.engine.actions.FormDataParser;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.modules.formidable.engine.logic.ConditionalLogicRule;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionFactory;
 import org.jahia.services.content.JCRTemplate;
@@ -660,6 +661,125 @@ class FormSubmissionPipelineTest {
         } finally {
             JCRSessionFactory.getInstance().setCurrentUser(previousUser);
         }
+    }
+
+    // --- Conditional-logic coherence (FMDB-013 and the declared provider state) ---
+
+    private static final String GATED_FIELD = "details";
+
+    private static ConditionalLogicRule fieldGateRule() {
+        return new ConditionalLogicRule("logic-f", "", "gate", "fmdb:select", "", null, "in", null, List.of("open"));
+    }
+
+    private static ConditionalLogicRule cookieGateRule() {
+        return new ConditionalLogicRule("logic-c", "cookie", "", "", "", "consent", "exists", null, List.of());
+    }
+
+    private static FormFieldMetadataCollector.Result gatedFieldMetadata(ConditionalLogicRule rule, boolean required) {
+        FormDataParser.FieldConstraints constraints =
+                new FormDataParser.FieldConstraints(required, -1, -1, null, null, null);
+        FormDataParser.FieldInfo info = new FormDataParser.FieldInfo(
+                "fmdb:inputText", false, false, false, false, false, false, false,
+                java.util.Set.of(), java.util.Set.of(), constraints);
+        return new FormFieldMetadataCollector.Result(
+                java.util.Map.of(GATED_FIELD, info),
+                java.util.Map.of(GATED_FIELD, List.of(rule)),
+                java.util.Map.of(),
+                java.util.Map.of());
+    }
+
+    private static HttpServletRequest requestWithLogicState(String declarationJson) {
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        if (declarationJson != null) {
+            when(req.getHeader("X-Formidable-Logic-State")).thenReturn(java.util.Base64.getEncoder()
+                    .encodeToString(declarationJson.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        }
+        return req;
+    }
+
+    @Test
+    void coherenceRejectsValueForFieldProvablyHiddenByFieldRules() throws Exception {
+        // The gate field says "closed", so the server can prove the gated field was
+        // hidden — an honest browser never submits a value for it (disabled controls
+        // are not submitted). A value there is tampering or a non-browser client.
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of());
+        setField(pipeline, "fieldMetadata", gatedFieldMetadata(fieldGateRule(), false));
+        setField(pipeline, "parsed", new FormDataParser.ParseResult(
+                java.util.Map.of("gate", List.of("closed"), GATED_FIELD, List.of("smuggled")), List.of()));
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeValidateLogicCoherence(pipeline, requestWithLogicState(null)));
+
+        assertEquals(ErrorCode.FMDB_013, error.errorCode);
+    }
+
+    @Test
+    void coherenceKeepsTheFailsafeUntouchedWithoutADeclaration() throws Exception {
+        // Provider-gated field, no declaration: the verdict is a fail-safe, not a
+        // measurement — a submitted value must be kept, exactly as before this check.
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of());
+        setField(pipeline, "fieldMetadata", gatedFieldMetadata(cookieGateRule(), false));
+        setField(pipeline, "parsed", new FormDataParser.ParseResult(
+                java.util.Map.of(GATED_FIELD, List.of("legitimate value")), List.of()));
+
+        assertDoesNotThrow(() -> invokeValidateLogicCoherence(pipeline, requestWithLogicState(null)));
+    }
+
+    @Test
+    void coherenceRejectsValueContradictingTheDeclaredProviderState() throws Exception {
+        // The browser itself declared the cookie absent, which hides the field. A value
+        // submitted for it contradicts the submission's own declaration.
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of());
+        setField(pipeline, "fieldMetadata", gatedFieldMetadata(cookieGateRule(), false));
+        setField(pipeline, "parsed", new FormDataParser.ParseResult(
+                java.util.Map.of(GATED_FIELD, List.of("smuggled")), List.of()));
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeValidateLogicCoherence(pipeline,
+                        requestWithLogicState("{\"v\":1,\"providers\":{\"cookie\":{\"consent\":null}}}")));
+
+        assertEquals(ErrorCode.FMDB_013, error.errorCode);
+    }
+
+    @Test
+    void declarationReArmsRequiredValidationForProviderGatedFields() throws Exception {
+        // Historically a required field gated by a provider rule was never enforced
+        // (fail-safe → hidden → required skipped). With a declaration that satisfies the
+        // rule the field is visible again, so the missing value is FMDB-010 as for any
+        // visible required field.
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of());
+        setField(pipeline, "fieldMetadata", gatedFieldMetadata(cookieGateRule(), true));
+        setField(pipeline, "parsed", new FormDataParser.ParseResult(java.util.Map.of(), List.of()));
+
+        invokeValidateLogicCoherence(pipeline,
+                requestWithLogicState("{\"v\":1,\"providers\":{\"cookie\":{\"consent\":\"yes\"}}}"));
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeValidateRequired(pipeline));
+
+        assertEquals(ErrorCode.FMDB_010, error.errorCode);
+    }
+
+    @Test
+    void requiredStaysSkippedForProviderGatedFieldsWithoutADeclaration() throws Exception {
+        // The no-declaration path must reproduce the historical behaviour exactly.
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of());
+        setField(pipeline, "fieldMetadata", gatedFieldMetadata(cookieGateRule(), true));
+        setField(pipeline, "parsed", new FormDataParser.ParseResult(java.util.Map.of(), List.of()));
+
+        invokeValidateLogicCoherence(pipeline, requestWithLogicState(null));
+        assertDoesNotThrow(() -> invokeValidateRequired(pipeline));
+    }
+
+    private static void invokeValidateLogicCoherence(FormSubmissionPipeline pipeline, HttpServletRequest req) throws Exception {
+        Method method = FormSubmissionPipeline.class.getDeclaredMethod("validateLogicCoherence", HttpServletRequest.class);
+        method.setAccessible(true);
+        invokeSubmissionStep(method, pipeline, req);
+    }
+
+    private static void invokeValidateRequired(FormSubmissionPipeline pipeline) throws Exception {
+        Method method = FormSubmissionPipeline.class.getDeclaredMethod("validateRequired");
+        method.setAccessible(true);
+        invokeSubmissionStep(method, pipeline);
     }
 
     private static FormFieldMetadataCollector.Result emptyFieldMetadata() {

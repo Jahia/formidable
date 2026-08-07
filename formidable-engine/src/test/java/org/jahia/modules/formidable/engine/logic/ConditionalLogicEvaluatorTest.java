@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -528,5 +529,159 @@ class ConditionalLogicEvaluatorTest {
         );
 
         assertTrue(evaluator.isHidden("target"));
+    }
+
+    // --- Declared provider state: submit-time coherence declaration ---
+
+    private static ConditionalLogicRule providerRule(String sourceType, String ref, String operator, String value) {
+        return new ConditionalLogicRule("logic-p", sourceType, "", "", "", ref, operator, value, List.of());
+    }
+
+    private static ConditionalLogicEvaluator evaluatorWithDeclaration(
+            Map<String, List<ConditionalLogicRule>> fieldLogicRules,
+            Map<String, List<String>> submittedValues,
+            String declarationJson
+    ) {
+        return new ConditionalLogicEvaluator(
+                fieldLogicRules, Map.of(), Map.of(), submittedValues,
+                LogicStateDeclaration.parse(declarationJson));
+    }
+
+    @Test
+    void undeclaredProviderRuleIsFailsafeHiddenNotMeasured() {
+        // Without a declaration the verdict stays a fail-safe: required validation is
+        // skipped, but nothing may act on the verdict (the field may well have been
+        // legitimately visible and filled in the browser).
+        ConditionalLogicEvaluator evaluator = evaluator(
+                Map.of("target", List.of(providerRule("cookie", "consent", "exists", null))),
+                Map.of()
+        );
+
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_FAILSAFE, evaluator.visibility("target"));
+    }
+
+    @Test
+    void declaredProviderStateSatisfyingTheRuleMakesTheFieldVisible() {
+        // A declared value satisfying the rule turns the historical "always hidden" into
+        // visible — which also re-arms required validation for provider-gated fields.
+        ConditionalLogicEvaluator evaluator = evaluatorWithDeclaration(
+                Map.of("target", List.of(providerRule("cookie", "consent", "equals", "yes"))),
+                Map.of(),
+                "{\"v\":1,\"providers\":{\"cookie\":{\"consent\":\"yes\"}}}"
+        );
+
+        assertEquals(ConditionalLogicEvaluator.Visibility.VISIBLE, evaluator.visibility("target"));
+    }
+
+    @Test
+    void declaredProviderStateFailingTheRuleIsMeasuredHidden() {
+        ConditionalLogicEvaluator evaluator = evaluatorWithDeclaration(
+                Map.of("target", List.of(providerRule("urlParam", "promo", "equals", "spring"))),
+                Map.of(),
+                "{\"v\":1,\"providers\":{\"urlParam\":{\"promo\":\"winter\"}}}"
+        );
+
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_MEASURED, evaluator.visibility("target"));
+    }
+
+    @Test
+    void declaredAbsenceIsAMeasurementToo() {
+        // null in the declaration means "read and absent" — distinct from undeclared.
+        ConditionalLogicEvaluator evaluator = evaluatorWithDeclaration(
+                Map.of(
+                        "shownWhenAbsent", List.of(providerRule("cookie", "consent", "notExists", null)),
+                        "shownWhenPresent", List.of(providerRule("cookie", "consent", "exists", null))
+                ),
+                Map.of(),
+                "{\"v\":1,\"providers\":{\"cookie\":{\"consent\":null}}}"
+        );
+
+        assertEquals(ConditionalLogicEvaluator.Visibility.VISIBLE, evaluator.visibility("shownWhenAbsent"));
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_MEASURED, evaluator.visibility("shownWhenPresent"));
+    }
+
+    @Test
+    void oneDeclarationBacksEveryRuleReadingTheSameReference() {
+        // The point of a single declared state: complementary conditions can no longer
+        // both fail. Whatever is declared, exactly one of these two fields is visible.
+        Map<String, List<ConditionalLogicRule>> rules = Map.of(
+                "whenGold", List.of(providerRule("jsVariable", "window.cxs.tier", "equals", "gold")),
+                "whenNotGold", List.of(providerRule("jsVariable", "window.cxs.tier", "notEquals", "gold"))
+        );
+
+        ConditionalLogicEvaluator evaluator = evaluatorWithDeclaration(rules, Map.of(),
+                "{\"v\":1,\"providers\":{\"jsVariable\":{\"window.cxs.tier\":\"gold\"}}}");
+
+        assertEquals(ConditionalLogicEvaluator.Visibility.VISIBLE, evaluator.visibility("whenGold"));
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_MEASURED, evaluator.visibility("whenNotGold"));
+    }
+
+    @Test
+    void unsupportedOrMalformedDeclarationDegradesToFailsafe() {
+        Map<String, List<ConditionalLogicRule>> rules =
+                Map.of("target", List.of(providerRule("cookie", "consent", "exists", null)));
+
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_FAILSAFE,
+                evaluatorWithDeclaration(rules, Map.of(), "{\"v\":2,\"providers\":{\"cookie\":{\"consent\":\"yes\"}}}")
+                        .visibility("target"));
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_FAILSAFE,
+                evaluatorWithDeclaration(rules, Map.of(), "not json at all").visibility("target"));
+    }
+
+    @Test
+    void unknownOperatorOnADeclaredProviderRuleStaysFailsafe() {
+        // A declared state does not make an unknown operator evaluable.
+        ConditionalLogicEvaluator evaluator = evaluatorWithDeclaration(
+                Map.of("target", List.of(providerRule("cookie", "consent", "matches", "y.*"))),
+                Map.of(),
+                "{\"v\":1,\"providers\":{\"cookie\":{\"consent\":\"yes\"}}}"
+        );
+
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_FAILSAFE, evaluator.visibility("target"));
+    }
+
+    @Test
+    void oneMeasuredFailureProvesTheVerdictWhateverTheOtherRules() {
+        // ANDed rules: a failing measured field rule alone justifies the hidden verdict,
+        // even when a provider rule on the same field fell back to the fail-safe.
+        ConditionalLogicEvaluator evaluator = evaluator(
+                Map.of("target", List.of(
+                        rule("plan", "in", null, List.of("pro")),
+                        providerRule("cookie", "consent", "exists", null))),
+                Map.of("plan", List.of("starter"))
+        );
+
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_MEASURED, evaluator.visibility("target"));
+    }
+
+    @Test
+    void parentContainerProvenancePropagatesToChildren() {
+        // A child is only as provably hidden as its parent: a measured parent verdict
+        // stays measured, a fail-safe parent verdict degrades the child's.
+        ConditionalLogicEvaluator measuredParent = evaluator(
+                Map.of("container", List.of(rule("gate", "in", null, List.of("open")))),
+                Map.of("gate", List.of("closed")),
+                Map.of("child", Set.of("container"))
+        );
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_MEASURED, measuredParent.visibility("child"));
+
+        ConditionalLogicEvaluator failsafeParent = evaluator(
+                Map.of("container", List.of(providerRule("cookie", "consent", "exists", null))),
+                Map.of(),
+                Map.of("child", Set.of("container"))
+        );
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_FAILSAFE, failsafeParent.visibility("child"));
+    }
+
+    @Test
+    void providerRuleWithoutReferenceIsFailsafeEvenWhenDeclared() {
+        // No providerRef (missing or ambiguous config): nothing to look up, fail-safe.
+        ConditionalLogicEvaluator evaluator = evaluatorWithDeclaration(
+                Map.of("target", List.of(providerRule("cookie", null, "exists", null))),
+                Map.of(),
+                "{\"v\":1,\"providers\":{\"cookie\":{\"consent\":\"yes\"}}}"
+        );
+
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_FAILSAFE, evaluator.visibility("target"));
     }
 }
