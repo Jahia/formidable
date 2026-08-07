@@ -27,11 +27,23 @@ public record ConditionalLogicRule(
 ) {
     private static final Logger log = LoggerFactory.getLogger(ConditionalLogicRule.class);
 
-    public static final String SOURCE_TYPE_JS_VARIABLE = "jsVariable";
+    public static final String SOURCE_TYPE_FIELD = "field";
     public static final String VALUE_KIND_NUMBER = "number";
 
-    public boolean isJsVariable() {
-        return SOURCE_TYPE_JS_VARIABLE.equals(sourceType);
+    /**
+     * Whether this rule designates another form field, the only source the server can
+     * evaluate: everything the submission carries is a field value. Any other source type
+     * is a client-side provider (a JS variable, a URL parameter, a cookie…) and is handled
+     * uniformly, so adding one needs no change here — hence the question is "is this a
+     * field rule?" rather than an allowlist of the non-field types we know about.
+     * Rules stored before source types existed carry none and are field rules.
+     */
+    public boolean isFieldRule() {
+        return isFieldSourceType(sourceType);
+    }
+
+    static boolean isFieldSourceType(String sourceType) {
+        return sourceType == null || sourceType.isBlank() || SOURCE_TYPE_FIELD.equals(sourceType);
     }
 
     public static List<ConditionalLogicRule> parse(Value[] jcrValues) {
@@ -64,8 +76,10 @@ public record ConditionalLogicRule(
             return null;
         }
 
-        boolean jsVariable = SOURCE_TYPE_JS_VARIABLE.equals(sourceType);
-        if (jsVariable ? variable.isBlank() : sourceFieldName.isEmpty()) {
+        // A field rule is unusable without its source field name. A provider rule carries
+        // provider-specific configuration the server never reads, so it is not validated
+        // here — that keeps this parser independent of the set of providers.
+        if (isFieldSourceType(sourceType) && sourceFieldName.isEmpty()) {
             return null;
         }
 

@@ -11,13 +11,15 @@ import {
     findFormPath,
     getOperatorsForSource,
     isScalarValueKind,
-    normalizeStoredJsVariableRule,
+    clearedProviderConfig,
+    normalizeStoredProviderRule,
     normalizeStoredRule,
     parseRule,
-    sanitizeJsVariableOperator,
+    sanitizeProviderOperator,
     sanitizeOperator
 } from './ConditionalLogic.utils';
-import {getSourceDescriptor, JS_VARIABLE_OPERATORS, operatorNeedsValue} from './sourceDescriptors';
+import {getSourceDescriptor, operatorNeedsValue} from './sourceDescriptors';
+import {getLogicProvider, listLogicProviders, type LogicProviderDescriptor, PROVIDER_OPERATORS} from './providers';
 import {CURRENT_NODE_BY_PATH, FORM_TREE_BY_PATH} from './graphql';
 import type {ConditionalLogicRule, GraphNode, LogicOperator, RuleSourceType, SelectorProps, SourceFieldOption} from './ConditionalLogic.types';
 
@@ -358,8 +360,14 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         ? 'number'
         : (selectedDescriptor?.valueKind === 'text' ? 'text' : 'date');
 
-    const ruleSourceType: RuleSourceType = rule.sourceType === 'jsVariable' ? 'jsVariable' : 'field';
-    const jsVariableOperator = sanitizeJsVariableOperator(rule.operator);
+    const selectedProvider = getLogicProvider(rule.sourceType);
+    // A sourceType naming no provider this module ships comes from a rule authored
+    // against a newer version: it gets its own rendering below, never the field-rule UI,
+    // and keeps its raw sourceType so nothing rewrites the stored rule.
+    const isUnknownSourceType = !selectedProvider
+        && Boolean(rule.sourceType) && rule.sourceType !== 'field';
+    const ruleSourceType = selectedProvider?.id ?? (isUnknownSourceType ? rule.sourceType! : 'field');
+    const providerOperator = sanitizeProviderOperator(rule.operator);
 
     const handleSourceTypeChange = (_event: React.MouseEvent, item: {value?: string}) => {
         const nextType = (item.value ?? 'field') as RuleSourceType;
@@ -367,12 +375,15 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
             return;
         }
 
-        if (nextType === 'jsVariable') {
-            onChange(JSON.stringify(normalizeStoredJsVariableRule({
+        const nextProvider = getLogicProvider(nextType);
+        if (nextProvider) {
+            onChange(JSON.stringify(normalizeStoredProviderRule({
                 ...rule,
+                ...clearedProviderConfig(),
                 logicId: rule.logicId || generateLogicId(),
-                variable: '',
-                operator: JS_VARIABLE_OPERATORS[0],
+                sourceType: nextProvider.id,
+                [nextProvider.configKey]: '',
+                operator: PROVIDER_OPERATORS[0],
                 value: ''
             })));
             return;
@@ -381,20 +392,20 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         onChange(JSON.stringify(parseRule(undefined)));
     };
 
-    const updateJsVariableRule = (patch: Partial<ConditionalLogicRule>) => {
-        onChange(JSON.stringify(normalizeStoredJsVariableRule({
+    const updateProviderRule = (patch: Partial<ConditionalLogicRule>) => {
+        onChange(JSON.stringify(normalizeStoredProviderRule({
             ...rule,
             logicId: rule.logicId || generateLogicId(),
-            operator: jsVariableOperator,
+            operator: providerOperator,
             ...patch
         })));
     };
 
     const sourceTypeOptions = [
         {label: t('conditionalLogic.sourceTypes.field'), value: 'field'},
-        {label: t('conditionalLogic.sourceTypes.jsVariable'), value: 'jsVariable'}
+        ...listLogicProviders().map(provider => ({label: t(provider.labelKey), value: provider.id}))
     ];
-    const jsVariableOperatorOptions = JS_VARIABLE_OPERATORS.map(operator => ({
+    const providerOperatorOptions = PROVIDER_OPERATORS.map(operator => ({
         label: t(`conditionalLogic.operators.${operator}`),
         value: operator
     }));
@@ -493,47 +504,83 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         );
     };
 
-    const renderJsVariableRule = () => (
+    // A rule authored against a newer module version (unknown sourceType) is shown as-is
+    // and never serialized from here: nothing in this branch fires onChange, so the
+    // stored JSON round-trips unchanged. The runtime fails such rules closed (field
+    // hidden, wrapper flagged) — this is the authoring-side mirror of that stance.
+    // Picking another source type in the dropdown remains possible and is a deliberate
+    // rewrite by the contributor.
+    const renderUnknownSourceRule = () => (
+        <div className="flexFluid">
+            <Typography variant="body" style={{color: 'var(--color-danger)'}}>
+                {t('conditionalLogic.unknownSourceType', {type: rule.sourceType})}
+            </Typography>
+        </div>
+    );
+
+    // One shape for every provider: the name of the thing designated, an operator, and a
+    // value when the operator compares against one. Adding a provider adds no markup here.
+    const renderProviderRule = (provider: LogicProviderDescriptor) => {
+        // The stored rule is what the runtime gets, so problems are surfaced here rather
+        // than blocked: an empty reference makes the rule unevaluable (the field stays
+        // hidden), an invalid one can never be read on the page.
+        const providerRef = (rule[provider.configKey] ?? '').trim();
+        const providerRefError = providerRef === ''
+            ? t('conditionalLogic.providerRefMissing')
+            : (provider.isValidRef && !provider.isValidRef(providerRef)
+                ? t('conditionalLogic.providerRefInvalid')
+                : null);
+
+        return (
         <>
             <div className="flexFluid">
                 <Input
-                    id={`${id}-js-variable`}
+                    id={`${id}-provider-ref`}
                     isReadOnly={field.readOnly}
-                    placeholder={t('conditionalLogic.jsVariablePlaceholder')}
-                    value={rule.variable ?? ''}
+                    placeholder={t(provider.configPlaceholderKey)}
+                    aria-label={t(provider.configLabelKey)}
+                    aria-invalid={providerRefError ? true : undefined}
+                    aria-describedby={providerRefError ? `${id}-provider-ref-error` : undefined}
+                    value={rule[provider.configKey] ?? ''}
                     size="big"
-                    onChange={event => updateJsVariableRule({variable: event.target.value})}
+                    onChange={event => updateProviderRule({[provider.configKey]: event.target.value})}
                 />
+                {providerRefError && (
+                    <Typography id={`${id}-provider-ref-error`} variant="caption" style={{color: 'var(--color-danger)'}}>
+                        {providerRefError}
+                    </Typography>
+                )}
             </div>
             <div className="flexFluid">
                 <Dropdown
-                    data={jsVariableOperatorOptions}
-                    value={jsVariableOperator}
+                    data={providerOperatorOptions}
+                    value={providerOperator}
                     placeholder={t('conditionalLogic.operator')}
                     isDisabled={field.readOnly}
                     onChange={(_event, item) => {
                         if (item.value) {
-                            updateJsVariableRule({operator: item.value as LogicOperator});
+                            updateProviderRule({operator: item.value as LogicOperator});
                         }
                     }}
                 />
             </div>
-            {operatorNeedsValue(jsVariableOperator) ? (
+            {operatorNeedsValue(providerOperator) ? (
                 <div className="flexFluid">
                     <Input
-                        id={`${id}-js-variable-value`}
+                        id={`${id}-provider-value`}
                         isReadOnly={field.readOnly}
                         placeholder={t('conditionalLogic.value')}
                         value={rule.value ?? ''}
                         size="big"
-                        onChange={event => updateJsVariableRule({value: event.target.value})}
+                        onChange={event => updateProviderRule({value: event.target.value})}
                     />
                 </div>
             ) : (
                 <div className="flexFluid"/>
             )}
         </>
-    );
+        );
+    };
 
     return (
         <div className="flexRow_nowrap flexFluid alignCenter" style={{gap: '0.75rem'}}>
@@ -545,7 +592,9 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     onChange={handleSourceTypeChange}
                 />
             </div>
-            {ruleSourceType === 'field' ? renderFieldRule() : renderJsVariableRule()}
+            {selectedProvider
+                ? renderProviderRule(selectedProvider)
+                : (isUnknownSourceType ? renderUnknownSourceRule() : renderFieldRule())}
         </div>
     );
 };

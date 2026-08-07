@@ -14,16 +14,34 @@
         "valueTo": "À",
         "loadingSources": "Chargement des champs disponibles...",
         "noSources": "Aucun champ source supporté n'est disponible avant ce champ.",
-        "help": "Utilise des champs placés avant celui-ci pour afficher ou masquer ce champ. Sont éligibles les champs qui déclarent un type de valeur : choix (liste, radio, case à cocher), date, nombre et booléen — y compris les champs apportés par d'autres modules. \"Aucun champ source supporté...\" signifie qu'aucun champ compatible précédent n'a été trouvé.",
+        "help": "Utilise des champs placés avant celui-ci pour afficher ou masquer ce champ. Sont éligibles les champs qui déclarent un type de valeur : choix (liste, radio, case à cocher), date, nombre et booléen — y compris les champs apportés par d'autres modules. \"Aucun champ source supporté...\" signifie qu'aucun champ compatible précédent n'a été trouvé. Une condition peut aussi lire une information extérieure au formulaire : une valeur du datalayer, un paramètre d'URL ou un cookie. Ces informations sont lues uniquement dans le navigateur : un champ obligatoire affiché par une telle condition n'est donc pas exigé à l'envoi du formulaire.",
         "allSourcesUsed": "Tous les champs source disponibles sont déjà utilisés par les règles au-dessus.",
         "unresolvedContext": "Impossible de résoudre le chemin du champ édité.",
         "formNotFound": "Impossible de retrouver le formulaire parent.",
         "loadError": "Impossible de charger les champs source disponibles.",
         "sourceTypes": {
-            "field": "Valeur d'un champ",
-            "jsVariable": "Valeur du datalayer"
+            "field": "Valeur d'un champ"
         },
-        "jsVariablePlaceholder": "window.cxs.profileProperties.firstName",
+        "providers": {
+            "jsVariable": {
+                "label": "Valeur du datalayer",
+                "configLabel": "Variable du datalayer",
+                "configPlaceholder": "window.cxs.profileProperties.firstName"
+            },
+            "urlParam": {
+                "label": "Paramètre d'URL",
+                "configLabel": "Nom du paramètre",
+                "configPlaceholder": "utm_campaign"
+            },
+            "cookie": {
+                "label": "Cookie",
+                "configLabel": "Nom du cookie",
+                "configPlaceholder": "consent-marketing"
+            }
+        },
+        "providerRefMissing": "Obligatoire : une règle sans nom ne peut pas être évaluée et laisse le champ masqué.",
+        "providerRefInvalid": "Ce nom n'est pas au format attendu et ne pourra pas être lu sur la page.",
+        "unknownSourceType": "Cette condition utilise une source (\"{{type}}\") que cette version du module ne fournit pas — elle a probablement été créée avec une version plus récente. La règle est conservée telle quelle et son champ reste masqué.",
         "operators": {
             "in": "est l'une des valeurs suivantes",
             "notIn": "n'est pas l'une des valeurs suivantes",

@@ -10,10 +10,14 @@ export class ConditionalLogicField extends BaseComponent {
 	private static readonly menuSelector = '.moonstone-menu:not(.moonstone-hidden)';
 	private static readonly menuOverlaySelector = '.moonstone-menu_overlay';
 
-	// Dropdown order within a "Field value" rule row: the leading dropdown picks
-	// the source type (Field value / Datalayer value), then source, operator, value.
+	// Dropdown order within a "Field value" rule row: the leading dropdown picks the
+	// source type (Field value, or one of the providers: Datalayer value, URL parameter,
+	// Cookie), then source, operator, value. A provider rule has no source dropdown — it
+	// types the name of what it designates instead.
 	static readonly sourceTypeDropdownIndex = 0;
 	static readonly sourceDropdownIndex = 1;
+	// Provider rules skip the source dropdown, so their operator is at index 1.
+	static readonly providerOperatorDropdownIndex = 1;
 	static readonly operatorDropdownIndex = 2;
 	static readonly valueDropdownIndex = 3;
 
@@ -128,6 +132,11 @@ export class ConditionalLogicField extends BaseComponent {
 		return this.openDropdown(ruleIndex, ConditionalLogicField.operatorDropdownIndex);
 	}
 
+	// A provider rule has no source dropdown, so its operator sits one position earlier.
+	openProviderOperatorDropdown(ruleIndex: number): this {
+		return this.openDropdown(ruleIndex, ConditionalLogicField.providerOperatorDropdownIndex);
+	}
+
 	selectSourceType(ruleIndex: number, label: string): this {
 		this.openSourceTypeDropdown(ruleIndex);
 		this.selectMenuItem(label);
@@ -142,6 +151,12 @@ export class ConditionalLogicField extends BaseComponent {
 
 	selectOperator(ruleIndex: number, label: string): this {
 		this.openOperatorDropdown(ruleIndex);
+		this.selectMenuItem(label);
+		return this;
+	}
+
+	selectProviderOperator(ruleIndex: number, label: string): this {
+		this.openProviderOperatorDropdown(ruleIndex);
 		this.selectMenuItem(label);
 		return this;
 	}

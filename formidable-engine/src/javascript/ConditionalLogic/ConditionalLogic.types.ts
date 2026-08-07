@@ -1,4 +1,12 @@
-export type RuleSourceType = 'field' | 'jsVariable';
+/**
+ * What a rule designates: another form field, or one of the providers declared in
+ * providers.ts (state outside the form, read in the browser only — the runtime
+ * counterpart lives in formidable-elements/src/utils/logicProviders.ts).
+ */
+export type RuleSourceType = 'field' | 'jsVariable' | 'urlParam' | 'cookie';
+
+/** Rule keys holding what a provider designates, one per provider. */
+export type ProviderConfigKey = 'variable' | 'param' | 'cookie';
 
 /**
  * Shape of the values a source field produces, which drives the offered operators
@@ -37,8 +45,12 @@ export type LogicOperator =
 
 export interface ConditionalLogicRule {
     logicId: string;
-    // Absent on rules stored before jsVariable support; treated as 'field'.
-    sourceType?: RuleSourceType;
+    // Absent on rules stored before jsVariable support; treated as 'field'. Wider than
+    // RuleSourceType on purpose: a stored rule may name a provider this module version
+    // does not ship (authored against a newer one), and it must keep that sourceType
+    // verbatim so the rule round-trips unchanged instead of being rewritten as a field
+    // rule on save.
+    sourceType?: string;
     // Field-rule keys; never serialized on jsVariable rules.
     sourceNodeId?: string;
     // Stable business reference to the source field (its fieldKey); primary
@@ -50,8 +62,12 @@ export interface ConditionalLogicRule {
     // evaluators pick the right comparison semantics (e.g. numeric vs date
     // 'between') without knowing the source type. Absent on older rules.
     valueKind?: SourceValueKind;
-    // jsVariable-rule key: dotted window variable path (e.g. a datalayer entry).
+    // Provider-rule config, exactly one of these per rule, named by the provider's
+    // configKey: a dotted window variable path (e.g. a datalayer entry), a URL query
+    // parameter name, a cookie name.
     variable?: string;
+    param?: string;
+    cookie?: string;
     operator: LogicOperator;
     value?: string;
     values?: string[];

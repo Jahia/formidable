@@ -4,6 +4,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Evaluates conditional logic rules server-side to determine field visibility.
@@ -11,6 +15,16 @@ import java.util.Set;
  * Handles transitive visibility (hidden source → rule fails) and parent container inheritance.
  */
 public class ConditionalLogicEvaluator {
+
+    private static final Logger log = LoggerFactory.getLogger(ConditionalLogicEvaluator.class);
+
+    /**
+     * Operators already reported as unknown, so a form submitted repeatedly logs once
+     * instead of once per submission. Bounded: a corrupted or hostile rule set cannot
+     * grow this into a leak.
+     */
+    private static final Set<String> REPORTED_UNKNOWN_OPERATORS = ConcurrentHashMap.newKeySet();
+    private static final int REPORTED_UNKNOWN_OPERATORS_CAP = 100;
 
     private final Map<String, List<ConditionalLogicRule>> fieldLogicRules;
     private final Map<String, String> logicIdToFieldName;
@@ -61,12 +75,15 @@ public class ConditionalLogicEvaluator {
     }
 
     private boolean evaluateRule(ConditionalLogicRule rule, Set<String> visiting) {
-        if (rule.isJsVariable()) {
-            // JS variable rules (e.g. datalayer entries) depend on browser-only state
-            // (window.* variables) that cannot be verified server-side. Treat them as
-            // not satisfied so the field counts as hidden and required validation is
-            // skipped, which avoids rejecting legitimate submissions where the field
-            // was hidden client-side.
+        if (!rule.isFieldRule()) {
+            // Provider rules (a JS variable such as a datalayer entry, a URL parameter, a
+            // cookie…) depend on browser-only state the submission does not carry. Treat
+            // them as not satisfied so the field counts as hidden and required validation
+            // is skipped, which avoids rejecting legitimate submissions where the field was
+            // hidden client-side. Expected by design, hence debug and not warn.
+            log.debug("Conditional logic rule {} is not evaluable server-side (source type '{}'): "
+                    + "the target field counts as hidden and its required validation is skipped.",
+                    rule.logicId(), rule.sourceType());
             return false;
         }
 
@@ -112,8 +129,34 @@ public class ConditionalLogicEvaluator {
                     && values.get(0).equals(rule.value());
             case "contains" -> !values.isEmpty() && rule.value() != null && !rule.value().isEmpty()
                     && values.get(0).contains(rule.value());
-            default -> false;
+            default -> {
+                reportUnknownOperator(rule);
+                yield false;
+            }
         };
+    }
+
+    /**
+     * An operator this engine does not implement makes its target field count as hidden,
+     * which also skips the field's required validation — silently, if we let it. That is
+     * indistinguishable from a legitimately hidden field, so it must be reported: it means
+     * either corrupted rule JSON or a rule authored against a newer engine.
+     */
+    private static void reportUnknownOperator(ConditionalLogicRule rule) {
+        String operator = rule.operator();
+        boolean firstTime;
+        // the size check and the add must happen atomically for the cap to be a hard
+        // bound; only unknown operators reach this lock, so contention is not a concern
+        synchronized (REPORTED_UNKNOWN_OPERATORS) {
+            firstTime = REPORTED_UNKNOWN_OPERATORS.size() < REPORTED_UNKNOWN_OPERATORS_CAP
+                    && REPORTED_UNKNOWN_OPERATORS.add(operator);
+        }
+        if (firstTime) {
+            log.warn("Unknown conditional logic operator '{}' (rule {}): the rule cannot be "
+                    + "evaluated, so its target field counts as hidden and its required "
+                    + "validation is skipped. Check the stored rule or the module version.",
+                    operator, rule.logicId());
+        }
     }
 
     /**

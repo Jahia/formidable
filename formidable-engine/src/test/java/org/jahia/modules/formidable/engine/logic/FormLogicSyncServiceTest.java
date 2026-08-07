@@ -584,7 +584,7 @@ class FormLogicSyncServiceTest {
                 "fmdb:fieldset",
                 Set.of("fmdbmix:formElement", "fmdbmix:formLogicElement"),
                 Map.of("logics", multiValueProperty(
-                        "{\"logicId\":\"jsv12345\",\"sourceType\":\"jsVariable\",\"config\":{\"variable\":\"window.dataLayer.userType\"},\"operator\":\"eq\",\"value\":\"member\"}"
+                        "{\"logicId\":\"jsv12345\",\"sourceType\":\"jsVariable\",\"variable\":\"window.dataLayer.userType\",\"operator\":\"eq\",\"value\":\"member\"}"
                 )),
                 List.of(existingLogicsSrc),
                 List.of()

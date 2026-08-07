@@ -78,11 +78,5 @@ export const getSourceDescriptor = (type?: string, valueKind?: SourceValueKind):
 export const operatorNeedsValue = (operator: LogicOperator): boolean =>
     !['isChecked', 'isUnchecked', 'isTrue', 'isFalse', 'isEmpty', 'isNotEmpty', 'exists', 'notExists'].includes(operator);
 
-// Operators available on jsVariable rules (dotted window variable paths).
-export const JS_VARIABLE_OPERATORS: LogicOperator[] = [
-    'equals',
-    'notEquals',
-    'contains',
-    'exists',
-    'notExists'
-];
+// Provider operators (jsVariable, urlParam, cookie) live in providers.ts, next to the
+// providers themselves: they depend on the source's shape, not on a field's value kind.

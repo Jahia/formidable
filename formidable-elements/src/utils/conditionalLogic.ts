@@ -1,4 +1,6 @@
-export type ConditionalLogicSourceType = 'field' | 'jsVariable';
+import {getLogicProvider, type LogicSourceType, type ScalarLogicProvider} from '~/utils/logicProviders';
+
+export type ConditionalLogicSourceType = LogicSourceType;
 
 export type ConditionalLogicValueKind = 'choice' | 'date' | 'number' | 'boolean' | 'text';
 
@@ -31,8 +33,11 @@ export type ConditionalLogicOperator =
 
 export interface ConditionalLogicRule {
 	logicId?: string;
-	// Absent on rules stored before jsVariable support; treated as 'field'.
-	sourceType?: ConditionalLogicSourceType;
+	// Absent on rules stored before jsVariable support; treated as 'field'. Wider than
+	// LogicSourceType on purpose: a stored rule may name a provider this runtime does not
+	// ship (authored against a newer module), and such a rule must be kept so it can fail
+	// closed instead of vanishing.
+	sourceType?: string;
 	sourceFieldName?: string;
 	sourceNodeId?: string;
 	// Informative metadata; source eligibility is enforced at authoring time.
@@ -40,7 +45,10 @@ export interface ConditionalLogicRule {
 	// Value kind of the source at authoring time; picks the comparison semantics
 	// where an operator is shared across kinds ('between': number vs date).
 	valueKind?: ConditionalLogicValueKind;
+	// Provider config: exactly one of these, named by the provider's configKey.
 	variable?: string;
+	param?: string;
+	cookie?: string;
 	operator: ConditionalLogicOperator;
 	value?: string;
 	values?: string[];
@@ -48,10 +56,97 @@ export interface ConditionalLogicRule {
 
 const VALUE_KINDS: ConditionalLogicValueKind[] = ['choice', 'date', 'number', 'boolean', 'text'];
 
-const isJsVariableRuleShape = (parsed: Partial<ConditionalLogicRule>): boolean =>
-	parsed.sourceType === 'jsVariable'
-	&& typeof parsed.variable === 'string'
-	&& parsed.variable.trim() !== '';
+/**
+ * Which operators each rule kind can actually evaluate here. Declared as a Record over
+ * the operator union, so adding an operator to the union without deciding whether the
+ * field evaluator implements it fails the type-check instead of silently falling through
+ * to `default` — where an unevaluable rule hides its target field and skips the field's
+ * required validation server-side.
+ */
+const FIELD_OPERATOR_IMPLEMENTED: Record<ConditionalLogicOperator, boolean> = {
+	in: true,
+	notIn: true,
+	isChecked: true,
+	isUnchecked: true,
+	containsAny: true,
+	containsAll: true,
+	before: true,
+	after: true,
+	on: true,
+	between: true,
+	eq: true,
+	neq: true,
+	lt: true,
+	lte: true,
+	gt: true,
+	gte: true,
+	isTrue: true,
+	isFalse: true,
+	isEmpty: true,
+	isNotEmpty: true,
+	equals: true,
+	contains: true,
+	// Provider-only (jsVariable, urlParam, cookie…), by design: no field-source counterpart.
+	notEquals: false,
+	exists: false,
+	notExists: false
+};
+
+/**
+ * Operators available on every provider source: its state is one optional string, so it
+ * supports presence and string comparison, and nothing else.
+ */
+const PROVIDER_OPERATORS = new Set<string>(['equals', 'notEquals', 'contains', 'exists', 'notExists']);
+
+/** A rule that designates something other than a previous field, known provider or not. */
+const isNonFieldRule = (rule: Partial<ConditionalLogicRule>): boolean =>
+	typeof rule.sourceType === 'string' && rule.sourceType !== '' && rule.sourceType !== 'field';
+
+/**
+ * Why a rule cannot be evaluated here, or null when it can. A stored rule is authored
+ * data and may come from a newer module version, so everything is checked at runtime:
+ * the source type may name a provider this runtime does not ship, the provider's
+ * reference may be missing, and the operator may not exist for the rule's kind.
+ */
+const ruleUnresolvedReason = (rule: ConditionalLogicRule): string | null => {
+	if (isNonFieldRule(rule)) {
+		const provider = getLogicProvider(rule.sourceType);
+		if (!provider) return `source:${rule.sourceType}`;
+		if (providerRuleRef(rule) === null) return `ref:${provider.id}`;
+		return PROVIDER_OPERATORS.has(rule.operator) ? null : `operator:${rule.operator}`;
+	}
+
+	return FIELD_OPERATOR_IMPLEMENTED[rule.operator] === true ? null : `operator:${rule.operator}`;
+};
+
+const reportedUnresolvedReasons = new Set<string>();
+
+/**
+ * Reports a rule this runtime cannot evaluate. Once per reason per page: the visibility
+ * pass runs on every input event, and a silent unevaluable rule looks exactly like a
+ * legitimately hidden field.
+ */
+const reportUnresolvedRule = (reason: string) => {
+	if (reportedUnresolvedReasons.has(reason)) return;
+	reportedUnresolvedReasons.add(reason);
+	console.warn(
+		`[formidable] Conditional logic rule cannot be evaluated (${reason}): its target `
+		+ 'field stays hidden. Check the stored rule or the module version.'
+	);
+};
+
+/**
+ * A provider rule is usable when its source type names a known provider and it carries a
+ * non-empty reference under that provider's config key. Returns the trimmed reference, or
+ * null when the rule is not a usable provider rule.
+ */
+const providerRuleRef = (parsed: Partial<ConditionalLogicRule>): string | null => {
+	const provider = getLogicProvider(parsed.sourceType);
+	if (!provider) return null;
+
+	const ref = parsed[provider.configKey];
+	return typeof ref === 'string' && ref.trim() !== '' ? ref.trim() : null;
+};
 
 export const parseConditionalLogicRule = (rawValue: string): ConditionalLogicRule | null => {
 	try {
@@ -60,11 +155,25 @@ export const parseConditionalLogicRule = (rawValue: string): ConditionalLogicRul
 			return null;
 		}
 
-		if (isJsVariableRuleShape(parsed)) {
+		const provider = getLogicProvider(parsed.sourceType);
+		const ref = providerRuleRef(parsed);
+		if (provider && ref) {
 			return {
 				logicId: typeof parsed.logicId === 'string' ? parsed.logicId : undefined,
-				sourceType: 'jsVariable',
-				variable: parsed.variable!.trim(),
+				sourceType: provider.id,
+				[provider.configKey]: ref,
+				operator: parsed.operator as ConditionalLogicOperator,
+				value: typeof parsed.value === 'string' ? parsed.value : undefined
+			};
+		}
+
+		// A non-field rule that is not usable here — unknown provider, missing reference —
+		// is kept rather than dropped: the evaluator fails it closed and reports it, so the
+		// field stays hidden everywhere instead of client-visible but server-hidden.
+		if (isNonFieldRule(parsed)) {
+			return {
+				logicId: typeof parsed.logicId === 'string' ? parsed.logicId : undefined,
+				sourceType: parsed.sourceType,
 				operator: parsed.operator as ConditionalLogicOperator,
 				value: typeof parsed.value === 'string' ? parsed.value : undefined
 			};
@@ -99,7 +208,9 @@ const isConditionalLogicRule = (value: unknown): value is ConditionalLogicRule =
 	if (!value || typeof value !== 'object') return false;
 	const candidate = value as Partial<ConditionalLogicRule>;
 	if (typeof candidate.operator !== 'string') return false;
-	if (isJsVariableRuleShape(candidate)) return true;
+	// Non-field rules are always kept, usable or not (unknown provider, missing
+	// reference): they must fail closed in the evaluator, not silently vanish here.
+	if (isNonFieldRule(candidate)) return true;
 	return typeof candidate.sourceFieldName === 'string';
 };
 
@@ -247,40 +358,23 @@ const getBooleanState = (state: SourceFieldState): boolean =>
 const hasTextContent = (values: string[]): boolean =>
 	values.some(value => value.trim() !== '');
 
-const JS_VARIABLE_PATH_PATTERN = /^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/;
-
 /**
- * Safely resolves a dotted variable path (e.g. "window.cxs.profileProperties.firstName")
- * against the window object. Returns undefined when any segment is missing or the
- * path is not a plain dotted identifier chain.
+ * Evaluates a provider rule (a JS variable, a URL parameter, a cookie…). The provider
+ * reports one optional string, so the comparison is the same whichever provider it is.
  */
-export const resolveJsVariableValue = (variable: string): unknown => {
-	if (typeof window === 'undefined') return undefined;
-	const path = variable.trim().replace(/^window\./, '');
-	if (!JS_VARIABLE_PATH_PATTERN.test(path)) return undefined;
-
-	let current: unknown = window;
-	for (const segment of path.split('.')) {
-		if (current === null || current === undefined) return undefined;
-		current = (current as Record<string, unknown>)[segment];
-	}
-
-	return current;
-};
-
-const evaluateJsVariableRule = (rule: ConditionalLogicRule): boolean => {
-	const raw = resolveJsVariableValue(rule.variable ?? '');
-	const defined = raw !== undefined && raw !== null;
-	const actual = defined ? String(raw) : undefined;
+const evaluateProviderRule = (rule: ConditionalLogicRule, provider: ScalarLogicProvider): boolean => {
+	const ref = rule[provider.configKey];
+	const actual = ref ? provider.read(ref) : undefined;
+	const defined = actual !== undefined;
 	const expected = rule.value ?? '';
 
 	switch (rule.operator) {
 		case 'equals':
-			return actual !== undefined && actual === expected;
+			return defined && actual === expected;
 		case 'notEquals':
-			return actual !== undefined && actual !== expected;
+			return defined && actual !== expected;
 		case 'contains':
-			return actual !== undefined && expected !== '' && actual.includes(expected);
+			return defined && expected !== '' && actual!.includes(expected);
 		case 'exists':
 			return defined;
 		case 'notExists':
@@ -291,34 +385,26 @@ const evaluateJsVariableRule = (rule: ConditionalLogicRule): boolean => {
 };
 
 /**
- * Lists the distinct JS context variables (e.g. datalayer entries) referenced by
- * conditional logic rules inside the form. Used to decide whether a watcher is needed.
+ * Groups the references used by each provider across the form, so a provider that needs to
+ * watch its state is subscribed once with everything it must watch.
  */
-export const collectJsVariables = (form: HTMLFormElement): string[] => {
-	const variables = new Set<string>();
+export const collectProviderRefs = (form: HTMLFormElement): Map<string, string[]> => {
+	const refsByProvider = new Map<string, Set<string>>();
+
 	for (const wrapper of Array.from(form.querySelectorAll<HTMLElement>('[data-fmdb-logics]'))) {
 		for (const rule of deserializeConditionalLogicRules(wrapper.dataset.fmdbLogics ?? '')) {
-			if (rule.sourceType === 'jsVariable' && rule.variable) {
-				variables.add(rule.variable);
-			}
+			const provider = getLogicProvider(rule.sourceType);
+			const ref = provider ? rule[provider.configKey] : undefined;
+			if (!provider || !ref) continue;
+
+			const refs = refsByProvider.get(provider.id) ?? new Set<string>();
+			refs.add(ref);
+			refsByProvider.set(provider.id, refs);
 		}
 	}
 
-	return Array.from(variables);
+	return new Map(Array.from(refsByProvider, ([id, refs]) => [id, Array.from(refs)]));
 };
-
-/**
- * Builds a comparable snapshot of the current variable values so a watcher can
- * detect changes cheaply. Undefined/null are encoded distinctly from their
- * string representations.
- */
-export const getJsVariablesSnapshot = (variables: string[]): string =>
-	JSON.stringify(variables.map(variable => {
-		const raw = resolveJsVariableValue(variable);
-		if (raw === undefined) return '\u0000undefined';
-		if (raw === null) return '\u0000null';
-		return String(raw);
-	}));
 
 const evaluateRule = (rule: ConditionalLogicRule, sourceWrapper: HTMLElement): boolean => {
 	const state = getSourceFieldState(sourceWrapper);
@@ -450,9 +536,30 @@ export const applyConditionalLogicVisibility = (form: HTMLFormElement) => {
 			continue;
 		}
 
+		// Diagnostic only — the evaluation below already fails such rules closed. Surfacing
+		// it on the wrapper is what makes the difference between "hidden because the
+		// condition is false" and "hidden because we could not tell" visible to a developer
+		// and to a test.
+		const unresolvedReasons = rules
+			.map(ruleUnresolvedReason)
+			.filter((reason): reason is string => reason !== null);
+		if (unresolvedReasons.length > 0) {
+			wrapper.dataset.fmdbLogicUnresolved = unresolvedReasons.join(',');
+			unresolvedReasons.forEach(reportUnresolvedRule);
+		} else {
+			delete wrapper.dataset.fmdbLogicUnresolved;
+		}
+
 		const visible = rules.every(rule => {
-			if (rule.sourceType === 'jsVariable') {
-				return evaluateJsVariableRule(rule);
+			if (isNonFieldRule(rule)) {
+				const provider = getLogicProvider(rule.sourceType);
+				// Unknown provider or missing reference: unevaluable (reported above), so
+				// the field stays hidden — the same verdict the server reaches.
+				if (!provider || providerRuleRef(rule) === null) {
+					return false;
+				}
+
+				return evaluateProviderRule(rule, provider);
 			}
 
 			const sourceWrapper = rule.sourceNodeId

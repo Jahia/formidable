@@ -15,13 +15,11 @@ final class FormLogicJsonEntry {
     private static final String SOURCE_FIELD_NAME = "sourceFieldName";
     private static final String SOURCE_FIELD_KEY = "sourceFieldKey";
     private static final String SOURCE_TYPE = "sourceType";
-    private static final String VARIABLE = "variable";
-    private static final String SOURCE_TYPE_JS_VARIABLE = "jsVariable";
 
     private final JSONObject json;
     private final String logicId;
     private final String sourceFieldName;
-    private final boolean jsVariable;
+    private final boolean fieldRule;
     private String sourceNodeId;
     private String sourceFieldKey;
     private boolean updated;
@@ -32,7 +30,7 @@ final class FormLogicJsonEntry {
             String sourceNodeId,
             String sourceFieldName,
             String sourceFieldKey,
-            boolean jsVariable,
+            boolean fieldRule,
             boolean updated
     ) {
         this.json = json;
@@ -40,7 +38,7 @@ final class FormLogicJsonEntry {
         this.sourceNodeId = sourceNodeId;
         this.sourceFieldName = sourceFieldName;
         this.sourceFieldKey = sourceFieldKey;
-        this.jsVariable = jsVariable;
+        this.fieldRule = fieldRule;
         this.updated = updated;
     }
 
@@ -52,14 +50,12 @@ final class FormLogicJsonEntry {
             }
 
             JSONObject json = new JSONObject(rawJson);
-            boolean jsVariable = SOURCE_TYPE_JS_VARIABLE.equals(json.optString(SOURCE_TYPE, ""));
+            boolean fieldRule = ConditionalLogicRule.isFieldSourceType(json.optString(SOURCE_TYPE, ""));
             String sourceFieldName = json.optString(SOURCE_FIELD_NAME, "");
-            if (jsVariable) {
-                if (json.optString(VARIABLE, "").isBlank()) {
-                    log.debug("[FormLogicSync] Skipping jsVariable rule without variable on '{}'", targetPath);
-                    return null;
-                }
-            } else if (sourceFieldName.isEmpty()) {
+            // Only field rules are checked and bound here: they are the ones this service
+            // resolves to a node and keeps a weakref for. Provider rules pass through with
+            // their own configuration untouched, whichever provider they belong to.
+            if (fieldRule && sourceFieldName.isEmpty()) {
                 log.debug("[FormLogicSync] Skipping rule without sourceFieldName on '{}'", targetPath);
                 return null;
             }
@@ -75,15 +71,15 @@ final class FormLogicJsonEntry {
                 updated = true;
             }
 
-            return new FormLogicJsonEntry(json, logicId, sourceNodeId, sourceFieldName, sourceFieldKey, jsVariable, updated);
+            return new FormLogicJsonEntry(json, logicId, sourceNodeId, sourceFieldName, sourceFieldKey, fieldRule, updated);
         } catch (Exception e) {
             log.debug("[FormLogicSync] Skipping invalid logics entry on '{}': {}", targetPath, e.getMessage());
             return null;
         }
     }
 
-    boolean isJsVariable() {
-        return jsVariable;
+    boolean isFieldRule() {
+        return fieldRule;
     }
 
     String logicId() {

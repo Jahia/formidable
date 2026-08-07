@@ -60,10 +60,18 @@ const LEGACY_DUPLICATE_IMPORT_SOURCE_NODE_ID = '22222222-2222-2222-2222-22222222
 
 export interface ConditionalLogicRule {
 	logicId: string;
-	sourceNodeId: string;
-	sourceFieldName: string;
-	sourceFieldType: string;
+	// Absent on field rules (the default); names the provider otherwise.
+	sourceType?: string;
+	// Field-rule keys: absent on provider rules, which reference nothing in the repository.
+	sourceNodeId?: string;
+	sourceFieldKey?: string;
+	sourceFieldName?: string;
+	sourceFieldType?: string;
 	valueKind?: string;
+	// Provider config, exactly one per rule, named by the provider.
+	variable?: string;
+	param?: string;
+	cookie?: string;
 	operator: string;
 	value?: string;
 	values?: string[];

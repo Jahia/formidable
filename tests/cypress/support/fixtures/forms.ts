@@ -165,8 +165,13 @@ export function getFormPreview(formTitle: string): Form {
 	);
 }
 
-export function visitLiveForm(livePath: string, lang: string = 'en'): Form {
-	cy.visit(`/${lang}/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`);
+/**
+ * @param query optional query string (without the leading "?"), for logic rules whose
+ *              source is a URL parameter.
+ */
+export function visitLiveForm(livePath: string, lang: string = 'en', query?: string): Form {
+	const search = query ? `?${query}` : '';
+	cy.visit(`/${lang}/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}${search}`);
 
 	return new Form(
 		cy.get('form.fmdb-form')

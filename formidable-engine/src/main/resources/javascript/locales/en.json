@@ -14,16 +14,34 @@
         "valueTo": "To",
         "loadingSources": "Loading available fields...",
         "noSources": "No supported source field is available before this field.",
-        "help": "Use fields placed before this one to show or hide it. Eligible fields are those declaring a value kind: choice (select, radio, checkbox), date, number and boolean — including fields contributed by other modules. \"No supported source field...\" means no compatible previous field was found.",
+        "help": "Use fields placed before this one to show or hide it. Eligible fields are those declaring a value kind: choice (select, radio, checkbox), date, number and boolean — including fields contributed by other modules. \"No supported source field...\" means no compatible previous field was found. A condition can also read something outside the form: a datalayer value, a URL parameter or a cookie. Those are read in the browser only, so a required field shown by such a condition is not enforced when the form is submitted.",
         "allSourcesUsed": "All available source fields are already used by rules above.",
         "unresolvedContext": "Unable to resolve the edited field path.",
         "formNotFound": "Unable to resolve the parent form.",
         "loadError": "Unable to load available source fields.",
         "sourceTypes": {
-            "field": "Field value",
-            "jsVariable": "Datalayer value"
+            "field": "Field value"
         },
-        "jsVariablePlaceholder": "window.cxs.profileProperties.firstName",
+        "providers": {
+            "jsVariable": {
+                "label": "Datalayer value",
+                "configLabel": "Datalayer variable",
+                "configPlaceholder": "window.cxs.profileProperties.firstName"
+            },
+            "urlParam": {
+                "label": "URL parameter",
+                "configLabel": "Parameter name",
+                "configPlaceholder": "utm_campaign"
+            },
+            "cookie": {
+                "label": "Cookie",
+                "configLabel": "Cookie name",
+                "configPlaceholder": "consent-marketing"
+            }
+        },
+        "providerRefMissing": "Required: a rule without a name cannot be evaluated and keeps the field hidden.",
+        "providerRefInvalid": "This name is not in the expected format and cannot be read on the page.",
+        "unknownSourceType": "This condition uses a source (\"{{type}}\") that this module version does not provide — it was probably created with a newer version. The rule is kept unchanged and its field stays hidden.",
         "operators": {
             "in": "is one of",
             "notIn": "is not one of",
