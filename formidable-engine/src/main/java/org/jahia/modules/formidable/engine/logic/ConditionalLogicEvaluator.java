@@ -144,8 +144,13 @@ public class ConditionalLogicEvaluator {
      */
     private static void reportUnknownOperator(ConditionalLogicRule rule) {
         String operator = rule.operator();
-        boolean firstTime = REPORTED_UNKNOWN_OPERATORS.size() < REPORTED_UNKNOWN_OPERATORS_CAP
-                && REPORTED_UNKNOWN_OPERATORS.add(operator);
+        boolean firstTime;
+        // the size check and the add must happen atomically for the cap to be a hard
+        // bound; only unknown operators reach this lock, so contention is not a concern
+        synchronized (REPORTED_UNKNOWN_OPERATORS) {
+            firstTime = REPORTED_UNKNOWN_OPERATORS.size() < REPORTED_UNKNOWN_OPERATORS_CAP
+                    && REPORTED_UNKNOWN_OPERATORS.add(operator);
+        }
         if (firstTime) {
             log.warn("Unknown conditional logic operator '{}' (rule {}): the rule cannot be "
                     + "evaluated, so its target field counts as hidden and its required "
