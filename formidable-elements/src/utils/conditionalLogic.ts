@@ -406,6 +406,43 @@ export const collectProviderRefs = (form: HTMLFormElement): Map<string, string[]
 	return new Map(Array.from(refsByProvider, ([id, refs]) => [id, Array.from(refs)]));
 };
 
+/** Unicode-safe base64: header values must stay ASCII, provider values may not be. */
+const toBase64 = (value: string): string => {
+	let binary = '';
+	for (const byte of new TextEncoder().encode(value)) {
+		binary += String.fromCharCode(byte);
+	}
+
+	return btoa(binary);
+};
+
+/**
+ * Builds the submit-time provider state declaration for the FORM_LOGIC_STATE_HEADER, or
+ * null when the form has no provider rule. One `read` per referenced provider state, at
+ * the moment of submit: a single declared state backs every rule that reads it, which is
+ * what lets the server evaluate provider rules coherently instead of counting every
+ * provider-gated field as hidden. `null` encodes "absent", as distinct from empty string.
+ */
+export const buildLogicStateHeader = (form: HTMLFormElement): string | null => {
+	const providers: Record<string, Record<string, string | null>> = {};
+	let hasAny = false;
+
+	for (const [providerId, refs] of collectProviderRefs(form)) {
+		const provider = getLogicProvider(providerId);
+		if (!provider) continue;
+
+		const state: Record<string, string | null> = {};
+		for (const ref of refs) {
+			state[ref] = provider.read(ref) ?? null;
+		}
+
+		providers[providerId] = state;
+		hasAny = true;
+	}
+
+	return hasAny ? toBase64(JSON.stringify({v: 1, providers})) : null;
+};
+
 const evaluateRule = (rule: ConditionalLogicRule, sourceWrapper: HTMLElement): boolean => {
 	const state = getSourceFieldState(sourceWrapper);
 	const values = state.values;

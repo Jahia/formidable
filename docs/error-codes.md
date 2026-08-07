@@ -33,6 +33,7 @@ Detailed reasons are written to server logs only and are never exposed to the ca
 | `FMDB-010` | 400 | Submitted data failed validation — possible causes: choice value not in the allowed set, invalid text format (email, date, datetime-local, color), field constraint violation, or uploaded file MIME type rejected by the field/global allowlist |
 | `FMDB-011` | 403 | Submission denied by the Jahia Security Filter check (for example, cross-origin request with no matching hosted `Origin` / `Referer`) |
 | `FMDB-012` | 500 | Action list resolution failed — the pipeline could not read the configured `actions` node from the repository |
+| `FMDB-013` | 400 | Conditional-logic coherence violation — the submission carries a value for a field the server can prove was hidden (from submitted values, or from the provider state the browser itself declared in the `X-Formidable-Logic-State` header). An honest browser never produces this: a hidden field's controls are disabled and not submitted |
 | `FMDB-500` | 500 | Unexpected internal, configuration, or provider/infrastructure verification error — check server logs (for example, invalid server-side validation metadata such as a malformed regex constraint, or a technical CAPTCHA verification failure) |
 
 ## Source

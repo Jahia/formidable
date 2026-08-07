@@ -180,3 +180,11 @@ export const logicProviderConfigKeys = (): LogicProviderConfigKey[] =>
  * page also works, but only with `bubbles: true` (not the Event default).
  */
 export const FORM_LOGIC_INVALIDATE_EVENT = 'fmdb:logic-invalidate';
+
+/**
+ * Header carrying the declared provider state at submit time: base64-encoded UTF-8 JSON
+ * (header values must stay ASCII; provider values may not be). Same transport pattern as
+ * the captcha token — request metadata travels in a header, never among the form's own
+ * fields, so it can never reach a stored submission.
+ */
+export const FORM_LOGIC_STATE_HEADER = 'X-Formidable-Logic-State';

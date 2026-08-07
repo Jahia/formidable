@@ -1,5 +1,7 @@
 import {type FormEvent, type RefObject, useRef, useState} from 'react';
 import {interpolateMessage} from '~/utils/messageUtils';
+import {buildLogicStateHeader} from '~/utils/conditionalLogic';
+import {FORM_LOGIC_STATE_HEADER} from '~/utils/logicProviders';
 import {type CaptchaHandle} from '~/components/Form/Captcha.client';
 
 interface SubmissionLabels {
@@ -79,6 +81,9 @@ export function useFormSubmission({
 
 			const rawCaptchaToken = captcha ? captchaRef.current?.getToken() : undefined;
 			const captchaToken = rawCaptchaToken?.trim() || undefined;
+			// Read once, at the moment of submit: one declared state backs every provider
+			// rule, which is what lets the server evaluate them coherently.
+			const logicStateHeader = buildLogicStateHeader(form);
 			const targetUrl = submitActionUrl ?? form.action ?? window.location.href;
 
 			// XHR is kept here because Jahia's CSRFGuard integrates with XMLHttpRequest rather than fetch.
@@ -89,6 +94,10 @@ export function useFormSubmission({
 				xhr.open('POST', targetUrl, true);
 				if (captchaToken) {
 					xhr.setRequestHeader('X-Formidable-Captcha-Token', captchaToken);
+				}
+
+				if (logicStateHeader) {
+					xhr.setRequestHeader(FORM_LOGIC_STATE_HEADER, logicStateHeader);
 				}
 				xhr.withCredentials = true;
 				xhr.onload = () => resolve(xhr);

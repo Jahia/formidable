@@ -83,12 +83,55 @@ like an evaluated one.
 
 ### Server-side consequence
 
-Provider state lives in the browser, and the submission does not carry it. The server
-therefore treats a provider rule as **not satisfied**, which makes its target field count as
-hidden and **skips that field's required validation**. Submitted values are never discarded —
-only the required check is relaxed. In practice: *a required field shown only by a provider
-rule is optional as far as the server is concerned.* Use a field source when required-ness
-must be enforced.
+Provider state lives in the browser, and the submitted field values do not carry it. At
+submit time the browser therefore **declares** the provider state it saw — the current
+value (or absence) of every reference the form's rules read — in the
+`X-Formidable-Logic-State` header (base64-encoded JSON, the same transport pattern as the
+captcha token). The server evaluates provider rules against that single declaration, so
+every rule reading the same reference gets the same answer.
+
+The decoded payload is versioned JSON: `v` names the schema version (currently `1`), and
+`providers` maps each provider source type to the references it read — the declared value
+as a string, or `null` for "read and absent" (distinct from an empty string). Only the
+references actually used by the form's rules are declared, never the whole browser state:
+
+```json
+{
+  "v": 1,
+  "providers": {
+    "cookie":   {"consent-marketing": "yes"},
+    "urlParam": {"promo": null}
+  }
+}
+```
+
+A declaration the server cannot interpret — unreadable base64, malformed JSON, a version
+other than `1` — is treated as no declaration at all (the fail-safe below), never as an
+error: a generation mismatch between a deployed client and server must degrade to the safe
+behaviour, not to a wrong reading.
+
+With a declaration, a provider-gated field behaves like a field-gated one: visible fields
+have their **required validation enforced**, and a value submitted for a field the
+declaration hides is **rejected** (`FMDB-013`, see below). Without a declaration — an older
+client, a direct HTTP call — the historical fail-safe applies: the rule counts as not
+satisfied, the field as hidden, its required validation is skipped and submitted values are
+kept. In practice: *a required field shown only by a provider rule is enforced for browsers
+that declare, and optional for clients that do not.* Use a field source when required-ness
+must hold against any client.
+
+### Coherence check: values for provably hidden fields are rejected
+
+A field hidden in the browser has its controls disabled, and disabled controls are not
+submitted. So when the server can **prove** a field was hidden — from submitted values for
+field-sourced rules, or from the submission's own declaration for provider rules — a value
+for that field cannot come from an honest browser. Such a submission is rejected with
+`FMDB-013` instead of storing the value.
+
+This is a coherence check, not enforcement: the declaration is forgeable, and a client that
+declares nothing simply keeps the fail-safe above. What it guarantees is that one single
+declared state backs every rule reading it (complementary conditions can no longer both
+fail), and that a value smuggled into a provably hidden field is detected instead of
+reaching the stored submission, the results screen, exports and form actions.
 
 ### A field that becomes hidden loses what was typed in it
 
