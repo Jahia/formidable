@@ -29,17 +29,22 @@ describe('Security - 43 Form results access', () => {
 	let formPath: string;
 	let submissionPath: string;
 
+	/** Swaps the runner session for the reader's: every subsequent request runs as them. */
+	const loginAsReader = () => {
+		cy.logout();
+		cy.login(READER.name, READER.password);
+	};
+
 	/**
-	 * GraphQL read of a live node as an arbitrary authenticated user (basic auth). The
-	 * runner's cookies are cleared first: cy.request would otherwise send the root
-	 * session cookie alongside the Authorization header and the read would run as root.
+	 * GraphQL read of a live node with the CURRENT session (log in as the intended user
+	 * first). Session auth rather than basic auth: the CI image gates basic auth on
+	 * /modules/graphql, and a session cookie is what the real results screen uses anyway.
 	 */
 	const readNodeAs = (user: {name: string; password: string}, path: string) =>
-		cy.clearCookies().then(() => cy.request({
+		cy.request({
 			method: 'POST',
 			url: '/modules/graphql',
 			failOnStatusCode: false,
-			auth: {user: user.name, pass: user.password},
 			headers: withSameOriginHeaders(),
 			body: {
 				query: `query ReadAsUser($path: String!) {
@@ -53,7 +58,7 @@ describe('Security - 43 Form results access', () => {
 				}`,
 				variables: {path}
 			}
-		})).then(response => {
+		}).then(response => {
 			const body = response.body as {
 				data?: {
 					currentUser?: {name: string};
@@ -105,6 +110,7 @@ describe('Security - 43 Form results access', () => {
 		// is the actual lock. The formidable-results root itself deliberately stays
 		// readable — it inherits the site ACL and carries nothing but the names of forms
 		// having results.
+		loginAsReader();
 		readNodeAs(READER, submissionPath).should('be.null');
 		readNodeAs(READER, `/sites/${FORMIDABLE_TEST_SITE.key}/formidable-results/${FORM_NAME}`)
 			.should('be.null');
@@ -117,6 +123,7 @@ describe('Security - 43 Form results access', () => {
 
 		// The ACE reaches live with the publication, then the listener replicates it
 		// onto the formResults node asynchronously — hence the retry.
+		loginAsReader();
 		cy.waitUntil(
 			() => readNodeAs(READER, submissionPath).then(node => node !== null),
 			{timeout: 15000, interval: 500, errorMsg: 'submission never became readable after the grant'}
@@ -135,6 +142,7 @@ describe('Security - 43 Form results access', () => {
 
 		// The ACE removal must propagate to the formResults node the same way the
 		// grant did: the sync removes replicated entries no longer present on the form.
+		loginAsReader();
 		cy.waitUntil(
 			() => readNodeAs(READER, submissionPath).then(node => node === null),
 			{timeout: 15000, interval: 500, errorMsg: 'submission stayed readable after the revoke'}
