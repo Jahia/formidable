@@ -20,8 +20,16 @@ describe('Security - 42 Conditional logic coherence', () => {
 
 	const LOGIC_STATE_HEADER = 'X-Formidable-Logic-State';
 
-	const declarationHeader = (providers: Record<string, Record<string, string | null>>) =>
-		btoa(JSON.stringify({v: 1, providers}));
+	// Unicode-safe base64, mirroring the production encoder: bare btoa() throws on
+	// non-ASCII, and declared provider values are allowed to contain any of it.
+	const declarationHeader = (providers: Record<string, Record<string, string | null>>) => {
+		let binary = '';
+		for (const byte of new TextEncoder().encode(JSON.stringify({v: 1, providers}))) {
+			binary += String.fromCharCode(byte);
+		}
+
+		return btoa(binary);
+	};
 
 	const fieldGateRule = JSON.stringify({
 		logicId: 'coh-field',
