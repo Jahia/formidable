@@ -40,7 +40,7 @@ describe('Security - 43 Form results access', () => {
 	 * first). Session auth rather than basic auth: the CI image gates basic auth on
 	 * /modules/graphql, and a session cookie is what the real results screen uses anyway.
 	 */
-	const readNodeAs = (user: {name: string; password: string}, path: string) =>
+	const readNodeAs = (expectedUser: string, path: string) =>
 		cy.request({
 			method: 'POST',
 			url: '/modules/graphql',
@@ -67,7 +67,7 @@ describe('Security - 43 Form results access', () => {
 			};
 			// The whole point of these tests is WHO reads: fail loudly if the request
 			// was not authenticated as the intended user (e.g. a leaked session cookie).
-			expect(body.data?.currentUser?.name, 'authenticated user for the read').to.eq(user.name);
+			expect(body.data?.currentUser?.name, 'authenticated user for the read').to.eq(expectedUser);
 			return cy.wrap(body.data?.jcr?.nodeByPath ?? null, {log: false});
 		});
 
@@ -111,9 +111,14 @@ describe('Security - 43 Form results access', () => {
 		// readable — it inherits the site ACL and carries nothing but the names of forms
 		// having results.
 		loginAsReader();
-		readNodeAs(READER, submissionPath).should('be.null');
-		readNodeAs(READER, `/sites/${FORMIDABLE_TEST_SITE.key}/formidable-results/${FORM_NAME}`)
+		readNodeAs(READER.name, submissionPath).should('be.null');
+		readNodeAs(READER.name, `/sites/${FORMIDABLE_TEST_SITE.key}/formidable-results/${FORM_NAME}`)
 			.should('be.null');
+
+		// Pin the boundary from the other side too: the root stays readable, the lock
+		// really is the per-form node right below it.
+		readNodeAs(READER.name, `/sites/${FORMIDABLE_TEST_SITE.key}/formidable-results`)
+			.should('not.be.null');
 	});
 
 	it('grants access once fmdb-results-reader is given on the form and published', () => {
@@ -125,11 +130,11 @@ describe('Security - 43 Form results access', () => {
 		// onto the formResults node asynchronously — hence the retry.
 		loginAsReader();
 		cy.waitUntil(
-			() => readNodeAs(READER, submissionPath).then(node => node !== null),
+			() => readNodeAs(READER.name, submissionPath).then(node => node !== null),
 			{timeout: 15000, interval: 500, errorMsg: 'submission never became readable after the grant'}
 		);
 
-		readNodeAs(READER, submissionPath).then(node => {
+		readNodeAs(READER.name, submissionPath).then(node => {
 			expect(node?.name).to.eq('data');
 			expect(node?.fullName?.value).to.eq('Confidential Person');
 		});
@@ -144,7 +149,7 @@ describe('Security - 43 Form results access', () => {
 		// grant did: the sync removes replicated entries no longer present on the form.
 		loginAsReader();
 		cy.waitUntil(
-			() => readNodeAs(READER, submissionPath).then(node => node === null),
+			() => readNodeAs(READER.name, submissionPath).then(node => node === null),
 			{timeout: 15000, interval: 500, errorMsg: 'submission stayed readable after the revoke'}
 		);
 	});
