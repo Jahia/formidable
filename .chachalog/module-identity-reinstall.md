@@ -3,7 +3,7 @@
 formidable: minor
 ---
 
-Changed the form rendering module's identity; upgrading from 0.3 or earlier requires a one-time reinstall (#NNN)
+Changed the form rendering module's identity; upgrading from 0.3 or earlier requires a one-time reinstall (#187)
 
 **Breaking change.** You are affected if any version up to 0.3.0 of the form rendering module is installed: uploading the new version fails with "Module upload failed because another module formidable-elements exists."
 
