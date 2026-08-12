@@ -1,0 +1,36 @@
+{
+	"name": "fmdbmix:optionsSource",
+	"fields": [
+		{
+			"name": "fmdb:optionsMode",
+			"valueConstraints": [
+				{
+					"value": {
+						"type": "String",
+						"value": "manual"
+					},
+					"displayValueKey": "fmdbmix_optionsSource.fmdb_optionsMode.manual",
+					"propertyList": [
+						{
+							"name": "addMixin",
+							"value": "fmdbmix:manualOptions"
+						}
+					]
+				},
+				{
+					"value": {
+						"type": "String",
+						"value": "sourced"
+					},
+					"displayValueKey": "fmdbmix_optionsSource.fmdb_optionsMode.sourced",
+					"propertyList": [
+						{
+							"name": "addMixin",
+							"value": "fmdbmix:sourcedOptions"
+						}
+					]
+				}
+			]
+		}
+	]
+}

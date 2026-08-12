@@ -1,8 +1,8 @@
 {
-	"name": "fmdb:select",
+	"name": "fmdbmix:manualOptions",
 	"fields": [
 		{
-			"name": "options",
+			"name": "fmdb:options",
 			"selectorType": "SelectOptions"
 		}
 	]

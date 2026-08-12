@@ -42,7 +42,24 @@ orderable
 [fmdbmix:captchaProtectedForm] mixin
 [fmdbmix:authenticatedOnlyForm] mixin
 [fmdbmix:nonSubmittable] mixin
-[fmdbmix:choiceField] mixin
+// Options-source contract for choice fields: the base mixin carries the mode
+// switch, and each jmix:dynamicFieldset mixin carries the properties of one mode.
+// The Content Editor activates the fieldset matching the chosen mode through the
+// addMixin wiring declared in the fieldset JSON overrides (formidable-elements).
+// The default 'manual' auto-activates the manual fieldset on creation, so typing
+// options by hand stays the out-of-the-box experience.
+[fmdbmix:optionsSource] mixin
+ - fmdb:optionsMode (string, choicelist) = 'manual' indexed=no
+
+[fmdbmix:manualOptions] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:optionsSource
+ - fmdb:options (string) i18n multiple indexed=no
+
+[fmdbmix:sourcedOptions] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:optionsSource
+ - fmdb:optionsSourceKey (string) indexed=no
+
+[fmdbmix:choiceField] > fmdbmix:optionsSource mixin
 // Semantic value-kind mixins: a field type carrying one becomes eligible as a
 // conditional-logic source with the operators of that kind (number: comparisons,
 // boolean: is true / is false, text: filled / empty / equals / contains).

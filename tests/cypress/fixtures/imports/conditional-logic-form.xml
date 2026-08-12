@@ -12,9 +12,9 @@
 		jcr:title="FORM_TITLE_PLACEHOLDER"
 		submitBtnLabel="Submit"/>
 	<fields jcr:primaryType="fmdb:fieldList">
-		<role jcr:primaryType="fmdb:radio">
+		<role jcr:primaryType="fmdb:radio" jcr:mixinTypes="fmdbmix:manualOptions" fmdb:optionsMode="manual">
 			<j:translation_en
-				choices="{&quot;value&quot;:&quot;admin&quot;,&quot;label&quot;:&quot;admin&quot;,&quot;selected&quot;:false} {&quot;value&quot;:&quot;editor&quot;,&quot;label&quot;:&quot;editor&quot;,&quot;selected&quot;:false}"
+				fmdb:options="{&quot;value&quot;:&quot;admin&quot;,&quot;label&quot;:&quot;admin&quot;,&quot;selected&quot;:false} {&quot;value&quot;:&quot;editor&quot;,&quot;label&quot;:&quot;editor&quot;,&quot;selected&quot;:false}"
 				jcr:language="en"
 				jcr:primaryType="jnt:translation"
 				jcr:title="role"/>

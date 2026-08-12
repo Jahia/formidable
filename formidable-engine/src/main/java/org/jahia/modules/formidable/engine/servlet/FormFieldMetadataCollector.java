@@ -32,6 +32,7 @@ class FormFieldMetadataCollector {
 
     private static final Logger log = LoggerFactory.getLogger(FormFieldMetadataCollector.class);
     private static final String CHOICES_PROPERTY = "choices";
+    private static final String UNIFIED_OPTIONS_PROPERTY = "fmdb:options";
 
     record Result(
             Map<String, FormDataParser.FieldInfo> fieldInfos,
@@ -242,13 +243,17 @@ class FormFieldMetadataCollector {
     }
 
     private static String resolveChoicePropertyName(JCRNodeWrapper node) throws RepositoryException {
+        if (node.hasProperty(UNIFIED_OPTIONS_PROPERTY)) {
+            return UNIFIED_OPTIONS_PROPERTY;
+        }
+        // Legacy names, kept for content not yet migrated to fmdbmix:manualOptions.
         if (node.hasProperty(CHOICES_PROPERTY)) {
             return CHOICES_PROPERTY;
         }
         if (node.hasProperty("options")) {
             return "options";
         }
-        return CHOICES_PROPERTY;
+        return UNIFIED_OPTIONS_PROPERTY;
     }
 
     private static FormDataParser.FieldConstraints readConstraints(

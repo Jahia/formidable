@@ -6,7 +6,7 @@ import {HelpText, helpTextId} from "formidable-shared";
 interface RadiosProps extends BaseValidationMessageProps {
 	"jcr:title"?: string;
 	helpText?: string;
-	choices?: string[];
+	"fmdb:options"?: string[];
 	required?: boolean;
 }
 
@@ -17,7 +17,7 @@ jahiaComponent(
 		name: "default"
 	},
 	(
-		{"jcr:title": label, helpText, choices: rawChoices = [], required, ...validationMsgs}: RadiosProps,
+		{"jcr:title": label, helpText, "fmdb:options": rawChoices = [], required, ...validationMsgs}: RadiosProps,
 		{currentNode}
 	) => {
 		const inputName = currentNode.getName();
