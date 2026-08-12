@@ -4,6 +4,12 @@
         "label": "Label displayed to user",
         "selected": "If enabled, the option is selected by default"
     },
+    "fmdbmix_optionsSource": {
+        "fmdb_optionsMode": {
+            "manual": "Manual options",
+            "sourced": "Options from a source"
+        }
+    },
     "conditionalLogic": {
         "sourceField": "Source field",
         "selectSource": "Select a source field",

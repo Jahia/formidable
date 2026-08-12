@@ -4,6 +4,12 @@
         "label": "Libellé affiché à l'utilisateur",
         "selected": "Si activé, l'option est sélectionnée par défaut"
     },
+    "fmdbmix_optionsSource": {
+        "fmdb_optionsMode": {
+            "manual": "Options manuelles",
+            "sourced": "Options depuis une source"
+        }
+    },
     "conditionalLogic": {
         "sourceField": "Champ source",
         "selectSource": "Sélectionner un champ source",
