@@ -12,7 +12,9 @@ import {resolveUrlPlaceholders} from "~/utils/richTextUtils";
 
 
 const ensureCaptchaExplicit = (url: string): string => {
-	if (!url.includes('challenges.cloudflare.com')) return url;
+	// Providers whose script auto-renders at load unless render=explicit is set.
+	// The widget is always rendered explicitly by Captcha.client, so opt out of auto-render.
+	if (!url.includes('challenges.cloudflare.com') && !url.includes('google.com/recaptcha') && !url.includes('recaptcha.net')) return url;
 	if (url.includes('render=explicit')) return url;
 	return url + (url.includes('?') ? '&' : '?') + 'render=explicit';
 };
@@ -64,8 +66,10 @@ jahiaComponent(
 		const scriptUrl   = renderContext.getRequest().getAttribute('formidable.captcha.scriptUrl') as string | null;
 		const widgetVar   = renderContext.getRequest().getAttribute('formidable.captcha.widgetVar') as string | null;
 		const tokenField  = renderContext.getRequest().getAttribute('formidable.captcha.tokenField') as string | null;
+		const rawWidgetTimeout = renderContext.getRequest().getAttribute('formidable.captcha.widgetTimeoutSeconds');
+		const widgetTimeoutSeconds = rawWidgetTimeout === null ? undefined : Number(rawWidgetTimeout);
 		const captcha = siteKey && scriptUrl && widgetVar && tokenField
-			? {siteKey, widgetVar, tokenField}
+			? {siteKey, widgetVar, tokenField, widgetTimeoutSeconds}
 			: undefined;
 
 		if (hasCaptchaMixin && !captcha) {

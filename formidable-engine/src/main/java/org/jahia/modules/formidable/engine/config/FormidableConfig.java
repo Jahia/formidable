@@ -67,7 +67,9 @@ public @interface FormidableConfig {
 
     @AttributeDefinition(
             name = "CAPTCHA HTTP connect timeout (seconds)",
-            description = "Maximum time allowed to establish the server-side connection to the CAPTCHA provider. Default: 5 seconds.",
+            description = "Maximum time allowed to establish the server-side connection to the CAPTCHA provider. " +
+                    "Also used client-side as the maximum time to wait for the provider script to expose the " +
+                    "widget API (window[widgetVar].render) before giving up rendering the widget. Default: 5 seconds.",
             type = AttributeType.LONG
     )
     long captchaHttpConnectTimeoutSeconds() default DEFAULT_HTTP_CONNECT_TIMEOUT_SECONDS;

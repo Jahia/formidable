@@ -14,6 +14,8 @@ CAPTCHA is configured globally via `org.jahia.modules.formidable.cfg` (or Felix 
 | `captchaTokenField` | Name of the hidden form field auto-injected by the widget (e.g. `cf-turnstile-response`) |
 | `captchaVerifyUrl` | Provider siteverify endpoint — used for server-side verification |
 | `captchaSecretKey` | Secret key — used for server-side verification, never exposed to the client |
+| `captchaHttpConnectTimeoutSeconds` | Server-side connect timeout to the provider. Also used client-side as the maximum time to wait for the provider script to expose the widget API before giving up rendering (some scripts, like Google's `api.js`, expose `render` asynchronously after a second script loads) |
+| `captchaHttpRequestTimeoutSeconds` | Server-side total timeout for the verification request |
 
 To enable CAPTCHA on a form, apply the `fmdbmix:captcha` mixin to the `fmdb:form` node.
 This author-facing mixin extends `fmdbmix:captchaProtectedForm`.

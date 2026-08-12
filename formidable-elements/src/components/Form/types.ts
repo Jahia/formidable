@@ -27,7 +27,7 @@ export interface FormProps extends Omit<FormServerProps, 'destination'> {
 	locale: string;
 	stepLabels?: string[];
 	stepIds?: string[];
-	captcha?: {siteKey: string; widgetVar: string; tokenField: string};
+	captcha?: {siteKey: string; widgetVar: string; tokenField: string; widgetTimeoutSeconds?: number};
 	destinationUrl?: string;
 	submitActionUrl?: string;
 	isSubmitDisabled?: boolean;
