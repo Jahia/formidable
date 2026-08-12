@@ -266,6 +266,54 @@ class FormidableConfigServiceTest {
         assertNotSame(second, third);
     }
 
+    @Test
+    void activateParsesOptionsSourcesWithAndWithoutParam() {
+        // Verifies the options source happy path: 3-part and 4-part entries are both accepted.
+        FormidableConfigService service = new FormidableConfigService();
+
+        service.activate(TestFormidableConfig.withOptionsSources(
+                "countries|Countries|country\ntags|Tags|categoryTree|/sites/systemsite/categories",
+                120L
+        ));
+
+        // Expected outcome: both sources are exposed, param defaults to empty when absent.
+        assertEquals(2, service.getOptionsSources().size());
+        assertEquals("country", service.resolveOptionsSource("countries").orElseThrow().initializerKey());
+        assertEquals("", service.resolveOptionsSource("countries").orElseThrow().param());
+        assertEquals("/sites/systemsite/categories", service.resolveOptionsSource("tags").orElseThrow().param());
+        assertEquals(120L, service.getOptionsSourcesCacheTtl().toSeconds());
+    }
+
+    @Test
+    void activateSkipsMalformedAndDuplicateOptionsSources() {
+        // Verifies resilience of the options source parsing: bad lines never poison good ones.
+        FormidableConfigService service = new FormidableConfigService();
+
+        service.activate(TestFormidableConfig.withOptionsSources(
+                "only-two-parts|Broken\n"
+                        + "|Blank id|country\n"
+                        + "good|Good|country\n"
+                        + "good|Duplicate|language",
+                300L
+        ));
+
+        // Expected outcome: only the first valid 'good' entry survives.
+        assertEquals(1, service.getOptionsSources().size());
+        assertEquals("country", service.resolveOptionsSource("good").orElseThrow().initializerKey());
+    }
+
+    @Test
+    void activateFallsBackToDefaultOptionsSourcesCacheTtlWhenInvalid() {
+        // Verifies the TTL guard: a non-positive TTL falls back to the default.
+        FormidableConfigService service = new FormidableConfigService();
+
+        service.activate(TestFormidableConfig.withOptionsSources("", 0L));
+
+        // Expected outcome: the shipped default TTL applies.
+        assertEquals(FormidableConfig.DEFAULT_OPTIONS_SOURCES_CACHE_TTL_SECONDS,
+                service.getOptionsSourcesCacheTtl().toSeconds());
+    }
+
     private static final class TestFormidableConfig implements FormidableConfig {
         private final String forwardTargets;
         private final boolean enableDevForwardTargets;
@@ -281,6 +329,15 @@ class FormidableConfigServiceTest {
         private final String captchaWidgetVar;
         private final String captchaTokenField;
         private final String captchaVerifyUrl;
+        private String optionsSources = "";
+        private long optionsSourcesCacheTtlSeconds = 300L;
+
+        private static TestFormidableConfig withOptionsSources(String optionsSources, long cacheTtlSeconds) {
+            TestFormidableConfig config = new TestFormidableConfig("", false, "");
+            config.optionsSources = optionsSources;
+            config.optionsSourcesCacheTtlSeconds = cacheTtlSeconds;
+            return config;
+        }
 
         private TestFormidableConfig(String forwardTargets, boolean enableDevForwardTargets, String devForwardTargets) {
             this(forwardTargets, enableDevForwardTargets, devForwardTargets, 5L, 10L, 5L, 10L);
@@ -456,6 +513,16 @@ class FormidableConfigServiceTest {
         @Override
         public String uploadAllowedMimeTypes() {
             return uploadAllowedMimeTypes;
+        }
+
+        @Override
+        public String optionsSources() {
+            return optionsSources;
+        }
+
+        @Override
+        public long optionsSourcesCacheTtlSeconds() {
+            return optionsSourcesCacheTtlSeconds;
         }
 
         @Override

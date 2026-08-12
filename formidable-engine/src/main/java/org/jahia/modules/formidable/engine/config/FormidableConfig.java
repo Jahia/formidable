@@ -16,6 +16,7 @@ public @interface FormidableConfig {
 
     long DEFAULT_HTTP_CONNECT_TIMEOUT_SECONDS = 5L;
     long DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS = 10L;
+    long DEFAULT_OPTIONS_SOURCES_CACHE_TTL_SECONDS = 300L;
 
     // --- CAPTCHA ---
 
@@ -146,6 +147,27 @@ public @interface FormidableConfig {
             type = AttributeType.LONG
     )
     long forwardHttpRequestTimeoutSeconds() default DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS;
+
+    // --- CHOICE FIELD OPTIONS SOURCES ---
+
+    @AttributeDefinition(
+            name = "Options sources",
+            description = "Newline-separated list of options sources a contributor can pick to fill a choice field. " +
+                    "Each entry has the form: id|Label|initializerKey or id|Label|initializerKey|param, " +
+                    "where initializerKey is the key of a Jahia choicelist initializer (for example country, language) " +
+                    "and param its optional parameter. The id is stored in JCR; only sources listed here are exposed. " +
+                    "Leave empty to disable sourced options (fail-safe default).",
+            type = AttributeType.STRING
+    )
+    String optionsSources() default "";
+
+    @AttributeDefinition(
+            name = "Options sources cache TTL (seconds)",
+            description = "How long a resolved option list is served from the in-memory cache before the source " +
+                    "is asked again, per source and language. Default: 300 seconds.",
+            type = AttributeType.LONG
+    )
+    long optionsSourcesCacheTtlSeconds() default DEFAULT_OPTIONS_SOURCES_CACHE_TTL_SECONDS;
 
     // ---
 

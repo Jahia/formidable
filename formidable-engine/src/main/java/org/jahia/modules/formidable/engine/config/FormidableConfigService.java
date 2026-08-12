@@ -53,6 +53,17 @@ public class FormidableConfigService {
      */
     public record ForwardTarget(String id, String label, URI uri, boolean development) {}
 
+    /**
+     * An admin-declared options source for choice fields: a curated Jahia choicelist
+     * initializer exposed to contributors under a stable id.
+     *
+     * @param id             stored in JCR ({@code fmdb:optionsSourceKey})
+     * @param label          shown in the source picker
+     * @param initializerKey key of the Jahia choicelist initializer to evaluate
+     * @param param          optional initializer parameter (empty when absent)
+     */
+    public record OptionsSource(String id, String label, String initializerKey, String param) {}
+
     private record ConfigSnapshot(
             String captchaSiteKey,
             String captchaSecretKey,
@@ -70,7 +81,9 @@ public class FormidableConfigService {
             Duration forwardHttpConnectTimeout,
             Duration forwardHttpRequestTimeout,
             HttpClient forwardHttpClient,
-            Map<String, ForwardTarget> forwardTargets
+            Map<String, ForwardTarget> forwardTargets,
+            Map<String, OptionsSource> optionsSources,
+            Duration optionsSourcesCacheTtl
     ) {}
 
     private static final Logger log = LoggerFactory.getLogger(FormidableConfigService.class);
@@ -138,6 +151,14 @@ public class FormidableConfigService {
                 mergeForwardTargets(standardForwardTargets, developmentForwardTargets)
         ));
 
+        Map<String, OptionsSource> optionsSources =
+                Collections.unmodifiableMap(parseOptionsSources(osgiConfig.optionsSources()));
+        Duration optionsSourcesCacheTtl = readTimeoutSeconds(
+                "optionsSourcesCacheTtlSeconds",
+                osgiConfig.optionsSourcesCacheTtlSeconds(),
+                FormidableConfig.DEFAULT_OPTIONS_SOURCES_CACHE_TTL_SECONDS
+        );
+
         ConfigSnapshot snapshot = new ConfigSnapshot(
                 captchaSiteKey,
                 captchaSecretKey,
@@ -155,7 +176,9 @@ public class FormidableConfigService {
                 forwardHttpConnectTimeout,
                 forwardHttpRequestTimeout,
                 forwardHttpClient,
-                forwardTargets
+                forwardTargets,
+                optionsSources,
+                optionsSourcesCacheTtl
         );
 
         this.config.set(snapshot);
@@ -173,6 +196,48 @@ public class FormidableConfigService {
                 developmentForwardTargets.size(),
                 snapshot.forwardHttpConnectTimeout().toSeconds(),
                 snapshot.forwardHttpRequestTimeout().toSeconds());
+        log.info("FormidableConfigService options sources: {} declared, cacheTtl={}s",
+                snapshot.optionsSources().size(),
+                snapshot.optionsSourcesCacheTtl().toSeconds());
+    }
+
+    /**
+     * Parses the {@code optionsSources} config value. Each non-blank line must have the
+     * form {@code id|Label|initializerKey} or {@code id|Label|initializerKey|param}.
+     * Invalid entries are logged and skipped; the first occurrence of a duplicate id wins.
+     */
+    private static Map<String, OptionsSource> parseOptionsSources(String raw) {
+        Map<String, OptionsSource> result = new LinkedHashMap<>();
+        if (raw == null || raw.isBlank()) {
+            return result;
+        }
+        for (String entry : raw.split("[\n\r]+")) {
+            String trimmed = entry.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            String[] parts = trimmed.split("\\|", 4);
+            if (parts.length < 3) {
+                log.warn("[FormidableConfigService] Skipping malformed optionsSources entry "
+                        + "(expected id|Label|initializerKey[|param]): '{}'", trimmed);
+                continue;
+            }
+            String id = parts[0].trim();
+            String label = parts[1].trim();
+            String initializerKey = parts[2].trim();
+            String param = parts.length == 4 ? parts[3].trim() : "";
+            if (id.isEmpty() || label.isEmpty() || initializerKey.isEmpty()) {
+                log.warn("[FormidableConfigService] Skipping optionsSources entry with a blank "
+                        + "id, label or initializerKey: '{}'", trimmed);
+                continue;
+            }
+            if (result.containsKey(id)) {
+                log.warn("[FormidableConfigService] Duplicate optionsSources id '{}', keeping first occurrence.", id);
+                continue;
+            }
+            result.put(id, new OptionsSource(id, label, initializerKey, param));
+        }
+        return result;
     }
 
     /**
@@ -405,6 +470,25 @@ public class FormidableConfigService {
      */
     public Collection<ForwardTarget> getForwardTargets() {
         return currentConfig().forwardTargets().values();
+    }
+
+    public Collection<OptionsSource> getOptionsSources() {
+        return currentConfig().optionsSources().values();
+    }
+
+    /**
+     * Resolves an options source by its stable id.
+     *
+     * @param id the value stored in the JCR {@code fmdb:optionsSourceKey} property
+     * @return the configured options source, or empty if the id is unknown
+     */
+    public Optional<OptionsSource> resolveOptionsSource(String id) {
+        OptionsSource source = currentConfig().optionsSources().get(id);
+        return source != null ? Optional.of(source) : Optional.empty();
+    }
+
+    public Duration getOptionsSourcesCacheTtl() {
+        return currentConfig().optionsSourcesCacheTtl();
     }
 
     /**

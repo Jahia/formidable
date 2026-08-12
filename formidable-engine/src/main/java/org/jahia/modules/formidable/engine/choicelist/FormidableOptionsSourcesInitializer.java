@@ -1,0 +1,64 @@
+package org.jahia.modules.formidable.engine.choicelist;
+
+import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.services.content.nodetypes.ExtendedPropertyDefinition;
+import org.jahia.services.content.nodetypes.initializers.ChoiceListValue;
+import org.jahia.services.content.nodetypes.initializers.ModuleChoiceListInitializer;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+/**
+ * Populates the fmdb:optionsSourceKey choice list for sourced choice fields from the
+ * options sources declared in org.jahia.modules.formidable.cfg.
+ *
+ * Only the curated allowlist is exposed — never the raw platform-wide initializer list,
+ * most of which is context-dependent and meaningless as a form options source.
+ *
+ * Each entry exposes the source id as the stored JCR value and the admin-defined label
+ * as the display name shown in the Content Editor.
+ *
+ * Registered as: choicelist[formidableOptionsSources] in the CND.
+ */
+@Component(service = ModuleChoiceListInitializer.class)
+public class FormidableOptionsSourcesInitializer implements ModuleChoiceListInitializer {
+
+    private static final String KEY = "formidableOptionsSources";
+    private static final Logger log = LoggerFactory.getLogger(FormidableOptionsSourcesInitializer.class);
+
+    private FormidableConfigService configService;
+
+    @Reference
+    public void setConfigService(FormidableConfigService service) {
+        this.configService = service;
+    }
+
+    @Override
+    public List<ChoiceListValue> getChoiceListValues(ExtendedPropertyDefinition epd, String param,
+            List<ChoiceListValue> values, Locale locale, Map<String, Object> context) {
+        Collection<FormidableConfigService.OptionsSource> sources = configService.getOptionsSources();
+        if (sources.isEmpty()) {
+            log.warn("[FormidableOptionsSourcesInitializer] No options sources are configured. "
+                    + "The choicelist '{}' for property '{}' will be empty.", KEY, epd.getName());
+        }
+        return sources.stream()
+                .map(source -> new ChoiceListValue(source.label(), source.id()))
+                .toList();
+    }
+
+    @Override
+    public void setKey(String key) {
+        // Jahia injects the service key on registration; this initializer uses a fixed key.
+    }
+
+    @Override
+    public String getKey() {
+        return KEY;
+    }
+}
