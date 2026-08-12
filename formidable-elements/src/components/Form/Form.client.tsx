@@ -50,6 +50,9 @@ export default function Form({
 	useEffect(() => {
 		if (formRef.current) {
 			formRef.current.noValidate = true;
+			// The marker is rendered server-side inside the island children: it can only
+			// be read from the DOM once mounted, hence the state initialization here.
+			// eslint-disable-next-line @eslint-react/hooks-extra/no-direct-set-state-in-use-effect
 			setHasBlockingSourceError(Boolean(formRef.current.querySelector(BLOCKING_SOURCE_ERROR_SELECTOR)));
 		}
 	}, []);
