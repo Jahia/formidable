@@ -66,8 +66,11 @@ jahiaComponent(
 		const scriptUrl   = renderContext.getRequest().getAttribute('formidable.captcha.scriptUrl') as string | null;
 		const widgetVar   = renderContext.getRequest().getAttribute('formidable.captcha.widgetVar') as string | null;
 		const tokenField  = renderContext.getRequest().getAttribute('formidable.captcha.tokenField') as string | null;
-		const rawWidgetTimeout = renderContext.getRequest().getAttribute('formidable.captcha.widgetTimeoutSeconds');
-		const widgetTimeoutSeconds = rawWidgetTimeout === null ? undefined : Number(rawWidgetTimeout);
+		// Defensive parsing: the attribute is a Java host value; anything that does not
+		// coerce to a finite positive number must not reach the client (NaN would break
+		// the poll deadline there).
+		const rawWidgetTimeout = Number(renderContext.getRequest().getAttribute('formidable.captcha.widgetTimeoutSeconds'));
+		const widgetTimeoutSeconds = Number.isFinite(rawWidgetTimeout) && rawWidgetTimeout > 0 ? rawWidgetTimeout : undefined;
 		const captcha = siteKey && scriptUrl && widgetVar && tokenField
 			? {siteKey, widgetVar, tokenField, widgetTimeoutSeconds}
 			: undefined;

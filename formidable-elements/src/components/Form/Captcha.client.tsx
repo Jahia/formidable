@@ -39,7 +39,12 @@ export default function Captcha({siteKey, widgetVar, widgetTimeoutSeconds, onVer
 		// Some provider scripts expose their API asynchronously: Google's api.js is a
 		// two-stage loader whose render() only exists once a second script has loaded.
 		// Poll until the API is available instead of sampling once at hydration time.
-		const deadline = Date.now() + (widgetTimeoutSeconds ?? DEFAULT_WIDGET_TIMEOUT_SECONDS) * 1000;
+		// Clamp the budget to a finite positive number: a NaN deadline would never
+		// satisfy Date.now() >= deadline and the poll would run forever.
+		const timeoutSeconds = typeof widgetTimeoutSeconds === 'number' && Number.isFinite(widgetTimeoutSeconds) && widgetTimeoutSeconds > 0
+			? widgetTimeoutSeconds
+			: DEFAULT_WIDGET_TIMEOUT_SECONDS;
+		const deadline = Date.now() + timeoutSeconds * 1000;
 		let pollTimer: ReturnType<typeof setTimeout> | undefined;
 
 		const tryRender = () => {
@@ -55,7 +60,7 @@ export default function Captcha({siteKey, widgetVar, widgetTimeoutSeconds, onVer
 			}
 
 			if (Date.now() >= deadline) {
-				console.warn(`[Formidable] Captcha widget "window.${widgetVar}" still not available after ${widgetTimeoutSeconds ?? DEFAULT_WIDGET_TIMEOUT_SECONDS}s. Check captchaWidgetVar and captchaScriptUrl in your configuration.`);
+				console.warn(`[Formidable] Captcha widget "window.${widgetVar}" still not available after ${timeoutSeconds}s. Check captchaWidgetVar and captchaScriptUrl in your configuration.`);
 				return;
 			}
 
