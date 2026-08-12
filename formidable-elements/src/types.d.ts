@@ -8,6 +8,6 @@ interface RenderOptions {
 
 interface CaptchaWidgetApi {
 	render: (el: HTMLElement, opts: RenderOptions) => string | number;
-	remove?: (id: string | undefined) => void;
-	reset?: (id: string | undefined) => void;
+	remove?: (id: string | number | undefined) => void;
+	reset?: (id: string | number | undefined) => void;
 }

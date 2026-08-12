@@ -177,6 +177,7 @@ export default function Form({
 					ref={captchaRef}
 					siteKey={captcha!.siteKey}
 					widgetVar={captcha!.widgetVar}
+					widgetTimeoutSeconds={captcha!.widgetTimeoutSeconds}
 					onVerify={() => setIsCaptchaValid(true)}
 					onExpire={() => setIsCaptchaValid(false)}
 				/>
