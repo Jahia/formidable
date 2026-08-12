@@ -59,6 +59,22 @@ const saveToJcrAction = (): JahiaNode => ({
 	properties: []
 });
 
+// Adds French values on top of the fixture's English ones.
+const withFrench = (node: JahiaNode, frProperties: Array<{name: string; value: string}>): JahiaNode => {
+	node.properties.push(...frProperties.map(property => ({...property, language: 'fr'})));
+	return node;
+};
+
+// Full name field with a custom required message in both site languages.
+const fullNameField = (): JahiaNode => {
+	const node = getInputTextNode({name: 'fullName', title: 'Full name', required: true});
+	node.properties.push(
+		{name: 'msgValueMissing', value: 'Please fill in your full name', language: 'en'},
+		{name: 'msgValueMissing', value: 'Merci de renseigner votre nom complet', language: 'fr'}
+	);
+	return node;
+};
+
 const OPTIONS_SOURCES_CONFIG = [
 	'countries|Countries|country',
 	'tv|TV screens|fmdbSampleCategoryTree|product/tv'
@@ -127,13 +143,18 @@ describe('Playground - provision manual-testing forms', () => {
 			'playground-simple',
 			'Playground - Simple contact form',
 			[
-				getInputTextNode({name: 'fullName', title: 'Full name', required: true}),
-				getInputEmailNode({name: 'email', title: 'Email', required: true}),
-				getTextareaNode({name: 'message', title: 'Message'})
+				withFrench(fullNameField(), [{name: 'jcr:title', value: 'Nom complet'}]),
+				withFrench(getInputEmailNode({name: 'email', title: 'Email', required: true}), [{name: 'jcr:title', value: 'Email'}]),
+				withFrench(getTextareaNode({name: 'message', title: 'Message'}), [{name: 'jcr:title', value: 'Message'}])
 			],
 			undefined,
 			undefined,
-			{actions: [saveToJcrAction()]}
+			{
+				actions: [saveToJcrAction()],
+				properties: [{name: 'jcr:title', value: 'Playground - Formulaire de contact simple', language: 'fr'}],
+				pageProperties: [{name: 'jcr:title', value: 'Playground - Formulaire de contact simple', language: 'fr'}],
+				publishLanguages: ['en', 'fr']
+			}
 		).then(({formPath, livePath}) => {
 			// Server-level user, kept across runs; site member so jContent is reachable.
 			createUser(RESULTS_READER.name, RESULTS_READER.password);
@@ -159,7 +180,7 @@ describe('Playground - provision manual-testing forms', () => {
 					title: 'Identity',
 					label: 'Identity',
 					children: [
-						getInputTextNode({name: 'fullName', title: 'Full name', required: true}),
+						fullNameField(),
 						getInputEmailNode({name: 'email', title: 'Email', required: true})
 					]
 				}),

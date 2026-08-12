@@ -22,7 +22,7 @@ test — CI never runs it):
 
 | Page under `/sites/FormidableSite4Tests/home` | Content |
 |---|---|
-| `playground-simple-page.html` | Minimal contact form |
+| `playground-simple-page.html` | Minimal contact form (published in EN and FR, with a custom required message on the full name field) |
 | `playground-steps-page.html` | Three-step form with navigation |
 | `playground-complete-page.html` | Every built-in field type, plus sourced choice fields (countries + `product/tv` sample categories) |
 
