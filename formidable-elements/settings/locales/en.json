@@ -11,6 +11,10 @@
 	"fmdb_inputCheckbox": {
 		"error": "Please select at least one option"
 	},
+	"fmdb_choiceField": {
+		"sourceUnavailable": "The options of this field are currently unavailable.",
+		"sourceUnavailableRequired": "The options of this required field are currently unavailable. The form cannot be submitted, please try again later."
+	},
 	"fmdb_form": {
 		"submitBtn": "Submit",
 		"resetBtn": "Reset",

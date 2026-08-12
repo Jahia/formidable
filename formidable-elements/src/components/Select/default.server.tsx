@@ -1,5 +1,6 @@
 import {jahiaComponent} from "@jahia/javascript-modules-library";
-import {parseChoices} from "~/utils/choiceUtils";
+import {resolveFieldOptions} from "~/utils/optionsSource.server";
+import OptionsSourceError from "~/design/OptionsSourceError";
 import {type BaseValidationMessageProps, validationDataAttributes} from "formidable-shared";
 import {HelpText, helpTextId} from "formidable-shared";
 
@@ -39,7 +40,10 @@ jahiaComponent(
 		const selectId = `select-${currentNode.getIdentifier()}`;
 		const selectName = currentNode.getName();
 
-		const parsedOptions = parseChoices(options);
+		const {choices: parsedOptions, sourceError} = resolveFieldOptions(currentNode, options);
+		if (sourceError) {
+			return <OptionsSourceError label={label} required={required}/>;
+		}
 
 		const selectedValues = parsedOptions.filter(o => o.selected).map(o => o.value);
 		const defaultValue = multiple ? selectedValues : (selectedValues[0] ?? undefined);

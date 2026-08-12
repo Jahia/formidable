@@ -1,4 +1,4 @@
-import {useEffect, useRef} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import clsx from "clsx";
 import classes from './Form.client.module.css';
 import '~/design/validation.css';
@@ -15,6 +15,10 @@ const sanitize = (html: string): string => {
 	if (typeof window === 'undefined') return html;
 	return DOMPurify.sanitize(html);
 };
+
+// D10: a required sourced choice field whose source failed renders this marker
+// server-side; the form must not be submittable while it is present.
+const BLOCKING_SOURCE_ERROR_SELECTOR = '[data-fmdb-source-error="blocking"]';
 
 export default function Form({
 	intro,
@@ -41,10 +45,12 @@ export default function Form({
 }: FormProps) {
 	const formRef = useRef<HTMLFormElement>(null);
 	const {t} = useTranslation('formidable-elements', {keyPrefix: 'fmdb_form'});
+	const [hasBlockingSourceError, setHasBlockingSourceError] = useState(false);
 
 	useEffect(() => {
 		if (formRef.current) {
 			formRef.current.noValidate = true;
+			setHasBlockingSourceError(Boolean(formRef.current.querySelector(BLOCKING_SOURCE_ERROR_SELECTOR)));
 		}
 	}, []);
 
@@ -86,7 +92,8 @@ export default function Form({
 		},
 	});
 
-	const isSubmitBlocked = isLoading || isSubmitDisabled || (!!captcha && (!isMultiStep || isLastStep) && !isCaptchaValid);
+	const isSubmitBlocked = isLoading || isSubmitDisabled || hasBlockingSourceError
+		|| (!!captcha && (!isMultiStep || isLastStep) && !isCaptchaValid);
 	const showCaptcha = !!captcha && (!isMultiStep || isLastStep);
 
 	const validateCurrentStep = (): boolean => {

@@ -1,6 +1,7 @@
 import {Island, jahiaComponent} from "@jahia/javascript-modules-library";
 import Checkbox from "./Checkbox.client";
-import {parseChoices} from "~/utils/choiceUtils";
+import {resolveFieldOptions} from "~/utils/optionsSource.server";
+import OptionsSourceError from "~/design/OptionsSourceError";
 import {type BaseValidationMessageProps, validationDataAttributes} from "formidable-shared";
 import {resolveUrlPlaceholders} from "~/utils/richTextUtils";
 import {HelpText, helpTextId} from "formidable-shared";
@@ -23,7 +24,11 @@ jahiaComponent(
 	) => {
 		const inputName = currentNode.getName();
 		const nodeId = currentNode.getIdentifier();
-		const parsedChoices = parseChoices(rawChoices);
+		const {choices: parsedChoices, sourceError} = resolveFieldOptions(currentNode, rawChoices);
+		if (sourceError) {
+			return <OptionsSourceError label={label} required={required}/>;
+		}
+
 		const vAttrs = validationDataAttributes(validationMsgs);
 		const helpId = helpText ? helpTextId(nodeId) : undefined;
 		if (parsedChoices.length === 1) {
