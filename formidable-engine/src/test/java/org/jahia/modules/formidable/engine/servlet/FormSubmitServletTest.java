@@ -2,6 +2,7 @@ package org.jahia.modules.formidable.engine.servlet;
 
 import org.jahia.modules.formidable.engine.api.FormAction;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService;
 import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 
@@ -174,7 +175,7 @@ class FormSubmitServletTest {
         @Override
         FormSubmissionPipeline createPipeline() {
             pipelineInvoked = true;
-            return new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of()) {
+            return new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class)) {
                 @Override
                 void run(HttpServletRequest req) throws SubmissionException {
                     if (submissionFailure != null) {

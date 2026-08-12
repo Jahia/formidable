@@ -2,6 +2,7 @@ package org.jahia.modules.formidable.engine.servlet;
 
 import org.jahia.modules.formidable.engine.actions.FormDataParser;
 import org.jahia.modules.formidable.engine.logic.ConditionalLogicRule;
+import org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService;
 import org.jahia.modules.formidable.engine.util.JcrProps;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRTemplate;
@@ -33,6 +34,7 @@ class FormFieldMetadataCollector {
     private static final Logger log = LoggerFactory.getLogger(FormFieldMetadataCollector.class);
     private static final String CHOICES_PROPERTY = "choices";
     private static final String UNIFIED_OPTIONS_PROPERTY = "fmdb:options";
+    private static final String SOURCED_OPTIONS_MIXIN = "fmdbmix:sourcedOptions";
 
     record Result(
             Map<String, FormDataParser.FieldInfo> fieldInfos,
@@ -45,20 +47,46 @@ class FormFieldMetadataCollector {
         }
     }
 
-    static Result collect(String formId, Locale locale) throws RepositoryException {
+    /**
+     * Delivers the options of a sourced choice field at collection time (D11: submitted
+     * values are validated against the re-resolved list). Kept as a seam so the collector
+     * stays unit-testable without the OSGi service.
+     */
+    @FunctionalInterface
+    interface SourcedOptionsResolver {
+        /**
+         * @return the options as JSON-encoded strings, or null when the field does not
+         *         use an options source
+         */
+        String[] resolve(JCRNodeWrapper fieldNode) throws Exception;
+    }
+
+    // Without a resolver, a sourced field behaves as unresolvable: reject rather than accept blindly.
+    private static final SourcedOptionsResolver NO_RESOLVER = node -> {
+        throw new IllegalStateException("No options source resolver available");
+    };
+
+    static Result collect(String formId, Locale locale, FormidableOptionsSourceService optionsSourceService)
+            throws RepositoryException {
         return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale, systemSession -> {
             JCRNodeWrapper formNode = systemSession.getNodeByIdentifier(formId);
-            return collectFromFormNode(formNode);
+            return collectFromFormNode(formNode,
+                    node -> optionsSourceService.resolveForField(node, locale.toLanguageTag()));
         });
     }
 
     static Result collectFromFormNode(JCRNodeWrapper formNode) throws RepositoryException {
+        return collectFromFormNode(formNode, NO_RESOLVER);
+    }
+
+    static Result collectFromFormNode(JCRNodeWrapper formNode, SourcedOptionsResolver optionsResolver)
+            throws RepositoryException {
         var fieldInfos = new HashMap<String, FormDataParser.FieldInfo>();
         var fieldLogicRules = new HashMap<String, List<ConditionalLogicRule>>();
         var logicIdToFieldName = new HashMap<String, String>();
         var fieldParentContainers = new HashMap<String, Set<String>>();
 
-        var ctx = new CollectorContext(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers);
+        var ctx = new CollectorContext(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, optionsResolver);
 
         if (!formNode.hasNode(FIELDS_NODE)) {
             log.debug("[FormFieldMetadataCollector] No '{}' child on form node '{}'",
@@ -85,7 +113,8 @@ class FormFieldMetadataCollector {
             Map<String, FormDataParser.FieldInfo> fieldInfos,
             Map<String, List<ConditionalLogicRule>> fieldLogicRules,
             Map<String, String> logicIdToFieldName,
-            Map<String, Set<String>> fieldParentContainers
+            Map<String, Set<String>> fieldParentContainers,
+            SourcedOptionsResolver optionsResolver
     ) {}
 
     private static void traverseRecursively(JCRNodeWrapper node, String parentContainerName, CollectorContext ctx)
@@ -148,7 +177,7 @@ class FormFieldMetadataCollector {
             }
         }
 
-        ctx.fieldInfos.put(name, buildFieldInfo(node, nodeType));
+        ctx.fieldInfos.put(name, buildFieldInfo(node, nodeType, ctx.optionsResolver));
     }
 
     private static void resolveLogicsSrc(JCRNodeWrapper node, List<ConditionalLogicRule> rules, CollectorContext ctx)
@@ -179,15 +208,30 @@ class FormFieldMetadataCollector {
         Value[] values = node.getProperty(propName).getValues();
         Set<String> choices = new HashSet<>();
         for (Value v : values) {
-            try {
-                JSONObject obj = new JSONObject(v.getString());
-                String val = obj.optString("value", "").trim();
-                if (!val.isEmpty()) choices.add(val);
-            } catch (Exception e) {
-                log.debug("[FormFieldMetadataCollector] Could not parse choice JSON for field '{}'", fieldName);
-            }
+            addChoiceValue(choices, v.getString(), fieldName);
         }
         return choices.isEmpty() ? Set.of() : choices;
+    }
+
+    private static Set<String> extractChoiceValues(String[] jsonOptions, String fieldName) {
+        if (jsonOptions == null) {
+            return Set.of();
+        }
+        Set<String> choices = new HashSet<>();
+        for (String option : jsonOptions) {
+            addChoiceValue(choices, option, fieldName);
+        }
+        return choices.isEmpty() ? Set.of() : choices;
+    }
+
+    private static void addChoiceValue(Set<String> choices, String jsonOption, String fieldName) {
+        try {
+            JSONObject obj = new JSONObject(jsonOption);
+            String val = obj.optString("value", "").trim();
+            if (!val.isEmpty()) choices.add(val);
+        } catch (Exception e) {
+            log.debug("[FormFieldMetadataCollector] Could not parse choice JSON for field '{}'", fieldName);
+        }
     }
 
     private static Set<String> collectAcceptTypes(JCRNodeWrapper node) throws RepositoryException {
@@ -210,7 +254,8 @@ class FormFieldMetadataCollector {
         return accepted.isEmpty() ? Set.of() : accepted;
     }
 
-    private static FormDataParser.FieldInfo buildFieldInfo(JCRNodeWrapper node, String nodeType) throws RepositoryException {
+    private static FormDataParser.FieldInfo buildFieldInfo(JCRNodeWrapper node, String nodeType,
+            SourcedOptionsResolver optionsResolver) throws RepositoryException {
         boolean nonSubmittable = node.isNodeType(NON_SUBMITTABLE_MIXIN);
         boolean choiceField = node.isNodeType("fmdbmix:choiceField");
         boolean fileField = node.isNodeType("fmdbmix:fileField");
@@ -221,7 +266,25 @@ class FormFieldMetadataCollector {
         boolean numberField = node.isNodeType("fmdbmix:numberField");
         boolean booleanField = node.isNodeType("fmdbmix:booleanField");
 
-        Set<String> choices = choiceField ? collectChoices(node, node.getName(), resolveChoicePropertyName(node)) : Set.of();
+        Set<String> choices = Set.of();
+        boolean choicesUnresolvable = false;
+        if (choiceField) {
+            if (node.isNodeType(SOURCED_OPTIONS_MIXIN)) {
+                // D11: submitted values are checked against the re-resolved source. When the
+                // source cannot deliver, the field is flagged so the validator rejects any
+                // non-empty value (and an empty one on a required field) instead of accepting
+                // blindly what an empty allowlist would let through.
+                try {
+                    choices = extractChoiceValues(optionsResolver.resolve(node), node.getName());
+                } catch (Exception e) {
+                    log.warn("[FormFieldMetadataCollector] Options source of field '{}' failed at validation time: {}",
+                            node.getName(), e.getMessage());
+                    choicesUnresolvable = true;
+                }
+            } else {
+                choices = collectChoices(node, node.getName(), resolveChoicePropertyName(node));
+            }
+        }
         Set<String> acceptedTypes = fileField ? collectAcceptTypes(node) : Set.of();
         FormDataParser.FieldConstraints constraints = readConstraints(node, dateField, datetimeLocalField, numberField);
 
@@ -237,6 +300,7 @@ class FormFieldMetadataCollector {
                 numberField,
                 booleanField,
                 choices,
+                choicesUnresolvable,
                 acceptedTypes,
                 constraints
         );

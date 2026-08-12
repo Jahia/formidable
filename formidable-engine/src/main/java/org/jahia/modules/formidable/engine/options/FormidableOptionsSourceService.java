@@ -2,6 +2,7 @@ package org.jahia.modules.formidable.engine.options;
 
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService.OptionsSource;
+import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListInitializer;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListInitializerService;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListValue;
@@ -54,6 +55,29 @@ public class FormidableOptionsSourceService {
     @Reference
     public void setConfig(FormidableConfigService config) {
         this.config = config;
+    }
+
+    /**
+     * Resolves the options of a choice field node according to its active options mode.
+     * This is the mode dispatch: additional modes (e.g. a category root picked by
+     * weakreference) plug in here without touching the callers.
+     *
+     * @param fieldNode   the choice field node
+     * @param languageTag BCP-47 language tag of the rendered or submitted form
+     * @return the options as JSON-encoded strings, or null when the field does not use
+     *         an options source (manual mode)
+     * @throws javax.jcr.RepositoryException    when the field node cannot be read
+     * @throws IllegalArgumentException         when the field references an undeclared source
+     * @throws IllegalStateException            when the source is declared but cannot deliver
+     */
+    public String[] resolveForField(JCRNodeWrapper fieldNode, String languageTag) throws javax.jcr.RepositoryException {
+        if (!fieldNode.isNodeType("fmdbmix:sourcedOptions")) {
+            return null;
+        }
+        String sourceKey = fieldNode.hasProperty("fmdb:optionsSourceKey")
+                ? fieldNode.getProperty("fmdb:optionsSourceKey").getString()
+                : "";
+        return resolve(sourceKey, languageTag);
     }
 
     /**

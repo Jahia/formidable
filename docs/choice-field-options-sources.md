@@ -85,7 +85,10 @@ field renders an inline error instead of an empty list:
 - **optional field**: the form stays usable without it.
 
 Submitted values are validated server-side against the re-resolved list, exactly
-like manual options.
+like manual options, with no tolerance: a non-empty value absent from the list is
+rejected (FMDB-010), and when the source cannot be resolved at validation time a
+non-empty value is rejected as unverifiable. An empty or absent value follows the
+field's `required` flag, like any other field.
 
 ## Writing a source initializer
 
