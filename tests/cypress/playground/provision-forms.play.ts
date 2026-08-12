@@ -102,7 +102,8 @@ const categoryChoiceField = (
 	primaryNodeType: 'fmdb:select' | 'fmdb:radio' | 'fmdb:checkbox',
 	name: string,
 	title: string,
-	rootCategoryUuid: string
+	rootCategoryUuid: string,
+	extraProperties: JahiaNode['properties'] = []
 ): JahiaNode => ({
 	name,
 	primaryNodeType,
@@ -110,7 +111,8 @@ const categoryChoiceField = (
 	properties: [
 		{name: 'jcr:title', value: title, language: 'en'},
 		{name: 'fmdb:optionsMode', value: 'category'},
-		{name: 'fmdb:optionsRootCategory', value: rootCategoryUuid, type: 'WEAKREFERENCE'}
+		{name: 'fmdb:optionsRootCategory', value: rootCategoryUuid, type: 'WEAKREFERENCE'},
+		...extraProperties
 	]
 });
 
@@ -247,7 +249,9 @@ describe('Playground - provision manual-testing forms', () => {
 					getInputFileNode(INPUT_FILE_MULTIPLE),
 					sourcedChoiceField('fmdb:select', 'country', 'Country (sourced: countries)', 'countries'),
 					sourcedChoiceField('fmdb:radio', 'tvType', 'TV type (sourced: categories product/tv)', 'tv'),
-					categoryChoiceField('fmdb:radio', 'tvCategory', 'TV category (category mode: product/tv)', tvCategoryUuid)
+					categoryChoiceField('fmdb:select', 'tvCategory', 'TV category (category mode, multiple select)', tvCategoryUuid, [
+						{name: 'multiple', value: 'true', type: 'BOOLEAN'}
+					])
 				],
 				undefined,
 				undefined,

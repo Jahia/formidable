@@ -4,6 +4,13 @@
         "label": "Libellé affiché à l'utilisateur",
         "selected": "Si activé, l'option est sélectionnée par défaut"
     },
+    "sourcedOptions": {
+        "selectSource": "Sélectionnez une source d'options",
+        "previewLoading": "Résolution des options…",
+        "previewUnavailable": "Les options de cette source sont momentanément indisponibles.",
+        "previewCount": "Options résolues : {{count}}",
+        "previewLabel": "Aperçu des options résolues"
+    },
     "fmdbmix_optionsSource": {
         "fmdb_optionsMode": {
             "manual": "Options manuelles",

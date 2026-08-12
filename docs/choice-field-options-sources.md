@@ -63,6 +63,13 @@ initializer list, most of which is context-dependent and meaningless as a form
 options source. An empty `optionsSources` disables sourced options entirely
 (fail-safe default).
 
+In the Content Editor, the source is picked with the `SourcedOptions` selector,
+which also previews the options the picked source currently resolves to (count
+plus a closed browse-only list). The preview goes through jcontent's
+`forms.fieldConstraints` with a `sourceKey` context entry, re-evaluated by the
+`formidableOptionsPreview` initializer chained on `fmdb:optionsSourceKey` — during
+a normal form build that initializer passes the source list through untouched.
+
 ### Initializer parameters
 
 The parameter is **one opaque string**: everything after the third `|` is passed

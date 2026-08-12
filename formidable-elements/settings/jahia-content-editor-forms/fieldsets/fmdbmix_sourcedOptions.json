@@ -1,0 +1,9 @@
+{
+	"name": "fmdbmix:sourcedOptions",
+	"fields": [
+		{
+			"name": "fmdb:optionsSourceKey",
+			"selectorType": "SourcedOptions"
+		}
+	]
+}

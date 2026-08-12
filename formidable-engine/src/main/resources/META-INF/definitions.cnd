@@ -57,7 +57,7 @@ orderable
 
 [fmdbmix:sourcedOptions] > jmix:dynamicFieldset mixin
  extends = fmdbmix:optionsSource
- - fmdb:optionsSourceKey (string, choicelist[formidableOptionsSources]) indexed=no
+ - fmdb:optionsSourceKey (string, choicelist[formidableOptionsSources,formidableOptionsPreview]) indexed=no
 
 [fmdbmix:categoryOptions] > jmix:dynamicFieldset mixin
  extends = fmdbmix:optionsSource
