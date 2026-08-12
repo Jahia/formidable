@@ -20,7 +20,9 @@ const WIDGET_POLL_INTERVAL_MS = 100;
 export default function Captcha({siteKey, widgetVar, widgetTimeoutSeconds, onVerify, onExpire, ref}: CaptchaProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const tokenRef = useRef('');
-	const widgetIdRef = useRef<string | undefined>(undefined);
+	// Kept as returned by the provider: Google reCAPTCHA ids are numbers (0 for the
+	// first widget), Turnstile ids are strings; reset()/remove() expect the native type.
+	const widgetIdRef = useRef<string | number | undefined>(undefined);
 
 	useImperativeHandle(ref, () => ({
 		getToken: () => tokenRef.current,
@@ -55,7 +57,7 @@ export default function Captcha({siteKey, widgetVar, widgetTimeoutSeconds, onVer
 					'callback': token => { tokenRef.current = token; onVerify?.(); },
 					'expired-callback': () => { tokenRef.current = ''; onExpire?.(); },
 				};
-				widgetIdRef.current = String(api.render(el, opts));
+				widgetIdRef.current = api.render(el, opts);
 				return;
 			}
 
@@ -71,7 +73,8 @@ export default function Captcha({siteKey, widgetVar, widgetTimeoutSeconds, onVer
 
 		return () => {
 			clearTimeout(pollTimer);
-			if (widgetIdRef.current) {
+			// Compare against undefined: Google's first widget id is the number 0.
+			if (widgetIdRef.current !== undefined) {
 				const api = (window as unknown as Record<string, unknown>)[widgetVar] as CaptchaWidgetApi | undefined;
 				api?.remove?.(widgetIdRef.current);
 				widgetIdRef.current = undefined;
