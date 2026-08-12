@@ -155,8 +155,9 @@ public @interface FormidableConfig {
             description = "Newline-separated list of options sources a contributor can pick to fill a choice field. " +
                     "Each entry has the form: id|Label|initializerKey or id|Label|initializerKey|param, " +
                     "where initializerKey is the key of a Jahia choicelist initializer (for example country, language) " +
-                    "and param its optional parameter. The id is stored in JCR; only sources listed here are exposed. " +
-                    "Leave empty to disable sourced options (fail-safe default).",
+                    "and param its optional parameter. A Label of the form module:resource.key is resolved against " +
+                    "that module's resource bundle in the language of the edited content. The id is stored in JCR; " +
+                    "only sources listed here are exposed. Leave empty to disable sourced options (fail-safe default).",
             type = AttributeType.STRING
     )
     String optionsSources() default "";

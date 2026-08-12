@@ -4,6 +4,7 @@ import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.services.content.nodetypes.ExtendedPropertyDefinition;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListValue;
 import org.jahia.services.content.nodetypes.initializers.ModuleChoiceListInitializer;
+import org.jahia.utils.i18n.Messages;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
@@ -13,6 +14,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * Populates the fmdb:optionsSourceKey choice list for sourced choice fields from the
@@ -22,7 +24,11 @@ import java.util.Map;
  * most of which is context-dependent and meaningless as a form options source.
  *
  * Each entry exposes the source id as the stored JCR value and the admin-defined label
- * as the display name shown in the Content Editor.
+ * as the display name shown in the Content Editor. A label of the form
+ * {@code <module>:<resource.key>} is resolved against that module's Java resource
+ * bundle in the locale the editor hands to choicelist initializers — the language of
+ * the edited content (falling back to the raw label), so source labels can be
+ * localized.
  *
  * Registered as: choicelist[formidableOptionsSources] in the CND.
  */
@@ -31,6 +37,10 @@ public class FormidableOptionsSourcesInitializer implements ModuleChoiceListInit
 
     private static final String KEY = "formidableOptionsSources";
     private static final Logger log = LoggerFactory.getLogger(FormidableOptionsSourcesInitializer.class);
+
+    // '<module>:<resource.key>' — intentionally strict so a literal label containing a
+    // colon (e.g. 'Type: TV') is never mistaken for a resource key.
+    private static final Pattern LABEL_KEY_PATTERN = Pattern.compile("^([A-Za-z0-9_-]+):([A-Za-z0-9_.-]+)$");
 
     private FormidableConfigService configService;
 
@@ -48,8 +58,22 @@ public class FormidableOptionsSourcesInitializer implements ModuleChoiceListInit
                     + "The choicelist '{}' for property '{}' will be empty.", KEY, epd.getName());
         }
         return sources.stream()
-                .map(source -> new ChoiceListValue(source.label(), source.id()))
+                .map(source -> new ChoiceListValue(resolveLabel(source.label(), locale), source.id()))
                 .toList();
+    }
+
+    private static String resolveLabel(String label, Locale locale) {
+        var matcher = LABEL_KEY_PATTERN.matcher(label);
+        if (!matcher.matches()) {
+            return label;
+        }
+        try {
+            return Messages.get("resources." + matcher.group(1), matcher.group(2),
+                    locale != null ? locale : Locale.ENGLISH, label);
+        } catch (Exception e) {
+            log.debug("[FormidableOptionsSourcesInitializer] Could not resolve label key '{}'", label, e);
+            return label;
+        }
     }
 
     @Override

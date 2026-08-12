@@ -38,6 +38,16 @@ Each entry has the form `id|Label|initializerKey` or `id|Label|initializerKey|pa
 | `initializerKey` | Key of the Jahia choicelist initializer to evaluate (e.g. `country`) |
 | `param` | Optional parameter string handed to the initializer |
 
+The label is either a literal, or a resource-bundle key of the form
+`<module>:<resource.key>` (for example
+`formidable-test-module-samples-java:sample.optionsSource.tv`) resolved
+server-side against that module's Java resource bundle; an unresolvable key falls
+back to the raw label, so a misconfiguration stays visible. The resolution
+language is the one the Content Editor hands to choicelist initializers — the
+language of the content being edited. A literal containing a colon (e.g.
+`Type: TV`) is not mistaken for a key — the key form is strictly `module:key`
+without spaces.
+
 Only declared sources are exposed to contributors — never the raw platform-wide
 initializer list, most of which is context-dependent and meaningless as a form
 options source. An empty `optionsSources` disables sourced options entirely

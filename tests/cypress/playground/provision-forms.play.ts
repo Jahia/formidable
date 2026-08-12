@@ -76,8 +76,10 @@ const fullNameField = (): JahiaNode => {
 };
 
 const OPTIONS_SOURCES_CONFIG = [
+	// Literal label
 	'countries|Countries|country',
-	'tv|TV screens|fmdbSampleCategoryTree|product/tv'
+	// Localized label: resolved against the module's resource bundle in the editor UI language
+	'tv|formidable-test-module-samples-java:sample.optionsSource.tv|fmdbSampleCategoryTree|product/tv'
 ].join('\n');
 
 const sourcedChoiceField = (
