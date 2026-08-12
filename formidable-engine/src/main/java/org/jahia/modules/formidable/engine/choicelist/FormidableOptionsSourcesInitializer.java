@@ -1,9 +1,14 @@
 package org.jahia.modules.formidable.engine.choicelist;
 
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.services.content.JCRSessionFactory;
+import org.jahia.services.content.decorator.JCRUserNode;
 import org.jahia.services.content.nodetypes.ExtendedPropertyDefinition;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListValue;
 import org.jahia.services.content.nodetypes.initializers.ModuleChoiceListInitializer;
+import org.jahia.services.preferences.user.UserPreferencesHelper;
+import org.jahia.services.usermanager.JahiaUser;
+import org.jahia.services.usermanager.JahiaUserManagerService;
 import org.jahia.utils.i18n.Messages;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
@@ -26,9 +31,11 @@ import java.util.regex.Pattern;
  * Each entry exposes the source id as the stored JCR value and the admin-defined label
  * as the display name shown in the Content Editor. A label of the form
  * {@code <module>:<resource.key>} is resolved against that module's Java resource
- * bundle in the locale the editor hands to choicelist initializers — the language of
- * the edited content (falling back to the raw label), so source labels can be
- * localized.
+ * bundle in the current user's UI language (falling back to the locale the editor
+ * hands to initializers — the edited content language). The UI language is used on
+ * purpose: it is what resolves the neighboring editor labels (displayValueKey is
+ * translated client-side with the UI language), so all labels of a fieldset follow
+ * the same language.
  *
  * Registered as: choicelist[formidableOptionsSources] in the CND.
  */
@@ -62,18 +69,35 @@ public class FormidableOptionsSourcesInitializer implements ModuleChoiceListInit
                 .toList();
     }
 
-    private static String resolveLabel(String label, Locale locale) {
+    private static String resolveLabel(String label, Locale contentLocale) {
         var matcher = LABEL_KEY_PATTERN.matcher(label);
         if (!matcher.matches()) {
             return label;
         }
         try {
             return Messages.get("resources." + matcher.group(1), matcher.group(2),
-                    locale != null ? locale : Locale.ENGLISH, label);
+                    uiLocale(contentLocale), label);
         } catch (Exception e) {
             log.debug("[FormidableOptionsSourcesInitializer] Could not resolve label key '{}'", label, e);
             return label;
         }
+    }
+
+    private static Locale uiLocale(Locale fallback) {
+        Locale safeFallback = fallback != null ? fallback : Locale.ENGLISH;
+        try {
+            JahiaUser user = JCRSessionFactory.getInstance().getCurrentUser();
+            if (user != null) {
+                JCRUserNode userNode = JahiaUserManagerService.getInstance().lookupUserByPath(user.getLocalPath());
+                if (userNode != null) {
+                    return UserPreferencesHelper.getPreferredLocale(userNode, safeFallback);
+                }
+            }
+        } catch (Exception e) {
+            log.debug("[FormidableOptionsSourcesInitializer] Could not resolve the current user's UI locale", e);
+        }
+
+        return safeFallback;
     }
 
     @Override

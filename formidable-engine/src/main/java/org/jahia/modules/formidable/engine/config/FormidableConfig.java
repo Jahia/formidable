@@ -156,7 +156,7 @@ public @interface FormidableConfig {
                     "Each entry has the form: id|Label|initializerKey or id|Label|initializerKey|param, " +
                     "where initializerKey is the key of a Jahia choicelist initializer (for example country, language) " +
                     "and param its optional parameter. A Label of the form module:resource.key is resolved against " +
-                    "that module's resource bundle in the language of the edited content. The id is stored in JCR; " +
+                    "that module's resource bundle in the editor's UI language. The id is stored in JCR; " +
                     "only sources listed here are exposed. Leave empty to disable sourced options (fail-safe default).",
             type = AttributeType.STRING
     )
