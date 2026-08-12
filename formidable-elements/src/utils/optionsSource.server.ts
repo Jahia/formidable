@@ -3,8 +3,9 @@ import type {JCRNodeWrapper} from "org.jahia.services.content";
 import {parseChoices, type ParsedChoice} from "./choiceUtils";
 
 const OPTIONS_SOURCE_SERVICE = "org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService";
-const SOURCED_OPTIONS_MIXIN = "fmdbmix:sourcedOptions";
-const OPTIONS_SOURCE_KEY_PROPERTY = "fmdb:optionsSourceKey";
+// Mixins whose options are resolved by the engine at render time; the actual mode
+// dispatch lives in FormidableOptionsSourceService.resolveForField.
+const RESOLVED_OPTIONS_MIXINS = ["fmdbmix:sourcedOptions", "fmdbmix:categoryOptions"];
 
 export interface FieldOptions {
 	choices: ParsedChoice[];
@@ -23,22 +24,22 @@ export interface FieldOptions {
  * parsing and rendering path.
  */
 export const resolveFieldOptions = (currentNode: JCRNodeWrapper, manualOptions: string[]): FieldOptions => {
-	let sourceKey = "";
 	try {
-		if (!currentNode.isNodeType(SOURCED_OPTIONS_MIXIN)) {
+		if (!RESOLVED_OPTIONS_MIXINS.some(mixin => currentNode.isNodeType(mixin))) {
 			return {choices: parseChoices(manualOptions), sourceError: false};
 		}
-		sourceKey = currentNode.hasProperty(OPTIONS_SOURCE_KEY_PROPERTY)
-			? currentNode.getProperty(OPTIONS_SOURCE_KEY_PROPERTY).getString()
-			: "";
 	} catch (error) {
-		console.error(`[Formidable] Could not read the options source of field ${currentNode.getPath()}`, error);
+		console.error(`[Formidable] Could not read the options mode of field ${currentNode.getPath()}`, error);
 		return {choices: [], sourceError: true};
 	}
 
 	try {
 		const service = server.osgi.getService(OPTIONS_SOURCE_SERVICE);
-		const resolved = service.resolve(sourceKey, currentNode.getLanguage());
+		const resolved = service.resolveForField(currentNode, currentNode.getLanguage());
+		if (resolved === null || resolved === undefined) {
+			return {choices: parseChoices(manualOptions), sourceError: false};
+		}
+
 		const values: string[] = [];
 		for (let i = 0; i < resolved.length; i++) {
 			values.push(String(resolved[i]));
@@ -46,7 +47,7 @@ export const resolveFieldOptions = (currentNode: JCRNodeWrapper, manualOptions: 
 
 		return {choices: parseChoices(values), sourceError: false};
 	} catch (error) {
-		console.error(`[Formidable] Options source '${sourceKey}' failed for field ${currentNode.getPath()}`, error);
+		console.error(`[Formidable] Options source failed for field ${currentNode.getPath()}`, error);
 		return {choices: [], sourceError: true};
 	}
 };

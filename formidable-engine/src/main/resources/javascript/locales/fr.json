@@ -7,7 +7,8 @@
     "fmdbmix_optionsSource": {
         "fmdb_optionsMode": {
             "manual": "Options manuelles",
-            "sourced": "Options depuis une source"
+            "sourced": "Options depuis une source",
+            "category": "Options depuis des catégories"
         }
     },
     "conditionalLogic": {

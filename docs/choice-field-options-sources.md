@@ -1,10 +1,15 @@
 # Choice field options sources
 
 Choice fields (`fmdb:select`, `fmdb:radio`, `fmdb:checkbox`) can fill their option
-list from an **options source** instead of manually typed options. A source is a
-curated Jahia choicelist initializer, declared by the administrator in the module
-configuration; the options are resolved live, at render time, in the language of
-the rendered form.
+list from an **options source** instead of manually typed options. The options are
+resolved live, at render time, in the language of the rendered form. Two source
+kinds exist:
+
+- **declared sources**: curated Jahia choicelist initializers, declared by the
+  administrator in the module configuration;
+- **categories**: the contributor picks a root category, the options are the
+  categories directly underneath — no configuration involved, since categories
+  are already contributor-curated content governed by JCR permissions.
 
 ## Storage model
 
@@ -13,8 +18,12 @@ The mode lives on the engine-owned mixin pair (industrial's mediaSource pattern)
 - `fmdbmix:optionsSource` carries the `fmdb:optionsMode` switch (`manual` default);
 - `fmdbmix:manualOptions` carries the unified `fmdb:options` property
   (i18n, multiple, JSON-encoded `{"value","label","selected"}` strings);
-- `fmdbmix:sourcedOptions` carries only `fmdb:optionsSourceKey` — nothing else is
-  stored, the option list never materializes in the JCR.
+- `fmdbmix:sourcedOptions` carries only `fmdb:optionsSourceKey`;
+- `fmdbmix:categoryOptions` carries only `fmdb:optionsRootCategory`, a
+  weakreference to a `jnt:category` node picked with the category picker.
+
+In both non-manual modes nothing else is stored — the option list never
+materializes in the JCR.
 
 The Content Editor switches the two `jmix:dynamicFieldset` mixins through the
 `addMixin` wiring declared in the fieldset JSON overrides of formidable-elements.
@@ -67,6 +76,16 @@ initializer defines its own convention. The core `nodes` initializer uses `;`
 same behavior as the CND `choicelist[initializer='param']` syntax, where the quotes
 also carry a single string. (Not to be confused with the comma in
 `choicelist[init1,init2]`, which separates chained initializers, not parameters.)
+
+## Category mode
+
+The options of a category-mode field are the categories **directly under** the
+picked root: the category name is the submitted value, its localized title the
+displayed label. The weakreference resolves in the workspace of the caller, so a
+live form only shows **published** categories, and an unpublished or deleted root
+category degrades like any failing source (see below). Category options are not
+TTL-cached: the read is in-JVM, backed by Jahia's JCR caches, and a category
+publication shows up on the next render.
 
 ## Resolution, cache and failures
 

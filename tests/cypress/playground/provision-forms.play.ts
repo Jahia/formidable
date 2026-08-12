@@ -19,7 +19,7 @@
  * the server across runs, site member as editor) with fmdb-results-reader
  * granted on the simple form only — to test the results access rights.
  */
-import {addNode, createSite, createUser, deleteSite, enableModule, grantRoles, publishAndWaitJobEnding} from '@jahia/cypress';
+import {addNode, createSite, createUser, deleteSite, enableModule, getNodeByPath, grantRoles, publishAndWaitJobEnding} from '@jahia/cypress';
 import {
 	CHECKBOX_GROUP_COMPLETE,
 	CHECKBOX_SINGLE_COMPLETE,
@@ -95,6 +95,22 @@ const sourcedChoiceField = (
 		{name: 'jcr:title', value: title, language: 'en'},
 		{name: 'fmdb:optionsMode', value: 'sourced'},
 		{name: 'fmdb:optionsSourceKey', value: sourceKey}
+	]
+});
+
+const categoryChoiceField = (
+	primaryNodeType: 'fmdb:select' | 'fmdb:radio' | 'fmdb:checkbox',
+	name: string,
+	title: string,
+	rootCategoryUuid: string
+): JahiaNode => ({
+	name,
+	primaryNodeType,
+	mixins: ['fmdbmix:categoryOptions'],
+	properties: [
+		{name: 'jcr:title', value: title, language: 'en'},
+		{name: 'fmdb:optionsMode', value: 'category'},
+		{name: 'fmdb:optionsRootCategory', value: rootCategoryUuid, type: 'WEAKREFERENCE'}
 	]
 });
 
@@ -212,26 +228,31 @@ describe('Playground - provision manual-testing forms', () => {
 	});
 
 	it('provisions the complete form (all field types + sourced options)', () => {
-		createPublishedLiveFormPage(
-			'playground-complete',
-			'Playground - Complete form',
-			[
-				getInputTextNode({...INPUT_TEXT_COMPLETE, defaultValue: undefined}),
-				getInputEmailNode({...INPUT_EMAIL_COMPLETE, defaultValue: undefined}),
-				getInputDateNode({...INPUT_DATE_COMPLETE, defaultValue: undefined}),
-				getInputDatetimeLocalNode({...INPUT_DATETIME_LOCAL_COMPLETE, defaultValue: undefined}),
-				getInputColorNode(INPUT_COLOR_COMPLETE),
-				getCheckboxNode(CHECKBOX_GROUP_COMPLETE),
-				getRadioNode(RADIO_GROUP),
-				getSelectNode(SELECT_SINGLE),
-				getTextareaNode({...TEXTAREA_COMPLETE, defaultValue: undefined}),
-				getInputFileNode(INPUT_FILE_MULTIPLE),
-				sourcedChoiceField('fmdb:select', 'country', 'Country (sourced: countries)', 'countries'),
-				sourcedChoiceField('fmdb:radio', 'tvType', 'TV type (sourced: categories product/tv)', 'tv')
-			],
-			undefined,
-			undefined,
-			{actions: [saveToJcrAction()]}
-		).then(({livePath}) => cy.log(`Complete form: /en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`));
+		getNodeByPath(`${CATEGORY_ROOT}/product/tv`).then(response => {
+			const tvCategoryUuid: string = response.data.jcr.nodeByPath.uuid;
+
+			createPublishedLiveFormPage(
+				'playground-complete',
+				'Playground - Complete form',
+				[
+					getInputTextNode({...INPUT_TEXT_COMPLETE, defaultValue: undefined}),
+					getInputEmailNode({...INPUT_EMAIL_COMPLETE, defaultValue: undefined}),
+					getInputDateNode({...INPUT_DATE_COMPLETE, defaultValue: undefined}),
+					getInputDatetimeLocalNode({...INPUT_DATETIME_LOCAL_COMPLETE, defaultValue: undefined}),
+					getInputColorNode(INPUT_COLOR_COMPLETE),
+					getCheckboxNode(CHECKBOX_GROUP_COMPLETE),
+					getRadioNode(RADIO_GROUP),
+					getSelectNode(SELECT_SINGLE),
+					getTextareaNode({...TEXTAREA_COMPLETE, defaultValue: undefined}),
+					getInputFileNode(INPUT_FILE_MULTIPLE),
+					sourcedChoiceField('fmdb:select', 'country', 'Country (sourced: countries)', 'countries'),
+					sourcedChoiceField('fmdb:radio', 'tvType', 'TV type (sourced: categories product/tv)', 'tv'),
+					categoryChoiceField('fmdb:radio', 'tvCategory', 'TV category (category mode: product/tv)', tvCategoryUuid)
+				],
+				undefined,
+				undefined,
+				{actions: [saveToJcrAction()]}
+			).then(({livePath}) => cy.log(`Complete form: /en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`));
+		});
 	});
 });

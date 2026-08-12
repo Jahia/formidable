@@ -71,13 +71,56 @@ public class FormidableOptionsSourceService {
      * @throws IllegalStateException            when the source is declared but cannot deliver
      */
     public String[] resolveForField(JCRNodeWrapper fieldNode, String languageTag) throws javax.jcr.RepositoryException {
-        if (!fieldNode.isNodeType("fmdbmix:sourcedOptions")) {
-            return null;
+        if (fieldNode.isNodeType("fmdbmix:sourcedOptions")) {
+            String sourceKey = fieldNode.hasProperty("fmdb:optionsSourceKey")
+                    ? fieldNode.getProperty("fmdb:optionsSourceKey").getString()
+                    : "";
+            return resolve(sourceKey, languageTag);
         }
-        String sourceKey = fieldNode.hasProperty("fmdb:optionsSourceKey")
-                ? fieldNode.getProperty("fmdb:optionsSourceKey").getString()
-                : "";
-        return resolve(sourceKey, languageTag);
+        if (fieldNode.isNodeType("fmdbmix:categoryOptions")) {
+            return resolveCategoryOptions(fieldNode);
+        }
+
+        return null;
+    }
+
+    /**
+     * Category mode: the options are the categories directly under the root category the
+     * contributor picked. Values are the category names, labels their localized titles.
+     * The weakreference is resolved through the field's own session, so the resolution
+     * follows the caller's workspace (live render only sees published categories) and
+     * language. Not TTL-cached: this is an in-JVM read backed by Jahia's JCR caches, and
+     * staying fresh means a category publication shows up on the next render.
+     */
+    private static String[] resolveCategoryOptions(JCRNodeWrapper fieldNode) throws javax.jcr.RepositoryException {
+        if (!fieldNode.hasProperty("fmdb:optionsRootCategory")) {
+            throw new IllegalStateException("Choice field '" + fieldNode.getPath()
+                    + "' is in category mode but no root category is selected");
+        }
+
+        JCRNodeWrapper root;
+        try {
+            root = (JCRNodeWrapper) fieldNode.getProperty("fmdb:optionsRootCategory").getNode();
+        } catch (javax.jcr.RepositoryException e) {
+            throw new IllegalStateException("Root category of choice field '" + fieldNode.getPath()
+                    + "' cannot be read (deleted, or not published in this workspace)", e);
+        }
+
+        java.util.List<String> options = new java.util.ArrayList<>();
+        javax.jcr.NodeIterator children = root.getNodes();
+        while (children.hasNext()) {
+            javax.jcr.Node child = children.nextNode();
+            if (child instanceof JCRNodeWrapper category && category.isNodeType("jnt:category")) {
+                String value = category.getName();
+                String label = category.getDisplayableName();
+                options.add(new JSONObject(Map.of(
+                        "value", value,
+                        "label", label != null && !label.isEmpty() ? label : value,
+                        "selected", false)).toString());
+            }
+        }
+
+        return options.toArray(String[]::new);
     }
 
     /**

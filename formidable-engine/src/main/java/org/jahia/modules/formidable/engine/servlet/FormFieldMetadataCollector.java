@@ -34,7 +34,9 @@ class FormFieldMetadataCollector {
     private static final Logger log = LoggerFactory.getLogger(FormFieldMetadataCollector.class);
     private static final String CHOICES_PROPERTY = "choices";
     private static final String UNIFIED_OPTIONS_PROPERTY = "fmdb:options";
-    private static final String SOURCED_OPTIONS_MIXIN = "fmdbmix:sourcedOptions";
+    // Mixins whose options are resolved by the engine instead of being stored on the
+    // node; must stay aligned with FormidableOptionsSourceService.resolveForField.
+    private static final String[] RESOLVED_OPTIONS_MIXINS = {"fmdbmix:sourcedOptions", "fmdbmix:categoryOptions"};
 
     record Result(
             Map<String, FormDataParser.FieldInfo> fieldInfos,
@@ -202,6 +204,16 @@ class FormFieldMetadataCollector {
         }
     }
 
+    private static boolean usesResolvedOptions(JCRNodeWrapper node) throws RepositoryException {
+        for (String mixin : RESOLVED_OPTIONS_MIXINS) {
+            if (node.isNodeType(mixin)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static Set<String> collectChoices(JCRNodeWrapper node, String fieldName, String propName)
             throws RepositoryException {
         if (!node.hasProperty(propName)) return Set.of();
@@ -269,7 +281,7 @@ class FormFieldMetadataCollector {
         Set<String> choices = Set.of();
         boolean choicesUnresolvable = false;
         if (choiceField) {
-            if (node.isNodeType(SOURCED_OPTIONS_MIXIN)) {
+            if (usesResolvedOptions(node)) {
                 // D11: submitted values are checked against the re-resolved source. When the
                 // source cannot deliver, the field is flagged so the validator rejects any
                 // non-empty value (and an empty one on a required field) instead of accepting

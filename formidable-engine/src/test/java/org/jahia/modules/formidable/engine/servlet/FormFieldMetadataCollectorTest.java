@@ -181,6 +181,28 @@ class FormFieldMetadataCollectorTest {
     }
 
     @Test
+    void collectsCategoryModeChoicesThroughTheResolver() throws Exception {
+        // Verifies the gate stays aligned with the service dispatch: a category-mode
+        // field also gets its allowlist from the resolver, not from stored options.
+        JCRNodeWrapper categoryField = node(
+                "tvCategory",
+                "fmdb:radio",
+                Set.of("fmdbmix:formElement", "fmdbmix:choiceField", "fmdbmix:categoryOptions"),
+                Map.of(),
+                List.of()
+        );
+
+        FormFieldMetadataCollector.Result result = FormFieldMetadataCollector.collectFromFormNode(
+                formNodeWithFields(categoryField),
+                node -> new String[]{"{\"value\":\"oled\",\"label\":\"OLED\",\"selected\":false}"}
+        );
+
+        // Expected outcome: the resolved category values are the allowlist.
+        assertEquals(Set.of("oled"), result.toParserMetadata().allowedChoices("tvCategory"));
+        assertFalse(result.toParserMetadata().choicesUnresolvable("tvCategory"));
+    }
+
+    @Test
     void flagsSourcedChoiceFieldWhenTheSourceCannotDeliver() throws Exception {
         // Verifies the D11 failure path: a failing source flags the field instead of
         // leaving an empty allowlist that would accept anything.

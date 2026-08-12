@@ -2,6 +2,8 @@ package org.jahia.modules.formidable.engine.options;
 
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService.OptionsSource;
+import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.services.content.JCRPropertyWrapper;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListInitializer;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListValue;
 import org.json.JSONObject;
@@ -166,6 +168,99 @@ class FormidableOptionsSourceServiceTest {
         IllegalStateException error = assertThrows(IllegalStateException.class,
                 () -> service.resolve("countries", "en"));
         assertTrue(error.getMessage().contains("country"));
+    }
+
+    @Test
+    void resolveForFieldReturnsNullForManualFields() throws Exception {
+        // Verifies the mode dispatch: a field without a source mixin is manual, the
+        // caller keeps its stored options.
+        FormidableOptionsSourceService service = new FormidableOptionsSourceService();
+        JCRNodeWrapper field = mock(JCRNodeWrapper.class);
+        when(field.isNodeType(anyString())).thenReturn(false);
+
+        assertEquals(null, service.resolveForField(field, "en"));
+    }
+
+    @Test
+    void resolveForFieldListsDirectChildCategories() throws Exception {
+        // Verifies the category mode contract: direct jnt:category children become
+        // options, value = category name, label = localized title.
+        FormidableOptionsSourceService service = new FormidableOptionsSourceService();
+        JCRNodeWrapper root = mock(JCRNodeWrapper.class);
+        JCRNodeWrapper oled = categoryNode("oled", "OLED");
+        JCRNodeWrapper translation = mock(JCRNodeWrapper.class);
+        when(translation.isNodeType(anyString())).thenReturn(false);
+        org.jahia.services.content.JCRNodeIteratorWrapper children =
+                nodeIterator(java.util.List.of(oled, translation));
+        when(root.getNodes()).thenReturn(children);
+
+        JCRNodeWrapper field = fieldWithRootCategory(root);
+
+        String[] options = service.resolveForField(field, "en");
+
+        // Expected outcome: only the category child is exposed, in the manual JSON format.
+        assertEquals(1, options.length);
+        JSONObject option = new JSONObject(options[0]);
+        assertEquals("oled", option.getString("value"));
+        assertEquals("OLED", option.getString("label"));
+        assertEquals(false, option.getBoolean("selected"));
+    }
+
+    @Test
+    void resolveForFieldFailsWhenNoRootCategoryIsSelected() throws Exception {
+        // Verifies the misconfiguration path: category mode without a picked root is a
+        // resolution failure (D10/D11), never an empty list.
+        FormidableOptionsSourceService service = new FormidableOptionsSourceService();
+        JCRNodeWrapper field = mock(JCRNodeWrapper.class);
+        when(field.isNodeType("fmdbmix:categoryOptions")).thenReturn(true);
+        when(field.hasProperty("fmdb:optionsRootCategory")).thenReturn(false);
+        when(field.getPath()).thenReturn("/form/fields/tv");
+
+        assertThrows(IllegalStateException.class, () -> service.resolveForField(field, "en"));
+    }
+
+    @Test
+    void resolveForFieldFailsWhenRootCategoryIsUnreachable() throws Exception {
+        // Verifies the broken-weakref path: a deleted or unpublished root category is a
+        // resolution failure, so live forms degrade (D10) instead of showing nothing.
+        FormidableOptionsSourceService service = new FormidableOptionsSourceService();
+        JCRNodeWrapper field = mock(JCRNodeWrapper.class);
+        when(field.isNodeType("fmdbmix:categoryOptions")).thenReturn(true);
+        when(field.hasProperty("fmdb:optionsRootCategory")).thenReturn(true);
+        when(field.getPath()).thenReturn("/form/fields/tv");
+        JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
+        when(field.getProperty("fmdb:optionsRootCategory")).thenReturn(property);
+        when(property.getNode()).thenThrow(new javax.jcr.ItemNotFoundException("gone"));
+
+        assertThrows(IllegalStateException.class, () -> service.resolveForField(field, "en"));
+    }
+
+    private static org.jahia.services.content.JCRNodeIteratorWrapper nodeIterator(
+            java.util.List<? extends javax.jcr.Node> nodes) {
+        org.jahia.services.content.JCRNodeIteratorWrapper iterator =
+                mock(org.jahia.services.content.JCRNodeIteratorWrapper.class);
+        java.util.Iterator<? extends javax.jcr.Node> delegate = nodes.iterator();
+        when(iterator.hasNext()).thenAnswer(invocation -> delegate.hasNext());
+        when(iterator.nextNode()).thenAnswer(invocation -> delegate.next());
+        return iterator;
+    }
+
+    private static JCRNodeWrapper categoryNode(String name, String title) throws Exception {
+        JCRNodeWrapper category = mock(JCRNodeWrapper.class);
+        when(category.isNodeType("jnt:category")).thenReturn(true);
+        when(category.getName()).thenReturn(name);
+        when(category.getDisplayableName()).thenReturn(title);
+        return category;
+    }
+
+    private static JCRNodeWrapper fieldWithRootCategory(JCRNodeWrapper root) throws Exception {
+        JCRNodeWrapper field = mock(JCRNodeWrapper.class);
+        when(field.isNodeType("fmdbmix:categoryOptions")).thenReturn(true);
+        when(field.hasProperty("fmdb:optionsRootCategory")).thenReturn(true);
+        JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
+        when(field.getProperty("fmdb:optionsRootCategory")).thenReturn(property);
+        when(property.getNode()).thenReturn(root);
+        return field;
     }
 
     @Test
