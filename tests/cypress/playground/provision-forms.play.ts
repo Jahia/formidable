@@ -24,6 +24,8 @@ import {
 	CHECKBOX_GROUP_COMPLETE,
 	CHECKBOX_SINGLE_COMPLETE,
 	FORMIDABLE_TEST_SITE,
+	getCategoryChoiceFieldNode,
+	getCategoryNode,
 	getCheckboxNode,
 	getInputColorNode,
 	getInputDateNode,
@@ -33,6 +35,7 @@ import {
 	getInputTextNode,
 	getRadioNode,
 	getSelectNode,
+	getSourcedChoiceFieldNode,
 	getStepNode,
 	getTextareaNode,
 	INPUT_COLOR_COMPLETE,
@@ -43,6 +46,7 @@ import {
 	INPUT_TEXT_COMPLETE,
 	RADIO_GROUP,
 	SELECT_SINGLE,
+	setOptionsSourcesConfig,
 	TEXTAREA_COMPLETE
 } from '../support/fixtures';
 import {createPublishedLiveFormPage} from '../support/fixtures/forms';
@@ -80,50 +84,7 @@ const OPTIONS_SOURCES_CONFIG = [
 	'countries|Countries|country',
 	// Localized label: resolved against the module's resource bundle in the editor UI language
 	'tv|formidable-test-module-samples-java:sample.optionsSource.tv|fmdbSampleCategoryTree|product/tv'
-].join('\n');
-
-const sourcedChoiceField = (
-	primaryNodeType: 'fmdb:select' | 'fmdb:radio' | 'fmdb:checkbox',
-	name: string,
-	title: string,
-	sourceKey: string
-): JahiaNode => ({
-	name,
-	primaryNodeType,
-	mixins: ['fmdbmix:sourcedOptions'],
-	properties: [
-		{name: 'jcr:title', value: title, language: 'en'},
-		{name: 'fmdb:optionsMode', value: 'sourced'},
-		{name: 'fmdb:optionsSourceKey', value: sourceKey}
-	]
-});
-
-const categoryChoiceField = (
-	primaryNodeType: 'fmdb:select' | 'fmdb:radio' | 'fmdb:checkbox',
-	name: string,
-	title: string,
-	rootCategoryUuid: string,
-	extraProperties: JahiaNode['properties'] = []
-): JahiaNode => ({
-	name,
-	primaryNodeType,
-	mixins: ['fmdbmix:categoryOptions'],
-	properties: [
-		{name: 'jcr:title', value: title, language: 'en'},
-		{name: 'fmdb:optionsMode', value: 'category'},
-		{name: 'fmdb:optionsRootCategory', value: rootCategoryUuid, type: 'WEAKREFERENCE'},
-		...extraProperties
-	]
-});
-
-const category = (name: string, titleEn: string, titleFr: string): JahiaNode => ({
-	name,
-	primaryNodeType: 'jnt:category',
-	properties: [
-		{name: 'jcr:title', value: titleEn, language: 'en'},
-		{name: 'jcr:title', value: titleFr, language: 'fr'}
-	]
-});
+];
 
 describe('Playground - provision manual-testing forms', () => {
 	before(() => {
@@ -137,24 +98,16 @@ describe('Playground - provision manual-testing forms', () => {
 	});
 
 	it('declares the options sources in the module configuration', () => {
-		cy.runProvisioningScript({
-			script: {
-				fileContent: JSON.stringify([{
-					editConfiguration: 'org.jahia.modules.formidable',
-					properties: {optionsSources: OPTIONS_SOURCES_CONFIG}
-				}]),
-				type: 'application/json'
-			}
-		});
+		setOptionsSourcesConfig(OPTIONS_SOURCES_CONFIG);
 	});
 
 	it('creates and publishes the sample category tree product/tv', () => {
 		// Categories are global; creations are idempotent (existing nodes are kept).
-		addNode({parentPathOrId: CATEGORY_ROOT, ...category('product', 'Product', 'Produit')});
-		addNode({parentPathOrId: `${CATEGORY_ROOT}/product`, ...category('tv', 'TV', 'Téléviseur')});
-		addNode({parentPathOrId: `${CATEGORY_ROOT}/product/tv`, ...category('plasma', 'Plasma', 'Plasma')});
-		addNode({parentPathOrId: `${CATEGORY_ROOT}/product/tv`, ...category('oled', 'OLED', 'OLED')});
-		addNode({parentPathOrId: `${CATEGORY_ROOT}/product/tv`, ...category('led', 'LED', 'LED')});
+		addNode({parentPathOrId: CATEGORY_ROOT, ...getCategoryNode('product', 'Product', 'Produit')});
+		addNode({parentPathOrId: `${CATEGORY_ROOT}/product`, ...getCategoryNode('tv', 'TV', 'Téléviseur')});
+		addNode({parentPathOrId: `${CATEGORY_ROOT}/product/tv`, ...getCategoryNode('plasma', 'Plasma', 'Plasma')});
+		addNode({parentPathOrId: `${CATEGORY_ROOT}/product/tv`, ...getCategoryNode('oled', 'OLED', 'OLED')});
+		addNode({parentPathOrId: `${CATEGORY_ROOT}/product/tv`, ...getCategoryNode('led', 'LED', 'LED')});
 		publishAndWaitJobEnding(`${CATEGORY_ROOT}/product`, ['en', 'fr']);
 	});
 
@@ -247,11 +200,9 @@ describe('Playground - provision manual-testing forms', () => {
 					getSelectNode(SELECT_SINGLE),
 					getTextareaNode({...TEXTAREA_COMPLETE, defaultValue: undefined}),
 					getInputFileNode(INPUT_FILE_MULTIPLE),
-					sourcedChoiceField('fmdb:select', 'country', 'Country (sourced: countries)', 'countries'),
-					sourcedChoiceField('fmdb:radio', 'tvType', 'TV type (sourced: categories product/tv)', 'tv'),
-					categoryChoiceField('fmdb:select', 'tvCategory', 'TV category (category mode, multiple select)', tvCategoryUuid, [
-						{name: 'multiple', value: 'true', type: 'BOOLEAN'}
-					])
+					getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'country', title: 'Country (sourced: countries)', sourceKey: 'countries'}),
+					getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:radio', name: 'tvType', title: 'TV type (sourced: categories product/tv)', sourceKey: 'tv'}),
+					getCategoryChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'tvCategory', title: 'TV category (category mode, multiple select)', rootCategoryUuid: tvCategoryUuid, multiple: true})
 				],
 				undefined,
 				undefined,
