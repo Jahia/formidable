@@ -22,6 +22,7 @@ import {getSourceDescriptor, operatorNeedsValue} from './sourceDescriptors';
 import {getLogicProvider, listLogicProviders, type LogicProviderDescriptor, PROVIDER_OPERATORS} from './providers';
 import {CURRENT_NODE_BY_PATH, FORM_TREE_BY_PATH} from './graphql';
 import type {ConditionalLogicRule, GraphNode, LogicOperator, RuleSourceType, SelectorProps, SourceFieldOption} from './ConditionalLogic.types';
+import './conditionalLogic.css';
 
 
 
@@ -563,7 +564,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     aria-describedby={showProviderRefError ? `${id}-provider-ref-error` : undefined}
                     value={rule[provider.configKey] ?? ''}
                     size="big"
-                    style={showProviderRefError ? {borderColor: 'var(--color-danger)'} : undefined}
+                    className={showProviderRefError ? 'fmdbProviderRefError' : undefined}
                     onChange={event => updateProviderRule({[provider.configKey]: event.target.value})}
                     onBlur={() => setProviderRefTouched(true)}
                 />
