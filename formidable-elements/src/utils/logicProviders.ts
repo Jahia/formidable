@@ -35,12 +35,14 @@ export interface ScalarLogicProvider {
 	subscribe?(refs: string[], onChange: () => void): () => void;
 }
 
-const JS_VARIABLE_PATH_PATTERN = /^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/;
+// Segments are identifiers, or digits so array entries are reachable in dotted
+// form (e.g. "dataLayer.0.event" for a GTM datalayer push).
+const JS_VARIABLE_PATH_PATTERN = /^[A-Za-z_$][\w$]*(\.([A-Za-z_$][\w$]*|\d+))*$/;
 
 /**
- * Safely resolves a dotted variable path (e.g. "window.cxs.profileProperties.firstName")
- * against the window object. Returns undefined when any segment is missing or the
- * path is not a plain dotted identifier chain.
+ * Safely resolves a dotted variable path (e.g. "window.cxs.profileProperties.firstName",
+ * "dataLayer.0.event") against the window object. Returns undefined when any segment is
+ * missing or the path is not a plain dotted chain of identifiers and array indexes.
  */
 export const resolveJsVariableValue = (variable: string): unknown => {
 	if (typeof window === 'undefined') return undefined;

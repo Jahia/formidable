@@ -58,7 +58,7 @@ and the rule carries that provider's single config key instead of any source-fie
 | `sourceType` | Config key | Designates |
 |---|---|---|
 | absent, or `field` | — (uses `sourceFieldKey` & co.) | another field of the same form |
-| `jsVariable` | `variable` | a dotted `window.*` path, e.g. a datalayer entry |
+| `jsVariable` | `variable` | a dotted `window.*` path; segments may be numeric array indexes, e.g. `dataLayer.0.event` |
 | `urlParam` | `param` | a query-string parameter of the page URL |
 | `cookie` | `cookie` | a cookie readable from JavaScript |
 
