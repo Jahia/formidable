@@ -52,7 +52,7 @@
                 "configPlaceholder": "consent-marketing"
             }
         },
-        "providerRefMissing": "Required: a rule without a name cannot be evaluated and keeps the field hidden.",
+        "providerRefMissing": "Required: a rule without a name cannot be evaluated and will be removed when saving.",
         "providerRefInvalid": "This name is not in the expected format and cannot be read on the page.",
         "unknownSourceType": "This condition uses a source (\"{{type}}\") that this module version does not provide — it was probably created with a newer version. The rule is kept unchanged and its field stays hidden.",
         "operators": {

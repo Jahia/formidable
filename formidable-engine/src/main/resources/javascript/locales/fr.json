@@ -52,7 +52,7 @@
                 "configPlaceholder": "consent-marketing"
             }
         },
-        "providerRefMissing": "Obligatoire : une règle sans nom ne peut pas être évaluée et laisse le champ masqué.",
+        "providerRefMissing": "Obligatoire : une règle sans nom ne peut pas être évaluée et sera supprimée à l'enregistrement.",
         "providerRefInvalid": "Ce nom n'est pas au format attendu et ne pourra pas être lu sur la page.",
         "unknownSourceType": "Cette condition utilise une source (\"{{type}}\") que cette version du module ne fournit pas — elle a probablement été créée avec une version plus récente. La règle est conservée telle quelle et son champ reste masqué.",
         "operators": {
