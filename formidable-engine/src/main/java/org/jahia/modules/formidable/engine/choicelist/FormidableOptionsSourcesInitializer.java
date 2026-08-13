@@ -55,7 +55,9 @@ public class FormidableOptionsSourcesInitializer implements ModuleChoiceListInit
             List<ChoiceListValue> values, Locale locale, Map<String, Object> context) {
         Collection<FormidableConfigService.OptionsSource> sources = configService.getOptionsSources();
         if (sources.isEmpty()) {
-            log.warn("[FormidableOptionsSourcesInitializer] No options sources are configured. "
+            // Empty is the documented fail-safe default, and this runs on every editor
+            // form build: not a warning.
+            log.debug("[FormidableOptionsSourcesInitializer] No options sources are configured. "
                     + "The choicelist '{}' for property '{}' will be empty.", KEY, epd.getName());
         }
         return sources.stream()

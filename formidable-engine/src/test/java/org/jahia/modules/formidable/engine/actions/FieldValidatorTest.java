@@ -319,6 +319,33 @@ class FieldValidatorTest {
         assertDoesNotThrow(() -> FieldValidator.validateTextField("country", "", metadata));
     }
 
+    @Test
+    void rejectsNonEmptyValueOnChoiceFieldWithEmptyAllowlist() {
+        // A choice field whose option list resolves to nothing renders nothing
+        // selectable: any non-empty submitted value is forged. The empty allowlist
+        // must not disable the check.
+        FormDataParser.FieldInfo info = new FormDataParser.FieldInfo(
+                "fmdb:select", false, true, false, false, false, false, false,
+                Set.of(), Set.of(), null);
+        FormDataParser.FieldMetadata metadata = metadata("emptyChoices", info);
+
+        // Expected outcome: the value is rejected even though the allowlist is empty.
+        assertThrows(FormDataParser.ParseException.class,
+                () -> FieldValidator.validateTextField("emptyChoices", "anything", metadata));
+    }
+
+    @Test
+    void acceptsAnyValueOnNonChoiceFieldWithoutAllowlist() {
+        // Non-choice fields carry an empty allowlist by construction: the choice
+        // check must not apply to them.
+        FormDataParser.FieldInfo info = fieldInfo(
+                "fmdb:inputText", false, false, false, false, false, false, false, null);
+        FormDataParser.FieldMetadata metadata = metadata("freeText", info);
+
+        // Expected outcome: the free-text value passes.
+        assertDoesNotThrow(() -> FieldValidator.validateTextField("freeText", "anything", metadata));
+    }
+
     private static FormDataParser.FieldInfo unresolvableChoiceFieldInfo(boolean required) {
         FormDataParser.FieldConstraints constraints = required
                 ? new FormDataParser.FieldConstraints(true, -1, -1, null, null, null)

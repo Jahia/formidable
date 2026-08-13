@@ -66,8 +66,12 @@ final class FieldValidator {
             );
         }
 
-        Set<String> choices = metadata.allowedChoices(fieldName);
-        if (!choices.isEmpty() && !choices.contains(value)) {
+        // Gate on the field being a choice field, not on the allowlist being non-empty:
+        // a choice field whose list resolves to nothing renders nothing selectable, so
+        // any non-empty submitted value is forged and must be rejected — an empty
+        // allowlist must not disable the check.
+        FormDataParser.FieldInfo choiceInfo = metadata.field(fieldName);
+        if (choiceInfo != null && choiceInfo.choiceField() && !metadata.allowedChoices(fieldName).contains(value)) {
             log.warn("[FieldValidator] Rejected submitted value: not in allowed choices");
             throw new FormDataParser.ParseException(
                     "Field '" + fieldName + "': submitted value is not an allowed choice.",

@@ -70,10 +70,16 @@ class FormFieldMetadataCollector {
 
     static Result collect(String formId, Locale locale, FormidableOptionsSourceService optionsSourceService)
             throws RepositoryException {
+        // The service reference is mandatory on the servlet, but degrade to the
+        // unresolvable-safe resolver anyway: without it only sourced/category fields
+        // become unverifiable, instead of every submission failing.
+        SourcedOptionsResolver resolver = optionsSourceService == null
+                ? NO_RESOLVER
+                : node -> optionsSourceService.resolveForField(node, locale.toLanguageTag());
+
         return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale, systemSession -> {
             JCRNodeWrapper formNode = systemSession.getNodeByIdentifier(formId);
-            return collectFromFormNode(formNode,
-                    node -> optionsSourceService.resolveForField(node, locale.toLanguageTag()));
+            return collectFromFormNode(formNode, resolver);
         });
     }
 
