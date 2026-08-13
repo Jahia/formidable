@@ -177,11 +177,34 @@ public final class FormLogicSyncService {
         List<String> updatedJsonValues = new ArrayList<>();
         Set<String> activeLogicIds = new HashSet<>();
         boolean jsonUpdated = false;
+        int droppedLeftovers = 0;
         boolean updated = keyAssigned;
 
         for (Value value : values) {
+            String rawJson = value.getString();
+            if (rawJson == null || rawJson.isBlank()) {
+                droppedLeftovers++;
+                continue;
+            }
+
+            // Rules whose target was never chosen can only hide the field: they are
+            // removed at save. Corrupt entries are kept untouched rather than lost.
+            JSONObject parsedRule = null;
+            try {
+                parsedRule = new JSONObject(rawJson);
+            } catch (RuntimeException e) {
+                log.debug("[FormLogicSync] Keeping unparseable logics entry on '{}' untouched: {}",
+                        targetNode.getPath(), e.getMessage());
+            }
+
+            if (parsedRule != null && FormLogicRuleCleanup.isTargetlessLeftover(parsedRule)) {
+                droppedLeftovers++;
+                continue;
+            }
+
             FormLogicJsonEntry entry = FormLogicJsonEntry.parse(value, targetNode.getPath());
             if (entry == null) {
+                updatedJsonValues.add(rawJson);
                 continue;
             }
 
@@ -198,9 +221,14 @@ public final class FormLogicSyncService {
             updatedJsonValues.add(entry.toJsonString());
         }
 
-        if (jsonUpdated) {
+        if (jsonUpdated || droppedLeftovers > 0) {
             targetNode.setProperty(LOGICS_PROPERTY, updatedJsonValues.toArray(new String[0]));
             updated = true;
+        }
+
+        if (droppedLeftovers > 0) {
+            log.info("[FormLogicSync] Removed {} targetless logic rule(s) on '{}'",
+                    droppedLeftovers, targetNode.getPath());
         }
 
         Set<String> orphans = FormLogicReferenceStore.findOrphanLogicIds(targetNode, activeLogicIds);

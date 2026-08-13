@@ -550,12 +550,13 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         </div>
     );
 
-    // The stored rule is what the runtime gets, so problems are surfaced here rather
-    // than blocked: an empty reference makes the rule unevaluable (the field stays
-    // hidden), an invalid one can never be read on the page. The message lives in a
-    // reserved line below the whole row, so its presence never moves the fields, and
-    // only shows once the contributor has left the reference input (a rule opened
-    // with a stored reference is validated right away).
+    // Problems are surfaced here rather than blocked: an invalid reference can never
+    // be read on the page (the rule fails closed and hides the field), and a rule
+    // left with an empty reference is removed server-side when the element is saved
+    // (FormLogicRuleCleanup). The message lives in a reserved line below the whole
+    // row, so its presence never moves the fields, and only shows once the
+    // contributor has left the reference input (a rule opened with a stored
+    // reference is validated right away).
     const providerRef = selectedProvider ? (rule[selectedProvider.configKey] ?? '').trim() : '';
     const providerRefError = !selectedProvider
         ? null

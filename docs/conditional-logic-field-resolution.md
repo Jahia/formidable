@@ -213,12 +213,31 @@ their first sync.
 When `logics` is added, changed, or removed:
 
 1. ensure the target element has a `fieldKey`
-2. parse each JSON rule
-3. ensure every rule has a `logicId`
-4. resolve the source field (see resolution order)
-5. update `sourceNodeId` and `sourceFieldKey` in the JSON if needed
-6. create or update `logicsSrc/<logicId>`
-7. remove orphan `logicsSrc` children not referenced by any remaining JSON rule
+2. drop targetless leftover rules (see below)
+3. parse each JSON rule
+4. ensure every rule has a `logicId`
+5. resolve the source field (see resolution order)
+6. update `sourceNodeId` and `sourceFieldKey` in the JSON if needed
+7. create or update `logicsSrc/<logicId>`
+8. remove orphan `logicsSrc` children not referenced by any remaining JSON rule
+
+### Targetless leftovers are removed at save
+
+A rule whose target was never chosen can do nothing but hide its field in live
+(rules fail closed), so the save-time synchronization removes it instead of
+storing it: a field rule without a source field, or a rule of one of the
+providers **this module version ships** whose reference is empty (`variable`,
+`param`, `cookie`). These are the leftovers of an "Add" click that was never
+configured.
+
+The cleanup is deliberately narrow, everything else round-trips untouched:
+
+- a reference that is **filled but invalid** is kept — it carries intent, the
+  editor shows it in error and the runtime fails closed;
+- a rule with an **unknown source type** (authored by a newer module version)
+  is never touched: this version cannot tell an empty configuration from one
+  it simply cannot read;
+- an unparseable entry is kept as stored rather than silently lost.
 
 ### After duplication, import, or session-save copy
 
