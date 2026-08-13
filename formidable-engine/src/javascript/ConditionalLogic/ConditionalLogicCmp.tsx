@@ -108,6 +108,13 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     const language = extractLanguage(props);
     const workspace = extractWorkspace(props);
     const rule = useMemo(() => parseRule(value), [value]);
+    // Whether the provider-reference input was visited: its error only shows after
+    // that (a rule opened with a stored reference is validated right away). Declared
+    // with the other hooks — the component has early returns further down.
+    const [providerRefTouched, setProviderRefTouched] = useState(() => {
+        const provider = getLogicProvider(parseRule(value).sourceType);
+        return provider ? (parseRule(value)[provider.configKey] ?? '').trim() !== '' : false;
+    });
 
     // Resolve the selected source: sourceFieldKey is the business identity and wins,
     // then the stored UUID, then weakref resolution via logicId, then the legacy name.
@@ -529,7 +536,6 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     // only shows once the contributor has left the reference input (a rule opened
     // with a stored reference is validated right away).
     const providerRef = selectedProvider ? (rule[selectedProvider.configKey] ?? '').trim() : '';
-    const [providerRefTouched, setProviderRefTouched] = useState(() => providerRef !== '');
     const providerRefError = !selectedProvider
         ? null
         : (providerRef === ''

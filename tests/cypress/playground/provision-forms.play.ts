@@ -136,7 +136,7 @@ describe('Playground - provision manual-testing forms', () => {
 			// Results access: fmdb-results-reader on the form node, propagated to the
 			// results by the ACL sync once the form is (re)published.
 			grantRoles(formPath, ['fmdb-results-reader'], RESULTS_READER.name, 'USER');
-			publishAndWaitJobEnding(formPath);
+			publishAndWaitJobEnding(formPath, ['en', 'fr']);
 
 			cy.log(`Simple form: /en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`);
 			cy.log(`Results reader: ${RESULTS_READER.name} / ${RESULTS_READER.password} (access to playground-simple results only)`);
@@ -178,7 +178,9 @@ describe('Playground - provision manual-testing forms', () => {
 			],
 			undefined,
 			undefined,
-			{actions: [saveToJcrAction()]}
+			// Both site languages: the actions get localized default titles at creation,
+			// so an en-only publication would leave their fr translation unpublished.
+			{actions: [saveToJcrAction()], publishLanguages: ['en', 'fr']}
 		).then(({livePath}) => cy.log(`Multi-step form: /en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`));
 	});
 
@@ -206,7 +208,7 @@ describe('Playground - provision manual-testing forms', () => {
 				],
 				undefined,
 				undefined,
-				{actions: [saveToJcrAction()]}
+				{actions: [saveToJcrAction()], publishLanguages: ['en', 'fr']}
 			).then(({livePath}) => cy.log(`Complete form: /en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`));
 		});
 	});
