@@ -447,6 +447,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
             <>
                 <div className="flexFluid">
                     <Dropdown
+                        variant="outlined"
                         data={sourceOptions}
                         value={selectedSource?.id}
                         placeholder={t('conditionalLogic.selectSource')}
@@ -456,6 +457,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                 </div>
                 <div className="flexFluid">
                     <Dropdown
+                        variant="outlined"
                         data={operatorOptions}
                         value={selectedOperator}
                         placeholder={t('conditionalLogic.operator')}
@@ -467,6 +469,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                 {showValueDropdown && (
                     <div className="flexFluid">
                         <Dropdown
+                            variant="outlined"
                             data={valueOptions}
                             values={rule.values ?? []}
                             placeholder={t('conditionalLogic.values')}
@@ -518,19 +521,22 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         </div>
     );
 
+    // The stored rule is what the runtime gets, so problems are surfaced here rather
+    // than blocked: an empty reference makes the rule unevaluable (the field stays
+    // hidden), an invalid one can never be read on the page. The message lives in a
+    // reserved line below the whole row, so its presence never moves the fields.
+    const providerRef = selectedProvider ? (rule[selectedProvider.configKey] ?? '').trim() : '';
+    const providerRefError = !selectedProvider
+        ? null
+        : (providerRef === ''
+            ? t('conditionalLogic.providerRefMissing')
+            : (selectedProvider.isValidRef && !selectedProvider.isValidRef(providerRef)
+                ? t('conditionalLogic.providerRefInvalid')
+                : null));
+
     // One shape for every provider: the name of the thing designated, an operator, and a
     // value when the operator compares against one. Adding a provider adds no markup here.
     const renderProviderRule = (provider: LogicProviderDescriptor) => {
-        // The stored rule is what the runtime gets, so problems are surfaced here rather
-        // than blocked: an empty reference makes the rule unevaluable (the field stays
-        // hidden), an invalid one can never be read on the page.
-        const providerRef = (rule[provider.configKey] ?? '').trim();
-        const providerRefError = providerRef === ''
-            ? t('conditionalLogic.providerRefMissing')
-            : (provider.isValidRef && !provider.isValidRef(providerRef)
-                ? t('conditionalLogic.providerRefInvalid')
-                : null);
-
         return (
         <>
             <div className="flexFluid">
@@ -545,14 +551,10 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     size="big"
                     onChange={event => updateProviderRule({[provider.configKey]: event.target.value})}
                 />
-                {providerRefError && (
-                    <Typography id={`${id}-provider-ref-error`} variant="caption" style={{color: 'var(--color-danger)'}}>
-                        {providerRefError}
-                    </Typography>
-                )}
             </div>
             <div className="flexFluid">
                 <Dropdown
+                    variant="outlined"
                     data={providerOperatorOptions}
                     value={providerOperator}
                     placeholder={t('conditionalLogic.operator')}
@@ -583,18 +585,34 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     };
 
     return (
-        <div className="flexRow_nowrap flexFluid alignCenter" style={{gap: '0.75rem'}}>
-            <div style={{minWidth: '10rem'}}>
-                <Dropdown
-                    data={sourceTypeOptions}
-                    value={ruleSourceType}
-                    isDisabled={field.readOnly}
-                    onChange={handleSourceTypeChange}
-                />
+        <div className="flexCol flexFluid">
+            <div className="flexRow_nowrap flexFluid alignCenter" style={{gap: '0.75rem'}}>
+                <div style={{minWidth: '10rem'}}>
+                    <Dropdown
+                        variant="outlined"
+                        data={sourceTypeOptions}
+                        value={ruleSourceType}
+                        isDisabled={field.readOnly}
+                        onChange={handleSourceTypeChange}
+                    />
+                </div>
+                {selectedProvider
+                    ? renderProviderRule(selectedProvider)
+                    : (isUnknownSourceType ? renderUnknownSourceRule() : renderFieldRule())}
             </div>
-            {selectedProvider
-                ? renderProviderRule(selectedProvider)
-                : (isUnknownSourceType ? renderUnknownSourceRule() : renderFieldRule())}
+            {/* Reserved line: keeps every rule row the same height whether or not an
+                error is shown, so messages never shift the fields around. */}
+            <Typography
+                id={`${id}-provider-ref-error`}
+                variant="caption"
+                style={{
+                    minHeight: '1.25rem',
+                    color: 'var(--color-danger)',
+                    visibility: providerRefError ? 'visible' : 'hidden'
+                }}
+            >
+                {providerRefError ?? ''}
+            </Typography>
         </div>
     );
 };

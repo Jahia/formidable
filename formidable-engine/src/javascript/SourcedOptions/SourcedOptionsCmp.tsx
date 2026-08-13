@@ -169,6 +169,7 @@ export const SourcedOptionsCmp = ({field, id, value, onChange, editorContext}: S
                                 maxHeight: '160px',
                                 overflowY: 'auto',
                                 backgroundColor: 'var(--moon-color-gray_light40)',
+                                border: 'var(--border-selector, 1px solid var(--color-gray))',
                                 borderRadius: '2px'
                             }}
                         >
