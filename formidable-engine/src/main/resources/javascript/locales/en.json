@@ -14,7 +14,8 @@
         "fmdb_optionsMode": {
             "manual": "Manual options",
             "sourced": "Options from a third-party source",
-            "category": "Options from categories"
+            "category": "Options from categories",
+            "content": "Options from site content"
         }
     },
     "conditionalLogic": {

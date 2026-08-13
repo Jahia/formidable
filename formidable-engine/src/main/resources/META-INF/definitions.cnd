@@ -63,6 +63,11 @@ orderable
  extends = fmdbmix:optionsSource
  - fmdb:optionsRootCategory (weakreference, picker[type='category']) < 'jnt:category'
 
+[fmdbmix:contentOptions] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:optionsSource
+ - fmdb:optionsRootNode (weakreference, picker[type='editorial'])
+ - fmdb:optionsNodeType (string) indexed=no
+
 [fmdbmix:choiceField] > fmdbmix:optionsSource mixin
 // Semantic value-kind mixins: a field type carrying one becomes eligible as a
 // conditional-logic source with the operators of that kind (number: comparisons,

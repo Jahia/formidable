@@ -526,6 +526,11 @@ class FormidableConfigServiceTest {
         }
 
         @Override
+        public int optionsQueryMaxResults() {
+            return FormidableConfig.DEFAULT_OPTIONS_QUERY_MAX_RESULTS;
+        }
+
+        @Override
         public Class<? extends java.lang.annotation.Annotation> annotationType() {
             return FormidableConfig.class;
         }

@@ -36,7 +36,8 @@ class FormFieldMetadataCollector {
     private static final String UNIFIED_OPTIONS_PROPERTY = "fmdb:options";
     // Mixins whose options are resolved by the engine instead of being stored on the
     // node; must stay aligned with FormidableOptionsSourceService.resolveForField.
-    private static final String[] RESOLVED_OPTIONS_MIXINS = {"fmdbmix:sourcedOptions", "fmdbmix:categoryOptions"};
+    private static final String[] RESOLVED_OPTIONS_MIXINS =
+            {"fmdbmix:sourcedOptions", "fmdbmix:categoryOptions", "fmdbmix:contentOptions"};
 
     record Result(
             Map<String, FormDataParser.FieldInfo> fieldInfos,

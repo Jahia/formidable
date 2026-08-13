@@ -17,6 +17,7 @@ public @interface FormidableConfig {
     long DEFAULT_HTTP_CONNECT_TIMEOUT_SECONDS = 5L;
     long DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS = 10L;
     long DEFAULT_OPTIONS_SOURCES_CACHE_TTL_SECONDS = 300L;
+    int DEFAULT_OPTIONS_QUERY_MAX_RESULTS = 100;
 
     // --- CAPTCHA ---
 
@@ -171,6 +172,15 @@ public @interface FormidableConfig {
             type = AttributeType.LONG
     )
     long optionsSourcesCacheTtlSeconds() default DEFAULT_OPTIONS_SOURCES_CACHE_TTL_SECONDS;
+
+    @AttributeDefinition(
+            name = "Options query max results",
+            description = "Maximum number of options a content-mode choice field may resolve. Above the limit the " +
+                    "field fails explicitly like a failing source, so contributors re-scope their root instead of " +
+                    "visitors silently missing options. Default: 100.",
+            type = AttributeType.INTEGER
+    )
+    int optionsQueryMaxResults() default DEFAULT_OPTIONS_QUERY_MAX_RESULTS;
 
     // ---
 

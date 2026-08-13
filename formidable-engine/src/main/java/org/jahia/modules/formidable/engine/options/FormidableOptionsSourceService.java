@@ -80,8 +80,105 @@ public class FormidableOptionsSourceService {
         if (fieldNode.isNodeType("fmdbmix:categoryOptions")) {
             return resolveCategoryOptions(fieldNode);
         }
+        if (fieldNode.isNodeType("fmdbmix:contentOptions")) {
+            return resolveContentOptions(fieldNode, config.getOptionsQueryMaxResults());
+        }
 
         return null;
+    }
+
+    /**
+     * Runs the content-mode JCR-SQL2 query through the given session. A seam so the
+     * service stays unit-testable without Jahia's query machinery (same pattern as the
+     * initializer lookup).
+     */
+    @FunctionalInterface
+    interface ContentQueryRunner {
+        javax.jcr.NodeIterator run(org.jahia.services.content.JCRSessionWrapper session, String sql2)
+                throws javax.jcr.RepositoryException;
+    }
+
+    private ContentQueryRunner contentQueryRunner = (session, sql2) ->
+            session.getWorkspace().getQueryManager()
+                    .createQuery(sql2, javax.jcr.query.Query.JCR_SQL2)
+                    .execute()
+                    .getNodes();
+
+    void setContentQueryRunner(ContentQueryRunner runner) {
+        this.contentQueryRunner = runner;
+    }
+
+    /**
+     * Content mode: the options are the descendants of the root node the contributor
+     * picked, filtered by the configured content type. Values are the paths relative to
+     * the root (unique by construction, readable in results, stable across re-imports),
+     * labels the localized displayable names. The query runs through the field's own
+     * session, so live only sees published, visitor-readable content, and the result is
+     * ordered by path. Above the administrator-configured cap the field fails explicitly
+     * like a failing source — never a silent truncation. Not TTL-cached (in-JVM read).
+     */
+    private String[] resolveContentOptions(JCRNodeWrapper fieldNode, int maxResults)
+            throws javax.jcr.RepositoryException {
+        if (!fieldNode.hasProperty("fmdb:optionsRootNode")) {
+            throw new IllegalStateException("Choice field '" + fieldNode.getPath()
+                    + "' is in content mode but no root node is selected");
+        }
+        if (!fieldNode.hasProperty("fmdb:optionsNodeType")
+                || fieldNode.getProperty("fmdb:optionsNodeType").getString().isBlank()) {
+            throw new IllegalStateException("Choice field '" + fieldNode.getPath()
+                    + "' is in content mode but no content type is configured");
+        }
+
+        JCRNodeWrapper root;
+        try {
+            root = (JCRNodeWrapper) fieldNode.getProperty("fmdb:optionsRootNode").getNode();
+        } catch (javax.jcr.RepositoryException e) {
+            throw new IllegalStateException("Root node of choice field '" + fieldNode.getPath()
+                    + "' cannot be read (deleted, or not published in this workspace)", e);
+        }
+
+        String nodeType = fieldNode.getProperty("fmdb:optionsNodeType").getString().trim();
+        if (!nodeType.matches("[\\w]+:[\\w]+")) {
+            throw new IllegalStateException("Choice field '" + fieldNode.getPath()
+                    + "' has an invalid content type '" + nodeType + "'");
+        }
+
+        javax.jcr.NodeIterator nodes;
+        try {
+            nodes = contentQueryRunner.run(fieldNode.getSession(),
+                    "SELECT * FROM [" + nodeType + "] WHERE ISDESCENDANTNODE('"
+                            + root.getPath().replace("'", "''") + "')");
+        } catch (javax.jcr.query.InvalidQueryException e) {
+            throw new IllegalStateException("Choice field '" + fieldNode.getPath()
+                    + "' lists an unknown content type '" + nodeType + "'", e);
+        }
+
+        String rootPrefix = root.getPath() + "/";
+        java.util.List<String[]> entries = new java.util.ArrayList<>();
+        while (nodes.hasNext()) {
+            javax.jcr.Node child = nodes.nextNode();
+            if (!(child instanceof JCRNodeWrapper content)) {
+                continue;
+            }
+            if (entries.size() >= maxResults) {
+                throw new IllegalStateException("Choice field '" + fieldNode.getPath()
+                        + "' resolves more than " + maxResults + " options (optionsQueryMaxResults); "
+                        + "narrow the root node or raise the limit");
+            }
+            String value = content.getPath().startsWith(rootPrefix)
+                    ? content.getPath().substring(rootPrefix.length())
+                    : content.getName();
+            String label = content.getDisplayableName();
+            entries.add(new String[]{value, label != null && !label.isEmpty() ? label : value});
+        }
+
+        entries.sort(java.util.Comparator.comparing(entry -> entry[0]));
+        return entries.stream()
+                .map(entry -> new JSONObject(Map.of(
+                        "value", entry[0],
+                        "label", entry[1],
+                        "selected", false)).toString())
+                .toArray(String[]::new);
     }
 
     /**
