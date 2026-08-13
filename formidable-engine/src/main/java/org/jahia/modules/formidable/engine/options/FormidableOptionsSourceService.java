@@ -148,9 +148,11 @@ public class FormidableOptionsSourceService {
             nodes = contentQueryRunner.run(fieldNode.getSession(),
                     "SELECT * FROM [" + nodeType + "] WHERE ISDESCENDANTNODE('"
                             + root.getPath().replace("'", "''") + "')");
-        } catch (javax.jcr.query.InvalidQueryException e) {
+        } catch (javax.jcr.RepositoryException e) {
+            // Unknown types surface as InvalidQueryException or NamespaceException
+            // depending on which half of the name is wrong.
             throw new IllegalStateException("Choice field '" + fieldNode.getPath()
-                    + "' lists an unknown content type '" + nodeType + "'", e);
+                    + "' cannot list contents of type '" + nodeType + "': " + e.getMessage(), e);
         }
 
         String rootPrefix = root.getPath() + "/";
