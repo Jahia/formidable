@@ -564,7 +564,16 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
             : (selectedProvider.isValidRef && !selectedProvider.isValidRef(providerRef)
                 ? t('conditionalLogic.providerRefInvalid')
                 : null));
-    const showProviderRefError = providerRefTouched && providerRefError !== null;
+    // A rule that is no longer the last of the list has been left behind: the
+    // contributor added rules after it, so its reference counts as visited even when
+    // no blur was ever observed (dropdown menus and the add button can take the focus
+    // without it ever sitting inside the row).
+    const ruleIndexMatch = /\[(\d+)\]$/.exec(id ?? '');
+    const allRuleValues = field.name ? props.form?.values?.[field.name] : undefined;
+    const isLastRule = !ruleIndexMatch
+        || !Array.isArray(allRuleValues)
+        || Number(ruleIndexMatch[1]) >= allRuleValues.length - 1;
+    const showProviderRefError = (providerRefTouched || !isLastRule) && providerRefError !== null;
 
     // One shape for every provider: the name of the thing designated, an operator, and a
     // value when the operator compares against one. Adding a provider adds no markup here.
