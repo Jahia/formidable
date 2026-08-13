@@ -137,21 +137,64 @@ public class FormidableOptionsSourceService {
                     + "' cannot be read (deleted, or not published in this workspace)", e);
         }
 
-        String nodeType = fieldNode.getProperty("fmdb:optionsNodeType").getString().trim();
+        return queryContentOptions(root, fieldNode.getProperty("fmdb:optionsNodeType").getString(),
+                fieldNode.getPath(), maxResults);
+    }
+
+    /**
+     * Editor-side preview of a content-mode configuration that may not be saved yet.
+     * The {@code default} workspace resolves through the current editor session; the
+     * {@code live} workspace resolves through a <b>guest</b> session, so the preview
+     * shows exactly what a visitor will get — published, guest-readable content only.
+     *
+     * @throws IllegalStateException like the field resolution (unreadable root, invalid
+     *                               or unknown type, result cap exceeded)
+     */
+    public String[] resolveContentPreview(String rootIdentifier, String nodeType, String workspace,
+            String languageTag) throws javax.jcr.RepositoryException {
+        Locale locale = Locale.forLanguageTag(languageTag == null || languageTag.isBlank() ? "en" : languageTag);
+        int maxResults = config.getOptionsQueryMaxResults();
+
+        if ("live".equals(workspace)) {
+            return org.jahia.services.content.JCRTemplate.getInstance().doExecuteWithUserSession(
+                    org.jahia.services.usermanager.JahiaUserManagerService.GUEST_USERNAME, "live", locale,
+                    session -> queryContentOptions(readPreviewRoot(session, rootIdentifier),
+                            nodeType, "preview:" + rootIdentifier, maxResults));
+        }
+
+        org.jahia.services.content.JCRSessionWrapper session = org.jahia.services.content.JCRSessionFactory
+                .getInstance().getCurrentUserSession("default", locale);
+        return queryContentOptions(readPreviewRoot(session, rootIdentifier), nodeType,
+                "preview:" + rootIdentifier, maxResults);
+    }
+
+    private static JCRNodeWrapper readPreviewRoot(org.jahia.services.content.JCRSessionWrapper session,
+            String rootIdentifier) {
+        try {
+            return session.getNodeByIdentifier(rootIdentifier);
+        } catch (javax.jcr.RepositoryException e) {
+            throw new IllegalStateException("Root node '" + rootIdentifier
+                    + "' cannot be read (deleted, not published, or not visible to visitors)", e);
+        }
+    }
+
+    private String[] queryContentOptions(JCRNodeWrapper root, String rawNodeType, String scope, int maxResults)
+            throws javax.jcr.RepositoryException {
+        String nodeType = rawNodeType == null ? "" : rawNodeType.trim();
         if (!nodeType.matches("[\\w]+:[\\w]+")) {
-            throw new IllegalStateException("Choice field '" + fieldNode.getPath()
+            throw new IllegalStateException("Choice field '" + scope
                     + "' has an invalid content type '" + nodeType + "'");
         }
 
         javax.jcr.NodeIterator nodes;
         try {
-            nodes = contentQueryRunner.run(fieldNode.getSession(),
+            nodes = contentQueryRunner.run(root.getSession(),
                     "SELECT * FROM [" + nodeType + "] WHERE ISDESCENDANTNODE('"
                             + root.getPath().replace("'", "''") + "')");
         } catch (javax.jcr.RepositoryException e) {
             // Unknown types surface as InvalidQueryException or NamespaceException
             // depending on which half of the name is wrong.
-            throw new IllegalStateException("Choice field '" + fieldNode.getPath()
+            throw new IllegalStateException("Choice field '" + scope
                     + "' cannot list contents of type '" + nodeType + "': " + e.getMessage(), e);
         }
 
@@ -163,9 +206,7 @@ public class FormidableOptionsSourceService {
                 continue;
             }
             if (entries.size() >= maxResults) {
-                throw new IllegalStateException("Choice field '" + fieldNode.getPath()
-                        + "' resolves more than " + maxResults + " options (optionsQueryMaxResults); "
-                        + "narrow the root node or raise the limit");
+                throw new OptionsQueryCapExceededException(scope, maxResults);
             }
             String value = content.getPath().startsWith(rootPrefix)
                     ? content.getPath().substring(rootPrefix.length())

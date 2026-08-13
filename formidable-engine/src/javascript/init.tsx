@@ -2,6 +2,7 @@ import {registry} from '@jahia/ui-extender';
 import i18next from 'i18next';
 import {SelectOptionsCmp} from './SelectOptions/SelectOptionsCmp';
 import {SourcedOptionsCmp} from './SourcedOptions/SourcedOptionsCmp';
+import {ContentOptionsCmp} from './ContentOptions/ContentOptionsCmp';
 import {ConditionalLogicCmp} from './ConditionalLogic/ConditionalLogicCmp';
 import {FormResultsApp} from './FormResults';
 import {Form} from '@jahia/moonstone';
@@ -14,6 +15,7 @@ export default function () {
 
             registry.add('selectorType', 'SelectOptions', {cmp: SelectOptionsCmp, supportMultiple: false});
             registry.add('selectorType', 'SourcedOptions', {cmp: SourcedOptionsCmp, supportMultiple: false});
+            registry.add('selectorType', 'ContentOptions', {cmp: ContentOptionsCmp, supportMultiple: false});
             registry.add('selectorType', 'ConditionalLogic', {cmp: ConditionalLogicCmp, supportMultiple: false});
 
             registry.add('adminRoute', 'formidableResults', {

@@ -66,7 +66,7 @@ orderable
 [fmdbmix:contentOptions] > jmix:dynamicFieldset mixin
  extends = fmdbmix:optionsSource
  - fmdb:optionsRootNode (weakreference, picker[type='editorial'])
- - fmdb:optionsNodeType (string) indexed=no
+ - fmdb:optionsNodeType (string, choicelist[formidableOptionsPreview]) indexed=no
 
 [fmdbmix:choiceField] > fmdbmix:optionsSource mixin
 // Semantic value-kind mixins: a field type carrying one becomes eligible as a

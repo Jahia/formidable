@@ -27,6 +27,12 @@ import java.util.Map;
  * yet — and this initializer replaces the chain result with the options that source
  * resolves to, in the language received from the editor.
  *
+ * Also chained alone on fmdb:optionsNodeType (fmdbmix:contentOptions) for the
+ * content-mode preview: a {@code rootNode} + {@code nodeType} context pair — with an
+ * optional {@code workspace} — previews the contents that configuration resolves to,
+ * the live workspace being resolved through a guest session so the editor sees exactly
+ * what a visitor will get.
+ *
  * A failing source propagates as an error (surfaced by the GraphQL call), never as an
  * empty preview that would look like a source without options.
  */
@@ -35,6 +41,11 @@ public class FormidableOptionsPreviewInitializer implements ModuleChoiceListInit
 
     private static final String KEY = "formidableOptionsPreview";
     static final String SOURCE_KEY_CONTEXT = "sourceKey";
+    static final String ROOT_NODE_CONTEXT = "rootNode";
+    static final String NODE_TYPE_CONTEXT = "nodeType";
+    static final String WORKSPACE_CONTEXT = "workspace";
+    /** Marker value of the single preview entry returned when the query cap is exceeded. */
+    public static final String CAP_EXCEEDED_MARKER = "__fmdbCapExceeded__";
     private static final Logger log = LoggerFactory.getLogger(FormidableOptionsPreviewInitializer.class);
 
     private FormidableOptionsSourceService optionsSourceService;
@@ -47,19 +58,42 @@ public class FormidableOptionsPreviewInitializer implements ModuleChoiceListInit
     @Override
     public List<ChoiceListValue> getChoiceListValues(ExtendedPropertyDefinition epd, String param,
             List<ChoiceListValue> values, Locale locale, Map<String, Object> context) {
-        String sourceKey = readSourceKey(context);
+        String languageTag = locale != null ? locale.toLanguageTag() : "en";
+
+        // Content-mode preview: a picked root and a content type, resolved for the
+        // requested workspace (live goes through a guest session server-side).
+        String rootNode = readContextValue(context, ROOT_NODE_CONTEXT);
+        String nodeType = readContextValue(context, NODE_TYPE_CONTEXT);
+        if (rootNode != null && !rootNode.isBlank() && nodeType != null && !nodeType.isBlank()) {
+            String workspace = readContextValue(context, WORKSPACE_CONTEXT);
+            try {
+                return toPreview(optionsSourceService.resolveContentPreview(
+                        rootNode, nodeType, workspace == null ? "default" : workspace, languageTag));
+            } catch (org.jahia.modules.formidable.engine.options.OptionsQueryCapExceededException e) {
+                // The cap is contributor-actionable: surfaced as a typed marker (value)
+                // carrying the limit (label), not as an opaque GraphQL error.
+                return List.of(new ChoiceListValue(String.valueOf(e.getLimit()), CAP_EXCEEDED_MARKER));
+            } catch (javax.jcr.RepositoryException e) {
+                throw new IllegalStateException("Content options preview failed: " + e.getMessage(), e);
+            }
+        }
+
+        String sourceKey = readContextValue(context, SOURCE_KEY_CONTEXT);
         if (sourceKey == null || sourceKey.isBlank()) {
             return values;
         }
 
-        String[] options = optionsSourceService.resolve(sourceKey, locale != null ? locale.toLanguageTag() : "en");
+        return toPreview(optionsSourceService.resolve(sourceKey, languageTag));
+    }
+
+    private static List<ChoiceListValue> toPreview(String[] options) {
         List<ChoiceListValue> preview = new ArrayList<>(options.length);
         for (String option : options) {
             try {
                 JSONObject parsed = new JSONObject(option);
                 preview.add(new ChoiceListValue(parsed.optString("label", ""), parsed.optString("value", "")));
             } catch (Exception e) {
-                log.debug("[FormidableOptionsPreviewInitializer] Skipping unparsable option of source '{}'", sourceKey, e);
+                log.debug("[FormidableOptionsPreviewInitializer] Skipping unparsable option", e);
             }
         }
 
@@ -68,8 +102,8 @@ public class FormidableOptionsPreviewInitializer implements ModuleChoiceListInit
 
     // The GraphQL context entries reach initializers as List<String> values
     // (EditorFormServiceImpl copies ContextEntryInput.getValue() verbatim).
-    private static String readSourceKey(Map<String, Object> context) {
-        Object requested = context != null ? context.get(SOURCE_KEY_CONTEXT) : null;
+    private static String readContextValue(Map<String, Object> context, String key) {
+        Object requested = context != null ? context.get(key) : null;
         if (requested instanceof String value) {
             return value;
         }
