@@ -96,6 +96,13 @@ const generateLogicId = (): string => {
     return Math.random().toString(36).substring(2, 10);
 };
 
+// The Content Editor regenerates the React keys of every multiple-value row when an
+// entry is added or removed (useReorderList assigns fresh uniqueIds), remounting the
+// rule components and dropping their local state. The visited flag of the provider
+// reference survives here, keyed by the rule's logicId — set as soon as a provider
+// type is picked, and stable across remounts. Editor-session scoped by design.
+const touchedProviderRefs = new Set<string>();
+
 export const ConditionalLogicCmp = (props: SelectorProps) => {
     const {field, id, value, onChange} = props;
     const {t} = useTranslation('formidable-engine');
@@ -113,8 +120,14 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     // that (a rule opened with a stored reference is validated right away). Declared
     // with the other hooks — the component has early returns further down.
     const [providerRefTouched, setProviderRefTouched] = useState(() => {
-        const provider = getLogicProvider(parseRule(value).sourceType);
-        return provider ? (parseRule(value)[provider.configKey] ?? '').trim() !== '' : false;
+        const initialRule = parseRule(value);
+        const provider = getLogicProvider(initialRule.sourceType);
+        if (!provider) {
+            return false;
+        }
+
+        return (initialRule[provider.configKey] ?? '').trim() !== ''
+            || (Boolean(initialRule.logicId) && touchedProviderRefs.has(initialRule.logicId!));
     });
 
     // Resolve the selected source: sourceFieldKey is the business identity and wins,
@@ -385,6 +398,10 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
 
         const nextProvider = getLogicProvider(nextType);
         setProviderRefTouched(false);
+        if (rule.logicId) {
+            touchedProviderRefs.delete(rule.logicId);
+        }
+
         if (nextProvider) {
             onChange(JSON.stringify(normalizeStoredProviderRule({
                 ...rule,
@@ -566,7 +583,12 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     size="big"
                     className={showProviderRefError ? 'fmdbProviderRefError' : undefined}
                     onChange={event => updateProviderRule({[provider.configKey]: event.target.value})}
-                    onBlur={() => setProviderRefTouched(true)}
+                    onBlur={() => {
+                        setProviderRefTouched(true);
+                        if (rule.logicId) {
+                            touchedProviderRefs.add(rule.logicId);
+                        }
+                    }}
                 />
             </div>
             <div className="flexFluid">
