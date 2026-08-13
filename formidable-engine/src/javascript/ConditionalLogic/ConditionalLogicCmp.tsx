@@ -457,6 +457,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     <Dropdown
                         variant="outlined"
                         data={sourceOptions}
+                        hasSearch={sourceOptions.length >= 5}
                         value={selectedSource?.id}
                         placeholder={t('conditionalLogic.selectSource')}
                         isDisabled={field.readOnly}
@@ -467,6 +468,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     <Dropdown
                         variant="outlined"
                         data={operatorOptions}
+                        hasSearch={operatorOptions.length >= 5}
                         value={selectedOperator}
                         placeholder={t('conditionalLogic.operator')}
                         isDisabled={field.readOnly || !selectedSource}
@@ -479,6 +481,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                         <Dropdown
                             variant="outlined"
                             data={valueOptions}
+                            hasSearch={valueOptions.length >= 5}
                             values={rule.values ?? []}
                             placeholder={t('conditionalLogic.values')}
                             isDisabled={field.readOnly}
@@ -569,6 +572,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                 <Dropdown
                     variant="outlined"
                     data={providerOperatorOptions}
+                    hasSearch={providerOperatorOptions.length >= 5}
                     value={providerOperator}
                     placeholder={t('conditionalLogic.operator')}
                     isDisabled={field.readOnly}
@@ -604,6 +608,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     <Dropdown
                         variant="outlined"
                         data={sourceTypeOptions}
+                        hasSearch={sourceTypeOptions.length >= 5}
                         value={ruleSourceType}
                         isDisabled={field.readOnly}
                         onChange={handleSourceTypeChange}
