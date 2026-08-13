@@ -624,8 +624,25 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         );
     };
 
+    // Leaving the rule row counts as visiting the reference: a contributor who picks a
+    // provider type and moves on without ever entering the reference input still gets
+    // the error. Focus events bubble, and moving between the row's own inputs keeps
+    // relatedTarget inside the row, so nothing fires while the rule is being edited.
+    const handleRowBlur = (event: React.FocusEvent<HTMLDivElement>) => {
+        if (!selectedProvider || providerRefTouched) {
+            return;
+        }
+
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+            setProviderRefTouched(true);
+            if (rule.logicId) {
+                touchedProviderRefs.add(rule.logicId);
+            }
+        }
+    };
+
     return (
-        <div className="flexCol flexFluid">
+        <div className="flexCol flexFluid" onBlur={handleRowBlur}>
             <div className="flexRow_nowrap flexFluid alignCenter" style={{gap: '0.75rem'}}>
                 <div style={{minWidth: '10rem'}}>
                     <Dropdown
