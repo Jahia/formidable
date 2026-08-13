@@ -39,7 +39,7 @@
             "jsVariable": {
                 "label": "Datalayer value",
                 "configLabel": "Datalayer variable",
-                "configPlaceholder": "window.cxs.profileProperties.firstName"
+                "configPlaceholder": "dataLayer.pageCategory"
             },
             "urlParam": {
                 "label": "URL parameter",

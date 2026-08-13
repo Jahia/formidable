@@ -376,6 +376,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         }
 
         const nextProvider = getLogicProvider(nextType);
+        setProviderRefTouched(false);
         if (nextProvider) {
             onChange(JSON.stringify(normalizeStoredProviderRule({
                 ...rule,
@@ -524,8 +525,11 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     // The stored rule is what the runtime gets, so problems are surfaced here rather
     // than blocked: an empty reference makes the rule unevaluable (the field stays
     // hidden), an invalid one can never be read on the page. The message lives in a
-    // reserved line below the whole row, so its presence never moves the fields.
+    // reserved line below the whole row, so its presence never moves the fields, and
+    // only shows once the contributor has left the reference input (a rule opened
+    // with a stored reference is validated right away).
     const providerRef = selectedProvider ? (rule[selectedProvider.configKey] ?? '').trim() : '';
+    const [providerRefTouched, setProviderRefTouched] = useState(() => providerRef !== '');
     const providerRefError = !selectedProvider
         ? null
         : (providerRef === ''
@@ -533,6 +537,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
             : (selectedProvider.isValidRef && !selectedProvider.isValidRef(providerRef)
                 ? t('conditionalLogic.providerRefInvalid')
                 : null));
+    const showProviderRefError = providerRefTouched && providerRefError !== null;
 
     // One shape for every provider: the name of the thing designated, an operator, and a
     // value when the operator compares against one. Adding a provider adds no markup here.
@@ -545,11 +550,13 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     isReadOnly={field.readOnly}
                     placeholder={t(provider.configPlaceholderKey)}
                     aria-label={t(provider.configLabelKey)}
-                    aria-invalid={providerRefError ? true : undefined}
-                    aria-describedby={providerRefError ? `${id}-provider-ref-error` : undefined}
+                    aria-invalid={showProviderRefError ? true : undefined}
+                    aria-describedby={showProviderRefError ? `${id}-provider-ref-error` : undefined}
                     value={rule[provider.configKey] ?? ''}
                     size="big"
+                    style={showProviderRefError ? {borderColor: 'var(--color-danger)'} : undefined}
                     onChange={event => updateProviderRule({[provider.configKey]: event.target.value})}
+                    onBlur={() => setProviderRefTouched(true)}
                 />
             </div>
             <div className="flexFluid">
@@ -608,10 +615,10 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                 style={{
                     minHeight: '1.25rem',
                     color: 'var(--color-danger)',
-                    visibility: providerRefError ? 'visible' : 'hidden'
+                    visibility: showProviderRefError ? 'visible' : 'hidden'
                 }}
             >
-                {providerRefError ?? ''}
+                {showProviderRefError ? providerRefError : ''}
             </Typography>
         </div>
     );
