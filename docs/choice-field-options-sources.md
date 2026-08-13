@@ -70,6 +70,43 @@ plus a closed browse-only list). The preview goes through jcontent's
 `formidableOptionsPreview` initializer chained on `fmdb:optionsSourceKey` — during
 a normal form build that initializer passes the source list through untouched.
 
+### Which initializers qualify as a source
+
+The resolver evaluates the initializer **outside any rendering context**:
+`getChoiceListValues(null, param, null, locale, emptyContext)` — no property
+definition, no context node — and caches the result per **(source, language)**
+for the TTL. That cache is shared by every caller: all users, all workspaces,
+edit and live alike. Two rules follow:
+
+1. **The initializer must not require Content Editor context.** Most core
+   initializers resolve against the property definition or a context node and
+   either throw or return an empty list here (verified on Jahia 8.2.4:
+   `users`, `templates`, `templatesNode`, `resourceBundle`, `sort`,
+   `componenttypes`, `nodetypeproperties`, `propertyValues`, `menus`,
+   `moduleImage`, `siteLanguage`, `flag`, `script`, …).
+2. **The initializer must not read JCR content through the ambient session.**
+   Core initializers that touch content use
+   `JCRSessionFactory.getCurrentUserSession()`, which is the **default
+   workspace** regardless of the rendered workspace. Combined with the shared
+   cache, this is an information leak: an editor's session primes the cache
+   with default-workspace values — including **unpublished content** — and live
+   visitors are served that list until the TTL expires.
+
+The core `nodes` initializer is the canonical counter-example and must **never
+be declared as a source**, even though it superficially fits (it accepts a
+`/path;type` parameter and lists nodes): it reads the default workspace through
+the current user session (verified against the 8.2.4 bytecode), its values are
+UUIDs (opaque in results, broken by a site re-import), its labels are system
+names (not localized titles), and site placeholders in its parameter resolve
+against the platform's *default site*, not the current one. Anything shaped
+like "list this content" belongs to **category mode** — whose resolution goes
+through the field's own session and leaks nothing by construction — not to a
+declared source.
+
+In practice, on a stock Jahia the only core initializer worth declaring is
+**`country`** (ISO country list, localized labels, no JCR involved). The
+engine's `formidableMimeTypes` is safe for the same reason.
+
 ### Initializer parameters
 
 The parameter is **one opaque string**: everything after the third `|` is passed
@@ -125,3 +162,12 @@ the child categories of a category-tree node, the parameter being the starting
 point relative to `/sites/systemsite/categories`. Return localized labels using the
 `locale` argument; blank values are dropped by the resolver, and a blank label
 falls back to the value.
+
+Mind the rules of the previous section: a source initializer runs outside any
+rendering session and its result is cached across users and workspaces. Compute
+options from non-JCR data (code, configuration, resource bundles, external
+systems). If reading the repository is unavoidable, open an **explicit** system
+session on a deliberately chosen workspace — never rely on
+`getCurrentUserSession()` — and only expose admin-curated, non-sensitive trees:
+whatever is resolved is served identically to every visitor. The sample does
+exactly that (explicit system session on `default`, shared category taxonomy).
