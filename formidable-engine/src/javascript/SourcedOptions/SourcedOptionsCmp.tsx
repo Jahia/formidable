@@ -135,11 +135,15 @@ export const SourcedOptionsCmp = ({field, id, value, onChange, editorContext}: S
     return (
         <div className="flexCol flexFluid" style={{gap: '0.5rem'}}>
             <Dropdown
+                className="flexFluid"
                 id={id}
+                variant="outlined"
+                size="medium"
                 data={sources}
                 value={value ?? ''}
                 placeholder={t('sourcedOptions.selectSource')}
                 isDisabled={field.readOnly}
+                hasSearch={sources.length >= 5}
                 onChange={(_event: unknown, item: {value: string}) => onChange(item.value)}
             />
 
@@ -152,22 +156,28 @@ export const SourcedOptionsCmp = ({field, id, value, onChange, editorContext}: S
             {value && preview.status === 'ready' && (
                 <>
                     <Typography variant="caption">
-                        {t('sourcedOptions.previewCount', {count: preview.options.length})}
+                        {t('sourcedOptions.previewLabel', {count: preview.options.length})}
                     </Typography>
                     {preview.options.length > 0 && (
-                        <select
-                            aria-label={t('sourcedOptions.previewLabel')}
-                            style={{maxWidth: '100%'}}
-                            value=""
-                            onChange={() => { /* browse-only preview: nothing is stored */ }}
+                        <ul
+                            id={`${id}-preview`}
+                            aria-label={t('sourcedOptions.previewLabel', {count: preview.options.length})}
+                            style={{
+                                margin: 0,
+                                padding: 'var(--moon-spacing-small, 8px)',
+                                listStyle: 'none',
+                                maxHeight: '160px',
+                                overflowY: 'auto',
+                                backgroundColor: 'var(--moon-color-gray_light40)',
+                                borderRadius: '2px'
+                            }}
                         >
-                            <option value="" disabled>{t('sourcedOptions.previewLabel')}</option>
                             {preview.options.map(option => (
-                                <option key={option.value} value={option.value} disabled>
-                                    {option.label}
-                                </option>
+                                <li key={option.value}>
+                                    <Typography variant="body">{option.label}</Typography>
+                                </li>
                             ))}
-                        </select>
+                        </ul>
                     )}
                 </>
             )}

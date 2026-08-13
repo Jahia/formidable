@@ -8,13 +8,12 @@
         "selectSource": "Sélectionnez une source d'options",
         "previewLoading": "Résolution des options…",
         "previewUnavailable": "Les options de cette source sont momentanément indisponibles.",
-        "previewCount": "Options résolues : {{count}}",
-        "previewLabel": "Aperçu des options résolues"
+        "previewLabel": "Aperçu des options résolues (#{{count}})"
     },
     "fmdbmix_optionsSource": {
         "fmdb_optionsMode": {
             "manual": "Options manuelles",
-            "sourced": "Options depuis une source",
+            "sourced": "Options depuis une source tierce",
             "category": "Options depuis des catégories"
         }
     },
