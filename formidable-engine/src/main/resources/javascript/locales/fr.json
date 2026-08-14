@@ -15,8 +15,10 @@
         "rootMissing": "Choisissez d'abord le contenu racine ci-dessus pour prévisualiser les options.",
         "previewLoading": "Résolution des options…",
         "previewUnavailable": "Les options de cette configuration sont momentanément indisponibles.",
-        "previewEdit": "Aperçu édition (#{{count}})",
-        "previewLive": "Aperçu live (#{{count}})",
+        "noTypesUnderRoot": "Le contenu racine choisi ne contient encore aucun contenu exploitable comme option. Ajoutez-y des contenus, ou choisissez un autre contenu racine.",
+        "pickRootFirst": "Choisissez d'abord un contenu racine",
+        "previewEdit": "Aperçu des contenus en édition (#{{count}})",
+        "previewLive": "Aperçu des contenus en live (#{{count}})",
         "liveEmpty": "Aucune option n'est encore visible sur le site : les contenus doivent être publiés.",
         "liveFewer": "{{missing}} option(s) résolues en édition manquent en live : les contenus non publiés n'apparaissent pas sur le site.",
         "capExceeded": "Plus de {{limit}} options résolues (limite : {{limit}}) : restreignez le contenu racine, ou demandez à un administrateur d'augmenter la limite."

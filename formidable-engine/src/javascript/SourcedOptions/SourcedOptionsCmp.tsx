@@ -15,7 +15,10 @@ interface SourcedOptionsCmpProps {
     };
     id: string;
     value?: string;
-    onChange: (value: string) => void;
+    // forceTouch=true makes the editor revalidate right away (it validates in
+    // bulk otherwise), clearing or raising the required error on the spot.
+    onChange: (value: string, forceTouch?: boolean) => void;
+    onBlur?: () => void;
     editorContext?: {
         path?: string;
         lang?: string;
@@ -68,7 +71,7 @@ const parentPathOf = (path?: string): string | undefined => {
     return parent.length > 0 ? parent : undefined;
 };
 
-export const SourcedOptionsCmp = ({field, id, value, onChange, editorContext}: SourcedOptionsCmpProps) => {
+export const SourcedOptionsCmp = ({field, id, value, onChange, onBlur, editorContext}: SourcedOptionsCmpProps) => {
     const {t} = useTranslation('formidable-engine');
     const client = useApolloClient();
     const [preview, setPreview] = useState<PreviewState>({status: 'idle', options: []});
@@ -144,7 +147,12 @@ export const SourcedOptionsCmp = ({field, id, value, onChange, editorContext}: S
                 placeholder={t('sourcedOptions.selectSource')}
                 isDisabled={field.readOnly}
                 hasSearch={sources.length >= 5}
-                onChange={(_event: unknown, item: {value: string}) => onChange(item.value)}
+                onChange={(_event: unknown, item: {value?: string}) => {
+                    if (item.value) {
+                        onChange(item.value, true);
+                    }
+                }}
+                onBlur={onBlur}
             />
 
             {value && preview.status === 'loading' && (

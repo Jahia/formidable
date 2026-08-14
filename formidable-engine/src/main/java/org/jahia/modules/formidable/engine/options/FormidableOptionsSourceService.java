@@ -168,6 +168,87 @@ public class FormidableOptionsSourceService {
                 "preview:" + rootIdentifier, maxResults);
     }
 
+    /**
+     * Facets a descendant must carry to count as contributor-facing content: dropped
+     * in an area or editorial. Technical subnodes (permissions, translations...)
+     * carry neither and never surface.
+     */
+    private static final List<String> CONTRIBUTABLE_FACETS = List.of("jmix:droppableContent", "jmix:editorialContent");
+
+    /**
+     * Bound of the per-facet scan behind {@link #resolveContentTypes}. Past it a type
+     * present only deeper in the referential may be missed — never wrongly added — and
+     * the type stays selectable through the stored value.
+     */
+    private static final int TYPES_SCAN_BOUND = 500;
+
+    /**
+     * Editor-side list of the content types offerable as options under a picked root:
+     * the distinct primary types of its contributable descendants — the same universe
+     * the content-mode resolution then queries type by type, so everything offered
+     * resolves and everything resolvable is offered. Labels are the localized node
+     * type names, sorted.
+     *
+     * @throws IllegalStateException when the root cannot be read
+     */
+    public String[] resolveContentTypes(String rootIdentifier, String languageTag)
+            throws javax.jcr.RepositoryException {
+        Locale locale = Locale.forLanguageTag(languageTag == null || languageTag.isBlank() ? "en" : languageTag);
+        org.jahia.services.content.JCRSessionWrapper session = org.jahia.services.content.JCRSessionFactory
+                .getInstance().getCurrentUserSession("default", locale);
+        return queryContentTypes(readPreviewRoot(session, rootIdentifier), locale);
+    }
+
+    String[] queryContentTypes(JCRNodeWrapper root, Locale locale) throws javax.jcr.RepositoryException {
+        Map<String, String> labelsByType = new java.util.HashMap<>();
+        for (String facet : CONTRIBUTABLE_FACETS) {
+            javax.jcr.NodeIterator nodes = contentQueryRunner.run(root.getSession(),
+                    "SELECT * FROM [" + facet + "] WHERE ISDESCENDANTNODE('"
+                            + root.getPath().replace("'", "''") + "')");
+            int scanned = 0;
+            while (nodes.hasNext() && scanned < TYPES_SCAN_BOUND) {
+                javax.jcr.Node child = nodes.nextNode();
+                scanned++;
+                if (!(child instanceof JCRNodeWrapper content)) {
+                    continue;
+                }
+                String typeName = content.getPrimaryNodeTypeName();
+                // Form elements as options of a form field are never what a
+                // contributor is after.
+                if (typeName == null || typeName.startsWith("fmdb")) {
+                    continue;
+                }
+                labelsByType.computeIfAbsent(typeName, name -> {
+                    String label = typeLabelResolver.apply(name, locale);
+                    return label != null && !label.isBlank() ? label : name;
+                });
+            }
+        }
+
+        return labelsByType.entrySet().stream()
+                .sorted(Map.Entry.comparingByValue())
+                .map(entry -> new JSONObject(Map.of(
+                        "value", entry.getKey(),
+                        "label", entry.getValue(),
+                        "selected", false)).toString())
+                .toArray(String[]::new);
+    }
+
+    // Seam for unit tests: the production value reads the localized node type label
+    // from the platform registry (ExtendedNodeType is not mockable).
+    private java.util.function.BiFunction<String, Locale, String> typeLabelResolver = (typeName, locale) -> {
+        try {
+            return org.jahia.services.content.nodetypes.NodeTypeRegistry.getInstance()
+                    .getNodeType(typeName).getLabel(locale);
+        } catch (javax.jcr.RepositoryException e) {
+            return null;
+        }
+    };
+
+    void setTypeLabelResolver(java.util.function.BiFunction<String, Locale, String> resolver) {
+        this.typeLabelResolver = resolver;
+    }
+
     private static JCRNodeWrapper readPreviewRoot(org.jahia.services.content.JCRSessionWrapper session,
             String rootIdentifier) {
         try {

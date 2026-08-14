@@ -289,6 +289,59 @@ class FormidableOptionsSourceServiceTest {
         assertThrows(IllegalStateException.class, () -> service.resolveForField(badType, "en"));
     }
 
+    @Test
+    void queryContentTypesListsDistinctContributableTypesSortedByLabel() throws Exception {
+        // Verifies the types contract: the distinct primary types of the contributable
+        // descendants become options — deduplicated across nodes and facets — labeled
+        // with the localized type name and sorted by label.
+        JCRNodeWrapper agency = typedNode("luxe:agency");
+        JCRNodeWrapper otherAgency = typedNode("luxe:agency");
+        JCRNodeWrapper estate = typedNode("luxe:estate");
+        FormidableOptionsSourceService service = new FormidableOptionsSourceService();
+        service.setContentQueryRunner((session, sql2) ->
+                nodeIterator(java.util.List.of(estate, agency, otherAgency)));
+        service.setTypeLabelResolver((typeName, locale) ->
+                java.util.Map.of("luxe:agency", "Agency", "luxe:estate", "Estate").get(typeName));
+        JCRNodeWrapper root = mock(JCRNodeWrapper.class);
+        when(root.getPath()).thenReturn("/sites/site/agences");
+
+        String[] options = service.queryContentTypes(root, Locale.ENGLISH);
+
+        assertEquals(2, options.length);
+        JSONObject first = new JSONObject(options[0]);
+        assertEquals("luxe:agency", first.getString("value"));
+        assertEquals("Agency", first.getString("label"));
+        assertEquals(false, first.getBoolean("selected"));
+        assertEquals("luxe:estate", new JSONObject(options[1]).getString("value"));
+    }
+
+    @Test
+    void queryContentTypesSkipsFormElementsAndFallsBackToTypeNames() throws Exception {
+        // Verifies the noise contract: form elements never surface as offerable types,
+        // and a type without a localized label falls back to its technical name.
+        JCRNodeWrapper formElement = typedNode("fmdb:text");
+        JCRNodeWrapper unlabeled = typedNode("acme:thing");
+        FormidableOptionsSourceService service = new FormidableOptionsSourceService();
+        service.setContentQueryRunner((session, sql2) ->
+                nodeIterator(java.util.List.of(formElement, unlabeled)));
+        service.setTypeLabelResolver((typeName, locale) -> "");
+        JCRNodeWrapper root = mock(JCRNodeWrapper.class);
+        when(root.getPath()).thenReturn("/sites/site/agences");
+
+        String[] options = service.queryContentTypes(root, Locale.ENGLISH);
+
+        assertEquals(1, options.length);
+        JSONObject option = new JSONObject(options[0]);
+        assertEquals("acme:thing", option.getString("value"));
+        assertEquals("acme:thing", option.getString("label"));
+    }
+
+    private static JCRNodeWrapper typedNode(String typeName) throws Exception {
+        JCRNodeWrapper node = mock(JCRNodeWrapper.class);
+        when(node.getPrimaryNodeTypeName()).thenReturn(typeName);
+        return node;
+    }
+
     private static FormidableOptionsSourceService serviceWithQueryCap(int cap,
             java.util.List<JCRNodeWrapper> queryResults) {
         FormidableOptionsSourceService service = new FormidableOptionsSourceService();

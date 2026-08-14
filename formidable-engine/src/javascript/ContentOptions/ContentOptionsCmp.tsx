@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {useApolloClient, gql} from '@apollo/client';
 import {useTranslation} from 'react-i18next';
 import {Dropdown, Typography} from '@jahia/moonstone';
@@ -11,10 +11,17 @@ interface ValueConstraint {
 interface ContentOptionsCmpProps {
     field: {
         readOnly?: boolean;
+        // The offerable content types, computed server-side from the contents under
+        // the picked root (formidableContentTypes initializer) and re-resolved by the
+        // editor whenever the root changes (dependentProperties on the CND).
+        valueConstraints?: ValueConstraint[];
     };
     id: string;
-    value?: string;
-    onChange: (value: string) => void;
+    value?: string | null;
+    // forceTouch=true makes the editor revalidate right away (it validates in
+    // bulk otherwise), clearing or raising the required error on the spot.
+    onChange: (value: string | null, forceTouch?: boolean) => void;
+    onBlur?: () => void;
     editorContext?: {
         path?: string;
         site?: string;
@@ -53,25 +60,6 @@ const IDLE_PREVIEW: PreviewState = {
     edit: {status: 'loading', options: []},
     live: {status: 'loading', options: []}
 };
-
-const CONTENT_TYPES_QUERY = gql`
-    query formidableContentOptionTypes($sitePath: String!, $uiLocale: String!) {
-        forms {
-            contentTypesAsTree(
-                nodeTypes: ["jmix:editorialContent"],
-                includeSubTypes: true,
-                uuidOrPath: $sitePath,
-                uiLocale: $uiLocale
-            ) {
-                label
-                children {
-                    name
-                    label
-                }
-            }
-        }
-    }
-`;
 
 const PREVIEW_QUERY = gql`
     query formidableContentOptionsPreview(
@@ -124,7 +112,9 @@ const toWorkspacePreview = (constraints: ValueConstraint[]): WorkspacePreview =>
 };
 
 const PreviewList = ({id, label, options}: {id: string; label: string; options: Array<{value: string; label: string}>}) => (
-    <>
+    // flex-basis 0 (not a length): a length basis makes the wrapping flex ancestor
+    // chain reserve a phantom second line below the lists in the editor layout.
+    <div style={{flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.25rem'}}>
         <Typography variant="caption">{label}</Typography>
         {options.length > 0 && (
             <ul
@@ -148,14 +138,14 @@ const PreviewList = ({id, label, options}: {id: string; label: string; options: 
                 ))}
             </ul>
         )}
-    </>
+    </div>
 );
 
-export const ContentOptionsCmp = ({field, id, value, onChange, editorContext, form}: ContentOptionsCmpProps) => {
+export const ContentOptionsCmp = ({field, id, value, onChange, onBlur, editorContext, form}: ContentOptionsCmpProps) => {
     const {t} = useTranslation('formidable-engine');
     const client = useApolloClient();
-    const [types, setTypes] = useState<Array<{groupLabel: string; options: Array<{label: string; value: string}>}>>([]);
     const [preview, setPreview] = useState<PreviewState>(IDLE_PREVIEW);
+    const prevValueRef = useRef<string | null | undefined>(undefined);
 
     const rootUuid = typeof form?.values?.[ROOT_NODE_FIELD_KEY] === 'string'
         ? (form.values[ROOT_NODE_FIELD_KEY] as string)
@@ -164,41 +154,10 @@ export const ContentOptionsCmp = ({field, id, value, onChange, editorContext, fo
     const nodePath = editorContext?.nodeData?.path;
     const parent = parentPathOf(nodePath) ?? editorContext?.path ?? '/sites';
     const primaryNodeType = editorContext?.nodeData?.primaryNodeType?.name ?? 'fmdb:select';
-    const sitePath = editorContext?.site ? `/sites/${editorContext.site}` : parent;
     const uiLocale = editorContext?.uilang
         ?? (window as unknown as {contextJsParameters?: {uilang?: string}}).contextJsParameters?.uilang
         ?? 'en';
     const locale = editorContext?.lang ?? uiLocale;
-
-    useEffect(() => {
-        let cancelled = false;
-        client.query({query: CONTENT_TYPES_QUERY, variables: {sitePath, uiLocale}}).then(result => {
-            if (cancelled) {
-                return;
-            }
-
-            const tree: Array<{label?: string; children?: Array<{name?: string; label?: string}>}> =
-                result.data?.forms?.contentTypesAsTree ?? [];
-            setTypes(tree
-                .map(group => ({
-                    groupLabel: group.label ?? '',
-                    options: (group.children ?? [])
-                        // Form elements as options of a form field are never what a
-                        // contributor is after.
-                        .filter(child => Boolean(child.name) && !child.name!.startsWith('fmdb'))
-                        .map(child => ({label: child.label ?? child.name!, value: child.name!}))
-                }))
-                .filter(group => group.options.length > 0));
-        }).catch(() => {
-            if (!cancelled) {
-                setTypes([]);
-            }
-        });
-
-        return () => {
-            cancelled = true;
-        };
-    }, [client, sitePath, uiLocale]);
 
     useEffect(() => {
         if (!value || !rootUuid) {
@@ -238,9 +197,32 @@ export const ContentOptionsCmp = ({field, id, value, onChange, editorContext, fo
         };
     }, [client, value, rootUuid, parent, primaryNodeType, uiLocale, locale]);
 
+    // Standard choicelist behavior (jcontent SingleSelect): a value that the
+    // refreshed constraints no longer contain is reset — picking another root
+    // blanks the type and its preview — and restored if constraints arriving
+    // late (async refresh) do contain it again.
+    const valueConstraints = field.valueConstraints;
+    useEffect(() => {
+        if (value && !valueConstraints?.some(constraint => constraint.value?.string === value)) {
+            prevValueRef.current = value;
+            onChange(null);
+        } else if (value === null && prevValueRef.current
+            && valueConstraints?.some(constraint => constraint.value?.string === prevValueRef.current)) {
+            onChange(prevValueRef.current, true);
+        }
+    }, [value, valueConstraints, onChange]);
+
     const showPreview = Boolean(value) && Boolean(rootUuid);
     const capLimit = preview.edit.capLimit ?? preview.live.capLimit;
     const missingInLive = preview.edit.options.length - preview.live.options.length;
+
+    const rootOptions = (field.valueConstraints ?? [])
+        .map(constraint => ({
+            value: constraint.value?.string ?? '',
+            label: constraint.displayValue ?? constraint.value?.string ?? ''
+        }))
+        .filter(option => option.value !== '');
+    const noTypesUnderRoot = Boolean(rootUuid) && rootOptions.length === 0 && !value;
 
     return (
         <div className="flexCol flexFluid" style={{gap: '0.5rem'}}>
@@ -249,14 +231,30 @@ export const ContentOptionsCmp = ({field, id, value, onChange, editorContext, fo
                 id={id}
                 variant="outlined"
                 size="medium"
-                data={types}
+                data={rootOptions}
                 value={value ?? ''}
-                placeholder={t('contentOptions.selectType')}
-                isDisabled={field.readOnly}
+                placeholder={rootUuid ? t('contentOptions.selectType') : t('contentOptions.pickRootFirst')}
+                isDisabled={field.readOnly || !rootUuid || noTypesUnderRoot}
                 hasSearch
-                onChange={(_event: unknown, item: {value: string}) => onChange(item.value)}
+                onClear={value && !field.readOnly ? () => {
+                    // A deliberate clear must not be undone by the constraints-late
+                    // restore branch of the reset effect.
+                    prevValueRef.current = undefined;
+                    onChange(null, true);
+                } : undefined}
+                onChange={(_event: unknown, item: {value?: string}) => {
+                    if (item.value) {
+                        onChange(item.value, true);
+                    }
+                }}
+                onBlur={onBlur}
             />
 
+            {noTypesUnderRoot && (
+                <Typography variant="caption" style={{color: 'var(--color-warning_dark, #a05e03)'}}>
+                    {t('contentOptions.noTypesUnderRoot')}
+                </Typography>
+            )}
             {Boolean(value) && !rootUuid && (
                 <Typography variant="caption">{t('contentOptions.rootMissing')}</Typography>
             )}
@@ -273,20 +271,22 @@ export const ContentOptionsCmp = ({field, id, value, onChange, editorContext, fo
                     {preview.edit.status === 'error' && (
                         <Typography variant="caption">{t('contentOptions.previewUnavailable')}</Typography>
                     )}
-                    {preview.edit.status === 'ready' && (
-                        <PreviewList
-                            id={`${id}-preview-edit`}
-                            label={t('contentOptions.previewEdit', {count: preview.edit.options.length})}
-                            options={preview.edit.options}
-                        />
-                    )}
-                    {preview.live.status === 'ready' && (
-                        <PreviewList
-                            id={`${id}-preview-live`}
-                            label={t('contentOptions.previewLive', {count: preview.live.options.length})}
-                            options={preview.live.options}
-                        />
-                    )}
+                    <div style={{display: 'flex', gap: '0.5rem', alignItems: 'flex-start'}}>
+                        {preview.edit.status === 'ready' && (
+                            <PreviewList
+                                id={`${id}-preview-edit`}
+                                label={t('contentOptions.previewEdit', {count: preview.edit.options.length})}
+                                options={preview.edit.options}
+                            />
+                        )}
+                        {preview.live.status === 'ready' && (
+                            <PreviewList
+                                id={`${id}-preview-live`}
+                                label={t('contentOptions.previewLive', {count: preview.live.options.length})}
+                                options={preview.live.options}
+                            />
+                        )}
+                    </div>
                     {preview.edit.status === 'ready' && preview.live.status === 'ready'
                         && preview.live.options.length === 0 && preview.edit.options.length > 0 && (
                         <Typography variant="caption" style={{color: 'var(--color-warning_dark, #a05e03)'}}>
