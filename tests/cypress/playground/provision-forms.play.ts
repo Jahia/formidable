@@ -12,6 +12,11 @@
  *   - playground-complete  every built-in field type (same set as spec 20)
  *                          plus sourced choice fields (countries + categories)
  *
+ * All editorial values are provided in both site languages (en and fr), so the
+ * localized rendering and editing can be exercised too. The sourced country
+ * select carries an empty-option label in both languages to showcase the
+ * native required validation on the site.
+ *
  * It also declares the options sources in the OSGi config, creates the sample
  * category tree product/tv (plasma, oled, led) used by the
  * fmdbSampleCategoryTree initializer of formidable-test-module-samples-java,
@@ -63,11 +68,56 @@ const saveToJcrAction = (): JahiaNode => ({
 	properties: []
 });
 
-// Adds French values on top of the fixture's English ones.
-const withFrench = (node: JahiaNode, frProperties: Array<{name: string; value: string}>): JahiaNode => {
+// Adds French values on top of the fixture's English ones. Touching the French
+// locale of a choice field makes its French options mandatory (i18n property):
+// choice fields must always pair a French title with frOptions.
+const withFrench = (node: JahiaNode, frProperties: Array<{name: string; value?: string; values?: string[]}>): JahiaNode => {
 	node.properties.push(...frProperties.map(property => ({...property, language: 'fr'})));
 	return node;
 };
+
+// Adds English values the fixture does not set (same shape as withFrench).
+const withEnglish = (node: JahiaNode, enProperties: Array<{name: string; value?: string; values?: string[]}>): JahiaNode => {
+	node.properties.push(...enProperties.map(property => ({...property, language: 'en'})));
+	return node;
+};
+
+// French option list in the manual-options storage format.
+const frOptions = (options: Array<{value: string; label: string; selected?: boolean}>): {name: string; values: string[]} => ({
+	name: 'fmdb:options',
+	values: options.map(option => JSON.stringify({
+		value: option.value,
+		label: option.label,
+		selected: option.selected ?? false
+	}))
+});
+
+const FR_DEPARTMENT_OPTIONS = frOptions([
+	{value: 'engineering', label: 'Ingénierie'},
+	{value: 'sales', label: 'Ventes'},
+	{value: 'support', label: 'Support'}
+]);
+
+// Department select in both languages. The empty first entry of the shared
+// fixture is replaced by the empty-option label property: the field still
+// starts empty, through the supported configuration.
+const departmentSelect = (): JahiaNode => withFrench(
+	withEnglish(
+		getSelectNode({...SELECT_SINGLE, options: SELECT_SINGLE.options.filter(option => option.value !== '')}),
+		[{name: 'fmdb:optionsEmptyLabel', value: 'Please select'}]
+	),
+	[
+		{name: 'jcr:title', value: 'Service'},
+		{name: 'fmdb:optionsEmptyLabel', value: 'Veuillez sélectionner'},
+		FR_DEPARTMENT_OPTIONS
+	]
+);
+
+const FR_DELIVERY_OPTIONS = frOptions([
+	{value: 'standard', label: 'Standard'},
+	{value: 'express', label: 'Express', selected: true},
+	{value: 'pickup', label: 'Retrait sur place'}
+]);
 
 // Full name field with a custom required message in both site languages.
 const fullNameField = (): JahiaNode => {
@@ -148,39 +198,47 @@ describe('Playground - provision manual-testing forms', () => {
 			'playground-steps',
 			'Playground - Multi-step form',
 			[
-				getStepNode({
+				withFrench(getStepNode({
 					name: 'identity',
 					title: 'Identity',
 					label: 'Identity',
 					children: [
-						fullNameField(),
-						getInputEmailNode({name: 'email', title: 'Email', required: true})
+						withFrench(fullNameField(), [{name: 'jcr:title', value: 'Nom complet'}]),
+						withFrench(getInputEmailNode({name: 'email', title: 'Email', required: true}), [{name: 'jcr:title', value: 'Email'}])
 					]
-				}),
-				getStepNode({
+				}), [{name: 'jcr:title', value: 'Identité'}, {name: 'label', value: 'Identité'}]),
+				withFrench(getStepNode({
 					name: 'preferences',
 					title: 'Preferences',
 					label: 'Preferences',
 					children: [
-						getSelectNode(SELECT_SINGLE),
-						getRadioNode(RADIO_GROUP)
+						departmentSelect(),
+						withFrench(getRadioNode(RADIO_GROUP), [{name: 'jcr:title', value: 'Mode de livraison'}, FR_DELIVERY_OPTIONS])
 					]
-				}),
-				getStepNode({
+				}), [{name: 'jcr:title', value: 'Préférences'}, {name: 'label', value: 'Préférences'}]),
+				withFrench(getStepNode({
 					name: 'confirmation',
 					title: 'Confirmation',
 					label: 'Confirmation',
 					children: [
-						getCheckboxNode(CHECKBOX_SINGLE_COMPLETE),
-						getTextareaNode({name: 'comment', title: 'Comment'})
+						withFrench(getCheckboxNode(CHECKBOX_SINGLE_COMPLETE), [
+							{name: 'jcr:title', value: 'J\'accepte les conditions'},
+							frOptions([{value: 'agreed', label: 'J\'accepte les conditions', selected: true}])
+						]),
+						withFrench(getTextareaNode({name: 'comment', title: 'Comment'}), [{name: 'jcr:title', value: 'Commentaire'}])
 					]
-				})
+				}), [{name: 'jcr:title', value: 'Confirmation'}, {name: 'label', value: 'Confirmation'}])
 			],
 			undefined,
 			undefined,
 			// Both site languages: the actions get localized default titles at creation,
 			// so an en-only publication would leave their fr translation unpublished.
-			{actions: [saveToJcrAction()], publishLanguages: ['en', 'fr']}
+			{
+				actions: [saveToJcrAction()],
+				properties: [{name: 'jcr:title', value: 'Playground - Formulaire multi-étapes', language: 'fr'}],
+				pageProperties: [{name: 'jcr:title', value: 'Playground - Formulaire multi-étapes', language: 'fr'}],
+				publishLanguages: ['en', 'fr']
+			}
 		).then(({livePath}) => cy.log(`Multi-step form: /en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`));
 	});
 
@@ -192,23 +250,46 @@ describe('Playground - provision manual-testing forms', () => {
 				'playground-complete',
 				'Playground - Complete form',
 				[
-					getInputTextNode({...INPUT_TEXT_COMPLETE, defaultValue: undefined}),
-					getInputEmailNode({...INPUT_EMAIL_COMPLETE, defaultValue: undefined}),
-					getInputDateNode({...INPUT_DATE_COMPLETE, defaultValue: undefined}),
-					getInputDatetimeLocalNode({...INPUT_DATETIME_LOCAL_COMPLETE, defaultValue: undefined}),
-					getInputColorNode(INPUT_COLOR_COMPLETE),
-					getCheckboxNode(CHECKBOX_GROUP_COMPLETE),
-					getRadioNode(RADIO_GROUP),
-					getSelectNode(SELECT_SINGLE),
-					getTextareaNode({...TEXTAREA_COMPLETE, defaultValue: undefined}),
-					getInputFileNode(INPUT_FILE_MULTIPLE),
-					getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'country', title: 'Country (sourced: countries)', sourceKey: 'countries'}),
-					getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:radio', name: 'tvType', title: 'TV type (sourced: categories product/tv)', sourceKey: 'tv'}),
-					getCategoryChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'tvCategory', title: 'TV category (category mode, multiple select)', rootCategoryUuid: tvCategoryUuid, multiple: true})
+					withFrench(getInputTextNode({...INPUT_TEXT_COMPLETE, defaultValue: undefined}), [{name: 'jcr:title', value: 'Code employé'}]),
+					withFrench(getInputEmailNode({...INPUT_EMAIL_COMPLETE, defaultValue: undefined}), [{name: 'jcr:title', value: 'Email de contact'}]),
+					withFrench(getInputDateNode({...INPUT_DATE_COMPLETE, defaultValue: undefined}), [{name: 'jcr:title', value: 'Date de naissance'}]),
+					withFrench(getInputDatetimeLocalNode({...INPUT_DATETIME_LOCAL_COMPLETE, defaultValue: undefined}), [{name: 'jcr:title', value: 'Rendez-vous'}]),
+					withFrench(getInputColorNode(INPUT_COLOR_COMPLETE), [{name: 'jcr:title', value: 'Choisissez votre couleur préférée'}]),
+					withFrench(getCheckboxNode(CHECKBOX_GROUP_COMPLETE), [
+						{name: 'jcr:title', value: 'Centres d\'intérêt requis'},
+						frOptions([
+							{value: 'reading', label: 'Lecture'},
+							{value: 'sports', label: 'Sport', selected: true},
+							{value: 'music', label: 'Musique'}
+						])
+					]),
+					withFrench(getRadioNode(RADIO_GROUP), [{name: 'jcr:title', value: 'Mode de livraison'}, FR_DELIVERY_OPTIONS]),
+					departmentSelect(),
+					withFrench(getTextareaNode({...TEXTAREA_COMPLETE, defaultValue: undefined}), [{name: 'jcr:title', value: 'Résumé du projet'}]),
+					withFrench(getInputFileNode(INPUT_FILE_MULTIPLE), [{name: 'jcr:title', value: 'Pièces jointes'}]),
+					// The sourced select showcases the empty-option label: the field starts
+					// empty and its native required validation is exercisable on the site.
+					withFrench(
+						withEnglish(
+							getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'country', title: 'Country (sourced: countries)', sourceKey: 'countries'}),
+							[{name: 'fmdb:optionsEmptyLabel', value: 'Select a country…'}]
+						),
+						[
+							{name: 'jcr:title', value: 'Pays (source : countries)'},
+							{name: 'fmdb:optionsEmptyLabel', value: 'Sélectionnez un pays…'}
+						]
+					),
+					withFrench(getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:radio', name: 'tvType', title: 'TV type (sourced: categories product/tv)', sourceKey: 'tv'}), [{name: 'jcr:title', value: 'Type de TV (source : catégories product/tv)'}]),
+					withFrench(getCategoryChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'tvCategory', title: 'TV category (category mode, multiple select)', rootCategoryUuid: tvCategoryUuid, multiple: true}), [{name: 'jcr:title', value: 'Catégorie TV (mode catégorie, sélection multiple)'}])
 				],
 				undefined,
 				undefined,
-				{actions: [saveToJcrAction()], publishLanguages: ['en', 'fr']}
+				{
+					actions: [saveToJcrAction()],
+					properties: [{name: 'jcr:title', value: 'Playground - Formulaire complet', language: 'fr'}],
+					pageProperties: [{name: 'jcr:title', value: 'Playground - Formulaire complet', language: 'fr'}],
+					publishLanguages: ['en', 'fr']
+				}
 			).then(({livePath}) => cy.log(`Complete form: /en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`));
 		});
 	});
