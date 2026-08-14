@@ -8,6 +8,7 @@ interface SelectProps extends BaseValidationMessageProps {
 	"jcr:title"?: string;
 	helpText?: string;
 	"fmdb:options"?: string[];
+	"fmdb:optionsEmptyLabel"?: string;
 	required?: boolean;
 	multiple?: boolean;
 	size?: number;
@@ -27,6 +28,7 @@ jahiaComponent(
 			"jcr:title": label,
 			helpText,
 			"fmdb:options": options = [],
+			"fmdb:optionsEmptyLabel": optionsEmptyLabel,
 			required,
 			multiple,
 			size,
@@ -74,6 +76,12 @@ jahiaComponent(
 					defaultValue={defaultValue}
 					{...validationDataAttributes(validationMsgs)}
 				>
+					{/* Contributor-configured empty option: the field starts empty instead
+					    of preselecting the first option, which also makes the native
+					    required validation effective. Meaningless on a multiple select. */}
+					{!multiple && optionsEmptyLabel?.trim() && (
+						<option value="">{optionsEmptyLabel}</option>
+					)}
 					{parsedOptions.map((option) => (
 						<option
 							key={option.value || option.label}
