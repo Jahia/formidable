@@ -345,8 +345,10 @@ Semantics to know:
   server-side validation accepts `"true"`/`"false"` (case-insensitive) and `"on"`
   (the browser default for a checkbox without a `value` attribute) — anything
   else is rejected at submission.
-- **choice**: the editor reads the choice list from your `choices` property
-  (same JSON-encoded `{value, label}` entries as the built-in radio/checkbox).
+- **choice**: the editor reads the choice list from the `fmdb:options` property
+  declared by `fmdbmix:manualOptions` (same JSON-encoded `{value, label}` entries
+  as the built-in select/radio/checkbox); apply that mixin to your field nodes,
+  or register a source descriptor with a custom `choiceProperty`.
 - **text**: emptiness is whitespace-blankness on both evaluators (a value of
   spaces counts as empty); `equals` is an exact match on the raw submitted
   value and `contains` a substring match, both case-sensitive, and both require

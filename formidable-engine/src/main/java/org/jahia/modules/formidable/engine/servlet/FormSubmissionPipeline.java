@@ -8,6 +8,7 @@ import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.modules.formidable.engine.logic.ConditionalLogicEvaluator;
 import org.jahia.modules.formidable.engine.logic.LogicStateDeclaration;
+import org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionFactory;
 import org.jahia.services.content.JCRSessionWrapper;
@@ -111,11 +112,12 @@ class FormSubmissionPipeline {
     private FormDataParser.ParseResult parsed;
     private ConditionalLogicEvaluator logicEvaluator;
 
-    FormSubmissionPipeline(FormidableConfigService config, List<FormAction> formActions) {
+    FormSubmissionPipeline(FormidableConfigService config, List<FormAction> formActions,
+                           FormidableOptionsSourceService optionsSourceService) {
         this(
                 config,
                 formActions,
-                FormFieldMetadataCollector::collect,
+                (formId, locale) -> FormFieldMetadataCollector.collect(formId, locale, optionsSourceService),
                 JCRTemplate::getInstance,
                 FormDataParser::parseAll,
                 locale -> JCRSessionFactory.getInstance().getCurrentUserSession(WORKSPACE_LIVE, locale)

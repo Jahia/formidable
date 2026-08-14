@@ -4,6 +4,19 @@
         "label": "Label displayed to user",
         "selected": "If enabled, the option is selected by default"
     },
+    "sourcedOptions": {
+        "selectSource": "Select an options source",
+        "previewLoading": "Resolving options…",
+        "previewUnavailable": "The options of this source are currently unavailable.",
+        "previewLabel": "Preview of the resolved options (#{{count}})"
+    },
+    "fmdbmix_optionsSource": {
+        "fmdb_optionsMode": {
+            "manual": "Manual options",
+            "sourced": "Options from a third-party source",
+            "category": "Options from categories"
+        }
+    },
     "conditionalLogic": {
         "sourceField": "Source field",
         "selectSource": "Select a source field",
@@ -26,7 +39,7 @@
             "jsVariable": {
                 "label": "Datalayer value",
                 "configLabel": "Datalayer variable",
-                "configPlaceholder": "window.cxs.profileProperties.firstName"
+                "configPlaceholder": "dataLayer.pageCategory"
             },
             "urlParam": {
                 "label": "URL parameter",
@@ -39,7 +52,7 @@
                 "configPlaceholder": "consent-marketing"
             }
         },
-        "providerRefMissing": "Required: a rule without a name cannot be evaluated and keeps the field hidden.",
+        "providerRefMissing": "Required: a rule without a name cannot be evaluated and will be removed when saving.",
         "providerRefInvalid": "This name is not in the expected format and cannot be read on the page.",
         "unknownSourceType": "This condition uses a source (\"{{type}}\") that this module version does not provide — it was probably created with a newer version. The rule is kept unchanged and its field stays hidden.",
         "operators": {

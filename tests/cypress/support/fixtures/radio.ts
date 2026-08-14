@@ -24,8 +24,9 @@ export function getRadioNode(data: RadioData = RADIO_SINGLE): JahiaNode {
 	if (data.title) properties.push({name: 'jcr:title', value: data.title, language: 'en'});
 	if (data.helpText) properties.push({name: 'helpText', value: data.helpText, language: 'en'});
 	if (data.required !== undefined) properties.push({name: 'required', value: String(data.required), type: 'BOOLEAN'});
+	properties.push({name: 'fmdb:optionsMode', value: 'manual'});
 	properties.push({
-		name: 'choices',
+		name: 'fmdb:options',
 		values: data.choices.map(choice => JSON.stringify({
 			value: choice.value,
 			label: choice.label,
@@ -37,6 +38,7 @@ export function getRadioNode(data: RadioData = RADIO_SINGLE): JahiaNode {
 	return {
 		name: data.name || 'radio',
 		primaryNodeType: 'fmdb:radio',
+		mixins: ['fmdbmix:manualOptions'],
 		properties
 	};
 }

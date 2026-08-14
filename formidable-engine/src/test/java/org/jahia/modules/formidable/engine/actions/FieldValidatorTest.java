@@ -287,6 +287,74 @@ class FieldValidatorTest {
                 false, true, Set.of(), Set.of(), null);
     }
 
+    @Test
+    void rejectsNonEmptyValueWhenOptionsSourceIsUnresolvable() {
+        // Verifies D11 (no tolerance): a value that cannot be checked against its source
+        // must be rejected, never accepted blindly.
+        FormDataParser.FieldMetadata metadata = metadata("country", unresolvableChoiceFieldInfo(false));
+
+        // Expected outcome: the unverifiable value is rejected.
+        assertThrows(FormDataParser.ParseException.class,
+                () -> FieldValidator.validateTextField("country", "FR", metadata));
+    }
+
+    @Test
+    void rejectsEmptyValueOnRequiredFieldWhenOptionsSourceIsUnresolvable() {
+        // Verifies D11 on the required path: a required choice cannot be skipped
+        // just because its options source is down.
+        FormDataParser.FieldMetadata metadata = metadata("country", unresolvableChoiceFieldInfo(true));
+
+        // Expected outcome: the empty value is rejected on the required field.
+        assertThrows(FormDataParser.ParseException.class,
+                () -> FieldValidator.validateTextField("country", "", metadata));
+    }
+
+    @Test
+    void acceptsEmptyValueOnOptionalFieldWhenOptionsSourceIsUnresolvable() {
+        // Verifies D11 on the optional path: the form stays usable without the
+        // broken optional field.
+        FormDataParser.FieldMetadata metadata = metadata("country", unresolvableChoiceFieldInfo(false));
+
+        // Expected outcome: the empty value passes on the optional field.
+        assertDoesNotThrow(() -> FieldValidator.validateTextField("country", "", metadata));
+    }
+
+    @Test
+    void rejectsNonEmptyValueOnChoiceFieldWithEmptyAllowlist() {
+        // A choice field whose option list resolves to nothing renders nothing
+        // selectable: any non-empty submitted value is forged. The empty allowlist
+        // must not disable the check.
+        FormDataParser.FieldInfo info = new FormDataParser.FieldInfo(
+                "fmdb:select", false, true, false, false, false, false, false,
+                Set.of(), Set.of(), null);
+        FormDataParser.FieldMetadata metadata = metadata("emptyChoices", info);
+
+        // Expected outcome: the value is rejected even though the allowlist is empty.
+        assertThrows(FormDataParser.ParseException.class,
+                () -> FieldValidator.validateTextField("emptyChoices", "anything", metadata));
+    }
+
+    @Test
+    void acceptsAnyValueOnNonChoiceFieldWithoutAllowlist() {
+        // Non-choice fields carry an empty allowlist by construction: the choice
+        // check must not apply to them.
+        FormDataParser.FieldInfo info = fieldInfo(
+                "fmdb:inputText", false, false, false, false, false, false, false, null);
+        FormDataParser.FieldMetadata metadata = metadata("freeText", info);
+
+        // Expected outcome: the free-text value passes.
+        assertDoesNotThrow(() -> FieldValidator.validateTextField("freeText", "anything", metadata));
+    }
+
+    private static FormDataParser.FieldInfo unresolvableChoiceFieldInfo(boolean required) {
+        FormDataParser.FieldConstraints constraints = required
+                ? new FormDataParser.FieldConstraints(true, -1, -1, null, null, null)
+                : null;
+        return new FormDataParser.FieldInfo(
+                "fmdb:select", false, true, false, false, false, false, false,
+                false, false, Set.of(), true, Set.of(), constraints);
+    }
+
     private static FormDataParser.FieldInfo fieldInfo(
             String nodeType,
             boolean nonSubmittable,

@@ -155,6 +155,77 @@ class FormFieldMetadataCollectorTest {
         );
     }
 
+    @Test
+    void collectsSourcedChoiceOptionsThroughTheResolver() throws Exception {
+        // Verifies D11 plumbing: a sourced choice field gets its allowed values from the
+        // re-resolved source, in the manual-options JSON format.
+        JCRNodeWrapper sourced = node(
+                "country",
+                "fmdb:select",
+                Set.of("fmdbmix:formElement", "fmdbmix:choiceField", "fmdbmix:sourcedOptions"),
+                Map.of(),
+                List.of()
+        );
+
+        FormFieldMetadataCollector.Result result = FormFieldMetadataCollector.collectFromFormNode(
+                formNodeWithFields(sourced),
+                node -> new String[]{
+                        "{\"value\":\"FR\",\"label\":\"France\",\"selected\":false}",
+                        "{\"value\":\"DE\",\"label\":\"Germany\",\"selected\":false}"
+                }
+        );
+
+        // Expected outcome: the resolved values are the allowlist, and the field is resolvable.
+        assertEquals(Set.of("FR", "DE"), result.toParserMetadata().allowedChoices("country"));
+        assertFalse(result.toParserMetadata().choicesUnresolvable("country"));
+    }
+
+    @Test
+    void collectsCategoryModeChoicesThroughTheResolver() throws Exception {
+        // Verifies the gate stays aligned with the service dispatch: a category-mode
+        // field also gets its allowlist from the resolver, not from stored options.
+        JCRNodeWrapper categoryField = node(
+                "tvCategory",
+                "fmdb:radio",
+                Set.of("fmdbmix:formElement", "fmdbmix:choiceField", "fmdbmix:categoryOptions"),
+                Map.of(),
+                List.of()
+        );
+
+        FormFieldMetadataCollector.Result result = FormFieldMetadataCollector.collectFromFormNode(
+                formNodeWithFields(categoryField),
+                node -> new String[]{"{\"value\":\"oled\",\"label\":\"OLED\",\"selected\":false}"}
+        );
+
+        // Expected outcome: the resolved category values are the allowlist.
+        assertEquals(Set.of("oled"), result.toParserMetadata().allowedChoices("tvCategory"));
+        assertFalse(result.toParserMetadata().choicesUnresolvable("tvCategory"));
+    }
+
+    @Test
+    void flagsSourcedChoiceFieldWhenTheSourceCannotDeliver() throws Exception {
+        // Verifies the D11 failure path: a failing source flags the field instead of
+        // leaving an empty allowlist that would accept anything.
+        JCRNodeWrapper sourced = node(
+                "country",
+                "fmdb:select",
+                Set.of("fmdbmix:formElement", "fmdbmix:choiceField", "fmdbmix:sourcedOptions"),
+                Map.of(),
+                List.of()
+        );
+
+        FormFieldMetadataCollector.Result result = FormFieldMetadataCollector.collectFromFormNode(
+                formNodeWithFields(sourced),
+                node -> {
+                    throw new IllegalStateException("source down");
+                }
+        );
+
+        // Expected outcome: no allowed values, and the unresolvable flag is set.
+        assertEquals(Set.of(), result.toParserMetadata().allowedChoices("country"));
+        assertTrue(result.toParserMetadata().choicesUnresolvable("country"));
+    }
+
     private static JCRNodeWrapper node(String name,
                                        String primaryType,
                                        Set<String> nodeTypes,

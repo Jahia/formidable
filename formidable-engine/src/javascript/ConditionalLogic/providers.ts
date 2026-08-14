@@ -36,8 +36,9 @@ export const PROVIDER_OPERATORS: LogicOperator[] = [
     'notExists'
 ];
 
-// Mirrors the runtime's own guard: a plain dotted identifier chain, no indexing, no calls.
-const JS_VARIABLE_PATH_PATTERN = /^(window\.)?[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/;
+// Mirrors the runtime's own guard: a dotted chain of identifiers or numeric array
+// indexes (e.g. "dataLayer.0.event"), no bracket indexing, no calls.
+const JS_VARIABLE_PATH_PATTERN = /^(window\.)?[A-Za-z_$][\w$]*(\.([A-Za-z_$][\w$]*|\d+))*$/;
 
 // Cookie names are tokens: no separators, no whitespace, no control characters.
 const COOKIE_NAME_PATTERN = /^[\w!#$%&'*+\-.^`|~]+$/;

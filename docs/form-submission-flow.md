@@ -34,14 +34,14 @@ Browser
          Step 5   verifyAuthentication    if fmdbmix:authenticatedOnlyForm → reject Guest
          Step 6   verifyCaptcha           if fmdbmix:captchaProtectedForm → verify CAPTCHA header — 0 byte read
          Step 7   collectFormFieldInfo    walk form node: build field whitelist,
-                                          per-field type, allowed choices, accept types,
+                                          per-field type, allowed options, accept types,
                                           and field constraints (required, min/maxLength,
                                           pattern, min/maxDate)                                   — 0 byte read
          Step 8   parseMultipart          FIRST AND ONLY read of the request stream
                    ├─ undeclared fields skipped inline (not read, not stored)
                    ├─ text fields  → validated → Map<String, List<String>>
                    │    ├─ choice fields (select, radio, checkbox): value checked against
-                   │    │   allowed choices declared in JCR
+                   │    │   allowed options declared in JCR
                    │    ├─ typed fields (email, date, datetime-local, color): format validated
                    │    └─ field constraints applied (required, minLength, maxLength, pattern,
                    │        minDate, maxDate)

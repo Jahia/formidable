@@ -47,3 +47,27 @@ property to its `pom.xml`, its Maven group id is unchanged.
 
 This is a one-time migration: from 0.4.0 on, the group id is stable and later
 versions install in place as usual.
+
+## 0.3.0 (and earlier) → 0.4.0: choice-field options are migrated at startup
+
+### What changes
+
+PR [#193](https://github.com/Jahia/formidable/pull/193) unified the per-type
+option properties (`options` on `fmdb:select`, `choices` on `fmdb:radio` /
+`fmdb:checkbox`) into the single `fmdb:options` property carried by the
+`fmdbmix:manualOptions` mixin, as part of the options-source feature.
+
+Existing content needs no manual step: `ChoiceOptionsContentMigration` runs at
+engine startup, in both workspaces, moves the legacy values as-is and stamps
+the manual mode — published forms keep rendering without a republish. The
+migration is keyed on content state (a legacy property is present), so
+re-running it is a no-op.
+
+### The one case needing attention: importing a 0.3-era export
+
+A form export produced by 0.3.0 or earlier and imported into an instance
+already running 0.4.0 re-creates the legacy storage *after* the startup
+migration ran: the imported choice fields render empty option lists.
+
+Restart the server (or the formidable-engine bundle) to re-run the migration,
+or re-enter the options in the editor.

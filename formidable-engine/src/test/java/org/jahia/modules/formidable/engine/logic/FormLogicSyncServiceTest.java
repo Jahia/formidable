@@ -724,6 +724,69 @@ class FormLogicSyncServiceTest {
                 "Original rule must be untouched");
     }
 
+    @Test
+    void syncDropsTargetlessRulesButKeepsIntentAndUnknownTypes() throws Exception {
+        // Targetless leftovers (an empty provider reference, a field rule without a
+        // source) are removed at save; a filled-but-invalid reference and a rule of an
+        // unknown source type (newer module version) pass through untouched.
+        JCRNodeWrapper target = node(
+                "target",
+                "/form/fields/target",
+                "fmdb:fieldset",
+                Set.of("fmdbmix:formElement", "fmdbmix:formLogicElement"),
+                Map.of(
+                        "fieldKey", singleValueProperty("target-key"),
+                        "logics", multiValueProperty(
+                                "{\"logicId\":\"aaaaaaaa\",\"sourceType\":\"jsVariable\",\"variable\":\"\",\"operator\":\"eq\",\"value\":\"x\"}",
+                                "{\"logicId\":\"bbbbbbbb\",\"sourceType\":\"urlParam\",\"param\":\"\",\"operator\":\"eq\",\"value\":\"x\"}",
+                                "{\"logicId\":\"cccccccc\",\"sourceType\":\"field\",\"operator\":\"in\"}",
+                                "{\"logicId\":\"dddddddd\",\"sourceType\":\"jsVariable\",\"variable\":\"not a valid path!!\",\"operator\":\"eq\",\"value\":\"x\"}",
+                                "{\"logicId\":\"eeeeeeee\",\"sourceType\":\"geofence\",\"zones\":[\"eu\"],\"operator\":\"exists\"}",
+                                "")),
+                List.of(),
+                List.of()
+        );
+        JCRNodeWrapper fields = node(
+                "fields", "/form/fields", "fmdb:fieldList", Set.of(), Map.of(), List.of(target), List.of());
+        JCRNodeWrapper form = node(
+                "form", "/form", "fmdb:form", Set.of(), Map.of(), List.of(fields), List.of());
+        when(target.getAncestors()).thenReturn(List.of(form));
+
+        assertTrue(FormLogicSyncService.sync(target), "dropping leftovers must be reported as an update");
+
+        assertEquals(2, target.getProperty("logics").getValues().length,
+                "only the intent-carrying and unknown-type rules must survive");
+        assertEquals("dddddddd",
+                new JSONObject(target.getProperty("logics").getValues()[0].getString()).optString("logicId"),
+                "the filled-but-invalid reference must be kept");
+        assertEquals("eeeeeeee",
+                new JSONObject(target.getProperty("logics").getValues()[1].getString()).optString("logicId"),
+                "the unknown source type must round-trip untouched");
+    }
+
+    @Test
+    void syncLeavesCompleteProviderRulesUntouched() throws Exception {
+        JCRPropertyWrapper originalLogics = multiValueProperty(
+                "{\"logicId\":\"aaaaaaaa\",\"sourceType\":\"cookie\",\"cookie\":\"consent\",\"operator\":\"exists\"}");
+        JCRNodeWrapper target = node(
+                "target",
+                "/form/fields/target",
+                "fmdb:fieldset",
+                Set.of("fmdbmix:formElement", "fmdbmix:formLogicElement"),
+                Map.of("fieldKey", singleValueProperty("target-key"), "logics", originalLogics),
+                List.of(),
+                List.of()
+        );
+        JCRNodeWrapper fields = node(
+                "fields", "/form/fields", "fmdb:fieldList", Set.of(), Map.of(), List.of(target), List.of());
+        JCRNodeWrapper form = node(
+                "form", "/form", "fmdb:form", Set.of(), Map.of(), List.of(fields), List.of());
+        when(target.getAncestors()).thenReturn(List.of(form));
+
+        assertFalse(FormLogicSyncService.sync(target), "a complete provider rule must not trigger any update");
+        assertSame(originalLogics, target.getProperty("logics"), "the logics property must not be rewritten");
+    }
+
     private static final Map<String, JCRNodeWrapper> nodesByUuid = new LinkedHashMap<>();
     private static final Map<String, Map<String, JCRNodeWrapper>> childrenByNodeUuid = new LinkedHashMap<>();
     private static final JCRSessionWrapper sharedSession = mock(JCRSessionWrapper.class);

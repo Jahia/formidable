@@ -2,6 +2,7 @@ package org.jahia.modules.formidable.engine.servlet;
 
 import org.jahia.modules.formidable.engine.api.FormAction;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService;
 import org.jahia.services.securityfilter.PermissionService;
 import org.json.JSONObject;
 import org.osgi.service.component.annotations.Activate;
@@ -51,6 +52,7 @@ public class FormSubmitServlet extends HttpServlet {
 
     private final AtomicReference<FormidableConfigService> config = new AtomicReference<>();
     private final AtomicReference<PermissionService> permissionService = new AtomicReference<>();
+    private final AtomicReference<FormidableOptionsSourceService> optionsSourceService = new AtomicReference<>();
     private final List<FormAction> formActions = new CopyOnWriteArrayList<>();
 
     @Reference
@@ -61,6 +63,11 @@ public class FormSubmitServlet extends HttpServlet {
     @Reference
     public void setPermissionService(PermissionService permissionService) {
         this.permissionService.set(permissionService);
+    }
+
+    @Reference
+    public void setOptionsSourceService(FormidableOptionsSourceService optionsSourceService) {
+        this.optionsSourceService.set(optionsSourceService);
     }
 
     @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC, unbind = "unbindFormAction")
@@ -102,7 +109,7 @@ public class FormSubmitServlet extends HttpServlet {
     }
 
     FormSubmissionPipeline createPipeline() {
-        return new FormSubmissionPipeline(getConfigService(), formActions);
+        return new FormSubmissionPipeline(getConfigService(), formActions, optionsSourceService.get());
     }
 
     boolean isRequestAllowed() {

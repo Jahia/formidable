@@ -1,0 +1,173 @@
+# Choice field options sources
+
+Choice fields (`fmdb:select`, `fmdb:radio`, `fmdb:checkbox`) can fill their option
+list from an **options source** instead of manually typed options. The options are
+resolved live, at render time, in the language of the rendered form. Two source
+kinds exist:
+
+- **declared sources**: curated Jahia choicelist initializers, declared by the
+  administrator in the module configuration;
+- **categories**: the contributor picks a root category, the options are the
+  categories directly underneath — no configuration involved, since categories
+  are already contributor-curated content governed by JCR permissions.
+
+## Storage model
+
+The mode lives on the engine-owned mixin pair (industrial's mediaSource pattern):
+
+- `fmdbmix:optionsSource` carries the `fmdb:optionsMode` switch (`manual` default);
+- `fmdbmix:manualOptions` carries the unified `fmdb:options` property
+  (i18n, multiple, JSON-encoded `{"value","label","selected"}` strings);
+- `fmdbmix:sourcedOptions` carries only `fmdb:optionsSourceKey`;
+- `fmdbmix:categoryOptions` carries only `fmdb:optionsRootCategory`, a
+  weakreference to a `jnt:category` node picked with the category picker.
+
+In both non-manual modes nothing else is stored — the option list never
+materializes in the JCR.
+
+The Content Editor switches the two `jmix:dynamicFieldset` mixins through the
+`addMixin` wiring declared in the fieldset JSON overrides of formidable-elements.
+
+## Declaring sources (administrator)
+
+Sources are declared in `org.jahia.modules.formidable.cfg`, one per line:
+
+```properties
+optionsSources=countries|Countries|country\n\
+  tv|TV screens|fmdbSampleCategoryTree|product/tv
+optionsSourcesCacheTtlSeconds=300
+```
+
+Each entry has the form `id|Label|initializerKey` or `id|Label|initializerKey|param`:
+
+| Segment | Role |
+|---|---|
+| `id` | Stable identifier stored in JCR (`fmdb:optionsSourceKey`) |
+| `Label` | Shown to contributors in the source picker |
+| `initializerKey` | Key of the Jahia choicelist initializer to evaluate (e.g. `country`) |
+| `param` | Optional parameter string handed to the initializer |
+
+The label is either a literal, or a resource-bundle key of the form
+`<module>:<resource.key>` (for example
+`formidable-test-module-samples-java:sample.optionsSource.tv`) resolved
+server-side against that module's Java resource bundle; an unresolvable key falls
+back to the raw label, so a misconfiguration stays visible. The resolution
+language is the one the Content Editor hands to choicelist initializers: the
+**UI language** since jcontent PR #2570 (2026-07-20) — the same language that
+resolves the neighboring editor labels — and the edited content language on
+older jcontent versions. A literal containing a colon (e.g. `Type: TV`) is not
+mistaken for a key — the key form is strictly `module:key` without spaces.
+
+Only declared sources are exposed to contributors — never the raw platform-wide
+initializer list, most of which is context-dependent and meaningless as a form
+options source. An empty `optionsSources` disables sourced options entirely
+(fail-safe default).
+
+In the Content Editor, the source is picked with the `SourcedOptions` selector,
+which also previews the options the picked source currently resolves to (count
+plus a closed browse-only list). The preview goes through jcontent's
+`forms.fieldConstraints` with a `sourceKey` context entry, re-evaluated by the
+`formidableOptionsPreview` initializer chained on `fmdb:optionsSourceKey` — during
+a normal form build that initializer passes the source list through untouched.
+
+### Which initializers qualify as a source
+
+The resolver evaluates the initializer **outside any rendering context**:
+`getChoiceListValues(null, param, null, locale, emptyContext)` — no property
+definition, no context node — and caches the result per **(source, language)**
+for the TTL. That cache is shared by every caller: all users, all workspaces,
+edit and live alike. Two rules follow:
+
+1. **The initializer must not require Content Editor context.** Most core
+   initializers resolve against the property definition or a context node and
+   either throw or return an empty list here (verified on Jahia 8.2.4:
+   `users`, `templates`, `templatesNode`, `resourceBundle`, `sort`,
+   `componenttypes`, `nodetypeproperties`, `propertyValues`, `menus`,
+   `moduleImage`, `siteLanguage`, `flag`, `script`, …).
+2. **The initializer must not read JCR content through the ambient session.**
+   Core initializers that touch content use
+   `JCRSessionFactory.getCurrentUserSession()`, which is the **default
+   workspace** regardless of the rendered workspace. Combined with the shared
+   cache, this is an information leak: an editor's session primes the cache
+   with default-workspace values — including **unpublished content** — and live
+   visitors are served that list until the TTL expires.
+
+The core `nodes` initializer is the canonical counter-example and must **never
+be declared as a source**, even though it superficially fits (it accepts a
+`/path;type` parameter and lists nodes): it reads the default workspace through
+the current user session (verified against the 8.2.4 bytecode), its values are
+UUIDs (opaque in results, broken by a site re-import), its labels are system
+names (not localized titles), and site placeholders in its parameter resolve
+against the platform's *default site*, not the current one. Anything shaped
+like "list this content" belongs to **category mode** — whose resolution goes
+through the field's own session and leaks nothing by construction — not to a
+declared source.
+
+In practice, on a stock Jahia the only core initializer worth declaring is
+**`country`** (ISO country list, localized labels, no JCR involved). The
+engine's `formidableMimeTypes` is safe for the same reason.
+
+### Initializer parameters
+
+The parameter is **one opaque string**: everything after the third `|` is passed
+verbatim to the initializer (the entry is split with a limit, so the parameter may
+itself contain `|`). The Jahia initializer API
+(`getChoiceListValues(epd, param, values, locale, context)`) receives a single
+string — there is **no platform-wide separator for multiple parameters**; each
+initializer defines its own convention. The core `nodes` initializer uses `;`
+(`/path;jnt:type`), and `;` is the recommended convention for custom initializers
+(for example `product/tv;2` for a hypothetical `path;depth` contract). This is the
+same behavior as the CND `choicelist[initializer='param']` syntax, where the quotes
+also carry a single string. (Not to be confused with the comma in
+`choicelist[init1,init2]`, which separates chained initializers, not parameters.)
+
+## Category mode
+
+The options of a category-mode field are the categories **directly under** the
+picked root: the category name is the submitted value, its localized title the
+displayed label. The weakreference resolves in the workspace of the caller, so a
+live form only shows **published** categories, and an unpublished or deleted root
+category degrades like any failing source (see below). Category options are not
+TTL-cached: the read is in-JVM, backed by Jahia's JCR caches, and a category
+publication shows up on the next render.
+
+## Resolution, cache and failures
+
+`FormidableOptionsSourceService.resolve(sourceKey, languageTag)` (engine) evaluates
+the initializer and answers in the manual-options JSON format, so the rendering
+code cannot tell sourced and manual options apart. Server views call it in-process
+(`server.osgi.getService`). Results are cached in memory per (source, language) for
+`optionsSourcesCacheTtlSeconds` (default 300); a configuration change takes effect
+immediately (cache entries remember the source definition they were resolved from),
+and failures are never cached.
+
+When a source cannot deliver (unknown key, initializer missing or failing), the
+field renders an inline error instead of an empty list:
+
+- **required field**: the form is not submittable (the submit button is disabled);
+- **optional field**: the form stays usable without it.
+
+Submitted values are validated server-side against the re-resolved list, exactly
+like manual options, with no tolerance: a non-empty value absent from the list is
+rejected (FMDB-010), and when the source cannot be resolved at validation time a
+non-empty value is rejected as unverifiable. An empty or absent value follows the
+field's `required` flag, like any other field.
+
+## Writing a source initializer
+
+Any module can contribute one by registering a `ModuleChoiceListInitializer` OSGi
+service with a fixed key. `SampleCategoryTreeInitializer`
+(formidable-test-module-samples-java) is a complete parameterized example: it lists
+the child categories of a category-tree node, the parameter being the starting
+point relative to `/sites/systemsite/categories`. Return localized labels using the
+`locale` argument; blank values are dropped by the resolver, and a blank label
+falls back to the value.
+
+Mind the rules of the previous section: a source initializer runs outside any
+rendering session and its result is cached across users and workspaces. Compute
+options from non-JCR data (code, configuration, resource bundles, external
+systems). If reading the repository is unavoidable, open an **explicit** system
+session on a deliberately chosen workspace — never rely on
+`getCurrentUserSession()` — and only expose admin-curated, non-sensitive trees:
+whatever is resolved is served identically to every visitor. The sample does
+exactly that (explicit system session on `default`, shared category taxonomy).

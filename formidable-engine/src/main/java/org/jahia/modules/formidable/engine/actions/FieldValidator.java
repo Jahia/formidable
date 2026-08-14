@@ -40,12 +40,38 @@ final class FieldValidator {
             String value,
             FormDataParser.FieldMetadata metadata
     ) throws FormDataParser.ParseException {
+        boolean choicesUnresolvable = metadata.choicesUnresolvable(fieldName);
+
         if (value == null || value.isEmpty()) {
+            // D11: when the options source is down, an empty value only passes on an
+            // optional field; a required choice cannot be silently skipped.
+            if (choicesUnresolvable && isRequired(metadata, fieldName)) {
+                log.warn("[FieldValidator] Rejected empty value: required field options source is unavailable");
+                throw new FormDataParser.ParseException(
+                        "Field '" + fieldName + "': required field options are currently unavailable.",
+                        FormDataParser.ParseException.FailureType.VALIDATION
+                );
+            }
+
             return;
         }
 
-        Set<String> choices = metadata.allowedChoices(fieldName);
-        if (!choices.isEmpty() && !choices.contains(value)) {
+        // D11, no tolerance: a non-empty value must be present in the re-resolved list;
+        // when the source cannot be resolved, the value cannot be verified and is rejected.
+        if (choicesUnresolvable) {
+            log.warn("[FieldValidator] Rejected submitted value: field options source is unavailable");
+            throw new FormDataParser.ParseException(
+                    "Field '" + fieldName + "': submitted value cannot be verified, options are currently unavailable.",
+                    FormDataParser.ParseException.FailureType.VALIDATION
+            );
+        }
+
+        // Gate on the field being a choice field, not on the allowlist being non-empty:
+        // a choice field whose list resolves to nothing renders nothing selectable, so
+        // any non-empty submitted value is forged and must be rejected — an empty
+        // allowlist must not disable the check.
+        FormDataParser.FieldInfo choiceInfo = metadata.field(fieldName);
+        if (choiceInfo != null && choiceInfo.choiceField() && !metadata.allowedChoices(fieldName).contains(value)) {
             log.warn("[FieldValidator] Rejected submitted value: not in allowed choices");
             throw new FormDataParser.ParseException(
                     "Field '" + fieldName + "': submitted value is not an allowed choice.",
@@ -79,6 +105,11 @@ final class FieldValidator {
         if (constraints != null) {
             validateConstraints(fieldName, value, constraints, fieldInfo);
         }
+    }
+
+    private static boolean isRequired(FormDataParser.FieldMetadata metadata, String fieldName) {
+        FormDataParser.FieldConstraints constraints = metadata.constraints(fieldName);
+        return constraints != null && constraints.required();
     }
 
     private static void validateConstraints(

@@ -22,6 +22,7 @@ import {getSourceDescriptor, operatorNeedsValue} from './sourceDescriptors';
 import {getLogicProvider, listLogicProviders, type LogicProviderDescriptor, PROVIDER_OPERATORS} from './providers';
 import {CURRENT_NODE_BY_PATH, FORM_TREE_BY_PATH} from './graphql';
 import type {ConditionalLogicRule, GraphNode, LogicOperator, RuleSourceType, SelectorProps, SourceFieldOption} from './ConditionalLogic.types';
+import './conditionalLogic.css';
 
 
 
@@ -95,6 +96,13 @@ const generateLogicId = (): string => {
     return Math.random().toString(36).substring(2, 10);
 };
 
+// The Content Editor regenerates the React keys of every multiple-value row when an
+// entry is added or removed (useReorderList assigns fresh uniqueIds), remounting the
+// rule components and dropping their local state. The visited flag of the provider
+// reference survives here, keyed by the rule's logicId — set as soon as a provider
+// type is picked, and stable across remounts. Editor-session scoped by design.
+const touchedProviderRefs = new Set<string>();
+
 export const ConditionalLogicCmp = (props: SelectorProps) => {
     const {field, id, value, onChange} = props;
     const {t} = useTranslation('formidable-engine');
@@ -108,6 +116,19 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     const language = extractLanguage(props);
     const workspace = extractWorkspace(props);
     const rule = useMemo(() => parseRule(value), [value]);
+    // Whether the provider-reference input was visited: its error only shows after
+    // that (a rule opened with a stored reference is validated right away). Declared
+    // with the other hooks — the component has early returns further down.
+    const [providerRefTouched, setProviderRefTouched] = useState(() => {
+        const initialRule = parseRule(value);
+        const provider = getLogicProvider(initialRule.sourceType);
+        if (!provider) {
+            return false;
+        }
+
+        return (initialRule[provider.configKey] ?? '').trim() !== ''
+            || (Boolean(initialRule.logicId) && touchedProviderRefs.has(initialRule.logicId!));
+    });
 
     // Resolve the selected source: sourceFieldKey is the business identity and wins,
     // then the stored UUID, then weakref resolution via logicId, then the legacy name.
@@ -376,6 +397,11 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         }
 
         const nextProvider = getLogicProvider(nextType);
+        setProviderRefTouched(false);
+        if (rule.logicId) {
+            touchedProviderRefs.delete(rule.logicId);
+        }
+
         if (nextProvider) {
             onChange(JSON.stringify(normalizeStoredProviderRule({
                 ...rule,
@@ -447,7 +473,9 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
             <>
                 <div className="flexFluid">
                     <Dropdown
+                        variant="outlined"
                         data={sourceOptions}
+                        hasSearch={sourceOptions.length >= 5}
                         value={selectedSource?.id}
                         placeholder={t('conditionalLogic.selectSource')}
                         isDisabled={field.readOnly}
@@ -456,7 +484,9 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                 </div>
                 <div className="flexFluid">
                     <Dropdown
+                        variant="outlined"
                         data={operatorOptions}
+                        hasSearch={operatorOptions.length >= 5}
                         value={selectedOperator}
                         placeholder={t('conditionalLogic.operator')}
                         isDisabled={field.readOnly || !selectedSource}
@@ -467,7 +497,9 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                 {showValueDropdown && (
                     <div className="flexFluid">
                         <Dropdown
+                            variant="outlined"
                             data={valueOptions}
+                            hasSearch={valueOptions.length >= 5}
                             values={rule.values ?? []}
                             placeholder={t('conditionalLogic.values')}
                             isDisabled={field.readOnly}
@@ -518,19 +550,35 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         </div>
     );
 
+    // Problems are surfaced here rather than blocked: an invalid reference can never
+    // be read on the page (the rule fails closed and hides the field), and a rule
+    // left with an empty reference is removed server-side when the element is saved
+    // (FormLogicRuleCleanup). The message lives in a reserved line below the whole
+    // row, so its presence never moves the fields, and only shows once the
+    // contributor has left the reference input (a rule opened with a stored
+    // reference is validated right away).
+    const providerRef = selectedProvider ? (rule[selectedProvider.configKey] ?? '').trim() : '';
+    const providerRefError = !selectedProvider
+        ? null
+        : (providerRef === ''
+            ? t('conditionalLogic.providerRefMissing')
+            : (selectedProvider.isValidRef && !selectedProvider.isValidRef(providerRef)
+                ? t('conditionalLogic.providerRefInvalid')
+                : null));
+    // A rule that is no longer the last of the list has been left behind: the
+    // contributor added rules after it, so its reference counts as visited even when
+    // no blur was ever observed (dropdown menus and the add button can take the focus
+    // without it ever sitting inside the row).
+    const ruleIndexMatch = /\[(\d+)\]$/.exec(id ?? '');
+    const allRuleValues = field.name ? props.form?.values?.[field.name] : undefined;
+    const isLastRule = !ruleIndexMatch
+        || !Array.isArray(allRuleValues)
+        || Number(ruleIndexMatch[1]) >= allRuleValues.length - 1;
+    const showProviderRefError = (providerRefTouched || !isLastRule) && providerRefError !== null;
+
     // One shape for every provider: the name of the thing designated, an operator, and a
     // value when the operator compares against one. Adding a provider adds no markup here.
     const renderProviderRule = (provider: LogicProviderDescriptor) => {
-        // The stored rule is what the runtime gets, so problems are surfaced here rather
-        // than blocked: an empty reference makes the rule unevaluable (the field stays
-        // hidden), an invalid one can never be read on the page.
-        const providerRef = (rule[provider.configKey] ?? '').trim();
-        const providerRefError = providerRef === ''
-            ? t('conditionalLogic.providerRefMissing')
-            : (provider.isValidRef && !provider.isValidRef(providerRef)
-                ? t('conditionalLogic.providerRefInvalid')
-                : null);
-
         return (
         <>
             <div className="flexFluid">
@@ -539,21 +587,25 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     isReadOnly={field.readOnly}
                     placeholder={t(provider.configPlaceholderKey)}
                     aria-label={t(provider.configLabelKey)}
-                    aria-invalid={providerRefError ? true : undefined}
-                    aria-describedby={providerRefError ? `${id}-provider-ref-error` : undefined}
+                    aria-invalid={showProviderRefError ? true : undefined}
+                    aria-describedby={showProviderRefError ? `${id}-provider-ref-error` : undefined}
                     value={rule[provider.configKey] ?? ''}
                     size="big"
+                    className={showProviderRefError ? 'fmdbProviderRefError' : undefined}
                     onChange={event => updateProviderRule({[provider.configKey]: event.target.value})}
+                    onBlur={() => {
+                        setProviderRefTouched(true);
+                        if (rule.logicId) {
+                            touchedProviderRefs.add(rule.logicId);
+                        }
+                    }}
                 />
-                {providerRefError && (
-                    <Typography id={`${id}-provider-ref-error`} variant="caption" style={{color: 'var(--color-danger)'}}>
-                        {providerRefError}
-                    </Typography>
-                )}
             </div>
             <div className="flexFluid">
                 <Dropdown
+                    variant="outlined"
                     data={providerOperatorOptions}
+                    hasSearch={providerOperatorOptions.length >= 5}
                     value={providerOperator}
                     placeholder={t('conditionalLogic.operator')}
                     isDisabled={field.readOnly}
@@ -582,19 +634,53 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         );
     };
 
+    // Leaving the rule row counts as visiting the reference: a contributor who picks a
+    // provider type and moves on without ever entering the reference input still gets
+    // the error. Focus events bubble, and moving between the row's own inputs keeps
+    // relatedTarget inside the row, so nothing fires while the rule is being edited.
+    const handleRowBlur = (event: React.FocusEvent<HTMLDivElement>) => {
+        if (!selectedProvider || providerRefTouched) {
+            return;
+        }
+
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+            setProviderRefTouched(true);
+            if (rule.logicId) {
+                touchedProviderRefs.add(rule.logicId);
+            }
+        }
+    };
+
     return (
-        <div className="flexRow_nowrap flexFluid alignCenter" style={{gap: '0.75rem'}}>
-            <div style={{minWidth: '10rem'}}>
-                <Dropdown
-                    data={sourceTypeOptions}
-                    value={ruleSourceType}
-                    isDisabled={field.readOnly}
-                    onChange={handleSourceTypeChange}
-                />
+        <div className="flexCol flexFluid" onBlur={handleRowBlur}>
+            <div className="flexRow_nowrap flexFluid alignCenter" style={{gap: '0.75rem'}}>
+                <div style={{minWidth: '10rem'}}>
+                    <Dropdown
+                        variant="outlined"
+                        data={sourceTypeOptions}
+                        hasSearch={sourceTypeOptions.length >= 5}
+                        value={ruleSourceType}
+                        isDisabled={field.readOnly}
+                        onChange={handleSourceTypeChange}
+                    />
+                </div>
+                {selectedProvider
+                    ? renderProviderRule(selectedProvider)
+                    : (isUnknownSourceType ? renderUnknownSourceRule() : renderFieldRule())}
             </div>
-            {selectedProvider
-                ? renderProviderRule(selectedProvider)
-                : (isUnknownSourceType ? renderUnknownSourceRule() : renderFieldRule())}
+            {/* Reserved line: keeps every rule row the same height whether or not an
+                error is shown, so messages never shift the fields around. */}
+            <Typography
+                id={`${id}-provider-ref-error`}
+                variant="caption"
+                style={{
+                    minHeight: '1.25rem',
+                    color: 'var(--color-danger)',
+                    visibility: showProviderRefError ? 'visible' : 'hidden'
+                }}
+            >
+                {showProviderRefError ? providerRefError : ''}
+            </Typography>
         </div>
     );
 };
