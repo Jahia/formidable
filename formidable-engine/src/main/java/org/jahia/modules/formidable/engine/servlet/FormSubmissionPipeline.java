@@ -41,7 +41,7 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WO
  * Each step either completes successfully or throws {@link SubmissionException},
  * which {@link FormSubmitServlet} translates into an opaque JSON error response.
  *
- * Pipeline order (zero bytes of the request stream are consumed before step 8):
+ * Pipeline order (zero bytes of the request stream are consumed before step 9):
  *
  *   1.  verifyMultipart          — content-type guard
  *   2.  readRoutingParams        — fid (validated as UUID) + lang from URL query params
