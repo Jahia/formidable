@@ -31,5 +31,6 @@ export interface FormProps extends Omit<FormServerProps, 'destination'> {
 	destinationUrl?: string;
 	submitActionUrl?: string;
 	isSubmitDisabled?: boolean;
+	isMaintenance?: boolean;
 	children: ReactNode;
 }

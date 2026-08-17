@@ -8,7 +8,13 @@ interface SubmissionLabels {
 	captchaRequired: string;
 	errorCode: string;
 	actionsProgress: (completed: number, total: number) => string;
+	maintenanceUnavailable: string;
 }
+
+// Server rejection while the platform is in read-only maintenance (see docs/error-codes.md).
+// Covers the window where the mode is switched between render and submit: the visitor gets
+// the same maintenance message as the render-time state, not a technical error.
+const MAINTENANCE_ERROR_CODE = 'FMDB-014';
 
 interface UseFormSubmissionOptions {
 	submitActionUrl?: string;
@@ -123,6 +129,12 @@ export function useFormSubmission({
 			form.reset();
 			if (isMultiStep) setCurrentStep(0);
 		} catch (error) {
+			if (serverErrorCode === MAINTENANCE_ERROR_CODE) {
+				setMessage(labels.maintenanceUnavailable);
+				setMessageType('error');
+				captchaRef.current?.reset();
+				return;
+			}
 			const formData = new FormData(form);
 			const interpolatedErrorMessage = interpolateMessage(errorMessage, formData, locale);
 			const base = interpolatedErrorMessage || 'An error occurred while submitting the form.';
