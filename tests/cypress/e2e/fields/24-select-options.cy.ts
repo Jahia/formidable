@@ -1,7 +1,9 @@
 import {
 	getSelectNode,
 	SELECT_DISABLED,
+	SELECT_EMPTY_LABEL,
 	SELECT_MULTIPLE,
+	SELECT_MULTIPLE_EMPTY_LABEL,
 	SELECT_SINGLE
 } from '../../support/fixtures';
 import {createPublishedLiveFormPage, visitLiveForm} from '../../support/fixtures/forms';
@@ -40,6 +42,35 @@ describe('Form fields - 24 Select options', () => {
 				.shouldBeDisabled()
 				.shouldHaveOptionCount(2)
 				.shouldHaveSelectedOption('Closed');
+		});
+	});
+
+	it('renders the configured empty option first on a single select, never on a multiple one', () => {
+		createPublishedLiveFormPage(
+			'select-empty-label-form',
+			'Select Empty Label Form',
+			[
+				getSelectNode(SELECT_EMPTY_LABEL),
+				getSelectNode(SELECT_MULTIPLE_EMPTY_LABEL)
+			]
+		).then(({livePath}) => {
+			const form = visitLiveForm(livePath);
+
+			// The empty option leads the list, value-less and selected by default,
+			// so the field starts empty and required validation stays effective.
+			const single = form.getSelectInput(SELECT_EMPTY_LABEL.name!);
+			single.shouldBeVisible()
+				.shouldHaveOptionCount(3)
+				.shouldHaveSelectedOption('Choose a contract type');
+			single.getOptions().first()
+				.should('have.text', 'Choose a contract type')
+				.should('have.attr', 'value', '');
+
+			// The same configuration on a multiple select renders no empty option.
+			form.getSelectInput(SELECT_MULTIPLE_EMPTY_LABEL.name!)
+				.shouldBeVisible()
+				.shouldBeMultiple()
+				.shouldHaveOptionCount(2);
 		});
 	});
 });

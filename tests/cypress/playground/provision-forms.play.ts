@@ -11,6 +11,9 @@
  *   - playground-steps     three-step form with navigation
  *   - playground-complete  every built-in field type (same set as spec 20)
  *                          plus sourced choice fields (countries + categories)
+ *                          and a content-mode select (texts under
+ *                          contents/agencies, incl. an unpublished draft to
+ *                          showcase the dual edit/live preview in the editor)
  *
  * All editorial values are provided in both site languages (en and fr), so the
  * localized rendering and editing can be exercised too. The sourced country
@@ -32,6 +35,7 @@ import {
 	getCategoryChoiceFieldNode,
 	getCategoryNode,
 	getCheckboxNode,
+	getContentChoiceFieldNode,
 	getInputColorNode,
 	getInputDateNode,
 	getInputDatetimeLocalNode,
@@ -43,6 +47,7 @@ import {
 	getSourcedChoiceFieldNode,
 	getStepNode,
 	getTextareaNode,
+	getTitledTextNode,
 	INPUT_COLOR_COMPLETE,
 	INPUT_DATE_COMPLETE,
 	INPUT_DATETIME_LOCAL_COMPLETE,
@@ -55,10 +60,11 @@ import {
 	TEXTAREA_COMPLETE
 } from '../support/fixtures';
 import {createPublishedLiveFormPage} from '../support/fixtures/forms';
-import {FORMIDABLE_MODULE_IDS} from '../support/constants';
+import {CONTENT_PATH, FORMIDABLE_MODULE_IDS} from '../support/constants';
 import type {JahiaNode} from '../support/fixtures/types';
 
 const CATEGORY_ROOT = '/sites/systemsite/categories';
+const AGENCIES_ROOT_PATH = `${CONTENT_PATH}/agencies`;
 
 const RESULTS_READER = {name: 'john-doe', password: 'John#1234'};
 
@@ -161,6 +167,15 @@ describe('Playground - provision manual-testing forms', () => {
 		publishAndWaitJobEnding(`${CATEGORY_ROOT}/product`, ['en', 'fr']);
 	});
 
+	it('creates and publishes the agency contents (content-mode targets)', () => {
+		addNode({parentPathOrId: CONTENT_PATH, name: 'agencies', primaryNodeType: 'jnt:contentFolder', properties: []});
+		addNode({parentPathOrId: AGENCIES_ROOT_PATH, ...getTitledTextNode('paris', 'Paris agency', 'Agence de Paris')});
+		addNode({parentPathOrId: AGENCIES_ROOT_PATH, ...getTitledTextNode('lyon', 'Lyon agency', 'Agence de Lyon')});
+		addNode({parentPathOrId: AGENCIES_ROOT_PATH, name: 'europe', primaryNodeType: 'jnt:contentFolder', properties: []});
+		addNode({parentPathOrId: `${AGENCIES_ROOT_PATH}/europe`, ...getTitledTextNode('berlin', 'Berlin agency', 'Agence de Berlin')});
+		publishAndWaitJobEnding(AGENCIES_ROOT_PATH, ['en', 'fr']);
+	});
+
 	it('provisions the simple form and grants its results to the reader user', () => {
 		createPublishedLiveFormPage(
 			'playground-simple',
@@ -246,51 +261,63 @@ describe('Playground - provision manual-testing forms', () => {
 		getNodeByPath(`${CATEGORY_ROOT}/product/tv`).then(response => {
 			const tvCategoryUuid: string = response.data.jcr.nodeByPath.uuid;
 
-			createPublishedLiveFormPage(
-				'playground-complete',
-				'Playground - Complete form',
-				[
-					withFrench(getInputTextNode({...INPUT_TEXT_COMPLETE, defaultValue: undefined}), [{name: 'jcr:title', value: 'Code employé'}]),
-					withFrench(getInputEmailNode({...INPUT_EMAIL_COMPLETE, defaultValue: undefined}), [{name: 'jcr:title', value: 'Email de contact'}]),
-					withFrench(getInputDateNode({...INPUT_DATE_COMPLETE, defaultValue: undefined}), [{name: 'jcr:title', value: 'Date de naissance'}]),
-					withFrench(getInputDatetimeLocalNode({...INPUT_DATETIME_LOCAL_COMPLETE, defaultValue: undefined}), [{name: 'jcr:title', value: 'Rendez-vous'}]),
-					withFrench(getInputColorNode(INPUT_COLOR_COMPLETE), [{name: 'jcr:title', value: 'Choisissez votre couleur préférée'}]),
-					withFrench(getCheckboxNode(CHECKBOX_GROUP_COMPLETE), [
-						{name: 'jcr:title', value: 'Centres d\'intérêt requis'},
-						frOptions([
-							{value: 'reading', label: 'Lecture'},
-							{value: 'sports', label: 'Sport', selected: true},
-							{value: 'music', label: 'Musique'}
-						])
-					]),
-					withFrench(getRadioNode(RADIO_GROUP), [{name: 'jcr:title', value: 'Mode de livraison'}, FR_DELIVERY_OPTIONS]),
-					departmentSelect(),
-					withFrench(getTextareaNode({...TEXTAREA_COMPLETE, defaultValue: undefined}), [{name: 'jcr:title', value: 'Résumé du projet'}]),
-					withFrench(getInputFileNode(INPUT_FILE_MULTIPLE), [{name: 'jcr:title', value: 'Pièces jointes'}]),
-					// The sourced select showcases the empty-option label: the field starts
-					// empty and its native required validation is exercisable on the site.
-					withFrench(
-						withEnglish(
-							getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'country', title: 'Country (sourced: countries)', sourceKey: 'countries'}),
-							[{name: 'fmdb:optionsEmptyLabel', value: 'Select a country…'}]
+			getNodeByPath(AGENCIES_ROOT_PATH).then(agenciesResponse => {
+				const agenciesRootUuid: string = agenciesResponse.data.jcr.nodeByPath.uuid;
+
+					createPublishedLiveFormPage(
+					'playground-complete',
+					'Playground - Complete form',
+					[
+						withFrench(getInputTextNode({...INPUT_TEXT_COMPLETE, defaultValue: undefined}), [{name: 'jcr:title', value: 'Code employé'}]),
+						withFrench(getInputEmailNode({...INPUT_EMAIL_COMPLETE, defaultValue: undefined}), [{name: 'jcr:title', value: 'Email de contact'}]),
+						withFrench(getInputDateNode({...INPUT_DATE_COMPLETE, defaultValue: undefined}), [{name: 'jcr:title', value: 'Date de naissance'}]),
+						withFrench(getInputDatetimeLocalNode({...INPUT_DATETIME_LOCAL_COMPLETE, defaultValue: undefined}), [{name: 'jcr:title', value: 'Rendez-vous'}]),
+						withFrench(getInputColorNode(INPUT_COLOR_COMPLETE), [{name: 'jcr:title', value: 'Choisissez votre couleur préférée'}]),
+						withFrench(getCheckboxNode(CHECKBOX_GROUP_COMPLETE), [
+							{name: 'jcr:title', value: 'Centres d\'intérêt requis'},
+							frOptions([
+								{value: 'reading', label: 'Lecture'},
+								{value: 'sports', label: 'Sport', selected: true},
+								{value: 'music', label: 'Musique'}
+							])
+						]),
+						withFrench(getRadioNode(RADIO_GROUP), [{name: 'jcr:title', value: 'Mode de livraison'}, FR_DELIVERY_OPTIONS]),
+						departmentSelect(),
+						withFrench(getTextareaNode({...TEXTAREA_COMPLETE, defaultValue: undefined}), [{name: 'jcr:title', value: 'Résumé du projet'}]),
+						withFrench(getInputFileNode(INPUT_FILE_MULTIPLE), [{name: 'jcr:title', value: 'Pièces jointes'}]),
+						// The sourced select showcases the empty-option label: the field starts
+						// empty and its native required validation is exercisable on the site.
+						withFrench(
+							withEnglish(
+								getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'country', title: 'Country (sourced: countries)', sourceKey: 'countries'}),
+								[{name: 'fmdb:optionsEmptyLabel', value: 'Select a country…'}]
+							),
+							[
+								{name: 'jcr:title', value: 'Pays (source : countries)'},
+								{name: 'fmdb:optionsEmptyLabel', value: 'Sélectionnez un pays…'}
+							]
 						),
-						[
-							{name: 'jcr:title', value: 'Pays (source : countries)'},
-							{name: 'fmdb:optionsEmptyLabel', value: 'Sélectionnez un pays…'}
-						]
-					),
-					withFrench(getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:radio', name: 'tvType', title: 'TV type (sourced: categories product/tv)', sourceKey: 'tv'}), [{name: 'jcr:title', value: 'Type de TV (source : catégories product/tv)'}]),
-					withFrench(getCategoryChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'tvCategory', title: 'TV category (category mode, multiple select)', rootCategoryUuid: tvCategoryUuid, multiple: true}), [{name: 'jcr:title', value: 'Catégorie TV (mode catégorie, sélection multiple)'}])
-				],
-				undefined,
-				undefined,
-				{
-					actions: [saveToJcrAction()],
-					properties: [{name: 'jcr:title', value: 'Playground - Formulaire complet', language: 'fr'}],
-					pageProperties: [{name: 'jcr:title', value: 'Playground - Formulaire complet', language: 'fr'}],
-					publishLanguages: ['en', 'fr']
-				}
-			).then(({livePath}) => cy.log(`Complete form: /en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`));
+						withFrench(getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:radio', name: 'tvType', title: 'TV type (sourced: categories product/tv)', sourceKey: 'tv'}), [{name: 'jcr:title', value: 'Type de TV (source : catégories product/tv)'}]),
+						withFrench(getCategoryChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'tvCategory', title: 'TV category (category mode, multiple select)', rootCategoryUuid: tvCategoryUuid, multiple: true}), [{name: 'jcr:title', value: 'Catégorie TV (mode catégorie, sélection multiple)'}]),
+						withFrench(getContentChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'agency', title: 'Agency (content mode: texts under contents/agencies)', rootNodeUuid: agenciesRootUuid, nodeType: 'jnt:text'}), [{name: 'jcr:title', value: 'Agence (mode contenu : textes sous contents/agencies)'}])
+					],
+					undefined,
+					undefined,
+					{
+						actions: [saveToJcrAction()],
+						properties: [{name: 'jcr:title', value: 'Playground - Formulaire complet', language: 'fr'}],
+						pageProperties: [{name: 'jcr:title', value: 'Playground - Formulaire complet', language: 'fr'}],
+						publishLanguages: ['en', 'fr']
+					}
+				).then(({livePath}) => cy.log(`Complete form: /en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`));
+			});
 		});
+	});
+
+	it('adds an unpublished draft agency, shown by the edit preview only', () => {
+		// Created after the complete form is published: publishing a form
+		// publishes its referenced options root with its subtree, so an earlier
+		// draft would have been published along.
+		addNode({parentPathOrId: AGENCIES_ROOT_PATH, ...getTitledTextNode('draft', 'Draft agency', 'Agence brouillon')});
 	});
 });
