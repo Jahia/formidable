@@ -35,6 +35,9 @@ export const SELECT_EMPTY_LABEL: SelectData = {
 	// SELECT_SINGLE's blank entry, without polluting the option list.
 	emptyLabel: 'Choose a contract type',
 	options: [
+		// Legacy blank entry (the historical way of starting empty): superseded
+		// by the configured empty option, never rendered twice.
+		{value: '', label: 'Pick one', selected: false},
 		{value: 'permanent', label: 'Permanent', selected: false},
 		{value: 'fixed-term', label: 'Fixed term', selected: false}
 	]

@@ -58,6 +58,8 @@ describe('Form fields - 24 Select options', () => {
 
 			// The empty option leads the list, value-less and selected by default,
 			// so the field starts empty and required validation stays effective.
+			// The fixture also carries a legacy blank entry: superseded by the
+			// configured label, so the count proves no duplicate empty option.
 			const single = form.getSelectInput(SELECT_EMPTY_LABEL.name!);
 			single.shouldBeVisible()
 				.shouldHaveOptionCount(3)
@@ -65,6 +67,7 @@ describe('Form fields - 24 Select options', () => {
 			single.getOptions().first()
 				.should('have.text', 'Choose a contract type')
 				.should('have.attr', 'value', '');
+			single.getOptions().should('not.contain', 'Pick one');
 
 			// The same configuration on a multiple select renders no empty option.
 			form.getSelectInput(SELECT_MULTIPLE_EMPTY_LABEL.name!)

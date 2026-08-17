@@ -50,6 +50,12 @@ jahiaComponent(
 		const selectedValues = parsedOptions.filter(o => o.selected).map(o => o.value);
 		const defaultValue = multiple ? selectedValues : (selectedValues[0] ?? undefined);
 
+		const hasEmptyOption = Boolean(!multiple && optionsEmptyLabel?.trim());
+		// The configured empty option supersedes any blank entry typed in the manual
+		// options (the historical way of starting empty), so a form carrying both
+		// never renders two empty options.
+		const renderedOptions = hasEmptyOption ? parsedOptions.filter(o => o.value !== "") : parsedOptions;
+
 		const helpId = helpText ? helpTextId(currentNode.getIdentifier()) : undefined;
 
 		return (
@@ -79,10 +85,10 @@ jahiaComponent(
 					{/* Contributor-configured empty option: the field starts empty instead
 					    of preselecting the first option, which also makes the native
 					    required validation effective. Meaningless on a multiple select. */}
-					{!multiple && optionsEmptyLabel?.trim() && (
+					{hasEmptyOption && (
 						<option value="">{optionsEmptyLabel}</option>
 					)}
-					{parsedOptions.map((option) => (
+					{renderedOptions.map((option) => (
 						<option
 							key={option.value || option.label}
 							value={option.value}
