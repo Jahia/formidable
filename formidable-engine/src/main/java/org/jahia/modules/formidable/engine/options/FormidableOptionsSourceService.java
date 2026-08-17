@@ -262,7 +262,11 @@ public class FormidableOptionsSourceService {
     private String[] queryContentOptions(JCRNodeWrapper root, String rawNodeType, String scope, int maxResults)
             throws javax.jcr.RepositoryException {
         String nodeType = rawNodeType == null ? "" : rawNodeType.trim();
-        if (!nodeType.matches("[\\w]+:[\\w]+")) {
+        // Injection guard for the bracketed JCR-SQL2 name below, sized to the JCR
+        // name grammar: prefix and local name are XML NCNames, which may contain
+        // '-' and '.' anywhere but first. Unknown-but-well-formed types still fail
+        // cleanly through the query itself.
+        if (!nodeType.matches("[A-Za-z_][\\w.-]*:[A-Za-z_][\\w.-]*")) {
             throw new IllegalStateException("Choice field '" + scope
                     + "' has an invalid content type '" + nodeType + "'");
         }

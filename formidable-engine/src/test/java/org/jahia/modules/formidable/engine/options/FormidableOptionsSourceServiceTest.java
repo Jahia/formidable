@@ -290,6 +290,25 @@ class FormidableOptionsSourceServiceTest {
     }
 
     @Test
+    void resolveForFieldAcceptsJcrNamesWithDashesAndDots() throws Exception {
+        // Verifies the injection guard is sized to the JCR name grammar: prefix and
+        // local name are XML NCNames, which may contain '-' and '.' anywhere but
+        // first — while malformed or injection-shaped values keep failing.
+        JCRNodeWrapper content = contentNode("/sites/site/agences/lyon", "Lyon");
+        FormidableOptionsSourceService service = serviceWithQueryCap(100, java.util.List.of(content));
+
+        JCRNodeWrapper dashed = contentField("/sites/site/agences", "my-module:article.v2");
+        assertEquals(1, service.resolveForField(dashed, "en").length);
+
+        for (String rejected : new String[]{
+                "acme:agency]", "acme:", ":agency", "-acme:agency", "acme:.agency", "acme:agency' OR", ""}) {
+            JCRNodeWrapper field = contentField("/sites/site/agences", rejected);
+            assertThrows(IllegalStateException.class, () -> service.resolveForField(field, "en"),
+                    "'" + rejected + "' should be rejected");
+        }
+    }
+
+    @Test
     void queryContentTypesListsDistinctContributableTypesSortedByLabel() throws Exception {
         // Verifies the types contract: the distinct primary types of the contributable
         // descendants become options — deduplicated across nodes and facets — labeled
