@@ -1,9 +1,0 @@
-{
-	"name": "fmdbmix:contentOptions",
-	"fields": [
-		{
-			"name": "fmdb:optionsNodeType",
-			"selectorType": "ContentOptions"
-		}
-	]
-}

@@ -142,33 +142,6 @@ public class FormidableOptionsSourceService {
     }
 
     /**
-     * Editor-side preview of a content-mode configuration that may not be saved yet.
-     * The {@code default} workspace resolves through the current editor session; the
-     * {@code live} workspace resolves through a <b>guest</b> session, so the preview
-     * shows exactly what a visitor will get — published, guest-readable content only.
-     *
-     * @throws IllegalStateException like the field resolution (unreadable root, invalid
-     *                               or unknown type, result cap exceeded)
-     */
-    public String[] resolveContentPreview(String rootIdentifier, String nodeType, String workspace,
-            String languageTag) throws javax.jcr.RepositoryException {
-        Locale locale = Locale.forLanguageTag(languageTag == null || languageTag.isBlank() ? "en" : languageTag);
-        int maxResults = config.getOptionsQueryMaxResults();
-
-        if ("live".equals(workspace)) {
-            return org.jahia.services.content.JCRTemplate.getInstance().doExecuteWithUserSession(
-                    org.jahia.services.usermanager.JahiaUserManagerService.GUEST_USERNAME, "live", locale,
-                    session -> queryContentOptions(readPreviewRoot(session, rootIdentifier),
-                            nodeType, "preview:" + rootIdentifier, maxResults));
-        }
-
-        org.jahia.services.content.JCRSessionWrapper session = org.jahia.services.content.JCRSessionFactory
-                .getInstance().getCurrentUserSession("default", locale);
-        return queryContentOptions(readPreviewRoot(session, rootIdentifier), nodeType,
-                "preview:" + rootIdentifier, maxResults);
-    }
-
-    /**
      * Facets a descendant must carry to count as contributor-facing content: dropped
      * in an area or editorial. Technical subnodes (permissions, translations...)
      * carry neither and never surface.
@@ -187,7 +160,8 @@ public class FormidableOptionsSourceService {
      * the distinct primary types of its contributable descendants — the same universe
      * the content-mode resolution then queries type by type, so everything offered
      * resolves and everything resolvable is offered. Labels are the localized node
-     * type names, sorted.
+     * type names, sorted; a type whose contents already exceed the render-time cap
+     * carries a localized warning in its label.
      *
      * @throws IllegalStateException when the root cannot be read
      */
@@ -196,10 +170,11 @@ public class FormidableOptionsSourceService {
         Locale locale = Locale.forLanguageTag(languageTag == null || languageTag.isBlank() ? "en" : languageTag);
         org.jahia.services.content.JCRSessionWrapper session = org.jahia.services.content.JCRSessionFactory
                 .getInstance().getCurrentUserSession("default", locale);
-        return queryContentTypes(readPreviewRoot(session, rootIdentifier), locale);
+        return queryContentTypes(readRoot(session, rootIdentifier), locale, config.getOptionsQueryMaxResults());
     }
 
-    String[] queryContentTypes(JCRNodeWrapper root, Locale locale) throws javax.jcr.RepositoryException {
+    String[] queryContentTypes(JCRNodeWrapper root, Locale locale, int maxResults)
+            throws javax.jcr.RepositoryException {
         Map<String, String> labelsByType = new java.util.HashMap<>();
         for (String facet : CONTRIBUTABLE_FACETS) {
             javax.jcr.NodeIterator nodes = contentQueryRunner.run(root.getSession(),
@@ -225,6 +200,15 @@ public class FormidableOptionsSourceService {
             }
         }
 
+        // Cap forewarning: a type whose contents already exceed the render-time cap
+        // stays offered — the stored value must remain selectable — but its label
+        // warns the contributor before the form refuses to render.
+        for (Map.Entry<String, String> entry : labelsByType.entrySet()) {
+            if (countsAboveCap(root, entry.getKey(), maxResults)) {
+                entry.setValue(entry.getValue() + " — " + capExceededMessageResolver.apply(locale, maxResults));
+            }
+        }
+
         return labelsByType.entrySet().stream()
                 .sorted(Map.Entry.comparingByValue())
                 .map(entry -> new JSONObject(Map.of(
@@ -232,6 +216,40 @@ public class FormidableOptionsSourceService {
                         "label", entry.getValue(),
                         "selected", false)).toString())
                 .toArray(String[]::new);
+    }
+
+    private boolean countsAboveCap(JCRNodeWrapper root, String nodeType, int maxResults) {
+        try {
+            javax.jcr.NodeIterator nodes = contentQueryRunner.run(root.getSession(),
+                    "SELECT * FROM [" + nodeType + "] WHERE ISDESCENDANTNODE('"
+                            + root.getPath().replace("'", "''") + "')");
+            int count = 0;
+            while (nodes.hasNext() && count <= maxResults) {
+                nodes.nextNode();
+                count++;
+            }
+
+            return count > maxResults;
+        } catch (javax.jcr.RepositoryException e) {
+            // Best-effort forewarning: an unqueryable type goes unflagged, the
+            // render-time cap still protects the form.
+            return false;
+        }
+    }
+
+    // Seam for unit tests: the production value reads the localized warning from
+    // the module resource bundle.
+    private java.util.function.BiFunction<Locale, Integer, String> capExceededMessageResolver = (locale, limit) -> {
+        try {
+            return org.jahia.utils.i18n.Messages.getWithArgs("resources.formidable-engine",
+                    "fmdbmix_contentOptions.fmdb_optionsNodeType.capExceeded", locale, limit);
+        } catch (Exception e) {
+            return "more than " + limit + " options resolve";
+        }
+    };
+
+    void setCapExceededMessageResolver(java.util.function.BiFunction<Locale, Integer, String> resolver) {
+        this.capExceededMessageResolver = resolver;
     }
 
     // Seam for unit tests: the production value reads the localized node type label
@@ -249,7 +267,7 @@ public class FormidableOptionsSourceService {
         this.typeLabelResolver = resolver;
     }
 
-    private static JCRNodeWrapper readPreviewRoot(org.jahia.services.content.JCRSessionWrapper session,
+    private static JCRNodeWrapper readRoot(org.jahia.services.content.JCRSessionWrapper session,
             String rootIdentifier) {
         try {
             return session.getNodeByIdentifier(rootIdentifier);

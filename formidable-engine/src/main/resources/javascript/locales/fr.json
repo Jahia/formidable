@@ -4,25 +4,6 @@
         "label": "Libellé affiché à l'utilisateur",
         "selected": "Si activé, l'option est sélectionnée par défaut"
     },
-    "sourcedOptions": {
-        "selectSource": "Sélectionnez une source d'options",
-        "previewLoading": "Résolution des options…",
-        "previewUnavailable": "Les options de cette source sont momentanément indisponibles.",
-        "previewLabel": "Aperçu des options résolues (#{{count}})"
-    },
-    "contentOptions": {
-        "selectType": "Sélectionnez un type de contenu",
-        "rootMissing": "Choisissez d'abord le contenu racine ci-dessus pour prévisualiser les options.",
-        "previewLoading": "Résolution des options…",
-        "previewUnavailable": "Les options de cette configuration sont momentanément indisponibles.",
-        "noTypesUnderRoot": "Le contenu racine choisi ne contient encore aucun contenu exploitable comme option. Ajoutez-y des contenus, ou choisissez un autre contenu racine.",
-        "pickRootFirst": "Choisissez d'abord un contenu racine",
-        "previewEdit": "Aperçu des contenus en édition (#{{count}})",
-        "previewLive": "Aperçu des contenus en live (#{{count}})",
-        "liveEmpty": "Aucune option n'est encore visible sur le site : les contenus doivent être publiés.",
-        "liveFewer": "{{missing}} option(s) résolues en édition manquent en live : les contenus non publiés n'apparaissent pas sur le site.",
-        "capExceeded": "Plus de {{limit}} options résolues (limite : {{limit}}) : restreignez le contenu racine, ou demandez à un administrateur d'augmenter la limite."
-    },
     "fmdbmix_optionsSource": {
         "fmdb_optionsMode": {
             "manual": "Options manuelles",

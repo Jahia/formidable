@@ -70,12 +70,8 @@ initializer list, most of which is context-dependent and meaningless as a form
 options source. An empty `optionsSources` disables sourced options entirely
 (fail-safe default).
 
-In the Content Editor, the source is picked with the `SourcedOptions` selector,
-which also previews the options the picked source currently resolves to (count
-plus a closed browse-only list). The preview goes through jcontent's
-`forms.fieldConstraints` with a `sourceKey` context entry, re-evaluated by the
-`formidableOptionsPreview` initializer chained on `fmdb:optionsSourceKey` — during
-a normal form build that initializer passes the source list through untouched.
+In the Content Editor, the source is picked with a standard Jahia choicelist
+fed by the `formidableOptionsSources` initializer — no custom selector involved.
 
 ### Which initializers qualify as a source
 
@@ -163,10 +159,8 @@ The Content Editor asks for two things:
    bound a type present only deeper in the tree may be missing from the
    dropdown — never wrongly added — and a stored type stays selectable.
 
-Below the two fields, the selector shows a **dual preview**: the options as the
-editor sees them (edit workspace) side by side with the options **a visitor will
-get** — the live column is resolved server-side through a guest session, so it
-reflects publication state and live permissions exactly.
+Both fields are standard Jahia selectors (editorial picker and choicelist) —
+no custom editor code is involved.
 
 ### Resolution rules
 
@@ -186,9 +180,10 @@ source: inline error on the field, form blocked only if the field is required
 options a content-mode field may resolve. Above the cap the field **fails
 explicitly like a failing source** — the visitor never gets a silently
 truncated list, because a missing option is a data-integrity issue, not a
-cosmetic one. The editor preview surfaces the same situation as a typed
-message carrying the limit, so contributors re-scope their root (or ask an
-administrator to raise the cap) before publishing.
+cosmetic one. The content-type dropdown forewarns the same situation: a type
+whose contents already exceed the cap stays offered (a stored value must remain
+selectable) but its label carries a localized warning, so contributors re-scope
+their root (or ask an administrator to raise the cap) before publishing.
 
 Mind one operational nuance when changing the cap (or any module
 configuration): the new value reaches the services immediately, but live pages

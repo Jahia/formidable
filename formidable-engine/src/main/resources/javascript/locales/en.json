@@ -4,25 +4,6 @@
         "label": "Label displayed to user",
         "selected": "If enabled, the option is selected by default"
     },
-    "sourcedOptions": {
-        "selectSource": "Select an options source",
-        "previewLoading": "Resolving options…",
-        "previewUnavailable": "The options of this source are currently unavailable.",
-        "previewLabel": "Preview of the resolved options (#{{count}})"
-    },
-    "contentOptions": {
-        "selectType": "Select a content type",
-        "rootMissing": "Pick the root content above to preview the options.",
-        "previewLoading": "Resolving options…",
-        "previewUnavailable": "The options of this configuration are currently unavailable.",
-        "noTypesUnderRoot": "The picked root content holds no contents usable as options yet. Add contents under it, or pick another root.",
-        "pickRootFirst": "Pick the root content first",
-        "previewEdit": "Preview of contents in edit (#{{count}})",
-        "previewLive": "Preview of contents in live (#{{count}})",
-        "liveEmpty": "No option is visible on the site yet: the contents still need to be published.",
-        "liveFewer": "{{missing}} option(s) resolved in edit are missing in live: unpublished contents do not appear on the site.",
-        "capExceeded": "More than {{limit}} options resolve (limit: {{limit}}): narrow the root content, or ask an administrator to raise the limit."
-    },
     "fmdbmix_optionsSource": {
         "fmdb_optionsMode": {
             "manual": "Manual options",

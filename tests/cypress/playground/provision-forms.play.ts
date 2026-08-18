@@ -13,7 +13,7 @@
  *                          plus sourced choice fields (countries + categories)
  *                          and a content-mode select (texts under
  *                          contents/agencies, incl. an unpublished draft to
- *                          showcase the dual edit/live preview in the editor)
+ *                          showcase that only published contents reach live)
  *
  * All editorial values are provided in both site languages (en and fr), so the
  * localized rendering and editing can be exercised too. The sourced country
@@ -314,7 +314,7 @@ describe('Playground - provision manual-testing forms', () => {
 		});
 	});
 
-	it('adds an unpublished draft agency, shown by the edit preview only', () => {
+	it('adds an unpublished draft agency, absent from the live options', () => {
 		// Created after the complete form is published: publishing a form
 		// publishes its referenced options root with its subtree, so an earlier
 		// draft would have been published along.

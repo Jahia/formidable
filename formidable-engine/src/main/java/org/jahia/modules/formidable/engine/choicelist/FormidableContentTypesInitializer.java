@@ -29,9 +29,6 @@ import java.util.Map;
  * The list is computed by {@link FormidableOptionsSourceService} from the contents
  * actually present under the root — the same universe the content-mode resolution
  * queries — so everything offered resolves and everything resolvable is offered.
- *
- * Chained before {@link FormidableOptionsPreviewInitializer}, which replaces the
- * chain result on explicit preview calls; this initializer steps aside on those.
  */
 @Component(service = ModuleChoiceListInitializer.class)
 public class FormidableContentTypesInitializer implements ModuleChoiceListInitializer {
@@ -50,13 +47,6 @@ public class FormidableContentTypesInitializer implements ModuleChoiceListInitia
     @Override
     public List<ChoiceListValue> getChoiceListValues(ExtendedPropertyDefinition epd, String param,
             List<ChoiceListValue> values, Locale locale, Map<String, Object> context) {
-        // Explicit preview call: the preview initializer chained after this one
-        // replaces the result anyway, don't scan for nothing.
-        if (readContextValue(context, FormidableOptionsPreviewInitializer.ROOT_NODE_CONTEXT) != null
-                && readContextValue(context, FormidableOptionsPreviewInitializer.NODE_TYPE_CONTEXT) != null) {
-            return values;
-        }
-
         String root = readContextValue(context, ROOT_PROPERTY);
         if (root == null || root.isBlank()) {
             root = readStoredRoot(context);

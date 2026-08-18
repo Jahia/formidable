@@ -16,13 +16,6 @@ import {CONTENT_PATH} from '../../support/constants';
 import {useFormidableSite} from './support';
 
 const AGENCIES_ROOT_PATH = `${CONTENT_PATH}/agencies`;
-// Publishing a form publishes its referenced options root WITH its subtree
-// (standard publication of references). The preview root is therefore never
-// referenced by a published form, so its draft stays in the edit workspace.
-const PREVIEW_ROOT_PATH = `${CONTENT_PATH}/preview-agencies`;
-// Single preview entry returned when the configured cap is exceeded
-// (FormidableOptionsPreviewInitializer.CAP_EXCEEDED_MARKER).
-const CAP_EXCEEDED_MARKER = '__fmdbCapExceeded__';
 
 // The dependent type list, exactly as the editor re-resolves it when the root
 // changes (jcontent dependent-properties mechanism on fmdb:optionsNodeType).
@@ -36,33 +29,6 @@ const GET_CONTENT_TYPES = gql`
 				fieldNodeType: "fmdbmix:contentOptions",
 				fieldName: "fmdb:optionsNodeType",
 				context: $context,
-				uiLocale: $locale,
-				locale: $locale
-			) {
-				displayValue
-				value {
-					string
-				}
-			}
-		}
-	}
-`;
-
-// The dual edit/live preview, exactly as the ContentOptions selector queries it
-// (one call per workspace, the live one resolved server-side as guest).
-const GET_CONTENT_PREVIEW = gql`
-	query getContentPreview($parentPath: String!, $rootNode: [String]!, $nodeType: [String]!, $workspace: [String]!, $locale: String!) {
-		forms {
-			fieldConstraints(
-				parentNodeUuidOrPath: $parentPath,
-				primaryNodeType: "fmdb:select",
-				fieldNodeType: "fmdbmix:contentOptions",
-				fieldName: "fmdb:optionsNodeType",
-				context: [
-					{key: "rootNode", value: $rootNode},
-					{key: "nodeType", value: $nodeType},
-					{key: "workspace", value: $workspace}
-				],
 				uiLocale: $locale,
 				locale: $locale
 			) {
@@ -94,7 +60,6 @@ describe('Form fields - 220 Choice options from contents', () => {
 	useFormidableSite();
 
 	let agenciesRootUuid: string;
-	let previewRootUuid: string;
 
 	before(() => {
 		cy.login();
@@ -108,18 +73,8 @@ describe('Form fields - 220 Choice options from contents', () => {
 		addNode({parentPathOrId: `${AGENCIES_ROOT_PATH}/europe`, ...getTitledTextNode('berlin', 'Berlin agency', 'Agence de Berlin')});
 		publishAndWaitJobEnding(AGENCIES_ROOT_PATH, ['en', 'fr']);
 
-		// Preview root: one published text, one created after the publication so
-		// it exists in the edit workspace only.
-		addNode({parentPathOrId: CONTENT_PATH, name: 'preview-agencies', primaryNodeType: 'jnt:contentFolder', properties: []});
-		addNode({parentPathOrId: PREVIEW_ROOT_PATH, ...getTitledTextNode('visible', 'Visible agency', 'Agence visible')});
-		publishAndWaitJobEnding(PREVIEW_ROOT_PATH, ['en', 'fr']);
-		addNode({parentPathOrId: PREVIEW_ROOT_PATH, ...getTitledTextNode('draft', 'Draft agency', 'Agence brouillon')});
-
 		getNodeByPath(AGENCIES_ROOT_PATH).then(response => {
 			agenciesRootUuid = response.data.jcr.nodeByPath.uuid;
-		});
-		getNodeByPath(PREVIEW_ROOT_PATH).then(response => {
-			previewRootUuid = response.data.jcr.nodeByPath.uuid;
 		});
 
 		cy.logout();
@@ -185,69 +140,47 @@ describe('Form fields - 220 Choice options from contents', () => {
 		});
 	});
 
-	it('previews the resolved options for both workspaces, live showing the visitor view', () => {
-		const parentPath = CONTENT_PATH;
-
-		// Edit workspace: the editor session sees the draft too.
-		cy.apollo({
-			query: GET_CONTENT_PREVIEW,
-			variables: {
-				parentPath,
-				rootNode: [previewRootUuid],
-				nodeType: ['jnt:text'],
-				workspace: ['default'],
-				locale: 'en'
-			}
-		}).then((response: FieldConstraintsResponse) => {
-			expect(response.errors, 'GraphQL errors for the edit preview').to.be.undefined;
-
-			const values = constraintsOf(response).map(constraint => constraint.value?.string);
-			expect(values, 'edit preview values are the root-relative paths')
-				.to.deep.equal(['draft', 'visible']);
-		});
-
-		// Live workspace, resolved as guest: published contents only, localized labels.
-		cy.apollo({
-			query: GET_CONTENT_PREVIEW,
-			variables: {
-				parentPath,
-				rootNode: [previewRootUuid],
-				nodeType: ['jnt:text'],
-				workspace: ['live'],
-				locale: 'fr'
-			}
-		}).then((response: FieldConstraintsResponse) => {
-			expect(response.errors, 'GraphQL errors for the live preview').to.be.undefined;
-
-			const constraints = constraintsOf(response);
-			expect(constraints.map(constraint => constraint.value?.string), 'live preview excludes the unpublished draft')
-				.to.deep.equal(['visible']);
-			expect(constraints[0].displayValue, 'localized label of the visible entry').to.eq('Agence visible');
-		});
-	});
-
-	it('surfaces the configured cap to the editor instead of a truncated preview', () => {
+	it('warns the editor in the type label when a type exceeds the configured cap', () => {
+		// Three published texts against a cap of two: the type stays offered — a
+		// stored value must remain selectable — but its label carries the warning.
 		setOptionsQueryMaxResults(2);
 
 		cy.apollo({
-			query: GET_CONTENT_PREVIEW,
+			query: GET_CONTENT_TYPES,
 			variables: {
 				parentPath: CONTENT_PATH,
-				rootNode: [agenciesRootUuid],
-				nodeType: ['jnt:text'],
-				workspace: ['default'],
+				context: [
+					{key: 'dependentProperties', value: ['fmdb:optionsRootNode']},
+					{key: 'fmdb:optionsRootNode', value: [agenciesRootUuid]}
+				],
 				locale: 'en'
 			}
 		}).then((response: FieldConstraintsResponse) => {
-			expect(response.errors, 'GraphQL errors for the capped preview').to.be.undefined;
+			expect(response.errors, 'GraphQL errors for the capped type list').to.be.undefined;
 
-			const constraints = constraintsOf(response);
-			expect(constraints, 'a single typed marker carrying the limit').to.have.length(1);
-			expect(constraints[0].value?.string).to.eq(CAP_EXCEEDED_MARKER);
-			expect(constraints[0].displayValue).to.eq('2');
+			const textType = constraintsOf(response).find(constraint => constraint.value?.string === 'jnt:text');
+			expect(textType, 'jnt:text stays offered above the cap').to.not.be.undefined;
+			expect(textType?.displayValue, 'localized cap warning in the type label')
+				.to.contain('more than 2 options resolve');
 		});
 
 		setOptionsQueryMaxResults(OPTIONS_QUERY_MAX_RESULTS_DEFAULT);
+
+		// Back under the cap, the label is clean again.
+		cy.apollo({
+			query: GET_CONTENT_TYPES,
+			variables: {
+				parentPath: CONTENT_PATH,
+				context: [
+					{key: 'dependentProperties', value: ['fmdb:optionsRootNode']},
+					{key: 'fmdb:optionsRootNode', value: [agenciesRootUuid]}
+				],
+				locale: 'en'
+			}
+		}).then((response: FieldConstraintsResponse) => {
+			const textType = constraintsOf(response).find(constraint => constraint.value?.string === 'jnt:text');
+			expect(textType?.displayValue, 'no cap warning under the limit').to.not.contain('options resolve');
+		});
 	});
 
 	it('renders the published contents as options, values being root-relative paths', () => {

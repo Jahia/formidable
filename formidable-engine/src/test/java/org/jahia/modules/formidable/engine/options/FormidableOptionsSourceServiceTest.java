@@ -324,7 +324,7 @@ class FormidableOptionsSourceServiceTest {
         JCRNodeWrapper root = mock(JCRNodeWrapper.class);
         when(root.getPath()).thenReturn("/sites/site/agences");
 
-        String[] options = service.queryContentTypes(root, Locale.ENGLISH);
+        String[] options = service.queryContentTypes(root, Locale.ENGLISH, 100);
 
         assertEquals(2, options.length);
         JSONObject first = new JSONObject(options[0]);
@@ -332,6 +332,39 @@ class FormidableOptionsSourceServiceTest {
         assertEquals("Agency", first.getString("label"));
         assertEquals(false, first.getBoolean("selected"));
         assertEquals("luxe:estate", new JSONObject(options[1]).getString("value"));
+    }
+
+    @Test
+    void queryContentTypesWarnsInTheLabelWhenATypeExceedsTheQueryCap() throws Exception {
+        // Verifies the cap forewarning: a type whose contents exceed the render-time
+        // cap stays offered — the stored value must remain selectable — but its label
+        // carries the localized warning; types within the cap keep a clean label.
+        JCRNodeWrapper agency = typedNode("luxe:agency");
+        JCRNodeWrapper estate = typedNode("luxe:estate");
+        FormidableOptionsSourceService service = new FormidableOptionsSourceService();
+        service.setContentQueryRunner((session, sql2) -> {
+            if (sql2.contains("[luxe:agency]")) {
+                return nodeIterator(java.util.List.of(agency, agency, agency));
+            }
+            if (sql2.contains("[luxe:estate]")) {
+                return nodeIterator(java.util.List.of(estate));
+            }
+
+            return nodeIterator(java.util.List.of(agency, estate));
+        });
+        service.setTypeLabelResolver((typeName, locale) ->
+                java.util.Map.of("luxe:agency", "Agency", "luxe:estate", "Estate").get(typeName));
+        service.setCapExceededMessageResolver((locale, limit) -> "more than " + limit + " options resolve");
+        JCRNodeWrapper root = mock(JCRNodeWrapper.class);
+        when(root.getPath()).thenReturn("/sites/site/agences");
+
+        String[] options = service.queryContentTypes(root, Locale.ENGLISH, 2);
+
+        assertEquals(2, options.length);
+        JSONObject flagged = new JSONObject(options[0]);
+        assertEquals("luxe:agency", flagged.getString("value"));
+        assertEquals("Agency — more than 2 options resolve", flagged.getString("label"));
+        assertEquals("Estate", new JSONObject(options[1]).getString("label"));
     }
 
     @Test
@@ -347,7 +380,7 @@ class FormidableOptionsSourceServiceTest {
         JCRNodeWrapper root = mock(JCRNodeWrapper.class);
         when(root.getPath()).thenReturn("/sites/site/agences");
 
-        String[] options = service.queryContentTypes(root, Locale.ENGLISH);
+        String[] options = service.queryContentTypes(root, Locale.ENGLISH, 100);
 
         assertEquals(1, options.length);
         JSONObject option = new JSONObject(options[0]);
