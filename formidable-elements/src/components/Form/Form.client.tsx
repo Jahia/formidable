@@ -27,7 +27,6 @@ export default function Form({
 	maintenanceMessage,
 	submitActionUrl,
 	isSubmitDisabled = false,
-	isMaintenance = false,
 	showResetBtn = false,
 	showNewFormBtn = false,
 	showTryAgainBtn = false,
@@ -49,7 +48,8 @@ export default function Form({
 	const {t} = useTranslation('formidable-elements', {keyPrefix: 'fmdb_form'});
 	const [hasBlockingSourceError, setHasBlockingSourceError] = useState(false);
 
-	// Contributor-configurable maintenance message (fmdbmix:responses); the bundle
+	// Contributor-configurable maintenance message (fmdbmix:responses), shown when a
+	// submission hits FMDB-014 (mode switched between render and submit); the bundle
 	// text keeps covering forms created before the property existed.
 	const maintenanceText = maintenanceMessage || t('maintenanceUnavailable');
 
@@ -102,12 +102,9 @@ export default function Form({
 		},
 	});
 
-	const isSubmitBlocked = isLoading || isSubmitDisabled || isMaintenance || hasBlockingSourceError
+	const isSubmitBlocked = isLoading || isSubmitDisabled || hasBlockingSourceError
 		|| (!!captcha && (!isMultiStep || isLastStep) && !isCaptchaValid);
-	const submitBlockedTitle = isSubmitDisabled
-		? t('editModeSubmitDisabled')
-		// Title attributes are plain text: strip the richtext markup.
-		: (isMaintenance ? maintenanceText.replace(/<[^>]+>/g, '').trim() : undefined);
+	const submitBlockedTitle = isSubmitDisabled ? t('editModeSubmitDisabled') : undefined;
 	const showCaptcha = !!captcha && (!isMultiStep || isLastStep);
 
 	const validateCurrentStep = (): boolean => {
@@ -132,12 +129,6 @@ export default function Form({
 					className="fmdb-spinner"
 				/>
 			)}
-
-			{isMaintenance && !hasMessage && !isLoading &&
-				<div className={clsx('fmdb-message fmdb-message-maintenance', classes.message)} role="status">
-					<div className="fmdb-message-content" dangerouslySetInnerHTML={{__html: sanitize(maintenanceText)}}/>
-				</div>
-			}
 
 			{hasMessage && !isLoading &&
 				<div className={clsx(`fmdb-message fmdb-message-${messageType}`, classes.message)} role="alert">

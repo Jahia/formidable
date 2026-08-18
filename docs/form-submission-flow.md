@@ -127,9 +127,10 @@ repository level. Formidable handles this natively for forms whose actions persi
   action that never considered read-only mode — is presumed to write and blocks its form during
   maintenance. Worst case an unaffected form is over-blocked; a submission is never lost.
 - **Render time (UX layer):** `default.server.tsx` reads the platform state (`SettingsBean`)
-  and the form's action nodes. A repository-writing form in live renders with a maintenance
-  banner and a disabled submit button, and the fragment gets a short cache TTL (60s) so the
-  banner does not outlive the maintenance window. Edit/preview rendering is unaffected.
+  and the form's action nodes. A repository-writing form in live renders as the maintenance
+  message alone — the form markup is not emitted at all, no island is mounted — and the
+  fragment gets a short cache TTL (60s) so the message does not outlive the maintenance
+  window. Edit/preview rendering is unaffected.
 - **Submit time (correctness boundary):** pipeline step 5 (`verifyPlatformWritable`) rejects
   the submission with `FMDB-014` (HTTP 503) before authentication, CAPTCHA, or any byte of the
   body is processed — and before any action side effect (no notification email for a submission

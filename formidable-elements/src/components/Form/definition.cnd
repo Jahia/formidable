@@ -2,8 +2,8 @@
 // The response messages share the light editor configuration of the field help
 // texts: simple formatting, links and lists — no structural markup in a message.
 [fmdbmix:responses] mixin
- - submissionMessage (string, richtext[ckeditor.toolbar='FormidableHelp',ckeditor.customConfig='$context/modules/formidable-engine/javascript/ckeditor/helpTextConfig.js']) i18n indexed=no
- - errorMessage (string, richtext[ckeditor.toolbar='FormidableHelp',ckeditor.customConfig='$context/modules/formidable-engine/javascript/ckeditor/helpTextConfig.js']) i18n indexed=no
+ - submissionMessage (string, richtext[ckeditor.toolbar='FormidableHelp',ckeditor.customConfig='$context/modules/formidable-engine/javascript/ckeditor/helpTextConfig.js']) = resourceBundle('submissionMessage.default') autocreated i18n indexed=no
+ - errorMessage (string, richtext[ckeditor.toolbar='FormidableHelp',ckeditor.customConfig='$context/modules/formidable-engine/javascript/ckeditor/helpTextConfig.js']) = resourceBundle('errorMessage.default') autocreated i18n indexed=no
  - maintenanceMessage (string, richtext[ckeditor.toolbar='FormidableHelp',ckeditor.customConfig='$context/modules/formidable-engine/javascript/ckeditor/helpTextConfig.js']) = resourceBundle('maintenanceMessage.default') autocreated i18n indexed=no
 
 [fmdbmix:buttons] mixin

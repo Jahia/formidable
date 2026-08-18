@@ -8,6 +8,7 @@ import {
 	server,
 } from "@jahia/javascript-modules-library";
 import type {JCRNodeWrapper} from "org.jahia.services.content";
+import {useTranslation} from "react-i18next";
 import Form from "./Form.client";
 import {type FormServerProps} from "./types";
 import {resolveUrlPlaceholders} from "~/utils/richTextUtils";
@@ -78,6 +79,7 @@ jahiaComponent(
 		}: FormServerProps,
 		{ currentNode, renderContext },
 	) => {
+		const {t} = useTranslation("formidable-elements", {keyPrefix: "fmdb_form"});
 		const fieldListNode = currentNode.getNode("fields");
 		const formElements = fieldListNode ? Array.from(fieldListNode.getNodes()) : [];
 		const formId = `form-${currentNode.getIdentifier()}`;
@@ -125,6 +127,23 @@ jahiaComponent(
 			// The Java request exposes setAttribute; the TS stub only types the getters.
 			(renderContext.getRequest() as unknown as {setAttribute(name: string, value: string): void})
 				.setAttribute("expiration", "60");
+
+			// The state is known server-side: the form markup is not emitted at all,
+			// only the contributor's message — static HTML, no island, no entrance
+			// animation. The message is contributor richtext (bundle text for forms
+			// created before the property existed); no visitor input ever reaches it.
+			return (
+				<>
+					{css && <style>{css}</style>}
+					<AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")} />
+					<div className="fmdb-message fmdb-message-maintenance" role="status">
+						<div
+							className="fmdb-message-content"
+							dangerouslySetInnerHTML={{__html: resolveUrlPlaceholders(maintenanceMessage, renderContext) || t('maintenanceUnavailable')}}
+						/>
+					</div>
+				</>
+			);
 		}
 
 		return (
@@ -149,7 +168,6 @@ jahiaComponent(
 				maintenanceMessage: resolveUrlPlaceholders(maintenanceMessage, renderContext),
 				submitActionUrl,
 				isSubmitDisabled,
-				isMaintenance,
 				showResetBtn,
 				showNewFormBtn,
 				showTryAgainBtn,

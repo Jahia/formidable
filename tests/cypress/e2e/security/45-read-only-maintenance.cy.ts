@@ -145,11 +145,12 @@ describe('Security - read-only maintenance mode', () => {
 		// fresh, after the switch — no stale cached fragment can hide the banner.
 		cy.visit(`/en/sites/${FORMIDABLE_TEST_SITE.key}/${savingFormLivePath}`);
 
-		// The banner text is the contributor property, autocreated from the
-		// resource-bundle default when nothing is authored.
+		// The message text is the contributor property, autocreated from the
+		// resource-bundle default when nothing is authored. The form markup is
+		// not emitted at all: the maintenance state is known server-side.
 		cy.get('.fmdb-message-maintenance').should('be.visible')
 			.and('contain.text', 'temporarily unavailable');
-		cy.get('form.fmdb-form button[type="submit"]').should('be.disabled');
+		cy.get('form.fmdb-form').should('not.exist');
 
 		// A contributor-authored message replaces the default.
 		cy.visit(`/en/sites/${FORMIDABLE_TEST_SITE.key}/${customMessageFormLivePath}`);
