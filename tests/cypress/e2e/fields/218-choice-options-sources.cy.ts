@@ -20,6 +20,8 @@ const SIZES_ROOT_PATH = `${CATEGORY_ROOT}/${SIZES_ROOT_NAME}`;
 
 // The source choicelist, exactly as the editor resolves it at form build
 // (standard choicelist fed by the formidableOptionsSources initializer).
+// The empty context is required: without the argument the service skips (or
+// breaks on) the initializer evaluation instead of running it context-free.
 const GET_SOURCE_CHOICES = gql`
 	query getSourceChoices($fieldPath: String!, $parentPath: String!, $locale: String!) {
 		forms {
@@ -29,6 +31,7 @@ const GET_SOURCE_CHOICES = gql`
 				primaryNodeType: "fmdb:select",
 				fieldNodeType: "fmdbmix:sourcedOptions",
 				fieldName: "fmdb:optionsSourceKey",
+				context: [],
 				uiLocale: $locale,
 				locale: $locale
 			) {
