@@ -24,6 +24,7 @@ export default function Form({
 	intro,
 	submissionMessage,
 	errorMessage,
+	maintenanceMessage,
 	submitActionUrl,
 	isSubmitDisabled = false,
 	isMaintenance = false,
@@ -47,6 +48,10 @@ export default function Form({
 	const formRef = useRef<HTMLFormElement>(null);
 	const {t} = useTranslation('formidable-elements', {keyPrefix: 'fmdb_form'});
 	const [hasBlockingSourceError, setHasBlockingSourceError] = useState(false);
+
+	// Contributor-configurable maintenance message (fmdbmix:responses); the bundle
+	// text keeps covering forms created before the property existed.
+	const maintenanceText = maintenanceMessage || t('maintenanceUnavailable');
 
 	useEffect(() => {
 		if (formRef.current) {
@@ -93,7 +98,7 @@ export default function Form({
 			captchaRequired: t('captchaRequired'),
 			errorCode: t('errorCode'),
 			actionsProgress: (completed, total) => t('actionsProgress', {completed, total}),
-			maintenanceUnavailable: t('maintenanceUnavailable'),
+			maintenanceUnavailable: maintenanceText,
 		},
 	});
 
@@ -101,7 +106,8 @@ export default function Form({
 		|| (!!captcha && (!isMultiStep || isLastStep) && !isCaptchaValid);
 	const submitBlockedTitle = isSubmitDisabled
 		? t('editModeSubmitDisabled')
-		: (isMaintenance ? t('maintenanceUnavailable') : undefined);
+		// Title attributes are plain text: strip the richtext markup.
+		: (isMaintenance ? maintenanceText.replace(/<[^>]+>/g, '').trim() : undefined);
 	const showCaptcha = !!captcha && (!isMultiStep || isLastStep);
 
 	const validateCurrentStep = (): boolean => {
@@ -129,7 +135,7 @@ export default function Form({
 
 			{isMaintenance && !hasMessage && !isLoading &&
 				<div className={clsx('fmdb-message fmdb-message-maintenance', classes.message)} role="status">
-					<div className="fmdb-message-content">{t('maintenanceUnavailable')}</div>
+					<div className="fmdb-message-content" dangerouslySetInnerHTML={{__html: sanitize(maintenanceText)}}/>
 				</div>
 			}
 

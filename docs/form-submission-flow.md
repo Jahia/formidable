@@ -140,8 +140,12 @@ repository level. Formidable handles this natively for forms whose actions persi
   own read-only rejection is detected in the failure cause chain and mapped to `FMDB-014`
   instead of the generic `FMDB-008`.
 
-The client maps `FMDB-014` to the translated maintenance message (`fmdb_form.maintenanceUnavailable`),
-never to the generic error banner. Forms whose actions all carry the mixin (e.g. email-only
+The maintenance message is a contributor property (`maintenanceMessage` on `fmdbmix:responses`,
+**Response Messages** tab, after the error message): a localized rich text pre-filled from the
+module resource bundle (`maintenanceMessage.default`), so contributors can reword it per form.
+The client maps `FMDB-014` to the same message, never to the generic error banner — forms
+created before the property existed fall back to the bundled text
+(`fmdb_form.maintenanceUnavailable`). Forms whose actions all carry the mixin (e.g. email-only
 forms) keep working normally during maintenance.
 
 ---

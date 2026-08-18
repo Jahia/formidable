@@ -7,6 +7,7 @@ export interface FormServerProps {
 	intro?: string;
 	submissionMessage?: string;
 	errorMessage?: string;
+	maintenanceMessage?: string;
 	showResetBtn?: boolean;
 	showNewFormBtn?: boolean;
 	showTryAgainBtn?: boolean;

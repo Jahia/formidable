@@ -43,6 +43,7 @@ describe('Security - read-only maintenance mode', () => {
 	let savingFormId: string;
 	let savingFormLivePath: string;
 	let emailOnlyFormId: string;
+	let customMessageFormLivePath: string;
 
 	// No per-test login/logout on purpose: fixtures are created up front while the
 	// platform is writable, then every request runs as Guest — logging in during the
@@ -77,6 +78,21 @@ describe('Security - read-only maintenance mode', () => {
 			{actions: [EMAIL_ACTION]}
 		).then(({formId}) => {
 			emailOnlyFormId = formId;
+		});
+
+		// Contributor-authored maintenance message, overriding the bundle default.
+		createPublishedLiveFormPage(
+			'readonly-custom-message-form',
+			'Read-only custom message form',
+			[getInputTextNode({name: 'fullName', title: 'Full name'})],
+			'readonly-custom-message-form-page',
+			'Read-only custom message form page',
+			{
+				actions: [SAVE_TO_JCR_ACTION],
+				properties: [{name: 'maintenanceMessage', value: '<p>Back on Monday, promised.</p>', language: 'en'}]
+			}
+		).then(({livePath}) => {
+			customMessageFormLivePath = livePath;
 		});
 
 		cy.logout();
@@ -129,8 +145,16 @@ describe('Security - read-only maintenance mode', () => {
 		// fresh, after the switch — no stale cached fragment can hide the banner.
 		cy.visit(`/en/sites/${FORMIDABLE_TEST_SITE.key}/${savingFormLivePath}`);
 
-		cy.get('.fmdb-message-maintenance').should('be.visible');
+		// The banner text is the contributor property, autocreated from the
+		// resource-bundle default when nothing is authored.
+		cy.get('.fmdb-message-maintenance').should('be.visible')
+			.and('contain.text', 'temporarily unavailable');
 		cy.get('form.fmdb-form button[type="submit"]').should('be.disabled');
+
+		// A contributor-authored message replaces the default.
+		cy.visit(`/en/sites/${FORMIDABLE_TEST_SITE.key}/${customMessageFormLivePath}`);
+		cy.get('.fmdb-message-maintenance').should('be.visible')
+			.and('contain.text', 'Back on Monday, promised.');
 	});
 
 	it('accepts submissions again once read-only mode is switched off', () => {
