@@ -52,9 +52,12 @@ Browser
                         ├─ file count limit (config.getUploadMaxFileCount())
                         ├─ Tika magic-byte MIME detection
                         └─ MIME allowlist (field accept or global cfg)
-         Step 10  validateRequired        post-parse: check required fields absent from the
+         Step 10  validateLogicCoherence  reject values submitted for fields provably hidden
+                                          by conditional logic (see
+                                          conditional-logic-field-resolution.md)
+         Step 11  validateRequired        post-parse: check required fields absent from the
                                           submitted body (e.g. unchecked checkbox/radio)
-         Step 11  dispatchActions         execute fmdb:actionList nodes in order
+         Step 12  dispatchActions         execute fmdb:actionList nodes in order
                    ├─ fmdb:emailNotificationAction:
                    │    - subject + to normalized with FieldEscaper.headerSafe()
                    │    - HTML body uses FieldEscaper.html() for interpolated values
@@ -244,7 +247,7 @@ tied to the hosting page. This is defence in depth, not the primary CSRF control
 
 ---
 
-## Field whitelist (step 7 → step 8)
+## Field whitelist (step 8 → step 9)
 
 `collectFormFieldInfo()` walks the `fields` child node (`fmdb:fieldList`) of the `fmdb:form`,
 including fields nested inside `fmdb:step` children, and builds:
@@ -266,7 +269,7 @@ This prevents:
 
 ---
 
-## Input validation (step 8)
+## Input validation (step 9)
 
 `FormDataParser` validates every text field before it enters the pipeline:
 
@@ -277,7 +280,7 @@ This prevents:
 | All text fields | `FieldConstraints` applied: required, minLength, maxLength, pattern, minDate, maxDate |
 
 Required fields that are legitimately absent from the multipart body (e.g. unchecked
-checkbox) are detected at step 9 (`validateRequired`) after parsing, rather than during
+checkbox) are detected at step 11 (`validateRequired`) after parsing, rather than during
 parsing.
 
 Plain-text values are preserved as submitted. XSS protection is applied at each output sink
@@ -295,7 +298,7 @@ by escaping for the target context, not by mutating input during parsing.
 
 ---
 
-## Output escaping (step 10 — email actions)
+## Output escaping (step 12 — email actions)
 
 `FieldEscaper` centralises output escaping:
 
@@ -414,7 +417,7 @@ heap pressure remains bounded under large-file workloads.
 
 | Condition | Behaviour |
 |---|---|
-| `fmdbmix:captcha` mixin present on the form | Wrapper resolves to `fmdbmix:captchaProtectedForm`; token verified at step 6 before any file data is read |
+| `fmdbmix:captcha` mixin present on the form | Wrapper resolves to `fmdbmix:captchaProtectedForm`; token verified at step 7 before any file data is read |
 | `fmdbmix:captcha` mixin absent | No CAPTCHA semantic on the form; pipeline continues |
 
 CAPTCHA configuration (`siteKey`, `scriptUrl`, `verifyUrl`, `secretKey`) is read from
@@ -506,7 +509,7 @@ module-scoped CSRFGuard configuration, so an authenticated direct XHR to
 | `src/hooks/useFormSubmission.ts` | `handleSubmit` — removes the CAPTCHA widget field from `FormData`, sets `X-Formidable-Captcha-Token`, POSTs via XHR |
 | `src/components/Form/default.server.tsx` | Builds `submitActionUrl` with `fid` and `lang` query params |
 | `formidable-engine/.../servlet/FormSubmitServlet.java` | OSGi entry point — checks `formidable-submit` permission, then delegates to `FormSubmissionPipeline` |
-| `formidable-engine/.../servlet/FormSubmissionPipeline.java` | 10-step pipeline — all submission logic |
+| `formidable-engine/.../servlet/FormSubmissionPipeline.java` | 12-step pipeline — all submission logic |
 | `formidable-engine/.../servlet/ErrorCode.java` | Error code enum — see `docs/error-codes.md` |
 | `formidable-engine/.../actions/FormDataParser.java` | Secure multipart parser: whitelist, input validation, Tika, allowlist, size + count limits |
 | `formidable-engine/.../actions/FieldEscaper.java` | Output escaping utility: `html`, `headerSafe`, `plainText` |
