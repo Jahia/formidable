@@ -24,6 +24,7 @@ export default function Form({
 	intro,
 	submissionMessage,
 	errorMessage,
+	maintenanceMessage,
 	submitActionUrl,
 	isSubmitDisabled = false,
 	showResetBtn = false,
@@ -46,6 +47,11 @@ export default function Form({
 	const formRef = useRef<HTMLFormElement>(null);
 	const {t} = useTranslation('formidable-elements', {keyPrefix: 'fmdb_form'});
 	const [hasBlockingSourceError, setHasBlockingSourceError] = useState(false);
+
+	// Contributor-configurable maintenance message (fmdbmix:responses), shown when a
+	// submission hits FMDB-014 (mode switched between render and submit); the bundle
+	// text keeps covering forms created before the property existed.
+	const maintenanceText = maintenanceMessage || t('maintenanceUnavailable');
 
 	useEffect(() => {
 		if (formRef.current) {
@@ -92,11 +98,13 @@ export default function Form({
 			captchaRequired: t('captchaRequired'),
 			errorCode: t('errorCode'),
 			actionsProgress: (completed, total) => t('actionsProgress', {completed, total}),
+			maintenanceUnavailable: maintenanceText,
 		},
 	});
 
 	const isSubmitBlocked = isLoading || isSubmitDisabled || hasBlockingSourceError
 		|| (!!captcha && (!isMultiStep || isLastStep) && !isCaptchaValid);
+	const submitBlockedTitle = isSubmitDisabled ? t('editModeSubmitDisabled') : undefined;
 	const showCaptcha = !!captcha && (!isMultiStep || isLastStep);
 
 	const validateCurrentStep = (): boolean => {
@@ -221,7 +229,7 @@ export default function Form({
 								type="submit"
 								className="fmdb-btn fmdb-btn-primary"
 								disabled={isSubmitBlocked}
-								title={isSubmitDisabled ? t('editModeSubmitDisabled') : undefined}
+								title={submitBlockedTitle}
 							>
 								{submitBtnLabel || t('submitBtn')}
 							</button>
@@ -229,7 +237,7 @@ export default function Form({
 						</>
 					) : (
 						<>
-							<button type="submit" className="fmdb-btn fmdb-btn-primary" disabled={isSubmitBlocked} title={isSubmitDisabled ? t('editModeSubmitDisabled') : undefined}>
+							<button type="submit" className="fmdb-btn fmdb-btn-primary" disabled={isSubmitBlocked} title={submitBlockedTitle}>
 							{submitBtnLabel || t('submitBtn')}
 						</button>
 							{showResetBtn && (

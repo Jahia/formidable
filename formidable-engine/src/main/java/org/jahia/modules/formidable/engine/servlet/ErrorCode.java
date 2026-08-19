@@ -22,6 +22,7 @@ enum ErrorCode {
     FMDB_011(403),  // Submission denied by the Security Filter permission check
     FMDB_012(500),  // Action list could not be resolved from the repository
     FMDB_013(400),  // Value submitted for a field provably hidden by conditional logic
+    FMDB_014(503),  // Platform is in read-only mode and the form has repository-writing actions
     FMDB_500(500);  // Unexpected internal error
 
     /** HTTP status code associated with this error. */

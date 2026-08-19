@@ -175,7 +175,7 @@ class FormSubmitServletTest {
         @Override
         FormSubmissionPipeline createPipeline() {
             pipelineInvoked = true;
-            return new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class)) {
+            return new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false) {
                 @Override
                 void run(HttpServletRequest req) throws SubmissionException {
                     if (submissionFailure != null) {
