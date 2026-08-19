@@ -170,6 +170,34 @@ describe('Security - sourced options tampering', () => {
 		}).then(response => expectErrorResponse(response, 400, 'FMDB-010'));
 	});
 
+	it('rejects the value of a published content hidden from the visitor by ACL', () => {
+		cy.login();
+		// 'hidden' is published under the picked root but unreadable by guest:
+		// absent from the rendered options, it must stay rejected at submit time
+		// too — the re-resolution runs with the requester's session, and only a
+		// system-session resolution would let this value through.
+		addNode({parentPathOrId: AGENCIES_ROOT_PATH, ...getTitledTextNode('hidden', 'Hidden agency', 'Agence cachée')});
+		publishAndWaitJobEnding(`${AGENCIES_ROOT_PATH}/hidden`, ['en', 'fr']);
+		cy.executeGroovy('groovy/breakAclInheritanceInDefaultAndLive.groovy', {
+			__PATH__: `${AGENCIES_ROOT_PATH}/hidden`
+		}).then(result => cy.log(String(result)));
+		cy.logout();
+
+		postDirectMultipartSubmission({
+			formId: optionalFormId,
+			fields: {country: 'FR', screenType: 'oled', agency: 'hidden'},
+			headers: withSameOriginHeaders()
+		}).then(response => expectErrorResponse(response, 400, 'FMDB-010'));
+
+		// The visible siblings keep flowing: the ACL trim is per-node, not a
+		// side effect breaking the whole field.
+		postDirectMultipartSubmission({
+			formId: optionalFormId,
+			fields: {country: 'FR', screenType: 'oled', agency: 'paris'},
+			headers: withSameOriginHeaders()
+		}).then(expectSuccessResponse);
+	});
+
 	it('rejects any submitted value when the source is gone, but still accepts omitting the optional field', () => {
 		cy.login();
 		setOptionsSourcesConfig([]);

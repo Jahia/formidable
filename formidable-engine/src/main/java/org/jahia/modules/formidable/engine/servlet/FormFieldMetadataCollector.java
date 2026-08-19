@@ -5,6 +5,7 @@ import org.jahia.modules.formidable.engine.logic.ConditionalLogicRule;
 import org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService;
 import org.jahia.modules.formidable.engine.util.JcrProps;
 import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.services.content.JCRSessionFactory;
 import org.jahia.services.content.JCRTemplate;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -74,9 +75,18 @@ class FormFieldMetadataCollector {
         // The service reference is mandatory on the servlet, but degrade to the
         // unresolvable-safe resolver anyway: without it only sourced/category fields
         // become unverifiable, instead of every submission failing.
+        // Options are re-resolved through the requester's live session, not the
+        // collector's system session: content/category resolution must carry the
+        // visitor's ACLs so the accepted set mirrors the rendered one (D11) — a
+        // published-but-ACL-hidden content is otherwise accepted at validation while
+        // absent from the rendered options. A field unreadable by the requester
+        // surfaces as a resolution failure, i.e. unresolvable, i.e. rejected.
         SourcedOptionsResolver resolver = optionsSourceService == null
                 ? NO_RESOLVER
-                : node -> optionsSourceService.resolveForField(node, locale.toLanguageTag());
+                : node -> optionsSourceService.resolveForField(
+                        JCRSessionFactory.getInstance().getCurrentUserSession(WORKSPACE_LIVE, locale)
+                                .getNodeByIdentifier(node.getIdentifier()),
+                        locale.toLanguageTag());
 
         return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale, systemSession -> {
             JCRNodeWrapper formNode = systemSession.getNodeByIdentifier(formId);
