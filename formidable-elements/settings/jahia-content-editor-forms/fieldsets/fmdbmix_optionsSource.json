@@ -42,6 +42,19 @@
 							"value": "fmdbmix:categoryOptions"
 						}
 					]
+				},
+				{
+					"value": {
+						"type": "String",
+						"value": "content"
+					},
+					"displayValueKey": "formidable-engine:fmdbmix_optionsSource.fmdb_optionsMode.content",
+					"propertyList": [
+						{
+							"name": "addMixin",
+							"value": "fmdbmix:contentOptions"
+						}
+					]
 				}
 			]
 		}

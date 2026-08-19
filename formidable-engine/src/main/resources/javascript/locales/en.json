@@ -4,17 +4,12 @@
         "label": "Label displayed to user",
         "selected": "If enabled, the option is selected by default"
     },
-    "sourcedOptions": {
-        "selectSource": "Select an options source",
-        "previewLoading": "Resolving options…",
-        "previewUnavailable": "The options of this source are currently unavailable.",
-        "previewLabel": "Preview of the resolved options (#{{count}})"
-    },
     "fmdbmix_optionsSource": {
         "fmdb_optionsMode": {
             "manual": "Manual options",
             "sourced": "Options from a third-party source",
-            "category": "Options from categories"
+            "category": "Options from categories",
+            "content": "Options from site content"
         }
     },
     "conditionalLogic": {

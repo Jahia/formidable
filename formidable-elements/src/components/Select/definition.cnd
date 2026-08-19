@@ -1,6 +1,7 @@
 // Select component properties
 [fmdb:select] > jnt:content, fmdbmix:element, fmdbmix:choiceField, fmdbmix:validationMessages
  - helpText (string, richtext[ckeditor.toolbar='FormidableHelp',ckeditor.customConfig='$context/modules/formidable-engine/javascript/ckeditor/helpTextConfig.js']) i18n indexed=no
+ - fmdb:optionsEmptyLabel (string) i18n indexed=no
  - size (long)
  - required (boolean) = false
  - multiple (boolean) = false

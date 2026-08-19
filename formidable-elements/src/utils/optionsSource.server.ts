@@ -5,7 +5,7 @@ import {parseChoices, type ParsedChoice} from "./choiceUtils";
 const OPTIONS_SOURCE_SERVICE = "org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService";
 // Mixins whose options are resolved by the engine at render time; the actual mode
 // dispatch lives in FormidableOptionsSourceService.resolveForField.
-const RESOLVED_OPTIONS_MIXINS = ["fmdbmix:sourcedOptions", "fmdbmix:categoryOptions"];
+const RESOLVED_OPTIONS_MIXINS = ["fmdbmix:sourcedOptions", "fmdbmix:categoryOptions", "fmdbmix:contentOptions"];
 
 export interface FieldOptions {
 	choices: ParsedChoice[];

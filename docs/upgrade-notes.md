@@ -38,15 +38,25 @@ property to its `pom.xml`, its Maven group id is unchanged.
 
 ### Upgrade procedure
 
-1. In **Administration > Server > Modules and Extensions > Modules**, stop and
-   uninstall formidable-elements 0.3.0 (or earlier). Forms and their
-   submissions are stored in the JCR and are not affected; forms simply stop
-   rendering while the module is absent.
-2. Install formidable-elements 0.4.0.
-3. Check that forms render again on the site.
+1. Upgrade formidable-engine to 0.4.0 **first**. The element types
+   (`fmdb:select`, `fmdb:radio`, `fmdb:checkbox`...) resolve the engine mixins
+   they inherit from at the moment their own module registers: elements
+   installed against an older engine keep that older view of the shared
+   properties until they are reinstalled, so the engine must always carry the
+   new definitions before the elements register against them.
+2. In **Administration > Server > Modules and Extensions > Modules**, stop and
+   uninstall formidable-elements 0.3.0 (or earlier). **Do not tick the option
+   to delete the module content when uninstalling**: that choice erases every
+   form and submission stored in the JCR. Left unticked, forms and their
+   submissions are not affected; forms simply stop rendering while the module
+   is absent.
+3. Install formidable-elements 0.4.0 (then any extension module, such as
+   formidable-extended-inputs, in the same movement).
+4. Check that forms render again on the site.
 
 This is a one-time migration: from 0.4.0 on, the group id is stable and later
-versions install in place as usual.
+versions install in place as usual — but the ordering rule of step 1 holds for
+every upgrade that changes the engine definitions.
 
 ## 0.3.0 (and earlier) → 0.4.0: choice-field options are migrated at startup
 
@@ -71,3 +81,12 @@ migration ran: the imported choice fields render empty option lists.
 
 Restart the server (or the formidable-engine bundle) to re-run the migration,
 or re-enter the options in the editor.
+
+### Option configuration became mandatory
+
+0.4.0 also marks the option configuration of choice fields as mandatory: the
+manual options list, and in the source modes the source key, the root category
+or the root content and content type. Migrated fields all carry their options,
+so they satisfy the constraint as-is. A legacy field that was saved without any
+option has nothing to migrate and simply asks for its options the next time it
+is edited — saving it incomplete is no longer possible.

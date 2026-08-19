@@ -83,7 +83,8 @@ public class FormidableConfigService {
             HttpClient forwardHttpClient,
             Map<String, ForwardTarget> forwardTargets,
             Map<String, OptionsSource> optionsSources,
-            Duration optionsSourcesCacheTtl
+            Duration optionsSourcesCacheTtl,
+            int optionsQueryMaxResults
     ) {}
 
     private static final Logger log = LoggerFactory.getLogger(FormidableConfigService.class);
@@ -158,6 +159,9 @@ public class FormidableConfigService {
                 osgiConfig.optionsSourcesCacheTtlSeconds(),
                 FormidableConfig.DEFAULT_OPTIONS_SOURCES_CACHE_TTL_SECONDS
         );
+        int optionsQueryMaxResults = osgiConfig.optionsQueryMaxResults() > 0
+                ? osgiConfig.optionsQueryMaxResults()
+                : FormidableConfig.DEFAULT_OPTIONS_QUERY_MAX_RESULTS;
 
         ConfigSnapshot snapshot = new ConfigSnapshot(
                 captchaSiteKey,
@@ -178,7 +182,8 @@ public class FormidableConfigService {
                 forwardHttpClient,
                 forwardTargets,
                 optionsSources,
-                optionsSourcesCacheTtl
+                optionsSourcesCacheTtl,
+                optionsQueryMaxResults
         );
 
         this.config.set(snapshot);
@@ -485,6 +490,14 @@ public class FormidableConfigService {
     public Optional<OptionsSource> resolveOptionsSource(String id) {
         OptionsSource source = currentConfig().optionsSources().get(id);
         return source != null ? Optional.of(source) : Optional.empty();
+    }
+
+    /**
+     * Maximum number of options a content-mode choice field may resolve; above it the
+     * field fails explicitly like a failing source. Administrator-configurable.
+     */
+    public int getOptionsQueryMaxResults() {
+        return currentConfig().optionsQueryMaxResults();
     }
 
     public Duration getOptionsSourcesCacheTtl() {

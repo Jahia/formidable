@@ -80,8 +80,258 @@ public class FormidableOptionsSourceService {
         if (fieldNode.isNodeType("fmdbmix:categoryOptions")) {
             return resolveCategoryOptions(fieldNode);
         }
+        if (fieldNode.isNodeType("fmdbmix:contentOptions")) {
+            return resolveContentOptions(fieldNode, config.getOptionsQueryMaxResults());
+        }
 
         return null;
+    }
+
+    /**
+     * Runs the content-mode JCR-SQL2 query through the given session. A seam so the
+     * service stays unit-testable without Jahia's query machinery (same pattern as the
+     * initializer lookup). The limit is set on the query itself so the repository
+     * never evaluates more rows than the caller's cutoff — the Java-side bounds
+     * (cap detection, scan bound) size it at cutoff + 1 where overflow must be seen.
+     */
+    @FunctionalInterface
+    interface ContentQueryRunner {
+        javax.jcr.NodeIterator run(org.jahia.services.content.JCRSessionWrapper session, String sql2, long limit)
+                throws javax.jcr.RepositoryException;
+    }
+
+    private ContentQueryRunner contentQueryRunner = (session, sql2, limit) -> {
+        javax.jcr.query.Query query = session.getWorkspace().getQueryManager()
+                .createQuery(sql2, javax.jcr.query.Query.JCR_SQL2);
+        query.setLimit(limit);
+        return query.execute().getNodes();
+    };
+
+    void setContentQueryRunner(ContentQueryRunner runner) {
+        this.contentQueryRunner = runner;
+    }
+
+    /**
+     * Content mode: the options are the descendants of the root node the contributor
+     * picked, filtered by the configured content type. Values are the paths relative to
+     * the root (unique by construction, readable in results, stable across re-imports),
+     * labels the localized displayable names. The query runs through the field's own
+     * session, so live only sees published, visitor-readable content, and the result is
+     * ordered by path. Above the administrator-configured cap the field fails explicitly
+     * like a failing source — never a silent truncation. Not TTL-cached (in-JVM read).
+     */
+    private String[] resolveContentOptions(JCRNodeWrapper fieldNode, int maxResults)
+            throws javax.jcr.RepositoryException {
+        if (!fieldNode.hasProperty("fmdb:optionsRootNode")) {
+            throw new IllegalStateException("Choice field '" + fieldNode.getPath()
+                    + "' is in content mode but no root node is selected");
+        }
+        if (!fieldNode.hasProperty("fmdb:optionsNodeType")
+                || fieldNode.getProperty("fmdb:optionsNodeType").getString().isBlank()) {
+            throw new IllegalStateException("Choice field '" + fieldNode.getPath()
+                    + "' is in content mode but no content type is configured");
+        }
+
+        JCRNodeWrapper root;
+        try {
+            root = (JCRNodeWrapper) fieldNode.getProperty("fmdb:optionsRootNode").getNode();
+        } catch (javax.jcr.RepositoryException e) {
+            throw new IllegalStateException("Root node of choice field '" + fieldNode.getPath()
+                    + "' cannot be read (deleted, or not published in this workspace)", e);
+        }
+
+        return queryContentOptions(root, fieldNode.getProperty("fmdb:optionsNodeType").getString(),
+                fieldNode.getPath(), maxResults);
+    }
+
+    /**
+     * Facets a descendant must carry to count as contributor-facing content: dropped
+     * in an area or editorial. Technical subnodes (permissions, translations...)
+     * carry neither and never surface.
+     */
+    private static final List<String> CONTRIBUTABLE_FACETS = List.of("jmix:droppableContent", "jmix:editorialContent");
+
+    /**
+     * Bound of the per-facet scan behind {@link #resolveContentTypes}. Past it a type
+     * present only deeper in the referential may be missed — never wrongly added — and
+     * the type stays selectable through the stored value.
+     */
+    private static final int TYPES_SCAN_BOUND = 500;
+
+    /**
+     * Editor-side list of the content types offerable as options under a picked root:
+     * the distinct primary types of its contributable descendants — the same universe
+     * the content-mode resolution then queries type by type, so everything offered
+     * resolves and everything resolvable is offered. Labels are the localized node
+     * type names, sorted; a type whose contents already exceed the render-time cap
+     * carries a localized warning in its label.
+     *
+     * @throws IllegalStateException when the root cannot be read
+     */
+    public String[] resolveContentTypes(String rootIdentifier, String languageTag)
+            throws javax.jcr.RepositoryException {
+        Locale locale = Locale.forLanguageTag(languageTag == null || languageTag.isBlank() ? "en" : languageTag);
+        org.jahia.services.content.JCRSessionWrapper session = org.jahia.services.content.JCRSessionFactory
+                .getInstance().getCurrentUserSession("default", locale);
+        return queryContentTypes(readRoot(session, rootIdentifier), locale, config.getOptionsQueryMaxResults());
+    }
+
+    String[] queryContentTypes(JCRNodeWrapper root, Locale locale, int maxResults)
+            throws javax.jcr.RepositoryException {
+        Map<String, String> labelsByType = new java.util.HashMap<>();
+        for (String facet : CONTRIBUTABLE_FACETS) {
+            javax.jcr.NodeIterator nodes = contentQueryRunner.run(root.getSession(),
+                    "SELECT * FROM [" + facet + "] WHERE ISDESCENDANTNODE('"
+                            + root.getPath().replace("'", "''") + "')", TYPES_SCAN_BOUND);
+            int scanned = 0;
+            while (nodes.hasNext() && scanned < TYPES_SCAN_BOUND) {
+                javax.jcr.Node child = nodes.nextNode();
+                scanned++;
+                if (!(child instanceof JCRNodeWrapper content)) {
+                    continue;
+                }
+                String typeName = content.getPrimaryNodeTypeName();
+                // Form elements (any module's, through the fmdbmix:formElement
+                // contract) and form-embeddable components (the form itself, its
+                // reference) as options of a form field are never what a
+                // contributor is after.
+                if (typeName == null
+                        || content.isNodeType("fmdbmix:formElement")
+                        || content.isNodeType("fmdbmix:component")) {
+                    continue;
+                }
+                labelsByType.computeIfAbsent(typeName, name -> {
+                    String label = typeLabelResolver.apply(name, locale);
+                    return label != null && !label.isBlank() ? label : name;
+                });
+            }
+        }
+
+        // Cap forewarning: a type whose contents already exceed the render-time cap
+        // stays offered — the stored value must remain selectable — but its label
+        // warns the contributor before the form refuses to render.
+        for (Map.Entry<String, String> entry : labelsByType.entrySet()) {
+            if (countsAboveCap(root, entry.getKey(), maxResults)) {
+                entry.setValue(entry.getValue() + " — " + capExceededMessageResolver.apply(locale, maxResults));
+            }
+        }
+
+        return labelsByType.entrySet().stream()
+                .sorted(Map.Entry.comparingByValue())
+                .map(entry -> new JSONObject(Map.of(
+                        "value", entry.getKey(),
+                        "label", entry.getValue(),
+                        "selected", false)).toString())
+                .toArray(String[]::new);
+    }
+
+    private boolean countsAboveCap(JCRNodeWrapper root, String nodeType, int maxResults) {
+        try {
+            javax.jcr.NodeIterator nodes = contentQueryRunner.run(root.getSession(),
+                    "SELECT * FROM [" + nodeType + "] WHERE ISDESCENDANTNODE('"
+                            + root.getPath().replace("'", "''") + "')", maxResults + 1L);
+            int count = 0;
+            while (nodes.hasNext() && count <= maxResults) {
+                nodes.nextNode();
+                count++;
+            }
+
+            return count > maxResults;
+        } catch (javax.jcr.RepositoryException e) {
+            // Best-effort forewarning: an unqueryable type goes unflagged, the
+            // render-time cap still protects the form.
+            return false;
+        }
+    }
+
+    // Seam for unit tests: the production value reads the localized warning from
+    // the module resource bundle.
+    private java.util.function.BiFunction<Locale, Integer, String> capExceededMessageResolver = (locale, limit) -> {
+        try {
+            return org.jahia.utils.i18n.Messages.getWithArgs("resources.formidable-engine",
+                    "fmdbmix_contentOptions.fmdb_optionsNodeType.capExceeded", locale, limit);
+        } catch (Exception e) {
+            return "more than " + limit + " options resolve";
+        }
+    };
+
+    void setCapExceededMessageResolver(java.util.function.BiFunction<Locale, Integer, String> resolver) {
+        this.capExceededMessageResolver = resolver;
+    }
+
+    // Seam for unit tests: the production value reads the localized node type label
+    // from the platform registry (ExtendedNodeType is not mockable).
+    private java.util.function.BiFunction<String, Locale, String> typeLabelResolver = (typeName, locale) -> {
+        try {
+            return org.jahia.services.content.nodetypes.NodeTypeRegistry.getInstance()
+                    .getNodeType(typeName).getLabel(locale);
+        } catch (javax.jcr.RepositoryException e) {
+            return null;
+        }
+    };
+
+    void setTypeLabelResolver(java.util.function.BiFunction<String, Locale, String> resolver) {
+        this.typeLabelResolver = resolver;
+    }
+
+    private static JCRNodeWrapper readRoot(org.jahia.services.content.JCRSessionWrapper session,
+            String rootIdentifier) {
+        try {
+            return session.getNodeByIdentifier(rootIdentifier);
+        } catch (javax.jcr.RepositoryException e) {
+            throw new IllegalStateException("Root node '" + rootIdentifier
+                    + "' cannot be read (deleted, not published, or not visible to visitors)", e);
+        }
+    }
+
+    private String[] queryContentOptions(JCRNodeWrapper root, String rawNodeType, String scope, int maxResults)
+            throws javax.jcr.RepositoryException {
+        String nodeType = rawNodeType == null ? "" : rawNodeType.trim();
+        // Injection guard for the bracketed JCR-SQL2 name below, sized to the JCR
+        // name grammar: prefix and local name are XML NCNames, which may contain
+        // '-' and '.' anywhere but first. Unknown-but-well-formed types still fail
+        // cleanly through the query itself.
+        if (!nodeType.matches("[A-Za-z_][\\w.-]*:[A-Za-z_][\\w.-]*")) {
+            throw new IllegalStateException("Choice field '" + scope
+                    + "' has an invalid content type '" + nodeType + "'");
+        }
+
+        javax.jcr.NodeIterator nodes;
+        try {
+            nodes = contentQueryRunner.run(root.getSession(),
+                    "SELECT * FROM [" + nodeType + "] WHERE ISDESCENDANTNODE('"
+                            + root.getPath().replace("'", "''") + "')", maxResults + 1L);
+        } catch (javax.jcr.RepositoryException e) {
+            // Unknown types surface as InvalidQueryException or NamespaceException
+            // depending on which half of the name is wrong.
+            throw new IllegalStateException("Choice field '" + scope
+                    + "' cannot list contents of type '" + nodeType + "': " + e.getMessage(), e);
+        }
+
+        String rootPrefix = root.getPath() + "/";
+        java.util.List<String[]> entries = new java.util.ArrayList<>();
+        while (nodes.hasNext()) {
+            javax.jcr.Node child = nodes.nextNode();
+            if (!(child instanceof JCRNodeWrapper content)) {
+                continue;
+            }
+            if (entries.size() >= maxResults) {
+                throw new OptionsQueryCapExceededException(scope, maxResults);
+            }
+            String value = content.getPath().startsWith(rootPrefix)
+                    ? content.getPath().substring(rootPrefix.length())
+                    : content.getName();
+            String label = content.getDisplayableName();
+            entries.add(new String[]{value, label != null && !label.isEmpty() ? label : value});
+        }
+
+        entries.sort(java.util.Comparator.comparing(entry -> entry[0]));
+        return entries.stream()
+                .map(entry -> new JSONObject(Map.of(
+                        "value", entry[0],
+                        "label", entry[1],
+                        "selected", false)).toString())
+                .toArray(String[]::new);
     }
 
     /**

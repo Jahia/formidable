@@ -235,6 +235,239 @@ class FormidableOptionsSourceServiceTest {
         assertThrows(IllegalStateException.class, () -> service.resolveForField(field, "en"));
     }
 
+    @Test
+    void resolveForFieldListsTypedDescendantsAsRelativePaths() throws Exception {
+        // Verifies the content mode contract: descendants of the picked root filtered by
+        // type become options, value = path relative to the root (unique by construction),
+        // label = displayable name, ordered by path.
+        JCRNodeWrapper contact = contentNode("/sites/site/agences/paris/contact", "Paris Contact");
+        JCRNodeWrapper lyon = contentNode("/sites/site/agences/lyon", "Lyon");
+        FormidableOptionsSourceService service = serviceWithQueryCap(100,
+                java.util.List.of(contact, lyon));
+        JCRNodeWrapper field = contentField("/sites/site/agences", "acme:agency");
+
+        String[] options = service.resolveForField(field, "en");
+
+        assertEquals(2, options.length);
+        JSONObject first = new JSONObject(options[0]);
+        assertEquals("lyon", first.getString("value"));
+        assertEquals("Lyon", first.getString("label"));
+        JSONObject second = new JSONObject(options[1]);
+        assertEquals("paris/contact", second.getString("value"));
+        assertEquals("Paris Contact", second.getString("label"));
+    }
+
+    @Test
+    void resolveForFieldFailsAboveTheContentQueryCap() throws Exception {
+        // Verifies the cap contract: exceeding optionsQueryMaxResults is an explicit
+        // resolution failure (D10), never a silent truncation.
+        JCRNodeWrapper one = contentNode("/sites/site/agences/a", "A");
+        JCRNodeWrapper two = contentNode("/sites/site/agences/b", "B");
+        FormidableOptionsSourceService service = serviceWithQueryCap(1, java.util.List.of(one, two));
+        JCRNodeWrapper field = contentField("/sites/site/agences", "acme:agency");
+
+        assertThrows(IllegalStateException.class, () -> service.resolveForField(field, "en"));
+    }
+
+    @Test
+    void resolveForFieldFailsWhenContentModeIsMisconfigured() throws Exception {
+        // Verifies the misconfiguration paths: no root, no type, or a type that is not a
+        // technical name are resolution failures, never empty lists.
+        FormidableOptionsSourceService service = serviceWithQueryCap(100, java.util.List.of());
+
+        JCRNodeWrapper noRoot = mock(JCRNodeWrapper.class);
+        when(noRoot.isNodeType("fmdbmix:contentOptions")).thenReturn(true);
+        when(noRoot.hasProperty("fmdb:optionsRootNode")).thenReturn(false);
+        when(noRoot.getPath()).thenReturn("/form/fields/agency");
+        assertThrows(IllegalStateException.class, () -> service.resolveForField(noRoot, "en"));
+
+        JCRNodeWrapper noType = contentField("/sites/site/agences", "acme:agency");
+        when(noType.hasProperty("fmdb:optionsNodeType")).thenReturn(false);
+        assertThrows(IllegalStateException.class, () -> service.resolveForField(noType, "en"));
+
+        JCRNodeWrapper badType = contentField("/sites/site/agences", "not a type!");
+        assertThrows(IllegalStateException.class, () -> service.resolveForField(badType, "en"));
+    }
+
+    @Test
+    void resolveForFieldAcceptsJcrNamesWithDashesAndDots() throws Exception {
+        // Verifies the injection guard is sized to the JCR name grammar: prefix and
+        // local name are XML NCNames, which may contain '-' and '.' anywhere but
+        // first — while malformed or injection-shaped values keep failing.
+        JCRNodeWrapper content = contentNode("/sites/site/agences/lyon", "Lyon");
+        FormidableOptionsSourceService service = serviceWithQueryCap(100, java.util.List.of(content));
+
+        JCRNodeWrapper dashed = contentField("/sites/site/agences", "my-module:article.v2");
+        assertEquals(1, service.resolveForField(dashed, "en").length);
+
+        for (String rejected : new String[]{
+                "acme:agency]", "acme:", ":agency", "-acme:agency", "acme:.agency", "acme:agency' OR", ""}) {
+            JCRNodeWrapper field = contentField("/sites/site/agences", rejected);
+            assertThrows(IllegalStateException.class, () -> service.resolveForField(field, "en"),
+                    "'" + rejected + "' should be rejected");
+        }
+    }
+
+    @Test
+    void queryContentTypesListsDistinctContributableTypesSortedByLabel() throws Exception {
+        // Verifies the types contract: the distinct primary types of the contributable
+        // descendants become options — deduplicated across nodes and facets — labeled
+        // with the localized type name and sorted by label.
+        JCRNodeWrapper agency = typedNode("luxe:agency");
+        JCRNodeWrapper otherAgency = typedNode("luxe:agency");
+        JCRNodeWrapper estate = typedNode("luxe:estate");
+        FormidableOptionsSourceService service = new FormidableOptionsSourceService();
+        service.setContentQueryRunner((session, sql2, limit) ->
+                nodeIterator(java.util.List.of(estate, agency, otherAgency)));
+        service.setTypeLabelResolver((typeName, locale) ->
+                java.util.Map.of("luxe:agency", "Agency", "luxe:estate", "Estate").get(typeName));
+        JCRNodeWrapper root = mock(JCRNodeWrapper.class);
+        when(root.getPath()).thenReturn("/sites/site/agences");
+
+        String[] options = service.queryContentTypes(root, Locale.ENGLISH, 100);
+
+        assertEquals(2, options.length);
+        JSONObject first = new JSONObject(options[0]);
+        assertEquals("luxe:agency", first.getString("value"));
+        assertEquals("Agency", first.getString("label"));
+        assertEquals(false, first.getBoolean("selected"));
+        assertEquals("luxe:estate", new JSONObject(options[1]).getString("value"));
+    }
+
+    @Test
+    void queryContentTypesWarnsInTheLabelWhenATypeExceedsTheQueryCap() throws Exception {
+        // Verifies the cap forewarning: a type whose contents exceed the render-time
+        // cap stays offered — the stored value must remain selectable — but its label
+        // carries the localized warning; types within the cap keep a clean label.
+        JCRNodeWrapper agency = typedNode("luxe:agency");
+        JCRNodeWrapper estate = typedNode("luxe:estate");
+        FormidableOptionsSourceService service = new FormidableOptionsSourceService();
+        service.setContentQueryRunner((session, sql2, limit) -> {
+            if (sql2.contains("[luxe:agency]")) {
+                return nodeIterator(java.util.List.of(agency, agency, agency));
+            }
+            if (sql2.contains("[luxe:estate]")) {
+                return nodeIterator(java.util.List.of(estate));
+            }
+
+            return nodeIterator(java.util.List.of(agency, estate));
+        });
+        service.setTypeLabelResolver((typeName, locale) ->
+                java.util.Map.of("luxe:agency", "Agency", "luxe:estate", "Estate").get(typeName));
+        service.setCapExceededMessageResolver((locale, limit) -> "more than " + limit + " options resolve");
+        JCRNodeWrapper root = mock(JCRNodeWrapper.class);
+        when(root.getPath()).thenReturn("/sites/site/agences");
+
+        String[] options = service.queryContentTypes(root, Locale.ENGLISH, 2);
+
+        assertEquals(2, options.length);
+        JSONObject flagged = new JSONObject(options[0]);
+        assertEquals("luxe:agency", flagged.getString("value"));
+        assertEquals("Agency — more than 2 options resolve", flagged.getString("label"));
+        assertEquals("Estate", new JSONObject(options[1]).getString("label"));
+    }
+
+    @Test
+    void queryContentTypesSkipsFormPiecesBySemanticContractAndFallsBackToTypeNames() throws Exception {
+        // Verifies the noise contract: form elements (any module's, through the
+        // fmdbmix:formElement mixin) and form-embeddable components (the form
+        // itself, its reference) never surface as offerable types — matched on
+        // their semantic contracts, not on a name prefix — and a type without a
+        // localized label falls back to its technical name.
+        JCRNodeWrapper thirdPartyFormElement = typedNode("acme:customField");
+        when(thirdPartyFormElement.isNodeType("fmdbmix:formElement")).thenReturn(true);
+        JCRNodeWrapper form = typedNode("fmdb:form");
+        when(form.isNodeType("fmdbmix:component")).thenReturn(true);
+        JCRNodeWrapper unlabeled = typedNode("acme:thing");
+        FormidableOptionsSourceService service = new FormidableOptionsSourceService();
+        service.setContentQueryRunner((session, sql2, limit) ->
+                nodeIterator(java.util.List.of(thirdPartyFormElement, form, unlabeled)));
+        service.setTypeLabelResolver((typeName, locale) -> "");
+        JCRNodeWrapper root = mock(JCRNodeWrapper.class);
+        when(root.getPath()).thenReturn("/sites/site/agences");
+
+        String[] options = service.queryContentTypes(root, Locale.ENGLISH, 100);
+
+        assertEquals(1, options.length);
+        JSONObject option = new JSONObject(options[0]);
+        assertEquals("acme:thing", option.getString("value"));
+        assertEquals("acme:thing", option.getString("label"));
+    }
+
+    @Test
+    void contentQueriesCarryTheCutoffAsQueryLimit() throws Exception {
+        // Verifies the operational protection behind the cap: the cutoff reaches
+        // the JCR query itself (cutoff + 1 where overflow must stay detectable),
+        // so the repository never evaluates an unbounded result set.
+        java.util.List<Long> limits = new java.util.ArrayList<>();
+        JCRNodeWrapper content = contentNode("/sites/site/agences/lyon", "Lyon");
+        when(content.getPrimaryNodeTypeName()).thenReturn("acme:thing");
+        FormidableOptionsSourceService service = serviceWithQueryCap(100, java.util.List.of());
+        service.setContentQueryRunner((session, sql2, limit) -> {
+            limits.add(limit);
+            return nodeIterator(java.util.List.of(content));
+        });
+
+        service.resolveForField(contentField("/sites/site/agences", "acme:agency"), "en");
+        assertEquals(java.util.List.of(101L), limits);
+
+        limits.clear();
+        service.setTypeLabelResolver((typeName, locale) -> "Thing");
+        service.setCapExceededMessageResolver((locale, limit) -> "cap");
+        JCRNodeWrapper root = mock(JCRNodeWrapper.class);
+        when(root.getPath()).thenReturn("/sites/site/agences");
+
+        service.queryContentTypes(root, Locale.ENGLISH, 2);
+
+        // Two facet scans at the discovery bound, then the above-cap count of the
+        // single discovered type at cap + 1.
+        assertEquals(java.util.List.of(500L, 500L, 3L), limits);
+    }
+
+    private static JCRNodeWrapper typedNode(String typeName) throws Exception {
+        JCRNodeWrapper node = mock(JCRNodeWrapper.class);
+        when(node.getPrimaryNodeTypeName()).thenReturn(typeName);
+        return node;
+    }
+
+    private static FormidableOptionsSourceService serviceWithQueryCap(int cap,
+            java.util.List<JCRNodeWrapper> queryResults) {
+        FormidableOptionsSourceService service = new FormidableOptionsSourceService();
+        FormidableConfigService config = mock(FormidableConfigService.class);
+        when(config.getOptionsQueryMaxResults()).thenReturn(cap);
+        service.setConfig(config);
+        service.setContentQueryRunner((session, sql2, limit) -> nodeIterator(queryResults));
+        return service;
+    }
+
+    private static JCRNodeWrapper contentNode(String path, String title) throws Exception {
+        JCRNodeWrapper node = mock(JCRNodeWrapper.class);
+        when(node.getPath()).thenReturn(path);
+        when(node.getName()).thenReturn(path.substring(path.lastIndexOf('/') + 1));
+        when(node.getDisplayableName()).thenReturn(title);
+        return node;
+    }
+
+    private static JCRNodeWrapper contentField(String rootPath, String nodeType) throws Exception {
+        JCRNodeWrapper root = mock(JCRNodeWrapper.class);
+        when(root.getPath()).thenReturn(rootPath);
+
+        JCRNodeWrapper field = mock(JCRNodeWrapper.class);
+        when(field.isNodeType("fmdbmix:contentOptions")).thenReturn(true);
+        when(field.getPath()).thenReturn("/form/fields/agency");
+        when(field.hasProperty("fmdb:optionsRootNode")).thenReturn(true);
+        JCRPropertyWrapper rootProperty = mock(JCRPropertyWrapper.class);
+        when(rootProperty.getNode()).thenReturn(root);
+        when(field.getProperty("fmdb:optionsRootNode")).thenReturn(rootProperty);
+        when(field.hasProperty("fmdb:optionsNodeType")).thenReturn(true);
+        JCRPropertyWrapper typeProperty = mock(JCRPropertyWrapper.class);
+        when(typeProperty.getString()).thenReturn(nodeType);
+        when(field.getProperty("fmdb:optionsNodeType")).thenReturn(typeProperty);
+
+        when(field.getSession()).thenReturn(mock(org.jahia.services.content.JCRSessionWrapper.class));
+        return field;
+    }
+
     private static org.jahia.services.content.JCRNodeIteratorWrapper nodeIterator(
             java.util.List<? extends javax.jcr.Node> nodes) {
         org.jahia.services.content.JCRNodeIteratorWrapper iterator =
