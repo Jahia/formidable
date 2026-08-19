@@ -150,6 +150,10 @@ cd formidable-elements && docker compose up --wait
 cd tests && yarn e2e:ci      # headless
 cd tests && yarn e2e:debug   # interactive (Cypress UI)
 
+# Manual-testing playground — when someone asks for "the playground" or to
+# "rebuild the test set", this is the command they mean (see tests/README.md)
+cd tests && yarn playground
+
 # Lint / format (from repo root or any workspace)
 yarn lint
 yarn format

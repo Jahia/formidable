@@ -17,6 +17,10 @@
 [fmdb:logicList] > nt:base, jmix:lockable, mix:lastModified, jmix:lastPublished, mix:versionable, jmix:observable, jmix:workflow, jmix:list
  + * (fmdb:logicSrc) = fmdb:logicSrc
 
+// Conditional-logic storage (see docs/conditional-logic-field-resolution.md):
+// logics is the authoring format, logicsSrc the technical storage, and its
+// per-rule logicNodeSource weakreference the repository-native source pointer
+// used by server-side metadata collection and runtime enrichment.
 [fmdbmix:formLogicElement] mixin
  - logics (string) multiple indexed=no
  // Stable business identity of the element (random UUID string), independent from the

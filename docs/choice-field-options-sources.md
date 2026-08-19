@@ -41,7 +41,7 @@ Sources are declared in `org.jahia.modules.formidable.cfg`, one per line:
 
 ```properties
 optionsSources=countries|Countries|country\n\
-  tv|TV screens|fmdbSampleCategoryTree|product/tv
+  tv|TV screens|fmdbSampleStaticList|plasma,oled,led
 optionsSourcesCacheTtlSeconds=300
 ```
 
@@ -118,8 +118,9 @@ itself contain `|`). The Jahia initializer API
 (`getChoiceListValues(epd, param, values, locale, context)`) receives a single
 string — there is **no platform-wide separator for multiple parameters**; each
 initializer defines its own convention. The core `nodes` initializer uses `;`
-(`/path;jnt:type`), and `;` is the recommended convention for custom initializers
-(for example `product/tv;2` for a hypothetical `path;depth` contract). This is the
+(`/path;jnt:type`), `;` is the recommended convention for heterogeneous parameters
+(for example `code;depth` contracts), and the sample `fmdbSampleStaticList` splits
+its single parameter on commas to get a homogeneous value list. This is the
 same behavior as the CND `choicelist[initializer='param']` syntax, where the quotes
 also carry a single string. (Not to be confused with the comma in
 `choicelist[init1,init2]`, which separates chained initializers, not parameters.)
@@ -239,18 +240,23 @@ field's `required` flag, like any other field.
 ## Writing a source initializer
 
 Any module can contribute one by registering a `ModuleChoiceListInitializer` OSGi
-service with a fixed key. `SampleCategoryTreeInitializer`
-(formidable-test-module-samples-java) is a complete parameterized example: it lists
-the child categories of a category-tree node, the parameter being the starting
-point relative to `/sites/systemsite/categories`. Return localized labels using the
-`locale` argument; blank values are dropped by the resolver, and a blank label
-falls back to the value.
+service with a fixed key. `SampleStaticListInitializer`
+(formidable-test-module-samples-java) is a complete parameterized example of the
+recommended shape: it serves a **static list** whose values come from the
+initializer parameter (comma-separated) and whose labels come from the module's
+resource bundle in the requested locale — no Content Editor context, no JCR read,
+so the result is safely cacheable across users and workspaces. Return localized
+labels using the `locale` argument; blank values are dropped by the resolver, and
+a blank label falls back to the value.
 
 Mind the rules of the previous section: a source initializer runs outside any
 rendering session and its result is cached across users and workspaces. Compute
 options from non-JCR data (code, configuration, resource bundles, external
-systems). If reading the repository is unavoidable, open an **explicit** system
-session on a deliberately chosen workspace — never rely on
-`getCurrentUserSession()` — and only expose admin-curated, non-sensitive trees:
-whatever is resolved is served identically to every visitor. The sample does
-exactly that (explicit system session on `default`, shared category taxonomy).
+systems) — anything whose universe is the same for every visitor. Content that
+lives in the repository is what **category mode** and **content mode** are for:
+their resolution runs through the caller's session, so publication and
+permissions apply per request. If a source initializer reading the repository is
+truly unavoidable, open an **explicit** system session on a deliberately chosen
+workspace — never rely on `getCurrentUserSession()` — and only expose
+admin-curated, non-sensitive trees: whatever is resolved is served identically
+to every visitor.
