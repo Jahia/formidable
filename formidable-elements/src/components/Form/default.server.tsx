@@ -5,10 +5,44 @@ import {
 	Island,
 	jahiaComponent,
 	Render,
+	server,
 } from "@jahia/javascript-modules-library";
+import type {JCRNodeWrapper} from "org.jahia.services.content";
+import {useTranslation} from "react-i18next";
 import Form from "./Form.client";
 import {type FormServerProps} from "./types";
 import {resolveUrlPlaceholders} from "~/utils/richTextUtils";
+
+const SETTINGS_BEAN_SERVICE = "org.jahia.api.settings.SettingsBean";
+// Absence of the mixin = the action is presumed to write to the repository (the
+// declaration is inverted on purpose; see the engine CND). The submission pipeline
+// reads the same mixin on the same nodes, so render and submit cannot disagree.
+const READ_ONLY_COMPATIBLE_ACTION_MIXIN = "fmdbmix:readOnlyCompatibleAction";
+
+// Fail-open: if the platform state cannot be read, render the form normally — the
+// submission pipeline remains the correctness boundary (FMDB-014).
+const isPlatformReadOnly = (): boolean => {
+	try {
+		const settings = server.osgi.getService(SETTINGS_BEAN_SERVICE);
+		return Boolean(settings.isReadOnlyMode()) || Boolean(settings.isFullReadOnlyMode());
+	} catch (error) {
+		console.error("[Formidable] Could not read the platform read-only state", error);
+		return false;
+	}
+};
+
+const hasRepositoryWritingAction = (formNode: JCRNodeWrapper): boolean => {
+	try {
+		const actionListNode = formNode.getNode("actions");
+		if (!actionListNode) return false;
+		return Array.from(actionListNode.getNodes())
+			.some((action) => !action.isNodeType(READ_ONLY_COMPATIBLE_ACTION_MIXIN));
+	} catch (error) {
+		console.error(`[Formidable] Could not inspect the actions of form ${formNode.getPath()}`, error);
+		// Fail-closed on the scoping side: an unreadable action list is presumed writing.
+		return true;
+	}
+};
 
 
 const ensureCaptchaExplicit = (url: string): string => {
@@ -30,6 +64,7 @@ jahiaComponent(
 			intro,
 			submissionMessage,
 			errorMessage,
+			maintenanceMessage,
 			showResetBtn,
 			showNewFormBtn,
 			showTryAgainBtn,
@@ -44,6 +79,7 @@ jahiaComponent(
 		}: FormServerProps,
 		{ currentNode, renderContext },
 	) => {
+		const {t} = useTranslation("formidable-elements", {keyPrefix: "fmdb_form"});
 		const fieldListNode = currentNode.getNode("fields");
 		const formElements = fieldListNode ? Array.from(fieldListNode.getNodes()) : [];
 		const formId = `form-${currentNode.getIdentifier()}`;
@@ -82,6 +118,34 @@ jahiaComponent(
 		const isSubmitDisabled = renderContext.isEditMode() || renderContext.isPreviewMode();
 		const submitActionUrl = `/modules/formidable-engine/form-submit?fid=${currentNode.getIdentifier()}&lang=${currentNode.getLanguage()}`;
 
+		// Maintenance state: only for forms whose actions write to the repository, and only
+		// in live (contributors keep seeing the real form in edit/preview). Render-time
+		// detection is a UX layer — cached fragments can be stale in both directions, so the
+		// maintenance fragment gets a short TTL and the submission pipeline stays authoritative.
+		const isMaintenance = !isSubmitDisabled && isPlatformReadOnly() && hasRepositoryWritingAction(currentNode);
+		if (isMaintenance) {
+			// The Java request exposes setAttribute; the TS stub only types the getters.
+			(renderContext.getRequest() as unknown as {setAttribute(name: string, value: string): void})
+				.setAttribute("expiration", "60");
+
+			// The state is known server-side: the form markup is not emitted at all,
+			// only the contributor's message — static HTML, no island, no entrance
+			// animation. The message is contributor richtext (bundle text for forms
+			// created before the property existed); no visitor input ever reaches it.
+			return (
+				<>
+					{css && <style>{css}</style>}
+					<AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")} />
+					<div className="fmdb-message fmdb-message-maintenance" role="status">
+						<div
+							className="fmdb-message-content"
+							dangerouslySetInnerHTML={{__html: resolveUrlPlaceholders(maintenanceMessage, renderContext) || t('maintenanceUnavailable')}}
+						/>
+					</div>
+				</>
+			);
+		}
+
 		return (
 			<>
 				{css && <style>{css}</style>}
@@ -101,6 +165,7 @@ jahiaComponent(
 				intro: resolveUrlPlaceholders(intro, renderContext),
 				submissionMessage: resolveUrlPlaceholders(submissionMessage, renderContext),
 				errorMessage: resolveUrlPlaceholders(errorMessage, renderContext),
+				maintenanceMessage: resolveUrlPlaceholders(maintenanceMessage, renderContext),
 				submitActionUrl,
 				isSubmitDisabled,
 				showResetBtn,

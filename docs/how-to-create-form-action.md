@@ -53,6 +53,12 @@ Rules:
 - the type must extend `fmdbmix:formAction`
 - `jnt:content` is the normal base type
 - `mix:title` is recommended for author usability
+- if the action **never writes to the repository**, also extend `fmdbmix:readOnlyCompatibleAction`
+  so forms using it keep working while the platform is in read-only maintenance mode. Without
+  this mixin the action is presumed to write, and its forms are blocked with `FMDB-014` during
+  maintenance (see `docs/form-submission-flow.md`, *Read-only maintenance mode*). Only declare
+  it if the action genuinely performs no JCR write — a lying declaration is caught at runtime
+  by the repository's own read-only rejection, which also surfaces as `FMDB-014`.
 
 ## Step 2: Implement the Java handler
 

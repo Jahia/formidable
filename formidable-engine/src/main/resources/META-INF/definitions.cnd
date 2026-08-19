@@ -42,6 +42,13 @@ orderable
 [fmdbmix:captchaProtectedForm] mixin
 [fmdbmix:authenticatedOnlyForm] mixin
 [fmdbmix:nonSubmittable] mixin
+// Declares that an action type never writes to the repository and can therefore run
+// while the platform is in read-only mode. The polarity is deliberately inverted for
+// safety: an action type WITHOUT this mixin — including any third-party action that
+// never considered read-only mode — is presumed to write, and blocks its form during
+// maintenance windows. Worst case an unaffected form is over-blocked; a submission is
+// never lost to a mid-pipeline repository rejection.
+[fmdbmix:readOnlyCompatibleAction] mixin
 // Options-source contract for choice fields: the base mixin carries the mode
 // switch, and each jmix:dynamicFieldset mixin carries the properties of one mode.
 // The Content Editor activates the fieldset matching the chosen mode through the
@@ -84,7 +91,7 @@ orderable
 
 // Sends a notification email after a successful form submission.
 // Subject and body support ${fieldName} interpolation from the submitted form data.
-[fmdb:emailNotificationAction] > jnt:content, fmdbmix:formAction, mix:title
+[fmdb:emailNotificationAction] > jnt:content, fmdbmix:formAction, fmdbmix:readOnlyCompatibleAction, mix:title
  - jcr:title (string) = resourceBundle('fmdb_emailNotificationAction') autocreated i18n
  - to (string) indexed=no
  - from (string) indexed=no
@@ -93,7 +100,7 @@ orderable
 
 // Sends the submitted form content by email. The subject comes from the submitted form title.
 // Can optionally attach the validated uploaded files.
-[fmdb:emailContentAction] > jnt:content, fmdbmix:formAction, mix:title
+[fmdb:emailContentAction] > jnt:content, fmdbmix:formAction, fmdbmix:readOnlyCompatibleAction, mix:title
  - jcr:title (string) = resourceBundle('fmdb_emailContentAction') autocreated i18n
  - to (string) indexed=no
  - from (string) indexed=no
@@ -103,7 +110,7 @@ orderable
 // Forwards the full form data to a third-party endpoint (multipart/form-data).
 // targetId references a named target configured in forward_targets (org.jahia.modules.formidable.cfg).
 // The actual URL is never stored in JCR; it is resolved server-side from the operator configuration.
-[fmdb:forwardAction] > jnt:content, fmdbmix:formAction, mix:title
+[fmdb:forwardAction] > jnt:content, fmdbmix:formAction, fmdbmix:readOnlyCompatibleAction, mix:title
  - jcr:title (string) = resourceBundle('fmdb_forwardAction') autocreated i18n
  - targetId (string, choicelist[formidableForwardTargets]) indexed=no mandatory
 

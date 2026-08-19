@@ -121,6 +121,9 @@ Built-in actions: `CaptchaVerificationFormAction`, `SaveToJcrFormAction`, `SendE
    ```
 2. Create Java class with `@Component(service = FormAction.class)` implementing `FormAction`
 3. Read config from `actionNode` properties, not from hardcoded values
+4. If the action never writes to the repository, also extend `fmdbmix:readOnlyCompatibleAction`;
+   otherwise its forms are blocked (FMDB-014) while the platform is in read-only maintenance
+   (see `docs/how-to-create-form-action.md`)
 
 ## Developer Commands
 

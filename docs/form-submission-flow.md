@@ -31,13 +31,15 @@ Browser
          Step 2   readRoutingParams       fid (UUID-validated) + lang read from URL query params  — 0 byte read
          Step 3   guardContentLength      early reject if Content-Length > max                    — 0 byte read
          Step 4   resolveFormNode         JCR getNodeByIdentifier(fid) in "live"                 — 0 byte read
-         Step 5   verifyAuthentication    if fmdbmix:authenticatedOnlyForm → reject Guest
-         Step 6   verifyCaptcha           if fmdbmix:captchaProtectedForm → verify CAPTCHA header — 0 byte read
-         Step 7   collectFormFieldInfo    walk form node: build field whitelist,
+         Step 5   verifyPlatformWritable  if the platform is in read-only mode and an action
+                                          lacks fmdbmix:readOnlyCompatibleAction → FMDB-014      — 0 byte read
+         Step 6   verifyAuthentication    if fmdbmix:authenticatedOnlyForm → reject Guest
+         Step 7   verifyCaptcha           if fmdbmix:captchaProtectedForm → verify CAPTCHA header — 0 byte read
+         Step 8   collectFormFieldInfo    walk form node: build field whitelist,
                                           per-field type, allowed options, accept types,
                                           and field constraints (required, min/maxLength,
                                           pattern, min/maxDate)                                   — 0 byte read
-         Step 8   parseMultipart          FIRST AND ONLY read of the request stream
+         Step 9   parseMultipart          FIRST AND ONLY read of the request stream
                    ├─ undeclared fields skipped inline (not read, not stored)
                    ├─ text fields  → validated → Map<String, List<String>>
                    │    ├─ choice fields (select, radio, checkbox): value checked against
@@ -50,9 +52,12 @@ Browser
                         ├─ file count limit (config.getUploadMaxFileCount())
                         ├─ Tika magic-byte MIME detection
                         └─ MIME allowlist (field accept or global cfg)
-         Step 9   validateRequired        post-parse: check required fields absent from the
+         Step 10  validateLogicCoherence  reject values submitted for fields provably hidden
+                                          by conditional logic (see
+                                          conditional-logic-field-resolution.md)
+         Step 11  validateRequired        post-parse: check required fields absent from the
                                           submitted body (e.g. unchecked checkbox/radio)
-         Step 10  dispatchActions         execute fmdb:actionList nodes in order
+         Step 12  dispatchActions         execute fmdb:actionList nodes in order
                    ├─ fmdb:emailNotificationAction:
                    │    - subject + to normalized with FieldEscaper.headerSafe()
                    │    - HTML body uses FieldEscaper.html() for interpolated values
@@ -70,14 +75,14 @@ Browser
 > **DoS mitigation (defence in depth):**
 - Gate 0: cross-origin requests are rejected before the multipart pipeline starts
 > - Step 3: oversized requests are rejected early when a `Content-Length` header is present — 0 byte read
-> - Step 6: invalid CAPTCHA token → rejected before any file data is read
-> - Step 7: field whitelist built before parsing — undeclared fields never touch memory or disk
-> - Steps 4–7 are all O(1) or cheap JCR lookups; the network stream is only read at step 8
+> - Step 7: invalid CAPTCHA token → rejected before any file data is read
+> - Step 8: field whitelist built before parsing — undeclared fields never touch memory or disk
+> - Steps 4–8 are all O(1) or cheap JCR lookups; the network stream is only read at step 9
 
 `guardContentLength` is an optimization, not the definitive size limit. When a client submits
 the request with `Transfer-Encoding: chunked`, `getContentLengthLong()` returns `-1`, so step 3
 cannot reject the request before the body is read. In that case the authoritative request-size
-enforcement still happens at step 8, where `ServletFileUpload.setSizeMax(...)` aborts oversized
+enforcement still happens at step 9, where `ServletFileUpload.setSizeMax(...)` aborts oversized
 multipart bodies during streaming.
 
 ### Routing query params and security header
@@ -110,6 +115,42 @@ Both mixins are applied via the Content Editor. Neither requires configuration i
 
 Internally, the submission pipeline reads `fmdbmix:captchaProtectedForm` and
 `fmdbmix:authenticatedOnlyForm`.
+
+---
+
+## Read-only maintenance mode
+
+When the platform is switched to Read Only or Full Read Only, JCR writes are rejected at the
+repository level. Formidable handles this natively for forms whose actions persist data:
+
+- **Scoping is per action type.** An action type carrying the `fmdbmix:readOnlyCompatibleAction`
+  mixin declares "I never write to the repository, I can run while the platform is read-only".
+  The built-in email and forward actions carry it; `fmdb:save2jcrAction` does not. The polarity
+  is deliberately inverted: an action type **without** the mixin — including any third-party
+  action that never considered read-only mode — is presumed to write and blocks its form during
+  maintenance. Worst case an unaffected form is over-blocked; a submission is never lost.
+- **Render time (UX layer):** `default.server.tsx` reads the platform state (`SettingsBean`)
+  and the form's action nodes. A repository-writing form in live renders as the maintenance
+  message alone — the form markup is not emitted at all, no island is mounted — and the
+  fragment gets a short cache TTL (60s) so the message does not outlive the maintenance
+  window. Edit/preview rendering is unaffected.
+- **Submit time (correctness boundary):** pipeline step 5 (`verifyPlatformWritable`) rejects
+  the submission with `FMDB-014` (HTTP 503) before authentication, CAPTCHA, or any byte of the
+  body is processed — and before any action side effect (no notification email for a submission
+  that will never be saved). This covers cached fragments and the window where the mode is
+  switched between render and submit.
+- **Runtime safety net:** the mixin is a contract, not a proof. If an undeclared action still
+  writes (lying or outdated third-party action, mode switched mid-request), the repository's
+  own read-only rejection is detected in the failure cause chain and mapped to `FMDB-014`
+  instead of the generic `FMDB-008`.
+
+The maintenance message is a contributor property (`maintenanceMessage` on `fmdbmix:responses`,
+**Response Messages** tab, after the error message): a localized rich text pre-filled from the
+module resource bundle (`maintenanceMessage.default`), so contributors can reword it per form.
+The client maps `FMDB-014` to the same message, never to the generic error banner — forms
+created before the property existed fall back to the bundled text
+(`fmdb_form.maintenanceUnavailable`). Forms whose actions all carry the mixin (e.g. email-only
+forms) keep working normally during maintenance.
 
 ---
 
@@ -206,7 +247,7 @@ tied to the hosting page. This is defence in depth, not the primary CSRF control
 
 ---
 
-## Field whitelist (step 7 → step 8)
+## Field whitelist (step 8 → step 9)
 
 `collectFormFieldInfo()` walks the `fields` child node (`fmdb:fieldList`) of the `fmdb:form`,
 including fields nested inside `fmdb:step` children, and builds:
@@ -228,7 +269,7 @@ This prevents:
 
 ---
 
-## Input validation (step 8)
+## Input validation (step 9)
 
 `FormDataParser` validates every text field before it enters the pipeline:
 
@@ -239,7 +280,7 @@ This prevents:
 | All text fields | `FieldConstraints` applied: required, minLength, maxLength, pattern, minDate, maxDate |
 
 Required fields that are legitimately absent from the multipart body (e.g. unchecked
-checkbox) are detected at step 9 (`validateRequired`) after parsing, rather than during
+checkbox) are detected at step 11 (`validateRequired`) after parsing, rather than during
 parsing.
 
 Plain-text values are preserved as submitted. XSS protection is applied at each output sink
@@ -257,7 +298,7 @@ by escaping for the target context, not by mutating input during parsing.
 
 ---
 
-## Output escaping (step 10 — email actions)
+## Output escaping (step 12 — email actions)
 
 `FieldEscaper` centralises output escaping:
 
@@ -376,7 +417,7 @@ heap pressure remains bounded under large-file workloads.
 
 | Condition | Behaviour |
 |---|---|
-| `fmdbmix:captcha` mixin present on the form | Wrapper resolves to `fmdbmix:captchaProtectedForm`; token verified at step 6 before any file data is read |
+| `fmdbmix:captcha` mixin present on the form | Wrapper resolves to `fmdbmix:captchaProtectedForm`; token verified at step 7 before any file data is read |
 | `fmdbmix:captcha` mixin absent | No CAPTCHA semantic on the form; pipeline continues |
 
 CAPTCHA configuration (`siteKey`, `scriptUrl`, `verifyUrl`, `secretKey`) is read from
@@ -468,7 +509,7 @@ module-scoped CSRFGuard configuration, so an authenticated direct XHR to
 | `src/hooks/useFormSubmission.ts` | `handleSubmit` — removes the CAPTCHA widget field from `FormData`, sets `X-Formidable-Captcha-Token`, POSTs via XHR |
 | `src/components/Form/default.server.tsx` | Builds `submitActionUrl` with `fid` and `lang` query params |
 | `formidable-engine/.../servlet/FormSubmitServlet.java` | OSGi entry point — checks `formidable-submit` permission, then delegates to `FormSubmissionPipeline` |
-| `formidable-engine/.../servlet/FormSubmissionPipeline.java` | 10-step pipeline — all submission logic |
+| `formidable-engine/.../servlet/FormSubmissionPipeline.java` | 12-step pipeline — all submission logic |
 | `formidable-engine/.../servlet/ErrorCode.java` | Error code enum — see `docs/error-codes.md` |
 | `formidable-engine/.../actions/FormDataParser.java` | Secure multipart parser: whitelist, input validation, Tika, allowlist, size + count limits |
 | `formidable-engine/.../actions/FieldEscaper.java` | Output escaping utility: `html`, `headerSafe`, `plainText` |

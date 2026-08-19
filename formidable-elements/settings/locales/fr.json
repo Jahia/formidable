@@ -27,6 +27,7 @@
 		"stepsNav": "Étapes du formulaire",
 		"captchaRequired": "Veuillez compléter la vérification CAPTCHA.",
 		"editModeSubmitDisabled": "L'envoi du formulaire est désactivé en mode édition/prévisualisation.",
+		"maintenanceUnavailable": "Ce formulaire est temporairement indisponible pendant la maintenance de la plateforme. Veuillez réessayer plus tard.",
 		"errorCode": "Code d'erreur",
 		"actionsProgress": "{{completed}}/{{total}} actions terminées"
 	},
