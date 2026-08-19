@@ -129,16 +129,24 @@ export interface SelectData extends BaseInputData {
 export type InputColorData = InputWithDefaultValue;
 
 /**
- * Date input data based on fmdb:inputDate CND
- * Inherits: required, defaultValue, min, max, step
+ * Bounds relative to the submission day (fmdb:inputDate / fmdb:inputDatetimeLocal).
  */
-export type InputDateData = InputWithRange;
+export interface InputWithTodayBounds {
+	minToday?: boolean;
+	maxToday?: boolean;
+}
+
+/**
+ * Date input data based on fmdb:inputDate CND
+ * Inherits: required, defaultValue, min, max, step + minToday/maxToday
+ */
+export type InputDateData = InputWithRange & InputWithTodayBounds;
 
 /**
  * Datetime-local input data based on fmdb:inputDatetimeLocal CND
- * Inherits: required, defaultValue, min, max, step
+ * Inherits: required, defaultValue, min, max, step + minToday/maxToday
  */
-export type InputDatetimeLocalData = InputWithRange;
+export type InputDatetimeLocalData = InputWithRange & InputWithTodayBounds;
 
 /**
  * Email input data based on fmdb:inputEmail CND

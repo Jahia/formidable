@@ -77,6 +77,20 @@ Applies to: date, datetime-local, number — elements with range and step constr
 | `msgStepMismatch` | `stepMismatch` | Value does not match `step` increment |
 | `msgBadInput` | `badInput` | Unparseable input (e.g. letters in a date field) |
 
+### Bounds relative to the submission day (date and datetime-local)
+
+Besides the fixed `min`/`max` dates, the date and datetime-local fields carry two
+boolean properties, `minToday` and `maxToday`, that bound the value by the day the
+visitor submits the form (a birth date must not be in the future, an appointment
+must not be in the past). Because the fragment cache would freeze any
+server-rendered date, the rendered input resolves the relative bound at hydration,
+in the visitor's own timezone; the `msgRangeUnderflow`/`msgRangeOverflow` messages
+apply to it exactly as to a fixed bound. Server-side, the submission pipeline
+re-resolves the bound against the submission day, combined with the fixed bound by
+keeping the most restrictive side — the relative side is widened by one calendar
+day there, so a visitor whose local day differs from the server's is never
+rejected for a value their own picker allowed.
+
 ### Mixin assignment
 
 Each element type extends the appropriate mixin in its `definition.cnd`:

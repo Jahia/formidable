@@ -1,11 +1,13 @@
 // Date input component properties
-// Note: Currently defaultValue, min and max are defined as date type,
-// so "today" keyword handling is not possible.
-// To support this, these props should be defined as string type
+// min/max stay date-typed (DatePicker UX, stored values preserved); bounds
+// relative to the submission day are the dedicated minToday/maxToday flags,
+// combined with the fixed bounds by taking the most restrictive side.
 [fmdb:inputDate] > jnt:content, fmdbmix:element, fmdbmix:dateField, fmdbmix:rangeValidationMessages
  - helpText (string, richtext[ckeditor.toolbar='FormidableHelp',ckeditor.customConfig='$context/modules/formidable-engine/javascript/ckeditor/helpTextConfig.js']) i18n indexed=no
  - required (boolean) = false
  - defaultValue (date, DatePicker)
  - min (date, DatePicker)
  - max (date, DatePicker)
+ - minToday (boolean) = false
+ - maxToday (boolean) = false
  - step (long)

@@ -370,9 +370,13 @@ class FormFieldMetadataCollector {
         if (dateField) {
             minDate = JcrProps.dateAsIso(node, "min", false, null);
             maxDate = JcrProps.dateAsIso(node, "max", false, null);
+            minDate = withTodayBound(node, minDate, true, false);
+            maxDate = withTodayBound(node, maxDate, false, false);
         } else if (datetimeLocalField) {
             minDate = JcrProps.dateAsIso(node, "min", true, null);
             maxDate = JcrProps.dateAsIso(node, "max", true, null);
+            minDate = withTodayBound(node, minDate, true, true);
+            maxDate = withTodayBound(node, maxDate, false, true);
         } else if (numberField) {
             // Convention of the number field types (e.g. fmdbext:rating/scale): the
             // rendered range is declared through minValue/maxValue LONG properties.
@@ -387,5 +391,30 @@ class FormFieldMetadataCollector {
         }
         return new FormDataParser.FieldConstraints(
                 required, minLength, maxLength, pattern, minDate, maxDate, minNumber, maxNumber);
+    }
+
+    /**
+     * Applies the minToday/maxToday flag of a date-typed field: the relative bound
+     * is resolved against the submission day (constraints are collected once per
+     * submission) and combined with the fixed bound by keeping the most restrictive
+     * side. The relative side is widened by one calendar day so a visitor whose
+     * local day differs from the server's — any real-world timezone offset stays
+     * within one day — is never rejected for a value their own picker allowed;
+     * fixed bounds stay exact. Bounds share one ISO format per field type, so
+     * plain string comparison orders them chronologically.
+     */
+    private static String withTodayBound(JCRNodeWrapper node, String fixed, boolean minBound, boolean withTime) {
+        if (!JcrProps.bool(node, minBound ? "minToday" : "maxToday", false)) {
+            return fixed;
+        }
+
+        java.time.LocalDate day = java.time.LocalDate.now().plusDays(minBound ? -1 : 1);
+        String relative = withTime ? day + (minBound ? "T00:00" : "T23:59") : day.toString();
+        if (fixed == null) {
+            return relative;
+        }
+
+        boolean fixedIsTighter = minBound ? fixed.compareTo(relative) > 0 : fixed.compareTo(relative) < 0;
+        return fixedIsTighter ? fixed : relative;
     }
 }

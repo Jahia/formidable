@@ -1,0 +1,85 @@
+import {
+	createPublishedLiveFormPage,
+	getInputDateNode,
+	getInputDatetimeLocalNode,
+	visitLiveForm
+} from '../../support/fixtures';
+import {useFormidableSite} from './support';
+import {
+	expectErrorResponse,
+	expectSuccessResponse,
+	postDirectMultipartSubmission,
+	withSameOriginHeaders
+} from '../security/support';
+
+// The browser-local calendar day, the same way the hydrated input resolves it.
+const localDay = (offsetDays = 0): string => {
+	const day = new Date();
+	day.setDate(day.getDate() + offsetDays);
+	const month = String(day.getMonth() + 1).padStart(2, '0');
+	const date = String(day.getDate()).padStart(2, '0');
+	return `${day.getFullYear()}-${month}-${date}`;
+};
+
+describe('Validation - 35 Date bounds relative to the submission day', () => {
+	useFormidableSite();
+
+	let formId: string;
+	let livePath: string;
+
+	before(() => {
+		cy.login();
+		createPublishedLiveFormPage(
+			'relative-bounds-form',
+			'Relative bounds form',
+			[
+				// Birth-date shape: no date after the submission day.
+				getInputDateNode({name: 'birthDate', title: 'Birth date', maxToday: true}),
+				// Appointment shape: no datetime before the submission day.
+				getInputDatetimeLocalNode({name: 'appointment', title: 'Appointment', minToday: true})
+			]
+		).then(created => {
+			formId = created.formId;
+			livePath = created.livePath;
+		});
+		cy.logout();
+	});
+
+	it('hydrates the inputs with bounds resolved on the visitor day', () => {
+		const form = visitLiveForm(livePath);
+
+		// The bound is set at hydration (an SSR attribute would be frozen by the
+		// fragment cache), so the assertions retry until the island has run.
+		form.get().find('input[name="birthDate"]').should('have.attr', 'max', localDay());
+		form.get().find('input[name="appointment"]').should('have.attr', 'min', `${localDay()}T00:00`);
+	});
+
+	it('accepts values on the submission day', () => {
+		cy.logout();
+
+		postDirectMultipartSubmission({
+			formId,
+			fields: {birthDate: localDay(), appointment: `${localDay()}T12:00`},
+			headers: withSameOriginHeaders()
+		}).then(expectSuccessResponse);
+	});
+
+	it('rejects values beyond the relative bounds regardless of the rendered page age', () => {
+		cy.logout();
+
+		// Two days out: beyond the one-day timezone tolerance of the server-side
+		// re-resolution, so the tampered value is rejected whichever timezone the
+		// submitter pretends to be in.
+		postDirectMultipartSubmission({
+			formId,
+			fields: {birthDate: localDay(2)},
+			headers: withSameOriginHeaders()
+		}).then(response => expectErrorResponse(response, 400, 'FMDB-010'));
+
+		postDirectMultipartSubmission({
+			formId,
+			fields: {appointment: `${localDay(-2)}T12:00`},
+			headers: withSameOriginHeaders()
+		}).then(response => expectErrorResponse(response, 400, 'FMDB-010'));
+	});
+});

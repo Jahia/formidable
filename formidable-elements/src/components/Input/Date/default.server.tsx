@@ -1,6 +1,7 @@
-import {jahiaComponent} from "@jahia/javascript-modules-library";
+import {Island, jahiaComponent} from "@jahia/javascript-modules-library";
 import {type RangeValidationMessageProps, validationDataAttributes} from "formidable-shared";
 import {HelpText, helpTextId} from "formidable-shared";
+import TodayBoundedInput from "./TodayBoundedInput.client";
 
 interface InputDateProps extends RangeValidationMessageProps {
 	"jcr:title"?: string;
@@ -8,6 +9,8 @@ interface InputDateProps extends RangeValidationMessageProps {
 	defaultValue?: string;
 	min?: string;
 	max?: string;
+	minToday?: boolean;
+	maxToday?: boolean;
 	step?: number;
 	required?: boolean;
 }
@@ -28,7 +31,7 @@ jahiaComponent(
 		name: "default"
 	},
 	(
-		{"jcr:title": label, helpText, defaultValue, min, max, step, required, ...validationMsgs}: InputDateProps,
+		{"jcr:title": label, helpText, defaultValue, min, max, minToday, maxToday, step, required, ...validationMsgs}: InputDateProps,
 		{currentNode}
 	) => {
 
@@ -49,19 +52,42 @@ jahiaComponent(
 
 				<HelpText id={helpId} text={helpText}/>
 
-				<input
-					type="date"
-					id={inputId}
-					name={inputName}
-					aria-describedby={helpId}
-					className="fmdb-form-control"
-					defaultValue={formatDateForInput(defaultValue)}
-					min={formatDateForInput(min)}
-					max={formatDateForInput(max)}
-					step={step}
-					required={required}
-					{...validationDataAttributes(validationMsgs)}
-				/>
+				{minToday || maxToday ? (
+					// A bound relative to the submission day cannot be a server-rendered
+					// attribute (the fragment cache would freeze it): the input becomes
+					// an island resolving it at hydration, in the visitor's timezone.
+					<Island
+						component={TodayBoundedInput}
+						props={{
+							type: "date",
+							inputId,
+							name: inputName,
+							helpId,
+							defaultValue: formatDateForInput(defaultValue),
+							min: formatDateForInput(min),
+							max: formatDateForInput(max),
+							minToday,
+							maxToday,
+							step,
+							required,
+							validationAttributes: validationDataAttributes(validationMsgs)
+						}}
+					/>
+				) : (
+					<input
+						type="date"
+						id={inputId}
+						name={inputName}
+						aria-describedby={helpId}
+						className="fmdb-form-control"
+						defaultValue={formatDateForInput(defaultValue)}
+						min={formatDateForInput(min)}
+						max={formatDateForInput(max)}
+						step={step}
+						required={required}
+						{...validationDataAttributes(validationMsgs)}
+					/>
+				)}
 			</div>
 		);
 	}

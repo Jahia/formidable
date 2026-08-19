@@ -5,6 +5,8 @@
  - defaultValue (date)
  - min (date)
  - max (date)
+ - minToday (boolean) = false
+ - maxToday (boolean) = false
  - step (long)
 
 

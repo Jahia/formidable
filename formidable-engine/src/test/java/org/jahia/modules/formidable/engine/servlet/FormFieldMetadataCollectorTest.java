@@ -17,6 +17,7 @@ import java.util.TimeZone;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -116,6 +117,53 @@ class FormFieldMetadataCollectorTest {
         assertNotNull(datetimeInfo.constraints());
         assertEquals("2026-06-01T09:15", datetimeInfo.constraints().minDate());
         assertEquals("2026-06-01T17:45", datetimeInfo.constraints().maxDate());
+    }
+
+    @Test
+    void todayFlagsResolveRelativeDateBoundsAgainstTheSubmissionDay() throws Exception {
+        // Verifies the relative-bounds contract: minToday/maxToday resolve against
+        // the collection day — widened by one day to absorb visitor-vs-server
+        // timezone drift — and combine with any fixed bound most-restrictively.
+        JCRNodeWrapper birthday = node(
+                "birthday",
+                "fmdb:inputDate",
+                Set.of("fmdbmix:formElement", "fmdbmix:dateField"),
+                Map.of("maxToday", booleanProperty(true)),
+                List.of()
+        );
+        // A fixed min far in the past: the relative bound is tighter and wins.
+        JCRNodeWrapper appointment = node(
+                "appointment",
+                "fmdb:inputDatetimeLocal",
+                Set.of("fmdbmix:formElement", "fmdbmix:datetimeLocalField"),
+                Map.of(
+                        "min", dateProperty(calendar(2020, 1, 1, 8, 0)),
+                        "minToday", booleanProperty(true)
+                ),
+                List.of()
+        );
+        // A fixed max already tighter than the relative one: the fixed bound wins.
+        JCRNodeWrapper past = node(
+                "past",
+                "fmdb:inputDate",
+                Set.of("fmdbmix:formElement", "fmdbmix:dateField"),
+                Map.of(
+                        "max", dateProperty(calendar(2020, 6, 30, 0, 0)),
+                        "maxToday", booleanProperty(true)
+                ),
+                List.of()
+        );
+
+        FormFieldMetadataCollector.Result result = FormFieldMetadataCollector.collectFromFormNode(
+                formNodeWithFields(birthday, appointment, past)
+        );
+
+        String tomorrow = java.time.LocalDate.now().plusDays(1).toString();
+        String yesterday = java.time.LocalDate.now().minusDays(1).toString();
+        assertEquals(tomorrow, result.fieldInfos().get("birthday").constraints().maxDate());
+        assertNull(result.fieldInfos().get("birthday").constraints().minDate());
+        assertEquals(yesterday + "T00:00", result.fieldInfos().get("appointment").constraints().minDate());
+        assertEquals("2020-06-30", result.fieldInfos().get("past").constraints().maxDate());
     }
 
     @Test
@@ -283,6 +331,12 @@ class FormFieldMetadataCollectorTest {
     private static JCRPropertyWrapper dateProperty(Calendar calendar) throws Exception {
         JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
         when(property.getDate()).thenReturn(calendar);
+        return property;
+    }
+
+    private static JCRPropertyWrapper booleanProperty(boolean value) throws Exception {
+        JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
+        when(property.getBoolean()).thenReturn(value);
         return property;
     }
 
