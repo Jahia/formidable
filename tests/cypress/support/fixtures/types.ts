@@ -113,6 +113,8 @@ export interface RadioData extends BaseInputData {
  */
 export interface SelectData extends BaseInputData {
 	options: ChoiceData[];
+	/** Label of the value-less option prepended so the field starts empty (single select only). */
+	emptyLabel?: string;
 	multiple?: boolean;
 	size?: number;
 	disabled?: boolean;

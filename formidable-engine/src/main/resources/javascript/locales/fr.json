@@ -4,17 +4,12 @@
         "label": "Libellé affiché à l'utilisateur",
         "selected": "Si activé, l'option est sélectionnée par défaut"
     },
-    "sourcedOptions": {
-        "selectSource": "Sélectionnez une source d'options",
-        "previewLoading": "Résolution des options…",
-        "previewUnavailable": "Les options de cette source sont momentanément indisponibles.",
-        "previewLabel": "Aperçu des options résolues (#{{count}})"
-    },
     "fmdbmix_optionsSource": {
         "fmdb_optionsMode": {
             "manual": "Options manuelles",
             "sourced": "Options depuis une source tierce",
-            "category": "Options depuis des catégories"
+            "category": "Options depuis des catégories",
+            "content": "Options depuis des contenus du site"
         }
     },
     "conditionalLogic": {

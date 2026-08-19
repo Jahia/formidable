@@ -60,15 +60,20 @@ orderable
 
 [fmdbmix:manualOptions] > jmix:dynamicFieldset mixin
  extends = fmdbmix:optionsSource
- - fmdb:options (string) i18n multiple indexed=no
+ - fmdb:options (string) mandatory i18n multiple indexed=no
 
 [fmdbmix:sourcedOptions] > jmix:dynamicFieldset mixin
  extends = fmdbmix:optionsSource
- - fmdb:optionsSourceKey (string, choicelist[formidableOptionsSources,formidableOptionsPreview]) indexed=no
+ - fmdb:optionsSourceKey (string, choicelist[formidableOptionsSources]) mandatory indexed=no
 
 [fmdbmix:categoryOptions] > jmix:dynamicFieldset mixin
  extends = fmdbmix:optionsSource
- - fmdb:optionsRootCategory (weakreference, picker[type='category']) < 'jnt:category'
+ - fmdb:optionsRootCategory (weakreference, picker[type='category']) mandatory < 'jnt:category'
+
+[fmdbmix:contentOptions] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:optionsSource
+ - fmdb:optionsRootNode (weakreference, picker[type='editorial']) mandatory
+ - fmdb:optionsNodeType (string, choicelist[formidableContentTypes,dependentProperties='fmdb:optionsRootNode']) mandatory indexed=no
 
 [fmdbmix:choiceField] > fmdbmix:optionsSource mixin
 // Semantic value-kind mixins: a field type carrying one becomes eligible as a

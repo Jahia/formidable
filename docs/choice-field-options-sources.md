@@ -2,14 +2,18 @@
 
 Choice fields (`fmdb:select`, `fmdb:radio`, `fmdb:checkbox`) can fill their option
 list from an **options source** instead of manually typed options. The options are
-resolved live, at render time, in the language of the rendered form. Two source
+resolved live, at render time, in the language of the rendered form. Three source
 kinds exist:
 
 - **declared sources**: curated Jahia choicelist initializers, declared by the
   administrator in the module configuration;
 - **categories**: the contributor picks a root category, the options are the
   categories directly underneath — no configuration involved, since categories
-  are already contributor-curated content governed by JCR permissions.
+  are already contributor-curated content governed by JCR permissions;
+- **contents**: the contributor picks a root node and a content type, the options
+  are the descendants of that root carrying that type — same
+  no-configuration-involved reasoning as categories, for regular editorial
+  content.
 
 ## Storage model
 
@@ -20,9 +24,12 @@ The mode lives on the engine-owned mixin pair (industrial's mediaSource pattern)
   (i18n, multiple, JSON-encoded `{"value","label","selected"}` strings);
 - `fmdbmix:sourcedOptions` carries only `fmdb:optionsSourceKey`;
 - `fmdbmix:categoryOptions` carries only `fmdb:optionsRootCategory`, a
-  weakreference to a `jnt:category` node picked with the category picker.
+  weakreference to a `jnt:category` node picked with the category picker;
+- `fmdbmix:contentOptions` carries `fmdb:optionsRootNode` (a weakreference to
+  the picked root, editorial picker) and `fmdb:optionsNodeType` (the content
+  type to list, as a qualified node type name).
 
-In both non-manual modes nothing else is stored — the option list never
+In all three non-manual modes nothing else is stored — the option list never
 materializes in the JCR.
 
 The Content Editor switches the two `jmix:dynamicFieldset` mixins through the
@@ -63,12 +70,8 @@ initializer list, most of which is context-dependent and meaningless as a form
 options source. An empty `optionsSources` disables sourced options entirely
 (fail-safe default).
 
-In the Content Editor, the source is picked with the `SourcedOptions` selector,
-which also previews the options the picked source currently resolves to (count
-plus a closed browse-only list). The preview goes through jcontent's
-`forms.fieldConstraints` with a `sourceKey` context entry, re-evaluated by the
-`formidableOptionsPreview` initializer chained on `fmdb:optionsSourceKey` — during
-a normal form build that initializer passes the source list through untouched.
+In the Content Editor, the source is picked with a standard Jahia choicelist
+fed by the `formidableOptionsSources` initializer — no custom selector involved.
 
 ### Which initializers qualify as a source
 
@@ -130,6 +133,86 @@ live form only shows **published** categories, and an unpublished or deleted roo
 category degrades like any failing source (see below). Category options are not
 TTL-cached: the read is in-JVM, backed by Jahia's JCR caches, and a category
 publication shows up on the next render.
+
+## Content mode
+
+The options of a content-mode field are the **descendants** of the picked root
+node that carry the configured content type — the whole subtree, not only direct
+children. The submitted value is the content's **path relative to the root**
+(`paris`, `europe/berlin`): unique by construction, readable in the results, and
+stable across site re-imports (unlike a UUID). The displayed label is the
+content's localized displayable name.
+
+### What the contributor configures
+
+The Content Editor asks for two things:
+
+1. **Root node** — picked with the editorial picker, stored as a weakreference.
+2. **Content type** — a dropdown listing the **distinct primary types of the
+   contributable contents actually present under the picked root** (contents
+   carrying `jmix:droppableContent` or `jmix:editorialContent`; technical
+   subnodes such as permissions or translations carry neither and never
+   surface, and `fmdb:*` form elements are excluded). The list is re-resolved
+   whenever the root changes (standard jcontent dependent-properties
+   mechanism), so everything offered resolves and everything resolvable is
+   offered. The discovery scan is bounded (500 contents per facet): past that
+   bound a type present only deeper in the tree may be missing from the
+   dropdown — never wrongly added — and a stored type stays selectable.
+
+Both fields are standard Jahia selectors (editorial picker and choicelist) —
+no custom editor code is involved.
+
+### Resolution rules
+
+The resolution runs a JCR query through the **field's own session**, so it
+follows the caller's workspace and language: a live form only lists
+**published, visitor-readable** content, in the language of the rendered page.
+Content options are not TTL-cached (the read is in-JVM, backed by Jahia's JCR
+caches): publishing a new content under the root shows it on the next render.
+
+An unreadable root (deleted, or no longer published) degrades like any failing
+source: inline error on the field, form blocked only if the field is required
+(see below).
+
+### The result cap
+
+`optionsQueryMaxResults` (module configuration, default **100**) bounds how many
+options a content-mode field may resolve. Above the cap the field **fails
+explicitly like a failing source** — the visitor never gets a silently
+truncated list, because a missing option is a data-integrity issue, not a
+cosmetic one. The content-type dropdown forewarns the same situation: a type
+whose contents already exceed the cap stays offered (a stored value must remain
+selectable) but its label carries a localized warning, so contributors re-scope
+their root (or ask an administrator to raise the cap) before publishing.
+
+Mind one operational nuance when changing the cap (or any module
+configuration): the new value reaches the services immediately, but live pages
+**already rendered keep serving their cached HTML fragments** until a content
+change flushes them or the fragment cache expires. Flush the site cache to see
+a configuration change on an already-visited page.
+
+### Publication follows the reference — mind what lives under the root
+
+Jahia publication includes referenced content: **publishing the form publishes
+the picked root node and its whole subtree along**, including contents nobody
+ever published explicitly. This is standard Jahia behavior for references (the
+same mechanism publishes an image referenced by a page), but a content-mode
+field references a *container*, so the ripple effect is the full option
+universe of the field.
+
+Consequences and guidance:
+
+- **Point the root at a dedicated folder** whose entire content is meant to be
+  public (the options of a live form are, by definition, public data). Avoid
+  mixed working folders where drafts sit next to publishable content.
+- **Mark work-in-progress content as WIP**: WIP content is excluded from every
+  publication, including the one triggered through the form's reference
+  (verified on Jahia 8.2.4: a WIP-flagged text under the picked root stays out
+  of live when the form is published). WIP is the platform's contract for
+  "not ready" — an unpublished-but-not-WIP content offers no such guarantee.
+- Remember that a content published this way becomes readable in live (as an
+  option of the field, and through APIs subject to live permissions) even when
+  it has no navigable page.
 
 ## Resolution, cache and failures
 

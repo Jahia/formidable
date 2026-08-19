@@ -18,8 +18,12 @@ const CATEGORY_ROOT = '/sites/systemsite/categories';
 const SIZES_ROOT_NAME = `fmdb-choice-options-sizes-${Date.now()}`;
 const SIZES_ROOT_PATH = `${CATEGORY_ROOT}/${SIZES_ROOT_NAME}`;
 
-const GET_SOURCE_PREVIEW = gql`
-	query getSourcePreview($fieldPath: String!, $parentPath: String!, $sourceKey: [String]!, $locale: String!) {
+// The source choicelist, exactly as the editor resolves it at form build
+// (standard choicelist fed by the formidableOptionsSources initializer).
+// The empty context is required: without the argument the service skips (or
+// breaks on) the initializer evaluation instead of running it context-free.
+const GET_SOURCE_CHOICES = gql`
+	query getSourceChoices($fieldPath: String!, $parentPath: String!, $locale: String!) {
 		forms {
 			fieldConstraints(
 				nodeUuidOrPath: $fieldPath,
@@ -27,7 +31,7 @@ const GET_SOURCE_PREVIEW = gql`
 				primaryNodeType: "fmdb:select",
 				fieldNodeType: "fmdbmix:sourcedOptions",
 				fieldName: "fmdb:optionsSourceKey",
-				context: [{key: "sourceKey", value: $sourceKey}],
+				context: [],
 				uiLocale: $locale,
 				locale: $locale
 			) {
@@ -199,44 +203,34 @@ describe('Form fields - 218 Choice options sources', () => {
 		});
 	});
 
-	it('exposes the resolved options to the editor source preview', () => {
+	it('offers the editor the declared sources as a standard choicelist', () => {
 		createFormNode(
-			'source-preview-form',
-			'Source Preview Form',
+			'source-choices-form',
+			'Source Choices Form',
 			[
 				getSourcedChoiceFieldNode({
 					primaryNodeType: 'fmdb:select',
-					name: 'previewCountry',
-					title: 'Preview country',
+					name: 'choicesCountry',
+					title: 'Choices country',
 					sourceKey: 'countries'
 				})
 			]
 		).then(() => {
-			const fieldPath = `${CONTENT_PATH}/source-preview-form/fields/previewCountry`;
-			const parentPath = `${CONTENT_PATH}/source-preview-form/fields`;
+			const fieldPath = `${CONTENT_PATH}/source-choices-form/fields/choicesCountry`;
+			const parentPath = `${CONTENT_PATH}/source-choices-form/fields`;
 
 			cy.apollo({
-				query: GET_SOURCE_PREVIEW,
-				variables: {fieldPath, parentPath, sourceKey: ['countries'], locale: 'fr'}
+				query: GET_SOURCE_CHOICES,
+				variables: {fieldPath, parentPath, locale: 'en'}
 			}).then((response: FieldConstraintsResponse) => {
-				expect(response.errors, 'GraphQL errors for the countries preview').to.be.undefined;
+				expect(response.errors, 'GraphQL errors for the source list').to.be.undefined;
 
 				const constraints = response.data?.forms?.fieldConstraints ?? [];
-				expect(constraints.length).to.be.greaterThan(100);
-
-				const germany = constraints.find(constraint => constraint.value?.string === 'DE');
-				expect(germany?.displayValue, 'localized label of the DE constraint').to.eq('Allemagne');
-			});
-
-			// An unknown key resolves to a GraphQL error, surfaced to the editor as
-			// 'preview unavailable'. cy.apollo strips the errors array, so the visible
-			// contract is the null constraints payload.
-			cy.apollo({
-				query: GET_SOURCE_PREVIEW,
-				variables: {fieldPath, parentPath, sourceKey: ['ghost'], locale: 'en'},
-				errorPolicy: 'all'
-			}).then((response: FieldConstraintsResponse) => {
-				expect(response.data?.forms?.fieldConstraints ?? null, 'constraints for an unknown source key').to.be.null;
+				// Only the admin-declared sources are offered — never the raw
+				// platform-wide initializer list.
+				expect(constraints.map(constraint => constraint.value?.string), 'declared sources only')
+					.to.deep.equal(['countries']);
+				expect(constraints[0].displayValue, 'label of the declared source').to.eq('Countries');
 			});
 		});
 	});
