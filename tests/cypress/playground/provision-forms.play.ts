@@ -50,7 +50,7 @@ import {
 	TEXTAREA_COMPLETE
 } from '../support/fixtures';
 import {createPublishedLiveFormPage} from '../support/fixtures/forms';
-import {FORMIDABLE_MODULE_IDS} from '../support/constants';
+import {FORMIDABLE_MODULE_IDS, SITE_HOME_PATH} from '../support/constants';
 import type {JahiaNode} from '../support/fixtures/types';
 
 const CATEGORY_ROOT = '/sites/systemsite/categories';
@@ -95,6 +95,11 @@ describe('Playground - provision manual-testing forms', () => {
 		deleteSite(FORMIDABLE_TEST_SITE.key);
 		createSite(FORMIDABLE_TEST_SITE.key, FORMIDABLE_TEST_SITE.config);
 		FORMIDABLE_MODULE_IDS.forEach(moduleId => enableModule(moduleId, FORMIDABLE_TEST_SITE.key));
+		// A live page renders only if the site home is published in the page
+		// language (getSite().getHome() resolves to null otherwise -> 500),
+		// and publishing a page does not cascade up to its home: publish the
+		// home in every site language now, while it is still empty.
+		publishAndWaitJobEnding(SITE_HOME_PATH, ['en', 'fr']);
 	});
 
 	it('declares the options sources in the module configuration', () => {
