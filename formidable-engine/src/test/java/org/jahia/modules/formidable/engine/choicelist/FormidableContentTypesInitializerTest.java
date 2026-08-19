@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class FormidableContentTypesInitializerTest {
@@ -59,6 +60,27 @@ class FormidableContentTypesInitializerTest {
                 Locale.ENGLISH, Map.of("contextNode", fieldNode));
 
         verify(service).resolveContentTypes("stored-uuid", "en");
+    }
+
+    @Test
+    void clearedRootContextEntryEmptiesTheListInsteadOfResurrectingTheStoredRoot() throws Exception {
+        // Verifies the cleared-picker contract: a present-but-empty root entry means
+        // the contributor just cleared the root — the type list must empty rather
+        // than fall back to the stored root of the edited node.
+        FormidableOptionsSourceService service = mock(FormidableOptionsSourceService.class);
+        JCRNodeWrapper fieldNode = mock(JCRNodeWrapper.class);
+        when(fieldNode.hasProperty(FormidableContentTypesInitializer.ROOT_PROPERTY)).thenReturn(true);
+        JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
+        when(fieldNode.getProperty(FormidableContentTypesInitializer.ROOT_PROPERTY)).thenReturn(property);
+        when(property.getString()).thenReturn("stored-uuid");
+
+        List<ChoiceListValue> types = initializerWith(service).getChoiceListValues(null, null, List.of(),
+                Locale.ENGLISH, Map.of(
+                        FormidableContentTypesInitializer.ROOT_PROPERTY, List.of(),
+                        "contextNode", fieldNode));
+
+        assertTrue(types.isEmpty());
+        verifyNoInteractions(service);
     }
 
     @Test

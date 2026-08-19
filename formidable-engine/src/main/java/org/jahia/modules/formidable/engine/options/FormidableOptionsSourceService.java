@@ -90,19 +90,22 @@ public class FormidableOptionsSourceService {
     /**
      * Runs the content-mode JCR-SQL2 query through the given session. A seam so the
      * service stays unit-testable without Jahia's query machinery (same pattern as the
-     * initializer lookup).
+     * initializer lookup). The limit is set on the query itself so the repository
+     * never evaluates more rows than the caller's cutoff — the Java-side bounds
+     * (cap detection, scan bound) size it at cutoff + 1 where overflow must be seen.
      */
     @FunctionalInterface
     interface ContentQueryRunner {
-        javax.jcr.NodeIterator run(org.jahia.services.content.JCRSessionWrapper session, String sql2)
+        javax.jcr.NodeIterator run(org.jahia.services.content.JCRSessionWrapper session, String sql2, long limit)
                 throws javax.jcr.RepositoryException;
     }
 
-    private ContentQueryRunner contentQueryRunner = (session, sql2) ->
-            session.getWorkspace().getQueryManager()
-                    .createQuery(sql2, javax.jcr.query.Query.JCR_SQL2)
-                    .execute()
-                    .getNodes();
+    private ContentQueryRunner contentQueryRunner = (session, sql2, limit) -> {
+        javax.jcr.query.Query query = session.getWorkspace().getQueryManager()
+                .createQuery(sql2, javax.jcr.query.Query.JCR_SQL2);
+        query.setLimit(limit);
+        return query.execute().getNodes();
+    };
 
     void setContentQueryRunner(ContentQueryRunner runner) {
         this.contentQueryRunner = runner;
@@ -179,7 +182,7 @@ public class FormidableOptionsSourceService {
         for (String facet : CONTRIBUTABLE_FACETS) {
             javax.jcr.NodeIterator nodes = contentQueryRunner.run(root.getSession(),
                     "SELECT * FROM [" + facet + "] WHERE ISDESCENDANTNODE('"
-                            + root.getPath().replace("'", "''") + "')");
+                            + root.getPath().replace("'", "''") + "')", TYPES_SCAN_BOUND);
             int scanned = 0;
             while (nodes.hasNext() && scanned < TYPES_SCAN_BOUND) {
                 javax.jcr.Node child = nodes.nextNode();
@@ -188,9 +191,13 @@ public class FormidableOptionsSourceService {
                     continue;
                 }
                 String typeName = content.getPrimaryNodeTypeName();
-                // Form elements as options of a form field are never what a
+                // Form elements (any module's, through the fmdbmix:formElement
+                // contract) and form-embeddable components (the form itself, its
+                // reference) as options of a form field are never what a
                 // contributor is after.
-                if (typeName == null || typeName.startsWith("fmdb")) {
+                if (typeName == null
+                        || content.isNodeType("fmdbmix:formElement")
+                        || content.isNodeType("fmdbmix:component")) {
                     continue;
                 }
                 labelsByType.computeIfAbsent(typeName, name -> {
@@ -222,7 +229,7 @@ public class FormidableOptionsSourceService {
         try {
             javax.jcr.NodeIterator nodes = contentQueryRunner.run(root.getSession(),
                     "SELECT * FROM [" + nodeType + "] WHERE ISDESCENDANTNODE('"
-                            + root.getPath().replace("'", "''") + "')");
+                            + root.getPath().replace("'", "''") + "')", maxResults + 1L);
             int count = 0;
             while (nodes.hasNext() && count <= maxResults) {
                 nodes.nextNode();
@@ -293,7 +300,7 @@ public class FormidableOptionsSourceService {
         try {
             nodes = contentQueryRunner.run(root.getSession(),
                     "SELECT * FROM [" + nodeType + "] WHERE ISDESCENDANTNODE('"
-                            + root.getPath().replace("'", "''") + "')");
+                            + root.getPath().replace("'", "''") + "')", maxResults + 1L);
         } catch (javax.jcr.RepositoryException e) {
             // Unknown types surface as InvalidQueryException or NamespaceException
             // depending on which half of the name is wrong.

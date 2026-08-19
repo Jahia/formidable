@@ -48,7 +48,10 @@ public class FormidableContentTypesInitializer implements ModuleChoiceListInitia
     public List<ChoiceListValue> getChoiceListValues(ExtendedPropertyDefinition epd, String param,
             List<ChoiceListValue> values, Locale locale, Map<String, Object> context) {
         String root = readContextValue(context, ROOT_PROPERTY);
-        if (root == null || root.isBlank()) {
+        if ((root == null || root.isBlank()) && !contextDeclaresRoot(context)) {
+            // No context entry at all (form build): the root comes from the stored
+            // property. A present-but-empty entry means the contributor cleared the
+            // picker — the list must empty, not resurrect the stored root.
             root = readStoredRoot(context);
         }
         if (root == null || root.isBlank()) {
@@ -61,6 +64,10 @@ public class FormidableContentTypesInitializer implements ModuleChoiceListInitia
         } catch (javax.jcr.RepositoryException e) {
             throw new IllegalStateException("Content types lookup failed: " + e.getMessage(), e);
         }
+    }
+
+    private static boolean contextDeclaresRoot(Map<String, Object> context) {
+        return context != null && context.containsKey(ROOT_PROPERTY);
     }
 
     // At form build no context entry exists; the root then comes from the stored

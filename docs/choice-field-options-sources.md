@@ -29,7 +29,7 @@ The mode lives on the engine-owned mixin pair (industrial's mediaSource pattern)
   the picked root, editorial picker) and `fmdb:optionsNodeType` (the content
   type to list, as a qualified node type name).
 
-In both non-manual modes nothing else is stored — the option list never
+In all three non-manual modes nothing else is stored — the option list never
 materializes in the JCR.
 
 The Content Editor switches the two `jmix:dynamicFieldset` mixins through the
