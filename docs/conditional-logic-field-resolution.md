@@ -170,12 +170,13 @@ the watched value produces no re-evaluation. Dispatch the event in that case.
 For each target field carrying `fmdbmix:formLogicElement`, the repository may also contain:
 
 ```text
-targetField (fmdbmix:formLogicElement)
+TARGET element (the fieldset that shows/hides)
   ├─ fieldKey = "..."
-  ├─ logics = ["{ \"logicId\": \"a1b2c3d4\", ... }"]
-  └─ logicsSrc (fmdb:logicList)
-       └─ a1b2c3d4 (fmdb:logicSrc)
-            └─ logicNodeSource -> weakreference to the source field
+  ├─ logics = ["{ \"logicId\": \"a1b2c3d4\", \"sourceFieldKey\": \"550e...\", ... }"]
+  └─ logicsSrc (fmdb:logicList)                          (technical storage)
+       └─ a1b2c3d4 (fmdb:logicSrc)                       ← node name = logicId
+            └─ logicNodeSource ────weakreference────▶ SOURCE element (the select)
+                                                        └─ fieldKey = "550e..."
 ```
 
 Intent:
@@ -183,6 +184,22 @@ Intent:
 - `logics` remains the authoring format
 - `logicsSrc` is technical storage
 - `logicNodeSource` is the repository-native weakreference used by server-side metadata collection and runtime enrichment
+
+Mind the two distinct identities in that picture:
+
+- **`logicId` identifies the rule.** Its only job is pairing the JSON entry of the
+  `logics` array with its storage twin `logicsSrc/<logicId>` — a link internal to the
+  target element, whose two sides travel together in any export or copy. It is never
+  what breaks.
+- **`fieldKey` identifies the source field.** It is the pointer that survives what
+  kills the other source references: an import regenerates every JCR UUID (so
+  `sourceNodeId` and the `logicNodeSource` weakreference both die), a rename changes
+  the node name behind `sourceFieldName`, and homonym fields make a name ambiguous.
+  `logicId` cannot help there — it only leads back to the rule's own storage node,
+  whose weakreference is just as dead.
+
+In short: `logicId` answers "which rule is this?", `sourceFieldKey` answers "which
+field does this rule listen to?".
 
 ## Resolution order
 

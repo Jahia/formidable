@@ -29,10 +29,12 @@ test — CI never runs it):
 All forms carry a save-to-JCR action, so submissions land in the results
 screens. The script also:
 
-- declares the `optionsSources` module configuration (`countries`, `tv`);
+- declares the `optionsSources` module configuration (`countries`, plus `tv`
+  backed by the static `fmdbSampleStaticList` initializer of
+  formidable-test-module-samples-java);
 - creates and publishes the sample categories
   `/sites/systemsite/categories/product/tv/{plasma,oled,led}` used by the
-  `fmdbSampleCategoryTree` initializer (formidable-test-module-samples-java);
+  category-mode field;
 - provisions the results reader user **john-doe / John#1234** (server-level,
   kept across runs, site member as editor) with `fmdb-results-reader` granted
   on the simple form only — to exercise the results access rights.

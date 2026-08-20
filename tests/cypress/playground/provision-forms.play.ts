@@ -20,10 +20,11 @@
  * select carries an empty-option label in both languages to showcase the
  * native required validation on the site.
  *
- * It also declares the options sources in the OSGi config, creates the sample
- * category tree product/tv (plasma, oled, led) used by the
- * fmdbSampleCategoryTree initializer of formidable-test-module-samples-java,
- * and provisions the results reader user john-doe (password John#1234, kept on
+ * It also declares the options sources in the OSGi config (countries + the
+ * static screen-type list of the fmdbSampleStaticList initializer of
+ * formidable-test-module-samples-java), creates the sample category tree
+ * product/tv (plasma, oled, led) used by the category-mode field, and
+ * provisions the results reader user john-doe (password John#1234, kept on
  * the server across runs, site member as editor) with fmdb-results-reader
  * granted on the simple form only — to test the results access rights.
  */
@@ -139,7 +140,7 @@ const OPTIONS_SOURCES_CONFIG = [
 	// Literal label
 	'countries|Countries|country',
 	// Localized label: resolved against the module's resource bundle in the editor UI language
-	'tv|formidable-test-module-samples-java:sample.optionsSource.tv|fmdbSampleCategoryTree|product/tv'
+	'tv|formidable-test-module-samples-java:sample.optionsSource.tv|fmdbSampleStaticList|plasma,oled,led'
 ];
 
 describe('Playground - provision manual-testing forms', () => {
@@ -302,7 +303,7 @@ describe('Playground - provision manual-testing forms', () => {
 								{name: 'fmdb:optionsEmptyLabel', value: 'Sélectionnez un pays…'}
 							]
 						),
-						withFrench(getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:radio', name: 'tvType', title: 'TV type (sourced: categories product/tv)', sourceKey: 'tv'}), [{name: 'jcr:title', value: 'Type de TV (source : catégories product/tv)'}]),
+						withFrench(getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:radio', name: 'tvType', title: 'TV type (sourced: static screen-type list)', sourceKey: 'tv'}), [{name: 'jcr:title', value: 'Type de TV (source : liste statique de types d\'écrans)'}]),
 						withFrench(getCategoryChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'tvCategory', title: 'TV category (category mode, multiple select)', rootCategoryUuid: tvCategoryUuid, multiple: true}), [{name: 'jcr:title', value: 'Catégorie TV (mode catégorie, sélection multiple)'}]),
 						withFrench(getContentChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'agency', title: 'Agency (content mode: texts under contents/agencies)', rootNodeUuid: agenciesRootUuid, nodeType: 'jnt:text'}), [{name: 'jcr:title', value: 'Agence (mode contenu : textes sous contents/agencies)'}])
 					],
