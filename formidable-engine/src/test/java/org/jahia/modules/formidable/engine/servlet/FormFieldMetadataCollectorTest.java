@@ -124,9 +124,10 @@ class FormFieldMetadataCollectorTest {
 
     @Test
     void boundModesResolveDateBoundsAgainstTheSubmissionDay() throws Exception {
-        // Verifies the bound-mode contract: 'today' resolves against the collection
-        // day — widened by one day to absorb visitor-vs-server timezone drift —
-        // 'date' reads the fixed value, and the modes are exclusive per side.
+        // Verifies the bound-mode contract: 'today' resolves to the extreme calendar
+        // day any inhabited timezone can currently be (UTC-12 for a minimum, UTC+14
+        // for a maximum), so no visitor is rejected for a value their own picker
+        // allowed; 'date' reads the fixed value, and the modes are exclusive per side.
         JCRNodeWrapper birthday = node(
                 "birthday",
                 "fmdb:inputDate",
@@ -163,13 +164,42 @@ class FormFieldMetadataCollectorTest {
                 formNodeWithFields(birthday, appointment, unbounded)
         );
 
-        String tomorrow = java.time.LocalDate.now().plusDays(1).toString();
-        String yesterday = java.time.LocalDate.now().minusDays(1).toString();
-        assertEquals(tomorrow, result.fieldInfos().get("birthday").constraints().maxDate());
+        String easternExtremeDay = java.time.LocalDate.now(java.time.ZoneOffset.ofHours(14)).toString();
+        String westernExtremeDay = java.time.LocalDate.now(java.time.ZoneOffset.ofHours(-12)).toString();
+        assertEquals(easternExtremeDay, result.fieldInfos().get("birthday").constraints().maxDate());
         assertNull(result.fieldInfos().get("birthday").constraints().minDate());
-        assertEquals(yesterday + "T00:00", result.fieldInfos().get("appointment").constraints().minDate());
+        assertEquals(westernExtremeDay + "T00:00", result.fieldInfos().get("appointment").constraints().minDate());
         assertEquals("2030-06-30T18:00", result.fieldInfos().get("appointment").constraints().maxDate());
         assertNull(result.fieldInfos().get("unbounded").constraints());
+    }
+
+    @Test
+    void legacyDefinitionLessBoundsAreReadOnTheUnderlyingNode() throws Exception {
+        // A field stored before the bound modes existed carries fixed values whose
+        // property definition has since moved into the fixed-bound mixins: the
+        // wrapper API hides them, so validation reads the underlying node until
+        // the startup migration re-homes them.
+        JCRNodeWrapper legacy = node(
+                "legacyDate",
+                "fmdb:inputDate",
+                Set.of("fmdbmix:formElement", "fmdbmix:dateField"),
+                Map.of(),
+                List.of()
+        );
+        Node realNode = mock(Node.class);
+        javax.jcr.Property rawMin = mock(javax.jcr.Property.class);
+        when(rawMin.getDate()).thenReturn(calendar(2020, 1, 1, 0, 0));
+        when(realNode.hasProperty("min")).thenReturn(true);
+        when(realNode.getProperty("min")).thenReturn(rawMin);
+        when(realNode.hasProperty("max")).thenReturn(false);
+        when(legacy.getRealNode()).thenReturn(realNode);
+
+        FormFieldMetadataCollector.Result result = FormFieldMetadataCollector.collectFromFormNode(
+                formNodeWithFields(legacy)
+        );
+
+        assertEquals("2020-01-01", result.fieldInfos().get("legacyDate").constraints().minDate());
+        assertNull(result.fieldInfos().get("legacyDate").constraints().maxDate());
     }
 
     @Test

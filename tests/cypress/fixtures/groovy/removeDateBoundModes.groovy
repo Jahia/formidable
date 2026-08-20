@@ -1,9 +1,12 @@
 import org.jahia.services.content.JCRSessionFactory
 
-// Simulates a field stored before the bound modes existed: the fixed min/max
-// values are kept in place, but the fmdb:minBoundMode / fmdb:maxBoundMode
-// properties are removed — the exact trigger state of DateBoundsContentMigration
-// (mode absent, fixed value present).
+// Simulates a field stored before the bound modes existed by removing the
+// fmdb:minBoundMode / fmdb:maxBoundMode properties while keeping the fixed
+// values. NOTE: this is the closest state the JCR API can produce — a genuine
+// 0.3 node also lacks the fixed-bound mixins, but that shape is not
+// reproducible (a raw write without an applicable definition is rejected, and
+// removing a mixin drops its properties); the definition-less branch of the
+// migration is unit-tested with mocks instead.
 def fieldPath = "__FIELD_PATH__"
 
 def report = []

@@ -56,14 +56,22 @@ export default function TodayBoundedInput({
 			return;
 		}
 
-		const today = localToday();
-		if (minToday) {
-			input.min = type === 'date' ? today : `${today}T00:00`;
-		}
+		const applyTodayBounds = () => {
+			const today = localToday();
+			if (minToday) {
+				input.min = type === 'date' ? today : `${today}T00:00`;
+			}
 
-		if (maxToday) {
-			input.max = type === 'date' ? today : `${today}T23:59`;
-		}
+			if (maxToday) {
+				input.max = type === 'date' ? today : `${today}T23:59`;
+			}
+		};
+
+		applyTodayBounds();
+		// A page can stay open across local midnight: refresh the bound whenever
+		// the visitor comes back to the input, so it never enforces yesterday.
+		input.addEventListener('focus', applyTodayBounds);
+		return () => input.removeEventListener('focus', applyTodayBounds);
 	}, [type, minToday, maxToday]);
 
 	return (

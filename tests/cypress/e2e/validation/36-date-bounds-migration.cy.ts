@@ -51,9 +51,15 @@ const getMigratedField = (path: string, workspace: 'EDIT' | 'LIVE') =>
 /**
  * Startup migration of pre-mode date bounds: a field carrying fixed min/max values
  * but no bound modes gets stamped with mode 'date' plus the fixed-bound mixins, in
- * both workspaces, and the values stay in place. The trigger state is simulated by
- * removing the mode properties from normally-created fields — the migration is keyed
- * on exactly that observable state (mode absent, fixed value present).
+ * both workspaces, and the values stay in place.
+ *
+ * The trigger state is simulated by removing the mode properties from
+ * normally-created fields. That is the closest state the JCR API can produce: a
+ * genuine 0.3 node also lacks the fixed-bound mixins, and that shape cannot be
+ * reproduced here (a raw write without an applicable definition is rejected, and
+ * removing a mixin drops its properties) — the definition-less branch is covered
+ * by DateBoundsContentMigrationTest with mocks. This spec proves the end-to-end
+ * reachable path: stamping, value survival, both workspaces, idempotence.
  */
 describe('Validation - 36 Date bounds migration', () => {
 	useFormidableSite();
@@ -86,13 +92,15 @@ describe('Validation - 36 Date bounds migration', () => {
 			cy.executeGroovy('groovy/restartFormidableEngine.groovy', {})
 				.then(result => cy.log(String(result)));
 
-			// Module activation is asynchronous: wait until the migration stamped a mode.
+			// Module activation is asynchronous, and the migration processes the
+			// default workspace before live: gate on the LAST stamped state (the
+			// datetime field in LIVE) so no assertion races the migration.
 			cy.waitUntil(
-				() => getMigratedField(DATE_PATH, 'EDIT').then(
+				() => getMigratedField(DATETIME_PATH, 'LIVE').then(
 					(response: MigratedFieldResponse) =>
-						response.data?.jcr?.nodeByPath?.minBoundMode?.value === 'date'
+						response.data?.jcr?.nodeByPath?.maxBoundMode?.value === 'date'
 				),
-				{timeout: 60000, interval: 2000, errorMsg: 'the migration never stamped fmdb:minBoundMode'}
+				{timeout: 60000, interval: 2000, errorMsg: 'the migration never stamped fmdb:maxBoundMode in live'}
 			);
 
 			(['EDIT', 'LIVE'] as const).forEach(workspace => {

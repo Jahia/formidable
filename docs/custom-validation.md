@@ -92,14 +92,17 @@ birth date must not be in the future, an appointment must not be in the past).
 Because the fragment cache would freeze any server-rendered date, the rendered
 input resolves that bound at hydration, in the visitor's own timezone; the
 `msgRangeUnderflow`/`msgRangeOverflow` messages apply to it exactly as to a fixed
-bound. Server-side, the submission pipeline re-resolves the bound against the
-submission day, widened by one calendar day, so a visitor whose local day differs
-from the server's is never rejected for a value their own picker allowed. Fixed
-bounds stay exact.
+bound. Server-side, the submission pipeline re-resolves the bound widened to the
+extreme calendar day any inhabited timezone can currently be (UTC-12 for a
+minimum, UTC+14 for a maximum), so a visitor is never rejected for a value their
+own picker allowed, whatever the server's or the visitor's zone. Fixed bounds
+stay exact.
 
 Fields stored before the bound modes existed carry fixed `min`/`max` values and
 no mode: a startup migration stamps them with the `date` mode (see the upgrade
-notes), and until it runs they keep their historical fixed-bound behavior.
+notes). Until it runs, the values are still **enforced at validation time** (the
+pipeline reads them on the underlying node), but the rendered inputs and the
+editor do not show them — the migration is what brings them back everywhere.
 
 ### Mixin assignment
 

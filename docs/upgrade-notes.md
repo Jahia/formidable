@@ -115,7 +115,7 @@ formidable-engine before the new formidable-elements.
 
 Like for the choice options above: a form export produced by 0.3.0 or earlier
 and imported into an instance where the migration already ran keeps its fixed
-bounds at render and validation time (the runtime treats a missing mode as the
-historical fixed-bound behavior), but the editor shows the bound dropdowns as
-"none" until the migration runs again. Restart the server (or the
-formidable-engine bundle) to re-run it.
+bounds **enforced at validation time** (the submission pipeline reads the stored
+values on the underlying node), but the rendered date pickers are unconstrained
+and the editor shows the bound dropdowns as "none" until the migration runs
+again. Restart the server (or the formidable-engine bundle) to re-run it.

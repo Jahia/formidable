@@ -393,22 +393,32 @@ class FormFieldMetadataCollector {
      * Resolves one bound of a date-typed field from its bound mode (fmdbmix:dateBounds /
      * fmdbmix:datetimeBounds): a fixed date, the submission day, or nothing — the modes
      * are exclusive, so there is no bound-combination rule. The relative mode is
-     * resolved against the submission day (constraints are collected once per
-     * submission) and widened by one calendar day: a visitor whose local day differs
-     * from the server's — any real-world timezone offset stays within one day — is
-     * never rejected for a value their own picker allowed. Fixed bounds stay exact.
+     * resolved once per submission, widened to the extreme calendar day any inhabited
+     * timezone can currently be (UTC-12 for a minimum, UTC+14 for a maximum), so a
+     * visitor is never rejected for a value their own picker allowed whatever the
+     * server's or the visitor's zone. Fixed bounds stay exact.
+     *
      * A node stored before bound modes existed carries no mode but may carry a fixed
-     * value: it keeps its historical behavior until the startup migration stamps it.
+     * value — which by then has no applicable property definition anymore, so it is
+     * read on the underlying node: validation keeps enforcing it until the startup
+     * migration re-homes it under the fixed-bound mixin.
      */
     private static String resolveDateBound(JCRNodeWrapper node, boolean minBound, boolean withTime) {
         String mode = JcrProps.string(node, minBound ? "fmdb:minBoundMode" : "fmdb:maxBoundMode", null);
+        String fixedProperty = minBound ? "min" : "max";
         if ("today".equals(mode)) {
-            java.time.LocalDate day = java.time.LocalDate.now().plusDays(minBound ? -1 : 1);
+            java.time.LocalDate day =
+                    java.time.LocalDate.now(java.time.ZoneOffset.ofHours(minBound ? -12 : 14));
             return withTime ? day + (minBound ? "T00:00" : "T23:59") : day.toString();
         }
 
-        if (mode == null || "date".equals(mode)) {
-            return JcrProps.dateAsIso(node, minBound ? "min" : "max", withTime, null);
+        if ("date".equals(mode)) {
+            return JcrProps.dateAsIso(node, fixedProperty, withTime, null);
+        }
+
+        if (mode == null) {
+            String fixed = JcrProps.dateAsIso(node, fixedProperty, withTime, null);
+            return fixed != null ? fixed : JcrProps.rawDateAsIso(node, fixedProperty, withTime, null);
         }
 
         return null;

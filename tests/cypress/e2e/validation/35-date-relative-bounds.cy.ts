@@ -72,18 +72,19 @@ describe('Validation - 35 Date bounds relative to the submission day', () => {
 	it('rejects values beyond the relative bounds regardless of the rendered page age', () => {
 		cy.logout();
 
-		// Two days out: beyond the one-day timezone tolerance of the server-side
-		// re-resolution, so the tampered value is rejected whichever timezone the
-		// submitter pretends to be in.
+		// Three days out: the server widens a relative bound to the extreme calendar
+		// day any timezone can currently be (UTC-12 to UTC+14), which spans at most
+		// two calendar days around any clock — so three is provably beyond it,
+		// whatever timezone the runner or the server sits in.
 		postDirectMultipartSubmission({
 			formId,
-			fields: {birthDate: localDay(2)},
+			fields: {birthDate: localDay(3)},
 			headers: withSameOriginHeaders()
 		}).then(response => expectErrorResponse(response, 400, 'FMDB-010'));
 
 		postDirectMultipartSubmission({
 			formId,
-			fields: {appointment: `${localDay(-2)}T12:00`},
+			fields: {appointment: `${localDay(-3)}T12:00`},
 			headers: withSameOriginHeaders()
 		}).then(response => expectErrorResponse(response, 400, 'FMDB-010'));
 	});
