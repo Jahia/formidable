@@ -124,7 +124,8 @@
 }
 
 .fmdb-form input[type="color"].fmdb-form-control {
-	width: 4rem;
+	display: block;
+	width: 100%;
 	height: 35px;
 	padding: 3px;
 	cursor: pointer;
