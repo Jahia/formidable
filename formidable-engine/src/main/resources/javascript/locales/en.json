@@ -15,25 +15,25 @@
     "fmdbmix_dateBounds": {
         "fmdb_minBoundMode": {
             "none": "No minimum",
-            "date": "A fixed date",
-            "today": "The submission day"
+            "date": "Fixed date (picked from the calendar)",
+            "today": "Current date (the day the form is submitted)"
         },
         "fmdb_maxBoundMode": {
             "none": "No maximum",
-            "date": "A fixed date",
-            "today": "The submission day"
+            "date": "Fixed date (picked from the calendar)",
+            "today": "Current date (the day the form is submitted)"
         }
     },
     "fmdbmix_datetimeBounds": {
         "fmdb_minBoundMode": {
             "none": "No minimum",
-            "date": "A fixed datetime",
-            "today": "The submission day"
+            "date": "Fixed date and time (picked from the calendar)",
+            "today": "Current date (from the start of the submission day)"
         },
         "fmdb_maxBoundMode": {
             "none": "No maximum",
-            "date": "A fixed datetime",
-            "today": "The submission day"
+            "date": "Fixed date and time (picked from the calendar)",
+            "today": "Current date (until the end of the submission day)"
         }
     },
     "conditionalLogic": {
