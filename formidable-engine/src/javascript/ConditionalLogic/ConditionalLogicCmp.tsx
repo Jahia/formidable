@@ -1,5 +1,5 @@
 import {useApolloClient} from '@apollo/client';
-import {Dropdown, Input, Loader, Typography} from '@jahia/moonstone';
+import {Checkbox, Dropdown, Input, Loader, Typography} from '@jahia/moonstone';
 import React, {useEffect, useMemo, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {
@@ -16,7 +16,8 @@ import {
     normalizeStoredRule,
     parseRule,
     sanitizeProviderOperator,
-    sanitizeOperator
+    sanitizeOperator,
+    TODAY_SENTINEL
 } from './ConditionalLogic.utils';
 import {getSourceDescriptor, operatorNeedsValue} from './sourceDescriptors';
 import {getLogicProvider, listLogicProviders, type LogicProviderDescriptor, PROVIDER_OPERATORS} from './providers';
@@ -25,6 +26,62 @@ import type {ConditionalLogicRule, GraphNode, LogicOperator, RuleSourceType, Sel
 import './conditionalLogic.css';
 
 
+
+/**
+ * One scalar comparison value. Date values may also be the submission day: the
+ * checkbox stores the TODAY_SENTINEL instead of a fixed date, and the date input
+ * is disabled while it does (a native date input cannot display the sentinel).
+ */
+const ScalarValueInput = ({
+    inputId,
+    inputType,
+    readOnly,
+    placeholder,
+    value,
+    onValueChange
+}: {
+    inputId: string;
+    inputType: 'date' | 'number' | 'text';
+    readOnly?: boolean;
+    placeholder: string;
+    value: string;
+    onValueChange: (value: string) => void;
+}) => {
+    const {t} = useTranslation('formidable-engine');
+    const isToday = value === TODAY_SENTINEL;
+
+    const input = (
+        <Input
+            id={inputId}
+            type={inputType}
+            isReadOnly={readOnly}
+            isDisabled={isToday}
+            placeholder={placeholder}
+            value={isToday ? '' : value}
+            onChange={event => onValueChange(event.target.value)}
+            size="big"
+        />
+    );
+
+    if (inputType !== 'date') {
+        return input;
+    }
+
+    return (
+        <div className="flexCol" style={{gap: '0.25rem'}}>
+            {input}
+            <label style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+                <Checkbox
+                    checked={isToday}
+                    isDisabled={readOnly}
+                    aria-label={t('conditionalLogic.valueToday')}
+                    onChange={(_event, _value, checked) => onValueChange(checked ? TODAY_SENTINEL : '')}
+                />
+                <Typography variant="caption">{t('conditionalLogic.valueToday')}</Typography>
+            </label>
+        </div>
+    );
+};
 
 const ScalarValueFields = ({
     id,
@@ -52,25 +109,23 @@ const ScalarValueFields = ({
         return (
             <div className="flexRow_nowrap" style={{gap: '0.5rem'}}>
                 <div className="flexFluid">
-                    <Input
-                        id={`${id}-${inputType}-from`}
-                        type={inputType}
-                        isReadOnly={readOnly}
+                    <ScalarValueInput
+                        inputId={`${id}-${inputType}-from`}
+                        inputType={inputType}
+                        readOnly={readOnly}
                         placeholder={t('conditionalLogic.valueFrom')}
                         value={values[0]}
-                        onChange={event => onChange({values: [event.target.value, values[1]]})}
-                        size="big"
+                        onValueChange={value => onChange({values: [value, values[1]]})}
                     />
                 </div>
                 <div className="flexFluid">
-                    <Input
-                        id={`${id}-${inputType}-to`}
-                        type={inputType}
-                        isReadOnly={readOnly}
+                    <ScalarValueInput
+                        inputId={`${id}-${inputType}-to`}
+                        inputType={inputType}
+                        readOnly={readOnly}
                         placeholder={t('conditionalLogic.valueTo')}
                         value={values[1]}
-                        onChange={event => onChange({values: [values[0], event.target.value]})}
-                        size="big"
+                        onValueChange={value => onChange({values: [values[0], value]})}
                     />
                 </div>
             </div>
@@ -79,14 +134,13 @@ const ScalarValueFields = ({
 
     return (
         <div>
-            <Input
-                id={`${id}-${inputType}-value`}
-                type={inputType}
-                isReadOnly={readOnly}
+            <ScalarValueInput
+                inputId={`${id}-${inputType}-value`}
+                inputType={inputType}
+                readOnly={readOnly}
                 placeholder={t('conditionalLogic.value')}
                 value={rule.value ?? ''}
-                onChange={event => onChange({value: event.target.value})}
-                size="big"
+                onValueChange={value => onChange({value})}
             />
         </div>
     );

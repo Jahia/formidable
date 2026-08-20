@@ -50,6 +50,21 @@ Meaning:
 - `sourceNodeId` is the technical source identifier (JCR UUID); fast path and tie-breaker
 - `sourceFieldName` and `sourceFieldType` remain editor/runtime metadata and legacy fallback
 
+### Date rules relative to the submission day
+
+A date rule (`before`, `after`, `on`, `between` on a `date` value kind) may compare against
+the **submission day** instead of a fixed date: the stored `value` — or either entry of
+`values` for `between` — is then the sentinel string `today`, which the editor writes when
+the contributor checks the **Submission day** toggle next to the date input. The sentinel
+is unambiguous because a date input can never produce that literal, and it only applies to
+date comparisons — a text rule comparing against the string `today` keeps comparing the
+literal.
+
+Each evaluator resolves the sentinel at evaluation time: the browser uses the visitor's
+local calendar day on every re-evaluation, and the server uses the day the submission
+declared (see the logic state header below). The stored rule always keeps the sentinel,
+never a resolved date.
+
 ## Sources outside the form: providers
 
 A rule may designate something other than a previous field. `sourceType` names the provider,
@@ -93,7 +108,9 @@ every rule reading the same reference gets the same answer.
 The decoded payload is versioned JSON: `v` names the schema version (currently `1`), and
 `providers` maps each provider source type to the references it read — the declared value
 as a string, or `null` for "read and absent" (distinct from an empty string). Only the
-references actually used by the form's rules are declared, never the whole browser state:
+references actually used by the form's rules are declared, never the whole browser state.
+When a rule compares a date against the submission day, the visitor's local calendar day
+rides along as `today`:
 
 ```json
 {
@@ -101,9 +118,19 @@ references actually used by the form's rules are declared, never the whole brows
   "providers": {
     "cookie":   {"consent-marketing": "yes"},
     "urlParam": {"promo": null}
-  }
+  },
+  "today": "2026-08-20"
 }
 ```
+
+The declared day is only accepted when it lies **within one day of the server's own** —
+the widest gap a real timezone offset can produce; both evaluators then resolve `today`
+to that same agreed day, and date-vs-today verdicts stay exact measurements. A day
+further out is ignored like a missing declaration: the server then knows the visitor's
+day only up to that one-day window, so it evaluates each date-vs-today rule against every
+day the window allows, and a verdict that flips inside the window degrades to the
+fail-safe (hidden, required skipped, nothing acted upon) instead of ever rejecting a
+value the visitor's own picker legitimately allowed.
 
 A declaration the server cannot interpret — unreadable base64, malformed JSON, a version
 other than `1` — is treated as no declaration at all (the fail-safe below), never as an

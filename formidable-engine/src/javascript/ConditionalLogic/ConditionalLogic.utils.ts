@@ -14,6 +14,13 @@ import {getLogicProvider, PROVIDER_OPERATORS, providerConfigKeys} from './provid
 
 const VALUE_KINDS: SourceValueKind[] = ['choice', 'date', 'number', 'boolean', 'text'];
 
+/**
+ * Sentinel a date rule may carry instead of a fixed date: the submission day, resolved by
+ * the runtime evaluators (the browser's local day, an agreed day server-side). Stored in
+ * the ordinary value/values keys — a date input can never produce this literal.
+ */
+export const TODAY_SENTINEL = 'today';
+
 const EMPTY_FIELD_RULE: ConditionalLogicRule = {
     logicId: '',
     sourceType: 'field',

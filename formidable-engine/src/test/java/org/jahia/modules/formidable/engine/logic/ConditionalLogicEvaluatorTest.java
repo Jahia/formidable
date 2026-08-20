@@ -684,4 +684,104 @@ class ConditionalLogicEvaluatorTest {
 
         assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_FAILSAFE, evaluator.visibility("target"));
     }
+
+    // --- The today sentinel: date rules relative to the submission day ---
+
+    private static final java.time.LocalDate SERVER_TODAY = java.time.LocalDate.parse("2026-06-10");
+
+    private static ConditionalLogicEvaluator evaluatorWithToday(
+            Map<String, List<ConditionalLogicRule>> fieldLogicRules,
+            Map<String, List<String>> submittedValues,
+            String declarationJson
+    ) {
+        return new ConditionalLogicEvaluator(
+                fieldLogicRules, Map.of(), Map.of(), submittedValues,
+                LogicStateDeclaration.parse(declarationJson), SERVER_TODAY);
+    }
+
+    @Test
+    void todayRuleResolvesToTheDeclaredVisitorDayWhenPlausible() {
+        // The visitor declared a day one off the server's (a real timezone offset):
+        // "today" resolves to the declared day, and the verdict stays a measurement —
+        // both evaluators agreed on one calendar day.
+        Map<String, List<ConditionalLogicRule>> rules =
+                Map.of("target", List.of(rule("start", "date", "on", "today", List.of())));
+
+        ConditionalLogicEvaluator visitorAhead = evaluatorWithToday(rules,
+                Map.of("start", List.of("2026-06-11")),
+                "{\"v\":1,\"providers\":{},\"today\":\"2026-06-11\"}");
+        assertEquals(ConditionalLogicEvaluator.Visibility.VISIBLE, visitorAhead.visibility("target"));
+
+        ConditionalLogicEvaluator serverDayValue = evaluatorWithToday(rules,
+                Map.of("start", List.of("2026-06-10")),
+                "{\"v\":1,\"providers\":{},\"today\":\"2026-06-11\"}");
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_MEASURED, serverDayValue.visibility("target"));
+    }
+
+    @Test
+    void todayRuleWithoutDeclarationIsMeasuredOnlyWhenDayIndependent() {
+        // No declared day: the server cannot know the visitor's calendar day, only that
+        // it is within one day of its own. A verdict identical across that whole window
+        // is a measurement; one that flips inside it is only a fail-safe.
+        Map<String, List<ConditionalLogicRule>> rules =
+                Map.of("target", List.of(rule("start", "date", "before", "today", List.of())));
+
+        assertEquals(ConditionalLogicEvaluator.Visibility.VISIBLE,
+                evaluatorWithToday(rules, Map.of("start", List.of("2026-06-01")), null).visibility("target"));
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_MEASURED,
+                evaluatorWithToday(rules, Map.of("start", List.of("2026-06-20")), null).visibility("target"));
+        // "2026-06-10" is before the visitor's day only if that day is "2026-06-11".
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_FAILSAFE,
+                evaluatorWithToday(rules, Map.of("start", List.of("2026-06-10")), null).visibility("target"));
+    }
+
+    @Test
+    void implausibleDeclaredDayFallsBackToTheServerDay() {
+        // A declared day further than one day from the server's is no timezone offset:
+        // it is ignored, and the ambiguity window applies as if nothing were declared.
+        Map<String, List<ConditionalLogicRule>> rules =
+                Map.of("target", List.of(rule("start", "date", "on", "today", List.of())));
+
+        // Were the declared day trusted, this value would make the field visible.
+        ConditionalLogicEvaluator evaluator = evaluatorWithToday(rules,
+                Map.of("start", List.of("2026-06-05")),
+                "{\"v\":1,\"providers\":{},\"today\":\"2026-06-05\"}");
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_MEASURED, evaluator.visibility("target"));
+
+        // On the ambiguity window's boundary the verdict flips with the day: fail-safe.
+        ConditionalLogicEvaluator boundary = evaluatorWithToday(rules,
+                Map.of("start", List.of("2026-06-10")),
+                "{\"v\":1,\"providers\":{},\"today\":\"2026-06-05\"}");
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_FAILSAFE, boundary.visibility("target"));
+    }
+
+    @Test
+    void betweenRuleMayMixAFixedBoundWithToday() {
+        // Only the sentinel entries resolve; fixed bounds stay exact.
+        Map<String, List<ConditionalLogicRule>> rules = Map.of("target",
+                List.of(rule("start", "date", "between", null, List.of("2026-06-01", "today"))));
+
+        ConditionalLogicEvaluator inside = evaluatorWithToday(rules,
+                Map.of("start", List.of("2026-06-08")),
+                "{\"v\":1,\"providers\":{},\"today\":\"2026-06-10\"}");
+        assertEquals(ConditionalLogicEvaluator.Visibility.VISIBLE, inside.visibility("target"));
+
+        ConditionalLogicEvaluator afterToday = evaluatorWithToday(rules,
+                Map.of("start", List.of("2026-06-12")),
+                "{\"v\":1,\"providers\":{},\"today\":\"2026-06-10\"}");
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_MEASURED, afterToday.visibility("target"));
+    }
+
+    @Test
+    void todaySentinelOnlyAppliesToDateComparisons() {
+        // A text rule comparing against the literal string "today" keeps comparing the
+        // literal: the sentinel exists for date operators only.
+        ConditionalLogicEvaluator evaluator = evaluatorWithToday(
+                Map.of("target", List.of(rule("comment", "text", "equals", "today", List.of()))),
+                Map.of("comment", List.of("today")),
+                null
+        );
+
+        assertEquals(ConditionalLogicEvaluator.Visibility.VISIBLE, evaluator.visibility("target"));
+    }
 }

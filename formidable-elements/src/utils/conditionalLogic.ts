@@ -320,6 +320,40 @@ const compareDate = (left: string, right: string): number => {
 };
 
 /**
+ * Sentinel a date rule may carry instead of a fixed date: the submission day.
+ * Unambiguous by construction — a date input can never produce this literal.
+ */
+export const LOGIC_TODAY_SENTINEL = 'today';
+
+/**
+ * The visitor's local calendar day (never through toISOString, which reads the
+ * UTC day and shifts around midnight for non-UTC visitors). The server resolves
+ * the same sentinel against the day declared in the logic state header.
+ */
+const localToday = (): string => {
+	const now = new Date();
+	const month = String(now.getMonth() + 1).padStart(2, '0');
+	const day = String(now.getDate()).padStart(2, '0');
+	return `${now.getFullYear()}-${month}-${day}`;
+};
+
+const resolveTodaySentinel = (expected: string, today: string): string =>
+	expected === LOGIC_TODAY_SENTINEL ? today : expected;
+
+/** Whether a rule compares against the submission day: only date rules may. */
+const ruleReferencesToday = (rule: ConditionalLogicRule): boolean => {
+	if (isNonFieldRule(rule) || rule.valueKind === 'number') {
+		return false;
+	}
+
+	if (!['before', 'after', 'on', 'between'].includes(rule.operator)) {
+		return false;
+	}
+
+	return rule.value === LOGIC_TODAY_SENTINEL || (rule.values ?? []).includes(LOGIC_TODAY_SENTINEL);
+};
+
+/**
  * Strict numeric parsing: the whole trimmed string must be a number, mirroring
  * the server-side Double.parseDouble ("9abc" is not a number, unlike parseFloat).
  */
@@ -416,15 +450,23 @@ const toBase64 = (value: string): string => {
 	return btoa(binary);
 };
 
+/** Whether any rule of the form compares against the submission day. */
+const formHasTodayRule = (form: HTMLFormElement): boolean =>
+	Array.from(form.querySelectorAll<HTMLElement>('[data-fmdb-logics]'))
+		.some(wrapper => deserializeConditionalLogicRules(wrapper.dataset.fmdbLogics ?? '').some(ruleReferencesToday));
+
 /**
- * Builds the submit-time provider state declaration for the FORM_LOGIC_STATE_HEADER, or
- * null when the form has no provider rule. One `read` per referenced provider state, at
- * the moment of submit: a single declared state backs every rule that reads it, which is
- * what lets the server evaluate provider rules coherently instead of counting every
- * provider-gated field as hidden. `null` encodes "absent", as distinct from empty string.
+ * Builds the submit-time state declaration for the FORM_LOGIC_STATE_HEADER, or null when
+ * no rule of the form needs one. One `read` per referenced provider state, at the moment
+ * of submit: a single declared state backs every rule that reads it, which is what lets
+ * the server evaluate provider rules coherently instead of counting every provider-gated
+ * field as hidden. `null` encodes "absent", as distinct from empty string. When a rule
+ * compares against the submission day, the visitor's local day is declared too, so both
+ * evaluators resolve "today" to the same calendar day whatever the timezone offset.
  */
 export const buildLogicStateHeader = (form: HTMLFormElement): string | null => {
 	const providers: Record<string, Record<string, string | null>> = {};
+	const declaration: {v: number; providers: typeof providers; today?: string} = {v: 1, providers};
 	let hasAny = false;
 
 	for (const [providerId, refs] of collectProviderRefs(form)) {
@@ -440,7 +482,12 @@ export const buildLogicStateHeader = (form: HTMLFormElement): string | null => {
 		hasAny = true;
 	}
 
-	return hasAny ? toBase64(JSON.stringify({v: 1, providers})) : null;
+	if (formHasTodayRule(form)) {
+		declaration.today = localToday();
+		hasAny = true;
+	}
+
+	return hasAny ? toBase64(JSON.stringify(declaration)) : null;
 };
 
 const evaluateRule = (rule: ConditionalLogicRule, sourceWrapper: HTMLElement): boolean => {
@@ -462,11 +509,14 @@ const evaluateRule = (rule: ConditionalLogicRule, sourceWrapper: HTMLElement): b
 		case 'containsAll':
 			return expectedValues.every(value => values.includes(value));
 		case 'before':
-			return values.length > 0 && !!rule.value && compareDate(values[0], rule.value) < 0;
+			return values.length > 0 && !!rule.value
+				&& compareDate(values[0], resolveTodaySentinel(rule.value, localToday())) < 0;
 		case 'after':
-			return values.length > 0 && !!rule.value && compareDate(values[0], rule.value) > 0;
+			return values.length > 0 && !!rule.value
+				&& compareDate(values[0], resolveTodaySentinel(rule.value, localToday())) > 0;
 		case 'on':
-			return values.length > 0 && !!rule.value && compareDate(values[0], rule.value) === 0;
+			return values.length > 0 && !!rule.value
+				&& compareDate(values[0], resolveTodaySentinel(rule.value, localToday())) === 0;
 		case 'between': {
 			if (values.length === 0 || expectedValues.length < 2 || expectedValues[0] === '' || expectedValues[1] === '') {
 				return false;
@@ -480,8 +530,9 @@ const evaluateRule = (rule: ConditionalLogicRule, sourceWrapper: HTMLElement): b
 				return fromCompare !== null && toCompare !== null && fromCompare >= 0 && toCompare <= 0;
 			}
 
-			return compareDate(values[0], expectedValues[0]) >= 0
-				&& compareDate(values[0], expectedValues[1]) <= 0;
+			const today = localToday();
+			return compareDate(values[0], resolveTodaySentinel(expectedValues[0], today)) >= 0
+				&& compareDate(values[0], resolveTodaySentinel(expectedValues[1], today)) <= 0;
 		}
 
 		case 'eq':

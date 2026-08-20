@@ -20,6 +20,7 @@
         "values": "Valeurs",
         "valueFrom": "De",
         "valueTo": "À",
+        "valueToday": "Jour de soumission",
         "loadingSources": "Chargement des champs disponibles...",
         "noSources": "Aucun champ source supporté n'est disponible avant ce champ.",
         "help": "Utilise des champs placés avant celui-ci pour afficher ou masquer ce champ. Sont éligibles les champs qui déclarent un type de valeur : choix (liste, radio, case à cocher), date, nombre et booléen — y compris les champs apportés par d'autres modules. \"Aucun champ source supporté...\" signifie qu'aucun champ compatible précédent n'a été trouvé. Une condition peut aussi lire une information extérieure au formulaire : une valeur du datalayer, un paramètre d'URL ou un cookie. Ces informations sont lues uniquement dans le navigateur : un champ obligatoire affiché par une telle condition n'est donc pas exigé à l'envoi du formulaire.",

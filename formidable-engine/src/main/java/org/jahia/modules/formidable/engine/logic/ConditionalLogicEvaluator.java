@@ -1,5 +1,7 @@
 package org.jahia.modules.formidable.engine.logic;
 
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +55,7 @@ public class ConditionalLogicEvaluator {
     private final Map<String, Set<String>> fieldParentContainers;
     private final Map<String, List<String>> submittedValues;
     private final LogicStateDeclaration declaration;
+    private final List<String> todayCandidates;
 
     public ConditionalLogicEvaluator(
             Map<String, List<ConditionalLogicRule>> fieldLogicRules,
@@ -71,11 +74,46 @@ public class ConditionalLogicEvaluator {
             Map<String, List<String>> submittedValues,
             LogicStateDeclaration declaration
     ) {
+        this(fieldLogicRules, logicIdToFieldName, fieldParentContainers, submittedValues,
+                declaration, LocalDate.now());
+    }
+
+    /** Visible for tests: lets them pin the server's calendar day. */
+    ConditionalLogicEvaluator(
+            Map<String, List<ConditionalLogicRule>> fieldLogicRules,
+            Map<String, String> logicIdToFieldName,
+            Map<String, Set<String>> fieldParentContainers,
+            Map<String, List<String>> submittedValues,
+            LogicStateDeclaration declaration,
+            LocalDate serverToday
+    ) {
         this.fieldLogicRules = fieldLogicRules;
         this.logicIdToFieldName = logicIdToFieldName;
         this.fieldParentContainers = fieldParentContainers;
         this.submittedValues = submittedValues;
         this.declaration = declaration;
+        this.todayCandidates = computeTodayCandidates(declaration, serverToday);
+    }
+
+    /**
+     * The ISO day(s) the today sentinel may resolve to. When the browser declared the
+     * visitor's local day and it stays within one day of the server's — any real-world
+     * timezone offset does — that single agreed day is used: both evaluators then share
+     * one "today" and the verdict stays a measurement. Otherwise (no declaration, or an
+     * implausible one) the server cannot know the visitor's day, so the sentinel resolves
+     * to each day it could plausibly be, and only a verdict on which they all agree
+     * counts as measured.
+     */
+    private static List<String> computeTodayCandidates(LogicStateDeclaration declaration, LocalDate serverToday) {
+        LocalDate declared = declaration.declaredToday();
+        if (declared != null && Math.abs(ChronoUnit.DAYS.between(serverToday, declared)) <= 1) {
+            return List.of(declared.toString());
+        }
+
+        return List.of(
+                serverToday.minusDays(1).toString(),
+                serverToday.toString(),
+                serverToday.plusDays(1).toString());
     }
 
     public boolean isHidden(String fieldName) {
@@ -160,7 +198,48 @@ public class ConditionalLogicEvaluator {
 
         List<String> values = submittedValues.getOrDefault(sourceFieldName, List.of());
 
-        Boolean satisfied = switch (rule.operator()) {
+        if (rule.referencesToday()) {
+            return evaluateTodayRule(rule, values);
+        }
+
+        Boolean satisfied = evaluateFieldOperator(rule, values);
+        if (satisfied == null) {
+            reportUnknownOperator(rule);
+            return RuleResult.FAILED_FAILSAFE;
+        }
+
+        return satisfied ? RuleResult.SATISFIED : RuleResult.FAILED_MEASURED;
+    }
+
+    /**
+     * Evaluates a rule comparing against the submission day, once per candidate
+     * resolution of the sentinel. All candidates agreeing means the verdict does not
+     * depend on which day the visitor's really was, so it keeps its normal provenance;
+     * a disagreement means the visibility genuinely hinges on a day the server cannot
+     * know, and only the fail-safe is honest — hidden, but never acted upon.
+     */
+    private RuleResult evaluateTodayRule(ConditionalLogicRule rule, List<String> values) {
+        Boolean agreed = null;
+        for (String day : todayCandidates) {
+            Boolean satisfied = evaluateFieldOperator(rule.withTodayResolved(day), values);
+            if (satisfied == null) {
+                reportUnknownOperator(rule);
+                return RuleResult.FAILED_FAILSAFE;
+            }
+
+            if (agreed == null) {
+                agreed = satisfied;
+            } else if (!agreed.equals(satisfied)) {
+                return RuleResult.FAILED_FAILSAFE;
+            }
+        }
+
+        return Boolean.TRUE.equals(agreed) ? RuleResult.SATISFIED : RuleResult.FAILED_MEASURED;
+    }
+
+    /** The field-rule operator table; null for an operator this engine does not know. */
+    private static Boolean evaluateFieldOperator(ConditionalLogicRule rule, List<String> values) {
+        return switch (rule.operator()) {
             case "in" -> rule.values().stream().anyMatch(values::contains);
             case "notIn" -> !values.isEmpty() && rule.values().stream().noneMatch(values::contains);
             case "isChecked" -> !values.isEmpty() && values.stream().anyMatch(v -> !v.isBlank());
@@ -197,13 +276,6 @@ public class ConditionalLogicEvaluator {
                     && values.get(0).contains(rule.value());
             default -> null;
         };
-
-        if (satisfied == null) {
-            reportUnknownOperator(rule);
-            return RuleResult.FAILED_FAILSAFE;
-        }
-
-        return satisfied ? RuleResult.SATISFIED : RuleResult.FAILED_MEASURED;
     }
 
     /**
