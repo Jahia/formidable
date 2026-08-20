@@ -6,9 +6,9 @@ interface TodayBoundedInputProps {
 	name: string;
 	helpId?: string;
 	defaultValue?: string;
-	// Fixed bounds, already formatted for the input type (yyyy-MM-dd or
-	// yyyy-MM-ddTHH:mm) — one format per input, so plain string comparison
-	// orders them chronologically.
+	// Fixed bound of the NON-relative side(s), already formatted for the input
+	// type (yyyy-MM-dd or yyyy-MM-ddTHH:mm). Bound modes are exclusive, so a
+	// side is never both fixed and relative.
 	min?: string;
 	max?: string;
 	minToday?: boolean;
@@ -27,21 +27,12 @@ const localToday = (): string => {
 	return `${now.getFullYear()}-${month}-${day}`;
 };
 
-const mostRestrictive = (fixed: string | undefined, relative: string, minSide: boolean): string => {
-	if (fixed === undefined) {
-		return relative;
-	}
-
-	return minSide === (fixed > relative) ? fixed : relative;
-};
-
 /**
  * Date or datetime-local input whose bound(s) follow the submission day. The
  * relative bound cannot be server-rendered: the fragment cache would freeze it
  * at first-render time, so it is resolved at hydration, in the visitor's own
- * timezone, and combined with any fixed bound by keeping the most restrictive
- * side. Server-side validation independently enforces the same bounds against
- * the submission date.
+ * timezone. Server-side validation independently enforces the same bounds
+ * against the submission date.
  */
 export default function TodayBoundedInput({
 	type,
@@ -67,13 +58,13 @@ export default function TodayBoundedInput({
 
 		const today = localToday();
 		if (minToday) {
-			input.min = mostRestrictive(min, type === 'date' ? today : `${today}T00:00`, true);
+			input.min = type === 'date' ? today : `${today}T00:00`;
 		}
 
 		if (maxToday) {
-			input.max = mostRestrictive(max, type === 'date' ? today : `${today}T23:59`, false);
+			input.max = type === 'date' ? today : `${today}T23:59`;
 		}
-	}, [type, min, max, minToday, maxToday]);
+	}, [type, minToday, maxToday]);
 
 	return (
 		<input

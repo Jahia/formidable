@@ -34,9 +34,12 @@ describe('Validation - 35 Date bounds relative to the submission day', () => {
 			'Relative bounds form',
 			[
 				// Birth-date shape: no date after the submission day.
-				getInputDateNode({name: 'birthDate', title: 'Birth date', maxToday: true}),
+				getInputDateNode({name: 'birthDate', title: 'Birth date', maxBoundMode: 'today'}),
 				// Appointment shape: no datetime before the submission day.
-				getInputDatetimeLocalNode({name: 'appointment', title: 'Appointment', minToday: true})
+				getInputDatetimeLocalNode({name: 'appointment', title: 'Appointment', minBoundMode: 'today'}),
+				// Mixed sides: relative minimum, fixed maximum. Modes are exclusive
+				// per side, so the fixed side must stay exactly as configured.
+				getInputDateNode({name: 'booking', title: 'Booking', minBoundMode: 'today', max: '2100-06-30T00:00:00.000'})
 			]
 		).then(created => {
 			formId = created.formId;
@@ -52,6 +55,8 @@ describe('Validation - 35 Date bounds relative to the submission day', () => {
 		// fragment cache), so the assertions retry until the island has run.
 		form.get().find('input[name="birthDate"]').should('have.attr', 'max', localDay());
 		form.get().find('input[name="appointment"]').should('have.attr', 'min', `${localDay()}T00:00`);
+		form.get().find('input[name="booking"]').should('have.attr', 'min', localDay());
+		form.get().find('input[name="booking"]').should('have.attr', 'max', '2100-06-30');
 	});
 
 	it('accepts values on the submission day', () => {

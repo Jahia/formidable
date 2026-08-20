@@ -2,15 +2,16 @@ import {Island, jahiaComponent} from "@jahia/javascript-modules-library";
 import {type RangeValidationMessageProps, validationDataAttributes} from "formidable-shared";
 import {HelpText, helpTextId} from "formidable-shared";
 import TodayBoundedInput from "./TodayBoundedInput.client";
+import {resolveBound} from "./bounds";
 
 interface InputDateProps extends RangeValidationMessageProps {
 	"jcr:title"?: string;
 	helpText?: string;
 	defaultValue?: string;
+	"fmdb:minBoundMode"?: string;
+	"fmdb:maxBoundMode"?: string;
 	min?: string;
 	max?: string;
-	minToday?: boolean;
-	maxToday?: boolean;
 	step?: number;
 	required?: boolean;
 }
@@ -31,7 +32,18 @@ jahiaComponent(
 		name: "default"
 	},
 	(
-		{"jcr:title": label, helpText, defaultValue, min, max, minToday, maxToday, step, required, ...validationMsgs}: InputDateProps,
+		{
+			"jcr:title": label,
+			helpText,
+			defaultValue,
+			"fmdb:minBoundMode": minBoundMode,
+			"fmdb:maxBoundMode": maxBoundMode,
+			min,
+			max,
+			step,
+			required,
+			...validationMsgs
+		}: InputDateProps,
 		{currentNode}
 	) => {
 
@@ -40,6 +52,9 @@ jahiaComponent(
 		const inputName = currentNode.getName();
 
 		const helpId = helpText ? helpTextId(currentNode.getIdentifier()) : undefined;
+
+		const minBound = resolveBound(minBoundMode, formatDateForInput(min));
+		const maxBound = resolveBound(maxBoundMode, formatDateForInput(max));
 
 		return (
 			<div className="fmdb-form-group">
@@ -52,7 +67,7 @@ jahiaComponent(
 
 				<HelpText id={helpId} text={helpText}/>
 
-				{minToday || maxToday ? (
+				{minBound.today || maxBound.today ? (
 					// A bound relative to the submission day cannot be a server-rendered
 					// attribute (the fragment cache would freeze it): the input becomes
 					// an island resolving it at hydration, in the visitor's timezone.
@@ -64,10 +79,10 @@ jahiaComponent(
 							name: inputName,
 							helpId,
 							defaultValue: formatDateForInput(defaultValue),
-							min: formatDateForInput(min),
-							max: formatDateForInput(max),
-							minToday,
-							maxToday,
+							min: minBound.fixed,
+							max: maxBound.fixed,
+							minToday: minBound.today,
+							maxToday: maxBound.today,
 							step,
 							required,
 							validationAttributes: validationDataAttributes(validationMsgs)
@@ -81,8 +96,8 @@ jahiaComponent(
 						aria-describedby={helpId}
 						className="fmdb-form-control"
 						defaultValue={formatDateForInput(defaultValue)}
-						min={formatDateForInput(min)}
-						max={formatDateForInput(max)}
+						min={minBound.fixed}
+						max={maxBound.fixed}
 						step={step}
 						required={required}
 						{...validationDataAttributes(validationMsgs)}

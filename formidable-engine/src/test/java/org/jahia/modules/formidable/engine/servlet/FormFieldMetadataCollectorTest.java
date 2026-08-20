@@ -76,7 +76,10 @@ class FormFieldMetadataCollectorTest {
 
     @Test
     void collectsDateAndDatetimeConstraintsFromSemanticMixins() throws Exception {
-        // Verifies that date and datetime-local field mixins contribute normalized min/max constraints.
+        // Verifies that date and datetime-local field mixins contribute normalized
+        // min/max constraints. These nodes carry no bound mode, which is also the
+        // legacy shape (stored before bound modes existed): fixed values must keep
+        // applying until the startup migration stamps the mode.
         JCRNodeWrapper dateField = node(
                 "birthday",
                 "fmdb:inputDate",
@@ -120,42 +123,44 @@ class FormFieldMetadataCollectorTest {
     }
 
     @Test
-    void todayFlagsResolveRelativeDateBoundsAgainstTheSubmissionDay() throws Exception {
-        // Verifies the relative-bounds contract: minToday/maxToday resolve against
-        // the collection day — widened by one day to absorb visitor-vs-server
-        // timezone drift — and combine with any fixed bound most-restrictively.
+    void boundModesResolveDateBoundsAgainstTheSubmissionDay() throws Exception {
+        // Verifies the bound-mode contract: 'today' resolves against the collection
+        // day — widened by one day to absorb visitor-vs-server timezone drift —
+        // 'date' reads the fixed value, and the modes are exclusive per side.
         JCRNodeWrapper birthday = node(
                 "birthday",
                 "fmdb:inputDate",
                 Set.of("fmdbmix:formElement", "fmdbmix:dateField"),
-                Map.of("maxToday", booleanProperty(true)),
+                Map.of("fmdb:maxBoundMode", stringProperty("today")),
                 List.of()
         );
-        // A fixed min far in the past: the relative bound is tighter and wins.
+        // One side relative, the other fixed: each side resolves independently.
         JCRNodeWrapper appointment = node(
                 "appointment",
                 "fmdb:inputDatetimeLocal",
                 Set.of("fmdbmix:formElement", "fmdbmix:datetimeLocalField"),
                 Map.of(
-                        "min", dateProperty(calendar(2020, 1, 1, 8, 0)),
-                        "minToday", booleanProperty(true)
+                        "fmdb:minBoundMode", stringProperty("today"),
+                        "fmdb:maxBoundMode", stringProperty("date"),
+                        "max", dateProperty(calendar(2030, 6, 30, 18, 0))
                 ),
                 List.of()
         );
-        // A fixed max already tighter than the relative one: the fixed bound wins.
-        JCRNodeWrapper past = node(
-                "past",
+        // An explicit 'none' wins over a residual fixed value left behind by an
+        // earlier configuration: the bound is gone, not silently resurrected.
+        JCRNodeWrapper unbounded = node(
+                "unbounded",
                 "fmdb:inputDate",
                 Set.of("fmdbmix:formElement", "fmdbmix:dateField"),
                 Map.of(
-                        "max", dateProperty(calendar(2020, 6, 30, 0, 0)),
-                        "maxToday", booleanProperty(true)
+                        "fmdb:maxBoundMode", stringProperty("none"),
+                        "max", dateProperty(calendar(2020, 6, 30, 0, 0))
                 ),
                 List.of()
         );
 
         FormFieldMetadataCollector.Result result = FormFieldMetadataCollector.collectFromFormNode(
-                formNodeWithFields(birthday, appointment, past)
+                formNodeWithFields(birthday, appointment, unbounded)
         );
 
         String tomorrow = java.time.LocalDate.now().plusDays(1).toString();
@@ -163,7 +168,8 @@ class FormFieldMetadataCollectorTest {
         assertEquals(tomorrow, result.fieldInfos().get("birthday").constraints().maxDate());
         assertNull(result.fieldInfos().get("birthday").constraints().minDate());
         assertEquals(yesterday + "T00:00", result.fieldInfos().get("appointment").constraints().minDate());
-        assertEquals("2020-06-30", result.fieldInfos().get("past").constraints().maxDate());
+        assertEquals("2030-06-30T18:00", result.fieldInfos().get("appointment").constraints().maxDate());
+        assertNull(result.fieldInfos().get("unbounded").constraints());
     }
 
     @Test
@@ -337,6 +343,12 @@ class FormFieldMetadataCollectorTest {
     private static JCRPropertyWrapper booleanProperty(boolean value) throws Exception {
         JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
         when(property.getBoolean()).thenReturn(value);
+        return property;
+    }
+
+    private static JCRPropertyWrapper stringProperty(String value) throws Exception {
+        JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
+        when(property.getString()).thenReturn(value);
         return property;
     }
 

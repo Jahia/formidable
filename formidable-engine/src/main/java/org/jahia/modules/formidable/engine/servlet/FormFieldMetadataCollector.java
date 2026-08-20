@@ -368,15 +368,11 @@ class FormFieldMetadataCollector {
         Double maxNumber  = null;
 
         if (dateField) {
-            minDate = JcrProps.dateAsIso(node, "min", false, null);
-            maxDate = JcrProps.dateAsIso(node, "max", false, null);
-            minDate = withTodayBound(node, minDate, true, false);
-            maxDate = withTodayBound(node, maxDate, false, false);
+            minDate = resolveDateBound(node, true, false);
+            maxDate = resolveDateBound(node, false, false);
         } else if (datetimeLocalField) {
-            minDate = JcrProps.dateAsIso(node, "min", true, null);
-            maxDate = JcrProps.dateAsIso(node, "max", true, null);
-            minDate = withTodayBound(node, minDate, true, true);
-            maxDate = withTodayBound(node, maxDate, false, true);
+            minDate = resolveDateBound(node, true, true);
+            maxDate = resolveDateBound(node, false, true);
         } else if (numberField) {
             // Convention of the number field types (e.g. fmdbext:rating/scale): the
             // rendered range is declared through minValue/maxValue LONG properties.
@@ -394,27 +390,27 @@ class FormFieldMetadataCollector {
     }
 
     /**
-     * Applies the minToday/maxToday flag of a date-typed field: the relative bound
-     * is resolved against the submission day (constraints are collected once per
-     * submission) and combined with the fixed bound by keeping the most restrictive
-     * side. The relative side is widened by one calendar day so a visitor whose
-     * local day differs from the server's — any real-world timezone offset stays
-     * within one day — is never rejected for a value their own picker allowed;
-     * fixed bounds stay exact. Bounds share one ISO format per field type, so
-     * plain string comparison orders them chronologically.
+     * Resolves one bound of a date-typed field from its bound mode (fmdbmix:dateBounds /
+     * fmdbmix:datetimeBounds): a fixed date, the submission day, or nothing — the modes
+     * are exclusive, so there is no bound-combination rule. The relative mode is
+     * resolved against the submission day (constraints are collected once per
+     * submission) and widened by one calendar day: a visitor whose local day differs
+     * from the server's — any real-world timezone offset stays within one day — is
+     * never rejected for a value their own picker allowed. Fixed bounds stay exact.
+     * A node stored before bound modes existed carries no mode but may carry a fixed
+     * value: it keeps its historical behavior until the startup migration stamps it.
      */
-    private static String withTodayBound(JCRNodeWrapper node, String fixed, boolean minBound, boolean withTime) {
-        if (!JcrProps.bool(node, minBound ? "minToday" : "maxToday", false)) {
-            return fixed;
+    private static String resolveDateBound(JCRNodeWrapper node, boolean minBound, boolean withTime) {
+        String mode = JcrProps.string(node, minBound ? "fmdb:minBoundMode" : "fmdb:maxBoundMode", null);
+        if ("today".equals(mode)) {
+            java.time.LocalDate day = java.time.LocalDate.now().plusDays(minBound ? -1 : 1);
+            return withTime ? day + (minBound ? "T00:00" : "T23:59") : day.toString();
         }
 
-        java.time.LocalDate day = java.time.LocalDate.now().plusDays(minBound ? -1 : 1);
-        String relative = withTime ? day + (minBound ? "T00:00" : "T23:59") : day.toString();
-        if (fixed == null) {
-            return relative;
+        if (mode == null || "date".equals(mode)) {
+            return JcrProps.dateAsIso(node, minBound ? "min" : "max", withTime, null);
         }
 
-        boolean fixedIsTighter = minBound ? fixed.compareTo(relative) > 0 : fixed.compareTo(relative) < 0;
-        return fixedIsTighter ? fixed : relative;
+        return null;
     }
 }
