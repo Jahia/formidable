@@ -63,6 +63,7 @@ import {
 import {createPublishedLiveFormPage} from '../support/fixtures/forms';
 import {CONTENT_PATH, FORMIDABLE_MODULE_IDS, SITE_HOME_PATH} from '../support/constants';
 import type {JahiaNode} from '../support/fixtures/types';
+import {PLAYGROUND_COMPLETE_CSS} from './playgroundTheme';
 
 const CATEGORY_ROOT = '/sites/systemsite/categories';
 const AGENCIES_ROOT_PATH = `${CONTENT_PATH}/agencies`;
@@ -276,8 +277,10 @@ describe('Playground - provision manual-testing forms', () => {
 					[
 						withFrench(getInputTextNode({...INPUT_TEXT_COMPLETE, defaultValue: undefined}), [{name: 'jcr:title', value: 'Code employé'}]),
 						withFrench(getInputEmailNode({...INPUT_EMAIL_COMPLETE, defaultValue: undefined}), [{name: 'jcr:title', value: 'Email de contact'}]),
-						withFrench(getInputDateNode({...INPUT_DATE_COMPLETE, defaultValue: undefined}), [{name: 'jcr:title', value: 'Date de naissance'}]),
-						withFrench(getInputDatetimeLocalNode({...INPUT_DATETIME_LOCAL_COMPLETE, defaultValue: undefined}), [{name: 'jcr:title', value: 'Rendez-vous'}]),
+						// A birth date cannot be after the submission day; the appointment
+						// cannot be before it — the relative bound modes showcased live.
+						withFrench(getInputDateNode({...INPUT_DATE_COMPLETE, defaultValue: undefined, max: undefined, maxBoundMode: 'today'}), [{name: 'jcr:title', value: 'Date de naissance'}]),
+						withFrench(getInputDatetimeLocalNode({...INPUT_DATETIME_LOCAL_COMPLETE, defaultValue: undefined, min: undefined, minBoundMode: 'today'}), [{name: 'jcr:title', value: 'Rendez-vous'}]),
 						withFrench(getInputColorNode(INPUT_COLOR_COMPLETE), [{name: 'jcr:title', value: 'Choisissez votre couleur préférée'}]),
 						withFrench(getCheckboxNode(CHECKBOX_GROUP_COMPLETE), [
 							{name: 'jcr:title', value: 'Centres d\'intérêt requis'},
@@ -311,7 +314,12 @@ describe('Playground - provision manual-testing forms', () => {
 					undefined,
 					{
 						actions: [saveToJcrAction()],
-						properties: [{name: 'jcr:title', value: 'Playground - Formulaire complet', language: 'fr'}],
+						properties: [
+							{name: 'jcr:title', value: 'Playground - Formulaire complet', language: 'fr'},
+							// The showcase theme lives in the form's own css property, so it
+							// survives every re-provisioning without a manual step.
+							{name: 'css', value: PLAYGROUND_COMPLETE_CSS}
+						],
 						pageProperties: [{name: 'jcr:title', value: 'Playground - Formulaire complet', language: 'fr'}],
 						publishLanguages: ['en', 'fr']
 					}

@@ -1,0 +1,330 @@
+/**
+ * Showcase theme of the playground complete form, written into the form's own
+ * `css` property at provisioning time. Adapted from the "Responsive
+ * Registration Form" model (https://codepen.io/anandaprojapati/pen/GmrwYE):
+ * white card with a yellow top border, flat square fields with a yellow focus
+ * glow, black checks, full-width flat yellow submit button, entrance
+ * animations.
+ */
+export const PLAYGROUND_COMPLETE_CSS = `
+/* Playground complete — "Registration Yellow" showcase theme (form CSS field).
+   Adapted from the "Responsive Registration Form" model
+   (https://codepen.io/anandaprojapati/pen/GmrwYE): white card with a yellow
+   top border, flat square fields with a yellow focus glow, black checks,
+   full-width flat yellow submit button, entrance animations. */
+
+.fmdb-form {
+	--reg-yellow: #f5ba1a;
+	--reg-yellow-dark: #dda40a;
+	--reg-black: #000000;
+	--reg-grey: #cccccc;
+	--reg-ink: #333333;
+	--reg-muted: #7b7b7b;
+
+	/* Formidable theming hooks */
+	--fmdb-validation-error-color: #c0392b;
+	--fmdb-invalid-border-color: #c0392b;
+	--fmdb-invalid-outline-color: rgba(192, 57, 43, 0.25);
+
+	/* Extended inputs follow the model's accents */
+	--fmdbext-focus: rgba(255, 169, 0, 0.25);
+	--fmdbext-rating-on: var(--reg-yellow);
+	--fmdbext-chip-on-bg: var(--reg-yellow);
+	--fmdbext-chip-on-fg: #ffffff;
+	--fmdbext-switch-on-bg: var(--reg-yellow);
+
+	font-family: Verdana, Geneva, sans-serif;
+	font-size: 14px;
+	color: var(--reg-ink);
+	background: #ffffff;
+	width: 400px;
+	max-width: 100%;
+	box-sizing: border-box;
+	padding: 25px;
+	margin: 40px auto;
+	border-top: 5px solid var(--reg-yellow);
+	border-radius: 0;
+	box-shadow: 0 0 3px rgba(0, 0, 0, 0.1);
+	transform-origin: 50% 0%;
+	animation: fmdb-reg-expand 0.8s 0.3s ease-out forwards;
+	opacity: 0;
+	accent-color: var(--reg-black);
+}
+
+.fmdb-form .fmdb-form-intro {
+	text-align: center;
+	padding-bottom: 15px;
+	margin-bottom: 10px;
+	color: var(--reg-ink);
+	line-height: 1.5em;
+}
+
+.fmdb-form .fmdb-form-group {
+	margin-bottom: 20px;
+	animation: fmdb-reg-bounce 0.6s ease-out;
+}
+
+.fmdb-form .fmdb-form-label,
+.fmdb-form .fmdb-group-legend {
+	display: inline-block;
+	margin-bottom: 6px;
+	font-size: 12px;
+	color: var(--reg-ink);
+}
+
+.fmdb-form fieldset.fmdb-form-group {
+	border: none;
+	padding: 0;
+}
+
+.fmdb-form .fmdb-required-indicator {
+	color: var(--fmdb-validation-error-color);
+	margin-left: 0.15rem;
+}
+
+.fmdb-form .fmdb-form-help {
+	color: var(--reg-muted);
+	font-size: 12px;
+	line-height: 1.45;
+}
+
+/* Inputs, selects, textareas: flat, square, thin grey border */
+.fmdb-form .fmdb-form-control {
+	width: 100%;
+	min-height: 35px;
+	padding: 8px 10px;
+	border: 1px solid var(--reg-grey);
+	border-radius: 0;
+	background: #ffffff;
+	box-sizing: border-box;
+	color: var(--reg-ink);
+	font-family: inherit;
+	font-size: 14px;
+	outline: none;
+	transition: all 0.3s ease-in-out;
+}
+
+.fmdb-form .fmdb-form-control:hover {
+	background: #fafafa;
+}
+
+.fmdb-form .fmdb-form-control:focus,
+.fmdb-form .fmdb-form-control:focus-visible {
+	border-color: var(--reg-yellow);
+	background: #fafafa;
+	box-shadow: 0 0 2px 1px rgba(255, 169, 0, 0.5);
+}
+
+.fmdb-form select.fmdb-form-control {
+	cursor: pointer;
+	color: var(--reg-muted);
+}
+
+.fmdb-form select.fmdb-form-control:hover,
+.fmdb-form select.fmdb-form-control:focus {
+	color: var(--reg-black);
+	border-color: var(--reg-black);
+}
+
+.fmdb-form textarea.fmdb-form-control {
+	min-height: 7rem;
+	resize: vertical;
+}
+
+.fmdb-form input[type="color"].fmdb-form-control {
+	width: 4rem;
+	height: 35px;
+	padding: 3px;
+	cursor: pointer;
+}
+
+.fmdb-form input[type="file"].fmdb-form-control {
+	cursor: pointer;
+}
+
+.fmdb-form input[type="file"].fmdb-form-control::file-selector-button {
+	margin-right: 10px;
+	border: none;
+	border-radius: 0;
+	padding: 6px 14px;
+	background: var(--reg-yellow);
+	color: #ffffff;
+	font-family: inherit;
+	cursor: pointer;
+	transition: all 0.3s ease-in-out;
+}
+
+.fmdb-form input[type="file"].fmdb-form-control::file-selector-button:hover {
+	background: var(--reg-yellow-dark);
+}
+
+/* Checkbox / radio groups: minimal rows, black checks like the model.
+   Checkables carry .fmdb-form-control too: undo the text-field sizing. */
+.fmdb-form input[type="checkbox"].fmdb-form-control,
+.fmdb-form input[type="radio"].fmdb-form-control {
+	width: 16px;
+	height: 16px;
+	min-height: 0;
+	padding: 0;
+	flex: none;
+	box-shadow: none;
+}
+
+.fmdb-form .fmdb-group-items {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.fmdb-form .fmdb-group-item {
+	display: flex;
+	align-items: center;
+	gap: 0.5em;
+	padding: 2px 0;
+	border: none;
+	background: transparent;
+}
+
+.fmdb-form .fmdb-checkbox-label,
+.fmdb-form .fmdb-radio-label {
+	font-size: 13px;
+	color: var(--reg-ink);
+}
+
+.fmdb-form .fmdb-range-output {
+	font-size: 12px;
+	color: var(--reg-muted);
+}
+
+/* Buttons: flat, full-width yellow primary */
+.fmdb-form .fmdb-form-actions {
+	margin-top: 10px;
+}
+
+.fmdb-form .fmdb-btn {
+	border: none;
+	border-radius: 0;
+	height: 35px;
+	line-height: 35px;
+	padding: 0 18px;
+	font-family: inherit;
+	font-size: 1.1em;
+	cursor: pointer;
+	outline: none;
+	transition: all 0.3s ease-in-out;
+}
+
+.fmdb-form .fmdb-btn-primary {
+	background: var(--reg-yellow);
+	color: #ffffff;
+	width: 100%;
+	margin-bottom: 10px;
+}
+
+.fmdb-form .fmdb-btn-primary:hover,
+.fmdb-form .fmdb-btn-primary:active {
+	background: var(--reg-yellow-dark);
+}
+
+.fmdb-form .fmdb-btn-secondary {
+	background: #ffffff;
+	color: var(--reg-ink);
+	border: 1px solid var(--reg-grey);
+}
+
+.fmdb-form .fmdb-btn-secondary:hover {
+	border-color: var(--reg-black);
+	background: #fafafa;
+}
+
+/* Selected files list */
+.fmdb-form .fmdb-selected-files {
+	margin-top: 8px;
+}
+
+.fmdb-form .fmdb-selected-files-title {
+	font-size: 12px;
+	color: var(--reg-muted);
+}
+
+.fmdb-form .fmdb-file-list {
+	margin: 4px 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.fmdb-form .fmdb-file-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 5px 8px;
+	border: 1px solid var(--reg-grey);
+	margin-bottom: 4px;
+	font-size: 12px;
+}
+
+.fmdb-form .fmdb-file-name {
+	color: var(--reg-ink);
+}
+
+.fmdb-form .fmdb-file-size {
+	color: var(--reg-muted);
+}
+
+.fmdb-form .fmdb-file-remove {
+	margin-left: auto;
+	border: none;
+	background: transparent;
+	color: var(--reg-muted);
+	cursor: pointer;
+}
+
+.fmdb-form .fmdb-file-remove:hover {
+	color: var(--fmdb-validation-error-color);
+}
+
+/* Messages */
+.fmdb-form .fmdb-validation-error,
+.fmdb-form .fmdb-options-source-error {
+	color: var(--fmdb-validation-error-color);
+	font-size: 12px;
+}
+
+.fmdb-message {
+	font-family: Verdana, Geneva, sans-serif;
+	width: 400px;
+	max-width: 100%;
+	box-sizing: border-box;
+	margin: 15px auto;
+	padding: 12px 15px;
+	border: 1px solid var(--reg-grey, #cccccc);
+	border-left: 5px solid #f5ba1a;
+	background: #ffffff;
+	box-shadow: 0 0 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Entrance animations, from the model */
+@keyframes fmdb-reg-expand {
+	0% { transform: scale3d(1, 0, 1); opacity: 0; }
+	25% { transform: scale3d(1, 1.2, 1); }
+	50% { transform: scale3d(1, 0.85, 1); }
+	75% { transform: scale3d(1, 1.05, 1); }
+	100% { transform: scale3d(1, 1, 1); opacity: 1; }
+}
+
+@keyframes fmdb-reg-bounce {
+	0% { transform: translate3d(0, -25px, 0); opacity: 0; }
+	25% { transform: translate3d(0, 10px, 0); }
+	50% { transform: translate3d(0, -6px, 0); }
+	75% { transform: translate3d(0, 2px, 0); }
+	100% { transform: translate3d(0, 0, 0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.fmdb-form,
+	.fmdb-form .fmdb-form-group {
+		animation: none;
+		opacity: 1;
+	}
+}
+`;
