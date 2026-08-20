@@ -2,7 +2,8 @@
    Adapted from the "Responsive Registration Form" model
    (https://codepen.io/anandaprojapati/pen/GmrwYE): white card with a yellow
    top border, flat square fields with a yellow focus glow, black checks,
-   full-width flat yellow submit button, entrance animations.
+   full-width flat yellow submit button (the model's entrance animations were
+   deliberately left out).
    The test playground writes it into the complete form at provisioning time. */
 
 .fmdb-form {
@@ -37,9 +38,6 @@
 	border-top: 5px solid var(--reg-yellow);
 	border-radius: 0;
 	box-shadow: 0 0 3px rgba(0, 0, 0, 0.1);
-	transform-origin: 50% 0%;
-	animation: fmdb-reg-expand 0.8s 0.3s ease-out forwards;
-	opacity: 0;
 	accent-color: var(--reg-black);
 }
 
@@ -53,7 +51,6 @@
 
 .fmdb-form .fmdb-form-group {
 	margin-bottom: 20px;
-	animation: fmdb-reg-bounce 0.6s ease-out;
 }
 
 .fmdb-form .fmdb-form-label,
@@ -296,29 +293,4 @@
 	border-left: 5px solid #f5ba1a;
 	background: #ffffff;
 	box-shadow: 0 0 3px rgba(0, 0, 0, 0.1);
-}
-
-/* Entrance animations, from the model */
-@keyframes fmdb-reg-expand {
-	0% { transform: scale3d(1, 0, 1); opacity: 0; }
-	25% { transform: scale3d(1, 1.2, 1); }
-	50% { transform: scale3d(1, 0.85, 1); }
-	75% { transform: scale3d(1, 1.05, 1); }
-	100% { transform: scale3d(1, 1, 1); opacity: 1; }
-}
-
-@keyframes fmdb-reg-bounce {
-	0% { transform: translate3d(0, -25px, 0); opacity: 0; }
-	25% { transform: translate3d(0, 10px, 0); }
-	50% { transform: translate3d(0, -6px, 0); }
-	75% { transform: translate3d(0, 2px, 0); }
-	100% { transform: translate3d(0, 0, 0); opacity: 1; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.fmdb-form,
-	.fmdb-form .fmdb-form-group {
-		animation: none;
-		opacity: 1;
-	}
 }
