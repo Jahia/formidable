@@ -63,7 +63,10 @@ import {
 import {createPublishedLiveFormPage} from '../support/fixtures/forms';
 import {CONTENT_PATH, FORMIDABLE_MODULE_IDS, SITE_HOME_PATH} from '../support/constants';
 import type {JahiaNode} from '../support/fixtures/types';
-import {PLAYGROUND_COMPLETE_CSS} from './playgroundTheme';
+
+// Sample theme written into the complete form's css property; lives with the
+// sample code so module developers can pick it up as a starting point.
+const COMPLETE_FORM_THEME_PATH = '../jahia-test-module/sample-form-css/registration-yellow-theme.css';
 
 const CATEGORY_ROOT = '/sites/systemsite/categories';
 const AGENCIES_ROOT_PATH = `${CONTENT_PATH}/agencies`;
@@ -265,6 +268,13 @@ describe('Playground - provision manual-testing forms', () => {
 	});
 
 	it('provisions the complete form (all field types + sourced options)', () => {
+		// Enqueued before the creation chain, so the variable is set by the time
+		// the nested callbacks below build the form properties.
+		let themeCss = '';
+		cy.readFile(COMPLETE_FORM_THEME_PATH).then((content: string) => {
+			themeCss = content;
+		});
+
 		getNodeByPath(`${CATEGORY_ROOT}/product/tv`).then(response => {
 			const tvCategoryUuid: string = response.data.jcr.nodeByPath.uuid;
 
@@ -318,7 +328,7 @@ describe('Playground - provision manual-testing forms', () => {
 							{name: 'jcr:title', value: 'Playground - Formulaire complet', language: 'fr'},
 							// The showcase theme lives in the form's own css property, so it
 							// survives every re-provisioning without a manual step.
-							{name: 'css', value: PLAYGROUND_COMPLETE_CSS}
+							{name: 'css', value: themeCss}
 						],
 						pageProperties: [{name: 'jcr:title', value: 'Playground - Formulaire complet', language: 'fr'}],
 						publishLanguages: ['en', 'fr']

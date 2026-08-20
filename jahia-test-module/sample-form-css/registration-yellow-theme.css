@@ -1,17 +1,9 @@
-/**
- * Showcase theme of the playground complete form, written into the form's own
- * `css` property at provisioning time. Adapted from the "Responsive
- * Registration Form" model (https://codepen.io/anandaprojapati/pen/GmrwYE):
- * white card with a yellow top border, flat square fields with a yellow focus
- * glow, black checks, full-width flat yellow submit button, entrance
- * animations.
- */
-export const PLAYGROUND_COMPLETE_CSS = `
-/* Playground complete — "Registration Yellow" showcase theme (form CSS field).
+/* "Registration Yellow" — sample theme for a form's own CSS field.
    Adapted from the "Responsive Registration Form" model
    (https://codepen.io/anandaprojapati/pen/GmrwYE): white card with a yellow
    top border, flat square fields with a yellow focus glow, black checks,
-   full-width flat yellow submit button, entrance animations. */
+   full-width flat yellow submit button, entrance animations.
+   The test playground writes it into the complete form at provisioning time. */
 
 .fmdb-form {
 	--reg-yellow: #f5ba1a;
@@ -327,4 +319,3 @@ export const PLAYGROUND_COMPLETE_CSS = `
 		opacity: 1;
 	}
 }
-`;
