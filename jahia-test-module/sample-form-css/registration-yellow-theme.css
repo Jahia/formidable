@@ -161,6 +161,7 @@
 	padding: 0;
 	flex: none;
 	box-shadow: none;
+	cursor: pointer;
 }
 
 .fmdb-form .fmdb-group-items {
@@ -182,6 +183,7 @@
 .fmdb-form .fmdb-radio-label {
 	font-size: 13px;
 	color: var(--reg-ink);
+	cursor: pointer;
 }
 
 .fmdb-form .fmdb-range-output {
