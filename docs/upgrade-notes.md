@@ -3,34 +3,6 @@
 Manual steps required when upgrading between specific versions. Most upgrades
 are in-place module installs; only the transitions listed here need attention.
 
-## 0.4.0 → 0.5.0: date bounds become bound modes, migrated at startup
-
-### What changes
-
-The fixed `min`/`max` properties of date and datetime-local fields moved from
-the field types into the `fmdbmix:fixedMinDate`/`fmdbmix:fixedMaxDate` (and
-datetime) dynamic-fieldset mixins, driven by the new `fmdb:minBoundMode` /
-`fmdb:maxBoundMode` properties (`none`, `date` or `today` — the day the visitor
-submits the form). In the editor each bound is now a dropdown, and the calendar
-only appears for the fixed-date choice.
-
-Existing content needs no manual step: `DateBoundsContentMigration` runs at
-engine startup, in both workspaces, and stamps every field carrying a fixed
-bound with the `date` mode and its mixin — the stored values stay in place, and
-published forms keep rendering without a republish. The migration is keyed on
-content state (a fixed value without a mode), so re-running it is a no-op.
-
-As with every upgrade that changes the engine definitions, install the new
-formidable-engine before the new formidable-elements.
-
-### The one case needing attention: importing a pre-0.5 export
-
-A form export produced before 0.5.0 and imported into an instance where the
-migration already ran keeps its fixed bounds at render and validation time
-(the runtime treats a missing mode as the historical fixed-bound behavior),
-but the editor shows the bound dropdowns as "none" until the migration runs
-again. Restart the server (or the formidable-engine bundle) to re-run it.
-
 ## 0.3.0 (and earlier) → 0.4.0: formidable-elements must be reinstalled
 
 ### Symptom
@@ -118,3 +90,32 @@ or the root content and content type. Migrated fields all carry their options,
 so they satisfy the constraint as-is. A legacy field that was saved without any
 option has nothing to migrate and simply asks for its options the next time it
 is edited — saving it incomplete is no longer possible.
+
+## 0.3.0 (and earlier) → 0.4.0: date bounds become bound modes, migrated at startup
+
+### What changes
+
+The fixed `min`/`max` properties of date and datetime-local fields moved from
+the field types into the `fmdbmix:fixedMinDate`/`fmdbmix:fixedMaxDate` (and
+datetime) dynamic-fieldset mixins, driven by the new `fmdb:minBoundMode` /
+`fmdb:maxBoundMode` properties (`none`, `date` or `today` — the day the visitor
+submits the form). In the editor each bound is now a dropdown, and the calendar
+only appears for the fixed-date choice.
+
+Existing content needs no manual step: `DateBoundsContentMigration` runs at
+engine startup, in both workspaces, and stamps every field carrying a fixed
+bound with the `date` mode and its mixin — the stored values stay in place, and
+published forms keep rendering without a republish. The migration is keyed on
+content state (a fixed value without a mode), so re-running it is a no-op.
+
+As with every upgrade that changes the engine definitions, install the new
+formidable-engine before the new formidable-elements.
+
+### The one case needing attention: importing a 0.3-era export
+
+Like for the choice options above: a form export produced by 0.3.0 or earlier
+and imported into an instance where the migration already ran keeps its fixed
+bounds at render and validation time (the runtime treats a missing mode as the
+historical fixed-bound behavior), but the editor shows the bound dropdowns as
+"none" until the migration runs again. Restart the server (or the
+formidable-engine bundle) to re-run it.
