@@ -65,6 +65,19 @@ Supported source field types in V1:
 2. `after` works with ISO date values.
 3. `on` works with exact date equality.
 4. `between` includes the expected lower and upper bounds.
+5. Any date comparison value can be the submission day instead of a fixed date (the
+   stored value is the `today` sentinel, resolved at evaluation time).
+6. The browser resolves `today` to the visitor's local calendar day and declares that day
+   at submit; the server uses the declared day when it is a day it currently is somewhere
+   on Earth (the UTC-12 → UTC+14 window).
+7. Without a plausible declared day, a date-vs-today verdict that flips inside that
+   timezone window degrades to the fail-safe instead of rejecting the submission.
+8. A `between` interval emptied by the submission day (fixed bound over, or not yet
+   reached) is ignored by both evaluators instead of hiding the field forever.
+9. The editor steers `between` away from empty intervals: each calendar is bounded by
+   the other side (equality allowed — both bounds are included), the two calendars
+   carry start/end tooltips, and a stored rule that currently matches no date shows a
+   warning (inverted fixed dates show an error).
 
 ## Form structure scenarios
 

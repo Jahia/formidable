@@ -1,4 +1,5 @@
-import {createPublishedLiveFormPage, getInputTextNode} from '../../support/fixtures';
+import {localDay, LOGIC_STATE_HEADER} from '../../support/constants';
+import {createPublishedLiveFormPage, getInputDateNode, getInputTextNode} from '../../support/fixtures';
 import {
 	expectErrorResponse,
 	expectSuccessResponse,
@@ -18,13 +19,14 @@ import {
 describe('Security - 42 Conditional logic coherence', () => {
 	useFormidableSite();
 
-	const LOGIC_STATE_HEADER = 'X-Formidable-Logic-State';
-
 	// Unicode-safe base64, mirroring the production encoder: bare btoa() throws on
 	// non-ASCII, and declared provider values are allowed to contain any of it.
-	const declarationHeader = (providers: Record<string, Record<string, string | null>>) => {
+	const declarationHeader = (
+		providers: Record<string, Record<string, string | null>>,
+		extras: Record<string, string> = {}
+	) => {
 		let binary = '';
-		for (const byte of new TextEncoder().encode(JSON.stringify({v: 1, providers}))) {
+		for (const byte of new TextEncoder().encode(JSON.stringify({v: 1, providers, ...extras}))) {
 			binary += String.fromCharCode(byte);
 		}
 
@@ -132,6 +134,75 @@ describe('Security - 42 Conditional logic coherence', () => {
 				formId,
 				fields: {details: 'kept'},
 				headers: withSameOriginHeaders({[LOGIC_STATE_HEADER]: '%%% not base64 %%%'})
+			}).then(expectSuccessResponse);
+		});
+	});
+
+	// --- Rules relative to the submission day ("today" sentinel, see logics/510) ---
+
+	const onTodayRule = JSON.stringify({
+		logicId: 'coh-today',
+		sourceFieldName: 'start-date',
+		sourceFieldType: 'fmdb:inputDate',
+		valueKind: 'date',
+		operator: 'on',
+		value: 'today'
+	});
+
+	const dateGatedForm = (suffix: string) => {
+		const gated = getInputTextNode({name: 'details', title: 'details'});
+		gated.properties = [...(gated.properties ?? []), {name: 'logics', values: [onTodayRule]}];
+
+		return createPublishedLiveFormPage(
+			`coherence-${suffix}-${Date.now()}`,
+			`Coherence form ${suffix}`,
+			[getInputDateNode({name: 'start-date', title: 'start-date'}), gated]
+		);
+	};
+
+	it('rejects a value hidden by a submission-day rule whatever day the window assumes', () => {
+		// A source date nowhere near the visitor's possible day fails the rule for every
+		// plausible resolution of "today": the verdict is a measurement, header or not.
+		dateGatedForm('today-tamper').then(({formId}) => {
+			cy.logout();
+			postDirectMultipartSubmission({
+				formId,
+				fields: {'start-date': '2000-01-01', details: 'smuggled'},
+				headers: withSameOriginHeaders({
+					[LOGIC_STATE_HEADER]: declarationHeader({}, {today: localDay(0)})
+				})
+			}).then(response => expectErrorResponse(response, 400, 'FMDB-013'));
+		});
+	});
+
+	it('ignores a declared day it currently is nowhere on Earth', () => {
+		// Were the declared day trusted, source date == declared day would satisfy the
+		// rule and legitimize the value. A day no timezone can explain is not evidence.
+		dateGatedForm('today-clamp').then(({formId}) => {
+			cy.logout();
+			postDirectMultipartSubmission({
+				formId,
+				fields: {'start-date': '2000-01-02', details: 'smuggled'},
+				headers: withSameOriginHeaders({
+					[LOGIC_STATE_HEADER]: declarationHeader({}, {today: '2000-01-02'})
+				})
+			}).then(response => expectErrorResponse(response, 400, 'FMDB-013'));
+		});
+	});
+
+	it('keeps the fail-safe inside the ambiguity window when no day was declared', () => {
+		// Without a declared day the server only knows the visitor's day is one of
+		// the days it currently is somewhere on Earth. A verdict that
+		// flips inside that window is no measurement: the value is kept, exactly like
+		// the provider fail-safe above. The runner's own day is always in the window,
+		// and the window always spans at least two days (26 hours of offsets always
+		// cross a midnight), so this rule flips whatever the time the test runs at.
+		dateGatedForm('today-window').then(({formId}) => {
+			cy.logout();
+			postDirectMultipartSubmission({
+				formId,
+				fields: {'start-date': localDay(0), details: 'kept'},
+				headers: withSameOriginHeaders()
 			}).then(expectSuccessResponse);
 		});
 	});

@@ -42,7 +42,10 @@ const INTRO_FR = `<p>Bienvenue ! Consultez ${homeLink('notre page d’accueil')}
 describe('Form fields - 20 All field types', () => {
 	useFormidableSite();
 
-	it('submits a simple live form with all supported field types', () => {
+	// The all-fields page is the heaviest render of the suite and its first visit
+	// intermittently times out at the socket level on CI (ESOCKETTIMEDOUT): one
+	// retry absorbs that warm-up without hiding anything else. CI-only.
+	it('submits a simple live form with all supported field types', {retries: {runMode: 1}}, () => {
 		createPublishedLiveFormPage(
 			'all-fields-simple-form',
 			'All Fields Simple Form',
