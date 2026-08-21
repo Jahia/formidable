@@ -42,7 +42,6 @@ public class ChoiceOptionsContentMigration {
     private static final String UNIFIED_OPTIONS_PROPERTY = "fmdb:options";
     private static final String[] LEGACY_PROPERTIES = {"choices", "options"};
     private static final String TRANSLATION_NODES_PATTERN = "j:translation_*";
-    private static final int SAVE_BATCH_SIZE = 50;
 
     @Activate
     public void activate() {
@@ -59,30 +58,29 @@ public class ChoiceOptionsContentMigration {
     }
 
     private void migrateWorkspace(JCRSessionWrapper session, String workspace) throws RepositoryException {
+        // Scoped to editorial content: module-bundled nodes under /modules belong to
+        // their module and must not be rewritten from here.
         Query query = session.getWorkspace().getQueryManager()
-                .createQuery("SELECT * FROM [" + CHOICE_FIELD_MIXIN + "]", Query.JCR_SQL2);
+                .createQuery("SELECT * FROM [" + CHOICE_FIELD_MIXIN + "]"
+                        + " WHERE ISDESCENDANTNODE('/sites')", Query.JCR_SQL2);
         JCRNodeIteratorWrapper nodes = (JCRNodeIteratorWrapper) query.execute().getNodes();
 
         int migrated = 0;
-        int pendingSave = 0;
         while (nodes.hasNext()) {
             JCRNodeWrapper node = (JCRNodeWrapper) nodes.nextNode();
             try {
                 if (migrateNode(session, node)) {
+                    // One save per migrated node: a failure must never discard the
+                    // nodes already migrated before it, nor poison the later saves.
+                    session.save();
                     migrated++;
-                    pendingSave++;
-                    if (pendingSave >= SAVE_BATCH_SIZE) {
-                        session.save();
-                        pendingSave = 0;
-                    }
                 }
             } catch (RepositoryException e) {
                 log.error("[ChoiceOptionsContentMigration] Could not migrate node '{}' in workspace '{}': {}",
                         node.getPath(), workspace, e.getMessage(), e);
+                // Drop the half-applied changes, or every later save would re-throw them.
+                session.refresh(false);
             }
-        }
-        if (pendingSave > 0) {
-            session.save();
         }
 
         if (migrated > 0) {
