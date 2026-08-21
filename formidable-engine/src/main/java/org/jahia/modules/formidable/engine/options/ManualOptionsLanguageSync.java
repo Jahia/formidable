@@ -1,19 +1,23 @@
 package org.jahia.modules.formidable.engine.options;
 
 import org.jahia.services.content.JCRNodeWrapper;
-import org.json.JSONException;
-import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.jcr.Node;
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
-import javax.jcr.Value;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LANGUAGE_PROPERTY;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.MANUAL_OPTIONS_MIXIN;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.OPTIONS_PROPERTY;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.TRANSLATION_NODES_PATTERN;
 
 /**
  * Keeps the manual options of a choice field coherent across languages. An
@@ -25,8 +29,10 @@ import java.util.Map;
  * The site's default language is the authority: whenever fmdb:options is saved,
  * every other language is re-aligned on the master's values, order and count.
  * A language keeps its own label and selected flag for a value it already
- * carries, and inherits the master entry otherwise. Content that diverged
- * before this sync existed is re-aligned the next time its field is saved.
+ * carries — entries sharing one value pair up positionally, so duplicated (or
+ * still-empty) values never collapse onto one translation. Content that
+ * diverged before this sync existed is re-aligned the next time its field is
+ * saved.
  *
  * Works on the j:translation_* subnodes directly (the i18n storage, the same
  * access the options content migration uses), so one system session covers
@@ -36,11 +42,6 @@ import java.util.Map;
 public final class ManualOptionsLanguageSync {
 
     private static final Logger log = LoggerFactory.getLogger(ManualOptionsLanguageSync.class);
-
-    private static final String MANUAL_OPTIONS_MIXIN = "fmdbmix:manualOptions";
-    private static final String OPTIONS_PROPERTY = "fmdb:options";
-    private static final String TRANSLATION_NODES_PATTERN = "j:translation_*";
-    private static final String LANGUAGE_PROPERTY = "jcr:language";
 
     private ManualOptionsLanguageSync() {
     }
@@ -70,14 +71,15 @@ public final class ManualOptionsLanguageSync {
                     ? translation.getProperty(LANGUAGE_PROPERTY).getString()
                     : null;
             if (masterLanguage.equals(language)) {
-                masterOptions = readOptions(translation);
+                masterOptions = ManualOptionEntries.readOptions(translation);
             } else {
                 otherTranslations.add(translation);
             }
         }
 
-        // No master list means nothing to align to: an untouched default language
-        // must never be overwritten by whatever a translation carries.
+        // No master list means nothing to align to: a field authored only in a
+        // non-default language keeps its own values as the identity, and an
+        // untouched default language never overwrites what a translation carries.
         if (masterOptions == null || masterOptions.isEmpty()) {
             return false;
         }
@@ -93,24 +95,27 @@ public final class ManualOptionsLanguageSync {
     /**
      * Rewrites one language's entries as the master's values in the master's
      * order, keeping that language's label and selected flag wherever the value
-     * already exists there.
+     * already exists there. Same-value entries are consumed positionally (a
+     * queue per value), so two master rows sharing a value — including two rows
+     * whose value is still empty — each keep their own translation.
      */
     private static boolean alignTranslation(Node translation, List<String> masterOptions, String fieldPath)
             throws RepositoryException {
-        List<String> current = readOptions(translation);
-        Map<String, String> currentByValue = new HashMap<>();
+        List<String> current = ManualOptionEntries.readOptions(translation);
+        Map<String, Deque<String>> currentByValue = new HashMap<>();
         for (String raw : current) {
-            String value = optionValue(raw);
+            String value = ManualOptionEntries.value(raw);
             if (value != null) {
-                currentByValue.putIfAbsent(value, raw);
+                currentByValue.computeIfAbsent(value, unused -> new ArrayDeque<>()).addLast(raw);
             }
         }
 
         List<String> aligned = new ArrayList<>(masterOptions.size());
         for (String masterRaw : masterOptions) {
-            String value = optionValue(masterRaw);
-            String own = value != null ? currentByValue.get(value) : null;
-            aligned.add(own != null ? own : masterRaw);
+            String value = ManualOptionEntries.value(masterRaw);
+            Deque<String> own = value != null ? currentByValue.get(value) : null;
+            String kept = own != null ? own.pollFirst() : null;
+            aligned.add(kept != null ? kept : masterRaw);
         }
 
         if (aligned.equals(current)) {
@@ -121,27 +126,5 @@ public final class ManualOptionsLanguageSync {
         log.info("[ManualOptionsLanguageSync] Re-aligned the options of '{}' ({})",
                 fieldPath, translation.getName());
         return true;
-    }
-
-    private static List<String> readOptions(Node translation) throws RepositoryException {
-        List<String> options = new ArrayList<>();
-        if (!translation.hasProperty(OPTIONS_PROPERTY)) {
-            return options;
-        }
-
-        for (Value value : translation.getProperty(OPTIONS_PROPERTY).getValues()) {
-            options.add(value.getString());
-        }
-
-        return options;
-    }
-
-    /** The identity of one stored entry; null for unparseable JSON (kept as-is). */
-    private static String optionValue(String rawOption) {
-        try {
-            return new JSONObject(rawOption).optString("value", null);
-        } catch (JSONException e) {
-            return null;
-        }
     }
 }

@@ -231,6 +231,50 @@ class FormFieldMetadataCollector {
         return false;
     }
 
+    /**
+     * The allowed values of a manual choice field. Option values are one identity
+     * set across languages, authored in the site's default language and re-aligned
+     * onto the other languages by ManualOptionsLanguageSync — so the allowed set is
+     * read from the DEFAULT language, never from the submitter-chosen locale: a
+     * diverged or legacy translation (not yet re-aligned) can neither smuggle
+     * values in nor reject legitimate default-language values. Without a
+     * default-language master (a field authored in another language only), the
+     * localized read stays the identity.
+     */
+    private static Set<String> collectManualChoices(JCRNodeWrapper node) throws RepositoryException {
+        String propName = resolveChoicePropertyName(node);
+        if (UNIFIED_OPTIONS_PROPERTY.equals(propName)) {
+            Set<String> masterChoices = collectDefaultLanguageChoices(node);
+            if (masterChoices != null) {
+                return masterChoices;
+            }
+        }
+
+        return collectChoices(node, node.getName(), propName);
+    }
+
+    private static Set<String> collectDefaultLanguageChoices(JCRNodeWrapper node) throws RepositoryException {
+        String defaultLanguage = node.getResolveSite() != null
+                ? node.getResolveSite().getDefaultLanguage()
+                : null;
+        if (defaultLanguage == null) {
+            return null;
+        }
+
+        javax.jcr.Node master =
+                org.jahia.modules.formidable.engine.options.ManualOptionEntries.findTranslation(node, defaultLanguage);
+        if (master == null) {
+            return null;
+        }
+
+        Set<String> choices = new HashSet<>();
+        for (String raw : org.jahia.modules.formidable.engine.options.ManualOptionEntries.readOptions(master)) {
+            addChoiceValue(choices, raw, node.getName());
+        }
+
+        return choices.isEmpty() ? null : choices;
+    }
+
     private static Set<String> collectChoices(JCRNodeWrapper node, String fieldName, String propName)
             throws RepositoryException {
         if (!node.hasProperty(propName)) return Set.of();
@@ -254,12 +298,17 @@ class FormFieldMetadataCollector {
     }
 
     private static void addChoiceValue(Set<String> choices, String jsonOption, String fieldName) {
-        try {
-            JSONObject obj = new JSONObject(jsonOption);
-            String val = obj.optString("value", "").trim();
-            if (!val.isEmpty()) choices.add(val);
-        } catch (Exception e) {
+        // One shared reading of the entry storage; the trim-and-drop-empties policy
+        // is this allowed-set's own (the language sync keeps entries verbatim).
+        String raw = org.jahia.modules.formidable.engine.options.ManualOptionEntries.value(jsonOption);
+        if (raw == null) {
             log.debug("[FormFieldMetadataCollector] Could not parse choice JSON for field '{}'", fieldName);
+            return;
+        }
+
+        String val = raw.trim();
+        if (!val.isEmpty()) {
+            choices.add(val);
         }
     }
 
@@ -311,7 +360,7 @@ class FormFieldMetadataCollector {
                     choicesUnresolvable = true;
                 }
             } else {
-                choices = collectChoices(node, node.getName(), resolveChoicePropertyName(node));
+                choices = collectManualChoices(node);
             }
         }
         Set<String> acceptedTypes = fileField ? collectAcceptTypes(node) : Set.of();

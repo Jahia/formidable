@@ -43,14 +43,34 @@ one single set across languages — only the **label** (and the default
 selection) is editorial content that translates. Since `fmdb:options` is an
 i18n property, two guards keep the languages coherent:
 
-- in the editor, the value input is **read-only outside the site's default
+- in the editor, an **existing value is read-only outside the site's default
   language** (the tooltip says why); labels and default selections stay
-  editable everywhere;
+  editable everywhere, and an empty value stays editable so a field authored
+  only in a non-default language remains authorable (its values are then the
+  identity, there being no master to align on);
 - on every save of the options, the server **re-aligns every other language on
   the default language's values, order and count** (`ManualOptionsLanguageSync`).
   A language keeps its own label and selected flag for a value it already
-  carries, and inherits the master entry otherwise. Content that diverged
-  before this guard existed is re-aligned the next time its field is saved.
+  carries (same-value entries pair positionally), and inherits the master entry
+  otherwise. Content that diverged before this guard existed is re-aligned the
+  next time its field is saved — never at startup: the legacy-options migration
+  completes before the sync listener registers.
+
+Two consequences worth knowing:
+
+- **add options in the default language**: a row added from another language is
+  removed by the re-alignment at save (the master's count is the identity);
+- the forged-value validation reads the allowed values **from the default
+  language**, so its verdict never depends on a translation that has not been
+  re-aligned yet.
+
+Why the storage stays i18n: one JSON entry carries the value together with its
+**translatable label**, so a non-i18n property could not hold the labels.
+Splitting values and labels into parallel properties (values shared, labels
+i18n, index-aligned) was weighed and rejected: the index alignment is exactly
+the fragility this guard removes, for a much larger migration and editor
+rework. The identity is enforced by the sync plus the default-language reads
+above instead.
 
 ## Declaring sources (administrator)
 

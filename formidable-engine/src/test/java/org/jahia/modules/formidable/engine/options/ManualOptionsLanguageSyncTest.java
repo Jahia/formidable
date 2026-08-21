@@ -59,6 +59,23 @@ class ManualOptionsLanguageSyncTest {
     }
 
     @Test
+    void sameValueEntriesPairPositionally() throws Exception {
+        // Two master rows sharing a value — the ordinary editing state of freshly
+        // added rows whose value is still empty behaves the same — must each keep
+        // their own translation, never collapse onto the first one.
+        Node master = translation("en", option("a", "Alpha 1"), option("a", "Alpha 2"), option("b", "Bee"));
+        String frA1 = option("a", "A-fr-1");
+        String frA2 = option("a", "A-fr-2");
+        Node fr = translation("fr", frA1, frA2);
+
+        JCRNodeWrapper field = fieldNode("en", master, fr);
+
+        assertTrue(ManualOptionsLanguageSync.sync(field));
+        verify(fr).setProperty(eq("fmdb:options"),
+                eq(new String[]{frA1, frA2, option("b", "Bee")}));
+    }
+
+    @Test
     void anEmptyMasterAlignsNothing() throws Exception {
         // An untouched default language must never overwrite what a translation
         // carries: without a master list there is no authority to align on.

@@ -30,7 +30,10 @@ import javax.jcr.query.Query;
  * change), so no version information survives it. Re-running is a no-op once no
  * legacy property remains.
  */
-@Component(immediate = true)
+// Registered as its own service so components whose activation must wait for the
+// migration (ManualOptionsLanguageSyncListener) can express that ordering as a
+// reference instead of relying on the components' header order.
+@Component(service = ChoiceOptionsContentMigration.class, immediate = true)
 public class ChoiceOptionsContentMigration {
 
     private static final Logger log = LoggerFactory.getLogger(ChoiceOptionsContentMigration.class);

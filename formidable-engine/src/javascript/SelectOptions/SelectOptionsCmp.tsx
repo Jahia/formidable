@@ -1,9 +1,7 @@
-import React, {useEffect, useState} from 'react';
+import React from 'react';
 import {useTranslation} from 'react-i18next';
-import {useApolloClient} from '@apollo/client';
-import {gql} from '@apollo/client';
 import {Input, Switch} from '@jahia/moonstone';
-import {extractCurrentNodePath, extractLanguage} from '../ConditionalLogic/ConditionalLogic.utils';
+import {extractEditorContext, extractLanguage} from '../ConditionalLogic/ConditionalLogic.utils';
 import type {SelectorProps} from '../ConditionalLogic/ConditionalLogic.types';
 
 interface SelectOption {
@@ -11,39 +9,6 @@ interface SelectOption {
     label: string;
     selected: boolean;
 }
-
-const SITE_DEFAULT_LANGUAGE = gql`
-    query siteDefaultLanguage($path: String!) {
-        jcr {
-            nodeByPath(path: $path) {
-                uuid
-                workspace
-                property(name: "j:defaultLanguage") {
-                    value
-                }
-            }
-        }
-    }
-`;
-
-// One lookup per site and session: every option row of every choice field asks
-// for the same answer.
-const defaultLanguageCache = new Map<string, Promise<string | null>>();
-
-const fetchSiteDefaultLanguage = (
-    client: ReturnType<typeof useApolloClient>,
-    sitePath: string
-): Promise<string | null> => {
-    let cached = defaultLanguageCache.get(sitePath);
-    if (!cached) {
-        cached = client.query({query: SITE_DEFAULT_LANGUAGE, variables: {path: sitePath}})
-            .then(result => (result.data?.jcr?.nodeByPath?.property?.value as string | undefined) ?? null)
-            .catch(() => null);
-        defaultLanguageCache.set(sitePath, cached);
-    }
-
-    return cached;
-};
 
 const parseValue = (value?: string): SelectOption => {
     try {
@@ -57,35 +22,19 @@ const parseValue = (value?: string): SelectOption => {
 export const SelectOptionsCmp = (props: SelectorProps) => {
     const {field, id, value, onChange} = props;
     const {t} = useTranslation('formidable-engine');
-    const client = useApolloClient();
     const option = parseValue(value);
 
     // The option VALUE is the identity shared by every language (submissions,
     // conditional logic, forged-value validation): it is edited in the site's
-    // default language only, and the server re-aligns the other languages on it
-    // at save. Here the value input locks outside that language so contributors
-    // are steered before the sync has to correct anything.
-    const [defaultLanguage, setDefaultLanguage] = useState<string | null>(null);
+    // default language, and the server re-aligns the other languages on it at
+    // save. Outside that language an EXISTING value locks — it came from the
+    // master and must not drift — while an empty one stays editable, so a field
+    // authored only in a non-default language (no master to align on) remains
+    // authorable. The default language comes synchronously from the editor
+    // context (Content Editor resolves the site info before selectors mount).
+    const defaultLanguage = extractEditorContext(props)?.siteInfo?.defaultLanguage;
     const language = extractLanguage(props);
-    useEffect(() => {
-        const nodePath = extractCurrentNodePath(props);
-        const siteMatch = nodePath ? /^\/sites\/[^/]+/.exec(nodePath) : null;
-        if (!siteMatch) {
-            return;
-        }
-
-        let cancelled = false;
-        fetchSiteDefaultLanguage(client, siteMatch[0]).then(lang => {
-            if (!cancelled) {
-                setDefaultLanguage(lang);
-            }
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, []);
-
-    const valueShared = Boolean(defaultLanguage) && language !== defaultLanguage;
+    const valueShared = Boolean(defaultLanguage) && language !== defaultLanguage && option.value !== '';
 
     const handleChange = (patch: Partial<SelectOption>) => {
         const updated = {...option, ...patch};
