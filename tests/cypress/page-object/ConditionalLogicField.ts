@@ -178,21 +178,21 @@ export class ConditionalLogicField extends BaseComponent {
 		return this;
 	}
 
-	// The submission-day checkboxes rendered under the date value inputs, one per input
-	// ('between' shows two). They are the only checkboxes a rule row ever contains.
-	ruleShouldHaveTodayCheckboxCount(ruleIndex: number, count: number): this {
-		this.getRule(ruleIndex).get().find('input[type="checkbox"]').should('have.length', count);
+	// The submission-day toggles glued to the date value inputs, one per input
+	// ('between' shows two): icon buttons whose pressed state carries the sentinel.
+	ruleShouldHaveTodayToggleCount(ruleIndex: number, count: number): this {
+		this.getRule(ruleIndex).get().find('[data-sel-role="today-toggle"]').should('have.length', count);
 		return this;
 	}
 
-	toggleTodayValue(ruleIndex: number, checkboxIndex = 0): this {
-		this.getRule(ruleIndex).get().find('input[type="checkbox"]').eq(checkboxIndex).click({force: true});
+	toggleTodayValue(ruleIndex: number, toggleIndex = 0): this {
+		this.getRule(ruleIndex).get().find('[data-sel-role="today-toggle"]').eq(toggleIndex).click({force: true});
 		return this;
 	}
 
-	todayValueShouldBeChecked(ruleIndex: number, checkboxIndex: number, checked: boolean): this {
-		this.getRule(ruleIndex).get().find('input[type="checkbox"]').eq(checkboxIndex)
-			.should(checked ? 'be.checked' : 'not.be.checked');
+	todayValueShouldBePressed(ruleIndex: number, toggleIndex: number, pressed: boolean): this {
+		this.getRule(ruleIndex).get().find('[data-sel-role="today-toggle"]').eq(toggleIndex)
+			.should('have.attr', 'aria-pressed', String(pressed));
 		return this;
 	}
 

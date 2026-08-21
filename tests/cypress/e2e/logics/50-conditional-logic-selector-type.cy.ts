@@ -36,15 +36,15 @@ describe('Form logic - 50 Conditional logic selector type', () => {
 			logicField.selectMenuItem('is after');
 			logicField.ruleShouldHaveDateInputCount(0, 1);
 
-			// Each date value input carries a submission-day toggle; checking it
+			// Each date value input carries a submission-day toggle; pressing it
 			// stores the sentinel, so the fixed-date input becomes irrelevant.
-			logicField.ruleShouldHaveTodayCheckboxCount(0, 1);
+			logicField.ruleShouldHaveTodayToggleCount(0, 1);
 			logicField.toggleTodayValue(0);
 			logicField.dateInputShouldBeDisabled(0, 0, true);
 
 			logicField.selectOperator(0, 'is between');
 			logicField.ruleShouldHaveDateInputCount(0, 2);
-			logicField.ruleShouldHaveTodayCheckboxCount(0, 2);
+			logicField.ruleShouldHaveTodayToggleCount(0, 2);
 
 			editor.cancelAndDiscard();
 		});

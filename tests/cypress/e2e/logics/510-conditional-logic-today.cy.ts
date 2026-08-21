@@ -49,7 +49,7 @@ describe('Form logic - 510 Rules relative to the submission day', () => {
 		);
 	};
 
-	it('stores the sentinel through the editor and reopens it as the checked toggle', () => {
+	it('stores the sentinel through the editor and reopens it as the pressed toggle', () => {
 		createConditionalLogicForm(`${Date.now()}-today`).then(({targetPath}) => {
 			const editor = ConditionalLogicEditor.visit(targetPath);
 			const logicField = editor.logicField;
@@ -79,10 +79,10 @@ describe('Form logic - 510 Rules relative to the submission day', () => {
 
 			const reopenedEditor = ConditionalLogicEditor.visit(targetPath);
 			reopenedEditor.logicField.waitUntilReady();
-			reopenedEditor.logicField.todayValueShouldBeChecked(0, 0, true);
+			reopenedEditor.logicField.todayValueShouldBePressed(0, 0, true);
 			reopenedEditor.logicField.dateInputShouldBeDisabled(0, 0, true);
 
-			// Unchecking restores an editable fixed-date input, so the sentinel is
+			// Releasing the toggle restores an editable fixed-date input, so the sentinel is
 			// a reversible choice rather than a one-way rewrite of the rule.
 			reopenedEditor.logicField.toggleTodayValue(0);
 			reopenedEditor.logicField.dateInputShouldBeDisabled(0, 0, false);

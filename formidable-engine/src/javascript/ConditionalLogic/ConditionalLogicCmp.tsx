@@ -1,5 +1,5 @@
 import {useApolloClient} from '@apollo/client';
-import {Checkbox, Dropdown, Input, Loader, Typography} from '@jahia/moonstone';
+import {Dropdown, Input, Loader, Typography} from '@jahia/moonstone';
 import React, {useEffect, useMemo, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {
@@ -70,20 +70,28 @@ const ScalarValueInput = ({
     }
 
     return (
-        // The toggle sits BESIDE the calendar (its own little column: checkbox on
-        // top, short caption below), so the whole rule keeps one visual line; the
-        // full wording lives in the tooltip and the checkbox aria-label.
-        <div className="flexRow_nowrap alignCenter" style={{gap: '0.25rem'}}>
+        // The toggle is an icon block glued to the calendar's left edge (input-group
+        // style), so the whole rule keeps one visual line. No visible text: the full
+        // wording lives in the tooltip and the aria-label, the pressed state in the
+        // accent background. The icon is a hand-drawn calendar with today's dot.
+        <div className="flexRow_nowrap fmdbTodayGroup">
+            <button
+                type="button"
+                data-sel-role="today-toggle"
+                className={isToday ? 'fmdbTodayToggle fmdbTodayToggle_on' : 'fmdbTodayToggle'}
+                title={t('conditionalLogic.valueToday')}
+                aria-label={t('conditionalLogic.valueToday')}
+                aria-pressed={isToday}
+                disabled={readOnly}
+                onClick={() => onValueChange(isToday ? '' : TODAY_SENTINEL)}
+            >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="18" rx="2"/>
+                    <path d="M8 2v4M16 2v4M3 10h18"/>
+                    <circle cx="12" cy="16" r="1.6" fill="currentColor" stroke="none"/>
+                </svg>
+            </button>
             <div className="flexFluid">{input}</div>
-            <label className="fmdbTodayToggle" title={t('conditionalLogic.valueToday')}>
-                <Checkbox
-                    checked={isToday}
-                    isDisabled={readOnly}
-                    aria-label={t('conditionalLogic.valueToday')}
-                    onChange={(_event, _value, checked) => onValueChange(checked ? TODAY_SENTINEL : '')}
-                />
-                <Typography variant="caption">{t('conditionalLogic.valueTodayShort')}</Typography>
-            </label>
         </div>
     );
 };
