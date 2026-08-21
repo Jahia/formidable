@@ -61,6 +61,10 @@ const ScalarValueInput = ({
     // literal string "today" must stay an ordinary editable value.
     const isToday = inputType === 'date' && value === TODAY_SENTINEL;
 
+    // A free-text value can outgrow its cell: hovering reveals it in full. Dates
+    // stay short, and their between inputs carry the start/end title instead.
+    const hoverTitle = title ?? (inputType !== 'date' && value ? value : undefined);
+
     const input = (
         <Input
             id={inputId}
@@ -68,7 +72,7 @@ const ScalarValueInput = ({
             isReadOnly={readOnly}
             isDisabled={isToday}
             placeholder={placeholder}
-            title={title}
+            title={hoverTitle}
             aria-label={title}
             min={min}
             max={max}
@@ -681,6 +685,8 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     id={`${id}-provider-ref`}
                     isReadOnly={field.readOnly}
                     placeholder={t(provider.configPlaceholderKey)}
+                    // A reference easily outgrows its cell: hovering reveals it in full.
+                    title={(rule[provider.configKey] ?? '') || undefined}
                     aria-label={t(provider.configLabelKey)}
                     aria-invalid={showProviderRefError ? true : undefined}
                     aria-describedby={showProviderRefError ? `${id}-provider-ref-error` : undefined}
@@ -717,6 +723,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                         id={`${id}-provider-value`}
                         isReadOnly={field.readOnly}
                         placeholder={t('conditionalLogic.value')}
+                        title={(rule.value ?? '') || undefined}
                         value={rule.value ?? ''}
                         size="big"
                         onChange={event => updateProviderRule({value: event.target.value})}
