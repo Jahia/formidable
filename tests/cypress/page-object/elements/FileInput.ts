@@ -36,7 +36,16 @@ export class FileInput extends FormElement {
 	 * @param filePath - Path to the file relative to fixtures folder
 	 */
 	attachFile(filePath: string | string[]): this {
-		this.getInput().selectFile(filePath);
+		// Attaching before the island hydrates fires a change event nobody hears,
+		// and the chip list never renders (the recurring .fmdb-file-item timeout
+		// on CI). Route through the counting retry so every call site waits for
+		// the chips its attachment must produce, re-attaching if the first change
+		// event fell before hydration.
+		const attached = Array.isArray(filePath) ? filePath.length : 1;
+		this.getFileContainer().then($container => {
+			const existing = $container.find('.fmdb-file-item').length;
+			this.attachFileAndConfirmCount(filePath, existing + attached, 1, 3);
+		});
 		return this;
 	}
 
