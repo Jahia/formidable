@@ -48,7 +48,9 @@ const ScalarValueInput = ({
     onValueChange: (value: string) => void;
 }) => {
     const {t} = useTranslation('formidable-engine');
-    const isToday = value === TODAY_SENTINEL;
+    // The sentinel only exists for date inputs: a text rule comparing against the
+    // literal string "today" must stay an ordinary editable value.
+    const isToday = inputType === 'date' && value === TODAY_SENTINEL;
 
     const input = (
         <Input

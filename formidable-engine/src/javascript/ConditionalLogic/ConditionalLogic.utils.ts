@@ -142,12 +142,20 @@ export const normalizeStoredRule = (
         return base;
     }
 
+    // The today sentinel only means "submission day" for the date kind: like the
+    // operator sanitation above, re-pointing the rule to a source of another kind
+    // must not carry it over as a literal both evaluators would silently fail on.
+    const carriedValue = (value: string): string =>
+        descriptor.valueKind !== 'date' && rule.valueKind !== descriptor.valueKind && value === TODAY_SENTINEL
+            ? ''
+            : value;
+
     if (isScalarValueKind(descriptor.valueKind)) {
         if (operator === 'between') {
-            return {...base, values: (rule.values ?? []).slice(0, 2)};
+            return {...base, values: (rule.values ?? []).slice(0, 2).map(carriedValue)};
         }
 
-        return {...base, value: rule.value ?? ''};
+        return {...base, value: carriedValue(rule.value ?? '')};
     }
 
     return {...base, values: rule.values ?? []};
