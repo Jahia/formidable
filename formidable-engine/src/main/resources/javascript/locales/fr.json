@@ -2,7 +2,8 @@
     "selectOptions": {
         "value": "Valeur envoyée au serveur",
         "label": "Libellé affiché à l'utilisateur",
-        "selected": "Si activé, l'option est sélectionnée par défaut"
+        "selected": "Si activé, l'option est sélectionnée par défaut",
+        "valueShared": "Les valeurs sont communes à toutes les langues et s'éditent dans la langue par défaut du site ({{lang}}) ; seul le libellé se traduit"
     },
     "fmdbmix_optionsSource": {
         "fmdb_optionsMode": {

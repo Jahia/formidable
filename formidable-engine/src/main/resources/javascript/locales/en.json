@@ -2,7 +2,8 @@
     "selectOptions": {
         "value": "Value sent to server",
         "label": "Label displayed to user",
-        "selected": "If enabled, the option is selected by default"
+        "selected": "If enabled, the option is selected by default",
+        "valueShared": "Values are shared by all languages and edited in the site's default language ({{lang}}); only the label translates"
     },
     "fmdbmix_optionsSource": {
         "fmdb_optionsMode": {

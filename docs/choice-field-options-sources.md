@@ -35,6 +35,23 @@ materializes in the JCR.
 The Content Editor switches the two `jmix:dynamicFieldset` mixins through the
 `addMixin` wiring declared in the fieldset JSON overrides of formidable-elements.
 
+### Manual options across languages
+
+An option's **value** is its identity: submissions store it, conditional logic
+rules match it, and the forged-value validation checks it. It must therefore be
+one single set across languages — only the **label** (and the default
+selection) is editorial content that translates. Since `fmdb:options` is an
+i18n property, two guards keep the languages coherent:
+
+- in the editor, the value input is **read-only outside the site's default
+  language** (the tooltip says why); labels and default selections stay
+  editable everywhere;
+- on every save of the options, the server **re-aligns every other language on
+  the default language's values, order and count** (`ManualOptionsLanguageSync`).
+  A language keeps its own label and selected flag for a value it already
+  carries, and inherits the master entry otherwise. Content that diverged
+  before this guard existed is re-aligned the next time its field is saved.
+
 ## Declaring sources (administrator)
 
 Sources are declared in `org.jahia.modules.formidable.cfg`, one per line:
