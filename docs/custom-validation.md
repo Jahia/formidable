@@ -77,6 +77,39 @@ Applies to: date, datetime-local, number — elements with range and step constr
 | `msgStepMismatch` | `stepMismatch` | Value does not match `step` increment |
 | `msgBadInput` | `badInput` | Unparseable input (e.g. letters in a date field) |
 
+### Date bounds: none, a fixed date, or the submission day
+
+Each bound of a date or datetime-local field is a **mode**: `fmdb:minBoundMode` /
+`fmdb:maxBoundMode` (from the `fmdbmix:dateBounds` / `fmdbmix:datetimeBounds`
+contracts) hold `none`, `date` or `today`. In the editor the mode is a dropdown;
+choosing the fixed date reveals its calendar (a `jmix:dynamicFieldset` mixin —
+`fmdbmix:fixedMinDate` and friends — carries the `min`/`max` property), choosing
+the submission day shows nothing more. Modes are exclusive by construction, so a
+bound is never an ambiguous combination of a fixed date and a relative one.
+
+The `today` mode bounds the value by the day the visitor submits the form (a
+birth date must not be in the future, an appointment must not be in the past).
+Because the fragment cache would freeze any server-rendered date, the rendered
+input resolves that bound at hydration, in the visitor's own timezone; the
+`msgRangeUnderflow`/`msgRangeOverflow` messages apply to it exactly as to a fixed
+bound. Server-side, the submission pipeline re-resolves the bound widened to the
+extreme calendar day any inhabited timezone can currently be (UTC-12 for a
+minimum, UTC+14 for a maximum), so a visitor is never rejected for a value their
+own picker allowed, whatever the server's or the visitor's zone. Fixed bounds
+stay exact.
+
+Theme note: a `today`-bounded input renders inside an island wrapper
+(`display: contents`), one extra DOM level — the same structure as the masked
+text and range inputs. Layout is unaffected, but a theme selector using a child
+combinator (`.fmdb-form-group > input`) skips exactly those inputs: use
+descendant selectors (`.fmdb-form-group input`) instead.
+
+Fields stored before the bound modes existed carry fixed `min`/`max` values and
+no mode: a startup migration stamps them with the `date` mode (see the upgrade
+notes). Until it runs, the values are still **enforced at validation time** (the
+pipeline reads them on the underlying node), but the rendered inputs and the
+editor do not show them — the migration is what brings them back everywhere.
+
 ### Mixin assignment
 
 Each element type extends the appropriate mixin in its `definition.cnd`:

@@ -63,8 +63,8 @@ Examples (non-exhaustive — the CND files are the source of truth):
 - `fmdbmix:textField`
 - `fmdbmix:fileField`
 - `fmdbmix:emailField`
-- `fmdbmix:dateField`
-- `fmdbmix:datetimeLocalField`
+- `fmdbmix:dateField` and its bound modes: `fmdbmix:dateBounds`, `fmdbmix:fixedMinDate`, `fmdbmix:fixedMaxDate`
+- `fmdbmix:datetimeLocalField` and its bound modes: `fmdbmix:datetimeBounds`, `fmdbmix:fixedMinDatetime`, `fmdbmix:fixedMaxDatetime`
 - `fmdbmix:colorField`
 - `fmdbmix:numberField`
 - `fmdbmix:booleanField`

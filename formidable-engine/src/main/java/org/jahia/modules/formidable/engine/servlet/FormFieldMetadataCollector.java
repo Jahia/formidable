@@ -368,11 +368,11 @@ class FormFieldMetadataCollector {
         Double maxNumber  = null;
 
         if (dateField) {
-            minDate = JcrProps.dateAsIso(node, "min", false, null);
-            maxDate = JcrProps.dateAsIso(node, "max", false, null);
+            minDate = resolveDateBound(node, true, false);
+            maxDate = resolveDateBound(node, false, false);
         } else if (datetimeLocalField) {
-            minDate = JcrProps.dateAsIso(node, "min", true, null);
-            maxDate = JcrProps.dateAsIso(node, "max", true, null);
+            minDate = resolveDateBound(node, true, true);
+            maxDate = resolveDateBound(node, false, true);
         } else if (numberField) {
             // Convention of the number field types (e.g. fmdbext:rating/scale): the
             // rendered range is declared through minValue/maxValue LONG properties.
@@ -387,5 +387,43 @@ class FormFieldMetadataCollector {
         }
         return new FormDataParser.FieldConstraints(
                 required, minLength, maxLength, pattern, minDate, maxDate, minNumber, maxNumber);
+    }
+
+    /**
+     * Resolves one bound of a date-typed field from its bound mode (fmdbmix:dateBounds /
+     * fmdbmix:datetimeBounds): a fixed date, the submission day, or nothing — the modes
+     * are exclusive, so there is no bound-combination rule. The relative mode is
+     * resolved once per submission, widened to the extreme calendar day any inhabited
+     * timezone can currently be (UTC-12 for a minimum, UTC+14 for a maximum), so a
+     * visitor is never rejected for a value their own picker allowed whatever the
+     * server's or the visitor's zone. Fixed bounds stay exact.
+     *
+     * A node stored before bound modes existed carries no mode but may carry a fixed
+     * value — which by then has no applicable property definition anymore, so it is
+     * read on the underlying node: validation keeps enforcing it until the startup
+     * migration re-homes it under the fixed-bound mixin.
+     */
+    private static String resolveDateBound(JCRNodeWrapper node, boolean minBound, boolean withTime) {
+        String mode = JcrProps.string(node, minBound ? "fmdb:minBoundMode" : "fmdb:maxBoundMode", null);
+        String fixedProperty = minBound ? "min" : "max";
+        if ("today".equals(mode)) {
+            java.time.LocalDate day =
+                    java.time.LocalDate.now(java.time.ZoneOffset.ofHours(minBound ? -12 : 14));
+            // The validator accepts seconds and millis, so the max must cover the whole
+            // last minute of the day: T23:59 alone would reject a T23:59:30 value the
+            // "until the end of the submission day" contract allows.
+            return withTime ? day + (minBound ? "T00:00" : "T23:59:59.999") : day.toString();
+        }
+
+        if ("date".equals(mode)) {
+            return JcrProps.dateAsIso(node, fixedProperty, withTime, null);
+        }
+
+        if (mode == null) {
+            String fixed = JcrProps.dateAsIso(node, fixedProperty, withTime, null);
+            return fixed != null ? fixed : JcrProps.rawDateAsIso(node, fixedProperty, withTime, null);
+        }
+
+        return null;
     }
 }

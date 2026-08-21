@@ -1,11 +1,15 @@
-import {jahiaComponent} from "@jahia/javascript-modules-library";
+import {Island, jahiaComponent} from "@jahia/javascript-modules-library";
 import {type RangeValidationMessageProps, validationDataAttributes} from "formidable-shared";
 import {HelpText, helpTextId} from "formidable-shared";
+import TodayBoundedInput from "../Date/TodayBoundedInput.client";
+import {resolveBound} from "../Date/bounds";
 
 interface InputDatetimeLocalProps extends RangeValidationMessageProps {
 	"jcr:title"?: string;
 	helpText?: string;
 	defaultValue?: string;
+	"fmdb:minBoundMode"?: string;
+	"fmdb:maxBoundMode"?: string;
 	min?: string;
 	max?: string;
 	step?: number;
@@ -40,7 +44,18 @@ jahiaComponent(
 		name: "default"
 	},
 	(
-		{"jcr:title": label, helpText, defaultValue, min, max, step, required, ...validationMsgs}: InputDatetimeLocalProps,
+		{
+			"jcr:title": label,
+			helpText,
+			defaultValue,
+			"fmdb:minBoundMode": minBoundMode,
+			"fmdb:maxBoundMode": maxBoundMode,
+			min,
+			max,
+			step,
+			required,
+			...validationMsgs
+		}: InputDatetimeLocalProps,
 		{currentNode}
 	) => {
 
@@ -49,6 +64,23 @@ jahiaComponent(
 		const inputName = currentNode.getName();
 
 		const helpId = helpText ? helpTextId(currentNode.getIdentifier()) : undefined;
+
+		const minBound = resolveBound(minBoundMode, formatDatetimeForInput(min));
+		const maxBound = resolveBound(maxBoundMode, formatDatetimeForInput(max));
+
+		// Shared between the static input and the today island so both render identical markup
+		const inputAttributes = {
+			id: inputId,
+			name: inputName,
+			"aria-describedby": helpId,
+			className: "fmdb-form-control",
+			defaultValue: formatDatetimeForInput(defaultValue),
+			min: minBound.fixed,
+			max: maxBound.fixed,
+			step,
+			required,
+			...validationDataAttributes(validationMsgs)
+		};
 
 		return (
 			<div className="fmdb-form-group">
@@ -61,19 +93,22 @@ jahiaComponent(
 
 				<HelpText id={helpId} text={helpText}/>
 
-				<input
-					type="datetime-local"
-					id={inputId}
-					name={inputName}
-					aria-describedby={helpId}
-					className="fmdb-form-control"
-					defaultValue={formatDatetimeForInput(defaultValue)}
-					min={formatDatetimeForInput(min)}
-					max={formatDatetimeForInput(max)}
-					step={step}
-					required={required}
-					{...validationDataAttributes(validationMsgs)}
-				/>
+				{minBound.today || maxBound.today ? (
+					// A bound relative to the submission day cannot be a server-rendered
+					// attribute (the fragment cache would freeze it): the input becomes
+					// an island resolving it at hydration, in the visitor's timezone.
+					<Island
+						component={TodayBoundedInput}
+						props={{
+							type: "datetime-local",
+							minToday: minBound.today,
+							maxToday: maxBound.today,
+							inputAttributes
+						}}
+					/>
+				) : (
+					<input type="datetime-local" {...inputAttributes}/>
+				)}
 			</div>
 		);
 	}

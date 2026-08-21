@@ -81,6 +81,37 @@ orderable
  - fmdb:optionsRootNode (weakreference, picker[type='editorial']) mandatory
  - fmdb:optionsNodeType (string, choicelist[formidableContentTypes,dependentProperties='fmdb:optionsRootNode']) mandatory indexed=no
 
+// Date-bound contract for date and datetime fields: each bound is a mode switch
+// (no bound, a fixed date, or the submission day), and the fixed mode's calendar
+// lives in a jmix:dynamicFieldset mixin the Content Editor activates through the
+// addMixin wiring declared in the fieldset JSON overrides (formidable-elements).
+// Modes are exclusive by construction: a bound is either fixed or relative to the
+// submission day, never an ambiguous combination of both. Two flavors only because
+// the calendar widget differs (date-only picker vs date and time).
+[fmdbmix:dateBounds] mixin
+ - fmdb:minBoundMode (string, choicelist) = 'none' indexed=no
+ - fmdb:maxBoundMode (string, choicelist) = 'none' indexed=no
+
+[fmdbmix:fixedMinDate] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:dateBounds
+ - min (date, DatePicker)
+
+[fmdbmix:fixedMaxDate] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:dateBounds
+ - max (date, DatePicker)
+
+[fmdbmix:datetimeBounds] mixin
+ - fmdb:minBoundMode (string, choicelist) = 'none' indexed=no
+ - fmdb:maxBoundMode (string, choicelist) = 'none' indexed=no
+
+[fmdbmix:fixedMinDatetime] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:datetimeBounds
+ - min (date)
+
+[fmdbmix:fixedMaxDatetime] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:datetimeBounds
+ - max (date)
+
 [fmdbmix:choiceField] > fmdbmix:optionsSource mixin
 // Semantic value-kind mixins: a field type carrying one becomes eligible as a
 // conditional-logic source with the operators of that kind (number: comparisons,

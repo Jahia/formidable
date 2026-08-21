@@ -1,0 +1,160 @@
+package org.jahia.modules.formidable.engine.migration;
+
+import org.jahia.services.content.JCRNodeIteratorWrapper;
+import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.services.content.JCRSessionWrapper;
+import org.jahia.services.content.JCRTemplate;
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.jcr.Node;
+import javax.jcr.RepositoryException;
+import javax.jcr.query.Query;
+import java.util.Calendar;
+
+/**
+ * One-shot content migration for date and datetime fields: nodes stored before the
+ * bound modes existed carry fixed 'min'/'max' values but no fmdb:minBoundMode /
+ * fmdb:maxBoundMode. Each such bound is stamped with mode 'date' plus the matching
+ * fixed-bound dynamic-fieldset mixin, and its value is re-written under the mixin's
+ * definition, so the editor reopens it as the fixed-date choice with its calendar.
+ *
+ * Legacy values have NO applicable property definition anymore (their definition
+ * moved from the field types into the fixed-bound mixins), which hides them from
+ * the JCRNodeWrapper API: they are only reachable on the underlying Jackrabbit
+ * node, hence the getRealNode() reads. For the same reason the queries target the
+ * CONCRETE legacy types rather than the new bounds contract mixins — on the
+ * documented upgrade path (engine first, then elements) the contract is not a
+ * supertype of anything yet when this runs, so both the contract mixin and the
+ * fixed-bound mixin are stamped at node level, which is registration-order proof.
+ *
+ * Runs at module activation on BOTH workspaces (default and live) so published
+ * forms keep rendering without a republish. Keyed on CONTENT state (a raw fixed
+ * value is present and no mode is), NOT on the previously installed module
+ * version. Re-running is a no-op once every bound carries a mode.
+ */
+@Component(immediate = true)
+public class DateBoundsContentMigration {
+
+    private static final Logger log = LoggerFactory.getLogger(DateBoundsContentMigration.class);
+
+    private static final String MODE_FIXED_DATE = "date";
+    private static final String MIN_MODE_PROPERTY = "fmdb:minBoundMode";
+    private static final String MAX_MODE_PROPERTY = "fmdb:maxBoundMode";
+
+    /** One legacy field type, with its bounds-contract mixin and fixed-bound fieldset mixins. */
+    record BoundsContract(String legacyNodeType, String contractMixin, String fixedMinMixin, String fixedMaxMixin) {
+    }
+
+    private static final BoundsContract[] CONTRACTS = {
+            new BoundsContract("fmdb:inputDate", "fmdbmix:dateBounds",
+                    "fmdbmix:fixedMinDate", "fmdbmix:fixedMaxDate"),
+            new BoundsContract("fmdb:inputDatetimeLocal", "fmdbmix:datetimeBounds",
+                    "fmdbmix:fixedMinDatetime", "fmdbmix:fixedMaxDatetime")
+    };
+
+    @Activate
+    public void activate() {
+        for (String workspace : new String[]{"default", "live"}) {
+            try {
+                JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, workspace, null, session -> {
+                    // One session carries both contracts; each keeps its own error
+                    // isolation so a failing type never blocks the other.
+                    for (BoundsContract contract : CONTRACTS) {
+                        try {
+                            migrateWorkspace(session, workspace, contract);
+                        } catch (RepositoryException e) {
+                            log.error("[DateBoundsContentMigration] Migration of {} failed in workspace '{}': {}",
+                                    contract.legacyNodeType(), workspace, e.getMessage(), e);
+                        }
+                    }
+                    return null;
+                });
+            } catch (RepositoryException e) {
+                log.error("[DateBoundsContentMigration] Migration failed in workspace '{}': {}",
+                        workspace, e.getMessage(), e);
+            }
+        }
+    }
+
+    private void migrateWorkspace(JCRSessionWrapper session, String workspace, BoundsContract contract)
+            throws RepositoryException {
+        // The field types belong to the elements module: on an instance where it never
+        // started (engine-only, or a virgin install) there is nothing to migrate, and
+        // querying an unregistered type would throw.
+        if (!session.getWorkspace().getNodeTypeManager().hasNodeType(contract.legacyNodeType())) {
+            log.debug("[DateBoundsContentMigration] Type {} is not registered, nothing to migrate in workspace '{}'",
+                    contract.legacyNodeType(), workspace);
+            return;
+        }
+
+        // Scoped to editorial content: module-bundled nodes under /modules belong to
+        // their module and must not be rewritten from here.
+        Query query = session.getWorkspace().getQueryManager()
+                .createQuery("SELECT * FROM [" + contract.legacyNodeType() + "]"
+                        + " WHERE ISDESCENDANTNODE('/sites')", Query.JCR_SQL2);
+        JCRNodeIteratorWrapper nodes = (JCRNodeIteratorWrapper) query.execute().getNodes();
+
+        int migrated = 0;
+        while (nodes.hasNext()) {
+            JCRNodeWrapper node = (JCRNodeWrapper) nodes.nextNode();
+            try {
+                if (migrateNode(session, node, contract)) {
+                    // One save per migrated node: date fields are rare, and a failure
+                    // must never discard the nodes already stamped before it.
+                    session.save();
+                    migrated++;
+                }
+            } catch (RepositoryException e) {
+                log.error("[DateBoundsContentMigration] Could not migrate node '{}' in workspace '{}': {}",
+                        node.getPath(), workspace, e.getMessage(), e);
+                // Drop the half-applied changes, or every later save would re-throw them.
+                session.refresh(false);
+            }
+        }
+
+        if (migrated > 0) {
+            log.info("[DateBoundsContentMigration] Stamped bound modes on {} field(s) of {} in workspace '{}'",
+                    migrated, contract.legacyNodeType(), workspace);
+        } else {
+            log.debug("[DateBoundsContentMigration] No legacy bound found for {} in workspace '{}'",
+                    contract.legacyNodeType(), workspace);
+        }
+    }
+
+    /**
+     * @return true when the node carried at least one legacy fixed bound and was stamped
+     */
+    boolean migrateNode(JCRSessionWrapper session, JCRNodeWrapper node, BoundsContract contract)
+            throws RepositoryException {
+        // Definition-less legacy values are invisible to the wrapper API: both the
+        // detection and the read go through the underlying Jackrabbit node.
+        Node realNode = node.getRealNode();
+        boolean legacyMin = !node.hasProperty(MIN_MODE_PROPERTY) && realNode.hasProperty("min");
+        boolean legacyMax = !node.hasProperty(MAX_MODE_PROPERTY) && realNode.hasProperty("max");
+        if (!legacyMin && !legacyMax) {
+            return false;
+        }
+
+        session.checkout(node);
+        // Stamped at node level: on the engine-first upgrade path the field types do
+        // not inherit the contract yet, so the mode property needs the mixin here.
+        node.addMixin(contract.contractMixin());
+        if (legacyMin) {
+            Calendar min = realNode.getProperty("min").getDate();
+            node.addMixin(contract.fixedMinMixin());
+            node.setProperty("min", min);
+            node.setProperty(MIN_MODE_PROPERTY, MODE_FIXED_DATE);
+        }
+        if (legacyMax) {
+            Calendar max = realNode.getProperty("max").getDate();
+            node.addMixin(contract.fixedMaxMixin());
+            node.setProperty("max", max);
+            node.setProperty(MAX_MODE_PROPERTY, MODE_FIXED_DATE);
+        }
+        log.info("[DateBoundsContentMigration] Stamped '{}'", node.getPath());
+        return true;
+    }
+}

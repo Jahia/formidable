@@ -128,17 +128,30 @@ export interface SelectData extends BaseInputData {
  */
 export type InputColorData = InputWithDefaultValue;
 
+/** One bound of a date/datetime input: nothing, a fixed value, or the submission day. */
+export type DateBoundMode = 'none' | 'date' | 'today';
+
+/**
+ * Bound modes of fmdb:inputDate / fmdb:inputDatetimeLocal (fmdbmix:dateBounds /
+ * fmdbmix:datetimeBounds contracts). The builders imply 'date' when a fixed
+ * min/max value is given, so callers only set a mode explicitly for 'today'.
+ */
+export interface InputWithBoundModes {
+	minBoundMode?: DateBoundMode;
+	maxBoundMode?: DateBoundMode;
+}
+
 /**
  * Date input data based on fmdb:inputDate CND
- * Inherits: required, defaultValue, min, max, step
+ * Inherits: required, defaultValue, min, max, step + the bound modes
  */
-export type InputDateData = InputWithRange;
+export type InputDateData = InputWithRange & InputWithBoundModes;
 
 /**
  * Datetime-local input data based on fmdb:inputDatetimeLocal CND
- * Inherits: required, defaultValue, min, max, step
+ * Inherits: required, defaultValue, min, max, step + the bound modes
  */
-export type InputDatetimeLocalData = InputWithRange;
+export type InputDatetimeLocalData = InputWithRange & InputWithBoundModes;
 
 /**
  * Email input data based on fmdb:inputEmail CND
