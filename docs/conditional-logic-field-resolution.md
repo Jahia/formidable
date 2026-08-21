@@ -134,6 +134,15 @@ every day the window allows (two or three), and a verdict that flips inside the 
 degrades to the fail-safe (hidden, required skipped, nothing acted upon) instead of
 ever rejecting a value the visitor's own picker legitimately allowed.
 
+A `between` rule mixing the submission day with a fixed date can be **emptied by time
+alone**: `[today → fixed]` once the fixed date is over, `[fixed → today]` until it is
+reached. Such an interval matches nothing by construction, so both evaluators **ignore
+the rule** (it counts as satisfied) instead of hiding its field forever; near the flip,
+the ambiguity window makes the verdict a fail-safe like any day-dependent one. The rule
+editor steers away from authoring these (each calendar is bounded by the other side,
+equality included since both bounds are) and warns when a stored rule currently matches
+no date.
+
 Deployment note: the sentinel travels in the ordinary rule value, so a runtime that
 predates it compares the string `today` literally (a `before` rule would then always
 hold). Both modules ship in the same release — upgrade them together before authoring

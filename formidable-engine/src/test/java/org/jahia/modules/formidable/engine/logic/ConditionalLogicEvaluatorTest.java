@@ -816,6 +816,37 @@ class ConditionalLogicEvaluatorTest {
     }
 
     @Test
+    void betweenRuleEmptiedByTheSubmissionDayIsIgnored() {
+        // A 'between' mixing the sentinel with a fixed date can be emptied by time
+        // alone: [today → past date] once the date is over, [future date → today]
+        // until the date is reached. Such a rule matches nothing by construction, so
+        // it is ignored (satisfied) instead of hiding its field forever — on every
+        // window day here, hence a plain VISIBLE whatever the submitted value.
+        Map<String, List<ConditionalLogicRule>> expired = Map.of("target",
+                List.of(rule("start", "date", "between", null, List.of("today", "2026-06-01"))));
+        assertEquals(ConditionalLogicEvaluator.Visibility.VISIBLE,
+                evaluatorWithToday(expired, Map.of("start", List.of("2026-06-05")), null).visibility("target"));
+
+        Map<String, List<ConditionalLogicRule>> dormant = Map.of("target",
+                List.of(rule("start", "date", "between", null, List.of("2026-06-20", "today"))));
+        assertEquals(ConditionalLogicEvaluator.Visibility.VISIBLE,
+                evaluatorWithToday(dormant, Map.of("start", List.of("2026-06-25")), null).visibility("target"));
+    }
+
+    @Test
+    void betweenRuleFlippingToEmptyInsideTheWindowFailsSafe() {
+        // The fixed date sits inside the ambiguity window (2026-06-09 → 2026-06-11):
+        // for the earlier candidate days the interval still exists and the value
+        // fails the rule, for the later one the interval is empty and the rule is
+        // ignored. The candidates disagree, so the verdict is only a fail-safe.
+        Map<String, List<ConditionalLogicRule>> rules = Map.of("target",
+                List.of(rule("start", "date", "between", null, List.of("today", "2026-06-10"))));
+
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_FAILSAFE,
+                evaluatorWithToday(rules, Map.of("start", List.of("2026-06-05")), null).visibility("target"));
+    }
+
+    @Test
     void todaySentinelOnlyAppliesToDateComparisons() {
         // A text rule comparing against the literal string "today" keeps comparing the
         // literal: the sentinel exists for date operators only.

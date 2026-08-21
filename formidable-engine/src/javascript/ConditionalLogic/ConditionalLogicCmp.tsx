@@ -13,6 +13,8 @@ import {
     isScalarValueKind,
     clearedProviderConfig,
     normalizeStoredProviderRule,
+    dateBetweenIssue,
+    localIsoDay,
     normalizeStoredRule,
     parseRule,
     sanitizeProviderOperator,
@@ -29,14 +31,18 @@ import './conditionalLogic.css';
 
 /**
  * One scalar comparison value. Date values may also be the submission day: the
- * checkbox stores the TODAY_SENTINEL instead of a fixed date, and the date input
- * is disabled while it does (a native date input cannot display the sentinel).
+ * icon toggle stores the TODAY_SENTINEL instead of a fixed date, and the date
+ * input is disabled while it does (a native date input cannot display the
+ * sentinel).
  */
 const ScalarValueInput = ({
     inputId,
     inputType,
     readOnly,
     placeholder,
+    title,
+    min,
+    max,
     value,
     onValueChange
 }: {
@@ -44,6 +50,9 @@ const ScalarValueInput = ({
     inputType: 'date' | 'number' | 'text';
     readOnly?: boolean;
     placeholder: string;
+    title?: string;
+    min?: string;
+    max?: string;
     value: string;
     onValueChange: (value: string) => void;
 }) => {
@@ -59,6 +68,10 @@ const ScalarValueInput = ({
             isReadOnly={readOnly}
             isDisabled={isToday}
             placeholder={placeholder}
+            title={title}
+            aria-label={title}
+            min={min}
+            max={max}
             value={isToday ? '' : value}
             onChange={event => onValueChange(event.target.value)}
             size="big"
@@ -119,6 +132,17 @@ const ScalarValueFields = ({
             values.push('');
         }
 
+        // Each calendar steers away from an empty interval: the end picker starts
+        // at the start date and vice versa. Both bounds are included, so equality
+        // stays selectable — a one-day rule is the same date twice. A sentinel side
+        // constrains the other by the contributor's own day (approximation at
+        // authoring time; the runtime re-resolves it at submission).
+        const isDate = inputType === 'date';
+        const editDay = isDate ? localIsoDay() : '';
+        const resolveBound = (bound: string) => (bound === TODAY_SENTINEL ? editDay : bound);
+        const fromMax = isDate && values[1] ? resolveBound(values[1]) : undefined;
+        const toMin = isDate && values[0] ? resolveBound(values[0]) : undefined;
+
         return (
             <div className="flexRow_nowrap" style={{gap: '0.5rem'}}>
                 <div className="flexFluid">
@@ -127,6 +151,8 @@ const ScalarValueFields = ({
                         inputType={inputType}
                         readOnly={readOnly}
                         placeholder={t('conditionalLogic.valueFrom')}
+                        title={isDate ? t('conditionalLogic.valueFromTitle') : undefined}
+                        max={fromMax}
                         value={values[0]}
                         onValueChange={value => onChange({values: [value, values[1]]})}
                     />
@@ -137,6 +163,8 @@ const ScalarValueFields = ({
                         inputType={inputType}
                         readOnly={readOnly}
                         placeholder={t('conditionalLogic.valueTo')}
+                        title={isDate ? t('conditionalLogic.valueToTitle') : undefined}
+                        min={toMin}
                         value={values[1]}
                         onValueChange={value => onChange({values: [values[0], value]})}
                     />
@@ -510,7 +538,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     const renderFieldRule = () => {
         if (error) {
             return (
-                <div className="flexFluid">
+                <div className="fmdbRuleSpan">
                     <Typography variant="body" style={{color: 'var(--color-danger)'}}>{error}</Typography>
                 </div>
             );
@@ -518,7 +546,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
 
         if (sources.length === 0) {
             return (
-                <div className="flexFluid">
+                <div className="fmdbRuleSpan">
                     <Typography variant="body" style={{color: 'var(--color-gray)'}}>
                         {t('conditionalLogic.noSources')}
                     </Typography>
@@ -528,7 +556,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
 
         if (availableSources.length === 0) {
             return (
-                <div className="flexFluid">
+                <div className="fmdbRuleSpan">
                     <Typography variant="body" style={{color: 'var(--color-gray)'}}>
                         {t('conditionalLogic.allSourcesUsed')}
                     </Typography>
@@ -538,7 +566,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
 
         return (
             <>
-                <div className="fmdbRuleSelect">
+                <div>
                     <Dropdown
                         variant="outlined"
                         data={sourceOptions}
@@ -549,7 +577,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                         onChange={handleSourceChange}
                     />
                 </div>
-                <div className="fmdbRuleSelect">
+                <div>
                     <Dropdown
                         variant="outlined"
                         data={operatorOptions}
@@ -562,7 +590,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                 </div>
 
                 {showValueDropdown && (
-                    <div className="flexFluid">
+                    <div>
                         <Dropdown
                             variant="outlined"
                             data={valueOptions}
@@ -576,11 +604,11 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                 )}
 
                 {!showValueDropdown && !showScalarInput && (
-                    <div className="flexFluid"/>
+                    <div/>
                 )}
 
                 {showScalarInput && selectedSource && (
-                    <div className="fmdbRuleValue">
+                    <div>
                         <ScalarValueFields
                             id={id}
                             inputType={scalarInputType}
@@ -610,7 +638,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     // Picking another source type in the dropdown remains possible and is a deliberate
     // rewrite by the contributor.
     const renderUnknownSourceRule = () => (
-        <div className="flexFluid">
+        <div className="fmdbRuleSpan">
             <Typography variant="body" style={{color: 'var(--color-danger)'}}>
                 {t('conditionalLogic.unknownSourceType', {type: rule.sourceType})}
             </Typography>
@@ -648,7 +676,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     const renderProviderRule = (provider: LogicProviderDescriptor) => {
         return (
         <>
-            <div className="flexFluid">
+            <div>
                 <Input
                     id={`${id}-provider-ref`}
                     isReadOnly={field.readOnly}
@@ -668,7 +696,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     }}
                 />
             </div>
-            <div className="flexFluid">
+            <div>
                 <Dropdown
                     variant="outlined"
                     data={providerOperatorOptions}
@@ -684,7 +712,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                 />
             </div>
             {operatorNeedsValue(providerOperator) ? (
-                <div className="flexFluid">
+                <div>
                     <Input
                         id={`${id}-provider-value`}
                         isReadOnly={field.readOnly}
@@ -695,7 +723,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     />
                 </div>
             ) : (
-                <div className="flexFluid"/>
+                <div/>
             )}
         </>
         );
@@ -718,10 +746,27 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         }
     };
 
+    // Date interval coherence, surfaced on the same reserved line as the provider
+    // reference errors. 'inverted' (two fixed dates in the wrong order) is an
+    // authoring error; 'noMatch' (a submission-day side empties the interval) is a
+    // warning — the runtime ignores such a rule instead of hiding its field forever.
+    const betweenIssue = !selectedProvider && showScalarInput && scalarInputType === 'date'
+        && selectedOperator === 'between'
+        ? dateBetweenIssue(rule.values, localIsoDay())
+        : null;
+    const rowMessage = showProviderRefError
+        ? providerRefError
+        : (betweenIssue === 'inverted'
+            ? t('conditionalLogic.betweenInverted')
+            : (betweenIssue === 'noMatch' ? t('conditionalLogic.betweenNoMatch') : null));
+    const rowMessageColor = !showProviderRefError && betweenIssue === 'noMatch'
+        ? 'var(--color-warning)'
+        : 'var(--color-danger)';
+
     return (
         <div className="flexCol flexFluid" onBlur={handleRowBlur}>
-            <div className="flexRow_nowrap flexFluid alignCenter" style={{gap: '0.75rem'}}>
-                <div style={{minWidth: '10rem'}}>
+            <div className="fmdbRuleGrid">
+                <div>
                     <Dropdown
                         variant="outlined"
                         data={sourceTypeOptions}
@@ -735,18 +780,18 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     ? renderProviderRule(selectedProvider)
                     : (isUnknownSourceType ? renderUnknownSourceRule() : renderFieldRule())}
             </div>
-            {/* Reserved line: keeps every rule row the same height whether or not an
-                error is shown, so messages never shift the fields around. */}
+            {/* Reserved line: keeps every rule row the same height whether or not a
+                message is shown, so it never shifts the fields around. */}
             <Typography
                 id={`${id}-provider-ref-error`}
                 variant="caption"
                 style={{
                     minHeight: '1.25rem',
-                    color: 'var(--color-danger)',
-                    visibility: showProviderRefError ? 'visible' : 'hidden'
+                    color: rowMessageColor,
+                    visibility: rowMessage ? 'visible' : 'hidden'
                 }}
             >
-                {showProviderRefError ? providerRefError : ''}
+                {rowMessage ?? ''}
             </Typography>
         </div>
     );

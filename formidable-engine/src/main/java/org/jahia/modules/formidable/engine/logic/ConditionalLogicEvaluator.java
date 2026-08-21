@@ -233,7 +233,16 @@ public class ConditionalLogicEvaluator {
     private RuleResult evaluateTodayRule(ConditionalLogicRule rule, List<String> values) {
         Boolean agreed = null;
         for (String day : todayCandidates) {
-            Boolean satisfied = evaluateFieldOperator(rule.withTodayResolved(day), values);
+            ConditionalLogicRule resolved = rule.withTodayResolved(day);
+            // A 'between' interval emptied by the submission day (its fixed bound
+            // now past "today", or not yet reached) matches nothing by construction:
+            // the rule is ignored — counts as satisfied — rather than hiding its
+            // field forever. The rule editor warns about it. Mirrors the browser
+            // evaluator; near the flip the candidates disagree and the ordinary
+            // fail-safe below applies.
+            Boolean satisfied = isEmptyInterval(resolved)
+                    ? Boolean.TRUE
+                    : evaluateFieldOperator(resolved, values);
             if (satisfied == null) {
                 reportUnknownOperator(rule);
                 return RuleResult.FAILED_FAILSAFE;
@@ -247,6 +256,17 @@ public class ConditionalLogicEvaluator {
         }
 
         return Boolean.TRUE.equals(agreed) ? RuleResult.SATISFIED : RuleResult.FAILED_MEASURED;
+    }
+
+    /** Whether a resolved 'between' rule's interval contains no date at all. */
+    private static boolean isEmptyInterval(ConditionalLogicRule resolved) {
+        if (!"between".equals(resolved.operator()) || resolved.values().size() < 2) {
+            return false;
+        }
+
+        String from = resolved.values().get(0);
+        String to = resolved.values().get(1);
+        return !from.isEmpty() && !to.isEmpty() && from.compareTo(to) > 0;
     }
 
     /** The field-rule operator table; null for an operator this engine does not know. */

@@ -514,6 +514,15 @@ export const buildLogicStateHeader = (form: HTMLFormElement): string | null => {
 const evaluateRule = (rule: ConditionalLogicRule, sourceWrapper: HTMLElement): boolean => {
 	if (ruleReferencesToday(rule)) {
 		rule = withTodayResolved(rule);
+
+		// A 'between' interval emptied by the submission day (its fixed bound now
+		// past "today", or not yet reached) matches nothing by construction: the
+		// rule is ignored — counts as satisfied — rather than hiding its field
+		// forever. The rule editor warns about it. Mirrors the server evaluator.
+		const [from, to] = rule.values ?? [];
+		if (rule.operator === 'between' && from && to && compareDate(from, to) > 0) {
+			return true;
+		}
 	}
 
 	const state = getSourceFieldState(sourceWrapper);

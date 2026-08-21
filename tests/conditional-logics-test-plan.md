@@ -72,6 +72,12 @@ Supported source field types in V1:
    on Earth (the UTC-12 → UTC+14 window).
 7. Without a plausible declared day, a date-vs-today verdict that flips inside that
    timezone window degrades to the fail-safe instead of rejecting the submission.
+8. A `between` interval emptied by the submission day (fixed bound over, or not yet
+   reached) is ignored by both evaluators instead of hiding the field forever.
+9. The editor steers `between` away from empty intervals: each calendar is bounded by
+   the other side (equality allowed — both bounds are included), the two calendars
+   carry start/end tooltips, and a stored rule that currently matches no date shows a
+   warning (inverted fixed dates show an error).
 
 ## Form structure scenarios
 

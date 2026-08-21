@@ -21,6 +21,43 @@ const VALUE_KINDS: SourceValueKind[] = ['choice', 'date', 'number', 'boolean', '
  */
 export const TODAY_SENTINEL = 'today';
 
+/**
+ * The contributor's local calendar day as yyyy-MM-dd (never through toISOString,
+ * which reads the UTC day and shifts around midnight for non-UTC contributors).
+ */
+export const localIsoDay = (): string => {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${now.getFullYear()}-${month}-${day}`;
+};
+
+/**
+ * Authoring-time coherence of a date 'between' interval, the sentinel resolved
+ * against the contributor's own day. Both bounds are included (a one-day rule is
+ * the same date twice, so equality is coherent). 'noMatch': a sentinel side
+ * empties the interval today — the runtime ignores such a rule until (unless) the
+ * days make it matchable again. 'inverted': two fixed dates in the wrong order —
+ * the rule can never match, an authoring error.
+ */
+export const dateBetweenIssue = (
+    values: string[] | undefined,
+    editDay: string
+): 'noMatch' | 'inverted' | null => {
+    const [rawFrom, rawTo] = values ?? [];
+    if (!rawFrom || !rawTo) {
+        return null;
+    }
+
+    const from = rawFrom === TODAY_SENTINEL ? editDay : rawFrom;
+    const to = rawTo === TODAY_SENTINEL ? editDay : rawTo;
+    if (from <= to) {
+        return null;
+    }
+
+    return rawFrom === TODAY_SENTINEL || rawTo === TODAY_SENTINEL ? 'noMatch' : 'inverted';
+};
+
 const EMPTY_FIELD_RULE: ConditionalLogicRule = {
     logicId: '',
     sourceType: 'field',

@@ -9,19 +9,27 @@
 }
 
 /*
- * Rule row sizing. The source and operator dropdowns may shrink below their
- * content (the dropdown spans its cell, so it follows), while the value cell
- * weighs double: a date value hosts up to two calendars plus their
- * submission-day toggles and must never wrap under the rest of the row.
+ * Rule rows are a table without being one: every row lays its cells on the same
+ * four proportional tracks (type, source, operator, value), so columns align
+ * vertically across rows whatever each rule renders — the value track weighs
+ * double because a date value hosts up to two calendars and their toggles.
+ * minmax(0, …) tracks plus min-width: 0 children let the dropdowns shrink below
+ * their content instead of pushing the row apart.
  */
-.fmdbRuleSelect {
-    flex: 1 1 0;
+.fmdbRuleGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 2fr);
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.fmdbRuleGrid > * {
     min-width: 0;
 }
 
-.fmdbRuleValue {
-    flex: 2 1 0;
-    min-width: 0;
+/* Status text (no sources, unknown type…) replaces every cell after the type. */
+.fmdbRuleSpan {
+    grid-column: 2 / -1;
 }
 
 /*
