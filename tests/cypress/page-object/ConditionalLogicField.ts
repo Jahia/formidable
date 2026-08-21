@@ -202,12 +202,6 @@ export class ConditionalLogicField extends BaseComponent {
 		return this;
 	}
 
-	typeDateValue(ruleIndex: number, inputIndex: number, value: string): this {
-		this.getRule(ruleIndex).get().find('input[type="date"]').eq(inputIndex).clear();
-		this.getRule(ruleIndex).get().find('input[type="date"]').eq(inputIndex).type(value);
-		return this;
-	}
-
 	ruleShouldHaveNumberInputCount(ruleIndex: number, count: number): this {
 		this.getRule(ruleIndex).get().find('input[type="number"]').should('have.length', count);
 		return this;

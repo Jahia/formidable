@@ -1,4 +1,5 @@
 import {ConditionalLogicEditor} from '../../page-object';
+import {DIRECT_SUBMIT_PATH, localDay, LOGIC_STATE_HEADER} from '../../support/constants';
 import {
 	createConditionalLogicForm,
 	getConditionalLogicNode,
@@ -15,24 +16,12 @@ const SAVE_TO_JCR_ACTION = {
 	properties: [] as Array<{name: string; value: string}>
 };
 
-const LOGIC_STATE_HEADER = 'X-Formidable-Logic-State';
-const DIRECT_SUBMIT_PATH = '/modules/formidable-engine/form-submit';
-
-/** The browser's local calendar day shifted by offsetDays, as yyyy-MM-dd. */
-const localDay = (offsetDays: number): string => {
-	const date = new Date();
-	date.setDate(date.getDate() + offsetDays);
-	const month = String(date.getMonth() + 1).padStart(2, '0');
-	const day = String(date.getDate()).padStart(2, '0');
-	return `${date.getFullYear()}-${month}-${day}`;
-};
-
 /**
  * Date rules comparing against the submission day: the value stores the "today" sentinel
  * instead of a fixed date, the browser resolves it to the visitor's local day on every
  * re-evaluation, and the submission declares that day in the logic state header so the
  * server resolves the same rules to the same calendar day. The server-side coherence
- * consequences (FMDB-013, the one-day plausibility clamp) are covered by security/42.
+ * consequences (FMDB-013, the plausible-day window) are covered by security/42.
  */
 describe('Form logic - 510 Rules relative to the submission day', () => {
 	useFormidableSite();

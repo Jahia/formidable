@@ -1,3 +1,4 @@
+import {localDay, LOGIC_STATE_HEADER} from '../../support/constants';
 import {createPublishedLiveFormPage, getInputDateNode, getInputTextNode} from '../../support/fixtures';
 import {
 	expectErrorResponse,
@@ -18,8 +19,6 @@ import {
 describe('Security - 42 Conditional logic coherence', () => {
 	useFormidableSite();
 
-	const LOGIC_STATE_HEADER = 'X-Formidable-Logic-State';
-
 	// Unicode-safe base64, mirroring the production encoder: bare btoa() throws on
 	// non-ASCII, and declared provider values are allowed to contain any of it.
 	const declarationHeader = (
@@ -32,15 +31,6 @@ describe('Security - 42 Conditional logic coherence', () => {
 		}
 
 		return btoa(binary);
-	};
-
-	/** The local calendar day shifted by offsetDays, as yyyy-MM-dd (same clock as the server in CI). */
-	const localDay = (offsetDays: number): string => {
-		const date = new Date();
-		date.setDate(date.getDate() + offsetDays);
-		const month = String(date.getMonth() + 1).padStart(2, '0');
-		const day = String(date.getDate()).padStart(2, '0');
-		return `${date.getFullYear()}-${month}-${day}`;
 	};
 
 	const fieldGateRule = JSON.stringify({
@@ -185,7 +175,7 @@ describe('Security - 42 Conditional logic coherence', () => {
 		});
 	});
 
-	it('ignores a declared day too far from its own to be a timezone offset', () => {
+	it('ignores a declared day it currently is nowhere on Earth', () => {
 		// Were the declared day trusted, source date == declared day would satisfy the
 		// rule and legitimize the value. A day no timezone can explain is not evidence.
 		dateGatedForm('today-clamp').then(({formId}) => {
@@ -200,15 +190,18 @@ describe('Security - 42 Conditional logic coherence', () => {
 		});
 	});
 
-	it('keeps the fail-safe inside the one-day ambiguity window when no day was declared', () => {
-		// Without a declared day the server only knows the visitor's day is within one
-		// day of its own. A verdict that flips inside that window is no measurement:
-		// the value is kept, exactly like the provider fail-safe above.
+	it('keeps the fail-safe inside the ambiguity window when no day was declared', () => {
+		// Without a declared day the server only knows the visitor's day is one of
+		// the days it currently is somewhere on Earth. A verdict that
+		// flips inside that window is no measurement: the value is kept, exactly like
+		// the provider fail-safe above. The runner's own day is always in the window,
+		// and the window always spans at least two days (26 hours of offsets always
+		// cross a midnight), so this rule flips whatever the time the test runs at.
 		dateGatedForm('today-window').then(({formId}) => {
 			cy.logout();
 			postDirectMultipartSubmission({
 				formId,
-				fields: {'start-date': localDay(1), details: 'kept'},
+				fields: {'start-date': localDay(0), details: 'kept'},
 				headers: withSameOriginHeaders()
 			}).then(expectSuccessResponse);
 		});

@@ -1,8 +1,7 @@
 import {createSite, deleteSite, enableModule} from '@jahia/cypress';
-import {FORMIDABLE_MODULE_IDS} from '../../support/constants';
+import {DIRECT_SUBMIT_PATH, FORMIDABLE_MODULE_IDS} from '../../support/constants';
 import {FORMIDABLE_TEST_SITE} from '../../support/fixtures';
 
-const DIRECT_SUBMIT_PATH = '/modules/formidable-engine/form-submit';
 const DEFAULT_BOUNDARY = '----FormidableCypressBoundary';
 
 interface DirectSubmissionOptions {
