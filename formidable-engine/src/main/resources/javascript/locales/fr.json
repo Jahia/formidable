@@ -16,24 +16,28 @@
         "fmdb_minBoundMode": {
             "none": "Aucun minimum",
             "date": "Date fixe (choisie dans le calendrier)",
-            "today": "Date courante (le jour où le formulaire est soumis)"
+            "today": "Date courante (le jour où le formulaire est soumis)",
+            "relative": "Date relative (la date courante décalée d'un écart fixe)"
         },
         "fmdb_maxBoundMode": {
             "none": "Aucun maximum",
             "date": "Date fixe (choisie dans le calendrier)",
-            "today": "Date courante (le jour où le formulaire est soumis)"
+            "today": "Date courante (le jour où le formulaire est soumis)",
+            "relative": "Date relative (la date courante décalée d'un écart fixe)"
         }
     },
     "fmdbmix_datetimeBounds": {
         "fmdb_minBoundMode": {
             "none": "Aucun minimum",
             "date": "Date et heure fixes (choisies dans le calendrier)",
-            "today": "Date courante (dès le début du jour de soumission)"
+            "today": "Date courante (dès le début du jour de soumission)",
+            "relative": "Date relative (décalée depuis la date courante, à partir du début de ce jour)"
         },
         "fmdb_maxBoundMode": {
             "none": "Aucun maximum",
             "date": "Date et heure fixes (choisies dans le calendrier)",
-            "today": "Date courante (jusqu'à la fin du jour de soumission)"
+            "today": "Date courante (jusqu'à la fin du jour de soumission)",
+            "relative": "Date relative (décalée depuis la date courante, jusqu'à la fin de ce jour)"
         }
     },
     "conditionalLogic": {
@@ -195,6 +199,34 @@
                 "confirmationMismatch": "Saisissez le nom attendu du formulaire pour confirmer la suppression.",
                 "unexpectedError": "Échec de la suppression."
             }
+        }
+    },
+    "fmdbmix_relativeMinDate": {
+        "fmdb_minRelativeUnit": {
+            "days": "Jours",
+            "months": "Mois",
+            "years": "Années"
+        }
+    },
+    "fmdbmix_relativeMinDatetime": {
+        "fmdb_minRelativeUnit": {
+            "days": "Jours",
+            "months": "Mois",
+            "years": "Années"
+        }
+    },
+    "fmdbmix_relativeMaxDate": {
+        "fmdb_maxRelativeUnit": {
+            "days": "Jours",
+            "months": "Mois",
+            "years": "Années"
+        }
+    },
+    "fmdbmix_relativeMaxDatetime": {
+        "fmdb_maxRelativeUnit": {
+            "days": "Jours",
+            "months": "Mois",
+            "years": "Années"
         }
     }
 }

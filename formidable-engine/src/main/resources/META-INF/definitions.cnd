@@ -100,6 +100,20 @@ orderable
  extends = fmdbmix:dateBounds
  - max (date, DatePicker)
 
+// Relative bounds: the submission day shifted by a signed amount of days,
+// months or years (age limits, booking windows). One flavor per contract —
+// like the fixed bounds — because the dynamic-fieldset wiring is per contract;
+// the property names are shared so the runtime reads one set.
+[fmdbmix:relativeMinDate] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:dateBounds
+ - fmdb:minRelativeAmount (long) = 0 indexed=no
+ - fmdb:minRelativeUnit (string, choicelist) = 'days' indexed=no
+
+[fmdbmix:relativeMaxDate] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:dateBounds
+ - fmdb:maxRelativeAmount (long) = 0 indexed=no
+ - fmdb:maxRelativeUnit (string, choicelist) = 'days' indexed=no
+
 [fmdbmix:datetimeBounds] mixin
  - fmdb:minBoundMode (string, choicelist) = 'none' indexed=no
  - fmdb:maxBoundMode (string, choicelist) = 'none' indexed=no
@@ -111,6 +125,16 @@ orderable
 [fmdbmix:fixedMaxDatetime] > jmix:dynamicFieldset mixin
  extends = fmdbmix:datetimeBounds
  - max (date)
+
+[fmdbmix:relativeMinDatetime] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:datetimeBounds
+ - fmdb:minRelativeAmount (long) = 0 indexed=no
+ - fmdb:minRelativeUnit (string, choicelist) = 'days' indexed=no
+
+[fmdbmix:relativeMaxDatetime] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:datetimeBounds
+ - fmdb:maxRelativeAmount (long) = 0 indexed=no
+ - fmdb:maxRelativeUnit (string, choicelist) = 'days' indexed=no
 
 [fmdbmix:choiceField] > fmdbmix:optionsSource mixin
 // Semantic value-kind mixins: a field type carrying one becomes eligible as a

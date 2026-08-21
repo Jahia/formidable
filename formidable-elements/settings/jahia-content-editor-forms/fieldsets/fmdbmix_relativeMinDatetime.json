@@ -1,0 +1,31 @@
+{
+	"name": "fmdbmix:relativeMinDatetime",
+	"fields": [
+		{
+			"name": "fmdb:minRelativeUnit",
+			"valueConstraints": [
+				{
+					"value": {
+						"type": "String",
+						"value": "days"
+					},
+					"displayValueKey": "formidable-engine:fmdbmix_relativeMinDatetime.fmdb_minRelativeUnit.days"
+				},
+				{
+					"value": {
+						"type": "String",
+						"value": "months"
+					},
+					"displayValueKey": "formidable-engine:fmdbmix_relativeMinDatetime.fmdb_minRelativeUnit.months"
+				},
+				{
+					"value": {
+						"type": "String",
+						"value": "years"
+					},
+					"displayValueKey": "formidable-engine:fmdbmix_relativeMinDatetime.fmdb_minRelativeUnit.years"
+				}
+			]
+		}
+	]
+}

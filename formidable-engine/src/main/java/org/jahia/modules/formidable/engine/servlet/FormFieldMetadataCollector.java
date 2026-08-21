@@ -391,12 +391,13 @@ class FormFieldMetadataCollector {
 
     /**
      * Resolves one bound of a date-typed field from its bound mode (fmdbmix:dateBounds /
-     * fmdbmix:datetimeBounds): a fixed date, the submission day, or nothing — the modes
-     * are exclusive, so there is no bound-combination rule. The relative mode is
-     * resolved once per submission, widened to the extreme calendar day any inhabited
-     * timezone can currently be (UTC-12 for a minimum, UTC+14 for a maximum), so a
-     * visitor is never rejected for a value their own picker allowed whatever the
-     * server's or the visitor's zone. Fixed bounds stay exact.
+     * fmdbmix:datetimeBounds): a fixed date, the submission day, the submission day
+     * shifted by a signed offset, or nothing — the modes are exclusive, so there is no
+     * bound-combination rule. The day-following modes are resolved once per submission,
+     * widened to the extreme calendar day any inhabited timezone can currently be
+     * (UTC-12 for a minimum, UTC+14 for a maximum), so a visitor is never rejected for
+     * a value their own picker allowed whatever the server's or the visitor's zone.
+     * Fixed bounds stay exact.
      *
      * A node stored before bound modes existed carries no mode but may carry a fixed
      * value — which by then has no applicable property definition anymore, so it is
@@ -415,6 +416,20 @@ class FormFieldMetadataCollector {
             return withTime ? day + (minBound ? "T00:00" : "T23:59:59.999") : day.toString();
         }
 
+        if ("relative".equals(mode)) {
+            // The submission day shifted by a signed amount of days, months or years,
+            // widened to the same timezone extreme as the today mode. Month and year
+            // arithmetic is java.time's: it clamps to the end of shorter months, and
+            // the rendered input's island mirrors that clamping in the browser.
+            long amount = JcrProps.longValue(node,
+                    minBound ? "fmdb:minRelativeAmount" : "fmdb:maxRelativeAmount", 0);
+            String unit = JcrProps.string(node,
+                    minBound ? "fmdb:minRelativeUnit" : "fmdb:maxRelativeUnit", "days");
+            java.time.LocalDate day = shiftDay(
+                    java.time.LocalDate.now(java.time.ZoneOffset.ofHours(minBound ? -12 : 14)), amount, unit);
+            return withTime ? day + (minBound ? "T00:00" : "T23:59:59.999") : day.toString();
+        }
+
         if ("date".equals(mode)) {
             return JcrProps.dateAsIso(node, fixedProperty, withTime, null);
         }
@@ -425,5 +440,14 @@ class FormFieldMetadataCollector {
         }
 
         return null;
+    }
+
+    /** The base day shifted by a signed amount of the given unit (java.time clamping). */
+    private static java.time.LocalDate shiftDay(java.time.LocalDate base, long amount, String unit) {
+        return switch (unit) {
+            case "months" -> base.plusMonths(amount);
+            case "years" -> base.plusYears(amount);
+            default -> base.plusDays(amount);
+        };
     }
 }

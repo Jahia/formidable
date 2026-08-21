@@ -10,6 +10,10 @@ interface InputDatetimeLocalProps extends RangeValidationMessageProps {
 	defaultValue?: string;
 	"fmdb:minBoundMode"?: string;
 	"fmdb:maxBoundMode"?: string;
+	"fmdb:minRelativeAmount"?: number;
+	"fmdb:minRelativeUnit"?: string;
+	"fmdb:maxRelativeAmount"?: number;
+	"fmdb:maxRelativeUnit"?: string;
 	min?: string;
 	max?: string;
 	step?: number;
@@ -50,6 +54,10 @@ jahiaComponent(
 			defaultValue,
 			"fmdb:minBoundMode": minBoundMode,
 			"fmdb:maxBoundMode": maxBoundMode,
+			"fmdb:minRelativeAmount": minRelativeAmount,
+			"fmdb:minRelativeUnit": minRelativeUnit,
+			"fmdb:maxRelativeAmount": maxRelativeAmount,
+			"fmdb:maxRelativeUnit": maxRelativeUnit,
 			min,
 			max,
 			step,
@@ -65,8 +73,8 @@ jahiaComponent(
 
 		const helpId = helpText ? helpTextId(currentNode.getIdentifier()) : undefined;
 
-		const minBound = resolveBound(minBoundMode, formatDatetimeForInput(min));
-		const maxBound = resolveBound(maxBoundMode, formatDatetimeForInput(max));
+		const minBound = resolveBound(minBoundMode, formatDatetimeForInput(min), minRelativeAmount, minRelativeUnit);
+		const maxBound = resolveBound(maxBoundMode, formatDatetimeForInput(max), maxRelativeAmount, maxRelativeUnit);
 
 		// Shared between the static input and the today island so both render identical markup
 		const inputAttributes = {
@@ -93,16 +101,19 @@ jahiaComponent(
 
 				<HelpText id={helpId} text={helpText}/>
 
-				{minBound.today || maxBound.today ? (
-					// A bound relative to the submission day cannot be a server-rendered
-					// attribute (the fragment cache would freeze it): the input becomes
-					// an island resolving it at hydration, in the visitor's timezone.
+				{minBound.today || maxBound.today || minBound.offset || maxBound.offset ? (
+					// A bound following the submission day (as-is or shifted) cannot be a
+					// server-rendered attribute (the fragment cache would freeze it): the
+					// input becomes an island resolving it at hydration, in the visitor's
+					// timezone.
 					<Island
 						component={TodayBoundedInput}
 						props={{
 							type: "datetime-local",
 							minToday: minBound.today,
 							maxToday: maxBound.today,
+							minOffset: minBound.offset,
+							maxOffset: maxBound.offset,
 							inputAttributes
 						}}
 					/>
