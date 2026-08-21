@@ -72,14 +72,16 @@ const ScalarValueInput = ({
     return (
         <div className="flexCol" style={{gap: '0.25rem'}}>
             {input}
-            <label style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+            {/* One short line under the calendar; the full wording lives in the
+                tooltip and the checkbox aria-label, so the row never wraps. */}
+            <label className="fmdbTodayToggle" title={t('conditionalLogic.valueToday')}>
                 <Checkbox
                     checked={isToday}
                     isDisabled={readOnly}
                     aria-label={t('conditionalLogic.valueToday')}
                     onChange={(_event, _value, checked) => onValueChange(checked ? TODAY_SENTINEL : '')}
                 />
-                <Typography variant="caption">{t('conditionalLogic.valueToday')}</Typography>
+                <Typography variant="caption">{t('conditionalLogic.valueTodayShort')}</Typography>
             </label>
         </div>
     );
@@ -527,7 +529,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
 
         return (
             <>
-                <div className="flexFluid">
+                <div className="fmdbRuleSelect">
                     <Dropdown
                         variant="outlined"
                         data={sourceOptions}
@@ -538,7 +540,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                         onChange={handleSourceChange}
                     />
                 </div>
-                <div className="flexFluid">
+                <div className="fmdbRuleSelect">
                     <Dropdown
                         variant="outlined"
                         data={operatorOptions}
@@ -569,7 +571,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                 )}
 
                 {showScalarInput && selectedSource && (
-                    <div className="flexFluid">
+                    <div className="fmdbRuleValue">
                         <ScalarValueFields
                             id={id}
                             inputType={scalarInputType}

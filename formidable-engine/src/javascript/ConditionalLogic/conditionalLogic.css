@@ -7,3 +7,33 @@
 .fmdbProviderRefError.moonstone-baseInput {
     border-color: var(--color-danger) !important;
 }
+
+/*
+ * Rule row sizing. The source and operator dropdowns may shrink below their
+ * content (the dropdown spans its cell, so it follows), while the value cell
+ * weighs double: a date value hosts up to two calendars plus their
+ * submission-day toggles and must never wrap under the rest of the row.
+ */
+.fmdbRuleSelect {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.fmdbRuleValue {
+    flex: 2 1 0;
+    min-width: 0;
+}
+
+/*
+ * Compact one-line submission-day toggle under a date value. The visible label
+ * is the short wording; the full one lives in the tooltip and the checkbox
+ * aria-label.
+ */
+.fmdbTodayToggle {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-nano);
+    width: fit-content;
+    white-space: nowrap;
+    cursor: pointer;
+}

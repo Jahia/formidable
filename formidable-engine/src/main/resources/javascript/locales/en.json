@@ -45,6 +45,7 @@
         "valueFrom": "From",
         "valueTo": "To",
         "valueToday": "Current date (the day the form is submitted)",
+        "valueTodayShort": "Current date",
         "loadingSources": "Loading available fields...",
         "noSources": "No supported source field is available before this field.",
         "help": "Use fields placed before this one to show or hide it. Eligible fields are those declaring a value kind: choice (select, radio, checkbox), date, number and boolean — including fields contributed by other modules. \"No supported source field...\" means no compatible previous field was found. A condition can also read something outside the form: a datalayer value, a URL parameter or a cookie. Those are read in the browser only, so a required field shown by such a condition is not enforced when the form is submitted.",
