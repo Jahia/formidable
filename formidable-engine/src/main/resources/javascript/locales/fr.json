@@ -12,6 +12,30 @@
             "content": "Options depuis des contenus du site"
         }
     },
+    "fmdbmix_dateBounds": {
+        "fmdb_minBoundMode": {
+            "none": "Aucun minimum",
+            "date": "Date fixe (choisie dans le calendrier)",
+            "today": "Date courante (le jour où le formulaire est soumis)"
+        },
+        "fmdb_maxBoundMode": {
+            "none": "Aucun maximum",
+            "date": "Date fixe (choisie dans le calendrier)",
+            "today": "Date courante (le jour où le formulaire est soumis)"
+        }
+    },
+    "fmdbmix_datetimeBounds": {
+        "fmdb_minBoundMode": {
+            "none": "Aucun minimum",
+            "date": "Date et heure fixes (choisies dans le calendrier)",
+            "today": "Date courante (dès le début du jour de soumission)"
+        },
+        "fmdb_maxBoundMode": {
+            "none": "Aucun maximum",
+            "date": "Date et heure fixes (choisies dans le calendrier)",
+            "today": "Date courante (jusqu'à la fin du jour de soumission)"
+        }
+    },
     "conditionalLogic": {
         "sourceField": "Champ source",
         "selectSource": "Sélectionner un champ source",

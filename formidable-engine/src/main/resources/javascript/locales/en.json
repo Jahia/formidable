@@ -12,6 +12,30 @@
             "content": "Options from site content"
         }
     },
+    "fmdbmix_dateBounds": {
+        "fmdb_minBoundMode": {
+            "none": "No minimum",
+            "date": "Fixed date (picked from the calendar)",
+            "today": "Current date (the day the form is submitted)"
+        },
+        "fmdb_maxBoundMode": {
+            "none": "No maximum",
+            "date": "Fixed date (picked from the calendar)",
+            "today": "Current date (the day the form is submitted)"
+        }
+    },
+    "fmdbmix_datetimeBounds": {
+        "fmdb_minBoundMode": {
+            "none": "No minimum",
+            "date": "Fixed date and time (picked from the calendar)",
+            "today": "Current date (from the start of the submission day)"
+        },
+        "fmdb_maxBoundMode": {
+            "none": "No maximum",
+            "date": "Fixed date and time (picked from the calendar)",
+            "today": "Current date (until the end of the submission day)"
+        }
+    },
     "conditionalLogic": {
         "sourceField": "Source field",
         "selectSource": "Select a source field",
