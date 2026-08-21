@@ -108,6 +108,13 @@ bound with the `date` mode and its mixin — the stored values stay in place, an
 published forms keep rendering without a republish. The migration is keyed on
 content state (a fixed value without a mode), so re-running it is a no-op.
 
+Programmatic creation is affected, though: a script or integration (GraphQL,
+JCR API) that used to write a plain `min`/`max` date property on these field
+types now hits a constraint violation, because the property definition lives in
+the fixed-bound mixin. Such writers must add the matching mixin
+(`fmdbmix:fixedMinDate` and friends) and set the bound mode to `date` alongside
+the value — exactly what the editor and the migration produce.
+
 As with every upgrade that changes the engine definitions, install the new
 formidable-engine before the new formidable-elements.
 

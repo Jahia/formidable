@@ -98,6 +98,12 @@ minimum, UTC+14 for a maximum), so a visitor is never rejected for a value their
 own picker allowed, whatever the server's or the visitor's zone. Fixed bounds
 stay exact.
 
+Theme note: a `today`-bounded input renders inside an island wrapper
+(`display: contents`), one extra DOM level — the same structure as the masked
+text and range inputs. Layout is unaffected, but a theme selector using a child
+combinator (`.fmdb-form-group > input`) skips exactly those inputs: use
+descendant selectors (`.fmdb-form-group input`) instead.
+
 Fields stored before the bound modes existed carry fixed `min`/`max` values and
 no mode: a startup migration stamps them with the `date` mode (see the upgrade
 notes). Until it runs, the values are still **enforced at validation time** (the
