@@ -87,14 +87,19 @@ Action engine types: `formidable-engine/src/main/resources/META-INF/definitions.
 2. Create `default.server.tsx` with `jahiaComponent({ componentType: "view", nodeType: "fmdb:myField", name: "default" }, ...)`
 3. HTML `name` = `currentNode.getName()`; HTML `id` = `input-${currentNode.getIdentifier()}`
 
-### Mixin hierarchy (formidable-elements)
+### Mixin hierarchy
+
+The structural mixins are split across the two modules — the engine owns the
+semantics it interprets, the elements module owns the authoring entry points
+(full ownership catalog: `docs/cnd-module-ownership.md`).
 
 ```
-fmdbmix:formElement (> mix:title, orderable)
-  └─ fmdbmix:element         ← adds + * (fmdb:elementValidation) for validation nodes
-fmdbmix:formContent          ← non-field content embeddable in a form
-fmdbmix:formStep             ← step marker
-fmdbmix:component            ← makes a type visible/droppable in the editor
+fmdbmix:formElement (engine)   > mix:title, fmdbmix:formLogicElement, orderable
+  └─ fmdbmix:element (elements) ← what concrete field types extend; adds nothing
+                                   today (reserved elements-side extension point)
+fmdbmix:formContent (elements) ← non-field content embeddable in a form
+fmdbmix:formStep (engine)      > fmdbmix:formContainer — step marker
+fmdbmix:component (elements)   ← makes a type visible/droppable in the editor
 ```
 
 ### Core form types

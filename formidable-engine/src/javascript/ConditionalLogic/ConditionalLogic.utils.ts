@@ -14,6 +14,50 @@ import {getLogicProvider, PROVIDER_OPERATORS, providerConfigKeys} from './provid
 
 const VALUE_KINDS: SourceValueKind[] = ['choice', 'date', 'number', 'boolean', 'text'];
 
+/**
+ * Sentinel a date rule may carry instead of a fixed date: the submission day, resolved by
+ * the runtime evaluators (the browser's local day, an agreed day server-side). Stored in
+ * the ordinary value/values keys — a date input can never produce this literal.
+ */
+export const TODAY_SENTINEL = 'today';
+
+/**
+ * The contributor's local calendar day as yyyy-MM-dd (never through toISOString,
+ * which reads the UTC day and shifts around midnight for non-UTC contributors).
+ */
+export const localIsoDay = (): string => {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${now.getFullYear()}-${month}-${day}`;
+};
+
+/**
+ * Authoring-time coherence of a date 'between' interval, the sentinel resolved
+ * against the contributor's own day. Both bounds are included (a one-day rule is
+ * the same date twice, so equality is coherent). 'noMatch': a sentinel side
+ * empties the interval today — the runtime ignores such a rule until (unless) the
+ * days make it matchable again. 'inverted': two fixed dates in the wrong order —
+ * the rule can never match, an authoring error.
+ */
+export const dateBetweenIssue = (
+    values: string[] | undefined,
+    editDay: string
+): 'noMatch' | 'inverted' | null => {
+    const [rawFrom, rawTo] = values ?? [];
+    if (!rawFrom || !rawTo) {
+        return null;
+    }
+
+    const from = rawFrom === TODAY_SENTINEL ? editDay : rawFrom;
+    const to = rawTo === TODAY_SENTINEL ? editDay : rawTo;
+    if (from <= to) {
+        return null;
+    }
+
+    return rawFrom === TODAY_SENTINEL || rawTo === TODAY_SENTINEL ? 'noMatch' : 'inverted';
+};
+
 const EMPTY_FIELD_RULE: ConditionalLogicRule = {
     logicId: '',
     sourceType: 'field',
@@ -135,12 +179,20 @@ export const normalizeStoredRule = (
         return base;
     }
 
+    // The today sentinel only means "submission day" for the date kind: like the
+    // operator sanitation above, re-pointing the rule to a source of another kind
+    // must not carry it over as a literal both evaluators would silently fail on.
+    const carriedValue = (value: string): string =>
+        descriptor.valueKind !== 'date' && rule.valueKind !== descriptor.valueKind && value === TODAY_SENTINEL
+            ? ''
+            : value;
+
     if (isScalarValueKind(descriptor.valueKind)) {
         if (operator === 'between') {
-            return {...base, values: (rule.values ?? []).slice(0, 2)};
+            return {...base, values: (rule.values ?? []).slice(0, 2).map(carriedValue)};
         }
 
-        return {...base, value: rule.value ?? ''};
+        return {...base, value: carriedValue(rule.value ?? '')};
     }
 
     return {...base, values: rule.values ?? []};

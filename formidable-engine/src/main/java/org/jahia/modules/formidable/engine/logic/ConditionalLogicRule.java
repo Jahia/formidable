@@ -35,6 +35,13 @@ public record ConditionalLogicRule(
 
     public static final String SOURCE_TYPE_FIELD = "field";
     public static final String VALUE_KIND_NUMBER = "number";
+    public static final String VALUE_KIND_DATE = "date";
+
+    /**
+     * Sentinel a date rule may carry instead of a fixed date: the submission day.
+     * Unambiguous by construction — a date input can never produce this literal.
+     */
+    public static final String TODAY_SENTINEL = "today";
 
     /**
      * Rule keys that are not provider configuration. Everything else with a string value
@@ -60,6 +67,40 @@ public record ConditionalLogicRule(
 
     static boolean isFieldSourceType(String sourceType) {
         return sourceType == null || sourceType.isBlank() || SOURCE_TYPE_FIELD.equals(sourceType);
+    }
+
+    /**
+     * Whether this rule compares against the submission day. Gated on the value kind,
+     * not on an operator list: only the date kind gives the sentinel its meaning (a
+     * text rule keeps comparing the literal string, a number rule can never carry it),
+     * and the editor stamps the kind on every rule that can carry the sentinel — so a
+     * future date operator or value kind opts in or out by its kind alone, identically
+     * here and in the browser evaluator.
+     */
+    public boolean referencesToday() {
+        if (!isFieldRule() || !VALUE_KIND_DATE.equals(valueKind)) {
+            return false;
+        }
+
+        return TODAY_SENTINEL.equals(value) || values.contains(TODAY_SENTINEL);
+    }
+
+    /**
+     * A copy of this rule with the today sentinel substituted by the given ISO day, so
+     * the ordinary operator evaluation (plain string comparison) applies unchanged.
+     */
+    public ConditionalLogicRule withTodayResolved(String day) {
+        return new ConditionalLogicRule(
+                logicId,
+                sourceType,
+                sourceFieldName,
+                sourceFieldType,
+                valueKind,
+                providerRef,
+                operator,
+                TODAY_SENTINEL.equals(value) ? day : value,
+                values.stream().map(v -> TODAY_SENTINEL.equals(v) ? day : v).toList()
+        );
     }
 
     public static List<ConditionalLogicRule> parse(Value[] jcrValues) {
