@@ -409,7 +409,10 @@ class FormFieldMetadataCollector {
         if ("today".equals(mode)) {
             java.time.LocalDate day =
                     java.time.LocalDate.now(java.time.ZoneOffset.ofHours(minBound ? -12 : 14));
-            return withTime ? day + (minBound ? "T00:00" : "T23:59") : day.toString();
+            // The validator accepts seconds and millis, so the max must cover the whole
+            // last minute of the day: T23:59 alone would reject a T23:59:30 value the
+            // "until the end of the submission day" contract allows.
+            return withTime ? day + (minBound ? "T00:00" : "T23:59:59.999") : day.toString();
         }
 
         if ("date".equals(mode)) {

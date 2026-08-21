@@ -147,6 +147,15 @@ class FormFieldMetadataCollectorTest {
                 ),
                 List.of()
         );
+        // A datetime maximum on the submission day must cover the whole last minute:
+        // the validator accepts seconds, so T23:59 alone would reject T23:59:30.
+        JCRNodeWrapper deadline = node(
+                "deadline",
+                "fmdb:inputDatetimeLocal",
+                Set.of("fmdbmix:formElement", "fmdbmix:datetimeLocalField"),
+                Map.of("fmdb:maxBoundMode", stringProperty("today")),
+                List.of()
+        );
         // An explicit 'none' wins over a residual fixed value left behind by an
         // earlier configuration: the bound is gone, not silently resurrected.
         JCRNodeWrapper unbounded = node(
@@ -161,7 +170,7 @@ class FormFieldMetadataCollectorTest {
         );
 
         FormFieldMetadataCollector.Result result = FormFieldMetadataCollector.collectFromFormNode(
-                formNodeWithFields(birthday, appointment, unbounded)
+                formNodeWithFields(birthday, appointment, deadline, unbounded)
         );
 
         String easternExtremeDay = java.time.LocalDate.now(java.time.ZoneOffset.ofHours(14)).toString();
@@ -170,6 +179,7 @@ class FormFieldMetadataCollectorTest {
         assertNull(result.fieldInfos().get("birthday").constraints().minDate());
         assertEquals(westernExtremeDay + "T00:00", result.fieldInfos().get("appointment").constraints().minDate());
         assertEquals("2030-06-30T18:00", result.fieldInfos().get("appointment").constraints().maxDate());
+        assertEquals(easternExtremeDay + "T23:59:59.999", result.fieldInfos().get("deadline").constraints().maxDate());
         assertNull(result.fieldInfos().get("unbounded").constraints());
     }
 
@@ -367,12 +377,6 @@ class FormFieldMetadataCollectorTest {
     private static JCRPropertyWrapper dateProperty(Calendar calendar) throws Exception {
         JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
         when(property.getDate()).thenReturn(calendar);
-        return property;
-    }
-
-    private static JCRPropertyWrapper booleanProperty(boolean value) throws Exception {
-        JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
-        when(property.getBoolean()).thenReturn(value);
         return property;
     }
 
