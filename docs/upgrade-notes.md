@@ -98,9 +98,10 @@ is edited — saving it incomplete is no longer possible.
 The fixed `min`/`max` properties of date and datetime-local fields moved from
 the field types into the `fmdbmix:fixedMinDate`/`fmdbmix:fixedMaxDate` (and
 datetime) dynamic-fieldset mixins, driven by the new `fmdb:minBoundMode` /
-`fmdb:maxBoundMode` properties (`none`, `date` or `today` — the day the visitor
-submits the form). In the editor each bound is now a dropdown, and the calendar
-only appears for the fixed-date choice.
+`fmdb:maxBoundMode` properties (`none`, `date`, `today` — the day the visitor
+submits the form — or `relative`, that day shifted by a signed offset). In the
+editor each bound is now a dropdown, and the calendar (or the offset fields)
+only appears for the choice that needs it.
 
 Existing content needs no manual step: `DateBoundsContentMigration` runs at
 engine startup, in both workspaces, and stamps every field carrying a fixed

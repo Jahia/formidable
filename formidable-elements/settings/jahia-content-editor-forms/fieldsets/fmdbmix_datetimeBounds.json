@@ -30,6 +30,19 @@
 						"value": "today"
 					},
 					"displayValueKey": "formidable-engine:fmdbmix_datetimeBounds.fmdb_minBoundMode.today"
+				},
+				{
+					"value": {
+						"type": "String",
+						"value": "relative"
+					},
+					"displayValueKey": "formidable-engine:fmdbmix_datetimeBounds.fmdb_minBoundMode.relative",
+					"propertyList": [
+						{
+							"name": "addMixin",
+							"value": "fmdbmix:relativeMinDatetime"
+						}
+					]
 				}
 			]
 		},
@@ -62,6 +75,19 @@
 						"value": "today"
 					},
 					"displayValueKey": "formidable-engine:fmdbmix_datetimeBounds.fmdb_maxBoundMode.today"
+				},
+				{
+					"value": {
+						"type": "String",
+						"value": "relative"
+					},
+					"displayValueKey": "formidable-engine:fmdbmix_datetimeBounds.fmdb_maxBoundMode.relative",
+					"propertyList": [
+						{
+							"name": "addMixin",
+							"value": "fmdbmix:relativeMaxDatetime"
+						}
+					]
 				}
 			]
 		}

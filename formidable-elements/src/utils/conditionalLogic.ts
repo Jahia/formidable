@@ -1,4 +1,5 @@
 import {getLogicProvider, type LogicSourceType, type ScalarLogicProvider} from '~/utils/logicProviders';
+import {localToday} from '~/components/Input/Date/bounds';
 
 export type ConditionalLogicSourceType = LogicSourceType;
 
@@ -324,18 +325,6 @@ const compareDate = (left: string, right: string): number => {
  * Unambiguous by construction — a date input can never produce this literal.
  */
 export const LOGIC_TODAY_SENTINEL = 'today';
-
-/**
- * The visitor's local calendar day (never through toISOString, which reads the
- * UTC day and shifts around midnight for non-UTC visitors). The server resolves
- * the same sentinel against the day declared in the logic state header.
- */
-const localToday = (): string => {
-	const now = new Date();
-	const month = String(now.getMonth() + 1).padStart(2, '0');
-	const day = String(now.getDate()).padStart(2, '0');
-	return `${now.getFullYear()}-${month}-${day}`;
-};
 
 /**
  * Whether a rule compares against the submission day. Gated on the value kind, not

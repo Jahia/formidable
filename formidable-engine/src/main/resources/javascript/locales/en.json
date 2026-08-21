@@ -16,24 +16,28 @@
         "fmdb_minBoundMode": {
             "none": "No minimum",
             "date": "Fixed date (picked from the calendar)",
-            "today": "Current date (the day the form is submitted)"
+            "today": "Current date (the day the form is submitted)",
+            "relative": "Relative date (the current date shifted by a fixed offset)"
         },
         "fmdb_maxBoundMode": {
             "none": "No maximum",
             "date": "Fixed date (picked from the calendar)",
-            "today": "Current date (the day the form is submitted)"
+            "today": "Current date (the day the form is submitted)",
+            "relative": "Relative date (the current date shifted by a fixed offset)"
         }
     },
     "fmdbmix_datetimeBounds": {
         "fmdb_minBoundMode": {
             "none": "No minimum",
             "date": "Fixed date and time (picked from the calendar)",
-            "today": "Current date (from the start of the submission day)"
+            "today": "Current date (from the start of the submission day)",
+            "relative": "Relative date (shifted from the current date, from the start of that day)"
         },
         "fmdb_maxBoundMode": {
             "none": "No maximum",
             "date": "Fixed date and time (picked from the calendar)",
-            "today": "Current date (until the end of the submission day)"
+            "today": "Current date (until the end of the submission day)",
+            "relative": "Relative date (shifted from the current date, until the end of that day)"
         }
     },
     "conditionalLogic": {
@@ -201,5 +205,10 @@
                 "unexpectedError": "Deletion failed."
             }
         }
+    },
+    "relativeUnit": {
+        "days": "Days",
+        "months": "Months",
+        "years": "Years"
     }
 }
