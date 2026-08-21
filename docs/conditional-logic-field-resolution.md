@@ -123,14 +123,22 @@ rides along as `today`:
 }
 ```
 
-The declared day is only accepted when it lies **within one day of the server's own** —
-the widest gap a real timezone offset can produce; both evaluators then resolve `today`
+The declared day is only accepted when it is a day it currently **is somewhere on
+Earth** — the window from the westmost inhabited offset to the eastmost (UTC-12 to
+UTC+14, the same widening the date bounds use), derived from the evaluation instant
+rather than from the server's own calendar day; both evaluators then resolve `today`
 to that same agreed day, and date-vs-today verdicts stay exact measurements. A day
-further out is ignored like a missing declaration: the server then knows the visitor's
-day only up to that one-day window, so it evaluates each date-vs-today rule against every
-day the window allows, and a verdict that flips inside the window degrades to the
-fail-safe (hidden, required skipped, nothing acted upon) instead of ever rejecting a
-value the visitor's own picker legitimately allowed.
+outside the window is ignored like a missing declaration: the server then knows the
+visitor's day only up to that window, so it evaluates each date-vs-today rule against
+every day the window allows (two or three), and a verdict that flips inside the window
+degrades to the fail-safe (hidden, required skipped, nothing acted upon) instead of
+ever rejecting a value the visitor's own picker legitimately allowed.
+
+Deployment note: the sentinel travels in the ordinary rule value, so a runtime that
+predates it compares the string `today` literally (a `before` rule would then always
+hold). Both modules ship in the same release — upgrade them together before authoring
+submission-day rules, and do not author such rules while an older formidable-elements
+still serves the forms.
 
 A declaration the server cannot interpret — unreadable base64, malformed JSON, a version
 other than `1` — is treated as no declaration at all (the fail-safe below), never as an

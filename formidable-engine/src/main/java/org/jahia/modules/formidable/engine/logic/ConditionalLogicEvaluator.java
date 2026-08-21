@@ -1,7 +1,9 @@
 package org.jahia.modules.formidable.engine.logic;
 
+import java.time.Clock;
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -75,45 +77,55 @@ public class ConditionalLogicEvaluator {
             LogicStateDeclaration declaration
     ) {
         this(fieldLogicRules, logicIdToFieldName, fieldParentContainers, submittedValues,
-                declaration, LocalDate.now());
+                declaration, Clock.systemUTC());
     }
 
-    /** Visible for tests: lets them pin the server's calendar day. */
+    /** Visible for tests: lets them pin the evaluation instant. */
     ConditionalLogicEvaluator(
             Map<String, List<ConditionalLogicRule>> fieldLogicRules,
             Map<String, String> logicIdToFieldName,
             Map<String, Set<String>> fieldParentContainers,
             Map<String, List<String>> submittedValues,
             LogicStateDeclaration declaration,
-            LocalDate serverToday
+            Clock clock
     ) {
         this.fieldLogicRules = fieldLogicRules;
         this.logicIdToFieldName = logicIdToFieldName;
         this.fieldParentContainers = fieldParentContainers;
         this.submittedValues = submittedValues;
         this.declaration = declaration;
-        this.todayCandidates = computeTodayCandidates(declaration, serverToday);
+        this.todayCandidates = computeTodayCandidates(declaration, clock);
     }
 
     /**
-     * The ISO day(s) the today sentinel may resolve to. When the browser declared the
-     * visitor's local day and it stays within one day of the server's — any real-world
-     * timezone offset does — that single agreed day is used: both evaluators then share
-     * one "today" and the verdict stays a measurement. Otherwise (no declaration, or an
-     * implausible one) the server cannot know the visitor's day, so the sentinel resolves
-     * to each day it could plausibly be, and only a verdict on which they all agree
-     * counts as measured.
+     * The ISO day(s) the today sentinel may resolve to. The plausible days are the
+     * calendar days it currently IS somewhere on Earth, from the westmost inhabited
+     * offset to the eastmost (the same UTC-12/UTC+14 widening the date bounds use):
+     * that window is derived from the evaluation instant, never from the server's own
+     * calendar day, whose position inside the window depends on the server's zone.
+     *
+     * When the browser declared the visitor's local day and it lies in that window,
+     * that single agreed day is used: both evaluators then share one "today" and the
+     * verdict stays a measurement. Otherwise (no declaration, or a day it is nowhere
+     * on Earth) the server cannot know the visitor's day, so the sentinel resolves to
+     * every day the window allows — two or three — and only a verdict on which they
+     * all agree counts as measured.
      */
-    private static List<String> computeTodayCandidates(LogicStateDeclaration declaration, LocalDate serverToday) {
+    private static List<String> computeTodayCandidates(LogicStateDeclaration declaration, Clock clock) {
+        LocalDate earliest = LocalDate.now(clock.withZone(ZoneOffset.ofHours(-12)));
+        LocalDate latest = LocalDate.now(clock.withZone(ZoneOffset.ofHours(14)));
+
         LocalDate declared = declaration.declaredToday();
-        if (declared != null && Math.abs(ChronoUnit.DAYS.between(serverToday, declared)) <= 1) {
+        if (declared != null && !declared.isBefore(earliest) && !declared.isAfter(latest)) {
             return List.of(declared.toString());
         }
 
-        return List.of(
-                serverToday.minusDays(1).toString(),
-                serverToday.toString(),
-                serverToday.plusDays(1).toString());
+        List<String> candidates = new ArrayList<>();
+        for (LocalDate day = earliest; !day.isAfter(latest); day = day.plusDays(1)) {
+            candidates.add(day.toString());
+        }
+
+        return List.copyOf(candidates);
     }
 
     public boolean isHidden(String fieldName) {

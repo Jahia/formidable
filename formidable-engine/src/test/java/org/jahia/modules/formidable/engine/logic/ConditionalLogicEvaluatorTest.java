@@ -687,16 +687,30 @@ class ConditionalLogicEvaluatorTest {
 
     // --- The today sentinel: date rules relative to the submission day ---
 
-    private static final java.time.LocalDate SERVER_TODAY = java.time.LocalDate.parse("2026-06-10");
+    /**
+     * Pinned so the plausible-day window [now(UTC-12), now(UTC+14)] is exactly
+     * 2026-06-09 → 2026-06-11, with 2026-06-10 as the middle day.
+     */
+    private static final java.time.Clock FIXED_CLOCK = java.time.Clock.fixed(
+            java.time.Instant.parse("2026-06-10T11:00:00Z"), java.time.ZoneOffset.UTC);
 
     private static ConditionalLogicEvaluator evaluatorWithToday(
             Map<String, List<ConditionalLogicRule>> fieldLogicRules,
             Map<String, List<String>> submittedValues,
             String declarationJson
     ) {
+        return evaluatorWithTodayAt(fieldLogicRules, submittedValues, declarationJson, FIXED_CLOCK);
+    }
+
+    private static ConditionalLogicEvaluator evaluatorWithTodayAt(
+            Map<String, List<ConditionalLogicRule>> fieldLogicRules,
+            Map<String, List<String>> submittedValues,
+            String declarationJson,
+            java.time.Clock clock
+    ) {
         return new ConditionalLogicEvaluator(
                 fieldLogicRules, Map.of(), Map.of(), submittedValues,
-                LogicStateDeclaration.parse(declarationJson), SERVER_TODAY);
+                LogicStateDeclaration.parse(declarationJson), clock);
     }
 
     @Test
@@ -720,9 +734,9 @@ class ConditionalLogicEvaluatorTest {
 
     @Test
     void todayRuleWithoutDeclarationIsMeasuredOnlyWhenDayIndependent() {
-        // No declared day: the server cannot know the visitor's calendar day, only that
-        // it is within one day of its own. A verdict identical across that whole window
-        // is a measurement; one that flips inside it is only a fail-safe.
+        // No declared day: the server cannot know the visitor's calendar day, only the
+        // window of days it currently is somewhere on Earth. A verdict identical across
+        // that whole window is a measurement; one that flips inside it is a fail-safe.
         Map<String, List<ConditionalLogicRule>> rules =
                 Map.of("target", List.of(rule("start", "date", "before", "today", List.of())));
 
@@ -736,9 +750,38 @@ class ConditionalLogicEvaluatorTest {
     }
 
     @Test
-    void implausibleDeclaredDayFallsBackToTheServerDay() {
-        // A declared day further than one day from the server's is no timezone offset:
-        // it is ignored, and the ambiguity window applies as if nothing were declared.
+    void declaredDayItIsNowhereOnEarthIsRejectedEvenNextToTheWindow() {
+        // The plausibility window is derived from the instant, not from the server's
+        // own day: a day just outside it is a day it currently is NOWHERE on Earth,
+        // however close to the server's calendar day, and must not be trusted.
+        Map<String, List<ConditionalLogicRule>> rules =
+                Map.of("target", List.of(rule("start", "date", "on", "today", List.of())));
+
+        // Late UTC evening: the window is {2026-06-10, 2026-06-11} — 06-09 is over
+        // everywhere. A declaration of 06-09 (one day from the server's own 06-10,
+        // which the old serverDay±1 clamp would have trusted) is ignored, and the
+        // matching value fails the rule on every window day: a measurement.
+        java.time.Clock lateEvening = java.time.Clock.fixed(
+                java.time.Instant.parse("2026-06-10T22:00:00Z"), java.time.ZoneOffset.UTC);
+        ConditionalLogicEvaluator dayOver = evaluatorWithTodayAt(rules,
+                Map.of("start", List.of("2026-06-09")),
+                "{\"v\":1,\"providers\":{},\"today\":\"2026-06-09\"}", lateEvening);
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_MEASURED, dayOver.visibility("target"));
+
+        // Early UTC morning: the window is {2026-06-09, 2026-06-10} — 06-11 has not
+        // started anywhere. The mirrored declaration is ignored the same way.
+        java.time.Clock earlyMorning = java.time.Clock.fixed(
+                java.time.Instant.parse("2026-06-10T02:00:00Z"), java.time.ZoneOffset.UTC);
+        ConditionalLogicEvaluator dayNotStarted = evaluatorWithTodayAt(rules,
+                Map.of("start", List.of("2026-06-11")),
+                "{\"v\":1,\"providers\":{},\"today\":\"2026-06-11\"}", earlyMorning);
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_MEASURED, dayNotStarted.visibility("target"));
+    }
+
+    @Test
+    void implausibleDeclaredDayFallsBackToTheWindow() {
+        // A declared day it currently is nowhere on Earth is no timezone offset: it
+        // is ignored, and the ambiguity window applies as if nothing were declared.
         Map<String, List<ConditionalLogicRule>> rules =
                 Map.of("target", List.of(rule("start", "date", "on", "today", List.of())));
 
