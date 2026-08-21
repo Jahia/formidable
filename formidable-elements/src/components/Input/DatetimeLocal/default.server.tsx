@@ -68,6 +68,20 @@ jahiaComponent(
 		const minBound = resolveBound(minBoundMode, formatDatetimeForInput(min));
 		const maxBound = resolveBound(maxBoundMode, formatDatetimeForInput(max));
 
+		// Shared between the static input and the today island so both render identical markup
+		const inputAttributes = {
+			id: inputId,
+			name: inputName,
+			"aria-describedby": helpId,
+			className: "fmdb-form-control",
+			defaultValue: formatDatetimeForInput(defaultValue),
+			min: minBound.fixed,
+			max: maxBound.fixed,
+			step,
+			required,
+			...validationDataAttributes(validationMsgs)
+		};
+
 		return (
 			<div className="fmdb-form-group">
 				{label && (
@@ -87,33 +101,13 @@ jahiaComponent(
 						component={TodayBoundedInput}
 						props={{
 							type: "datetime-local",
-							inputId,
-							name: inputName,
-							helpId,
-							defaultValue: formatDatetimeForInput(defaultValue),
-							min: minBound.fixed,
-							max: maxBound.fixed,
 							minToday: minBound.today,
 							maxToday: maxBound.today,
-							step,
-							required,
-							validationAttributes: validationDataAttributes(validationMsgs)
+							inputAttributes
 						}}
 					/>
 				) : (
-					<input
-						type="datetime-local"
-						id={inputId}
-						name={inputName}
-						aria-describedby={helpId}
-						className="fmdb-form-control"
-						defaultValue={formatDatetimeForInput(defaultValue)}
-						min={minBound.fixed}
-						max={maxBound.fixed}
-						step={step}
-						required={required}
-						{...validationDataAttributes(validationMsgs)}
-					/>
+					<input type="datetime-local" {...inputAttributes}/>
 				)}
 			</div>
 		);

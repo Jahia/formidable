@@ -1,21 +1,14 @@
-import {useEffect, useRef} from 'react';
+import {useEffect, useRef, type ComponentProps} from 'react';
 
 interface TodayBoundedInputProps {
 	type: 'date' | 'datetime-local';
-	inputId: string;
-	name: string;
-	helpId?: string;
-	defaultValue?: string;
-	// Fixed bound of the NON-relative side(s), already formatted for the input
-	// type (yyyy-MM-dd or yyyy-MM-ddTHH:mm). Bound modes are exclusive, so a
-	// side is never both fixed and relative.
-	min?: string;
-	max?: string;
 	minToday?: boolean;
 	maxToday?: boolean;
-	step?: number;
-	required?: boolean;
-	validationAttributes: Record<string, string | undefined>;
+	// Everything else the input carries, shared verbatim with the view's static
+	// branch so both render identical markup. The fixed bound of a NON-relative
+	// side rides in here as a plain min/max attribute — bound modes are
+	// exclusive, so a side is never both fixed and relative.
+	inputAttributes: ComponentProps<'input'>;
 }
 
 // The visitor's local calendar day (never through toISOString, which reads the
@@ -36,17 +29,9 @@ const localToday = (): string => {
  */
 export default function TodayBoundedInput({
 	type,
-	inputId,
-	name,
-	helpId,
-	defaultValue,
-	min,
-	max,
 	minToday,
 	maxToday,
-	step,
-	required,
-	validationAttributes
+	inputAttributes
 }: TodayBoundedInputProps) {
 	const ref = useRef<HTMLInputElement>(null);
 
@@ -78,16 +63,7 @@ export default function TodayBoundedInput({
 		<input
 			ref={ref}
 			type={type}
-			id={inputId}
-			name={name}
-			aria-describedby={helpId}
-			className="fmdb-form-control"
-			defaultValue={defaultValue}
-			min={min}
-			max={max}
-			step={step}
-			required={required}
-			{...validationAttributes}
+			{...inputAttributes}
 		/>
 	);
 }
