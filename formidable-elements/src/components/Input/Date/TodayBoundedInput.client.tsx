@@ -1,5 +1,5 @@
 import {useEffect, useRef, type ComponentProps} from 'react';
-import type {RelativeOffset} from './bounds';
+import {localToday, shiftedLocalDay, type RelativeOffset} from './bounds';
 
 interface TodayBoundedInputProps {
 	type: 'date' | 'datetime-local';
@@ -14,37 +14,6 @@ interface TodayBoundedInputProps {
 	// side rides in here as a plain min/max attribute.
 	inputAttributes: ComponentProps<'input'>;
 }
-
-const isoDay = (date: Date): string => {
-	const month = String(date.getMonth() + 1).padStart(2, '0');
-	const day = String(date.getDate()).padStart(2, '0');
-	return `${date.getFullYear()}-${month}-${day}`;
-};
-
-// The visitor's local calendar day (never through toISOString, which reads the
-// UTC day and shifts around midnight for non-UTC visitors).
-const localToday = (): string => isoDay(new Date());
-
-/**
- * The visitor's local day shifted by a signed offset. Month and year arithmetic
- * mirrors java.time (the server resolves the same bound with it): the day of
- * month clamps to the end of shorter months — January 31 + 1 month is
- * February 28/29, never the March 2/3 a naive setMonth would overflow to.
- */
-const shiftedLocalDay = ({amount, unit}: RelativeOffset): string => {
-	const now = new Date();
-	if (unit === 'days') {
-		now.setDate(now.getDate() + amount);
-		return isoDay(now);
-	}
-
-	const months = unit === 'years' ? amount * 12 : amount;
-	const total = now.getMonth() + months;
-	const year = now.getFullYear() + Math.floor(total / 12);
-	const month = ((total % 12) + 12) % 12;
-	const lastDay = new Date(year, month + 1, 0).getDate();
-	return isoDay(new Date(year, month, Math.min(now.getDate(), lastDay)));
-};
 
 /**
  * Date or datetime-local input whose bound(s) follow the submission day — the

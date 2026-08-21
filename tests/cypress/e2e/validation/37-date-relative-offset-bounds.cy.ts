@@ -4,6 +4,7 @@ import {
 	getInputDatetimeLocalNode,
 	visitLiveForm
 } from '../../support/fixtures';
+import {localDay} from '../../support/constants';
 import {useFormidableSite} from './support';
 import {
 	expectErrorResponse,
@@ -12,28 +13,13 @@ import {
 	withSameOriginHeaders
 } from '../security/support';
 
-// The browser-local calendar day, the same way the hydrated input resolves it.
-const localDay = (offsetDays = 0): string => {
-	const day = new Date();
-	day.setDate(day.getDate() + offsetDays);
-	return isoDay(day);
-};
-
-const isoDay = (date: Date): string => {
-	const month = String(date.getMonth() + 1).padStart(2, '0');
-	const day = String(date.getDate()).padStart(2, '0');
-	return `${date.getFullYear()}-${month}-${day}`;
-};
-
-// The local day shifted by whole years with java.time's month-end clamping —
-// the same arithmetic the island and the server use, so the assertion cannot
-// drift from the implementation on a February 29th.
-const localDayShiftedByYears = (years: number): string => {
-	const now = new Date();
-	const year = now.getFullYear() + years;
-	const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
-	return isoDay(new Date(year, now.getMonth(), Math.min(now.getDate(), lastDay)));
-};
+// The hydration test freezes the browser clock on a leap day at noon: the
+// island resolves the offsets from that instant, so the expected attributes are
+// plain literals — no re-implementation of the shifting arithmetic in the spec,
+// and no race across local midnight. 2024-02-29 minus 18 years lands on a
+// non-leap year, so the assertion also proves the month-end clamping
+// (java.time semantics, mirrored by the island): February 29 → February 28.
+const FROZEN_NOW = new Date(2024, 1, 29, 12, 0, 0);
 
 describe('Validation - 37 Date bounds at an offset from the submission day', () => {
 	useFormidableSite();
@@ -64,14 +50,15 @@ describe('Validation - 37 Date bounds at an offset from the submission day', () 
 		cy.logout();
 	});
 
-	it('hydrates the inputs with offsets resolved on the visitor day', () => {
+	it('hydrates the inputs with offsets resolved on the visitor day, month-end clamped', () => {
+		cy.clock(FROZEN_NOW.getTime(), ['Date']);
 		const form = visitLiveForm(livePath);
 
 		// The bound is set at hydration (an SSR attribute would be frozen by the
 		// fragment cache), so the assertions retry until the island has run.
-		form.get().find('input[name="birthDate"]').should('have.attr', 'max', localDayShiftedByYears(-18));
-		form.get().find('input[name="appointment"]').should('have.attr', 'min', `${localDay()}T00:00`);
-		form.get().find('input[name="appointment"]').should('have.attr', 'max', `${localDay(30)}T23:59`);
+		form.get().find('input[name="birthDate"]').should('have.attr', 'max', '2006-02-28');
+		form.get().find('input[name="appointment"]').should('have.attr', 'min', '2024-02-29T00:00');
+		form.get().find('input[name="appointment"]').should('have.attr', 'max', '2024-03-30T23:59');
 	});
 
 	it('accepts values inside the offset window', () => {
@@ -80,7 +67,8 @@ describe('Validation - 37 Date bounds at an offset from the submission day', () 
 		postDirectMultipartSubmission({
 			formId,
 			fields: {
-				birthDate: localDayShiftedByYears(-30),
+				// Far beyond any -18y maximum for decades to come.
+				birthDate: '1990-06-15',
 				appointment: `${localDay(10)}T12:00`
 			},
 			headers: withSameOriginHeaders()

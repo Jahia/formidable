@@ -2,7 +2,7 @@ import {Island, jahiaComponent} from "@jahia/javascript-modules-library";
 import {type RangeValidationMessageProps, validationDataAttributes} from "formidable-shared";
 import {HelpText, helpTextId} from "formidable-shared";
 import TodayBoundedInput from "../Date/TodayBoundedInput.client";
-import {resolveBound} from "../Date/bounds";
+import {resolveDateBounds} from "../Date/bounds";
 
 interface InputDatetimeLocalProps extends RangeValidationMessageProps {
 	"jcr:title"?: string;
@@ -73,8 +73,16 @@ jahiaComponent(
 
 		const helpId = helpText ? helpTextId(currentNode.getIdentifier()) : undefined;
 
-		const minBound = resolveBound(minBoundMode, formatDatetimeForInput(min), minRelativeAmount, minRelativeUnit);
-		const maxBound = resolveBound(maxBoundMode, formatDatetimeForInput(max), maxRelativeAmount, maxRelativeUnit);
+		const {minBound, maxBound, followsDay} = resolveDateBounds({
+			minMode: minBoundMode,
+			maxMode: maxBoundMode,
+			min: formatDatetimeForInput(min),
+			max: formatDatetimeForInput(max),
+			minRelativeAmount,
+			minRelativeUnit,
+			maxRelativeAmount,
+			maxRelativeUnit
+		});
 
 		// Shared between the static input and the today island so both render identical markup
 		const inputAttributes = {
@@ -101,7 +109,7 @@ jahiaComponent(
 
 				<HelpText id={helpId} text={helpText}/>
 
-				{minBound.today || maxBound.today || minBound.offset || maxBound.offset ? (
+				{followsDay ? (
 					// A bound following the submission day (as-is or shifted) cannot be a
 					// server-rendered attribute (the fragment cache would freeze it): the
 					// input becomes an island resolving it at hydration, in the visitor's

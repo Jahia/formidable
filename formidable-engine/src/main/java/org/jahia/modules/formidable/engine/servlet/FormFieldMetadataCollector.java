@@ -407,24 +407,23 @@ class FormFieldMetadataCollector {
     private static String resolveDateBound(JCRNodeWrapper node, boolean minBound, boolean withTime) {
         String mode = JcrProps.string(node, minBound ? "fmdb:minBoundMode" : "fmdb:maxBoundMode", null);
         String fixedProperty = minBound ? "min" : "max";
-        if ("today".equals(mode)) {
-            java.time.LocalDate day =
-                    java.time.LocalDate.now(java.time.ZoneOffset.ofHours(minBound ? -12 : 14));
-            // The validator accepts seconds and millis, so the max must cover the whole
-            // last minute of the day: T23:59 alone would reject a T23:59:30 value the
-            // "until the end of the submission day" contract allows.
-            return withTime ? day + (minBound ? "T00:00" : "T23:59:59.999") : day.toString();
-        }
-
-        if ("relative".equals(mode)) {
-            // The submission day shifted by a signed amount of days, months or years,
-            // widened to the same timezone extreme as the today mode. Month and year
-            // arithmetic is java.time's: it clamps to the end of shorter months, and
-            // the rendered input's island mirrors that clamping in the browser.
-            long amount = JcrProps.longValue(node,
-                    minBound ? "fmdb:minRelativeAmount" : "fmdb:maxRelativeAmount", 0);
-            String unit = JcrProps.string(node,
-                    minBound ? "fmdb:minRelativeUnit" : "fmdb:maxRelativeUnit", "days");
+        if ("today".equals(mode) || "relative".equals(mode)) {
+            // The submission day, optionally shifted by a signed amount of days,
+            // months or years — 'today' is the zero offset, so the two modes share
+            // one resolution. Widened to the extreme calendar day any inhabited
+            // timezone can currently be; month and year arithmetic is java.time's
+            // (clamps to the end of shorter months), mirrored by the rendered
+            // input's island. The validator accepts seconds and millis, so the max
+            // covers the whole last minute of the day: T23:59 alone would reject a
+            // T23:59:30 value the "until the end of the submission day" contract
+            // allows.
+            boolean relative = "relative".equals(mode);
+            long amount = relative
+                    ? JcrProps.longValue(node, minBound ? "fmdb:minRelativeAmount" : "fmdb:maxRelativeAmount", 0)
+                    : 0;
+            String unit = relative
+                    ? JcrProps.string(node, minBound ? "fmdb:minRelativeUnit" : "fmdb:maxRelativeUnit", "days")
+                    : "days";
             java.time.LocalDate day = shiftDay(
                     java.time.LocalDate.now(java.time.ZoneOffset.ofHours(minBound ? -12 : 14)), amount, unit);
             return withTime ? day + (minBound ? "T00:00" : "T23:59:59.999") : day.toString();

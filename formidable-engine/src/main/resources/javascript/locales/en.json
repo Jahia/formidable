@@ -206,32 +206,9 @@
             }
         }
     },
-    "fmdbmix_relativeMinDate": {
-        "fmdb_minRelativeUnit": {
-            "days": "Days",
-            "months": "Months",
-            "years": "Years"
-        }
-    },
-    "fmdbmix_relativeMinDatetime": {
-        "fmdb_minRelativeUnit": {
-            "days": "Days",
-            "months": "Months",
-            "years": "Years"
-        }
-    },
-    "fmdbmix_relativeMaxDate": {
-        "fmdb_maxRelativeUnit": {
-            "days": "Days",
-            "months": "Months",
-            "years": "Years"
-        }
-    },
-    "fmdbmix_relativeMaxDatetime": {
-        "fmdb_maxRelativeUnit": {
-            "days": "Days",
-            "months": "Months",
-            "years": "Years"
-        }
+    "relativeUnit": {
+        "days": "Days",
+        "months": "Months",
+        "years": "Years"
     }
 }

@@ -15,6 +15,12 @@ export function pushBoundModeProperties(
 ): void {
 	const minMode = data.minBoundMode ?? (data.min ? 'date' : undefined) ?? (data.minRelative ? 'relative' : undefined);
 	const maxMode = data.maxBoundMode ?? (data.max ? 'date' : undefined) ?? (data.maxRelative ? 'relative' : undefined);
+	// A relative mode without its offset is a node shape no editor can produce
+	// (the fieldset properties are mandatory): fail the fixture loudly instead of
+	// silently building a today-equivalent bound the spec believes is relative.
+	if ((minMode === 'relative' && !data.minRelative) || (maxMode === 'relative' && !data.maxRelative)) {
+		throw new Error('A relative bound mode requires its minRelative/maxRelative offset');
+	}
 	if (minMode) properties.push({name: 'fmdb:minBoundMode', value: minMode});
 	if (maxMode) properties.push({name: 'fmdb:maxBoundMode', value: maxMode});
 	if (minMode === 'date') mixins.push(`fmdbmix:fixedMin${flavor}`);
