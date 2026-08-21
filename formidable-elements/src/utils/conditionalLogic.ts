@@ -337,20 +337,28 @@ const localToday = (): string => {
 	return `${now.getFullYear()}-${month}-${day}`;
 };
 
-const resolveTodaySentinel = (expected: string, today: string): string =>
-	expected === LOGIC_TODAY_SENTINEL ? today : expected;
+/**
+ * Whether a rule compares against the submission day. Gated on the value kind, not
+ * on an operator list: only the date kind gives the sentinel its meaning (a text
+ * rule keeps comparing the literal string), and the editor stamps the kind on
+ * every rule that can carry the sentinel. Mirrors the server's referencesToday.
+ */
+const ruleReferencesToday = (rule: ConditionalLogicRule): boolean =>
+	rule.valueKind === 'date'
+	&& (rule.value === LOGIC_TODAY_SENTINEL || (rule.values ?? []).includes(LOGIC_TODAY_SENTINEL));
 
-/** Whether a rule compares against the submission day: only date rules may. */
-const ruleReferencesToday = (rule: ConditionalLogicRule): boolean => {
-	if (isNonFieldRule(rule) || rule.valueKind === 'number') {
-		return false;
-	}
-
-	if (!['before', 'after', 'on', 'between'].includes(rule.operator)) {
-		return false;
-	}
-
-	return rule.value === LOGIC_TODAY_SENTINEL || (rule.values ?? []).includes(LOGIC_TODAY_SENTINEL);
+/**
+ * A copy of the rule with the today sentinel substituted by the visitor's local
+ * day, so the ordinary operator evaluation applies unchanged — the same one-shot
+ * rewrite the server does, keeping every operator branch sentinel-free.
+ */
+const withTodayResolved = (rule: ConditionalLogicRule): ConditionalLogicRule => {
+	const today = localToday();
+	return {
+		...rule,
+		value: rule.value === LOGIC_TODAY_SENTINEL ? today : rule.value,
+		values: rule.values?.map(value => (value === LOGIC_TODAY_SENTINEL ? today : value))
+	};
 };
 
 /**
@@ -419,14 +427,21 @@ const evaluateProviderRule = (rule: ConditionalLogicRule, provider: ScalarLogicP
 };
 
 /**
- * Groups the references used by each provider across the form, so a provider that needs to
- * watch its state is subscribed once with everything it must watch.
+ * One scan of the form's stored rules for everything the logic state needs: the
+ * references used by each provider, and whether any rule compares against the
+ * submission day. A single pass keeps the two answers coherent by construction —
+ * they must come from the same rule set to build one truthful declaration.
  */
-export const collectProviderRefs = (form: HTMLFormElement): Map<string, string[]> => {
+const collectLogicStateNeeds = (
+	form: HTMLFormElement
+): {refsByProvider: Map<string, string[]>; hasTodayRule: boolean} => {
 	const refsByProvider = new Map<string, Set<string>>();
+	let hasTodayRule = false;
 
 	for (const wrapper of Array.from(form.querySelectorAll<HTMLElement>('[data-fmdb-logics]'))) {
 		for (const rule of deserializeConditionalLogicRules(wrapper.dataset.fmdbLogics ?? '')) {
+			hasTodayRule = hasTodayRule || ruleReferencesToday(rule);
+
 			const provider = getLogicProvider(rule.sourceType);
 			const ref = provider ? rule[provider.configKey] : undefined;
 			if (!provider || !ref) continue;
@@ -437,8 +452,18 @@ export const collectProviderRefs = (form: HTMLFormElement): Map<string, string[]
 		}
 	}
 
-	return new Map(Array.from(refsByProvider, ([id, refs]) => [id, Array.from(refs)]));
+	return {
+		refsByProvider: new Map(Array.from(refsByProvider, ([id, refs]) => [id, Array.from(refs)])),
+		hasTodayRule
+	};
 };
+
+/**
+ * Groups the references used by each provider across the form, so a provider that needs to
+ * watch its state is subscribed once with everything it must watch.
+ */
+export const collectProviderRefs = (form: HTMLFormElement): Map<string, string[]> =>
+	collectLogicStateNeeds(form).refsByProvider;
 
 /** Unicode-safe base64: header values must stay ASCII, provider values may not be. */
 const toBase64 = (value: string): string => {
@@ -450,11 +475,6 @@ const toBase64 = (value: string): string => {
 	return btoa(binary);
 };
 
-/** Whether any rule of the form compares against the submission day. */
-const formHasTodayRule = (form: HTMLFormElement): boolean =>
-	Array.from(form.querySelectorAll<HTMLElement>('[data-fmdb-logics]'))
-		.some(wrapper => deserializeConditionalLogicRules(wrapper.dataset.fmdbLogics ?? '').some(ruleReferencesToday));
-
 /**
  * Builds the submit-time state declaration for the FORM_LOGIC_STATE_HEADER, or null when
  * no rule of the form needs one. One `read` per referenced provider state, at the moment
@@ -465,11 +485,12 @@ const formHasTodayRule = (form: HTMLFormElement): boolean =>
  * evaluators resolve "today" to the same calendar day whatever the timezone offset.
  */
 export const buildLogicStateHeader = (form: HTMLFormElement): string | null => {
+	const {refsByProvider, hasTodayRule} = collectLogicStateNeeds(form);
 	const providers: Record<string, Record<string, string | null>> = {};
 	const declaration: {v: number; providers: typeof providers; today?: string} = {v: 1, providers};
 	let hasAny = false;
 
-	for (const [providerId, refs] of collectProviderRefs(form)) {
+	for (const [providerId, refs] of refsByProvider) {
 		const provider = getLogicProvider(providerId);
 		if (!provider) continue;
 
@@ -482,7 +503,7 @@ export const buildLogicStateHeader = (form: HTMLFormElement): string | null => {
 		hasAny = true;
 	}
 
-	if (formHasTodayRule(form)) {
+	if (hasTodayRule) {
 		declaration.today = localToday();
 		hasAny = true;
 	}
@@ -491,6 +512,10 @@ export const buildLogicStateHeader = (form: HTMLFormElement): string | null => {
 };
 
 const evaluateRule = (rule: ConditionalLogicRule, sourceWrapper: HTMLElement): boolean => {
+	if (ruleReferencesToday(rule)) {
+		rule = withTodayResolved(rule);
+	}
+
 	const state = getSourceFieldState(sourceWrapper);
 	const values = state.values;
 	const expectedValues = rule.values ?? [];
@@ -509,14 +534,11 @@ const evaluateRule = (rule: ConditionalLogicRule, sourceWrapper: HTMLElement): b
 		case 'containsAll':
 			return expectedValues.every(value => values.includes(value));
 		case 'before':
-			return values.length > 0 && !!rule.value
-				&& compareDate(values[0], resolveTodaySentinel(rule.value, localToday())) < 0;
+			return values.length > 0 && !!rule.value && compareDate(values[0], rule.value) < 0;
 		case 'after':
-			return values.length > 0 && !!rule.value
-				&& compareDate(values[0], resolveTodaySentinel(rule.value, localToday())) > 0;
+			return values.length > 0 && !!rule.value && compareDate(values[0], rule.value) > 0;
 		case 'on':
-			return values.length > 0 && !!rule.value
-				&& compareDate(values[0], resolveTodaySentinel(rule.value, localToday())) === 0;
+			return values.length > 0 && !!rule.value && compareDate(values[0], rule.value) === 0;
 		case 'between': {
 			if (values.length === 0 || expectedValues.length < 2 || expectedValues[0] === '' || expectedValues[1] === '') {
 				return false;
@@ -530,9 +552,8 @@ const evaluateRule = (rule: ConditionalLogicRule, sourceWrapper: HTMLElement): b
 				return fromCompare !== null && toCompare !== null && fromCompare >= 0 && toCompare <= 0;
 			}
 
-			const today = localToday();
-			return compareDate(values[0], resolveTodaySentinel(expectedValues[0], today)) >= 0
-				&& compareDate(values[0], resolveTodaySentinel(expectedValues[1], today)) <= 0;
+			return compareDate(values[0], expectedValues[0]) >= 0
+				&& compareDate(values[0], expectedValues[1]) <= 0;
 		}
 
 		case 'eq':

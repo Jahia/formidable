@@ -35,16 +35,13 @@ public record ConditionalLogicRule(
 
     public static final String SOURCE_TYPE_FIELD = "field";
     public static final String VALUE_KIND_NUMBER = "number";
+    public static final String VALUE_KIND_DATE = "date";
 
     /**
      * Sentinel a date rule may carry instead of a fixed date: the submission day.
      * Unambiguous by construction — a date input can never produce this literal.
      */
     public static final String TODAY_SENTINEL = "today";
-
-    /** Operators that compare date values, the only ones the today sentinel applies to. */
-    private static final java.util.Set<String> DATE_OPERATORS = java.util.Set.of(
-            "before", "after", "on", "between");
 
     /**
      * Rule keys that are not provider configuration. Everything else with a string value
@@ -73,12 +70,15 @@ public record ConditionalLogicRule(
     }
 
     /**
-     * Whether this rule compares against the submission day. Only date comparisons may:
-     * the number kind shares 'between' but a number rule can never carry the sentinel,
-     * and text operators must keep comparing the literal string.
+     * Whether this rule compares against the submission day. Gated on the value kind,
+     * not on an operator list: only the date kind gives the sentinel its meaning (a
+     * text rule keeps comparing the literal string, a number rule can never carry it),
+     * and the editor stamps the kind on every rule that can carry the sentinel — so a
+     * future date operator or value kind opts in or out by its kind alone, identically
+     * here and in the browser evaluator.
      */
     public boolean referencesToday() {
-        if (!isFieldRule() || VALUE_KIND_NUMBER.equals(valueKind) || !DATE_OPERATORS.contains(operator)) {
+        if (!isFieldRule() || !VALUE_KIND_DATE.equals(valueKind)) {
             return false;
         }
 
