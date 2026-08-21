@@ -1,7 +1,8 @@
 import {BaseComponent, getComponentBySelector} from '@jahia/cypress';
 
 class ConditionalLogicRuleRow extends BaseComponent {
-	static defaultSelector = 'div.flexRow_nowrap.flexFluid.alignCenter';
+	// Structure-proof: the rule row declares itself, layout classes may change.
+	static defaultSelector = '[data-sel-role="logic-rule"]';
 }
 
 export class ConditionalLogicField extends BaseComponent {

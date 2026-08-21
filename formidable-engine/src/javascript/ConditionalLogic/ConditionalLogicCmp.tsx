@@ -772,7 +772,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
 
     return (
         <div className="flexCol flexFluid" onBlur={handleRowBlur}>
-            <div className="fmdbRuleGrid">
+            <div className="fmdbRuleGrid" data-sel-role="logic-rule">
                 <div>
                     <Dropdown
                         variant="outlined"
