@@ -1,0 +1,17 @@
+/*
+ * Manual options edited outside the site's default language: the option
+ * structure (count, order) and identities belong to the default language, and
+ * any structural change would only be reverted by the save-time re-alignment.
+ * The row controls (add, remove, drag) belong to the Content Editor's multiple
+ * field, outside the selector's own DOM, so the selector flags the field
+ * wrapper with this class and the controls hide here.
+ */
+.fmdbOptionsStructureLocked [data-sel-action="addField"],
+.fmdbOptionsStructureLocked [data-sel-action^="removeField_"] {
+    display: none;
+}
+
+/* The drag handle has no data-sel hook: it is the row card's first child. */
+.fmdbOptionsStructureLocked [data-sel-content-editor-multiple-generic-field] > div:first-child {
+    visibility: hidden;
+}

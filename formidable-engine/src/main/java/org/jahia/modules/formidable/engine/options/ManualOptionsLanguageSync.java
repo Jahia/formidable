@@ -23,13 +23,14 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.TR
  * Keeps the manual options of a choice field coherent across languages. An
  * option's VALUE is its identity — submissions store it, conditional logic
  * matches it, the forged-value validation checks it — so all languages must
- * share one single set of values, in one order. Only the label and the default
- * selection are editorial content that varies per language.
+ * share one single set of values, in one order, with one default selection
+ * (form behavior travels with the value). Only the label is editorial content
+ * that varies per language.
  *
  * The site's default language is the authority: whenever fmdb:options is saved,
  * every other language is re-aligned on the master's values, order and count.
- * A language keeps its own label and selected flag for a value it already
- * carries — entries sharing one value pair up positionally, so duplicated (or
+ * A language keeps its own label for a value it already carries — entries
+ * sharing one value pair up positionally, so duplicated (or
  * still-empty) values never collapse onto one translation. Content that
  * diverged before this sync existed is re-aligned the next time its field is
  * saved.
@@ -142,11 +143,12 @@ public final class ManualOptionsLanguageSync {
     }
 
     /**
-     * Rewrites one language's entries as the master's values in the master's
-     * order, keeping that language's label and selected flag wherever the value
-     * already exists there. Same-value entries are consumed positionally (a
-     * queue per value), so two master rows sharing a value — including two rows
-     * whose value is still empty — each keep their own translation.
+     * Rewrites one language's entries as the master's values, order and default
+     * selections (form behavior travels with the value), keeping only that
+     * language's label wherever the value already exists there. Same-value entries
+     * are consumed positionally (a queue per value), so two master rows sharing a
+     * value — including two rows whose value is still empty — each keep their own
+     * translation.
      */
     private static boolean alignTranslation(Node translation, List<String> masterOptions, String fieldPath)
             throws RepositoryException {
@@ -163,8 +165,7 @@ public final class ManualOptionsLanguageSync {
         for (String masterRaw : masterOptions) {
             String value = ManualOptionEntries.value(masterRaw);
             Deque<String> own = value != null ? currentByValue.get(value) : null;
-            String kept = own != null ? own.pollFirst() : null;
-            aligned.add(kept != null ? kept : masterRaw);
+            aligned.add(ManualOptionEntries.withMasterIdentity(masterRaw, own != null ? own.pollFirst() : null));
         }
 
         if (aligned.equals(current)) {

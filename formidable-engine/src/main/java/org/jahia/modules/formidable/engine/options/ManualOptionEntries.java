@@ -39,6 +39,29 @@ public final class ManualOptionEntries {
         }
     }
 
+    /**
+     * One aligned entry: the master's identity (value AND default selection — form
+     * behavior, not content) with the language's own label. Hand-built in the exact
+     * shape the editor's JSON.stringify produces ({"value","label","selected"} in
+     * that order), so re-running the sync on an aligned translation reproduces
+     * byte-identical entries and stays idempotent.
+     */
+    public static String withMasterIdentity(String masterRaw, String ownRaw) {
+        try {
+            JSONObject master = new JSONObject(masterRaw);
+            String label = master.optString("label", "");
+            if (ownRaw != null) {
+                label = new JSONObject(ownRaw).optString("label", label);
+            }
+
+            return "{\"value\":" + JSONObject.quote(master.optString("value", ""))
+                    + ",\"label\":" + JSONObject.quote(label)
+                    + ",\"selected\":" + master.optBoolean("selected", false) + "}";
+        } catch (JSONException e) {
+            return masterRaw;
+        }
+    }
+
     /** The raw entries of one language's translation subnode, in stored order. */
     public static List<String> readOptions(Node translation) throws RepositoryException {
         List<String> options = new ArrayList<>();

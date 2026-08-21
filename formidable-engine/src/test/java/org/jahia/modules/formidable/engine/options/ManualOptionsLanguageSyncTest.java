@@ -26,7 +26,11 @@ import static org.mockito.Mockito.when;
 class ManualOptionsLanguageSyncTest {
 
     private static String option(String value, String label) {
-        return "{\"value\":\"" + value + "\",\"label\":\"" + label + "\",\"selected\":false}";
+        return option(value, label, false);
+    }
+
+    private static String option(String value, String label, boolean selected) {
+        return "{\"value\":\"" + value + "\",\"label\":\"" + label + "\",\"selected\":" + selected + "}";
     }
 
     @Test
@@ -56,6 +60,20 @@ class ManualOptionsLanguageSyncTest {
 
         assertFalse(ManualOptionsLanguageSync.sync(field));
         verify(fr, never()).setProperty(eq("fmdb:options"), any(String[].class));
+    }
+
+    @Test
+    void defaultSelectionFollowsTheMaster() throws Exception {
+        // The default selection is form behavior, not content: it travels with the
+        // value, so the master's flag wins while the language's label survives.
+        Node master = translation("en", option("a", "Alpha", true), option("b", "Bee", false));
+        Node fr = translation("fr", option("a", "Alfa", false), option("b", "B\u00e9", true));
+
+        JCRNodeWrapper field = fieldNode("en", master, fr);
+
+        assertTrue(ManualOptionsLanguageSync.sync(field));
+        verify(fr).setProperty(eq("fmdb:options"),
+                eq(new String[]{option("a", "Alfa", true), option("b", "B\u00e9", false)}));
     }
 
     @Test
