@@ -76,16 +76,35 @@ class ManualOptionsLanguageSyncTest {
     }
 
     @Test
-    void anEmptyMasterAlignsNothing() throws Exception {
-        // An untouched default language must never overwrite what a translation
-        // carries: without a master list there is no authority to align on.
+    void anEmptyMasterIsSeededFromTheFirstAuthoredLanguage() throws Exception {
+        // A field authored in a non-default language only: its entries become the
+        // master right away (values as the identity, labels as the translation
+        // starting point), so a later default-language edit never opens on an empty
+        // mandatory list whose improvised values would erase this authoring.
         Node master = translation("en");
-        Node fr = translation("fr", option("a", "Alfa"));
+        String frA = option("a", "Alfa");
+        Node fr = translation("fr", frA);
+
+        JCRNodeWrapper field = fieldNode("en", master, fr);
+        when(field.getOrCreateI18N(org.jahia.utils.LanguageCodeConverters.languageCodeToLocale("en")))
+                .thenReturn(master);
+
+        assertTrue(ManualOptionsLanguageSync.sync(field));
+        verify(master).setProperty(eq("fmdb:options"), eq(new String[]{frA}));
+        verify(fr, never()).setProperty(eq("fmdb:options"), any(String[].class));
+    }
+
+    @Test
+    void aFieldWithoutAnyOptionsAlignsNothing() throws Exception {
+        // Nothing authored anywhere: no identity exists yet, nothing to seed or align.
+        Node master = translation("en");
+        Node fr = translation("fr");
 
         JCRNodeWrapper field = fieldNode("en", master, fr);
 
         assertFalse(ManualOptionsLanguageSync.sync(field));
         verify(fr, never()).setProperty(eq("fmdb:options"), any(String[].class));
+        verify(master, never()).setProperty(eq("fmdb:options"), any(String[].class));
     }
 
     private static JCRNodeWrapper fieldNode(String defaultLanguage, Node... translations) throws Exception {

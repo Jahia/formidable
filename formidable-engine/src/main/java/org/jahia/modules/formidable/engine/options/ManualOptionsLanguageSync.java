@@ -77,19 +77,68 @@ public final class ManualOptionsLanguageSync {
             }
         }
 
-        // No master list means nothing to align to: a field authored only in a
-        // non-default language keeps its own values as the identity, and an
-        // untouched default language never overwrites what a translation carries.
+        // No master list yet: the first authored language SEEDS it. Its values
+        // become the identity right away (labels ride along as the starting point
+        // for translation), so the default language is never opened later on an
+        // empty mandatory list whose improvised values would re-align — and erase —
+        // what the first language authored.
+        boolean seeded = false;
         if (masterOptions == null || masterOptions.isEmpty()) {
-            return false;
+            masterOptions = seedMaster(fieldNode, masterLanguage, otherTranslations);
+            if (masterOptions == null) {
+                return false;
+            }
+
+            seeded = true;
         }
 
-        boolean updated = false;
+        boolean updated = seeded;
         for (Node translation : otherTranslations) {
             updated |= alignTranslation(translation, masterOptions, fieldNode.getPath());
         }
 
         return updated;
+    }
+
+    /**
+     * Writes the first authored language's entries onto the default language's
+     * translation (created through the platform API when needed). When several
+     * languages carry options and none is the default, the first by language code
+     * wins — deterministic, and the following alignment makes the others coherent.
+     *
+     * @return the seeded master entries, or null when no language carries options
+     */
+    private static List<String> seedMaster(JCRNodeWrapper fieldNode, String masterLanguage,
+            List<Node> otherTranslations) throws RepositoryException {
+        Node source = null;
+        String sourceLanguage = null;
+        List<String> sourceOptions = null;
+        for (Node translation : otherTranslations) {
+            List<String> options = ManualOptionEntries.readOptions(translation);
+            if (options.isEmpty()) {
+                continue;
+            }
+
+            String language = translation.hasProperty(LANGUAGE_PROPERTY)
+                    ? translation.getProperty(LANGUAGE_PROPERTY).getString()
+                    : "";
+            if (source == null || language.compareTo(sourceLanguage) < 0) {
+                source = translation;
+                sourceLanguage = language;
+                sourceOptions = options;
+            }
+        }
+
+        if (sourceOptions == null) {
+            return null;
+        }
+
+        Node master = fieldNode.getOrCreateI18N(
+                org.jahia.utils.LanguageCodeConverters.languageCodeToLocale(masterLanguage));
+        master.setProperty(OPTIONS_PROPERTY, sourceOptions.toArray(new String[0]));
+        log.info("[ManualOptionsLanguageSync] Seeded the default language ({}) options of '{}' from '{}'",
+                masterLanguage, fieldNode.getPath(), sourceLanguage);
+        return sourceOptions;
     }
 
     /**

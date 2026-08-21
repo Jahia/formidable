@@ -46,8 +46,11 @@ i18n property, two guards keep the languages coherent:
 - in the editor, an **existing value is read-only outside the site's default
   language** (the tooltip says why); labels and default selections stay
   editable everywhere, and an empty value stays editable so a field authored
-  only in a non-default language remains authorable (its values are then the
-  identity, there being no master to align on);
+  only in a non-default language remains authorable — its entries then **seed
+  the default language at save** (values become the identity, labels the
+  starting point for translation), so a later default-language edit never
+  starts from an empty list whose improvised values would erase that
+  authoring;
 - on every save of the options, the server **re-aligns every other language on
   the default language's values, order and count** (`ManualOptionsLanguageSync`).
   A language keeps its own label and selected flag for a value it already
