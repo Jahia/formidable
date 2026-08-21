@@ -58,24 +58,43 @@ public class DateBoundsContentMigration {
     @Activate
     public void activate() {
         for (String workspace : new String[]{"default", "live"}) {
-            for (BoundsContract contract : CONTRACTS) {
-                try {
-                    JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, workspace, null, session -> {
-                        migrateWorkspace(session, workspace, contract);
-                        return null;
-                    });
-                } catch (RepositoryException e) {
-                    log.error("[DateBoundsContentMigration] Migration of {} failed in workspace '{}': {}",
-                            contract.legacyNodeType(), workspace, e.getMessage(), e);
-                }
+            try {
+                JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, workspace, null, session -> {
+                    // One session carries both contracts; each keeps its own error
+                    // isolation so a failing type never blocks the other.
+                    for (BoundsContract contract : CONTRACTS) {
+                        try {
+                            migrateWorkspace(session, workspace, contract);
+                        } catch (RepositoryException e) {
+                            log.error("[DateBoundsContentMigration] Migration of {} failed in workspace '{}': {}",
+                                    contract.legacyNodeType(), workspace, e.getMessage(), e);
+                        }
+                    }
+                    return null;
+                });
+            } catch (RepositoryException e) {
+                log.error("[DateBoundsContentMigration] Migration failed in workspace '{}': {}",
+                        workspace, e.getMessage(), e);
             }
         }
     }
 
     private void migrateWorkspace(JCRSessionWrapper session, String workspace, BoundsContract contract)
             throws RepositoryException {
+        // The field types belong to the elements module: on an instance where it never
+        // started (engine-only, or a virgin install) there is nothing to migrate, and
+        // querying an unregistered type would throw.
+        if (!session.getWorkspace().getNodeTypeManager().hasNodeType(contract.legacyNodeType())) {
+            log.debug("[DateBoundsContentMigration] Type {} is not registered, nothing to migrate in workspace '{}'",
+                    contract.legacyNodeType(), workspace);
+            return;
+        }
+
+        // Scoped to editorial content: module-bundled nodes under /modules belong to
+        // their module and must not be rewritten from here.
         Query query = session.getWorkspace().getQueryManager()
-                .createQuery("SELECT * FROM [" + contract.legacyNodeType() + "]", Query.JCR_SQL2);
+                .createQuery("SELECT * FROM [" + contract.legacyNodeType() + "]"
+                        + " WHERE ISDESCENDANTNODE('/sites')", Query.JCR_SQL2);
         JCRNodeIteratorWrapper nodes = (JCRNodeIteratorWrapper) query.execute().getNodes();
 
         int migrated = 0;
