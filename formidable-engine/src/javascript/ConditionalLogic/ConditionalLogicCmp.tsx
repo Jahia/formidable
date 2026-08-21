@@ -70,10 +70,11 @@ const ScalarValueInput = ({
     }
 
     return (
-        <div className="flexCol" style={{gap: '0.25rem'}}>
-            {input}
-            {/* One short line under the calendar; the full wording lives in the
-                tooltip and the checkbox aria-label, so the row never wraps. */}
+        // The toggle sits BESIDE the calendar (its own little column: checkbox on
+        // top, short caption below), so the whole rule keeps one visual line; the
+        // full wording lives in the tooltip and the checkbox aria-label.
+        <div className="flexRow_nowrap alignCenter" style={{gap: '0.25rem'}}>
+            <div className="flexFluid">{input}</div>
             <label className="fmdbTodayToggle" title={t('conditionalLogic.valueToday')}>
                 <Checkbox
                     checked={isToday}

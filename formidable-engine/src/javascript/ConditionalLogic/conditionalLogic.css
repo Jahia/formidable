@@ -25,15 +25,16 @@
 }
 
 /*
- * Compact one-line submission-day toggle under a date value. The visible label
- * is the short wording; the full one lives in the tooltip and the checkbox
- * aria-label.
+ * Compact submission-day toggle BESIDE a date value: a little column with the
+ * checkbox on top (aligned with the calendar) and the short caption right under
+ * it, so the whole rule keeps one visual line. The full wording lives in the
+ * tooltip and the checkbox aria-label.
  */
 .fmdbTodayToggle {
     display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
     align-items: center;
-    gap: var(--spacing-nano);
-    width: fit-content;
     white-space: nowrap;
     cursor: pointer;
 }
