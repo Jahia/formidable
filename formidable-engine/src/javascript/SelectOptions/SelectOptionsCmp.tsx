@@ -1,16 +1,15 @@
-import React, {useEffect} from 'react';
+import React, {useEffect, useRef} from 'react';
 import {useTranslation} from 'react-i18next';
 import {Input, Switch, Typography} from '@jahia/moonstone';
 import {extractEditorContext, extractLanguage} from '../ConditionalLogic/ConditionalLogic.utils';
 import type {SelectorProps} from '../ConditionalLogic/ConditionalLogic.types';
+import './selectOptions.css';
 
 interface SelectOption {
     value: string;
     label: string;
     selected: boolean;
 }
-
-const EMPTY_ENTRY = JSON.stringify({value: '', label: '', selected: false});
 
 const parseValue = (value?: string): SelectOption => {
     try {
@@ -24,19 +23,23 @@ const parseValue = (value?: string): SelectOption => {
 export const SelectOptionsCmp = (props: SelectorProps) => {
     const {field, id, value, onChange} = props;
     const {t} = useTranslation('formidable-engine');
+    const rootRef = useRef<HTMLDivElement>(null);
     const option = parseValue(value);
 
     // Options are AUTHORED in the site's default language: the value is the
     // identity shared by every language (submissions, conditional logic,
     // forged-value validation) and the default selection travels with it. In
     // any other language a master-fed row locks its value and selection (only
-    // the label translates) and a row WITHOUT a value — nothing authored in
-    // the default language yet, or a freshly added row — shows a plain pointer
-    // to the default language instead of inputs. The row structure keeps the
-    // Content Editor's standard controls: a structural change made here is
-    // simply reverted by the save-time re-alignment, which the tooltips
-    // explain. The default language comes synchronously from the editor
-    // context.
+    // the label translates), the row structure hides (see below), and a row
+    // WITHOUT a value — nothing synced from the default language yet — shows a
+    // plain pointer to the default language instead of inputs. The default
+    // language comes synchronously from the editor context.
+    //
+    // The component never calls onChange outside a user edit: Content Editor
+    // tracks dirtiness per language from those calls, so a programmatic write
+    // would flag languages as edited on a mere language switch — and in create
+    // mode CE copies the current values into a newly visited language, leaking
+    // such a write across languages.
     const defaultLanguage = extractEditorContext(props)?.siteInfo?.defaultLanguage;
     const language = extractLanguage(props);
     const otherLanguage = Boolean(defaultLanguage) && language !== defaultLanguage;
@@ -44,16 +47,22 @@ export const SelectOptionsCmp = (props: SelectorProps) => {
     const contributeInMain = otherLanguage && option.value === '';
 
     useEffect(() => {
-        // A freshly added row carries a raw empty string, which Content Editor's
-        // required validation rejects for the whole language ("value.filter(v =>
-        // v !== '')"), blocking the save of every language. Normalize the
-        // message-row to the canonical empty entry — a non-empty JSON string the
-        // validation accepts — which the save-time re-alignment then replaces
-        // with the default language's rows.
-        if (contributeInMain && value !== EMPTY_ENTRY) {
-            onChange(EMPTY_ENTRY);
+        // Outside the default language the row structure is not editable: an
+        // added row could never receive a value (CE's required validation then
+        // rejects the whole language), and removals/reorders would only be
+        // reverted by the save-time re-alignment. The add/remove/drag controls
+        // belong to the Content Editor's multiple field, outside this
+        // component's DOM: flag the field wrapper so the stylesheet hides them.
+        // Toggled (never add-only): the wrapper survives a language switch, so
+        // the flag must follow the language both ways.
+        const wrapper = rootRef.current?.closest('[data-sel-content-editor-field]');
+        if (!wrapper) {
+            return;
         }
-    }, [contributeInMain, value, onChange]);
+
+        wrapper.classList.toggle('fmdbOptionsStructureLocked', otherLanguage);
+        return () => wrapper.classList.remove('fmdbOptionsStructureLocked');
+    }, [otherLanguage]);
 
     const handleChange = (patch: Partial<SelectOption>) => {
         const updated = {...option, ...patch};
@@ -62,7 +71,7 @@ export const SelectOptionsCmp = (props: SelectorProps) => {
 
     if (contributeInMain) {
         return (
-            <div className="flexRow_nowrap flexFluid alignCenter" style={{gap: '1rem'}}>
+            <div ref={rootRef} className="flexRow_nowrap flexFluid alignCenter" style={{gap: '1rem'}}>
                 <Typography variant="body">
                     {t('selectOptions.contributeInMain', {lang: defaultLanguage})}
                 </Typography>
