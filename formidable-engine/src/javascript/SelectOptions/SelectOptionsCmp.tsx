@@ -49,10 +49,9 @@ export const SelectOptionsCmp = (props: SelectorProps) => {
     // language comes synchronously from the editor context.
     //
     // The component never calls onChange outside a user edit: Content Editor
-    // tracks dirtiness per language from those calls, so a programmatic write
-    // would flag languages as edited on a mere language switch — and in create
-    // mode CE copies the current values into a newly visited language, leaking
-    // such a write across languages.
+    // derives its per-language dirtiness from the form values (useSwitchLanguage
+    // stashes what differs when leaving a language), so a programmatic write
+    // flags languages as edited on a mere language switch.
     const defaultLanguage = extractEditorContext(props)?.siteInfo?.defaultLanguage;
     const language = extractLanguage(props);
     const otherLanguage = Boolean(defaultLanguage) && language !== defaultLanguage;

@@ -119,7 +119,7 @@ class ManualOptionsLanguageSyncTest {
         // "Copy a language"), never a server-side side effect of someone else's save.
         Node master = translation("en", option("a", "Alpha"), option("b", "Bee", true));
 
-        JCRNodeWrapper field = fieldNode("en", java.util.Set.of("en", "fr"), master);
+        JCRNodeWrapper field = fieldNode("en", master);
 
         assertFalse(ManualOptionsLanguageSync.sync(field));
         verify(field, never()).getOrCreateI18N(any());
@@ -168,24 +168,12 @@ class ManualOptionsLanguageSyncTest {
     }
 
     private static JCRNodeWrapper fieldNode(String defaultLanguage, Node... translations) throws Exception {
-        java.util.Set<String> siteLanguages = new java.util.HashSet<>();
-        siteLanguages.add(defaultLanguage);
-        for (Node translation : translations) {
-            siteLanguages.add(translation.getProperty("jcr:language").getString());
-        }
-
-        return fieldNode(defaultLanguage, siteLanguages, translations);
-    }
-
-    private static JCRNodeWrapper fieldNode(String defaultLanguage, java.util.Set<String> siteLanguages,
-            Node... translations) throws Exception {
         JCRNodeWrapper field = mock(JCRNodeWrapper.class);
         when(field.isNodeType("fmdbmix:manualOptions")).thenReturn(true);
         when(field.getPath()).thenReturn("/sites/test/contents/form/fields/choice");
 
         JCRSiteNode site = mock(JCRSiteNode.class);
         when(site.getDefaultLanguage()).thenReturn(defaultLanguage);
-        when(site.getLanguages()).thenReturn(siteLanguages);
         when(field.getResolveSite()).thenReturn(site);
 
         JCRNodeIteratorWrapper iterator = mock(JCRNodeIteratorWrapper.class);

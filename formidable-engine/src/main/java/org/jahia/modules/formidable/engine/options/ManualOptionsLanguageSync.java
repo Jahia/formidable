@@ -117,7 +117,7 @@ public final class ManualOptionsLanguageSync {
                 continue;
             }
 
-            updated |= alignTranslation(translation, masterOptions, fieldNode.getPath());
+            updated |= alignTranslation(translation, current, masterOptions, fieldNode.getPath());
         }
 
         return updated;
@@ -145,21 +145,19 @@ public final class ManualOptionsLanguageSync {
      */
     private static List<String> seedMaster(JCRNodeWrapper fieldNode, String masterLanguage,
             List<Node> otherTranslations) throws RepositoryException {
-        Node source = null;
         String sourceLanguage = null;
         List<String> sourceOptions = null;
         for (Node translation : otherTranslations) {
             List<String> options = ManualOptionEntries.readOptions(translation);
             // Valueless rows are noise, never an identity to seed from.
-            if (options.isEmpty() || !carriesRealEntry(options)) {
+            if (!carriesRealEntry(options)) {
                 continue;
             }
 
             String language = translation.hasProperty(LANGUAGE_PROPERTY)
                     ? translation.getProperty(LANGUAGE_PROPERTY).getString()
                     : "";
-            if (source == null || language.compareTo(sourceLanguage) < 0) {
-                source = translation;
+            if (sourceLanguage == null || language.compareTo(sourceLanguage) < 0) {
                 sourceLanguage = language;
                 sourceOptions = options;
             }
@@ -184,9 +182,8 @@ public final class ManualOptionsLanguageSync {
      * value — including two rows whose value is still empty — each keep their own
      * translation.
      */
-    private static boolean alignTranslation(Node translation, List<String> masterOptions, String fieldPath)
-            throws RepositoryException {
-        List<String> current = ManualOptionEntries.readOptions(translation);
+    private static boolean alignTranslation(Node translation, List<String> current, List<String> masterOptions,
+            String fieldPath) throws RepositoryException {
         Map<String, Deque<String>> currentByValue = new HashMap<>();
         for (String raw : current) {
             String value = ManualOptionEntries.value(raw);

@@ -3,14 +3,15 @@ package org.jahia.modules.formidable.engine.servlet;
 import org.jahia.modules.formidable.engine.actions.FormDataParser;
 import org.jahia.modules.formidable.engine.logic.ConditionalLogicRule;
 import org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService;
+import org.jahia.modules.formidable.engine.options.ManualOptionEntries;
 import org.jahia.modules.formidable.engine.util.JcrProps;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionFactory;
 import org.jahia.services.content.JCRTemplate;
-import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.jcr.Node;
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import javax.jcr.Value;
@@ -261,14 +262,13 @@ class FormFieldMetadataCollector {
             return null;
         }
 
-        javax.jcr.Node master =
-                org.jahia.modules.formidable.engine.options.ManualOptionEntries.findTranslation(node, defaultLanguage);
+        Node master = ManualOptionEntries.findTranslation(node, defaultLanguage);
         if (master == null) {
             return null;
         }
 
         Set<String> choices = new HashSet<>();
-        for (String raw : org.jahia.modules.formidable.engine.options.ManualOptionEntries.readOptions(master)) {
+        for (String raw : ManualOptionEntries.readOptions(master)) {
             addChoiceValue(choices, raw, node.getName());
         }
 
@@ -300,13 +300,13 @@ class FormFieldMetadataCollector {
     private static void addChoiceValue(Set<String> choices, String jsonOption, String fieldName) {
         // One shared reading of the entry storage; the trim-and-drop-empties policy
         // is this allowed-set's own (the language sync keeps entries verbatim).
-        String raw = org.jahia.modules.formidable.engine.options.ManualOptionEntries.value(jsonOption);
-        if (raw == null) {
+        String value = ManualOptionEntries.value(jsonOption);
+        if (value == null) {
             log.debug("[FormFieldMetadataCollector] Could not parse choice JSON for field '{}'", fieldName);
             return;
         }
 
-        String val = raw.trim();
+        String val = value.trim();
         if (!val.isEmpty()) {
             choices.add(val);
         }
