@@ -4,7 +4,7 @@
         "label": "Libellé affiché à l'utilisateur",
         "selected": "Si activé, l'option est sélectionnée par défaut",
         "valueShared": "Les valeurs, l'ordre et les sélections par défaut sont communs à toutes les langues et s'éditent dans la langue par défaut du site ({{lang}}) ; seul le libellé se traduit. À l'enregistrement, cette langue est réalignée sur {{lang}} : les options ajoutées, supprimées ou réordonnées ici ne sont pas conservées",
-        "contributeInMain": "Créez d'abord cette option dans la langue par défaut du site ({{lang}}) — son libellé pourra ensuite être traduit ici"
+        "contributeInMain": "Les options se contribuent dans la langue par défaut du site ({{lang}}) — une fois enregistrées, elles apparaissent ici pour traduire leurs libellés"
     },
     "fmdbmix_optionsSource": {
         "fmdb_optionsMode": {
