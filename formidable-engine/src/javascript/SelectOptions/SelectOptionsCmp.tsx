@@ -79,7 +79,7 @@ export const SelectOptionsCmp = (props: SelectorProps) => {
     }
 
     return (
-        <div className="flexRow_nowrap flexFluid alignCenter" style={{gap: '1rem'}}>
+        <div ref={rootRef} className="flexRow_nowrap flexFluid alignCenter" style={{gap: '1rem'}}>
             <Switch
                 id={`select-option-selected-${id}`}
                 name={`select-option-selected-${id}`}
