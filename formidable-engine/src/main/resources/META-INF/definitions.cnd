@@ -64,9 +64,16 @@ orderable
 [fmdbmix:optionsSource] mixin
  - fmdb:optionsMode (string, choicelist) = 'manual' indexed=no
 
+// fmdb:options is deliberately NOT mandatory: options are authored in the
+// site's default language only (the language sync then feeds every other
+// language at save), while a mandatory i18n property is validated in EVERY
+// language a contributor merely visits — in the Content Editor, opening
+// another language during creation would make the whole form unsavable, with
+// no way to author anything there. Coherence is owned by
+// ManualOptionsLanguageSync, not by a per-language JCR constraint.
 [fmdbmix:manualOptions] > jmix:dynamicFieldset mixin
  extends = fmdbmix:optionsSource
- - fmdb:options (string) mandatory i18n multiple indexed=no
+ - fmdb:options (string) i18n multiple indexed=no
 
 [fmdbmix:sourcedOptions] > jmix:dynamicFieldset mixin
  extends = fmdbmix:optionsSource

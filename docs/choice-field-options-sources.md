@@ -46,8 +46,8 @@ i18n property, two guards keep the languages coherent:
 - in the editor, **options are authored in the site's default language**:
   outside it, master-fed rows lock their value and default selection, the row
   controls (add, remove, reorder) hide — an added row could never receive a
-  value there, and Content Editor's required validation would then reject the
-  whole language — and a row without a value yet (nothing synced from the
+  value there, and any structural change would only be reverted by the
+  re-alignment — and a row without a value yet (nothing synced from the
   default language) shows a plain pointer to the default language instead of
   inputs. Only labels translate, as the tooltips explain. (Options arriving in
   another language through the API or an import still **seed the default
@@ -71,6 +71,18 @@ Two consequences worth knowing:
 - the forged-value validation reads the allowed values **from the default
   language**, so its verdict never depends on a translation that has not been
   re-aligned yet.
+
+Why `fmdb:options` is **not mandatory**: options are authored in one language
+only, while a mandatory i18n property is validated in **every** language a
+contributor merely visits. During a field's creation, opening another language
+made the whole form unsavable — the visited language failed the required
+validation on a list the editor deliberately forbids authoring there — and no
+editor-side workaround exists that does not write content on the contributor's
+behalf (which falsifies the per-language change tracking). Coherence and
+presence are owned by the save-time sync instead: a saved default language
+feeds every other one. The trade-off is that a choice field *can* be saved
+with no options at all; it then simply renders nothing selectable until its
+options are authored in the default language.
 
 Why the storage stays i18n: one JSON entry carries the value together with its
 **translatable label**, so a non-i18n property could not hold the labels.

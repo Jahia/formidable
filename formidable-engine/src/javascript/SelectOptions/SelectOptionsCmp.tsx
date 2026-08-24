@@ -48,9 +48,8 @@ export const SelectOptionsCmp = (props: SelectorProps) => {
 
     useEffect(() => {
         // Outside the default language the row structure is not editable: an
-        // added row could never receive a value (CE's required validation then
-        // rejects the whole language), and removals/reorders would only be
-        // reverted by the save-time re-alignment. The add/remove/drag controls
+        // added row could never receive a value, and removals/reorders would
+        // only be reverted by the save-time re-alignment. The add/remove/drag controls
         // belong to the Content Editor's multiple field, outside this
         // component's DOM: flag the field wrapper so the stylesheet hides them.
         // Toggled (never add-only): the wrapper survives a language switch, so

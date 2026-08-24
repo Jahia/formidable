@@ -1,8 +1,7 @@
 /*
  * Manual options edited outside the site's default language: the option
  * structure (count, order) and identities belong to the default language. An
- * added row could never receive a value there (Content Editor's required
- * validation then rejects the whole language), and any other structural change
+ * added row could never receive a value there, and any structural change
  * would only be reverted by the save-time re-alignment. The row controls (add,
  * remove, drag) belong to the Content Editor's multiple field, outside the
  * selector's own DOM, so the selector flags the field wrapper with this class
