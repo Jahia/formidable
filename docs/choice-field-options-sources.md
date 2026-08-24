@@ -53,8 +53,11 @@ i18n property, two guards keep the languages coherent:
   another language through the API or an import still **seed the default
   language at save**, so such content self-heals instead of being erased by a
   later main-language edit.);
-- on every save of the options, the server **re-aligns every other language on
-  the default language's values, order and count** (`ManualOptionsLanguageSync`).
+- on every save of the options, the server **re-aligns every other site
+  language on the default language's values, order and count**
+  (`ManualOptionsLanguageSync`); a language never authored on the field gets
+  its translation created and fed from the default language, so its labels are
+  immediately translatable.
   A language keeps its own label and selected flag for a value it already
   carries (same-value entries pair positionally), and inherits the master entry
   otherwise. Content that diverged before this guard existed is re-aligned the

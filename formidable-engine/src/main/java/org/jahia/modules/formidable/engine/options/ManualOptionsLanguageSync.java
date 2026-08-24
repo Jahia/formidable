@@ -1,6 +1,8 @@
 package org.jahia.modules.formidable.engine.options;
 
 import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.services.content.decorator.JCRSiteNode;
+import org.jahia.utils.LanguageCodeConverters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,8 +13,10 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LANGUAGE_PROPERTY;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.MANUAL_OPTIONS_MIXIN;
@@ -28,9 +32,11 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.TR
  * that varies per language.
  *
  * The site's default language is the authority: whenever fmdb:options is saved,
- * every other language is re-aligned on the master's values, order and count.
- * A language keeps its own label for a value it already carries — entries
- * sharing one value pair up positionally, so duplicated (or
+ * every other site language is re-aligned on the master's values, order and
+ * count — a language whose translation subnode does not exist yet gets it
+ * created and fed, so every language always has entries whose labels can be
+ * translated. A language keeps its own label for a value it already carries —
+ * entries sharing one value pair up positionally, so duplicated (or
  * still-empty) values never collapse onto one translation. Content that
  * diverged before this sync existed is re-aligned the next time its field is
  * saved.
@@ -56,15 +62,16 @@ public final class ManualOptionsLanguageSync {
             return false;
         }
 
-        String masterLanguage = fieldNode.getResolveSite() != null
-                ? fieldNode.getResolveSite().getDefaultLanguage()
-                : null;
+        JCRSiteNode site = fieldNode.getResolveSite();
+        String masterLanguage = site != null ? site.getDefaultLanguage() : null;
         if (masterLanguage == null) {
             return false;
         }
 
         List<String> masterOptions = null;
         List<Node> otherTranslations = new ArrayList<>();
+        Set<String> coveredLanguages = new HashSet<>();
+        coveredLanguages.add(masterLanguage);
         NodeIterator translations = fieldNode.getNodes(TRANSLATION_NODES_PATTERN);
         while (translations.hasNext()) {
             Node translation = translations.nextNode();
@@ -75,6 +82,9 @@ public final class ManualOptionsLanguageSync {
                 masterOptions = ManualOptionEntries.readOptions(translation);
             } else {
                 otherTranslations.add(translation);
+                if (language != null) {
+                    coveredLanguages.add(language);
+                }
             }
         }
 
@@ -96,6 +106,22 @@ public final class ManualOptionsLanguageSync {
         boolean updated = seeded;
         for (Node translation : otherTranslations) {
             updated |= alignTranslation(translation, masterOptions, fieldNode.getPath());
+        }
+
+        // A site language never authored on this field has no j:translation_*
+        // subnode at all: create it and feed it the master entries, otherwise that
+        // language opens the editor on an empty mandatory list with nothing to
+        // translate — and no way to save.
+        Set<String> siteLanguages = site.getLanguages();
+        if (siteLanguages != null) {
+            for (String language : siteLanguages) {
+                if (coveredLanguages.contains(language)) {
+                    continue;
+                }
+
+                Node created = fieldNode.getOrCreateI18N(LanguageCodeConverters.languageCodeToLocale(language));
+                updated |= alignTranslation(created, masterOptions, fieldNode.getPath());
+            }
         }
 
         return updated;
@@ -134,8 +160,7 @@ public final class ManualOptionsLanguageSync {
             return null;
         }
 
-        Node master = fieldNode.getOrCreateI18N(
-                org.jahia.utils.LanguageCodeConverters.languageCodeToLocale(masterLanguage));
+        Node master = fieldNode.getOrCreateI18N(LanguageCodeConverters.languageCodeToLocale(masterLanguage));
         master.setProperty(OPTIONS_PROPERTY, sourceOptions.toArray(new String[0]));
         log.info("[ManualOptionsLanguageSync] Seeded the default language ({}) options of '{}' from '{}'",
                 masterLanguage, fieldNode.getPath(), sourceLanguage);
