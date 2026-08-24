@@ -3,7 +3,8 @@
         "value": "Value sent to server",
         "label": "Label displayed to user",
         "selected": "If enabled, the option is selected by default",
-        "valueShared": "Values and default selections are shared by all languages and edited in the site's default language ({{lang}}); only the label translates"
+        "valueShared": "Values, order and default selections are shared by all languages and edited in the site's default language ({{lang}}); only the label translates. On save, this language is re-aligned on {{lang}}: options added, removed or reordered here are not kept",
+        "contributeInMain": "Options are contributed from the site's default language ({{lang}})"
     },
     "fmdbmix_optionsSource": {
         "fmdb_optionsMode": {

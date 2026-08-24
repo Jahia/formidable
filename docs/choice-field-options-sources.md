@@ -44,12 +44,15 @@ selection) is editorial content that translates. Since `fmdb:options` is an
 i18n property, two guards keep the languages coherent:
 
 - in the editor, **options are authored in the site's default language**:
-  outside it, values and default selections are read-only (the tooltip says
-  why) and the row controls (add, remove, reorder) hide — only labels
-  translate. Creation is the one exception: whatever language a field is
-  created in, everything stays editable and its entries **seed the default
-  language at save** (values become the identity, labels the starting point
-  for translation);
+  outside it, master-fed rows lock their value and default selection, and a row
+  without a value yet — a field not authored in the default language, or a
+  freshly added row — shows a plain pointer to the default language instead of
+  inputs. Only labels translate. The row controls (add, remove, reorder) stay
+  standard: a structural change made in another language is simply reverted by
+  the save-time re-alignment, and the tooltips say so. (Options arriving in
+  another language through the API or an import still **seed the default
+  language at save**, so such content self-heals instead of being erased by a
+  later main-language edit.);
 - on every save of the options, the server **re-aligns every other language on
   the default language's values, order and count** (`ManualOptionsLanguageSync`).
   A language keeps its own label and selected flag for a value it already

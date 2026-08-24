@@ -89,8 +89,6 @@ export interface EditorContextLike {
     uilang?: string;
     locale?: string;
     workspace?: string;
-    /** 'create' while authoring a new node, 'edit' afterwards. */
-    mode?: string;
     /** Site info the Content Editor resolves before selectors mount. */
     siteInfo?: {
         defaultLanguage?: string;

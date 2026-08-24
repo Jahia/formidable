@@ -1,9 +1,8 @@
-import React, {useEffect, useRef} from 'react';
+import React from 'react';
 import {useTranslation} from 'react-i18next';
-import {Input, Switch} from '@jahia/moonstone';
+import {Input, Switch, Typography} from '@jahia/moonstone';
 import {extractEditorContext, extractLanguage} from '../ConditionalLogic/ConditionalLogic.utils';
 import type {SelectorProps} from '../ConditionalLogic/ConditionalLogic.types';
-import './selectOptions.css';
 
 interface SelectOption {
     value: string;
@@ -23,46 +22,42 @@ const parseValue = (value?: string): SelectOption => {
 export const SelectOptionsCmp = (props: SelectorProps) => {
     const {field, id, value, onChange} = props;
     const {t} = useTranslation('formidable-engine');
-    const rootRef = useRef<HTMLDivElement>(null);
     const option = parseValue(value);
 
     // Options are AUTHORED in the site's default language: the value is the
     // identity shared by every language (submissions, conditional logic,
-    // forged-value validation) and the default selection travels with it, so
-    // both lock outside that language, along with the row structure — the
-    // save-time re-alignment would revert any change anyway. Creation is the
-    // one exception: whatever language a field is created in, its entries seed
-    // the default language at save, so nothing locks there (a locked mandatory
-    // list would make the field unsavable). The default language and the mode
-    // come synchronously from the editor context.
-    const editorContext = extractEditorContext(props);
-    const defaultLanguage = editorContext?.siteInfo?.defaultLanguage;
+    // forged-value validation) and the default selection travels with it. In
+    // any other language a master-fed row locks its value and selection (only
+    // the label translates) and a row WITHOUT a value — nothing authored in
+    // the default language yet, or a freshly added row — shows a plain pointer
+    // to the default language instead of inputs. The row structure keeps the
+    // Content Editor's standard controls: a structural change made here is
+    // simply reverted by the save-time re-alignment, which the tooltips
+    // explain. The default language comes synchronously from the editor
+    // context.
+    const defaultLanguage = extractEditorContext(props)?.siteInfo?.defaultLanguage;
     const language = extractLanguage(props);
-    const optionsShared = Boolean(defaultLanguage)
-        && language !== defaultLanguage
-        && editorContext?.mode !== 'create';
-
-    useEffect(() => {
-        if (!optionsShared) {
-            return;
-        }
-
-        // The add/remove/drag controls belong to the Content Editor's multiple
-        // field, outside this component's DOM: flag the field wrapper so the
-        // stylesheet hides them. Add-only: rows of one field agree on the flag,
-        // and a language switch remounts the whole form.
-        rootRef.current
-            ?.closest('[data-sel-content-editor-field]')
-            ?.classList.add('fmdbOptionsStructureLocked');
-    }, [optionsShared]);
+    const otherLanguage = Boolean(defaultLanguage) && language !== defaultLanguage;
+    const optionsShared = otherLanguage && option.value !== '';
+    const contributeInMain = otherLanguage && option.value === '';
 
     const handleChange = (patch: Partial<SelectOption>) => {
         const updated = {...option, ...patch};
         onChange(JSON.stringify(updated));
     };
 
+    if (contributeInMain) {
+        return (
+            <div className="flexRow_nowrap flexFluid alignCenter" style={{gap: '1rem'}}>
+                <Typography variant="body">
+                    {t('selectOptions.contributeInMain', {lang: defaultLanguage})}
+                </Typography>
+            </div>
+        );
+    }
+
     return (
-        <div ref={rootRef} className="flexRow_nowrap flexFluid alignCenter" style={{gap: '1rem'}}>
+        <div className="flexRow_nowrap flexFluid alignCenter" style={{gap: '1rem'}}>
             <Switch
                 id={`select-option-selected-${id}`}
                 name={`select-option-selected-${id}`}
