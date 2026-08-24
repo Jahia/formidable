@@ -12,7 +12,13 @@
     display: none;
 }
 
-/* The drag handle has no data-sel hook: it is the row card's first child. */
+/*
+ * The drag handle has no data-sel hook: it is the row card's first child.
+ * display (not visibility): the Content Editor's own stylesheet re-shows every
+ * descendant of a hovered row (".draggableCard:hover * > *" sets visibility and
+ * pointer-events back), which would resurrect a visibility-hidden handle — and
+ * the handle is the react-dnd drag source, so it must never receive events.
+ */
 .fmdbOptionsStructureLocked [data-sel-content-editor-multiple-generic-field] > div:first-child {
-    visibility: hidden;
+    display: none;
 }

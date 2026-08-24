@@ -98,10 +98,41 @@ public final class ManualOptionsLanguageSync {
 
         boolean updated = seeded;
         for (Node translation : otherTranslations) {
+            List<String> current = ManualOptionEntries.readOptions(translation);
+            if (current.isEmpty()) {
+                // The language exists (a translated title, an editor visit) but its
+                // options were never authored: stays untranslated, nothing to align.
+                continue;
+            }
+
+            if (!carriesRealEntry(current)) {
+                // Only valueless rows: the accidental leftovers of an "add" clicked
+                // outside the default language, where no value can ever be typed.
+                // That is noise, not a translation — clean it so the language stays
+                // untranslated instead of silently adopting the master's entries.
+                translation.setProperty(OPTIONS_PROPERTY, (String[]) null);
+                log.info("[ManualOptionsLanguageSync] Cleaned the valueless options of '{}' ({})",
+                        fieldNode.getPath(), translation.getName());
+                updated = true;
+                continue;
+            }
+
             updated |= alignTranslation(translation, masterOptions, fieldNode.getPath());
         }
 
         return updated;
+    }
+
+    /** True when at least one entry carries a real (non-blank) value. */
+    private static boolean carriesRealEntry(List<String> options) {
+        for (String raw : options) {
+            String value = ManualOptionEntries.value(raw);
+            if (value != null && !value.trim().isEmpty()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -119,7 +150,8 @@ public final class ManualOptionsLanguageSync {
         List<String> sourceOptions = null;
         for (Node translation : otherTranslations) {
             List<String> options = ManualOptionEntries.readOptions(translation);
-            if (options.isEmpty()) {
+            // Valueless rows are noise, never an identity to seed from.
+            if (options.isEmpty() || !carriesRealEntry(options)) {
                 continue;
             }
 

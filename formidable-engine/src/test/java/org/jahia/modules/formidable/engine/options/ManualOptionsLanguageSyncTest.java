@@ -126,6 +126,35 @@ class ManualOptionsLanguageSyncTest {
     }
 
     @Test
+    void valuelessRowsAreCleanedNotAdopted() throws Exception {
+        // An "add" clicked outside the default language can only save valueless
+        // rows (no value is typable there): noise, not a translation. The sync
+        // removes the property so the language stays untranslated, instead of
+        // treating it as an existing translation and feeding it the master.
+        Node master = translation("en", option("a", "Alpha"), option("b", "Bee"));
+        Node fr = translation("fr", option("", ""));
+
+        JCRNodeWrapper field = fieldNode("en", master, fr);
+
+        assertTrue(ManualOptionsLanguageSync.sync(field));
+        verify(fr).setProperty("fmdb:options", (String[]) null);
+        verify(fr, never()).setProperty(eq("fmdb:options"), any(String[].class));
+    }
+
+    @Test
+    void valuelessRowsNeverSeedTheMaster() throws Exception {
+        // A field whose only entries are valueless rows has no identity anywhere:
+        // nothing seeds, nothing aligns.
+        Node master = translation("en");
+        Node fr = translation("fr", option("", "Junk label"));
+
+        JCRNodeWrapper field = fieldNode("en", master, fr);
+
+        assertFalse(ManualOptionsLanguageSync.sync(field));
+        verify(master, never()).setProperty(eq("fmdb:options"), any(String[].class));
+    }
+
+    @Test
     void aFieldWithoutAnyOptionsAlignsNothing() throws Exception {
         // Nothing authored anywhere: no identity exists yet, nothing to seed or align.
         Node master = translation("en");
