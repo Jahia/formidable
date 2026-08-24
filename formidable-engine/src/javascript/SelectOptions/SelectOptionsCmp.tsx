@@ -11,6 +11,19 @@ interface SelectOption {
     selected: boolean;
 }
 
+/**
+ * The human-readable name of a language code, in the UI language ("anglais"
+ * for 'en' in a French UI); falls back to the raw code when the runtime or
+ * the code itself cannot be resolved.
+ */
+const languageDisplayName = (code: string, uiLanguage: string): string => {
+    try {
+        return new Intl.DisplayNames([uiLanguage], {type: 'language'}).of(code) ?? code;
+    } catch {
+        return code;
+    }
+};
+
 const parseValue = (value?: string): SelectOption => {
     try {
         const parsed = JSON.parse(value ?? '') as SelectOption;
@@ -22,7 +35,7 @@ const parseValue = (value?: string): SelectOption => {
 
 export const SelectOptionsCmp = (props: SelectorProps) => {
     const {field, id, value, onChange} = props;
-    const {t} = useTranslation('formidable-engine');
+    const {t, i18n} = useTranslation('formidable-engine');
     const rootRef = useRef<HTMLDivElement>(null);
     const option = parseValue(value);
 
@@ -45,6 +58,9 @@ export const SelectOptionsCmp = (props: SelectorProps) => {
     const otherLanguage = Boolean(defaultLanguage) && language !== defaultLanguage;
     const optionsShared = otherLanguage && option.value !== '';
     const contributeInMain = otherLanguage && option.value === '';
+    const defaultLanguageName = defaultLanguage
+        ? languageDisplayName(defaultLanguage, i18n.language)
+        : defaultLanguage;
 
     useEffect(() => {
         // Outside the default language the row structure is not editable: an
@@ -72,7 +88,7 @@ export const SelectOptionsCmp = (props: SelectorProps) => {
         return (
             <div ref={rootRef} className="flexRow_nowrap flexFluid alignCenter" style={{gap: '1rem'}}>
                 <Typography variant="body">
-                    {t('selectOptions.contributeInMain', {lang: defaultLanguage})}
+                    {t('selectOptions.contributeInMain', {lang: defaultLanguageName})}
                 </Typography>
             </div>
         );
@@ -84,7 +100,7 @@ export const SelectOptionsCmp = (props: SelectorProps) => {
                 id={`select-option-selected-${id}`}
                 name={`select-option-selected-${id}`}
                 title={optionsShared
-                    ? t('selectOptions.valueShared', {lang: defaultLanguage})
+                    ? t('selectOptions.valueShared', {lang: defaultLanguageName})
                     : t('selectOptions.selected')}
                 checked={option.selected}
                 isDisabled={field.readOnly || optionsShared}
@@ -97,7 +113,7 @@ export const SelectOptionsCmp = (props: SelectorProps) => {
                     name={`select-option-value-${id}`}
                     placeholder={t('selectOptions.value')}
                     title={optionsShared
-                        ? t('selectOptions.valueShared', {lang: defaultLanguage})
+                        ? t('selectOptions.valueShared', {lang: defaultLanguageName})
                         : t('selectOptions.value')}
                     value={option.value}
                     isReadOnly={field.readOnly || optionsShared}
