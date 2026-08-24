@@ -13,10 +13,8 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LANGUAGE_PROPERTY;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.MANUAL_OPTIONS_MIXIN;
@@ -32,14 +30,14 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.TR
  * that varies per language.
  *
  * The site's default language is the authority: whenever fmdb:options is saved,
- * every other site language is re-aligned on the master's values, order and
- * count — a language whose translation subnode does not exist yet gets it
- * created and fed, so every language always has entries whose labels can be
- * translated. A language keeps its own label for a value it already carries —
- * entries sharing one value pair up positionally, so duplicated (or
- * still-empty) values never collapse onto one translation. Content that
- * diverged before this sync existed is re-aligned the next time its field is
- * saved.
+ * every EXISTING translation is re-aligned on the master's values, order and
+ * count. A language nobody translated yet is deliberately left alone — in
+ * Jahia, starting a translation is the contributor's gesture (authoring, or
+ * Content Editor's "Copy a language"), never a server-side side effect. A
+ * language keeps its own label for a value it already carries — entries
+ * sharing one value pair up positionally, so duplicated (or still-empty)
+ * values never collapse onto one translation. Content that diverged before
+ * this sync existed is re-aligned the next time its field is saved.
  *
  * Works on the j:translation_* subnodes directly (the i18n storage, the same
  * access the options content migration uses), so one system session covers
@@ -70,8 +68,6 @@ public final class ManualOptionsLanguageSync {
 
         List<String> masterOptions = null;
         List<Node> otherTranslations = new ArrayList<>();
-        Set<String> coveredLanguages = new HashSet<>();
-        coveredLanguages.add(masterLanguage);
         NodeIterator translations = fieldNode.getNodes(TRANSLATION_NODES_PATTERN);
         while (translations.hasNext()) {
             Node translation = translations.nextNode();
@@ -82,9 +78,6 @@ public final class ManualOptionsLanguageSync {
                 masterOptions = ManualOptionEntries.readOptions(translation);
             } else {
                 otherTranslations.add(translation);
-                if (language != null) {
-                    coveredLanguages.add(language);
-                }
             }
         }
 
@@ -106,22 +99,6 @@ public final class ManualOptionsLanguageSync {
         boolean updated = seeded;
         for (Node translation : otherTranslations) {
             updated |= alignTranslation(translation, masterOptions, fieldNode.getPath());
-        }
-
-        // A site language never authored on this field has no j:translation_*
-        // subnode at all: create it and feed it the master entries, otherwise that
-        // language opens the editor on an empty mandatory list with nothing to
-        // translate — and no way to save.
-        Set<String> siteLanguages = site.getLanguages();
-        if (siteLanguages != null) {
-            for (String language : siteLanguages) {
-                if (coveredLanguages.contains(language)) {
-                    continue;
-                }
-
-                Node created = fieldNode.getOrCreateI18N(LanguageCodeConverters.languageCodeToLocale(language));
-                updated |= alignTranslation(created, masterOptions, fieldNode.getPath());
-            }
         }
 
         return updated;

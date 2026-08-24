@@ -4,7 +4,7 @@
         "label": "Label displayed to user",
         "selected": "If enabled, the option is selected by default",
         "valueShared": "Values, order and default selections are shared by all languages and edited in the site's default language ({{lang}}); only the label translates. On save, this language is re-aligned on {{lang}}: options added, removed or reordered here are not kept",
-        "contributeInMain": "Options are authored in the site's default language ({{lang}}) — once saved, they appear here so their labels can be translated"
+        "contributeInMain": "Options are authored in the site's default language ({{lang}}) — once saved there, use \"Copy a language\" to bring them here and translate their labels"
     },
     "fmdbmix_optionsSource": {
         "fmdb_optionsMode": {

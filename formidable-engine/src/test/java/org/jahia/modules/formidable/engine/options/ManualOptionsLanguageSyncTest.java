@@ -113,20 +113,16 @@ class ManualOptionsLanguageSyncTest {
     }
 
     @Test
-    void aLanguageWithoutATranslationGetsItCreatedAndFed() throws Exception {
-        // A site language never authored on the field has no j:translation_* subnode:
-        // the sync creates it and feeds it the master entries, so the language opens
-        // the editor on translatable rows instead of an empty mandatory list.
+    void aLanguageNobodyTranslatedIsLeftAlone() throws Exception {
+        // A site language with no j:translation_* subnode stays untouched: starting
+        // a translation is the contributor's gesture (authoring, or Content Editor's
+        // "Copy a language"), never a server-side side effect of someone else's save.
         Node master = translation("en", option("a", "Alpha"), option("b", "Bee", true));
-        Node fr = translation("fr");
 
         JCRNodeWrapper field = fieldNode("en", java.util.Set.of("en", "fr"), master);
-        when(field.getOrCreateI18N(org.jahia.utils.LanguageCodeConverters.languageCodeToLocale("fr")))
-                .thenReturn(fr);
 
-        assertTrue(ManualOptionsLanguageSync.sync(field));
-        verify(fr).setProperty(eq("fmdb:options"),
-                eq(new String[]{option("a", "Alpha"), option("b", "Bee", true)}));
+        assertFalse(ManualOptionsLanguageSync.sync(field));
+        verify(field, never()).getOrCreateI18N(any());
     }
 
     @Test

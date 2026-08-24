@@ -53,16 +53,17 @@ i18n property, two guards keep the languages coherent:
   another language through the API or an import still **seed the default
   language at save**, so such content self-heals instead of being erased by a
   later main-language edit.);
-- on every save of the options, the server **re-aligns every other site
-  language on the default language's values, order and count**
-  (`ManualOptionsLanguageSync`); a language never authored on the field gets
-  its translation created and fed from the default language, so its labels are
-  immediately translatable.
-  A language keeps its own label and selected flag for a value it already
-  carries (same-value entries pair positionally), and inherits the master entry
-  otherwise. Content that diverged before this guard existed is re-aligned the
-  next time its field is saved — never at startup: the legacy-options migration
-  completes before the sync listener registers.
+- on every save of the options, the server **re-aligns every existing
+  translation on the default language's values, order and count**
+  (`ManualOptionsLanguageSync`). A language nobody translated yet is left
+  alone — starting a translation is the contributor's gesture, following
+  Jahia's standard flow: save the options in the default language, switch to
+  the other language and use **Copy a language** to bring the entries in, then
+  translate the labels. A language keeps its own label and selected flag for a
+  value it already carries (same-value entries pair positionally), and inherits
+  the master entry otherwise. Content that diverged before this guard existed
+  is re-aligned the next time its field is saved — never at startup: the
+  legacy-options migration completes before the sync listener registers.
 
 Two consequences worth knowing:
 
