@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect} from 'react';
 import {useTranslation} from 'react-i18next';
 import {Input, Switch, Typography} from '@jahia/moonstone';
 import {extractEditorContext, extractLanguage} from '../ConditionalLogic/ConditionalLogic.utils';
@@ -9,6 +9,8 @@ interface SelectOption {
     label: string;
     selected: boolean;
 }
+
+const EMPTY_ENTRY = JSON.stringify({value: '', label: '', selected: false});
 
 const parseValue = (value?: string): SelectOption => {
     try {
@@ -40,6 +42,18 @@ export const SelectOptionsCmp = (props: SelectorProps) => {
     const otherLanguage = Boolean(defaultLanguage) && language !== defaultLanguage;
     const optionsShared = otherLanguage && option.value !== '';
     const contributeInMain = otherLanguage && option.value === '';
+
+    useEffect(() => {
+        // A freshly added row carries a raw empty string, which Content Editor's
+        // required validation rejects for the whole language ("value.filter(v =>
+        // v !== '')"), blocking the save of every language. Normalize the
+        // message-row to the canonical empty entry — a non-empty JSON string the
+        // validation accepts — which the save-time re-alignment then replaces
+        // with the default language's rows.
+        if (contributeInMain && value !== EMPTY_ENTRY) {
+            onChange(EMPTY_ENTRY);
+        }
+    }, [contributeInMain, value, onChange]);
 
     const handleChange = (patch: Partial<SelectOption>) => {
         const updated = {...option, ...patch};
