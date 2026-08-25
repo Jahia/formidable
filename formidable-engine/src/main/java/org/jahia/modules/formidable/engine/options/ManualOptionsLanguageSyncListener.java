@@ -104,7 +104,6 @@ public class ManualOptionsLanguageSyncListener extends DefaultEventListener {
 
         try {
             JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, workspace, null, systemSession -> {
-                boolean updated = false;
                 for (Map.Entry<String, Set<String>> field : savedLanguagesByField.entrySet()) {
                     String fieldPath = field.getKey();
                     // Removal events of a deleted field (or form, or language) point
@@ -113,15 +112,22 @@ public class ManualOptionsLanguageSyncListener extends DefaultEventListener {
                         continue;
                     }
 
-                    JCRNodeWrapper fieldNode = systemSession.getNode(fieldPath);
-                    if (ManualOptionsLanguageSync.sync(fieldNode, field.getValue())) {
-                        updated = true;
-                        log.debug("[ManualOptionsLanguageSync] Re-aligned '{}'", fieldPath);
+                    // One save per field: a failure must never discard the fields
+                    // already re-aligned before it in this batch, nor poison the
+                    // later saves.
+                    try {
+                        JCRNodeWrapper fieldNode = systemSession.getNode(fieldPath);
+                        if (ManualOptionsLanguageSync.sync(fieldNode, field.getValue())) {
+                            systemSession.save();
+                            log.debug("[ManualOptionsLanguageSync] Re-aligned '{}'", fieldPath);
+                        }
+                    } catch (RepositoryException e) {
+                        log.warn("[ManualOptionsLanguageSync] Failed to re-align '{}': {}",
+                                fieldPath, e.getMessage());
+                        // Drop the half-applied changes, or every later save would
+                        // re-throw them.
+                        systemSession.refresh(false);
                     }
-                }
-
-                if (updated) {
-                    systemSession.save();
                 }
 
                 return null;
