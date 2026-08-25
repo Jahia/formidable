@@ -194,6 +194,23 @@ export function visitPreviewForm(livePath: string, lang: string = 'en'): Form {
 	);
 }
 
+/**
+ * Opens the page holding the form in edit mode and returns the Form page object.
+ * `editframe` is the only URL that renders edit-mode markup directly: /cms/edit/...
+ * redirects to the jContent SPA. Requires an authenticated session (cy.login()).
+ *
+ * @param pagePath absolute JCR path of the page, as returned by createPublishedLiveFormPage
+ */
+export function visitEditForm(pagePath: string, lang: string = 'en'): Form {
+	cy.visit(`/cms/editframe/default/${lang}${pagePath}.html`);
+
+	return new Form(
+		cy.get('form.fmdb-form')
+			.should('exist')
+			.first()
+	);
+}
+
 export const getLatestLiveFormSubmission = (formName: string): Cypress.Chainable<LiveFormSubmissionInfo> => {
 	const submissionsRootPath = `/sites/${FORMIDABLE_TEST_SITE.key}/formidable-results/${formName}/submissions`;
 
