@@ -70,6 +70,14 @@ public class FieldKeyAssignmentListener extends DefaultEventListener {
                         continue;
                     }
 
+                    // Jahia's observation manager matches the type filter against the
+                    // parent for j:translation_* subnodes, so their NODE_ADDED events
+                    // land here too: a key written on a translation node has no
+                    // definition there and only pollutes the repository.
+                    if (!node.isNodeType(FORM_LOGIC_ELEMENT_MIXIN)) {
+                        continue;
+                    }
+
                     if (FieldKeys.assignIfMissing(node)) {
                         assigned = true;
                         log.debug("[FieldKey] Assigned fieldKey to '{}'", nodePath);
