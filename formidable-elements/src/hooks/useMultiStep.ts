@@ -5,6 +5,11 @@ import {FORM_LOGIC_INVALIDATE_EVENT, getLogicProvider} from '~/utils/logicProvid
 interface UseMultiStepOptions {
 	formRef: RefObject<HTMLFormElement | null>;
 	stepIds?: string[];
+	/**
+	 * Lets a step be left without validating it. Set while authoring: a contributor must
+	 * reach step 2 to work on it without first answering the required fields of step 1.
+	 */
+	skipStepValidation?: boolean;
 }
 
 interface UseMultiStepReturn {
@@ -19,7 +24,7 @@ interface UseMultiStepReturn {
 	handlePrevious: () => void;
 }
 
-export function useMultiStep({formRef, stepIds}: UseMultiStepOptions): UseMultiStepReturn {
+export function useMultiStep({formRef, stepIds, skipStepValidation = false}: UseMultiStepOptions): UseMultiStepReturn {
 	const [currentStep, setCurrentStep] = useState(0);
 	const [visibleStepIndices, setVisibleStepIndices] = useState<number[]>([]);
 	const resetVisibilityTimeoutRef = useRef<number | null>(null);
@@ -128,7 +133,7 @@ export function useMultiStep({formRef, stepIds}: UseMultiStepOptions): UseMultiS
 	}, [currentStep, formRef, computeVisibleSteps]);
 
 	const handleNext = (validate: () => boolean) => {
-		if (!validate()) return;
+		if (!skipStepValidation && !validate()) return;
 		const nextIndex = visibleStepIndices[currentVisibleIndex + 1];
 		if (nextIndex !== undefined) setCurrentStep(nextIndex);
 	};

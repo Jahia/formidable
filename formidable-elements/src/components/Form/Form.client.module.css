@@ -52,6 +52,22 @@
 	transition: var(--fmdb-step-transition, color 0.2s, border-color 0.2s);
 }
 
+/*
+ * Edit-mode step switcher: the indicator becomes a real button, stripped of the browser
+ * chrome so it stays visually identical to the visitor's passive trail. font-weight is
+ * deliberately left alone, so .stepIndicatorActive keeps winning on the current step.
+ */
+button.stepIndicator {
+	appearance: none;
+	background: none;
+	border-top: 0;
+	border-right: 0;
+	border-left: 0;
+	font-family: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
 .stepIndicator:not(:last-child)::after {
 	content: '';
 	flex: 1;

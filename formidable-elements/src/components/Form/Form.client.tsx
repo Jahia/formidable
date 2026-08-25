@@ -42,6 +42,7 @@ export default function Form({
 	stepLabels,
 	stepIds,
 	captcha,
+	isEditMode = false,
 	children
 }: FormProps) {
 	const formRef = useRef<HTMLFormElement>(null);
@@ -72,7 +73,7 @@ export default function Form({
 		isMultiStep,
 		handleNext,
 		handlePrevious,
-	} = useMultiStep({formRef, stepIds});
+	} = useMultiStep({formRef, stepIds, skipStepValidation: isEditMode});
 
 	useCustomFormValidation({formRef});
 
@@ -170,21 +171,43 @@ export default function Form({
 
 				{isMultiStep && showStepsNav && (
 					<nav className={clsx("fmdb-steps-nav", classes.stepsNav)} aria-label={t('stepsNav')}>
-						{visibleStepIndices.map((stepIdx, visibleIdx) => (
-							<span
-								key={stepIds![stepIdx]}
-								className={clsx(
-									"fmdb-step-indicator",
-									classes.stepIndicator,
-									stepIdx === currentStep && classes.stepIndicatorActive,
-									visibleStepIndices.indexOf(currentStep) > visibleIdx && classes.stepIndicatorDone
-								)}
-								aria-current={stepIdx === currentStep ? 'step' : undefined}
-							>
-								<span className={clsx("fmdb-step-number", classes.stepNumber)}>{visibleIdx + 1}</span>
-								<span className="fmdb-step-label">{stepLabels![stepIdx]}</span>
-							</span>
-						))}
+						{visibleStepIndices.map((stepIdx, visibleIdx) => {
+							const indicatorClassName = clsx(
+								"fmdb-step-indicator",
+								classes.stepIndicator,
+								stepIdx === currentStep && classes.stepIndicatorActive,
+								visibleStepIndices.indexOf(currentStep) > visibleIdx && classes.stepIndicatorDone
+							);
+							const indicatorContent = (
+								<>
+									<span className={clsx("fmdb-step-number", classes.stepNumber)}>{visibleIdx + 1}</span>
+									<span className="fmdb-step-label">{stepLabels![stepIdx]}</span>
+								</>
+							);
+
+							// While authoring, the indicators double as a step switcher: the
+							// contributor jumps straight to the step to work on. For a visitor
+							// they stay a passive progress trail.
+							return isEditMode ? (
+								<button
+									key={stepIds![stepIdx]}
+									type="button"
+									className={indicatorClassName}
+									aria-current={stepIdx === currentStep ? 'step' : undefined}
+									onClick={() => setCurrentStep(stepIdx)}
+								>
+									{indicatorContent}
+								</button>
+							) : (
+								<span
+									key={stepIds![stepIdx]}
+									className={indicatorClassName}
+									aria-current={stepIdx === currentStep ? 'step' : undefined}
+								>
+									{indicatorContent}
+								</span>
+							);
+						})}
 					</nav>
 				)}
 
