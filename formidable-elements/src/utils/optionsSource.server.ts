@@ -3,6 +3,7 @@ import type {JCRNodeWrapper} from "org.jahia.services.content";
 import {parseChoices, type ParsedChoice} from "./choiceUtils";
 
 const OPTIONS_SOURCE_SERVICE = "org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService";
+const MANUAL_OPTIONS_DISPLAY_SERVICE = "org.jahia.modules.formidable.engine.options.ManualOptionsDisplayService";
 // Mixins whose options are resolved by the engine at render time; the actual mode
 // dispatch lives in FormidableOptionsSourceService.resolveForField.
 const RESOLVED_OPTIONS_MIXINS = ["fmdbmix:sourcedOptions", "fmdbmix:categoryOptions", "fmdbmix:contentOptions"];
@@ -15,10 +16,44 @@ export interface FieldOptions {
 	sourceError: boolean;
 }
 
+/** A Java String[] crossing the GraalVM bridge, as a JS array. */
+const toStringArray = (javaArray: {length: number}): string[] => {
+	const values: string[] = [];
+	for (let i = 0; i < javaArray.length; i++) {
+		values.push(String((javaArray as unknown as string[])[i]));
+	}
+
+	return values;
+};
+
+/**
+ * The manual options to render: the site default language's values, order and default
+ * selections, with this language's own labels.
+ *
+ * The stored list of the rendered language is not the identity. Values belong to the
+ * default language and the submission validation reads them from there, while
+ * publication is per language — so live can hold this translation at an older
+ * generation and rendering it verbatim would offer values the server rejects as
+ * forged. The engine owns the alignment rule; a failure to reach it falls back to the
+ * stored list, which renders something rather than nothing.
+ */
+const alignManualOptions = (currentNode: JCRNodeWrapper, manualOptions: string[]): string[] => {
+	try {
+		const service = server.osgi.getService(MANUAL_OPTIONS_DISPLAY_SERVICE);
+		const aligned = service.forDisplay(currentNode, currentNode.getLanguage());
+
+		return aligned === null || aligned === undefined ? manualOptions : toStringArray(aligned);
+	} catch (error) {
+		console.error(`[Formidable] Could not align the manual options of field ${currentNode.getPath()}`, error);
+		return manualOptions;
+	}
+};
+
 /**
  * Resolves the option list of a choice field at render time.
  *
- * Manual mode reads the stored fmdb:options values. Sourced mode asks the engine's
+ * Manual mode renders the stored fmdb:options values, realigned on the default
+ * language's identity (see alignManualOptions). Sourced mode asks the engine's
  * options-source resolver (in-process OSGi call) for the current language; the
  * resolver answers in the manual-options JSON format, so both modes feed the same
  * parsing and rendering path.
@@ -26,7 +61,7 @@ export interface FieldOptions {
 export const resolveFieldOptions = (currentNode: JCRNodeWrapper, manualOptions: string[]): FieldOptions => {
 	try {
 		if (!RESOLVED_OPTIONS_MIXINS.some(mixin => currentNode.isNodeType(mixin))) {
-			return {choices: parseChoices(manualOptions), sourceError: false};
+			return {choices: parseChoices(alignManualOptions(currentNode, manualOptions)), sourceError: false};
 		}
 	} catch (error) {
 		console.error(`[Formidable] Could not read the options mode of field ${currentNode.getPath()}`, error);
@@ -40,12 +75,7 @@ export const resolveFieldOptions = (currentNode: JCRNodeWrapper, manualOptions: 
 			return {choices: parseChoices(manualOptions), sourceError: false};
 		}
 
-		const values: string[] = [];
-		for (let i = 0; i < resolved.length; i++) {
-			values.push(String(resolved[i]));
-		}
-
-		return {choices: parseChoices(values), sourceError: false};
+		return {choices: parseChoices(toStringArray(resolved)), sourceError: false};
 	} catch (error) {
 		console.error(`[Formidable] Options source failed for field ${currentNode.getPath()}`, error);
 		return {choices: [], sourceError: true};

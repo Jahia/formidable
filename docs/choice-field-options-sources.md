@@ -71,7 +71,15 @@ Two consequences worth knowing:
   the re-alignment at save (the master's count is the identity);
 - the forged-value validation reads the allowed values **from the default
   language**, so its verdict never depends on a translation that has not been
-  re-aligned yet.
+  re-aligned yet;
+- for the same reason a form **renders** the default language's values, order
+  and default selections, carrying the rendered language's own labels
+  (`ManualOptionsDisplayService`). Rendering the stored translation verbatim
+  would be unsafe rather than merely stale: publication is per language, so live
+  can hold a translation at an older generation than the default language, and a
+  visitor would then be offered values the validation rejects as forged. It also
+  means a language nobody translated renders the default language's entries
+  instead of an empty list.
 
 Why `fmdb:options` is **not mandatory**: options are authored in one language
 only, while a mandatory i18n property is validated in **every** language a
