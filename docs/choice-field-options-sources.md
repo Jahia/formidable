@@ -65,7 +65,7 @@ i18n property, two guards keep the languages coherent:
   is re-aligned the next time its field is saved — never at startup: the
   legacy-options migration completes before the sync listener registers.
 
-Two consequences worth knowing:
+Three consequences worth knowing:
 
 - a row that still reaches a translation from outside the editor is removed by
   the re-alignment at save (the master's count is the identity);
@@ -80,6 +80,15 @@ Two consequences worth knowing:
   visitor would then be offered values the validation rejects as forged. It also
   means a language nobody translated renders the default language's entries
   instead of an empty list.
+
+**An option whose value is deliberately empty** — the historical way of starting
+a select on a blank entry — cannot have its label translated. Outside the default
+language the editor reads an empty value as "nothing synced from the default
+language yet" and shows the pointer message where the label input would be. The
+stored label survives untouched (same-value entries pair positionally, so the
+re-alignment keeps it); it simply cannot be edited there.
+`fmdb:optionsEmptyLabel` is the supported way to start a select empty, and being
+an ordinary i18n property it translates normally.
 
 Why `fmdb:options` is **not mandatory**: options are authored in one language
 only, while a mandatory i18n property is validated in **every** language a
