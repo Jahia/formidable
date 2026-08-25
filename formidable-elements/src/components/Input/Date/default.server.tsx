@@ -2,7 +2,7 @@ import {Island, jahiaComponent} from "@jahia/javascript-modules-library";
 import {type RangeValidationMessageProps, validationDataAttributes} from "formidable-shared";
 import {HelpText, helpTextId} from "formidable-shared";
 import TodayBoundedInput from "./TodayBoundedInput.client";
-import {resolveBound} from "./bounds";
+import {resolveDateBounds} from "./bounds";
 
 interface InputDateProps extends RangeValidationMessageProps {
 	"jcr:title"?: string;
@@ -10,6 +10,10 @@ interface InputDateProps extends RangeValidationMessageProps {
 	defaultValue?: string;
 	"fmdb:minBoundMode"?: string;
 	"fmdb:maxBoundMode"?: string;
+	"fmdb:minRelativeAmount"?: number;
+	"fmdb:minRelativeUnit"?: string;
+	"fmdb:maxRelativeAmount"?: number;
+	"fmdb:maxRelativeUnit"?: string;
 	min?: string;
 	max?: string;
 	step?: number;
@@ -38,6 +42,10 @@ jahiaComponent(
 			defaultValue,
 			"fmdb:minBoundMode": minBoundMode,
 			"fmdb:maxBoundMode": maxBoundMode,
+			"fmdb:minRelativeAmount": minRelativeAmount,
+			"fmdb:minRelativeUnit": minRelativeUnit,
+			"fmdb:maxRelativeAmount": maxRelativeAmount,
+			"fmdb:maxRelativeUnit": maxRelativeUnit,
 			min,
 			max,
 			step,
@@ -53,8 +61,16 @@ jahiaComponent(
 
 		const helpId = helpText ? helpTextId(currentNode.getIdentifier()) : undefined;
 
-		const minBound = resolveBound(minBoundMode, formatDateForInput(min));
-		const maxBound = resolveBound(maxBoundMode, formatDateForInput(max));
+		const {minBound, maxBound, followsDay} = resolveDateBounds({
+			minMode: minBoundMode,
+			maxMode: maxBoundMode,
+			min: formatDateForInput(min),
+			max: formatDateForInput(max),
+			minRelativeAmount,
+			minRelativeUnit,
+			maxRelativeAmount,
+			maxRelativeUnit
+		});
 
 		// Shared between the static input and the today island so both render identical markup
 		const inputAttributes = {
@@ -81,16 +97,19 @@ jahiaComponent(
 
 				<HelpText id={helpId} text={helpText}/>
 
-				{minBound.today || maxBound.today ? (
-					// A bound relative to the submission day cannot be a server-rendered
-					// attribute (the fragment cache would freeze it): the input becomes
-					// an island resolving it at hydration, in the visitor's timezone.
+				{followsDay ? (
+					// A bound following the submission day (as-is or shifted) cannot be a
+					// server-rendered attribute (the fragment cache would freeze it): the
+					// input becomes an island resolving it at hydration, in the visitor's
+					// timezone.
 					<Island
 						component={TodayBoundedInput}
 						props={{
 							type: "date",
 							minToday: minBound.today,
 							maxToday: maxBound.today,
+							minOffset: minBound.offset,
+							maxOffset: maxBound.offset,
 							inputAttributes
 						}}
 					/>

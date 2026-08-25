@@ -1,36 +1,34 @@
 import {useEffect, useRef, type ComponentProps} from 'react';
+import {localToday, shiftedLocalDay, type RelativeOffset} from './bounds';
 
 interface TodayBoundedInputProps {
 	type: 'date' | 'datetime-local';
 	minToday?: boolean;
 	maxToday?: boolean;
+	// Signed offset from the current date (relative bound mode); a side carries
+	// either the today flag, an offset, or neither — modes are exclusive.
+	minOffset?: RelativeOffset;
+	maxOffset?: RelativeOffset;
 	// Everything else the input carries, shared verbatim with the view's static
 	// branch so both render identical markup. The fixed bound of a NON-relative
-	// side rides in here as a plain min/max attribute — bound modes are
-	// exclusive, so a side is never both fixed and relative.
+	// side rides in here as a plain min/max attribute.
 	inputAttributes: ComponentProps<'input'>;
 }
 
-// The visitor's local calendar day (never through toISOString, which reads the
-// UTC day and shifts around midnight for non-UTC visitors).
-const localToday = (): string => {
-	const now = new Date();
-	const month = String(now.getMonth() + 1).padStart(2, '0');
-	const day = String(now.getDate()).padStart(2, '0');
-	return `${now.getFullYear()}-${month}-${day}`;
-};
-
 /**
- * Date or datetime-local input whose bound(s) follow the submission day. The
- * relative bound cannot be server-rendered: the fragment cache would freeze it
- * at first-render time, so it is resolved at hydration, in the visitor's own
- * timezone. Server-side validation independently enforces the same bounds
- * against the submission date.
+ * Date or datetime-local input whose bound(s) follow the submission day — the
+ * day itself, or the day shifted by a signed offset. Such a bound cannot be
+ * server-rendered: the fragment cache would freeze it at first-render time, so
+ * it is resolved at hydration, in the visitor's own timezone. Server-side
+ * validation independently enforces the same bounds against the submission
+ * date.
  */
 export default function TodayBoundedInput({
 	type,
 	minToday,
 	maxToday,
+	minOffset,
+	maxOffset,
 	inputAttributes
 }: TodayBoundedInputProps) {
 	const ref = useRef<HTMLInputElement>(null);
@@ -41,23 +39,24 @@ export default function TodayBoundedInput({
 			return;
 		}
 
-		const applyTodayBounds = () => {
-			const today = localToday();
-			if (minToday) {
-				input.min = type === 'date' ? today : `${today}T00:00`;
+		const applyDayBounds = () => {
+			const minDay = minToday ? localToday() : (minOffset ? shiftedLocalDay(minOffset) : null);
+			const maxDay = maxToday ? localToday() : (maxOffset ? shiftedLocalDay(maxOffset) : null);
+			if (minDay) {
+				input.min = type === 'date' ? minDay : `${minDay}T00:00`;
 			}
 
-			if (maxToday) {
-				input.max = type === 'date' ? today : `${today}T23:59`;
+			if (maxDay) {
+				input.max = type === 'date' ? maxDay : `${maxDay}T23:59`;
 			}
 		};
 
-		applyTodayBounds();
+		applyDayBounds();
 		// A page can stay open across local midnight: refresh the bound whenever
 		// the visitor comes back to the input, so it never enforces yesterday.
-		input.addEventListener('focus', applyTodayBounds);
-		return () => input.removeEventListener('focus', applyTodayBounds);
-	}, [type, minToday, maxToday]);
+		input.addEventListener('focus', applyDayBounds);
+		return () => input.removeEventListener('focus', applyDayBounds);
+	}, [type, minToday, maxToday, minOffset, maxOffset]);
 
 	return (
 		<input

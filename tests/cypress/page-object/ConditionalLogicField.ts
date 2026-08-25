@@ -1,7 +1,8 @@
 import {BaseComponent, getComponentBySelector} from '@jahia/cypress';
 
 class ConditionalLogicRuleRow extends BaseComponent {
-	static defaultSelector = 'div.flexRow_nowrap.flexFluid.alignCenter';
+	// Structure-proof: the rule row declares itself, layout classes may change.
+	static defaultSelector = '[data-sel-role="logic-rule"]';
 }
 
 export class ConditionalLogicField extends BaseComponent {
@@ -175,6 +176,30 @@ export class ConditionalLogicField extends BaseComponent {
 
 	ruleShouldHaveDateInputCount(ruleIndex: number, count: number): this {
 		this.getRule(ruleIndex).get().find('input[type="date"]').should('have.length', count);
+		return this;
+	}
+
+	// The submission-day toggles glued to the date value inputs, one per input
+	// ('between' shows two): icon buttons whose pressed state carries the sentinel.
+	ruleShouldHaveTodayToggleCount(ruleIndex: number, count: number): this {
+		this.getRule(ruleIndex).get().find('[data-sel-role="today-toggle"]').should('have.length', count);
+		return this;
+	}
+
+	toggleTodayValue(ruleIndex: number, toggleIndex = 0): this {
+		this.getRule(ruleIndex).get().find('[data-sel-role="today-toggle"]').eq(toggleIndex).click({force: true});
+		return this;
+	}
+
+	todayValueShouldBePressed(ruleIndex: number, toggleIndex: number, pressed: boolean): this {
+		this.getRule(ruleIndex).get().find('[data-sel-role="today-toggle"]').eq(toggleIndex)
+			.should('have.attr', 'aria-pressed', String(pressed));
+		return this;
+	}
+
+	dateInputShouldBeDisabled(ruleIndex: number, inputIndex: number, disabled: boolean): this {
+		this.getRule(ruleIndex).get().find('input[type="date"]').eq(inputIndex)
+			.should(disabled ? 'be.disabled' : 'not.be.disabled');
 		return this;
 	}
 

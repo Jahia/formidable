@@ -88,7 +88,10 @@ orderable
  - fmdb:optionsRootNode (weakreference, picker[type='editorial']) mandatory
  - fmdb:optionsNodeType (string, choicelist[formidableContentTypes,dependentProperties='fmdb:optionsRootNode']) mandatory indexed=no
 
-// Date-bound contract for date and datetime fields: each bound is a mode switch
+// Date-bound contract for date and datetime fields: each bound is a mode switch.
+// Every dynamic-fieldset property below is mandatory: once a mode is chosen its
+// value must be provided — the mixin only exists while the mode is selected, so
+// the constraint applies exactly then (same rule as the options-source contract).
 // (no bound, a fixed date, or the submission day), and the fixed mode's calendar
 // lives in a jmix:dynamicFieldset mixin the Content Editor activates through the
 // addMixin wiring declared in the fieldset JSON overrides (formidable-elements).
@@ -101,11 +104,25 @@ orderable
 
 [fmdbmix:fixedMinDate] > jmix:dynamicFieldset mixin
  extends = fmdbmix:dateBounds
- - min (date, DatePicker)
+ - min (date, DatePicker) mandatory
 
 [fmdbmix:fixedMaxDate] > jmix:dynamicFieldset mixin
  extends = fmdbmix:dateBounds
- - max (date, DatePicker)
+ - max (date, DatePicker) mandatory
+
+// Relative bounds: the submission day shifted by a signed amount of days,
+// months or years (age limits, booking windows). One flavor per contract —
+// like the fixed bounds — because the dynamic-fieldset wiring is per contract;
+// the property names are shared so the runtime reads one set.
+[fmdbmix:relativeMinDate] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:dateBounds
+ - fmdb:minRelativeAmount (long) = 0 mandatory indexed=no
+ - fmdb:minRelativeUnit (string, choicelist) = 'days' mandatory indexed=no
+
+[fmdbmix:relativeMaxDate] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:dateBounds
+ - fmdb:maxRelativeAmount (long) = 0 mandatory indexed=no
+ - fmdb:maxRelativeUnit (string, choicelist) = 'days' mandatory indexed=no
 
 [fmdbmix:datetimeBounds] mixin
  - fmdb:minBoundMode (string, choicelist) = 'none' indexed=no
@@ -113,11 +130,21 @@ orderable
 
 [fmdbmix:fixedMinDatetime] > jmix:dynamicFieldset mixin
  extends = fmdbmix:datetimeBounds
- - min (date)
+ - min (date) mandatory
 
 [fmdbmix:fixedMaxDatetime] > jmix:dynamicFieldset mixin
  extends = fmdbmix:datetimeBounds
- - max (date)
+ - max (date) mandatory
+
+[fmdbmix:relativeMinDatetime] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:datetimeBounds
+ - fmdb:minRelativeAmount (long) = 0 mandatory indexed=no
+ - fmdb:minRelativeUnit (string, choicelist) = 'days' mandatory indexed=no
+
+[fmdbmix:relativeMaxDatetime] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:datetimeBounds
+ - fmdb:maxRelativeAmount (long) = 0 mandatory indexed=no
+ - fmdb:maxRelativeUnit (string, choicelist) = 'days' mandatory indexed=no
 
 [fmdbmix:choiceField] > fmdbmix:optionsSource mixin
 // Semantic value-kind mixins: a field type carrying one becomes eligible as a

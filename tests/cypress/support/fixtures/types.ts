@@ -128,17 +128,26 @@ export interface SelectData extends BaseInputData {
  */
 export type InputColorData = InputWithDefaultValue;
 
-/** One bound of a date/datetime input: nothing, a fixed value, or the submission day. */
-export type DateBoundMode = 'none' | 'date' | 'today';
+/** One bound of a date/datetime input: nothing, a fixed value, the submission day, or that day shifted. */
+export type DateBoundMode = 'none' | 'date' | 'today' | 'relative';
+
+/** Offset of a 'relative' bound: the submission day shifted by a signed amount. */
+export interface RelativeBoundOffset {
+	amount: number;
+	unit: 'days' | 'months' | 'years';
+}
 
 /**
  * Bound modes of fmdb:inputDate / fmdb:inputDatetimeLocal (fmdbmix:dateBounds /
  * fmdbmix:datetimeBounds contracts). The builders imply 'date' when a fixed
- * min/max value is given, so callers only set a mode explicitly for 'today'.
+ * min/max value is given and 'relative' when an offset is given, so callers
+ * only set a mode explicitly for 'today'.
  */
 export interface InputWithBoundModes {
 	minBoundMode?: DateBoundMode;
 	maxBoundMode?: DateBoundMode;
+	minRelative?: RelativeBoundOffset;
+	maxRelative?: RelativeBoundOffset;
 }
 
 /**

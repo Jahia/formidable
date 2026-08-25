@@ -147,6 +147,31 @@ class FormFieldMetadataCollectorTest {
                 ),
                 List.of()
         );
+        // A relative bound is the submission day shifted by a signed offset, widened
+        // to the same timezone extreme as the today mode; java.time carries the
+        // month/year clamping.
+        JCRNodeWrapper adult = node(
+                "adult",
+                "fmdb:inputDate",
+                Set.of("fmdbmix:formElement", "fmdbmix:dateField"),
+                Map.of(
+                        "fmdb:maxBoundMode", stringProperty("relative"),
+                        "fmdb:maxRelativeAmount", longProperty(-18),
+                        "fmdb:maxRelativeUnit", stringProperty("years")
+                ),
+                List.of()
+        );
+        JCRNodeWrapper booking = node(
+                "booking",
+                "fmdb:inputDatetimeLocal",
+                Set.of("fmdbmix:formElement", "fmdbmix:datetimeLocalField"),
+                Map.of(
+                        "fmdb:maxBoundMode", stringProperty("relative"),
+                        "fmdb:maxRelativeAmount", longProperty(30),
+                        "fmdb:maxRelativeUnit", stringProperty("days")
+                ),
+                List.of()
+        );
         // A datetime maximum on the submission day must cover the whole last minute:
         // the validator accepts seconds, so T23:59 alone would reject T23:59:30.
         JCRNodeWrapper deadline = node(
@@ -170,7 +195,7 @@ class FormFieldMetadataCollectorTest {
         );
 
         FormFieldMetadataCollector.Result result = FormFieldMetadataCollector.collectFromFormNode(
-                formNodeWithFields(birthday, appointment, deadline, unbounded)
+                formNodeWithFields(birthday, appointment, adult, booking, deadline, unbounded)
         );
 
         String easternExtremeDay = java.time.LocalDate.now(java.time.ZoneOffset.ofHours(14)).toString();
@@ -179,6 +204,10 @@ class FormFieldMetadataCollectorTest {
         assertNull(result.fieldInfos().get("birthday").constraints().minDate());
         assertEquals(westernExtremeDay + "T00:00", result.fieldInfos().get("appointment").constraints().minDate());
         assertEquals("2030-06-30T18:00", result.fieldInfos().get("appointment").constraints().maxDate());
+        assertEquals(java.time.LocalDate.now(java.time.ZoneOffset.ofHours(14)).plusYears(-18).toString(),
+                result.fieldInfos().get("adult").constraints().maxDate());
+        assertEquals(java.time.LocalDate.now(java.time.ZoneOffset.ofHours(14)).plusDays(30) + "T23:59:59.999",
+                result.fieldInfos().get("booking").constraints().maxDate());
         assertEquals(easternExtremeDay + "T23:59:59.999", result.fieldInfos().get("deadline").constraints().maxDate());
         assertNull(result.fieldInfos().get("unbounded").constraints());
     }
@@ -383,6 +412,12 @@ class FormFieldMetadataCollectorTest {
     private static JCRPropertyWrapper stringProperty(String value) throws Exception {
         JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
         when(property.getString()).thenReturn(value);
+        return property;
+    }
+
+    private static JCRPropertyWrapper longProperty(long value) throws Exception {
+        JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
+        when(property.getLong()).thenReturn(value);
         return property;
     }
 

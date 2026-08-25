@@ -81,14 +81,22 @@ Applies to: date, datetime-local, number — elements with range and step constr
 
 Each bound of a date or datetime-local field is a **mode**: `fmdb:minBoundMode` /
 `fmdb:maxBoundMode` (from the `fmdbmix:dateBounds` / `fmdbmix:datetimeBounds`
-contracts) hold `none`, `date` or `today`. In the editor the mode is a dropdown;
-choosing the fixed date reveals its calendar (a `jmix:dynamicFieldset` mixin —
-`fmdbmix:fixedMinDate` and friends — carries the `min`/`max` property), choosing
-the submission day shows nothing more. Modes are exclusive by construction, so a
-bound is never an ambiguous combination of a fixed date and a relative one.
+contracts) hold `none`, `date`, `today` or `relative`. In the editor the mode is
+a dropdown; choosing the fixed date reveals its calendar (a `jmix:dynamicFieldset`
+mixin — `fmdbmix:fixedMinDate` and friends — carries the `min`/`max` property),
+choosing the relative date reveals its offset (`fmdbmix:relativeMinDate` and
+friends carry a signed amount and a unit), choosing the submission day shows
+nothing more. Modes are exclusive by construction, so a bound is never an
+ambiguous combination of a fixed date and a day-following one.
 
 The `today` mode bounds the value by the day the visitor submits the form (a
 birth date must not be in the future, an appointment must not be in the past).
+The `relative` mode bounds it by that day **shifted by a signed offset** of
+days, months or years: `-18 years` as a maximum keeps birth dates at least 18
+years in the past (age limit), `+30 days` allows dates at most 30 days ahead
+(booking window). Month and year arithmetic clamps to the end of shorter months
+(January 31 + 1 month is February 28/29) — identically in the browser and on
+the server.
 Because the fragment cache would freeze any server-rendered date, the rendered
 input resolves that bound at hydration, in the visitor's own timezone; the
 `msgRangeUnderflow`/`msgRangeOverflow` messages apply to it exactly as to a fixed

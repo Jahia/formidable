@@ -1,0 +1,31 @@
+{
+	"name": "fmdbmix:relativeMaxDate",
+	"fields": [
+		{
+			"name": "fmdb:maxRelativeUnit",
+			"valueConstraints": [
+				{
+					"value": {
+						"type": "String",
+						"value": "days"
+					},
+					"displayValueKey": "formidable-engine:relativeUnit.days"
+				},
+				{
+					"value": {
+						"type": "String",
+						"value": "months"
+					},
+					"displayValueKey": "formidable-engine:relativeUnit.months"
+				},
+				{
+					"value": {
+						"type": "String",
+						"value": "years"
+					},
+					"displayValueKey": "formidable-engine:relativeUnit.years"
+				}
+			]
+		}
+	]
+}

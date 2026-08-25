@@ -50,6 +50,21 @@ Meaning:
 - `sourceNodeId` is the technical source identifier (JCR UUID); fast path and tie-breaker
 - `sourceFieldName` and `sourceFieldType` remain editor/runtime metadata and legacy fallback
 
+### Date rules relative to the submission day
+
+A date rule (`before`, `after`, `on`, `between` on a `date` value kind) may compare against
+the **submission day** instead of a fixed date: the stored `value` — or either entry of
+`values` for `between` — is then the sentinel string `today`, which the editor writes when
+the contributor checks the **Submission day** toggle next to the date input. The sentinel
+is unambiguous because a date input can never produce that literal, and it only applies to
+date comparisons — a text rule comparing against the string `today` keeps comparing the
+literal.
+
+Each evaluator resolves the sentinel at evaluation time: the browser uses the visitor's
+local calendar day on every re-evaluation, and the server uses the day the submission
+declared (see the logic state header below). The stored rule always keeps the sentinel,
+never a resolved date.
+
 ## Sources outside the form: providers
 
 A rule may designate something other than a previous field. `sourceType` names the provider,
@@ -93,7 +108,9 @@ every rule reading the same reference gets the same answer.
 The decoded payload is versioned JSON: `v` names the schema version (currently `1`), and
 `providers` maps each provider source type to the references it read — the declared value
 as a string, or `null` for "read and absent" (distinct from an empty string). Only the
-references actually used by the form's rules are declared, never the whole browser state:
+references actually used by the form's rules are declared, never the whole browser state.
+When a rule compares a date against the submission day, the visitor's local calendar day
+rides along as `today`:
 
 ```json
 {
@@ -101,9 +118,36 @@ references actually used by the form's rules are declared, never the whole brows
   "providers": {
     "cookie":   {"consent-marketing": "yes"},
     "urlParam": {"promo": null}
-  }
+  },
+  "today": "2026-08-20"
 }
 ```
+
+The declared day is only accepted when it is a day it currently **is somewhere on
+Earth** — the window from the westmost inhabited offset to the eastmost (UTC-12 to
+UTC+14, the same widening the date bounds use), derived from the evaluation instant
+rather than from the server's own calendar day; both evaluators then resolve `today`
+to that same agreed day, and date-vs-today verdicts stay exact measurements. A day
+outside the window is ignored like a missing declaration: the server then knows the
+visitor's day only up to that window, so it evaluates each date-vs-today rule against
+every day the window allows (two or three), and a verdict that flips inside the window
+degrades to the fail-safe (hidden, required skipped, nothing acted upon) instead of
+ever rejecting a value the visitor's own picker legitimately allowed.
+
+A `between` rule mixing the submission day with a fixed date can be **emptied by time
+alone**: `[today → fixed]` once the fixed date is over, `[fixed → today]` until it is
+reached. Such an interval matches nothing by construction, so both evaluators **ignore
+the rule** (it counts as satisfied) instead of hiding its field forever; near the flip,
+the ambiguity window makes the verdict a fail-safe like any day-dependent one. The rule
+editor steers away from authoring these (each calendar is bounded by the other side,
+equality included since both bounds are) and warns when a stored rule currently matches
+no date.
+
+Deployment note: the sentinel travels in the ordinary rule value, so a runtime that
+predates it compares the string `today` literally (a `before` rule would then always
+hold). Both modules ship in the same release — upgrade them together before authoring
+submission-day rules, and do not author such rules while an older formidable-elements
+still serves the forms.
 
 A declaration the server cannot interpret — unreadable base64, malformed JSON, a version
 other than `1` — is treated as no declaration at all (the fail-safe below), never as an

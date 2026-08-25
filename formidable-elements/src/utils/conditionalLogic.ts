@@ -1,4 +1,5 @@
 import {getLogicProvider, type LogicSourceType, type ScalarLogicProvider} from '~/utils/logicProviders';
+import {localToday} from '~/components/Input/Date/bounds';
 
 export type ConditionalLogicSourceType = LogicSourceType;
 
@@ -320,6 +321,36 @@ const compareDate = (left: string, right: string): number => {
 };
 
 /**
+ * Sentinel a date rule may carry instead of a fixed date: the submission day.
+ * Unambiguous by construction — a date input can never produce this literal.
+ */
+export const LOGIC_TODAY_SENTINEL = 'today';
+
+/**
+ * Whether a rule compares against the submission day. Gated on the value kind, not
+ * on an operator list: only the date kind gives the sentinel its meaning (a text
+ * rule keeps comparing the literal string), and the editor stamps the kind on
+ * every rule that can carry the sentinel. Mirrors the server's referencesToday.
+ */
+const ruleReferencesToday = (rule: ConditionalLogicRule): boolean =>
+	rule.valueKind === 'date'
+	&& (rule.value === LOGIC_TODAY_SENTINEL || (rule.values ?? []).includes(LOGIC_TODAY_SENTINEL));
+
+/**
+ * A copy of the rule with the today sentinel substituted by the visitor's local
+ * day, so the ordinary operator evaluation applies unchanged — the same one-shot
+ * rewrite the server does, keeping every operator branch sentinel-free.
+ */
+const withTodayResolved = (rule: ConditionalLogicRule): ConditionalLogicRule => {
+	const today = localToday();
+	return {
+		...rule,
+		value: rule.value === LOGIC_TODAY_SENTINEL ? today : rule.value,
+		values: rule.values?.map(value => (value === LOGIC_TODAY_SENTINEL ? today : value))
+	};
+};
+
+/**
  * Strict numeric parsing: the whole trimmed string must be a number, mirroring
  * the server-side Double.parseDouble ("9abc" is not a number, unlike parseFloat).
  */
@@ -385,14 +416,21 @@ const evaluateProviderRule = (rule: ConditionalLogicRule, provider: ScalarLogicP
 };
 
 /**
- * Groups the references used by each provider across the form, so a provider that needs to
- * watch its state is subscribed once with everything it must watch.
+ * One scan of the form's stored rules for everything the logic state needs: the
+ * references used by each provider, and whether any rule compares against the
+ * submission day. A single pass keeps the two answers coherent by construction —
+ * they must come from the same rule set to build one truthful declaration.
  */
-export const collectProviderRefs = (form: HTMLFormElement): Map<string, string[]> => {
+const collectLogicStateNeeds = (
+	form: HTMLFormElement
+): {refsByProvider: Map<string, string[]>; hasTodayRule: boolean} => {
 	const refsByProvider = new Map<string, Set<string>>();
+	let hasTodayRule = false;
 
 	for (const wrapper of Array.from(form.querySelectorAll<HTMLElement>('[data-fmdb-logics]'))) {
 		for (const rule of deserializeConditionalLogicRules(wrapper.dataset.fmdbLogics ?? '')) {
+			hasTodayRule = hasTodayRule || ruleReferencesToday(rule);
+
 			const provider = getLogicProvider(rule.sourceType);
 			const ref = provider ? rule[provider.configKey] : undefined;
 			if (!provider || !ref) continue;
@@ -403,8 +441,18 @@ export const collectProviderRefs = (form: HTMLFormElement): Map<string, string[]
 		}
 	}
 
-	return new Map(Array.from(refsByProvider, ([id, refs]) => [id, Array.from(refs)]));
+	return {
+		refsByProvider: new Map(Array.from(refsByProvider, ([id, refs]) => [id, Array.from(refs)])),
+		hasTodayRule
+	};
 };
+
+/**
+ * Groups the references used by each provider across the form, so a provider that needs to
+ * watch its state is subscribed once with everything it must watch.
+ */
+export const collectProviderRefs = (form: HTMLFormElement): Map<string, string[]> =>
+	collectLogicStateNeeds(form).refsByProvider;
 
 /** Unicode-safe base64: header values must stay ASCII, provider values may not be. */
 const toBase64 = (value: string): string => {
@@ -417,17 +465,21 @@ const toBase64 = (value: string): string => {
 };
 
 /**
- * Builds the submit-time provider state declaration for the FORM_LOGIC_STATE_HEADER, or
- * null when the form has no provider rule. One `read` per referenced provider state, at
- * the moment of submit: a single declared state backs every rule that reads it, which is
- * what lets the server evaluate provider rules coherently instead of counting every
- * provider-gated field as hidden. `null` encodes "absent", as distinct from empty string.
+ * Builds the submit-time state declaration for the FORM_LOGIC_STATE_HEADER, or null when
+ * no rule of the form needs one. One `read` per referenced provider state, at the moment
+ * of submit: a single declared state backs every rule that reads it, which is what lets
+ * the server evaluate provider rules coherently instead of counting every provider-gated
+ * field as hidden. `null` encodes "absent", as distinct from empty string. When a rule
+ * compares against the submission day, the visitor's local day is declared too, so both
+ * evaluators resolve "today" to the same calendar day whatever the timezone offset.
  */
 export const buildLogicStateHeader = (form: HTMLFormElement): string | null => {
+	const {refsByProvider, hasTodayRule} = collectLogicStateNeeds(form);
 	const providers: Record<string, Record<string, string | null>> = {};
+	const declaration: {v: number; providers: typeof providers; today?: string} = {v: 1, providers};
 	let hasAny = false;
 
-	for (const [providerId, refs] of collectProviderRefs(form)) {
+	for (const [providerId, refs] of refsByProvider) {
 		const provider = getLogicProvider(providerId);
 		if (!provider) continue;
 
@@ -440,10 +492,28 @@ export const buildLogicStateHeader = (form: HTMLFormElement): string | null => {
 		hasAny = true;
 	}
 
-	return hasAny ? toBase64(JSON.stringify({v: 1, providers})) : null;
+	if (hasTodayRule) {
+		declaration.today = localToday();
+		hasAny = true;
+	}
+
+	return hasAny ? toBase64(JSON.stringify(declaration)) : null;
 };
 
 const evaluateRule = (rule: ConditionalLogicRule, sourceWrapper: HTMLElement): boolean => {
+	if (ruleReferencesToday(rule)) {
+		rule = withTodayResolved(rule);
+
+		// A 'between' interval emptied by the submission day (its fixed bound now
+		// past "today", or not yet reached) matches nothing by construction: the
+		// rule is ignored — counts as satisfied — rather than hiding its field
+		// forever. The rule editor warns about it. Mirrors the server evaluator.
+		const [from, to] = rule.values ?? [];
+		if (rule.operator === 'between' && from && to && compareDate(from, to) > 0) {
+			return true;
+		}
+	}
+
 	const state = getSourceFieldState(sourceWrapper);
 	const values = state.values;
 	const expectedValues = rule.values ?? [];

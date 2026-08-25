@@ -1,6 +1,6 @@
 import {type FormEvent, type RefObject, useRef, useState} from 'react';
 import {interpolateMessage} from '~/utils/messageUtils';
-import {buildLogicStateHeader} from '~/utils/conditionalLogic';
+import {applyConditionalLogicVisibility, buildLogicStateHeader} from '~/utils/conditionalLogic';
 import {FORM_LOGIC_STATE_HEADER} from '~/utils/logicProviders';
 import {type CaptchaHandle} from '~/components/Form/Captcha.client';
 
@@ -77,6 +77,11 @@ export function useFormSubmission({
 		let serverActionsProgress: {completed: number; total: number} | undefined;
 
 		try {
+			// Visibility was last applied on an input event, but the visitor may have
+			// crossed local midnight since: re-apply it now so the submitted controls
+			// and the day declared below read the same clock, or a field legitimately
+			// filled yesterday would be measured hidden against today and rejected.
+			applyConditionalLogicVisibility(form);
 			const formData = new FormData(form);
 
 			if (captcha) {
