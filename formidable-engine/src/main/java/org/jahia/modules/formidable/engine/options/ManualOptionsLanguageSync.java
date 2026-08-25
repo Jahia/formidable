@@ -9,12 +9,9 @@ import org.slf4j.LoggerFactory;
 import javax.jcr.Node;
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LANGUAGE_PROPERTY;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.MANUAL_OPTIONS_MIXIN;
@@ -39,6 +36,13 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.TR
  * values never collapse onto one translation. Content that diverged before
  * this sync existed is re-aligned the next time its field is saved.
  *
+ * Seeding an empty master is keyed on the SAVED language, not on the master being
+ * empty: an empty master means "no identity yet" only when the save came from
+ * another language (an API write, an import). A save that emptied the default
+ * language itself is a contributor clearing the list, and handing the master back
+ * whichever language still carries entries would resurrect them — labels included —
+ * in the wrong language.
+ *
  * Works on the j:translation_* subnodes directly (the i18n storage, the same
  * access the options content migration uses), so one system session covers
  * every language. Idempotent: aligned translations rewrite nothing, which also
@@ -52,10 +56,12 @@ public final class ManualOptionsLanguageSync {
     }
 
     /**
+     * @param savedLanguages the languages whose options the triggering save touched;
+     *                       empty when the provenance is unknown, which allows seeding
      * @return true when at least one language was re-aligned (the session then
      *         carries unsaved changes)
      */
-    public static boolean sync(JCRNodeWrapper fieldNode) throws RepositoryException {
+    public static boolean sync(JCRNodeWrapper fieldNode, Set<String> savedLanguages) throws RepositoryException {
         if (!fieldNode.isNodeType(MANUAL_OPTIONS_MIXIN)) {
             return false;
         }
@@ -84,10 +90,17 @@ public final class ManualOptionsLanguageSync {
         // No master list yet: the first authored language SEEDS it. Its values
         // become the identity right away (labels ride along as the starting point
         // for translation), so the default language is never opened later on an
-        // empty mandatory list whose improvised values would re-align — and erase —
-        // what the first language authored.
+        // empty list whose improvised values would re-align — and erase — what the
+        // first language authored.
         boolean seeded = false;
         if (masterOptions == null || masterOptions.isEmpty()) {
+            if (!maySeed(masterLanguage, savedLanguages)) {
+                // The save emptied the default language: a deliberate clear, not a
+                // field awaiting its identity. Leave every language as it stands —
+                // authoring the master again re-aligns them all.
+                return false;
+            }
+
             masterOptions = seedMaster(fieldNode, masterLanguage, otherTranslations);
             if (masterOptions == null) {
                 return false;
@@ -121,6 +134,26 @@ public final class ManualOptionsLanguageSync {
         }
 
         return updated;
+    }
+
+    /**
+     * Whether an empty master may be seeded from another language. Only a save that
+     * touched a NON-default language can be establishing an identity; a save limited
+     * to the default language emptied it on purpose. An empty set means the
+     * provenance is unknown (a caller outside the listener), and seeding stays open.
+     */
+    private static boolean maySeed(String masterLanguage, Set<String> savedLanguages) {
+        if (savedLanguages.isEmpty()) {
+            return true;
+        }
+
+        for (String language : savedLanguages) {
+            if (!masterLanguage.equals(language)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** True when at least one entry carries a real (non-blank) value. */
@@ -184,21 +217,7 @@ public final class ManualOptionsLanguageSync {
      */
     private static boolean alignTranslation(Node translation, List<String> current, List<String> masterOptions,
             String fieldPath) throws RepositoryException {
-        Map<String, Deque<String>> currentByValue = new HashMap<>();
-        for (String raw : current) {
-            String value = ManualOptionEntries.value(raw);
-            if (value != null) {
-                currentByValue.computeIfAbsent(value, unused -> new ArrayDeque<>()).addLast(raw);
-            }
-        }
-
-        List<String> aligned = new ArrayList<>(masterOptions.size());
-        for (String masterRaw : masterOptions) {
-            String value = ManualOptionEntries.value(masterRaw);
-            Deque<String> own = value != null ? currentByValue.get(value) : null;
-            aligned.add(ManualOptionEntries.withMasterIdentity(masterRaw, own != null ? own.pollFirst() : null));
-        }
-
+        List<String> aligned = ManualOptionEntries.align(masterOptions, current);
         if (aligned.equals(current)) {
             return false;
         }

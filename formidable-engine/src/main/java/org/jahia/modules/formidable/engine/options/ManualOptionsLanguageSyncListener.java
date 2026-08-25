@@ -12,7 +12,9 @@ import org.slf4j.LoggerFactory;
 import javax.jcr.RepositoryException;
 import javax.jcr.observation.Event;
 import javax.jcr.observation.EventIterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.MANUAL_OPTIONS_MIXIN;
@@ -30,7 +32,10 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.TR
  * One batch of events (a save, a bulk import) is deduplicated to its distinct
  * field paths and handled in one system session: the sync's own rewrite of an
  * N-language field re-enters observation as N-1 events for the same path, which
- * this reduces back to a single no-op pass.
+ * this reduces back to a single no-op pass. Each path also carries the languages
+ * the save touched, read off the j:translation_* segment — the sync needs them to
+ * tell a field awaiting its identity from a default language a contributor just
+ * emptied.
  *
  * Counterpart of FormLogicSyncListener for the options identity.
  */
@@ -66,7 +71,7 @@ public class ManualOptionsLanguageSyncListener extends DefaultEventListener {
 
     @Override
     public void onEvent(EventIterator events) {
-        Set<String> fieldPaths = new LinkedHashSet<>();
+        Map<String, Set<String>> savedLanguagesByField = new LinkedHashMap<>();
         while (events.hasNext()) {
             Event event = events.nextEvent();
             try {
@@ -76,25 +81,32 @@ public class ManualOptionsLanguageSyncListener extends DefaultEventListener {
                 }
 
                 String nodePath = path.substring(0, path.lastIndexOf('/'));
+                String language = null;
                 int translation = nodePath.lastIndexOf(TRANSLATION_SEGMENT);
                 if (translation >= 0) {
+                    language = nodePath.substring(translation + TRANSLATION_SEGMENT.length());
                     nodePath = nodePath.substring(0, translation);
                 }
 
-                fieldPaths.add(nodePath);
+                Set<String> savedLanguages =
+                        savedLanguagesByField.computeIfAbsent(nodePath, unused -> new LinkedHashSet<>());
+                if (language != null) {
+                    savedLanguages.add(language);
+                }
             } catch (RepositoryException e) {
                 log.warn("[ManualOptionsLanguageSync] Unreadable options event: {}", e.getMessage());
             }
         }
 
-        if (fieldPaths.isEmpty()) {
+        if (savedLanguagesByField.isEmpty()) {
             return;
         }
 
         try {
             JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, workspace, null, systemSession -> {
                 boolean updated = false;
-                for (String fieldPath : fieldPaths) {
+                for (Map.Entry<String, Set<String>> field : savedLanguagesByField.entrySet()) {
+                    String fieldPath = field.getKey();
                     // Removal events of a deleted field (or form, or language) point
                     // at a gone path: nothing to re-align.
                     if (!systemSession.nodeExists(fieldPath)) {
@@ -102,7 +114,7 @@ public class ManualOptionsLanguageSyncListener extends DefaultEventListener {
                     }
 
                     JCRNodeWrapper fieldNode = systemSession.getNode(fieldPath);
-                    if (ManualOptionsLanguageSync.sync(fieldNode)) {
+                    if (ManualOptionsLanguageSync.sync(fieldNode, field.getValue())) {
                         updated = true;
                         log.debug("[ManualOptionsLanguageSync] Re-aligned '{}'", fieldPath);
                     }

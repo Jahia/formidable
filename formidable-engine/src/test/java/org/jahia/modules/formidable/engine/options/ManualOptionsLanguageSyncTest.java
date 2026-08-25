@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import javax.jcr.Node;
 import javax.jcr.Property;
 import javax.jcr.Value;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -43,7 +44,7 @@ class ManualOptionsLanguageSyncTest {
 
         JCRNodeWrapper field = fieldNode("en", master, fr);
 
-        assertTrue(ManualOptionsLanguageSync.sync(field));
+        assertTrue(ManualOptionsLanguageSync.sync(field, Set.of("fr")));
         verify(fr).setProperty(eq("fmdb:options"),
                 eq(new String[]{option("a", "Alpha"), frB}));
     }
@@ -58,7 +59,7 @@ class ManualOptionsLanguageSyncTest {
 
         JCRNodeWrapper field = fieldNode("en", master, fr);
 
-        assertFalse(ManualOptionsLanguageSync.sync(field));
+        assertFalse(ManualOptionsLanguageSync.sync(field, Set.of("en")));
         verify(fr, never()).setProperty(eq("fmdb:options"), any(String[].class));
     }
 
@@ -71,7 +72,7 @@ class ManualOptionsLanguageSyncTest {
 
         JCRNodeWrapper field = fieldNode("en", master, fr);
 
-        assertTrue(ManualOptionsLanguageSync.sync(field));
+        assertTrue(ManualOptionsLanguageSync.sync(field, Set.of("en")));
         verify(fr).setProperty(eq("fmdb:options"),
                 eq(new String[]{option("a", "Alfa", true), option("b", "B\u00e9", false)}));
     }
@@ -88,7 +89,7 @@ class ManualOptionsLanguageSyncTest {
 
         JCRNodeWrapper field = fieldNode("en", master, fr);
 
-        assertTrue(ManualOptionsLanguageSync.sync(field));
+        assertTrue(ManualOptionsLanguageSync.sync(field, Set.of("en")));
         verify(fr).setProperty(eq("fmdb:options"),
                 eq(new String[]{frA1, frA2, option("b", "Bee")}));
     }
@@ -107,7 +108,7 @@ class ManualOptionsLanguageSyncTest {
         when(field.getOrCreateI18N(org.jahia.utils.LanguageCodeConverters.languageCodeToLocale("en")))
                 .thenReturn(master);
 
-        assertTrue(ManualOptionsLanguageSync.sync(field));
+        assertTrue(ManualOptionsLanguageSync.sync(field, Set.of("fr")));
         verify(master).setProperty(eq("fmdb:options"), eq(new String[]{frA}));
         verify(fr, never()).setProperty(eq("fmdb:options"), any(String[].class));
     }
@@ -121,7 +122,7 @@ class ManualOptionsLanguageSyncTest {
 
         JCRNodeWrapper field = fieldNode("en", master);
 
-        assertFalse(ManualOptionsLanguageSync.sync(field));
+        assertFalse(ManualOptionsLanguageSync.sync(field, Set.of("en")));
         verify(field, never()).getOrCreateI18N(any());
     }
 
@@ -136,7 +137,7 @@ class ManualOptionsLanguageSyncTest {
 
         JCRNodeWrapper field = fieldNode("en", master, fr);
 
-        assertTrue(ManualOptionsLanguageSync.sync(field));
+        assertTrue(ManualOptionsLanguageSync.sync(field, Set.of("fr")));
         verify(fr).setProperty("fmdb:options", (String[]) null);
         verify(fr, never()).setProperty(eq("fmdb:options"), any(String[].class));
     }
@@ -150,7 +151,7 @@ class ManualOptionsLanguageSyncTest {
 
         JCRNodeWrapper field = fieldNode("en", master, fr);
 
-        assertFalse(ManualOptionsLanguageSync.sync(field));
+        assertFalse(ManualOptionsLanguageSync.sync(field, Set.of("fr")));
         verify(master, never()).setProperty(eq("fmdb:options"), any(String[].class));
     }
 
@@ -162,9 +163,42 @@ class ManualOptionsLanguageSyncTest {
 
         JCRNodeWrapper field = fieldNode("en", master, fr);
 
-        assertFalse(ManualOptionsLanguageSync.sync(field));
+        assertFalse(ManualOptionsLanguageSync.sync(field, Set.of("en")));
         verify(fr, never()).setProperty(eq("fmdb:options"), any(String[].class));
         verify(master, never()).setProperty(eq("fmdb:options"), any(String[].class));
+    }
+
+    @Test
+    void anEmptiedMasterIsNotSeededBackFromATranslation() throws Exception {
+        // A contributor cleared the options in the default language. The master being
+        // empty is that clear, not a missing identity: seeding here would hand the
+        // master the French entries — French labels included.
+        Node master = translation("en");
+        Node fr = translation("fr", option("a", "Alfa"));
+
+        JCRNodeWrapper field = fieldNode("en", master, fr);
+
+        assertFalse(ManualOptionsLanguageSync.sync(field, Set.of("en")));
+        verify(field, never()).getOrCreateI18N(any());
+        verify(master, never()).setProperty(eq("fmdb:options"), any(String[].class));
+        verify(fr, never()).setProperty(eq("fmdb:options"), any(String[].class));
+    }
+
+    @Test
+    void anEmptyMasterIsSeededWhenTheSavedLanguageIsUnknown() throws Exception {
+        // No provenance (a caller outside the observation listener): seeding stays
+        // open, since only a save known to be the default language's own proves a
+        // deliberate clear.
+        Node master = translation("en");
+        String frA = option("a", "Alfa");
+        Node fr = translation("fr", frA);
+
+        JCRNodeWrapper field = fieldNode("en", master, fr);
+        when(field.getOrCreateI18N(org.jahia.utils.LanguageCodeConverters.languageCodeToLocale("en")))
+                .thenReturn(master);
+
+        assertTrue(ManualOptionsLanguageSync.sync(field, Set.of()));
+        verify(master).setProperty(eq("fmdb:options"), eq(new String[]{frA}));
     }
 
     private static JCRNodeWrapper fieldNode(String defaultLanguage, Node... translations) throws Exception {

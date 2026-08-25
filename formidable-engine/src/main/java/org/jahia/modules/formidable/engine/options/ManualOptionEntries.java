@@ -8,8 +8,12 @@ import javax.jcr.Node;
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import javax.jcr.Value;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LANGUAGE_PROPERTY;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.OPTIONS_PROPERTY;
@@ -60,6 +64,36 @@ public final class ManualOptionEntries {
         } catch (JSONException e) {
             return masterRaw;
         }
+    }
+
+    /**
+     * One language's entries rewritten as the master's values, order and default
+     * selections, keeping that language's own label wherever the value already exists
+     * there. Same-value entries are consumed positionally (a queue per value), so two
+     * master rows sharing a value — including two rows whose value is still empty —
+     * each keep their own translation.
+     *
+     * Pure, and the single expression of the alignment rule: the save-time
+     * re-alignment and the display-time read share it, so a rendered form and a
+     * validated submission cannot disagree on the identity.
+     */
+    public static List<String> align(List<String> masterOptions, List<String> ownOptions) {
+        Map<String, Deque<String>> ownByValue = new HashMap<>();
+        for (String raw : ownOptions) {
+            String value = value(raw);
+            if (value != null) {
+                ownByValue.computeIfAbsent(value, unused -> new ArrayDeque<>()).addLast(raw);
+            }
+        }
+
+        List<String> aligned = new ArrayList<>(masterOptions.size());
+        for (String masterRaw : masterOptions) {
+            String value = value(masterRaw);
+            Deque<String> own = value != null ? ownByValue.get(value) : null;
+            aligned.add(withMasterIdentity(masterRaw, own != null ? own.pollFirst() : null));
+        }
+
+        return aligned;
     }
 
     /** The raw entries of one language's translation subnode, in stored order. */
