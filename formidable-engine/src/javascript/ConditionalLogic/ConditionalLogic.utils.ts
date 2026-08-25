@@ -213,6 +213,25 @@ export const extractCurrentNodePath = (props: SelectorProps): string | undefined
         ?? undefined;
 };
 
+/**
+ * The language of the CONTENT being edited, or undefined when the editor context does
+ * not state it.
+ *
+ * Distinct from extractLanguage, which falls back to the UI language and finally to
+ * 'en' so a caller always has something to read. A decision that gates what a
+ * contributor may edit has to know when the answer would be a guess: mistaking the
+ * default language for another one leaves nobody able to author at all.
+ */
+export const extractContentLanguage = (props: SelectorProps): string | undefined => {
+    const editorContext = extractEditorContext(props);
+
+    return editorContext?.nodeData?.language
+        ?? editorContext?.nodeData?.lang
+        ?? editorContext?.language
+        ?? editorContext?.lang
+        ?? undefined;
+};
+
 export const extractLanguage = (props: SelectorProps): string => {
     const editorContext = extractEditorContext(props);
     const fromWindow = (window as unknown as {contextJsParameters?: {uilang?: string}}).contextJsParameters?.uilang;
