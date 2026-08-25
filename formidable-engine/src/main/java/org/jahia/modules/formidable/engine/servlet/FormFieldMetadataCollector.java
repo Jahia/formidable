@@ -24,6 +24,7 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FO
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGIC_NODE_SOURCE_PROPERTY;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGICS_PROPERTY;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGICS_SRC_NODE;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.MANUAL_OPTIONS_MIXIN;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.NON_SUBMITTABLE_MIXIN;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WORKSPACE_LIVE;
 
@@ -241,17 +242,21 @@ class FormFieldMetadataCollector {
      * values in nor reject legitimate default-language values. Without a
      * default-language master (a field authored in another language only), the
      * localized read stays the identity.
+     *
+     * Keyed on the MIXIN, not on the submitted locale carrying fmdb:options: a form
+     * rendered in a language nobody translated still renders the master's entries
+     * (ManualOptionsDisplayService), so the values it can legitimately submit must be
+     * read there too.
      */
     private static Set<String> collectManualChoices(JCRNodeWrapper node) throws RepositoryException {
-        String propName = resolveChoicePropertyName(node);
-        if (UNIFIED_OPTIONS_PROPERTY.equals(propName)) {
+        if (node.isNodeType(MANUAL_OPTIONS_MIXIN)) {
             Set<String> masterChoices = collectDefaultLanguageChoices(node);
             if (masterChoices != null) {
                 return masterChoices;
             }
         }
 
-        return collectChoices(node, node.getName(), propName);
+        return collectChoices(node, node.getName(), resolveChoicePropertyName(node));
     }
 
     private static Set<String> collectDefaultLanguageChoices(JCRNodeWrapper node) throws RepositoryException {

@@ -5,9 +5,11 @@ import org.jahia.services.content.JCRNodeIteratorWrapper;
 import org.jahia.services.content.JCRPropertyWrapper;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRValueWrapper;
+import org.jahia.services.content.decorator.JCRSiteNode;
 import org.junit.jupiter.api.Test;
 
 import javax.jcr.Node;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
@@ -258,6 +260,124 @@ class FormFieldMetadataCollectorTest {
 
         // Expected outcome: the non-submittable helper node is omitted entirely.
         assertFalse(result.fieldInfos().containsKey("csrfToken"));
+    }
+
+    @Test
+    void manualChoicesAreReadFromTheDefaultLanguage() throws Exception {
+        // Option values are one identity set owned by the site's default language, so
+        // a translation that diverged (or is simply a publication behind) can neither
+        // smuggle a value in nor reject a legitimate one: 'mint' lives only in the
+        // submitted locale's list and is not allowed, 'vanilla' lives only in the
+        // master's and is.
+        JCRNodeWrapper choiceField = manualChoiceField(
+                "flavor",
+                Map.of("fmdb:options", multiValueProperty(
+                        "{\"value\":\"mint\",\"label\":\"Menthe\"}",
+                        "{\"value\":\"chocolate\",\"label\":\"Chocolat\"}"
+                )),
+                "en",
+                Map.of(
+                        "en", new String[]{
+                                "{\"value\":\"vanilla\",\"label\":\"Vanilla\"}",
+                                "{\"value\":\"chocolate\",\"label\":\"Chocolate\"}"
+                        },
+                        "fr", new String[]{
+                                "{\"value\":\"mint\",\"label\":\"Menthe\"}",
+                                "{\"value\":\"chocolate\",\"label\":\"Chocolat\"}"
+                        }
+                )
+        );
+
+        FormFieldMetadataCollector.Result result = FormFieldMetadataCollector.collectFromFormNode(
+                formNodeWithFields(choiceField)
+        );
+
+        assertEquals(Set.of("vanilla", "chocolate"), result.fieldInfos().get("flavor").allowedChoices());
+    }
+
+    @Test
+    void manualChoicesAreReadFromTheDefaultLanguageWithoutALocalizedList() throws Exception {
+        // A form served in a language nobody translated renders the master's entries,
+        // so the values it can legitimately submit are the master's too — the read
+        // cannot hang on the submitted locale carrying the property.
+        JCRNodeWrapper choiceField = manualChoiceField(
+                "flavor",
+                Map.of(),
+                "en",
+                Map.of("en", new String[]{"{\"value\":\"vanilla\",\"label\":\"Vanilla\"}"})
+        );
+
+        FormFieldMetadataCollector.Result result = FormFieldMetadataCollector.collectFromFormNode(
+                formNodeWithFields(choiceField)
+        );
+
+        assertEquals(Set.of("vanilla"), result.fieldInfos().get("flavor").allowedChoices());
+    }
+
+    @Test
+    void manualChoicesFallBackToTheStoredListWithoutAMasterList() throws Exception {
+        // No default-language list to align on — a field authored in another language
+        // only, or one whose options were cleared: the stored list stays the identity.
+        JCRNodeWrapper choiceField = manualChoiceField(
+                "flavor",
+                Map.of("fmdb:options", multiValueProperty("{\"value\":\"mint\",\"label\":\"Menthe\"}")),
+                "en",
+                Map.of("fr", new String[]{"{\"value\":\"mint\",\"label\":\"Menthe\"}"})
+        );
+
+        FormFieldMetadataCollector.Result result = FormFieldMetadataCollector.collectFromFormNode(
+                formNodeWithFields(choiceField)
+        );
+
+        assertEquals(Set.of("mint"), result.fieldInfos().get("flavor").allowedChoices());
+    }
+
+    /**
+     * A manual choice field whose i18n storage is visible: {@code properties} is what
+     * the submitted locale reads, {@code optionsByLanguage} what each
+     * j:translation_* subnode carries.
+     */
+    private static JCRNodeWrapper manualChoiceField(String name, Map<String, JCRPropertyWrapper> properties,
+                                                    String defaultLanguage,
+                                                    Map<String, String[]> optionsByLanguage) throws Exception {
+        JCRNodeWrapper field = node(
+                name,
+                "fmdb:select",
+                Set.of("fmdbmix:formElement", "fmdbmix:choiceField", "fmdbmix:manualOptions"),
+                properties,
+                List.of()
+        );
+
+        List<Node> translations = new ArrayList<>();
+        for (Map.Entry<String, String[]> entry : optionsByLanguage.entrySet()) {
+            translations.add(translationNode(entry.getKey(), entry.getValue()));
+        }
+
+        JCRSiteNode site = mock(JCRSiteNode.class);
+        when(site.getDefaultLanguage()).thenReturn(defaultLanguage);
+        when(field.getResolveSite()).thenReturn(site);
+
+        // Answered per call: the iterator is one-shot.
+        when(field.getNodes("j:translation_*")).thenAnswer(invocation -> nodeIterator(translations));
+        return field;
+    }
+
+    private static Node translationNode(String language, String... options) throws Exception {
+        // Every property mock is built BEFORE the stubbing that returns it: creating a
+        // mock between when() and thenReturn() is unfinished stubbing.
+        JCRPropertyWrapper languageProperty = stringProperty(language);
+        JCRPropertyWrapper optionsProperty = options.length > 0 ? multiValueProperty(options) : null;
+
+        Node translation = mock(Node.class);
+        when(translation.getName()).thenReturn("j:translation_" + language);
+        when(translation.hasProperty("jcr:language")).thenReturn(true);
+        when(translation.getProperty("jcr:language")).thenReturn(languageProperty);
+        when(translation.hasProperty("fmdb:options")).thenReturn(optionsProperty != null);
+        if (optionsProperty != null) {
+            when(translation.getProperty("fmdb:options")).thenReturn(optionsProperty);
+        }
+
+        return translation;
     }
 
     private static JCRNodeWrapper formNodeWithFields(JCRNodeWrapper... fields) throws Exception {
