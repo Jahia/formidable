@@ -37,16 +37,18 @@ export function getInputTextNode(data: InputTextData = INPUT_TEXT_SIMPLE): Jahia
 	const mixins: string[] = [];
 
 	if (data.title) properties.push({name: 'jcr:title', value: data.title, language: 'en'});
+	if (data.helpText) properties.push({name: 'helpText', value: data.helpText, language: 'en'});
 	if (data.placeholder) properties.push({name: 'placeholder', value: data.placeholder, language: 'en'});
 	if (data.defaultValue) properties.push({name: 'defaultValue', value: data.defaultValue, language: 'en'});
 	if (data.required !== undefined) properties.push({name: 'required', value: String(data.required), type: 'BOOLEAN'});
 	if (data.minLength !== undefined) properties.push({name: 'minLength', value: String(data.minLength), type: 'LONG'});
 	if (data.maxLength !== undefined) properties.push({name: 'maxLength', value: String(data.maxLength), type: 'LONG'});
 	if (data.pattern) properties.push({name: 'pattern', value: data.pattern});
+	if (data.mask) properties.push({name: 'mask', value: data.mask});
 	if (data.autocomplete) properties.push({name: 'autocomplete', value: data.autocomplete});
 	if (data.list && data.list.length > 0) properties.push({name: 'list', values: data.list, language: 'en'});
 
-	if (data.pattern) {
+	if (data.pattern || data.mask) {
 		mixins.push('fmdbmix:advancedInputTextSettings');
 	}
 

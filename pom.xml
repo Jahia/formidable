@@ -50,6 +50,7 @@
     <modules>
         <module>formidable-engine</module>
         <module>formidable-elements</module>
+        <module>formidable-extended-inputs</module>
         <module>jahia-test-module</module>
     </modules>
 

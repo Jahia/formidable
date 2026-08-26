@@ -19,8 +19,11 @@ import java.util.Objects;
  * when the current fmdb:form node has fmdbmix:captchaProtectedForm applied.
  *
  * Attributes set on HttpServletRequest (readable from the GraalVM JS server view):
- *   formidable.captcha.siteKey   - public site key for the widget
- *   formidable.captcha.scriptUrl - provider JavaScript API URL
+ *   formidable.captcha.siteKey              - public site key for the widget
+ *   formidable.captcha.scriptUrl            - provider JavaScript API URL
+ *   formidable.captcha.widgetVar            - global window object exposed by the provider script
+ *   formidable.captcha.tokenField           - hidden form field auto-injected by the widget
+ *   formidable.captcha.widgetTimeoutSeconds - client-side wait budget for the widget API to appear
  *
  * Runs before the view is rendered (priority 10, lower number = earlier execution).
  */
@@ -30,10 +33,11 @@ public class CaptchaRenderFilter extends AbstractFilter {
     private static final Logger log = LoggerFactory.getLogger(CaptchaRenderFilter.class);
     private static final String CAPTCHA_PROTECTED_FORM_MIXIN = "fmdbmix:captchaProtectedForm";
 
-    static final String ATTR_SITE_KEY     = "formidable.captcha.siteKey";
-    static final String ATTR_SCRIPT_URL   = "formidable.captcha.scriptUrl";
-    static final String ATTR_WIDGET_VAR   = "formidable.captcha.widgetVar";
-    static final String ATTR_TOKEN_FIELD  = "formidable.captcha.tokenField";
+    static final String ATTR_SITE_KEY       = "formidable.captcha.siteKey";
+    static final String ATTR_SCRIPT_URL     = "formidable.captcha.scriptUrl";
+    static final String ATTR_WIDGET_VAR     = "formidable.captcha.widgetVar";
+    static final String ATTR_TOKEN_FIELD    = "formidable.captcha.tokenField";
+    static final String ATTR_WIDGET_TIMEOUT = "formidable.captcha.widgetTimeoutSeconds";
 
     private FormidableConfigService config;
 
@@ -62,10 +66,11 @@ public class CaptchaRenderFilter extends AbstractFilter {
                 return null;
             }
 
-            renderContext.getRequest().setAttribute(ATTR_SITE_KEY,     config.getCaptchaSiteKey());
-            renderContext.getRequest().setAttribute(ATTR_SCRIPT_URL,   config.getCaptchaScriptUrl());
-            renderContext.getRequest().setAttribute(ATTR_WIDGET_VAR,   config.getCaptchaWidgetVar());
-            renderContext.getRequest().setAttribute(ATTR_TOKEN_FIELD,  config.getCaptchaTokenField());
+            renderContext.getRequest().setAttribute(ATTR_SITE_KEY,       config.getCaptchaSiteKey());
+            renderContext.getRequest().setAttribute(ATTR_SCRIPT_URL,     config.getCaptchaScriptUrl());
+            renderContext.getRequest().setAttribute(ATTR_WIDGET_VAR,     config.getCaptchaWidgetVar());
+            renderContext.getRequest().setAttribute(ATTR_TOKEN_FIELD,    config.getCaptchaTokenField());
+            renderContext.getRequest().setAttribute(ATTR_WIDGET_TIMEOUT, config.getCaptchaHttpConnectTimeout().toSeconds());
         } catch (Exception e) {
             log.warn("[Formidable] Could not prepare CAPTCHA attributes for node '{}'", resource.getNodePath(), e);
         }

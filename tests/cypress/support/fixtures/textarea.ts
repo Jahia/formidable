@@ -21,6 +21,7 @@ export function getTextareaNode(data: TextareaData = TEXTAREA_COMPLETE): JahiaNo
 	const mixins: string[] = [];
 
 	if (data.title) properties.push({name: 'jcr:title', value: data.title, language: 'en'});
+	if (data.helpText) properties.push({name: 'helpText', value: data.helpText, language: 'en'});
 	if (data.placeholder) properties.push({name: 'placeholder', value: data.placeholder, language: 'en'});
 	if (data.defaultValue) properties.push({name: 'defaultValue', value: data.defaultValue, language: 'en'});
 	if (data.required !== undefined) properties.push({name: 'required', value: String(data.required), type: 'BOOLEAN'});

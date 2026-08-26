@@ -11,6 +11,10 @@
 	"fmdb_inputCheckbox": {
 		"error": "Please select at least one option"
 	},
+	"fmdb_choiceField": {
+		"sourceUnavailable": "The options of this field are currently unavailable.",
+		"sourceUnavailableRequired": "The options of this required field are currently unavailable. The form cannot be submitted, please try again later."
+	},
 	"fmdb_form": {
 		"submitBtn": "Submit",
 		"resetBtn": "Reset",
@@ -23,10 +27,15 @@
 		"stepsNav": "Form steps",
 		"captchaRequired": "Please complete the CAPTCHA verification.",
 		"editModeSubmitDisabled": "Form submission is disabled in edit/preview mode.",
+		"maintenanceUnavailable": "This form is temporarily unavailable while the platform is under maintenance. Please try again later.",
 		"errorCode": "Error code",
 		"actionsProgress": "{{completed}}/{{total}} actions completed"
 	},
 	"fmdb_formReference": {
 		"noFormSelected": "No form selected"
+	},
+	"fmdb_inputRange": {
+		"required": "Please select a value",
+		"unanswered": "No value selected yet"
 	}
 }

@@ -1,8 +1,10 @@
 import {jahiaComponent} from "@jahia/javascript-modules-library";
-import {type BaseValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
+import {type BaseValidationMessageProps, validationDataAttributes} from "formidable-shared";
+import {HelpText, helpTextId} from "formidable-shared";
 
 interface InputColorProps extends BaseValidationMessageProps {
 	"jcr:title"?: string;
+	helpText?: string;
 	defaultValue?: string;
 	alpha?: boolean;
 	colorspace?: string;
@@ -18,6 +20,7 @@ jahiaComponent(
 	(
 		{
 			"jcr:title": label,
+			helpText,
 			defaultValue,
 			// alpha, //Not standard in HTML5 input type color only supported in ios safari
 			// colorspace, //Not standard in HTML5 input type color only supported in ios safari
@@ -31,6 +34,8 @@ jahiaComponent(
 		const inputId = `input-${currentNode.getIdentifier()}`;
 		const inputName = currentNode.getName();
 
+		const helpId = helpText ? helpTextId(currentNode.getIdentifier()) : undefined;
+
 		return (
 			<div className="fmdb-form-group">
 				{label && (
@@ -40,10 +45,13 @@ jahiaComponent(
 					</label>
 				)}
 
+				<HelpText id={helpId} text={helpText}/>
+
 				<input
 					type="color"
 					id={inputId}
 					name={inputName}
+					aria-describedby={helpId}
 					className="fmdb-form-control"
 					defaultValue={defaultValue}
 					// alpha={alpha}

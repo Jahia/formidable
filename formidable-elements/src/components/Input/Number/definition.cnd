@@ -1,0 +1,27 @@
+// Number input advanced settings mixin.
+// Only the attributes HTML defines for type="number": pattern, mask, size,
+// spellcheck and dirname (text-input settings) do not apply to number inputs.
+[fmdbmix:advancedInputNumberSettings] mixin
+ extends = fmdb:inputNumber
+ itemtype = content
+ - title (string) i18n indexed=no
+ - readonly (boolean) = false
+ - autofocus (boolean) = false
+ - disabled (boolean) = false
+ - form (string) indexed=no
+
+// Number input component properties
+// Range convention: server-side validation for fmdbmix:numberField types reads the
+// minValue/maxValue properties (FormFieldMetadataCollector), shared with the add-on
+// rating/scale fields — hence not inputDate's min/max names.
+// fmdbmix:numberField also makes the field a conditional-logic source with numeric operators.
+[fmdb:inputNumber] > jnt:content, fmdbmix:element, fmdbmix:numberField, fmdbmix:rangeValidationMessages
+ - helpText (string, richtext[ckeditor.toolbar='FormidableHelp',ckeditor.customConfig='$context/modules/formidable-engine/javascript/ckeditor/helpTextConfig.js']) i18n indexed=no
+ - required (boolean) = false
+ - placeholder (string) i18n indexed=no
+ - defaultValue (double)
+ - minValue (double)
+ - maxValue (double)
+ - step (double)
+ // Numeric suggestions are language-independent, hence not i18n like inputText's list
+ - list (string) multiple indexed=no

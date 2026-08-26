@@ -40,12 +40,38 @@ final class FieldValidator {
             String value,
             FormDataParser.FieldMetadata metadata
     ) throws FormDataParser.ParseException {
+        boolean choicesUnresolvable = metadata.choicesUnresolvable(fieldName);
+
         if (value == null || value.isEmpty()) {
+            // D11: when the options source is down, an empty value only passes on an
+            // optional field; a required choice cannot be silently skipped.
+            if (choicesUnresolvable && isRequired(metadata, fieldName)) {
+                log.warn("[FieldValidator] Rejected empty value: required field options source is unavailable");
+                throw new FormDataParser.ParseException(
+                        "Field '" + fieldName + "': required field options are currently unavailable.",
+                        FormDataParser.ParseException.FailureType.VALIDATION
+                );
+            }
+
             return;
         }
 
-        Set<String> choices = metadata.allowedChoices(fieldName);
-        if (!choices.isEmpty() && !choices.contains(value)) {
+        // D11, no tolerance: a non-empty value must be present in the re-resolved list;
+        // when the source cannot be resolved, the value cannot be verified and is rejected.
+        if (choicesUnresolvable) {
+            log.warn("[FieldValidator] Rejected submitted value: field options source is unavailable");
+            throw new FormDataParser.ParseException(
+                    "Field '" + fieldName + "': submitted value cannot be verified, options are currently unavailable.",
+                    FormDataParser.ParseException.FailureType.VALIDATION
+            );
+        }
+
+        // Gate on the field being a choice field, not on the allowlist being non-empty:
+        // a choice field whose list resolves to nothing renders nothing selectable, so
+        // any non-empty submitted value is forged and must be rejected — an empty
+        // allowlist must not disable the check.
+        FormDataParser.FieldInfo choiceInfo = metadata.field(fieldName);
+        if (choiceInfo != null && choiceInfo.choiceField() && !metadata.allowedChoices(fieldName).contains(value)) {
             log.warn("[FieldValidator] Rejected submitted value: not in allowed choices");
             throw new FormDataParser.ParseException(
                     "Field '" + fieldName + "': submitted value is not an allowed choice.",
@@ -67,12 +93,23 @@ final class FieldValidator {
             if (fieldInfo.colorField()) {
                 validateColor(fieldName, value);
             }
+            if (fieldInfo.numberField()) {
+                validateNumber(fieldName, value);
+            }
+            if (fieldInfo.booleanField()) {
+                validateBoolean(fieldName, value);
+            }
         }
 
         FormDataParser.FieldConstraints constraints = metadata.constraints(fieldName);
         if (constraints != null) {
             validateConstraints(fieldName, value, constraints, fieldInfo);
         }
+    }
+
+    private static boolean isRequired(FormDataParser.FieldMetadata metadata, String fieldName) {
+        FormDataParser.FieldConstraints constraints = metadata.constraints(fieldName);
+        return constraints != null && constraints.required();
     }
 
     private static void validateConstraints(
@@ -117,6 +154,31 @@ final class FieldValidator {
         }
         if (fieldInfo != null && constraints.maxDate() != null) {
             validateDateBound(fieldName, value, constraints.maxDate(), fieldInfo, false);
+        }
+        if (constraints.minNumber() != null || constraints.maxNumber() != null) {
+            validateNumberBounds(fieldName, value, constraints);
+        }
+    }
+
+    private static void validateNumberBounds(
+            String fieldName,
+            String value,
+            FormDataParser.FieldConstraints constraints
+    ) throws FormDataParser.ParseException {
+        double number = parseFiniteNumber(fieldName, value);
+        if (constraints.minNumber() != null && number < constraints.minNumber()) {
+            log.warn("[FieldValidator] Rejected submitted value: below minimum number");
+            throw new FormDataParser.ParseException(
+                    "Field '" + fieldName + "': value below minimum (" + constraints.minNumber() + ").",
+                    FormDataParser.ParseException.FailureType.VALIDATION
+            );
+        }
+        if (constraints.maxNumber() != null && number > constraints.maxNumber()) {
+            log.warn("[FieldValidator] Rejected submitted value: exceeds maximum number");
+            throw new FormDataParser.ParseException(
+                    "Field '" + fieldName + "': value above maximum (" + constraints.maxNumber() + ").",
+                    FormDataParser.ParseException.FailureType.VALIDATION
+            );
         }
     }
 
@@ -215,6 +277,42 @@ final class FieldValidator {
             log.warn("[FieldValidator] Rejected submitted value: invalid color format");
             throw new FormDataParser.ParseException(
                     "Field '" + fieldName + "': invalid color format (expected #rrggbb).",
+                    FormDataParser.ParseException.FailureType.VALIDATION
+            );
+        }
+    }
+
+    // Number fields (fmdbmix:numberField, e.g. rating/scale) render constrained native
+    // controls, but that is browser-side only: a forged submission can carry anything.
+    private static void validateNumber(String fieldName, String value) throws FormDataParser.ParseException {
+        parseFiniteNumber(fieldName, value);
+    }
+
+    private static double parseFiniteNumber(String fieldName, String value) throws FormDataParser.ParseException {
+        try {
+            double number = Double.parseDouble(value);
+            if (!Double.isFinite(number)) {
+                throw new NumberFormatException("not finite");
+            }
+            return number;
+        } catch (NumberFormatException e) {
+            log.warn("[FieldValidator] Rejected submitted value: not a number");
+            throw new FormDataParser.ParseException(
+                    "Field '" + fieldName + "': value is not a number.",
+                    FormDataParser.ParseException.FailureType.VALIDATION
+            );
+        }
+    }
+
+    // Boolean fields (fmdbmix:booleanField, e.g. switch/consent) submit their state as
+    // "true" (lone checkbox / on radio) or "false" (explicit off radio). "on" is also
+    // accepted — it is what a plain checkbox without a value attribute submits, and the
+    // evaluators treat it as on — so third-party boolean fields are not rejected here.
+    private static void validateBoolean(String fieldName, String value) throws FormDataParser.ParseException {
+        if (!"true".equalsIgnoreCase(value) && !"false".equalsIgnoreCase(value) && !"on".equalsIgnoreCase(value)) {
+            log.warn("[FieldValidator] Rejected submitted value: not a boolean");
+            throw new FormDataParser.ParseException(
+                    "Field '" + fieldName + "': value is not a boolean.",
                     FormDataParser.ParseException.FailureType.VALIDATION
             );
         }

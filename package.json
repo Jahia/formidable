@@ -4,8 +4,10 @@
   "private": true,
   "type": "module",
   "workspaces": [
+    "packages/*",
     "formidable-elements",
     "formidable-engine",
+    "formidable-extended-inputs",
     "jahia-test-module/formidable-test-module-templateset-tsx",
     "jahia-test-module/formidable-test-module-samples-tsx"
   ],

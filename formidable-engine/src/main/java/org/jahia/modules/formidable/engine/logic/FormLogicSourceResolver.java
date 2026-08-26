@@ -36,11 +36,47 @@ final class FormLogicSourceResolver {
             return false;
         }
 
+        // The resolved source must carry a fieldKey so the rule can persist a stable
+        // business reference; assign one on the fly for legacy fields.
+        String sourceFieldKey = FieldKeys.get(sourceNode);
+        boolean updated = false;
+        if (sourceFieldKey == null) {
+            sourceFieldKey = FieldKeys.assign(sourceNode);
+            updated = true;
+        }
+
         entry.updateSourceNodeId(sourceNode.getIdentifier());
-        return FormLogicReferenceStore.ensureLogicSrcNode(targetNode, entry.logicId(), sourceNode);
+        entry.updateSourceFieldKey(sourceFieldKey);
+        return FormLogicReferenceStore.ensureLogicSrcNode(targetNode, entry.logicId(), sourceNode) || updated;
     }
 
+    /**
+     * Resolution order: sourceFieldKey is the business identity and takes precedence.
+     * When several fields share the same key (transient state during a same-form
+     * duplication, before remapping), the technical pointers (sourceNodeId, weakref)
+     * disambiguate as long as they designate a node carrying that key. The legacy
+     * chain (sourceNodeId, weakref, sourceFieldName) remains for rules stored before
+     * fieldKey existed.
+     */
     private JCRNodeWrapper resolveSourceNode(FormLogicJsonEntry entry) throws RepositoryException {
+        String sourceFieldKey = entry.sourceFieldKey();
+        if (!sourceFieldKey.isEmpty()) {
+            JCRNodeWrapper candidate = resolveFromSourceNodeId(entry.sourceNodeId());
+            if (candidate != null && sourceFieldKey.equals(FieldKeys.get(candidate))) {
+                return candidate;
+            }
+
+            candidate = resolveFromExistingWeakref(entry.logicId());
+            if (candidate != null && sourceFieldKey.equals(FieldKeys.get(candidate))) {
+                return candidate;
+            }
+
+            candidate = sourceFieldIndex.findFirstByFieldKey(sourceFieldKey);
+            if (candidate != null) {
+                return candidate;
+            }
+        }
+
         JCRNodeWrapper candidate = resolveFromSourceNodeId(entry.sourceNodeId());
         if (candidate != null) {
             return candidate;

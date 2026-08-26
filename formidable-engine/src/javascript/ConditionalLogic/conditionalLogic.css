@@ -1,0 +1,79 @@
+/*
+ * Error state of the provider reference input. Moonstone draws the input border
+ * on its wrapper (.moonstone-baseInput) — the inner element is borderless — so
+ * the error class is handed to the Input's className, which lands on that
+ * wrapper. !important outweighs moonstone's hover border shorthand.
+ */
+.fmdbProviderRefError.moonstone-baseInput {
+    border-color: var(--color-danger) !important;
+}
+
+/*
+ * Rule rows are a table without being one: every row lays its cells on the same
+ * four proportional tracks (type, source, operator, value), so columns align
+ * vertically across rows whatever each rule renders — the value track weighs
+ * double because a date value hosts up to two calendars and their toggles.
+ * minmax(0, …) tracks plus min-width: 0 children let the dropdowns shrink below
+ * their content instead of pushing the row apart.
+ */
+.fmdbRuleGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 2fr);
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.fmdbRuleGrid > * {
+    min-width: 0;
+}
+
+/* Status text (no sources, unknown type…) replaces every cell after the type. */
+.fmdbRuleSpan {
+    grid-column: 2 / -1;
+}
+
+/*
+ * Submission-day toggle: an icon block glued to the calendar's left edge
+ * (input-group style), stretching to the input's height so the pair reads as
+ * one control. Pressed = moonstone accent; the calendar side then loses its
+ * left radius so the two borders meet flush.
+ */
+.fmdbTodayGroup {
+    align-items: stretch;
+}
+
+.fmdbTodayGroup .moonstone-baseInput {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.fmdbTodayToggle {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    padding: 0;
+    border: 1px solid var(--color-gray_light);
+    border-right: none;
+    border-radius: 4px 0 0 4px;
+    background: var(--color-gray_light60);
+    color: var(--color-gray);
+    cursor: pointer;
+}
+
+.fmdbTodayToggle:focus-visible {
+    outline: 2px solid var(--moon-color-accent, #00a0e3);
+    outline-offset: -2px;
+}
+
+.fmdbTodayToggle:disabled {
+    cursor: default;
+    opacity: 0.6;
+}
+
+.fmdbTodayToggle_on {
+    background: var(--moon-color-accent, #00a0e3);
+    border-color: var(--moon-color-accent, #00a0e3);
+    color: var(--color-light, #fff);
+}

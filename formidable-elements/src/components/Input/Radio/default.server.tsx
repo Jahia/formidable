@@ -1,10 +1,13 @@
 import {jahiaComponent} from "@jahia/javascript-modules-library";
-import {parseChoices} from "~/utils/choiceUtils";
-import {type BaseValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
+import {resolveFieldOptions} from "~/utils/optionsSource.server";
+import OptionsSourceError from "~/design/OptionsSourceError";
+import {type BaseValidationMessageProps, validationDataAttributes} from "formidable-shared";
+import {HelpText, helpTextId} from "formidable-shared";
 
 interface RadiosProps extends BaseValidationMessageProps {
 	"jcr:title"?: string;
-	choices?: string[];
+	helpText?: string;
+	"fmdb:options"?: string[];
 	required?: boolean;
 }
 
@@ -15,13 +18,19 @@ jahiaComponent(
 		name: "default"
 	},
 	(
-		{"jcr:title": label, choices: rawChoices = [], required, ...validationMsgs}: RadiosProps,
+		{"jcr:title": label, helpText, "fmdb:options": rawChoices = [], required, ...validationMsgs}: RadiosProps,
 		{currentNode}
 	) => {
 		const inputName = currentNode.getName();
 		const nodeId = currentNode.getIdentifier();
-		const parsedChoices = parseChoices(rawChoices);
+		const {choices: parsedChoices, sourceError} = resolveFieldOptions(currentNode, rawChoices);
+		if (sourceError) {
+			return <OptionsSourceError label={label} required={required}/>;
+		}
+
 		const vAttrs = validationDataAttributes(validationMsgs);
+
+		const helpId = helpText ? helpTextId(nodeId) : undefined;
 
 		if (parsedChoices.length === 1) {
 			const choice = parsedChoices[0];
@@ -36,24 +45,27 @@ jahiaComponent(
 						value={choice.value}
 						defaultChecked={choice.selected}
 						required={required}
+						aria-describedby={helpId}
 						{...vAttrs}
 					/>
 					<label htmlFor={inputId} className="fmdb-radio-label">
 						{choice.label}
 						{required && <span className="fmdb-required-indicator" aria-hidden="true">*</span>}
 					</label>
+					<HelpText id={helpId} text={helpText}/>
 				</div>
 			);
 		}
 
 		return (
-			<fieldset className="fmdb-form-group fmdb-radio-group">
+			<fieldset className="fmdb-form-group fmdb-radio-group" aria-describedby={helpId}>
 				{label && (
 					<legend className="fmdb-group-legend">
 						{label}
 						{required && <span className="fmdb-required-indicator" aria-hidden="true">*</span>}
 					</legend>
 				)}
+				<HelpText id={helpId} text={helpText}/>
 				<div className="fmdb-group-items">
 					{parsedChoices.map((choice, idx) => {
 						const inputId = `radio-${nodeId}-${idx}`;

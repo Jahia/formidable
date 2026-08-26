@@ -1,12 +1,20 @@
 import {type FormEvent, type RefObject, useRef, useState} from 'react';
 import {interpolateMessage} from '~/utils/messageUtils';
+import {applyConditionalLogicVisibility, buildLogicStateHeader} from '~/utils/conditionalLogic';
+import {FORM_LOGIC_STATE_HEADER} from '~/utils/logicProviders';
 import {type CaptchaHandle} from '~/components/Form/Captcha.client';
 
 interface SubmissionLabels {
 	captchaRequired: string;
 	errorCode: string;
 	actionsProgress: (completed: number, total: number) => string;
+	maintenanceUnavailable: string;
 }
+
+// Server rejection while the platform is in read-only maintenance (see docs/error-codes.md).
+// Covers the window where the mode is switched between render and submit: the visitor gets
+// the same maintenance message as the render-time state, not a technical error.
+const MAINTENANCE_ERROR_CODE = 'FMDB-014';
 
 interface UseFormSubmissionOptions {
 	submitActionUrl?: string;
@@ -69,6 +77,11 @@ export function useFormSubmission({
 		let serverActionsProgress: {completed: number; total: number} | undefined;
 
 		try {
+			// Visibility was last applied on an input event, but the visitor may have
+			// crossed local midnight since: re-apply it now so the submitted controls
+			// and the day declared below read the same clock, or a field legitimately
+			// filled yesterday would be measured hidden against today and rejected.
+			applyConditionalLogicVisibility(form);
 			const formData = new FormData(form);
 
 			if (captcha) {
@@ -79,6 +92,9 @@ export function useFormSubmission({
 
 			const rawCaptchaToken = captcha ? captchaRef.current?.getToken() : undefined;
 			const captchaToken = rawCaptchaToken?.trim() || undefined;
+			// Read once, at the moment of submit: one declared state backs every provider
+			// rule, which is what lets the server evaluate them coherently.
+			const logicStateHeader = buildLogicStateHeader(form);
 			const targetUrl = submitActionUrl ?? form.action ?? window.location.href;
 
 			// XHR is kept here because Jahia's CSRFGuard integrates with XMLHttpRequest rather than fetch.
@@ -89,6 +105,10 @@ export function useFormSubmission({
 				xhr.open('POST', targetUrl, true);
 				if (captchaToken) {
 					xhr.setRequestHeader('X-Formidable-Captcha-Token', captchaToken);
+				}
+
+				if (logicStateHeader) {
+					xhr.setRequestHeader(FORM_LOGIC_STATE_HEADER, logicStateHeader);
 				}
 				xhr.withCredentials = true;
 				xhr.onload = () => resolve(xhr);
@@ -114,6 +134,12 @@ export function useFormSubmission({
 			form.reset();
 			if (isMultiStep) setCurrentStep(0);
 		} catch (error) {
+			if (serverErrorCode === MAINTENANCE_ERROR_CODE) {
+				setMessage(labels.maintenanceUnavailable);
+				setMessageType('error');
+				captchaRef.current?.reset();
+				return;
+			}
 			const formData = new FormData(form);
 			const interpolatedErrorMessage = interpolateMessage(errorMessage, formData, locale);
 			const base = interpolatedErrorMessage || 'An error occurred while submitting the form.';

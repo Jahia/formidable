@@ -16,22 +16,33 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FO
 final class FormSourceFieldIndex {
 
     private final Map<String, JCRNodeWrapper> firstFieldByName;
+    private final Map<String, JCRNodeWrapper> firstFieldByKey;
     private final Set<String> validSourceIds;
 
-    private FormSourceFieldIndex(Map<String, JCRNodeWrapper> firstFieldByName, Set<String> validSourceIds) {
+    private FormSourceFieldIndex(
+            Map<String, JCRNodeWrapper> firstFieldByName,
+            Map<String, JCRNodeWrapper> firstFieldByKey,
+            Set<String> validSourceIds
+    ) {
         this.firstFieldByName = firstFieldByName;
+        this.firstFieldByKey = firstFieldByKey;
         this.validSourceIds = validSourceIds;
     }
 
     static FormSourceFieldIndex build(JCRNodeWrapper formNode, String targetId) throws RepositoryException {
         Map<String, JCRNodeWrapper> firstFieldByName = new LinkedHashMap<>();
+        Map<String, JCRNodeWrapper> firstFieldByKey = new LinkedHashMap<>();
         Set<String> validSourceIds = new HashSet<>();
-        collectFieldsBeforeTarget(formNode.getNode(FIELDS_NODE), targetId, firstFieldByName, validSourceIds);
-        return new FormSourceFieldIndex(firstFieldByName, validSourceIds);
+        collectFieldsBeforeTarget(formNode.getNode(FIELDS_NODE), targetId, firstFieldByName, firstFieldByKey, validSourceIds);
+        return new FormSourceFieldIndex(firstFieldByName, firstFieldByKey, validSourceIds);
     }
 
     JCRNodeWrapper findFirstByName(String fieldName) {
         return firstFieldByName.get(fieldName);
+    }
+
+    JCRNodeWrapper findFirstByFieldKey(String fieldKey) {
+        return fieldKey == null || fieldKey.isEmpty() ? null : firstFieldByKey.get(fieldKey);
     }
 
     boolean containsSourceId(String sourceId) {
@@ -46,6 +57,7 @@ final class FormSourceFieldIndex {
             JCRNodeWrapper node,
             String targetId,
             Map<String, JCRNodeWrapper> firstFieldByName,
+            Map<String, JCRNodeWrapper> firstFieldByKey,
             Set<String> validSourceIds
     ) throws RepositoryException {
         NodeIterator it = node.getNodes();
@@ -57,10 +69,15 @@ final class FormSourceFieldIndex {
 
             if (child.isNodeType(FORM_ELEMENT_MIXIN) || child.isNodeType(FORM_STEP_MIXIN)) {
                 firstFieldByName.putIfAbsent(child.getName(), child);
+                String fieldKey = FieldKeys.get(child);
+                if (fieldKey != null) {
+                    firstFieldByKey.putIfAbsent(fieldKey, child);
+                }
+
                 validSourceIds.add(child.getIdentifier());
             }
 
-            if (!collectFieldsBeforeTarget(child, targetId, firstFieldByName, validSourceIds)) {
+            if (!collectFieldsBeforeTarget(child, targetId, firstFieldByName, firstFieldByKey, validSourceIds)) {
                 return false;
             }
         }

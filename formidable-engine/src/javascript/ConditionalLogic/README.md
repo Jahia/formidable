@@ -85,6 +85,7 @@ Keeping them together made the main component harder to read and harder to evolv
 8. It identifies each source option by node UUID, not by system name.
 9. If several candidate sources have the same display label, the editor disambiguates them visually by appending `:1`, `:2`, and so on to the label shown in the dropdown.
 10. When an existing rule is edited, the selector resolves the source in this order:
+   - `sourceFieldKey` stored in the JSON rule, matched against the fields' `fieldKey`
    - `sourceNodeId` stored in the JSON rule
    - `logicId -> logicsSrc -> logicNodeSource` weakref
    - legacy `sourceFieldName` fallback
@@ -95,16 +96,29 @@ Keeping them together made the main component harder to read and harder to evolv
    - zero, one, or multiple values depending on the source type
 13. The selector serializes the rule as JSON and writes it back through `onChange`.
 
-## Supported source field types in V1
+## Source eligibility: semantic mixins
 
-- `fmdb:select`
-- `fmdb:radio`
-- `fmdb:checkbox`
-- `fmdb:inputDate`
+Eligibility is mixin-driven, not type-name driven. A field type becomes a logic
+source by carrying one of the engine's semantic value-kind mixins in its CND —
+including field types contributed by third-party modules (see
+`docs/how-to-extend-views-and-elements-from-third-party-module.md`):
 
-## Supported operators in V1
+| Mixin | valueKind | Core types carrying it |
+|---|---|---|
+| `fmdbmix:choiceField` | `choice` | `fmdb:select`, `fmdb:radio`, `fmdb:checkbox` |
+| `fmdbmix:dateField` | `date` | `fmdb:inputDate` |
+| `fmdbmix:numberField` | `number` | — (third-party, e.g. rating/scale fields) |
+| `fmdbmix:booleanField` | `boolean` | — (third-party, e.g. switch/consent fields) |
+| `fmdbmix:textField` | `text` | `fmdb:inputText`, `fmdb:textarea`, `fmdb:inputEmail` |
 
-### Select and radio
+`sourceDescriptors.ts` maps each valueKind to a default descriptor (operators,
+value widget, choice property). Per-type overrides exist only where a core type
+deviates from the kind default: `fmdb:select` stores choices under `options`,
+and `fmdb:checkbox` swaps its operators based on how many choices it defines.
+
+## Supported operators
+
+### Choice (select, radio)
 
 - `in`
 - `notIn`
@@ -128,6 +142,22 @@ Checkbox group:
 - `on`
 - `between`
 
+### Number
+
+- `eq`, `neq`, `lt`, `lte`, `gt`, `gte`
+- `between` (numeric comparison, disambiguated from the date kind by the stored `valueKind`)
+
+### Boolean
+
+- `isTrue`
+- `isFalse`
+
+### Text
+
+- `isNotEmpty` ("field is filled"), `isEmpty` — emptiness is whitespace-blankness
+- `equals`, `contains` — case-sensitive comparison against a required non-empty
+  expected value (an empty expected value never matches; `isEmpty` covers that case)
+
 ## Stored rule format
 
 Each `logics` entry is stored as JSON. Example:
@@ -136,8 +166,10 @@ Each `logics` entry is stored as JSON. Example:
 {
   "logicId": "a1b2c3d4",
   "sourceNodeId": "4028c1e2-934f-2f92-0193-4f6ac4f00041",
+  "sourceFieldKey": "550e8400-e29b-41d4-a716-446655440000",
   "sourceFieldName": "iAm",
   "sourceFieldType": "fmdb:radio",
+  "valueKind": "choice",
   "operator": "in",
   "values": ["individual", "professional"]
 }
@@ -158,8 +190,15 @@ Date example:
 
 Notes:
 
-- `sourceNodeId` is the canonical source identifier for new and normalized rules.
+- `sourceFieldKey` is the stable business reference to the source field (its `fieldKey`,
+  a hidden server-assigned UUID that survives renames, copies, and imports). The editor
+  writes it when the source carries a key; the Java sync backfills it otherwise.
+- `sourceNodeId` is the technical source identifier for new and normalized rules.
 - `sourceFieldName` is still kept as metadata and legacy fallback.
+- `valueKind` denormalizes the source's kind at authoring time so both runtime
+  evaluators (browser and Java) pick the right comparison semantics — 'between'
+  compares numerically for `number` and lexicographically (ISO dates) otherwise.
+  Rules stored before it existed have no `valueKind` and keep date semantics.
 - `logicId` is used to bind the JSON rule to its `logicsSrc/<logicId>` child node.
 
 ## Repository-side synchronization
@@ -175,8 +214,8 @@ For each rule, the repository also maintains:
 `FormLogicSyncService` keeps both representations aligned:
 
 - during normal authoring, it updates or creates weakrefs from the JSON rule
-- after subtree duplication, it removes out-of-scope weakrefs and tries to rebuild them
-- source resolution prefers `sourceNodeId`, then a valid existing weakref, then `sourceFieldName`
+- after subtree duplication, it remaps colliding `fieldKey`s, removes out-of-scope weakrefs and tries to rebuild them
+- source resolution prefers `sourceFieldKey`, then `sourceNodeId`, then a valid existing weakref, then `sourceFieldName` (see `docs/conditional-logic-field-resolution.md`)
 
 `FormDuplicationCleanupListener` is the backend trigger for that duplication cleanup. It now covers:
 

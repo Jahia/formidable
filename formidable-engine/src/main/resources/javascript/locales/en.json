@@ -1,8 +1,44 @@
 {
     "selectOptions": {
-        "value": "Value",
-        "label": "Label",
-        "selected": "Selected"
+        "value": "Value sent to server",
+        "label": "Label displayed to user",
+        "selected": "If enabled, the option is selected by default"
+    },
+    "fmdbmix_optionsSource": {
+        "fmdb_optionsMode": {
+            "manual": "Manual options",
+            "sourced": "Options from a third-party source",
+            "category": "Options from categories",
+            "content": "Options from site content"
+        }
+    },
+    "fmdbmix_dateBounds": {
+        "fmdb_minBoundMode": {
+            "none": "No minimum",
+            "date": "Fixed date (picked from the calendar)",
+            "today": "Current date (the day the form is submitted)",
+            "relative": "Relative date (the current date shifted by a fixed offset)"
+        },
+        "fmdb_maxBoundMode": {
+            "none": "No maximum",
+            "date": "Fixed date (picked from the calendar)",
+            "today": "Current date (the day the form is submitted)",
+            "relative": "Relative date (the current date shifted by a fixed offset)"
+        }
+    },
+    "fmdbmix_datetimeBounds": {
+        "fmdb_minBoundMode": {
+            "none": "No minimum",
+            "date": "Fixed date and time (picked from the calendar)",
+            "today": "Current date (from the start of the submission day)",
+            "relative": "Relative date (shifted from the current date, from the start of that day)"
+        },
+        "fmdb_maxBoundMode": {
+            "none": "No maximum",
+            "date": "Fixed date and time (picked from the calendar)",
+            "today": "Current date (until the end of the submission day)",
+            "relative": "Relative date (shifted from the current date, until the end of that day)"
+        }
     },
     "conditionalLogic": {
         "sourceField": "Source field",
@@ -10,15 +46,43 @@
         "operator": "Operator",
         "value": "Value",
         "values": "Values",
-        "dateFrom": "From",
-        "dateTo": "To",
+        "valueFrom": "From",
+        "valueTo": "To",
+        "valueFromTitle": "Start date (included)",
+        "valueToTitle": "End date (included)",
+        "valueToday": "Current date (the day the form is submitted)",
+        "betweenInverted": "The end date is before the start date: this rule can never match.",
+        "betweenNoMatch": "This rule currently matches no date, so it is ignored when the form is submitted.",
         "loadingSources": "Loading available fields...",
         "noSources": "No supported source field is available before this field.",
-        "help": "Use fields placed before this one to show or hide it. Only select, radio, checkbox, and date fields are eligible. \"No supported source field...\" means no compatible previous field was found.",
+        "help": "Use fields placed before this one to show or hide it. Eligible fields are those declaring a value kind: choice (select, radio, checkbox), date, number and boolean — including fields contributed by other modules. \"No supported source field...\" means no compatible previous field was found. A condition can also read something outside the form: a datalayer value, a URL parameter or a cookie. Those are read in the browser only, so a required field shown by such a condition is not enforced when the form is submitted.",
         "allSourcesUsed": "All available source fields are already used by rules above.",
         "unresolvedContext": "Unable to resolve the edited field path.",
         "formNotFound": "Unable to resolve the parent form.",
         "loadError": "Unable to load available source fields.",
+        "sourceTypes": {
+            "field": "Field value"
+        },
+        "providers": {
+            "jsVariable": {
+                "label": "Datalayer value",
+                "configLabel": "Datalayer variable",
+                "configPlaceholder": "dataLayer.pageCategory"
+            },
+            "urlParam": {
+                "label": "URL parameter",
+                "configLabel": "Parameter name",
+                "configPlaceholder": "utm_campaign"
+            },
+            "cookie": {
+                "label": "Cookie",
+                "configLabel": "Cookie name",
+                "configPlaceholder": "consent-marketing"
+            }
+        },
+        "providerRefMissing": "Required: a rule without a name cannot be evaluated and will be removed when saving.",
+        "providerRefInvalid": "This name is not in the expected format and cannot be read on the page.",
+        "unknownSourceType": "This condition uses a source (\"{{type}}\") that this module version does not provide — it was probably created with a newer version. The rule is kept unchanged and its field stays hidden.",
         "operators": {
             "in": "is one of",
             "notIn": "is not one of",
@@ -29,7 +93,22 @@
             "before": "is before",
             "after": "is after",
             "on": "is on",
-            "between": "is between"
+            "between": "is between",
+            "eq": "equals",
+            "neq": "does not equal",
+            "lt": "is less than",
+            "lte": "is less than or equal to",
+            "gt": "is greater than",
+            "gte": "is greater than or equal to",
+            "isTrue": "is true (on)",
+            "isFalse": "is false (off)",
+            "isEmpty": "is empty",
+            "isNotEmpty": "is filled",
+            "equals": "equals",
+            "notEquals": "does not equal",
+            "contains": "contains",
+            "exists": "is defined",
+            "notExists": "is not defined"
         }
     },
     "formResults": {
@@ -126,5 +205,10 @@
                 "unexpectedError": "Deletion failed."
             }
         }
+    },
+    "relativeUnit": {
+        "days": "Days",
+        "months": "Months",
+        "years": "Years"
     }
 }

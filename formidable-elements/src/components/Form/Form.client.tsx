@@ -1,4 +1,4 @@
-import {useEffect, useRef} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import clsx from "clsx";
 import classes from './Form.client.module.css';
 import '~/design/validation.css';
@@ -16,10 +16,15 @@ const sanitize = (html: string): string => {
 	return DOMPurify.sanitize(html);
 };
 
+// D10: a required sourced choice field whose source failed renders this marker
+// server-side; the form must not be submittable while it is present.
+const BLOCKING_SOURCE_ERROR_SELECTOR = '[data-fmdb-source-error="blocking"]';
+
 export default function Form({
 	intro,
 	submissionMessage,
 	errorMessage,
+	maintenanceMessage,
 	submitActionUrl,
 	isSubmitDisabled = false,
 	showResetBtn = false,
@@ -41,10 +46,20 @@ export default function Form({
 }: FormProps) {
 	const formRef = useRef<HTMLFormElement>(null);
 	const {t} = useTranslation('formidable-elements', {keyPrefix: 'fmdb_form'});
+	const [hasBlockingSourceError, setHasBlockingSourceError] = useState(false);
+
+	// Contributor-configurable maintenance message (fmdbmix:responses), shown when a
+	// submission hits FMDB-014 (mode switched between render and submit); the bundle
+	// text keeps covering forms created before the property existed.
+	const maintenanceText = maintenanceMessage || t('maintenanceUnavailable');
 
 	useEffect(() => {
 		if (formRef.current) {
 			formRef.current.noValidate = true;
+			// The marker is rendered server-side inside the island children: it can only
+			// be read from the DOM once mounted, hence the state initialization here.
+			// eslint-disable-next-line @eslint-react/hooks-extra/no-direct-set-state-in-use-effect
+			setHasBlockingSourceError(Boolean(formRef.current.querySelector(BLOCKING_SOURCE_ERROR_SELECTOR)));
 		}
 	}, []);
 
@@ -83,10 +98,13 @@ export default function Form({
 			captchaRequired: t('captchaRequired'),
 			errorCode: t('errorCode'),
 			actionsProgress: (completed, total) => t('actionsProgress', {completed, total}),
+			maintenanceUnavailable: maintenanceText,
 		},
 	});
 
-	const isSubmitBlocked = isLoading || isSubmitDisabled || (!!captcha && (!isMultiStep || isLastStep) && !isCaptchaValid);
+	const isSubmitBlocked = isLoading || isSubmitDisabled || hasBlockingSourceError
+		|| (!!captcha && (!isMultiStep || isLastStep) && !isCaptchaValid);
+	const submitBlockedTitle = isSubmitDisabled ? t('editModeSubmitDisabled') : undefined;
 	const showCaptcha = !!captcha && (!isMultiStep || isLastStep);
 
 	const validateCurrentStep = (): boolean => {
@@ -177,6 +195,7 @@ export default function Form({
 					ref={captchaRef}
 					siteKey={captcha!.siteKey}
 					widgetVar={captcha!.widgetVar}
+					widgetTimeoutSeconds={captcha!.widgetTimeoutSeconds}
 					onVerify={() => setIsCaptchaValid(true)}
 					onExpire={() => setIsCaptchaValid(false)}
 				/>
@@ -210,7 +229,7 @@ export default function Form({
 								type="submit"
 								className="fmdb-btn fmdb-btn-primary"
 								disabled={isSubmitBlocked}
-								title={isSubmitDisabled ? t('editModeSubmitDisabled') : undefined}
+								title={submitBlockedTitle}
 							>
 								{submitBtnLabel || t('submitBtn')}
 							</button>
@@ -218,7 +237,7 @@ export default function Form({
 						</>
 					) : (
 						<>
-							<button type="submit" className="fmdb-btn fmdb-btn-primary" disabled={isSubmitBlocked} title={isSubmitDisabled ? t('editModeSubmitDisabled') : undefined}>
+							<button type="submit" className="fmdb-btn fmdb-btn-primary" disabled={isSubmitBlocked} title={submitBlockedTitle}>
 							{submitBtnLabel || t('submitBtn')}
 						</button>
 							{showResetBtn && (

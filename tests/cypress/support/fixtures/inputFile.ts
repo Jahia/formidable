@@ -17,6 +17,7 @@ export function getInputFileNode(data: InputFileData = INPUT_FILE_SIMPLE): Jahia
 	const properties: NodeProperty[] = [];
 
 	if (data.title) properties.push({name: 'jcr:title', value: data.title, language: 'en'});
+	if (data.helpText) properties.push({name: 'helpText', value: data.helpText, language: 'en'});
 	if (data.required !== undefined) properties.push({name: 'required', value: String(data.required), type: 'BOOLEAN'});
 	if (data.multiple !== undefined) properties.push({name: 'multiple', value: String(data.multiple), type: 'BOOLEAN'});
 	if (data.accept && data.accept.length > 0) properties.push({name: 'accept', values: data.accept});

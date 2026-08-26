@@ -1,10 +1,14 @@
 import {jahiaComponent} from "@jahia/javascript-modules-library";
-import {parseChoices} from "~/utils/choiceUtils";
-import {type BaseValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
+import {resolveFieldOptions} from "~/utils/optionsSource.server";
+import OptionsSourceError from "~/design/OptionsSourceError";
+import {type BaseValidationMessageProps, validationDataAttributes} from "formidable-shared";
+import {HelpText, helpTextId} from "formidable-shared";
 
 interface SelectProps extends BaseValidationMessageProps {
 	"jcr:title"?: string;
-	options?: string[];
+	helpText?: string;
+	"fmdb:options"?: string[];
+	"fmdb:optionsEmptyLabel"?: string;
 	required?: boolean;
 	multiple?: boolean;
 	size?: number;
@@ -22,7 +26,9 @@ jahiaComponent(
 	(
 		{
 			"jcr:title": label,
-			options = [],
+			helpText,
+			"fmdb:options": options = [],
+			"fmdb:optionsEmptyLabel": optionsEmptyLabel,
 			required,
 			multiple,
 			size,
@@ -36,10 +42,21 @@ jahiaComponent(
 		const selectId = `select-${currentNode.getIdentifier()}`;
 		const selectName = currentNode.getName();
 
-		const parsedOptions = parseChoices(options);
+		const {choices: parsedOptions, sourceError} = resolveFieldOptions(currentNode, options);
+		if (sourceError) {
+			return <OptionsSourceError label={label} required={required}/>;
+		}
 
 		const selectedValues = parsedOptions.filter(o => o.selected).map(o => o.value);
 		const defaultValue = multiple ? selectedValues : (selectedValues[0] ?? undefined);
+
+		const hasEmptyOption = Boolean(!multiple && optionsEmptyLabel?.trim());
+		// The configured empty option supersedes any blank entry typed in the manual
+		// options (the historical way of starting empty), so a form carrying both
+		// never renders two empty options.
+		const renderedOptions = hasEmptyOption ? parsedOptions.filter(o => o.value !== "") : parsedOptions;
+
+		const helpId = helpText ? helpTextId(currentNode.getIdentifier()) : undefined;
 
 		return (
 			<div className="fmdb-form-group">
@@ -50,9 +67,12 @@ jahiaComponent(
 					</label>
 				)}
 
+				<HelpText id={helpId} text={helpText}/>
+
 				<select
 					id={selectId}
 					name={selectName}
+					aria-describedby={helpId}
 					className="fmdb-form-control"
 					required={required}
 					multiple={multiple}
@@ -62,7 +82,13 @@ jahiaComponent(
 					defaultValue={defaultValue}
 					{...validationDataAttributes(validationMsgs)}
 				>
-					{parsedOptions.map((option) => (
+					{/* Contributor-configured empty option: the field starts empty instead
+					    of preselecting the first option, which also makes the native
+					    required validation effective. Meaningless on a multiple select. */}
+					{hasEmptyOption && (
+						<option value="">{optionsEmptyLabel}</option>
+					)}
+					{renderedOptions.map((option) => (
 						<option
 							key={option.value || option.label}
 							value={option.value}

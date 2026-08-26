@@ -11,6 +11,10 @@
 	"fmdb_inputCheckbox": {
 		"error": "Veuillez sélectionner au moins une option"
 	},
+	"fmdb_choiceField": {
+		"sourceUnavailable": "Les options de ce champ sont momentanément indisponibles.",
+		"sourceUnavailableRequired": "Les options de ce champ obligatoire sont momentanément indisponibles. Le formulaire ne peut pas être envoyé, veuillez réessayer plus tard."
+	},
 	"fmdb_form": {
 		"submitBtn": "Envoyer",
 		"resetBtn": "Réinitialiser",
@@ -23,10 +27,15 @@
 		"stepsNav": "Étapes du formulaire",
 		"captchaRequired": "Veuillez compléter la vérification CAPTCHA.",
 		"editModeSubmitDisabled": "L'envoi du formulaire est désactivé en mode édition/prévisualisation.",
+		"maintenanceUnavailable": "Ce formulaire est temporairement indisponible pendant la maintenance de la plateforme. Veuillez réessayer plus tard.",
 		"errorCode": "Code d'erreur",
 		"actionsProgress": "{{completed}}/{{total}} actions terminées"
 	},
 	"fmdb_formReference": {
 		"noFormSelected": "Aucun formulaire sélectionné"
+	},
+	"fmdb_inputRange": {
+		"required": "Veuillez choisir une valeur",
+		"unanswered": "Aucune valeur choisie pour l’instant"
 	}
 }

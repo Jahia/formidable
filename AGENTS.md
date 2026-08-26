@@ -121,6 +121,9 @@ Built-in actions: `CaptchaVerificationFormAction`, `SaveToJcrFormAction`, `SendE
    ```
 2. Create Java class with `@Component(service = FormAction.class)` implementing `FormAction`
 3. Read config from `actionNode` properties, not from hardcoded values
+4. If the action never writes to the repository, also extend `fmdbmix:readOnlyCompatibleAction`;
+   otherwise its forms are blocked (FMDB-014) while the platform is in read-only maintenance
+   (see `docs/how-to-create-form-action.md`)
 
 ## Developer Commands
 
@@ -146,6 +149,10 @@ cd formidable-elements && docker compose up --wait
 # Cypress tests (Jahia must be running on localhost:8080)
 cd tests && yarn e2e:ci      # headless
 cd tests && yarn e2e:debug   # interactive (Cypress UI)
+
+# Manual-testing playground — when someone asks for "the playground" or to
+# "rebuild the test set", this is the command they mean (see tests/README.md)
+cd tests && yarn playground
 
 # Lint / format (from repo root or any workspace)
 yarn lint

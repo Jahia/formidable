@@ -12,7 +12,8 @@
 					"rank": 0.0,
 					"fields": [
 						{ "name": "submissionMessage" },
-						{ "name": "errorMessage" }
+						{ "name": "errorMessage" },
+						{ "name": "maintenanceMessage" }
 					]
 				}
 			]

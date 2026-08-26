@@ -1,8 +1,12 @@
-import {jahiaComponent} from "@jahia/javascript-modules-library";
-import {type TextValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
+import {Island, jahiaComponent} from "@jahia/javascript-modules-library";
+import {type TextValidationMessageProps, validationDataAttributes} from "formidable-shared";
+import {HelpText, helpTextId} from "formidable-shared";
+import MaskedTextInput from "./Text.client";
+import {applyMask, maskToPattern} from "~/utils/mask";
 
 interface InputTextProps extends TextValidationMessageProps {
 	"jcr:title"?: string;
+	helpText?: string;
 	placeholder?: string;
 	defaultValue?: string;
 	list?: string[];
@@ -16,7 +20,7 @@ interface InputTextProps extends TextValidationMessageProps {
 	autofocus?: boolean;
 	disabled?: boolean;
 	form?: string;
-	dirname?: string;
+	dirname?: boolean;
 	spellcheck?: boolean;
 	pattern?: string;
 	size?: number;
@@ -25,29 +29,6 @@ interface InputTextProps extends TextValidationMessageProps {
 
 // Default values declared outside component to prevent re-render issues
 const DEFAULT_LIST: string[] = [];
-
-// Mask tokens aligned with useMask hook
-const MASK_TOKEN_PATTERNS: Record<string, string> = {
-	'9': '[0-9]',
-	'A': '[A-Za-z]',
-	'a': '[A-Za-z]',
-	'X': '[A-Za-z0-9]',
-	'x': '[A-Za-z0-9]'
-};
-
-// Convert mask to a regex pattern string suitable for <input pattern>
-const maskToPattern = (mask?: string): string | undefined => {
-	if (!mask) return undefined;
-
-	const pattern = Array.from(mask).map(char => {
-		const token = MASK_TOKEN_PATTERNS[char];
-		if (token) return token;
-		// Escape fixed characters so they match literally in the regex
-		return char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-	}).join('');
-
-	return `^${pattern}$`;
-};
 
 jahiaComponent(
 	{
@@ -58,6 +39,7 @@ jahiaComponent(
 	(
 		{
 			"jcr:title": label,
+			helpText,
 			placeholder,
 			defaultValue,
 			list = DEFAULT_LIST,
@@ -91,6 +73,35 @@ jahiaComponent(
 		// Use custom pattern if provided, otherwise use mask-derived pattern
 		const finalPattern = customPattern || maskToPattern(mask);
 
+		const helpId = helpText ? helpTextId(currentNode.getIdentifier()) : undefined;
+
+		// Shared between the static input and the masked island so both render identical markup
+		const inputAttributes = {
+			type: "text",
+			id: inputId,
+			name: inputName,
+			"aria-describedby": helpId,
+			className: "fmdb-form-control",
+			placeholder,
+			list: datalistId,
+			minLength,
+			maxLength,
+			pattern: finalPattern,
+			required,
+			"data-mask": mask,
+			autoComplete: autocomplete,
+			readOnly: readonly,
+			autoFocus: autofocus,
+			disabled,
+			form,
+			// When enabled, submits the field text direction as `{name}.dir` (same as Textarea)
+			dirName: dirname ? `${inputName}.dir` : undefined,
+			spellCheck: spellcheck,
+			size,
+			title,
+			...validationDataAttributes(validationMsgs)
+		};
+
 		return (
 			<div className="fmdb-form-group">
 				{label && (
@@ -100,30 +111,21 @@ jahiaComponent(
 					</label>
 				)}
 
-				<input
-					type="text"
-					id={inputId}
-					name={inputName}
-					className="fmdb-form-control"
-					placeholder={placeholder}
-					defaultValue={defaultValue}
-					list={datalistId}
-					minLength={minLength}
-					maxLength={maxLength}
-					pattern={finalPattern}
-					required={required}
-					data-mask={mask}
-					autoComplete={autocomplete}
-					readOnly={readonly}
-					autoFocus={autofocus}
-					disabled={disabled}
-					form={form}
-					dir={dirname}
-					spellCheck={spellcheck}
-					size={size}
-					title={title}
-					{...validationDataAttributes(validationMsgs)}
-				/>
+				<HelpText id={helpId} text={helpText}/>
+
+				{mask ? (
+					// Hydrate only when a mask is configured; the default value is pre-formatted server-side
+					<Island
+						component={MaskedTextInput}
+						props={{
+							mask,
+							defaultValue: defaultValue ? applyMask(defaultValue, mask) : undefined,
+							inputAttributes
+						}}
+					/>
+				) : (
+					<input {...inputAttributes} defaultValue={defaultValue}/>
+				)}
 
 				{/* Render datalist for autocomplete if options are provided */}
 				{list.length > 0 && (

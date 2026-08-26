@@ -30,16 +30,19 @@ These definitions belong in `formidable-elements` when they primarily describe:
 - container relationships used by the page editor
 - reusable field definitions that are mostly a UI concern
 
-Examples:
+Examples (non-exhaustive — the CND files are the source of truth):
 
 - `fmdb:form`
 - `fmdb:fieldList`
 - `fmdbmix:component`
+- `fmdbmix:element` (the public contract for embedding third-party field types in a form)
 - `fmdbmix:formContent`
 - `fmdbmix:buttons`
 - `fmdbmix:responses`
 - `fmdbmix:multiStep`
 - `fmdbmix:style`
+- `fmdbmix:validationMessages` / `fmdbmix:textValidationMessages` / `fmdbmix:rangeValidationMessages`
+- `fmdbmix:advancedTextareaSettings`
 
 These definitions shape what authors can create and how the rendered form tree is organized.
 
@@ -47,22 +50,26 @@ These definitions shape what authors can create and how the rendered form tree i
 
 These definitions belong in `formidable-engine` when the engine reads them to decide how to validate, classify, or execute server-side behavior.
 
-Examples:
+Examples (non-exhaustive — the CND files are the source of truth):
 
 - `fmdbmix:formLogicElement`
 - `fmdbmix:formContainer`
 - `fmdbmix:formStep`
 - `fmdbmix:formElement`
 - `fmdbmix:formAction`
+- `fmdbmix:readOnlyCompatibleAction` (declares an action that keeps working while the platform is in read-only mode)
 - `fmdbmix:nonSubmittable`
-- `fmdbmix:choiceField`
+- `fmdbmix:choiceField` and its options modes: `fmdbmix:optionsSource`, `fmdbmix:manualOptions`, `fmdbmix:sourcedOptions`, `fmdbmix:categoryOptions`, `fmdbmix:contentOptions`
+- `fmdbmix:textField`
 - `fmdbmix:fileField`
 - `fmdbmix:emailField`
-- `fmdbmix:dateField`
-- `fmdbmix:datetimeLocalField`
+- `fmdbmix:dateField` and its bound modes: `fmdbmix:dateBounds`, `fmdbmix:fixedMinDate`, `fmdbmix:fixedMaxDate`
+- `fmdbmix:datetimeLocalField` and its bound modes: `fmdbmix:datetimeBounds`, `fmdbmix:fixedMinDatetime`, `fmdbmix:fixedMaxDatetime`
 - `fmdbmix:colorField`
+- `fmdbmix:numberField`
+- `fmdbmix:booleanField`
 
-These are not presentation hints. They are runtime contracts interpreted by Java code in the submission pipeline.
+These are not presentation hints. They are runtime contracts interpreted by Java code in the submission pipeline (the options-mode mixins additionally drive the server-side resolution of choice options).
 
 For example, `fmdbmix:fileField` tells the engine that a field is backed by multipart file data. The engine should not have to know whether the concrete node type is `fmdb:inputFile` or a third-party type defined in another module.
 

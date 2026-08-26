@@ -1,8 +1,10 @@
 import {jahiaComponent} from "@jahia/javascript-modules-library";
-import {type TextValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
+import {type TextValidationMessageProps, validationDataAttributes} from "formidable-shared";
+import {HelpText, helpTextId} from "formidable-shared";
 
 interface InputEmailProps extends TextValidationMessageProps {
 	"jcr:title"?: string;
+	helpText?: string;
 	placeholder?: string;
 	defaultValue?: string;
 	list?: string[];
@@ -26,6 +28,7 @@ jahiaComponent(
 	(
 		{
 			"jcr:title": label,
+			helpText,
 			placeholder,
 			defaultValue,
 			list = DEFAULT_LIST,
@@ -49,6 +52,8 @@ jahiaComponent(
 		const inputId = `input-${currentNode.getIdentifier()}`;
 		const inputName = currentNode.getName();
 
+		const helpId = helpText ? helpTextId(currentNode.getIdentifier()) : undefined;
+
 		return (
 			<div className="fmdb-form-group">
 				{label && (
@@ -58,10 +63,13 @@ jahiaComponent(
 					</label>
 				)}
 
+				<HelpText id={helpId} text={helpText}/>
+
 				<input
 					type="email"
 					id={inputId}
 					name={inputName}
+					aria-describedby={helpId}
 					className="fmdb-form-control"
 					placeholder={placeholder}
 					defaultValue={defaultValue}

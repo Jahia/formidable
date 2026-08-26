@@ -12,30 +12,39 @@ describe('Form logic - 50 Conditional logic selector type', () => {
 
 			logicField.addRule();
 
-			logicField.openDropdown(0, 0);
-			logicField.menuShouldHaveItems(['role', 'accept-terms', 'start-date']);
-			logicField.menuShouldNotHaveItems(['notes', 'nickname']);
+			logicField.openSourceDropdown(0);
+			// 'notes' (textarea) is eligible since fmdbmix:textField; 'nickname' is
+			// the target field itself, so it must stay out of its own source list.
+			logicField.menuShouldHaveItems(['role', 'accept-terms', 'start-date', 'notes']);
+			logicField.menuShouldNotHaveItems(['nickname']);
 			logicField.selectMenuItem('role');
 
-			logicField.openDropdown(0, 1);
+			logicField.openOperatorDropdown(0);
 			logicField.menuShouldHaveItems(['is one of', 'is not one of']);
 			logicField.selectMenuItem('is one of');
-			logicField.ruleShouldHaveDropdownCount(0, 3);
+			logicField.ruleShouldHaveDropdownCount(0, 4);
 
 			logicField.selectSource(0, 'accept-terms');
-			logicField.openDropdown(0, 1);
+			logicField.openOperatorDropdown(0);
 			logicField.menuShouldHaveItems(['is checked', 'is unchecked']);
 			logicField.selectMenuItem('is checked');
-			logicField.ruleShouldHaveDropdownCount(0, 2);
+			logicField.ruleShouldHaveDropdownCount(0, 3);
 
 			logicField.selectSource(0, 'start-date');
-			logicField.openDropdown(0, 1);
+			logicField.openOperatorDropdown(0);
 			logicField.menuShouldHaveItems(['is before', 'is after', 'is on', 'is between']);
 			logicField.selectMenuItem('is after');
 			logicField.ruleShouldHaveDateInputCount(0, 1);
 
+			// Each date value input carries a submission-day toggle; pressing it
+			// stores the sentinel, so the fixed-date input becomes irrelevant.
+			logicField.ruleShouldHaveTodayToggleCount(0, 1);
+			logicField.toggleTodayValue(0);
+			logicField.dateInputShouldBeDisabled(0, 0, true);
+
 			logicField.selectOperator(0, 'is between');
 			logicField.ruleShouldHaveDateInputCount(0, 2);
+			logicField.ruleShouldHaveTodayToggleCount(0, 2);
 
 			editor.cancelAndDiscard();
 		});
@@ -51,9 +60,9 @@ describe('Form logic - 50 Conditional logic selector type', () => {
 			logicField.selectValue(0, 'admin');
 
 			logicField.addRule();
-			logicField.openDropdown(1, 0);
-			logicField.menuShouldHaveItems(['accept-terms', 'start-date']);
-			logicField.menuShouldNotHaveItems(['role', 'notes', 'nickname']);
+			logicField.openSourceDropdown(1);
+			logicField.menuShouldHaveItems(['accept-terms', 'start-date', 'notes']);
+			logicField.menuShouldNotHaveItems(['role', 'nickname']);
 			logicField.selectMenuItem('accept-terms');
 
 			editor.save();

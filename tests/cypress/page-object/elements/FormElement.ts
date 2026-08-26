@@ -9,6 +9,10 @@ export class FormElement extends BaseComponent {
 		return this.getContainer().find('.fmdb-validation-error');
 	}
 
+	getHelpText(): Cypress.Chainable {
+		return this.getContainer().find('.fmdb-form-help');
+	}
+
 	getLabel(): Cypress.Chainable {
 		return this.getContainer().find('label, legend');
 	}
@@ -54,6 +58,20 @@ export class FormElement extends BaseComponent {
 		this.getInput().then($el => {
 			expect(($el.get(0) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).checkValidity()).to.eq(false);
 		});
+		return this;
+	}
+
+	shouldHaveHelpText(text: string): this {
+		this.getHelpText().should('be.visible').and('have.text', text);
+		// The control (or group fieldset) must reference the help block for screen readers
+		this.getHelpText().invoke('attr', 'id').then(helpId => {
+			this.getInput().invoke('attr', 'aria-describedby').should('contain', helpId);
+		});
+		return this;
+	}
+
+	shouldNotHaveHelpText(): this {
+		this.getHelpText().should('not.exist');
 		return this;
 	}
 

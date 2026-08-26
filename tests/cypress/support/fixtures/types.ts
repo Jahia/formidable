@@ -11,7 +11,7 @@ export interface NodeProperty {
 	value?: string;
 	values?: string[];
 	language?: string;
-	type?: 'STRING' | 'BOOLEAN' | 'LONG' | 'DATE' | 'WEAKREFERENCE';
+	type?: 'STRING' | 'BOOLEAN' | 'LONG' | 'DOUBLE' | 'DATE' | 'WEAKREFERENCE';
 }
 
 /**
@@ -32,6 +32,7 @@ export interface JahiaNode {
 export interface BaseFormElementData {
 	name?: string;
 	title?: string; // From mix:title (jcr:title)
+	helpText?: string; // Rich text (i18n) declared on each field definition
 }
 
 /**
@@ -112,6 +113,8 @@ export interface RadioData extends BaseInputData {
  */
 export interface SelectData extends BaseInputData {
 	options: ChoiceData[];
+	/** Label of the value-less option prepended so the field starts empty (single select only). */
+	emptyLabel?: string;
 	multiple?: boolean;
 	size?: number;
 	disabled?: boolean;
@@ -125,17 +128,39 @@ export interface SelectData extends BaseInputData {
  */
 export type InputColorData = InputWithDefaultValue;
 
+/** One bound of a date/datetime input: nothing, a fixed value, the submission day, or that day shifted. */
+export type DateBoundMode = 'none' | 'date' | 'today' | 'relative';
+
+/** Offset of a 'relative' bound: the submission day shifted by a signed amount. */
+export interface RelativeBoundOffset {
+	amount: number;
+	unit: 'days' | 'months' | 'years';
+}
+
+/**
+ * Bound modes of fmdb:inputDate / fmdb:inputDatetimeLocal (fmdbmix:dateBounds /
+ * fmdbmix:datetimeBounds contracts). The builders imply 'date' when a fixed
+ * min/max value is given and 'relative' when an offset is given, so callers
+ * only set a mode explicitly for 'today'.
+ */
+export interface InputWithBoundModes {
+	minBoundMode?: DateBoundMode;
+	maxBoundMode?: DateBoundMode;
+	minRelative?: RelativeBoundOffset;
+	maxRelative?: RelativeBoundOffset;
+}
+
 /**
  * Date input data based on fmdb:inputDate CND
- * Inherits: required, defaultValue, min, max, step
+ * Inherits: required, defaultValue, min, max, step + the bound modes
  */
-export type InputDateData = InputWithRange;
+export type InputDateData = InputWithRange & InputWithBoundModes;
 
 /**
  * Datetime-local input data based on fmdb:inputDatetimeLocal CND
- * Inherits: required, defaultValue, min, max, step
+ * Inherits: required, defaultValue, min, max, step + the bound modes
  */
-export type InputDatetimeLocalData = InputWithRange;
+export type InputDatetimeLocalData = InputWithRange & InputWithBoundModes;
 
 /**
  * Email input data based on fmdb:inputEmail CND
@@ -148,6 +173,25 @@ export interface InputEmailData extends InputWithLength {
 
 export interface InputTextData extends InputWithLength {
 	autocomplete?: string;
+	list?: string[];
+	mask?: string;
+}
+
+export interface InputNumberData extends InputWithPlaceholder {
+	defaultValue?: number;
+	minValue?: number;
+	maxValue?: number;
+	step?: number;
+	list?: string[];
+}
+
+export interface InputRangeData extends BaseInputData {
+	defaultValue?: number;
+	minValue?: number;
+	maxValue?: number;
+	step?: number;
+	minLabel?: string;
+	maxLabel?: string;
 	list?: string[];
 }
 

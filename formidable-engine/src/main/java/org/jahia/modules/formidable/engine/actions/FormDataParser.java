@@ -53,6 +53,8 @@ public class FormDataParser {
      * @param pattern    full-match regex (like HTML pattern attribute); null = unconstrained
      * @param minDate    ISO-8601 lower bound for date/datetime-local fields; null = unconstrained
      * @param maxDate    ISO-8601 upper bound for date/datetime-local fields; null = unconstrained
+     * @param minNumber  numeric lower bound for number fields; null = unconstrained
+     * @param maxNumber  numeric upper bound for number fields; null = unconstrained
      */
     public record FieldConstraints(
             boolean required,
@@ -60,8 +62,17 @@ public class FormDataParser {
             long maxLength,
             String pattern,
             String minDate,
-            String maxDate
-    ) {}
+            String maxDate,
+            Double minNumber,
+            Double maxNumber
+    ) {
+        public FieldConstraints(
+                boolean required, long minLength, long maxLength,
+                String pattern, String minDate, String maxDate
+        ) {
+            this(required, minLength, maxLength, pattern, minDate, maxDate, null, null);
+        }
+    }
 
     /**
      * Shared per-field metadata used by the parser and collected upstream from JCR.
@@ -74,7 +85,12 @@ public class FormDataParser {
      * @param dateField           true when the submitted text value must match yyyy-MM-dd
      * @param datetimeLocalField  true when the submitted text value must match HTML datetime-local
      * @param colorField          true when the submitted text value must match #RRGGBB
+     * @param numberField         true when the submitted text value must be a finite number
+     * @param booleanField        true when the submitted text value must be "true" or "false"
      * @param allowedChoices      allowed submitted values for choice/radio/select fields
+     * @param choicesUnresolvable true when the field's options source could not deliver at
+     *                            collection time: a non-empty submitted value cannot be
+     *                            verified and must be rejected (D11)
      * @param acceptTypes         pre-resolved MIME type allowlist for file fields
      * @param constraints         server-side constraints collected from JCR
      */
@@ -87,13 +103,36 @@ public class FormDataParser {
             boolean dateField,
             boolean datetimeLocalField,
             boolean colorField,
+            boolean numberField,
+            boolean booleanField,
             Set<String> allowedChoices,
+            boolean choicesUnresolvable,
             Set<String> acceptTypes,
             FieldConstraints constraints
     ) {
         public FieldInfo {
             allowedChoices = allowedChoices == null ? Set.of() : Set.copyOf(allowedChoices);
             acceptTypes = acceptTypes == null ? Set.of() : Set.copyOf(acceptTypes);
+        }
+
+        public FieldInfo(
+                String nodeType, boolean nonSubmittable, boolean choiceField, boolean fileField,
+                boolean emailField, boolean dateField, boolean datetimeLocalField, boolean colorField,
+                boolean numberField, boolean booleanField,
+                Set<String> allowedChoices, Set<String> acceptTypes, FieldConstraints constraints
+        ) {
+            this(nodeType, nonSubmittable, choiceField, fileField, emailField, dateField,
+                    datetimeLocalField, colorField, numberField, booleanField,
+                    allowedChoices, false, acceptTypes, constraints);
+        }
+
+        public FieldInfo(
+                String nodeType, boolean nonSubmittable, boolean choiceField, boolean fileField,
+                boolean emailField, boolean dateField, boolean datetimeLocalField, boolean colorField,
+                Set<String> allowedChoices, Set<String> acceptTypes, FieldConstraints constraints
+        ) {
+            this(nodeType, nonSubmittable, choiceField, fileField, emailField, dateField,
+                    datetimeLocalField, colorField, false, false, allowedChoices, false, acceptTypes, constraints);
         }
     }
 
@@ -120,6 +159,11 @@ public class FormDataParser {
         public Set<String> allowedChoices(String fieldName) {
             FieldInfo fieldInfo = field(fieldName);
             return fieldInfo != null ? fieldInfo.allowedChoices() : Set.of();
+        }
+
+        public boolean choicesUnresolvable(String fieldName) {
+            FieldInfo fieldInfo = field(fieldName);
+            return fieldInfo != null && fieldInfo.choicesUnresolvable();
         }
 
         public Set<String> acceptTypes(String fieldName) {

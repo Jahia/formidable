@@ -17,8 +17,18 @@
 [fmdb:logicList] > nt:base, jmix:lockable, mix:lastModified, jmix:lastPublished, mix:versionable, jmix:observable, jmix:workflow, jmix:list
  + * (fmdb:logicSrc) = fmdb:logicSrc
 
+// Conditional-logic storage (see docs/conditional-logic-field-resolution.md):
+// logics is the authoring format, logicsSrc the technical storage, and its
+// per-rule logicNodeSource weakreference the repository-native source pointer
+// used by server-side metadata collection and runtime enrichment.
 [fmdbmix:formLogicElement] mixin
  - logics (string) multiple indexed=no
+ // Stable business identity of the element (random UUID string), independent from the
+ // JCR UUID (changes on import/copy), the node name (changes on rename) and the visible
+ // label. Assigned server-side on creation and used as the persisted source reference
+ // (sourceFieldKey) in conditional logic rules — see the "Field identity: fieldKey"
+ // section of docs/conditional-logic-field-resolution.md.
+ - fieldKey (string) hidden indexed=no
  + logicsSrc (fmdb:logicList) = fmdb:logicList hidden
 
 // Marks a node that can own child form items and can therefore propagate a
@@ -38,7 +48,105 @@ orderable
 [fmdbmix:captchaProtectedForm] mixin
 [fmdbmix:authenticatedOnlyForm] mixin
 [fmdbmix:nonSubmittable] mixin
-[fmdbmix:choiceField] mixin
+// Declares that an action type never writes to the repository and can therefore run
+// while the platform is in read-only mode. The polarity is deliberately inverted for
+// safety: an action type WITHOUT this mixin — including any third-party action that
+// never considered read-only mode — is presumed to write, and blocks its form during
+// maintenance windows. Worst case an unaffected form is over-blocked; a submission is
+// never lost to a mid-pipeline repository rejection.
+[fmdbmix:readOnlyCompatibleAction] mixin
+// Options-source contract for choice fields: the base mixin carries the mode
+// switch, and each jmix:dynamicFieldset mixin carries the properties of one mode.
+// The Content Editor activates the fieldset matching the chosen mode through the
+// addMixin wiring declared in the fieldset JSON overrides (formidable-elements).
+// The default 'manual' auto-activates the manual fieldset on creation, so typing
+// options by hand stays the out-of-the-box experience.
+[fmdbmix:optionsSource] mixin
+ - fmdb:optionsMode (string, choicelist) = 'manual' indexed=no
+
+[fmdbmix:manualOptions] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:optionsSource
+ - fmdb:options (string) mandatory i18n multiple indexed=no
+
+[fmdbmix:sourcedOptions] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:optionsSource
+ - fmdb:optionsSourceKey (string, choicelist[formidableOptionsSources]) mandatory indexed=no
+
+[fmdbmix:categoryOptions] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:optionsSource
+ - fmdb:optionsRootCategory (weakreference, picker[type='category']) mandatory < 'jnt:category'
+
+[fmdbmix:contentOptions] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:optionsSource
+ - fmdb:optionsRootNode (weakreference, picker[type='editorial']) mandatory
+ - fmdb:optionsNodeType (string, choicelist[formidableContentTypes,dependentProperties='fmdb:optionsRootNode']) mandatory indexed=no
+
+// Date-bound contract for date and datetime fields: each bound is a mode switch.
+// Every dynamic-fieldset property below is mandatory: once a mode is chosen its
+// value must be provided — the mixin only exists while the mode is selected, so
+// the constraint applies exactly then (same rule as the options-source contract).
+// (no bound, a fixed date, or the submission day), and the fixed mode's calendar
+// lives in a jmix:dynamicFieldset mixin the Content Editor activates through the
+// addMixin wiring declared in the fieldset JSON overrides (formidable-elements).
+// Modes are exclusive by construction: a bound is either fixed or relative to the
+// submission day, never an ambiguous combination of both. Two flavors only because
+// the calendar widget differs (date-only picker vs date and time).
+[fmdbmix:dateBounds] mixin
+ - fmdb:minBoundMode (string, choicelist) = 'none' indexed=no
+ - fmdb:maxBoundMode (string, choicelist) = 'none' indexed=no
+
+[fmdbmix:fixedMinDate] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:dateBounds
+ - min (date, DatePicker) mandatory
+
+[fmdbmix:fixedMaxDate] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:dateBounds
+ - max (date, DatePicker) mandatory
+
+// Relative bounds: the submission day shifted by a signed amount of days,
+// months or years (age limits, booking windows). One flavor per contract —
+// like the fixed bounds — because the dynamic-fieldset wiring is per contract;
+// the property names are shared so the runtime reads one set.
+[fmdbmix:relativeMinDate] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:dateBounds
+ - fmdb:minRelativeAmount (long) = 0 mandatory indexed=no
+ - fmdb:minRelativeUnit (string, choicelist) = 'days' mandatory indexed=no
+
+[fmdbmix:relativeMaxDate] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:dateBounds
+ - fmdb:maxRelativeAmount (long) = 0 mandatory indexed=no
+ - fmdb:maxRelativeUnit (string, choicelist) = 'days' mandatory indexed=no
+
+[fmdbmix:datetimeBounds] mixin
+ - fmdb:minBoundMode (string, choicelist) = 'none' indexed=no
+ - fmdb:maxBoundMode (string, choicelist) = 'none' indexed=no
+
+[fmdbmix:fixedMinDatetime] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:datetimeBounds
+ - min (date) mandatory
+
+[fmdbmix:fixedMaxDatetime] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:datetimeBounds
+ - max (date) mandatory
+
+[fmdbmix:relativeMinDatetime] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:datetimeBounds
+ - fmdb:minRelativeAmount (long) = 0 mandatory indexed=no
+ - fmdb:minRelativeUnit (string, choicelist) = 'days' mandatory indexed=no
+
+[fmdbmix:relativeMaxDatetime] > jmix:dynamicFieldset mixin
+ extends = fmdbmix:datetimeBounds
+ - fmdb:maxRelativeAmount (long) = 0 mandatory indexed=no
+ - fmdb:maxRelativeUnit (string, choicelist) = 'days' mandatory indexed=no
+
+[fmdbmix:choiceField] > fmdbmix:optionsSource mixin
+// Semantic value-kind mixins: a field type carrying one becomes eligible as a
+// conditional-logic source with the operators of that kind (number: comparisons,
+// boolean: is true / is false, text: filled / empty / equals / contains).
+// Third-party field types opt in from their own CND.
+[fmdbmix:numberField] mixin
+[fmdbmix:booleanField] mixin
+[fmdbmix:textField] mixin
 [fmdbmix:fileField] mixin
 [fmdbmix:emailField] mixin
 [fmdbmix:dateField] mixin
@@ -47,7 +155,8 @@ orderable
 
 // Sends a notification email after a successful form submission.
 // Subject and body support ${fieldName} interpolation from the submitted form data.
-[fmdb:emailNotificationAction] > jnt:content, fmdbmix:formAction, mix:title
+[fmdb:emailNotificationAction] > jnt:content, fmdbmix:formAction, fmdbmix:readOnlyCompatibleAction, mix:title
+ - jcr:title (string) = resourceBundle('fmdb_emailNotificationAction') autocreated i18n
  - to (string) indexed=no
  - from (string) indexed=no
  - subject (string) i18n indexed=no
@@ -55,7 +164,8 @@ orderable
 
 // Sends the submitted form content by email. The subject comes from the submitted form title.
 // Can optionally attach the validated uploaded files.
-[fmdb:emailContentAction] > jnt:content, fmdbmix:formAction, mix:title
+[fmdb:emailContentAction] > jnt:content, fmdbmix:formAction, fmdbmix:readOnlyCompatibleAction, mix:title
+ - jcr:title (string) = resourceBundle('fmdb_emailContentAction') autocreated i18n
  - to (string) indexed=no
  - from (string) indexed=no
  - attachFiles (boolean) = false autocreated
@@ -64,12 +174,13 @@ orderable
 // Forwards the full form data to a third-party endpoint (multipart/form-data).
 // targetId references a named target configured in forward_targets (org.jahia.modules.formidable.cfg).
 // The actual URL is never stored in JCR; it is resolved server-side from the operator configuration.
-[fmdb:forwardAction] > jnt:content, fmdbmix:formAction, mix:title
+[fmdb:forwardAction] > jnt:content, fmdbmix:formAction, fmdbmix:readOnlyCompatibleAction, mix:title
+ - jcr:title (string) = resourceBundle('fmdb_forwardAction') autocreated i18n
  - targetId (string, choicelist[formidableForwardTargets]) indexed=no mandatory
 
 // Saves the submitted form data as child nodes under a designated JCR path.
-// Default action autocreated in fmdb:actionList; can be removed by the contributor.
 [fmdb:save2jcrAction] > jnt:content, fmdbmix:formAction, mix:title
+ - jcr:title (string) = resourceBundle('fmdb_save2jcrAction') autocreated i18n
 
 [fmdb:resultsFolder] > jnt:content, jmix:accessControlled
  + * (fmdb:formResults) = fmdb:formResults

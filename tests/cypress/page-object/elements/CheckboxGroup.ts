@@ -70,4 +70,22 @@ export class CheckboxGroup extends BaseComponent {
 		this.getLegend().find('.fmdb-required-indicator').should('not.exist');
 		return this;
 	}
+
+	getHelpText(): Cypress.Chainable {
+		return this.get().find('.fmdb-form-help');
+	}
+
+	shouldHaveHelpText(text: string): this {
+		this.getHelpText().should('be.visible').and('have.text', text);
+		// The group fieldset must reference the help block for screen readers
+		this.getHelpText().invoke('attr', 'id').then(helpId => {
+			this.get().invoke('attr', 'aria-describedby').should('contain', helpId);
+		});
+		return this;
+	}
+
+	shouldNotHaveHelpText(): this {
+		this.getHelpText().should('not.exist');
+		return this;
+	}
 }

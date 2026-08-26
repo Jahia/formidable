@@ -94,8 +94,13 @@ export class TextInput extends FormElement {
 		return this;
 	}
 
-	shouldHaveMask(): this {
-		this.getInput().should('have.attr', 'data-mask');
+	shouldHaveMask(mask?: string): this {
+		if (mask === undefined) {
+			this.getInput().should('have.attr', 'data-mask');
+		} else {
+			this.getInput().should('have.attr', 'data-mask', mask);
+		}
+
 		return this;
 	}
 }

@@ -18,8 +18,10 @@ public final class FormidableJcrConstants {
     public static final String FORM_LOGIC_ELEMENT_MIXIN = "fmdbmix:formLogicElement";
     public static final String FORM_STEP_MIXIN = "fmdbmix:formStep";
     public static final String NON_SUBMITTABLE_MIXIN = "fmdbmix:nonSubmittable";
+    public static final String READ_ONLY_COMPATIBLE_ACTION_MIXIN = "fmdbmix:readOnlyCompatibleAction";
 
     public static final String ACL_NODE = "j:acl";
+    public static final String FIELD_KEY_PROPERTY = "fieldKey";
     public static final String FIELDS_NODE = "fields";
     public static final String INHERIT_PROPERTY = "j:inherit";
     public static final String LOGIC_NODE_SOURCE_PROPERTY = "logicNodeSource";

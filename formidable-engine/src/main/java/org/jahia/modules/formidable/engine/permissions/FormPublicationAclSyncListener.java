@@ -34,6 +34,12 @@ public class FormPublicationAclSyncListener extends DefaultEventListener {
 
     public FormPublicationAclSyncListener() {
         workspace = WORKSPACE_LIVE;
+        // Every trigger of this listener is publication-borne: an ACE only ever reaches
+        // the live workspace by publishing the form. Jahia filters publication events
+        // out of listeners by default, so without this flag the listener never fires —
+        // a role granted after the first submission was never replicated to the results
+        // (no access), and a revoked one was never removed from them (stale access).
+        setAvailableDuringPublish(true);
     }
 
     @Override

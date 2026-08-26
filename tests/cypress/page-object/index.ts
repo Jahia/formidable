@@ -18,6 +18,8 @@ export {FormElement} from './elements/FormElement';
 export {TextInput} from './elements/TextInput';
 export {EmailInput} from './elements/EmailInput';
 export {DateInput} from './elements/DateInput';
+export {NumberInput} from './elements/NumberInput';
+export {RangeInput} from './elements/RangeInput';
 export {DateTimeLocalInput} from './elements/DateTimeLocalInput';
 export {ColorInput} from './elements/ColorInput';
 export {CheckboxInput} from './elements/CheckboxInput';

@@ -3,6 +3,7 @@ import {createFormNode} from './forms';
 import {getFieldsetNode} from './fieldset';
 import {getCheckboxNode} from './inputCheckbox';
 import {getInputDateNode} from './inputDate';
+import {getInputEmailNode} from './inputEmail';
 import {getInputTextNode} from './inputText';
 import {getSelectNode} from './select';
 import {getTextareaNode} from './textarea';
@@ -59,9 +60,18 @@ const LEGACY_DUPLICATE_IMPORT_SOURCE_NODE_ID = '22222222-2222-2222-2222-22222222
 
 export interface ConditionalLogicRule {
 	logicId: string;
-	sourceNodeId: string;
-	sourceFieldName: string;
-	sourceFieldType: string;
+	// Absent on field rules (the default); names the provider otherwise.
+	sourceType?: string;
+	// Field-rule keys: absent on provider rules, which reference nothing in the repository.
+	sourceNodeId?: string;
+	sourceFieldKey?: string;
+	sourceFieldName?: string;
+	sourceFieldType?: string;
+	valueKind?: string;
+	// Provider config, exactly one per rule, named by the provider.
+	variable?: string;
+	param?: string;
+	cookie?: string;
 	operator: string;
 	value?: string;
 	values?: string[];
@@ -223,6 +233,96 @@ export const createConditionalLogicForm = (suffix: string): Cypress.Chainable<Co
 		formPath: `${CONTENT_PATH}/${formName}`,
 		rolePath: `${CONTENT_PATH}/${formName}/fields/role`,
 		targetPath: `${CONTENT_PATH}/${formName}/fields/nickname`
+	}));
+};
+
+export interface MixinSourcesConditionalLogicFormInfo {
+	formName: string;
+	formPath: string;
+	ratingPath: string;
+	switchPath: string;
+	targetPath: string;
+}
+
+// Add-on fields from formidable-extended-inputs: they become logic sources purely
+// by carrying fmdbmix:numberField / fmdbmix:booleanField in their CND, which is
+// exactly what this fixture exercises.
+const MIXIN_SOURCES_FORM_ELEMENTS: JahiaNode[] = [
+	{
+		name: 'satisfaction',
+		primaryNodeType: 'fmdbext:rating',
+		properties: [{name: 'jcr:title', value: 'satisfaction', language: 'en'}]
+	},
+	{
+		name: 'newsletter',
+		primaryNodeType: 'fmdbext:switch',
+		properties: [{name: 'jcr:title', value: 'newsletter', language: 'en'}]
+	},
+	getInputTextNode({
+		name: 'nickname',
+		title: 'nickname',
+		placeholder: 'nickname'
+	})
+];
+
+export const createMixinSourcesConditionalLogicForm = (
+	suffix: string
+): Cypress.Chainable<MixinSourcesConditionalLogicFormInfo> => {
+	const formName = `conditional-logic-mixin-${suffix}`;
+
+	return createFormNode(formName, formName, MIXIN_SOURCES_FORM_ELEMENTS).then(() => ({
+		formName,
+		formPath: `${CONTENT_PATH}/${formName}`,
+		ratingPath: `${CONTENT_PATH}/${formName}/fields/satisfaction`,
+		switchPath: `${CONTENT_PATH}/${formName}/fields/newsletter`,
+		targetPath: `${CONTENT_PATH}/${formName}/fields/nickname`
+	}));
+};
+
+export interface TextSourcesConditionalLogicFormInfo {
+	formName: string;
+	formPath: string;
+	fullnamePath: string;
+	notesPath: string;
+	emailPath: string;
+	targetPath: string;
+}
+
+// Core text inputs become logic sources through fmdbmix:textField in their CND:
+// inputText, textarea and inputEmail all expose the text operators.
+const TEXT_SOURCES_FORM_ELEMENTS: JahiaNode[] = [
+	getInputTextNode({
+		name: 'fullname',
+		title: 'fullname',
+		placeholder: 'fullname'
+	}),
+	getTextareaNode({
+		name: 'notes',
+		title: 'notes'
+	}),
+	getInputEmailNode({
+		name: 'email',
+		title: 'email'
+	}),
+	getCheckboxNode({
+		name: 'accept-terms',
+		title: 'accept-terms',
+		choices: [{value: 'accepted', label: 'accepted', selected: false}]
+	})
+];
+
+export const createTextSourcesConditionalLogicForm = (
+	suffix: string
+): Cypress.Chainable<TextSourcesConditionalLogicFormInfo> => {
+	const formName = `conditional-logic-text-${suffix}`;
+
+	return createFormNode(formName, formName, TEXT_SOURCES_FORM_ELEMENTS).then(() => ({
+		formName,
+		formPath: `${CONTENT_PATH}/${formName}`,
+		fullnamePath: `${CONTENT_PATH}/${formName}/fields/fullname`,
+		notesPath: `${CONTENT_PATH}/${formName}/fields/notes`,
+		emailPath: `${CONTENT_PATH}/${formName}/fields/email`,
+		targetPath: `${CONTENT_PATH}/${formName}/fields/accept-terms`
 	}));
 };
 

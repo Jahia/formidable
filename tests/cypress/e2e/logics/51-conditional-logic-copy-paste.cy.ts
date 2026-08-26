@@ -125,7 +125,7 @@ describe('Form logic - 51 Conditional logic copy and paste', () => {
 
 			setNodeProperty(
 				copiedSecondSourcePath,
-				'options',
+				'fmdb:options',
 				buildSelectOptionsPropertyValues([
 					{value: 'manager', label: 'manager', selected: false},
 					{value: 'staff', label: 'staff', selected: false},
@@ -147,8 +147,8 @@ describe('Form logic - 51 Conditional logic copy and paste', () => {
 				expect(logicChild?.property?.refNode?.path).not.to.equal(secondSourcePath);
 			});
 
-			getNodeByPath(copiedSecondSourcePath, ['options'], 'en').then((response: NodeByPathResponse) => {
-				const optionValues = response.data?.jcr?.nodeByPath?.properties?.find(property => property.name === 'options')?.values ?? [];
+			getNodeByPath(copiedSecondSourcePath, ['fmdb:options'], 'en').then((response: NodeByPathResponse) => {
+				const optionValues = response.data?.jcr?.nodeByPath?.properties?.find(property => property.name === 'fmdb:options')?.values ?? [];
 				expect(optionValues.join(' ')).to.include('super-admin');
 				expect(optionValues.join(' ')).not.to.include('"alpha"');
 			});

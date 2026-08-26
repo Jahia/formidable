@@ -1,9 +1,0 @@
-{
-	"name": "fmdb:select",
-	"fields": [
-		{
-			"name": "options",
-			"selectorType": "SelectOptions"
-		}
-	]
-}

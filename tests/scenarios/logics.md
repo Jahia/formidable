@@ -10,13 +10,15 @@ This document describes the conditional logic scenarios covered by the automated
 | `51-conditional-logic-copy-paste.cy.ts` | Form duplication (GraphQL `copyNode`) | Weakref rebinding, duplicate source names, single-field degradation |
 | `52-conditional-logic-backend.cy.ts` | Backend synchronization | logicsSrc creation/update/removal, rename resilience, logicId/sourceNodeId persistence |
 | `53-conditional-logic-import.cy.ts` | Import (GraphQL `importContent`) | Weakref rebinding to imported nodes, duplicate source names |
+| `510-conditional-logic-today.cy.ts` | Submission-day date rules | Today toggle storage round-trip, live visibility following the visitor's day, declared day at submit |
+| `security/42-logic-coherence.cy.ts` | Server-side coherence | FMDB-013 for provably hidden fields, declared-day plausibility clamp, one-day ambiguity fail-safe |
 
 ## Covered by Java unit tests
 
 Location: `formidable-engine/src/test/java/org/jahia/modules/formidable/engine/logic/`
 
 - `ConditionalLogicRule.parse` — rule parsing and normalization
-- `ConditionalLogicEvaluator` — all operators (in/notIn, isChecked/isUnchecked, containsAny/containsAll, before/after/on/between), transitive visibility, AND logic
+- `ConditionalLogicEvaluator` — all operators (in/notIn, isChecked/isUnchecked, containsAny/containsAll, before/after/on/between), transitive visibility, AND logic, the today sentinel (declared-day resolution, plausibility clamp, ambiguity-window fail-safe)
 - `FormLogicSyncService` — logicId normalization, sourceNodeId normalization, weakref preservation, duplicate-parent visibility, degraded fallback to sourceFieldName
 
 ## Test fixture (Cypress)

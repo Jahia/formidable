@@ -1,7 +1,8 @@
 import {BaseComponent, getComponentBySelector} from '@jahia/cypress';
 
 class ConditionalLogicRuleRow extends BaseComponent {
-	static defaultSelector = 'div.flexRow_nowrap.flexFluid.alignCenter';
+	// Structure-proof: the rule row declares itself, layout classes may change.
+	static defaultSelector = '[data-sel-role="logic-rule"]';
 }
 
 export class ConditionalLogicField extends BaseComponent {
@@ -9,6 +10,17 @@ export class ConditionalLogicField extends BaseComponent {
 
 	private static readonly menuSelector = '.moonstone-menu:not(.moonstone-hidden)';
 	private static readonly menuOverlaySelector = '.moonstone-menu_overlay';
+
+	// Dropdown order within a "Field value" rule row: the leading dropdown picks the
+	// source type (Field value, or one of the providers: Datalayer value, URL parameter,
+	// Cookie), then source, operator, value. A provider rule has no source dropdown — it
+	// types the name of what it designates instead.
+	static readonly sourceTypeDropdownIndex = 0;
+	static readonly sourceDropdownIndex = 1;
+	// Provider rules skip the source dropdown, so their operator is at index 1.
+	static readonly providerOperatorDropdownIndex = 1;
+	static readonly operatorDropdownIndex = 2;
+	static readonly valueDropdownIndex = 3;
 
 	private getAddRuleButton(): Cypress.Chainable<JQuery<HTMLElement>> {
 		return this.get().find('button[data-sel-action="addField"]', {timeout: 15000});
@@ -86,7 +98,8 @@ export class ConditionalLogicField extends BaseComponent {
 
 	menuShouldHaveItems(labels: string[]): this {
 		for (const label of labels) {
-			cy.get(ConditionalLogicField.menuSelector).contains('.moonstone-menuItem', label).scrollIntoView().should('be.visible');
+			cy.get(ConditionalLogicField.menuSelector).contains('.moonstone-menuItem', label).scrollIntoView();
+			cy.get(ConditionalLogicField.menuSelector).contains('.moonstone-menuItem', label).should('be.visible');
 		}
 
 		return this;
@@ -108,20 +121,49 @@ export class ConditionalLogicField extends BaseComponent {
 		return this;
 	}
 
+	openSourceTypeDropdown(ruleIndex: number): this {
+		return this.openDropdown(ruleIndex, ConditionalLogicField.sourceTypeDropdownIndex);
+	}
+
+	openSourceDropdown(ruleIndex: number): this {
+		return this.openDropdown(ruleIndex, ConditionalLogicField.sourceDropdownIndex);
+	}
+
+	openOperatorDropdown(ruleIndex: number): this {
+		return this.openDropdown(ruleIndex, ConditionalLogicField.operatorDropdownIndex);
+	}
+
+	// A provider rule has no source dropdown, so its operator sits one position earlier.
+	openProviderOperatorDropdown(ruleIndex: number): this {
+		return this.openDropdown(ruleIndex, ConditionalLogicField.providerOperatorDropdownIndex);
+	}
+
+	selectSourceType(ruleIndex: number, label: string): this {
+		this.openSourceTypeDropdown(ruleIndex);
+		this.selectMenuItem(label);
+		return this;
+	}
+
 	selectSource(ruleIndex: number, label: string): this {
-		this.openDropdown(ruleIndex, 0);
+		this.openSourceDropdown(ruleIndex);
 		this.selectMenuItem(label);
 		return this;
 	}
 
 	selectOperator(ruleIndex: number, label: string): this {
-		this.openDropdown(ruleIndex, 1);
+		this.openOperatorDropdown(ruleIndex);
+		this.selectMenuItem(label);
+		return this;
+	}
+
+	selectProviderOperator(ruleIndex: number, label: string): this {
+		this.openProviderOperatorDropdown(ruleIndex);
 		this.selectMenuItem(label);
 		return this;
 	}
 
 	selectValue(ruleIndex: number, label: string): this {
-		this.openDropdown(ruleIndex, 2);
+		this.openDropdown(ruleIndex, ConditionalLogicField.valueDropdownIndex);
 		this.selectMenuItem(label);
 		this.dismissOpenMenu();
 		return this;
@@ -134,6 +176,52 @@ export class ConditionalLogicField extends BaseComponent {
 
 	ruleShouldHaveDateInputCount(ruleIndex: number, count: number): this {
 		this.getRule(ruleIndex).get().find('input[type="date"]').should('have.length', count);
+		return this;
+	}
+
+	// The submission-day toggles glued to the date value inputs, one per input
+	// ('between' shows two): icon buttons whose pressed state carries the sentinel.
+	ruleShouldHaveTodayToggleCount(ruleIndex: number, count: number): this {
+		this.getRule(ruleIndex).get().find('[data-sel-role="today-toggle"]').should('have.length', count);
+		return this;
+	}
+
+	toggleTodayValue(ruleIndex: number, toggleIndex = 0): this {
+		this.getRule(ruleIndex).get().find('[data-sel-role="today-toggle"]').eq(toggleIndex).click({force: true});
+		return this;
+	}
+
+	todayValueShouldBePressed(ruleIndex: number, toggleIndex: number, pressed: boolean): this {
+		this.getRule(ruleIndex).get().find('[data-sel-role="today-toggle"]').eq(toggleIndex)
+			.should('have.attr', 'aria-pressed', String(pressed));
+		return this;
+	}
+
+	dateInputShouldBeDisabled(ruleIndex: number, inputIndex: number, disabled: boolean): this {
+		this.getRule(ruleIndex).get().find('input[type="date"]').eq(inputIndex)
+			.should(disabled ? 'be.disabled' : 'not.be.disabled');
+		return this;
+	}
+
+	ruleShouldHaveNumberInputCount(ruleIndex: number, count: number): this {
+		this.getRule(ruleIndex).get().find('input[type="number"]').should('have.length', count);
+		return this;
+	}
+
+	typeNumberValue(ruleIndex: number, value: string): this {
+		this.getRule(ruleIndex).get().find('input[type="number"]').first().clear();
+		this.getRule(ruleIndex).get().find('input[type="number"]').first().type(value);
+		return this;
+	}
+
+	ruleShouldHaveTextInputCount(ruleIndex: number, count: number): this {
+		this.getRule(ruleIndex).get().find('input[type="text"]').should('have.length', count);
+		return this;
+	}
+
+	typeTextValue(ruleIndex: number, value: string): this {
+		this.getRule(ruleIndex).get().find('input[type="text"]').first().clear();
+		this.getRule(ruleIndex).get().find('input[type="text"]').first().type(value);
 		return this;
 	}
 

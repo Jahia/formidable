@@ -1,0 +1,24 @@
+{
+	"nodeType": "fmdb:select",
+	"priority": 2,
+	"sections": [
+		{
+			"name": "content",
+			"fieldSets": [
+				{
+					"name": "<main>",
+					"fields": [
+						{
+							"name": "fmdb:optionsMode",
+							"rank": 1.5
+						},
+						{
+							"name": "fmdb:optionsEmptyLabel",
+							"rank": 1.6
+						}
+					]
+				}
+			]
+		}
+	]
+}

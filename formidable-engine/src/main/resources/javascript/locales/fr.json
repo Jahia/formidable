@@ -1,8 +1,44 @@
 {
     "selectOptions": {
-        "value": "Valeur",
-        "label": "Libellé",
-        "selected": "Sélectionné"
+        "value": "Valeur envoyée au serveur",
+        "label": "Libellé affiché à l'utilisateur",
+        "selected": "Si activé, l'option est sélectionnée par défaut"
+    },
+    "fmdbmix_optionsSource": {
+        "fmdb_optionsMode": {
+            "manual": "Options manuelles",
+            "sourced": "Options depuis une source tierce",
+            "category": "Options depuis des catégories",
+            "content": "Options depuis des contenus du site"
+        }
+    },
+    "fmdbmix_dateBounds": {
+        "fmdb_minBoundMode": {
+            "none": "Aucun minimum",
+            "date": "Date fixe (choisie dans le calendrier)",
+            "today": "Date courante (le jour où le formulaire est soumis)",
+            "relative": "Date relative (la date courante décalée d'un écart fixe)"
+        },
+        "fmdb_maxBoundMode": {
+            "none": "Aucun maximum",
+            "date": "Date fixe (choisie dans le calendrier)",
+            "today": "Date courante (le jour où le formulaire est soumis)",
+            "relative": "Date relative (la date courante décalée d'un écart fixe)"
+        }
+    },
+    "fmdbmix_datetimeBounds": {
+        "fmdb_minBoundMode": {
+            "none": "Aucun minimum",
+            "date": "Date et heure fixes (choisies dans le calendrier)",
+            "today": "Date courante (dès le début du jour de soumission)",
+            "relative": "Date relative (décalée depuis la date courante, à partir du début de ce jour)"
+        },
+        "fmdb_maxBoundMode": {
+            "none": "Aucun maximum",
+            "date": "Date et heure fixes (choisies dans le calendrier)",
+            "today": "Date courante (jusqu'à la fin du jour de soumission)",
+            "relative": "Date relative (décalée depuis la date courante, jusqu'à la fin de ce jour)"
+        }
     },
     "conditionalLogic": {
         "sourceField": "Champ source",
@@ -10,15 +46,43 @@
         "operator": "Opérateur",
         "value": "Valeur",
         "values": "Valeurs",
-        "dateFrom": "De",
-        "dateTo": "À",
+        "valueFrom": "De",
+        "valueTo": "À",
+        "valueFromTitle": "Date de début (incluse)",
+        "valueToTitle": "Date de fin (incluse)",
+        "valueToday": "Date courante (le jour où le formulaire est soumis)",
+        "betweenInverted": "La date de fin est antérieure à la date de début : cette règle ne peut jamais correspondre.",
+        "betweenNoMatch": "Cette règle ne correspond actuellement à aucune date : elle est ignorée à la soumission du formulaire.",
         "loadingSources": "Chargement des champs disponibles...",
         "noSources": "Aucun champ source supporté n'est disponible avant ce champ.",
-        "help": "Utilise des champs placés avant celui-ci pour afficher ou masquer ce champ. Seuls les champs liste, radio, case à cocher et date sont éligibles. \"Aucun champ source supporté...\" signifie qu'aucun champ compatible précédent n'a été trouvé.",
+        "help": "Utilise des champs placés avant celui-ci pour afficher ou masquer ce champ. Sont éligibles les champs qui déclarent un type de valeur : choix (liste, radio, case à cocher), date, nombre et booléen — y compris les champs apportés par d'autres modules. \"Aucun champ source supporté...\" signifie qu'aucun champ compatible précédent n'a été trouvé. Une condition peut aussi lire une information extérieure au formulaire : une valeur du datalayer, un paramètre d'URL ou un cookie. Ces informations sont lues uniquement dans le navigateur : un champ obligatoire affiché par une telle condition n'est donc pas exigé à l'envoi du formulaire.",
         "allSourcesUsed": "Tous les champs source disponibles sont déjà utilisés par les règles au-dessus.",
         "unresolvedContext": "Impossible de résoudre le chemin du champ édité.",
         "formNotFound": "Impossible de retrouver le formulaire parent.",
         "loadError": "Impossible de charger les champs source disponibles.",
+        "sourceTypes": {
+            "field": "Valeur d'un champ"
+        },
+        "providers": {
+            "jsVariable": {
+                "label": "Valeur du datalayer",
+                "configLabel": "Variable du datalayer",
+                "configPlaceholder": "dataLayer.pageCategory"
+            },
+            "urlParam": {
+                "label": "Paramètre d'URL",
+                "configLabel": "Nom du paramètre",
+                "configPlaceholder": "utm_campaign"
+            },
+            "cookie": {
+                "label": "Cookie",
+                "configLabel": "Nom du cookie",
+                "configPlaceholder": "consent-marketing"
+            }
+        },
+        "providerRefMissing": "Obligatoire : une règle sans nom ne peut pas être évaluée et sera supprimée à l'enregistrement.",
+        "providerRefInvalid": "Ce nom n'est pas au format attendu et ne pourra pas être lu sur la page.",
+        "unknownSourceType": "Cette condition utilise une source (\"{{type}}\") que cette version du module ne fournit pas — elle a probablement été créée avec une version plus récente. La règle est conservée telle quelle et son champ reste masqué.",
         "operators": {
             "in": "est l'une des valeurs suivantes",
             "notIn": "n'est pas l'une des valeurs suivantes",
@@ -29,7 +93,22 @@
             "before": "est avant",
             "after": "est après",
             "on": "est le",
-            "between": "est entre"
+            "between": "est entre",
+            "eq": "est égal à",
+            "neq": "est différent de",
+            "lt": "est inférieur à",
+            "lte": "est inférieur ou égal à",
+            "gt": "est supérieur à",
+            "gte": "est supérieur ou égal à",
+            "isTrue": "est vrai (activé)",
+            "isFalse": "est faux (désactivé)",
+            "isEmpty": "est vide",
+            "isNotEmpty": "est rempli",
+            "equals": "est égal à",
+            "notEquals": "est différent de",
+            "contains": "contient",
+            "exists": "est défini",
+            "notExists": "n'est pas défini"
         }
     },
     "formResults": {
@@ -126,5 +205,10 @@
                 "unexpectedError": "Échec de la suppression."
             }
         }
+    },
+    "relativeUnit": {
+        "days": "Jours",
+        "months": "Mois",
+        "years": "Années"
     }
 }

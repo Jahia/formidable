@@ -1,0 +1,30 @@
+import org.jahia.services.content.JCRSessionFactory
+
+// Simulates a field stored before the bound modes existed by removing the
+// fmdb:minBoundMode / fmdb:maxBoundMode properties while keeping the fixed
+// values. NOTE: this is the closest state the JCR API can produce — a genuine
+// 0.3 node also lacks the fixed-bound mixins, but that shape is not
+// reproducible (a raw write without an applicable definition is rejected, and
+// removing a mixin drops its properties); the definition-less branch of the
+// migration is unit-tested with mocks instead.
+def fieldPath = "__FIELD_PATH__"
+
+def report = []
+["default", "live"].each { workspace ->
+    def session = JCRSessionFactory.getInstance().getCurrentSystemSession(workspace, null, null)
+    if (!session.nodeExists(fieldPath)) {
+        report << "${workspace}: missing node ${fieldPath}"
+        return
+    }
+
+    def node = session.getNode(fieldPath)
+    ["fmdb:minBoundMode", "fmdb:maxBoundMode"].each { property ->
+        if (node.hasProperty(property)) {
+            node.getProperty(property).remove()
+        }
+    }
+    session.save()
+    report << "${workspace}: removed bound modes on ${node.path}"
+}
+
+return report.join(" | ")

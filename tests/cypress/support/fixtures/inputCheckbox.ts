@@ -36,11 +36,13 @@ export const CHECKBOX_GROUP_COMPLETE: CheckboxData = {
 export function getCheckboxNode(data: CheckboxData = CHECKBOX_SINGLE): JahiaNode {
 	const properties: NodeProperty[] = [];
 	if (data.title) properties.push({name: 'jcr:title', value: data.title, language: 'en'});
+	if (data.helpText) properties.push({name: 'helpText', value: data.helpText, language: 'en'});
 	if (data.required !== undefined) properties.push({name: 'required', value: String(data.required), type: 'BOOLEAN'});
+	properties.push({name: 'fmdb:optionsMode', value: 'manual'});
 	properties.push({
-		name: 'choices',
+		name: 'fmdb:options',
 		values: data.choices.map(c => JSON.stringify({value: c.value, label: c.label, selected: c.selected ?? false})),
 		language: 'en'
 	});
-	return {name: data.name || 'checkbox', primaryNodeType: 'fmdb:checkbox', properties};
+	return {name: data.name || 'checkbox', primaryNodeType: 'fmdb:checkbox', mixins: ['fmdbmix:manualOptions'], properties};
 }

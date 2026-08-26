@@ -1,8 +1,10 @@
 import {jahiaComponent} from "@jahia/javascript-modules-library";
-import {type TextValidationMessageProps, validationDataAttributes} from "~/utils/validationProps";
+import {type TextValidationMessageProps, validationDataAttributes} from "formidable-shared";
+import {HelpText, helpTextId} from "formidable-shared";
 
 interface TextareaProps extends TextValidationMessageProps {
 	"jcr:title"?: string;
+	helpText?: string;
 	placeholder?: string;
 	defaultValue?: string;
 	minLength?: number;
@@ -31,6 +33,7 @@ jahiaComponent(
 	(
 		{
 			"jcr:title": label,
+			helpText,
 			placeholder,
 			defaultValue,
 			minLength,
@@ -61,6 +64,8 @@ jahiaComponent(
 			resize: resize
 		};
 
+		const helpId = helpText ? helpTextId(currentNode.getIdentifier()) : undefined;
+
 		return (
 			<div className="fmdb-form-group">
 				{label && (
@@ -70,9 +75,12 @@ jahiaComponent(
 					</label>
 				)}
 
+				<HelpText id={helpId} text={helpText}/>
+
 				<textarea
 					id={textareaId}
 					name={textareaName}
+					aria-describedby={helpId}
 					className="fmdb-form-control"
 					placeholder={placeholder}
 					defaultValue={defaultValue}

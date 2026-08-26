@@ -1,0 +1,9 @@
+{
+	"name": "fmdbmix:manualOptions",
+	"fields": [
+		{
+			"name": "fmdb:options",
+			"selectorType": "SelectOptions"
+		}
+	]
+}

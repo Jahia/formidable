@@ -1,0 +1,62 @@
+{
+	"name": "fmdbmix:optionsSource",
+	"fields": [
+		{
+			"name": "fmdb:optionsMode",
+			"valueConstraints": [
+				{
+					"value": {
+						"type": "String",
+						"value": "manual"
+					},
+					"displayValueKey": "formidable-engine:fmdbmix_optionsSource.fmdb_optionsMode.manual",
+					"propertyList": [
+						{
+							"name": "addMixin",
+							"value": "fmdbmix:manualOptions"
+						}
+					]
+				},
+				{
+					"value": {
+						"type": "String",
+						"value": "sourced"
+					},
+					"displayValueKey": "formidable-engine:fmdbmix_optionsSource.fmdb_optionsMode.sourced",
+					"propertyList": [
+						{
+							"name": "addMixin",
+							"value": "fmdbmix:sourcedOptions"
+						}
+					]
+				},
+				{
+					"value": {
+						"type": "String",
+						"value": "category"
+					},
+					"displayValueKey": "formidable-engine:fmdbmix_optionsSource.fmdb_optionsMode.category",
+					"propertyList": [
+						{
+							"name": "addMixin",
+							"value": "fmdbmix:categoryOptions"
+						}
+					]
+				},
+				{
+					"value": {
+						"type": "String",
+						"value": "content"
+					},
+					"displayValueKey": "formidable-engine:fmdbmix_optionsSource.fmdb_optionsMode.content",
+					"propertyList": [
+						{
+							"name": "addMixin",
+							"value": "fmdbmix:contentOptions"
+						}
+					]
+				}
+			]
+		}
+	]
+}
