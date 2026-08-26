@@ -32,7 +32,10 @@ export interface FormProps extends Omit<FormServerProps, 'destination'> {
 	destinationUrl?: string;
 	submitActionUrl?: string;
 	isSubmitDisabled?: boolean;
-	/** Authoring context: step navigation is free, so every step stays reachable. */
+	/**
+	 * Authoring context: the visibility rules are left unapplied and step navigation
+	 * is free, so the contributor reaches and configures every field.
+	 */
 	isEditMode?: boolean;
 	children: ReactNode;
 }

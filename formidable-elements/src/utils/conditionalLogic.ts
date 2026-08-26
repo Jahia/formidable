@@ -618,6 +618,12 @@ const setWrapperVisibility = (wrapper: HTMLElement, visible: boolean) => {
 };
 
 export const applyConditionalLogicVisibility = (form: HTMLFormElement) => {
+	// The server already renders the whole structure in edit mode; re-hiding it here
+	// would take the field away from the contributor again, right after hydration.
+	// Gated on the form itself so every caller is covered, including an integrator
+	// asking for a re-evaluation through FORM_LOGIC_INVALIDATE_EVENT.
+	if (form.dataset.fmdbEditMode === 'true') return;
+
 	const wrappers = Array.from(form.querySelectorAll<HTMLElement>('[data-fmdb-node-name]'));
 	const wrappersByNodeId = new Map(
 		wrappers
