@@ -285,8 +285,17 @@ describe('Playground - provision manual-testing forms', () => {
 					'playground-complete',
 					'Playground - Complete form',
 					[
-						withFrench(getInputTextNode({...INPUT_TEXT_COMPLETE, defaultValue: undefined}), [{name: 'jcr:title', value: 'Code employé'}]),
-						withFrench(getInputEmailNode({...INPUT_EMAIL_COMPLETE, defaultValue: undefined}), [{name: 'jcr:title', value: 'Email de contact'}]),
+						// placeholder and list are i18n as well: without a French value the
+						// field loses its example and its suggestion list in that language.
+						withFrench(getInputTextNode({...INPUT_TEXT_COMPLETE, defaultValue: undefined}), [
+							{name: 'jcr:title', value: 'Code employé'},
+							{name: 'placeholder', value: 'AB-1234'},
+							{name: 'list', values: ['AB-1234', 'CD-5678']}
+						]),
+						withFrench(getInputEmailNode({...INPUT_EMAIL_COMPLETE, defaultValue: undefined}), [
+							{name: 'jcr:title', value: 'Email de contact'},
+							{name: 'placeholder', value: 'Saisissez votre adresse e-mail'}
+						]),
 						// A birth date cannot be after the submission day; the appointment
 						// cannot be before it — the relative bound modes showcased live.
 						withFrench(getInputDateNode({...INPUT_DATE_COMPLETE, defaultValue: undefined, max: undefined, maxBoundMode: 'today'}), [{name: 'jcr:title', value: 'Date de naissance'}]),
@@ -302,7 +311,10 @@ describe('Playground - provision manual-testing forms', () => {
 						]),
 						withFrench(getRadioNode(RADIO_GROUP), [{name: 'jcr:title', value: 'Mode de livraison'}, FR_DELIVERY_OPTIONS]),
 						departmentSelect(),
-						withFrench(getTextareaNode({...TEXTAREA_COMPLETE, defaultValue: undefined}), [{name: 'jcr:title', value: 'Résumé du projet'}]),
+						withFrench(getTextareaNode({...TEXTAREA_COMPLETE, defaultValue: undefined}), [
+							{name: 'jcr:title', value: 'Résumé du projet'},
+							{name: 'placeholder', value: 'Décrivez le projet'}
+						]),
 						withFrench(getInputFileNode(INPUT_FILE_MULTIPLE), [{name: 'jcr:title', value: 'Pièces jointes'}]),
 						// The sourced select showcases the empty-option label: the field starts
 						// empty and its native required validation is exercisable on the site.
