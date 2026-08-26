@@ -39,53 +39,86 @@ The Content Editor switches the two `jmix:dynamicFieldset` mixins through the
 
 An option's **value** is its identity: submissions store it, conditional logic
 rules match it, and the forged-value validation checks it. It must therefore be
-one single set across languages — only the **label** (and the default
-selection) is editorial content that translates. Since `fmdb:options` is an
-i18n property, two guards keep the languages coherent:
+one single set across languages — only the **label** is editorial content that
+translates (the default selection is form behavior, and travels with the value).
+Since `fmdb:options` is an i18n property, three rules keep the languages
+coherent.
 
-- in the editor, **options are authored in the site's default language**:
-  outside it, master-fed rows lock their value and default selection, the row
-  controls (add, remove, reorder) hide — an added row could never receive a
-  value there, and any structural change would only be reverted by the
-  re-alignment — and a row without a value yet (nothing synced from the
-  default language) shows a plain pointer to the default language instead of
-  inputs. Only labels translate, as the tooltips explain. (Options arriving in
-  another language through the API or an import still **seed the default
-  language at save**, so such content self-heals instead of being erased by a
-  later main-language edit.);
-- on every save of the options, the server **re-aligns every existing
-  translation on the default language's values, order and count**
-  (`ManualOptionsLanguageSync`). A language nobody translated yet is left
-  alone — starting a translation is the contributor's gesture, following
-  Jahia's standard flow: save the options in the default language, switch to
-  the other language and use **Copy a language** to bring the entries in, then
-  translate the labels. A language keeps its own label and selected flag for a
-  value it already carries (same-value entries pair positionally), and inherits
-  the master entry otherwise. Content that diverged before this guard existed
-  is re-aligned the next time its field is saved — never at startup: the
-  legacy-options migration completes before the sync listener registers.
+**In the editor, options are authored in the site's default language.** Outside
+it a row locks its value and its default selection, and the row controls (add,
+remove, reorder) hide: an added row could never receive a value there, and any
+structural change would only be reverted by the re-alignment. Only the label is
+editable. Options arriving in another language through the API or an import
+still **seed the default language at save**, so such content self-heals instead
+of being erased by a later main-language edit.
+
+**On every save of the options, the server feeds every site language**
+(`ManualOptionsLanguageSync`): each language is given the default language's
+values, order and count, its `j:translation_*` subnode created when it has none.
+A language keeps its own label for a value it already carries — same-value
+entries pair positionally, so duplicated (or still-empty) values never collapse
+onto one translation — and **labels are never copied from the default
+language**: an entry nobody has translated is stored with an empty label. A
+copied label cannot be told apart from a translated one, by the contributor
+scanning the list or by a translation tool, and it would have to be erased
+before it could be typed over. Content that diverged before this guard existed
+is re-aligned the next time its field is saved — never at startup: the
+legacy-options migration completes before the sync listener registers.
+
+Feeding a language nobody translated **departs from the Jahia norm**, where
+starting a translation is the contributor's gesture and never a server-side side
+effect. This field leaves no room for that gesture: the value is the identity, so
+it cannot be typed outside the default language, a row added there saves
+valueless, and the only remaining way to bring the list into a language is
+Content Editor's language copy — which copies the **whole node** and overwrites
+every other field's hand-made translation. Creating the subnode unasked is the
+lesser evil: the rows are then always on screen, values and switches read-only,
+labels empty and ready to contribute.
+
+**At render time, an untranslated entry follows the site's own rule for
+untranslated content** — the *Replace untranslated content with the default
+language content* setting (`j:mixLanguage`, read through
+`JCRSiteNode.isMixLanguagesActive`). `ManualOptionsDisplayService` applies it per
+entry, not per field, so a half-translated list always renders its translated
+labels:
+
+| Stored in the rendered language | Replacing ON | Replacing OFF |
+|---|---|---|
+| a label | that label | that label |
+| an empty label | the default language's label | the entry is not rendered |
+
+A form must never offer a blank choice, which rules out rendering the empty
+label as it stands; and when the site asks for untranslated content to stay
+invisible, an untranslated choice is exactly that. A field nobody translated
+therefore offers nothing at all while replacing is off — the same verdict the
+site pronounces on any other untranslated content.
 
 Three consequences worth knowing:
 
-- a row that still reaches a translation from outside the editor is removed by
-  the re-alignment at save (the master's count is the identity);
-- the forged-value validation reads the allowed values **from the default
-  language**, so its verdict never depends on a translation that has not been
-  re-aligned yet;
-- for the same reason a form **renders** the default language's values, order
-  and default selections, carrying the rendered language's own labels
+- a form **renders** the default language's values, order and default
+  selections, carrying the rendered language's own labels
   (`ManualOptionsDisplayService`). Rendering the stored translation verbatim
   would be unsafe rather than merely stale: publication is per language, so live
   can hold a translation at an older generation than the default language, and a
-  visitor would then be offered values the validation rejects as forged. It also
-  means a language nobody translated renders the default language's entries
-  instead of an empty list.
+  visitor would then be offered values the validation rejects as forged;
+- the forged-value validation reads the allowed values **from the default
+  language**, so its verdict never depends on a translation that has not been
+  re-aligned yet;
+- the two above are deliberately **asymmetric**, and it is the one place where
+  this design is not airtight. Withholding an untranslated entry narrows what a
+  visitor can *pick*; it does not narrow what the server *accepts*, since the
+  allowed set is read from the default language. An entry hidden from a French
+  form is still accepted if it is submitted by hand. This is tolerated: the
+  alternative — deriving the allowed set from the rendered language — is what
+  makes a published-generation mismatch reject legitimate submissions, which is
+  a far worse failure. Treat the hiding as presentation, never as an access
+  control.
 
 **An option whose value is deliberately empty** — the historical way of starting
 a select on a blank entry — cannot have its label translated. Outside the default
-language the editor reads an empty value as "nothing synced from the default
-language yet" and shows the pointer message where the label input would be. The
-stored label survives untouched (same-value entries pair positionally, so the
+language the editor reads an empty value as "nothing to translate here" and shows
+a pointer to the default language where the label input would be. The stored
+label survives untouched (same-value entries pair positionally, so the
 re-alignment keeps it); it simply cannot be edited there.
 `fmdb:optionsEmptyLabel` is the supported way to start a select empty, and being
 an ordinary i18n property it translates normally.
@@ -97,10 +130,10 @@ made the whole form unsavable — the visited language failed the required
 validation on a list the editor deliberately forbids authoring there — and no
 editor-side workaround exists that does not write content on the contributor's
 behalf (which falsifies the per-language change tracking). Coherence and
-presence are owned by the save-time sync instead: a saved default language
-feeds every other one. The trade-off is that a choice field *can* be saved
-with no options at all; it then simply renders nothing selectable until its
-options are authored in the default language.
+presence are owned by the save-time sync instead: a saved default language feeds
+every other one. The trade-off is that a choice field *can* be saved with no
+options at all; it then simply renders nothing selectable until its options are
+authored in the default language.
 
 Why the storage stays i18n: one JSON entry carries the value together with its
 **translatable label**, so a non-i18n property could not hold the labels.
