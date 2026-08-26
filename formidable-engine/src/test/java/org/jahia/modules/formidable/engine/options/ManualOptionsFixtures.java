@@ -8,6 +8,8 @@ import javax.jcr.Node;
 import javax.jcr.Property;
 import javax.jcr.Value;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -31,13 +33,30 @@ final class ManualOptionsFixtures {
         return "{\"value\":\"" + value + "\",\"label\":\"" + label + "\",\"selected\":" + selected + "}";
     }
 
+    /**
+     * A site declaring exactly the languages that already hold a translation: the
+     * shape where nothing has to be created, so a test says so by passing its own
+     * language set instead.
+     */
     static JCRNodeWrapper fieldNode(String defaultLanguage, Node... translations) throws Exception {
+        Set<String> siteLanguages = new LinkedHashSet<>();
+        siteLanguages.add(defaultLanguage);
+        for (Node translation : translations) {
+            siteLanguages.add(translation.getProperty("jcr:language").getString());
+        }
+
+        return fieldNode(siteLanguages, defaultLanguage, translations);
+    }
+
+    static JCRNodeWrapper fieldNode(Set<String> siteLanguages, String defaultLanguage, Node... translations)
+            throws Exception {
         JCRNodeWrapper field = mock(JCRNodeWrapper.class);
         when(field.isNodeType("fmdbmix:manualOptions")).thenReturn(true);
         when(field.getPath()).thenReturn("/sites/test/contents/form/fields/choice");
 
         JCRSiteNode site = mock(JCRSiteNode.class);
         when(site.getDefaultLanguage()).thenReturn(defaultLanguage);
+        when(site.getLanguages()).thenReturn(siteLanguages);
         when(field.getResolveSite()).thenReturn(site);
 
         JCRNodeIteratorWrapper iterator = mock(JCRNodeIteratorWrapper.class);

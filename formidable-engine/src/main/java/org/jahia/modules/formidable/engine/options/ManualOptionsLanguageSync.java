@@ -9,8 +9,11 @@ import org.slf4j.LoggerFactory;
 import javax.jcr.Node;
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
-import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LANGUAGE_PROPERTY;
@@ -27,14 +30,21 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.TR
  * that varies per language.
  *
  * The site's default language is the authority: whenever fmdb:options is saved,
- * every EXISTING translation is re-aligned on the master's values, order and
- * count. A language nobody translated yet is deliberately left alone — in
- * Jahia, starting a translation is the contributor's gesture (authoring, or
- * Content Editor's "Copy a language"), never a server-side side effect. A
- * language keeps its own label for a value it already carries — entries
- * sharing one value pair up positionally, so duplicated (or still-empty)
- * values never collapse onto one translation. Content that diverged before
- * this sync existed is re-aligned the next time its field is saved.
+ * EVERY site language is fed the master's values, order and count — its
+ * translation subnode created when it has none, the master's labels riding along
+ * as the starting point — while a language keeps its own label for a value it
+ * already carries. Entries sharing one value pair up positionally, so duplicated
+ * (or still-empty) values never collapse onto one translation. Content that
+ * diverged before this sync existed is re-aligned the next time its field is saved.
+ *
+ * Feeding a language nobody translated departs from the Jahia norm, where starting
+ * a translation is the contributor's gesture and never a server-side side effect.
+ * This field leaves no room for that gesture: the value IS the identity, so it
+ * cannot be typed outside the default language, a row added there saves valueless,
+ * and the only remaining way in is Content Editor's language copy — which copies
+ * the WHOLE node and overwrites every other field's hand-made translation. Creating
+ * the subnode unasked is the lesser evil: the labels are then always there to
+ * translate in place.
  *
  * Seeding an empty master is keyed on the SAVED language, not on the master being
  * empty: an empty master means "no identity yet" only when the save came from
@@ -58,7 +68,7 @@ public final class ManualOptionsLanguageSync {
     /**
      * @param savedLanguages the languages whose options the triggering save touched;
      *                       empty when the provenance is unknown, which allows seeding
-     * @return true when at least one language was re-aligned (the session then
+     * @return true when at least one language was written (the session then
      *         carries unsaved changes)
      */
     public static boolean sync(JCRNodeWrapper fieldNode, Set<String> savedLanguages) throws RepositoryException {
@@ -73,17 +83,21 @@ public final class ManualOptionsLanguageSync {
         }
 
         List<String> masterOptions = null;
-        List<Node> otherTranslations = new ArrayList<>();
-        NodeIterator translations = fieldNode.getNodes(TRANSLATION_NODES_PATTERN);
-        while (translations.hasNext()) {
-            Node translation = translations.nextNode();
+        Map<String, Node> translations = new LinkedHashMap<>();
+        NodeIterator existing = fieldNode.getNodes(TRANSLATION_NODES_PATTERN);
+        while (existing.hasNext()) {
+            Node translation = existing.nextNode();
             String language = translation.hasProperty(LANGUAGE_PROPERTY)
                     ? translation.getProperty(LANGUAGE_PROPERTY).getString()
                     : null;
+            if (language == null) {
+                continue;
+            }
+
             if (masterLanguage.equals(language)) {
                 masterOptions = ManualOptionEntries.readOptions(translation);
             } else {
-                otherTranslations.add(translation);
+                translations.put(language, translation);
             }
         }
 
@@ -101,7 +115,7 @@ public final class ManualOptionsLanguageSync {
                 return false;
             }
 
-            masterOptions = seedMaster(fieldNode, masterLanguage, otherTranslations);
+            masterOptions = seedMaster(fieldNode, masterLanguage, translations);
             if (masterOptions == null) {
                 return false;
             }
@@ -110,30 +124,53 @@ public final class ManualOptionsLanguageSync {
         }
 
         boolean updated = seeded;
-        for (Node translation : otherTranslations) {
-            List<String> current = ManualOptionEntries.readOptions(translation);
-            if (current.isEmpty()) {
-                // The language exists (a translated title, an editor visit) but its
-                // options were never authored: stays untranslated, nothing to align.
-                continue;
-            }
-
-            if (!carriesRealEntry(current)) {
-                // Only valueless rows: the accidental leftovers of an "add" clicked
-                // outside the default language, where no value can ever be typed.
-                // That is noise, not a translation — clean it so the language stays
-                // untranslated instead of silently adopting the master's entries.
-                translation.setProperty(OPTIONS_PROPERTY, (String[]) null);
-                log.info("[ManualOptionsLanguageSync] Cleaned the valueless options of '{}' ({})",
-                        fieldNode.getPath(), translation.getName());
-                updated = true;
-                continue;
-            }
-
-            updated |= alignTranslation(translation, current, masterOptions, fieldNode.getPath());
+        for (String language : targetLanguages(site, translations.keySet(), masterLanguage)) {
+            updated |= feed(fieldNode, language, translations.get(language), masterOptions);
         }
 
         return updated;
+    }
+
+    /**
+     * The languages that must carry the master's identity: every language the site
+     * declares, plus any language holding a translation the site no longer declares
+     * — dropping one from the site does not delete what it stored, and a language
+     * put back must not resurface with a divergent list.
+     */
+    private static Set<String> targetLanguages(JCRSiteNode site, Set<String> translated, String masterLanguage) {
+        Set<String> languages = new LinkedHashSet<>(translated);
+        Set<String> siteLanguages = site.getLanguages();
+        if (siteLanguages != null) {
+            languages.addAll(siteLanguages);
+        }
+
+        languages.remove(masterLanguage);
+        return languages;
+    }
+
+    /**
+     * Rewrites one language's entries as the master's values, order and default
+     * selections (form behavior travels with the value), keeping only that
+     * language's label wherever the value already exists there. A language with no
+     * translation subnode yet gets one, carrying the master's labels to translate.
+     */
+    private static boolean feed(JCRNodeWrapper fieldNode, String language, Node translation,
+            List<String> masterOptions) throws RepositoryException {
+        List<String> current = translation != null
+                ? ManualOptionEntries.readOptions(translation)
+                : Collections.emptyList();
+        List<String> aligned = ManualOptionEntries.align(masterOptions, current);
+        if (translation != null && aligned.equals(current)) {
+            return false;
+        }
+
+        if (translation == null) {
+            translation = fieldNode.getOrCreateI18N(LanguageCodeConverters.languageCodeToLocale(language));
+        }
+
+        translation.setProperty(OPTIONS_PROPERTY, aligned.toArray(new String[0]));
+        log.info("[ManualOptionsLanguageSync] Fed the options of '{}' to '{}'", fieldNode.getPath(), language);
+        return true;
     }
 
     /**
@@ -177,19 +214,17 @@ public final class ManualOptionsLanguageSync {
      * @return the seeded master entries, or null when no language carries options
      */
     private static List<String> seedMaster(JCRNodeWrapper fieldNode, String masterLanguage,
-            List<Node> otherTranslations) throws RepositoryException {
+            Map<String, Node> translations) throws RepositoryException {
         String sourceLanguage = null;
         List<String> sourceOptions = null;
-        for (Node translation : otherTranslations) {
-            List<String> options = ManualOptionEntries.readOptions(translation);
+        for (Map.Entry<String, Node> entry : translations.entrySet()) {
+            List<String> options = ManualOptionEntries.readOptions(entry.getValue());
             // Valueless rows are noise, never an identity to seed from.
             if (!carriesRealEntry(options)) {
                 continue;
             }
 
-            String language = translation.hasProperty(LANGUAGE_PROPERTY)
-                    ? translation.getProperty(LANGUAGE_PROPERTY).getString()
-                    : "";
+            String language = entry.getKey();
             if (sourceLanguage == null || language.compareTo(sourceLanguage) < 0) {
                 sourceLanguage = language;
                 sourceOptions = options;
@@ -205,26 +240,5 @@ public final class ManualOptionsLanguageSync {
         log.info("[ManualOptionsLanguageSync] Seeded the default language ({}) options of '{}' from '{}'",
                 masterLanguage, fieldNode.getPath(), sourceLanguage);
         return sourceOptions;
-    }
-
-    /**
-     * Rewrites one language's entries as the master's values, order and default
-     * selections (form behavior travels with the value), keeping only that
-     * language's label wherever the value already exists there. Same-value entries
-     * are consumed positionally (a queue per value), so two master rows sharing a
-     * value — including two rows whose value is still empty — each keep their own
-     * translation.
-     */
-    private static boolean alignTranslation(Node translation, List<String> current, List<String> masterOptions,
-            String fieldPath) throws RepositoryException {
-        List<String> aligned = ManualOptionEntries.align(masterOptions, current);
-        if (aligned.equals(current)) {
-            return false;
-        }
-
-        translation.setProperty(OPTIONS_PROPERTY, aligned.toArray(new String[0]));
-        log.info("[ManualOptionsLanguageSync] Re-aligned the options of '{}' ({})",
-                fieldPath, translation.getName());
-        return true;
     }
 }

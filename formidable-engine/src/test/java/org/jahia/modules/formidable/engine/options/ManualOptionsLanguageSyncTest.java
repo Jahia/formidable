@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -104,32 +105,52 @@ class ManualOptionsLanguageSyncTest {
     }
 
     @Test
-    void aLanguageNobodyTranslatedIsLeftAlone() throws Exception {
-        // A site language with no j:translation_* subnode stays untouched: starting
-        // a translation is the contributor's gesture (authoring, or Content Editor's
-        // "Copy a language"), never a server-side side effect of someone else's save.
+    void aSiteLanguageWithoutATranslationIsCreatedAndFed() throws Exception {
+        // Nothing lets a contributor start this field's translation by hand — the
+        // value cannot be typed outside the default language, and Content Editor's
+        // language copy would overwrite every other field. So the subnode is created
+        // and fed the master's entries, labels included, ready to translate in place.
         Node master = translation("en", option("a", "Alpha"), option("b", "Bee", true));
+        Node fr = mock(Node.class);
 
-        JCRNodeWrapper field = fieldNode("en", master);
+        JCRNodeWrapper field = fieldNode(Set.of("en", "fr"), "en", master);
+        when(field.getOrCreateI18N(org.jahia.utils.LanguageCodeConverters.languageCodeToLocale("fr")))
+                .thenReturn(fr);
 
-        assertFalse(ManualOptionsLanguageSync.sync(field, Set.of("en")));
+        assertTrue(ManualOptionsLanguageSync.sync(field, Set.of("en")));
+        verify(fr).setProperty(eq("fmdb:options"),
+                eq(new String[]{option("a", "Alpha"), option("b", "Bee", true)}));
+    }
+
+    @Test
+    void aLanguageWhoseOptionsWereNeverAuthoredIsFedInPlace() throws Exception {
+        // The subnode already exists (another property was translated there) but
+        // carries no options: it is fed like any other language, instead of being
+        // skipped as "untranslated" and left with an empty list forever.
+        Node master = translation("en", option("a", "Alpha"));
+        Node fr = translation("fr");
+
+        JCRNodeWrapper field = fieldNode("en", master, fr);
+
+        assertTrue(ManualOptionsLanguageSync.sync(field, Set.of("en")));
+        verify(fr).setProperty(eq("fmdb:options"), eq(new String[]{option("a", "Alpha")}));
         verify(field, never()).getOrCreateI18N(any());
     }
 
     @Test
-    void valuelessRowsAreCleanedNotAdopted() throws Exception {
+    void valuelessRowsAreReplacedByTheMasterEntries() throws Exception {
         // An "add" clicked outside the default language can only save valueless
-        // rows (no value is typable there): noise, not a translation. The sync
-        // removes the property so the language stays untranslated, instead of
-        // treating it as an existing translation and feeding it the master.
+        // rows (no value is typable there): noise, not a translation. The master's
+        // entries take their place — the row keeps no label it could not have
+        // matched to a value anyway.
         Node master = translation("en", option("a", "Alpha"), option("b", "Bee"));
         Node fr = translation("fr", option("", ""));
 
         JCRNodeWrapper field = fieldNode("en", master, fr);
 
         assertTrue(ManualOptionsLanguageSync.sync(field, Set.of("fr")));
-        verify(fr).setProperty("fmdb:options", (String[]) null);
-        verify(fr, never()).setProperty(eq("fmdb:options"), any(String[].class));
+        verify(fr).setProperty(eq("fmdb:options"),
+                eq(new String[]{option("a", "Alpha"), option("b", "Bee")}));
     }
 
     @Test
