@@ -123,6 +123,20 @@ class ManualOptionsLanguageSyncTest {
     }
 
     @Test
+    void bothLabelsTypedInOneGoSurviveTheSave() throws Exception {
+        // Two rows fed empty in French, a contributor types BOTH labels and saves: the
+        // save re-enters the sync, which must recognise the list as already aligned and
+        // rewrite nothing. Neither label may come back empty on the next edit.
+        Node master = translation("en", option("a", "Alpha"), option("b", "Bee"));
+        Node fr = translation("fr", option("a", "Alfa"), option("b", "B\u00e9"));
+
+        JCRNodeWrapper field = fieldNode("en", master, fr);
+
+        assertFalse(ManualOptionsLanguageSync.sync(field, Set.of("fr")));
+        verify(fr, never()).setProperty(eq("fmdb:options"), any(String[].class));
+    }
+
+    @Test
     void aFedEntryCarriesNoLabelUntilSomeoneTranslatesIt() throws Exception {
         // The master's words are never copied into a translation: a copied label
         // cannot be told apart from a translated one, and the contributor would have

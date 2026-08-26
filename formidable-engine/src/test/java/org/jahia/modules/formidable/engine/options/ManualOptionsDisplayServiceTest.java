@@ -17,7 +17,8 @@ import static org.mockito.Mockito.when;
  * What a translated form RENDERS: the default language's values, order and default
  * selections with the rendered language's own labels — the read-side counterpart of
  * the save-time re-alignment, so a rendered option can never be a value the
- * submission validation rejects.
+ * submission validation rejects. An entry nobody translated follows the SITE's rule
+ * for untranslated content, hence the isMixLanguagesActive stubbing below.
  */
 class ManualOptionsDisplayServiceTest {
 
@@ -32,6 +33,7 @@ class ManualOptionsDisplayServiceTest {
         Node fr = translation("fr", option("mint", "Menthe"), option("chocolate", "Chocolat"));
 
         JCRNodeWrapper field = fieldNode("en", master, fr);
+        when(field.getResolveSite().isMixLanguagesActive()).thenReturn(true);
 
         assertArrayEquals(
                 new String[]{option("vanilla", "Vanilla"), option("chocolate", "Chocolat")},
@@ -53,13 +55,26 @@ class ManualOptionsDisplayServiceTest {
 
     @Test
     void anUntranslatedLanguageRendersTheMasterEntries() throws Exception {
-        // Nothing translated here yet. Rendering the master's entries beats rendering
-        // an empty list, and it is what the submission validation allows anyway.
+        // Nothing translated here yet, and the site replaces untranslated content with
+        // the default language's: the master's entries are rendered as they stand.
+        Node master = translation("en", option("a", "Alpha"));
+
+        JCRNodeWrapper field = fieldNode("en", master);
+        when(field.getResolveSite().isMixLanguagesActive()).thenReturn(true);
+
+        assertArrayEquals(new String[]{option("a", "Alpha")}, service.forDisplay(field, "fr"));
+    }
+
+    @Test
+    void anUntranslatedLanguageRendersNothingWhenTheSiteHidesUntranslatedContent() throws Exception {
+        // Replacing is off: the site asked for untranslated content to stay invisible.
+        // A field nobody translated then offers no choice at all — the same verdict
+        // the site pronounces on any other untranslated content.
         Node master = translation("en", option("a", "Alpha"));
 
         JCRNodeWrapper field = fieldNode("en", master);
 
-        assertArrayEquals(new String[]{option("a", "Alpha")}, service.forDisplay(field, "fr"));
+        assertArrayEquals(new String[0], service.forDisplay(field, "fr"));
     }
 
     @Test
@@ -71,10 +86,24 @@ class ManualOptionsDisplayServiceTest {
         Node fr = translation("fr", option("a", "Alfa"), option("b", ""));
 
         JCRNodeWrapper field = fieldNode("en", master, fr);
+        when(field.getResolveSite().isMixLanguagesActive()).thenReturn(true);
 
         assertArrayEquals(
                 new String[]{option("a", "Alfa"), option("b", "Bee")},
                 service.forDisplay(field, "fr"));
+    }
+
+    @Test
+    void anEntryLeftBlankIsDroppedWhenTheSiteHidesUntranslatedContent() throws Exception {
+        // Per entry, not per field: the translated choice is offered, the untranslated
+        // one is withheld. The visitor never reads a blank line, and never reads a word
+        // in a language the site said not to serve here.
+        Node master = translation("en", option("a", "Alpha"), option("b", "Bee"));
+        Node fr = translation("fr", option("a", "Alfa"), option("b", ""));
+
+        JCRNodeWrapper field = fieldNode("en", master, fr);
+
+        assertArrayEquals(new String[]{option("a", "Alfa")}, service.forDisplay(field, "fr"));
     }
 
     @Test

@@ -44,29 +44,28 @@ public final class ManualOptionEntries {
     }
 
     /**
-     * One aligned entry: the master's identity (value AND default selection — form
-     * behavior, not content) with the language's own label. Hand-built in the exact
-     * shape the editor's JSON.stringify produces ({"value","label","selected"} in
-     * that order), so re-running the sync on an aligned translation reproduces
-     * byte-identical entries and stays idempotent.
-     *
-     * @param masterLabelWhenUntranslated what an entry with no label of its own is
-     *        given — see the two align* methods
+     * One entry in the exact shape the editor's JSON.stringify produces
+     * ({"value","label","selected"} in that order), so re-running the sync on an
+     * aligned translation reproduces byte-identical entries and stays idempotent.
+     * The identity — value AND default selection, form behavior rather than content —
+     * always comes from the master; only the label is the caller's to choose.
      */
-    private static String withMasterIdentity(String masterRaw, String ownRaw,
-            boolean masterLabelWhenUntranslated) {
-        try {
-            JSONObject master = new JSONObject(masterRaw);
-            String label = ownRaw != null ? new JSONObject(ownRaw).optString("label", "") : "";
-            if (masterLabelWhenUntranslated && label.trim().isEmpty()) {
-                label = master.optString("label", "");
-            }
+    private static String entry(JSONObject master, String label) {
+        return "{\"value\":" + JSONObject.quote(master.optString("value", ""))
+                + ",\"label\":" + JSONObject.quote(label)
+                + ",\"selected\":" + master.optBoolean("selected", false) + "}";
+    }
 
-            return "{\"value\":" + JSONObject.quote(master.optString("value", ""))
-                    + ",\"label\":" + JSONObject.quote(label)
-                    + ",\"selected\":" + master.optBoolean("selected", false) + "}";
+    /** That language's own label for this value, or "" when it has none. */
+    private static String ownLabel(String ownRaw) {
+        if (ownRaw == null) {
+            return "";
+        }
+
+        try {
+            return new JSONObject(ownRaw).optString("label", "");
         } catch (JSONException e) {
-            return masterRaw;
+            return "";
         }
     }
 
@@ -76,34 +75,67 @@ public final class ManualOptionEntries {
      * there and an EMPTY label everywhere else. A translation is never pre-filled
      * with the master's words — a copied label cannot be told apart from a translated
      * one, by the contributor scanning the list or by a translation tool, and it would
-     * have to be erased before it can be typed over.
+     * have to be erased before it can be typed over. Every entry is kept, blank label
+     * included: it is the editor's row, the one a contributor types into.
      */
     public static List<String> alignForStorage(List<String> masterOptions, List<String> ownOptions) {
-        return align(masterOptions, ownOptions, false);
+        Map<String, Deque<String>> ownByValue = indexByValue(ownOptions);
+        List<String> aligned = new ArrayList<>(masterOptions.size());
+        for (String masterRaw : masterOptions) {
+            try {
+                JSONObject master = new JSONObject(masterRaw);
+                aligned.add(entry(master, ownLabel(take(ownByValue, master.optString("value", "")))));
+            } catch (JSONException e) {
+                aligned.add(masterRaw);
+            }
+        }
+
+        return aligned;
     }
 
     /**
-     * The entries to RENDER in one language: same identity, but an entry not
-     * translated yet falls back to the master's label — a form must never offer a
-     * blank choice. The fallback is per entry and keyed on a BLANK label, which is
-     * exactly what {@link #alignForStorage} leaves behind, so a half-translated list
-     * renders the translated labels and the master's words for the rest.
+     * The entries to RENDER in one language: the same identity, but an entry nobody
+     * translated yet — a blank label, exactly what {@link #alignForStorage} leaves
+     * behind — is governed by the SITE's own rule for untranslated content
+     * ("Replace untranslated content with the default language content",
+     * JCRSiteNode.isMixLanguagesActive):
+     *
+     * - replacing ON: it renders with the default language's label, so the visitor
+     *   sees the master's wording rather than a blank choice;
+     * - replacing OFF: it is NOT rendered at all — the site asked for untranslated
+     *   content to stay invisible, and a choice whose label is blank is exactly that.
+     *
+     * The rule is applied per entry, so a half-translated list renders the translated
+     * labels either way. Dropping an entry narrows what the visitor can pick, never
+     * what the submission validation accepts: the allowed set is read from the master.
      */
-    public static List<String> alignForDisplay(List<String> masterOptions, List<String> ownOptions) {
-        return align(masterOptions, ownOptions, true);
+    public static List<String> alignForDisplay(List<String> masterOptions, List<String> ownOptions,
+            boolean replaceUntranslated) {
+        Map<String, Deque<String>> ownByValue = indexByValue(ownOptions);
+        List<String> aligned = new ArrayList<>(masterOptions.size());
+        for (String masterRaw : masterOptions) {
+            try {
+                JSONObject master = new JSONObject(masterRaw);
+                String label = ownLabel(take(ownByValue, master.optString("value", "")));
+                if (!label.trim().isEmpty()) {
+                    aligned.add(entry(master, label));
+                } else if (replaceUntranslated) {
+                    aligned.add(entry(master, master.optString("label", "")));
+                }
+            } catch (JSONException e) {
+                aligned.add(masterRaw);
+            }
+        }
+
+        return aligned;
     }
 
     /**
      * Same-value entries are consumed positionally (a queue per value), so two master
      * rows sharing a value — including two rows whose value is still empty — each keep
-     * their own translation.
-     *
-     * Pure, and the single expression of the alignment rule: the save-time
-     * re-alignment and the display-time read share it, so a rendered form and a
-     * validated submission cannot disagree on the identity.
+     * their own translation instead of collapsing onto the first one.
      */
-    private static List<String> align(List<String> masterOptions, List<String> ownOptions,
-            boolean masterLabelWhenUntranslated) {
+    private static Map<String, Deque<String>> indexByValue(List<String> ownOptions) {
         Map<String, Deque<String>> ownByValue = new HashMap<>();
         for (String raw : ownOptions) {
             String value = value(raw);
@@ -112,15 +144,12 @@ public final class ManualOptionEntries {
             }
         }
 
-        List<String> aligned = new ArrayList<>(masterOptions.size());
-        for (String masterRaw : masterOptions) {
-            String value = value(masterRaw);
-            Deque<String> own = value != null ? ownByValue.get(value) : null;
-            aligned.add(withMasterIdentity(masterRaw, own != null ? own.pollFirst() : null,
-                    masterLabelWhenUntranslated));
-        }
+        return ownByValue;
+    }
 
-        return aligned;
+    private static String take(Map<String, Deque<String>> ownByValue, String value) {
+        Deque<String> own = ownByValue.get(value);
+        return own != null ? own.pollFirst() : null;
     }
 
     /** The raw entries of one language's translation subnode, in stored order. */

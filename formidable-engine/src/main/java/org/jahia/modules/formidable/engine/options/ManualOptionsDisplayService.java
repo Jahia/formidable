@@ -23,6 +23,12 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.MA
  * forged. Reading the identity here and the label there makes the two sides agree at
  * every publication state.
  *
+ * An entry nobody translated yet is stored with a blank label, and what to do with it
+ * is not this module's call: the site already states it, through "Replace untranslated
+ * content with the default language content". So the same switch governs one entry of
+ * a choice field — rendered with the master's wording when it is on, not rendered at
+ * all when it is off (see ManualOptionEntries.alignForDisplay).
+ *
  * Exposed as an OSGi service because the callers are the GraalVM JS server views,
  * which reach it through {@code server.osgi.getService} — the same bridge
  * FormidableOptionsSourceService uses, and the same JSON storage format out.
@@ -62,6 +68,7 @@ public class ManualOptionsDisplayService {
 
         Node own = ManualOptionEntries.findTranslation(fieldNode, languageTag);
         List<String> ownOptions = own != null ? ManualOptionEntries.readOptions(own) : List.of();
-        return ManualOptionEntries.alignForDisplay(masterOptions, ownOptions).toArray(new String[0]);
+        return ManualOptionEntries.alignForDisplay(masterOptions, ownOptions, site.isMixLanguagesActive())
+                .toArray(new String[0]);
     }
 }
