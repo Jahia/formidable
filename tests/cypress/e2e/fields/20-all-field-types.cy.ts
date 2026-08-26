@@ -46,8 +46,13 @@ describe('Form fields - 20 All field types', () => {
 	// intermittently times out at the socket level on CI (ESOCKETTIMEDOUT): one
 	// retry absorbs that warm-up without hiding anything else. CI-only.
 	it('submits a simple live form with all supported field types', {retries: {runMode: 1}}, () => {
+		// Stamped per attempt: the first one already created the form before timing
+		// out, so a fixed name made the retry die on ItemExistsException instead of
+		// re-running the test -- and that creation error was the one reported.
+		const formName = `all-fields-simple-form-${Date.now()}`;
+
 		createPublishedLiveFormPage(
-			'all-fields-simple-form',
+			formName,
 			'All Fields Simple Form',
 			[
 				getInputTextNode({...INPUT_TEXT_COMPLETE, defaultValue: undefined}),
