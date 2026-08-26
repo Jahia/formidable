@@ -37,7 +37,7 @@ class ManualOptionsLanguageSyncTest {
 
         assertTrue(ManualOptionsLanguageSync.sync(field, Set.of("fr")));
         verify(fr).setProperty(eq("fmdb:options"),
-                eq(new String[]{option("a", "Alpha"), frB}));
+                eq(new String[]{option("a", ""), frB}));
     }
 
     @Test
@@ -82,7 +82,7 @@ class ManualOptionsLanguageSyncTest {
 
         assertTrue(ManualOptionsLanguageSync.sync(field, Set.of("en")));
         verify(fr).setProperty(eq("fmdb:options"),
-                eq(new String[]{frA1, frA2, option("b", "Bee")}));
+                eq(new String[]{frA1, frA2, option("b", "")}));
     }
 
     @Test
@@ -119,7 +119,23 @@ class ManualOptionsLanguageSyncTest {
 
         assertTrue(ManualOptionsLanguageSync.sync(field, Set.of("en")));
         verify(fr).setProperty(eq("fmdb:options"),
-                eq(new String[]{option("a", "Alpha"), option("b", "Bee", true)}));
+                eq(new String[]{option("a", ""), option("b", "", true)}));
+    }
+
+    @Test
+    void aFedEntryCarriesNoLabelUntilSomeoneTranslatesIt() throws Exception {
+        // The master's words are never copied into a translation: a copied label
+        // cannot be told apart from a translated one, and the contributor would have
+        // to erase it before typing. The views render the master's label meanwhile
+        // (ManualOptionsDisplayService), so nothing shows up blank to a visitor.
+        Node master = translation("en", option("a", "Alpha"), option("b", "Bee"));
+        Node fr = translation("fr", option("a", "Alfa"));
+
+        JCRNodeWrapper field = fieldNode("en", master, fr);
+
+        assertTrue(ManualOptionsLanguageSync.sync(field, Set.of("en")));
+        verify(fr).setProperty(eq("fmdb:options"),
+                eq(new String[]{option("a", "Alfa"), option("b", "")}));
     }
 
     @Test
@@ -133,7 +149,7 @@ class ManualOptionsLanguageSyncTest {
         JCRNodeWrapper field = fieldNode("en", master, fr);
 
         assertTrue(ManualOptionsLanguageSync.sync(field, Set.of("en")));
-        verify(fr).setProperty(eq("fmdb:options"), eq(new String[]{option("a", "Alpha")}));
+        verify(fr).setProperty(eq("fmdb:options"), eq(new String[]{option("a", "")}));
         verify(field, never()).getOrCreateI18N(any());
     }
 
@@ -150,7 +166,7 @@ class ManualOptionsLanguageSyncTest {
 
         assertTrue(ManualOptionsLanguageSync.sync(field, Set.of("fr")));
         verify(fr).setProperty(eq("fmdb:options"),
-                eq(new String[]{option("a", "Alpha"), option("b", "Bee")}));
+                eq(new String[]{option("a", ""), option("b", "")}));
     }
 
     @Test

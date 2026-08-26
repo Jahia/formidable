@@ -49,13 +49,17 @@ public final class ManualOptionEntries {
      * shape the editor's JSON.stringify produces ({"value","label","selected"} in
      * that order), so re-running the sync on an aligned translation reproduces
      * byte-identical entries and stays idempotent.
+     *
+     * @param masterLabelWhenUntranslated what an entry with no label of its own is
+     *        given — see the two align* methods
      */
-    public static String withMasterIdentity(String masterRaw, String ownRaw) {
+    private static String withMasterIdentity(String masterRaw, String ownRaw,
+            boolean masterLabelWhenUntranslated) {
         try {
             JSONObject master = new JSONObject(masterRaw);
-            String label = master.optString("label", "");
-            if (ownRaw != null) {
-                label = new JSONObject(ownRaw).optString("label", label);
+            String label = ownRaw != null ? new JSONObject(ownRaw).optString("label", "") : "";
+            if (masterLabelWhenUntranslated && label.trim().isEmpty()) {
+                label = master.optString("label", "");
             }
 
             return "{\"value\":" + JSONObject.quote(master.optString("value", ""))
@@ -67,17 +71,39 @@ public final class ManualOptionEntries {
     }
 
     /**
-     * One language's entries rewritten as the master's values, order and default
-     * selections, keeping that language's own label wherever the value already exists
-     * there. Same-value entries are consumed positionally (a queue per value), so two
-     * master rows sharing a value — including two rows whose value is still empty —
-     * each keep their own translation.
+     * The entries to STORE in one language: the master's values, order and default
+     * selections, with that language's own label wherever the value already exists
+     * there and an EMPTY label everywhere else. A translation is never pre-filled
+     * with the master's words — a copied label cannot be told apart from a translated
+     * one, by the contributor scanning the list or by a translation tool, and it would
+     * have to be erased before it can be typed over.
+     */
+    public static List<String> alignForStorage(List<String> masterOptions, List<String> ownOptions) {
+        return align(masterOptions, ownOptions, false);
+    }
+
+    /**
+     * The entries to RENDER in one language: same identity, but an entry not
+     * translated yet falls back to the master's label — a form must never offer a
+     * blank choice. The fallback is per entry and keyed on a BLANK label, which is
+     * exactly what {@link #alignForStorage} leaves behind, so a half-translated list
+     * renders the translated labels and the master's words for the rest.
+     */
+    public static List<String> alignForDisplay(List<String> masterOptions, List<String> ownOptions) {
+        return align(masterOptions, ownOptions, true);
+    }
+
+    /**
+     * Same-value entries are consumed positionally (a queue per value), so two master
+     * rows sharing a value — including two rows whose value is still empty — each keep
+     * their own translation.
      *
      * Pure, and the single expression of the alignment rule: the save-time
      * re-alignment and the display-time read share it, so a rendered form and a
      * validated submission cannot disagree on the identity.
      */
-    public static List<String> align(List<String> masterOptions, List<String> ownOptions) {
+    private static List<String> align(List<String> masterOptions, List<String> ownOptions,
+            boolean masterLabelWhenUntranslated) {
         Map<String, Deque<String>> ownByValue = new HashMap<>();
         for (String raw : ownOptions) {
             String value = value(raw);
@@ -90,7 +116,8 @@ public final class ManualOptionEntries {
         for (String masterRaw : masterOptions) {
             String value = value(masterRaw);
             Deque<String> own = value != null ? ownByValue.get(value) : null;
-            aligned.add(withMasterIdentity(masterRaw, own != null ? own.pollFirst() : null));
+            aligned.add(withMasterIdentity(masterRaw, own != null ? own.pollFirst() : null,
+                    masterLabelWhenUntranslated));
         }
 
         return aligned;

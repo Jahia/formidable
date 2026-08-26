@@ -30,12 +30,15 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.TR
  * that varies per language.
  *
  * The site's default language is the authority: whenever fmdb:options is saved,
- * EVERY site language is fed the master's values, order and count — its
- * translation subnode created when it has none, the master's labels riding along
- * as the starting point — while a language keeps its own label for a value it
- * already carries. Entries sharing one value pair up positionally, so duplicated
- * (or still-empty) values never collapse onto one translation. Content that
- * diverged before this sync existed is re-aligned the next time its field is saved.
+ * EVERY site language is fed the master's values, order and count — its translation
+ * subnode created when it has none — while a language keeps its own label for a
+ * value it already carries. Labels are never copied from the master: an entry
+ * nobody translated is stored with an EMPTY label, and the views fall back to the
+ * master's label for it (ManualOptionEntries.alignForDisplay), so an untranslated
+ * choice reads correctly without ever looking translated in the editor. Entries
+ * sharing one value pair up positionally, so duplicated (or still-empty) values
+ * never collapse onto one translation. Content that diverged before this sync
+ * existed is re-aligned the next time its field is saved.
  *
  * Feeding a language nobody translated departs from the Jahia norm, where starting
  * a translation is the contributor's gesture and never a server-side side effect.
@@ -152,14 +155,15 @@ public final class ManualOptionsLanguageSync {
      * Rewrites one language's entries as the master's values, order and default
      * selections (form behavior travels with the value), keeping only that
      * language's label wherever the value already exists there. A language with no
-     * translation subnode yet gets one, carrying the master's labels to translate.
+     * translation subnode yet gets one, its labels left empty for the contributor (or
+     * a translation tool) to fill — the views render the master's label meanwhile.
      */
     private static boolean feed(JCRNodeWrapper fieldNode, String language, Node translation,
             List<String> masterOptions) throws RepositoryException {
         List<String> current = translation != null
                 ? ManualOptionEntries.readOptions(translation)
                 : Collections.emptyList();
-        List<String> aligned = ManualOptionEntries.align(masterOptions, current);
+        List<String> aligned = ManualOptionEntries.alignForStorage(masterOptions, current);
         if (translation != null && aligned.equals(current)) {
             return false;
         }

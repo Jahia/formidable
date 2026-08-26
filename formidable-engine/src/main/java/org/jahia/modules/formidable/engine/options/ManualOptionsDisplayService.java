@@ -62,6 +62,6 @@ public class ManualOptionsDisplayService {
 
         Node own = ManualOptionEntries.findTranslation(fieldNode, languageTag);
         List<String> ownOptions = own != null ? ManualOptionEntries.readOptions(own) : List.of();
-        return ManualOptionEntries.align(masterOptions, ownOptions).toArray(new String[0]);
+        return ManualOptionEntries.alignForDisplay(masterOptions, ownOptions).toArray(new String[0]);
     }
 }

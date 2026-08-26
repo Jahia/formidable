@@ -63,6 +63,21 @@ class ManualOptionsDisplayServiceTest {
     }
 
     @Test
+    void anEntryLeftBlankRendersTheMasterLabel() throws Exception {
+        // What the save-time feeding stores for an entry nobody translated yet: the
+        // identity with an empty label. A form must never offer a blank choice, so the
+        // fallback is per entry — 'a' shows its French label, 'b' the master's.
+        Node master = translation("en", option("a", "Alpha"), option("b", "Bee"));
+        Node fr = translation("fr", option("a", "Alfa"), option("b", ""));
+
+        JCRNodeWrapper field = fieldNode("en", master, fr);
+
+        assertArrayEquals(
+                new String[]{option("a", "Alfa"), option("b", "Bee")},
+                service.forDisplay(field, "fr"));
+    }
+
+    @Test
     void theDefaultLanguageRendersWhatItStores() throws Exception {
         // It IS the identity: nothing to align, the caller keeps the list it read.
         Node master = translation("en", option("a", "Alpha"));
