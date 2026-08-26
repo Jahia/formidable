@@ -43,10 +43,11 @@ describe('Form logic - 511 Rules never hide a field in edit mode', () => {
 			// The rendering mode has to reach the island too: the hydrated form re-runs
 			// the rules, so without this marker it would hide back what the server showed.
 			cy.get('form.fmdb-form').should('have.attr', 'data-fmdb-edit-mode', 'true');
-			wrapperOf('gated')
-				.should('exist')
-				.and('not.have.attr', 'data-fmdb-logic-hidden')
-				.and('not.have.attr', 'aria-hidden');
+			// One subject per assertion: `should('not.have.attr')` yields the attribute
+			// value, so chaining a second one with `.and` would assert on undefined.
+			wrapperOf('gated').should('exist');
+			wrapperOf('gated').should('not.have.attr', 'data-fmdb-logic-hidden');
+			wrapperOf('gated').should('not.have.attr', 'aria-hidden');
 			// Hiding also disables the controls it covers, so being visible is not enough:
 			// the contributor must be able to type in the field.
 			cy.get('input[name="gated"]').should('be.visible').and('not.be.disabled');
