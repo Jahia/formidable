@@ -3,12 +3,14 @@ package org.jahia.modules.formidable.engine.options;
 import org.jahia.services.content.JCRNodeIteratorWrapper;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.decorator.JCRSiteNode;
+import org.jahia.utils.LanguageCodeConverters;
 
 import javax.jcr.Node;
 import javax.jcr.Property;
 import javax.jcr.Value;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Set;
 
 import static org.mockito.Mockito.mock;
@@ -72,7 +74,16 @@ final class ManualOptionsFixtures {
                     Arrays.copyOfRange(translations, 1, translations.length));
         }
 
-        when(field.getNodes("j:translation_*")).thenReturn(iterator);
+        // getI18Ns(), not getNodes("j:translation_*"): a locale-bound session hides the
+        // translation subnodes from getNodes, which is what production reads through.
+        when(field.getI18Ns()).thenReturn(iterator);
+        for (Node translation : translations) {
+            String language = translation.getProperty("jcr:language").getString();
+            Locale locale = LanguageCodeConverters.languageCodeToLocale(language);
+            when(field.hasI18N(locale, false)).thenReturn(true);
+            when(field.getI18N(locale, false)).thenReturn(translation);
+        }
+
         return field;
     }
 

@@ -1,11 +1,11 @@
 package org.jahia.modules.formidable.engine.options;
 
 import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.utils.LanguageCodeConverters;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import javax.jcr.Node;
-import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import javax.jcr.Value;
 import java.util.ArrayDeque;
@@ -13,11 +13,10 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LANGUAGE_PROPERTY;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.OPTIONS_PROPERTY;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.TRANSLATION_NODES_PATTERN;
 
 /**
  * The single reading of a manual option entry's storage, shared by everything
@@ -166,17 +165,21 @@ public final class ManualOptionEntries {
         return options;
     }
 
-    /** The j:translation_* subnode of one language, or null when never authored. */
+    /**
+     * The translation subnode of one language, or null when never authored.
+     *
+     * Reached through the i18n accessor, NOT through getNodes("j:translation_*"): a
+     * session bound to a locale hides the translation subnodes from getNodes
+     * altogether, and every rendering and every submission runs in such a session.
+     * The pattern walk therefore finds nothing there and the caller reads the field
+     * as if the language had never been authored — silently, since "no translation"
+     * is a legitimate answer. getI18N answers in both kinds of session.
+     *
+     * The fallback flag is off on purpose: asked for one language, this must never
+     * answer with another one's node, whatever fallback the site declares.
+     */
     public static Node findTranslation(JCRNodeWrapper fieldNode, String language) throws RepositoryException {
-        NodeIterator translations = fieldNode.getNodes(TRANSLATION_NODES_PATTERN);
-        while (translations.hasNext()) {
-            Node translation = translations.nextNode();
-            if (translation.hasProperty(LANGUAGE_PROPERTY)
-                    && language.equals(translation.getProperty(LANGUAGE_PROPERTY).getString())) {
-                return translation;
-            }
-        }
-
-        return null;
+        Locale locale = LanguageCodeConverters.languageCodeToLocale(language);
+        return fieldNode.hasI18N(locale, false) ? fieldNode.getI18N(locale, false) : null;
     }
 }

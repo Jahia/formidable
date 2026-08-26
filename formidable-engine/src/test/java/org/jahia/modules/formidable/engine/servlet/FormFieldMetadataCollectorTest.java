@@ -6,12 +6,14 @@ import org.jahia.services.content.JCRPropertyWrapper;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRValueWrapper;
 import org.jahia.services.content.decorator.JCRSiteNode;
+import org.jahia.utils.LanguageCodeConverters;
 import org.junit.jupiter.api.Test;
 
 import javax.jcr.Node;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
@@ -358,7 +360,14 @@ class FormFieldMetadataCollectorTest {
         when(field.getResolveSite()).thenReturn(site);
 
         // Answered per call: the iterator is one-shot.
-        when(field.getNodes("j:translation_*")).thenAnswer(invocation -> nodeIterator(translations));
+        when(field.getI18Ns()).thenAnswer(invocation -> nodeIterator(translations));
+        for (Node translation : translations) {
+            String language = translation.getProperty("jcr:language").getString();
+            Locale locale = LanguageCodeConverters.languageCodeToLocale(language);
+            when(field.hasI18N(locale, false)).thenReturn(true);
+            when(field.getI18N(locale, false)).thenReturn(translation);
+        }
+
         return field;
     }
 

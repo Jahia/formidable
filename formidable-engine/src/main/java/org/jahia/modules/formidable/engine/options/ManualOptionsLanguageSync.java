@@ -19,7 +19,6 @@ import java.util.Set;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LANGUAGE_PROPERTY;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.MANUAL_OPTIONS_MIXIN;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.OPTIONS_PROPERTY;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.TRANSLATION_NODES_PATTERN;
 
 /**
  * Keeps the manual options of a choice field coherent across languages. An
@@ -56,10 +55,12 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.TR
  * whichever language still carries entries would resurrect them — labels included —
  * in the wrong language.
  *
- * Works on the j:translation_* subnodes directly (the i18n storage, the same
- * access the options content migration uses), so one system session covers
- * every language. Idempotent: aligned translations rewrite nothing, which also
- * terminates the observation loop the sync's own writes re-enter.
+ * Works on the translation subnodes directly (the i18n storage, the same access
+ * the options content migration uses), so one system session covers every
+ * language — reached through getI18Ns(), which answers whether or not the session
+ * is bound to a locale, unlike a getNodes("j:translation_*") walk. Idempotent:
+ * aligned translations rewrite nothing, which also terminates the observation loop
+ * the sync's own writes re-enter.
  */
 public final class ManualOptionsLanguageSync {
 
@@ -87,7 +88,7 @@ public final class ManualOptionsLanguageSync {
 
         List<String> masterOptions = null;
         Map<String, Node> translations = new LinkedHashMap<>();
-        NodeIterator existing = fieldNode.getNodes(TRANSLATION_NODES_PATTERN);
+        NodeIterator existing = fieldNode.getI18Ns();
         while (existing.hasNext()) {
             Node translation = existing.nextNode();
             String language = translation.hasProperty(LANGUAGE_PROPERTY)
