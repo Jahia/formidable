@@ -25,6 +25,7 @@ test — CI never runs it):
 | `playground-simple-page.html` | Minimal contact form (published in EN and FR, with a custom required message on the full name field) |
 | `playground-steps-page.html` | Three-step form with navigation |
 | `playground-complete-page.html` | Every built-in field type, plus sourced choice fields (countries + `product/tv` sample categories) |
+| `playground-languages-page.html` | Choice field whose French labels are only half translated, to try the site's *Replace untranslated content with the default language content* setting both ways |
 
 All forms carry a save-to-JCR action, so submissions land in the results
 screens. The script also:

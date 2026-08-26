@@ -124,6 +124,18 @@ const departmentSelect = (): JahiaNode => withFrench(
 	]
 );
 
+// A HALF-translated option list: French carries a label for the first entry
+// only, which is what the save-time feeding leaves behind for the others (an
+// entry nobody translated is stored with an empty label, never with the
+// default language's words). Whether those two render as "Chocolate" and
+// "Pistachio" or vanish from the French form is the site's call — see the log
+// line at the end of this run.
+const FR_FLAVOR_OPTIONS = frOptions([
+	{value: 'vanilla', label: 'Vanille'},
+	{value: 'chocolate', label: ''},
+	{value: 'pistachio', label: ''}
+]);
+
 const FR_DELIVERY_OPTIONS = frOptions([
 	{value: 'standard', label: 'Standard'},
 	{value: 'express', label: 'Express', selected: true},
@@ -335,6 +347,40 @@ describe('Playground - provision manual-testing forms', () => {
 					}
 				).then(({livePath}) => cy.log(`Complete form: /en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`));
 			});
+		});
+	});
+
+	it('provisions the half-translated options form (untranslated-content playground)', () => {
+		createPublishedLiveFormPage(
+			'playground-languages',
+			'Playground - Half-translated options',
+			[
+				withFrench(
+					getSelectNode({
+						name: 'flavor',
+						title: 'Flavor',
+						options: [
+							{value: 'vanilla', label: 'Vanilla'},
+							{value: 'chocolate', label: 'Chocolate'},
+							{value: 'pistachio', label: 'Pistachio'}
+						]
+					}),
+					[{name: 'jcr:title', value: 'Parfum'}, FR_FLAVOR_OPTIONS]
+				)
+			],
+			undefined,
+			undefined,
+			{
+				actions: [saveToJcrAction()],
+				properties: [{name: 'jcr:title', value: 'Playground - Options traduites à moitié', language: 'fr'}],
+				pageProperties: [{name: 'jcr:title', value: 'Playground - Options traduites à moitié', language: 'fr'}],
+				publishLanguages: ['en', 'fr']
+			}
+		).then(({livePath}) => {
+			cy.log(`Half-translated options, English: /en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`);
+			cy.log(`Half-translated options, French: /fr/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`);
+			cy.log('Toggle "Replace untranslated content with the default language content" in the site settings: '
+				+ 'ON renders Chocolate/Pistachio with their English labels, OFF drops them from the French form.');
 		});
 	});
 
