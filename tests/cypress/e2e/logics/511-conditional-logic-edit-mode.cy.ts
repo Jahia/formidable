@@ -40,11 +40,16 @@ describe('Form logic - 511 Rules never hide a field in edit mode', () => {
 			// 'role' is left unselected, so the rule resolves to false everywhere:
 			// only the rendering mode decides whether the field is hidden.
 			visitEditForm(pagePath);
+			// The rendering mode has to reach the island too: the hydrated form re-runs
+			// the rules, so without this marker it would hide back what the server showed.
+			cy.get('form.fmdb-form').should('have.attr', 'data-fmdb-edit-mode', 'true');
 			wrapperOf('gated')
 				.should('exist')
 				.and('not.have.attr', 'data-fmdb-logic-hidden')
 				.and('not.have.attr', 'aria-hidden');
-			cy.get('input[name="gated"]').should('be.visible');
+			// Hiding also disables the controls it covers, so being visible is not enough:
+			// the contributor must be able to type in the field.
+			cy.get('input[name="gated"]').should('be.visible').and('not.be.disabled');
 
 			visitPreviewForm(livePath);
 			wrapperOf('gated').should('have.attr', 'data-fmdb-logic-hidden', 'true');
