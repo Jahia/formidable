@@ -59,6 +59,31 @@ const alignManualOptions = (currentNode: JCRNodeWrapper, manualOptions: string[]
 	}
 };
 
+// The root a category- or content-mode field reads its options under, by mixin.
+const SOURCE_ROOT_PROPERTIES = ["fmdb:optionsRootCategory", "fmdb:optionsRootNode"];
+
+const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * Category and content options are read live under a picked root, so the fragment
+ * depends on that whole subtree: a category or content published, renamed or removed
+ * under it must flush the field. Declared as a path regexp — the cache matches
+ * every modified node path against it. An unreadable root is left to the resolution,
+ * which reports it as a failing source.
+ */
+const declareSourceRootDependency = (currentNode: JCRNodeWrapper, renderContext: RenderContext): void => {
+	for (const property of SOURCE_ROOT_PROPERTIES) {
+		try {
+			if (currentNode.hasProperty(property)) {
+				const rootPath = currentNode.getProperty(property).getNode().getPath();
+				server.render.addCacheDependency({flushOnPathMatchingRegexp: `${escapeRegExp(rootPath)}(/.*)?`}, renderContext);
+			}
+		} catch {
+			// Resolution below reports the unreadable root.
+		}
+	}
+};
+
 /**
  * Resolves the option list of a choice field at render time.
  *
@@ -77,6 +102,8 @@ export const resolveFieldOptions = (currentNode: JCRNodeWrapper, manualOptions: 
 		console.error(`[Formidable] Could not read the options mode of field ${currentNode.getPath()}`, error);
 		return {choices: [], sourceError: true};
 	}
+
+	declareSourceRootDependency(currentNode, renderContext);
 
 	try {
 		const service = server.osgi.getService(OPTIONS_SOURCE_SERVICE);

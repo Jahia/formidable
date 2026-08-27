@@ -240,8 +240,9 @@ picked root: the category name is the submitted value, its localized title the
 displayed label. The weakreference resolves in the workspace of the caller, so a
 live form only shows **published** categories, and an unpublished or deleted root
 category degrades like any failing source (see below). Category options are not
-TTL-cached: the read is in-JVM, backed by Jahia's JCR caches, and a category
-publication shows up on the next render.
+TTL-cached: the read is in-JVM, backed by Jahia's JCR caches, and the field
+fragment depends on the root category's subtree, so a category published,
+renamed or removed under it refreshes the already-rendered page.
 
 ## Content mode
 
@@ -277,7 +278,9 @@ The resolution runs a JCR query through the **field's own session**, so it
 follows the caller's workspace and language: a live form only lists
 **published, visitor-readable** content, in the language of the rendered page.
 Content options are not TTL-cached (the read is in-JVM, backed by Jahia's JCR
-caches): publishing a new content under the root shows it on the next render.
+caches), and the field fragment depends on the root's subtree: publishing a new
+content under the root, or renaming or unpublishing one, refreshes the
+already-rendered page.
 
 An unreadable root (deleted, or no longer published) degrades like any failing
 source: inline error on the field, form blocked only if the field is required
@@ -296,9 +299,10 @@ their root (or ask an administrator to raise the cap) before publishing.
 
 Mind one operational nuance when changing the cap (or any module
 configuration): the new value reaches the services immediately, but live pages
-**already rendered keep serving their cached HTML fragments** until a content
-change flushes them or the fragment cache expires. Flush the site cache to see
-a configuration change on an already-visited page.
+**already rendered keep serving their cached HTML fragments** until a change
+under the picked root flushes them or the fragment cache expires — a
+configuration is not a node, so no cache dependency can follow it. Flush the
+site cache to see a configuration change on an already-visited page.
 
 ### Publication follows the reference — mind what lives under the root
 
