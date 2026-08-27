@@ -63,7 +63,7 @@ background so contributors spot conditional fields; every value is a variable.
 | Variable | Default | Description |
 |---|---|---|
 | `--fmdb-logic-target-bg` | `transparent` | Background of the whole conditional element |
-| `--fmdb-logic-target-label-bg` | `#f3f4f6` | Background of the label in edit mode (`transparent` to remove the cue) |
+| `--fmdb-logic-target-label-bg` | `#d1d5db` | Background of the label in edit mode (`transparent` to remove the cue) |
 | `--fmdb-logic-target-label-radius` | `3px` | Border radius of that fill |
 | `--fmdb-logic-target-label-padding` | `0 0.35em` | Padding of that fill |
 | `--fmdb-logic-target-label-outdent` | `0.35em` | Negative left margin, so the label text stays aligned with the others |

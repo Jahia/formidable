@@ -20,7 +20,7 @@
 )
 	> :is(.fmdb-form-group, .fmdb-fieldset)
 	> :is(.fmdb-form-label, .fmdb-file-label, .fmdb-group-legend, .fmdb-fieldset-legend, .fmdb-radio-label, .fmdb-checkbox-label) {
-	background: var(--fmdb-logic-target-label-bg, #f3f4f6);
+	background: var(--fmdb-logic-target-label-bg, #d1d5db);
 	border-radius: var(--fmdb-logic-target-label-radius, 3px);
 	padding: var(--fmdb-logic-target-label-padding, 0 0.35em);
 	margin-left: calc(-1 * var(--fmdb-logic-target-label-outdent, 0.35em));
