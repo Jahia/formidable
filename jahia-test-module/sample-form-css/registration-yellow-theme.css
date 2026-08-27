@@ -309,3 +309,20 @@
 	background: #ffffff;
 	box-shadow: 0 0 3px rgba(0, 0, 0, 0.1);
 }
+
+/* Conditional fields in edit mode: this theme prefers the whole field greyed out and
+   framed in its own colour, so it turns the core's label fill off and styles the
+   .fmdb-logic-target wrapper itself. Nothing in live. */
+.fmdb-form {
+	--fmdb-logic-target-label-bg: transparent;
+	--fmdb-logic-target-label-padding: 0;
+	--fmdb-logic-target-label-outdent: 0;
+}
+
+.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-logic-target {
+	background: #f3f4f6;
+	outline: 1px dashed var(--reg-grey);
+	outline-offset: 4px;
+	border-radius: 4px;
+}
+
