@@ -3,7 +3,7 @@ import {useApolloClient} from '@apollo/client';
 import {Button, Checkbox, Close, Download, Dropdown, Input, Loader, Typography} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
 import {GET_SUBMISSIONS, GET_FORM_FIELD_LABELS} from '../graphql';
-import {buildSubmissionsQuery, parseSubmissionNode, parseFormFieldLabels, type FormResultsNode, type SubmissionRow} from '../FormResults.utils';
+import {buildSubmissionsQuery, parseSubmissionNode, parseFormFields, EMPTY_FORM_FIELDS, type FormFields, type FormResultsNode, type SubmissionRow} from '../FormResults.utils';
 import {buildFilename, downloadFile} from './export.utils';
 import {exportFormats} from './formats';
 
@@ -62,7 +62,7 @@ export const ExportResultsDialog = ({formResults, onClose}: ExportResultsDialogP
             const language = (window as any).contextJsParameters?.uilang || 'en';
             const formUuid = formResults.parentForm?.refNode?.uuid;
 
-            let formFieldLabels = new Map<string, string>();
+            let formFields: FormFields = EMPTY_FORM_FIELDS;
             if (formUuid) {
                 try {
                     const {data: labelsData} = await client.query({
@@ -70,7 +70,7 @@ export const ExportResultsDialog = ({formResults, onClose}: ExportResultsDialogP
                         variables: {formUuid, language, workspace: 'LIVE'},
                         fetchPolicy: 'network-only'
                     });
-                    formFieldLabels = parseFormFieldLabels(labelsData);
+                    formFields = parseFormFields(labelsData);
                 } catch {
                     // Form may have been deleted; fall back to submission labels
                 }
@@ -94,7 +94,7 @@ export const ExportResultsDialog = ({formResults, onClose}: ExportResultsDialogP
                 });
 
                 const result = data?.jcr?.nodesByQuery;
-                const batch = (result?.nodes ?? []).map(parseSubmissionNode);
+                const batch = (result?.nodes ?? []).map((node: unknown) => parseSubmissionNode(node, formFields.order));
                 totalCount = result?.pageInfo?.totalCount ?? 0;
 
                 submissions.push(...batch);
@@ -106,7 +106,7 @@ export const ExportResultsDialog = ({formResults, onClose}: ExportResultsDialogP
             } while (offset < totalCount);
 
             for (const format of exportFormats.filter(f => selectedFormatIds.includes(f.id))) {
-                const content = format.buildContent(submissions, t, formFieldLabels);
+                const content = format.buildContent(submissions, t, formFields);
                 const filename = buildFilename(formResults, {startDate, endDate, allResults}, format.extension);
                 downloadFile(filename, content, format.mimeType);
             }

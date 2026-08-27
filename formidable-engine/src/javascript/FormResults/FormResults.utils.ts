@@ -78,7 +78,35 @@ function normalizePropertyValues(property: SubmissionProperty): string[] {
     return [String(property.value)];
 }
 
-export function parseSubmissionNode(node: any): SubmissionRow {
+/**
+ * What the results screen knows about the source form: the label of each field in
+ * the UI language, and the order in which the fields are displayed in the form.
+ */
+export interface FormFields {
+    labels: Map<string, string>;
+    order: string[];
+}
+
+export const EMPTY_FORM_FIELDS: FormFields = {labels: new Map(), order: []};
+
+/**
+ * Sorts items by the position of their field in the form. Fields the form no longer
+ * has (deleted or renamed since the submission) keep their stored order, after the
+ * known ones, so nothing disappears from the results.
+ */
+export function sortByFormOrder<T>(items: T[], getFieldName: (item: T) => string, order: string[]): T[] {
+    if (order.length === 0) {
+        return items;
+    }
+
+    const position = new Map(order.map((name, index) => [name, index]));
+    return items
+        .map((item, index) => ({item, index, rank: position.get(getFieldName(item)) ?? order.length + index}))
+        .sort((a, b) => a.rank - b.rank)
+        .map(({item}) => item);
+}
+
+export function parseSubmissionNode(node: any, fieldOrder: string[] = []): SubmissionRow {
     const fieldValues: SubmissionFieldValue[] = [];
     const dataNode = node.data?.nodes?.[0];
     const properties = dataNode?.properties as SubmissionProperty[] | undefined;
@@ -122,8 +150,8 @@ export function parseSubmissionNode(node: any): SubmissionRow {
         locale: node.locale?.value ?? null,
         userAgent: node.userAgent?.value ?? null,
         referer: node.referer?.value ?? null,
-        fieldValues,
-        files
+        fieldValues: sortByFormOrder(fieldValues, field => field.name, fieldOrder),
+        files: sortByFormOrder(files, file => file.fieldName, fieldOrder)
     };
 }
 
@@ -198,23 +226,33 @@ export function formatFileSize(bytes: number | null): string {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function parseFormFieldLabels(data: any): Map<string, string> {
+/**
+ * Reads GET_FORM_FIELD_LABELS. The descendants come back in tree order, which is
+ * the order the form displays its fields in (steps, then blocks, then fields).
+ */
+export function parseFormFields(data: any): FormFields {
     const labels = new Map<string, string>();
+    const order: string[] = [];
     const fieldListNodes = data?.jcr?.nodeById?.fields?.nodes;
     if (!Array.isArray(fieldListNodes) || fieldListNodes.length === 0) {
-        return labels;
+        return EMPTY_FORM_FIELDS;
     }
 
     const nodes = fieldListNodes[0]?.descendants?.nodes;
     if (!Array.isArray(nodes)) {
-        return labels;
+        return EMPTY_FORM_FIELDS;
     }
 
     for (const node of nodes) {
+        if (typeof node.name !== 'string' || !node.name) {
+            continue;
+        }
+
+        order.push(node.name);
         if (node.displayName && node.displayName !== node.name) {
             labels.set(node.name, node.displayName);
         }
     }
 
-    return labels;
+    return {labels, order};
 }

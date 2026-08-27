@@ -27,6 +27,8 @@ import {
 
 interface SubmissionsTableProps {
     formResults: FormResultsNode;
+    /** Display order of the source form's fields; submissions are parsed in that order. */
+    fieldOrder: string[];
     selectedSubmission: SubmissionRow | null;
     onSelectSubmission: (submission: SubmissionRow | null) => void;
     onRegisterRefresh: (refresh: (() => Promise<unknown>) | null) => void;
@@ -37,6 +39,7 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 export const SubmissionsTable = ({
     formResults,
     selectedSubmission,
+    fieldOrder,
     onSelectSubmission,
     onRegisterRefresh
 }: SubmissionsTableProps) => {
@@ -70,8 +73,8 @@ export const SubmissionsTable = ({
 
     const submissions: SubmissionRow[] = useMemo(() => {
         const nodes = queryResult?.nodes ?? [];
-        return nodes.map(parseSubmissionNode);
-    }, [queryResult]);
+        return nodes.map((node: unknown) => parseSubmissionNode(node, fieldOrder));
+    }, [queryResult, fieldOrder]);
 
     useEffect(() => {
         onRegisterRefresh(() => refetch());
