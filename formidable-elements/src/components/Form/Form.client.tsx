@@ -27,6 +27,7 @@ export default function Form({
 	maintenanceMessage,
 	submitActionUrl,
 	isSubmitDisabled = false,
+	isEditMode = false,
 	showResetBtn = false,
 	showNewFormBtn = false,
 	showTryAgainBtn = false,
@@ -162,6 +163,9 @@ export default function Form({
 				action={submitActionUrl}
 				encType="multipart/form-data"
 				id={formId}
+				// Read back from the DOM by the visibility pass: the rules describe the
+				// visitor experience, so they must not run while the form is authored.
+				data-fmdb-edit-mode={isEditMode ? "true" : undefined}
 				onSubmit={e => handleSubmit(e, () => validateInputs(e.currentTarget))}
 			>
 				{intro && (
