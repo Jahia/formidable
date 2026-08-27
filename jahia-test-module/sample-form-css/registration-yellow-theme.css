@@ -309,19 +309,3 @@
 	background: #ffffff;
 	box-shadow: 0 0 3px rgba(0, 0, 0, 0.1);
 }
-
-/* Conditional fields in edit mode: this theme prefers the whole field greyed out and
-   lifted by a soft shadow, so it turns the core's card off and styles the
-   .fmdb-logic-target wrapper itself. Nothing in live. */
-.fmdb-form {
-	--fmdb-logic-target-card-bg: transparent;
-	--fmdb-logic-target-card-shadow: none;
-	--fmdb-logic-target-card-display: block;
-}
-
-.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-logic-target {
-	background: #f3f4f6;
-	box-shadow: 0 0 0 4px #f3f4f6, 0 2px 4px rgba(0, 0, 0, 0.58);
-	border-radius: 2px;
-}
-
