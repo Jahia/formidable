@@ -176,9 +176,11 @@ export function getFormPreview(formTitle: string): Form {
  */
 function getHydratedForm(): Form {
 	return new Form(
-		cy.get('form.fmdb-form', {timeout: FORM_HYDRATION_TIMEOUT_MS})
+		// The assertion below retries with the timeout of the command right before it,
+		// so the budget has to sit on first(), not on get().
+		cy.get('form.fmdb-form')
 			.should('exist')
-			.first()
+			.first({timeout: FORM_HYDRATION_TIMEOUT_MS})
 			.should($form => {
 				expect(isFormHydrated($form), 'form island hydrated').to.equal(true);
 			})
