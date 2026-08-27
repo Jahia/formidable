@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useState, useMemo} from 'react';
 import {useQuery} from '@apollo/client';
 import {Button, DeletePermanently, Download, Loader, Reload, Typography} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
@@ -7,7 +7,7 @@ import {DeleteResultsDialog} from './delete';
 import {ExportResultsDialog} from './export';
 import {FormResultsList, SubmissionDetailPanel, SubmissionsTable} from './components';
 import type {FormResultsNode, SubmissionRow} from './FormResults.utils';
-import {parseFormFieldLabels} from './FormResults.utils';
+import {EMPTY_FORM_FIELDS, parseFormFields} from './FormResults.utils';
 
 export const FormResultsApp = () => {
     const {t} = useTranslation('formidable-engine');
@@ -45,7 +45,7 @@ export const FormResultsApp = () => {
         skip: !formUuid,
         fetchPolicy: 'cache-first'
     });
-    const formFieldLabels = formUuid ? parseFormFieldLabels(fieldLabelsData) : new Map<string, string>();
+    const formFields = useMemo(() => (formUuid ? parseFormFields(fieldLabelsData) : EMPTY_FORM_FIELDS), [formUuid, fieldLabelsData]);
 
     useEffect(() => {
         setSelectedSubmission(null);
@@ -201,6 +201,7 @@ export const FormResultsApp = () => {
                         <div style={{flex: '1 1 0', minWidth: 0, overflow: 'hidden'}}>
                             <SubmissionsTable
                                 formResults={selectedForm}
+                                fieldOrder={formFields.order}
                                 selectedSubmission={selectedSubmission}
                                 onSelectSubmission={setSelectedSubmission}
                                 onRegisterRefresh={handleRegisterRefresh}
@@ -216,7 +217,7 @@ export const FormResultsApp = () => {
                     {selectedSubmission && (
                         <SubmissionDetailPanel
                             submission={selectedSubmission}
-                            formFieldLabels={formFieldLabels}
+                            formFields={formFields}
                             onClose={() => setSelectedSubmission(null)}
                         />
                     )}

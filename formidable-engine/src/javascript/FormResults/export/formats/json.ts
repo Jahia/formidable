@@ -1,4 +1,4 @@
-import type {SubmissionRow} from '../../FormResults.utils';
+import type {FormFields, SubmissionRow} from '../../FormResults.utils';
 import type {ExportFormat} from './ExportFormat';
 
 const toAbsoluteUrl = (url: string): string => {
@@ -12,8 +12,9 @@ const toAbsoluteUrl = (url: string): string => {
 const buildJsonContent = (
     submissions: SubmissionRow[],
     _t: (key: string) => string,
-    formFieldLabels: Map<string, string>
+    formFields: FormFields
 ): string => {
+    const formFieldLabels = formFields.labels;
     const data = submissions.map(submission => ({
         id: submission.uuid,
         name: submission.name,
