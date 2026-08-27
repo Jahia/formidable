@@ -2,7 +2,7 @@ import {CONTENT_PATH, JCONTENT_SELECTORS, SITE_HOME_PATH} from "../constants";
 import {addNode, publishAndWaitJobEnding} from "@jahia/cypress";
 import {JContent} from '@jahia/jcontent-cypress/dist/page-object/jcontent';
 import {FORMIDABLE_TEST_SITE} from "./site";
-import {Form} from '../../page-object';
+import {Form, FORM_HYDRATION_TIMEOUT_MS, isFormHydrated} from '../../page-object';
 import {JahiaNode, NodeProperty} from './types';
 
 interface CreateFormNodeOptions {
@@ -169,15 +169,27 @@ export function getFormPreview(formTitle: string): Form {
  * @param query optional query string (without the leading "?"), for logic rules whose
  *              source is a URL parameter.
  */
+/**
+ * The first form of the page, once its React island has mounted. Every helper
+ * that renders a form for interaction goes through here so no spec types, clicks
+ * or attaches before hydration (the cause of most CI flakes).
+ */
+function getHydratedForm(): Form {
+	return new Form(
+		cy.get('form.fmdb-form', {timeout: FORM_HYDRATION_TIMEOUT_MS})
+			.should('exist')
+			.first()
+			.should($form => {
+				expect(isFormHydrated($form), 'form island hydrated').to.equal(true);
+			})
+	);
+}
+
 export function visitLiveForm(livePath: string, lang: string = 'en', query?: string): Form {
 	const search = query ? `?${query}` : '';
 	cy.visit(`/${lang}/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}${search}`);
 
-	return new Form(
-		cy.get('form.fmdb-form')
-			.should('exist')
-			.first()
-	);
+	return getHydratedForm();
 }
 
 /**
@@ -187,11 +199,7 @@ export function visitLiveForm(livePath: string, lang: string = 'en', query?: str
 export function visitPreviewForm(livePath: string, lang: string = 'en'): Form {
 	cy.visit(`/cms/render/default/${lang}/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`);
 
-	return new Form(
-		cy.get('form.fmdb-form')
-			.should('exist')
-			.first()
-	);
+	return getHydratedForm();
 }
 
 export const getLatestLiveFormSubmission = (formName: string): Cypress.Chainable<LiveFormSubmissionInfo> => {
