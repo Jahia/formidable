@@ -1,37 +1,17 @@
 /* Elements driven by conditional logic (.fmdb-logic-target, rendered server-side).
-   Nothing in live by default. In edit mode the core prepends a small "eye" marker to
-   the element's label — logic drives visibility — so contributors spot conditional
-   fields without any box that could be mistaken for the Page Builder's own frames.
-   Every value is a variable, so a template set or the form's own CSS can recolour,
-   resize or remove it. The marker leads the label, where the eye lands first. */
+   Nothing in live by default. In edit mode the core gives the element a light grey
+   background so contributors spot conditional fields — a fill, deliberately not a
+   frame, which the Page Builder's own dashed hover boxes would compete with. Every
+   value is a variable, so a template set or the form's own CSS can tone it or remove
+   it (--fmdb-logic-target-edit-bg: transparent). */
 
 .fmdb-logic-target {
 	background: var(--fmdb-logic-target-bg, transparent);
+	border-radius: var(--fmdb-logic-target-radius, 4px);
+	padding: var(--fmdb-logic-target-padding, 0);
 }
 
 .fmdb-form[data-fmdb-edit-mode="true"] .fmdb-logic-target {
-	background: var(--fmdb-logic-target-edit-bg, var(--fmdb-logic-target-bg, transparent));
-}
-
-/* Labels sit one level below the wrapper, plus the hosts other layers insert in
-   between: <jsm> for client islands, .jahia-template-gxt for the Page Builder (and both,
-   in that order, for an island in the Page Builder). Direct-child combinators keep a
-   conditional fieldset from marking every field it holds. */
-:is(
-	.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-logic-target,
-	.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-logic-target > :is(jsm, .jahia-template-gxt),
-	.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-logic-target > .jahia-template-gxt > jsm
-)
-	> :is(.fmdb-form-group, .fmdb-fieldset)
-	> :is(.fmdb-form-label, .fmdb-file-label, .fmdb-group-legend, .fmdb-fieldset-legend, .fmdb-radio-label, .fmdb-checkbox-label)::before {
-	content: var(--fmdb-logic-target-marker, "");
-	display: inline-block;
-	width: var(--fmdb-logic-target-marker-size, 0.7em);
-	height: var(--fmdb-logic-target-marker-size, 0.7em);
-	margin-right: var(--fmdb-logic-target-marker-gap, 0.35em);
-	vertical-align: var(--fmdb-logic-target-marker-raise, 0.25em);
-	background-color: var(--fmdb-logic-target-marker-color, #4b5563);
-	opacity: var(--fmdb-logic-target-marker-opacity, 0.9);
-	-webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E") no-repeat center / contain;
-	mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E") no-repeat center / contain;
+	background: var(--fmdb-logic-target-edit-bg, #f3f4f6);
+	padding: var(--fmdb-logic-target-edit-padding, 0.25em 0.5em);
 }
