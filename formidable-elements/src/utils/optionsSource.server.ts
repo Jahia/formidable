@@ -1,5 +1,6 @@
 import {server} from "@jahia/javascript-modules-library";
 import type {JCRNodeWrapper} from "org.jahia.services.content";
+import type {RenderContext} from "org.jahia.services.render";
 import {parseChoices, type ParsedChoice} from "./choiceUtils";
 
 const OPTIONS_SOURCE_SERVICE = "org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService";
@@ -36,9 +37,18 @@ const toStringArray = (javaArray: {length: number}): string[] => {
  * generation and rendering it verbatim would offer values the server rejects as
  * forged. The engine owns the alignment rule; a failure to reach it falls back to the
  * stored list, which renders something rather than nothing.
+ *
+ * The alignment reads the site's "Replace untranslated content" setting, so the
+ * fragment depends on the site node: the setting is saved in edit and auto-published,
+ * and that live change is what flushes the fragment.
  */
-const alignManualOptions = (currentNode: JCRNodeWrapper, manualOptions: string[]): string[] => {
+const alignManualOptions = (currentNode: JCRNodeWrapper, manualOptions: string[], renderContext: RenderContext): string[] => {
 	try {
+		const site = currentNode.getResolveSite();
+		if (site) {
+			server.render.addCacheDependency({node: site}, renderContext);
+		}
+
 		const service = server.osgi.getService(MANUAL_OPTIONS_DISPLAY_SERVICE);
 		const aligned = service.forDisplay(currentNode, currentNode.getLanguage());
 
@@ -58,10 +68,10 @@ const alignManualOptions = (currentNode: JCRNodeWrapper, manualOptions: string[]
  * resolver answers in the manual-options JSON format, so both modes feed the same
  * parsing and rendering path.
  */
-export const resolveFieldOptions = (currentNode: JCRNodeWrapper, manualOptions: string[]): FieldOptions => {
+export const resolveFieldOptions = (currentNode: JCRNodeWrapper, manualOptions: string[], renderContext: RenderContext): FieldOptions => {
 	try {
 		if (!RESOLVED_OPTIONS_MIXINS.some(mixin => currentNode.isNodeType(mixin))) {
-			return {choices: parseChoices(alignManualOptions(currentNode, manualOptions)), sourceError: false};
+			return {choices: parseChoices(alignManualOptions(currentNode, manualOptions, renderContext)), sourceError: false};
 		}
 	} catch (error) {
 		console.error(`[Formidable] Could not read the options mode of field ${currentNode.getPath()}`, error);

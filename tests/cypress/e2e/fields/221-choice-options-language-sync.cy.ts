@@ -3,7 +3,6 @@ import {publishAndWaitJobEnding} from '@jahia/cypress';
 import {
 	createFormNode,
 	createPublishedLiveFormPage,
-	flushSiteCache,
 	FORMIDABLE_TEST_SITE,
 	getSelectNode,
 	visitLiveForm
@@ -288,11 +287,12 @@ describe('Form fields - 221 Choice options language sync', () => {
 			publishAndWaitJobEnding(formPath, ['en', 'fr']);
 
 			// Replacing ON: the untranslated entry borrows the default language's
-			// wording rather than showing a blank choice.
+			// wording rather than showing a blank choice. No cache flush: the field
+			// fragment depends on the site node, so the auto-published setting
+			// change is what refreshes it.
 			replaceUntranslatedContent(true);
 			cy.waitUntil(
-				() => flushSiteCache()
-					.then(() => cy.request(liveUrlFr))
+				() => cy.request(liveUrlFr)
 					.then(response => response.body.includes('Chocolate')),
 				{timeout: 30000, interval: 2000, errorMsg: 'the default-language label never reached the French rendering'}
 			);
@@ -306,8 +306,7 @@ describe('Form fields - 221 Choice options language sync', () => {
 			// the translated one is still offered.
 			replaceUntranslatedContent(false);
 			cy.waitUntil(
-				() => flushSiteCache()
-					.then(() => cy.request(liveUrlFr))
+				() => cy.request(liveUrlFr)
 					.then(response => !response.body.includes('Chocolate')),
 				{timeout: 30000, interval: 2000, errorMsg: 'the untranslated option was never withheld'}
 			);
