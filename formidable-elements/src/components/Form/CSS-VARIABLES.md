@@ -57,9 +57,8 @@
 Every element carrying at least one visibility rule is wrapped in `.fmdb-logic-target`
 (server-rendered, so present in live, preview and edit mode; the current state stays in
 `data-fmdb-logic-hidden`). Nothing is drawn in live. In edit mode
-(`form[data-fmdb-edit-mode="true"]`) the core appends a small eye marker to the element's
-label, after the required `*`, so contributors spot conditional fields; every value is a
-variable.
+(`form[data-fmdb-edit-mode="true"]`) the core prepends a small eye marker to the element's
+label so contributors spot conditional fields; every value is a variable.
 
 | Variable | Default | Description |
 |---|---|---|
@@ -68,5 +67,5 @@ variable.
 | `--fmdb-logic-target-marker` | `""` (the eye) | Set to `none` to remove the edit-mode marker |
 | `--fmdb-logic-target-marker-color` | `#9ca3af` | Colour of the marker |
 | `--fmdb-logic-target-marker-size` | `0.9em` | Size of the marker |
-| `--fmdb-logic-target-marker-gap` | `0.35em` | Space between the label and the marker |
+| `--fmdb-logic-target-marker-gap` | `0.35em` | Space between the marker and the label |
 | `--fmdb-logic-target-marker-opacity` | `0.8` | Opacity of the marker |

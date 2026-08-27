@@ -1,9 +1,9 @@
 /* Elements driven by conditional logic (.fmdb-logic-target, rendered server-side).
-   Nothing in live by default. In edit mode the core appends a small "eye" marker to
+   Nothing in live by default. In edit mode the core prepends a small "eye" marker to
    the element's label — logic drives visibility — so contributors spot conditional
    fields without any box that could be mistaken for the Page Builder's own frames.
    Every value is a variable, so a template set or the form's own CSS can recolour,
-   resize or remove it. The marker follows the required "*" inside the label. */
+   resize or remove it. The marker leads the label, where the eye lands first. */
 
 .fmdb-logic-target {
 	background: var(--fmdb-logic-target-bg, transparent);
@@ -23,12 +23,12 @@
 	.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-logic-target > .jahia-template-gxt > jsm
 )
 	> :is(.fmdb-form-group, .fmdb-fieldset)
-	> :is(.fmdb-form-label, .fmdb-file-label, .fmdb-group-legend, .fmdb-fieldset-legend, .fmdb-radio-label, .fmdb-checkbox-label)::after {
+	> :is(.fmdb-form-label, .fmdb-file-label, .fmdb-group-legend, .fmdb-fieldset-legend, .fmdb-radio-label, .fmdb-checkbox-label)::before {
 	content: var(--fmdb-logic-target-marker, "");
 	display: inline-block;
 	width: var(--fmdb-logic-target-marker-size, 0.9em);
 	height: var(--fmdb-logic-target-marker-size, 0.9em);
-	margin-left: var(--fmdb-logic-target-marker-gap, 0.35em);
+	margin-right: var(--fmdb-logic-target-marker-gap, 0.35em);
 	vertical-align: -0.12em;
 	background-color: var(--fmdb-logic-target-marker-color, #9ca3af);
 	opacity: var(--fmdb-logic-target-marker-opacity, 0.8);
