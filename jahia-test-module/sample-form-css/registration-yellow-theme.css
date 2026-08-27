@@ -148,6 +148,11 @@
 	background: var(--reg-yellow-dark);
 }
 
+.fmdb-form input[type="file"].fmdb-form-control:disabled::file-selector-button {
+	background: var(--reg-grey);
+	cursor: not-allowed;
+}
+
 /* Checkbox / radio groups: minimal rows, black checks like the model.
    Checkables carry .fmdb-form-control too: undo the text-field sizing. */
 .fmdb-form input[type="checkbox"].fmdb-form-control,
@@ -213,8 +218,8 @@
 	margin-bottom: 10px;
 }
 
-.fmdb-form .fmdb-btn-primary:hover,
-.fmdb-form .fmdb-btn-primary:active {
+.fmdb-form .fmdb-btn-primary:hover:not(:disabled),
+.fmdb-form .fmdb-btn-primary:active:not(:disabled) {
 	background: var(--reg-yellow-dark);
 }
 
@@ -224,9 +229,19 @@
 	border: 1px solid var(--reg-grey);
 }
 
-.fmdb-form .fmdb-btn-secondary:hover {
+.fmdb-form .fmdb-btn-secondary:hover:not(:disabled) {
 	border-color: var(--reg-black);
 	background: #fafafa;
+}
+
+/* A button is disabled while the form submits, and the submit button also is in
+   edit and preview. The hover states above are guarded rather than undone, so
+   the button reads as unavailable instead of merely looking clickable. */
+.fmdb-form .fmdb-btn:disabled {
+	background: var(--reg-grey);
+	border-color: var(--reg-grey);
+	color: var(--reg-muted);
+	cursor: not-allowed;
 }
 
 /* Selected files list */
