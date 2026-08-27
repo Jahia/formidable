@@ -62,7 +62,6 @@ card with a soft shadow, shrunk to its content, so contributors spot conditional
 
 | Variable | Default | Description |
 |---|---|---|
-| `--fmdb-logic-target-bg` | `transparent` | Background of the whole conditional element, in every mode |
 | `--fmdb-logic-target-card-display` | `inline-block` | Display of the group in edit mode; `block` keeps it full width |
 | `--fmdb-logic-target-card-bg` | `#f3f4f6` | Background of the card |
 | `--fmdb-logic-target-card-shadow` | `0 0 0 4px #f3f4f6, 0 2px 4px rgba(0, 0, 0, 0.58)` | Shadow of the card |

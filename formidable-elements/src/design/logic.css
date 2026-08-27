@@ -6,10 +6,6 @@
    or the form's own CSS can tone it or remove it (--fmdb-logic-target-card-shadow: none,
    --fmdb-logic-target-card-bg: transparent). */
 
-.fmdb-logic-target {
-	background: var(--fmdb-logic-target-bg, transparent);
-}
-
 .fmdb-form[data-fmdb-edit-mode="true"] .fmdb-logic-target :is(.fmdb-form-group, .fmdb-fieldset) {
 	display: var(--fmdb-logic-target-card-display, inline-block);
 	background: var(--fmdb-logic-target-card-bg, #f3f4f6);
