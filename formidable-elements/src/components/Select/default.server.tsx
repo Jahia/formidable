@@ -36,13 +36,13 @@ jahiaComponent(
 			autofocus,
 			...validationMsgs
 		}: SelectProps,
-		{currentNode}
+		{currentNode, renderContext}
 	) => {
 
 		const selectId = `select-${currentNode.getIdentifier()}`;
 		const selectName = currentNode.getName();
 
-		const {choices: parsedOptions, sourceError} = resolveFieldOptions(currentNode, options);
+		const {choices: parsedOptions, sourceError} = resolveFieldOptions(currentNode, options, renderContext);
 		if (sourceError) {
 			return <OptionsSourceError label={label} required={required}/>;
 		}

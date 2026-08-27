@@ -89,6 +89,10 @@ export interface EditorContextLike {
     uilang?: string;
     locale?: string;
     workspace?: string;
+    /** Site info the Content Editor resolves before selectors mount. */
+    siteInfo?: {
+        defaultLanguage?: string;
+    };
     nodeData?: {
         path?: string;
         uuid?: string;
