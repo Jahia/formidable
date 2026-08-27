@@ -18,6 +18,20 @@ import {NumberInput} from './elements/NumberInput';
 import {RangeInput} from './elements/RangeInput';
 
 /**
+ * How long a live page may take to hydrate its form island. The React bundle is
+ * fetched on the first visit of a run and CI runners are slow: the default 5s
+ * command timeout was the source of the recurring "expected false to equal true"
+ * flake on submit().
+ */
+export const FORM_HYDRATION_TIMEOUT_MS = 30000;
+
+/**
+ * Hydration marker: the island sets noValidate on mount (custom inline validation
+ * replaces the native browser one), so the flag is only true once React runs.
+ */
+export const isFormHydrated = ($form: JQuery<HTMLElement>) => ($form[0] as HTMLFormElement).noValidate === true;
+
+/**
  * Form component - Main form container
  * Corresponds to fmdb:form node type
  */
@@ -257,12 +271,23 @@ export class Form extends BaseComponent {
 	}
 
 	/**
+	 * Retry-able hydration gate: interactions issued before the island mounts are
+	 * not heard by React (no submit handler, no logic listeners, no file chips).
+	 */
+	waitUntilHydrated(): this {
+		this.get().then($form => {
+			cy.wrap($form, {log: false, timeout: FORM_HYDRATION_TIMEOUT_MS}).should($el => {
+				expect(isFormHydrated($el), 'form island hydrated').to.equal(true);
+			});
+		});
+		return this;
+	}
+
+	/**
 	 * Submit the form
 	 */
 	submit(): void {
-		this.get().should($form => {
-			expect(($form[0] as HTMLFormElement).noValidate).to.equal(true);
-		});
+		this.waitUntilHydrated();
 		this.getSubmitButton().get().click();
 	}
 
