@@ -13,9 +13,15 @@
 	background: var(--fmdb-logic-target-edit-bg, var(--fmdb-logic-target-bg, transparent));
 }
 
-/* Labels sit one level below the wrapper; client islands add a <jsm> host in between.
-   Direct-child combinators keep a conditional fieldset from marking every field it holds. */
-:is(.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-logic-target, .fmdb-form[data-fmdb-edit-mode="true"] .fmdb-logic-target > jsm)
+/* Labels sit one level below the wrapper, plus the hosts other layers insert in
+   between: <jsm> for client islands, .jahia-template-gxt for the Page Builder (and both,
+   in that order, for an island in the Page Builder). Direct-child combinators keep a
+   conditional fieldset from marking every field it holds. */
+:is(
+	.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-logic-target,
+	.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-logic-target > :is(jsm, .jahia-template-gxt),
+	.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-logic-target > .jahia-template-gxt > jsm
+)
 	> :is(.fmdb-form-group, .fmdb-fieldset)
 	> :is(.fmdb-form-label, .fmdb-file-label, .fmdb-group-legend, .fmdb-fieldset-legend, .fmdb-radio-label, .fmdb-checkbox-label)::after {
 	content: var(--fmdb-logic-target-marker, "");
