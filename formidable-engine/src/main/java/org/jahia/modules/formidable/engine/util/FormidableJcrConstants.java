@@ -20,6 +20,9 @@ public final class FormidableJcrConstants {
     public static final String NON_SUBMITTABLE_MIXIN = "fmdbmix:nonSubmittable";
     public static final String READ_ONLY_COMPATIBLE_ACTION_MIXIN = "fmdbmix:readOnlyCompatibleAction";
 
+    public static final String MANUAL_OPTIONS_MIXIN = "fmdbmix:manualOptions";
+    public static final String OPTIONS_PROPERTY = "fmdb:options";
+
     public static final String ACL_NODE = "j:acl";
     public static final String FIELD_KEY_PROPERTY = "fieldKey";
     public static final String FIELDS_NODE = "fields";
@@ -29,6 +32,8 @@ public final class FormidableJcrConstants {
     public static final String LOGICS_SRC_NODE = "logicsSrc";
     public static final String PARENT_FORM_PROPERTY = "parentForm";
     public static final String ROLES_PROPERTY = "j:roles";
+    public static final String LANGUAGE_PROPERTY = "jcr:language";
+    public static final String TRANSLATION_NODE_PREFIX = "j:translation_";
 
     private FormidableJcrConstants() {
     }

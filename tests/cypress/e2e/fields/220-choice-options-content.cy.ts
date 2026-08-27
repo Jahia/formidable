@@ -253,6 +253,46 @@ describe('Form fields - 220 Choice options from contents', () => {
 		});
 	});
 
+	it('refreshes the rendered options when a content is published under the root, without a cache flush', () => {
+		// A root of its own: the option count of the other tests must not move.
+		const rootPath = `${CONTENT_PATH}/branches`;
+		addNode({parentPathOrId: CONTENT_PATH, name: 'branches', primaryNodeType: 'jnt:contentFolder', properties: []});
+		addNode({parentPathOrId: rootPath, ...getTitledTextNode('nice', 'Nice branch', 'Agence de Nice')});
+		publishAndWaitJobEnding(rootPath, ['en', 'fr']);
+
+		getNodeByPath(rootPath).then(response => {
+			createPublishedLiveFormPage(
+				'content-refresh-form',
+				'Content Refresh Form',
+				[
+					getContentChoiceFieldNode({
+						primaryNodeType: 'fmdb:select',
+						name: 'branch',
+						title: 'Branch',
+						rootNodeUuid: response.data.jcr.nodeByPath.uuid,
+						nodeType: 'jnt:text'
+					})
+				]
+			).then(({livePath}) => {
+				const liveUrl = `/en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`;
+
+				// First render caches the fragment with one option.
+				visitLiveForm(livePath).getSelectInput('branch').shouldBeVisible().shouldHaveOptionCount(1);
+
+				// The field fragment depends on the root's subtree: the publication
+				// flushes it, nobody flushes the site cache.
+				addNode({parentPathOrId: rootPath, ...getTitledTextNode('lille', 'Lille branch', 'Agence de Lille')});
+				publishAndWaitJobEnding(`${rootPath}/lille`, ['en', 'fr']);
+				cy.waitUntil(
+					() => cy.request(liveUrl).then(response => response.body.includes('Lille branch')),
+					{timeout: 30000, interval: 2000, errorMsg: 'the published content never reached the rendered options'}
+				);
+
+				visitLiveForm(livePath).getSelectInput('branch').shouldHaveOptionCount(2).shouldHaveOption('Lille branch');
+			});
+		});
+	});
+
 	it('fails explicitly instead of truncating when the resolved options exceed the cap', () => {
 		createPublishedLiveFormPage(
 			'content-cap-form',

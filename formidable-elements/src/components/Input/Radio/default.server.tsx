@@ -19,11 +19,11 @@ jahiaComponent(
 	},
 	(
 		{"jcr:title": label, helpText, "fmdb:options": rawChoices = [], required, ...validationMsgs}: RadiosProps,
-		{currentNode}
+		{currentNode, renderContext}
 	) => {
 		const inputName = currentNode.getName();
 		const nodeId = currentNode.getIdentifier();
-		const {choices: parsedChoices, sourceError} = resolveFieldOptions(currentNode, rawChoices);
+		const {choices: parsedChoices, sourceError} = resolveFieldOptions(currentNode, rawChoices, renderContext);
 		if (sourceError) {
 			return <OptionsSourceError label={label} required={required}/>;
 		}
