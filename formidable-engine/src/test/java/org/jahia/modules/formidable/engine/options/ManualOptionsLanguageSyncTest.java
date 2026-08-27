@@ -20,15 +20,15 @@ import static org.mockito.Mockito.when;
 
 /**
  * The alignment contract on the i18n storage (j:translation_* subnodes): the
- * default language's values, order and count are the identity, a translation
- * only keeps its own label and selected flag for values it already carries.
+ * default language's values, order, count and default selections are the identity,
+ * a translation only keeps its own label for values it already carries.
  */
 class ManualOptionsLanguageSyncTest {
 
     @Test
     void divergentTranslationIsRealignedOnTheMasterStructure() throws Exception {
         // Master (en): a, b. Translation (fr): b (own label), c (a value the master
-        // does not know). Alignment: a copied from master, fr's own b kept, c dropped.
+        // does not know). Alignment: a added with an empty label, fr's own b kept, c dropped.
         Node master = translation("en", option("a", "Alpha"), option("b", "Bee"));
         String frB = option("b", "Bé");
         Node fr = translation("fr", frB, option("c", "Cé"));
@@ -90,7 +90,7 @@ class ManualOptionsLanguageSyncTest {
         // A field authored in a non-default language only: its entries become the
         // master right away (values as the identity, labels as the translation
         // starting point), so a later default-language edit never opens on an empty
-        // mandatory list whose improvised values would erase this authoring.
+        // list whose improvised values would erase this authoring.
         Node master = translation("en");
         String frA = option("a", "Alfa");
         Node fr = translation("fr", frA);
@@ -109,7 +109,7 @@ class ManualOptionsLanguageSyncTest {
         // Nothing lets a contributor start this field's translation by hand — the
         // value cannot be typed outside the default language, and Content Editor's
         // language copy would overwrite every other field. So the subnode is created
-        // and fed the master's entries, labels included, ready to translate in place.
+        // and fed the master's entries, labels left empty, ready to translate in place.
         Node master = translation("en", option("a", "Alpha"), option("b", "Bee", true));
         Node fr = mock(Node.class);
 
@@ -140,7 +140,8 @@ class ManualOptionsLanguageSyncTest {
     void aFedEntryCarriesNoLabelUntilSomeoneTranslatesIt() throws Exception {
         // The master's words are never copied into a translation: a copied label
         // cannot be told apart from a translated one, and the contributor would have
-        // to erase it before typing. The views render the master's label meanwhile
+        // to erase it before typing. The views meanwhile render the master's label or
+        // drop the entry, per the site's untranslated-content setting
         // (ManualOptionsDisplayService), so nothing shows up blank to a visitor.
         Node master = translation("en", option("a", "Alpha"), option("b", "Bee"));
         Node fr = translation("fr", option("a", "Alfa"));

@@ -11,16 +11,16 @@ interface SelectOption {
     selected: boolean;
 }
 
-/**
- * The human-readable name of a language code, in the UI language ("anglais"
- * for 'en' in a French UI); falls back to the raw code when the runtime or
- * the code itself cannot be resolved.
- */
 const STRUCTURE_LOCK_CLASS = 'fmdbOptionsStructureLocked';
 // The lock is held on a wrapper shared by every row of the field, so it is
 // reference-counted: one row unmounting must not unlock the rows still standing.
 const STRUCTURE_LOCK_HOLDERS = 'data-fmdb-options-lock-holders';
 
+/**
+ * The human-readable name of a language code, in the UI language ("anglais"
+ * for 'en' in a French UI); falls back to the raw code when the runtime or
+ * the code itself cannot be resolved.
+ */
 const languageDisplayName = (code: string, uiLanguage: string): string => {
     try {
         return new Intl.DisplayNames([uiLanguage], {type: 'language'}).of(code) ?? code;
@@ -49,9 +49,10 @@ export const SelectOptionsCmp = (props: SelectorProps) => {
     // forged-value validation) and the default selection travels with it. In
     // any other language a master-fed row locks its value and selection (only
     // the label translates), the row structure hides (see below), and a row
-    // WITHOUT a value — nothing synced from the default language yet — shows a
-    // plain pointer to the default language instead of inputs. The default
-    // language comes synchronously from the editor context.
+    // WITHOUT a value — the master's option deliberately carries none, or the
+    // field was never saved in the default language — shows a plain pointer to
+    // the default language instead of inputs. The default language comes
+    // synchronously from the editor context.
     //
     // The component never calls onChange outside a user edit: Content Editor
     // derives its per-language dirtiness from the form values (useSwitchLanguage

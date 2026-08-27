@@ -34,7 +34,6 @@ public final class FormidableJcrConstants {
     public static final String ROLES_PROPERTY = "j:roles";
     public static final String LANGUAGE_PROPERTY = "jcr:language";
     public static final String TRANSLATION_NODE_PREFIX = "j:translation_";
-    public static final String TRANSLATION_NODES_PATTERN = TRANSLATION_NODE_PREFIX + "*";
 
     private FormidableJcrConstants() {
     }

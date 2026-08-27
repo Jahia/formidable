@@ -32,9 +32,10 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.OP
  * EVERY site language is fed the master's values, order and count — its translation
  * subnode created when it has none — while a language keeps its own label for a
  * value it already carries. Labels are never copied from the master: an entry
- * nobody translated is stored with an EMPTY label, and the views fall back to the
- * master's label for it (ManualOptionEntries.alignForDisplay), so an untranslated
- * choice reads correctly without ever looking translated in the editor. Entries
+ * nobody translated is stored with an EMPTY label, and the views either fall back
+ * to the master's label for it or drop it, per the site's untranslated-content
+ * setting (ManualOptionEntries.alignForDisplay), so an untranslated choice never
+ * looks translated in the editor. Entries
  * sharing one value pair up positionally, so duplicated (or still-empty) values
  * never collapse onto one translation. Content that diverged before this sync
  * existed is re-aligned the next time its field is saved.
@@ -55,10 +56,10 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.OP
  * whichever language still carries entries would resurrect them — labels included —
  * in the wrong language.
  *
- * Works on the translation subnodes directly (the i18n storage, the same access
- * the options content migration uses), so one system session covers every
- * language — reached through getI18Ns(), which answers whether or not the session
- * is bound to a locale, unlike a getNodes("j:translation_*") walk. Idempotent:
+ * Works on the translation subnodes directly (the i18n storage), so one system
+ * session covers every language — reached through getI18Ns(), which answers
+ * whether or not the session is bound to a locale, unlike a getNodes("j:translation_*")
+ * walk. Idempotent:
  * aligned translations rewrite nothing, which also terminates the observation loop
  * the sync's own writes re-enter.
  */
@@ -157,7 +158,8 @@ public final class ManualOptionsLanguageSync {
      * selections (form behavior travels with the value), keeping only that
      * language's label wherever the value already exists there. A language with no
      * translation subnode yet gets one, its labels left empty for the contributor (or
-     * a translation tool) to fill — the views render the master's label meanwhile.
+     * a translation tool) to fill — the views meanwhile render the master's label or
+     * drop the entry, per the site's untranslated-content setting.
      */
     private static boolean feed(JCRNodeWrapper fieldNode, String language, Node translation,
             List<String> masterOptions) throws RepositoryException {
