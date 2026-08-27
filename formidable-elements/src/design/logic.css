@@ -1,17 +1,27 @@
 /* Elements driven by conditional logic (.fmdb-logic-target, rendered server-side).
-   Nothing in live by default. In edit mode the core gives the element a light grey
-   background so contributors spot conditional fields — a fill, deliberately not a
-   frame, which the Page Builder's own dashed hover boxes would compete with. Every
-   value is a variable, so a template set or the form's own CSS can tone it or remove
-   it (--fmdb-logic-target-edit-bg: transparent). */
+   Nothing in live by default. In edit mode the core gives the element's LABEL a light
+   grey background so contributors spot conditional fields — a fill on the label only,
+   deliberately not a frame around the field, which the Page Builder's own dashed hover
+   boxes would compete with. Every value is a variable, so a template set or the form's
+   own CSS can tone it or remove it (--fmdb-logic-target-label-bg: transparent). */
 
 .fmdb-logic-target {
 	background: var(--fmdb-logic-target-bg, transparent);
-	border-radius: var(--fmdb-logic-target-radius, 4px);
-	padding: var(--fmdb-logic-target-padding, 0);
 }
 
-.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-logic-target {
-	background: var(--fmdb-logic-target-edit-bg, #f3f4f6);
-	padding: var(--fmdb-logic-target-edit-padding, 0.25em 0.5em);
+/* Labels sit one level below the wrapper, plus the hosts other layers insert in
+   between: <jsm> for client islands, .jahia-template-gxt for the Page Builder (and both,
+   in that order, for an island in the Page Builder). Direct-child combinators keep a
+   conditional fieldset from marking every field it holds. */
+:is(
+	.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-logic-target,
+	.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-logic-target > :is(jsm, .jahia-template-gxt),
+	.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-logic-target > .jahia-template-gxt > jsm
+)
+	> :is(.fmdb-form-group, .fmdb-fieldset)
+	> :is(.fmdb-form-label, .fmdb-file-label, .fmdb-group-legend, .fmdb-fieldset-legend, .fmdb-radio-label, .fmdb-checkbox-label) {
+	background: var(--fmdb-logic-target-label-bg, #f3f4f6);
+	border-radius: var(--fmdb-logic-target-label-radius, 3px);
+	padding: var(--fmdb-logic-target-label-padding, 0 0.35em);
+	margin-left: calc(-1 * var(--fmdb-logic-target-label-outdent, 0.35em));
 }
