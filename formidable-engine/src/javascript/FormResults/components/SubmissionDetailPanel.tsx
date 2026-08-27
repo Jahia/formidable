@@ -1,12 +1,12 @@
 import React, {useState} from 'react';
 import {Button, Close, Download, File, FilePdf, FileVideo, Paper, Separator, Typography, Visibility} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
-import {formatDate, type SubmissionRow, type SubmissionFile} from '../FormResults.utils';
+import {formatDate, type FormFields, type SubmissionRow, type SubmissionFile} from '../FormResults.utils';
 import {FilePreviewDialog} from './FilePreviewDialog';
 
 interface SubmissionDetailPanelProps {
     submission: SubmissionRow;
-    formFieldLabels: Map<string, string>;
+    formFields: FormFields;
     onClose: () => void;
 }
 
@@ -35,7 +35,8 @@ const getFileFallbackIcon = (mimeType: string | null) => {
     return <File color="gray" style={fallbackIconStyle}/>;
 };
 
-export const SubmissionDetailPanel = ({submission, formFieldLabels, onClose}: SubmissionDetailPanelProps) => {
+export const SubmissionDetailPanel = ({submission, formFields, onClose}: SubmissionDetailPanelProps) => {
+    const formFieldLabels = formFields.labels;
     const {t} = useTranslation('formidable-engine');
     const [previewFile, setPreviewFile] = useState<SubmissionFile | null>(null);
 

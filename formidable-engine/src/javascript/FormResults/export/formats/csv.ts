@@ -1,4 +1,4 @@
-import type {SubmissionRow} from '../../FormResults.utils';
+import {sortByFormOrder, type FormFields, type SubmissionRow} from '../../FormResults.utils';
 import type {ExportFormat} from './ExportFormat';
 
 const escapeCsvValue = (value: string): string => {
@@ -33,9 +33,15 @@ const formatFilesValue = (submission: SubmissionRow): string => {
 const buildCsvContent = (
     submissions: SubmissionRow[],
     t: (key: string) => string,
-    formFieldLabels: Map<string, string>
+    formFields: FormFields
 ): string => {
-    const fieldNames = Array.from(new Set(submissions.flatMap(s => s.fieldValues.map(f => f.name))));
+    const formFieldLabels = formFields.labels;
+    // One column per field ever submitted, in the order the form displays them.
+    const fieldNames = sortByFormOrder(
+        Array.from(new Set(submissions.flatMap(s => s.fieldValues.map(f => f.name)))),
+        name => name,
+        formFields.order
+    );
 
     const headerRow = [
         t('formResults.export.columns.id'),
