@@ -65,8 +65,8 @@ label so contributors spot conditional fields; every value is a variable.
 | `--fmdb-logic-target-bg` | `transparent` | Background of a conditional element |
 | `--fmdb-logic-target-edit-bg` | inherits `--fmdb-logic-target-bg` | Background in edit mode |
 | `--fmdb-logic-target-marker` | `""` (the eye) | Set to `none` to remove the edit-mode marker |
-| `--fmdb-logic-target-marker-color` | `#9ca3af` | Colour of the marker |
+| `--fmdb-logic-target-marker-color` | `#4b5563` | Colour of the marker |
 | `--fmdb-logic-target-marker-size` | `0.7em` | Size of the marker |
 | `--fmdb-logic-target-marker-raise` | `0.25em` | Vertical offset of the marker (sits above the baseline) |
 | `--fmdb-logic-target-marker-gap` | `0.35em` | Space between the marker and the label |
-| `--fmdb-logic-target-marker-opacity` | `0.8` | Opacity of the marker |
+| `--fmdb-logic-target-marker-opacity` | `0.9` | Opacity of the marker |

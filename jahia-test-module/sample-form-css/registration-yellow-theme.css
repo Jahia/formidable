@@ -311,8 +311,7 @@
 }
 
 /* Conditional fields: the core already marks their label with an eye in edit mode;
-   the theme adds a light grey background and takes the marker colour from its palette. */
+   the theme only adds a light grey background. */
 .fmdb-form {
 	--fmdb-logic-target-edit-bg: #f3f4f6;
-	--fmdb-logic-target-marker-color: var(--reg-grey);
 }
