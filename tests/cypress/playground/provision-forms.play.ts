@@ -60,7 +60,7 @@ import {
 	setOptionsSourcesConfig,
 	TEXTAREA_COMPLETE
 } from '../support/fixtures';
-import {createPublishedLiveFormPage} from '../support/fixtures/forms';
+import {createPublishedLiveFormPage, visitLiveForm} from '../support/fixtures/forms';
 import {CONTENT_PATH, FORMIDABLE_MODULE_IDS, SITE_HOME_PATH} from '../support/constants';
 import type {JahiaNode} from '../support/fixtures/types';
 
@@ -112,6 +112,32 @@ const FR_DEPARTMENT_OPTIONS = frOptions([
 // Department select in both languages. The empty first entry of the shared
 // fixture is replaced by the empty-option label property: the field still
 // starts empty, through the supported configuration.
+// The one conditional field of the playground: shown only when the delivery
+// method is "pickup", so rules can be tried in live, preview and edit mode.
+const PICKUP_LOCATION_RULE = JSON.stringify({
+	logicId: 'pg-pickup-location',
+	sourceFieldName: 'deliveryMethod',
+	sourceFieldType: 'fmdb:radio',
+	valueKind: 'choice',
+	operator: 'in',
+	values: ['pickup']
+});
+
+const pickupLocationField = (): JahiaNode => {
+	const field = getInputTextNode({
+		name: 'pickupLocation',
+		title: 'Pickup location (shown when delivery method is Pickup)',
+		placeholder: 'Store name or city'
+	});
+	return withFrench(
+		{...field, properties: [...field.properties, {name: 'logics', values: [PICKUP_LOCATION_RULE]}]},
+		[
+			{name: 'jcr:title', value: 'Point de retrait (affiché si le mode de livraison est Retrait)'},
+			{name: 'placeholder', value: 'Nom du magasin ou ville'}
+		]
+	);
+};
+
 const departmentSelect = (): JahiaNode => withFrench(
 	withEnglish(
 		getSelectNode({...SELECT_SINGLE, options: SELECT_SINGLE.options.filter(option => option.value !== '')}),
@@ -143,6 +169,13 @@ const FR_DELIVERY_OPTIONS = frOptions([
 ]);
 
 // Full name field with a custom required message in both site languages.
+// datetime-local value one week ahead, so it always satisfies the "today" lower bound.
+const nextWeekAtTen = (): string => {
+	const date = new Date();
+	date.setDate(date.getDate() + 7);
+	return `${date.toISOString().slice(0, 10)}T10:00`;
+};
+
 const fullNameField = (): JahiaNode => {
 	const node = getInputTextNode({name: 'fullName', title: 'Full name', required: true});
 	node.properties.push(
@@ -322,6 +355,7 @@ describe('Playground - provision manual-testing forms', () => {
 							])
 						]),
 						withFrench(getRadioNode(RADIO_GROUP), [{name: 'jcr:title', value: 'Mode de livraison'}, FR_DELIVERY_OPTIONS]),
+						pickupLocationField(),
 						departmentSelect(),
 						withFrench(getTextareaNode({...TEXTAREA_COMPLETE, defaultValue: undefined}), [
 							{name: 'jcr:title', value: 'Résumé du projet'},
@@ -393,6 +427,69 @@ describe('Playground - provision manual-testing forms', () => {
 			cy.log(`Half-translated options, French: /fr/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`);
 			cy.log('Toggle "Replace untranslated content with the default language content" in the site settings: '
 				+ 'ON renders Chocolate/Pistachio with their English labels, OFF drops them from the French form.');
+		});
+	});
+
+	it('submits sample entries so the results screens have something to show', () => {
+		const liveFormPath = (formName: string) => `home/${formName}-page.html`;
+
+		// Simple contact form: three visitors, one of them in French. Typed values stay
+		// ASCII: realType (cypress-real-events) rejects accented characters.
+		[
+			{lang: 'en', fullName: 'Alice Martin', email: 'alice.martin@example.com', message: 'Could you send me the brochure of your spring collection?'},
+			{lang: 'en', fullName: 'Bob Dupont', email: 'bob.dupont@example.com', message: 'The store in Lyon was closed on Monday, is that expected?'},
+			{lang: 'fr', fullName: 'Chloe Bernard', email: 'chloe.bernard@example.com', message: 'Bonjour, je souhaite recevoir le catalogue par courrier.'}
+		].forEach(({lang, fullName, email, message}) => {
+			const form = visitLiveForm(liveFormPath('playground-simple'), lang);
+			form.getTextInput('fullName').type(fullName);
+			form.getEmailInput('email').type(email);
+			form.getTextarea('message').type(message);
+			form.submit();
+			form.waitForSubmit();
+		});
+
+		// Multi-step form: two visitors going through the three steps.
+		[
+			{fullName: 'Diane Roux', email: 'diane.roux@example.com', department: 'Engineering', delivery: 'Standard', comment: 'Looking forward to the next release.'},
+			{fullName: 'Ethan Moreau', email: 'ethan.moreau@example.com', department: 'Sales', delivery: 'Express', comment: 'Please call me back in the afternoon.'}
+		].forEach(({fullName, email, department, delivery, comment}) => {
+			const form = visitLiveForm(liveFormPath('playground-steps'));
+			form.getTextInput('fullName').type(fullName);
+			form.getEmailInput('email').type(email);
+			form.nextStep();
+			form.getSelectInput('department').select(department);
+			form.getRadioGroup('deliveryMethod').select(delivery);
+			form.nextStep();
+			form.getTextarea('comment').type(comment);
+			form.submit();
+			form.waitForSubmit();
+		});
+
+		// Complete form: every field type, with the PDF and CSV fixtures as attachments.
+		// The third entry picks "Pickup", which reveals the conditional pickup location.
+		[
+			{code: 'AB-1234', email: 'fanny.girard@example.com', birth: '1988-04-12', color: '#ff5733', interests: ['Sports', 'Music'], delivery: 'Express', pickup: null, department: 'Engineering', summary: 'A new intranet for the engineering team, with a form for incident reports.', files: ['cypress/fixtures/files/document.pdf']},
+			{code: 'CD-5678', email: 'gabriel.lefevre@example.com', birth: '1975-11-30', color: '#3366cc', interests: ['Reading'], delivery: 'Standard', pickup: null, department: 'Sales', summary: 'Quarterly sales dashboard with an export of the leads collected on the site.', files: ['cypress/fixtures/files/sample.csv']},
+			{code: 'EF-9012', email: 'helene.petit@example.com', birth: '1992-07-08', color: '#2e8b57', interests: ['Sports'], delivery: 'Pickup', pickup: 'Paris - Rue de Rivoli', department: 'Support', summary: 'Support knowledge base migration, including the attached inventory and specification.', files: ['cypress/fixtures/files/document.pdf', 'cypress/fixtures/files/sample.csv']}
+		].forEach(({code, email, birth, color, interests, delivery, pickup, department, summary, files}) => {
+			const form = visitLiveForm(liveFormPath('playground-complete'));
+			form.getTextInput(INPUT_TEXT_COMPLETE.name!).type(code);
+			form.getEmailInput(INPUT_EMAIL_COMPLETE.name!).type(email);
+			form.getDateInput(INPUT_DATE_COMPLETE.name!).setDate(birth);
+			// The appointment cannot be before the submission day (relative "today" bound).
+			form.getDateTimeLocalInput(INPUT_DATETIME_LOCAL_COMPLETE.name!).setDateTime(nextWeekAtTen());
+			form.getColorInput(INPUT_COLOR_COMPLETE.name!).setColor(color);
+			form.getCheckboxGroup(CHECKBOX_GROUP_COMPLETE.name!).uncheckAll().checkByLabels(interests);
+			form.getRadioGroup(RADIO_GROUP.name!).select(delivery);
+			if (pickup) {
+				form.getTextInput('pickupLocation').type(pickup);
+			}
+
+			form.getSelectInput('department').select(department);
+			form.getTextarea(TEXTAREA_COMPLETE.name!).type(summary);
+			form.getFileInput(INPUT_FILE_MULTIPLE.name!).attachFile(files).shouldHaveSelectedFileCount(files.length);
+			form.submit();
+			form.waitForSubmit().shouldHaveSubmissionMessage('Form submitted successfully!');
 		});
 	});
 
