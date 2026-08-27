@@ -1,4 +1,4 @@
-import {getNodeProps, Render} from "@jahia/javascript-modules-library";
+import {getNodeProps, Render, useServerContext} from "@jahia/javascript-modules-library";
 import {type ConditionalLogicRule, parseConditionalLogicRules} from "~/utils/conditionalLogic";
 
 type LogicAwareRenderNode = Parameters<typeof getNodeProps>[0];
@@ -37,6 +37,7 @@ const resolveSourceNodeIds = (node: LogicAwareRenderNode, logics: ConditionalLog
 };
 
 const LogicAwareRender = ({node, view, parameters, className}: LogicAwareRenderProps) => {
+	const {renderContext} = useServerContext();
 	const {logics: rawLogics} = getNodeProps<{logics?: string[]}>(node, ["logics"]);
 	const logics = node.isNodeType("fmdbmix:formLogicElement")
 		? parseConditionalLogicRules(rawLogics ?? [])
@@ -48,12 +49,15 @@ const LogicAwareRender = ({node, view, parameters, className}: LogicAwareRenderP
 		resolveSourceNodeIds(node, logics);
 	}
 
+	// In Page Builder, logic-hidden elements must stay visible to remain editable.
+	const hideForLogic = hasLogic && !renderContext.isEditMode();
+
 	return (
 		<div
 			className={className}
-			style={hasLogic ? {display: "none"} : undefined}
-			aria-hidden={hasLogic ? "true" : undefined}
-			data-fmdb-logic-hidden={hasLogic ? "true" : undefined}
+			style={hideForLogic ? {display: "none"} : undefined}
+			aria-hidden={hideForLogic ? "true" : undefined}
+			data-fmdb-logic-hidden={hideForLogic ? "true" : undefined}
 			data-fmdb-node-id={node.getIdentifier()}
 			data-fmdb-node-name={node.getName()}
 			data-fmdb-node-type={node.getPrimaryNodeTypeName()}
