@@ -27,6 +27,7 @@ export default function Form({
 	maintenanceMessage,
 	submitActionUrl,
 	isSubmitDisabled = false,
+	isEditMode = false,
 	showResetBtn = false,
 	showNewFormBtn = false,
 	showTryAgainBtn = false,
