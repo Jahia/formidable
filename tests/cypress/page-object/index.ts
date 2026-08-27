@@ -8,7 +8,7 @@
  */
 
 // Main components
-export {Form} from './Form';
+export {Form, FORM_HYDRATION_TIMEOUT_MS, isFormHydrated} from './Form';
 export {Fieldset} from './Fieldset';
 export {ConditionalLogicEditor} from './ConditionalLogicEditor';
 export {ConditionalLogicField} from './ConditionalLogicField';
