@@ -26,10 +26,10 @@
 	> :is(.fmdb-form-label, .fmdb-file-label, .fmdb-group-legend, .fmdb-fieldset-legend, .fmdb-radio-label, .fmdb-checkbox-label)::before {
 	content: var(--fmdb-logic-target-marker, "");
 	display: inline-block;
-	width: var(--fmdb-logic-target-marker-size, 0.9em);
-	height: var(--fmdb-logic-target-marker-size, 0.9em);
+	width: var(--fmdb-logic-target-marker-size, 0.7em);
+	height: var(--fmdb-logic-target-marker-size, 0.7em);
 	margin-right: var(--fmdb-logic-target-marker-gap, 0.35em);
-	vertical-align: -0.12em;
+	vertical-align: var(--fmdb-logic-target-marker-raise, 0.25em);
 	background-color: var(--fmdb-logic-target-marker-color, #9ca3af);
 	opacity: var(--fmdb-logic-target-marker-opacity, 0.8);
 	-webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E") no-repeat center / contain;
