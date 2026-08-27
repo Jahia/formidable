@@ -74,7 +74,7 @@ export default function Form({
 		isMultiStep,
 		handleNext,
 		handlePrevious,
-	} = useMultiStep({formRef, stepIds});
+	} = useMultiStep({formRef, stepIds, disabled: isEditMode});
 
 	useCustomFormValidation({formRef});
 
