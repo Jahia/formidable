@@ -3,14 +3,15 @@ package org.jahia.modules.formidable.engine.servlet;
 import org.jahia.modules.formidable.engine.actions.FormDataParser;
 import org.jahia.modules.formidable.engine.logic.ConditionalLogicRule;
 import org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService;
+import org.jahia.modules.formidable.engine.options.ManualOptionEntries;
 import org.jahia.modules.formidable.engine.util.JcrProps;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionFactory;
 import org.jahia.services.content.JCRTemplate;
-import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.jcr.Node;
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import javax.jcr.Value;
@@ -23,6 +24,7 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FO
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGIC_NODE_SOURCE_PROPERTY;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGICS_PROPERTY;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGICS_SRC_NODE;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.MANUAL_OPTIONS_MIXIN;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.NON_SUBMITTABLE_MIXIN;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WORKSPACE_LIVE;
 
@@ -231,6 +233,53 @@ class FormFieldMetadataCollector {
         return false;
     }
 
+    /**
+     * The allowed values of a manual choice field. Option values are one identity
+     * set across languages, authored in the site's default language and re-aligned
+     * onto the other languages by ManualOptionsLanguageSync — so the allowed set is
+     * read from the DEFAULT language, never from the submitter-chosen locale: a
+     * diverged or legacy translation (not yet re-aligned) can neither smuggle
+     * values in nor reject legitimate default-language values. Without a
+     * default-language master (a field authored in another language only), the
+     * localized read stays the identity.
+     *
+     * Keyed on the MIXIN, not on the submitted locale carrying fmdb:options: a form
+     * rendered in a language nobody translated still renders the master's entries
+     * (ManualOptionsDisplayService), so the values it can legitimately submit must be
+     * read there too.
+     */
+    private static Set<String> collectManualChoices(JCRNodeWrapper node) throws RepositoryException {
+        if (node.isNodeType(MANUAL_OPTIONS_MIXIN)) {
+            Set<String> masterChoices = collectDefaultLanguageChoices(node);
+            if (masterChoices != null) {
+                return masterChoices;
+            }
+        }
+
+        return collectChoices(node, node.getName(), resolveChoicePropertyName(node));
+    }
+
+    private static Set<String> collectDefaultLanguageChoices(JCRNodeWrapper node) throws RepositoryException {
+        String defaultLanguage = node.getResolveSite() != null
+                ? node.getResolveSite().getDefaultLanguage()
+                : null;
+        if (defaultLanguage == null) {
+            return null;
+        }
+
+        Node master = ManualOptionEntries.findTranslation(node, defaultLanguage);
+        if (master == null) {
+            return null;
+        }
+
+        Set<String> choices = new HashSet<>();
+        for (String raw : ManualOptionEntries.readOptions(master)) {
+            addChoiceValue(choices, raw, node.getName());
+        }
+
+        return choices.isEmpty() ? null : choices;
+    }
+
     private static Set<String> collectChoices(JCRNodeWrapper node, String fieldName, String propName)
             throws RepositoryException {
         if (!node.hasProperty(propName)) return Set.of();
@@ -254,12 +303,17 @@ class FormFieldMetadataCollector {
     }
 
     private static void addChoiceValue(Set<String> choices, String jsonOption, String fieldName) {
-        try {
-            JSONObject obj = new JSONObject(jsonOption);
-            String val = obj.optString("value", "").trim();
-            if (!val.isEmpty()) choices.add(val);
-        } catch (Exception e) {
+        // One shared reading of the entry storage; the trim-and-drop-empties policy
+        // is this allowed-set's own (the language sync keeps entries verbatim).
+        String value = ManualOptionEntries.value(jsonOption);
+        if (value == null) {
             log.debug("[FormFieldMetadataCollector] Could not parse choice JSON for field '{}'", fieldName);
+            return;
+        }
+
+        String val = value.trim();
+        if (!val.isEmpty()) {
+            choices.add(val);
         }
     }
 
@@ -311,7 +365,7 @@ class FormFieldMetadataCollector {
                     choicesUnresolvable = true;
                 }
             } else {
-                choices = collectChoices(node, node.getName(), resolveChoicePropertyName(node));
+                choices = collectManualChoices(node);
             }
         }
         Set<String> acceptedTypes = fileField ? collectAcceptTypes(node) : Set.of();

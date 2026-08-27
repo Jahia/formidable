@@ -26,6 +26,26 @@ const SOURCES_CONFIG = ['countries|Countries|country'];
 
 const AGENCIES_ROOT_PATH = `${CONTENT_PATH}/tampering-agencies`;
 
+/**
+ * Waits until a direct submission of the given fields returns the expected
+ * status. editConfiguration reaches the options sources asynchronously (the
+ * ConfigAdmin update is dispatched on its own event thread), so the first
+ * expectation after a configuration toggle polls instead of asserting the
+ * very first response.
+ */
+function waitForSubmissionStatus(
+		formId: string,
+		fields: Record<string, string>,
+		status: number,
+		errorMsg: string
+): Cypress.Chainable {
+	return cy.waitUntil(
+		() => postDirectMultipartSubmission({formId, fields, headers: withSameOriginHeaders()})
+			.then(response => response.status === status),
+		{timeout: 15000, interval: 500, errorMsg}
+	);
+}
+
 describe('Security - sourced options tampering', () => {
 	useFormidableSite();
 
@@ -204,6 +224,8 @@ describe('Security - sourced options tampering', () => {
 		cy.logout();
 
 		// A value that used to be valid can no longer be verified: rejected.
+		waitForSubmissionStatus(optionalFormId, {country: 'FR', screenType: 'oled'}, 400,
+			'the source removal never reached the submission validation');
 		postDirectMultipartSubmission({
 			formId: optionalFormId,
 			fields: {country: 'FR', screenType: 'oled'},
@@ -222,6 +244,8 @@ describe('Security - sourced options tampering', () => {
 		cy.logout();
 
 		// Restoring the source restores submissions.
+		waitForSubmissionStatus(optionalFormId, {country: 'FR', screenType: 'oled'}, 200,
+			'the restored source never reached the submission validation');
 		postDirectMultipartSubmission({
 			formId: optionalFormId,
 			fields: {country: 'FR', screenType: 'oled'},
@@ -244,6 +268,8 @@ describe('Security - sourced options tampering', () => {
 
 		// The undeclared field keeps the multipart body well-formed and is ignored
 		// by the collector, so the submission is an empty one for the form fields.
+		waitForSubmissionStatus(requiredFormId, {undeclared: 'x'}, 400,
+			'the source removal never reached the submission validation');
 		postDirectMultipartSubmission({
 			formId: requiredFormId,
 			fields: {undeclared: 'x'},
@@ -253,5 +279,10 @@ describe('Security - sourced options tampering', () => {
 		cy.login();
 		setOptionsSourcesConfig(SOURCES_CONFIG);
 		cy.logout();
+
+		// The configuration is instance-global: leave the spec only once the
+		// restored source is effective again.
+		waitForSubmissionStatus(requiredFormId, {requiredCountry: 'FR'}, 200,
+			'the restored source never reached the submission validation');
 	});
 });
