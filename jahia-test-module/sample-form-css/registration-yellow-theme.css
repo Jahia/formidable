@@ -311,12 +311,12 @@
 }
 
 /* Conditional fields in edit mode: this theme prefers the whole field greyed out and
-   lifted by a soft shadow, so it turns the core's label fill off and styles the
+   lifted by a soft shadow, so it turns the core's card off and styles the
    .fmdb-logic-target wrapper itself. Nothing in live. */
 .fmdb-form {
-	--fmdb-logic-target-label-bg: transparent;
-	--fmdb-logic-target-label-padding: 0;
-	--fmdb-logic-target-label-outdent: 0;
+	--fmdb-logic-target-card-bg: transparent;
+	--fmdb-logic-target-card-shadow: none;
+	--fmdb-logic-target-card-display: block;
 }
 
 .fmdb-form[data-fmdb-edit-mode="true"] .fmdb-logic-target {

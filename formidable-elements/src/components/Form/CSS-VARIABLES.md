@@ -57,13 +57,13 @@
 Every element carrying at least one visibility rule is wrapped in `.fmdb-logic-target`
 (server-rendered, so present in live, preview and edit mode; the current state stays in
 `data-fmdb-logic-hidden`). Nothing is drawn in live. In edit mode
-(`form[data-fmdb-edit-mode="true"]`) the core gives the element's label a light grey
-background so contributors spot conditional fields; every value is a variable.
+(`form[data-fmdb-edit-mode="true"]`) the core lifts the element's form group on a light grey
+card with a soft shadow so contributors spot conditional fields; every value is a variable.
 
 | Variable | Default | Description |
 |---|---|---|
 | `--fmdb-logic-target-bg` | `transparent` | Background of the whole conditional element |
-| `--fmdb-logic-target-label-bg` | `#d1d5db` | Background of the label in edit mode (`transparent` to remove the cue) |
-| `--fmdb-logic-target-label-radius` | `3px` | Border radius of that fill |
-| `--fmdb-logic-target-label-padding` | `0 0.35em` | Padding of that fill |
-| `--fmdb-logic-target-label-outdent` | `0.35em` | Negative left margin, so the label text stays aligned with the others |
+| `--fmdb-logic-target-card-display` | `inline-block` | Display of the group in edit mode (`block` for full width) |
+| `--fmdb-logic-target-card-bg` | `#f3f4f6` | Background of the card (`transparent` to remove the cue) |
+| `--fmdb-logic-target-card-shadow` | `0 0 0 4px #f3f4f6, 0 2px 4px rgba(0, 0, 0, 0.58)` | Shadow of the card (`none` to remove it) |
+| `--fmdb-logic-target-card-radius` | `2px` | Border radius of the card |
