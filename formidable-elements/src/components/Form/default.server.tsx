@@ -168,6 +168,7 @@ jahiaComponent(
 				maintenanceMessage: resolveUrlPlaceholders(maintenanceMessage, renderContext),
 				submitActionUrl,
 				isSubmitDisabled,
+				isEditMode: renderContext.isEditMode(),
 				showResetBtn,
 				showNewFormBtn,
 				showTryAgainBtn,
