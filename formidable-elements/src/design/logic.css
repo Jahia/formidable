@@ -1,0 +1,14 @@
+/* Elements driven by conditional logic (.fmdb-logic-target, rendered server-side).
+   Nothing in live by default. In edit mode the core lifts the element's form group on
+   a light grey card with a soft shadow, shrunk to its content, so contributors spot
+   conditional fields — a card, deliberately not a frame, which the Page Builder's own
+   dashed hover boxes would compete with. Every value is a variable, so a template set
+   or the form's own CSS can tone it or remove it (--fmdb-logic-target-card-shadow: none,
+   --fmdb-logic-target-card-bg: transparent). */
+
+.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-logic-target :is(.fmdb-form-group, .fmdb-fieldset) {
+	display: var(--fmdb-logic-target-card-display, inline-block);
+	background: var(--fmdb-logic-target-card-bg, #f3f4f6);
+	box-shadow: var(--fmdb-logic-target-card-shadow, 0 0 0 4px #f3f4f6, 0 2px 4px rgba(0, 0, 0, 0.58));
+	border-radius: var(--fmdb-logic-target-card-radius, 2px);
+}

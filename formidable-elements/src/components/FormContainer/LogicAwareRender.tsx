@@ -1,4 +1,5 @@
 import {getNodeProps, Render, useServerContext} from "@jahia/javascript-modules-library";
+import clsx from "clsx";
 import {type ConditionalLogicRule, parseConditionalLogicRules} from "~/utils/conditionalLogic";
 
 type LogicAwareRenderNode = Parameters<typeof getNodeProps>[0];
@@ -54,7 +55,9 @@ const LogicAwareRender = ({node, view, parameters, className}: LogicAwareRenderP
 
 	return (
 		<div
-			className={className}
+			// Stable, server-rendered hook: the element is driven by conditional logic,
+			// whatever its current visibility (that state lives in data-fmdb-logic-hidden).
+			className={clsx(className, hasLogic && "fmdb-logic-target")}
 			style={hideForLogic ? {display: "none"} : undefined}
 			aria-hidden={hideForLogic ? "true" : undefined}
 			data-fmdb-logic-hidden={hideForLogic ? "true" : undefined}

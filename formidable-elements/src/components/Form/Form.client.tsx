@@ -2,6 +2,7 @@ import {useEffect, useRef, useState} from 'react';
 import clsx from "clsx";
 import classes from './Form.client.module.css';
 import '~/design/validation.css';
+import '~/design/logic.css';
 import {type FormProps} from './types';
 import Spinner from '~/design/Spinner';
 import DOMPurify from 'dompurify';

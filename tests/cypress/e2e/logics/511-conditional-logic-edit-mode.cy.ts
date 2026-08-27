@@ -51,9 +51,14 @@ describe('Form logic - 511 Rules never hide a field in edit mode', () => {
 			// Hiding also disables the controls it covers, so being visible is not enough:
 			// the contributor must be able to type in the field.
 			cy.get('input[name="gated"]').should('be.visible').and('not.be.disabled');
+			// The styling hook is about the nature of the element, not its state: it is
+			// there in edit mode too, and only on elements that carry rules.
+			wrapperOf('gated').should('have.class', 'fmdb-logic-target');
+			wrapperOf('role').should('not.have.class', 'fmdb-logic-target');
 
 			visitPreviewForm(livePath);
 			wrapperOf('gated').should('have.attr', 'data-fmdb-logic-hidden', 'true');
+			wrapperOf('gated').should('have.class', 'fmdb-logic-target');
 		});
 	});
 });
