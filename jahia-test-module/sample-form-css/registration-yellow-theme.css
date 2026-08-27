@@ -311,7 +311,7 @@
 }
 
 /* Conditional fields in edit mode: this theme prefers the whole field greyed out and
-   sunk by an inset shadow, so it turns the core's label fill off and styles the
+   lifted by a soft shadow, so it turns the core's label fill off and styles the
    .fmdb-logic-target wrapper itself. Nothing in live. */
 .fmdb-form {
 	--fmdb-logic-target-label-bg: transparent;
@@ -321,7 +321,7 @@
 
 .fmdb-form[data-fmdb-edit-mode="true"] .fmdb-logic-target {
 	background: #f3f4f6;
-	box-shadow: 0 0 0 4px #f3f4f6, inset 0 2px 8px rgba(0, 0, 0, 0.22);
+	box-shadow: 0 0 0 4px #f3f4f6, 0 2px 8px rgba(0, 0, 0, 0.18);
 	border-radius: 4px;
 }
 
