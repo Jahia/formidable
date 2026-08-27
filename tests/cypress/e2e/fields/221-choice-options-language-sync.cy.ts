@@ -56,10 +56,12 @@ const GET_EN_OPTIONS = gql`
 
 // "Replace untranslated content with the default language content", the site
 // setting that governs what an untranslated option renders as. The live
-// rendering resolves the LIVE site node, so the flag is written in both
-// workspaces rather than published (publishing would carry the whole site).
-const SET_MIX_LANGUAGE_EDIT = gql`
-	mutation setMixLanguageEdit($path: String!, $active: String!) {
+// rendering resolves the LIVE site node. The site node is jmix:autoPublish, so
+// an EDIT save alone carries the flag to live; never write it in LIVE directly —
+// a direct live write marks the property as live-owned (jmix:liveProperties) and
+// every later publication, automatic or not, then refuses to overwrite it.
+const SET_MIX_LANGUAGE = gql`
+	mutation setMixLanguage($path: String!, $active: String!) {
 		jcr {
 			mutateNode(pathOrId: $path) {
 				mutateProperty(name: "j:mixLanguage") {
@@ -70,12 +72,14 @@ const SET_MIX_LANGUAGE_EDIT = gql`
 	}
 `;
 
-const SET_MIX_LANGUAGE_LIVE = gql`
-	mutation setMixLanguageLive($path: String!, $active: String!) {
+const GET_MIX_LANGUAGE_LIVE = gql`
+	query getMixLanguageLive($path: String!) {
 		jcr(workspace: LIVE) {
-			mutateNode(pathOrId: $path) {
-				mutateProperty(name: "j:mixLanguage") {
-					setValue(value: $active)
+			nodeByPath(path: $path) {
+				uuid
+				workspace
+				property(name: "j:mixLanguage") {
+					value
 				}
 			}
 		}
@@ -83,13 +87,15 @@ const SET_MIX_LANGUAGE_LIVE = gql`
 `;
 
 const replaceUntranslatedContent = (active: boolean): void => {
-	const variables = {path: `/sites/${FORMIDABLE_TEST_SITE.key}`, active: String(active)};
-	cy.apollo({mutation: SET_MIX_LANGUAGE_EDIT, variables}).then(result => {
+	const path = `/sites/${FORMIDABLE_TEST_SITE.key}`;
+	cy.apollo({mutation: SET_MIX_LANGUAGE, variables: {path, active: String(active)}}).then(result => {
 		expect(result.errors, 'site setting written in edit').to.equal(undefined);
 	});
-	cy.apollo({mutation: SET_MIX_LANGUAGE_LIVE, variables}).then(result => {
-		expect(result.errors, 'site setting written in live').to.equal(undefined);
-	});
+	cy.waitUntil(
+		() => cy.apollo({query: GET_MIX_LANGUAGE_LIVE, variables: {path}, fetchPolicy: 'no-cache'})
+			.then(result => result?.data?.jcr?.nodeByPath?.property?.value === String(active)),
+		{timeout: 15000, interval: 500, errorMsg: 'the site setting was never auto-published to live'}
+	);
 };
 
 const frOptionsOf = (result: {data?: {jcr?: {nodeByPath?: {property?: {values?: string[]}}}}}): string[] | undefined =>
