@@ -152,13 +152,13 @@ const contactChannelSelect = (): JahiaNode => withFrench(
 const phoneNumberField = (): JahiaNode => {
 	const field = getInputTextNode({
 		name: 'phoneNumber',
-		title: 'Phone number',
+		title: 'Phone number (shown when you ask for a call)',
 		placeholder: '+33 6 12 34 56 78'
 	});
 	return withFrench(
 		{...field, properties: [...field.properties, {name: 'logics', values: [PHONE_NUMBER_RULE]}]},
 		[
-			{name: 'jcr:title', value: 'Numéro de téléphone'},
+			{name: 'jcr:title', value: 'Numéro de téléphone (affiché si vous demandez un appel)'},
 			{name: 'placeholder', value: '+33 6 12 34 56 78'}
 		]
 	);
@@ -167,13 +167,13 @@ const phoneNumberField = (): JahiaNode => {
 const pickupLocationField = (): JahiaNode => {
 	const field = getInputTextNode({
 		name: 'pickupLocation',
-		title: 'Pickup location',
+		title: 'Pickup location (shown when delivery method is Pickup)',
 		placeholder: 'Store name or city'
 	});
 	return withFrench(
 		{...field, properties: [...field.properties, {name: 'logics', values: [PICKUP_LOCATION_RULE]}]},
 		[
-			{name: 'jcr:title', value: 'Point de retrait'},
+			{name: 'jcr:title', value: 'Point de retrait (affiché si le mode de livraison est Retrait)'},
 			{name: 'placeholder', value: 'Nom du magasin ou ville'}
 		]
 	);
