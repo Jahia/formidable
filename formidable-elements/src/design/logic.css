@@ -1,0 +1,16 @@
+/* Elements driven by conditional logic (.fmdb-logic-target, rendered server-side).
+   Neutral by default: a template set or the form's own CSS opts in through the
+   variables, typically to flag conditional fields to contributors in edit mode. */
+
+.fmdb-logic-target {
+	background: var(--fmdb-logic-target-bg, transparent);
+	outline: var(--fmdb-logic-target-outline, none);
+	outline-offset: var(--fmdb-logic-target-outline-offset, 0);
+	border-radius: var(--fmdb-logic-target-radius, 0);
+	padding: var(--fmdb-logic-target-padding, 0);
+}
+
+.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-logic-target {
+	background: var(--fmdb-logic-target-edit-bg, var(--fmdb-logic-target-bg, transparent));
+	outline: var(--fmdb-logic-target-edit-outline, var(--fmdb-logic-target-outline, none));
+}

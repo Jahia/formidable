@@ -309,3 +309,12 @@
 	background: #ffffff;
 	box-shadow: 0 0 3px rgba(0, 0, 0, 0.1);
 }
+
+/* Conditional fields are flagged to contributors only: light grey in edit mode,
+   nothing in live. The hook is the .fmdb-logic-target wrapper of the element. */
+.fmdb-form {
+	--fmdb-logic-target-edit-bg: #f3f4f6;
+	--fmdb-logic-target-edit-outline: 1px dashed var(--reg-grey);
+	--fmdb-logic-target-outline-offset: 4px;
+	--fmdb-logic-target-radius: 4px;
+}

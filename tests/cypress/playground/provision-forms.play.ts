@@ -123,6 +123,47 @@ const PICKUP_LOCATION_RULE = JSON.stringify({
 	values: ['pickup']
 });
 
+// Second conditional case, on the simple form this time: that form has no custom
+// CSS, so it shows how the core renders a conditional field by default.
+const PHONE_NUMBER_RULE = JSON.stringify({
+	logicId: 'pg-phone-number',
+	sourceFieldName: 'contactChannel',
+	sourceFieldType: 'fmdb:select',
+	valueKind: 'choice',
+	operator: 'in',
+	values: ['phone']
+});
+
+const contactChannelSelect = (): JahiaNode => withFrench(
+	getSelectNode({
+		name: 'contactChannel',
+		title: 'How should we get back to you?',
+		options: [
+			{value: 'email', label: 'By email', selected: true},
+			{value: 'phone', label: 'By phone', selected: false}
+		]
+	}),
+	[
+		{name: 'jcr:title', value: 'Comment vous recontacter ?'},
+		frOptions([{value: 'email', label: 'Par e-mail', selected: true}, {value: 'phone', label: 'Par téléphone'}])
+	]
+);
+
+const phoneNumberField = (): JahiaNode => {
+	const field = getInputTextNode({
+		name: 'phoneNumber',
+		title: 'Phone number (shown when you ask for a call)',
+		placeholder: '+33 6 12 34 56 78'
+	});
+	return withFrench(
+		{...field, properties: [...field.properties, {name: 'logics', values: [PHONE_NUMBER_RULE]}]},
+		[
+			{name: 'jcr:title', value: 'Numéro de téléphone (affiché si vous demandez un appel)'},
+			{name: 'placeholder', value: '+33 6 12 34 56 78'}
+		]
+	);
+};
+
 const pickupLocationField = (): JahiaNode => {
 	const field = getInputTextNode({
 		name: 'pickupLocation',
@@ -238,7 +279,9 @@ describe('Playground - provision manual-testing forms', () => {
 			[
 				withFrench(fullNameField(), [{name: 'jcr:title', value: 'Nom complet'}]),
 				withFrench(getInputEmailNode({name: 'email', title: 'Email', required: true}), [{name: 'jcr:title', value: 'Email'}]),
-				withFrench(getTextareaNode({name: 'message', title: 'Message'}), [{name: 'jcr:title', value: 'Message'}])
+				withFrench(getTextareaNode({name: 'message', title: 'Message'}), [{name: 'jcr:title', value: 'Message'}]),
+				contactChannelSelect(),
+				phoneNumberField()
 			],
 			undefined,
 			undefined,
@@ -437,13 +480,19 @@ describe('Playground - provision manual-testing forms', () => {
 		// ASCII: realType (cypress-real-events) rejects accented characters.
 		[
 			{lang: 'en', fullName: 'Alice Martin', email: 'alice.martin@example.com', message: 'Could you send me the brochure of your spring collection?'},
-			{lang: 'en', fullName: 'Bob Dupont', email: 'bob.dupont@example.com', message: 'The store in Lyon was closed on Monday, is that expected?'},
+			{lang: 'en', fullName: 'Bob Dupont', email: 'bob.dupont@example.com', message: 'The store in Lyon was closed on Monday, is that expected?', phone: '+33 6 12 34 56 78'},
 			{lang: 'fr', fullName: 'Chloe Bernard', email: 'chloe.bernard@example.com', message: 'Bonjour, je souhaite recevoir le catalogue par courrier.'}
-		].forEach(({lang, fullName, email, message}) => {
+		].forEach(({lang, fullName, email, message, phone}) => {
 			const form = visitLiveForm(liveFormPath('playground-simple'), lang);
 			form.getTextInput('fullName').type(fullName);
 			form.getEmailInput('email').type(email);
 			form.getTextarea('message').type(message);
+			if (phone) {
+				// Asking for a call reveals the conditional phone number field.
+				form.getSelectInput('contactChannel').selectByValue('phone');
+				form.getTextInput('phoneNumber').type(phone);
+			}
+
 			form.submit();
 			form.waitForSubmit();
 		});

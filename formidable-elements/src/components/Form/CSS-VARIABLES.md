@@ -52,3 +52,19 @@
 | `--fmdb-step-done-number-bg` | `#16a34a` | Background (done state) |
 | `--fmdb-step-done-number-color` | `#fff` | Text color (done state) |
 
+## Conditional logic
+
+Every element carrying at least one visibility rule is wrapped in `.fmdb-logic-target`
+(server-rendered, so present in live, preview and edit mode; the current state stays in
+`data-fmdb-logic-hidden`). Neutral by default, the hook is meant for template sets that
+want to flag conditional fields — typically to contributors, through the edit-mode variables.
+
+| Variable | Default | Description |
+|---|---|---|
+| `--fmdb-logic-target-bg` | `transparent` | Background of a conditional element |
+| `--fmdb-logic-target-outline` | `none` | Outline of a conditional element |
+| `--fmdb-logic-target-outline-offset` | `0` | Outline offset |
+| `--fmdb-logic-target-radius` | `0` | Border radius of the wrapper |
+| `--fmdb-logic-target-padding` | `0` | Padding of the wrapper |
+| `--fmdb-logic-target-edit-bg` | inherits `--fmdb-logic-target-bg` | Background in edit mode (`form[data-fmdb-edit-mode="true"]`) |
+| `--fmdb-logic-target-edit-outline` | inherits `--fmdb-logic-target-outline` | Outline in edit mode |
