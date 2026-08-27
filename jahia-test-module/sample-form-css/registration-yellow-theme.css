@@ -310,9 +310,9 @@
 	box-shadow: 0 0 3px rgba(0, 0, 0, 0.1);
 }
 
-/* Conditional fields: the core already frames them in edit mode; the theme adds a
-   light grey background and takes the frame colour from its own palette. */
+/* Conditional fields: the core already marks their label with an eye in edit mode;
+   the theme adds a light grey background and takes the marker colour from its palette. */
 .fmdb-form {
 	--fmdb-logic-target-edit-bg: #f3f4f6;
-	--fmdb-logic-target-edit-outline-color: var(--reg-grey);
+	--fmdb-logic-target-marker-color: var(--reg-grey);
 }
