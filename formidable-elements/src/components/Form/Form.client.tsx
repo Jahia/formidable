@@ -43,7 +43,6 @@ export default function Form({
 	stepLabels,
 	stepIds,
 	captcha,
-	isEditMode = false,
 	children
 }: FormProps) {
 	const formRef = useRef<HTMLFormElement>(null);
