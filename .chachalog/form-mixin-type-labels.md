@@ -3,4 +3,4 @@
 formidable: patch
 ---
 
-Fixed the Page Builder create buttons of a form, which named the field, content and step types by their technical names (#229)
+Fixed the Page Builder create buttons of a form, which showed technical names for field, content and step types (#229)
