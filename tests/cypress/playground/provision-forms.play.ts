@@ -120,7 +120,7 @@ const PICKUP_LOCATION_RULE = JSON.stringify({
 	sourceFieldType: 'fmdb:radio',
 	valueKind: 'choice',
 	operator: 'in',
-	value: 'pickup'
+	values: ['pickup']
 });
 
 const pickupLocationField = (): JahiaNode => {
@@ -433,11 +433,12 @@ describe('Playground - provision manual-testing forms', () => {
 	it('submits sample entries so the results screens have something to show', () => {
 		const liveFormPath = (formName: string) => `home/${formName}-page.html`;
 
-		// Simple contact form: three visitors, one of them in French.
+		// Simple contact form: three visitors, one of them in French. Typed values stay
+		// ASCII: realType (cypress-real-events) rejects accented characters.
 		[
 			{lang: 'en', fullName: 'Alice Martin', email: 'alice.martin@example.com', message: 'Could you send me the brochure of your spring collection?'},
 			{lang: 'en', fullName: 'Bob Dupont', email: 'bob.dupont@example.com', message: 'The store in Lyon was closed on Monday, is that expected?'},
-			{lang: 'fr', fullName: 'Chloé Bernard', email: 'chloe.bernard@example.com', message: 'Merci pour votre réponse rapide la semaine dernière.'}
+			{lang: 'fr', fullName: 'Chloe Bernard', email: 'chloe.bernard@example.com', message: 'Bonjour, je souhaite recevoir le catalogue par courrier.'}
 		].forEach(({lang, fullName, email, message}) => {
 			const form = visitLiveForm(liveFormPath('playground-simple'), lang);
 			form.getTextInput('fullName').type(fullName);
