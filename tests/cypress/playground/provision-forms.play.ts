@@ -112,6 +112,32 @@ const FR_DEPARTMENT_OPTIONS = frOptions([
 // Department select in both languages. The empty first entry of the shared
 // fixture is replaced by the empty-option label property: the field still
 // starts empty, through the supported configuration.
+// The one conditional field of the playground: shown only when the delivery
+// method is "pickup", so rules can be tried in live, preview and edit mode.
+const PICKUP_LOCATION_RULE = JSON.stringify({
+	logicId: 'pg-pickup-location',
+	sourceFieldName: 'deliveryMethod',
+	sourceFieldType: 'fmdb:radio',
+	valueKind: 'choice',
+	operator: 'in',
+	value: 'pickup'
+});
+
+const pickupLocationField = (): JahiaNode => {
+	const field = getInputTextNode({
+		name: 'pickupLocation',
+		title: 'Pickup location (shown when delivery method is Pickup)',
+		placeholder: 'Store name or city'
+	});
+	return withFrench(
+		{...field, properties: [...field.properties, {name: 'logics', values: [PICKUP_LOCATION_RULE]}]},
+		[
+			{name: 'jcr:title', value: 'Point de retrait (affiché si le mode de livraison est Retrait)'},
+			{name: 'placeholder', value: 'Nom du magasin ou ville'}
+		]
+	);
+};
+
 const departmentSelect = (): JahiaNode => withFrench(
 	withEnglish(
 		getSelectNode({...SELECT_SINGLE, options: SELECT_SINGLE.options.filter(option => option.value !== '')}),
@@ -322,6 +348,7 @@ describe('Playground - provision manual-testing forms', () => {
 							])
 						]),
 						withFrench(getRadioNode(RADIO_GROUP), [{name: 'jcr:title', value: 'Mode de livraison'}, FR_DELIVERY_OPTIONS]),
+						pickupLocationField(),
 						departmentSelect(),
 						withFrench(getTextareaNode({...TEXTAREA_COMPLETE, defaultValue: undefined}), [
 							{name: 'jcr:title', value: 'Résumé du projet'},
