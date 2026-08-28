@@ -47,7 +47,7 @@ import java.util.function.BiFunction;
  * activation, and again each time the elements module is (re)deployed — the second run
  * is the one that does the work on the engine-first upgrade path.
  *
- * <p>Lifecycle: startup migration introduced in 0.4.x, to be removed in 0.5 — see
+ * <p>Lifecycle: startup migration introduced in 0.4.x (#231), to be removed in 0.5 — see
  * docs/upgrade-notes.md, "Startup migrations".
  */
 @Component(service = {ListTitlesContentMigration.class, JahiaEventListener.class}, immediate = true)
