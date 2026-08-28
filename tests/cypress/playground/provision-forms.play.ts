@@ -8,7 +8,8 @@
  * Provisioned forms (pages under /sites/<site>/home), all with a save-to-JCR
  * action so the results screens can be exercised:
  *   - playground-simple    minimal contact form
- *   - playground-steps     three-step form with navigation
+ *   - playground-steps     three-step form with navigation (step 2 holds a
+ *                          fieldset, the deepest authoring level)
  *   - playground-steps-styled  the same three-step form carrying the sample
  *                          theme in its css property, to exercise the
  *                          authoring UI (Page Builder zones, boxes) both
@@ -42,6 +43,7 @@ import {
 	getCheckboxNode,
 	getContentChoiceFieldNode,
 	getInputColorNode,
+	getFieldsetNode,
 	getInputDateNode,
 	getInputDatetimeLocalNode,
 	getInputEmailNode,
@@ -327,7 +329,17 @@ describe('Playground - provision manual-testing forms', () => {
 					label: 'Preferences',
 					children: [
 						departmentSelect(),
-						withFrench(getRadioNode(RADIO_GROUP), [{name: 'jcr:title', value: 'Mode de livraison'}, FR_DELIVERY_OPTIONS])
+						withFrench(getRadioNode(RADIO_GROUP), [{name: 'jcr:title', value: 'Mode de livraison'}, FR_DELIVERY_OPTIONS]),
+						// A fieldset inside a step: the deepest authoring level (list > step > fieldset > field).
+						withFrench(getFieldsetNode({
+							name: 'deliveryAddress',
+							title: 'Delivery address',
+							children: [
+								withFrench(getInputTextNode({name: 'street', title: 'Street'}), [{name: 'jcr:title', value: 'Rue'}]),
+								withFrench(getInputTextNode({name: 'postalCode', title: 'Postal code'}), [{name: 'jcr:title', value: 'Code postal'}]),
+								withFrench(getInputTextNode({name: 'city', title: 'City'}), [{name: 'jcr:title', value: 'Ville'}])
+							]
+						}), [{name: 'jcr:title', value: 'Adresse de livraison'}])
 					]
 				}), [{name: 'jcr:title', value: 'Préférences'}, {name: 'label', value: 'Préférences'}]),
 				withFrench(getStepNode({
