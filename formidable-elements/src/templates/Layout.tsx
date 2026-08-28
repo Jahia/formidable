@@ -1,9 +1,9 @@
 import type {JSX, ReactNode} from "react";
 
 /**
- * Minimal page layout for the form template: a form opened as a page (jContent Page
- * Builder) only needs a head and a body. The form view brings its own stylesheet and
- * scripts through AddResources, so nothing is loaded here.
+ * Page layout for the form template: a light page holding a white sheet with the form
+ * (src/design/page.css, shipped in the form's own stylesheet, which the form view loads
+ * through AddResources — nothing is loaded here).
  */
 export const Layout = ({title, className, children}: {
 	title?: string;
@@ -16,7 +16,7 @@ export const Layout = ({title, className, children}: {
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			{title && <title>{title}</title>}
 		</head>
-		<body>
+		<body className="fmdb-form-page-body">
 			<main id="main" className={className}>{children}</main>
 		</body>
 	</>

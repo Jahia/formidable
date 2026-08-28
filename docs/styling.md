@@ -160,13 +160,32 @@ nothing changes in live.
 | `--fmdb-zone-step-padding` | `0.75rem 1rem` | Inner spacing of a step |
 | `--fmdb-zone-step-margin` | `0.75rem 0` | Outer spacing of a step |
 | `--fmdb-zone-field-margin` | `0.75rem` | Vertical spacing of a field (form group) or fieldset |
-| `--fmdb-zone-page-padding-top` | `3rem` | Room above a form opened as a page of its own, for its box bar |
 
-To remove the spacing, set the five variables to `0` on `.fmdb-form`.
+To remove the spacing, set the four variables to `0` on `.fmdb-form`.
 
 The Page Builder box colours are a jContent UI extension registered by the engine
 (`pageBuilderBoxConfig`), not CSS, so a template set cannot override them; purple is left to
 jExperience and orange to jContent's warnings.
+
+### Form page
+
+A form opened as a page of its own (from the Content Folders in the Page Builder, or at its
+own URL) renders on a light page holding a white sheet, centred, with the form inside. A
+template set that wants another page overrides the `fullPage` view of `fmdb:form`.
+
+| Variable | Default | Description |
+|---|---|---|
+| `--fmdb-page-bg` | `#f4f5f7` | Page background |
+| `--fmdb-page-font` | `system-ui, …, sans-serif` | Page font stack |
+| `--fmdb-page-sheet-width` | `80%` | Sheet width |
+| `--fmdb-page-sheet-max-width` | `60rem` | Sheet maximum width |
+| `--fmdb-page-sheet-margin` | `2rem auto` | Sheet margin (centred) |
+| `--fmdb-page-sheet-padding` | `3rem 3rem 2.5rem` | Sheet inner spacing |
+| `--fmdb-page-sheet-bg` | `#fff` | Sheet background |
+| `--fmdb-page-sheet-radius` | `6px` | Sheet corner radius |
+| `--fmdb-page-sheet-shadow` | soft double shadow | Sheet shadow |
+
+Below 768px the sheet takes the full width, without margin or radius.
 
 ## Spinner variables
 

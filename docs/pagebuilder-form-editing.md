@@ -20,8 +20,9 @@ The Page Builder renders the node as a page of its own, which needs a template:
 - `formidable-elements/src/templates/Form/default.server.tsx` — `componentType: "template"`,
   `priority: 1`, so it wins over a template set's generic `jmix:mainResource` template (the
   sample template set ships one at priority -1);
-- `formidable-elements/src/templates/Layout.tsx` — head and body, nothing else: the form
-  view loads its own stylesheet and scripts;
+- `formidable-elements/src/templates/Layout.tsx` — head and body; the page look (a light page,
+  a white sheet centred at 80% with the form inside) comes from `src/design/page.css`, shipped
+  in the form's own stylesheet, every value a variable (see `docs/styling.md`);
 - `formidable-elements/src/components/Form/fullPage.server.tsx` — the `fullPage` view the
   template renders, delegating to the default view. A template set that wants another page
   rendering of a form overrides this view without touching how a form renders on a page.
@@ -33,9 +34,9 @@ form, not to compose content around it.
 A side effect worth knowing: a form also becomes reachable in live at its own URL
 (`/sites/<site>/contents/<form>.html`), rendered through the same template.
 
-While authoring, the page gets a top padding (`--fmdb-zone-page-padding-top`, 3rem, in
-`src/design/authoring.css`): the Page Builder draws a box bar above its element when there is
-room and over its first pixels otherwise, and nothing sits above the form on its own page.
+The sheet's top padding is also the room the Page Builder needs: it draws a box bar above its
+element when there is room and over its first pixels otherwise, and nothing else sits above
+the form on its own page.
 
 ## The authoring model (shared with forms on a page)
 

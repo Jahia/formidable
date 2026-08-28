@@ -1,0 +1,31 @@
+/* A form opened as a page of its own (templates/Form): a light page holding a white sheet,
+   centred, 80% wide, the form inside. Live and edit alike — the sheet's top padding is also
+   the room the Page Builder needs to draw a box bar above the field list. Every value is a
+   variable; a template set that wants its own page overrides the fullPage view instead. */
+
+.fmdb-form-page-body {
+	margin: 0;
+	min-height: 100vh;
+	background: var(--fmdb-page-bg, #f4f5f7);
+	font-family: var(--fmdb-page-font, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
+}
+
+.fmdb-form-page {
+	box-sizing: border-box;
+	width: var(--fmdb-page-sheet-width, 80%);
+	max-width: var(--fmdb-page-sheet-max-width, 60rem);
+	margin: var(--fmdb-page-sheet-margin, 2rem auto);
+	padding: var(--fmdb-page-sheet-padding, 3rem 3rem 2.5rem);
+	background: var(--fmdb-page-sheet-bg, #fff);
+	border-radius: var(--fmdb-page-sheet-radius, 6px);
+	box-shadow: var(--fmdb-page-sheet-shadow, 0 1px 3px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(0, 0, 0, 0.06));
+}
+
+@media (max-width: 768px) {
+	.fmdb-form-page {
+		width: auto;
+		margin: 0;
+		padding: 1.5rem 1rem;
+		border-radius: 0;
+	}
+}

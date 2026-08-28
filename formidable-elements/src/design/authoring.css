@@ -20,11 +20,3 @@
 .fmdb-form[data-fmdb-edit-mode="true"] :is(.fmdb-form-group, .fmdb-fieldset) {
 	margin-block: var(--fmdb-zone-field-margin, 0.75rem);
 }
-
-/* A form opened as a page of its own (templates/Form) starts at the very top of the
-   document: the Page Builder draws a box bar above its element when there is room and over
-   its first pixels otherwise, so the field list's bar would cover the first field. Room is
-   given while authoring only ([jahiatype="mainmodule"] exists in edit mode alone). */
-[jahiatype="mainmodule"] > .fmdb-form-page {
-	padding-top: var(--fmdb-zone-page-padding-top, 3rem);
-}
