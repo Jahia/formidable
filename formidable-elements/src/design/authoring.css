@@ -6,13 +6,6 @@
    kept away from jContent's warning orange and jExperience's purple). Nothing in live. Every value is a variable,
    so a template set or the form's own CSS can tone it or remove it. */
 
-.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-form-fields {
-	padding: var(--fmdb-zone-list-padding, 0.75rem);
-	margin: var(--fmdb-zone-list-margin, 0.75rem 0);
-	border: var(--fmdb-zone-list-border, 1px dashed #b8bdc4);
-	border-radius: var(--fmdb-zone-radius, 4px);
-}
-
 .fmdb-form[data-fmdb-edit-mode="true"] .fmdb-step {
 	padding: var(--fmdb-zone-step-padding, 0.75rem 1rem);
 	margin: var(--fmdb-zone-step-margin, 0.75rem 0);
@@ -22,12 +15,5 @@
 
 .fmdb-form[data-fmdb-edit-mode="true"] .fmdb-fieldset {
 	background: var(--fmdb-zone-fieldset-bg, rgba(96, 123, 168, 0.06));
-	border-radius: var(--fmdb-zone-radius, 4px);
-}
-
-.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-form-actions {
-	padding: var(--fmdb-zone-actions-padding, 0.75rem);
-	margin: var(--fmdb-zone-actions-margin, 0.75rem 0);
-	border: var(--fmdb-zone-actions-border, 1px dashed #b8bdc4);
 	border-radius: var(--fmdb-zone-radius, 4px);
 }
