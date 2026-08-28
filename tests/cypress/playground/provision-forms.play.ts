@@ -9,6 +9,10 @@
  * action so the results screens can be exercised:
  *   - playground-simple    minimal contact form
  *   - playground-steps     three-step form with navigation
+ *   - playground-steps-styled  the same three-step form carrying the sample
+ *                          theme in its css property, to exercise the
+ *                          authoring UI (Page Builder zones, boxes) both
+ *                          with and without a business stylesheet
  *   - playground-complete  every built-in field type (same set as spec 20)
  *                          plus sourced choice fields (countries + categories)
  *                          and a content-mode select (texts under
@@ -306,11 +310,8 @@ describe('Playground - provision manual-testing forms', () => {
 		});
 	});
 
-	it('provisions the multi-step form', () => {
-		createPublishedLiveFormPage(
-			'playground-steps',
-			'Playground - Multi-step form',
-			[
+	// The three steps of the multi-step playground, shared by its plain and styled variants.
+	const multiStepNodes = (): JahiaNode[] => [
 				withFrench(getStepNode({
 					name: 'identity',
 					title: 'Identity',
@@ -341,18 +342,37 @@ describe('Playground - provision manual-testing forms', () => {
 						withFrench(getTextareaNode({name: 'comment', title: 'Comment'}), [{name: 'jcr:title', value: 'Commentaire'}])
 					]
 				}), [{name: 'jcr:title', value: 'Confirmation'}, {name: 'label', value: 'Confirmation'}])
-			],
+	];
+
+	const provisionMultiStepForm = (name: string, title: string, frTitle: string, extraProperties: Array<{name: string; value: string; language?: string}> = []) =>
+		createPublishedLiveFormPage(
+			name,
+			title,
+			multiStepNodes(),
 			undefined,
 			undefined,
 			// Both site languages: the actions get localized default titles at creation,
 			// so an en-only publication would leave their fr translation unpublished.
 			{
 				actions: [saveToJcrAction()],
-				properties: [{name: 'jcr:title', value: 'Playground - Formulaire multi-étapes', language: 'fr'}],
-				pageProperties: [{name: 'jcr:title', value: 'Playground - Formulaire multi-étapes', language: 'fr'}],
+				properties: [{name: 'jcr:title', value: frTitle, language: 'fr'}, ...extraProperties],
+				pageProperties: [{name: 'jcr:title', value: frTitle, language: 'fr'}],
 				publishLanguages: ['en', 'fr']
 			}
-		).then(({livePath}) => cy.log(`Multi-step form: /en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`));
+		);
+
+	it('provisions the multi-step form', () => {
+		provisionMultiStepForm('playground-steps', 'Playground - Multi-step form', 'Playground - Formulaire multi-étapes')
+			.then(({livePath}) => cy.log(`Multi-step form: /en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`));
+	});
+
+	it('provisions the styled multi-step form (same steps, with the sample theme)', () => {
+		// A business stylesheet on a multi-step form: the authoring UI must stay readable
+		// on top of it. The theme lives in the form's own css property, like the complete form's.
+		cy.readFile(COMPLETE_FORM_THEME_PATH).then((themeCss: string) => {
+			provisionMultiStepForm('playground-steps-styled', 'Playground - Multi-step form (styled)', 'Playground - Formulaire multi-étapes (stylé)', [{name: 'css', value: themeCss}])
+				.then(({livePath}) => cy.log(`Styled multi-step form: /en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`));
+		});
 	});
 
 	it('provisions the complete form (all field types + sourced options)', () => {
