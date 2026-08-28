@@ -27,6 +27,9 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FO
  * Runs at module activation on BOTH workspaces (default and live): published
  * translations carry the same value. Keyed on CONTENT state, NOT on the previously
  * installed module version. Re-running is a no-op once every translation is clean.
+ *
+ * <p>Lifecycle: startup migration introduced in 0.4.0 (#215), to be removed in 0.5 — see
+ * docs/upgrade-notes.md, "Startup migrations".
  */
 @Component(immediate = true)
 public class TranslationFieldKeyCleanup {

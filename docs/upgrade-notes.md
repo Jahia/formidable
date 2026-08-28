@@ -127,3 +127,22 @@ bounds **enforced at validation time** (the submission pipeline reads the stored
 values on the underlying node), but the rendered date pickers are unconstrained
 and the editor shows the bound dropdowns as "none" until the migration runs
 again. Restart the server (or the formidable-engine bundle) to re-run it.
+
+## Startup migrations (to remove in 0.5)
+
+The engine carries one-shot content migrations that run at every module start
+(`@Activate`), on both workspaces, keyed on the content state and idempotent.
+They exist for instances upgrading from 0.3.x/0.4.x content and are all to be
+**removed when 0.5.0 is cut** — from then on 0.4.x is the minimum upgrade
+source and every instance has run them at least once. Each class carries a
+`Lifecycle:` note in its Javadoc pointing here.
+
+| Class (`org.jahia.modules.formidable.engine.migration`) | Introduced | What it rewrites |
+|---|---|---|
+| `ChoiceOptionsContentMigration` | 0.4.0 (#193) | Legacy `options`/`choices` of choice fields → `fmdb:options` + manual mode |
+| `DateBoundsContentMigration` | 0.4.0 (#202) | Fixed date/datetime bounds without a bound mode → mode `date` + fixed-bound mixins |
+| `TranslationFieldKeyCleanup` | 0.4.0 (#215) | Stray `fieldKey` on `j:translation_*` subnodes of form elements |
+| `ListTitlesContentMigration` | 0.4.x (#PR) | Missing `jcr:title` on a form's `fields`/`actions` lists → the type's default label, per site language. Also re-runs when formidable-elements is (re)deployed, since the default comes from that module's definitions |
+
+Removal checklist: delete the class and its unit test, drop the Cypress spec that
+restarts the engine to exercise it, and remove the row above.

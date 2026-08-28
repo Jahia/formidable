@@ -41,12 +41,14 @@
  extends = fmdb:form
  itemtype = content
 
-[fmdb:actionList] > jnt:content, jmix:list
+[fmdb:actionList] > jnt:content, jmix:list, mix:title
  orderable
+ - jcr:title (string) = resourceBundle('fmdb_actionList') autocreated i18n
  + * (fmdbmix:formAction) = fmdbmix:formAction version
 
-[fmdb:fieldList] > jnt:content, jmix:list, fmdbmix:formContainer
+[fmdb:fieldList] > jnt:content, jmix:list, fmdbmix:formContainer, mix:title
  orderable
+ - jcr:title (string) = resourceBundle('fmdb_fieldList') autocreated i18n
  + * (fmdbmix:formElement) = fmdbmix:formElement
  + * (fmdbmix:formContent) = fmdbmix:formContent
  + * (fmdbmix:formStep) = fmdbmix:formStep
