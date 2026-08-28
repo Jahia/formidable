@@ -170,8 +170,8 @@ jExperience and orange to jContent's warnings.
 ### Form page
 
 A form opened as a page of its own (from the Content Folders in the Page Builder, or at its
-own URL) renders on a white page: the form's title on top, the form below, centred at 80% of
-the width. A template set that wants another page declares its own template for `fmdb:form` (the
+own URL) renders on a white page, the form centred at 80% of the width (no title: jContent shows it
+above the Page Builder, and the form has its own intro). A template set that wants another page declares its own template for `fmdb:form` (the
 Formidable one renders the hidden `hidden.page` view; `fullPage` is the plain full-page view).
 
 | Variable | Default | Description |
@@ -186,9 +186,7 @@ Formidable one renders the hidden `hidden.page` view; `fullPage` is the plain fu
 | `--fmdb-page-sheet-bg` | `transparent` | Column background (set it for a card look) |
 | `--fmdb-page-sheet-radius` | `0` | Column corner radius |
 | `--fmdb-page-sheet-shadow` | `none` | Column shadow |
-| `--fmdb-page-title-margin` | `0 0 2rem` | Title spacing |
-| `--fmdb-page-title-size` | `2rem` | Title size |
-| `--fmdb-page-title-weight` | `700` | Title weight |
+| `--fmdb-page-content-padding` | `1.5rem 0` | Spacing around the form inside the column (the form's own clickable strip in the Page Builder) |
 
 Below 768px the column takes the full width.
 

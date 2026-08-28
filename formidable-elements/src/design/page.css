@@ -1,6 +1,7 @@
-/* A form opened as a page of its own (templates/Form): a white page, the form's title on
-   top, the form below, all centred at 80% of the width. Live and edit alike — the page's top
-   padding is also the room the Page Builder needs to draw a box bar above the field list.
+/* A form opened as a page of its own (templates/Form): a white page, the form centred at 80%
+   of the width. Live and edit alike — the page's top padding is also the room the Page Builder
+   needs to draw a box bar above the form, and the content padding gives the form's own box a
+   strip to click on around the form.
    Every value is a variable (a card look is one --fmdb-page-sheet-bg / -shadow away); a
    template set that wants its own page overrides the fullPage view instead. */
 
@@ -23,11 +24,8 @@
 	box-shadow: var(--fmdb-page-sheet-shadow, none);
 }
 
-.fmdb-form-page-title {
-	margin: var(--fmdb-page-title-margin, 0 0 2rem);
-	font-size: var(--fmdb-page-title-size, 2rem);
-	font-weight: var(--fmdb-page-title-weight, 700);
-	line-height: 1.2;
+.fmdb-form-page-content {
+	padding: var(--fmdb-page-content-padding, 1.5rem 0);
 }
 
 @media (max-width: 768px) {
