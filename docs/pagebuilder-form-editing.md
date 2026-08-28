@@ -1,0 +1,72 @@
+# Editing a form in the jContent Page Builder
+
+A form can be authored where it renders: on a page holding a form reference, or on its
+own, opened from the **Content Folders** in Page Builder view mode. This document lists the
+parts that make the second path work and the authoring model both paths share.
+
+## Opening a form from the Content Folders
+
+### `jmix:mainResource` on `fmdb:form`
+
+jContent offers the Page Builder view mode to `jnt:page` nodes and to nodes carrying
+`jmix:mainResource` only (`ViewModeSelector.jsx` — having a template is not enough). The
+mixin is a pure marker, added to the `fmdb:form` supertypes in
+`formidable-elements/src/components/Form/definition.cnd`.
+
+### A template for `fmdb:form`
+
+The Page Builder renders the node as a page of its own, which needs a template:
+
+- `formidable-elements/src/templates/Form/default.server.tsx` — `componentType: "template"`,
+  `priority: 1`, so it wins over a template set's generic `jmix:mainResource` template (the
+  sample template set ships one at priority -1);
+- `formidable-elements/src/templates/Layout.tsx` — head and body, nothing else: the form
+  view loads its own stylesheet and scripts;
+- `formidable-elements/src/components/Form/fullPage.server.tsx` — the `fullPage` view the
+  template renders, delegating to the default view. A template set that wants another page
+  rendering of a form overrides this view without touching how a form renders on a page.
+
+The template renders the form itself (`Render node={currentNode}`), not an `Area`:
+`fmdb:form` only allows its `fields` and `actions` children, and the goal is to edit the
+form, not to compose content around it.
+
+A side effect worth knowing: a form also becomes reachable in live at its own URL
+(`/sites/<site>/contents/<form>.html`), rendered through the same template.
+
+## The authoring model (shared with forms on a page)
+
+- **Flat rendering.** Every step is rendered, stacked under its title, with no step
+  navigation: clicks in the Page Builder select modules, and a contributor must reach step
+  2 without answering step 1. Elements hidden by conditional logic stay visible. The island
+  is told (`isEditMode`) so hydration does not hide anything back. Live and preview are
+  unchanged.
+- **One box per node.** The step and fieldset views render their children read-only
+  (`<Render readOnly>`), so the Page Builder gets one module per node — not one for the
+  step and one for its children list.
+- **New content buttons.** The shared container view (`FormContainer/hidden.logic`) ends
+  with `<AddContentButtons/>` in edit mode. jContent renders one button per type the
+  container accepts, named after the type (*Form field*, *Form content*, *Form step*), with
+  the type's icon. The placeholder must always be there, even on a filled container: jContent
+  reads the container's accepted types from it to build the insertion points between the
+  children — without it, nothing can be inserted between two steps or two fields.
+- **Levels told apart by colour.** One grey base declined per level: blue for fields,
+  green for contents, gold for steps, Moonstone light grey for the field list. The mixin
+  icons carry it (`content-types-icons` of the module that defines the mixin), and the
+  engine's jContent extension registers a `pageBuilderBoxConfig` per container type so the
+  box outline and bar carry it too (`formidable-engine/src/javascript/PageBuilder/boxConfigs.ts`).
+  In edit mode the form only adds spacing (`src/design/authoring.css`), never colour, so a
+  business stylesheet keeps its look while authoring. See `docs/styling.md`.
+- **Titled lists.** The `fields` and `actions` lists carry a translatable title shown on
+  their box and read-only system names, so a contributor cannot break the names the code
+  relies on.
+
+## Tests
+
+- `tests/cypress/e2e/pagebuilder/80-pagebuilder-form-editing.cy.ts`: opening a form from
+  the Content Folders through the template, the create buttons of the field list, stacked
+  steps.
+- `tests/cypress/e2e/validation/38-multistep-flat-in-edit-mode.cy.ts`: the flat authoring
+  model on a page (one module per step, placeholders, live unchanged).
+
+`cypress-iframe` is imported in `tests/cypress/support/e2e.js`: the jcontent-cypress Page
+Builder page objects depend on it.
