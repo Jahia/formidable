@@ -170,22 +170,26 @@ jExperience and orange to jContent's warnings.
 ### Form page
 
 A form opened as a page of its own (from the Content Folders in the Page Builder, or at its
-own URL) renders on a light page holding a white sheet, centred, with the form inside. A
-template set that wants another page overrides the `fullPage` view of `fmdb:form`.
+own URL) renders on a white page: the form's title on top, the form below, centred at 80% of
+the width. A template set that wants another page overrides the `fullPage` view of `fmdb:form`.
 
 | Variable | Default | Description |
 |---|---|---|
-| `--fmdb-page-bg` | `#f4f5f7` | Page background |
+| `--fmdb-page-bg` | `#fff` | Page background |
+| `--fmdb-page-color` | `#1f2933` | Page text colour |
 | `--fmdb-page-font` | `system-ui, …, sans-serif` | Page font stack |
-| `--fmdb-page-sheet-width` | `80%` | Sheet width |
-| `--fmdb-page-sheet-max-width` | `60rem` | Sheet maximum width |
-| `--fmdb-page-sheet-margin` | `2rem auto` | Sheet margin (centred) |
-| `--fmdb-page-sheet-padding` | `3rem 3rem 2.5rem` | Sheet inner spacing |
-| `--fmdb-page-sheet-bg` | `#fff` | Sheet background |
-| `--fmdb-page-sheet-radius` | `6px` | Sheet corner radius |
-| `--fmdb-page-sheet-shadow` | soft double shadow | Sheet shadow |
+| `--fmdb-page-sheet-width` | `80%` | Width of the content column |
+| `--fmdb-page-sheet-max-width` | `64rem` | Maximum width of the column |
+| `--fmdb-page-sheet-margin` | `0 auto` | Column margin (centred) |
+| `--fmdb-page-sheet-padding` | `2.5rem 0 3rem` | Column inner spacing |
+| `--fmdb-page-sheet-bg` | `transparent` | Column background (set it for a card look) |
+| `--fmdb-page-sheet-radius` | `0` | Column corner radius |
+| `--fmdb-page-sheet-shadow` | `none` | Column shadow |
+| `--fmdb-page-title-margin` | `0 0 2rem` | Title spacing |
+| `--fmdb-page-title-size` | `2rem` | Title size |
+| `--fmdb-page-title-weight` | `700` | Title weight |
 
-Below 768px the sheet takes the full width, without margin or radius.
+Below 768px the column takes the full width.
 
 ## Spinner variables
 
