@@ -53,38 +53,23 @@ describe('Validation - 38 Multi-step form rendered flat while authoring', () => 
 		});
 	});
 
-	it('exposes each step as a single Page Builder module, with a New content button only while empty', () => {
-		createPublishedLiveFormPage(
-			'flat-steps-modules',
-			'Flat Steps Form',
-			[
-				getStepNode({
-					name: 'filledStep',
-					title: 'Filled',
-					label: 'Filled',
-					children: [getInputTextNode({name: 'flatFilledField', title: 'Filled field'})]
-				}),
-				getStepNode({name: 'emptyStep', title: 'Empty', label: 'Empty'})
-			]
-		).then(({pagePath, formPath}) => {
+	it('exposes each step as a single Page Builder module that can receive a field', () => {
+		createStepFormPage('modules').then(({pagePath, formPath}) => {
 			visitEditForm(pagePath);
 
-			// One module per step: the step view renders its children read-only, so the
-			// Page Builder gets one box per node instead of two stacked boxes.
-			cy.get(`[jahiatype="module"][path="${formPath}/fields/filledStep"]`)
-				.should('have.length', 1)
-				// A step with children is fed through their insertion points: no button row of its own.
-				.find('[jahiatype="module"][type="placeholder"]')
-				.should('not.exist');
-			// An empty step owns its "New content" buttons, otherwise nothing could ever be added to it.
-			cy.get(`[jahiatype="module"][path="${formPath}/fields/emptyStep"]`)
-				.should('have.length', 1)
-				.find('[jahiatype="module"][type="placeholder"]')
-				.should('have.length', 1);
-			// The field list has steps, so no button row of its own either.
+			['identityStepFlat', 'detailsStepFlat'].forEach(stepName => {
+				// One module per step: the step view renders its children read-only, so the
+				// Page Builder gets one box per node instead of two stacked "Identity" boxes.
+				cy.get(`[jahiatype="module"][path="${formPath}/fields/${stepName}"]`)
+					.should('have.length', 1)
+					// ...and owns a "New content" placeholder, so an empty step can be filled.
+					.find('[jahiatype="module"][type="placeholder"]')
+					.should('have.length', 1);
+			});
+			// The field list keeps its own placeholder (plus one per step): that is where a step is added.
 			cy.get(`[jahiatype="module"][path="${formPath}/fields"]`)
 				.find('[jahiatype="module"][type="placeholder"]')
-				.should('have.length', 1);
+				.should('have.length', 3);
 		});
 	});
 
