@@ -5,6 +5,11 @@ import {FORM_LOGIC_INVALIDATE_EVENT, getLogicProvider} from '~/utils/logicProvid
 interface UseMultiStepOptions {
 	formRef: RefObject<HTMLFormElement | null>;
 	stepIds?: string[];
+	/**
+	 * Authoring context: the form is rendered flat — every step visible, no navigation —
+	 * so the hook behaves as if the form had no steps at all.
+	 */
+	disabled?: boolean;
 }
 
 interface UseMultiStepReturn {
@@ -19,12 +24,12 @@ interface UseMultiStepReturn {
 	handlePrevious: () => void;
 }
 
-export function useMultiStep({formRef, stepIds}: UseMultiStepOptions): UseMultiStepReturn {
+export function useMultiStep({formRef, stepIds, disabled = false}: UseMultiStepOptions): UseMultiStepReturn {
 	const [currentStep, setCurrentStep] = useState(0);
 	const [visibleStepIndices, setVisibleStepIndices] = useState<number[]>([]);
 	const resetVisibilityTimeoutRef = useRef<number | null>(null);
 
-	const isMultiStep = !!(stepIds && stepIds.length > 0);
+	const isMultiStep = !disabled && !!(stepIds && stepIds.length > 0);
 	const currentVisibleIndex = visibleStepIndices.indexOf(currentStep);
 	const isLastStep = currentVisibleIndex === visibleStepIndices.length - 1;
 	const isFirstVisibleStep = currentVisibleIndex === 0;

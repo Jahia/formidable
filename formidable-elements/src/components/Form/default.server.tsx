@@ -115,7 +115,8 @@ jahiaComponent(
 			console.warn(`[Formidable] fmdbmix:captcha is applied on form '${currentNode.getPath()}' but CAPTCHA is not fully configured (siteKey, scriptUrl, widgetVar or tokenField missing). The widget will not be rendered.`);
 		}
 
-		const isSubmitDisabled = renderContext.isEditMode() || renderContext.isPreviewMode();
+		const isEditMode = renderContext.isEditMode();
+		const isSubmitDisabled = isEditMode || renderContext.isPreviewMode();
 		const submitActionUrl = `/modules/formidable-engine/form-submit?fid=${currentNode.getIdentifier()}&lang=${currentNode.getLanguage()}`;
 
 		// Maintenance state: only for forms whose actions write to the repository, and only
@@ -168,7 +169,7 @@ jahiaComponent(
 				maintenanceMessage: resolveUrlPlaceholders(maintenanceMessage, renderContext),
 				submitActionUrl,
 				isSubmitDisabled,
-				isEditMode: renderContext.isEditMode(),
+				isEditMode,
 				showResetBtn,
 				showNewFormBtn,
 				showTryAgainBtn,
@@ -191,9 +192,14 @@ jahiaComponent(
 						node={fieldListNode}
 						view="hidden.logic"
 						parameters={{
-							preferCompactStepView: showStepsNav ? "true" : "false",
-							hideStepsAfterFirst: showStepsNav ? "true" : "false",
+							// Authoring renders the form flat: every step stacked with its title,
+							// none hidden, so the contributor sees and reaches everything. The
+							// island stays out of it (useMultiStep is disabled in edit mode).
+							preferCompactStepView: showStepsNav && !isEditMode ? "true" : "false",
+							hideStepsAfterFirst: showStepsNav && !isEditMode ? "true" : "false",
 							childView: "default",
+							// Authoring zone around the field list (authoring.css); no extra markup in live.
+							...(isEditMode ? {className: "fmdb-form-fields"} : {}),
 						}}
 					/>
 				)}
