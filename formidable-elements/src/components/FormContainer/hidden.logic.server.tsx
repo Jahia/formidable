@@ -51,8 +51,11 @@ jahiaComponent(
 			);
 		});
 
-		// Page Builder: the container's own "New content" button, so an empty step, fieldset
-		// or field list can receive its first element (insertion points need a sibling to exist).
+		// Page Builder: the container's own "New content" buttons — always, not only while empty.
+		// Beyond letting an empty step, fieldset or field list receive its first element, this
+		// wildcard placeholder is what jContent reads the container's accepted types from
+		// (JahiaRenderedModulesUtil.resolveNodeTypes): without it, no insertion point appears
+		// between the children (e.g. no "New Form step" between two steps).
 		const addButtons = renderContext.isEditMode() ? <AddContentButtons/> : null;
 
 		if (!className) {
