@@ -51,9 +51,10 @@ jahiaComponent(
 			);
 		});
 
-		// Page Builder: the container's own "New content" button, so an empty step, fieldset
-		// or field list can receive its first element (insertion points need a sibling to exist).
-		const addButtons = renderContext.isEditMode() ? <AddContentButtons/> : null;
+		// Page Builder: the container's own "New content" buttons, only while it is empty — a
+		// step, fieldset or field list that already has children is fed through the insertion
+		// points of those children, and a button row per level was too many buttons.
+		const addButtons = renderContext.isEditMode() && elementNodes.length === 0 ? <AddContentButtons/> : null;
 
 		if (!className) {
 			return <>{children}{addButtons}</>;
