@@ -148,7 +148,8 @@ steps (or fieldsets), their fields — each with its own Page Builder **New cont
 The Page Builder boxes carry the level's colour (blue for fields, gold for steps, Moonstone
 light grey for the field list; the mixin icons on the create buttons use the same palette,
 green for contents). In edit mode (`form[data-fmdb-edit-mode="true"]`) the core only adds
-room to reach each level: a padding on the field list (`.fmdb-form-fields`, a wrapper
+room to reach each level: a padding on the form itself so its own box can be clicked above
+the field list even without an intro, a padding on the field list (`.fmdb-form-fields`, a wrapper
 present in edit mode only) so it can be clicked around its steps, a padding and a margin on
 each step, and a margin on each field so the insertion buttons between two fields do not cover
 the previous one. No colour is drawn, so a business stylesheet keeps its look while authoring;
@@ -156,12 +157,13 @@ nothing changes in live.
 
 | Variable | Default | Description |
 |---|---|---|
+| `--fmdb-zone-form-padding` | `0.75rem 0` | Inner spacing of the form (its own clickable strip) |
 | `--fmdb-zone-list-padding` | `0.75rem` | Inner spacing of the field list |
 | `--fmdb-zone-step-padding` | `0.75rem 1rem` | Inner spacing of a step |
 | `--fmdb-zone-step-margin` | `0.75rem 0` | Outer spacing of a step |
 | `--fmdb-zone-field-margin` | `0.75rem` | Vertical spacing of a field (form group) or fieldset |
 
-To remove the spacing, set the four variables to `0` on `.fmdb-form`.
+To remove the spacing, set the five variables to `0` on `.fmdb-form`.
 
 The Page Builder box colours are a jContent UI extension registered by the engine
 (`pageBuilderBoxConfig`), not CSS, so a template set cannot override them; purple is left to
