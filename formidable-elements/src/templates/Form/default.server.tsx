@@ -6,7 +6,7 @@ import {Layout} from "~/templates/Layout";
  * jContent open it in the Page Builder from the Content Folders (the view mode is offered
  * to jnt:page and jmix:mainResource nodes only). Priority 1 wins over a template set's
  * generic jmix:mainResource template (the sample one ships with priority -1). Renders the
- * hidden.page view, dedicated to this page; fullPage stays the plain full-page view.
+ * hidden.pageBuilder view, dedicated to this page; fullPage stays the plain full-page view.
  */
 jahiaComponent(
 	{
@@ -17,7 +17,7 @@ jahiaComponent(
 	},
 	({"jcr:title": title}: {"jcr:title"?: string}, {currentNode}) => (
 		<Layout title={title} className="fmdb-form-page">
-			<Render node={currentNode} view="hidden.page"/>
+			<Render node={currentNode} view="hidden.pageBuilder"/>
 		</Layout>
 	)
 );

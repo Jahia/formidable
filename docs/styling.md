@@ -170,25 +170,18 @@ jExperience and orange to jContent's warnings.
 ### Form page
 
 A form opened as a page of its own (from the Content Folders in the Page Builder, or at its
-own URL) renders on a white page, the form centred at 80% of the width (no title: jContent shows it
+own URL) renders on a white page with a padding around the form (no title: jContent shows it
 above the Page Builder, and the form has its own intro; editing the form goes through
-jContent's **Edit** button). A template set that wants another page declares its own template for `fmdb:form` (the
-Formidable one renders the hidden `hidden.page` view; `fullPage` is the plain full-page view).
+jContent's **Edit** button). A template set that wants another page declares its own template
+for `fmdb:form` (the Formidable one renders the hidden `hidden.pageBuilder` view; `fullPage` is
+the plain full-page view).
 
 | Variable | Default | Description |
 |---|---|---|
 | `--fmdb-page-bg` | `#fff` | Page background |
 | `--fmdb-page-color` | `#1f2933` | Page text colour |
 | `--fmdb-page-font` | `system-ui, …, sans-serif` | Page font stack |
-| `--fmdb-page-sheet-width` | `80%` | Width of the content column |
-| `--fmdb-page-sheet-max-width` | `64rem` | Maximum width of the column |
-| `--fmdb-page-sheet-margin` | `0 auto` | Column margin (centred) |
-| `--fmdb-page-sheet-padding` | `2.5rem 0 3rem` | Column inner spacing |
-| `--fmdb-page-sheet-bg` | `transparent` | Column background (set it for a card look) |
-| `--fmdb-page-sheet-radius` | `0` | Column corner radius |
-| `--fmdb-page-sheet-shadow` | `none` | Column shadow |
-
-Below 768px the column takes the full width.
+| `--fmdb-page-padding` | `var(--spacing-large, 24px)` | Padding around the form (Moonstone's large spacing in the Page Builder) |
 
 ## Spinner variables
 

@@ -1,8 +1,8 @@
-/* A form opened as a page of its own (templates/Form): a white page, the form centred at 80%
-   of the width. Live and edit alike — the page's top padding is also the room the Page Builder
-   needs to draw a box bar above the form.
-   Every value is a variable (a card look is one --fmdb-page-sheet-bg / -shadow away); a
-   template set that wants its own page overrides the fullPage view instead. */
+/* A form opened as a page of its own (templates/Form): a white page, the form inside with a
+   Moonstone-sized padding around it (--spacing-large, 24px, resolved in the Page Builder iframe
+   where the Moonstone tokens are loaded; the fallback serves the live page). Live and edit alike
+   — the top padding is also the room the Page Builder needs to draw a box bar above the form.
+   Every value is a variable; a template set that wants its own page declares its own template. */
 
 .fmdb-form-page-body {
 	margin: 0;
@@ -14,18 +14,5 @@
 
 .fmdb-form-page {
 	box-sizing: border-box;
-	width: var(--fmdb-page-sheet-width, 80%);
-	max-width: var(--fmdb-page-sheet-max-width, 64rem);
-	margin: var(--fmdb-page-sheet-margin, 0 auto);
-	padding: var(--fmdb-page-sheet-padding, 2.5rem 0 3rem);
-	background: var(--fmdb-page-sheet-bg, transparent);
-	border-radius: var(--fmdb-page-sheet-radius, 0);
-	box-shadow: var(--fmdb-page-sheet-shadow, none);
-}
-
-@media (max-width: 768px) {
-	.fmdb-form-page {
-		width: auto;
-		padding: 1.5rem 1rem 2rem;
-	}
+	padding: var(--fmdb-page-padding, var(--spacing-large, 24px));
 }
