@@ -3,7 +3,7 @@ import {jahiaComponent, Render} from "@jahia/javascript-modules-library";
 /**
  * The form as the main resource of its own page: the default view, kept as a distinct view
  * name so a template set can override the page rendering of a form without touching how a
- * form renders inside a page. The Formidable page template itself renders hidden.page.
+ * form renders inside a page. The Formidable page template itself renders hidden.pageBuilder.
  */
 jahiaComponent(
 	{
