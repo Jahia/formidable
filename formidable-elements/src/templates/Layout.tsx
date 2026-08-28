@@ -1,7 +1,7 @@
 import type {JSX, ReactNode} from "react";
 
 /**
- * Page layout for the form template: a white page holding the fullPage view of the form
+ * Page layout for the form template: a white page holding the hidden.page view of the form
  * (title, then form — src/design/page.css, shipped in the form's own stylesheet, which the form view loads
  * through AddResources — nothing is loaded here).
  */

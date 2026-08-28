@@ -23,12 +23,16 @@ The Page Builder renders the node as a page of its own, which needs a template:
 - `formidable-elements/src/templates/Layout.tsx` — head and body; the page look (a white page,
   the form's title on top, the form below, centred at 80%) comes from `src/design/page.css`, shipped
   in the form's own stylesheet, every value a variable (see `docs/styling.md`);
-- `formidable-elements/src/components/Form/fullPage.server.tsx` — the `fullPage` view the
-  template renders: the form's title, then the default view rendered **read-only**, so the
-  Page Builder gets one box for the form node and the title sits inside it — hovering the
-  title selects the form, whose **Edit** opens its title, intro, buttons and responses. A
-  template set that wants another page rendering of a form overrides this view without
-  touching how a form renders on a page.
+- `formidable-elements/src/components/Form/hidden.page.server.tsx` — the view the template
+  renders, hidden so it is never offered as a view choice: the form's title, then the default
+  view rendered **read-only**, in a wrapper carrying page-specific classes. Read-only rendering
+  gives the Page Builder one box for the form node; the title inside that box is what a
+  contributor clicks to select the form, whose **Edit** opens its title, intro, buttons and
+  responses.
+- `formidable-elements/src/components/Form/fullPage.server.tsx` — the plain full-page view
+  (the default view under a distinct name), untouched by the above: a template set that wants
+  its own page rendering of a form declares its own `jmix:mainResource`/`fmdb:form` template,
+  or overrides this view, without inheriting the Formidable page.
 
 The template renders the form itself (`Render node={currentNode}`), not an `Area`:
 `fmdb:form` only allows its `fields` and `actions` children, and the goal is to edit the

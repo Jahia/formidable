@@ -171,7 +171,8 @@ jExperience and orange to jContent's warnings.
 
 A form opened as a page of its own (from the Content Folders in the Page Builder, or at its
 own URL) renders on a white page: the form's title on top, the form below, centred at 80% of
-the width. A template set that wants another page overrides the `fullPage` view of `fmdb:form`.
+the width. A template set that wants another page declares its own template for `fmdb:form` (the
+Formidable one renders the hidden `hidden.page` view; `fullPage` is the plain full-page view).
 
 | Variable | Default | Description |
 |---|---|---|
