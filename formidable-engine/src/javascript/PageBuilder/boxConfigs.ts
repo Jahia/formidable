@@ -4,7 +4,7 @@ import {registry} from '@jahia/ui-extender';
  * Page Builder box look per form level. A multi-step form is authored flat, so three levels of
  * boxes stack on one page (field list > step or fieldset > field): the hover outline and the bar
  * of each level take the colour of its authoring zone (see authoring.css in the elements module),
- * which is also the colour of its mixin icon on the create buttons — amber for steps, blue for
+ * which is also the colour of its mixin icon on the create buttons — muted gold for steps (kept away from jContent's warning orange), blue for
  * fieldsets, grey for the field list. Purple is left to jExperience.
  *
  * jContent looks the config up with registry.find({type: 'pageBuilderBoxConfig', target: nodeType});
@@ -12,12 +12,12 @@ import {registry} from '@jahia/ui-extender';
  */
 const boxConfigs: Record<string, {borderColor: string; backgroundColors: {base: string; hover: string; selected: string}}> = {
     'fmdb:step': {
-        borderColor: '#d97706',
-        backgroundColors: {base: '#fef3c7', hover: '#fde68a', selected: '#fcd34d'}
+        borderColor: '#a89660',
+        backgroundColors: {base: '#f5f2e8', hover: '#ebe6d3', selected: '#dcd3b0'}
     },
     'fmdb:fieldset': {
         borderColor: '#2563eb',
-        backgroundColors: {base: '#dbeafe', hover: '#bfdbfe', selected: '#93c5fd'}
+        backgroundColors: {base: '#eff4fd', hover: '#dbe7fb', selected: '#bfd3f7'}
     },
     'fmdb:fieldList': {
         borderColor: '#6b7280',
