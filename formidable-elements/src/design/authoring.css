@@ -1,19 +1,17 @@
-/* Authoring zones (edit mode only). A multi-step form is authored flat, so three levels
-   stack on one page: the field list, its steps (or fieldsets), their fields — each with
-   its own Page Builder "New content" button. The zones tell, by colour, which level a
-   button belongs to; the colours match the mixin icons on those buttons
-   (one grey base declined in blue for fields, green for contents, gold for steps —
-   kept away from jContent's warning orange and jExperience's purple). Nothing in live. Every value is a variable,
-   so a template set or the form's own CSS can tone it or remove it. */
+/* Authoring spacing (edit mode only). A multi-step form is authored flat, so three levels
+   stack on one page: the field list, its steps (or fieldsets), their fields. The Page
+   Builder boxes (coloured per level by the engine's box configs) and the mixin icons on the
+   create buttons tell the levels apart; this sheet only gives each level room to be
+   reached — a padding on the list so it can be clicked around its steps, a padding and a
+   margin on each step so the steps do not touch. No colour: a business stylesheet keeps
+   its look while authoring. Every value is a variable, so a template set or the form's own
+   CSS can tone it or remove it. */
+
+.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-form-fields {
+	padding: var(--fmdb-zone-list-padding, 0.75rem);
+}
 
 .fmdb-form[data-fmdb-edit-mode="true"] .fmdb-step {
 	padding: var(--fmdb-zone-step-padding, 0.75rem 1rem);
 	margin: var(--fmdb-zone-step-margin, 0.75rem 0);
-	background: var(--fmdb-zone-step-bg, rgba(168, 148, 95, 0.08));
-	border-radius: var(--fmdb-zone-radius, 4px);
-}
-
-.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-fieldset {
-	background: var(--fmdb-zone-fieldset-bg, rgba(96, 123, 168, 0.06));
-	border-radius: var(--fmdb-zone-radius, 4px);
 }

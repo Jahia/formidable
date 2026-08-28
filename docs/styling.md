@@ -141,31 +141,29 @@ place in every mode:
 }
 ```
 
-### Authoring zones
+### Authoring spacing
 
 A multi-step form is authored flat, so three levels stack on one page — the field list, its
 steps (or fieldsets), their fields — each with its own Page Builder **New content** button.
-In edit mode (`form[data-fmdb-edit-mode="true"]`) the core draws a zone per level so the
-level a button belongs to is readable at a glance: a faintly tinted card per step (gold) and
-per fieldset (blue); the field list (`.fmdb-form-fields`, a wrapper present in edit mode only)
-and the actions are left to their Page Builder boxes. The colours match the icons of the buttons
-(one grey base declined in blue for fields, green for contents, gold for steps). Nothing is drawn in live.
+The Page Builder boxes carry the level's colour (blue for fields, gold for steps, Moonstone
+light grey for the field list; the mixin icons on the create buttons use the same palette,
+green for contents). In edit mode (`form[data-fmdb-edit-mode="true"]`) the core only adds
+room to reach each level: a padding on the field list (`.fmdb-form-fields`, a wrapper
+present in edit mode only) so it can be clicked around its steps, and a padding and a margin
+on each step. No colour is drawn, so a business stylesheet keeps its look while authoring;
+nothing changes in live.
 
 | Variable | Default | Description |
 |---|---|---|
-| `--fmdb-zone-radius` | `4px` | Border radius of every zone |
-| `--fmdb-zone-step-bg` | `rgba(168, 148, 95, 0.08)` | Background of a step |
+| `--fmdb-zone-list-padding` | `0.75rem` | Inner spacing of the field list |
 | `--fmdb-zone-step-padding` | `0.75rem 1rem` | Inner spacing of a step |
 | `--fmdb-zone-step-margin` | `0.75rem 0` | Outer spacing of a step |
-| `--fmdb-zone-fieldset-bg` | `rgba(96, 123, 168, 0.06)` | Background of a fieldset |
 
-To turn the zones off, set the backgrounds to `transparent` and the spacings to `0` on
-`.fmdb-form`.
+To remove the spacing, set the three variables to `0` on `.fmdb-form`.
 
-The Page Builder's own boxes follow the same palette: the engine registers a
-`pageBuilderBoxConfig` per level (steps gold, fieldsets blue, field list grey) so the hover
-outline and the bar of a box tell its level too. This is a jContent UI extension, not CSS, so
-a template set cannot override it; purple is left to jExperience.
+The Page Builder box colours are a jContent UI extension registered by the engine
+(`pageBuilderBoxConfig`), not CSS, so a template set cannot override them; purple is left to
+jExperience and orange to jContent's warnings.
 
 ## Spinner variables
 
