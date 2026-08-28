@@ -24,11 +24,11 @@ The Page Builder renders the node as a page of its own, which needs a template:
   the form centred at 80%) comes from `src/design/page.css`, shipped
   in the form's own stylesheet, every value a variable (see `docs/styling.md`);
 - `formidable-elements/src/components/Form/hidden.page.server.tsx` — the view the template
-  renders, hidden so it is never offered as a view choice: the default view rendered
-  **read-only**, in a padded wrapper carrying page-specific classes. Read-only rendering gives
-  the Page Builder one box for the form node; the wrapper's padding is the strip of that box a
-  contributor clicks to select the form, whose **Edit** opens its title, intro, buttons and
-  responses. No title on the page: jContent shows it above the Page Builder.
+  renders, hidden so it is never offered as a view choice, so the standalone page can evolve
+  without touching the public views. It renders the form like `fullPage` does, **read-only**,
+  which gives the Page Builder one module for the form node instead of two nested boxes for
+  the same path. Editing the form itself (title, intro, buttons, responses) goes through
+  jContent's own **Edit** button, the form being the current node.
 - `formidable-elements/src/components/Form/fullPage.server.tsx` — the plain full-page view
   (the default view under a distinct name), untouched by the above: a template set that wants
   its own page rendering of a form declares its own `jmix:mainResource`/`fmdb:form` template,
