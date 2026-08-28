@@ -53,9 +53,16 @@ const expectDefaultTitles = (workspace: 'EDIT' | 'LIVE', actionsEn = 'Form actio
 	getListTitles(workspace).then((response: ListTitlesResponse) => {
 		const form = response.data?.jcr?.nodeByPath;
 		expect(form?.fields?.en, `${workspace} fields (en)`).to.equal('Form fields');
-		expect(form?.fields?.fr, `${workspace} fields (fr)`).to.equal('Champs du formulaire');
 		expect(form?.actions?.en, `${workspace} actions (en)`).to.equal(actionsEn);
-		expect(form?.actions?.fr, `${workspace} actions (fr)`).to.equal('Actions du formulaire');
+		if (workspace === 'EDIT') {
+			expect(form?.fields?.fr, 'EDIT fields (fr)').to.equal('Champs du formulaire');
+			expect(form?.actions?.fr, 'EDIT actions (fr)').to.equal('Actions du formulaire');
+		} else {
+			// The fixture publishes english only: french never reaches live, and the
+			// migration must not publish it either — the display name falls back to the node name.
+			expect(form?.fields?.fr, 'LIVE fields (fr) unpublished').to.equal('fields');
+			expect(form?.actions?.fr, 'LIVE actions (fr) unpublished').to.equal('actions');
+		}
 	});
 };
 
@@ -63,8 +70,9 @@ const expectDefaultTitles = (workspace: 'EDIT' | 'LIVE', actionsEn = 'Form actio
  * The 'fields' and 'actions' lists of a form carry a translatable title (the Page Builder
  * shows it on their box and in the create-button tooltips instead of the bare node name).
  * New forms get it at creation; forms stored before it existed get it from the startup
- * migration, in every site language and both workspaces — a title a contributor set
- * is never overridden, and a second run changes nothing.
+ * migration, in every site language and both workspaces (in live, only the languages
+ * already published) — a title a contributor set is never overridden, and a second run
+ * changes nothing.
  */
 describe('Validation - 39 Field and action list titles', () => {
 	useFormidableSite();

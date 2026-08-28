@@ -38,8 +38,9 @@ import java.util.function.BiFunction;
  * Only a MISSING or blank title is written: a title a contributor already set is never
  * touched, so re-running (every engine restart runs it) is a no-op once every list has
  * a title in every site language. Runs on BOTH workspaces (default and live) so
- * published forms show the title without a republish. Keyed on CONTENT state, NOT on
- * the previously installed module version.
+ * published forms show the title without a republish — in live only the languages already
+ * published there are titled: publishing a language stays the contributor's decision.
+ * Keyed on CONTENT state, NOT on the previously installed module version.
  *
  * The default title is the one the elements module declares on the list types, so the
  * migration can only write once that module has registered its definitions. As the
@@ -111,7 +112,7 @@ public class ListTitlesContentMigration implements JahiaEventListener<EventObjec
                 for (String listName : LIST_NAMES) {
                     if (form.hasNode(listName)) {
                         touched |= migrateList(session, form.getNode(listName), siteLanguages(form),
-                                ListTitlesContentMigration::defaultTitle);
+                                "live".equals(workspace), ListTitlesContentMigration::defaultTitle);
                     }
                 }
                 if (touched) {
@@ -167,16 +168,21 @@ public class ListTitlesContentMigration implements JahiaEventListener<EventObjec
     /**
      * Writes the default title on every language where the list has none (or a blank one).
      *
-     * @param defaultTitle resolves the default title of a node type in a language; null
-     *                     means no default, and that language is left alone
+     * @param onlyExistingTranslations when true (live workspace), a language with no
+     *                                 translation node yet is skipped: it was never published
+     * @param defaultTitle             resolves the default title of a node type in a language;
+     *                                 null means no default, and that language is left alone
      * @return true when at least one language was written (the session then carries
      *         unsaved changes)
      */
     boolean migrateList(JCRSessionWrapper session, JCRNodeWrapper list, Collection<String> languages,
-            BiFunction<String, Locale, String> defaultTitle) throws RepositoryException {
+            boolean onlyExistingTranslations, BiFunction<String, Locale, String> defaultTitle) throws RepositoryException {
         boolean touched = false;
         for (String language : languages) {
             Locale locale = LanguageCodeConverters.languageCodeToLocale(language);
+            if (onlyExistingTranslations && !list.hasI18N(locale)) {
+                continue;
+            }
             if (hasTitle(list, locale)) {
                 continue;
             }

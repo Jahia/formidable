@@ -52,7 +52,7 @@ class ListTitlesContentMigrationTest {
         when(list.getOrCreateI18N(FR)).thenReturn(fr);
 
         boolean touched = new ListTitlesContentMigration()
-                .migrateList(session, list, List.of("en", "fr"), ListTitlesContentMigrationTest::defaults);
+                .migrateList(session, list, List.of("en", "fr"), false, ListTitlesContentMigrationTest::defaults);
 
         assertTrue(touched);
         verify(session).checkout(list);
@@ -78,7 +78,7 @@ class ListTitlesContentMigrationTest {
         when(list.getOrCreateI18N(EN)).thenReturn(en);
 
         boolean touched = new ListTitlesContentMigration()
-                .migrateList(session, list, List.of("en"), ListTitlesContentMigrationTest::defaults);
+                .migrateList(session, list, List.of("en"), false, ListTitlesContentMigrationTest::defaults);
 
         assertTrue(touched);
         // A list stored before the type carried mix:title gets the mixin stamped.
@@ -100,7 +100,7 @@ class ListTitlesContentMigrationTest {
         when(title.getString()).thenReturn("Mes actions");
 
         assertFalse(new ListTitlesContentMigration()
-                .migrateList(session, titled, List.of("en"), ListTitlesContentMigrationTest::defaults));
+                .migrateList(session, titled, List.of("en"), false, ListTitlesContentMigrationTest::defaults));
 
         JCRNodeWrapper untitled = mock(JCRNodeWrapper.class);
         when(untitled.getPrimaryNodeTypeName()).thenReturn("fmdb:actionList");
@@ -108,8 +108,31 @@ class ListTitlesContentMigrationTest {
 
         // No default to write: nothing is written, the node is not even checked out.
         assertFalse(new ListTitlesContentMigration()
-                .migrateList(session, untitled, List.of("en"), (type, locale) -> null));
+                .migrateList(session, untitled, List.of("en"), false, (type, locale) -> null));
         verify(session, never()).checkout(any(JCRNodeWrapper.class));
         verify(untitled, never()).getOrCreateI18N(any(Locale.class));
+    }
+
+    @Test
+    void inLiveALanguageNeverPublishedIsNotCreated() throws Exception {
+        JCRSessionWrapper session = mock(JCRSessionWrapper.class);
+        JCRNodeWrapper list = mock(JCRNodeWrapper.class);
+        Node en = mock(Node.class);
+
+        when(list.getPrimaryNodeTypeName()).thenReturn("fmdb:fieldList");
+        when(list.isNodeType("mix:title")).thenReturn(true);
+        // Only english was published: it gets its title, french stays unpublished.
+        when(list.hasI18N(EN)).thenReturn(true);
+        when(list.getI18N(EN)).thenReturn(en);
+        when(en.hasProperty("jcr:title")).thenReturn(false);
+        when(list.getOrCreateI18N(EN)).thenReturn(en);
+        when(list.hasI18N(FR)).thenReturn(false);
+
+        boolean touched = new ListTitlesContentMigration()
+                .migrateList(session, list, List.of("en", "fr"), true, ListTitlesContentMigrationTest::defaults);
+
+        assertTrue(touched);
+        verify(en).setProperty("jcr:title", "Form fields");
+        verify(list, never()).getOrCreateI18N(FR);
     }
 }

@@ -142,7 +142,7 @@ source and every instance has run them at least once. Each class carries a
 | `ChoiceOptionsContentMigration` | 0.4.0 (#193) | Legacy `options`/`choices` of choice fields → `fmdb:options` + manual mode |
 | `DateBoundsContentMigration` | 0.4.0 (#202) | Fixed date/datetime bounds without a bound mode → mode `date` + fixed-bound mixins |
 | `TranslationFieldKeyCleanup` | 0.4.0 (#215) | Stray `fieldKey` on `j:translation_*` subnodes of form elements |
-| `ListTitlesContentMigration` | 0.4.x (#231) | Missing `jcr:title` on a form's `fields`/`actions` lists → the type's default label, per site language. Also re-runs when formidable-elements is (re)deployed, since the default comes from that module's definitions |
+| `ListTitlesContentMigration` | 0.4.x (#231) | Missing `jcr:title` on a form's `fields`/`actions` lists → the type's default label, per site language (in live, published languages only). Also re-runs when formidable-elements is (re)deployed, since the default comes from that module's definitions |
 
 Removal checklist: delete the class and its unit test, drop the Cypress spec that
 restarts the engine to exercise it, and remove the row above.
