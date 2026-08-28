@@ -1,8 +1,8 @@
 import type {JSX, ReactNode} from "react";
 
 /**
- * Page layout for the form template: a white page, the form's title on top, the form below
- * (src/design/page.css, shipped in the form's own stylesheet, which the form view loads
+ * Page layout for the form template: a white page holding the fullPage view of the form
+ * (title, then form — src/design/page.css, shipped in the form's own stylesheet, which the form view loads
  * through AddResources — nothing is loaded here).
  */
 export const Layout = ({title, className, children}: {
@@ -17,10 +17,7 @@ export const Layout = ({title, className, children}: {
 			{title && <title>{title}</title>}
 		</head>
 		<body className="fmdb-form-page-body">
-			<main id="main" className={className}>
-				{title && <h1 className="fmdb-form-page-title">{title}</h1>}
-				{children}
-			</main>
+			<main id="main" className={className}>{children}</main>
 		</body>
 	</>
 );
