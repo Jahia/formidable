@@ -25,16 +25,13 @@ The Page Builder renders the node as a page of its own, which needs a template:
   in the form's own stylesheet, every value a variable (see `docs/styling.md`);
 - `formidable-elements/src/components/Form/hidden.pageBuilder.server.tsx` — the view the template
   renders, hidden so it is never offered as a view choice, so the standalone page can evolve
-  without touching the public views. Same shape as the `cm` view: it delegates to the default
+  without touching the default view. Same shape as the `cm` view: it delegates to the default
   view through a nested `Render` (the framework idiom — a view component cannot be imported
   and called, it needs the server context the framework passes), **read-only**, which gives
   the Page Builder one module for the form node instead of two nested boxes for the same path.
   Editing the form itself (title, intro, buttons, responses) goes through jContent's own
   **Edit** button, the form being the current node.
-- `formidable-elements/src/components/Form/fullPage.server.tsx` — the plain full-page view
-  (the default view under a distinct name), untouched by the above: a template set that wants
-  its own page rendering of a form declares its own `jmix:mainResource`/`fmdb:form` template,
-  or overrides this view, without inheriting the Formidable page.
+
 
 The template renders the form itself (`Render node={currentNode}`), not an `Area`:
 `fmdb:form` only allows its `fields` and `actions` children, and the goal is to edit the

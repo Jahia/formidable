@@ -173,8 +173,7 @@ A form opened as a page of its own (from the Content Folders in the Page Builder
 own URL) renders on a white page with a padding around the form (no title: jContent shows it
 above the Page Builder, and the form has its own intro; editing the form goes through
 jContent's **Edit** button). A template set that wants another page declares its own template
-for `fmdb:form` (the Formidable one renders the hidden `hidden.pageBuilder` view; `fullPage` is
-the plain full-page view).
+for `fmdb:form` (the Formidable one renders the hidden `hidden.pageBuilder` view).
 
 | Variable | Default | Description |
 |---|---|---|
