@@ -1,0 +1,34 @@
+/* Authoring zones (edit mode only). A multi-step form is authored flat, so three levels
+   stack on one page: the field list, its steps (or fieldsets), their fields — each with
+   its own Page Builder "New content" button. The zones tell, by colour, which level a
+   button belongs to; the colours match the mixin icons on those buttons
+   (field: blue, content: teal, step: purple). Nothing in live. Every value is a variable,
+   so a template set or the form's own CSS can tone it or remove it. */
+
+.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-form-fields {
+	padding: var(--fmdb-zone-list-padding, 0.75rem);
+	margin: var(--fmdb-zone-list-margin, 0.75rem 0);
+	border: var(--fmdb-zone-list-border, 1px dashed #9ca3af);
+	border-radius: var(--fmdb-zone-radius, 4px);
+}
+
+.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-step {
+	padding: var(--fmdb-zone-step-padding, 0.75rem 1rem);
+	margin: var(--fmdb-zone-step-margin, 0.75rem 0);
+	border-left: var(--fmdb-zone-step-border, 4px solid #7c3aed);
+	background: var(--fmdb-zone-step-bg, rgba(124, 58, 237, 0.06));
+	border-radius: var(--fmdb-zone-radius, 4px);
+}
+
+.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-fieldset {
+	border-left: var(--fmdb-zone-fieldset-border, 4px solid #0d9488);
+	background: var(--fmdb-zone-fieldset-bg, rgba(13, 148, 136, 0.06));
+	border-radius: var(--fmdb-zone-radius, 4px);
+}
+
+.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-form-actions {
+	padding: var(--fmdb-zone-actions-padding, 0.75rem);
+	margin: var(--fmdb-zone-actions-margin, 0.75rem 0);
+	border: var(--fmdb-zone-actions-border, 1px dashed #9ca3af);
+	border-radius: var(--fmdb-zone-radius, 4px);
+}

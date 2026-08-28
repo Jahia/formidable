@@ -48,6 +48,8 @@ describe('Validation - 38 Multi-step form rendered flat while authoring', () => 
 
 			form.get().find('.fmdb-steps-nav').should('not.exist');
 			form.get().find('.fmdb-next-btn, .fmdb-prev-btn').should('not.exist');
+			// The authoring zone around the field list exists only while authoring.
+			form.get().find('.fmdb-form-fields').should('have.length', 1);
 		});
 	});
 
@@ -78,6 +80,7 @@ describe('Validation - 38 Multi-step form rendered flat while authoring', () => 
 			form.get().find('[data-fmdb-step]:visible').should('have.length', 1);
 			form.getStepIndicators().should('have.length', 2);
 			form.getNextButton().get().should('be.visible');
+			form.get().find('.fmdb-form-fields').should('not.exist');
 		});
 	});
 });

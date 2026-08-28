@@ -198,6 +198,8 @@ jahiaComponent(
 							preferCompactStepView: showStepsNav && !isEditMode ? "true" : "false",
 							hideStepsAfterFirst: showStepsNav && !isEditMode ? "true" : "false",
 							childView: "default",
+							// Authoring zone around the field list (authoring.css); no extra markup in live.
+							...(isEditMode ? {className: "fmdb-form-fields"} : {}),
 						}}
 					/>
 				)}

@@ -141,6 +141,35 @@ place in every mode:
 }
 ```
 
+### Authoring zones
+
+A multi-step form is authored flat, so three levels stack on one page — the field list, its
+steps (or fieldsets), their fields — each with its own Page Builder **New content** button.
+In edit mode (`form[data-fmdb-edit-mode="true"]`) the core draws a zone per level so the
+level a button belongs to is readable at a glance: a dashed frame around the field list
+(`.fmdb-form-fields`, edit mode only) and around the actions, a purple-edged tinted card
+per step, a teal-edged one per fieldset. The colours match the icons of the buttons
+(field: blue, content: teal, step: purple). Nothing is drawn in live.
+
+| Variable | Default | Description |
+|---|---|---|
+| `--fmdb-zone-radius` | `4px` | Border radius of every zone |
+| `--fmdb-zone-list-border` | `1px dashed #9ca3af` | Frame of the field list |
+| `--fmdb-zone-list-padding` | `0.75rem` | Inner spacing of the field list |
+| `--fmdb-zone-list-margin` | `0.75rem 0` | Outer spacing of the field list |
+| `--fmdb-zone-step-border` | `4px solid #7c3aed` | Left edge of a step |
+| `--fmdb-zone-step-bg` | `rgba(124, 58, 237, 0.06)` | Background of a step |
+| `--fmdb-zone-step-padding` | `0.75rem 1rem` | Inner spacing of a step |
+| `--fmdb-zone-step-margin` | `0.75rem 0` | Outer spacing of a step |
+| `--fmdb-zone-fieldset-border` | `4px solid #0d9488` | Left edge of a fieldset |
+| `--fmdb-zone-fieldset-bg` | `rgba(13, 148, 136, 0.06)` | Background of a fieldset |
+| `--fmdb-zone-actions-border` | `1px dashed #9ca3af` | Frame of the actions |
+| `--fmdb-zone-actions-padding` | `0.75rem` | Inner spacing of the actions |
+| `--fmdb-zone-actions-margin` | `0.75rem 0` | Outer spacing of the actions |
+
+To turn the zones off, set the borders to `none`, the backgrounds to `transparent` and the
+spacings to `0` on `.fmdb-form`.
+
 ## Spinner variables
 
 ### Overlay
