@@ -24,7 +24,7 @@ const boxConfigs: Record<string, {borderColor: string; backgroundColors: {base: 
         // Page Builder iframe, which loads the Moonstone tokens), so it recedes behind
         // the coloured steps and fields instead of weighing on the page.
         borderColor: 'var(--moon-color-gray_light40)',
-        backgroundColors: {base: 'var(--moon-color-gray_light_plain40)', hover: '#e5e5e5', selected: 'var(--moon-color-gray_light)'}
+        backgroundColors: {base: '#f7f7f8', hover: 'var(--moon-color-gray_light_plain40)', selected: '#e8e8e8'}
     }
 };
 
