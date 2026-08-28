@@ -29,6 +29,9 @@ import javax.jcr.query.Query;
  * elements <=0.3 to 0.4 upgrade goes through an uninstall/reinstall (groupId
  * change), so no version information survives it. Re-running is a no-op once no
  * legacy property remains.
+ *
+ * <p>Lifecycle: startup migration introduced in 0.4.0 (#193), to be removed in 0.5 — see
+ * docs/upgrade-notes.md, "Startup migrations".
  */
 // Registered as its own service so components whose activation must wait for the
 // migration (ManualOptionsLanguageSyncListener) can express that ordering as a

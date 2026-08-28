@@ -1,0 +1,10 @@
+{
+	"nodeType": "fmdb:fieldList",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "listOrdering",
+			"expanded": true
+		}
+	]
+}

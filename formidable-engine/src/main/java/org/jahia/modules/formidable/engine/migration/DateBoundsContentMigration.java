@@ -34,6 +34,9 @@ import java.util.Calendar;
  * forms keep rendering without a republish. Keyed on CONTENT state (a raw fixed
  * value is present and no mode is), NOT on the previously installed module
  * version. Re-running is a no-op once every bound carries a mode.
+ *
+ * <p>Lifecycle: startup migration introduced in 0.4.0 (#202), to be removed in 0.5 — see
+ * docs/upgrade-notes.md, "Startup migrations".
  */
 @Component(immediate = true)
 public class DateBoundsContentMigration {
