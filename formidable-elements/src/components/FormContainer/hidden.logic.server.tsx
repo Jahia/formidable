@@ -1,4 +1,4 @@
-import {getNodeProps, jahiaComponent} from "@jahia/javascript-modules-library";
+import {AddContentButtons, getNodeProps, jahiaComponent} from "@jahia/javascript-modules-library";
 import LogicAwareRender from "./LogicAwareRender";
 
 type FormContainerNode = Parameters<typeof getNodeProps>[0];
@@ -20,7 +20,7 @@ jahiaComponent(
 		nodeType: "fmdbmix:formContainer",
 		name: "hidden.logic"
 	},
-	(_props, {currentNode, currentResource}) => {
+	(_props, {currentNode, currentResource, renderContext}) => {
 		const elementNodes = (Array.from(currentNode.getNodes()) as FormContainerNode[])
 			.filter(node => !node.isNodeType("fmdb:logicList"));
 		const className = currentResource.getModuleParams().get("className")?.toString();
@@ -51,10 +51,14 @@ jahiaComponent(
 			);
 		});
 
+		// Page Builder: the container's own "New content" button, so an empty step, fieldset
+		// or field list can receive its first element (insertion points need a sibling to exist).
+		const addButtons = renderContext.isEditMode() ? <AddContentButtons/> : null;
+
 		if (!className) {
-			return children;
+			return <>{children}{addButtons}</>;
 		}
 
-		return <div className={className}>{children}</div>;
+		return <div className={className}>{children}{addButtons}</div>;
 	}
 );

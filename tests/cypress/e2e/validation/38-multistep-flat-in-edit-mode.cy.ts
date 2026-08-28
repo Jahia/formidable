@@ -51,6 +51,26 @@ describe('Validation - 38 Multi-step form rendered flat while authoring', () => 
 		});
 	});
 
+	it('exposes each step as a single Page Builder module that can receive a field', () => {
+		createStepFormPage('modules').then(({pagePath, formPath}) => {
+			visitEditForm(pagePath);
+
+			['identityStepFlat', 'detailsStepFlat'].forEach(stepName => {
+				// One module per step: the step view renders its children read-only, so the
+				// Page Builder gets one box per node instead of two stacked "Identity" boxes.
+				cy.get(`[jahiatype="module"][path="${formPath}/fields/${stepName}"]`)
+					.should('have.length', 1)
+					// ...and owns a "New content" placeholder, so an empty step can be filled.
+					.find('[jahiatype="module"][type="placeholder"]')
+					.should('have.length', 1);
+			});
+			// The field list keeps its own placeholder (plus one per step): that is where a step is added.
+			cy.get(`[jahiatype="module"][path="${formPath}/fields"]`)
+				.find('[jahiatype="module"][type="placeholder"]')
+				.should('have.length', 3);
+		});
+	});
+
 	it('keeps one step at a time for a visitor', () => {
 		createStepFormPage('live').then(({livePath}) => {
 			const form = visitLiveForm(livePath);

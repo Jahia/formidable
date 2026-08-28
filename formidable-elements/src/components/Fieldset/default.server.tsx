@@ -31,6 +31,7 @@ jahiaComponent(
 					<Render
 						node={currentNode}
 						view="hidden.logic"
+						readOnly
 						parameters={{
 							className: "fmdb-fieldset-elements",
 							childClassName: "fmdb-form-element",
