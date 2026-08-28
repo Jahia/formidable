@@ -4,6 +4,7 @@ import {SelectOptionsCmp} from './SelectOptions/SelectOptionsCmp';
 import {ConditionalLogicCmp} from './ConditionalLogic/ConditionalLogicCmp';
 import {FormResultsApp} from './FormResults';
 import {Form} from '@jahia/moonstone';
+import {registerPageBuilderBoxConfigs} from './PageBuilder/boxConfigs';
 
 export default function () {
     registry.add('callback', 'FormidableEngineEditor', {
@@ -13,6 +14,7 @@ export default function () {
 
             registry.add('selectorType', 'SelectOptions', {cmp: SelectOptionsCmp, supportMultiple: false});
             registry.add('selectorType', 'ConditionalLogic', {cmp: ConditionalLogicCmp, supportMultiple: false});
+            registerPageBuilderBoxConfigs();
 
             registry.add('adminRoute', 'formidableResults', {
                 targets: ['jcontent:50'],
