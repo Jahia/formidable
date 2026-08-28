@@ -160,8 +160,9 @@ nothing changes in live.
 | `--fmdb-zone-step-padding` | `0.75rem 1rem` | Inner spacing of a step |
 | `--fmdb-zone-step-margin` | `0.75rem 0` | Outer spacing of a step |
 | `--fmdb-zone-field-margin` | `0.75rem` | Vertical spacing of a field (form group) or fieldset |
+| `--fmdb-zone-page-padding-top` | `3rem` | Room above a form opened as a page of its own, for its box bar |
 
-To remove the spacing, set the four variables to `0` on `.fmdb-form`.
+To remove the spacing, set the five variables to `0` on `.fmdb-form`.
 
 The Page Builder box colours are a jContent UI extension registered by the engine
 (`pageBuilderBoxConfig`), not CSS, so a template set cannot override them; purple is left to

@@ -33,6 +33,10 @@ form, not to compose content around it.
 A side effect worth knowing: a form also becomes reachable in live at its own URL
 (`/sites/<site>/contents/<form>.html`), rendered through the same template.
 
+While authoring, the page gets a top padding (`--fmdb-zone-page-padding-top`, 3rem, in
+`src/design/authoring.css`): the Page Builder draws a box bar above its element when there is
+room and over its first pixels otherwise, and nothing sits above the form on its own page.
+
 ## The authoring model (shared with forms on a page)
 
 - **Flat rendering.** Every step is rendered, stacked under its title, with no step
