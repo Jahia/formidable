@@ -12,7 +12,7 @@
    CSS can tone it or remove it. */
 
 .fmdb-form[data-fmdb-edit-mode="true"] {
-	padding: var(--fmdb-zone-form-padding, 0.75rem 0);
+	padding-block: var(--fmdb-zone-form-padding, 0.75rem);
 }
 
 .fmdb-form[data-fmdb-edit-mode="true"] .fmdb-form-fields {
