@@ -74,8 +74,11 @@ describe('Validation - 40 cm inspection view', () => {
 		});
 	});
 
-	it('wraps a container opened on its own in the form shell', () => {
+	it('wraps a container opened on its own in the form shell, with the form CSS', () => {
 		const formName = 'cm-container-form';
+		// The css marker proves the shell walked back up to the enclosing form: without
+		// that walk the shell renders unthemed and only the wrapper assertions stay green.
+		const cssMarker = '--cm-spec-marker';
 
 		createFormNode(formName, 'CM Container Form', [
 			getStepNode({
@@ -84,14 +87,23 @@ describe('Validation - 40 cm inspection view', () => {
 				label: 'Shell step',
 				children: [getInputTextNode({name: 'cmShellField', title: 'Shell field'})]
 			})
-		]).then(() => {
+		], {properties: [{name: 'css', value: `.fmdb-form { ${cssMarker}: 1; }`}]}).then(() => {
 			// The shell (module stylesheet + fmdb-form wrapper) is what the generic
 			// fallback rendering was missing; its marker is the unambiguous witness
 			// (a bare 'fmdb-form' substring would match the children's fmdb-form-element).
+			// One hop up (the field list)...
 			renderView(`${CONTENT_PATH}/${formName}/fields`, 'cm').then(output => {
 				expect(output).to.contain('data-fmdb-cm-view');
+				expect(output).to.contain(cssMarker);
 				expect(output).to.contain('Shell step');
 				expect(output).to.not.contain('<button');
+			});
+
+			// ...and two hops up (a step), the depth a bare getParent() would miss.
+			renderView(`${CONTENT_PATH}/${formName}/fields/shellStepCm`, 'cm').then(output => {
+				expect(output).to.contain('data-fmdb-cm-view');
+				expect(output).to.contain(cssMarker);
+				expect(output).to.contain('cmShellField');
 			});
 		});
 	});

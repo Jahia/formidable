@@ -1,5 +1,5 @@
 import {getNodeProps, jahiaComponent, Render} from "@jahia/javascript-modules-library";
-import {CmShell} from "./CmShell";
+import {CmShell} from "~/design/CmShell";
 
 type ContainerNode = Parameters<typeof getNodeProps>[0];
 

@@ -1,5 +1,5 @@
 import {jahiaComponent, Render} from "@jahia/javascript-modules-library";
-import {CmShell} from "~/components/FormContainer/CmShell";
+import {CmShell} from "~/design/CmShell";
 
 /**
  * Inspection view for jContent (preview drawer, Content Editor preview): those surfaces
