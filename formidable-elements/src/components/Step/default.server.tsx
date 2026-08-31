@@ -14,6 +14,7 @@ jahiaComponent(
 	},
 	({'jcr:title': title, intro}: StepProps, {currentNode, currentResource}) => {
 		const initiallyHidden = currentResource.getModuleParams().get("initiallyHidden")?.toString() === "true";
+		const showLogicHidden = currentResource.getModuleParams().get("showLogicHidden")?.toString() === "true";
 		return (
 			<div data-fmdb-step className="fmdb-step" style={initiallyHidden ? {display: 'none'} : undefined}>
 				{title && <h2 className="fmdb-step-title">{title}</h2>}
@@ -23,7 +24,10 @@ jahiaComponent(
 					node={currentNode}
 					view="hidden.logic"
 					readOnly
-					parameters={{childClassName: "fmdb-form-element"}}
+					parameters={{
+						childClassName: "fmdb-form-element",
+						...(showLogicHidden ? {showLogicHidden: "true"} : {})
+					}}
 				/>
 			</div>
 		);

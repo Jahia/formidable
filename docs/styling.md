@@ -22,7 +22,7 @@ Stable class names, rendered server-side and kept across releases:
 
 | Class | Element |
 |---|---|
-| `fmdb-form` | The `<form>`; carries `data-fmdb-edit-mode="true"` in the Page Builder |
+| `fmdb-form` | The `<form>`; carries `data-fmdb-edit-mode="true"` in the Page Builder. In jContent's inspection previews it is a `div` carrying `data-fmdb-cm-view="true"` (see below) — avoid qualifying rules with the tag (`form.fmdb-form`) |
 | `fmdb-form-intro` | The introduction rich text |
 | `fmdb-form-group` | The wrapper of one field (label + control + help); `fmdb-radio-group`, `fmdb-checkbox-group`, `fmdb-captcha` refine it |
 | `fmdb-form-label`, `fmdb-file-label`, `fmdb-radio-label`, `fmdb-checkbox-label` | Field labels |
@@ -107,8 +107,10 @@ Every element wrapper also exposes `data-fmdb-node-name`, `data-fmdb-node-id` an
 Every element carrying at least one visibility rule is wrapped in `.fmdb-logic-target`
 (server-rendered, so present in live, preview and edit mode; the current state stays in
 `data-fmdb-logic-hidden`). Nothing is drawn in live. In edit mode
-(`form[data-fmdb-edit-mode="true"]`) the core lifts the element's form group on a light grey
-card with a soft shadow, shrunk to its content, so contributors spot conditional fields.
+(`form[data-fmdb-edit-mode="true"]`) and in jContent's inspection previews
+(`[data-fmdb-cm-view="true"]`, the other surface that shows logic-hidden fields) the core
+lifts the element's form group on a light grey card with a soft shadow, shrunk to its
+content, so contributors spot conditional fields.
 
 | Variable | Default | Description |
 |---|---|---|
@@ -140,6 +142,17 @@ place in every mode:
 	outline-offset: 4px;
 }
 ```
+
+### Inspection previews (cm view)
+
+jContent's scriptless preview surfaces (the preview drawer, the Content Editor preview)
+render the `cm` view: an inspection of the form's content — every step stacked under its
+title, logic-driven fields visible on their card, no buttons. There the `fmdb-form` hook is
+a `div` (nothing submits), and it carries `data-fmdb-cm-view="true"` instead of the edit-mode
+attribute: a stylesheet targets that surface with
+`.fmdb-form[data-fmdb-cm-view="true"] { … }`. The form's own CSS and this module's
+stylesheet apply; a template set's stylesheet only reaches previews opened from a page
+(jContent injects the hosting page's CSS there).
 
 ### Authoring spacing
 
