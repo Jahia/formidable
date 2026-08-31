@@ -14,8 +14,6 @@ jahiaComponent(
 		{"jcr:title": title}: FieldsetProps,
 		{currentNode, currentResource}
 	) => {
-		// Convert NodeIterator to Array for fieldset elements
-		const elementNodes = Array.from(currentNode.getNodes());
 		const showLogicHidden = currentResource.getModuleParams().get("showLogicHidden")?.toString() === "true";
 
 		return (
@@ -27,19 +25,19 @@ jahiaComponent(
 					</legend>
 				)}
 
-				{/* Render form elements */}
-				{elementNodes.length > 0 && (
-					<Render
-						node={currentNode}
-						view="hidden.logic"
-						readOnly
-						parameters={{
-							className: "fmdb-fieldset-elements",
-							childClassName: "fmdb-form-element",
-							...(showLogicHidden ? {showLogicHidden: "true"} : {}),
-						}}
-					/>
-				)}
+				{/* Always rendered, children or not: hidden.logic is what emits the Page
+				    Builder placeholder, and an empty fieldset is exactly when the create
+				    buttons are indispensable — without them nothing can ever go in. */}
+				<Render
+					node={currentNode}
+					view="hidden.logic"
+					readOnly
+					parameters={{
+						className: "fmdb-fieldset-elements",
+						childClassName: "fmdb-form-element",
+						...(showLogicHidden ? {showLogicHidden: "true"} : {}),
+					}}
+				/>
 			</fieldset>
 		);
 	}
