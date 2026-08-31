@@ -13,6 +13,16 @@ jContent offers the Page Builder view mode to `jnt:page` nodes and to nodes carr
 mixin is a pure marker, added to the `fmdb:form` supertypes in
 `formidable-elements/src/components/Form/definition.cnd`.
 
+> **Warning — this mixin breaks the cm inspection preview (#233) unless the preview is
+> re-pointed here.** jContent's preview drawer asks for no view name while a node is not
+> displayable, and graphql-core then falls back to the `cm` view — the inspection preview.
+> A displayable form gets `view: 'default'` instead: the drawer silently regresses to the
+> frozen live rendering. Before this lands, re-point the preview — and if `j:view` is the
+> lever, mind that it is a content property read by more renderers than the drawer:
+> default it in the CND only after checking nothing else consults `j:view` on a form.
+> Also re-check the drawer's CSS fetch: `cssSourcePath` becomes the form's own page
+> render, which meets this template's 404 guard.
+
 ### A template for `fmdb:form`
 
 The Page Builder renders the node as a page of its own, which needs a template:
