@@ -17,6 +17,12 @@ export default defineConfig({
 	watchForFileChanges: false,
 	experimentalModifyObstructiveThirdPartyCode: true, // Required for SSO/social authentication
 	includeShadowDom: true, // Enable automatic shadow DOM traversal (including closed shadow roots)
+	// CI resilience (#237) is opted into PER SPEC, not here: a retry re-enters the it body
+	// (before does not re-run), so it only helps a spec whose fixtures are retry-safe —
+	// unique node names per attempt (Date.now() evaluated inside the test). On the many
+	// specs with static fixture names, a global retry would replace the real failure with
+	// a name collision in the report. A spec that is retry-safe declares
+	// {retries: {runMode: 2, openMode: 0}} on its describe (see e2e/integrity/).
 	e2e: {
 		specPattern: ['**/**.cy.ts'],
 		// We've imported your old cypress plugins here.

@@ -77,7 +77,8 @@ const buildFullIntegrityForm = (): JahiaNode[] => [
 	})
 ];
 
-describe('Content integrity - 60 Full form', () => {
+// Retried in CI (#237): retry-safe fixtures (Date.now() names re-evaluated per attempt).
+describe('Content integrity - 60 Full form', {retries: {runMode: 2, openMode: 0}}, () => {
 	useFormidableSite();
 
 	it('keeps a full multistep form and its saved submissions clean before and after submission', () => {

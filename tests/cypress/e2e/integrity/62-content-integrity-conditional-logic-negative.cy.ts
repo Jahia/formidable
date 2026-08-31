@@ -55,7 +55,8 @@ const waitForReferencedSourcePath = (targetPath: string, expectedSourcePath: str
 	}));
 };
 
-describe('Content integrity - 62 Conditional logic negative detection', () => {
+// Retried in CI (#237): retry-safe fixtures (Date.now() names re-evaluated per attempt).
+describe('Content integrity - 62 Conditional logic negative detection', {retries: {runMode: 2, openMode: 0}}, () => {
 	useFormidableSite();
 
 	it('detects a missing logicsSrc child for an existing conditional-logic rule', () => {

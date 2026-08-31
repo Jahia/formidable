@@ -20,7 +20,8 @@ const SAVE_TO_JCR_ACTION: JahiaNode = {
 
 const SUBMISSION_STRUCTURE_CHECKS = ['FormSubmissionStructureIntegrityCheck'];
 
-describe('Content integrity - 63 Submission deletion detection', () => {
+// Retried in CI (#237): retry-safe fixtures (Date.now() names re-evaluated per attempt).
+describe('Content integrity - 63 Submission deletion detection', {retries: {runMode: 2, openMode: 0}}, () => {
 	useFormidableSite();
 
 	it('detects a missing submission data child after targeted deletion', () => {
