@@ -16,15 +16,15 @@ describe('Validation - 41 Form reference owns its Page Builder box', () => {
 
 		createPublishedLiveFormPage(formName, 'Ref Scope Form', [
 			getInputTextNode({name: 'refScopedField', title: 'Ref scoped field'})
-		]).then(({formPath, pagePath}) => {
+		]).then(({formPath, pagePath, referencePath}) => {
 			visitEditForm(pagePath);
 
 			// The reference has its own module, the form none at its absolute path: menus
 			// (Delete, Go to source) land on the reference. Its children render through
-			// the dereference syntax (reference@/...), still editable.
-			cy.get(`[jahiatype="module"][path="${pagePath}/pagecontent/${formName}-reference"]`).should('exist');
+			// the dereference syntax (reference@/form/...), still editable.
+			cy.get(`[jahiatype="module"][path="${referencePath}"]`).should('exist');
 			cy.get(`[jahiatype="module"][path="${formPath}"]`).should('not.exist');
-			cy.get(`[jahiatype="module"][path^="${pagePath}/pagecontent/${formName}-reference@/"]`).should('exist');
+			cy.get(`[jahiatype="module"][path^="${referencePath}@/"]`).should('exist');
 		});
 	});
 
