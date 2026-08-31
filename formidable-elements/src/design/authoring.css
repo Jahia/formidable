@@ -4,7 +4,9 @@
    create buttons tell the levels apart; this sheet only gives each level room to be
    reached — a padding on the form so its own box can be clicked above the field list even
    without an intro, a padding on the list so it can be clicked around its steps, a padding
-   and a margin on each step so the steps do not touch, a margin on each field so the
+   and a margin on each step so the steps do not touch, a padding and a margin on each
+   field — the padding widens the field's own hover zone (the Page Builder only boxes the
+   pixels the element owns), the margin keeps a gap that still belongs to the list so the
    insertion buttons between two fields do not cover the previous one. No colour: a business stylesheet keeps
    its look while authoring. Every value is a variable, so a template set or the form's own
    CSS can tone it or remove it. */
@@ -23,5 +25,6 @@
 }
 
 .fmdb-form[data-fmdb-edit-mode="true"] :is(.fmdb-form-group, .fmdb-fieldset) {
-	margin-block: var(--fmdb-zone-field-margin, 0.75rem);
+	padding-block: var(--fmdb-zone-field-padding, 0.375rem);
+	margin-block: var(--fmdb-zone-field-margin, 0.375rem);
 }
