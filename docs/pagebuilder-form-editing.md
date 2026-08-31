@@ -37,8 +37,18 @@ The template renders the form itself (`Render node={currentNode}`), not an `Area
 `fmdb:form` only allows its `fields` and `actions` children, and the goal is to edit the
 form, not to compose content around it.
 
-A side effect worth knowing: a form also becomes reachable in live at its own URL
-(`/sites/<site>/contents/<form>.html`), rendered through the same template.
+The template is technical: it only answers the Page Builder (edit mode). Everywhere else —
+live, preview — the standalone URL (`/sites/<site>/contents/<form>.html`) responds 404.
+Without that guard, giving every form a template would quietly publish it at its own URL:
+until now a form under `/contents` was only reachable through the pages embedding it, so
+the page ACLs were the gate — a published intranet form behind a restricted page would
+have become readable by anyone with read access on the form node, and crawlable.
+
+A template set that wants a real public standalone form page takes the template over: it
+declares its own `fmdb:form` template with a **priority above 1** and renders the form's
+`fullPage` view (`formidable-elements/src/components/Form/fullPage.server.tsx`, the default
+view under a distinct name so the page rendering of a form can be overridden without
+touching how a form renders inside a page).
 
 The page's top padding is also the room the Page Builder needs: it draws a box bar above its
 element when there is room and over its first pixels otherwise, and nothing else sits above
@@ -75,7 +85,7 @@ the form on its own page.
 
 - `tests/cypress/e2e/pagebuilder/80-pagebuilder-form-editing.cy.ts`: opening a form from
   the Content Folders through the template, the create buttons of the field list, stacked
-  steps.
+  steps, and the standalone URL responding 404 in live.
 - `tests/cypress/e2e/validation/38-multistep-flat-in-edit-mode.cy.ts`: the flat authoring
   model on a page (one module per step, placeholders, live unchanged).
 

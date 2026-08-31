@@ -1,3 +1,4 @@
+import {publishAndWaitJobEnding} from '@jahia/cypress';
 import {JContent} from '@jahia/jcontent-cypress/dist/page-object/jcontent';
 import {FORMIDABLE_TEST_SITE, getInputTextNode, getStepNode} from '../../support/fixtures';
 import {createFormNode} from '../../support/fixtures/forms';
@@ -45,6 +46,24 @@ describe('Page Builder - 80 Form editing from the Content Folders', () => {
 					.find(`button[data-sel-role="${mixin}"]`)
 					.should('have.length', 1);
 			});
+		});
+	});
+
+	it('responds 404 on the standalone URL of a published form outside the Page Builder', () => {
+		const formName = 'pb-standalone-url-form';
+
+		createFormNode(formName, 'PB Standalone URL Form', [
+			getInputTextNode({name: 'firstName', title: 'First name'})
+		]).then(() => {
+			publishAndWaitJobEnding(`${CONTENT_PATH}/${formName}`);
+
+			// The template is technical: it only answers the Page Builder. The live URL a
+			// main resource gets must not quietly publish a form outside the pages (and
+			// their ACLs) that embed it.
+			cy.request({
+				url: `/en${CONTENT_PATH}/${formName}.html`,
+				failOnStatusCode: false
+			}).its('status').should('eq', 404);
 		});
 	});
 
