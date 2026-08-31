@@ -15,6 +15,7 @@ interface CreateFormNodeOptions {
 
 export interface LiveFormPageInfo {
 	formId: string;
+	formName: string;
 	formPath: string;
 	pagePath: string;
 	livePath: string;
@@ -147,7 +148,7 @@ export const createPublishedLiveFormPage = (
 			publishAndWaitJobEnding(formPath, options.publishLanguages);
 			publishAndWaitJobEnding(pagePath, options.publishLanguages);
 
-			return cy.wrap<LiveFormPageInfo>({formId, formPath, pagePath, livePath, referencePath}, {log: false});
+			return cy.wrap<LiveFormPageInfo>({formId, formName, formPath, pagePath, livePath, referencePath}, {log: false});
 		});
 };
 

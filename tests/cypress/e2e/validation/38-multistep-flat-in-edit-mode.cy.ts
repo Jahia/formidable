@@ -54,12 +54,12 @@ describe('Validation - 38 Multi-step form rendered flat while authoring', () => 
 	});
 
 	it('exposes each step as a single Page Builder module that can receive a field', () => {
-		createStepFormPage('modules').then(({pagePath, referencePath}) => {
+		createStepFormPage('modules').then(({pagePath, referencePath, formName}) => {
 			visitEditForm(pagePath);
 
 			// The form renders THROUGH its reference (spec 41), so its modules live under
 			// the dereferenced path — reference@/form/fields/… — not the form's absolute one.
-			const scopedFieldsPath = `${referencePath}@/flat-steps-modules/fields`;
+			const scopedFieldsPath = `${referencePath}@/${formName}/fields`;
 
 			['identityStepFlat', 'detailsStepFlat'].forEach(stepName => {
 				// One module per step: the step view renders its children read-only, so the
