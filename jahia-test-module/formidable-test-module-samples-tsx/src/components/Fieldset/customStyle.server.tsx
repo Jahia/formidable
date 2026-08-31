@@ -17,8 +17,6 @@ jahiaComponent(
 		{"jcr:title": title, customCssClassname}: FieldsetCustomStyleProps,
 		{currentNode}
 	) => {
-		const elementNodes = Array.from(currentNode.getNodes());
-
 		return (
 			<fieldset className={clsx("fmdb-fieldset", customCssClassname)}>
 				{title && (
@@ -27,16 +25,16 @@ jahiaComponent(
 					</legend>
 				)}
 
-				{elementNodes.length > 0 && (
-					<Render
-						node={currentNode}
-						view="hidden.logic"
-						parameters={{
-							className: "fmdb-fieldset-elements",
-							childClassName: "fmdb-form-element",
-						}}
-					/>
-				)}
+				{/* Always rendered, children or not: hidden.logic emits the Page Builder
+				    placeholder an empty fieldset needs to ever receive a field. */}
+				<Render
+					node={currentNode}
+					view="hidden.logic"
+					parameters={{
+						className: "fmdb-fieldset-elements",
+						childClassName: "fmdb-form-element",
+					}}
+				/>
 			</fieldset>
 		);
 	},
