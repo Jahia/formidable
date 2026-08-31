@@ -15,9 +15,12 @@ interface CreateFormNodeOptions {
 
 export interface LiveFormPageInfo {
 	formId: string;
+	formName: string;
 	formPath: string;
 	pagePath: string;
 	livePath: string;
+	/** Path of the fmdb:formReference placing the form on the page — the node the Page Builder box belongs to. */
+	referencePath: string;
 }
 
 export interface LiveFormSubmissionInfo {
@@ -99,6 +102,7 @@ export const createPublishedLiveFormPage = (
 	const formPath = `${CONTENT_PATH}/${formName}`;
 	const pagePath = `${SITE_HOME_PATH}/${pageName}`;
 	const livePath = `home/${pageName}.html`;
+	const referencePath = `${pagePath}/pagecontent/${formName}-reference`;
 	let formId: string;
 
 	return createFormNode(formName, formTitle, formElements, options)
@@ -144,7 +148,7 @@ export const createPublishedLiveFormPage = (
 			publishAndWaitJobEnding(formPath, options.publishLanguages);
 			publishAndWaitJobEnding(pagePath, options.publishLanguages);
 
-			return cy.wrap<LiveFormPageInfo>({formId, formPath, pagePath, livePath}, {log: false});
+			return cy.wrap<LiveFormPageInfo>({formId, formName, formPath, pagePath, livePath, referencePath}, {log: false});
 		});
 };
 

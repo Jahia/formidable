@@ -54,20 +54,24 @@ describe('Validation - 38 Multi-step form rendered flat while authoring', () => 
 	});
 
 	it('exposes each step as a single Page Builder module that can receive a field', () => {
-		createStepFormPage('modules').then(({pagePath, formPath}) => {
+		createStepFormPage('modules').then(({pagePath, referencePath, formName}) => {
 			visitEditForm(pagePath);
+
+			// The form renders THROUGH its reference (spec 41), so its modules live under
+			// the dereferenced path — reference@/form/fields/… — not the form's absolute one.
+			const scopedFieldsPath = `${referencePath}@/${formName}/fields`;
 
 			['identityStepFlat', 'detailsStepFlat'].forEach(stepName => {
 				// One module per step: the step view renders its children read-only, so the
 				// Page Builder gets one box per node instead of two stacked "Identity" boxes.
-				cy.get(`[jahiatype="module"][path="${formPath}/fields/${stepName}"]`)
+				cy.get(`[jahiatype="module"][path="${scopedFieldsPath}/${stepName}"]`)
 					.should('have.length', 1)
 					// ...and owns a "New content" placeholder, so an empty step can be filled.
 					.find('[jahiatype="module"][type="placeholder"]')
 					.should('have.length', 1);
 			});
 			// The field list keeps its own placeholder (plus one per step): that is where a step is added.
-			cy.get(`[jahiatype="module"][path="${formPath}/fields"]`)
+			cy.get(`[jahiatype="module"][path="${scopedFieldsPath}"]`)
 				.find('[jahiatype="module"][type="placeholder"]')
 				.should('have.length', 3);
 		});
