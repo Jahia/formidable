@@ -71,6 +71,15 @@ describe('Validation - 40 cm inspection view', () => {
 				expect(output).to.not.contain('<button');
 				expect(output).to.not.contain('fmdb-steps-nav');
 			});
+
+			// A container opened on its own (here the field list) gets the same shell:
+			// the fmdb-form class carries the stylesheet look the drawer would otherwise lose.
+			renderView(`${CONTENT_PATH}/${formName}/fields`, 'cm').then(output => {
+				expect(output).to.contain('fmdb-form');
+				expect(output).to.contain('Identity');
+				expect(output).to.contain('Details');
+				expect(output).to.not.contain('<button');
+			});
 		});
 	});
 
