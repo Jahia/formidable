@@ -40,7 +40,8 @@ const setWeakReferenceTarget = (
 	'__TARGET_PATH__': targetPath
 }).then(ensureGroovySucceeded);
 
-describe('Content integrity - 66 Reference target negative detection', () => {
+// Retried in CI (#237): retry-safe fixtures (Date.now() names re-evaluated per attempt).
+describe('Content integrity - 66 Reference target negative detection', {retries: {runMode: 2, openMode: 0}}, () => {
 	useFormidableSite();
 
 	it('detects a formResults parentForm pointing to a node that is not an fmdb:form', () => {

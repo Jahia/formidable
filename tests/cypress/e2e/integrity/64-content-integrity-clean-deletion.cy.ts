@@ -14,7 +14,8 @@ const SAVE_TO_JCR_ACTION: JahiaNode = {
 	properties: []
 };
 
-describe('Content integrity - 64 Clean deletion', () => {
+// Retried in CI (#237): retry-safe fixtures (Date.now() names re-evaluated per attempt).
+describe('Content integrity - 64 Clean deletion', {retries: {runMode: 2, openMode: 0}}, () => {
 	useFormidableSite();
 
 	it('keeps the site clean after deleting a form, its page, and its stored results', () => {

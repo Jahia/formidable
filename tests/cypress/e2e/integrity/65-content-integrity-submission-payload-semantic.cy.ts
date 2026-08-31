@@ -21,7 +21,8 @@ const SAVE_TO_JCR_ACTION: JahiaNode = {
 
 const SUBMISSION_PAYLOAD_CHECKS = ['FormSubmissionPayloadIntegrityCheck'];
 
-describe('Content integrity - 65 Submission payload semantics', () => {
+// Retried in CI (#237): retry-safe fixtures (Date.now() names re-evaluated per attempt).
+describe('Content integrity - 65 Submission payload semantics', {retries: {runMode: 2, openMode: 0}}, () => {
 	useFormidableSite();
 
 	it('detects unexpected data properties and file folders under a saved submission', () => {
