@@ -37,5 +37,8 @@
 	"fmdb_inputRange": {
 		"required": "Please select a value",
 		"unanswered": "No value selected yet"
+	},
+	"fmdb_formPage": {
+		"unreachable": "This form is only reachable through a page embedding it."
 	}
 }

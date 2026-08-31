@@ -1,4 +1,5 @@
 import {jahiaComponent, Render} from "@jahia/javascript-modules-library";
+import {useTranslation} from "react-i18next";
 import {Layout} from "~/templates/Layout";
 
 /**
@@ -10,9 +11,11 @@ import {Layout} from "~/templates/Layout";
  *
  * The template is technical: it only answers the Page Builder. Everywhere else — live,
  * preview — the standalone URL responds 404, so giving every form a page does not quietly
- * publish it outside the pages (and their ACLs) that embed it. A template set that wants a
- * public standalone form page declares its own fmdb:form template with a priority above 1
- * and renders the fullPage view.
+ * publish it outside the pages (and their ACLs) that embed it. The 404 carries a short
+ * explanation for the contributor landing here from jContent's Preview/Live buttons —
+ * generic on purpose: revealing nothing of the form (not even its title) is the point.
+ * A template set that wants a public standalone form page declares its own fmdb:form
+ * template with a priority above 1 and renders the fullPage view.
  */
 jahiaComponent(
 	{
@@ -25,10 +28,16 @@ jahiaComponent(
 		properties: {"cache.expiration": "0"}
 	},
 	({"jcr:title": title}: {"jcr:title"?: string}, {currentNode, renderContext}) => {
+		const {t} = useTranslation("formidable-elements", {keyPrefix: "fmdb_formPage"});
+
 		if (!renderContext.isEditMode()) {
 			// The library typing only exposes the response getters, the runtime proxy has it all
-			(renderContext.getResponse() as unknown as {sendError: (code: number) => void}).sendError(404);
-			return null;
+			(renderContext.getResponse() as unknown as {setStatus: (code: number) => void}).setStatus(404);
+			return (
+				<Layout className="fmdb-form-page">
+					<p>{t("unreachable")}</p>
+				</Layout>
+			);
 		}
 
 		return (
