@@ -38,7 +38,11 @@ The template renders the form itself (`Render node={currentNode}`), not an `Area
 form, not to compose content around it.
 
 The template is technical: it only answers the Page Builder (edit mode). Everywhere else —
-live, preview — the standalone URL (`/sites/<site>/contents/<form>.html`) responds 404.
+live, preview — the standalone URL (`/sites/<site>/contents/<form>.html`) responds 404,
+with a short message telling the contributor the form is only reachable through a page.
+Preview is closed on purpose, not by accident: the standalone render is the flat authoring
+surface, not what visitors see, so a form's faithful preview is the page embedding it —
+and jContent's own preview drawer keeps working, since it renders the node, not the template.
 Without that guard, giving every form a template would quietly publish it at its own URL:
 until now a form under `/contents` was only reachable through the pages embedding it, so
 the page ACLs were the gate — a published intranet form behind a restricted page would

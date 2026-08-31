@@ -59,7 +59,10 @@ describe('Page Builder - 80 Form editing from the Content Folders', () => {
 
 			// The template is technical: it only answers the Page Builder. The live URL a
 			// main resource gets must not quietly publish a form outside the pages (and
-			// their ACLs) that embed it.
+			// their ACLs) that embed it. The edit-mode 200 first pins the path: without
+			// it, a typo would 404 too and prove nothing.
+			cy.request(`/cms/editframe/default/en${CONTENT_PATH}/${formName}.html`)
+				.its('status').should('eq', 200);
 			cy.request({
 				url: `/en${CONTENT_PATH}/${formName}.html`,
 				failOnStatusCode: false

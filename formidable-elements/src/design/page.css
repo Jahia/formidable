@@ -1,7 +1,8 @@
 /* A form opened as a page of its own (templates/Form): a white page, the form inside with a
    Moonstone-sized padding around it (--spacing-large, 24px, resolved in the Page Builder iframe
-   where the Moonstone tokens are loaded; the fallback serves the live page). Live and edit alike
-   — the top padding is also the room the Page Builder needs to draw a box bar above the form.
+   where the Moonstone tokens are loaded; the fallback serves a template set's own page, the
+   only place this sheet renders outside the Page Builder since the template answers it alone).
+   The top padding is also the room the Page Builder needs to draw a box bar above the form.
    Every value is a variable; a template set that wants its own page declares its own template. */
 
 .fmdb-form-page-body {
