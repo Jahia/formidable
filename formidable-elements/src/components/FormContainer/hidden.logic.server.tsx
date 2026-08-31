@@ -13,6 +13,8 @@ type FormContainerNode = Parameters<typeof getNodeProps>[0];
  * @param childView       - fallback view name when the child has no `j:view`
  * @param preferCompactStepView - if `"true"`, uses the `compact` view for steps without `j:view`
  * @param hideStepsAfterFirst   - if `"true"`, hides all steps after the first on initial render
+ * @param showLogicHidden       - if `"true"`, logic-driven elements stay visible outside edit
+ *                                mode too (the cm inspection view: no script ever reveals them)
  */
 jahiaComponent(
 	{
@@ -28,6 +30,7 @@ jahiaComponent(
 		const childView = currentResource.getModuleParams().get("childView")?.toString();
 		const preferCompactStepView = currentResource.getModuleParams().get("preferCompactStepView")?.toString() === "true";
 		const hideStepsAfterFirst = currentResource.getModuleParams().get("hideStepsAfterFirst")?.toString() === "true";
+		const showLogicHidden = currentResource.getModuleParams().get("showLogicHidden")?.toString() === "true";
 
 		let stepIndex = 0;
 		const children = elementNodes.map((elementNode) => {
@@ -36,9 +39,12 @@ jahiaComponent(
 			const nodeView = getNodeProps<{ "j:view"?: string }>(elementNode, ["j:view"])["j:view"];
 			const fallbackView = isStep && preferCompactStepView ? "compact" : childView;
 			const resolvedView = nodeView ?? fallbackView;
-			const childParameters = isStep && hideStepsAfterFirst && currentStepIndex > 0
-				? {initiallyHidden: "true"}
-				: undefined;
+			// showLogicHidden travels down: a step or fieldset renders its own children
+			// through another hidden.logic pass, which must keep the same visibility rule.
+			const childParameters = {
+				...(isStep && hideStepsAfterFirst && currentStepIndex > 0 ? {initiallyHidden: "true"} : {}),
+				...(showLogicHidden ? {showLogicHidden: "true"} : {})
+			};
 
 			return (
 				<LogicAwareRender
@@ -47,6 +53,7 @@ jahiaComponent(
 					view={resolvedView}
 					parameters={childParameters}
 					className={childClassName}
+					showLogicHidden={showLogicHidden}
 				/>
 			);
 		});

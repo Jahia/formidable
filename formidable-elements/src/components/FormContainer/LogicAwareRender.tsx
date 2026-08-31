@@ -9,6 +9,8 @@ export interface LogicAwareRenderProps {
 	view?: string;
 	parameters?: Record<string, string>;
 	className?: string;
+	/** Keeps logic-driven elements visible outside edit mode (the cm inspection view). */
+	showLogicHidden?: boolean;
 }
 
 /**
@@ -37,7 +39,7 @@ const resolveSourceNodeIds = (node: LogicAwareRenderNode, logics: ConditionalLog
 	}
 };
 
-const LogicAwareRender = ({node, view, parameters, className}: LogicAwareRenderProps) => {
+const LogicAwareRender = ({node, view, parameters, className, showLogicHidden}: LogicAwareRenderProps) => {
 	const {renderContext} = useServerContext();
 	const {logics: rawLogics} = getNodeProps<{logics?: string[]}>(node, ["logics"]);
 	const logics = node.isNodeType("fmdbmix:formLogicElement")
@@ -50,8 +52,9 @@ const LogicAwareRender = ({node, view, parameters, className}: LogicAwareRenderP
 		resolveSourceNodeIds(node, logics);
 	}
 
-	// In Page Builder, logic-hidden elements must stay visible to remain editable.
-	const hideForLogic = hasLogic && !renderContext.isEditMode();
+	// In Page Builder, logic-hidden elements must stay visible to remain editable; the cm
+	// inspection view keeps them visible too (no script there would ever reveal them).
+	const hideForLogic = hasLogic && !renderContext.isEditMode() && !showLogicHidden;
 
 	return (
 		<div

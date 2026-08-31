@@ -12,10 +12,11 @@ jahiaComponent(
 	},
 	(
 		{"jcr:title": title}: FieldsetProps,
-		{currentNode}
+		{currentNode, currentResource}
 	) => {
 		// Convert NodeIterator to Array for fieldset elements
 		const elementNodes = Array.from(currentNode.getNodes());
+		const showLogicHidden = currentResource.getModuleParams().get("showLogicHidden")?.toString() === "true";
 
 		return (
 			<fieldset className="fmdb-fieldset">
@@ -35,6 +36,7 @@ jahiaComponent(
 						parameters={{
 							className: "fmdb-fieldset-elements",
 							childClassName: "fmdb-form-element",
+							...(showLogicHidden ? {showLogicHidden: "true"} : {}),
 						}}
 					/>
 				)}
