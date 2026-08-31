@@ -1,8 +1,10 @@
 import gql from 'graphql-tag';
+import {getNodeByPath, setNodeProperty} from '@jahia/cypress';
 import {
 	createConditionalLogicForm,
 	createFormNode,
 	createPublishedLiveFormPage,
+	findConditionalLogicNode,
 	getInputTextNode,
 	getStepNode
 } from '../../support/fixtures';
@@ -24,6 +26,38 @@ const RENDER_VIEW = gql`
 type RenderedViewResponse = {
 	data?: {jcr?: {nodeByPath?: {renderedContent?: {output?: string}}}};
 	errors?: unknown;
+};
+
+type NodeByPathResponse = {
+	data?: {jcr?: {nodeByPath?: {uuid?: string} | null} | null};
+};
+
+// The fixture creates the form only; the rule is stored afterwards, like the logic specs
+// do, and the listener resolves it into logicsSrc before the renders are asserted.
+const storeLogicRule = (targetPath: string, sourcePath: string, logicId: string) =>
+	getNodeByPath(sourcePath).then((response: NodeByPathResponse) => {
+		const sourceNodeId = response.data?.jcr?.nodeByPath?.uuid;
+		if (!sourceNodeId) {
+			throw new Error(`Unable to resolve UUID for '${sourcePath}'`);
+		}
+
+		const storedRule = JSON.stringify({
+			logicId,
+			sourceNodeId,
+			sourceFieldName: 'role',
+			sourceFieldType: 'fmdb:select',
+			operator: 'in',
+			values: ['admin']
+		});
+
+		return setNodeProperty(targetPath, 'logics', [storedRule], 'en');
+	});
+
+const waitForReferencedSourcePath = (targetPath: string, expectedSourcePath: string) => {
+	cy.waitUntil(() => findConditionalLogicNode(targetPath).then(node => {
+		const logicChild = node?.descendant?.children?.nodes?.[0];
+		return logicChild?.property?.refNode?.path === expectedSourcePath;
+	}));
 };
 
 const renderView = (path: string, view: string): Cypress.Chainable<string> =>
@@ -109,7 +143,10 @@ describe('Validation - 40 cm inspection view', () => {
 	});
 
 	it('keeps logic-driven fields visible, where the default view hides them', () => {
-		createConditionalLogicForm('cm-view').then(({formPath}) => {
+		createConditionalLogicForm('cm-view').then(({formPath, rolePath, targetPath}) => {
+			storeLogicRule(targetPath, rolePath, 'logic-cm-view');
+			waitForReferencedSourcePath(targetPath, rolePath);
+
 			// The default view (what a visitor gets) hides the nickname field until the
 			// role select matches: the contrast proves the cm lever, not just an absence.
 			renderView(formPath, 'default').then(output => {
