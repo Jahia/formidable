@@ -1,3 +1,4 @@
+import {useServerContext} from "@jahia/javascript-modules-library";
 import type {JSX, ReactNode} from "react";
 
 /**
@@ -9,15 +10,19 @@ export const Layout = ({title, className, children}: {
 	title?: string;
 	className?: string;
 	children: ReactNode;
-}): JSX.Element => (
-	<>
-		<head>
-			<meta charSet="utf-8"/>
-			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-			{title && <title>{title}</title>}
-		</head>
-		<body className="fmdb-form-page-body">
-			<main id="main" className={className}>{children}</main>
-		</body>
-	</>
-);
+}): JSX.Element => {
+	const {currentResource} = useServerContext();
+
+	return (
+		<html lang={currentResource.getLocale().getLanguage()}>
+			<head>
+				<meta charSet="utf-8"/>
+				<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+				{title && <title>{title}</title>}
+			</head>
+			<body className="fmdb-form-page-body">
+				<main id="main" className={className}>{children}</main>
+			</body>
+		</html>
+	);
+};
