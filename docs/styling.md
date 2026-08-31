@@ -158,9 +158,11 @@ stylesheet apply; a template set's stylesheet only reaches previews opened from 
 
 A multi-step form is authored flat, so three levels stack on one page — the field list, its
 steps (or fieldsets), their fields — each with its own Page Builder **New content** button.
-The Page Builder boxes carry the level's colour (blue for fields, gold for steps, Moonstone
-light grey for the field list; the mixin icons on the create buttons use the same palette,
-green for contents). In edit mode (`form[data-fmdb-edit-mode="true"]`) the core only adds
+The Page Builder boxes colour the grouping levels: steps and fieldsets share one gold (two
+ways of grouping fields, one colour), while the field list keeps jContent's default box —
+it is the neutral frame, not a level to spot (the mixin icons on the create buttons keep
+their own palette, blue for fields, green for contents, gold for steps). In edit mode
+(`form[data-fmdb-edit-mode="true"]`) the core only adds
 room to reach each level: a padding on the field list (`.fmdb-form-fields`, a wrapper
 present in edit mode only) so it can be clicked around its steps, a padding and a margin on
 each step, and a margin on each field so the insertion buttons between two fields do not cover
