@@ -107,8 +107,10 @@ Every element wrapper also exposes `data-fmdb-node-name`, `data-fmdb-node-id` an
 Every element carrying at least one visibility rule is wrapped in `.fmdb-logic-target`
 (server-rendered, so present in live, preview and edit mode; the current state stays in
 `data-fmdb-logic-hidden`). Nothing is drawn in live. In edit mode
-(`form[data-fmdb-edit-mode="true"]`) the core lifts the element's form group on a light grey
-card with a soft shadow, shrunk to its content, so contributors spot conditional fields.
+(`form[data-fmdb-edit-mode="true"]`) and in jContent's inspection previews
+(`[data-fmdb-cm-view="true"]`, the other surface that shows logic-hidden fields) the core
+lifts the element's form group on a light grey card with a soft shadow, shrunk to its
+content, so contributors spot conditional fields.
 
 | Variable | Default | Description |
 |---|---|---|
