@@ -1,0 +1,19 @@
+/* A form opened as a page of its own (templates/Form): a white page, the form inside with a
+   Moonstone-sized padding around it (--spacing-large, 24px, resolved in the Page Builder iframe
+   where the Moonstone tokens are loaded; the fallback serves a template set's own page, the
+   only place this sheet renders outside the Page Builder since the template answers it alone).
+   The top padding is also the room the Page Builder needs to draw a box bar above the form.
+   Every value is a variable; a template set that wants its own page declares its own template. */
+
+.fmdb-form-page-body {
+	margin: 0;
+	min-height: 100vh;
+	background: var(--fmdb-page-bg, #fff);
+	color: var(--fmdb-page-color, #1f2933);
+	font-family: var(--fmdb-page-font, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
+}
+
+.fmdb-form-page {
+	box-sizing: border-box;
+	padding: var(--fmdb-page-padding, var(--spacing-large, 24px));
+}

@@ -148,24 +148,46 @@ steps (or fieldsets), their fields — each with its own Page Builder **New cont
 The Page Builder boxes carry the level's colour (blue for fields, gold for steps, Moonstone
 light grey for the field list; the mixin icons on the create buttons use the same palette,
 green for contents). In edit mode (`form[data-fmdb-edit-mode="true"]`) the core only adds
-room to reach each level: a padding on the field list (`.fmdb-form-fields`, a wrapper
+room to reach each level: a padding on the form itself so its own box can be clicked above
+the field list even without an intro, a padding on the field list (`.fmdb-form-fields`, a wrapper
 present in edit mode only) so it can be clicked around its steps, a padding and a margin on
-each step, and a margin on each field so the insertion buttons between two fields do not cover
-the previous one. No colour is drawn, so a business stylesheet keeps its look while authoring;
+each step, and a padding and a margin on each field — the padding widens the field's own
+hover zone (the Page Builder only boxes the pixels the element owns), the margin keeps a gap
+that still belongs to the list so the insertion buttons between two fields do not cover the
+previous one. No colour is drawn, so a business stylesheet keeps its look while authoring;
 nothing changes in live.
 
 | Variable | Default | Description |
 |---|---|---|
+| `--fmdb-zone-form-padding` | `0.75rem` | Vertical inner spacing of the form (its own clickable strip) |
 | `--fmdb-zone-list-padding` | `0.75rem` | Inner spacing of the field list |
 | `--fmdb-zone-step-padding` | `0.75rem 1rem` | Inner spacing of a step |
 | `--fmdb-zone-step-margin` | `0.75rem 0` | Outer spacing of a step |
-| `--fmdb-zone-field-margin` | `0.75rem` | Vertical spacing of a field (form group) or fieldset |
+| `--fmdb-zone-field-padding` | `0.375rem` | Vertical padding of a field (form group) or fieldset — its own hover zone |
+| `--fmdb-zone-field-margin` | `0.375rem` | Vertical spacing of a field (form group) or fieldset |
 
-To remove the spacing, set the four variables to `0` on `.fmdb-form`.
+To remove the spacing, set the six variables to `0` on `.fmdb-form`.
 
 The Page Builder box colours are a jContent UI extension registered by the engine
 (`pageBuilderBoxConfig`), not CSS, so a template set cannot override them; purple is left to
 jExperience and orange to jContent's warnings.
+
+### Form page
+
+A form opened as a page of its own from the Content Folders in the Page Builder renders on a
+white page with a padding around the form (no title: jContent shows it above the Page
+Builder, and the form has its own intro; editing the form goes through jContent's **Edit**
+button). The page only answers the Page Builder — anywhere else the standalone URL responds
+404. A template set that wants another page, or a public one, declares its own template for
+`fmdb:form` **with a priority above 1** (the Formidable one ships at priority 1 and renders
+the hidden `hidden.pageBuilder` view) and renders the `fullPage` view of the form.
+
+| Variable | Default | Description |
+|---|---|---|
+| `--fmdb-page-bg` | `#fff` | Page background |
+| `--fmdb-page-color` | `#1f2933` | Page text colour |
+| `--fmdb-page-font` | `system-ui, …, sans-serif` | Page font stack |
+| `--fmdb-page-padding` | `var(--spacing-large, 24px)` | Padding around the form (Moonstone's large spacing in the Page Builder) |
 
 ## Spinner variables
 
