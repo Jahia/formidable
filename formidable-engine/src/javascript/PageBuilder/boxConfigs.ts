@@ -11,15 +11,17 @@ import {registry} from '@jahia/ui-extender';
  * jContent looks the config up with registry.find({type: 'pageBuilderBoxConfig', target: nodeType});
  * targets are passed as objects because a string target is split on ':' (namespace lost).
  */
-const boxConfigs: Record<string, {borderColor: string; backgroundColors: {base: string; hover: string; selected: string}}> = {
-    'fmdb:step': {
-        borderColor: '#a8945f',
-        backgroundColors: {base: '#f7f4ec', hover: '#ede7d6', selected: '#dcd2b4'}
-    },
-    'fmdb:fieldset': {
-        borderColor: '#a8945f',
-        backgroundColors: {base: '#f7f4ec', hover: '#ede7d6', selected: '#dcd2b4'}
-    }
+// Steps and fieldsets are the two ways of grouping fields: one look for both. Two entries
+// on purpose — their shared supertype (fmdbmix:formContainer) is also the field list's,
+// which keeps jContent's default box.
+const groupBox = {
+    borderColor: '#a8945f',
+    backgroundColors: {base: '#f7f4ec', hover: '#ede7d6', selected: '#dcd2b4'}
+};
+
+const boxConfigs: Record<string, typeof groupBox> = {
+    'fmdb:step': groupBox,
+    'fmdb:fieldset': groupBox
 };
 
 export const registerPageBuilderBoxConfigs = () => {

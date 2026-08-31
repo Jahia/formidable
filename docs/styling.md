@@ -160,8 +160,9 @@ A multi-step form is authored flat, so three levels stack on one page — the fi
 steps (or fieldsets), their fields — each with its own Page Builder **New content** button.
 The Page Builder boxes colour the grouping levels: steps and fieldsets share one gold (two
 ways of grouping fields, one colour), while the field list keeps jContent's default box —
-it is the neutral frame, not a level to spot (the mixin icons on the create buttons keep
-their own palette, blue for fields, green for contents, gold for steps). In edit mode
+it is the neutral frame, not a level to spot. The palette rides on the boxes and on the
+mixin icons of the create buttons (blue for fields, green for contents, gold for steps);
+the type icons stay neutral monochrome. In edit mode
 (`form[data-fmdb-edit-mode="true"]`) the core only adds
 room to reach each level: a padding on the field list (`.fmdb-form-fields`, a wrapper
 present in edit mode only) so it can be clicked around its steps, a padding and a margin on
