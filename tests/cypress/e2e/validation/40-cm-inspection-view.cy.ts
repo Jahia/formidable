@@ -71,13 +71,26 @@ describe('Validation - 40 cm inspection view', () => {
 				expect(output).to.not.contain('<button');
 				expect(output).to.not.contain('fmdb-steps-nav');
 			});
+		});
+	});
 
-			// A container opened on its own (here the field list) gets the same shell:
-			// the fmdb-form class carries the stylesheet look the drawer would otherwise lose.
+	it('wraps a container opened on its own in the form shell', () => {
+		const formName = 'cm-container-form';
+
+		createFormNode(formName, 'CM Container Form', [
+			getStepNode({
+				name: 'shellStepCm',
+				title: 'Shell step',
+				label: 'Shell step',
+				children: [getInputTextNode({name: 'cmShellField', title: 'Shell field'})]
+			})
+		]).then(() => {
+			// The shell (module stylesheet + fmdb-form wrapper) is what the generic
+			// fallback rendering was missing; its marker is the unambiguous witness
+			// (a bare 'fmdb-form' substring would match the children's fmdb-form-element).
 			renderView(`${CONTENT_PATH}/${formName}/fields`, 'cm').then(output => {
-				expect(output).to.contain('fmdb-form');
-				expect(output).to.contain('Identity');
-				expect(output).to.contain('Details');
+				expect(output).to.contain('data-fmdb-cm-view');
+				expect(output).to.contain('Shell step');
 				expect(output).to.not.contain('<button');
 			});
 		});

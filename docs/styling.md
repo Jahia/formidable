@@ -22,7 +22,7 @@ Stable class names, rendered server-side and kept across releases:
 
 | Class | Element |
 |---|---|
-| `fmdb-form` | The `<form>`; carries `data-fmdb-edit-mode="true"` in the Page Builder |
+| `fmdb-form` | The `<form>`; carries `data-fmdb-edit-mode="true"` in the Page Builder. In jContent's inspection previews it is a `div` carrying `data-fmdb-cm-view="true"` (see below) — avoid qualifying rules with the tag (`form.fmdb-form`) |
 | `fmdb-form-intro` | The introduction rich text |
 | `fmdb-form-group` | The wrapper of one field (label + control + help); `fmdb-radio-group`, `fmdb-checkbox-group`, `fmdb-captcha` refine it |
 | `fmdb-form-label`, `fmdb-file-label`, `fmdb-radio-label`, `fmdb-checkbox-label` | Field labels |
@@ -142,6 +142,17 @@ place in every mode:
 	outline-offset: 4px;
 }
 ```
+
+### Inspection previews (cm view)
+
+jContent's scriptless preview surfaces (the preview drawer, the Content Editor preview)
+render the `cm` view: an inspection of the form's content — every step stacked under its
+title, logic-driven fields visible on their card, no buttons. There the `fmdb-form` hook is
+a `div` (nothing submits), and it carries `data-fmdb-cm-view="true"` instead of the edit-mode
+attribute: a stylesheet targets that surface with
+`.fmdb-form[data-fmdb-cm-view="true"] { … }`. The form's own CSS and this module's
+stylesheet apply; a template set's stylesheet only reaches previews opened from a page
+(jContent injects the hosting page's CSS there).
 
 ### Authoring spacing
 

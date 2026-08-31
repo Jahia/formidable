@@ -102,23 +102,32 @@ jahiaComponent(
     name: "twoColumns",
     displayName: "Fieldset - Two columns",
   },
-  ({ "jcr:title": title }: FieldsetProps, { currentNode }) => (
-    <>
-      <AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")} />
-      <fieldset>
-        {title && <legend>{title}</legend>}
+  ({ "jcr:title": title }: FieldsetProps, { currentNode, currentResource }) => {
+    // Forward showLogicHidden: jContent's inspection previews pass it down so
+    // logic-hidden fields stay visible there — a container that drops it makes
+    // its children's conditional fields invisible in the preview drawer.
+    const showLogicHidden =
+      currentResource.getModuleParams().get("showLogicHidden")?.toString() === "true";
 
-        <Render
-          node={currentNode}
-          view="hidden.logic"
-          parameters={{
-            className: classes.grid,
-            childClassName: classes.item,
-          }}
-        />
-      </fieldset>
-    </>
-  ),
+    return (
+      <>
+        <AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")} />
+        <fieldset>
+          {title && <legend>{title}</legend>}
+
+          <Render
+            node={currentNode}
+            view="hidden.logic"
+            parameters={{
+              className: classes.grid,
+              childClassName: classes.item,
+              ...(showLogicHidden ? { showLogicHidden: "true" } : {}),
+            }}
+          />
+        </fieldset>
+      </>
+    );
+  },
 );
 ```
 
@@ -126,6 +135,8 @@ What this does:
 
 - your view owns the wrapper markup and layout
 - `hidden.logic` still owns the rendering contract for child nodes
+- the `showLogicHidden` forwarding keeps your children inspectable in jContent's
+  preview drawer (the parameter only travels if every container on the way relays it)
 
 ## Case 2: add a new custom container type
 
@@ -154,18 +165,24 @@ jahiaComponent(
     nodeType: "mymod:panel",
     name: "default",
   },
-  (_props, { currentNode }) => (
-    <section className="my-panel">
-      <Render
-        node={currentNode}
-        view="hidden.logic"
-        parameters={{
-          className: "my-panel-content",
-          childClassName: "my-panel-item",
-        }}
-      />
-    </section>
-  ),
+  (_props, { currentNode, currentResource }) => {
+    const showLogicHidden =
+      currentResource.getModuleParams().get("showLogicHidden")?.toString() === "true";
+
+    return (
+      <section className="my-panel">
+        <Render
+          node={currentNode}
+          view="hidden.logic"
+          parameters={{
+            className: "my-panel-content",
+            childClassName: "my-panel-item",
+            ...(showLogicHidden ? { showLogicHidden: "true" } : {}),
+          }}
+        />
+      </section>
+    );
+  },
 );
 ```
 

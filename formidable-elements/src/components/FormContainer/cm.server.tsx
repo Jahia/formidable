@@ -1,4 +1,5 @@
-import {AddResources, buildModuleFileUrl, getNodeProps, jahiaComponent, Render} from "@jahia/javascript-modules-library";
+import {getNodeProps, jahiaComponent, Render} from "@jahia/javascript-modules-library";
+import {CmShell} from "./CmShell";
 
 type ContainerNode = Parameters<typeof getNodeProps>[0];
 
@@ -39,22 +40,17 @@ jahiaComponent(
 		const isFieldList = currentNode.isNodeType("fmdb:fieldList");
 
 		return (
-			<>
-				{css && <style>{css}</style>}
-				<AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")}/>
-				{/* Not a <form>: nothing here submits. The class keeps the business stylesheet's look. */}
-				<div className="fmdb-form" data-fmdb-cm-view="true">
-					{isFieldList
-						? (
-							<Render
-								node={currentNode}
-								view="hidden.logic"
-								parameters={{childView: "default", showLogicHidden: "true"}}
-							/>
-						)
-						: <Render node={currentNode} parameters={{showLogicHidden: "true"}}/>}
-				</div>
-			</>
+			<CmShell css={css}>
+				{isFieldList
+					? (
+						<Render
+							node={currentNode}
+							view="hidden.logic"
+							parameters={{childView: "default", showLogicHidden: "true"}}
+						/>
+					)
+					: <Render node={currentNode} parameters={{showLogicHidden: "true"}}/>}
+			</CmShell>
 		);
 	}
 );
