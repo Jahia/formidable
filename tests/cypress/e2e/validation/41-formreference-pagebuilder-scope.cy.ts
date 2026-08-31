@@ -1,5 +1,4 @@
 import {createPublishedLiveFormPage, getInputTextNode, visitEditForm, visitLiveForm} from '../../support/fixtures';
-import {CONTENT_PATH} from '../../support/constants';
 import {useFormidableSite} from './support';
 
 /**
