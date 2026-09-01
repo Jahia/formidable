@@ -16,3 +16,12 @@ export const resolveUrlPlaceholders = (html: string | undefined, renderContext: 
 		.replaceAll(urlGenerator.getBasePlaceholders(), urlGenerator.getBase())
 		.replaceAll(urlGenerator.getFilesPlaceholders(), urlGenerator.getFiles());
 };
+
+// Contributor CSS for a <style> tag, as raw text. A JSX text child is HTML-escaped
+// by the SSR renderer while <style> is a RAWTEXT element the browser never decodes
+// entities in — so any rule using '>', '"' or "'" (the documented
+// [data-fmdb-node-name="…"] selectors included) was silently dropped. Rendered
+// through dangerouslySetInnerHTML instead, same trust model as the intro and help
+// texts on this surface. The one sequence that must not pass through verbatim is a
+// </style break-out; '\/' is a valid CSS escape for '/', so such a rule survives.
+export const styleTagCss = (css: string): string => css.replace(/<\//g, '<\\/');

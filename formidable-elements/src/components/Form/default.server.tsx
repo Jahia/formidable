@@ -11,7 +11,7 @@ import type {JCRNodeWrapper} from "org.jahia.services.content";
 import {useTranslation} from "react-i18next";
 import Form from "./Form.client";
 import {type FormServerProps} from "./types";
-import {resolveUrlPlaceholders} from "~/utils/richTextUtils";
+import {resolveUrlPlaceholders, styleTagCss} from "~/utils/richTextUtils";
 
 const SETTINGS_BEAN_SERVICE = "org.jahia.api.settings.SettingsBean";
 // Absence of the mixin = the action is presumed to write to the repository (the
@@ -135,7 +135,7 @@ jahiaComponent(
 			// created before the property existed); no visitor input ever reaches it.
 			return (
 				<>
-					{css && <style>{css}</style>}
+					{css && <style dangerouslySetInnerHTML={{__html: styleTagCss(css)}}/>}
 					<AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")} />
 					<div className="fmdb-message fmdb-message-maintenance" role="status">
 						<div
@@ -149,7 +149,7 @@ jahiaComponent(
 
 		return (
 			<>
-				{css && <style>{css}</style>}
+				{css && <style dangerouslySetInnerHTML={{__html: styleTagCss(css)}}/>}
 				<AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")} />
 				{scriptUrl && (
 				<AddResources

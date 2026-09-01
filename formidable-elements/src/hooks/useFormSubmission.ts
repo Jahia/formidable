@@ -1,5 +1,5 @@
 import {type FormEvent, type RefObject, useRef, useState} from 'react';
-import {interpolateMessage} from '~/utils/messageUtils';
+import {fieldKindFromForm, interpolateMessage} from '~/utils/messageUtils';
 import {applyConditionalLogicVisibility, buildLogicStateHeader} from '~/utils/conditionalLogic';
 import {FORM_LOGIC_STATE_HEADER} from '~/utils/logicProviders';
 import {type CaptchaHandle} from '~/components/Form/Captcha.client';
@@ -88,7 +88,7 @@ export function useFormSubmission({
 				formData.delete(captcha.tokenField);
 			}
 
-			const interpolatedSubmissionMessage = interpolateMessage(submissionMessage, formData, locale);
+			const interpolatedSubmissionMessage = interpolateMessage(submissionMessage, formData, locale, fieldKindFromForm(form));
 
 			const rawCaptchaToken = captcha ? captchaRef.current?.getToken() : undefined;
 			const captchaToken = rawCaptchaToken?.trim() || undefined;
@@ -141,7 +141,7 @@ export function useFormSubmission({
 				return;
 			}
 			const formData = new FormData(form);
-			const interpolatedErrorMessage = interpolateMessage(errorMessage, formData, locale);
+			const interpolatedErrorMessage = interpolateMessage(errorMessage, formData, locale, fieldKindFromForm(form));
 			const base = interpolatedErrorMessage || 'An error occurred while submitting the form.';
 			const details: string[] = [];
 			if (serverErrorCode) {
