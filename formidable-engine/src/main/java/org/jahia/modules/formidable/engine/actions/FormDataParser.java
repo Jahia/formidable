@@ -296,8 +296,10 @@ public class FormDataParser {
                 FileItemStream item = iterator.next();
                 // Whitelist check: fields not declared on the form node are discarded without
                 // reading their content. The iterator advances past them automatically.
-                boolean declaredField = fieldMetadata.allowedNames().isEmpty()
-                        || fieldMetadata.allowedNames().contains(item.getFieldName());
+                // Fail closed: an EMPTY whitelist (a form with no submittable field) discards
+                // every part — otherwise anything posted would skip validation entirely and
+                // save2jcr would persist it through fmdb:submissionData's residual properties.
+                boolean declaredField = fieldMetadata.allowedNames().contains(item.getFieldName());
                 if (!declaredField) {
                     log.debug("[FormDataParser] Skipping undeclared field: {}", item.getFieldName());
                 } else if (item.isFormField()) {
