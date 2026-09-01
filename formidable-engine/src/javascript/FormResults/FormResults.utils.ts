@@ -105,7 +105,29 @@ export function sortByFormOrder<T>(items: T[], getFieldName: (item: T) => string
         .map(({item}) => item);
 }
 
-export function parseSubmissionNode(node: any, fieldOrder: string[] = []): SubmissionRow {
+/** Raw GraphQL node shapes: everything is read defensively, so 'unknown' leaves stay. */
+type GqlFileNode = {
+    name: string;
+    uuid: string;
+    path: string;
+    url?: string;
+    thumbnailUrl?: string | null;
+    content?: {nodes?: Array<{mimeType?: {value?: string}}>};
+};
+
+export type GqlSubmissionNode = {
+    uuid: string;
+    path: string;
+    name: string;
+    created?: {value?: string};
+    origin?: {value?: string};
+    locale?: {value?: string};
+    referer?: {value?: string};
+    data?: {nodes?: Array<{properties?: SubmissionProperty[]}>};
+    files?: {nodes?: Array<{children?: {nodes?: Array<{name: string; children?: {nodes?: GqlFileNode[]}}>}}>};
+} & Record<string, unknown>;
+
+export function parseSubmissionNode(node: GqlSubmissionNode, fieldOrder: string[] = []): SubmissionRow {
     const fieldValues: SubmissionFieldValue[] = [];
     const dataNode = node.data?.nodes?.[0];
     const properties = dataNode?.properties as SubmissionProperty[] | undefined;
@@ -228,7 +250,11 @@ export function formatFileSize(bytes: number | null): string {
  * Reads GET_FORM_FIELD_LABELS. The descendants come back in tree order, which is
  * the order the form displays its fields in (steps, then blocks, then fields).
  */
-export function parseFormFields(data: any): FormFields {
+type GqlFormFieldsResponse = {
+    jcr?: {nodeById?: {fields?: {nodes?: Array<{descendants?: {nodes?: Array<{name: string; displayName?: string} & Record<string, unknown>>}}>}}};
+};
+
+export function parseFormFields(data: GqlFormFieldsResponse | undefined): FormFields {
     const labels = new Map<string, string>();
     const order: string[] = [];
     const fieldListNodes = data?.jcr?.nodeById?.fields?.nodes;
@@ -253,4 +279,9 @@ export function parseFormFields(data: any): FormFields {
     }
 
     return {labels, order};
+}
+
+/** Typed access to Jahia's global UI context (window.contextJsParameters). */
+export function uiContext(): {siteKey?: string; uilang?: string} {
+    return (window as Window & {contextJsParameters?: {siteKey?: string; uilang?: string}}).contextJsParameters ?? {};
 }

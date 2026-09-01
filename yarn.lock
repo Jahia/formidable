@@ -3760,6 +3760,7 @@ __metadata:
     "@jahia/ui-extender": "npm:^1.2.0"
     "@jahia/vite-federation-plugin": "npm:^0.1.1"
     "@types/react": "npm:^18.3.28"
+    eslint: "npm:^9.39.2"
     graphql: "npm:^16.10.0"
     graphql-tag: "npm:^2.12.6"
     i18next: "npm:^20.6.1"

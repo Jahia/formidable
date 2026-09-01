@@ -167,8 +167,7 @@ export interface RunContentIntegrityScanOptions {
 	pageSize?: number;
 }
 
-export interface AssertContentIntegrityCleanOptions extends RunContentIntegrityScanOptions {
-}
+export type AssertContentIntegrityCleanOptions = RunContentIntegrityScanOptions;
 
 const TERMINAL_FAILURE_STATUSES = new Set(['failed', 'interrupted', 'unknown']);
 const CLEAN_SCAN_MARKERS = ['no error found', '0 errors found'];

@@ -31,6 +31,14 @@ export default defineConfig(
   // Cypress
   pluginCypress.configs.recommended,
   {
+    // Cypress support helpers are not React: the hook-naming heuristic misfires
+    // on the use* fixture installers (useFormidableSite and friends).
+    files: ["tests/**"],
+    rules: {
+      "@eslint-react/no-unnecessary-use-prefix": "off",
+    },
+  },
+  {
     files: ["**/*.cy.ts"],
     rules: {
       // Stop reporting `expect().to.exist`
@@ -40,5 +48,13 @@ export default defineConfig(
 
   // Ignore the same files as .gitignore
   includeIgnoreFile(path.resolve(import.meta.dirname, ".gitignore")),
-  { ignores: ["**/fixtures/expected/**"] },
+  {
+    ignores: [
+      "**/fixtures/expected/**",
+      // includeIgnoreFile only reads the ROOT .gitignore; this rule lives in
+      // formidable-engine/.gitignore (the generated module-federation bundle,
+      // ~600 false positives when linted).
+      "formidable-engine/src/main/resources/javascript/apps/**",
+    ],
+  },
 );

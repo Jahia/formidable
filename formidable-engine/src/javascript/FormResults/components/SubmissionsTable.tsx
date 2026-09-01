@@ -23,7 +23,7 @@ import {
     parseSubmissionNode,
     type FormResultsNode,
     type SubmissionRow
-} from '../FormResults.utils';
+, type GqlSubmissionNode} from '../FormResults.utils';
 
 interface SubmissionsTableProps {
     formResults: FormResultsNode;
@@ -73,7 +73,7 @@ export const SubmissionsTable = ({
 
     const submissions: SubmissionRow[] = useMemo(() => {
         const nodes = queryResult?.nodes ?? [];
-        return nodes.map((node: unknown) => parseSubmissionNode(node, fieldOrder));
+        return nodes.map((node: GqlSubmissionNode) => parseSubmissionNode(node, fieldOrder));
     }, [queryResult, fieldOrder]);
 
     useEffect(() => {
@@ -103,11 +103,13 @@ export const SubmissionsTable = ({
         }
 
         if (totalPages === 0 && currentPage !== 1) {
+            // eslint-disable-next-line @eslint-react/hooks-extra/no-direct-set-state-in-use-effect -- deliberate clamp against async query results
             setCurrentPage(1);
             return;
         }
 
         if (totalPages > 0 && currentPage > totalPages) {
+            // eslint-disable-next-line @eslint-react/hooks-extra/no-direct-set-state-in-use-effect -- deliberate clamp against async query results
             setCurrentPage(totalPages);
         }
     }, [currentPage, loading, queryResult?.pageInfo, totalPages]);
@@ -267,8 +269,11 @@ export const SubmissionsTable = ({
                         {t('formResults.table.pageInfo', {
                             current: String(currentPage),
                             total: String(totalPages || 1),
-                            count: String(totalCount)
-                        } as any)}
+                            // A number on purpose: 'count' is i18next's reserved plural
+                            // option, and typing it as a string is what forced the old
+                            // 'as any' here.
+                            count: totalCount
+                        })}
                     </Typography>
                 </div>
             </div>

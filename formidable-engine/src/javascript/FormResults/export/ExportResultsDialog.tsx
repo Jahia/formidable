@@ -3,7 +3,7 @@ import {useApolloClient} from '@apollo/client';
 import {Button, Checkbox, Close, Download, Dropdown, Input, Loader, Typography} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
 import {GET_SUBMISSIONS, GET_FORM_FIELD_LABELS} from '../graphql';
-import {buildSubmissionsQuery, parseSubmissionNode, parseFormFields, EMPTY_FORM_FIELDS, type FormFields, type FormResultsNode, type SubmissionRow} from '../FormResults.utils';
+import {buildSubmissionsQuery, parseSubmissionNode, parseFormFields, EMPTY_FORM_FIELDS, type FormFields, type FormResultsNode, type SubmissionRow, type GqlSubmissionNode, uiContext} from '../FormResults.utils';
 import {buildFilename, downloadFile} from './export.utils';
 import {exportFormats} from './formats';
 
@@ -59,7 +59,7 @@ export const ExportResultsDialog = ({formResults, onClose}: ExportResultsDialogP
         setIsExporting(true);
 
         try {
-            const language = (window as any).contextJsParameters?.uilang || 'en';
+            const language = uiContext().uilang || 'en';
             const formUuid = formResults.parentForm?.refNode?.uuid;
 
             let formFields: FormFields = EMPTY_FORM_FIELDS;
@@ -94,7 +94,7 @@ export const ExportResultsDialog = ({formResults, onClose}: ExportResultsDialogP
                 });
 
                 const result = data?.jcr?.nodesByQuery;
-                const batch = (result?.nodes ?? []).map((node: unknown) => parseSubmissionNode(node, formFields.order));
+                const batch = (result?.nodes ?? []).map((node: GqlSubmissionNode) => parseSubmissionNode(node, formFields.order));
                 totalCount = result?.pageInfo?.totalCount ?? 0;
 
                 submissions.push(...batch);

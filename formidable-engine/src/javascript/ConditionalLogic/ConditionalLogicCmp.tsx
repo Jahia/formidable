@@ -207,7 +207,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     const {t} = useTranslation('formidable-engine');
     const client = useApolloClient();
     const [sources, setSources] = useState<SourceFieldOption[]>([]);
-    const [logicIdToSource, setLogicIdToSource] = useState<Map<string, {name: string; uuid: string}>>(new Map());
+    const [logicIdToSource, setLogicIdToSource] = useState<Map<string, {name: string; uuid: string}>>(() => new Map());
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 

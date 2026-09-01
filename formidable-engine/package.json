@@ -4,8 +4,9 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"build": "vitest run && vite build",
-		"test": "vitest run"
+		"build": "tsc --noEmit && vitest run && vite build",
+		"test": "vitest run",
+		"lint": "eslint src/javascript"
 	},
 	"dependencies": {
 		"@apollo/client": "^3.7.17",
@@ -21,6 +22,7 @@
 	"devDependencies": {
 		"@jahia/vite-federation-plugin": "^0.1.1",
 		"@types/react": "^18.3.28",
+		"eslint": "^9.39.2",
 		"prop-types": "^15.7.2",
 		"typescript": "^5.9.3",
 		"vite": "7.3.5",

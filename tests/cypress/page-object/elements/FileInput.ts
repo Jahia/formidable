@@ -13,6 +13,9 @@ export class FileInput extends FormElement {
 	): Cypress.Chainable {
 		return this.getInput()
 			.selectFile(filePath)
+			// Deliberate pacing between retry attempts of this polling helper, not a
+			// wait-for-something-specific that an alias could replace.
+			// eslint-disable-next-line cypress/no-unnecessary-waiting
 			.then(() => cy.wait(200, {log: false}))
 			.then(() => this.getFileContainer())
 			.then($container => {
