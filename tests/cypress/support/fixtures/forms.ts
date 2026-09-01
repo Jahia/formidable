@@ -174,11 +174,47 @@ export function getFormPreview(formTitle: string): Form {
  *              source is a URL parameter.
  */
 /**
+ * Most hydrations land within a few seconds; a first budget larger than that but
+ * far below the full one keeps the recovery path cheap when the island is stuck.
+ */
+const HYDRATION_FIRST_TRY_MS = 15000;
+
+function pollHydration(deadline: number): Cypress.Chainable<boolean> {
+	return cy.get('form.fmdb-form', {log: false}).first().then($form => {
+		if (isFormHydrated($form)) {
+			return cy.wrap(true, {log: false});
+		}
+
+		if (Date.now() >= deadline) {
+			return cy.wrap(false, {log: false});
+		}
+
+		// Polling pace between hydration probes, not a wait-for-something-specific.
+		// eslint-disable-next-line cypress/no-unnecessary-waiting
+		return cy.wait(200, {log: false}).then(() => pollHydration(deadline));
+	});
+}
+
+/**
  * The first form of the page, once its React island has mounted. Every helper
  * that renders a form for interaction goes through here so no spec types, clicks
  * or attaches before hydration (the cause of most CI flakes).
+ *
+ * An island that crashed during its first render never hydrates, however long the
+ * wait — the recurring "form island hydrated" CI flake (#237). So when the marker
+ * is still absent after a first budget, the page is reloaded ONCE (safe here: this
+ * gate runs right after the visit, before any interaction, and the second render
+ * starts from warm caches) before spending the full budget.
  */
 function getHydratedForm(): Form {
+	cy.get('form.fmdb-form').should('exist');
+	pollHydration(Date.now() + HYDRATION_FIRST_TRY_MS).then(hydrated => {
+		if (!hydrated) {
+			Cypress.log({name: 'hydration', message: `island not hydrated after ${HYDRATION_FIRST_TRY_MS}ms — reloading once (#237)`});
+			cy.reload();
+		}
+	});
+
 	return new Form(
 		// The assertion below retries with the timeout of the command right before it,
 		// so the budget has to sit on first(), not on get().
