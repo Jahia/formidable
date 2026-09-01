@@ -44,7 +44,6 @@ export const SubmissionDetailPanel = ({submission, formFields, onClose}: Submiss
         {label: t('formResults.detail.created'), value: formatDate(submission.created)},
         {label: t('formResults.detail.origin'), value: submission.origin},
         {label: t('formResults.detail.locale'), value: submission.locale},
-        {label: t('formResults.detail.userAgent'), value: submission.userAgent},
         {label: t('formResults.detail.referer'), value: submission.referer}
     ].filter(item => item.value);
 

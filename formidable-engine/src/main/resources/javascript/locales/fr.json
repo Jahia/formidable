@@ -1,216 +1,213 @@
 {
-    "selectOptions": {
-        "value": "Valeur envoyée au serveur",
-        "label": "Libellé affiché à l'utilisateur",
-        "selected": "Si activé, l'option est sélectionnée par défaut",
-        "valueShared": "Les valeurs, l'ordre et les sélections par défaut sont communs à toutes les langues et s'éditent dans la langue par défaut du site ({{lang}}) ; seul le libellé se traduit. À l'enregistrement, cette langue est réalignée sur {{lang}} : les options ajoutées, supprimées ou réordonnées ici ne sont pas conservées",
-        "contributeInMain": "Les options se contribuent dans la langue par défaut du site ({{lang}}). Cette option n'y porte aucune valeur, son libellé se modifie donc là aussi ; les options qui ont une valeur apparaissent ici pour traduction dès que le champ est enregistré en {{lang}}"
-    },
-    "fmdbmix_optionsSource": {
-        "fmdb_optionsMode": {
-            "manual": "Options manuelles",
-            "sourced": "Options depuis une source tierce",
-            "category": "Options depuis des catégories",
-            "content": "Options depuis des contenus du site"
-        }
-    },
-    "fmdbmix_dateBounds": {
-        "fmdb_minBoundMode": {
-            "none": "Aucun minimum",
-            "date": "Date fixe (choisie dans le calendrier)",
-            "today": "Date courante (le jour où le formulaire est soumis)",
-            "relative": "Date relative (la date courante décalée d'un écart fixe)"
-        },
-        "fmdb_maxBoundMode": {
-            "none": "Aucun maximum",
-            "date": "Date fixe (choisie dans le calendrier)",
-            "today": "Date courante (le jour où le formulaire est soumis)",
-            "relative": "Date relative (la date courante décalée d'un écart fixe)"
-        }
-    },
-    "fmdbmix_datetimeBounds": {
-        "fmdb_minBoundMode": {
-            "none": "Aucun minimum",
-            "date": "Date et heure fixes (choisies dans le calendrier)",
-            "today": "Date courante (dès le début du jour de soumission)",
-            "relative": "Date relative (décalée depuis la date courante, à partir du début de ce jour)"
-        },
-        "fmdb_maxBoundMode": {
-            "none": "Aucun maximum",
-            "date": "Date et heure fixes (choisies dans le calendrier)",
-            "today": "Date courante (jusqu'à la fin du jour de soumission)",
-            "relative": "Date relative (décalée depuis la date courante, jusqu'à la fin de ce jour)"
-        }
-    },
-    "conditionalLogic": {
-        "sourceField": "Champ source",
-        "selectSource": "Sélectionner un champ source",
-        "operator": "Opérateur",
-        "value": "Valeur",
-        "values": "Valeurs",
-        "valueFrom": "De",
-        "valueTo": "À",
-        "valueFromTitle": "Date de début (incluse)",
-        "valueToTitle": "Date de fin (incluse)",
-        "valueToday": "Date courante (le jour où le formulaire est soumis)",
-        "betweenInverted": "La date de fin est antérieure à la date de début : cette règle ne peut jamais correspondre.",
-        "betweenNoMatch": "Cette règle ne correspond actuellement à aucune date : elle est ignorée à la soumission du formulaire.",
-        "loadingSources": "Chargement des champs disponibles...",
-        "noSources": "Aucun champ source supporté n'est disponible avant ce champ.",
-        "help": "Utilise des champs placés avant celui-ci pour afficher ou masquer ce champ. Sont éligibles les champs qui déclarent un type de valeur : choix (liste, radio, case à cocher), date, nombre et booléen — y compris les champs apportés par d'autres modules. \"Aucun champ source supporté...\" signifie qu'aucun champ compatible précédent n'a été trouvé. Une condition peut aussi lire une information extérieure au formulaire : une valeur du datalayer, un paramètre d'URL ou un cookie. Ces informations sont lues uniquement dans le navigateur : un champ obligatoire affiché par une telle condition n'est donc pas exigé à l'envoi du formulaire.",
-        "allSourcesUsed": "Tous les champs source disponibles sont déjà utilisés par les règles au-dessus.",
-        "unresolvedContext": "Impossible de résoudre le chemin du champ édité.",
-        "formNotFound": "Impossible de retrouver le formulaire parent.",
-        "loadError": "Impossible de charger les champs source disponibles.",
-        "sourceTypes": {
-            "field": "Valeur d'un champ"
-        },
-        "providers": {
-            "jsVariable": {
-                "label": "Valeur du datalayer",
-                "configLabel": "Variable du datalayer",
-                "configPlaceholder": "dataLayer.pageCategory"
-            },
-            "urlParam": {
-                "label": "Paramètre d'URL",
-                "configLabel": "Nom du paramètre",
-                "configPlaceholder": "utm_campaign"
-            },
-            "cookie": {
-                "label": "Cookie",
-                "configLabel": "Nom du cookie",
-                "configPlaceholder": "consent-marketing"
-            }
-        },
-        "providerRefMissing": "Obligatoire : une règle sans nom ne peut pas être évaluée et sera supprimée à l'enregistrement.",
-        "providerRefInvalid": "Ce nom n'est pas au format attendu et ne pourra pas être lu sur la page.",
-        "unknownSourceType": "Cette condition utilise une source (\"{{type}}\") que cette version du module ne fournit pas — elle a probablement été créée avec une version plus récente. La règle est conservée telle quelle et son champ reste masqué.",
-        "operators": {
-            "in": "est l'une des valeurs suivantes",
-            "notIn": "n'est pas l'une des valeurs suivantes",
-            "isChecked": "est cochée",
-            "isUnchecked": "est décochée",
-            "containsAny": "contient au moins une des valeurs suivantes",
-            "containsAll": "contient toutes les valeurs suivantes",
-            "before": "est avant",
-            "after": "est après",
-            "on": "est le",
-            "between": "est entre",
-            "eq": "est égal à",
-            "neq": "est différent de",
-            "lt": "est inférieur à",
-            "lte": "est inférieur ou égal à",
-            "gt": "est supérieur à",
-            "gte": "est supérieur ou égal à",
-            "isTrue": "est vrai (activé)",
-            "isFalse": "est faux (désactivé)",
-            "isEmpty": "est vide",
-            "isNotEmpty": "est rempli",
-            "equals": "est égal à",
-            "notEquals": "est différent de",
-            "contains": "contient",
-            "exists": "est défini",
-            "notExists": "n'est pas défini"
-        }
-    },
-    "formResults": {
-        "nav": {
-            "title": "Résultats de formulaires"
-        },
-        "sidebar": {
-            "title": "Formulaires"
-        },
-        "actions": {
-            "export": "Exporter",
-            "delete": "Supprimer",
-            "refresh": "Rafraîchir"
-        },
-        "empty": {
-            "noForms": "Aucun résultat disponible",
-            "noFormsDescription": "Aucun formulaire n'a encore reçu de soumission, ou vous n'avez pas les droits pour consulter les résultats. Contactez l'administrateur du site si vous pensez qu'il s'agit d'une erreur.",
-            "noSubmissions": "Aucune soumission",
-            "selectForm": "Sélectionnez un formulaire pour voir les résultats"
-        },
-        "error": {
-            "noSite": "Aucun site sélectionné."
-        },
-        "table": {
-            "date": "Date",
-            "user": "Utilisateur",
-            "locale": "Langue",
-            "ipAddress": "Adresse IP",
-            "files": "Fichiers",
-            "filledFields": "Champs",
-            "view": "Voir",
-            "rowsPerPage": "Lignes par page :",
-            "of": "sur",
-            "pageInfo": "Page {{current}} sur {{total}} ({{count}} résultats)"
-        },
-        "detail": {
-            "title": "Détail de la soumission",
-            "close": "Fermer",
-            "metadata": "Métadonnées",
-            "submittedValues": "Valeurs des champs",
-            "files": "Fichiers",
-            "noValues": "Aucune valeur de champ.",
-            "download": "Télécharger",
-            "preview": "Aperçu",
-            "created": "Soumis le",
-            "origin": "Origine",
-            "ipAddress": "Adresse IP",
-            "locale": "Langue",
-            "user": "Utilisateur",
-            "userAgent": "User Agent",
-            "referer": "Provenance"
-        },
-        "export": {
-            "title": "Exporter les résultats",
-            "description": "Exporte les soumissions du formulaire.",
-            "cancel": "Annuler",
-            "confirm": "Exporter",
-            "fields": {
-                "startDate": "Date de début",
-                "endDate": "Date de fin",
-                "allResults": "Exporter tous les résultats",
-                "format": "Format"
-            },
-            "columns": {
-                "id": "ID de soumission",
-                "name": "Nom de soumission"
-            },
-            "validation": {
-                "invalidRange": "Sélectionnez une plage de dates valide, ou exportez tous les résultats.",
-                "unexpectedError": "Échec de l'export."
-            }
-        },
-        "delete": {
-            "title": "Supprimer les résultats",
-            "description": "Supprime les soumissions du formulaire.",
-            "warning": "Cette action supprime définitivement les soumissions sélectionnées.",
-            "cancel": "Annuler",
-            "confirm": "Supprimer",
-            "fields": {
-                "startDate": "Date de début",
-                "endDate": "Date de fin",
-                "allResults": "Supprimer tous les résultats",
-                "confirmationLabel": "Confirmation",
-                "confirmationHelp": "Veuillez saisir \"{{name}}\" pour confirmer la suppression."
-            },
-            "count": {
-                "loading": "Comptage des soumissions correspondantes...",
-                "label": "{{count}} soumissions seront supprimées."
-            },
-            "validation": {
-                "invalidRange": "Sélectionnez une plage de dates valide, ou supprimez tous les résultats.",
-                "noResults": "Aucune soumission ne correspond à la plage sélectionnée.",
-                "confirmationMismatch": "Saisissez le nom attendu du formulaire pour confirmer la suppression.",
-                "unexpectedError": "Échec de la suppression."
-            }
-        }
-    },
-    "relativeUnit": {
-        "days": "Jours",
-        "months": "Mois",
-        "years": "Années"
-    }
+	"selectOptions": {
+		"value": "Valeur envoyée au serveur",
+		"label": "Libellé affiché à l'utilisateur",
+		"selected": "Si activé, l'option est sélectionnée par défaut",
+		"valueShared": "Les valeurs, l'ordre et les sélections par défaut sont communs à toutes les langues et s'éditent dans la langue par défaut du site ({{lang}}) ; seul le libellé se traduit. À l'enregistrement, cette langue est réalignée sur {{lang}} : les options ajoutées, supprimées ou réordonnées ici ne sont pas conservées",
+		"contributeInMain": "Les options se contribuent dans la langue par défaut du site ({{lang}}). Cette option n'y porte aucune valeur, son libellé se modifie donc là aussi ; les options qui ont une valeur apparaissent ici pour traduction dès que le champ est enregistré en {{lang}}"
+	},
+	"fmdbmix_optionsSource": {
+		"fmdb_optionsMode": {
+			"manual": "Options manuelles",
+			"sourced": "Options depuis une source tierce",
+			"category": "Options depuis des catégories",
+			"content": "Options depuis des contenus du site"
+		}
+	},
+	"fmdbmix_dateBounds": {
+		"fmdb_minBoundMode": {
+			"none": "Aucun minimum",
+			"date": "Date fixe (choisie dans le calendrier)",
+			"today": "Date courante (le jour où le formulaire est soumis)",
+			"relative": "Date relative (la date courante décalée d'un écart fixe)"
+		},
+		"fmdb_maxBoundMode": {
+			"none": "Aucun maximum",
+			"date": "Date fixe (choisie dans le calendrier)",
+			"today": "Date courante (le jour où le formulaire est soumis)",
+			"relative": "Date relative (la date courante décalée d'un écart fixe)"
+		}
+	},
+	"fmdbmix_datetimeBounds": {
+		"fmdb_minBoundMode": {
+			"none": "Aucun minimum",
+			"date": "Date et heure fixes (choisies dans le calendrier)",
+			"today": "Date courante (dès le début du jour de soumission)",
+			"relative": "Date relative (décalée depuis la date courante, à partir du début de ce jour)"
+		},
+		"fmdb_maxBoundMode": {
+			"none": "Aucun maximum",
+			"date": "Date et heure fixes (choisies dans le calendrier)",
+			"today": "Date courante (jusqu'à la fin du jour de soumission)",
+			"relative": "Date relative (décalée depuis la date courante, jusqu'à la fin de ce jour)"
+		}
+	},
+	"conditionalLogic": {
+		"sourceField": "Champ source",
+		"selectSource": "Sélectionner un champ source",
+		"operator": "Opérateur",
+		"value": "Valeur",
+		"values": "Valeurs",
+		"valueFrom": "De",
+		"valueTo": "À",
+		"valueFromTitle": "Date de début (incluse)",
+		"valueToTitle": "Date de fin (incluse)",
+		"valueToday": "Date courante (le jour où le formulaire est soumis)",
+		"betweenInverted": "La date de fin est antérieure à la date de début : cette règle ne peut jamais correspondre.",
+		"betweenNoMatch": "Cette règle ne correspond actuellement à aucune date : elle est ignorée à la soumission du formulaire.",
+		"loadingSources": "Chargement des champs disponibles...",
+		"noSources": "Aucun champ source supporté n'est disponible avant ce champ.",
+		"help": "Utilise des champs placés avant celui-ci pour afficher ou masquer ce champ. Sont éligibles les champs qui déclarent un type de valeur : choix (liste, radio, case à cocher), date, nombre et booléen — y compris les champs apportés par d'autres modules. \"Aucun champ source supporté...\" signifie qu'aucun champ compatible précédent n'a été trouvé. Une condition peut aussi lire une information extérieure au formulaire : une valeur du datalayer, un paramètre d'URL ou un cookie. Ces informations sont lues uniquement dans le navigateur : un champ obligatoire affiché par une telle condition n'est donc pas exigé à l'envoi du formulaire.",
+		"allSourcesUsed": "Tous les champs source disponibles sont déjà utilisés par les règles au-dessus.",
+		"unresolvedContext": "Impossible de résoudre le chemin du champ édité.",
+		"formNotFound": "Impossible de retrouver le formulaire parent.",
+		"loadError": "Impossible de charger les champs source disponibles.",
+		"sourceTypes": {
+			"field": "Valeur d'un champ"
+		},
+		"providers": {
+			"jsVariable": {
+				"label": "Valeur du datalayer",
+				"configLabel": "Variable du datalayer",
+				"configPlaceholder": "dataLayer.pageCategory"
+			},
+			"urlParam": {
+				"label": "Paramètre d'URL",
+				"configLabel": "Nom du paramètre",
+				"configPlaceholder": "utm_campaign"
+			},
+			"cookie": {
+				"label": "Cookie",
+				"configLabel": "Nom du cookie",
+				"configPlaceholder": "consent-marketing"
+			}
+		},
+		"providerRefMissing": "Obligatoire : une règle sans nom ne peut pas être évaluée et sera supprimée à l'enregistrement.",
+		"providerRefInvalid": "Ce nom n'est pas au format attendu et ne pourra pas être lu sur la page.",
+		"unknownSourceType": "Cette condition utilise une source (\"{{type}}\") que cette version du module ne fournit pas — elle a probablement été créée avec une version plus récente. La règle est conservée telle quelle et son champ reste masqué.",
+		"operators": {
+			"in": "est l'une des valeurs suivantes",
+			"notIn": "n'est pas l'une des valeurs suivantes",
+			"isChecked": "est cochée",
+			"isUnchecked": "est décochée",
+			"containsAny": "contient au moins une des valeurs suivantes",
+			"containsAll": "contient toutes les valeurs suivantes",
+			"before": "est avant",
+			"after": "est après",
+			"on": "est le",
+			"between": "est entre",
+			"eq": "est égal à",
+			"neq": "est différent de",
+			"lt": "est inférieur à",
+			"lte": "est inférieur ou égal à",
+			"gt": "est supérieur à",
+			"gte": "est supérieur ou égal à",
+			"isTrue": "est vrai (activé)",
+			"isFalse": "est faux (désactivé)",
+			"isEmpty": "est vide",
+			"isNotEmpty": "est rempli",
+			"equals": "est égal à",
+			"notEquals": "est différent de",
+			"contains": "contient",
+			"exists": "est défini",
+			"notExists": "n'est pas défini"
+		}
+	},
+	"formResults": {
+		"nav": {
+			"title": "Résultats de formulaires"
+		},
+		"sidebar": {
+			"title": "Formulaires"
+		},
+		"actions": {
+			"export": "Exporter",
+			"delete": "Supprimer",
+			"refresh": "Rafraîchir"
+		},
+		"empty": {
+			"noForms": "Aucun résultat disponible",
+			"noFormsDescription": "Aucun formulaire n'a encore reçu de soumission, ou vous n'avez pas les droits pour consulter les résultats. Contactez l'administrateur du site si vous pensez qu'il s'agit d'une erreur.",
+			"noSubmissions": "Aucune soumission",
+			"selectForm": "Sélectionnez un formulaire pour voir les résultats"
+		},
+		"error": {
+			"noSite": "Aucun site sélectionné."
+		},
+		"table": {
+			"date": "Date",
+			"user": "Utilisateur",
+			"locale": "Langue",
+			"files": "Fichiers",
+			"filledFields": "Champs",
+			"view": "Voir",
+			"rowsPerPage": "Lignes par page :",
+			"of": "sur",
+			"pageInfo": "Page {{current}} sur {{total}} ({{count}} résultats)"
+		},
+		"detail": {
+			"title": "Détail de la soumission",
+			"close": "Fermer",
+			"metadata": "Métadonnées",
+			"submittedValues": "Valeurs des champs",
+			"files": "Fichiers",
+			"noValues": "Aucune valeur de champ.",
+			"download": "Télécharger",
+			"preview": "Aperçu",
+			"created": "Soumis le",
+			"origin": "Origine",
+			"locale": "Langue",
+			"user": "Utilisateur",
+			"referer": "Provenance"
+		},
+		"export": {
+			"title": "Exporter les résultats",
+			"description": "Exporte les soumissions du formulaire.",
+			"cancel": "Annuler",
+			"confirm": "Exporter",
+			"fields": {
+				"startDate": "Date de début",
+				"endDate": "Date de fin",
+				"allResults": "Exporter tous les résultats",
+				"format": "Format"
+			},
+			"columns": {
+				"id": "ID de soumission",
+				"name": "Nom de soumission"
+			},
+			"validation": {
+				"invalidRange": "Sélectionnez une plage de dates valide, ou exportez tous les résultats.",
+				"unexpectedError": "Échec de l'export."
+			}
+		},
+		"delete": {
+			"title": "Supprimer les résultats",
+			"description": "Supprime les soumissions du formulaire.",
+			"warning": "Cette action supprime définitivement les soumissions sélectionnées.",
+			"cancel": "Annuler",
+			"confirm": "Supprimer",
+			"fields": {
+				"startDate": "Date de début",
+				"endDate": "Date de fin",
+				"allResults": "Supprimer tous les résultats",
+				"confirmationLabel": "Confirmation",
+				"confirmationHelp": "Veuillez saisir \"{{name}}\" pour confirmer la suppression."
+			},
+			"count": {
+				"loading": "Comptage des soumissions correspondantes...",
+				"label": "{{count}} soumissions seront supprimées."
+			},
+			"validation": {
+				"invalidRange": "Sélectionnez une plage de dates valide, ou supprimez tous les résultats.",
+				"noResults": "Aucune soumission ne correspond à la plage sélectionnée.",
+				"confirmationMismatch": "Saisissez le nom attendu du formulaire pour confirmer la suppression.",
+				"unexpectedError": "Échec de la suppression."
+			}
+		}
+	},
+	"relativeUnit": {
+		"days": "Jours",
+		"months": "Mois",
+		"years": "Années"
+	}
 }

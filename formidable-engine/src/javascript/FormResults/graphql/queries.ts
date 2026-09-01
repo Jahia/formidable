@@ -60,9 +60,6 @@ export const GET_SUBMISSIONS = gql`
                     locale: property(name: "locale") {
                         value
                     }
-                    userAgent: property(name: "userAgent") {
-                        value
-                    }
                     referer: property(name: "referer") {
                         value
                     }
