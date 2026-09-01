@@ -18,6 +18,7 @@
     </scm>
     <properties>
         <jahia-depends>formidable-elements,formidable-engine</jahia-depends>
+        <jahia-module-signature/>
     </properties>
     <repositories>
         <repository>

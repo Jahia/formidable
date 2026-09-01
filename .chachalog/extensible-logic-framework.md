@@ -3,4 +3,4 @@
 formidable: minor
 ---
 
-Conditional logic gains numeric and boolean operators, and field types from any module can now offer show/hide rules. Rules also keep working when fields are renamed, copied or imported (#172)
+Added numeric and boolean logic operators, with rules that survive renames, copies and imports (#172)

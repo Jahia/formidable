@@ -3,4 +3,4 @@
 formidable: minor
 ---
 
-Apply input mask while typing on text fields (#166)
+Added live input-mask guidance while typing in text fields (#166)

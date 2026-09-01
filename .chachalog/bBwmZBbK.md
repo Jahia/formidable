@@ -3,4 +3,4 @@
 formidable: minor
 ---
 
-Clarified select option rows in the Content Editor with clearer placeholders and hover hints (#168)
+Improved the select option rows with clearer placeholders and hover hints (#168)

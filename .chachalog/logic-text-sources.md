@@ -3,4 +3,4 @@
 formidable: minor
 ---
 
-Conditional logic rules can now target text, textarea and email fields — show or hide other fields when one is filled, empty, equals or contains a value (#174)
+Added text, textarea and email fields as conditional logic sources (filled, empty, equals, contains) (#174)
