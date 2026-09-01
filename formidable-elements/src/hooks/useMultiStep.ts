@@ -50,10 +50,12 @@ export function useMultiStep({formRef, stepIds, disabled = false}: UseMultiStepO
 				indices.push(i);
 			}
 		}
+		// eslint-disable-next-line @eslint-react/hooks-extra/no-direct-set-state-in-use-effect -- deliberate DOM sync: the effect reads logic-hidden markers the render cannot see
 		setVisibleStepIndices(prev => {
 			if (prev.length === indices.length && prev.every((v, j) => v === indices[j])) return prev;
 			return indices;
 		});
+		// eslint-disable-next-line @eslint-react/hooks-extra/no-direct-set-state-in-use-effect -- deliberate DOM sync: the effect reads logic-hidden markers the render cannot see
 		setCurrentStep(current => {
 			if (indices.includes(current)) return current;
 			return indices.find(i => i >= current) ?? indices[indices.length - 1] ?? 0;

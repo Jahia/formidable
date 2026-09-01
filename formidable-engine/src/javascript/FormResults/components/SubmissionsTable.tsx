@@ -103,11 +103,13 @@ export const SubmissionsTable = ({
         }
 
         if (totalPages === 0 && currentPage !== 1) {
+            // eslint-disable-next-line @eslint-react/hooks-extra/no-direct-set-state-in-use-effect -- deliberate clamp against async query results
             setCurrentPage(1);
             return;
         }
 
         if (totalPages > 0 && currentPage > totalPages) {
+            // eslint-disable-next-line @eslint-react/hooks-extra/no-direct-set-state-in-use-effect -- deliberate clamp against async query results
             setCurrentPage(totalPages);
         }
     }, [currentPage, loading, queryResult?.pageInfo, totalPages]);

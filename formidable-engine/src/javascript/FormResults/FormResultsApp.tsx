@@ -48,11 +48,14 @@ export const FormResultsApp = () => {
     const formFields = useMemo(() => (formUuid ? parseFormFields(fieldLabelsData) : EMPTY_FORM_FIELDS), [formUuid, fieldLabelsData]);
 
     useEffect(() => {
+        // eslint-disable-next-line @eslint-react/hooks-extra/no-direct-set-state-in-use-effect -- deliberate reset when the selected form changes
         setSelectedSubmission(null);
     }, [selectedFormUuid]);
 
     useEffect(() => {
+        // eslint-disable-next-line @eslint-react/hooks-extra/no-direct-set-state-in-use-effect -- deliberate reset when the selected form changes
         setIsExportDialogOpen(false);
+        // eslint-disable-next-line @eslint-react/hooks-extra/no-direct-set-state-in-use-effect -- deliberate reset when the selected form changes
         setIsDeleteDialogOpen(false);
     }, [selectedFormUuid]);
 
