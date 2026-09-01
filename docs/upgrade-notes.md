@@ -46,7 +46,11 @@ property to its `pom.xml`, its Maven group id is unchanged.
    they inherit from at the moment their own module registers: elements
    installed against an older engine keep that older view of the shared
    properties until they are reinstalled, so the engine must always carry the
-   new definitions before the elements register against them.
+   new definitions before the elements register against them. Since 0.4.0 the
+   ordering is enforced: formidable-elements declares
+   `Jahia-Depends: formidable-engine=0.4`, so it refuses to start until an
+   engine at 0.4 or later is running (and formidable-extended-inputs requires
+   both at 0.4).
 2. In **Administration > Server > Modules and Extensions > Modules**, stop and
    uninstall formidable-elements 0.3.0 (or earlier). **Do not tick the option
    to delete the module content when uninstalling**: that choice erases every
