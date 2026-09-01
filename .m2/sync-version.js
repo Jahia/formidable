@@ -17,6 +17,14 @@ const semver = mavenVersion.replace(/-SNAPSHOT$/, '');
 const pkgPath = resolve(process.cwd(), 'package.json');
 const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
 pkg.version = semver;
+
+// A snapshot build must say so: the tgz of a snapshot otherwise declares the
+// release version with jahia.snapshot=false, and installing the real release
+// on an instance that trialled the snapshot becomes a same-version install,
+// which does not reliably replace the served bundle.
+if (pkg.jahia && 'snapshot' in pkg.jahia) {
+    pkg.jahia.snapshot = /-SNAPSHOT$/.test(mavenVersion);
+}
 writeFileSync(pkgPath, JSON.stringify(pkg, null, '\t') + '\n');
 
 console.log(`package.json version set to ${semver}`);
