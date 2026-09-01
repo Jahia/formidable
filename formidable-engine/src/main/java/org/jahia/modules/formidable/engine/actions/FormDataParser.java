@@ -308,6 +308,16 @@ public class FormDataParser {
                 if (!declaredField) {
                     log.debug("[FormDataParser] Skipping undeclared field: {}", item.getFieldName());
                 } else if (item.isFormField()) {
+                    // The part kind must match the field kind: a text part sent under a file
+                    // field's name would bypass that field's contract (files only), and a
+                    // file part under a text field's name would bypass every text check —
+                    // choice allowlist included — and land in the file store of a form that
+                    // declares no file field at all.
+                    if (isFileField(item.getFieldName(), fieldMetadata)) {
+                        throw new ParseException("Field '" + item.getFieldName() + "': expected a file, got a text value.",
+                                ParseException.FailureType.VALIDATION);
+                    }
+
                     String value;
                     try (InputStream inputStream = item.openStream()) {
                         value = Streams.asString(inputStream, StandardCharsets.UTF_8.name());
@@ -315,6 +325,11 @@ public class FormDataParser {
                     validateTextField(item.getFieldName(), value, fieldMetadata);
                     parameters.computeIfAbsent(item.getFieldName(), k -> new ArrayList<>()).add(value);
                 } else {
+                    if (!isFileField(item.getFieldName(), fieldMetadata)) {
+                        throw new ParseException("Field '" + item.getFieldName() + "': unexpected file upload.",
+                                ParseException.FailureType.VALIDATION);
+                    }
+
                     FormFile file = parseFilePart(item, fieldMetadata.acceptTypes(item.getFieldName()), config);
                     if (file != null) {
                         files.add(file);
@@ -342,6 +357,11 @@ public class FormDataParser {
         }
 
         return new ParseResult(parameters, files);
+    }
+
+    private static boolean isFileField(String fieldName, FieldMetadata meta) {
+        FieldInfo fieldInfo = meta.field(fieldName);
+        return fieldInfo != null && fieldInfo.fileField();
     }
 
     private static void validateTextField(String fieldName, String value, FieldMetadata meta)
