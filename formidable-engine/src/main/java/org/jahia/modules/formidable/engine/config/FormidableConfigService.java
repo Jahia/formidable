@@ -114,9 +114,24 @@ public class FormidableConfigService {
                 .connectTimeout(captchaHttpConnectTimeout)
                 .build();
 
-        long uploadMaxFileSizeBytes = osgiConfig.uploadMaxFileSizeBytes();
-        long uploadMaxRequestSizeBytes = osgiConfig.uploadMaxRequestSizeBytes();
-        int uploadMaxFileCount = osgiConfig.uploadMaxFileCount();
+        // Same contract as the timeouts: a zero or negative limit is a configuration
+        // mistake, not a way to disable the cap (-1 would also break the early
+        // Content-Length guard, which compares against this value).
+        long uploadMaxFileSizeBytes = readPositiveLong(
+                "uploadMaxFileSizeBytes",
+                osgiConfig.uploadMaxFileSizeBytes(),
+                FormidableConfig.DEFAULT_UPLOAD_MAX_FILE_SIZE_BYTES
+        );
+        long uploadMaxRequestSizeBytes = readPositiveLong(
+                "uploadMaxRequestSizeBytes",
+                osgiConfig.uploadMaxRequestSizeBytes(),
+                FormidableConfig.DEFAULT_UPLOAD_MAX_REQUEST_SIZE_BYTES
+        );
+        int uploadMaxFileCount = (int) readPositiveLong(
+                "uploadMaxFileCount",
+                osgiConfig.uploadMaxFileCount(),
+                FormidableConfig.DEFAULT_UPLOAD_MAX_FILE_COUNT
+        );
         Set<String> uploadAllowedMimeTypes = Set.copyOf(Arrays.stream(osgiConfig.uploadAllowedMimeTypes().split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
@@ -538,6 +553,15 @@ public class FormidableConfigService {
             throw new IllegalStateException("Formidable configuration is not initialized.");
         }
         return snapshot;
+    }
+
+    private static long readPositiveLong(String propertyName, long value, long defaultValue) {
+        if (value <= 0) {
+            log.warn("[FormidableConfigService] Invalid {}={}, falling back to {}.",
+                    propertyName, value, defaultValue);
+            return defaultValue;
+        }
+        return value;
     }
 
     private static Duration readTimeoutSeconds(String propertyName, long seconds, long defaultSeconds) {

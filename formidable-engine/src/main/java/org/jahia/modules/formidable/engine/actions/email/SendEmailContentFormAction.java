@@ -136,7 +136,7 @@ public class SendEmailContentFormAction implements FormAction {
                 return displayableName;
             }
         } catch (RepositoryException e) {
-            log.debug("Could not resolve form subject from action node '{}': {}", safeNodePath(actionNode), e.getMessage());
+            log.debug("Could not resolve form subject from action node '{}': {}", actionNode.getPath(), e.getMessage());
         }
         return DEFAULT_SUBJECT;
     }
@@ -232,7 +232,4 @@ public class SendEmailContentFormAction implements FormAction {
         return configuredMb * 1024L * 1024L;
     }
 
-    private static String safeNodePath(JCRNodeWrapper node) {
-        return node.getPath();
-    }
 }

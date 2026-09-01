@@ -186,9 +186,16 @@ class FormSubmissionPipeline {
             throw new SubmissionException(ErrorCode.FMDB_002, "'fid' is not a valid UUID: " + formId);
         }
         String langParam = req.getParameter("lang");
-        locale = (langParam != null && !langParam.isBlank())
-                ? Locale.forLanguageTag(langParam)
-                : Locale.ENGLISH;
+        if (langParam == null || langParam.isBlank()) {
+            locale = Locale.ENGLISH;
+            return;
+        }
+        locale = Locale.forLanguageTag(langParam);
+        // forLanguageTag never throws: garbage comes back as the empty ROOT locale,
+        // which would silently drift through every locale-aware step. Reject it instead.
+        if (locale.getLanguage().isEmpty()) {
+            throw new SubmissionException(ErrorCode.FMDB_002, "'lang' is not a valid language tag: " + langParam);
+        }
     }
 
     private void guardContentLength(HttpServletRequest req) throws SubmissionException {
@@ -436,7 +443,7 @@ class FormSubmissionPipeline {
                 );
             }
             try {
-                JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale, systemSession -> {
+                jcrTemplateProvider.get().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale, systemSession -> {
                     JCRNodeWrapper actionNode = systemSession.getNodeByIdentifier(action.id());
                     try {
                         handler.execute(actionNode, req, session, parsed.parameters(), submittedFiles);

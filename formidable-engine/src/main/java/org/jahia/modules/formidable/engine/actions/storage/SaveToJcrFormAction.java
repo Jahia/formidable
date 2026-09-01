@@ -121,8 +121,31 @@ public class SaveToJcrFormAction implements FormAction {
         }
 
         session.checkout(resultsRoot);
-        String availableName = JCRContentUtils.findAvailableNodeName(resultsRoot, formNode.getName());
-        JCRNodeWrapper formResults = resultsRoot.addNode(availableName, FORM_RESULTS_NODE_TYPE);
+        try {
+            // Deterministic name first: two concurrent FIRST submissions of the same form
+            // then collide on the node name instead of silently creating two results
+            // containers under distinct free names.
+            return createFormResults(resultsRoot, formNode.getName(), formNode, session);
+        } catch (RepositoryException e) {
+            // Either another submission created THIS form's results concurrently (the
+            // re-read finds it, same recovery as getOrCreateResultsRoot), or the name is
+            // taken by ANOTHER form's results — then fall back to a free name.
+            session.refresh(false);
+            JCRNodeWrapper concurrentFormResults = findFormResultsByParentForm(resultsRoot, formNode);
+            if (concurrentFormResults != null) {
+                return concurrentFormResults;
+            }
+
+            session.checkout(resultsRoot);
+            String availableName = JCRContentUtils.findAvailableNodeName(resultsRoot, formNode.getName());
+            return createFormResults(resultsRoot, availableName, formNode, session);
+        }
+    }
+
+    private static JCRNodeWrapper createFormResults(JCRNodeWrapper resultsRoot, String name,
+                                                    JCRNodeWrapper formNode, JCRSessionWrapper session)
+            throws RepositoryException {
+        JCRNodeWrapper formResults = resultsRoot.addNode(name, FORM_RESULTS_NODE_TYPE);
         Value parentForm = session.getValueFactory().createValue(formNode);
         formResults.setProperty(PARENT_FORM_PROPERTY, parentForm);
         if (formNode.getLanguage() != null && !formNode.getLanguage().isBlank()) {

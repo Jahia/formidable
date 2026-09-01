@@ -18,6 +18,9 @@ public @interface FormidableConfig {
     long DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS = 10L;
     long DEFAULT_OPTIONS_SOURCES_CACHE_TTL_SECONDS = 300L;
     int DEFAULT_OPTIONS_QUERY_MAX_RESULTS = 100;
+    long DEFAULT_UPLOAD_MAX_FILE_SIZE_BYTES = 10_485_760L;
+    long DEFAULT_UPLOAD_MAX_REQUEST_SIZE_BYTES = 52_428_800L;
+    int DEFAULT_UPLOAD_MAX_FILE_COUNT = 10;
 
     // --- CAPTCHA ---
 
@@ -90,14 +93,14 @@ public @interface FormidableConfig {
             description = "Maximum allowed size per uploaded file in bytes. Default: 10 MB.",
             type = AttributeType.LONG
     )
-    long uploadMaxFileSizeBytes() default 10_485_760L;
+    long uploadMaxFileSizeBytes() default DEFAULT_UPLOAD_MAX_FILE_SIZE_BYTES;
 
     @AttributeDefinition(
             name = "Max request size (bytes)",
             description = "Maximum allowed total multipart request body size in bytes. Default: 50 MB.",
             type = AttributeType.LONG
     )
-    long uploadMaxRequestSizeBytes() default 52_428_800L;
+    long uploadMaxRequestSizeBytes() default DEFAULT_UPLOAD_MAX_REQUEST_SIZE_BYTES;
 
     @AttributeDefinition(
             name = "Max file count per request",
@@ -105,7 +108,7 @@ public @interface FormidableConfig {
                     "Limits resource exhaustion (CVE-2023-24998). Default: 10.",
             type = AttributeType.INTEGER
     )
-    int uploadMaxFileCount() default 10;
+    int uploadMaxFileCount() default DEFAULT_UPLOAD_MAX_FILE_COUNT;
 
     // --- FORWARD ACTION ---
 

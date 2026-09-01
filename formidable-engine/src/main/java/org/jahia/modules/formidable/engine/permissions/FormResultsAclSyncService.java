@@ -12,7 +12,6 @@ import javax.jcr.Value;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACL_NODE;
@@ -219,14 +218,19 @@ public final class FormResultsAclSyncService {
     }
 
     private static void removeAce(JCRNodeWrapper acl, AceEntry ace) throws RepositoryException {
+        // Collect first: removing while walking the NodeIterator is undefined behavior.
+        List<JCRNodeWrapper> matches = new ArrayList<>();
         NodeIterator children = acl.getNodes();
         while (children.hasNext()) {
             javax.jcr.Node child = children.nextNode();
             if (child instanceof JCRNodeWrapper aceNode
                     && matchesAceIdentity(aceNode, ace)
                     && hasTargetRole(aceNode)) {
-                aceNode.remove();
+                matches.add(aceNode);
             }
+        }
+        for (JCRNodeWrapper aceNode : matches) {
+            aceNode.remove();
         }
     }
 
@@ -241,17 +245,11 @@ public final class FormResultsAclSyncService {
     }
 
 
+    /**
+     * Record equality (all components, isProtected included): a change to the protected
+     * flag alone must count as a difference, or it would never re-sync. Identity matching
+     * against JCR nodes goes through {@link #matchesAceIdentity} and stays on type+principal.
+     */
     record AceEntry(String aceType, String principal, boolean isProtected) {
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (!(o instanceof AceEntry that)) return false;
-            return Objects.equals(aceType, that.aceType) && Objects.equals(principal, that.principal);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(aceType, principal);
-        }
     }
 }

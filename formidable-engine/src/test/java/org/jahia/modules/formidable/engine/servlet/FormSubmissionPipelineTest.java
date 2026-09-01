@@ -88,6 +88,22 @@ class FormSubmissionPipelineTest {
     }
 
     @Test
+    void readRoutingParamsRejectsAMalformedLanguageTag() {
+        // forLanguageTag never throws: garbage becomes the empty ROOT locale, which would
+        // silently drift through every locale-aware step. It must be rejected instead.
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        when(req.getParameter("fid")).thenReturn(UUID.randomUUID().toString());
+        when(req.getParameter("lang")).thenReturn("!!!");
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeReadRoutingParams(pipeline, req));
+
+        // Expected outcome: rejected as an invalid routing parameter.
+        assertEquals(ErrorCode.FMDB_002, error.errorCode);
+    }
+
+    @Test
     void guardContentLengthRejectsOversizedRequest() {
         // Verifies the early size gate: when Content-Length is present and exceeds
         // the configured limit, the servlet should fail before body parsing starts.
