@@ -175,30 +175,9 @@
                     <plugin>
                         <artifactId>maven-scm-plugin</artifactId>
                         <configuration>
-                            <includes>yarn.lock,packages/*/package.json</includes>
+                            <includes>package.json</includes>
                             <message>chore(release): Prepare release ${project.version}</message>
                         </configuration>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>exec-maven-plugin</artifactId>
-                        <executions>
-                            <!-- Keep all package.json in sync with the maven version -->
-                            <execution>
-                                <id>sync-version</id>
-                                <phase>process-resources</phase>
-                                <goals>
-                                    <goal>exec</goal>
-                                </goals>
-                                <configuration>
-                                    <executable>node</executable>
-                                    <arguments>
-                                        <argument>${basedir}/.m2/sync-version.js</argument>
-                                        <argument>${project.version}</argument>
-                                    </arguments>
-                                </configuration>
-                            </execution>
-                        </executions>
                     </plugin>
                 </plugins>
             </build>

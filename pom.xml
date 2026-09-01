@@ -309,10 +309,35 @@
                     <plugin>
                         <artifactId>maven-scm-plugin</artifactId>
                         <configuration>
-                            <includes>formidable/yarn.lock</includes>
+                            <!-- The root module owns the single workspace lockfile -->
+                            <includes>yarn.lock,package.json</includes>
                             <!-- use "skip ci" to prevent the CI workflow from triggering mid-release -->
                             <message>chore(release): Prepare release ${project.version} [skip ci]</message>
                         </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <executions>
+                            <!-- Keep every module's package.json in sync with the maven version.
+                                 Inherited by all child modules: each carries its own copy of
+                                 .m2/sync-version.js, and its scm-plugin includes check the
+                                 rewritten file in. -->
+                            <execution>
+                                <id>sync-version</id>
+                                <phase>process-resources</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>node</executable>
+                                    <arguments>
+                                        <argument>${basedir}/.m2/sync-version.js</argument>
+                                        <argument>${project.version}</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
                     </plugin>
                 </plugins>
             </build>
