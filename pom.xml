@@ -68,7 +68,7 @@
         <spring.context.support.version>3.2.18.RELEASE_OSGI</spring.context.support.version>
         <commons.lang.version>2.6</commons.lang.version>
         <commons.fileupload.version>1.6.0</commons.fileupload.version>
-        <commons.io.version>2.11.0</commons.io.version>
+        <commons.io.version>2.16.1</commons.io.version>
         <commons.text.version>1.10.0</commons.text.version>
         <junit.jupiter.version>5.10.2</junit.jupiter.version>
         <mockito.version>5.12.0</mockito.version>
