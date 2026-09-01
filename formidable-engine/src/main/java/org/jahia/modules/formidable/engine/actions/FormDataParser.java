@@ -298,43 +298,7 @@ public class FormDataParser {
             upload.setFileCountMax(config.getUploadMaxFileCount());
             FileItemIterator iterator = upload.getItemIterator(req);
             while (iterator.hasNext()) {
-                FileItemStream item = iterator.next();
-                // Whitelist check: fields not declared on the form node are discarded without
-                // reading their content. The iterator advances past them automatically.
-                // Fail closed: an EMPTY whitelist (a form with no submittable field) discards
-                // every part — otherwise anything posted would skip validation entirely and
-                // save2jcr would persist it through fmdb:submissionData's residual properties.
-                boolean declaredField = fieldMetadata.allowedNames().contains(item.getFieldName());
-                if (!declaredField) {
-                    log.debug("[FormDataParser] Skipping undeclared field: {}", item.getFieldName());
-                } else if (item.isFormField()) {
-                    // The part kind must match the field kind: a text part sent under a file
-                    // field's name would bypass that field's contract (files only), and a
-                    // file part under a text field's name would bypass every text check —
-                    // choice allowlist included — and land in the file store of a form that
-                    // declares no file field at all.
-                    if (isFileField(item.getFieldName(), fieldMetadata)) {
-                        throw new ParseException("Field '" + item.getFieldName() + "': expected a file, got a text value.",
-                                ParseException.FailureType.VALIDATION);
-                    }
-
-                    String value;
-                    try (InputStream inputStream = item.openStream()) {
-                        value = Streams.asString(inputStream, StandardCharsets.UTF_8.name());
-                    }
-                    validateTextField(item.getFieldName(), value, fieldMetadata);
-                    parameters.computeIfAbsent(item.getFieldName(), k -> new ArrayList<>()).add(value);
-                } else {
-                    if (!isFileField(item.getFieldName(), fieldMetadata)) {
-                        throw new ParseException("Field '" + item.getFieldName() + "': unexpected file upload.",
-                                ParseException.FailureType.VALIDATION);
-                    }
-
-                    FormFile file = parseFilePart(item, fieldMetadata.acceptTypes(item.getFieldName()), config);
-                    if (file != null) {
-                        files.add(file);
-                    }
-                }
+                parsePart(iterator.next(), fieldMetadata, config, parameters, files);
             }
         } catch (ParseException e) {
             throw e;
@@ -367,6 +331,52 @@ public class FormDataParser {
     private static void validateTextField(String fieldName, String value, FieldMetadata meta)
             throws ParseException {
         FieldValidator.validateTextField(fieldName, value, meta);
+    }
+
+    /**
+     * One multipart part. Whitelist check first: fields not declared on the form node
+     * are discarded without reading their content (the iterator advances past them
+     * automatically), and the whitelist FAILS CLOSED — an empty one (a form with no
+     * submittable field) discards every part, otherwise anything posted would skip
+     * validation entirely and save2jcr would persist it through fmdb:submissionData's
+     * residual properties. The part kind must then match the field kind: a text part
+     * under a file field's name would bypass that field's files-only contract, and a
+     * file part under a text field's name would bypass every text check — choice
+     * allowlist included — and land in the file store of a form that declares no file
+     * field at all.
+     */
+    private static void parsePart(FileItemStream item, FieldMetadata fieldMetadata, FormidableConfigService config,
+            Map<String, List<String>> parameters, List<FormFile> files) throws ParseException, java.io.IOException {
+        if (!fieldMetadata.allowedNames().contains(item.getFieldName())) {
+            log.debug("[FormDataParser] Skipping undeclared field: {}", item.getFieldName());
+            return;
+        }
+
+        if (!item.isFormField()) {
+            if (!isFileField(item.getFieldName(), fieldMetadata)) {
+                throw new ParseException("Field '" + item.getFieldName() + "': unexpected file upload.",
+                        ParseException.FailureType.VALIDATION);
+            }
+
+            FormFile file = parseFilePart(item, fieldMetadata.acceptTypes(item.getFieldName()), config);
+            if (file != null) {
+                files.add(file);
+            }
+
+            return;
+        }
+
+        if (isFileField(item.getFieldName(), fieldMetadata)) {
+            throw new ParseException("Field '" + item.getFieldName() + "': expected a file, got a text value.",
+                    ParseException.FailureType.VALIDATION);
+        }
+
+        String value;
+        try (InputStream inputStream = item.openStream()) {
+            value = Streams.asString(inputStream, StandardCharsets.UTF_8.name());
+        }
+        validateTextField(item.getFieldName(), value, fieldMetadata);
+        parameters.computeIfAbsent(item.getFieldName(), k -> new ArrayList<>()).add(value);
     }
 
     private static FormFile parseFilePart(

@@ -3,6 +3,7 @@ package org.jahia.modules.formidable.engine.options;
 import org.jahia.modules.formidable.engine.migration.ChoiceOptionsContentMigration;
 import org.jahia.services.content.DefaultEventListener;
 import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRTemplate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
@@ -64,13 +65,12 @@ public class ManualOptionsLanguageSyncListener extends DefaultEventListener {
         return Event.PROPERTY_ADDED | Event.PROPERTY_CHANGED | Event.PROPERTY_REMOVED;
     }
 
-    @Override
-    public String[] getNodeTypes() {
-        return new String[]{MANUAL_OPTIONS_MIXIN};
-    }
-
-    @Override
-    public void onEvent(EventIterator events) {
+    /**
+     * Decodes one event batch into fieldPath → the languages whose options the save
+     * touched (an event on a j:translation_* subnode carries its language; one on the
+     * field itself carries none).
+     */
+    private static Map<String, Set<String>> collectSavedLanguagesByField(EventIterator events) {
         Map<String, Set<String>> savedLanguagesByField = new LinkedHashMap<>();
         while (events.hasNext()) {
             Event event = events.nextEvent();
@@ -97,7 +97,41 @@ public class ManualOptionsLanguageSyncListener extends DefaultEventListener {
                 log.warn("[ManualOptionsLanguageSync] Unreadable options event: {}", e.getMessage());
             }
         }
+        return savedLanguagesByField;
+    }
 
+    /**
+     * One field, one save: a failure must never discard the fields already re-aligned
+     * before it in this batch, nor poison the later saves. Removal events of a deleted
+     * field (or form, or language) point at a gone path: nothing to re-align.
+     */
+    private static void realignField(JCRSessionWrapper systemSession, String fieldPath, Set<String> savedLanguages)
+            throws RepositoryException {
+        if (!systemSession.nodeExists(fieldPath)) {
+            return;
+        }
+
+        try {
+            JCRNodeWrapper fieldNode = systemSession.getNode(fieldPath);
+            if (ManualOptionsLanguageSync.sync(fieldNode, savedLanguages)) {
+                systemSession.save();
+                log.debug("[ManualOptionsLanguageSync] Re-aligned '{}'", fieldPath);
+            }
+        } catch (RepositoryException e) {
+            log.warn("[ManualOptionsLanguageSync] Failed to re-align '{}': {}", fieldPath, e.getMessage());
+            // Drop the half-applied changes, or every later save would re-throw them.
+            systemSession.refresh(false);
+        }
+    }
+
+    @Override
+    public String[] getNodeTypes() {
+        return new String[]{MANUAL_OPTIONS_MIXIN};
+    }
+
+    @Override
+    public void onEvent(EventIterator events) {
+        Map<String, Set<String>> savedLanguagesByField = collectSavedLanguagesByField(events);
         if (savedLanguagesByField.isEmpty()) {
             return;
         }
@@ -105,29 +139,7 @@ public class ManualOptionsLanguageSyncListener extends DefaultEventListener {
         try {
             JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, workspace, null, systemSession -> {
                 for (Map.Entry<String, Set<String>> field : savedLanguagesByField.entrySet()) {
-                    String fieldPath = field.getKey();
-                    // Removal events of a deleted field (or form, or language) point
-                    // at a gone path: nothing to re-align.
-                    if (!systemSession.nodeExists(fieldPath)) {
-                        continue;
-                    }
-
-                    // One save per field: a failure must never discard the fields
-                    // already re-aligned before it in this batch, nor poison the
-                    // later saves.
-                    try {
-                        JCRNodeWrapper fieldNode = systemSession.getNode(fieldPath);
-                        if (ManualOptionsLanguageSync.sync(fieldNode, field.getValue())) {
-                            systemSession.save();
-                            log.debug("[ManualOptionsLanguageSync] Re-aligned '{}'", fieldPath);
-                        }
-                    } catch (RepositoryException e) {
-                        log.warn("[ManualOptionsLanguageSync] Failed to re-align '{}': {}",
-                                fieldPath, e.getMessage());
-                        // Drop the half-applied changes, or every later save would
-                        // re-throw them.
-                        systemSession.refresh(false);
-                    }
+                    realignField(systemSession, field.getKey(), field.getValue());
                 }
 
                 return null;

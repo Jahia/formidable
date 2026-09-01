@@ -72,37 +72,40 @@ public class FormDuplicationCleanupListener extends DefaultEventListener {
         for (String nodePath : topmostPaths(addedPaths)) {
             try {
                 JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, workspace, null, systemSession -> {
-                    JCRNodeWrapper node = systemSession.getNode(nodePath);
-                    if (!shouldProcessNode(node)) {
-                        return null;
-                    }
-
-                    JCRNodeWrapper formNode = node.isNodeType(FORM_NODE_TYPE)
-                            ? node
-                            : FormLogicSyncService.findFormAncestor(node);
-
-                    if (formNode == null) {
-                        return null;
-                    }
-
-                    // A copied subtree inside an existing form may collide with the
-                    // original's fieldKeys; remap them before the weakref cleanup so
-                    // key-based resolution binds the copy to its own internal sources.
-                    boolean changed = !node.isNodeType(FORM_NODE_TYPE)
-                            && FormLogicSyncService.remapFieldKeysAfterCopy(node, formNode);
-
-                    changed |= FormLogicSyncService.cleanupAfterDuplication(formNode);
-
-                    if (changed) {
-                        systemSession.save();
-                        log.info("[FormDuplicationCleanup] Cleaned up logic dependencies on '{}'", formNode.getPath());
-                    }
-
+                    cleanupSubtree(systemSession.getNode(nodePath));
                     return null;
                 });
             } catch (RepositoryException e) {
                 log.warn("[FormDuplicationCleanup] Cleanup failed: {}", e.getMessage());
             }
+        }
+    }
+
+    /** One copied subtree: fieldKey remap first, then the weakref cleanup, one save. */
+    private static void cleanupSubtree(JCRNodeWrapper node) throws RepositoryException {
+        if (!shouldProcessNode(node)) {
+            return;
+        }
+
+        JCRNodeWrapper formNode = node.isNodeType(FORM_NODE_TYPE)
+                ? node
+                : FormLogicSyncService.findFormAncestor(node);
+
+        if (formNode == null) {
+            return;
+        }
+
+        // A copied subtree inside an existing form may collide with the
+        // original's fieldKeys; remap them before the weakref cleanup so
+        // key-based resolution binds the copy to its own internal sources.
+        boolean changed = !node.isNodeType(FORM_NODE_TYPE)
+                && FormLogicSyncService.remapFieldKeysAfterCopy(node, formNode);
+
+        changed |= FormLogicSyncService.cleanupAfterDuplication(formNode);
+
+        if (changed) {
+            node.getSession().save();
+            log.info("[FormDuplicationCleanup] Cleaned up logic dependencies on '{}'", formNode.getPath());
         }
     }
 

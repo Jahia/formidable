@@ -69,20 +69,9 @@ public final class LogicStateDeclaration {
             Map<String, Map<String, String>> byProvider = new HashMap<>();
             for (String sourceType : providers.keySet()) {
                 JSONObject refs = providers.optJSONObject(sourceType);
-                if (refs == null) {
-                    continue;
+                if (refs != null) {
+                    byProvider.put(sourceType, parseProviderValues(refs));
                 }
-                Map<String, String> values = new HashMap<>();
-                for (String ref : refs.keySet()) {
-                    Object value = refs.isNull(ref) ? null : refs.opt(ref);
-                    if (value == null) {
-                        values.put(ref, null);
-                    } else if (value instanceof String stringValue) {
-                        values.put(ref, stringValue);
-                    }
-                    // Non-string values are undeclared: the client only ever reads strings.
-                }
-                byProvider.put(sourceType, values);
             }
 
             return new LogicStateDeclaration(byProvider, parseDeclaredToday(obj));
@@ -90,6 +79,24 @@ public final class LogicStateDeclaration {
             log.debug("[LogicStateDeclaration] Malformed declaration, ignoring: {}", e.getMessage());
             return EMPTY;
         }
+    }
+
+    /**
+     * One provider's declared references. A null value is a declaration ("the browser
+     * saw nothing there"); a non-string value is undeclared — the client only ever
+     * reads strings.
+     */
+    private static Map<String, String> parseProviderValues(JSONObject refs) {
+        Map<String, String> values = new HashMap<>();
+        for (String ref : refs.keySet()) {
+            Object value = refs.isNull(ref) ? null : refs.opt(ref);
+            if (value == null) {
+                values.put(ref, null);
+            } else if (value instanceof String stringValue) {
+                values.put(ref, stringValue);
+            }
+        }
+        return values;
     }
 
     /**
