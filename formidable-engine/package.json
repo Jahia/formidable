@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build"
+    "build": "vitest run && vite build",
+    "test": "vitest run"
   },
   "dependencies": {
     "@apollo/client": "^3.7.17",
@@ -22,7 +23,8 @@
     "@types/react": "^18.3.28",
     "prop-types": "^15.7.2",
     "typescript": "^5.9.3",
-    "vite": "7.3.5"
+    "vite": "7.3.5",
+    "vitest": "^3.2.4"
   },
   "packageManager": "yarn@4.12.0",
   "jahia": {
