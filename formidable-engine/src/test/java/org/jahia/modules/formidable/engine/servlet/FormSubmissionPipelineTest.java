@@ -145,6 +145,35 @@ class FormSubmissionPipelineTest {
     }
 
     @Test
+    void resolveFormNodeRejectsANodeThatIsNotAForm() throws Exception {
+        // The identifier is caller-supplied: any readable live node resolves, but only a
+        // form is an acceptable submission target. Other types must be rejected with the
+        // same code as a missing node, so the response does not disclose what exists.
+        org.jahia.services.content.JCRSessionWrapper session = mock(org.jahia.services.content.JCRSessionWrapper.class);
+        JCRNodeWrapper pageNode = mock(JCRNodeWrapper.class);
+        when(session.getNodeByIdentifier("some-page-id")).thenReturn(pageNode);
+        when(pageNode.isNodeType("fmdb:form")).thenReturn(false);
+
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
+                mock(FormidableConfigService.class),
+                List.<FormAction>of(),
+                (formId, locale) -> FormFieldMetadataCollector.collect(formId, locale, mock(FormidableOptionsSourceService.class)),
+                JCRTemplate::getInstance,
+                FormDataParser::parseAll,
+                locale -> session,
+                () -> false
+        );
+        setField(pipeline, "formId", "some-page-id");
+        setField(pipeline, "locale", Locale.ENGLISH);
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> invokeResolveFormNode(pipeline));
+
+        // Expected outcome: FMDB-004, indistinguishable from a missing node.
+        assertEquals(ErrorCode.FMDB_004, error.errorCode);
+    }
+
+    @Test
     void verifyAuthenticationRejectsGuestWhenFormRequiresAuthentication() throws Exception {
         // Verifies the auth gate: a guest submission must be rejected when the form requires authentication.
         FormSubmissionPipeline pipeline = newPipelineWithFormNode(true);
@@ -389,6 +418,7 @@ class FormSubmissionPipelineTest {
         HttpServletRequest req = mock(HttpServletRequest.class);
 
         when(session.getNodeByIdentifier(formId)).thenReturn(formNode);
+        when(formNode.isNodeType("fmdb:form")).thenReturn(true);
         when(req.getMethod()).thenReturn("POST");
         when(req.getContentType()).thenReturn("multipart/form-data; boundary=test");
         when(req.getParameter("fid")).thenReturn(formId);
@@ -576,6 +606,7 @@ class FormSubmissionPipelineTest {
         JahiaUser guestUser = mock(JahiaUser.class);
 
         when(session.getNodeByIdentifier(formId)).thenReturn(formNode);
+        when(formNode.isNodeType("fmdb:form")).thenReturn(true);
         when(formNode.isNodeType("fmdbmix:authenticatedOnlyForm")).thenReturn(true);
         when(req.getMethod()).thenReturn("POST");
         when(req.getContentType()).thenReturn("multipart/form-data; boundary=test");
@@ -614,6 +645,7 @@ class FormSubmissionPipelineTest {
         JahiaUser authenticatedUser = mock(JahiaUser.class);
 
         when(session.getNodeByIdentifier(formId)).thenReturn(formNode);
+        when(formNode.isNodeType("fmdb:form")).thenReturn(true);
         when(formNode.isNodeType("fmdbmix:authenticatedOnlyForm")).thenReturn(true);
         when(formNode.isNodeType("fmdbmix:captchaProtectedForm")).thenReturn(true);
         when(formNode.getPath()).thenReturn("/sites/test/form");

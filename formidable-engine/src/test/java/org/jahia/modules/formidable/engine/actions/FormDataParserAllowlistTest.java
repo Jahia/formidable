@@ -37,8 +37,10 @@ class FormDataParserAllowlistTest {
                     .append(fieldNamesAndValues[i + 1]).append("\r\n");
         }
         body.append("--").append(BOUNDARY).append("--\r\n");
-        byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
+        return requestOf(body.toString().getBytes(StandardCharsets.UTF_8));
+    }
 
+    private static HttpServletRequest requestOf(byte[] bytes) throws Exception {
         ByteArrayInputStream source = new ByteArrayInputStream(bytes);
         ServletInputStream stream = new ServletInputStream() {
             @Override
@@ -107,5 +109,55 @@ class FormDataParserAllowlistTest {
         );
 
         assertEquals(Map.of("fullName", java.util.List.of("Ada")), result.parameters());
+    }
+
+    /** One text part and one FILE part (a filename in its disposition), same boundary. */
+    private static HttpServletRequest multipartRequestWithFilePart(String textName, String textValue,
+                                                                   String fileFieldName) throws Exception {
+        String body = "--" + BOUNDARY + "\r\n"
+                + "Content-Disposition: form-data; name=\"" + textName + "\"\r\n"
+                + "\r\n" + textValue + "\r\n"
+                + "--" + BOUNDARY + "\r\n"
+                + "Content-Disposition: form-data; name=\"" + fileFieldName + "\"; filename=\"evil.txt\"\r\n"
+                + "Content-Type: text/plain\r\n"
+                + "\r\npayload\r\n"
+                + "--" + BOUNDARY + "--\r\n";
+        return requestOf(body.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static FormDataParser.FieldInfo fileField() {
+        return new FormDataParser.FieldInfo(
+                "fmdb:inputFile", false, false, true, false, false, false, false,
+                Set.of(), Set.of(), new FormDataParser.FieldConstraints(false, -1, -1, null, null, null)
+        );
+    }
+
+    @Test
+    void aFilePartUnderATextFieldNameIsRejected() throws Exception {
+        // A file part named after a declared TEXT field would bypass every text check
+        // (choice allowlist included) and land in the file store of a form without file fields.
+        FormDataParser.ParseException error = org.junit.jupiter.api.Assertions.assertThrows(
+                FormDataParser.ParseException.class,
+                () -> FormDataParser.parseAll(
+                        multipartRequestWithFilePart("other", "ok", "fullName"),
+                        permissiveConfig(),
+                        new FormDataParser.FieldMetadata(Map.of(
+                                "other", plainTextField(), "fullName", plainTextField()))
+                ));
+        org.junit.jupiter.api.Assertions.assertEquals(
+                FormDataParser.ParseException.FailureType.VALIDATION, error.failureType());
+    }
+
+    @Test
+    void aTextPartUnderAFileFieldNameIsRejected() throws Exception {
+        FormDataParser.ParseException error = org.junit.jupiter.api.Assertions.assertThrows(
+                FormDataParser.ParseException.class,
+                () -> FormDataParser.parseAll(
+                        multipartRequest("attachment", "not-a-file"),
+                        permissiveConfig(),
+                        new FormDataParser.FieldMetadata(Map.of("attachment", fileField()))
+                ));
+        org.junit.jupiter.api.Assertions.assertEquals(
+                FormDataParser.ParseException.FailureType.VALIDATION, error.failureType());
     }
 }
