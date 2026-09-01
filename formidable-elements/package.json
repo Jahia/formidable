@@ -21,7 +21,6 @@
 	},
 	"dependencies": {
 		"clsx": "^2.1.1",
-		"dompurify": "3.4.0",
 		"formidable-shared": "workspace:*"
 	},
 	"devDependencies": {
@@ -30,7 +29,6 @@
 		"@eslint/js": "^9.26.0",
 		"@jahia/javascript-modules-library": "^1.2.0",
 		"@jahia/vite-plugin": "^1.2.0",
-		"@types/dompurify": "^3.2.0",
 		"@types/react": "^19.1.2",
 		"eslint": "^9.26.0",
 		"globals": "^16.0.0",
