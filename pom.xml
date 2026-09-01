@@ -320,9 +320,11 @@
                         <artifactId>exec-maven-plugin</artifactId>
                         <executions>
                             <!-- Keep every module's package.json in sync with the maven version.
-                                 Inherited by all child modules: each carries its own copy of
-                                 .m2/sync-version.js, and its scm-plugin includes check the
-                                 rewritten file in. -->
+                                 Inherited by the modules whose parent is this pom (the test
+                                 modules have their own parent and their own wiring); each
+                                 carries a copy of .m2/sync-version.js resolving package.json
+                                 from the working directory, and its scm-plugin includes check
+                                 the rewritten file in. -->
                             <execution>
                                 <id>sync-version</id>
                                 <phase>process-resources</phase>

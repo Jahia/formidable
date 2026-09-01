@@ -137,7 +137,7 @@
                     <plugin>
                         <artifactId>maven-scm-plugin</artifactId>
                         <configuration>
-                            <includes>yarn.lock,package.json</includes>
+                            <includes>package.json</includes>
                             <message>chore(release): Prepare release ${project.version}</message>
                         </configuration>
                     </plugin>
