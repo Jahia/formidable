@@ -132,33 +132,40 @@ public class ConditionalLogicEvaluator {
         return visibility(fieldName) != Visibility.VISIBLE;
     }
 
+    /**
+     * A field with multiple parent containers (duplicate name across conditional
+     * fieldsets) is hidden only when ALL its parents are hidden. If any parent is
+     * visible, the field is reachable and its own rules decide (VISIBLE here means
+     * "not hidden by the parents"). The combined verdict is only as strong as its
+     * weakest link: one fail-safe parent degrades it.
+     */
+    private Visibility parentContainersVerdict(String fieldName, Set<String> visiting) {
+        Set<String> parentNames = fieldParentContainers.get(fieldName);
+        if (parentNames == null || parentNames.isEmpty()) {
+            return Visibility.VISIBLE;
+        }
+
+        boolean allParentsMeasured = true;
+        for (String parentName : parentNames) {
+            Visibility parentVisibility = visibility(parentName, visiting);
+            if (parentVisibility == Visibility.VISIBLE) {
+                return Visibility.VISIBLE;
+            }
+            if (parentVisibility == Visibility.HIDDEN_FAILSAFE) {
+                allParentsMeasured = false;
+            }
+        }
+        return allParentsMeasured ? Visibility.HIDDEN_MEASURED : Visibility.HIDDEN_FAILSAFE;
+    }
+
     public Visibility visibility(String fieldName) {
         return visibility(fieldName, new HashSet<>());
     }
 
     private Visibility visibility(String fieldName, Set<String> visiting) {
-        Set<String> parentNames = fieldParentContainers.get(fieldName);
-        if (parentNames != null && !parentNames.isEmpty()) {
-            // A field with multiple parent containers (duplicate name across conditional
-            // fieldsets) is hidden only when ALL its parents are hidden. If any parent
-            // is visible, the field is reachable and its submitted value is valid. The
-            // combined verdict is only as strong as its weakest link: one fail-safe
-            // parent degrades it.
-            boolean allParentsHidden = true;
-            boolean allParentsMeasured = true;
-            for (String parentName : parentNames) {
-                Visibility parentVisibility = visibility(parentName, visiting);
-                if (parentVisibility == Visibility.VISIBLE) {
-                    allParentsHidden = false;
-                    break;
-                }
-                if (parentVisibility == Visibility.HIDDEN_FAILSAFE) {
-                    allParentsMeasured = false;
-                }
-            }
-            if (allParentsHidden) {
-                return allParentsMeasured ? Visibility.HIDDEN_MEASURED : Visibility.HIDDEN_FAILSAFE;
-            }
+        Visibility parentVerdict = parentContainersVerdict(fieldName, visiting);
+        if (parentVerdict != Visibility.VISIBLE) {
+            return parentVerdict;
         }
 
         List<ConditionalLogicRule> rules = fieldLogicRules.get(fieldName);

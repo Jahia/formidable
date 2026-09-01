@@ -87,24 +87,11 @@ public final class ManualOptionsLanguageSync {
             return false;
         }
 
-        List<String> masterOptions = null;
-        Map<String, Node> translations = new LinkedHashMap<>();
-        NodeIterator existing = fieldNode.getI18Ns();
-        while (existing.hasNext()) {
-            Node translation = existing.nextNode();
-            String language = translation.hasProperty(LANGUAGE_PROPERTY)
-                    ? translation.getProperty(LANGUAGE_PROPERTY).getString()
-                    : null;
-            if (language == null) {
-                continue;
-            }
-
-            if (masterLanguage.equals(language)) {
-                masterOptions = ManualOptionEntries.readOptions(translation);
-            } else {
-                translations.put(language, translation);
-            }
-        }
+        Map<String, Node> translations = collectTranslationsByLanguage(fieldNode);
+        Node masterTranslation = translations.remove(masterLanguage);
+        List<String> masterOptions = masterTranslation != null
+                ? ManualOptionEntries.readOptions(masterTranslation)
+                : null;
 
         // No master list yet: the first authored language SEEDS it. Its values
         // become the identity right away (labels ride along as the starting point
@@ -134,6 +121,22 @@ public final class ManualOptionsLanguageSync {
         }
 
         return updated;
+    }
+
+    /** Every translation node of the field, keyed by its language (master included). */
+    private static Map<String, Node> collectTranslationsByLanguage(JCRNodeWrapper fieldNode) throws RepositoryException {
+        Map<String, Node> translations = new LinkedHashMap<>();
+        NodeIterator existing = fieldNode.getI18Ns();
+        while (existing.hasNext()) {
+            Node translation = existing.nextNode();
+            String language = translation.hasProperty(LANGUAGE_PROPERTY)
+                    ? translation.getProperty(LANGUAGE_PROPERTY).getString()
+                    : null;
+            if (language != null) {
+                translations.put(language, translation);
+            }
+        }
+        return translations;
     }
 
     /**

@@ -75,20 +75,7 @@ public final class FormLogicSyncService {
             return false;
         }
 
-        Set<String> copiedIds = new HashSet<>();
-        for (JCRNodeWrapper element : copiedElements) {
-            copiedIds.add(element.getIdentifier());
-        }
-
-        Set<String> keysOutsideCopy = new HashSet<>();
-        for (JCRNodeWrapper element : collectLogicElements(formNode.getNode(FIELDS_NODE))) {
-            if (!copiedIds.contains(element.getIdentifier())) {
-                String key = FieldKeys.get(element);
-                if (key != null) {
-                    keysOutsideCopy.add(key);
-                }
-            }
-        }
+        Set<String> keysOutsideCopy = collectKeysOutsideCopy(formNode, copiedElements);
 
         Map<String, String> remappedKeys = new HashMap<>();
         boolean updated = false;
@@ -110,6 +97,24 @@ public final class FormLogicSyncService {
         }
 
         return updated;
+    }
+
+    /** The fieldKeys already used by elements of the form OUTSIDE the copied subtree. */
+    private static Set<String> collectKeysOutsideCopy(JCRNodeWrapper formNode, List<JCRNodeWrapper> copiedElements)
+            throws RepositoryException {
+        Set<String> copiedIds = new HashSet<>();
+        for (JCRNodeWrapper element : copiedElements) {
+            copiedIds.add(element.getIdentifier());
+        }
+
+        Set<String> keysOutsideCopy = new HashSet<>();
+        for (JCRNodeWrapper element : collectLogicElements(formNode.getNode(FIELDS_NODE))) {
+            String key = copiedIds.contains(element.getIdentifier()) ? null : FieldKeys.get(element);
+            if (key != null) {
+                keysOutsideCopy.add(key);
+            }
+        }
+        return keysOutsideCopy;
     }
 
     private static boolean rewriteSourceFieldKeys(JCRNodeWrapper element, Map<String, String> remappedKeys)

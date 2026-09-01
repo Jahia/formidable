@@ -132,6 +132,21 @@ final class FieldValidator {
             FormDataParser.FieldConstraints constraints,
             FormDataParser.FieldInfo fieldInfo
     ) throws FormDataParser.ParseException {
+        validateLengthBounds(fieldName, value, constraints);
+        validatePattern(fieldName, value, constraints);
+        if (fieldInfo != null && constraints.minDate() != null) {
+            validateDateBound(fieldName, value, constraints.minDate(), fieldInfo, true);
+        }
+        if (fieldInfo != null && constraints.maxDate() != null) {
+            validateDateBound(fieldName, value, constraints.maxDate(), fieldInfo, false);
+        }
+        if (constraints.minNumber() != null || constraints.maxNumber() != null) {
+            validateNumberBounds(fieldName, value, constraints);
+        }
+    }
+
+    private static void validateLengthBounds(String fieldName, String value, FormDataParser.FieldConstraints constraints)
+            throws FormDataParser.ParseException {
         if (constraints.minLength() >= 0 && value.length() < constraints.minLength()) {
             log.warn("[FieldValidator] Rejected submitted value: below minimum length");
             throw new FormDataParser.ParseException(
@@ -146,31 +161,27 @@ final class FieldValidator {
                     FormDataParser.ParseException.FailureType.VALIDATION
             );
         }
-        if (constraints.pattern() != null && !constraints.pattern().isBlank()) {
-            try {
-                if (!value.matches(constraints.pattern())) {
-                    log.warn("[FieldValidator] Rejected submitted value: does not match configured pattern");
-                    throw new FormDataParser.ParseException(
-                            "Field '" + fieldName + "': value does not match required format.",
-                            FormDataParser.ParseException.FailureType.VALIDATION
-                    );
-                }
-            } catch (PatternSyntaxException e) {
+    }
+
+    private static void validatePattern(String fieldName, String value, FormDataParser.FieldConstraints constraints)
+            throws FormDataParser.ParseException {
+        if (constraints.pattern() == null || constraints.pattern().isBlank()) {
+            return;
+        }
+        try {
+            if (!value.matches(constraints.pattern())) {
+                log.warn("[FieldValidator] Rejected submitted value: does not match configured pattern");
                 throw new FormDataParser.ParseException(
-                        "Field '" + fieldName + "': invalid validation pattern configuration.",
-                        FormDataParser.ParseException.FailureType.CONFIGURATION,
-                        e
+                        "Field '" + fieldName + "': value does not match required format.",
+                        FormDataParser.ParseException.FailureType.VALIDATION
                 );
             }
-        }
-        if (fieldInfo != null && constraints.minDate() != null) {
-            validateDateBound(fieldName, value, constraints.minDate(), fieldInfo, true);
-        }
-        if (fieldInfo != null && constraints.maxDate() != null) {
-            validateDateBound(fieldName, value, constraints.maxDate(), fieldInfo, false);
-        }
-        if (constraints.minNumber() != null || constraints.maxNumber() != null) {
-            validateNumberBounds(fieldName, value, constraints);
+        } catch (PatternSyntaxException e) {
+            throw new FormDataParser.ParseException(
+                    "Field '" + fieldName + "': invalid validation pattern configuration.",
+                    FormDataParser.ParseException.FailureType.CONFIGURATION,
+                    e
+            );
         }
     }
 
