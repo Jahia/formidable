@@ -3,4 +3,4 @@
 formidable: patch
 ---
 
-Removed never-captured submission metadata (IP address, user agent, username) from stored submissions (#244)
+Removed the unused submission metadata definitions (IP address, user agent, username); old stored values are kept (#244)

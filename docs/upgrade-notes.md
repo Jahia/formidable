@@ -53,17 +53,20 @@ property to its `pom.xml`, its Maven group id is unchanged.
    both at 0.4).
 
    **Untick "Validate module definitions" for this upload too**: 0.4.0 removes
-   three never-populated submission properties from the engine's own types, so
-   the validation rejects the upload as a major definition change (verified
-   against a 0.3-era instance):
+   three submission properties (ipAddress, userAgent, submitterUsername) that
+   no version since 0.2.0 has written, so the validation rejects the upload as
+   a major definition change (verified against a 0.3-era instance):
 
    > Module upload failed: Major change in definition :
    > [nodeTypeName=fmdb:formSubmission,type=MAJOR,
    > propDefDiffs=[[itemName=ipAddress,type=MAJOR,operation=REMOVED],...]],
    > cancel module deployment
 
-   Expected here for the same reason as in step 3: no stored content ever
-   carried these properties, so there is nothing the change could affect.
+   Expected here for the same reason as in step 3. Versions 0.2.0 and later
+   never wrote these properties, but an instance that ran 0.1.x may still
+   store values on old submissions: the upgrade leaves those values in place
+   (0.2.0's changelog documents them as kept), they simply no longer have a
+   definition — a content-integrity scan may flag them on such an instance.
 2. In **Administration > Server > Modules and Extensions > Modules**, stop and
    uninstall formidable-elements 0.3.0 (or earlier). **Do not tick the option
    to delete the module content when uninstalling**: that choice erases every

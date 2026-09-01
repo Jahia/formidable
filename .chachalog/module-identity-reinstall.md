@@ -11,7 +11,7 @@ Earlier versions were packaged under a placeholder group id; the module is now p
 
 To upgrade, in **Administration > Server > Modules and Extensions > Modules**:
 
-1. Upgrade formidable-engine to the new version **first**, **with "Validate module definitions" unticked**: the new version removes never-populated submission properties from its types, so the validation rejects the upload as a major definition change. This is expected — no stored content ever carried these properties.
+1. Upgrade formidable-engine to the new version **first**, **with "Validate module definitions" unticked**: the new version removes submission properties no version since 0.2.0 has written, so the validation rejects the upload as a major definition change. This is expected — values stored by a 0.1.x instance are left in place.
 2. Stop and uninstall the old formidable-elements. **Do not tick the option to delete the module content when uninstalling** — that choice erases every form and every submission stored in the repository. Left unticked, forms and submissions are fully preserved; forms simply stop rendering while the module is absent.
 3. Install the new formidable-elements, **with "Validate module definitions" unticked**: the new version reorganizes some field properties, so the validation rejects the upload as a major definition change. This is expected — the automatic content migrations take over for the existing content.
 4. **Re-enable formidable-elements on every site that uses it**: the uninstall removed it from the sites' enabled modules, and forms show a "Module error" box until it is enabled again. A server restart does not repair this; re-enabling the module does, immediately.
