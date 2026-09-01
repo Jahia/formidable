@@ -286,6 +286,49 @@ class ConditionalLogicEvaluatorTest {
     }
 
     @Test
+    void fieldInheritsTheVerdictOfEveryEnclosingContainer() {
+        // Verifies nested containers: a field in a conditional fieldset inside a
+        // conditional step must inherit the step's verdict through the fieldset —
+        // the parent map chains container to container, field to direct container.
+        ConditionalLogicEvaluator evaluator = evaluator(
+                Map.of(
+                        "step", List.of(rule("gate", "in", null, List.of("open"))),
+                        "fieldset", List.of(rule("detail", "in", null, List.of("yes")))
+                ),
+                Map.of(
+                        "gate", List.of("closed"),
+                        "detail", List.of("yes")
+                ),
+                Map.of(
+                        "fieldset", Set.of("step"),
+                        "child", Set.of("fieldset")
+                )
+        );
+
+        // Expected outcome: the fieldset's own rule is satisfied, but the step is
+        // measurably hidden, and the child inherits that verdict transitively.
+        assertTrue(evaluator.isHidden("fieldset"));
+        assertTrue(evaluator.isHidden("child"));
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_MEASURED, evaluator.visibility("child"));
+    }
+
+    @Test
+    void aFieldSharingItsContainersNameDoesNotRecurseForever() {
+        // JCR names are only unique among siblings: a conditional fieldset may contain
+        // a field with the same system name, which puts a self-loop in the parent map.
+        // The cycle guard must cover the parent walk, or the recursion overflows the
+        // stack — a StackOverflowError no servlet catch stops, a 500 on every submission.
+        ConditionalLogicEvaluator evaluator = evaluator(
+                Map.of("address", List.of(rule("gate", "in", null, List.of("open")))),
+                Map.of("gate", List.of("open")),
+                Map.of("address", Set.of("address"))
+        );
+
+        assertDoesNotThrow(() -> evaluator.isHidden("address"));
+        assertFalse(evaluator.isHidden("address"));
+    }
+
+    @Test
     void logicIdResolutionUsesResolvedSourceFieldName() {
         // Verifies source resolution: the evaluator must resolve logicId through the pre-built logicId->field map.
         ConditionalLogicEvaluator evaluator = new ConditionalLogicEvaluator(

@@ -156,6 +156,15 @@ class FormFieldMetadataCollector {
                 if (!rules.isEmpty()) {
                     ctx.fieldLogicRules.put(containerName, rules);
                     resolveLogicsSrc(node, rules, ctx);
+                    // A conditional container nested in another one chains verdicts
+                    // through the same parent map as the fields: a field whose direct
+                    // container is a fieldset must still inherit the enclosing step's
+                    // verdict, which the evaluator walks parent by parent.
+                    if (currentContainerName != null) {
+                        ctx.fieldParentContainers
+                                .computeIfAbsent(containerName, k -> new HashSet<>())
+                                .add(currentContainerName);
+                    }
                     currentContainerName = containerName;
                 }
             }
