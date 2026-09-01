@@ -41,6 +41,23 @@ jobs:
           nexus_password: ${{ secrets.NEXUS_PASSWORD }}
           module_id: formidable
 
+  sonar-analysis:
+    # Keeps the main branch analyzed on SonarQube: without it the server has no
+    # reference analysis, and every PR's quality gate counts the whole repository
+    # as new code (55 pre-existing issues failed unrelated PRs on 2026-09-01).
+    name: Sonar Analysis
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jahia/jahia-modules-action/sonar-analysis@v2
+        with:
+          primary_release_branch: main
+          sonar_url: ${{ secrets.SONAR_URL }}
+          sonar_token: ${{ secrets.SONAR_TOKEN }}
+          nexus_username: ${{ secrets.NEXUS_USERNAME }}
+          nexus_password: ${{ secrets.NEXUS_PASSWORD }}
+
   sbom:
     name: SBOM processing
     needs: build
