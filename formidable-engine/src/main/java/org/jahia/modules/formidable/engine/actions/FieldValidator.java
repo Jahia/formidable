@@ -40,25 +40,44 @@ final class FieldValidator {
             String value,
             FormDataParser.FieldMetadata metadata
     ) throws FormDataParser.ParseException {
-        boolean choicesUnresolvable = metadata.choicesUnresolvable(fieldName);
-
         if (value == null || value.isEmpty()) {
-            // D11: when the options source is down, an empty value only passes on an
-            // optional field; a required choice cannot be silently skipped.
-            if (choicesUnresolvable && isRequired(metadata, fieldName)) {
-                log.warn("[FieldValidator] Rejected empty value: required field options source is unavailable");
-                throw new FormDataParser.ParseException(
-                        "Field '" + fieldName + "': required field options are currently unavailable.",
-                        FormDataParser.ParseException.FailureType.VALIDATION
-                );
-            }
-
+            validateEmptyValue(fieldName, metadata);
             return;
         }
 
+        validateChoice(fieldName, value, metadata);
+
+        FormDataParser.FieldInfo fieldInfo = metadata.field(fieldName);
+        if (fieldInfo != null) {
+            validateTypeSemantics(fieldName, value, fieldInfo);
+        }
+
+        FormDataParser.FieldConstraints constraints = metadata.constraints(fieldName);
+        if (constraints != null) {
+            validateConstraints(fieldName, value, constraints, fieldInfo);
+        }
+    }
+
+    /**
+     * D11: when the options source is down, an empty value only passes on an
+     * optional field; a required choice cannot be silently skipped.
+     */
+    private static void validateEmptyValue(String fieldName, FormDataParser.FieldMetadata metadata)
+            throws FormDataParser.ParseException {
+        if (metadata.choicesUnresolvable(fieldName) && isRequired(metadata, fieldName)) {
+            log.warn("[FieldValidator] Rejected empty value: required field options source is unavailable");
+            throw new FormDataParser.ParseException(
+                    "Field '" + fieldName + "': required field options are currently unavailable.",
+                    FormDataParser.ParseException.FailureType.VALIDATION
+            );
+        }
+    }
+
+    private static void validateChoice(String fieldName, String value, FormDataParser.FieldMetadata metadata)
+            throws FormDataParser.ParseException {
         // D11, no tolerance: a non-empty value must be present in the re-resolved list;
         // when the source cannot be resolved, the value cannot be verified and is rejected.
-        if (choicesUnresolvable) {
+        if (metadata.choicesUnresolvable(fieldName)) {
             log.warn("[FieldValidator] Rejected submitted value: field options source is unavailable");
             throw new FormDataParser.ParseException(
                     "Field '" + fieldName + "': submitted value cannot be verified, options are currently unavailable.",
@@ -70,40 +89,36 @@ final class FieldValidator {
         // a choice field whose list resolves to nothing renders nothing selectable, so
         // any non-empty submitted value is forged and must be rejected — an empty
         // allowlist must not disable the check.
-        FormDataParser.FieldInfo choiceInfo = metadata.field(fieldName);
-        if (choiceInfo != null && choiceInfo.choiceField() && !metadata.allowedChoices(fieldName).contains(value)) {
+        FormDataParser.FieldInfo fieldInfo = metadata.field(fieldName);
+        if (fieldInfo != null && fieldInfo.choiceField() && !metadata.allowedChoices(fieldName).contains(value)) {
             log.warn("[FieldValidator] Rejected submitted value: not in allowed choices");
             throw new FormDataParser.ParseException(
                     "Field '" + fieldName + "': submitted value is not an allowed choice.",
                     FormDataParser.ParseException.FailureType.VALIDATION
             );
         }
+    }
 
-        FormDataParser.FieldInfo fieldInfo = metadata.field(fieldName);
-        if (fieldInfo != null) {
-            if (fieldInfo.emailField()) {
-                validateEmail(fieldName, value);
-            }
-            if (fieldInfo.dateField()) {
-                validateDate(fieldName, value);
-            }
-            if (fieldInfo.datetimeLocalField()) {
-                validateDatetimeLocal(fieldName, value);
-            }
-            if (fieldInfo.colorField()) {
-                validateColor(fieldName, value);
-            }
-            if (fieldInfo.numberField()) {
-                validateNumber(fieldName, value);
-            }
-            if (fieldInfo.booleanField()) {
-                validateBoolean(fieldName, value);
-            }
+    /** One check per field semantic; a field can carry several (they are mixins). */
+    private static void validateTypeSemantics(String fieldName, String value, FormDataParser.FieldInfo fieldInfo)
+            throws FormDataParser.ParseException {
+        if (fieldInfo.emailField()) {
+            validateEmail(fieldName, value);
         }
-
-        FormDataParser.FieldConstraints constraints = metadata.constraints(fieldName);
-        if (constraints != null) {
-            validateConstraints(fieldName, value, constraints, fieldInfo);
+        if (fieldInfo.dateField()) {
+            validateDate(fieldName, value);
+        }
+        if (fieldInfo.datetimeLocalField()) {
+            validateDatetimeLocal(fieldName, value);
+        }
+        if (fieldInfo.colorField()) {
+            validateColor(fieldName, value);
+        }
+        if (fieldInfo.numberField()) {
+            validateNumber(fieldName, value);
+        }
+        if (fieldInfo.booleanField()) {
+            validateBoolean(fieldName, value);
         }
     }
 
