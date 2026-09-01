@@ -1,12 +1,19 @@
 import {sortByFormOrder, type FormFields, type SubmissionRow} from '../../FormResults.utils';
 import type {ExportFormat} from './ExportFormat';
 
+// A leading =, +, -, @, tab or CR makes a spreadsheet evaluate the cell as a
+// formula, and these cells carry values typed by anonymous visitors while the
+// file is opened by an editor. Such cells are neutralized with a leading quote
+// (the OWASP CSV-injection mitigation); spreadsheets render it as plain text.
+const FORMULA_TRIGGERS = new Set(['=', '+', '-', '@', '\t', '\r']);
+
 const escapeCsvValue = (value: string): string => {
-    if (value.includes('"') || value.includes(',') || value.includes('\n')) {
-        return `"${value.replace(/"/g, '""')}"`;
+    const neutralized = FORMULA_TRIGGERS.has(value.charAt(0)) ? `'${value}` : value;
+    if (/[",\n\r]/.test(neutralized)) {
+        return `"${neutralized.replace(/"/g, '""')}"`;
     }
 
-    return value;
+    return neutralized;
 };
 
 const toAbsoluteUrl = (url: string): string => {
