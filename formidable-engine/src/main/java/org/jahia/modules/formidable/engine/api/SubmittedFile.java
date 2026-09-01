@@ -26,6 +26,11 @@ public record SubmittedFile(
         return data.clone();
     }
 
+    /** File size in bytes, without cloning the array the way {@link #data()} must. */
+    public int size() {
+        return data.length;
+    }
+
     @Override
     public boolean equals(Object other) {
         if (this == other) {
@@ -52,6 +57,6 @@ public record SubmittedFile(
         return "SubmittedFile[fieldName=" + fieldName
                 + ", originalName=" + originalName
                 + ", mimeType=" + mimeType
-                + ", data=" + Arrays.toString(data) + "]";
+                + ", data=<" + data.length + " bytes>]";
     }
 }
