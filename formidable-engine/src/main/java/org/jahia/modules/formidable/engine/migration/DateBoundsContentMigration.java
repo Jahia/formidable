@@ -4,6 +4,7 @@ import org.jahia.services.content.JCRNodeIteratorWrapper;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRTemplate;
+import org.jahia.services.observation.JahiaEventListener;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
@@ -38,8 +39,12 @@ import java.util.Calendar;
  * <p>Lifecycle: startup migration introduced in 0.4.0 (#202), to be removed in 0.5 — see
  * docs/upgrade-notes.md, "Startup migrations".
  */
-@Component(immediate = true)
-public class DateBoundsContentMigration {
+// Also a JahiaEventListener: the modes and mixins it stamps resolve through the
+// element types, so the engine-activation run fails against pre-0.4 element
+// definitions and the elements-redeploy run is the one that does the work on the
+// engine-first upgrade path (see ElementsRedeployRetriggeredMigration).
+@Component(service = {DateBoundsContentMigration.class, JahiaEventListener.class}, immediate = true)
+public class DateBoundsContentMigration extends ElementsRedeployRetriggeredMigration {
 
     private static final Logger log = LoggerFactory.getLogger(DateBoundsContentMigration.class);
 
@@ -60,6 +65,11 @@ public class DateBoundsContentMigration {
 
     @Activate
     public void activate() {
+        run();
+    }
+
+    @Override
+    void run() {
         for (String workspace : new String[]{"default", "live"}) {
             try {
                 JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, workspace, null, session -> {

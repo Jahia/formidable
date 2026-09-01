@@ -10,7 +10,6 @@ import org.jahia.services.content.nodetypes.ExtendedNodeType;
 import org.jahia.services.content.nodetypes.ExtendedPropertyDefinition;
 import org.jahia.services.content.nodetypes.NodeTypeRegistry;
 import org.jahia.services.observation.JahiaEventListener;
-import org.jahia.services.templates.JahiaTemplateManagerService.TemplatePackageRedeployedEvent;
 import org.jahia.utils.LanguageCodeConverters;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -22,7 +21,6 @@ import javax.jcr.RepositoryException;
 import javax.jcr.Value;
 import javax.jcr.query.Query;
 import java.util.Collection;
-import java.util.EventObject;
 import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Set;
@@ -52,11 +50,7 @@ import java.util.function.BiFunction;
  * docs/upgrade-notes.md, "Startup migrations".
  */
 @Component(service = {ListTitlesContentMigration.class, JahiaEventListener.class}, immediate = true)
-public class ListTitlesContentMigration implements JahiaEventListener<EventObject> {
-
-    @SuppressWarnings("unchecked")
-    private static final Class<EventObject>[] ACCEPTED_EVENT_TYPES = new Class[]{TemplatePackageRedeployedEvent.class};
-    private static final String ELEMENTS_MODULE_ID = "formidable-elements";
+public class ListTitlesContentMigration extends ElementsRedeployRetriggeredMigration {
 
     private static final Logger log = LoggerFactory.getLogger(ListTitlesContentMigration.class);
 
@@ -70,20 +64,7 @@ public class ListTitlesContentMigration implements JahiaEventListener<EventObjec
         run();
     }
 
-    /** The redeploy event carries the module id as its source. */
     @Override
-    public void onEvent(EventObject event) {
-        if (event instanceof TemplatePackageRedeployedEvent && ELEMENTS_MODULE_ID.equals(event.getSource())) {
-            log.info("[ListTitlesContentMigration] {} (re)deployed, checking the form list titles", ELEMENTS_MODULE_ID);
-            run();
-        }
-    }
-
-    @Override
-    public Class<EventObject>[] getEventTypes() {
-        return ACCEPTED_EVENT_TYPES;
-    }
-
     void run() {
         for (String workspace : new String[]{"default", "live"}) {
             try {

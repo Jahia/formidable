@@ -5,6 +5,9 @@ are in-place module installs; only the transitions listed here need attention.
 
 ## 0.3.0 (and earlier) → 0.4.0: formidable-elements must be reinstalled
 
+**Manual procedure required** — this is the only step of the 0.4.0 upgrade
+that is not automatic; see [Upgrade procedure](#upgrade-procedure) below.
+
 ### Symptom
 
 Uploading formidable-elements 0.4.0 on an instance that already runs 0.3.0 (or
@@ -43,7 +46,11 @@ property to its `pom.xml`, its Maven group id is unchanged.
    they inherit from at the moment their own module registers: elements
    installed against an older engine keep that older view of the shared
    properties until they are reinstalled, so the engine must always carry the
-   new definitions before the elements register against them.
+   new definitions before the elements register against them. Since 0.4.0 the
+   ordering is enforced: formidable-elements declares
+   `Jahia-Depends: formidable-engine=0.4`, so it refuses to start until an
+   engine at 0.4 or later is running (and formidable-extended-inputs requires
+   both at 0.4).
 2. In **Administration > Server > Modules and Extensions > Modules**, stop and
    uninstall formidable-elements 0.3.0 (or earlier). **Do not tick the option
    to delete the module content when uninstalling**: that choice erases every
@@ -51,8 +58,31 @@ property to its `pom.xml`, its Maven group id is unchanged.
    submissions are not affected; forms simply stop rendering while the module
    is absent.
 3. Install formidable-elements 0.4.0 (then any extension module, such as
-   formidable-extended-inputs, in the same movement).
-4. Check that forms render again on the site.
+   formidable-extended-inputs, in the same movement). **Untick "Validate
+   module definitions" before uploading**: the previous module's definitions
+   are still registered in the JCR and 0.4.0 removes properties from them
+   (they moved to engine mixins), so the validation rejects the upload as a
+   major definition change:
+
+   > Module upload failed: Major change in definition :
+   > [nodeTypeName=fmdb:inputDatetimeLocal,type=MAJOR,...
+   > propDefDiffs=[[itemName=min,type=MAJOR,operation=REMOVED],...]],
+   > cancel module deployment
+
+   This is expected here — the startup migrations take over for the existing
+   content, so bypassing the check is safe for this upgrade.
+
+   The engine log may also show `Could not migrate node ...` errors dating from
+   step 1: the engine started while the element types still carried their old
+   definitions. They are expected and recovered — every content migration
+   re-runs by itself when formidable-elements is deployed.
+4. **Re-enable formidable-elements on every site that uses it** (site settings,
+   or **jContent > site > Modules**): uninstalling the old module in step 2
+   removed it from the sites' installed modules, and installing the new one does
+   not put it back — until then the module's views are not served for those
+   sites, and published forms render a "Module error" box instead. A server
+   restart does not repair this; re-enabling the module does, immediately.
+5. Check that forms render again on the site.
 
 This is a one-time migration: from 0.4.0 on, the group id is stable and later
 versions install in place as usual — but the ordering rule of step 1 holds for
@@ -60,18 +90,20 @@ every upgrade that changes the engine definitions.
 
 ## 0.3.0 (and earlier) → 0.4.0: choice-field options are migrated at startup
 
+**Nothing to do — the migration is fully automatic.**
+`ChoiceOptionsContentMigration` runs at engine startup, in both workspaces,
+moves the legacy values as-is and stamps the manual mode — published forms
+keep rendering without a republish. The migration is keyed on content state
+(a legacy property is present), so re-running it is a no-op. The migrated
+fields do show up as *modified* (pending publication) in jContent afterwards;
+see [the publication flag note](#migrated-content-shows-as-modified-in-jcontent).
+
 ### What changes
 
 PR [#193](https://github.com/Jahia/formidable/pull/193) unified the per-type
 option properties (`options` on `fmdb:select`, `choices` on `fmdb:radio` /
 `fmdb:checkbox`) into the single `fmdb:options` property carried by the
 `fmdbmix:manualOptions` mixin, as part of the options-source feature.
-
-Existing content needs no manual step: `ChoiceOptionsContentMigration` runs at
-engine startup, in both workspaces, moves the legacy values as-is and stamps
-the manual mode — published forms keep rendering without a republish. The
-migration is keyed on content state (a legacy property is present), so
-re-running it is a no-op.
 
 ### The one case needing attention: importing a 0.3-era export
 
@@ -93,6 +125,15 @@ is edited — saving it incomplete is no longer possible.
 
 ## 0.3.0 (and earlier) → 0.4.0: date bounds become bound modes, migrated at startup
 
+**Nothing to do — the migration is fully automatic.**
+`DateBoundsContentMigration` runs at engine startup, in both workspaces, and
+stamps every field carrying a fixed bound with the `date` mode and its mixin —
+the stored values stay in place, and published forms keep rendering without a
+republish. The migration is keyed on content state (a fixed value without a
+mode), so re-running it is a no-op. The migrated fields do show up as
+*modified* (pending publication) in jContent afterwards; see
+[the publication flag note](#migrated-content-shows-as-modified-in-jcontent).
+
 ### What changes
 
 The fixed `min`/`max` properties of date and datetime-local fields moved from
@@ -102,12 +143,6 @@ datetime) dynamic-fieldset mixins, driven by the new `fmdb:minBoundMode` /
 submits the form — or `relative`, that day shifted by a signed offset). In the
 editor each bound is now a dropdown, and the calendar (or the offset fields)
 only appears for the choice that needs it.
-
-Existing content needs no manual step: `DateBoundsContentMigration` runs at
-engine startup, in both workspaces, and stamps every field carrying a fixed
-bound with the `date` mode and its mixin — the stored values stay in place, and
-published forms keep rendering without a republish. The migration is keyed on
-content state (a fixed value without a mode), so re-running it is a no-op.
 
 Programmatic creation is affected, though: a script or integration (GraphQL,
 JCR API) that used to write a plain `min`/`max` date property on these field
@@ -128,10 +163,25 @@ values on the underlying node), but the rendered date pickers are unconstrained
 and the editor shows the bound dropdowns as "none" until the migration runs
 again. Restart the server (or the formidable-engine bundle) to re-run it.
 
+## Migrated content shows as *modified* in jContent
+
+Every startup migration below writes the same values into **both** workspaces,
+so the live site never waits for a publication — but the default-workspace
+nodes are modified *after* their last publication, and jContent truthfully
+flags the migrated fields and lists as *modified* (pending publication).
+
+Nothing is actually pending: both workspaces already carry identical migrated
+values (verified byte-for-byte). Publishing the flagged content is optional
+and safe — it changes nothing in live and only clears the flag.
+
 ## Startup migrations (to remove in 0.5)
 
 The engine carries one-shot content migrations that run at every module start
-(`@Activate`), on both workspaces, keyed on the content state and idempotent.
+(`@Activate`) **and re-run whenever formidable-elements is (re)deployed**
+(`ElementsRedeployRetriggeredMigration`) — on the engine-first upgrade path the
+engine-activation run fails against the previous element definitions, and the
+elements-redeploy run is the one that does the work. They run on both
+workspaces, keyed on the content state and idempotent.
 They exist for instances upgrading from 0.3.x/0.4.x content and are all to be
 **removed when 0.5.0 is cut** — from then on 0.4.x is the minimum upgrade
 source and every instance has run them at least once. Each class carries a
@@ -142,7 +192,8 @@ source and every instance has run them at least once. Each class carries a
 | `ChoiceOptionsContentMigration` | 0.4.0 (#193) | Legacy `options`/`choices` of choice fields → `fmdb:options` + manual mode |
 | `DateBoundsContentMigration` | 0.4.0 (#202) | Fixed date/datetime bounds without a bound mode → mode `date` + fixed-bound mixins |
 | `TranslationFieldKeyCleanup` | 0.4.0 (#215) | Stray `fieldKey` on `j:translation_*` subnodes of form elements |
-| `ListTitlesContentMigration` | 0.4.x (#231) | Missing `jcr:title` on a form's `fields`/`actions` lists → the type's default label, per site language (in live, published languages only). Also re-runs when formidable-elements is (re)deployed, since the default comes from that module's definitions |
+| `ListTitlesContentMigration` | 0.4.x (#231) | Missing `jcr:title` on a form's `fields`/`actions` lists → the type's default label, per site language (in live, published languages only) |
 
 Removal checklist: delete the class and its unit test, drop the Cypress spec that
-restarts the engine to exercise it, and remove the row above.
+restarts the engine to exercise it, and remove the row above. When the last row
+goes, also delete `ElementsRedeployRetriggeredMigration` and its test.

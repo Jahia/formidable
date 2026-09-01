@@ -4,6 +4,7 @@ import org.jahia.services.content.JCRNodeIteratorWrapper;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRTemplate;
+import org.jahia.services.observation.JahiaEventListener;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
@@ -35,9 +36,13 @@ import javax.jcr.query.Query;
  */
 // Registered as its own service so components whose activation must wait for the
 // migration (ManualOptionsLanguageSyncListener) can express that ordering as a
-// reference instead of relying on the components' header order.
-@Component(service = ChoiceOptionsContentMigration.class, immediate = true)
-public class ChoiceOptionsContentMigration {
+// reference instead of relying on the components' header order. Also a
+// JahiaEventListener: the mixin and properties it stamps resolve through the element
+// types, so the engine-activation run fails against pre-0.4 element definitions and
+// the elements-redeploy run is the one that does the work on the engine-first
+// upgrade path (see ElementsRedeployRetriggeredMigration).
+@Component(service = {ChoiceOptionsContentMigration.class, JahiaEventListener.class}, immediate = true)
+public class ChoiceOptionsContentMigration extends ElementsRedeployRetriggeredMigration {
 
     private static final Logger log = LoggerFactory.getLogger(ChoiceOptionsContentMigration.class);
 
@@ -51,6 +56,11 @@ public class ChoiceOptionsContentMigration {
 
     @Activate
     public void activate() {
+        run();
+    }
+
+    @Override
+    void run() {
         for (String workspace : new String[]{"default", "live"}) {
             try {
                 JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, workspace, null, session -> {
