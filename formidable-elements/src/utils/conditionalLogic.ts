@@ -611,10 +611,17 @@ const toggleDescendantControls = (wrapper: HTMLElement, disabled: boolean) => {
 };
 
 const setWrapperVisibility = (wrapper: HTMLElement, visible: boolean) => {
-	wrapper.style.display = visible ? '' : 'none';
-	wrapper.setAttribute('aria-hidden', visible ? 'false' : 'true');
-	wrapper.dataset.fmdbLogicHidden = visible ? 'false' : 'true';
-	toggleDescendantControls(wrapper, !visible);
+	// A wrapper's own verdict never re-enables it inside a logic-hidden ancestor:
+	// wrappers are processed in document order, so the ancestor's verdict is already
+	// on the DOM. Without this, a satisfied rule on a field inside a hidden step
+	// re-enabled its controls, FormData posted the value, and the server — where
+	// the field inherits the step's verdict — rejected the whole submission.
+	const effectiveVisible = visible &&
+		!wrapper.parentElement?.closest('[data-fmdb-logic-hidden="true"]');
+	wrapper.style.display = effectiveVisible ? '' : 'none';
+	wrapper.setAttribute('aria-hidden', effectiveVisible ? 'false' : 'true');
+	wrapper.dataset.fmdbLogicHidden = effectiveVisible ? 'false' : 'true';
+	toggleDescendantControls(wrapper, !effectiveVisible);
 };
 
 export const applyConditionalLogicVisibility = (form: HTMLFormElement) => {
