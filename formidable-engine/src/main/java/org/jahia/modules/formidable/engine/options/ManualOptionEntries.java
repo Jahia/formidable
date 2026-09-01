@@ -25,6 +25,8 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.OP
  */
 public final class ManualOptionEntries {
 
+    private static final String VALUE_KEY = "value";
+
     private ManualOptionEntries() {
     }
 
@@ -36,7 +38,7 @@ public final class ManualOptionEntries {
      */
     public static String value(String rawOption) {
         try {
-            return new JSONObject(rawOption).optString("value", null);
+            return new JSONObject(rawOption).optString(VALUE_KEY, null);
         } catch (JSONException e) {
             return null;
         }
@@ -50,7 +52,7 @@ public final class ManualOptionEntries {
      * always comes from the master; only the label is the caller's to choose.
      */
     private static String entry(JSONObject master, String label) {
-        return "{\"value\":" + JSONObject.quote(master.optString("value", ""))
+        return "{\"value\":" + JSONObject.quote(master.optString(VALUE_KEY, ""))
                 + ",\"label\":" + JSONObject.quote(label)
                 + ",\"selected\":" + master.optBoolean("selected", false) + "}";
     }
@@ -83,7 +85,7 @@ public final class ManualOptionEntries {
         for (String masterRaw : masterOptions) {
             try {
                 JSONObject master = new JSONObject(masterRaw);
-                aligned.add(entry(master, ownLabel(take(ownByValue, master.optString("value", "")))));
+                aligned.add(entry(master, ownLabel(take(ownByValue, master.optString(VALUE_KEY, "")))));
             } catch (JSONException e) {
                 aligned.add(masterRaw);
             }
@@ -115,7 +117,7 @@ public final class ManualOptionEntries {
         for (String masterRaw : masterOptions) {
             try {
                 JSONObject master = new JSONObject(masterRaw);
-                String label = ownLabel(take(ownByValue, master.optString("value", "")));
+                String label = ownLabel(take(ownByValue, master.optString(VALUE_KEY, "")));
                 if (!label.trim().isEmpty()) {
                     aligned.add(entry(master, label));
                 } else if (replaceUntranslated) {

@@ -13,6 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Clock;
+import java.util.Arrays;
+import java.util.Objects;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -41,7 +43,34 @@ public class FormidableOptionsSourceService {
 
     private static final Logger log = LoggerFactory.getLogger(FormidableOptionsSourceService.class);
 
-    private record CacheEntry(OptionsSource source, String[] options, Instant expiresAt) {}
+    private static final String OPTIONS_NODE_TYPE_PROPERTY = "fmdb:optionsNodeType";
+    private static final String DESCENDANTS_OF_TYPE_QUERY = "SELECT * FROM [%s] WHERE ISDESCENDANTNODE('%s')";
+    private static final String OPTION_VALUE_KEY = "value";
+    private static final String OPTION_LABEL_KEY = "label";
+    private static final String OPTION_SELECTED_KEY = "selected";
+
+    private record CacheEntry(OptionsSource source, String[] options, Instant expiresAt) {
+        // The array component would otherwise get identity-based equality and an
+        // unreadable toString (S6218); entries are content when compared or logged.
+        @Override
+        public boolean equals(Object other) {
+            return this == other || (other instanceof CacheEntry that
+                    && Objects.equals(source, that.source)
+                    && Arrays.equals(options, that.options)
+                    && Objects.equals(expiresAt, that.expiresAt));
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(source, Arrays.hashCode(options), expiresAt);
+        }
+
+        @Override
+        public String toString() {
+            return "CacheEntry[source=" + source + ", options=" + Arrays.toString(options)
+                    + ", expiresAt=" + expiresAt + "]";
+        }
+    }
 
     private final ConcurrentHashMap<String, CacheEntry> cache = new ConcurrentHashMap<>();
 
@@ -126,8 +155,8 @@ public class FormidableOptionsSourceService {
             throw new IllegalStateException("Choice field '" + fieldNode.getPath()
                     + "' is in content mode but no root node is selected");
         }
-        if (!fieldNode.hasProperty("fmdb:optionsNodeType")
-                || fieldNode.getProperty("fmdb:optionsNodeType").getString().isBlank()) {
+        if (!fieldNode.hasProperty(OPTIONS_NODE_TYPE_PROPERTY)
+                || fieldNode.getProperty(OPTIONS_NODE_TYPE_PROPERTY).getString().isBlank()) {
             throw new IllegalStateException("Choice field '" + fieldNode.getPath()
                     + "' is in content mode but no content type is configured");
         }
@@ -140,7 +169,7 @@ public class FormidableOptionsSourceService {
                     + "' cannot be read (deleted, or not published in this workspace)", e);
         }
 
-        return queryContentOptions(root, fieldNode.getProperty("fmdb:optionsNodeType").getString(),
+        return queryContentOptions(root, fieldNode.getProperty(OPTIONS_NODE_TYPE_PROPERTY).getString(),
                 fieldNode.getPath(), maxResults);
     }
 
@@ -181,25 +210,22 @@ public class FormidableOptionsSourceService {
         Map<String, String> labelsByType = new java.util.HashMap<>();
         for (String facet : CONTRIBUTABLE_FACETS) {
             javax.jcr.NodeIterator nodes = contentQueryRunner.run(root.getSession(),
-                    "SELECT * FROM [" + facet + "] WHERE ISDESCENDANTNODE('"
-                            + root.getPath().replace("'", "''") + "')", TYPES_SCAN_BOUND);
+                    DESCENDANTS_OF_TYPE_QUERY.formatted(facet, root.getPath().replace("'", "''")), TYPES_SCAN_BOUND);
             int scanned = 0;
             while (nodes.hasNext() && scanned < TYPES_SCAN_BOUND) {
                 javax.jcr.Node child = nodes.nextNode();
                 scanned++;
-                if (!(child instanceof JCRNodeWrapper content)) {
-                    continue;
-                }
-                String typeName = content.getPrimaryNodeTypeName();
                 // Form elements (any module's, through the fmdbmix:formElement
                 // contract) and form-embeddable components (the form itself, its
                 // reference) as options of a form field are never what a
                 // contributor is after.
-                if (typeName == null
+                if (!(child instanceof JCRNodeWrapper content)
+                        || content.getPrimaryNodeTypeName() == null
                         || content.isNodeType("fmdbmix:formElement")
                         || content.isNodeType("fmdbmix:component")) {
                     continue;
                 }
+                String typeName = content.getPrimaryNodeTypeName();
                 labelsByType.computeIfAbsent(typeName, name -> {
                     String label = typeLabelResolver.apply(name, locale);
                     return label != null && !label.isBlank() ? label : name;
@@ -219,17 +245,16 @@ public class FormidableOptionsSourceService {
         return labelsByType.entrySet().stream()
                 .sorted(Map.Entry.comparingByValue())
                 .map(entry -> new JSONObject(Map.of(
-                        "value", entry.getKey(),
-                        "label", entry.getValue(),
-                        "selected", false)).toString())
+                        OPTION_VALUE_KEY, entry.getKey(),
+                        OPTION_LABEL_KEY, entry.getValue(),
+                        OPTION_SELECTED_KEY, false)).toString())
                 .toArray(String[]::new);
     }
 
     private boolean countsAboveCap(JCRNodeWrapper root, String nodeType, int maxResults) {
         try {
             javax.jcr.NodeIterator nodes = contentQueryRunner.run(root.getSession(),
-                    "SELECT * FROM [" + nodeType + "] WHERE ISDESCENDANTNODE('"
-                            + root.getPath().replace("'", "''") + "')", maxResults + 1L);
+                    DESCENDANTS_OF_TYPE_QUERY.formatted(nodeType, root.getPath().replace("'", "''")), maxResults + 1L);
             int count = 0;
             while (nodes.hasNext() && count <= maxResults) {
                 nodes.nextNode();
@@ -299,8 +324,7 @@ public class FormidableOptionsSourceService {
         javax.jcr.NodeIterator nodes;
         try {
             nodes = contentQueryRunner.run(root.getSession(),
-                    "SELECT * FROM [" + nodeType + "] WHERE ISDESCENDANTNODE('"
-                            + root.getPath().replace("'", "''") + "')", maxResults + 1L);
+                    DESCENDANTS_OF_TYPE_QUERY.formatted(nodeType, root.getPath().replace("'", "''")), maxResults + 1L);
         } catch (javax.jcr.RepositoryException e) {
             // Unknown types surface as InvalidQueryException or NamespaceException
             // depending on which half of the name is wrong.
@@ -328,9 +352,9 @@ public class FormidableOptionsSourceService {
         entries.sort(java.util.Comparator.comparing(entry -> entry[0]));
         return entries.stream()
                 .map(entry -> new JSONObject(Map.of(
-                        "value", entry[0],
-                        "label", entry[1],
-                        "selected", false)).toString())
+                        OPTION_VALUE_KEY, entry[0],
+                        OPTION_LABEL_KEY, entry[1],
+                        OPTION_SELECTED_KEY, false)).toString())
                 .toArray(String[]::new);
     }
 
@@ -364,9 +388,9 @@ public class FormidableOptionsSourceService {
                 String value = category.getName();
                 String label = category.getDisplayableName();
                 options.add(new JSONObject(Map.of(
-                        "value", value,
-                        "label", label != null && !label.isEmpty() ? label : value,
-                        "selected", false)).toString());
+                        OPTION_VALUE_KEY, value,
+                        OPTION_LABEL_KEY, label != null && !label.isEmpty() ? label : value,
+                        OPTION_SELECTED_KEY, false)).toString());
             }
         }
 
@@ -442,7 +466,7 @@ public class FormidableOptionsSourceService {
             String label = choice.getDisplayName() != null && !choice.getDisplayName().isEmpty()
                     ? choice.getDisplayName()
                     : value;
-            return new JSONObject(Map.of("value", value, "label", label, "selected", false)).toString();
+            return new JSONObject(Map.of(OPTION_VALUE_KEY, value, "label", label, "selected", false)).toString();
         } catch (Exception e) {
             log.debug("[FormidableOptionsSourceService] Skipping unreadable choice value from source '{}'",
                     source.id(), e);

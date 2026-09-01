@@ -440,7 +440,7 @@ class FormidableOptionsSourceServiceTest {
         return service;
     }
 
-    private static JCRNodeWrapper contentNode(String path, String title) throws Exception {
+    private static JCRNodeWrapper contentNode(String path, String title) {
         JCRNodeWrapper node = mock(JCRNodeWrapper.class);
         when(node.getPath()).thenReturn(path);
         when(node.getName()).thenReturn(path.substring(path.lastIndexOf('/') + 1));

@@ -233,31 +233,35 @@ public class FormidableConfigService {
         }
         for (String entry : raw.split("[\n\r]+")) {
             String trimmed = entry.trim();
-            if (trimmed.isEmpty()) {
-                continue;
+            if (!trimmed.isEmpty()) {
+                parseOptionsSourceEntry(trimmed, result);
             }
-            String[] parts = trimmed.split("\\|", 4);
-            if (parts.length < 3) {
-                log.warn("[FormidableConfigService] Skipping malformed optionsSources entry "
-                        + "(expected id|Label|initializerKey[|param]): '{}'", trimmed);
-                continue;
-            }
-            String id = parts[0].trim();
-            String label = parts[1].trim();
-            String initializerKey = parts[2].trim();
-            String param = parts.length == 4 ? parts[3].trim() : "";
-            if (id.isEmpty() || label.isEmpty() || initializerKey.isEmpty()) {
-                log.warn("[FormidableConfigService] Skipping optionsSources entry with a blank "
-                        + "id, label or initializerKey: '{}'", trimmed);
-                continue;
-            }
-            if (result.containsKey(id)) {
-                log.warn("[FormidableConfigService] Duplicate optionsSources id '{}', keeping first occurrence.", id);
-                continue;
-            }
-            result.put(id, new OptionsSource(id, label, initializerKey, param));
         }
         return result;
+    }
+
+    /** One config line: validated, logged and skipped on any defect, kept otherwise. */
+    private static void parseOptionsSourceEntry(String trimmed, Map<String, OptionsSource> result) {
+        String[] parts = trimmed.split("\\|", 4);
+        if (parts.length < 3) {
+            log.warn("[FormidableConfigService] Skipping malformed optionsSources entry "
+                    + "(expected id|Label|initializerKey[|param]): '{}'", trimmed);
+            return;
+        }
+        String id = parts[0].trim();
+        String label = parts[1].trim();
+        String initializerKey = parts[2].trim();
+        String param = parts.length == 4 ? parts[3].trim() : "";
+        if (id.isEmpty() || label.isEmpty() || initializerKey.isEmpty()) {
+            log.warn("[FormidableConfigService] Skipping optionsSources entry with a blank "
+                    + "id, label or initializerKey: '{}'", trimmed);
+            return;
+        }
+        if (result.containsKey(id)) {
+            log.warn("[FormidableConfigService] Duplicate optionsSources id '{}', keeping first occurrence.", id);
+            return;
+        }
+        result.put(id, new OptionsSource(id, label, initializerKey, param));
     }
 
     /**

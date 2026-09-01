@@ -182,22 +182,7 @@ public final class FormLogicSyncService {
 
         for (Value value : values) {
             String rawJson = value.getString();
-            if (rawJson == null || rawJson.isBlank()) {
-                droppedLeftovers++;
-                continue;
-            }
-
-            // Rules whose target was never chosen can only hide the field: they are
-            // removed at save. Corrupt entries are kept untouched rather than lost.
-            JSONObject parsedRule = null;
-            try {
-                parsedRule = new JSONObject(rawJson);
-            } catch (RuntimeException e) {
-                log.debug("[FormLogicSync] Keeping unparseable logics entry on '{}' untouched: {}",
-                        targetNode.getPath(), e.getMessage());
-            }
-
-            if (parsedRule != null && FormLogicRuleCleanup.isTargetlessLeftover(parsedRule)) {
+            if (isDroppedLeftover(rawJson, targetNode.getPath())) {
                 droppedLeftovers++;
                 continue;
             }
@@ -248,6 +233,26 @@ public final class FormLogicSyncService {
         }
 
         return null;
+    }
+
+
+    /**
+     * Rules whose target was never chosen can only hide the field: they are removed
+     * at save (blank entries alike). Corrupt entries are kept untouched rather than
+     * lost.
+     */
+    private static boolean isDroppedLeftover(String rawJson, String targetPath) {
+        if (rawJson == null || rawJson.isBlank()) {
+            return true;
+        }
+        JSONObject parsedRule = null;
+        try {
+            parsedRule = new JSONObject(rawJson);
+        } catch (RuntimeException e) {
+            log.debug("[FormLogicSync] Keeping unparseable logics entry on '{}' untouched: {}",
+                    targetPath, e.getMessage());
+        }
+        return parsedRule != null && FormLogicRuleCleanup.isTargetlessLeftover(parsedRule);
     }
 
     private static List<JCRNodeWrapper> collectLogicElements(JCRNodeWrapper node) throws RepositoryException {

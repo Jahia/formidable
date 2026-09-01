@@ -63,8 +63,11 @@ class FormFieldMetadataCollector {
         /**
          * @return the options as JSON-encoded strings, or null when the field does not
          *         use an options source
+         * @throws RepositoryException on repository access failure; runtime exceptions
+         *         from the source itself propagate as-is — the caller treats every
+         *         failure alike (the field becomes unresolvable, D11)
          */
-        String[] resolve(JCRNodeWrapper fieldNode) throws Exception;
+        String[] resolve(JCRNodeWrapper fieldNode) throws RepositoryException;
     }
 
     // Without a resolver, a sourced field behaves as unresolvable: reject rather than accept blindly.
@@ -472,15 +475,14 @@ class FormFieldMetadataCollector {
             // T23:59:30 value the "until the end of the submission day" contract
             // allows.
             boolean relative = "relative".equals(mode);
-            long amount = relative
-                    ? JcrProps.longValue(node, minBound ? "fmdb:minRelativeAmount" : "fmdb:maxRelativeAmount", 0)
-                    : 0;
-            String unit = relative
-                    ? JcrProps.string(node, minBound ? "fmdb:minRelativeUnit" : "fmdb:maxRelativeUnit", "days")
-                    : "days";
+            String amountProperty = minBound ? "fmdb:minRelativeAmount" : "fmdb:maxRelativeAmount";
+            String unitProperty = minBound ? "fmdb:minRelativeUnit" : "fmdb:maxRelativeUnit";
+            long amount = relative ? JcrProps.longValue(node, amountProperty, 0) : 0;
+            String unit = relative ? JcrProps.string(node, unitProperty, "days") : "days";
             java.time.LocalDate day = shiftDay(
                     java.time.LocalDate.now(java.time.ZoneOffset.ofHours(minBound ? -12 : 14)), amount, unit);
-            return withTime ? day + (minBound ? "T00:00" : "T23:59:59.999") : day.toString();
+            String dayStartOrEnd = minBound ? "T00:00" : "T23:59:59.999";
+            return withTime ? day + dayStartOrEnd : day.toString();
         }
 
         if ("date".equals(mode)) {

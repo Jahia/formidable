@@ -18,6 +18,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -711,7 +712,7 @@ class FormLogicSyncServiceTest {
         assertTrue(FormLogicSyncService.remapFieldKeysAfterCopy(copiedFieldset, form));
 
         String newSourceKey = copiedSource.getProperty("fieldKey").getString();
-        assertTrue(!"source-key".equals(newSourceKey), "Copied source must receive a fresh fieldKey");
+        assertNotEquals("source-key", newSourceKey, "Copied source must receive a fresh fieldKey");
         assertEquals("source-key", originalSource.getProperty("fieldKey").getString(),
                 "Original source must keep its fieldKey");
 

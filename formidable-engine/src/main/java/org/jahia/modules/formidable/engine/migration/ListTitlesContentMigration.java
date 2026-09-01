@@ -161,14 +161,12 @@ public class ListTitlesContentMigration extends ElementsRedeployRetriggeredMigra
         boolean touched = false;
         for (String language : languages) {
             Locale locale = LanguageCodeConverters.languageCodeToLocale(language);
-            if (onlyExistingTranslations && !list.hasI18N(locale)) {
-                continue;
-            }
-            if (hasTitle(list, locale)) {
-                continue;
-            }
-            String title = defaultTitle.apply(list.getPrimaryNodeTypeName(), locale);
+            String title = hasTitle(list, locale) || (onlyExistingTranslations && !list.hasI18N(locale))
+                    ? null
+                    : defaultTitle.apply(list.getPrimaryNodeTypeName(), locale);
             if (StringUtils.isBlank(title)) {
+                // Already titled, never published in that language, or no default for
+                // the type: the language is left alone.
                 continue;
             }
             if (!touched) {

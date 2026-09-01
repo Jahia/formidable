@@ -133,7 +133,7 @@ class FormDataParserAllowlistTest {
     }
 
     @Test
-    void aFilePartUnderATextFieldNameIsRejected() throws Exception {
+    void aFilePartUnderATextFieldNameIsRejected() {
         // A file part named after a declared TEXT field would bypass every text check
         // (choice allowlist included) and land in the file store of a form without file fields.
         FormDataParser.ParseException error = org.junit.jupiter.api.Assertions.assertThrows(
@@ -149,7 +149,7 @@ class FormDataParserAllowlistTest {
     }
 
     @Test
-    void aTextPartUnderAFileFieldNameIsRejected() throws Exception {
+    void aTextPartUnderAFileFieldNameIsRejected() {
         FormDataParser.ParseException error = org.junit.jupiter.api.Assertions.assertThrows(
                 FormDataParser.ParseException.class,
                 () -> FormDataParser.parseAll(
