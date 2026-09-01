@@ -112,7 +112,10 @@
         <!--
           Tika 3.x is embedded on purpose instead of using Jahia's platform-provided Tika line.
           Rationale:
-          - the upload validator relies on content-only MIME detection, without filename hints
+          - the upload validator relies on Tika's filename-aware detection (detect(data, name)):
+            the content still wins over the extension hint, so a mislabeled payload (HTML named
+            .csv, SVG named .csv) is detected by its bytes — the hint only disambiguates formats
+            content-only detection reports too generically (CSV, Matroska/WebM containers)
           - this module was validated against Tika 3.x detection behavior for that use case
           - OSGi isolates the embedded Tika jar from the platform-provided Tika packages
           Platform-provided libraries that Tika can reuse must stay explicit in this pom.

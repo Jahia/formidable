@@ -36,4 +36,15 @@ class SubmittedFileTest {
         assertArrayEquals(new byte[]{4, 5, 6}, file.data());
         assertNotSame(firstRead, file.data());
     }
+
+    @Test
+    void sizeReadsTheLengthWithoutCloningAndToStringNeverDumpsTheBytes() {
+        var file = new SubmittedFile("upload", "report.pdf", "application/pdf", new byte[]{1, 2, 3});
+
+        // Expected outcome: size() exposes the byte count (data() clones on every call,
+        // so size checks must not go through it), and toString stays log-safe.
+        org.junit.jupiter.api.Assertions.assertEquals(3, file.size());
+        org.junit.jupiter.api.Assertions.assertTrue(file.toString().contains("<3 bytes>"));
+        org.junit.jupiter.api.Assertions.assertFalse(file.toString().contains("1, 2, 3"));
+    }
 }

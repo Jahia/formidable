@@ -183,11 +183,13 @@ public class SendEmailContentFormAction implements FormAction {
         Map<String, DataHandler> attachments = new LinkedHashMap<>();
 
         for (SubmittedFile file : files) {
-            if (file.data().length > effectiveMaxBytes) {
+            // size() reads the stored length; data() clones the whole array, so it is
+            // called once per kept attachment, never for a mere size check.
+            if (file.size() > effectiveMaxBytes) {
                 log.info(
                         "Skipping attachment '{}' ({} bytes) for fmdb:emailContentAction: exceeds effective limit {} bytes.",
                         file.originalName(),
-                        file.data().length,
+                        file.size(),
                         effectiveMaxBytes
                 );
                 continue;

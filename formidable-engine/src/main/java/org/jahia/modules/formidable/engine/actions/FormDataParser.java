@@ -31,7 +31,7 @@ import java.util.Set;
  *   3. Field whitelist — undeclared fields skipped before any read
  *   4. Text field validation — choice match, format (email/date/color), constraints (required/min/max/length/pattern)
  *   5. Filename sanitization (path components removed; JCR-reserved characters normalized)
- *   6. MIME type detection via Apache Tika (content-only; filename excluded from enforcement)
+ *   6. MIME type detection via Apache Tika, filename-aware (content still wins over the extension hint)
  *   7. MIME type allowlist check — per-field 'accept' takes priority over global cfg fallback
  *
  * Plain-text fields are validated on input and preserved as submitted. XSS protection is
@@ -200,6 +200,11 @@ public class FormDataParser {
             return data.clone();
         }
 
+        /** File size in bytes, without cloning the array the way {@link #data()} must. */
+        public int size() {
+            return data.length;
+        }
+
         @Override
         public boolean equals(Object other) {
             if (this == other) {
@@ -226,7 +231,7 @@ public class FormDataParser {
             return "FormFile[fieldName=" + fieldName
                     + ", originalName=" + originalName
                     + ", mimeType=" + mimeType
-                    + ", data=" + Arrays.toString(data) + "]";
+                    + ", data=<" + data.length + " bytes>]";
         }
     }
 
