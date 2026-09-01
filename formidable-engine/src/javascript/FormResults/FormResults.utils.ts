@@ -123,7 +123,6 @@ export type GqlSubmissionNode = {
     origin?: {value?: string};
     locale?: {value?: string};
     referer?: {value?: string};
-    userAgent?: {value?: string};
     data?: {nodes?: Array<{properties?: SubmissionProperty[]}>};
     files?: {nodes?: Array<{children?: {nodes?: Array<{name: string; children?: {nodes?: GqlFileNode[]}}>}}>};
 } & Record<string, unknown>;
