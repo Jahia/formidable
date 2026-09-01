@@ -6,17 +6,11 @@ import '~/design/logic.css';
 import '~/design/authoring.css';
 import {type FormProps} from './types';
 import Spinner from '~/design/Spinner';
-import DOMPurify from 'dompurify';
 import Captcha from './Captcha.client';
 import {useTranslation} from "react-i18next";
 import {useMultiStep} from '~/hooks/useMultiStep';
 import {useCustomFormValidation, validateInputs} from '~/hooks/useCustomFormValidation';
 import {useFormSubmission} from '~/hooks/useFormSubmission';
-
-const sanitize = (html: string): string => {
-	if (typeof window === 'undefined') return html;
-	return DOMPurify.sanitize(html);
-};
 
 // D10: a required sourced choice field whose source failed renders this marker
 // server-side; the form must not be submittable while it is present.
@@ -120,8 +114,12 @@ export default function Form({
 	};
 
 	const hasMessage = message && messageType;
-	const sanitizedIntro = intro ? sanitize(intro) : '';
-	const sanitizedMessage = message ? sanitize(message) : '';
+	// Contributor rich text is trusted, as in every other view of the module (step
+	// intro, compact view, help text) and everywhere else in Jahia. The previous
+	// client-only sanitize was a no-op on the SSR pass that actually produces the
+	// markup, so it could only cause hydration mismatches, not safety.
+	const introHtml = intro ?? '';
+	const messageHtml = message ?? '';
 
 	return (
 		<>
@@ -136,7 +134,7 @@ export default function Form({
 			{hasMessage && !isLoading &&
 				<div className={clsx(`fmdb-message fmdb-message-${messageType}`, classes.message)} role="alert">
 					<div className="fmdb-message-content">
-						<div dangerouslySetInnerHTML={{__html: sanitizedMessage}}/>
+						<div dangerouslySetInnerHTML={{__html: messageHtml}}/>
 						{messageType === 'success' && showNewFormBtn && (
 							<button
 								type="button"
@@ -171,7 +169,7 @@ export default function Form({
 				onSubmit={e => handleSubmit(e, () => validateInputs(e.currentTarget))}
 			>
 				{intro && (
-					<header className="fmdb-form-intro" dangerouslySetInnerHTML={{__html: sanitizedIntro}}/>
+					<header className="fmdb-form-intro" dangerouslySetInnerHTML={{__html: introHtml}}/>
 				)}
 
 				{isMultiStep && showStepsNav && (
