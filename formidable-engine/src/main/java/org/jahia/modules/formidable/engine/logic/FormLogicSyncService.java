@@ -174,11 +174,38 @@ public final class FormLogicSyncService {
         }
 
         FormLogicSourceResolver resolver = FormLogicSourceResolver.forTarget(formNode, targetNode);
+        RuleSweep sweep = sweepRules(values, resolver, targetNode);
+        boolean updated = keyAssigned;
+
+        if (sweep.jsonUpdated() || sweep.droppedLeftovers() > 0) {
+            targetNode.setProperty(LOGICS_PROPERTY, sweep.updatedJsonValues().toArray(new String[0]));
+            updated = true;
+        }
+
+        if (sweep.droppedLeftovers() > 0) {
+            log.info("[FormLogicSync] Removed {} targetless logic rule(s) on '{}'",
+                    sweep.droppedLeftovers(), targetNode.getPath());
+        }
+
+        Set<String> orphans = FormLogicReferenceStore.findOrphanLogicIds(targetNode, sweep.activeLogicIds());
+        if (!orphans.isEmpty()) {
+            FormLogicReferenceStore.removeLogicsSrcNodes(targetNode, orphans);
+            updated = true;
+        }
+
+        return updated;
+    }
+
+    /** What one pass over the stored rules produced: the values to write back and the bookkeeping. */
+    private record RuleSweep(List<String> updatedJsonValues, Set<String> activeLogicIds,
+                             boolean jsonUpdated, int droppedLeftovers) {}
+
+    private static RuleSweep sweepRules(Value[] values, FormLogicSourceResolver resolver, JCRNodeWrapper targetNode)
+            throws RepositoryException {
         List<String> updatedJsonValues = new ArrayList<>();
         Set<String> activeLogicIds = new HashSet<>();
         boolean jsonUpdated = false;
         int droppedLeftovers = 0;
-        boolean updated = keyAssigned;
 
         for (Value value : values) {
             String rawJson = value.getString();
@@ -206,23 +233,7 @@ public final class FormLogicSyncService {
             updatedJsonValues.add(entry.toJsonString());
         }
 
-        if (jsonUpdated || droppedLeftovers > 0) {
-            targetNode.setProperty(LOGICS_PROPERTY, updatedJsonValues.toArray(new String[0]));
-            updated = true;
-        }
-
-        if (droppedLeftovers > 0) {
-            log.info("[FormLogicSync] Removed {} targetless logic rule(s) on '{}'",
-                    droppedLeftovers, targetNode.getPath());
-        }
-
-        Set<String> orphans = FormLogicReferenceStore.findOrphanLogicIds(targetNode, activeLogicIds);
-        if (!orphans.isEmpty()) {
-            FormLogicReferenceStore.removeLogicsSrcNodes(targetNode, orphans);
-            updated = true;
-        }
-
-        return updated;
+        return new RuleSweep(updatedJsonValues, activeLogicIds, jsonUpdated, droppedLeftovers);
     }
 
     static JCRNodeWrapper findFormAncestor(JCRNodeWrapper node) throws RepositoryException {

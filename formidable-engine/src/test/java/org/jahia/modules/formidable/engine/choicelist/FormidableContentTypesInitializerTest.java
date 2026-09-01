@@ -120,9 +120,10 @@ class FormidableContentTypesInitializerTest {
                 .thenThrow(new javax.jcr.RepositoryException("gone"));
 
         var initializer = initializerWith(service);
+        List<ChoiceListValue> noValues = List.of();
         Map<String, Object> context = Map.of(FormidableContentTypesInitializer.ROOT_PROPERTY, List.of("root-uuid"));
 
         assertThrows(IllegalStateException.class,
-                () -> initializer.getChoiceListValues(null, null, List.of(), Locale.ENGLISH, context));
+                () -> initializer.getChoiceListValues(null, null, noValues, Locale.ENGLISH, context));
     }
 }

@@ -205,32 +205,37 @@ public class FormidableOptionsSourceService {
         return queryContentTypes(readRoot(session, rootIdentifier), locale, config.getOptionsQueryMaxResults());
     }
 
+    /** One facet scan: every contributable descendant type gets a labeled entry. */
+    private void scanFacetTypes(JCRNodeWrapper root, String facet, Locale locale, Map<String, String> labelsByType)
+            throws javax.jcr.RepositoryException {
+        javax.jcr.NodeIterator nodes = contentQueryRunner.run(root.getSession(),
+                DESCENDANTS_OF_TYPE_QUERY.formatted(facet, root.getPath().replace("'", "''")), TYPES_SCAN_BOUND);
+        int scanned = 0;
+        while (nodes.hasNext() && scanned < TYPES_SCAN_BOUND) {
+            javax.jcr.Node child = nodes.nextNode();
+            scanned++;
+            // Form elements (any module's, through the fmdbmix:formElement
+            // contract) and form-embeddable components (the form itself, its
+            // reference) as options of a form field are never what a
+            // contributor is after.
+            if (!(child instanceof JCRNodeWrapper content)
+                    || content.getPrimaryNodeTypeName() == null
+                    || content.isNodeType("fmdbmix:formElement")
+                    || content.isNodeType("fmdbmix:component")) {
+                continue;
+            }
+            labelsByType.computeIfAbsent(content.getPrimaryNodeTypeName(), name -> {
+                String label = typeLabelResolver.apply(name, locale);
+                return label != null && !label.isBlank() ? label : name;
+            });
+        }
+    }
+
     String[] queryContentTypes(JCRNodeWrapper root, Locale locale, int maxResults)
             throws javax.jcr.RepositoryException {
         Map<String, String> labelsByType = new java.util.HashMap<>();
         for (String facet : CONTRIBUTABLE_FACETS) {
-            javax.jcr.NodeIterator nodes = contentQueryRunner.run(root.getSession(),
-                    DESCENDANTS_OF_TYPE_QUERY.formatted(facet, root.getPath().replace("'", "''")), TYPES_SCAN_BOUND);
-            int scanned = 0;
-            while (nodes.hasNext() && scanned < TYPES_SCAN_BOUND) {
-                javax.jcr.Node child = nodes.nextNode();
-                scanned++;
-                // Form elements (any module's, through the fmdbmix:formElement
-                // contract) and form-embeddable components (the form itself, its
-                // reference) as options of a form field are never what a
-                // contributor is after.
-                if (!(child instanceof JCRNodeWrapper content)
-                        || content.getPrimaryNodeTypeName() == null
-                        || content.isNodeType("fmdbmix:formElement")
-                        || content.isNodeType("fmdbmix:component")) {
-                    continue;
-                }
-                String typeName = content.getPrimaryNodeTypeName();
-                labelsByType.computeIfAbsent(typeName, name -> {
-                    String label = typeLabelResolver.apply(name, locale);
-                    return label != null && !label.isBlank() ? label : name;
-                });
-            }
+            scanFacetTypes(root, facet, locale, labelsByType);
         }
 
         // Cap forewarning: a type whose contents already exceed the render-time cap
@@ -466,7 +471,7 @@ public class FormidableOptionsSourceService {
             String label = choice.getDisplayName() != null && !choice.getDisplayName().isEmpty()
                     ? choice.getDisplayName()
                     : value;
-            return new JSONObject(Map.of(OPTION_VALUE_KEY, value, "label", label, "selected", false)).toString();
+            return new JSONObject(Map.of(OPTION_VALUE_KEY, value, OPTION_LABEL_KEY, label, OPTION_SELECTED_KEY, false)).toString();
         } catch (Exception e) {
             log.debug("[FormidableOptionsSourceService] Skipping unreadable choice value from source '{}'",
                     source.id(), e);
