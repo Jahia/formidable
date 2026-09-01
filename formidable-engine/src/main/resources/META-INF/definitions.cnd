@@ -216,10 +216,7 @@ orderable
 
 [fmdb:formSubmission] > jmix:unversionedBasemetadata, jmix:observable
  - origin (string) mandatory indexed=no
- - ipAddress (string) indexed=no
  - locale (string) indexed=no
- - submitterUsername (string) indexed=no
- - userAgent (string) indexed=no
  - referer (string) indexed=no
  + data (fmdb:submissionData) = fmdb:submissionData autocreated
  + files (jnt:folder) = jnt:folder

@@ -11,7 +11,6 @@ const submission = (fieldValues: Array<{name: string; values: string[]}>): Submi
     created: '2026-09-01',
     origin: null,
     locale: 'en',
-    userAgent: null,
     referer: null,
     fieldValues,
     files: []

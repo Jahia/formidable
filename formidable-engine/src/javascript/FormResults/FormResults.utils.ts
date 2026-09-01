@@ -47,7 +47,6 @@ export interface SubmissionRow {
     created: string;
     origin: string | null;
     locale: string | null;
-    userAgent: string | null;
     referer: string | null;
     fieldValues: SubmissionFieldValue[];
     files: SubmissionFile[];
@@ -148,7 +147,6 @@ export function parseSubmissionNode(node: any, fieldOrder: string[] = []): Submi
         created: node.created?.value ?? '',
         origin: node.origin?.value ?? null,
         locale: node.locale?.value ?? null,
-        userAgent: node.userAgent?.value ?? null,
         referer: node.referer?.value ?? null,
         fieldValues: sortByFormOrder(fieldValues, field => field.name, fieldOrder),
         files: sortByFormOrder(files, file => file.fieldName, fieldOrder)
