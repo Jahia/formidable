@@ -51,6 +51,19 @@ property to its `pom.xml`, its Maven group id is unchanged.
    `Jahia-Depends: formidable-engine=0.4`, so it refuses to start until an
    engine at 0.4 or later is running (and formidable-extended-inputs requires
    both at 0.4).
+
+   **Untick "Validate module definitions" for this upload too**: 0.4.0 removes
+   three never-populated submission properties from the engine's own types, so
+   the validation rejects the upload as a major definition change (verified
+   against a 0.3-era instance):
+
+   > Module upload failed: Major change in definition :
+   > [nodeTypeName=fmdb:formSubmission,type=MAJOR,
+   > propDefDiffs=[[itemName=ipAddress,type=MAJOR,operation=REMOVED],...]],
+   > cancel module deployment
+
+   Expected here for the same reason as in step 3: no stored content ever
+   carried these properties, so there is nothing the change could affect.
 2. In **Administration > Server > Modules and Extensions > Modules**, stop and
    uninstall formidable-elements 0.3.0 (or earlier). **Do not tick the option
    to delete the module content when uninstalling**: that choice erases every
@@ -75,7 +88,10 @@ property to its `pom.xml`, its Maven group id is unchanged.
    The engine log may also show `Could not migrate node ...` errors dating from
    step 1: the engine started while the element types still carried their old
    definitions. They are expected and recovered — every content migration
-   re-runs by itself when formidable-elements is deployed.
+   re-runs by itself when formidable-elements is deployed. (The platform fires
+   the same redeploy event when a module *stops*, so uninstalling the elements
+   in step 2 re-runs the migrations too — some of that noise dates from step 2;
+   the migrations are keyed on content state, so those runs are no-ops.)
 4. **Re-enable formidable-elements on every site that uses it** (site settings,
    or **jContent > site > Modules**): uninstalling the old module in step 2
    removed it from the sites' installed modules, and installing the new one does

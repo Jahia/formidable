@@ -9,10 +9,12 @@ import javax.servlet.http.HttpServletRequest;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -108,7 +110,7 @@ class FormDataParserAllowlistTest {
                 new FormDataParser.FieldMetadata(Map.of("fullName", plainTextField()))
         );
 
-        assertEquals(Map.of("fullName", java.util.List.of("Ada")), result.parameters());
+        assertEquals(Map.of("fullName", List.of("Ada")), result.parameters());
     }
 
     /** One text part and one FILE part (a filename in its disposition), same boundary. */
@@ -136,7 +138,7 @@ class FormDataParserAllowlistTest {
     void aFilePartUnderATextFieldNameIsRejected() {
         // A file part named after a declared TEXT field would bypass every text check
         // (choice allowlist included) and land in the file store of a form without file fields.
-        FormDataParser.ParseException error = org.junit.jupiter.api.Assertions.assertThrows(
+        FormDataParser.ParseException error = assertThrows(
                 FormDataParser.ParseException.class,
                 () -> FormDataParser.parseAll(
                         multipartRequestWithFilePart("other", "ok", "fullName"),
@@ -144,20 +146,20 @@ class FormDataParserAllowlistTest {
                         new FormDataParser.FieldMetadata(Map.of(
                                 "other", plainTextField(), "fullName", plainTextField()))
                 ));
-        org.junit.jupiter.api.Assertions.assertEquals(
+        assertEquals(
                 FormDataParser.ParseException.FailureType.VALIDATION, error.failureType());
     }
 
     @Test
     void aTextPartUnderAFileFieldNameIsRejected() {
-        FormDataParser.ParseException error = org.junit.jupiter.api.Assertions.assertThrows(
+        FormDataParser.ParseException error = assertThrows(
                 FormDataParser.ParseException.class,
                 () -> FormDataParser.parseAll(
                         multipartRequest("attachment", "not-a-file"),
                         permissiveConfig(),
                         new FormDataParser.FieldMetadata(Map.of("attachment", fileField()))
                 ));
-        org.junit.jupiter.api.Assertions.assertEquals(
+        assertEquals(
                 FormDataParser.ParseException.FailureType.VALIDATION, error.failureType());
     }
 }
