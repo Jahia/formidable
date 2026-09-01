@@ -280,4 +280,21 @@
             </plugin>
         </plugins>
     </build>
+    <profiles>
+        <profile>
+            <id>release-prepare</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-scm-plugin</artifactId>
+                        <configuration>
+                            <!-- The inherited sync-version execution rewrites it -->
+                            <includes>package.json</includes>
+                            <message>chore(release): Prepare release ${project.version}</message>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
