@@ -9,6 +9,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.jcr.RepositoryException;
 
+import java.util.Locale;
+
 /**
  * Creates the fmdb-results-reader role at module activation if it does not already exist.
  * The role is a child of the built-in reader role so it inherits jcr:read permissions.
@@ -50,13 +52,11 @@ public class FormResultsRoleInitializer {
     private static void addI18nTitles(JCRNodeWrapper role) throws RepositoryException {
         role.addMixin("mix:title");
 
-        JCRNodeWrapper en = role.addNode("j:translation_en", "jnt:translation");
-        en.setProperty("jcr:language", "en");
-        en.setProperty("jcr:title", "Form Results Reader");
-
-        JCRNodeWrapper fr = role.addNode("j:translation_fr", "jnt:translation");
-        fr.setProperty("jcr:language", "fr");
-        fr.setProperty("jcr:title", "Lecteur des résultats de formulaire");
+        // Through the i18n accessor, never as raw j:translation_* subnodes: nodes written
+        // that way stay invisible to locale-bound sessions (getNodes("j:translation_*")
+        // returns nothing there), which is exactly how such titles break at render time.
+        role.getOrCreateI18N(Locale.ENGLISH).setProperty("jcr:title", "Form Results Reader");
+        role.getOrCreateI18N(Locale.FRENCH).setProperty("jcr:title", "Lecteur des r\u00e9sultats de formulaire");
     }
 }
 
