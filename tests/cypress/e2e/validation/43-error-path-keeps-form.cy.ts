@@ -20,8 +20,10 @@ describe('Validation - 43 A failed submission keeps the form on screen', () => {
 			[getInputTextNode({name: 'fullname', title: 'Full name'})]
 		).then(({livePath}) => {
 			// First submission fails: the server is unreachable for one request.
-			cy.intercept('POST', `**${DIRECT_SUBMIT_PATH}**`, {times: 1}, {statusCode: 503, body: {}})
-				.as('failedSubmit');
+			cy.intercept(
+				{method: 'POST', url: `**${DIRECT_SUBMIT_PATH}**`, times: 1},
+				{statusCode: 503, body: {}}
+			).as('failedSubmit');
 
 			const form = visitLiveForm(livePath);
 			form.getTextInput('fullname').type('Ada Lovelace');
