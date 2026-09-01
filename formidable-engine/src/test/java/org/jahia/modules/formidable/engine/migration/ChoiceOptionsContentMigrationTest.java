@@ -1,0 +1,115 @@
+package org.jahia.modules.formidable.engine.migration;
+
+import org.jahia.modules.formidable.engine.options.ManualOptionsLanguageSyncListener;
+import org.jahia.services.content.JCRNodeIteratorWrapper;
+import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.services.content.JCRSessionWrapper;
+import org.junit.jupiter.api.Test;
+
+import javax.jcr.Node;
+import javax.jcr.Property;
+import javax.jcr.Value;
+import javax.jcr.observation.EventIterator;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+/**
+ * The write rule of the migration in isolation: legacy per-language values move onto
+ * the translation subnodes VERBATIM — 0.3 allowed the values themselves to diverge
+ * between languages, so nothing may be re-aligned on the default language, neither
+ * here nor by the language sync reacting to these saves. The Cypress spec covers the
+ * end-to-end path (restart, both workspaces, idempotence).
+ */
+class ChoiceOptionsContentMigrationTest {
+
+    private static Value[] values(String... jsons) {
+        Value[] values = new Value[jsons.length];
+        for (int i = 0; i < jsons.length; i++) {
+            Value value = mock(Value.class);
+            values[i] = value;
+        }
+        return values;
+    }
+
+    private static Node translationWithLegacy(String legacyProperty, Value[] legacyValues) throws Exception {
+        Node translation = mock(Node.class);
+        Property legacy = mock(Property.class);
+        when(translation.hasProperty(legacyProperty)).thenReturn(true);
+        when(translation.getProperty(legacyProperty)).thenReturn(legacy);
+        when(legacy.isMultiple()).thenReturn(true);
+        when(legacy.getValues()).thenReturn(legacyValues);
+        return translation;
+    }
+
+    @Test
+    void divergentPerLanguageValuesAreMovedVerbatim() throws Exception {
+        JCRSessionWrapper session = mock(JCRSessionWrapper.class);
+        JCRNodeWrapper field = mock(JCRNodeWrapper.class);
+
+        // 0.3-era radio: the values themselves differ between languages.
+        Value[] english = values("{\"value\":\"red\",\"label\":\"Red\"}");
+        Value[] french = values("{\"value\":\"rouge\",\"label\":\"Rouge\"}");
+        Node en = translationWithLegacy("choices", english);
+        Node fr = translationWithLegacy("choices", french);
+
+        JCRNodeIteratorWrapper translations = mock(JCRNodeIteratorWrapper.class);
+        when(translations.hasNext()).thenReturn(true, true, false);
+        when(translations.nextNode()).thenReturn(en, fr);
+        when(field.getNodes("j:translation_*")).thenReturn(translations);
+
+        assertTrue(new ChoiceOptionsContentMigration().migrateNode(session, field));
+
+        verify(session).checkout(field);
+        verify(en).setProperty("fmdb:options", english);
+        verify(fr).setProperty("fmdb:options", french);
+        verify(en.getProperty("choices")).remove();
+        verify(fr.getProperty("choices")).remove();
+        verify(field).addMixin("fmdbmix:manualOptions");
+        verify(field).setProperty("fmdb:optionsMode", "manual");
+    }
+
+    @Test
+    void aFieldWithoutLegacyPropertiesIsLeftAlone() throws Exception {
+        JCRSessionWrapper session = mock(JCRSessionWrapper.class);
+        JCRNodeWrapper field = mock(JCRNodeWrapper.class);
+
+        Node translation = mock(Node.class);
+        JCRNodeIteratorWrapper translations = mock(JCRNodeIteratorWrapper.class);
+        when(translations.hasNext()).thenReturn(true, false);
+        when(translations.nextNode()).thenReturn(translation);
+        when(field.getNodes("j:translation_*")).thenReturn(translations);
+
+        assertFalse(new ChoiceOptionsContentMigration().migrateNode(session, field));
+
+        verify(session, never()).checkout(any(JCRNodeWrapper.class));
+        verify(field, never()).addMixin(anyString());
+        verify(translation, never()).setProperty(anyString(), any(Value[].class));
+    }
+
+    @Test
+    void theLanguageSyncListenerIgnoresTheMigrationsOwnSaves() {
+        ManualOptionsLanguageSyncListener listener = new ManualOptionsLanguageSyncListener();
+        EventIterator events = mock(EventIterator.class);
+
+        assertFalse(ChoiceOptionsContentMigration.isMigrationWrite());
+        ChoiceOptionsContentMigration.beginMigrationWrite();
+        try {
+            assertTrue(ChoiceOptionsContentMigration.isMigrationWrite());
+            listener.onEvent(events);
+        } finally {
+            ChoiceOptionsContentMigration.endMigrationWrite();
+        }
+        assertFalse(ChoiceOptionsContentMigration.isMigrationWrite());
+
+        // The guard must return before the events are even read: past it, the listener
+        // re-aligns every language on the default one and blanks the migrated labels.
+        verify(events, never()).hasNext();
+    }
+}
