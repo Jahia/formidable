@@ -3,4 +3,4 @@
 formidable: minor
 ---
 
-Default titles for form actions (#169)
+Added a ready-made title to every new form action (#169)

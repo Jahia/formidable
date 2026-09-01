@@ -3,4 +3,4 @@
 formidable: minor
 ---
 
-New number field with native browser spinner, minimum/maximum/step constraints and range validation messages (#175)
+Added a number field with spinner, minimum/maximum/step constraints and range validation messages (#175)
