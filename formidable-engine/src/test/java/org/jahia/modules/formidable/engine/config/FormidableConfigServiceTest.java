@@ -290,10 +290,11 @@ class FormidableConfigServiceTest {
         FormidableConfigService service = new FormidableConfigService();
 
         service.activate(TestFormidableConfig.withOptionsSources(
-                "only-two-parts|Broken\n"
-                        + "|Blank id|country\n"
-                        + "good|Good|country\n"
-                        + "good|Duplicate|language",
+                """
+                only-two-parts|Broken
+                |Blank id|country
+                good|Good|country
+                good|Duplicate|language""",
                 300L
         ));
 

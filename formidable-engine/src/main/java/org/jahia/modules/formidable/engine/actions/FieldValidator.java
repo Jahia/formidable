@@ -8,7 +8,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
-import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -75,8 +74,8 @@ final class FieldValidator {
 
     private static void validateChoice(String fieldName, String value, FormDataParser.FieldMetadata metadata)
             throws FormDataParser.ParseException {
-        // D11, no tolerance: a non-empty value must be present in the re-resolved list;
-        // when the source cannot be resolved, the value cannot be verified and is rejected.
+        // D11, no tolerance — a non-empty value must be present in the re-resolved list.
+        // When the source cannot be resolved, the value cannot be verified and is rejected.
         if (metadata.choicesUnresolvable(fieldName)) {
             log.warn("[FieldValidator] Rejected submitted value: field options source is unavailable");
             throw new FormDataParser.ParseException(

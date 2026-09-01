@@ -49,9 +49,11 @@ public record ConditionalLogicRule(
      * declared by the provider on the editor side). Keeping this an exclusion list is what
      * lets the server stay independent of the set of providers.
      */
+    private static final String VALUE_KEY = "value";
+
     private static final java.util.Set<String> SHARED_RULE_KEYS = java.util.Set.of(
             "logicId", "sourceType", "sourceNodeId", "sourceFieldKey", "sourceFieldName",
-            "sourceFieldType", "valueKind", "operator", "value", "values");
+            "sourceFieldType", "valueKind", "operator", VALUE_KEY, "values");
 
     /**
      * Whether this rule designates another form field, the only source the server can
@@ -147,7 +149,7 @@ public record ConditionalLogicRule(
                 obj.optString("valueKind", ""),
                 isFieldSourceType(sourceType) ? null : extractProviderRef(obj),
                 operator,
-                obj.has("value") ? obj.optString("value", null) : null,
+                obj.has(VALUE_KEY) ? obj.optString(VALUE_KEY, null) : null,
                 parseValues(obj)
         );
     }
@@ -159,11 +161,7 @@ public record ConditionalLogicRule(
     private static String extractProviderRef(JSONObject obj) {
         String ref = null;
         for (String key : obj.keySet()) {
-            if (SHARED_RULE_KEYS.contains(key)) {
-                continue;
-            }
-            Object candidate = obj.opt(key);
-            if (!(candidate instanceof String candidateRef) || candidateRef.isBlank()) {
+            if (SHARED_RULE_KEYS.contains(key) || !(obj.opt(key) instanceof String candidateRef) || candidateRef.isBlank()) {
                 continue;
             }
             if (ref != null) {

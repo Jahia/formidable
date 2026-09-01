@@ -63,8 +63,11 @@ class FormFieldMetadataCollector {
         /**
          * @return the options as JSON-encoded strings, or null when the field does not
          *         use an options source
+         * @throws RepositoryException on repository access failure; runtime exceptions
+         *         from the source itself propagate as-is — the caller treats every
+         *         failure alike (the field becomes unresolvable, D11)
          */
-        String[] resolve(JCRNodeWrapper fieldNode) throws Exception;
+        String[] resolve(JCRNodeWrapper fieldNode) throws RepositoryException;
     }
 
     // Without a resolver, a sourced field behaves as unresolvable: reject rather than accept blindly.
@@ -462,25 +465,7 @@ class FormFieldMetadataCollector {
         String mode = JcrProps.string(node, minBound ? "fmdb:minBoundMode" : "fmdb:maxBoundMode", null);
         String fixedProperty = minBound ? "min" : "max";
         if ("today".equals(mode) || "relative".equals(mode)) {
-            // The submission day, optionally shifted by a signed amount of days,
-            // months or years — 'today' is the zero offset, so the two modes share
-            // one resolution. Widened to the extreme calendar day any inhabited
-            // timezone can currently be; month and year arithmetic is java.time's
-            // (clamps to the end of shorter months), mirrored by the rendered
-            // input's island. The validator accepts seconds and millis, so the max
-            // covers the whole last minute of the day: T23:59 alone would reject a
-            // T23:59:30 value the "until the end of the submission day" contract
-            // allows.
-            boolean relative = "relative".equals(mode);
-            long amount = relative
-                    ? JcrProps.longValue(node, minBound ? "fmdb:minRelativeAmount" : "fmdb:maxRelativeAmount", 0)
-                    : 0;
-            String unit = relative
-                    ? JcrProps.string(node, minBound ? "fmdb:minRelativeUnit" : "fmdb:maxRelativeUnit", "days")
-                    : "days";
-            java.time.LocalDate day = shiftDay(
-                    java.time.LocalDate.now(java.time.ZoneOffset.ofHours(minBound ? -12 : 14)), amount, unit);
-            return withTime ? day + (minBound ? "T00:00" : "T23:59:59.999") : day.toString();
+            return resolveDayFollowingBound(node, minBound, withTime, "relative".equals(mode));
         }
 
         if ("date".equals(mode)) {
@@ -493,6 +478,27 @@ class FormFieldMetadataCollector {
         }
 
         return null;
+    }
+
+    /**
+     * The submission day, optionally shifted by a signed amount of days, months or
+     * years — 'today' is the zero offset, so the two modes share one resolution.
+     * Widened to the extreme calendar day any inhabited timezone can currently be
+     * (UTC-12 for a minimum, UTC+14 for a maximum); month and year arithmetic is
+     * java.time's (clamps to the end of shorter months), mirrored by the rendered
+     * input's island. The validator accepts seconds and millis, so the max covers
+     * the whole last minute of the day: T23:59 alone would reject a T23:59:30 value
+     * the "until the end of the submission day" contract allows.
+     */
+    private static String resolveDayFollowingBound(JCRNodeWrapper node, boolean minBound, boolean withTime, boolean relative) {
+        String amountProperty = minBound ? "fmdb:minRelativeAmount" : "fmdb:maxRelativeAmount";
+        String unitProperty = minBound ? "fmdb:minRelativeUnit" : "fmdb:maxRelativeUnit";
+        long amount = relative ? JcrProps.longValue(node, amountProperty, 0) : 0;
+        String unit = relative ? JcrProps.string(node, unitProperty, "days") : "days";
+        java.time.LocalDate day = shiftDay(
+                java.time.LocalDate.now(java.time.ZoneOffset.ofHours(minBound ? -12 : 14)), amount, unit);
+        String dayStartOrEnd = minBound ? "T00:00" : "T23:59:59.999";
+        return withTime ? day + dayStartOrEnd : day.toString();
     }
 
     /** The base day shifted by a signed amount of the given unit (java.time clamping). */

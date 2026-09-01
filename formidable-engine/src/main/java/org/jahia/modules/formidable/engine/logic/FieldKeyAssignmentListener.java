@@ -29,6 +29,32 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FO
  */
 @Component(service = DefaultEventListener.class, immediate = true)
 public class FieldKeyAssignmentListener extends DefaultEventListener {
+    /**
+     * Assigns a missing fieldKey when the path still resolves and designates a real
+     * form logic element. Jahia's observation manager matches the type filter against
+     * the parent for j:translation_* subnodes, so their NODE_ADDED events land here
+     * too: a key written on a translation node has no definition there and only
+     * pollutes the repository.
+     */
+    private static boolean assignFieldKeyIfEligible(org.jahia.services.content.JCRSessionWrapper systemSession, String nodePath) throws RepositoryException {
+        JCRNodeWrapper node;
+        try {
+            node = systemSession.getNode(nodePath);
+        } catch (PathNotFoundException e) {
+            return false;
+        }
+
+        if (!node.isNodeType(FORM_LOGIC_ELEMENT_MIXIN)) {
+            return false;
+        }
+
+        boolean assigned = FieldKeys.assignIfMissing(node);
+        if (assigned) {
+            log.debug("[FieldKey] Assigned fieldKey to '{}'", nodePath);
+        }
+        return assigned;
+    }
+
     private static final Logger log = LoggerFactory.getLogger(FieldKeyAssignmentListener.class);
 
     @Override
@@ -63,24 +89,8 @@ public class FieldKeyAssignmentListener extends DefaultEventListener {
             JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, workspace, null, systemSession -> {
                 boolean assigned = false;
                 for (String nodePath : nodePaths) {
-                    JCRNodeWrapper node;
-                    try {
-                        node = systemSession.getNode(nodePath);
-                    } catch (PathNotFoundException e) {
-                        continue;
-                    }
-
-                    // Jahia's observation manager matches the type filter against the
-                    // parent for j:translation_* subnodes, so their NODE_ADDED events
-                    // land here too: a key written on a translation node has no
-                    // definition there and only pollutes the repository.
-                    if (!node.isNodeType(FORM_LOGIC_ELEMENT_MIXIN)) {
-                        continue;
-                    }
-
-                    if (FieldKeys.assignIfMissing(node)) {
+                    if (assignFieldKeyIfEligible(systemSession, nodePath)) {
                         assigned = true;
-                        log.debug("[FieldKey] Assigned fieldKey to '{}'", nodePath);
                     }
                 }
 
