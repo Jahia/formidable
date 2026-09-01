@@ -7,12 +7,12 @@ import {DeleteResultsDialog} from './delete';
 import {ExportResultsDialog} from './export';
 import {FormResultsList, SubmissionDetailPanel, SubmissionsTable} from './components';
 import type {FormResultsNode, SubmissionRow} from './FormResults.utils';
-import {EMPTY_FORM_FIELDS, parseFormFields} from './FormResults.utils';
+import {EMPTY_FORM_FIELDS, parseFormFields, uiContext} from './FormResults.utils';
 
 export const FormResultsApp = () => {
     const {t} = useTranslation('formidable-engine');
-    const siteKey = (window as any).contextJsParameters?.siteKey;
-    const language = (window as any).contextJsParameters?.uilang || 'en';
+    const siteKey = uiContext().siteKey;
+    const language = uiContext().uilang || 'en';
     const resultsPath = `/sites/${siteKey}/formidable-results`;
 
     const [selectedFormResultsId, setSelectedFormResultsId] = useState<string | null>(null);

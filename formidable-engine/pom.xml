@@ -229,6 +229,19 @@
                         </configuration>
                     </execution>
                     <execution>
+                        <id>yarn lint - Formidable Engine</id>
+                        <phase>process-sources</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>yarn</executable>
+                            <arguments>
+                                <argument>lint</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>yarn build - Formidable Engine</id>
                         <phase>generate-resources</phase>
                         <goals>

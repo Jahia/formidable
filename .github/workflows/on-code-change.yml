@@ -26,7 +26,6 @@ jobs:
       - uses: actions/checkout@v6
       - uses: Jahia/jahia-modules-action/static-analysis@v2
         with:
-          skip_lint_modules: true
           node_version: 22
           auditci_level: critical
 

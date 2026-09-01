@@ -4,8 +4,9 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"build": "vitest run && vite build",
-		"test": "vitest run"
+		"build": "tsc --noEmit && vitest run && vite build",
+		"test": "vitest run",
+		"lint": "eslint src/javascript"
 	},
 	"dependencies": {
 		"@apollo/client": "^3.7.17",
