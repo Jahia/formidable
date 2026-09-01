@@ -79,6 +79,15 @@ public class ListTitlesContentMigration extends ElementsRedeployRetriggeredMigra
     }
 
     private void migrateWorkspace(JCRSessionWrapper session, String workspace) throws RepositoryException {
+        // The form type belongs to the elements module: on an instance where it never
+        // started (engine-only, or the engine-first upgrade step) there is nothing to
+        // migrate yet, and querying an unregistered type would throw.
+        if (!session.getWorkspace().getNodeTypeManager().hasNodeType(FORM_TYPE)) {
+            log.debug("[ListTitlesContentMigration] Type {} is not registered, nothing to migrate in workspace '{}'",
+                    FORM_TYPE, workspace);
+            return;
+        }
+
         // Scoped to editorial content: module-bundled nodes under /modules belong to
         // their module and must not be rewritten from here.
         Query query = session.getWorkspace().getQueryManager()
