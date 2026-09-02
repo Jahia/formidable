@@ -142,6 +142,15 @@ keep rendering without a republish. The migration is keyed on content state
 fields do show up as *modified* (pending publication) in jContent afterwards;
 see [the publication flag note](#migrated-content-shows-as-modified-in-jcontent).
 
+0.3 allowed a language to translate the option VALUES themselves (`rouge`/`vert`
+facing `red`/`green`); 0.4 shares one value set across languages, so such a
+list converges the first time the field is saved: the language's values become
+the default language's, and its labels **ride along by position** when the two
+lists have the same size and no value in common — the shape of a translated
+0.3 list. A language whose list genuinely differs (fewer rows, mixed values)
+falls back to blank labels awaiting re-translation, and the editor shows the
+raw value wherever a label is blank.
+
 ### What changes
 
 PR [#193](https://github.com/Jahia/formidable/pull/193) unified the per-type
