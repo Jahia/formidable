@@ -286,6 +286,38 @@ const getDeclaredValueKind = (node: GraphNode): SourceValueKind | undefined => {
     return undefined;
 };
 
+/**
+ * The choice values a rule can be authored against. The IDENTITY is the site default
+ * language's list — the values every language renders and submits in the 0.4 model —
+ * labelled in cascade: the current language's label for that value when it has one,
+ * else the default language's, else the value itself. The rule stores only the value,
+ * so the label is display comfort, and the default language always knows the value:
+ * an untranslated (or blank-labelled, freshly realigned) language never shows an
+ * unlabeled or misleading list, and never authors a value the identity does not know.
+ * Falls back to the current language's own list when the default one is empty.
+ */
+export const mergeChoiceValues = (
+    ownValues: ChoiceValue[],
+    defaultValues: ChoiceValue[]
+): ChoiceValue[] => {
+    if (defaultValues.length === 0) {
+        return ownValues;
+    }
+
+    const ownLabelByValue = new Map<string, string>();
+    for (const choice of ownValues) {
+        if (choice.label.trim() !== '') {
+            ownLabelByValue.set(choice.value, choice.label);
+        }
+    }
+
+    return defaultValues.map(choice => ({
+        value: choice.value,
+        label: ownLabelByValue.get(choice.value)
+            ?? (choice.label.trim() === '' ? choice.value : choice.label)
+    }));
+};
+
 const mapSourceField = (node: GraphNode): SourceFieldOption | null => {
     const type = getNodeType(node);
     const valueKind = getDeclaredValueKind(node);
@@ -295,7 +327,12 @@ const mapSourceField = (node: GraphNode): SourceFieldOption | null => {
     }
 
     const choiceProperty = node.properties?.find(property => property.name === descriptor.choiceProperty);
-    const choiceValues = descriptor.valueKind === 'choice' ? parseJsonArrayValue(choiceProperty?.values ?? []) : [];
+    const defaultChoiceProperty = node.defaultProperties?.find(property => property.name === descriptor.choiceProperty);
+    const choiceValues = descriptor.valueKind === 'choice'
+        ? mergeChoiceValues(
+            parseJsonArrayValue(choiceProperty?.values ?? []),
+            parseJsonArrayValue(defaultChoiceProperty?.values ?? []))
+        : [];
     const fieldKey = node.properties?.find(property => property.name === 'fieldKey')?.value ?? undefined;
 
     return {
@@ -348,4 +385,28 @@ export const buildLogicIdToSourceMap = (logicSrcNodes: LogicSrcNode[] = []): Map
     }
 
     return map;
+};
+
+/**
+ * The value options a rule's dropdown offers, extended with any STORED value absent
+ * from the current language's list. Rules are shared across languages while a
+ * 0.3-migrated field may keep divergent per-language values until its first save
+ * re-aligns them: without the fallback the chip of such a value renders empty, which
+ * reads as data loss. The raw value is shown instead — it is what the rule compares.
+ */
+export const withStoredValues = (
+    options: Array<{label: string; value: string}>,
+    storedValues: string[]
+): Array<{label: string; value: string}> => {
+    // An EMPTY label is the other face of the same migration state: the language sync
+    // re-aligns a divergent list on the default language's values and blanks the labels
+    // that need re-translating — a chip or dropdown row must then say the value, never
+    // render blank.
+    const labelled = options.map(option =>
+        option.label.trim() === '' ? {...option, label: option.value} : option);
+    const known = new Set(labelled.map(option => option.value));
+    const missing = storedValues
+        .filter(value => value !== '' && !known.has(value))
+        .map(value => ({label: value, value}));
+    return missing.length === 0 ? labelled : [...labelled, ...missing];
 };

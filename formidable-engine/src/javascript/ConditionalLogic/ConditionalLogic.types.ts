@@ -139,6 +139,8 @@ export interface GraphNode {
     isBooleanField?: boolean;
     isTextField?: boolean;
     properties?: PropertyValue[] | null;
+    defaultProperties?: PropertyValue[] | null;
+    site?: {defaultLanguage?: string | null} | null;
     ancestors?: GraphAncestorNode[] | null;
     descendants?: {nodes?: GraphNode[] | null} | null;
     descendant?: {children?: {nodes?: LogicSrcNode[] | null} | null} | null;
