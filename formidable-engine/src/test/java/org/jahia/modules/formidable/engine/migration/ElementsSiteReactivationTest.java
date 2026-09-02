@@ -46,6 +46,21 @@ class ElementsSiteReactivationTest {
     }
 
     @Test
+    void aSiteAlreadyHealedOnceIsNeverTouchedAgain() throws Exception {
+        // The one-shot marker: after the first successful reactivation, an absent module
+        // is an administrator's deliberate choice (a decommissioned site keeping its
+        // archived forms) and must stick, at every restart.
+        JCRNodeWrapper form = mock(JCRNodeWrapper.class);
+        JCRSiteNode site = mock(JCRSiteNode.class);
+        when(site.getPath()).thenReturn("/sites/decommissioned");
+        when(site.getInstalledModules()).thenReturn(List.of("templateset", "default"));
+        when(site.isNodeType("fmdbmix:elementsReactivated")).thenReturn(true);
+        when(form.getResolveSite()).thenReturn(site);
+
+        assertNull(ElementsSiteReactivation.orphanedSitePath(form));
+    }
+
+    @Test
     void aSitelessFormIsLeftAlone() throws Exception {
         // None is expected under /sites, but the rule must not NPE on one.
         JCRNodeWrapper stray = mock(JCRNodeWrapper.class);

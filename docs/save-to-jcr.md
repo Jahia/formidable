@@ -113,7 +113,11 @@ Each `fmdb:formSubmission` contains:
 
 Typical submission-level properties:
 
-- `origin`
+- `origin` — always the constant `formidable` for submissions stored by this action
+  (the property is mandatory on `fmdb:formSubmission`): a provenance discriminator, so
+  an external writer of submission nodes (a legacy-forms import, a REST integration, a
+  third-party action) stamps its own value and the results panel and exports can tell
+  the sources apart
 - `locale`
 - `referer`
 

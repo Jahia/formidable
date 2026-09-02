@@ -9,6 +9,12 @@
 // Actions are stored as child nodes of fmdb:actionList under a fmdb:form node.
 [fmdbmix:formAction] mixin
 
+// One-shot marker stamped on a SITE node by ElementsSiteReactivation after it re-enabled
+// formidable-elements there (0.3 -> 0.4 module-identity healing): a marked site is never
+// touched again, so an administrator's later deliberate deactivation sticks.
+// Lifecycle: to be removed in 0.5 with the reactivation itself.
+[fmdbmix:elementsReactivated] mixin
+
 // Logic-aware structural mixins and helper content types used by the engine to
 // resolve conditional logic, walk the form tree, and synchronize weak references.
 [fmdb:logicSrc] > jnt:content
