@@ -105,10 +105,12 @@ fmdbmix:component (elements)   ← makes a type visible/droppable in the editor
 ### Core form types
 
 ```cnd
-[fmdb:form] > jnt:content, fmdbmix:component, jmix:visibleInContentTree, mix:title
-  + * (fmdbmix:formElement)
-  + * (fmdbmix:formContent)
-  + * (fmdbmix:formStep)
+[fmdb:form] > jnt:content, fmdbmix:component, jmix:visibleInContentTree,
+              fmdbmix:buttons, fmdbmix:responses, fmdbmix:multiStep, fmdbmix:style, mix:title
+  orderable
+  - intro (string, richtext) i18n
+  + fields (fmdb:fieldList) = fmdb:fieldList autocreated mandatory
+  + actions (fmdb:actionList) = fmdb:actionList autocreated mandatory
 
 [fmdb:step] > jnt:content, fmdbmix:formStep, mix:title
   orderable
@@ -116,34 +118,36 @@ fmdbmix:component (elements)   ← makes a type visible/droppable in the editor
   + * (fmdbmix:formContent)
 ```
 
-`fmdb:captchaProvider` has been removed. Captcha configuration lives entirely on `fmdb:captchaAction` (see action pipeline section).
+Fields live under the autocreated `fields` list and actions under the autocreated
+`actions` list — JCR/GraphQL code must go through those children, never directly under
+the form node. `fmdb:captchaProvider` has been removed: captcha is the `fmdbmix:captcha`
+marker mixin on the form plus server-side OSGi configuration (see the captcha section).
 
 ---
 
 ## Captcha – Full integration
 
-The captcha widget config and server-side verification are unified in a single `fmdb:captchaAction` node (no separate `fmdb:captchaProvider`).
+There is no captcha node type. The pieces are:
 
-The admin creates one `fmdb:captchaAction` node with:
-- `siteKey` – public key for the front-end widget
-- `scriptUrl` – provider JS API URL (default: Cloudflare Turnstile)
-- `secretKey` – private key for server-side `siteverify` call
+- **Server config** (admin): `org.jahia.modules.formidable.cfg` carries `siteKey`,
+  `scriptUrl`, `secretKey`, `widgetVar` and `captchaTokenField`.
+- **Per-form opt-in** (contributor): the `fmdbmix:captcha` mixin on the form node. It
+  extends the engine-owned `fmdbmix:captchaProtectedForm`, which is what the submission
+  pipeline checks.
+- **Render**: `CaptchaRenderFilter` (Java) injects `siteKey`, `scriptUrl`, `widgetVar`
+  and `tokenField` as request attributes when the mixin is present; `default.server.tsx`
+  reads them, adds the provider script (with `render=explicit`) and renders the
+  `<Captcha>` island.
+- **Submit**: the client reads the token from the widget, DELETES the provider's native
+  hidden field from `FormData`, and sends the token in the `X-Formidable-Captcha-Token`
+  header. Server-side, pipeline step 7 (`verifyCaptcha`) reads that header and
+  `FormidableConfigService.verifyCaptcha` calls the provider's `siteverify` endpoint —
+  before any byte of the body is read.
 
-The contributor adds this node to the form's `actions` pipeline. `default.server.tsx` scans the `actions` array for a `fmdb:captchaAction` node and reads `siteKey` + `scriptUrl` from it to drive the front-end widget.
-
-The provider is derived from `scriptUrl` at runtime (both in TypeScript and Java):
-
-### Native token field names
-
-| Provider | `scriptUrl` contains | Field name in POST |
-|---|---|---|
-| Cloudflare Turnstile | `challenges.cloudflare.com` | `cf-turnstile-response` |
-| hCaptcha | `hcaptcha.com` | `h-captcha-response` |
-| Google reCAPTCHA v2 | `google.com/recaptcha` | `g-recaptcha-response` |
-
-### Server-side
-
-`CaptchaVerificationFormAction` reads the token from the POST parameter configured as `captchaTokenField` in the OSGi config, and calls the provider's `siteverify` endpoint.
+The provider is derived from `scriptUrl` (`challenges.cloudflare.com` → Turnstile,
+`hcaptcha.com` → hCaptcha, `google.com/recaptcha` → reCAPTCHA); the widget's native
+field name is the `captchaTokenField` config. See
+`docs/captcha-server-side-validation.md`.
 
 ---
 
@@ -158,53 +162,62 @@ submitActionUrl = /modules/formidable-engine/form-submit?fid={form uuid}&lang={l
 
 ### Submission flow (client-side)
 
-`handleSubmit` fires requests **in parallel** via `Promise.all` — full `FormData` always:
+`handleSubmit` sends ONE `XMLHttpRequest` (no `fetch`, no parallel requests, no
+`customTarget` — that concept never shipped) to
+`/modules/formidable-engine/form-submit?fid=…&lang=…` with the full `FormData`, plus:
 
-| submitActionUrl | customTarget | Behaviour |
-|---|---|---|
-| ✓ | — | Pipeline handles everything (captcha + email + etc.) |
-| — | ✓ | Direct POST to `customTarget`; it handles captcha |
-| ✓ | ✓ | Both fire in parallel; `customTarget` handles captcha |
-| — | — | POST to `form.action` / current URL |
+- `X-Formidable-Captcha-Token` header when a captcha is configured (the widget's native
+  hidden field is deleted from `FormData` first)
+- `X-Formidable-Logic-State` header: one base64 declaration of the provider state
+  (JS variables, URL params, cookies) the browser evaluated its logic rules against
 
-When `customTarget` is set, **do not add `fmdb:captchaAction` to the pipeline** — captcha is `customTarget`'s responsibility. The token is single-use.
+### Server side: servlet + pipeline (there is no Jahia Action)
 
-`FormSubmitAction` (Jahia `Action`, OSGi):
-1. Reads the `actions` weak-references from the form node
-2. For each referenced node, finds the OSGi `FormAction` service whose `getNodeType()` matches the node's primary type
-3. Calls `handler.execute(actionNode, req, renderContext, session, parameters)` in order
-4. On `FormActionException`, returns the exception's HTTP status to the client
-5. On success, returns `{"success": true}`
+Submission is an OSGi HTTP-Whiteboard servlet — `FormSubmitServlet`, gated by the
+`formidable-submit` Security Filter scope (`origin: hosted`) — that delegates to
+`FormSubmissionPipeline`, a 12-step pipeline (see `docs/form-submission-flow.md`, the
+authoritative walkthrough). The pipeline resolves the form, validates everything
+(whitelist, types, constraints, logic coherence), THEN runs the form's `actions`
+children in order: for each action node, the OSGi `FormAction` service whose
+`getNodeType()` matches the node's primary type executes. On `FormActionException` the
+response carries the exception's HTTP status and an opaque `errorCode`; on success,
+`{"success": true}`.
 
 ### Java class layout
 
 ```
-org.jahia.modules.formidable.engine.actions
-├── FormAction.java                      ← strategy interface (getNodeType + execute)
-├── FormActionException.java             ← exception carrying an httpStatus
-├── FormSubmitAction.java                ← Jahia Action OSGi, orchestrates the pipeline
-├── email/
-│   └── SendEmailNotificationFormAction.java
-├── forward/
-│   └── ForwardSubmissionFormAction.java
-└── storage/
-    └── SaveToJcrFormAction.java
+org.jahia.modules.formidable.engine
+├── api/                                 ← the EXPORTED SPI (Export-Package)
+│   ├── FormAction.java                  ← strategy interface (getNodeType + execute)
+│   ├── FormActionException.java         ← exception carrying an httpStatus
+│   └── SubmittedFile.java               ← a validated uploaded file
+├── servlet/
+│   ├── FormSubmitServlet.java           ← whiteboard entry point
+│   └── FormSubmissionPipeline.java      ← the 12 steps
+└── actions/
+    ├── FormDataParser.java, FieldValidator.java, FieldEscaper.java, …
+    ├── email/   SendEmailNotificationFormAction, SendEmailContentFormAction
+    ├── forward/ ForwardSubmissionFormAction
+    └── storage/ SaveToJcrFormAction
 ```
 
-### `FormAction` interface
+### `FormAction` interface (the SPI third parties compile against)
 
 ```java
 public interface FormAction {
-    String getNodeType();    // e.g. "fmdb:captchaAction"
+    String getNodeType();    // e.g. "fmdb:emailNotificationAction"
     void execute(
         JCRNodeWrapper actionNode,
         HttpServletRequest req,
-        RenderContext renderContext,
         JCRSessionWrapper session,
-        Map<String, List<String>> parameters
+        Map<String, List<String>> parameters,
+        List<SubmittedFile> files
     ) throws FormActionException;
 }
 ```
+
+No `RenderContext` (there is no render at submit time), and the fifth parameter carries
+the validated uploaded files.
 
 ### `FormActionException`
 
@@ -213,28 +226,12 @@ FormActionException.badRequest("message");    // HTTP 400
 FormActionException.serverError("message");   // HTTP 500
 ```
 
-### `FormSubmitAction`
-
-- Jahia action name: `formidableSubmit` (`setName("formidableSubmit")`)
-- `setRequireAuthenticatedUser(false)` + `setRequireValidSession(false)`
-- Collects `FormAction` OSGi services via `@Reference(cardinality=MULTIPLE, policy=DYNAMIC)`
-- Uses `CopyOnWriteArrayList` for thread-safety
-
 ### Built-in actions
 
-#### `fmdb:captchaAction` → `CaptchaVerificationFormAction`
-
-CND (in `formidable-engine`):
-```cnd
-[fmdb:captchaAction] > jnt:content, fmdbmix:formAction, mix:title
- - siteKey (string) indexed=no
- - scriptUrl (string) = 'https://challenges.cloudflare.com/turnstile/v0/api.js' autocreated indexed=no
- - secretKey (string) indexed=no
-```
-
-Behaviour: reads the captcha token from the POST parameter configured as `captchaTokenField`, calls `siteverify` via POST `application/x-www-form-urlencoded` with `secret`, `response`, `remoteip`. Checks `result.success`.
-
-Also drives the front-end: `CaptchaRenderFilter` injects `siteKey`, `scriptUrl`, `widgetVar`, and `tokenField` as request attributes when `fmdbmix:captcha` is applied. `default.server.tsx` reads these to inject the widget script and render the `<Captcha>` Island component.
+Captcha is NOT an action (see the captcha section). The action types are
+`fmdb:emailNotificationAction`, `fmdb:emailContentAction`, `fmdb:forwardAction` and
+`fmdb:save2jcrAction` — all but save2jcr carry `fmdbmix:readOnlyCompatibleAction`
+(see `docs/upgrade-notes.md` and the read-only maintenance behaviour).
 
 #### `fmdb:emailNotificationAction` → `SendEmailNotificationFormAction`
 
@@ -248,12 +245,12 @@ CND:
 ```
 
 Behaviour:
-- `${fieldName}` interpolation in `to`, `subject`, `templateMessage` from form parameters
+- `${fieldName}` interpolation in `to`, `subject`, `templateMessage` from form parameters,
+  HTML-escaped per value (`FieldEscaper.html`), headers normalized (`headerSafe`)
 - Requires Jahia `MailService` configured (SMTP in Jahia admin)
-- Call: `mailService.sendMessage(from, to, null, null, subject, null, htmlBody)`
-  → signature: `sendMessage(from, to, cc, bcc, subject, textBody, htmlBody)`
-  → **Do NOT use** `new MailMessage()` + `mailService.sendMessage(message)` (incorrect API)
-- Injected via `@Reference(cardinality=OPTIONAL, policy=DYNAMIC)`
+- Call: `new MailMessage()` + `setTo/setFrom/setSubject/setHtmlBody` +
+  `mailService.sendMessage(message)` — the message is queued through a Camel route, so
+  asynchronous SMTP failures are logged by Jahia/Camel and do not propagate to the caller
 
 ### Adding a new action type
 
@@ -299,7 +296,10 @@ A field that depends on another field's value carries:
 - A `logics` multi-value string property (JSON rules)
 - An autocreated `logicsSrc` child node (`fmdb:logicList`) with one `fmdb:logicSrc` child per rule, each holding a `logicNodeSource` weakreference
 
-The canonical source of truth for which field a rule targets is the weakreference, not the JSON `sourceFieldName` (which is kept as metadata for editor display and fallback).
+The canonical business reference for which field a rule targets is the source field's
+`fieldKey` (stored in the rule as `sourceFieldKey`); `sourceNodeId` and the weakreference
+are technical shortcuts, `sourceFieldName` the legacy fallback. The authoritative
+walkthrough is `docs/conditional-logic-field-resolution.md`.
 
 ### JSON format in `logics`
 
@@ -307,22 +307,30 @@ The canonical source of truth for which field a rule targets is the weakreferenc
 {
   "logicId": "c0b7e4a9",
   "sourceNodeId": "uuid-of-source-field",
+  "sourceFieldKey": "uuid-like-business-key",
   "sourceFieldName": "role",
   "sourceFieldType": "fmdb:select",
+  "valueKind": "choice",
   "operator": "in",
   "values": ["admin", "editor"]
 }
 ```
 
 - `logicId` → matches the name of a child node under `logicsSrc`
-- `sourceNodeId` → UUID shortcut (set by the editor, used as first resolution strategy)
+- `sourceFieldKey` → the source field's `fieldKey`, primary resolution criterion
+- `sourceNodeId` → UUID shortcut / tie-breaker
 - `sourceFieldName` → name-based fallback (last resort)
+- `valueKind` → picks the comparison semantics on both evaluators (numeric `between`,
+  the `today` sentinel for the `date` kind)
 
-### Source resolution order (`FormLogicSourceResolver`)
+### Source resolution order (`FormLogicSourceResolver`, at SAVE time)
 
-1. **UUID** (`sourceNodeId`) — direct session lookup; must be in form scope AND before target in document order
-2. **Weakref** (`logicsSrc/{logicId}/logicNodeSource`) — same validation: in scope AND before target
-3. **Name** (`sourceFieldName`) — first match before target in depth-first traversal
+Runs when a form is saved (the sync listeners), never at evaluation time — see
+`docs/conditional-logic-field-resolution.md` for the full order. In short: the
+`fieldKey` chain first (sourceNodeId if it carries the key, then the weakref, then the
+first matching field in document order), the legacy chain (sourceNodeId, weakref,
+sourceFieldName) for rules stored before `fieldKey` existed; the sync then backfills
+the JSON so legacy rules converge.
 
 ### Java class layout (after refactoring)
 
@@ -369,7 +377,7 @@ Full behavioral specification: `tests/scenarios/conditional-logic.md` (11 sectio
 
 | Role | Action |
 |---|---|
-| **Admin** | Creates action nodes (`fmdb:captchaAction`, `fmdb:emailNotificationAction`, …) anywhere in the site content tree |
+| **Admin** | Configures the server side: `org.jahia.modules.formidable.cfg` (captcha keys, upload limits, forward targets) |
 | **Contributor** | Creates a `fmdb:form` and fills its autocreated `actions` list (every form has one) |
 
 ---
@@ -386,8 +394,8 @@ cd formidable-elements && yarn build
 # Watch mode (rebuild + auto-redeploy)
 cd formidable-elements && yarn dev
 
-# Start local Jahia via Docker
-cd formidable-elements && docker compose up --wait
+# Local Jahia: any running 8.2+ instance on localhost:8080 (no compose file ships
+# in this repo); deploy with each module's `yarn deploy` (jahia-deploy)
 
 # Full Maven build
 mvn clean install
@@ -421,8 +429,11 @@ Test scenarios specification: `tests/scenarios/conditional-logic.md`
 
 ## Known pitfalls / technical decisions
 
-- **`MailMessage` + `setHtml` / `setHtmlBody`**: do not use. Correct API is `mailService.sendMessage(from, to, cc, bcc, subject, textBody, htmlBody)`.
-- **Captcha token**: each widget auto-injects its hidden field into the DOM. `FormData` captures it automatically. On the Java side, read the provider's native field name (`cf-turnstile-response`, etc.) — never invent a field like `fmdb-captcha-token`.
-- **`submitActionUrl` vs `customTarget`**: `submitActionUrl` is set whenever captcha is configured OR actions exist. When both are present, phase 1 sends only the captcha token to Jahia (verification gate), then phase 2 sends the full FormData to `customTarget`. When only `submitActionUrl` is set (no `customTarget`), the pipeline handles everything (email etc.) and shows the success message.
+- **Email API**: use `new MailMessage()` + `setHtmlBody` + `mailService.sendMessage(message)`
+  (queued through Camel; async SMTP failures do not propagate). The 7-argument
+  `sendMessage(from, to, …)` form is not used in this codebase.
+- **Captcha token**: the client DELETES the widget's native hidden field from `FormData`
+  and sends the token in the `X-Formidable-Captcha-Token` header; the server reads that
+  header only. Never rely on the token being in the POST body.
 - **Turnstile `render=explicit`**: required, otherwise the widget renders automatically and ignores `containerRef`. Added by `ensureCaptchaExplicit` in `default.server.tsx`.
 - **Island props must be serialisable**: never pass a `JCRNodeWrapper` to an Island. Extract scalars server-side with `getNodeProps()`.
