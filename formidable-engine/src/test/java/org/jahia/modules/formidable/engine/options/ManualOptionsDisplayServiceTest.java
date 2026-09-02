@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import javax.jcr.Node;
 
 import static org.jahia.modules.formidable.engine.options.ManualOptionsFixtures.fieldNode;
+import static org.jahia.modules.formidable.engine.options.ManualOptionsFixtures.markMigrated;
 import static org.jahia.modules.formidable.engine.options.ManualOptionsFixtures.option;
 import static org.jahia.modules.formidable.engine.options.ManualOptionsFixtures.translation;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -51,12 +52,27 @@ class ManualOptionsDisplayServiceTest {
         Node master = translation("en", option("red", "Red"), option("green", "Green"));
         Node fr = translation("fr", option("rouge", "Rouge"), option("vert", "Vert"));
 
-        JCRNodeWrapper field = fieldNode("en", master, fr);
+        JCRNodeWrapper field = markMigrated(fieldNode("en", master, fr));
         when(field.getResolveSite().isMixLanguagesActive()).thenReturn(false);
 
         assertArrayEquals(
                 new String[]{option("red", "Rouge"), option("green", "Vert")},
                 service.forDisplay(field, "fr"));
+    }
+
+    @Test
+    void aNativeReplacedFieldIsNotRenderedWithPositionalLabels() throws Exception {
+        // No marker: a native field whose values were replaced renders the identity
+        // with blank/dropped labels (untranslated), never the old French words mapped
+        // onto the new values. Site does not replace untranslated content, so the
+        // unlabelled entries drop.
+        Node master = translation("en", option("blue", "Blue"), option("yellow", "Yellow"));
+        Node fr = translation("fr", option("red", "Rouge"), option("green", "Vert"));
+
+        JCRNodeWrapper field = fieldNode("en", master, fr);
+        when(field.getResolveSite().isMixLanguagesActive()).thenReturn(false);
+
+        assertArrayEquals(new String[]{}, service.forDisplay(field, "fr"));
     }
 
     @Test

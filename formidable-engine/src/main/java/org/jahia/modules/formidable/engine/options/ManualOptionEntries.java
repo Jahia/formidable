@@ -85,9 +85,14 @@ public final class ManualOptionEntries {
      * from a translated one — and every entry is kept, blank label included: it is the
      * editor's row, the one a contributor types into.
      */
-    public static List<String> alignForStorage(List<String> masterOptions, List<String> ownOptions) {
+    public static List<String> alignForStorage(List<String> masterOptions, List<String> ownOptions,
+            boolean allowPositionalLabels) {
         Map<String, Deque<String>> ownByValue = indexByValue(ownOptions);
-        boolean positionalLabels = keepsLabelsByPosition(masterOptions, ownOptions);
+        // Positional carry-over is a PROVENANCE-gated heuristic, never a shape one: only
+        // a field the migration marked (0.3 could translate the values) may pair labels
+        // by row. On native 0.4 content a same-size disjoint pair is an editor replacing
+        // every value, and carrying labels across would mislabel every entry.
+        boolean positionalLabels = allowPositionalLabels && keepsLabelsByPosition(masterOptions, ownOptions);
         return alignForStorage(masterOptions, ownOptions, ownByValue, positionalLabels);
     }
 
@@ -121,8 +126,13 @@ public final class ManualOptionEntries {
      * carrying 'rouge' can never match a submission again (every language submits
      * 'red'): the rules must follow the same replacement their options underwent.
      */
-    public static Map<String, String> realignedValueReplacements(List<String> masterOptions, List<String> ownOptions) {
-        if (!keepsLabelsByPosition(masterOptions, ownOptions)) {
+    public static Map<String, String> realignedValueReplacements(List<String> masterOptions,
+            List<String> ownOptions, boolean allowPositional) {
+        // Provenance-gated exactly like the label carry-over: without the migration
+        // marker this returns empty, so a native field's rules are NEVER silently
+        // rewritten — an all-values-replaced edit leaves them orphaned and caught by
+        // the coherence machinery, as before.
+        if (!allowPositional || !keepsLabelsByPosition(masterOptions, ownOptions)) {
             return Map.of();
         }
 
@@ -186,14 +196,14 @@ public final class ManualOptionEntries {
      * what the submission validation accepts: the allowed set is read from the master.
      */
     public static List<String> alignForDisplay(List<String> masterOptions, List<String> ownOptions,
-            boolean replaceUntranslated) {
+            boolean replaceUntranslated, boolean allowPositionalLabels) {
         Map<String, Deque<String>> ownByValue = indexByValue(ownOptions);
-        // Same positional pairing as alignForStorage: a fully divergent same-size list
-        // is a translated 0.3 list awaiting its first save — its labels are the RIGHT
-        // display for that language. Without it, every entry of such a migrated field
-        // rendered with the master's words, or not at all when the site does not
-        // replace untranslated content: a dead choice field, unsubmittable if required.
-        boolean positionalLabels = keepsLabelsByPosition(masterOptions, ownOptions);
+        // Same provenance-gated pairing as alignForStorage: only a migration-marked
+        // field (still divergent, awaiting its first save) renders its own labels by
+        // row. Without it such a field rendered the master's words, or nothing at all
+        // when the site does not replace untranslated content: a dead choice field,
+        // unsubmittable if required.
+        boolean positionalLabels = allowPositionalLabels && keepsLabelsByPosition(masterOptions, ownOptions);
         List<String> aligned = new ArrayList<>(masterOptions.size());
         for (int i = 0; i < masterOptions.size(); i++) {
             String masterRaw = masterOptions.get(i);

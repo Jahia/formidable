@@ -132,10 +132,15 @@ class FormLogicRuleValueRemapTest {
         String vert = "{\"value\":\"vert\",\"label\":\"Vert\"}";
 
         assertEquals(Map.of("rouge", "red", "vert", "green"),
-                ManualOptionEntries.realignedValueReplacements(List.of(red, green), List.of(rouge, vert)));
+                ManualOptionEntries.realignedValueReplacements(List.of(red, green), List.of(rouge, vert), true));
 
         // Any shared value = the identity model already applies: no positional map.
         assertEquals(Map.of(),
-                ManualOptionEntries.realignedValueReplacements(List.of(red, green), List.of(rouge, green)));
+                ManualOptionEntries.realignedValueReplacements(List.of(red, green), List.of(rouge, green), true));
+
+        // Not migrated (native field): never a replacement map, whatever the shape —
+        // so a native all-values-replaced edit never silently rewrites the rules.
+        assertEquals(Map.of(),
+                ManualOptionEntries.realignedValueReplacements(List.of(red, green), List.of(rouge, vert), false));
     }
 }

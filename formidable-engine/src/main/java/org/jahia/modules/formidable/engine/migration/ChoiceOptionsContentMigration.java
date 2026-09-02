@@ -48,6 +48,10 @@ public class ChoiceOptionsContentMigration extends ElementsRedeployRetriggeredMi
 
     private static final String CHOICE_FIELD_MIXIN = "fmdbmix:choiceField";
     private static final String MANUAL_OPTIONS_MIXIN = "fmdbmix:manualOptions";
+    // Provenance marker: this field's per-language values may still diverge (0.3 could
+    // translate them). Gates the divergent-list heuristics to migrated content only;
+    // the language sync removes it once the lists converge.
+    private static final String MIGRATED_MARKER_MIXIN = "fmdbmix:migratedChoiceOptions";
     private static final String OPTIONS_MODE_PROPERTY = "fmdb:optionsMode";
     private static final String OPTIONS_MODE_MANUAL = "manual";
     private static final String UNIFIED_OPTIONS_PROPERTY = "fmdb:options";
@@ -163,6 +167,7 @@ public class ChoiceOptionsContentMigration extends ElementsRedeployRetriggeredMi
 
         if (touched) {
             node.addMixin(MANUAL_OPTIONS_MIXIN);
+            node.addMixin(MIGRATED_MARKER_MIXIN);
             node.setProperty(OPTIONS_MODE_PROPERTY, OPTIONS_MODE_MANUAL);
             log.info("[ChoiceOptionsContentMigration] Migrated '{}'", node.getPath());
         }
