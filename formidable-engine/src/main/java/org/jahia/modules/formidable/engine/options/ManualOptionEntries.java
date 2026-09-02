@@ -88,6 +88,11 @@ public final class ManualOptionEntries {
     public static List<String> alignForStorage(List<String> masterOptions, List<String> ownOptions) {
         Map<String, Deque<String>> ownByValue = indexByValue(ownOptions);
         boolean positionalLabels = keepsLabelsByPosition(masterOptions, ownOptions);
+        return alignForStorage(masterOptions, ownOptions, ownByValue, positionalLabels);
+    }
+
+    private static List<String> alignForStorage(List<String> masterOptions, List<String> ownOptions,
+            Map<String, Deque<String>> ownByValue, boolean positionalLabels) {
         List<String> aligned = new ArrayList<>(masterOptions.size());
         for (int i = 0; i < masterOptions.size(); i++) {
             String masterRaw = masterOptions.get(i);
@@ -105,6 +110,32 @@ public final class ManualOptionEntries {
         }
 
         return aligned;
+    }
+
+    /**
+     * The value replacements a realignment implies for one language, or an empty map
+     * when the positional pairing does not apply (see keepsLabelsByPosition): the
+     * language's old value at row i is replaced by the master's value at row i. This
+     * is the map a 0.3-authored logic rule needs — its editor stored the option value
+     * of the EDITING language, and once the values realign on the master, a rule still
+     * carrying 'rouge' can never match a submission again (every language submits
+     * 'red'): the rules must follow the same replacement their options underwent.
+     */
+    public static Map<String, String> realignedValueReplacements(List<String> masterOptions, List<String> ownOptions) {
+        if (!keepsLabelsByPosition(masterOptions, ownOptions)) {
+            return Map.of();
+        }
+
+        Map<String, String> replacements = new HashMap<>();
+        for (int i = 0; i < masterOptions.size(); i++) {
+            String oldValue = value(ownOptions.get(i));
+            String newValue = value(masterOptions.get(i));
+            if (oldValue != null && newValue != null) {
+                replacements.put(oldValue, newValue);
+            }
+        }
+
+        return replacements;
     }
 
     /**

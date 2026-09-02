@@ -116,9 +116,22 @@ public final class ManualOptionsLanguageSync {
         }
 
         boolean updated = seeded;
+        Map<String, String> valueReplacements = new LinkedHashMap<>();
         for (String language : targetLanguages(site, translations.keySet(), masterLanguage)) {
-            updated |= feed(fieldNode, language, translations.get(language), masterOptions);
+            Node translation = translations.get(language);
+            if (translation != null) {
+                valueReplacements.putAll(ManualOptionEntries.realignedValueReplacements(
+                        masterOptions, ManualOptionEntries.readOptions(translation)));
+            }
+
+            updated |= feed(fieldNode, language, translation, masterOptions);
         }
+
+        // A 0.3-authored rule stored the option value of its EDITING language; once
+        // those values realign on the master, such a rule can never match a submission
+        // again. The realignment knows the exact replacement (row i for row i), so the
+        // rules referencing this field follow it in the same save.
+        updated |= FormLogicRuleValueRemap.remap(fieldNode, valueReplacements);
 
         return updated;
     }
