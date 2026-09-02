@@ -17,7 +17,11 @@
         <tag>HEAD</tag>
     </scm>
     <properties>
-        <jahia-depends>formidable-elements,formidable-engine</jahia-depends>
+        <!-- No jahia-depends here: this JS module's deploy-time dependencies live in
+             package.json (jahia.module-dependencies), which the javascript-modules-engine
+             turns into the bundle's Jahia-Depends header at install time. The pom property
+             is only read by the maven-bundle-plugin of the JAVA modules (packaging pom here,
+             so it never ran) — a value kept in both places would only drift. -->
     </properties>
     <repositories>
         <repository>
