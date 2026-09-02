@@ -41,6 +41,36 @@ class ManualOptionsLanguageSyncTest {
     }
 
     @Test
+    void aFullyDivergentTranslationKeepsItsLabelsByPosition() throws Exception {
+        // The 0.3-migrated shape: the language translated the VALUES too (rouge/vert
+        // facing red/green). Same size, not one value in common — row i is row i in
+        // another tongue, and the labels are real translations the value-keyed lookup
+        // would throw away. They ride along by position; only the values realign.
+        Node master = translation("en", option("red", "Red"), option("green", "Green"));
+        Node fr = translation("fr", option("rouge", "Rouge"), option("vert", "Vert"));
+
+        JCRNodeWrapper field = fieldNode("en", master, fr);
+
+        assertTrue(ManualOptionsLanguageSync.sync(field, Set.of("en")));
+        verify(fr).setProperty("fmdb:options",
+                new String[]{option("red", "Rouge"), option("green", "Vert")});
+    }
+
+    @Test
+    void positionalLabelsNeedTheSameShape() throws Exception {
+        // One row short: position i no longer means anything, the labels cannot be
+        // paired safely and the language falls back to blanks awaiting re-translation.
+        Node master = translation("en", option("red", "Red"), option("green", "Green"));
+        Node fr = translation("fr", option("rouge", "Rouge"));
+
+        JCRNodeWrapper field = fieldNode("en", master, fr);
+
+        assertTrue(ManualOptionsLanguageSync.sync(field, Set.of("en")));
+        verify(fr).setProperty("fmdb:options",
+                new String[]{option("red", ""), option("green", "")});
+    }
+
+    @Test
     void alignedTranslationIsLeftAlone() throws Exception {
         // Same values in the same order: the translated labels are that language's
         // own business, nothing is rewritten (which also terminates the observation

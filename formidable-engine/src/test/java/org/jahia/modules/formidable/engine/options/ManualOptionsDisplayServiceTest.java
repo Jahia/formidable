@@ -41,6 +41,25 @@ class ManualOptionsDisplayServiceTest {
     }
 
     @Test
+    void aMigratedDivergentTranslationRendersItsOwnLabelsByPosition() throws Exception {
+        // Pre-realign 0.3-migrated state: the French list still translates the VALUES
+        // (rouge/vert facing red/green). The identity values render — validation only
+        // accepts those — but labelled with the language's own translations, row for
+        // row. Without the pairing, French rendered the master's words, or NOTHING at
+        // all on a site that does not replace untranslated content: a dead choice
+        // field, unsubmittable when required.
+        Node master = translation("en", option("red", "Red"), option("green", "Green"));
+        Node fr = translation("fr", option("rouge", "Rouge"), option("vert", "Vert"));
+
+        JCRNodeWrapper field = fieldNode("en", master, fr);
+        when(field.getResolveSite().isMixLanguagesActive()).thenReturn(false);
+
+        assertArrayEquals(
+                new String[]{option("red", "Rouge"), option("green", "Vert")},
+                service.forDisplay(field, "fr"));
+    }
+
+    @Test
     void theDefaultSelectionRenderedIsTheMasters() throws Exception {
         // Which option comes pre-selected is form behavior, not editorial content.
         Node master = translation("en", option("a", "Alpha", true), option("b", "Bee", false));
