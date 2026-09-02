@@ -1,4 +1,5 @@
 import {AddResources, buildModuleFileUrl} from "@jahia/javascript-modules-library";
+import {styleTagCss} from "~/utils/richTextUtils";
 import type {JSX, ReactNode} from "react";
 
 /**
@@ -9,7 +10,7 @@ import type {JSX, ReactNode} from "react";
  */
 export const CmShell = ({css, children}: {css?: string; children: ReactNode}): JSX.Element => (
 	<>
-		{css && <style>{css}</style>}
+		{css && <style dangerouslySetInnerHTML={{__html: styleTagCss(css)}}/>}
 		<AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")}/>
 		<div className="fmdb-form" data-fmdb-cm-view="true">{children}</div>
 	</>
