@@ -3748,6 +3748,7 @@ __metadata:
     typescript-eslint: "npm:^8.31.1"
     typescript-plugin-css-modules: "npm:^5.1.0"
     vite: "npm:7.3.5"
+    vitest: "npm:^3.2.4"
   languageName: unknown
   linkType: soft
 
