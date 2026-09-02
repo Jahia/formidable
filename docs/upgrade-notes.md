@@ -109,6 +109,24 @@ This is a one-time migration: from 0.4.0 on, the group id is stable and later
 versions install in place as usual — but the ordering rule of step 1 holds for
 every upgrade that changes the engine definitions.
 
+### If you installed in the wrong order (elements before engine)
+
+Observed on a real replay: the elements module's definitions fail to parse while
+the engine is still on 0.3 (`Error parsing definitions for DX OSGi bundle
+formidable-elements` in the log), and the editor looks broken — wrong form
+structure, Content Editor panels not applying. This **recovers on its own** the
+moment engine 0.4 starts: the elements definitions are re-parsed against the new
+engine mixins, and the content migrations run at engine activation (they are
+keyed on content state, so nothing is lost or done twice).
+
+Two things remain true whatever the order:
+
+- **step 4 is still required** — re-enable formidable-elements on every site
+  that uses it; a site missing the module renders broken forms and a broken
+  editor even though the definitions and the migrated content are fine;
+- if the editor still looks wrong after step 4, restart the formidable-elements
+  bundle once (its definitions then re-register against the running engine).
+
 ## 0.3.0 (and earlier) → 0.4.0: choice-field options are migrated at startup
 
 **Nothing to do — the migration is fully automatic.**
