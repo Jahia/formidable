@@ -28,7 +28,7 @@ Detailed reasons are written to server logs only and are never exposed to the ca
 | `FMDB-005` | 500 | CAPTCHA is required on the form but server-side verification is not fully configured (`captchaSiteKey` / `captchaSecretKey` / `captchaVerifyUrl` missing in `org.jahia.modules.formidable.cfg`) |
 | `FMDB-006` | 400 | CAPTCHA token (`X-Formidable-Captcha-Token` header) is absent, expired, or rejected by the provider |
 | `FMDB-007` | 400 | Multipart parsing failed for a technical reason — possible causes: per-file size limit, total request size limit, file count limit, or low-level stream parsing/read failure |
-| `FMDB-008` | 422 | An action in the pipeline failed (e.g. forward target returned non-2xx, email could not be sent) |
+| `FMDB-008` | the status the action chose (400/500 from the helpers, 403/502 from the forward action…), 422 when the failure carried none | An action in the pipeline failed (e.g. forward target returned non-2xx, email could not be sent) |
 | `FMDB-009` | 401 | Authentication required — the form carries `fmdbmix:authenticatedOnlyForm` and the current user is Guest |
 | `FMDB-010` | 400 | Submitted data failed validation — possible causes: choice value not in the allowed set, invalid text format (email, date, datetime-local, color), field constraint violation, or uploaded file MIME type rejected by the field/global allowlist |
 | `FMDB-011` | 403 | Submission denied by the Jahia Security Filter check (for example, cross-origin request with no matching hosted `Origin` / `Referer`) |

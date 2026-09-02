@@ -485,7 +485,23 @@ class FormSubmissionPipeline {
         ErrorCode code = isReadOnlyRejection(cause) ? ErrorCode.FMDB_014 : ErrorCode.FMDB_008;
         return new SubmissionException(code,
                 "Action '" + nodeType + "' failed (" + executed + "/" + total + " actions completed): " + cause.getMessage(),
-                executed, total, cause);
+                executed, total, cause, actionHttpStatus(code, cause));
+    }
+
+    /**
+     * The response status of an action failure. The exported SPI promises that the
+     * status a FormActionException chose is forwarded to the client — a forward action's
+     * 502 must not surface as a 422. Only sane error statuses are honoured (a stray 2xx
+     * or 3xx would claim success over an error body), and the read-only rejection keeps
+     * the maintenance code's own 503 whatever the action threw.
+     */
+    private static int actionHttpStatus(ErrorCode code, Throwable cause) {
+        if (code != ErrorCode.FMDB_008 || !(cause instanceof FormActionException actionException)) {
+            return 0;
+        }
+
+        int status = actionException.getHttpStatus();
+        return status >= 400 && status <= 599 ? status : 0;
     }
 
     private static boolean isReadOnlyRejection(Throwable t) {

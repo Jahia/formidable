@@ -1,6 +1,7 @@
 package org.jahia.modules.formidable.engine.servlet;
 
 import org.jahia.modules.formidable.engine.api.FormAction;
+import org.jahia.modules.formidable.engine.api.FormActionException;
 import org.jahia.modules.formidable.engine.actions.FormDataParser;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService;
@@ -478,13 +479,57 @@ class FormSubmissionPipelineTest {
 
     @Test
     void actionFailureKeepsGenericCodeForOtherActionErrors() throws Exception {
-        // Verifies the safety net does not widen: ordinary action failures stay FMDB-008.
+        // Verifies the safety net does not widen: ordinary action failures stay FMDB-008,
+        // and a non-FormActionException failure keeps the code's own 422.
         FormSubmissionPipeline pipeline = newPipelineWithReadOnlyStatus(false);
         Throwable ordinary = new RepositoryException("constraint violation");
 
         SubmissionException error = invokeActionFailure(pipeline, "fmdb:customAction", 0, 1, ordinary);
 
         assertEquals(ErrorCode.FMDB_008, error.errorCode);
+        assertEquals(422, error.httpStatus());
+    }
+
+    @Test
+    void actionFailureForwardsTheStatusTheActionChose() throws Exception {
+        // The exported SPI promises that a FormActionException's HTTP status reaches the
+        // client: a forward action's 502 must not surface as a generic 422 — monitoring
+        // could not tell a downstream outage from a client-side validation problem.
+        FormSubmissionPipeline pipeline = newPipelineWithReadOnlyStatus(false);
+        Throwable badGateway = new FormActionException(
+                "target unreachable", 502);
+
+        SubmissionException error = invokeActionFailure(pipeline, "fmdb:forwardAction", 0, 1, badGateway);
+
+        assertEquals(ErrorCode.FMDB_008, error.errorCode);
+        assertEquals(502, error.httpStatus());
+    }
+
+    @Test
+    void actionFailureIgnoresAnInsaneActionStatus() throws Exception {
+        // A stray 2xx or 3xx from a third-party action would claim success over an error
+        // body: anything outside 400-599 falls back to the error code's own status.
+        FormSubmissionPipeline pipeline = newPipelineWithReadOnlyStatus(false);
+        Throwable weird = new FormActionException("odd", 200);
+
+        SubmissionException error = invokeActionFailure(pipeline, "fmdb:customAction", 0, 1, weird);
+
+        assertEquals(422, error.httpStatus());
+    }
+
+    @Test
+    void actionFailureKeepsTheMaintenanceStatusOverTheActionsChoice() throws Exception {
+        // The read-only rejection means "come back later" (503) whatever status the
+        // failing action carried: the maintenance semantics win.
+        FormSubmissionPipeline pipeline = newPipelineWithReadOnlyStatus(true);
+        Throwable readOnly = new FormActionException(
+                "write refused", 500,
+                new org.jahia.settings.readonlymode.ReadOnlyModeException("read-only mode is enabled"));
+
+        SubmissionException error = invokeActionFailure(pipeline, "fmdb:customAction", 0, 1, readOnly);
+
+        assertEquals(ErrorCode.FMDB_014, error.errorCode);
+        assertEquals(503, error.httpStatus());
     }
 
     @Test
