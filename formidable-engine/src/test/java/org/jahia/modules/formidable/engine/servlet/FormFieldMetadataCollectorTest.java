@@ -408,6 +408,42 @@ class FormFieldMetadataCollectorTest {
     }
 
     @Test
+    void nestedConditionalContainersChainThroughTheParentMap() throws Exception {
+        // A conditional fieldset inside a conditional step: the step's verdict must
+        // reach the field THROUGH the fieldset, so the containers themselves need an
+        // entry in the parent map — containers are either non-submittable (fieldset)
+        // or not form elements at all (step), so registerField never records them.
+        JCRPropertyWrapper stepLogics = multiValueProperty(
+                "{\"sourceFieldName\":\"gate\",\"operator\":\"in\",\"values\":[\"open\"]}");
+        JCRPropertyWrapper fieldsetLogics = multiValueProperty(
+                "{\"sourceFieldName\":\"detail\",\"operator\":\"in\",\"values\":[\"yes\"]}");
+
+        JCRNodeWrapper child = node(
+                "child", "fmdb:text", Set.of("fmdbmix:formElement"), Map.of(), List.of());
+        JCRNodeWrapper fieldset = node(
+                "fieldset", "fmdb:fieldset",
+                Set.of("fmdbmix:formContainer", "fmdbmix:nonSubmittable"),
+                Map.of("logics", fieldsetLogics),
+                List.of(child));
+        JCRNodeWrapper step = node(
+                "step", "fmdb:step",
+                Set.of("fmdbmix:formContainer"),
+                Map.of("logics", stepLogics),
+                List.of(fieldset));
+
+        FormFieldMetadataCollector.Result result = FormFieldMetadataCollector.collectFromFormNode(
+                formNodeWithFields(step)
+        );
+
+        // Expected outcome: each level points at its direct conditional container,
+        // and both containers carry their own rules for the evaluator to walk.
+        assertEquals(Set.of("step"), result.fieldParentContainers().get("fieldset"));
+        assertEquals(Set.of("fieldset"), result.fieldParentContainers().get("child"));
+        assertNotNull(result.fieldLogicRules().get("step"));
+        assertNotNull(result.fieldLogicRules().get("fieldset"));
+    }
+
+    @Test
     void collectsSourcedChoiceOptionsThroughTheResolver() throws Exception {
         // Verifies D11 plumbing: a sourced choice field gets its allowed values from the
         // re-resolved source, in the manual-options JSON format.

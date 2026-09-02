@@ -163,17 +163,21 @@ public class ConditionalLogicEvaluator {
     }
 
     private Visibility visibility(String fieldName, Set<String> visiting) {
-        Visibility parentVerdict = parentContainersVerdict(fieldName, visiting);
-        if (parentVerdict != Visibility.VISIBLE) {
-            return parentVerdict;
-        }
-
-        List<ConditionalLogicRule> rules = fieldLogicRules.get(fieldName);
-        if (rules == null || rules.isEmpty()) return Visibility.VISIBLE;
-
+        // The cycle guard must cover the parent walk too: JCR names are only unique
+        // among siblings, so a conditional container and a field inside it may share
+        // a name — the parent graph then carries a self-loop, and an unguarded
+        // recursion would overflow the stack (an Error no servlet catch stops).
         if (!visiting.add(fieldName)) return Visibility.VISIBLE;
 
         try {
+            Visibility parentVerdict = parentContainersVerdict(fieldName, visiting);
+            if (parentVerdict != Visibility.VISIBLE) {
+                return parentVerdict;
+            }
+
+            List<ConditionalLogicRule> rules = fieldLogicRules.get(fieldName);
+            if (rules == null || rules.isEmpty()) return Visibility.VISIBLE;
+
             // Rules are ANDed: any failing rule hides the field. One measured failure is
             // enough to prove the verdict, however many other rules fell back to the
             // fail-safe — the field was hidden for that measurable reason alone.
