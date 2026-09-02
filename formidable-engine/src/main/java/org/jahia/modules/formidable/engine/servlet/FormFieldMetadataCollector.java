@@ -159,8 +159,13 @@ class FormFieldMetadataCollector {
                     // A conditional container nested in another one chains verdicts
                     // through the same parent map as the fields: a field whose direct
                     // container is a fieldset must still inherit the enclosing step's
-                    // verdict, which the evaluator walks parent by parent.
-                    if (currentContainerName != null) {
+                    // verdict, which the evaluator walks parent by parent. A name equal
+                    // to the enclosing container's (JCR names are only unique among
+                    // siblings) would be a self-edge: the evaluator's cycle guard
+                    // resolves it to VISIBLE, and one visible parent wins — the REAL
+                    // enclosing chain would never be consulted. Collision noise, not
+                    // structure: skipped.
+                    if (currentContainerName != null && !containerName.equals(currentContainerName)) {
                         ctx.fieldParentContainers
                                 .computeIfAbsent(containerName, k -> new HashSet<>())
                                 .add(currentContainerName);
@@ -191,8 +196,9 @@ class FormFieldMetadataCollector {
 
         // Track parent container before the duplicate check so that all containers
         // are recorded. isHidden() treats a field as hidden only when ALL its parents
-        // are hidden, mirroring the front-end closest() logic.
-        if (parentContainerName != null) {
+        // are hidden, mirroring the front-end closest() logic. A field named like its
+        // own container would be a self-edge (see the container-side comment): skipped.
+        if (parentContainerName != null && !name.equals(parentContainerName)) {
             ctx.fieldParentContainers.computeIfAbsent(name, k -> new HashSet<>()).add(parentContainerName);
         }
 

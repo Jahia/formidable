@@ -329,6 +329,28 @@ class ConditionalLogicEvaluatorTest {
     }
 
     @Test
+    void aCollidingNameStillInheritsTheEnclosingStepsVerdict() {
+        // The collector drops the self-edge a field/fieldset name collision produces,
+        // so the parent map carries only the real enclosing step — whose hidden verdict
+        // must reach the colliding name. With the self-edge kept, the cycle guard
+        // resolved it to VISIBLE and one visible parent wins: the step's verdict was
+        // never consulted, and the server required a field the browser had disabled.
+        ConditionalLogicEvaluator evaluator = evaluator(
+                Map.of(
+                        "step", List.of(rule("gate", "in", null, List.of("open"))),
+                        "address", List.of(rule("detail", "in", null, List.of("yes")))
+                ),
+                Map.of(
+                        "gate", List.of("closed"),
+                        "detail", List.of("yes")
+                ),
+                Map.of("address", Set.of("step"))
+        );
+
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_MEASURED, evaluator.visibility("address"));
+    }
+
+    @Test
     void logicIdResolutionUsesResolvedSourceFieldName() {
         // Verifies source resolution: the evaluator must resolve logicId through the pre-built logicId->field map.
         ConditionalLogicEvaluator evaluator = new ConditionalLogicEvaluator(

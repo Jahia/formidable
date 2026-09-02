@@ -444,6 +444,40 @@ class FormFieldMetadataCollectorTest {
     }
 
     @Test
+    void aFieldNamedLikeItsContainerDoesNotProduceASelfEdge() throws Exception {
+        // JCR names are only unique among siblings: a field may share its conditional
+        // fieldset's name. A self-edge in the parent map resolves through the
+        // evaluator's cycle guard to VISIBLE, and one visible parent wins — the real
+        // enclosing step's verdict would never be consulted, so an honestly hidden
+        // field would be required server-side (FMDB-010). The self-edge is collision
+        // noise and must not be collected; the step edge must survive.
+        JCRPropertyWrapper stepLogics = multiValueProperty(
+                "{\"sourceFieldName\":\"gate\",\"operator\":\"in\",\"values\":[\"open\"]}");
+        JCRPropertyWrapper fieldsetLogics = multiValueProperty(
+                "{\"sourceFieldName\":\"detail\",\"operator\":\"in\",\"values\":[\"yes\"]}");
+
+        JCRNodeWrapper collidingField = node(
+                "address", "fmdb:text", Set.of("fmdbmix:formElement"), Map.of(), List.of());
+        JCRNodeWrapper fieldset = node(
+                "address", "fmdb:fieldset",
+                Set.of("fmdbmix:formContainer", "fmdbmix:nonSubmittable"),
+                Map.of("logics", fieldsetLogics),
+                List.of(collidingField));
+        JCRNodeWrapper step = node(
+                "step", "fmdb:step",
+                Set.of("fmdbmix:formContainer"),
+                Map.of("logics", stepLogics),
+                List.of(fieldset));
+
+        FormFieldMetadataCollector.Result result = FormFieldMetadataCollector.collectFromFormNode(
+                formNodeWithFields(step)
+        );
+
+        // Expected outcome: one parent only — the step. No self-edge.
+        assertEquals(Set.of("step"), result.fieldParentContainers().get("address"));
+    }
+
+    @Test
     void collectsSourcedChoiceOptionsThroughTheResolver() throws Exception {
         // Verifies D11 plumbing: a sourced choice field gets its allowed values from the
         // re-resolved source, in the manual-options JSON format.
