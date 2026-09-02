@@ -30,12 +30,11 @@ SSR — no client Islands, all interactivity is native HTML + CSS.
 
 ## Known limitations
 
-- No engine-side semantic mixins yet: submitted values are validated client-side only
-  (the server pipeline treats them as free text values, like `fmdb:inputText`). Server-side
-  allowlist validation requires engine-owned mixins — tracked as a follow-up of #158.
-- These fields cannot yet be used as conditional-logic _sources_ — tracked in
-  [issue #160](https://github.com/Jahia/formidable/issues/160).
 - Content-type icons are placeholders (copies of the generic component icon).
+
+(Two earlier limitations were lifted before release: the fields now carry the engine's
+semantic mixins — `fmdbmix:numberField` / `fmdbmix:booleanField`, validated server-side
+with their bounds — and they can be used as conditional-logic sources.)
 
 ## Build & deploy
 

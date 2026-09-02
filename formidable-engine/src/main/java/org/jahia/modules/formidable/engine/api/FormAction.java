@@ -15,7 +15,7 @@ import java.util.Map;
 public interface FormAction {
 
     /**
-     * Returns the primary JCR node type this action handles (e.g. "fmdb:captchaAction").
+     * Returns the primary JCR node type this action handles (e.g. "fmdb:emailNotificationAction").
      */
     String getNodeType();
 

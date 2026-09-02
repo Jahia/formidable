@@ -27,7 +27,8 @@ interface ExportFormat {
     mimeType: string;    // MIME type for the Blob (e.g. "text/csv;charset=utf-8;")
     buildContent: (
         submissions: SubmissionRow[],
-        t: (key: string) => string
+        t: (key: string) => string,
+        formFields: FormFields
     ) => string;         // Builds the file content from submissions
 }
 ```
@@ -35,6 +36,9 @@ interface ExportFormat {
 The `buildContent` function receives:
 - `submissions` — an array of parsed submission rows with metadata, field values, and file references
 - `t` — the i18n translation function, scoped to the `formidable-engine` namespace
+- `formFields` — the form's declared fields, in FORM order, with their labels: this is
+  what carries the human-readable headers and the column ordering. A format that ignores
+  it compiles fine and silently loses both — always thread it through.
 
 ### ExportResultsDialog
 
@@ -54,25 +58,26 @@ It does not contain any formatting logic.
 
 ## Adding a new format
 
-1. Create a new file in `formats/`, e.g. `formats/json.ts`:
+1. Create a new file in `formats/` (CSV and JSON already ship — say `formats/ndjson.ts`):
 
 ```ts
-import type {SubmissionRow} from '../../FormResults.utils';
+import type {FormFields, SubmissionRow} from '../../FormResults.utils';
 import type {ExportFormat} from './ExportFormat';
 
-const buildJsonContent = (
+const buildNdjsonContent = (
     submissions: SubmissionRow[],
-    _t: (key: string) => string
+    _t: (key: string) => string,
+    _formFields: FormFields
 ): string => {
-    return JSON.stringify(submissions, null, 2);
+    return submissions.map(row => JSON.stringify(row)).join('\n');
 };
 
-export const jsonFormat: ExportFormat = {
-    id: 'json',
-    label: 'JSON',
-    extension: 'json',
-    mimeType: 'application/json;charset=utf-8;',
-    buildContent: buildJsonContent
+export const ndjsonFormat: ExportFormat = {
+    id: 'ndjson',
+    label: 'NDJSON',
+    extension: 'ndjson',
+    mimeType: 'application/x-ndjson;charset=utf-8;',
+    buildContent: buildNdjsonContent
 };
 ```
 
@@ -90,7 +95,7 @@ import type {ExportFormat} from './ExportFormat';
 export const exportFormats: ExportFormat[] = [csvFormat, jsonFormat];
 ```
 
-3. That's it. When a format selector is added to the dialog, it can import `exportFormats` and let the user choose.
+3. That's it. The dialog already carries a multi-select format Dropdown fed by `exportFormats`: a registered format appears there with its label, and every selected format downloads as its own file.
 
 ## Data model
 
@@ -121,7 +126,9 @@ The CSV format (`formats/csv.ts`) produces:
 - One data row per submission
 - Multi-value fields joined with ` | `
 - Files grouped by field name with absolute download URLs
-- Proper CSV escaping (quotes, commas, newlines)
+- Proper CSV escaping (quotes, commas, newlines, carriage returns)
+- Spreadsheet formula-injection neutralisation: a value starting with `=`, `+`, `-`, `@`
+  (or a tab/CR variant) is prefixed with a single quote, per the OWASP recommendation
 
 ## JSON specifics
 

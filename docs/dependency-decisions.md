@@ -11,7 +11,7 @@ This project uses two distinct dependency strategies in its Java modules:
 
 - `org.apache.tika:tika-core`
   - embedded intentionally in the OSGi bundle
-  - used for content-only MIME detection during file upload validation
+  - used for MIME detection during file upload validation — deliberately filename-aware (content plus declared filename), as the pom comment documents
   - kept isolated from Jahia's platform-provided Tika line through OSGi bundle class loading
 
 ### Provided libraries

@@ -1,6 +1,10 @@
 # CND Module Ownership
 
-This document explains how Formidable splits JCR node types and mixins between `formidable-elements` and `formidable-engine`.
+This document explains how Formidable splits JCR node types and mixins between
+`formidable-elements`, `formidable-engine` and `formidable-extended-inputs` (the optional
+extra field types — Consent, Rating, Scale, Switch — which own their `fmdbext:*` node
+types and follow the same rules as any third-party field module: concrete types in the
+field module, runtime contracts in the engine).
 
 The goal is to keep the model readable, extensible, and aligned with runtime dependencies:
 
@@ -63,8 +67,8 @@ Examples (non-exhaustive — the CND files are the source of truth):
 - `fmdbmix:textField`
 - `fmdbmix:fileField`
 - `fmdbmix:emailField`
-- `fmdbmix:dateField` and its bound modes: `fmdbmix:dateBounds`, `fmdbmix:fixedMinDate`, `fmdbmix:fixedMaxDate`
-- `fmdbmix:datetimeLocalField` and its bound modes: `fmdbmix:datetimeBounds`, `fmdbmix:fixedMinDatetime`, `fmdbmix:fixedMaxDatetime`
+- `fmdbmix:dateField` and its bound modes: `fmdbmix:dateBounds`, `fmdbmix:fixedMinDate`, `fmdbmix:fixedMaxDate`, `fmdbmix:relativeMinDate`, `fmdbmix:relativeMaxDate`
+- `fmdbmix:datetimeLocalField` and its bound modes: `fmdbmix:datetimeBounds`, `fmdbmix:fixedMinDatetime`, `fmdbmix:fixedMaxDatetime`, `fmdbmix:relativeMinDatetime`, `fmdbmix:relativeMaxDatetime`
 - `fmdbmix:colorField`
 - `fmdbmix:numberField`
 - `fmdbmix:booleanField`

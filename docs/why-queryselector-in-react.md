@@ -9,10 +9,16 @@ React tree via an `<Island>` boundary.
 ```
 Form.client.tsx  ← Island (React root #1)
   └─ <form>      ← contains server-rendered HTML
-       ├─ InputText.client.tsx   ← Island (React root #2)
-       ├─ Select.client.tsx      ← Island (React root #3)
-       └─ Checkbox.client.tsx    ← Island (React root #4)
+       ├─ (plain fields: server-rendered markup, no island at all — selects, radios…)
+       ├─ File.client.tsx                ← Island (its own React root)
+       ├─ Range.client.tsx               ← Island
+       ├─ Text.client.tsx                ← Island (only when a mask is set)
+       ├─ Checkbox.client.tsx            ← Island (group behaviour)
+       └─ TodayBoundedInput.client.tsx   ← Island (date/datetime with a day-following bound)
 ```
+
+(A field hydrates its own island only when it has client behaviour; a select never
+does. The captcha widget is one more island under the Form.)
 
 Each Island is a **self-contained React application**. There is no shared React context,
 no common state tree, and no parent–child prop passing between the Form island and the
@@ -59,7 +65,9 @@ or server-rendered markup — all cases where direct DOM access is the standard 
 
 Direct DOM access via `querySelector` is a deliberate architectural choice driven by
 Jahia's Island rendering model. It is scoped to the `<form>` element (never the full
-document), and limited to reading `data-*` attributes and toggling visibility. This keeps
-the implementation simple and avoids introducing unnecessary abstractions across isolated
-React roots.
+document). The visibility pass reads `data-*` attributes and current control values,
+toggles wrapper visibility AND disables/re-enables every control inside a hidden wrapper —
+that disabling is load-bearing: it keeps hidden values out of `FormData`, which is what
+the server's logic-coherence check (FMDB-013) relies on. This keeps the implementation
+simple and avoids introducing unnecessary abstractions across isolated React roots.
 
