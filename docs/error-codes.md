@@ -22,7 +22,7 @@ Detailed reasons are written to server logs only and are never exposed to the ca
 | Code | HTTP status | Condition |
 |---|---|---|
 | `FMDB-001` | 415 | `Content-Type` is not `multipart/form-data` |
-| `FMDB-002` | 400 | Required URL parameter `fid` is missing, blank, or not a valid UUID |
+| `FMDB-002` | 400 | Required URL parameter `fid` is missing, blank, or not a valid UUID — or the `lang` parameter is not a valid language tag |
 | `FMDB-003` | 413 | `Content-Length` exceeds `uploadMaxRequestSizeBytes` from `org.jahia.modules.formidable.cfg` |
 | `FMDB-004` | 400 | Form node not found in the `live` workspace (invalid `fid`, or form not published) |
 | `FMDB-005` | 500 | CAPTCHA is required on the form but server-side verification is not fully configured (`captchaSiteKey` / `captchaSecretKey` / `captchaVerifyUrl` missing in `org.jahia.modules.formidable.cfg`) |

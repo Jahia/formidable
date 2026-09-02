@@ -32,7 +32,9 @@ Stable class names, rendered server-side and kept across releases:
 | `fmdb-form-control` | Inputs, selects and textareas |
 | `fmdb-fieldset`, `fmdb-fieldset-legend` | A fieldset and its legend |
 | `fmdb-step`, `fmdb-step-title`, `fmdb-step-intro`, `fmdb-steps-nav`, `fmdb-step-indicator`, `fmdb-step-label` | Multi-step structure and navigation |
-| `fmdb-form-actions`, `fmdb-btn`, `fmdb-btn-primary`, `fmdb-btn-secondary`, `fmdb-new-form-btn` | Buttons |
+| `fmdb-form-actions`, `fmdb-btn`, `fmdb-btn-primary`, `fmdb-btn-secondary`, `fmdb-new-form-btn`, `fmdb-next-btn`, `fmdb-prev-btn` | Buttons, including the multi-step navigation pair |
+| `fmdb-form-help` | Help text under a field (present on nearly every field) |
+| `fmdb-range`, `fmdb-range-row`, `fmdb-range-output`, `fmdb-range-end-label` | Range slider structure (variables: `--fmdb-range-gap`, `--fmdb-range-output-min-width`, `--fmdb-range-end-label-size`) |
 | `fmdb-message`, `fmdb-message-content`, `fmdb-message-success`, `fmdb-message-error`, `fmdb-message-maintenance` | Submission feedback |
 | `fmdb-file-*` (`-input-container`, `-list`, `-item`, `-name`, `-size`, `-remove`, `-selection-note`) | File field and its selected files |
 | `fmdb-validation-error`, `fmdb-invalid` | Inline validation (see [Custom validation](custom-validation.md)) |

@@ -12,14 +12,14 @@ This module is accompanied by a Docker-based development environment. To get sta
 # Install dependencies
 yarn install
 
-# Start Jahia in Docker
-docker compose up --wait
+# Have a Jahia 8.2+ instance running on localhost:8080
+# (no compose file ships in this repo — use your usual local instance)
 
 # Build the module and start the dev mode
 yarn build && yarn dev
 ```
 
-These commands will start a Jahia instance in a Docker container, build your module and start a watcher that will rebuild the module every time you make changes to the source code.
+These commands build the module and start a watcher that rebuilds and redeploys it to the local Jahia every time you make changes to the source code.
 
 ## Commands
 

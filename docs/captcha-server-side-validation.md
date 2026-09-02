@@ -24,8 +24,11 @@ This author-facing mixin extends `fmdbmix:captchaProtectedForm`.
 
 ## When is the token verified server-side?
 
-Always — when CAPTCHA is enabled on the form, the submission pipeline verifies the token first,
-before any action in the pipeline runs.
+When CAPTCHA is enabled on the form, the submission pipeline verifies the token before
+any byte of the body is read and before any action runs. The only checks ahead of it are
+the zero-read gates (content type, routing params, size guard, form resolution,
+read-only maintenance, authentication): a submission rejected by one of those — FMDB-014
+during maintenance, for instance — is refused without the token ever being verified.
 
 ---
 
@@ -45,11 +48,16 @@ before any action in the pipeline runs.
 
 ## Token field names (auto-injected by the widget)
 
-| Provider | Field name in POST |
+| Provider | Widget's native hidden field |
 |---|---|
 | Cloudflare Turnstile | `cf-turnstile-response` |
 | hCaptcha | `h-captcha-response` |
 | Google reCAPTCHA v2 | `g-recaptcha-response` |
+
+The token does NOT travel in the POST body: the submit hook reads it, deletes the
+widget's native field from `FormData`, and sends it in the `X-Formidable-Captcha-Token`
+header — the field name above is only what the module configures as `captchaTokenField`
+so the hook knows which field to strip.
 
 ## Verification endpoints
 

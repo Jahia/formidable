@@ -114,9 +114,13 @@ Each `fmdb:formSubmission` contains:
 Typical submission-level properties:
 
 - `origin`
-- `status`
 - `locale`
 - `referer`
+
+The per-form results container (`formidable-results/<form>`) is created on the first
+submission with a collide-and-recover guard: the deterministic node name makes two
+concurrent first submissions collide instead of silently creating two containers, and
+the loser re-reads and reuses the winner's.
 
 For newly stored submissions, `SaveToJcrFormAction` does not persist `ipAddress`,
 `submitterUsername`, or `userAgent`. Older submissions may still contain those legacy
