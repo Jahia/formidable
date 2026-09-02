@@ -30,7 +30,7 @@ interface UseFormSubmissionOptions {
 
 interface UseFormSubmissionReturn {
 	message: string | null;
-	messageType: 'success' | 'error' | null;
+	messageType: 'success' | 'error' | 'maintenance' | null;
 	isLoading: boolean;
 	isCaptchaValid: boolean;
 	setIsCaptchaValid: (valid: boolean) => void;
@@ -51,7 +51,7 @@ export function useFormSubmission({
 	labels,
 }: UseFormSubmissionOptions): UseFormSubmissionReturn {
 	const [message, setMessage] = useState<string | null>(null);
-	const [messageType, setMessageType] = useState<'success' | 'error' | null>(null);
+	const [messageType, setMessageType] = useState<'success' | 'error' | 'maintenance' | null>(null);
 	const [isLoading, setIsLoading] = useState(false);
 	const [isCaptchaValid, setIsCaptchaValid] = useState(false);
 	const captchaRef = useRef<CaptchaHandle>(null);
@@ -135,8 +135,12 @@ export function useFormSubmission({
 			if (isMultiStep) setCurrentStep(0);
 		} catch (error) {
 			if (serverErrorCode === MAINTENANCE_ERROR_CODE) {
+				// Its own message type, not 'error': an error keeps the form on screen
+				// so the visitor can retry, but this rejection means the platform is
+				// read-only — there is nothing to retry, so the form hides, mirroring
+				// the server render, which emits the message alone.
 				setMessage(labels.maintenanceUnavailable);
-				setMessageType('error');
+				setMessageType('maintenance');
 				captchaRef.current?.reset();
 				return;
 			}
