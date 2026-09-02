@@ -6,6 +6,7 @@ export const CURRENT_NODE_BY_PATH = gql`
     query ConditionalLogicCurrentNodeByPath($path: String!, $workspace: Workspace!, $language: String!) {
         jcr(workspace: $workspace) {
             nodeByPath(path: $path) {
+                site { defaultLanguage }
                 ...JcrNodeIdentity
                 displayName(language: $language)
                 primaryNodeType { name }
@@ -33,7 +34,7 @@ export const CURRENT_NODE_BY_PATH = gql`
 
 export const FORM_TREE_BY_PATH = gql`
     ${JCR_NODE_IDENTITY}
-    query ConditionalLogicFormTreeByPath($path: String!, $workspace: Workspace!, $language: String!) {
+    query ConditionalLogicFormTreeByPath($path: String!, $workspace: Workspace!, $language: String!, $defaultLanguage: String!) {
         jcr(workspace: $workspace) {
             nodeByPath(path: $path) {
                 ...JcrNodeIdentity
@@ -52,6 +53,10 @@ export const FORM_TREE_BY_PATH = gql`
                         properties(names: ["fmdb:options", "fieldKey"], language: $language) {
                             name
                             value
+                            values
+                        }
+                        defaultProperties: properties(names: ["fmdb:options"], language: $defaultLanguage) {
+                            name
                             values
                         }
                     }

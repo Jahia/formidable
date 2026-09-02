@@ -342,6 +342,9 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                 });
 
                 const currentNode = currentNodeResult.data?.jcr?.nodeByPath;
+                // The site default language holds the option identity; the rule
+                // dropdown is labelled current-language-first with it as fallback.
+                const defaultLanguage = currentNode?.site?.defaultLanguage ?? language;
                 const formPath = findFormPath(currentNode);
                 if (!currentNode || !formPath) {
                     throw new Error(t('conditionalLogic.formNotFound'));
@@ -354,7 +357,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     jcr?: {nodeByPath?: GraphNode | null} | null;
                 }>({
                     query: FORM_TREE_BY_PATH,
-                    variables: {path: formPath, workspace, language},
+                    variables: {path: formPath, workspace, language, defaultLanguage},
                     fetchPolicy: 'network-only'
                 });
 

@@ -37,3 +37,32 @@ describe('withStoredValues', () => {
 		]);
 	});
 });
+
+import {mergeChoiceValues} from './ConditionalLogic.utils';
+
+describe('mergeChoiceValues', () => {
+	it('offers the default language identity, labelled by the current language first', () => {
+		const french = [{value: 'red', label: 'Rouge'}, {value: 'green', label: ''}];
+		const english = [{value: 'red', label: 'Red'}, {value: 'green', label: 'Green'}];
+
+		expect(mergeChoiceValues(french, english)).toEqual([
+			{value: 'red', label: 'Rouge'},
+			{value: 'green', label: 'Green'}
+		]);
+	});
+
+	it('never offers a value the identity does not know', () => {
+		// Pre-realign migrated state: the French list still carries divergent values.
+		// Authoring against them would store a rule no submission can ever match.
+		const french = [{value: 'rouge', label: 'Rouge'}, {value: 'vert', label: 'Vert'}];
+		const english = [{value: 'red', label: 'Red'}, {value: 'green', label: 'Green'}];
+
+		expect(mergeChoiceValues(french, english)).toEqual(english);
+	});
+
+	it('falls back to the current language when the identity list is empty', () => {
+		const french = [{value: 'a', label: 'A'}];
+
+		expect(mergeChoiceValues(french, [])).toEqual(french);
+	});
+});

@@ -286,6 +286,38 @@ const getDeclaredValueKind = (node: GraphNode): SourceValueKind | undefined => {
     return undefined;
 };
 
+/**
+ * The choice values a rule can be authored against. The IDENTITY is the site default
+ * language's list — the values every language renders and submits in the 0.4 model —
+ * labelled in cascade: the current language's label for that value when it has one,
+ * else the default language's, else the value itself. The rule stores only the value,
+ * so the label is display comfort, and the default language always knows the value:
+ * an untranslated (or blank-labelled, freshly realigned) language never shows an
+ * unlabeled or misleading list, and never authors a value the identity does not know.
+ * Falls back to the current language's own list when the default one is empty.
+ */
+export const mergeChoiceValues = (
+    ownValues: ChoiceValue[],
+    defaultValues: ChoiceValue[]
+): ChoiceValue[] => {
+    if (defaultValues.length === 0) {
+        return ownValues;
+    }
+
+    const ownLabelByValue = new Map<string, string>();
+    for (const choice of ownValues) {
+        if (choice.label.trim() !== '') {
+            ownLabelByValue.set(choice.value, choice.label);
+        }
+    }
+
+    return defaultValues.map(choice => ({
+        value: choice.value,
+        label: ownLabelByValue.get(choice.value)
+            ?? (choice.label.trim() === '' ? choice.value : choice.label)
+    }));
+};
+
 const mapSourceField = (node: GraphNode): SourceFieldOption | null => {
     const type = getNodeType(node);
     const valueKind = getDeclaredValueKind(node);
@@ -295,7 +327,12 @@ const mapSourceField = (node: GraphNode): SourceFieldOption | null => {
     }
 
     const choiceProperty = node.properties?.find(property => property.name === descriptor.choiceProperty);
-    const choiceValues = descriptor.valueKind === 'choice' ? parseJsonArrayValue(choiceProperty?.values ?? []) : [];
+    const defaultChoiceProperty = node.defaultProperties?.find(property => property.name === descriptor.choiceProperty);
+    const choiceValues = descriptor.valueKind === 'choice'
+        ? mergeChoiceValues(
+            parseJsonArrayValue(choiceProperty?.values ?? []),
+            parseJsonArrayValue(defaultChoiceProperty?.values ?? []))
+        : [];
     const fieldKey = node.properties?.find(property => property.name === 'fieldKey')?.value ?? undefined;
 
     return {
