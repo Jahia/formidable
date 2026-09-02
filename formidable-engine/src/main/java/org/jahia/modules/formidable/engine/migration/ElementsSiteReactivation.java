@@ -88,6 +88,26 @@ public class ElementsSiteReactivation extends ElementsRedeployRetriggeredMigrati
      * start-fired redeploy event arrives while the state is still STARTING, and that
      * event IS the healing's main trigger on the documented upgrade path.
      */
+    /**
+     * @return true when the one-shot marker holds. On failure the site IS healed but
+     *         unprotected: a later deliberate deactivation would be healed once more —
+     *         warned here, and the caller then makes no one-shot promise.
+     */
+    private static boolean stampMarker(JCRSessionWrapper session, String sitePath) {
+        try {
+            JCRNodeWrapper site = session.getNode(sitePath);
+            session.checkout(site);
+            site.addMixin(REACTIVATED_MARKER);
+            session.save();
+            return true;
+        } catch (RepositoryException | RuntimeException e) {
+            log.warn("[ElementsSiteReactivation] Re-enabled {} on site '{}' but could not stamp the "
+                    + "one-shot marker: a later deliberate deactivation would be healed once more. ({})",
+                    ELEMENTS_MODULE_ID, sitePath, e.getMessage());
+            return false;
+        }
+    }
+
     private static boolean elementsPackageStartingOrStarted() {
         JahiaTemplatesPackage pkg = ServicesRegistry.getInstance()
                 .getJahiaTemplateManagerService().getTemplatePackageById(ELEMENTS_MODULE_ID);
@@ -157,23 +177,15 @@ public class ElementsSiteReactivation extends ElementsRedeployRetriggeredMigrati
         try {
             ServicesRegistry.getInstance().getJahiaTemplateManagerService()
                     .installModule(ELEMENTS_MODULE_ID, sitePath, "root");
-            try {
-                JCRNodeWrapper site = session.getNode(sitePath);
-                session.checkout(site);
-                site.addMixin(REACTIVATED_MARKER);
-                session.save();
-            } catch (RepositoryException | RuntimeException e) {
-                // The site IS healed; without the marker it just is not protected from
-                // one more healing after a later deliberate deactivation. Named so the
-                // invariant's hole is visible instead of silent.
-                log.warn("[ElementsSiteReactivation] Re-enabled {} on site '{}' but could not stamp the "
-                        + "one-shot marker: a later deliberate deactivation would be healed once more. ({})",
-                        ELEMENTS_MODULE_ID, sitePath, e.getMessage());
-            }
+            boolean marked = stampMarker(session, sitePath);
+            // One truthful line for the operator: the one-shot promise is only made
+            // when the marker actually holds it (the failed-stamp warn already told
+            // the opposite story — the two must never both appear).
             log.info("[ElementsSiteReactivation] Re-enabled {} on site '{}': the site holds forms but had "
-                    + "lost the module from its installed list (0.3 -> 0.4 module-identity change). "
-                    + "One-shot: a later deliberate deactivation of the module on this site will stick.",
-                    ELEMENTS_MODULE_ID, sitePath);
+                    + "lost the module from its installed list (0.3 -> 0.4 module-identity change).{}",
+                    ELEMENTS_MODULE_ID, sitePath,
+                    marked ? " One-shot: a later deliberate deactivation of the module on this site will stick."
+                           : "");
         } catch (RepositoryException | RuntimeException e) {
             log.error("[ElementsSiteReactivation] Could not re-enable {} on site '{}' — do it manually "
                     + "(docs/upgrade-notes.md step 4): {}", ELEMENTS_MODULE_ID, sitePath, e.getMessage(), e);
