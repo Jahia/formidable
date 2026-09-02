@@ -144,34 +144,15 @@ class FormFieldMetadataCollector {
     private static void traverseRecursively(JCRNodeWrapper node, String parentContainerName, CollectorContext ctx)
             throws RepositoryException {
         String currentContainerName = parentContainerName;
-        boolean nonSubmittable = node.isNodeType(NON_SUBMITTABLE_MIXIN);
 
         // Only explicit structural containers can propagate a conditional-logic
         // visibility context to descendant fields.
-        boolean isContainer = node.isNodeType(FORM_CONTAINER_MIXIN);
-        if (isContainer) {
-            String containerName = node.getName();
-            if (node.hasProperty(LOGICS_PROPERTY)) {
-                List<ConditionalLogicRule> rules = ConditionalLogicRule.parse(node.getProperty(LOGICS_PROPERTY).getValues());
-                if (!rules.isEmpty()) {
-                    ctx.fieldLogicRules.put(containerName, rules);
-                    resolveLogicsSrc(node, rules, ctx);
-                    // A conditional container nested in another one chains verdicts
-                    // through the same parent map as the fields: a field whose direct
-                    // container is a fieldset must still inherit the enclosing step's
-                    // verdict, which the evaluator walks parent by parent.
-                    if (currentContainerName != null) {
-                        ctx.fieldParentContainers
-                                .computeIfAbsent(containerName, k -> new HashSet<>())
-                                .add(currentContainerName);
-                    }
-                    currentContainerName = containerName;
-                }
-            }
+        if (node.isNodeType(FORM_CONTAINER_MIXIN)) {
+            currentContainerName = registerConditionalContainer(node, parentContainerName, ctx);
         }
 
         if (node.isNodeType(FORM_ELEMENT_MIXIN)
-                && !nonSubmittable) {
+                && !node.isNodeType(NON_SUBMITTABLE_MIXIN)) {
             registerField(node, currentContainerName, ctx);
         }
 
@@ -184,6 +165,42 @@ class FormFieldMetadataCollector {
         }
     }
 
+    /**
+     * Registers a conditional container's rules and its edge to the enclosing
+     * container, and returns the container name the descendants inherit — unchanged
+     * when this container carries no rules.
+     *
+     * <p>A conditional container nested in another one chains verdicts through the
+     * same parent map as the fields: a field whose direct container is a fieldset must
+     * still inherit the enclosing step's verdict, which the evaluator walks parent by
+     * parent. A name equal to the enclosing container's (JCR names are only unique
+     * among siblings) would be a self-edge: the evaluator's cycle guard resolves it to
+     * VISIBLE, and one visible parent wins — the REAL enclosing chain would never be
+     * consulted. Collision noise, not structure: skipped.
+     */
+    private static String registerConditionalContainer(JCRNodeWrapper node, String parentContainerName,
+            CollectorContext ctx) throws RepositoryException {
+        if (!node.hasProperty(LOGICS_PROPERTY)) {
+            return parentContainerName;
+        }
+
+        List<ConditionalLogicRule> rules = ConditionalLogicRule.parse(node.getProperty(LOGICS_PROPERTY).getValues());
+        if (rules.isEmpty()) {
+            return parentContainerName;
+        }
+
+        String containerName = node.getName();
+        ctx.fieldLogicRules.put(containerName, rules);
+        resolveLogicsSrc(node, rules, ctx);
+        if (parentContainerName != null && !containerName.equals(parentContainerName)) {
+            ctx.fieldParentContainers
+                    .computeIfAbsent(containerName, k -> new HashSet<>())
+                    .add(parentContainerName);
+        }
+
+        return containerName;
+    }
+
     private static void registerField(JCRNodeWrapper node, String parentContainerName, CollectorContext ctx)
             throws RepositoryException {
         String name = node.getName();
@@ -191,8 +208,9 @@ class FormFieldMetadataCollector {
 
         // Track parent container before the duplicate check so that all containers
         // are recorded. isHidden() treats a field as hidden only when ALL its parents
-        // are hidden, mirroring the front-end closest() logic.
-        if (parentContainerName != null) {
+        // are hidden, mirroring the front-end closest() logic. A field named like its
+        // own container would be a self-edge (see the container-side comment): skipped.
+        if (parentContainerName != null && !name.equals(parentContainerName)) {
             ctx.fieldParentContainers.computeIfAbsent(name, k -> new HashSet<>()).add(parentContainerName);
         }
 

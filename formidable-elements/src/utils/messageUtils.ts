@@ -1,11 +1,30 @@
 /** Resolves a field name to its control type ('date', 'number', …), or null when unknown. */
 export type FieldKindResolver = (fieldName: string) => string | null;
 
+/** The stored node types whose submitted value warrants a localized rendering. */
+const NODE_TYPE_KINDS: Record<string, string> = {
+	'fmdb:inputNumber': 'number',
+	'fmdb:inputRange': 'range',
+	'fmdb:inputDate': 'date',
+	'fmdb:inputDatetimeLocal': 'datetime-local'
+};
+
 /**
- * The field kinds of a live form, read off its DOM controls. A radio group resolves
- * through its first control (RadioNodeList itself carries no type).
+ * The field kinds of a live form. The wrapper's data-fmdb-node-type is authoritative:
+ * some fields submit through a mirrored control whose own type lies about the kind —
+ * the slider's named control is a hidden input, so reading the control's type made the
+ * range branch unreachable. The control's type stays as a fallback for markup without
+ * a wrapper (a radio group resolves through its first control; RadioNodeList itself
+ * carries no type).
  */
 export const fieldKindFromForm = (form: HTMLFormElement): FieldKindResolver => fieldName => {
+	const wrapper = form.querySelector<HTMLElement>(
+		`[data-fmdb-node-name="${CSS.escape(fieldName)}"]`);
+	const nodeType = wrapper?.dataset.fmdbNodeType;
+	if (nodeType) {
+		return NODE_TYPE_KINDS[nodeType] ?? null;
+	}
+
 	const control = form.elements.namedItem(fieldName);
 	const element = control instanceof RadioNodeList ? control[0] : control;
 	return element instanceof HTMLInputElement ? element.type : null;

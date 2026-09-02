@@ -51,7 +51,7 @@
 		"maven": {
 			"groupId": "org.jahia.modules.javascript"
 		},
-		"snapshot": false,
+		"snapshot": true,
 		"module-dependencies": "default,formidable-elements=0.4,formidable-engine=0.4",
 		"module-type": "module",
 		"required-version": "8.2.2.0",
