@@ -72,11 +72,15 @@ describe('Validation - 46 Elements re-enabled on form-bearing sites', () => {
 
 			// Deliberate deactivation of a marked site: the healing must NOT undo it.
 			orphanSite();
+			// bundle.start() is synchronous and the redeploy event is dispatched inline:
+			// by the time the restart groovy answers, any healing has already run — the
+			// negative assertion right after it is deterministic, no waiting window.
 			restartElements();
-			// The bundle restart is what would heal; give it the same window, then
-			// assert the module stayed away.
-			cy.wait(10000);
 			siteHasElements().then(has => expect(has, 'deliberate deactivation sticks').to.eq(false));
+			getSiteState().then((response: SiteStateResponse) => {
+				expect(response.data?.jcr?.nodeByPath?.mixins?.map(m => m.name),
+					'the one-shot marker is what protected the site').to.include('fmdbmix:elementsReactivated');
+			});
 
 			// Leave the shared site usable for whoever runs next: the manual gesture,
 			// which the one-shot marker never blocks.
