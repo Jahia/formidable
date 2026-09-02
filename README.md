@@ -31,14 +31,12 @@ Formidable is based on Jahia standard technologies:
 - [Error codes](docs/error-codes.md) - server-side error codes returned on form submission failure
 - [Dependency decisions](docs/dependency-decisions.md) - rationale for embedded vs. provided dependencies in Java modules
 
-## Alpha version
+## Scope
 
-### Scope
+The current release includes the ability to:
 
-Alpha version is targeted for June 2026.
-It will include the ability to:
-
-- Create forms, with multi-step support, fieldsets, and 12 field types:
+- Create forms, with multi-step support, fieldsets, and 14 core field types (plus 4
+  optional ones in formidable-extended-inputs — Consent, Rating, Scale, Switch):
   - Text input (with optional pattern, mask, datalist)
   - Textarea (with resize, spellcheck, autocomplete options)
   - Email (with pattern, datalist, multiple recipients)
@@ -47,6 +45,8 @@ It will include the ability to:
   - Radio (single or group)
   - Date (with min/max/step)
   - Datetime-local (with min/max/step)
+  - Number (with min/max/step)
+  - Range (slider with bounds, end labels and tick marks)
   - File upload (with MIME type filtering, multiple files, image/video/PDF support)
   - Color
   - Hidden
@@ -82,4 +82,7 @@ It will include the ability to:
 
 ### Current known limitations
 - When selecting a field, users don't know what it will look like. This pain point will be addressed globally inside Jahia in 2026.
-- Forms are currently built using jContent list or structured view. There is no support for Page Builder / visual building. This issue should be resolved over the summer.
+- Forms embedded in a page can be edited through Page Builder (each element gets its own
+  box), but forms cannot yet be created or authored in Page Builder mode from jContent's
+  Content Folders — that is targeted for 1.0. Until then, form authoring happens in
+  jContent's list or structured view.
