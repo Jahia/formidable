@@ -188,11 +188,22 @@ public final class ManualOptionEntries {
     public static List<String> alignForDisplay(List<String> masterOptions, List<String> ownOptions,
             boolean replaceUntranslated) {
         Map<String, Deque<String>> ownByValue = indexByValue(ownOptions);
+        // Same positional pairing as alignForStorage: a fully divergent same-size list
+        // is a translated 0.3 list awaiting its first save — its labels are the RIGHT
+        // display for that language. Without it, every entry of such a migrated field
+        // rendered with the master's words, or not at all when the site does not
+        // replace untranslated content: a dead choice field, unsubmittable if required.
+        boolean positionalLabels = keepsLabelsByPosition(masterOptions, ownOptions);
         List<String> aligned = new ArrayList<>(masterOptions.size());
-        for (String masterRaw : masterOptions) {
+        for (int i = 0; i < masterOptions.size(); i++) {
+            String masterRaw = masterOptions.get(i);
             try {
                 JSONObject master = new JSONObject(masterRaw);
                 String label = ownLabel(take(ownByValue, master.optString(VALUE_KEY, "")));
+                if (label.trim().isEmpty() && positionalLabels) {
+                    label = ownLabel(ownOptions.get(i));
+                }
+
                 if (!label.trim().isEmpty()) {
                     aligned.add(entry(master, label));
                 } else if (replaceUntranslated) {
