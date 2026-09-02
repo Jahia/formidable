@@ -32,8 +32,9 @@ The mode lives on the engine-owned mixin pair (industrial's mediaSource pattern)
 In all three non-manual modes nothing else is stored — the option list never
 materializes in the JCR.
 
-The Content Editor switches the two `jmix:dynamicFieldset` mixins through the
-`addMixin` wiring declared in the fieldset JSON overrides of formidable-elements.
+The Content Editor switches the four options `jmix:dynamicFieldset` mixins (manual,
+sourced, category, content — one per mode) through the `addMixin` wiring declared in the
+fieldset JSON overrides of formidable-elements.
 
 ### Manual options across languages
 

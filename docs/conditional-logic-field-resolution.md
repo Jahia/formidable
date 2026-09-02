@@ -37,6 +37,7 @@ Example:
   "sourceFieldKey": "550e8400-e29b-41d4-a716-446655440000",
   "sourceFieldName": "role",
   "sourceFieldType": "fmdb:select",
+  "valueKind": "choice",
   "operator": "notIn",
   "values": ["marketing", "sales"]
 }
@@ -49,6 +50,11 @@ Meaning:
   primary resolution criterion
 - `sourceNodeId` is the technical source identifier (JCR UUID); fast path and tie-breaker
 - `sourceFieldName` and `sourceFieldType` remain editor/runtime metadata and legacy fallback
+- `valueKind` (`choice`, `text`, `number`, `boolean`, `date`) is stamped by the editor from
+  the source field and picks the comparison semantics on BOTH evaluators where an operator
+  is shared across kinds: `between` compares numerically for the `number` kind and as
+  strings otherwise, and only the `date` kind gives the `today` sentinel its meaning — a
+  rule stored without it compares `today` as a literal string and `"9" > "10"`
 
 ### Date rules relative to the submission day
 
@@ -245,9 +251,14 @@ Mind the two distinct identities in that picture:
 In short: `logicId` answers "which rule is this?", `sourceFieldKey` answers "which
 field does this rule listen to?".
 
-## Resolution order
+## Resolution order (at save time)
 
-When Formidable needs to resolve the source field for a rule, it uses this order:
+This resolution belongs to `FormLogicSourceResolver` and runs when a form is SAVED (the
+sync listeners): it is what keeps the stored JSON pointing at the right field across
+renames and duplications. Neither runtime evaluator re-runs it — the browser matches on
+`sourceNodeId`/`sourceFieldName` against the rendered wrappers, and the server resolves
+through the collected `logicId` map; both rely on this save-time sync having backfilled
+the JSON. The order used at save time:
 
 1. when the rule carries a `sourceFieldKey`:
    1. `sourceNodeId`, if the designated node carries that key (tie-breaker while several
