@@ -26,7 +26,14 @@ interface UseMultiStepReturn {
 
 export function useMultiStep({formRef, stepIds, disabled = false}: UseMultiStepOptions): UseMultiStepReturn {
 	const [currentStep, setCurrentStep] = useState(0);
-	const [visibleStepIndices, setVisibleStepIndices] = useState<number[]>([]);
+	// Seeded with every step: an empty seed made indexOf(0) return -1 on the server
+	// render and the first client render, so the pre-hydration markup of a multi-step
+	// form carried Previous + Submit instead of Next (isLastStep on an empty list is
+	// vacuously true) and mounted the captcha on step 1. The logic-hidden steps are
+	// filtered out by the first computeVisibleSteps pass after mount.
+	const [visibleStepIndices, setVisibleStepIndices] = useState<number[]>(
+		() => (stepIds ?? []).map((unusedStepId, index) => index)
+	);
 	const resetVisibilityTimeoutRef = useRef<number | null>(null);
 
 	const isMultiStep = !disabled && !!(stepIds && stepIds.length > 0);

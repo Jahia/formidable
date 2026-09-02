@@ -158,7 +158,12 @@ export default function Form({
 			}
 			<form
 				ref={formRef}
-				className={clsx("fmdb-form", classes.form, (hasMessage || isLoading) && classes.hidden)}
+				// An error keeps the form on screen: hiding it stranded the visitor's
+				// typed data behind a message whose retry button is off by default —
+				// the only way back was a reload, which lost everything. Only a
+				// successful submission (and the submit in flight) hides the form.
+				className={clsx("fmdb-form", classes.form,
+					(isLoading || (hasMessage && messageType === 'success')) && classes.hidden)}
 				method="post"
 				action={submitActionUrl}
 				encType="multipart/form-data"
