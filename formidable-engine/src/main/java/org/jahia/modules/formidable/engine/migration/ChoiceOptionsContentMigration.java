@@ -48,9 +48,10 @@ public class ChoiceOptionsContentMigration extends ElementsRedeployRetriggeredMi
 
     private static final String CHOICE_FIELD_MIXIN = "fmdbmix:choiceField";
     private static final String MANUAL_OPTIONS_MIXIN = "fmdbmix:manualOptions";
-    // Provenance marker: this field's per-language values may still diverge (0.3 could
-    // translate them). Gates the divergent-list heuristics to migrated content only;
-    // the language sync removes it once the lists converge.
+    // Provenance marker stamped on every migrated choice field. Its per-language option
+    // lists may still diverge, since a legacy translation could rename the stored keys
+    // themselves. The marker limits the divergent-list handling to migrated content; the
+    // language sync clears it once the lists converge.
     private static final String MIGRATED_MARKER_MIXIN = "fmdbmix:migratedChoiceOptions";
     private static final String OPTIONS_MODE_PROPERTY = "fmdb:optionsMode";
     private static final String OPTIONS_MODE_MANUAL = "manual";
