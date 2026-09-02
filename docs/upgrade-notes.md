@@ -90,8 +90,10 @@ property to its `pom.xml`, its Maven group id is unchanged.
 
    The engine log may also show `Could not migrate node ...` errors dating from
    step 1: the engine started while the element types still carried their old
-   definitions. They are expected and recovered — every content migration
-   re-runs by itself when formidable-elements is deployed. (The platform fires
+   definitions. They are expected and recovered — the migrations that write
+   through the element types (choice options, date bounds, list titles) re-run
+   by themselves when formidable-elements is deployed; the translation fieldKey
+   cleanup does not need to, its writes never involve those types. (The platform fires
    the same redeploy event when a module *stops*, so uninstalling the elements
    in step 2 re-runs the migrations too — some of that noise dates from step 2;
    the migrations are keyed on content state, so those runs are no-ops.)
@@ -133,14 +135,16 @@ migration ran: the imported choice fields render empty option lists.
 Restart the server (or the formidable-engine bundle) to re-run the migration,
 or re-enter the options in the editor.
 
-### Option configuration became mandatory
+### Source-based option settings became mandatory — the manual list did not
 
-0.4.0 also marks the option configuration of choice fields as mandatory: the
-manual options list, and in the source modes the source key, the root category
-or the root content and content type. Migrated fields all carry their options,
-so they satisfy the constraint as-is. A legacy field that was saved without any
-option has nothing to migrate and simply asks for its options the next time it
-is edited — saving it incomplete is no longer possible.
+0.4.0 marks the settings of the source-based option modes as mandatory: the
+source key for a declared source, the root category for category options, the
+root content and content type for content options. The manually typed option
+list is deliberately NOT mandatory — the constraint actually moved the other
+way: 0.3.0 declared the radio and checkbox `choices` list mandatory, and 0.4.0
+lifts that, so a choice field can now be saved with an empty list (it renders
+an empty field until options are entered). Migrated fields all carry their
+options and satisfy the source-mode constraints as-is.
 
 ## 0.3.0 (and earlier) → 0.4.0: date bounds become bound modes, migrated at startup
 
@@ -184,14 +188,18 @@ again. Restart the server (or the formidable-engine bundle) to re-run it.
 
 ## Migrated content shows as *modified* in jContent
 
-Every startup migration below writes the same values into **both** workspaces,
-so the live site never waits for a publication — but the default-workspace
-nodes are modified *after* their last publication, and jContent truthfully
-flags the migrated fields and lists as *modified* (pending publication).
+Every startup migration below writes into **both** workspaces, so the live
+site never waits for a publication — but the default-workspace nodes are
+modified *after* their last publication, and jContent truthfully flags the
+migrated fields and lists as *modified* (pending publication).
 
-Nothing is actually pending: both workspaces already carry identical migrated
-values (verified byte-for-byte). Publishing the flagged content is optional
-and safe — it changes nothing in live and only clears the flag.
+For the choice-options and date-bounds migrations both workspaces carry
+identical migrated values (verified byte-for-byte): publishing the flagged
+content changes nothing in live and only clears the flag. The list-titles
+migration is the one exception — in live it only titles the languages already
+published there, so publishing a flagged list ALSO pushes the default titles
+of the not-yet-published languages; that is a real (if minor) change to live,
+and publishing remains the contributor's decision.
 
 ## Startup migrations (to remove in 0.5)
 
