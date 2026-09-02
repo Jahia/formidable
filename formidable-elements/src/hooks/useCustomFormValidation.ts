@@ -47,6 +47,13 @@ export function validateInputs(container: HTMLElement): boolean {
 	const allInputs = Array.from(container.querySelectorAll<FormInputElement>('input, select, textarea'));
 	const seenGroups = new Set<string>();
 	const inputs = allInputs.filter(input => {
+		// Mirror the browser's own constraint validation: a control barred from it
+		// (disabled — which is how conditional logic neutralizes a hidden field —
+		// or a hidden-type input) must not block the submission. Its validity state
+		// can be stale by design: a required checkbox group keeps its "select at
+		// least one" customValidity while logic has it hidden and disabled, and no
+		// change event will ever clear it there.
+		if (!input.willValidate) return false;
 		if (!(input instanceof HTMLInputElement)) return true;
 		if (input.type !== 'radio' && input.type !== 'checkbox') return true;
 		if (!input.name) return true;
