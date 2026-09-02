@@ -28,7 +28,7 @@ describe('Validation - 45 Required checkbox hidden by logic', () => {
 			name: 'interests',
 			title: 'Interests',
 			required: true,
-			options: [
+			choices: [
 				{value: 'music', label: 'Music'},
 				{value: 'sport', label: 'Sport'}
 			]
