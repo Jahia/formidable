@@ -195,10 +195,13 @@ jahiaComponent(
 							// Authoring renders the form flat: every step stacked with its title,
 							// none hidden, so the contributor sees and reaches everything. The
 							// island stays out of it (useMultiStep is disabled in edit mode).
-							// showStepsNav only gates the step indicator, client-side: with it
-							// off, a multi-step form must still show one step at a time — tying
-							// the hiding to it stacked every step and bypassed per-step validation.
-							preferCompactStepView: !isEditMode ? "true" : "false",
+							// The two parameters depend on showStepsNav ASYMMETRICALLY, per the
+							// option's documented contract: the compact view drops the step title
+							// because the nav bar carries it, so without the nav each step keeps
+							// its own title and description — but a multi-step form must show one
+							// step at a time either way (tying the hiding to the nav stacked every
+							// step and bypassed per-step validation).
+							preferCompactStepView: showStepsNav && !isEditMode ? "true" : "false",
 							hideStepsAfterFirst: !isEditMode ? "true" : "false",
 							childView: "default",
 							// Authoring zone around the field list (authoring.css); no extra markup in live.
