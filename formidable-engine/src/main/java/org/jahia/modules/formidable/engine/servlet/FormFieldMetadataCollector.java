@@ -246,8 +246,16 @@ class FormFieldMetadataCollector {
                     JCRNodeWrapper sourceField = (JCRNodeWrapper) srcNode.getProperty(LOGIC_NODE_SOURCE_PROPERTY).getNode();
                     ctx.logicIdToFieldName.put(logicId, sourceField.getName());
                 } catch (Exception e) {
-                    log.debug("[FormFieldMetadataCollector] Broken weakref for logicId '{}' on '{}'",
-                            logicId, node.getPath());
+                    // No NODE_REMOVED listener cleans dangling rules yet: after the
+                    // source field is deleted, the evaluator falls back to the stale
+                    // sourceFieldName, finds nothing submitted, and required validation
+                    // is silently skipped on the dependents. WARN (like the analogous
+                    // unknown-operator case) is what makes that state discoverable in
+                    // ops logs instead of at data-analysis time.
+                    log.warn("[FormFieldMetadataCollector] Broken logic source for logicId '{}' on '{}': "
+                            + "the rule's source field no longer exists — its dependents evaluate as "
+                            + "fail-safe hidden and their required validation is skipped. Re-point or "
+                            + "remove the rule in the editor. ({})", logicId, node.getPath(), e.getMessage());
                 }
             }
         }

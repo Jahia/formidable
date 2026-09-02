@@ -97,12 +97,16 @@ property to its `pom.xml`, its Maven group id is unchanged.
    the same redeploy event when a module *stops*, so uninstalling the elements
    in step 2 re-runs the migrations too — some of that noise dates from step 2;
    the migrations are keyed on content state, so those runs are no-ops.)
-4. **Re-enable formidable-elements on every site that uses it** (site settings,
-   or **jContent > site > Modules**): uninstalling the old module in step 2
-   removed it from the sites' installed modules, and installing the new one does
-   not put it back — until then the module's views are not served for those
-   sites, and published forms render a "Module error" box instead. A server
-   restart does not repair this; re-enabling the module does, immediately.
+4. **Verify formidable-elements is enabled on every site that uses it** (site
+   settings, or **jContent > site > Modules**): uninstalling the old module in
+   step 2 removed it from the sites' installed modules, and installing the new
+   one does not put it back — until then the module's views are not served for
+   those sites, and published forms render a "Module error" box instead.
+   **0.4.0 repairs this automatically**: when formidable-elements deploys, the
+   engine re-enables it on every site that holds forms but lost the module
+   (`Re-enabled formidable-elements on site …` in the log). This step is a
+   verification, and the manual fallback if a site was missed — re-enabling by
+   hand works immediately; a server restart does not.
 5. Check that forms render again on the site.
 
 This is a one-time migration: from 0.4.0 on, the group id is stable and later
@@ -121,9 +125,10 @@ keyed on content state, so nothing is lost or done twice).
 
 Two things remain true whatever the order:
 
-- **step 4 is still required** — re-enable formidable-elements on every site
-  that uses it; a site missing the module renders broken forms and a broken
-  editor even though the definitions and the migrated content are fine;
+- **step 4 still applies** — the automatic re-enable runs when the elements
+  module deploys, and the verification (plus the manual fallback) remains
+  yours: a site missing the module renders broken forms and a broken editor
+  even though the definitions and the migrated content are fine;
 - if the editor still looks wrong after step 4, restart the formidable-elements
   bundle once (its definitions then re-register against the running engine).
 
