@@ -26,9 +26,19 @@ import java.util.Set;
  * content are perfectly fine — the single most misleading state of the whole upgrade.
  *
  * <p>The site node keeps no trace of the departed module, so the reliable signal is the
- * CONTENT: a site holding {@code fmdb:form} nodes used the module. Keyed on that state,
- * so re-running is a no-op once every form-bearing site has the module back, and a site
- * whose admin deliberately removed both the module and its forms is never touched.
+ * CONTENT: a site holding {@code fmdb:form} nodes used the module. That derivation is
+ * deliberately NOT perpetual: each healed site is stamped with the
+ * {@code fmdbmix:elementsReactivated} marker and never touched again — an administrator
+ * who later deactivates the module on purpose while keeping the form content (a site
+ * being decommissioned, archived content that must stop rendering) is respected, at
+ * every restart. A site whose admin removed both the module and its forms is never
+ * selected in the first place.
+ *
+ * <p>The redeploy event also fires when the elements module STOPS — including step 2 of
+ * the documented upgrade, where the operator is deliberately uninstalling it and every
+ * site has just lost the module. The run is therefore gated on the elements package
+ * being ACTIVE: on the stop-fired event there is nothing to reinstall, and trying would
+ * log a misleading error in the very log the upgrade notes tell the operator to watch.
  *
  * <p>Lifecycle: upgrade healing introduced in 0.4.0, to be removed in 0.5 with the other
  * startup migrations — see docs/upgrade-notes.md, "Startup migrations".
@@ -39,6 +49,7 @@ public class ElementsSiteReactivation extends ElementsRedeployRetriggeredMigrati
     private static final Logger log = LoggerFactory.getLogger(ElementsSiteReactivation.class);
 
     private static final String FORM_TYPE = "fmdb:form";
+    private static final String REACTIVATED_MARKER = "fmdbmix:elementsReactivated";
 
     @Activate
     public void activate() {
@@ -47,16 +58,30 @@ public class ElementsSiteReactivation extends ElementsRedeployRetriggeredMigrati
 
     @Override
     void run() {
+        if (!elementsPackageActive()) {
+            log.debug("[ElementsSiteReactivation] {} is not active (stop-fired event, or not deployed yet): "
+                    + "nothing to re-enable", ELEMENTS_MODULE_ID);
+            return;
+        }
+
         try {
             JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, "default", null, session -> {
                 for (String sitePath : sitesNeedingReactivation(session)) {
-                    reactivate(sitePath);
+                    reactivate(session, sitePath);
                 }
                 return null;
             });
         } catch (RepositoryException e) {
             log.error("[ElementsSiteReactivation] Could not check the sites' installed modules: {}", e.getMessage(), e);
         }
+    }
+
+    /** Whether the elements module is registered AND started. */
+    private static boolean elementsPackageActive() {
+        org.jahia.data.templates.JahiaTemplatesPackage pkg = ServicesRegistry.getInstance()
+                .getJahiaTemplateManagerService().getTemplatePackageById(ELEMENTS_MODULE_ID);
+        return pkg != null && pkg.getState() != null
+                && pkg.getState().getState() == org.jahia.data.templates.ModuleState.State.STARTED;
     }
 
     /** The paths of the sites that hold at least one form but no longer list the elements module. */
@@ -91,27 +116,37 @@ public class ElementsSiteReactivation extends ElementsRedeployRetriggeredMigrati
 
     /**
      * The path of the form's site when that site lost the elements module from its
-     * installed list, null when the site is healthy (or the form is siteless).
-     * Visible for tests: this is the selection rule.
+     * installed list, null when the site is healthy, siteless, or already carries the
+     * one-shot marker — a marked site was healed once and any later absence of the
+     * module is an administrator's deliberate choice. Visible for tests: this is the
+     * selection rule.
      */
     static String orphanedSitePath(JCRNodeWrapper form) throws RepositoryException {
         JCRSiteNode site = form.getResolveSite();
-        if (site == null || site.getInstalledModules().contains(ELEMENTS_MODULE_ID)) {
+        if (site == null || site.getInstalledModules().contains(ELEMENTS_MODULE_ID)
+                || site.isNodeType(REACTIVATED_MARKER)) {
             return null;
         }
         return site.getPath();
     }
 
     /**
-     * One site at a time: a failure must never keep the later sites broken. The remedy
-     * is the exact gesture docs/upgrade-notes.md step 4 asks of the operator.
+     * One site at a time: a failure must never keep the later sites broken, and the
+     * one-shot marker is stamped only on success so a failed site is retried on the
+     * next run. The remedy is the exact gesture docs/upgrade-notes.md step 4 asks of
+     * the operator.
      */
-    private static void reactivate(String sitePath) {
+    private static void reactivate(JCRSessionWrapper session, String sitePath) {
         try {
             ServicesRegistry.getInstance().getJahiaTemplateManagerService()
                     .installModule(ELEMENTS_MODULE_ID, sitePath, "root");
+            JCRNodeWrapper site = session.getNode(sitePath);
+            session.checkout(site);
+            site.addMixin(REACTIVATED_MARKER);
+            session.save();
             log.info("[ElementsSiteReactivation] Re-enabled {} on site '{}': the site holds forms but had "
-                    + "lost the module from its installed list (0.3 -> 0.4 module-identity change)",
+                    + "lost the module from its installed list (0.3 -> 0.4 module-identity change). "
+                    + "One-shot: a later deliberate deactivation of the module on this site will stick.",
                     ELEMENTS_MODULE_ID, sitePath);
         } catch (RepositoryException | RuntimeException e) {
             log.error("[ElementsSiteReactivation] Could not re-enable {} on site '{}' — do it manually "

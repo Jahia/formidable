@@ -104,9 +104,16 @@ property to its `pom.xml`, its Maven group id is unchanged.
    those sites, and published forms render a "Module error" box instead.
    **0.4.0 repairs this automatically**: when formidable-elements deploys, the
    engine re-enables it on every site that holds forms but lost the module
-   (`Re-enabled formidable-elements on site …` in the log). This step is a
-   verification, and the manual fallback if a site was missed — re-enabling by
-   hand works immediately; a server restart does not.
+   (`Re-enabled formidable-elements on site …` in the log) — once per site: a
+   later deliberate deactivation is respected. This step is a verification, and
+   the manual fallback if a site was missed — re-enabling by hand works
+   immediately; a server restart does not.
+
+   While you are there, check **formidable-engine** is enabled on the site too
+   if its users need the **Form Results** panel: rendering and submissions work
+   without it, the results panel does not. The engine's identity is unchanged
+   by this upgrade, so a site that had it keeps it — this only concerns sites
+   where it was never enabled.
 5. Check that forms render again on the site.
 
 This is a one-time migration: from 0.4.0 on, the group id is stable and later
