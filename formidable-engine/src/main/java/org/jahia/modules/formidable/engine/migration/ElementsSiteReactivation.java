@@ -1,5 +1,7 @@
 package org.jahia.modules.formidable.engine.migration;
 
+import org.jahia.data.templates.JahiaTemplatesPackage;
+import org.jahia.data.templates.ModuleState;
 import org.jahia.registries.ServicesRegistry;
 import org.jahia.services.content.JCRNodeIteratorWrapper;
 import org.jahia.services.content.JCRNodeWrapper;
@@ -34,11 +36,14 @@ import java.util.Set;
  * every restart. A site whose admin removed both the module and its forms is never
  * selected in the first place.
  *
- * <p>The redeploy event also fires when the elements module STOPS — including step 2 of
- * the documented upgrade, where the operator is deliberately uninstalling it and every
- * site has just lost the module. The run is therefore gated on the elements package
- * being ACTIVE: on the stop-fired event there is nothing to reinstall, and trying would
- * log a misleading error in the very log the upgrade notes tell the operator to watch.
+ * <p>The redeploy event fires from both the START and the STOP of the elements module.
+ * On the stop-fired one — step 2 of the documented upgrade, where the operator is
+ * deliberately uninstalling it — there is nothing to reinstall, and trying would log a
+ * misleading error in the very log the upgrade notes tell the operator to watch. The
+ * run is therefore gated on the package being STARTED or on its way there: at the
+ * start-fired event the module state is still STARTING (verified on a live replay — a
+ * STARTED-only gate leaves the healing silently inert on its main path), so the gate
+ * refuses only an absent or stopping package.
  *
  * <p>Lifecycle: upgrade healing introduced in 0.4.0, to be removed in 0.5 with the other
  * startup migrations — see docs/upgrade-notes.md, "Startup migrations".
@@ -58,9 +63,11 @@ public class ElementsSiteReactivation extends ElementsRedeployRetriggeredMigrati
 
     @Override
     void run() {
-        if (!elementsPackageActive()) {
-            log.debug("[ElementsSiteReactivation] {} is not active (stop-fired event, or not deployed yet): "
-                    + "nothing to re-enable", ELEMENTS_MODULE_ID);
+        if (!elementsPackageStartingOrStarted()) {
+            // info, not debug: a refusal here on the wrong path would make the healing
+            // silently inert — the upgrade log must show why nothing happened.
+            log.info("[ElementsSiteReactivation] {} is absent or stopping: nothing to re-enable",
+                    ELEMENTS_MODULE_ID);
             return;
         }
 
@@ -76,12 +83,22 @@ public class ElementsSiteReactivation extends ElementsRedeployRetriggeredMigrati
         }
     }
 
-    /** Whether the elements module is registered AND started. */
-    private static boolean elementsPackageActive() {
-        org.jahia.data.templates.JahiaTemplatesPackage pkg = ServicesRegistry.getInstance()
+    /**
+     * Whether the elements module is registered and started — or starting: the
+     * start-fired redeploy event arrives while the state is still STARTING, and that
+     * event IS the healing's main trigger on the documented upgrade path.
+     */
+    private static boolean elementsPackageStartingOrStarted() {
+        JahiaTemplatesPackage pkg = ServicesRegistry.getInstance()
                 .getJahiaTemplateManagerService().getTemplatePackageById(ELEMENTS_MODULE_ID);
-        return pkg != null && pkg.getState() != null
-                && pkg.getState().getState() == org.jahia.data.templates.ModuleState.State.STARTED;
+        if (pkg == null || pkg.getState() == null) {
+            return false;
+        }
+
+        ModuleState.State state = pkg.getState().getState();
+        return state == ModuleState.State.STARTED
+                || state == ModuleState.State.STARTING
+                || state == ModuleState.State.SPRING_STARTING;
     }
 
     /** The paths of the sites that hold at least one form but no longer list the elements module. */
@@ -140,10 +157,19 @@ public class ElementsSiteReactivation extends ElementsRedeployRetriggeredMigrati
         try {
             ServicesRegistry.getInstance().getJahiaTemplateManagerService()
                     .installModule(ELEMENTS_MODULE_ID, sitePath, "root");
-            JCRNodeWrapper site = session.getNode(sitePath);
-            session.checkout(site);
-            site.addMixin(REACTIVATED_MARKER);
-            session.save();
+            try {
+                JCRNodeWrapper site = session.getNode(sitePath);
+                session.checkout(site);
+                site.addMixin(REACTIVATED_MARKER);
+                session.save();
+            } catch (RepositoryException | RuntimeException e) {
+                // The site IS healed; without the marker it just is not protected from
+                // one more healing after a later deliberate deactivation. Named so the
+                // invariant's hole is visible instead of silent.
+                log.warn("[ElementsSiteReactivation] Re-enabled {} on site '{}' but could not stamp the "
+                        + "one-shot marker: a later deliberate deactivation would be healed once more. ({})",
+                        ELEMENTS_MODULE_ID, sitePath, e.getMessage());
+            }
             log.info("[ElementsSiteReactivation] Re-enabled {} on site '{}': the site holds forms but had "
                     + "lost the module from its installed list (0.3 -> 0.4 module-identity change). "
                     + "One-shot: a later deliberate deactivation of the module on this site will stick.",
