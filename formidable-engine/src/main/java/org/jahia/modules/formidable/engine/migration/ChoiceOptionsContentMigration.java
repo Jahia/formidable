@@ -54,6 +54,29 @@ public class ChoiceOptionsContentMigration extends ElementsRedeployRetriggeredMi
     private static final String[] LEGACY_PROPERTIES = {"choices", "options"};
     private static final String TRANSLATION_NODES_PATTERN = "j:translation_*";
 
+    /**
+     * True while this migration is writing on the current thread. JCR observation
+     * dispatches synchronously in the saving thread, so ManualOptionsLanguageSyncListener
+     * consults this to leave the migrated values verbatim: 0.3 allowed option values to
+     * diverge between languages, and re-aligning a migrated field on the default language
+     * would blank every non-default label. The activation-ordering reference the listener
+     * holds only covers the engine-activation run — on the engine-first upgrade path the
+     * work happens on the elements-redeploy run, when the listener is already registered.
+     */
+    private static final ThreadLocal<Boolean> MIGRATION_WRITE = ThreadLocal.withInitial(() -> Boolean.FALSE);
+
+    public static boolean isMigrationWrite() {
+        return MIGRATION_WRITE.get();
+    }
+
+    static void beginMigrationWrite() {
+        MIGRATION_WRITE.set(Boolean.TRUE);
+    }
+
+    static void endMigrationWrite() {
+        MIGRATION_WRITE.remove();
+    }
+
     @Activate
     public void activate() {
         run();
@@ -61,6 +84,15 @@ public class ChoiceOptionsContentMigration extends ElementsRedeployRetriggeredMi
 
     @Override
     void run() {
+        beginMigrationWrite();
+        try {
+            migrateBothWorkspaces();
+        } finally {
+            endMigrationWrite();
+        }
+    }
+
+    private void migrateBothWorkspaces() {
         for (String workspace : new String[]{"default", "live"}) {
             try {
                 JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, workspace, null, session -> {
@@ -110,7 +142,7 @@ public class ChoiceOptionsContentMigration extends ElementsRedeployRetriggeredMi
     /**
      * @return true when the node carried a legacy property and was migrated
      */
-    private boolean migrateNode(JCRSessionWrapper session, JCRNodeWrapper node) throws RepositoryException {
+    boolean migrateNode(JCRSessionWrapper session, JCRNodeWrapper node) throws RepositoryException {
         boolean touched = false;
 
         // Legacy properties were i18n: their values live on the j:translation_* subnodes,

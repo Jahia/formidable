@@ -55,6 +55,11 @@ public class ManualOptionsLanguageSyncListener extends DefaultEventListener {
      * next time the field is saved". Depending on the migration component makes
      * SCR register this listener only after the migration completed, instead of
      * relying on the header order of the two components.
+     *
+     * <p>This ordering only covers the engine-activation run. On the engine-first
+     * upgrade path the migration does its work on the elements-redeploy run, when
+     * this listener is already registered — that entry point is covered by the
+     * {@code isMigrationWrite()} check in {@link #onEvent}.
      */
     @Reference
     @SuppressWarnings("unused")
@@ -131,6 +136,12 @@ public class ManualOptionsLanguageSyncListener extends DefaultEventListener {
 
     @Override
     public void onEvent(EventIterator events) {
+        // The migration's own saves must never be re-aligned: the migrated values are
+        // the 0.3-era per-language truth (values were allowed to diverge back then).
+        if (ChoiceOptionsContentMigration.isMigrationWrite()) {
+            return;
+        }
+
         Map<String, Set<String>> savedLanguagesByField = collectSavedLanguagesByField(events);
         if (savedLanguagesByField.isEmpty()) {
             return;

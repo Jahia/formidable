@@ -6,9 +6,11 @@ import {useFormidableSite} from './support';
 const FORM_NAME = 'legacy-options-form';
 const SELECT_PATH = `${CONTENT_PATH}/${FORM_NAME}/fields/legacySelect`;
 const RADIO_PATH = `${CONTENT_PATH}/${FORM_NAME}/fields/legacyRadio`;
+const BILINGUAL_FORM_NAME = 'legacy-options-bilingual-form';
+const BILINGUAL_SELECT_PATH = `${CONTENT_PATH}/${BILINGUAL_FORM_NAME}/fields/legacySelect`;
 
 const GET_MIGRATED_FIELD = gql`
-	query getMigratedField($path: String!, $workspace: Workspace!) {
+	query getMigratedField($path: String!, $workspace: Workspace!, $language: String!) {
 		jcr(workspace: $workspace) {
 			nodeByPath(path: $path) {
 				mixinTypes {
@@ -17,7 +19,7 @@ const GET_MIGRATED_FIELD = gql`
 				optionsMode: property(name: "fmdb:optionsMode") {
 					value
 				}
-				options: property(name: "fmdb:options", language: "en") {
+				options: property(name: "fmdb:options", language: $language) {
 					values
 				}
 			}
@@ -38,17 +40,18 @@ type MigratedFieldResponse = {
 	};
 };
 
-const getMigratedField = (path: string, workspace: 'EDIT' | 'LIVE') =>
-	cy.apollo({query: GET_MIGRATED_FIELD, variables: {path, workspace}});
+const getMigratedField = (path: string, workspace: 'EDIT' | 'LIVE', language = 'en') =>
+	cy.apollo({query: GET_MIGRATED_FIELD, variables: {path, workspace, language}});
 
 const expectMigrated = (
 	path: string,
 	workspace: 'EDIT' | 'LIVE',
-	expectedOptions: Array<{value: string; label: string; selected: boolean}>
+	expectedOptions: Array<{value: string; label: string; selected: boolean}>,
+	language = 'en'
 ) => {
-	getMigratedField(path, workspace).then((response: MigratedFieldResponse) => {
+	getMigratedField(path, workspace, language).then((response: MigratedFieldResponse) => {
 		const node = response.data?.jcr?.nodeByPath;
-		const scope = `${path} (${workspace})`;
+		const scope = `${path} (${workspace}, ${language})`;
 
 		expect(node?.mixinTypes?.map(mixin => mixin.name), scope).to.include('fmdbmix:manualOptions');
 		expect(node?.optionsMode?.value, scope).to.eq('manual');
@@ -85,6 +88,7 @@ describe('Form fields - 219 Choice options migration', () => {
 			cy.executeGroovy('groovy/simulateLegacyChoiceOptions.groovy', {
 				__FIELD_PATH__: SELECT_PATH,
 				__LEGACY_PROPERTY__: 'options',
+				__LANGUAGE__: 'en',
 				__PAIRS__: 'red:Red,green:Green',
 				__SELECTED__: 'green'
 			}).then(result => cy.log(String(result)));
@@ -92,6 +96,7 @@ describe('Form fields - 219 Choice options migration', () => {
 			cy.executeGroovy('groovy/simulateLegacyChoiceOptions.groovy', {
 				__FIELD_PATH__: RADIO_PATH,
 				__LEGACY_PROPERTY__: 'choices',
+				__LANGUAGE__: 'en',
 				__PAIRS__: 'yes:Yes,no:No',
 				__SELECTED__: ''
 			}).then(result => cy.log(String(result)));
@@ -156,6 +161,73 @@ describe('Form fields - 219 Choice options migration', () => {
 				.shouldHaveSelectedOption('Green');
 			form.getRadioGroup('legacyRadio').getRadio('Yes').shouldHaveValue('yes');
 			form.getRadioGroup('legacyRadio').getRadio('No').shouldHaveValue('no');
+		});
+	});
+
+	it('keeps divergent per-language values verbatim on the elements-redeploy run', () => {
+		// The engine-first upgrade path: the engine-activation run fails against the
+		// pre-0.4 element definitions, and the migration re-runs on the elements
+		// redeploy — when the language sync listener is already registered, unlike at
+		// engine activation where the SCR activation ordering keeps it away. 0.3
+		// allowed the values themselves to diverge between languages: the migration's
+		// saves must not wake the sync, which would re-align French on English and
+		// blank every French label.
+		createPublishedLiveFormPage(
+			BILINGUAL_FORM_NAME,
+			'Legacy Bilingual Options Form',
+			[
+				{
+					name: 'legacySelect',
+					primaryNodeType: 'fmdb:select',
+					mixins: [],
+					properties: [{name: 'jcr:title', value: 'Legacy bilingual select', language: 'en'}]
+				}
+			]
+		).then(() => {
+			cy.executeGroovy('groovy/simulateLegacyChoiceOptions.groovy', {
+				__FIELD_PATH__: BILINGUAL_SELECT_PATH,
+				__LEGACY_PROPERTY__: 'options',
+				__LANGUAGE__: 'en',
+				__PAIRS__: 'red:Red,green:Green',
+				__SELECTED__: 'green'
+			}).then(result => cy.log(String(result)));
+
+			cy.executeGroovy('groovy/simulateLegacyChoiceOptions.groovy', {
+				__FIELD_PATH__: BILINGUAL_SELECT_PATH,
+				__LEGACY_PROPERTY__: 'options',
+				__LANGUAGE__: 'fr',
+				__PAIRS__: 'rouge:Rouge,vert:Vert',
+				__SELECTED__: 'vert'
+			}).then(result => cy.log(String(result)));
+
+			cy.executeGroovy('groovy/restartModuleBundle.groovy', {
+				__MODULE_ID__: 'formidable-elements'
+			}).then(result => cy.log(String(result)));
+
+			cy.waitUntil(
+				() => getMigratedField(BILINGUAL_SELECT_PATH, 'EDIT').then(
+					(response: MigratedFieldResponse) =>
+						response.data?.jcr?.nodeByPath?.optionsMode?.value === 'manual'
+				),
+				{timeout: 60000, interval: 2000, errorMsg: 'the redeploy run never stamped fmdb:optionsMode'}
+			);
+
+			expectMigrated(BILINGUAL_SELECT_PATH, 'EDIT', [
+				{value: 'red', label: 'Red', selected: false},
+				{value: 'green', label: 'Green', selected: true}
+			]);
+
+			// EDIT is the workspace the language sync listens on: a French list
+			// re-aligned on the English values here means the migration's saves
+			// re-entered the sync.
+			expectMigrated(BILINGUAL_SELECT_PATH, 'EDIT', [
+				{value: 'rouge', label: 'Rouge', selected: false},
+				{value: 'vert', label: 'Vert', selected: true}
+			], 'fr');
+			expectMigrated(BILINGUAL_SELECT_PATH, 'LIVE', [
+				{value: 'rouge', label: 'Rouge', selected: false},
+				{value: 'vert', label: 'Vert', selected: true}
+			], 'fr');
 		});
 	});
 });
