@@ -129,8 +129,11 @@ marker mixin on the form plus server-side OSGi configuration (see the captcha se
 
 There is no captcha node type. The pieces are:
 
-- **Server config** (admin): `org.jahia.modules.formidable.cfg` carries `siteKey`,
-  `scriptUrl`, `secretKey`, `widgetVar` and `captchaTokenField`.
+- **Server config** (admin): `org.jahia.modules.formidable.cfg` carries
+  `captchaSiteKey`, `captchaScriptUrl`, `captchaSecretKey`, `captchaWidgetVar`,
+  `captchaTokenField` and `captchaVerifyUrl` (plus the two HTTP timeouts) — all six are
+  needed; without `captchaVerifyUrl` verification counts as not configured and every
+  submission of a captcha form is rejected with FMDB-005.
 - **Per-form opt-in** (contributor): the `fmdbmix:captcha` mixin on the form node. It
   extends the engine-owned `fmdbmix:captchaProtectedForm`, which is what the submission
   pipeline checks.
@@ -144,9 +147,10 @@ There is no captcha node type. The pieces are:
   `FormidableConfigService.verifyCaptcha` calls the provider's `siteverify` endpoint —
   before any byte of the body is read.
 
-The provider is derived from `scriptUrl` (`challenges.cloudflare.com` → Turnstile,
-`hcaptcha.com` → hCaptcha, `google.com/recaptcha` → reCAPTCHA); the widget's native
-field name is the `captchaTokenField` config. See
+There is no provider derivation: everything provider-specific (verify URL, widget
+variable, native token field name) is explicit configuration. The only URL inspection is
+`ensureCaptchaExplicit` in `default.server.tsx`, which appends `render=explicit` for the
+script hosts that auto-render (Cloudflare, `google.com/recaptcha`, `recaptcha.net`). See
 `docs/captcha-server-side-validation.md`.
 
 ---
@@ -245,8 +249,10 @@ CND:
 ```
 
 Behaviour:
-- `${fieldName}` interpolation in `to`, `subject`, `templateMessage` from form parameters,
-  HTML-escaped per value (`FieldEscaper.html`), headers normalized (`headerSafe`)
+- `${fieldName}` interpolation in `subject` (values passed through as plain text, then
+  the whole header normalized with `headerSafe`) and in `templateMessage` (values
+  HTML-escaped with `FieldEscaper.html`); `to` and `from` are NOT interpolated — they
+  are only normalized with `headerSafe`, so `to = ${email}` is sent literally
 - Requires Jahia `MailService` configured (SMTP in Jahia admin)
 - Call: `new MailMessage()` + `setTo/setFrom/setSubject/setHtmlBody` +
   `mailService.sendMessage(message)` — the message is queued through a Camel route, so
@@ -352,7 +358,7 @@ org.jahia.modules.formidable.engine.logic
 
 ### Test scenarios
 
-Full behavioral specification: `tests/scenarios/conditional-logic.md` (11 sections, from backend sync to runtime visibility).
+Full behavioral specification: `tests/scenarios/logics.md` (11 sections, from backend sync to runtime visibility).
 
 ### Cypress test specs
 
@@ -394,8 +400,9 @@ cd formidable-elements && yarn build
 # Watch mode (rebuild + auto-redeploy)
 cd formidable-elements && yarn dev
 
-# Local Jahia: any running 8.2+ instance on localhost:8080 (no compose file ships
-# in this repo); deploy with each module's `yarn deploy` (jahia-deploy)
+# Local Jahia: any running 8.2.2+ instance on localhost:8080 (the modules ship no
+# compose file; tests/docker-compose.yml exists for CI); deploy with each module's
+# `yarn deploy` (jahia-deploy)
 
 # Full Maven build
 mvn clean install
@@ -423,7 +430,7 @@ Each test creates JCR content via `addNode()`, navigates into the JContent previ
 Conditional logic tests (`tests/cypress/e2e/logics/`) use GraphQL mutations (`copyNode`, `setNodeProperty`, `importContent`), XML fixtures for import, and the Content Editor page object.
 Disabled specs use the `.cy.ts.disabled` extension.
 
-Test scenarios specification: `tests/scenarios/conditional-logic.md`
+Test scenarios specification: `tests/scenarios/logics.md`
 
 ---
 

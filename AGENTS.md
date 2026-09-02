@@ -5,7 +5,7 @@
 
 ## Project Overview
 
-**Formidable** is Jahia's form management solution (replacement for Jahia Forms). It enables form creation with multi-step support, fieldsets, 12 field types, conditional logic, CAPTCHA, and a pluggable action pipeline (save to JCR, email, forward to endpoint).
+**Formidable** is Jahia's form management solution (replacement for Jahia Forms). It enables form creation with multi-step support, fieldsets, 14 core field types (plus 4 optional ones in formidable-extended-inputs), conditional logic, CAPTCHA, and a pluggable action pipeline (save to JCR, email, forward to endpoint).
 
 ### Monorepo Structure
 
@@ -100,7 +100,7 @@ The public API for custom actions lives in `formidable-engine/src/main/java/org/
 - `FormActionException.java` — exception with HTTP status (`badRequest()`, `serverError()`)
 - `SubmittedFile.java` — file upload abstraction
 
-Built-in actions: `CaptchaVerificationFormAction`, `SaveToJcrFormAction`, `SendEmailNotificationFormAction`, `SendEmailContentFormAction`, `ForwardSubmissionFormAction`.
+Built-in actions: `SaveToJcrFormAction`, `SendEmailNotificationFormAction`, `SendEmailContentFormAction`, `ForwardSubmissionFormAction` (four — captcha is not an action: it is a mixin plus OSGi config, verified by the pipeline before the actions run).
 
 ### Adding a New Field Type
 
@@ -142,7 +142,7 @@ cd formidable-engine && yarn build
 mvn clean install
 
 # Start local Jahia via Docker
-# a running Jahia 8.2+ on localhost:8080 (no compose file ships in this repo)
+# a running Jahia 8.2.2+ on localhost:8080 (this module ships no compose file; tests/docker-compose.yml exists for CI)
 
 # Cypress tests (Jahia must be running on localhost:8080)
 cd tests && yarn e2e:ci      # headless
@@ -159,9 +159,9 @@ yarn format
 
 ## Test Conventions
 
-- Test suites: `tests/cypress/e2e/{fields,validation,security}/`
+- Test suites: `tests/cypress/e2e/{fields,validation,security,actions,integrity,logics}/`
 - Page objects: `tests/cypress/page-object/` (Form.ts, Fieldset.ts, per-element wrappers in `elements/`)
-- Fixtures: `tests/cypress/fixtures/` — typed JCR node factories per element type
+- Typed JCR node factories per element type: `tests/cypress/support/fixtures/` (`tests/cypress/fixtures/` holds raw files, groovy scripts and XML imports)
 - Tests create JCR content via `addNode()`, navigate into the jContent preview iframe, assert against `fmdb-` CSS selectors
 - Disabled specs use `.cy.ts.disabled` extension
 - Scenario documents: `tests/scenarios/` (coverage summaries + regression scenarios)
@@ -248,4 +248,4 @@ When Jahia is running at `http://localhost:8080` (default credentials: `root` / 
 
 ---
 
-*To regenerate: `apm compile`*
+

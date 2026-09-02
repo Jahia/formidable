@@ -9,13 +9,16 @@ React tree via an `<Island>` boundary.
 ```
 Form.client.tsx  ← Island (React root #1)
   └─ <form>      ← contains server-rendered HTML
-       ├─ (most fields: plain server-rendered markup, no island at all)
-       ├─ File.client.tsx    ← Island (React root #2)
-       └─ Range.client.tsx   ← Island (React root #3)
+       ├─ (plain fields: server-rendered markup, no island at all — selects, radios…)
+       ├─ File.client.tsx                ← Island (its own React root)
+       ├─ Range.client.tsx               ← Island
+       ├─ Text.client.tsx                ← Island (only when a mask is set)
+       ├─ Checkbox.client.tsx            ← Island (group behaviour)
+       └─ TodayBoundedInput.client.tsx   ← Island (date/datetime with a day-following bound)
 ```
 
-(Text inputs, selects, checkboxes… render server-side only; the interactive fields —
-file and range — are the ones hydrating their own islands.)
+(A field hydrates its own island only when it has client behaviour; a select never
+does. The captcha widget is one more island under the Form.)
 
 Each Island is a **self-contained React application**. There is no shared React context,
 no common state tree, and no parent–child prop passing between the Form island and the

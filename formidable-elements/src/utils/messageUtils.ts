@@ -21,10 +21,14 @@ export const fieldKindFromForm = (form: HTMLFormElement): FieldKindResolver => f
 	const wrapper = form.querySelector<HTMLElement>(
 		`[data-fmdb-node-name="${CSS.escape(fieldName)}"]`);
 	const nodeType = wrapper?.dataset.fmdbNodeType;
-	if (nodeType) {
-		return NODE_TYPE_KINDS[nodeType] ?? null;
+	const mappedKind = nodeType ? NODE_TYPE_KINDS[nodeType] : undefined;
+	if (mappedKind) {
+		return mappedKind;
 	}
 
+	// Every wrapped field carries a node type, so an UNKNOWN one (a third-party
+	// field) must fall through to the control's own type — returning null here
+	// would close the extension path for exactly the fields the guides promote.
 	const control = form.elements.namedItem(fieldName);
 	const element = control instanceof RadioNodeList ? control[0] : control;
 	return element instanceof HTMLInputElement ? element.type : null;

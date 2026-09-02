@@ -12,8 +12,8 @@ This module is accompanied by a Docker-based development environment. To get sta
 # Install dependencies
 yarn install
 
-# Have a Jahia 8.2+ instance running on localhost:8080
-# (no compose file ships in this repo — use your usual local instance)
+# Have a Jahia 8.2.2+ instance running on localhost:8080
+# (this module ships no compose file — use your usual local instance)
 
 # Build the module and start the dev mode
 yarn build && yarn dev
@@ -43,6 +43,6 @@ If you don't use default configuration for the Docker container port and credent
 ## Documentation
 
 - [CND module ownership](../docs/cnd-module-ownership.md) — where JCR types and mixins belong, and how to choose between `formidable-elements` and `formidable-engine`
-- [Form submission flow](../docs/form-submission-flow.md) — two-phase submission, captcha pipeline, `customTarget`
+- [Form submission flow](../docs/form-submission-flow.md) — the 12-step pipeline, validation, CSRF posture, error codes
 - [CAPTCHA server-side validation](../docs/captcha-server-side-validation.md) — provider verification endpoints and examples
 - [Conditional logic editor and runtime notes](../formidable-engine/src/javascript/ConditionalLogic/README.md) — stored rule format, `logicsSrc` synchronization, and duplicate system-name caveats
