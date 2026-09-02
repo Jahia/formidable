@@ -156,7 +156,14 @@ the default language's, and its labels **ride along by position** when the two
 lists have the same size and no value in common — the shape of a translated
 0.3 list. A language whose list genuinely differs (fewer rows, mixed values)
 falls back to blank labels awaiting re-translation, and the editor shows the
-raw value wherever a label is blank.
+raw value wherever a label is blank. Any conditional-logic rule that compared
+one of these values follows the same realignment in that save, so it keeps
+matching submissions.
+
+These divergent-list behaviours are confined to migrated fields by a one-shot
+marker the migration stamps and the first realignment clears: native 0.4
+content — where a contributor may legitimately replace every option value in
+one edit — is never label-paired or rule-remapped on the shape alone.
 
 ### What changes
 

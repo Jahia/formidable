@@ -65,6 +65,8 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.OP
  */
 public final class ManualOptionsLanguageSync {
 
+    private static final String MIGRATED_MARKER_MIXIN = "fmdbmix:migratedChoiceOptions";
+
     private static final Logger log = LoggerFactory.getLogger(ManualOptionsLanguageSync.class);
 
     private ManualOptionsLanguageSync() {
@@ -115,23 +117,39 @@ public final class ManualOptionsLanguageSync {
             seeded = true;
         }
 
+        // The provenance gate: only a field the migration marked (its per-language
+        // values may still translate the identity) may use the divergent-list
+        // heuristics. Read once; cleared below when the languages converge.
+        boolean migrated = fieldNode.isNodeType(MIGRATED_MARKER_MIXIN);
+
         boolean updated = seeded;
         Map<String, String> valueReplacements = new LinkedHashMap<>();
         for (String language : targetLanguages(site, translations.keySet(), masterLanguage)) {
             Node translation = translations.get(language);
             if (translation != null) {
                 valueReplacements.putAll(ManualOptionEntries.realignedValueReplacements(
-                        masterOptions, ManualOptionEntries.readOptions(translation)));
+                        masterOptions, ManualOptionEntries.readOptions(translation), migrated));
             }
 
-            updated |= feed(fieldNode, language, translation, masterOptions);
+            updated |= feed(fieldNode, language, translation, masterOptions, migrated);
         }
 
         // A 0.3-authored rule stored the option value of its EDITING language; once
         // those values realign on the master, such a rule can never match a submission
         // again. The realignment knows the exact replacement (row i for row i), so the
-        // rules referencing this field follow it in the same save.
+        // rules referencing this field follow it in the same save. Gated on migrated:
+        // a native field's rules are never touched here.
         updated |= FormLogicRuleValueRemap.remap(fieldNode, valueReplacements);
+
+        // One-shot: this pass converged the languages onto the shared-value identity,
+        // so the divergent-list licence has been spent. Drop the marker — any later
+        // edit is native 0.4 content, value-keyed and rule-safe. Removed even when
+        // nothing else changed: the marker itself is the state that must not persist.
+        if (migrated) {
+            fieldNode.getSession().checkout(fieldNode);
+            fieldNode.removeMixin(MIGRATED_MARKER_MIXIN);
+            updated = true;
+        }
 
         return updated;
     }
@@ -178,11 +196,11 @@ public final class ManualOptionsLanguageSync {
      * drop the entry, per the site's untranslated-content setting.
      */
     private static boolean feed(JCRNodeWrapper fieldNode, String language, Node translation,
-            List<String> masterOptions) throws RepositoryException {
+            List<String> masterOptions, boolean allowPositionalLabels) throws RepositoryException {
         List<String> current = translation != null
                 ? ManualOptionEntries.readOptions(translation)
                 : Collections.emptyList();
-        List<String> aligned = ManualOptionEntries.alignForStorage(masterOptions, current);
+        List<String> aligned = ManualOptionEntries.alignForStorage(masterOptions, current, allowPositionalLabels);
         if (translation != null && aligned.equals(current)) {
             return false;
         }

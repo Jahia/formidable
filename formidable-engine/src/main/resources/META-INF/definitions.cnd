@@ -15,6 +15,15 @@
 // Lifecycle: to be removed in 0.5 with the reactivation itself.
 [fmdbmix:elementsReactivated] mixin
 
+// One-shot marker stamped on a CHOICE FIELD by ChoiceOptionsContentMigration: this
+// field's options came from 0.3, whose per-language lists could translate the VALUES
+// (rouge/vert facing red/green), and have not yet converged to the 0.4 shared-value
+// identity. It licenses the divergent-list heuristics (positional label carry-over,
+// conditional-rule value remap) that must NEVER run on native 0.4 content, and is
+// removed the first time the field's languages realign — after which value-keying is
+// authoritative again. Lifecycle: to be removed in 0.5 with the migration.
+[fmdbmix:migratedChoiceOptions] mixin
+
 // Logic-aware structural mixins and helper content types used by the engine to
 // resolve conditional logic, walk the form tree, and synchronize weak references.
 [fmdb:logicSrc] > jnt:content

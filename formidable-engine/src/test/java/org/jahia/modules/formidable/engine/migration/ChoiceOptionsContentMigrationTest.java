@@ -73,6 +73,7 @@ class ChoiceOptionsContentMigrationTest {
         verify(en.getProperty("choices")).remove();
         verify(fr.getProperty("choices")).remove();
         verify(field).addMixin("fmdbmix:manualOptions");
+        verify(field).addMixin("fmdbmix:migratedChoiceOptions");
         verify(field).setProperty("fmdb:optionsMode", "manual");
     }
 

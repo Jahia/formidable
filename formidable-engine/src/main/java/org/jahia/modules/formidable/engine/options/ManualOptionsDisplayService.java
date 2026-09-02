@@ -36,6 +36,8 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.MA
 @Component(service = ManualOptionsDisplayService.class, immediate = true)
 public class ManualOptionsDisplayService {
 
+    private static final String MIGRATED_MARKER_MIXIN = "fmdbmix:migratedChoiceOptions";
+
     /**
      * @param fieldNode   the choice field node
      * @param languageTag the language being rendered
@@ -68,7 +70,11 @@ public class ManualOptionsDisplayService {
 
         Node own = ManualOptionEntries.findTranslation(fieldNode, languageTag);
         List<String> ownOptions = own != null ? ManualOptionEntries.readOptions(own) : List.of();
-        return ManualOptionEntries.alignForDisplay(masterOptions, ownOptions, site.isMixLanguagesActive())
+        // Positional label pairing only for a still-divergent migrated field (the
+        // marker survives until the first save converges the languages); native 0.4
+        // content is value-keyed, exactly as before.
+        boolean migrated = fieldNode.isNodeType(MIGRATED_MARKER_MIXIN);
+        return ManualOptionEntries.alignForDisplay(masterOptions, ownOptions, site.isMixLanguagesActive(), migrated)
                 .toArray(new String[0]);
     }
 }

@@ -87,6 +87,19 @@ final class ManualOptionsFixtures {
         return field;
     }
 
+    /**
+     * Stamps the migration provenance marker on a field and gives it a session, so the
+     * sync's one-shot marker removal (checkout + removeMixin) runs without NPE. Returns
+     * the same field for chaining.
+     */
+    static JCRNodeWrapper markMigrated(JCRNodeWrapper field) throws Exception {
+        when(field.isNodeType("fmdbmix:migratedChoiceOptions")).thenReturn(true);
+        org.jahia.services.content.JCRSessionWrapper session =
+                mock(org.jahia.services.content.JCRSessionWrapper.class);
+        when(field.getSession()).thenReturn(session);
+        return field;
+    }
+
     static Node translation(String language, String... options) throws Exception {
         Node translation = mock(Node.class);
         when(translation.getName()).thenReturn("j:translation_" + language);

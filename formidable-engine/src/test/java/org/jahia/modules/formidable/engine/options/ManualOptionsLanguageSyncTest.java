@@ -7,6 +7,7 @@ import javax.jcr.Node;
 import java.util.Set;
 
 import static org.jahia.modules.formidable.engine.options.ManualOptionsFixtures.fieldNode;
+import static org.jahia.modules.formidable.engine.options.ManualOptionsFixtures.markMigrated;
 import static org.jahia.modules.formidable.engine.options.ManualOptionsFixtures.option;
 import static org.jahia.modules.formidable.engine.options.ManualOptionsFixtures.translation;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -49,11 +50,30 @@ class ManualOptionsLanguageSyncTest {
         Node master = translation("en", option("red", "Red"), option("green", "Green"));
         Node fr = translation("fr", option("rouge", "Rouge"), option("vert", "Vert"));
 
-        JCRNodeWrapper field = fieldNode("en", master, fr);
+        JCRNodeWrapper field = markMigrated(fieldNode("en", master, fr));
 
         assertTrue(ManualOptionsLanguageSync.sync(field, Set.of("en")));
         verify(fr).setProperty("fmdb:options",
                 new String[]{option("red", "Rouge"), option("green", "Vert")});
+        // One-shot: the marker is dropped once the languages converge.
+        verify(field).removeMixin("fmdbmix:migratedChoiceOptions");
+    }
+
+    @Test
+    void aNativeFieldReplacingEveryValueIsNotMislabelled() throws Exception {
+        // The reviewer's false positive: a canonical 0.4 field (no migration marker)
+        // whose editor replaced BOTH master values in one edit. Same size, zero shared
+        // value with the not-yet-resynced French list — the SHAPE heuristic would fire,
+        // but provenance forbids it: French gets blank labels awaiting re-translation
+        // (visible), NOT the master's old French words mapped onto the new values.
+        Node master = translation("en", option("blue", "Blue"), option("yellow", "Yellow"));
+        Node fr = translation("fr", option("red", "Rouge"), option("green", "Vert"));
+
+        JCRNodeWrapper field = fieldNode("en", master, fr);
+
+        assertTrue(ManualOptionsLanguageSync.sync(field, Set.of("en")));
+        verify(fr).setProperty("fmdb:options",
+                new String[]{option("blue", ""), option("yellow", "")});
     }
 
     @Test
@@ -63,7 +83,7 @@ class ManualOptionsLanguageSyncTest {
         Node master = translation("en", option("red", "Red"), option("green", "Green"));
         Node fr = translation("fr", option("rouge", "Rouge"));
 
-        JCRNodeWrapper field = fieldNode("en", master, fr);
+        JCRNodeWrapper field = markMigrated(fieldNode("en", master, fr));
 
         assertTrue(ManualOptionsLanguageSync.sync(field, Set.of("en")));
         verify(fr).setProperty("fmdb:options",
