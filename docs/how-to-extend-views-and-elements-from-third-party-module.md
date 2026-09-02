@@ -21,6 +21,17 @@ Reason:
 - `formidable-elements` provides the rendered node types and default views
 - `formidable-engine` owns runtime mixins such as `fmdbmix:formElement` and `fmdbmix:formContainer`
 
+How to declare it — the DEPLOY-time dependency, not (only) a build one; without it your
+CND cannot resolve those mixins and the module fails to register its definitions:
+
+- Java module: `<jahia-depends>formidable-elements,formidable-engine</jahia-depends>`
+  in the pom's `<properties>`
+- JS module: `"module-dependencies": "default,formidable-elements=0.4,formidable-engine=0.4"`
+  in the package.json `jahia` section
+
+This is exactly what `formidable-extended-inputs` — the module that did this for 0.4.0 —
+declares; pin the versions like it does.
+
 In practice, external CND definitions often reuse both layers, directly or indirectly.
 
 ## Two rendering contracts
@@ -118,6 +129,7 @@ jahiaComponent(
           <Render
             node={currentNode}
             view="hidden.logic"
+            readOnly
             parameters={{
               className: classes.grid,
               childClassName: classes.item,
@@ -174,6 +186,7 @@ jahiaComponent(
         <Render
           node={currentNode}
           view="hidden.logic"
+          readOnly
           parameters={{
             className: "my-panel-content",
             childClassName: "my-panel-item",
@@ -335,10 +348,17 @@ Example — a rating field (number) and a switch field (boolean):
 
 ```cnd
 [mymod:rating] > jnt:content, fmdbmix:element, fmdbmix:numberField
- - max (long) = 5
+ - minValue (double) = 1
+ - maxValue (double) = 5
 
 [mymod:switch] > jnt:content, fmdbmix:element, fmdbmix:booleanField
 ```
+
+The number bounds MUST be named `minValue` / `maxValue`: they are the properties the
+server reads to enforce the range at validation time (this is what the shipped
+`fmdbext:rating` uses). A `min`/`max` pair is only read on date fields — on a number
+field it would leave the range enforced in the browser alone, and a forged submission
+outside it would be accepted.
 
 The rules editor discovers eligible sources through these mixins (the
 `FORM_TREE_BY_PATH` query checks `isNodeType`), so your field appears in the
@@ -364,8 +384,9 @@ Semantics to know:
   else is rejected at submission.
 - **choice**: the editor reads the choice list from the `fmdb:options` property
   declared by `fmdbmix:manualOptions` (same JSON-encoded `{value, label}` entries
-  as the built-in select/radio/checkbox); apply that mixin to your field nodes,
-  or register a source descriptor with a custom `choiceProperty`.
+  as the built-in select/radio/checkbox); apply that mixin to your field nodes —
+  there is no registration API for a custom choice property (the editor's source
+  descriptors are a fixed map inside the engine's admin bundle).
 - **text**: emptiness is whitespace-blankness on both evaluators (a value of
   spaces counts as empty); `equals` is an exact match on the raw submitted
   value and `contains` a substring match, both case-sensitive, and both require

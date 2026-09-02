@@ -30,8 +30,14 @@ That means a new action always needs:
 If the action belongs to another Jahia module:
 
 - declare the node type in that module's own `definitions.cnd`
-- add a Maven dependency on `formidable-engine`
+- add a Maven dependency on `formidable-engine` (compile-time: the SPI)
 - make sure the bundle imports `org.jahia.modules.formidable.engine.api`
+- declare the DEPLOY-time dependency too — without it the CND cannot resolve
+  `fmdbmix:formAction` and the module fails to register its definitions:
+  - Java module: `<jahia-depends>formidable-engine</jahia-depends>` in the pom's
+    `<properties>`
+  - JS module: `"module-dependencies": "default,formidable-engine=0.4"` in the
+    package.json `jahia` section (pin the version, as `formidable-extended-inputs` does)
 
 If the action belongs to this repository, the same rules apply, except the node type and handler live directly in `formidable-engine`.
 
