@@ -19,7 +19,8 @@ import {
     parseRule,
     sanitizeProviderOperator,
     sanitizeOperator,
-    TODAY_SENTINEL
+    TODAY_SENTINEL,
+    withStoredValues
 } from './ConditionalLogic.utils';
 import {getSourceDescriptor, operatorNeedsValue} from './sourceDescriptors';
 import {getLogicProvider, listLogicProviders, type LogicProviderDescriptor, PROVIDER_OPERATORS} from './providers';
@@ -462,9 +463,11 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         })),
         [selectedSource, t]
     );
-    const valueOptions = useMemo(
-        () => (selectedSource?.choiceValues ?? []).map(choice => ({label: choice.label, value: choice.value})),
-        [selectedSource]
+    // Not memoized: the list is tiny, and rule.values must take part — a stored value
+    // the current language's list does not know still needs its (raw-value) chip.
+    const valueOptions = withStoredValues(
+        (selectedSource?.choiceValues ?? []).map(choice => ({label: choice.label, value: choice.value})),
+        rule.values ?? []
     );
 
     const showValueDropdown = selectedSource

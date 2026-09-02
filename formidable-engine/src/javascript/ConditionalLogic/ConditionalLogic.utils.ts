@@ -349,3 +349,21 @@ export const buildLogicIdToSourceMap = (logicSrcNodes: LogicSrcNode[] = []): Map
 
     return map;
 };
+
+/**
+ * The value options a rule's dropdown offers, extended with any STORED value absent
+ * from the current language's list. Rules are shared across languages while a
+ * 0.3-migrated field may keep divergent per-language values until its first save
+ * re-aligns them: without the fallback the chip of such a value renders empty, which
+ * reads as data loss. The raw value is shown instead — it is what the rule compares.
+ */
+export const withStoredValues = (
+    options: Array<{label: string; value: string}>,
+    storedValues: string[]
+): Array<{label: string; value: string}> => {
+    const known = new Set(options.map(option => option.value));
+    const missing = storedValues
+        .filter(value => value !== '' && !known.has(value))
+        .map(value => ({label: value, value}));
+    return missing.length === 0 ? options : [...options, ...missing];
+};
