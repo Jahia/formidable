@@ -29,10 +29,11 @@ import static org.mockito.Mockito.when;
  */
 class ChoiceOptionsContentMigrationTest {
 
-    private static Value[] values(String... jsons) {
+    private static Value[] values(String... jsons) throws Exception {
         Value[] values = new Value[jsons.length];
         for (int i = 0; i < jsons.length; i++) {
             Value value = mock(Value.class);
+            when(value.getString()).thenReturn(jsons[i]);
             values[i] = value;
         }
         return values;
