@@ -35,10 +35,11 @@ Browser
                                           lacks fmdbmix:readOnlyCompatibleAction → FMDB-014      — 0 byte read
          Step 6   verifyAuthentication    if fmdbmix:authenticatedOnlyForm → reject Guest
          Step 7   verifyCaptcha           if fmdbmix:captchaProtectedForm → verify CAPTCHA header — 0 byte read
-         Step 8   collectFormFieldInfo    walk form node: build field whitelist,
+         Step 8   collectFormFieldInfo    walk form node: build the field whitelist —
                                           per-field type, allowed options, accept types,
-                                          and field constraints (required, min/maxLength,
-                                          pattern, min/maxDate)                                   — 0 byte read
+                                          constraints (required, min/maxLength, pattern,
+                                          min/maxDate, min/maxNumber) — plus the logic
+                                          rules and the container hierarchy               — 0 byte read
          Step 9   parseMultipart          FIRST AND ONLY read of the request stream
                    ├─ undeclared fields skipped inline (not read, not stored)
                    ├─ text fields  → validated → Map<String, List<String>>
@@ -92,6 +93,7 @@ multipart bodies during streaming.
 | `fid` query param | JCR identifier (UUID) of the `fmdb:form` node | `default.server.tsx` |
 | `lang` query param | BCP 47 language tag (e.g. `en`, `fr`) | `default.server.tsx` |
 | `X-Formidable-Captcha-Token` header | CAPTCHA token — only when CAPTCHA protection is enabled on the form | `useFormSubmission.ts` at submit time |
+| `X-Formidable-Logic-State` header | One base64 declaration of the provider state (JS variables, URL params, cookies) the browser evaluated its logic rules against — lets the server evaluate provider rules coherently | `useFormSubmission.ts` at submit time |
 
 No hidden `<input>` fields are injected into the form body for routing.
 The CAPTCHA widget field (`cf-turnstile-response`, etc.) is deleted from `FormData` by
@@ -167,96 +169,68 @@ trusted actors, because the runtime will execute those configured actions with e
 
 ## CSRF and cross-origin protection
 
-The submit servlet is protected by two different mechanisms depending on whether the user is
-anonymous or authenticated:
+The single CSRF control on every submission — guest or authenticated — is the
+`formidable-submit` Jahia Security Filter scope, auto-applied for `origin: hosted`:
+requests that do not present a same-origin `Origin` or `Referer` never reach the
+multipart pipeline.
 
-1. `formidable-submit` is a Jahia Security Filter scope auto-applied for `origin: hosted`.
-   Requests that do not present a same-origin `Origin` or `Referer` never reach the multipart pipeline.
-   This is the primary CSRF control for all submissions.
-2. For authenticated users, Jahia CSRFGuard also injects and validates a `CSRFTOKEN`.
-   Because the submit endpoint is `/modules/formidable-engine/form-submit` rather than `*.do`,
-   the module ships a module-scoped CSRFGuard config extending `urlPatterns` to protect that servlet path explicitly.
+**Jahia CSRFGuard does not protect this endpoint.** It briefly did (an early config
+extended `urlPatterns` to the servlet path), but jahia-csrf-guard 4.3 started enforcing
+the token on authenticated sessions and rejected every logged-in submission — the page
+never carries a token for this XHR. The module therefore ships the opposite
+configuration, and it is the one in force (#200):
+
+```
+META-INF/configurations/org.jahia.modules.jahiacsrfguard-formidable.cfg
+  whitelist = /modules/formidable-engine/form-submit*
+```
+
+An authenticated submission thus carries no second, non-forgeable credential: the
+same-origin gate is the whole CSRF posture, for guests and authenticated visitors alike.
 
 ### Protection matrix
 
 | Form configuration | Protection that applies | Residual risk |
 |---|---|---|
 | Guest form without CAPTCHA | `formidable-submit` Security Filter only (`origin: hosted`) | Relies solely on the browser-supplied same-origin `Origin` / `Referer` signal enforced by the Security Filter |
-| Guest form with `fmdbmix:captcha` | `formidable-submit` Security Filter + CAPTCHA token validation | Same residual risk as above if the origin signal is missing or downgraded, but the CAPTCHA token adds a second non-replayable credential tied to the hosting page |
-| Authenticated form without CAPTCHA | `formidable-submit` Security Filter + Jahia CSRFGuard token | Requires both a same-origin request and a valid CSRF token; residual risk is lower and mainly depends on the correctness of those platform controls |
-| Authenticated form with `fmdbmix:captcha` | `formidable-submit` Security Filter + Jahia CSRFGuard token + CAPTCHA token validation | Lowest residual risk in this flow; CAPTCHA is still defence in depth, not the primary CSRF control |
+| Guest form with `fmdbmix:captcha` | `formidable-submit` Security Filter + CAPTCHA token validation | The CAPTCHA token adds a second non-replayable credential tied to the hosting page |
+| Authenticated form without CAPTCHA | `formidable-submit` Security Filter only — CSRFGuard whitelists this path | Same as the guest row: the origin signal is the only CSRF control |
+| Authenticated form with `fmdbmix:captcha` | `formidable-submit` Security Filter + CAPTCHA token validation | CAPTCHA is defence in depth, not the primary CSRF control |
 
-### Why guests do not use CSRFGuard as the primary control
+### Why CSRFGuard is not part of this posture
 
-Jahia-wide, guest traffic cannot rely on CSRFGuard tokens as the default CSRF mechanism because
-guest pages are expected to remain CDN-cacheable. Injecting a per-request or per-session CSRF token
-into cached HTML would break that caching model. For that reason, the guest path in Formidable
-depends primarily on the Security Filter's `origin: hosted` check, while authenticated users still
-benefit from CSRFGuard on top of the same-origin gate.
+Guest pages must stay CDN-cacheable, so a per-session token cannot be injected into
+cached HTML — guest traffic could never rely on CSRFGuard. For authenticated visitors,
+CSRFGuard 4.3 enforced a token this XHR never carries and blocked every legitimate
+submission, so the module whitelists the endpoint instead of shipping a protection that
+only rejected honest use.
 
 Forms using `fmdbmix:captcha` add another barrier: the wrapper enables the
 engine-owned `fmdbmix:captchaProtectedForm` semantic, and the CAPTCHA token is a
-non-replayable credential
-tied to the hosting page. This is defence in depth, not the primary CSRF control.
-
----
-
-## Trust model
-
-The submission pipeline resolves the target form node with the current user's `live` JCR session, so normal
-read permissions on the form still apply at form-resolution time. Once the form has been resolved and validated,
-the configured actions execute under a system session. This is intentional: Guest and low-privilege users must
-still be able to trigger server-side effects such as sending emails or saving submissions. The trust boundary is
-therefore the form configuration itself: contributors who can configure a form and its action list are treated as
-trusted actors, because the runtime will execute those configured actions with elevated JCR privileges.
-
----
-
-## CSRF and cross-origin protection
-
-The submit servlet is protected by two different mechanisms depending on whether the user is
-anonymous or authenticated:
-
-1. `formidable-submit` is a Jahia Security Filter scope auto-applied for `origin: hosted`.
-   Requests that do not present a same-origin `Origin` or `Referer` never reach the multipart pipeline.
-   This is the primary CSRF control for all submissions.
-2. For authenticated users, Jahia CSRFGuard also injects and validates a `CSRFTOKEN`.
-   Because the submit endpoint is `/modules/formidable-engine/form-submit` rather than `*.do`,
-   the module ships a module-scoped CSRFGuard config extending `urlPatterns` to protect that
-   servlet path explicitly.
-
-### Protection matrix
-
-| Form configuration | Protection that applies | Residual risk |
-|---|---|---|
-| Guest form without CAPTCHA | `formidable-submit` Security Filter only (`origin: hosted`) | Relies solely on the browser-supplied same-origin `Origin` / `Referer` signal enforced by the Security Filter |
-| Guest form with `fmdbmix:captcha` | `formidable-submit` Security Filter + CAPTCHA token validation | Same residual risk as above if the origin signal is missing or downgraded, but the CAPTCHA token adds a second non-replayable credential tied to the hosting page |
-| Authenticated form without CAPTCHA | `formidable-submit` Security Filter + Jahia CSRFGuard token | Requires both a same-origin request and a valid CSRF token; residual risk is lower and mainly depends on the correctness of those platform controls |
-| Authenticated form with `fmdbmix:captcha` | `formidable-submit` Security Filter + Jahia CSRFGuard token + CAPTCHA token validation | Lowest residual risk in this flow; CAPTCHA is still defence in depth, not the primary CSRF control |
-
-### Why guests do not use CSRFGuard as the primary control
-
-Jahia-wide, guest traffic cannot rely on CSRFGuard tokens as the default CSRF mechanism because
-guest pages are expected to remain CDN-cacheable. Injecting a per-request or per-session CSRF token
-into cached HTML would break that caching model. For that reason, the guest path in Formidable
-depends primarily on the Security Filter's `origin: hosted` check, while authenticated users still
-benefit from CSRFGuard on top of the same-origin gate.
-
-Forms using `fmdbmix:captcha` add another barrier: the CAPTCHA token is a non-replayable credential
-tied to the hosting page. This is defence in depth, not the primary CSRF control.
+non-replayable credential tied to the hosting page. This is defence in depth, not the
+primary CSRF control.
 
 ---
 
 ## Field whitelist (step 8 → step 9)
 
-`collectFormFieldInfo()` walks the `fields` child node (`fmdb:fieldList`) of the `fmdb:form`,
-including fields nested inside `fmdb:step` children, and builds:
+`FormFieldMetadataCollector` walks the `fields` child node (`fmdb:fieldList`) of the
+`fmdb:form`, recursing through the containers (`fmdb:step`, `fmdb:fieldset`), and builds:
 
-- `Set<String> allowedNames` — declared field names
-- `Map<String, String> fieldTypes` — JCR primary node type per field
-- `Map<String, Set<String>> allowedChoices` — for choice fields, the set of valid values
-- `Map<String, Set<String>> fieldAcceptTypes` — for file fields, allowed MIME types
-- `Map<String, FieldConstraints> fieldConstraints` — per-field constraints (required, minLength, maxLength, pattern, minDate, maxDate)
+- `Map<String, FieldInfo> fieldInfos` — one record per declared field: the JCR node type,
+  the semantic flags (choice, file, email, date, datetime-local, color, number, boolean),
+  the allowed choice values (plus a `choicesUnresolvable` flag when a source cannot
+  deliver), the file accept types and the `FieldConstraints` (required, minLength,
+  maxLength, pattern, minDate, maxDate, minNumber, maxNumber)
+- `Map<String, List<ConditionalLogicRule>> fieldLogicRules` — the parsed logic rules, per
+  field and per conditional container
+- `Map<String, String> logicIdToFieldName` — resolves a rule's stored source reference to
+  the source field's current name
+- `Map<String, Set<String>> fieldParentContainers` — each field's (and nested conditional
+  container's) direct conditional containers, which the server evaluator walks so a field
+  inherits every enclosing verdict
+
+The declared field names (the keys of `fieldInfos`) are the whitelist.
 
 During `parseAll()`, any multipart item whose field name is absent from `allowedNames` is
 **skipped without reading its content**. The Commons FileUpload iterator advances past
@@ -273,11 +247,15 @@ This prevents:
 
 `FormDataParser` validates every text field before it enters the pipeline:
 
+Dispatch is on the semantic **mixins**, not on a list of node type names: a custom field
+type carrying `fmdbmix:choiceField` gets the same control as the built-in ones.
+
 | Field category | Control |
 |---|---|
-| Choice fields (`fmdb:select`, `fmdb:radio`, `fmdb:checkbox`) | Value checked against the `allowedChoices` set built from JCR; rejected if not in set |
-| Typed fields (`email`, `date`, `datetime-local`, `color`) | Format validated with a strict regex |
-| All text fields | `FieldConstraints` applied: required, minLength, maxLength, pattern, minDate, maxDate |
+| Choice fields (`fmdbmix:choiceField` — select, radio, checkbox, …) | Value checked against the allowed set; rejected if not in it. Manual options are read from the site's default language; sourced/category/content options are **re-resolved live** at validation time, and a source that cannot deliver rejects the submission (FMDB-010) rather than accepting anything |
+| Typed fields (`email`, `date`, `datetime-local`, `color` mixins) | Format validated with a strict regex |
+| Number and boolean fields (`fmdbmix:numberField`, `fmdbmix:booleanField`) | Numeric parse with `minNumber`/`maxNumber` bounds; boolean literal check |
+| All text fields | `FieldConstraints` applied: required, minLength, maxLength, pattern, minDate, maxDate, minNumber, maxNumber |
 
 Required fields that are legitimately absent from the multipart body (e.g. unchecked
 checkbox) are detected at step 11 (`validateRequired`) after parsing, rather than during
@@ -455,23 +433,27 @@ populated by `FormidableForwardTargetsInitializer`. The available targets are de
 administrator in `org.jahia.modules.formidable.cfg`:
 
 ```
-forwardTargets=salesforce-prod|Salesforce Prod|https://api.salesforce.com/services/
+forwardTargets=salesforce-prod|Salesforce Prod|https://api.salesforce.com/services/\n\
 crm-staging|CRM Staging|https://crm.internal/hook
 ```
+
+(Entries are separated by newlines *inside the value*: in the `.cfg` properties format that
+is an escaped `\n` plus a `\` line continuation, as above — two plain lines would leave
+only the first target configured.)
 
 Optional development-only targets can be enabled explicitly:
 
 ```
 enableDevForwardTargets=true
-devForwardTargets=local-api|Local API|http://localhost:3000/hook
+devForwardTargets=local-api|Local API|http://localhost:3000/hook\n\
 docker-api|Docker API|http://host.docker.internal:8080/hook
 ```
 
 `devForwardTargets` only accepts plain HTTP on `localhost` and `host.docker.internal`.
 
-`FormidableConfigService.resolveForwardTarget(targetId)` returns the configured target entry or
-throws if the ID is unknown. This design prevents SSRF: contributors can only reach
-pre-approved endpoints.
+`FormidableConfigService.resolveForwardTarget(targetId)` returns an `Optional`, empty for an
+unknown ID — the forward action then fails the submission as a configuration error. This
+design prevents SSRF: contributors can only reach pre-approved endpoints.
 
 To add a new action type, see `AGENTS.md` → *Form action pipeline*.
 
@@ -479,7 +461,9 @@ To add a new action type, see `AGENTS.md` → *Form action pipeline*.
 
 ## Error responses
 
-Failed submissions return `{ "success": false, "errorCode": "FMDB-XXX" }`.
+Failed submissions return `{ "success": false, "errorCode": "FMDB-XXX" }`, plus
+`actionsCompleted` / `actionsTotal` when the failure happened inside the action pipeline —
+the client shows that progress under the error message.
 Detailed reasons are written to server logs only. See `docs/error-codes.md` for the full glossary.
 
 ---
@@ -494,11 +478,11 @@ and shows a tooltip. No request is sent to the servlet.
 
 ## CSRF
 
-Form submissions use `XMLHttpRequest` (not `fetch`). Jahia's OWASP CSRFGuard integrates
-with `XMLHttpRequest`, but its client-side auto-injection is limited to the URL patterns it
-recognises. The Formidable submit servlet is still protected server-side through the
-module-scoped CSRFGuard configuration, so an authenticated direct XHR to
-`/modules/formidable-engine/form-submit` without the expected CSRF transport is rejected.
+Form submissions use `XMLHttpRequest` (not `fetch`) because Jahia's OWASP CSRFGuard
+integrates with `XMLHttpRequest` where it applies. It does not apply here: the module
+whitelists `/modules/formidable-engine/form-submit*` in its CSRFGuard configuration, and
+the same-origin `formidable-submit` Security Filter is the CSRF control for this endpoint
+(see *CSRF and cross-origin protection* above).
 
 ---
 

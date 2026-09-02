@@ -40,7 +40,7 @@ default.server.tsx        ← jahiaComponent() for fmdb:form, reads JCR props
 | File | Role |
 |---|---|
 | `src/components/Form/default.server.tsx` | Computes `submitActionUrl`, `captcha`, `stepLabels`; passes everything to the Island |
-| `src/components/Form/Form.client.tsx` | `fetch` submission, multi-step, DOMPurify, CAPTCHA guard |
+| `src/components/Form/Form.client.tsx` | XHR submission (Jahia's CSRFGuard integrates with XMLHttpRequest, not fetch), multi-step, CAPTCHA guard |
 | `src/components/Form/Captcha.client.tsx` | Renders the captcha widget via the provider's native API |
 | `src/components/Form/types.ts` | `FormServerProps`, `FormProps`, `CaptchaProvider` |
 | `src/components/Form/definition.cnd` | Mixins `fmdbmix:responses`, `fmdbmix:buttons`, `fmdbmix:multiStep`, `fmdbmix:style`, `fmdbmix:captcha`, `fmdbmix:requireAuthentication`, the `fmdb:actionList`/`fmdb:fieldList` lists and the `fmdb:form` type |
