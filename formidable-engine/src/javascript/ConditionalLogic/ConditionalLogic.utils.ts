@@ -361,9 +361,15 @@ export const withStoredValues = (
     options: Array<{label: string; value: string}>,
     storedValues: string[]
 ): Array<{label: string; value: string}> => {
-    const known = new Set(options.map(option => option.value));
+    // An EMPTY label is the other face of the same migration state: the language sync
+    // re-aligns a divergent list on the default language's values and blanks the labels
+    // that need re-translating — a chip or dropdown row must then say the value, never
+    // render blank.
+    const labelled = options.map(option =>
+        option.label.trim() === '' ? {...option, label: option.value} : option);
+    const known = new Set(labelled.map(option => option.value));
     const missing = storedValues
         .filter(value => value !== '' && !known.has(value))
         .map(value => ({label: value, value}));
-    return missing.length === 0 ? options : [...options, ...missing];
+    return missing.length === 0 ? labelled : [...labelled, ...missing];
 };
