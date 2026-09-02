@@ -275,7 +275,7 @@ This prevents:
 
 | Field category | Control |
 |---|---|
-| Choice fields (`fmdb:select`, `fmdb:inputRadio`, `fmdb:inputCheckbox`) | Value checked against the `allowedChoices` set built from JCR; rejected if not in set |
+| Choice fields (`fmdb:select`, `fmdb:radio`, `fmdb:checkbox`) | Value checked against the `allowedChoices` set built from JCR; rejected if not in set |
 | Typed fields (`email`, `date`, `datetime-local`, `color`) | Format validated with a strict regex |
 | All text fields | `FieldConstraints` applied: required, minLength, maxLength, pattern, minDate, maxDate |
 

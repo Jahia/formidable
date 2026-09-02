@@ -75,9 +75,10 @@ It will include the ability to:
   - Create a new field type (CND + server view + optional client Island)
 
 ### Packaging
-- 2 modules:
+- 3 modules:
   - **formidable-elements** — provides the fields, form structure and rendering views
   - **formidable-engine** — provides the action framework (Java/OSGi), CAPTCHA verification, editor extensions (custom selectors, form results panel)
+  - **formidable-extended-inputs** — provides the optional extra field types, as a separate module so a site can stay on the core set
 
 ### Current known limitations
 - When selecting a field, users don't know what it will look like. This pain point will be addressed globally inside Jahia in 2026.

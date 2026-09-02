@@ -43,7 +43,7 @@ default.server.tsx        ← jahiaComponent() for fmdb:form, reads JCR props
 | `src/components/Form/Form.client.tsx` | `fetch` submission, multi-step, DOMPurify, CAPTCHA guard |
 | `src/components/Form/Captcha.client.tsx` | Renders the captcha widget via the provider's native API |
 | `src/components/Form/types.ts` | `FormServerProps`, `FormProps`, `CaptchaProvider` |
-| `src/components/Form/definition.cnd` | Mixins `fmdbmix:responses`, `fmdbmix:buttons`, `fmdbmix:multiStep`, `fmdbmix:captcha`, `fmdbmix:actionPipeline`, and the `fmdb:form` type |
+| `src/components/Form/definition.cnd` | Mixins `fmdbmix:responses`, `fmdbmix:buttons`, `fmdbmix:multiStep`, `fmdbmix:style`, `fmdbmix:captcha`, `fmdbmix:requireAuthentication`, the `fmdb:actionList`/`fmdb:fieldList` lists and the `fmdb:form` type |
 
 ### Vite
 
@@ -151,9 +151,9 @@ The provider is derived from `scriptUrl` at runtime (both in TypeScript and Java
 
 ### Overview
 
-When the `fmdbmix:actionPipeline` mixin is applied to a `fmdb:form`, or when a captcha is configured, `default.server.tsx` sets:
+Every `fmdb:form` carries a mandatory, autocreated `actions` child (`fmdb:actionList`, see `Form/definition.cnd`) — there is no opt-in mixin. `default.server.tsx` always sets:
 ```
-submitActionUrl = /cms/render/live/{locale}{nodePath}.formidableSubmit.do
+submitActionUrl = /modules/formidable-engine/form-submit?fid={form uuid}&lang={locale}
 ```
 
 ### Submission flow (client-side)
@@ -370,7 +370,7 @@ Full behavioral specification: `tests/scenarios/conditional-logic.md` (11 sectio
 | Role | Action |
 |---|---|
 | **Admin** | Creates action nodes (`fmdb:captchaAction`, `fmdb:emailNotificationAction`, …) anywhere in the site content tree |
-| **Contributor** | Creates a `fmdb:form`, applies `fmdbmix:actionPipeline`, selects actions via the `actions` property |
+| **Contributor** | Creates a `fmdb:form` and fills its autocreated `actions` list (every form has one) |
 
 ---
 
