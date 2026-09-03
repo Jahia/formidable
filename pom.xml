@@ -245,11 +245,12 @@
             <plugin>
                 <artifactId>maven-release-plugin</artifactId>
                 <configuration>
-                    <!-- when releasing, the checksum of packages in yarn.lock files may change -->
-                    <!-- 'clean verify/install' recomputes those checksums as part of the regular Maven build -->
-                    <!-- scm:checkin commits the updated files -->
-                    <preparationGoals>-P release-prepare clean verify scm:checkin</preparationGoals>
-                    <completionGoals>-P release-prepare clean install scm:checkin</completionGoals>
+                    <!-- The release-prepare profile syncs every package.json with the maven version
+                         (and yarn.lock checksums may change) during the regular build; the
+                         commit-synced-files execution then commits what changed, module by module,
+                         before the release plugin commits the poms. -->
+                    <preparationGoals>-P release-prepare clean verify exec:exec@commit-synced-files</preparationGoals>
+                    <completionGoals>-P release-prepare clean install exec:exec@commit-synced-files</completionGoals>
                     <releaseProfiles>release-perform</releaseProfiles>
                     <useReleaseProfile>true</useReleaseProfile>
                 </configuration>
@@ -307,15 +308,6 @@
             <build>
                 <plugins>
                     <plugin>
-                        <artifactId>maven-scm-plugin</artifactId>
-                        <configuration>
-                            <!-- The root module owns the single workspace lockfile -->
-                            <includes>yarn.lock,package.json</includes>
-                            <!-- use "skip ci" to prevent the CI workflow from triggering mid-release -->
-                            <message>chore(release): Prepare release ${project.version} [skip ci]</message>
-                        </configuration>
-                    </plugin>
-                    <plugin>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>exec-maven-plugin</artifactId>
                         <executions>
@@ -323,8 +315,7 @@
                                  Inherited by the modules whose parent is this pom (the test
                                  modules have their own parent and their own wiring); each
                                  carries a copy of .m2/sync-version.js resolving package.json
-                                 from the working directory, and its scm-plugin includes check
-                                 the rewritten file in. -->
+                                 from the working directory. -->
                             <execution>
                                 <id>sync-version</id>
                                 <phase>process-resources</phase>
@@ -335,6 +326,24 @@
                                     <executable>node</executable>
                                     <arguments>
                                         <argument>${basedir}/.m2/sync-version.js</argument>
+                                        <argument>${project.version}</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                            <!-- Commits the files sync-version rewrote, module by module and only when
+                                 they changed. Not bound to a phase: the release plugin invokes it as
+                                 exec:exec@commit-synced-files after the build (preparation and
+                                 completion goals). scm:checkin cannot do this — it fails on a module
+                                 that has nothing to commit (#155). -->
+                            <execution>
+                                <id>commit-synced-files</id>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>bash</executable>
+                                    <arguments>
+                                        <argument>${maven.multiModuleProjectDirectory}/.m2/commit-synced-files.sh</argument>
                                         <argument>${project.version}</argument>
                                     </arguments>
                                 </configuration>
