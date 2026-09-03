@@ -3,7 +3,6 @@ package org.jahia.modules.formidable.engine.migration;
 import org.jahia.services.content.JCRNodeIteratorWrapper;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
-import org.jahia.services.content.JCRTemplate;
 import org.jahia.services.observation.JahiaEventListener;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -25,8 +24,10 @@ import javax.jcr.query.Query;
  * fmdb:optionsMode='manual' so existing forms keep their exact behavior.
  *
  * Runs at module activation on BOTH workspaces (default and live) so published
- * forms keep rendering without a republish. Keyed on CONTENT state (a legacy
- * property is present), NOT on the previously installed module version: the
+ * forms keep rendering without a republish; the live pass goes through
+ * {@link MigrationSessions} so that Jahia does not mistake it for user-generated
+ * content. Keyed on CONTENT state (a legacy property is present), NOT on the
+ * previously installed module version: the
  * elements <=0.3 to 0.4 upgrade goes through an uninstall/reinstall (groupId
  * change), so no version information survives it. Re-running is a no-op once no
  * legacy property remains.
@@ -100,17 +101,15 @@ public class ChoiceOptionsContentMigration extends ElementsRedeployRetriggeredMi
     private void migrateBothWorkspaces() {
         for (String workspace : new String[]{"default", "live"}) {
             try {
-                JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, workspace, null, session -> {
-                    migrateWorkspace(session, workspace);
-                    return null;
-                });
+                MigrationSessions.execute(workspace, session -> migrateWorkspace(session, workspace));
             } catch (RepositoryException e) {
                 log.error("[ChoiceOptionsContentMigration] Migration failed in workspace '{}': {}", workspace, e.getMessage(), e);
             }
         }
     }
 
-    private void migrateWorkspace(JCRSessionWrapper session, String workspace) throws RepositoryException {
+    /** @return the number of migrated fields */
+    private int migrateWorkspace(JCRSessionWrapper session, String workspace) throws RepositoryException {
         // Scoped to editorial content: module-bundled nodes under /modules belong to
         // their module and must not be rewritten from here.
         Query query = session.getWorkspace().getQueryManager()
@@ -142,6 +141,7 @@ public class ChoiceOptionsContentMigration extends ElementsRedeployRetriggeredMi
         } else {
             log.debug("[ChoiceOptionsContentMigration] No legacy choice field found in workspace '{}'", workspace);
         }
+        return migrated;
     }
 
     /**

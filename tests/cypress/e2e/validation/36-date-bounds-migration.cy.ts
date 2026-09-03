@@ -1,9 +1,17 @@
 import gql from 'graphql-tag';
-import {createPublishedLiveFormPage, getInputDateNode, getInputDatetimeLocalNode} from '../../support/fixtures';
+import {publishAndWaitJobEnding} from '@jahia/cypress';
+import {
+	createPublishedLiveFormPage,
+	expectNoLiveOwnedProperty,
+	getInputDateNode,
+	getInputDatetimeLocalNode,
+	visitLiveForm
+} from '../../support/fixtures';
 import {CONTENT_PATH} from '../../support/constants';
-import {useFormidableSite} from './support';
+import {localDay, useFormidableSite} from './support';
 
 const FORM_NAME = 'legacy-bounds-form';
+const FORM_PATH = `${CONTENT_PATH}/${FORM_NAME}`;
 const DATE_PATH = `${CONTENT_PATH}/${FORM_NAME}/fields/legacyDate`;
 const DATETIME_PATH = `${CONTENT_PATH}/${FORM_NAME}/fields/legacyDatetime`;
 
@@ -48,6 +56,21 @@ type MigratedFieldResponse = {
 const getMigratedField = (path: string, workspace: 'EDIT' | 'LIVE') =>
 	cy.apollo({query: GET_MIGRATED_FIELD, variables: {path, workspace}});
 
+// What the editor does when the minimum is switched from a fixed date to the
+// submission day: the fixed-bound fieldset goes (with its value), the mode changes.
+const SWITCH_MIN_TO_TODAY = gql`
+	mutation switchMinBoundToToday($path: String!) {
+		jcr {
+			mutateNode(pathOrId: $path) {
+				removeMixins(mixins: ["fmdbmix:fixedMinDate"])
+				mutateProperty(name: "fmdb:minBoundMode") {
+					setValue(value: "today")
+				}
+			}
+		}
+	}
+`;
+
 /**
  * Startup migration of pre-mode date bounds: a field carrying fixed min/max values
  * but no bound modes gets stamped with mode 'date' plus the fixed-bound mixins, in
@@ -59,7 +82,8 @@ const getMigratedField = (path: string, workspace: 'EDIT' | 'LIVE') =>
  * reproduced here (a raw write without an applicable definition is rejected, and
  * removing a mixin drops its properties) — the definition-less branch is covered
  * by DateBoundsContentMigrationTest with mocks. This spec proves the end-to-end
- * reachable path: stamping, value survival, both workspaces, idempotence.
+ * reachable path: stamping, value survival, both workspaces, and that the migrated
+ * field keeps living afterwards — edited and republished, live follows.
  */
 describe('Validation - 36 Date bounds migration', () => {
 	useFormidableSite();
@@ -81,7 +105,7 @@ describe('Validation - 36 Date bounds migration', () => {
 					max: '2030-12-31T18:30:00.000'
 				})
 			]
-		).then(() => {
+		).then(({livePath}) => {
 			cy.executeGroovy('groovy/removeDateBoundModes.groovy', {__FIELD_PATH__: DATE_PATH})
 				.then(result => cy.log(String(result)));
 			cy.executeGroovy('groovy/removeDateBoundModes.groovy', {__FIELD_PATH__: DATETIME_PATH})
@@ -130,6 +154,29 @@ describe('Validation - 36 Date bounds migration', () => {
 					expect(node?.max?.value, scope).to.contain('2030-12-31');
 				});
 			});
+
+			// The live pass is a system rewrite, not user-generated content: nothing may
+			// be left live-owned, or every later publication would skip it (#281).
+			expectNoLiveOwnedProperty(DATE_PATH);
+			expectNoLiveOwnedProperty(DATETIME_PATH);
+
+			// The migrated field keeps living: its minimum switched to the submission
+			// day in edit mode, then published, must reach the live rendering.
+			cy.apollo({mutation: SWITCH_MIN_TO_TODAY, variables: {path: DATE_PATH}})
+				.then(response => expect(response.errors, 'switch the min bound to today').to.be.undefined);
+			publishAndWaitJobEnding(FORM_PATH);
+
+			getMigratedField(DATE_PATH, 'LIVE').then((response: MigratedFieldResponse) => {
+				const node = response.data?.jcr?.nodeByPath;
+				expect(node?.minBoundMode?.value, 'live min bound mode after the republish').to.equal('today');
+				expect(node?.min, 'live fixed min after the republish').to.be.null;
+				expect(node?.max?.value, 'live max after the republish').to.contain('2030-12-31');
+			});
+
+			const form = visitLiveForm(livePath);
+			form.get().find('input[name="legacyDate"]')
+				.should('have.attr', 'min', localDay())
+				.and('have.attr', 'max', '2030-12-31');
 		});
 	});
 });

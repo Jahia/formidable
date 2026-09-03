@@ -3,7 +3,6 @@ package org.jahia.modules.formidable.engine.migration;
 import org.jahia.services.content.JCRNodeIteratorWrapper;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
-import org.jahia.services.content.JCRTemplate;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
@@ -25,8 +24,10 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FO
  * content-integrity scans fail on every such element. This removes it.
  *
  * Runs at module activation on BOTH workspaces (default and live): published
- * translations carry the same value. Keyed on CONTENT state, NOT on the previously
- * installed module version. Re-running is a no-op once every translation is clean.
+ * translations carry the same value; the live pass goes through {@link MigrationSessions}
+ * so that Jahia does not mistake it for user-generated content. Keyed on CONTENT state,
+ * NOT on the previously installed module version. Re-running is a no-op once every
+ * translation is clean.
  *
  * <p>Lifecycle: startup migration introduced in 0.4.0 (#215), to be removed in 0.5 — see
  * docs/upgrade-notes.md, "Startup migrations".
@@ -40,10 +41,7 @@ public class TranslationFieldKeyCleanup {
     public void activate() {
         for (String workspace : new String[]{"default", "live"}) {
             try {
-                JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, workspace, null, session -> {
-                    cleanWorkspace(session, workspace);
-                    return null;
-                });
+                MigrationSessions.execute(workspace, session -> cleanWorkspace(session, workspace));
             } catch (RepositoryException e) {
                 log.error("[TranslationFieldKeyCleanup] Cleanup failed in workspace '{}': {}",
                         workspace, e.getMessage(), e);
@@ -51,7 +49,8 @@ public class TranslationFieldKeyCleanup {
         }
     }
 
-    private void cleanWorkspace(JCRSessionWrapper session, String workspace) throws RepositoryException {
+    /** @return the number of removed stray properties */
+    private int cleanWorkspace(JCRSessionWrapper session, String workspace) throws RepositoryException {
         // Scoped to editorial content: module-bundled nodes under /modules belong to
         // their module and must not be rewritten from here.
         Query query = session.getWorkspace().getQueryManager()
@@ -85,6 +84,7 @@ public class TranslationFieldKeyCleanup {
             log.debug("[TranslationFieldKeyCleanup] No stray fieldKey found on translation nodes in workspace '{}'",
                     workspace);
         }
+        return cleaned;
     }
 
     /**

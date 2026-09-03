@@ -1,3 +1,4 @@
+import org.jahia.services.content.JCRObservationManager
 import org.jahia.services.content.JCRSessionFactory
 
 // Simulates a form stored before its 'fields'/'actions' lists carried a title, by
@@ -23,7 +24,14 @@ def report = []
             }
         }
     }
-    session.save()
+    // A 0.3 site never wrote these nodes in live directly: keep Jahia's UGCListener
+    // from marking the simulated legacy state as live-owned (#281).
+    JCRObservationManager.setAllEventListenersDisabled(workspace == "live")
+    try {
+        session.save()
+    } finally {
+        JCRObservationManager.setAllEventListenersDisabled(false)
+    }
     report << "${workspace}: removed list titles under ${formPath}"
 }
 

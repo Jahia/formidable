@@ -3,7 +3,6 @@ package org.jahia.modules.formidable.engine.migration;
 import org.jahia.services.content.JCRNodeIteratorWrapper;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
-import org.jahia.services.content.JCRTemplate;
 import org.jahia.services.observation.JahiaEventListener;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -32,9 +31,11 @@ import java.util.Calendar;
  * fixed-bound mixin are stamped at node level, which is registration-order proof.
  *
  * Runs at module activation on BOTH workspaces (default and live) so published
- * forms keep rendering without a republish. Keyed on CONTENT state (a raw fixed
- * value is present and no mode is), NOT on the previously installed module
- * version. Re-running is a no-op once every bound carries a mode.
+ * forms keep rendering without a republish; the live pass goes through
+ * {@link MigrationSessions} so that Jahia does not mistake it for user-generated
+ * content. Keyed on CONTENT state (a raw fixed value is present and no mode is),
+ * NOT on the previously installed module version. Re-running is a no-op once
+ * every bound carries a mode.
  *
  * <p>Lifecycle: startup migration introduced in 0.4.0 (#202), to be removed in 0.5 — see
  * docs/upgrade-notes.md, "Startup migrations".
@@ -72,18 +73,19 @@ public class DateBoundsContentMigration extends ElementsRedeployRetriggeredMigra
     void run() {
         for (String workspace : new String[]{"default", "live"}) {
             try {
-                JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, workspace, null, session -> {
+                MigrationSessions.execute(workspace, session -> {
                     // One session carries both contracts; each keeps its own error
                     // isolation so a failing type never blocks the other.
+                    int migrated = 0;
                     for (BoundsContract contract : CONTRACTS) {
                         try {
-                            migrateWorkspace(session, workspace, contract);
+                            migrated += migrateWorkspace(session, workspace, contract);
                         } catch (RepositoryException e) {
                             log.error("[DateBoundsContentMigration] Migration of {} failed in workspace '{}': {}",
                                     contract.legacyNodeType(), workspace, e.getMessage(), e);
                         }
                     }
-                    return null;
+                    return migrated;
                 });
             } catch (RepositoryException e) {
                 log.error("[DateBoundsContentMigration] Migration failed in workspace '{}': {}",
@@ -92,7 +94,8 @@ public class DateBoundsContentMigration extends ElementsRedeployRetriggeredMigra
         }
     }
 
-    private void migrateWorkspace(JCRSessionWrapper session, String workspace, BoundsContract contract)
+    /** @return the number of stamped fields */
+    private int migrateWorkspace(JCRSessionWrapper session, String workspace, BoundsContract contract)
             throws RepositoryException {
         // The field types belong to the elements module: on an instance where it never
         // started (engine-only, or a virgin install) there is nothing to migrate, and
@@ -100,7 +103,7 @@ public class DateBoundsContentMigration extends ElementsRedeployRetriggeredMigra
         if (!session.getWorkspace().getNodeTypeManager().hasNodeType(contract.legacyNodeType())) {
             log.debug("[DateBoundsContentMigration] Type {} is not registered, nothing to migrate in workspace '{}'",
                     contract.legacyNodeType(), workspace);
-            return;
+            return 0;
         }
 
         // Scoped to editorial content: module-bundled nodes under /modules belong to
@@ -135,6 +138,7 @@ public class DateBoundsContentMigration extends ElementsRedeployRetriggeredMigra
             log.debug("[DateBoundsContentMigration] No legacy bound found for {} in workspace '{}'",
                     contract.legacyNodeType(), workspace);
         }
+        return migrated;
     }
 
     /**

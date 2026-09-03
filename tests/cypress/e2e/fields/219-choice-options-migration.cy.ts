@@ -1,5 +1,5 @@
 import gql from 'graphql-tag';
-import {createPublishedLiveFormPage, visitLiveForm} from '../../support/fixtures';
+import {createPublishedLiveFormPage, expectNoLiveOwnedProperty, visitLiveForm} from '../../support/fixtures';
 import {CONTENT_PATH} from '../../support/constants';
 import {useFormidableSite} from './support';
 
@@ -133,6 +133,11 @@ describe('Form fields - 219 Choice options migration', () => {
 				{value: 'no', label: 'No', selected: false}
 			]);
 
+			// The live pass is a system rewrite, not user-generated content: nothing may
+			// be left live-owned, or every later publication would skip it (#281).
+			expectNoLiveOwnedProperty(SELECT_PATH);
+			expectNoLiveOwnedProperty(RADIO_PATH);
+
 			// The legacy property is moved, not copied: nothing remains on the
 			// translation node.
 			cy.apollo({
@@ -228,6 +233,9 @@ describe('Form fields - 219 Choice options migration', () => {
 				{value: 'rouge', label: 'Rouge', selected: false},
 				{value: 'vert', label: 'Vert', selected: true}
 			], 'fr');
+
+			// The redeploy run is the one real upgrades take: same rule, nothing live-owned.
+			expectNoLiveOwnedProperty(BILINGUAL_SELECT_PATH);
 		});
 	});
 });

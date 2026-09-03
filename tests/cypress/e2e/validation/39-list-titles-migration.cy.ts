@@ -1,5 +1,5 @@
 import gql from 'graphql-tag';
-import {createPublishedLiveFormPage} from '../../support/fixtures';
+import {createPublishedLiveFormPage, expectNoLiveOwnedProperty} from '../../support/fixtures';
 import {CONTENT_PATH} from '../../support/constants';
 import {useFormidableSite} from './support';
 
@@ -93,6 +93,11 @@ describe('Validation - 39 Field and action list titles', () => {
 			cy.executeGroovy('groovy/restartFormidableEngine.groovy', {});
 			expectDefaultTitles('EDIT', 'My actions');
 			expectDefaultTitles('LIVE');
+
+			// The live pass is a system rewrite, not user-generated content: nothing may
+			// be left live-owned, or every later publication would skip it (#281).
+			expectNoLiveOwnedProperty(`${FORM_PATH}/fields`);
+			expectNoLiveOwnedProperty(`${FORM_PATH}/actions`);
 
 			// Idempotence: a second run leaves everything as it stands.
 			cy.executeGroovy('groovy/restartFormidableEngine.groovy', {});

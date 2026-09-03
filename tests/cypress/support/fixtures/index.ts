@@ -21,4 +21,5 @@ export * from './fieldset';
 export * from './richText';
 export * from './step';
 export * from './validation';
+export * from './publication';
 // export * from './inputHidden';

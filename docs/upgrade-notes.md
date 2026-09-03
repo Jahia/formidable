@@ -255,6 +255,15 @@ The engine carries one-shot content migrations that run at every module start
 engine-activation run fails against the previous element definitions, and the
 elements-redeploy run is the one that does the work. They run on both
 workspaces, keyed on the content state and idempotent.
+
+Every workspace pass goes through `MigrationSessions`. The **live pass runs with
+JCR observation switched off**: Jahia records a direct live write on a published
+node as user-generated content (`UGCListener` stamps `jmix:liveProperties` and
+lists the properties in `j:liveProperties`), after which every publication skips
+those properties for good — a migrated field would never take a later publication
+into account (#281). A live pass that rewrote anything flushes the output caches
+itself, since the cache invalidation does not see the change either. The Cypress
+specs exercising a migration assert the invariant with `expectNoLiveOwnedProperty`.
 They exist for instances upgrading from 0.3.x/0.4.x content and are all to be
 **removed when 0.5.0 is cut** — from then on 0.4.x is the minimum upgrade
 source and every instance has run them at least once. Each class carries a
@@ -269,4 +278,4 @@ source and every instance has run them at least once. Each class carries a
 
 Removal checklist: delete the class and its unit test, drop the Cypress spec that
 restarts the engine to exercise it, and remove the row above. When the last row
-goes, also delete `ElementsRedeployRetriggeredMigration` and its test.
+goes, also delete `ElementsRedeployRetriggeredMigration`, `MigrationSessions` and their tests.

@@ -4,7 +4,6 @@ import org.apache.commons.lang.StringUtils;
 import org.jahia.services.content.JCRNodeIteratorWrapper;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
-import org.jahia.services.content.JCRTemplate;
 import org.jahia.services.content.decorator.JCRSiteNode;
 import org.jahia.services.content.nodetypes.ExtendedNodeType;
 import org.jahia.services.content.nodetypes.ExtendedPropertyDefinition;
@@ -38,7 +37,9 @@ import java.util.function.BiFunction;
  * a title in every site language. Runs on BOTH workspaces (default and live) so
  * published forms show the title without a republish — in live only the languages already
  * published there are titled: publishing a language stays the contributor's decision.
- * Keyed on CONTENT state, NOT on the previously installed module version.
+ * The live pass goes through {@link MigrationSessions} so that Jahia does not mistake
+ * it for user-generated content. Keyed on CONTENT state, NOT on the previously
+ * installed module version.
  *
  * The default title is the one the elements module declares on the list types, so the
  * migration can only write once that module has registered its definitions. As the
@@ -68,24 +69,22 @@ public class ListTitlesContentMigration extends ElementsRedeployRetriggeredMigra
     void run() {
         for (String workspace : new String[]{"default", "live"}) {
             try {
-                JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, workspace, null, session -> {
-                    migrateWorkspace(session, workspace);
-                    return null;
-                });
+                MigrationSessions.execute(workspace, session -> migrateWorkspace(session, workspace));
             } catch (RepositoryException e) {
                 log.error("[ListTitlesContentMigration] Migration failed in workspace '{}': {}", workspace, e.getMessage(), e);
             }
         }
     }
 
-    private void migrateWorkspace(JCRSessionWrapper session, String workspace) throws RepositoryException {
+    /** @return the number of forms whose lists were given a title */
+    private int migrateWorkspace(JCRSessionWrapper session, String workspace) throws RepositoryException {
         // The form type belongs to the elements module: on an instance where it never
         // started (engine-only, or the engine-first upgrade step) there is nothing to
         // migrate yet, and querying an unregistered type would throw.
         if (!session.getWorkspace().getNodeTypeManager().hasNodeType(FORM_TYPE)) {
             log.debug("[ListTitlesContentMigration] Type {} is not registered, nothing to migrate in workspace '{}'",
                     FORM_TYPE, workspace);
-            return;
+            return 0;
         }
 
         // Scoped to editorial content: module-bundled nodes under /modules belong to
@@ -124,6 +123,7 @@ public class ListTitlesContentMigration extends ElementsRedeployRetriggeredMigra
         } else {
             log.debug("[ListTitlesContentMigration] Every form list already has its titles in workspace '{}'", workspace);
         }
+        return migrated;
     }
 
     /**
