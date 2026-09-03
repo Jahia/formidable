@@ -122,6 +122,18 @@ class MigrationSessionsTest {
     }
 
     @Test
+    void aFailingFlushAfterASuccessfulLivePassIsLoggedNotThrown() throws Exception {
+        Runnable failingFlush = () -> {
+            throw new IllegalStateException("cache manager gone");
+        };
+
+        int rewritten = MigrationSessions.execute(template, failingFlush, "live", s -> 3);
+
+        assertEquals(3, rewritten, "the content is committed: the pass succeeded whatever the cache did");
+        assertFalse(observationDisabled());
+    }
+
+    @Test
     void theDefaultPassFailureIsNotFlushed() {
         assertThrows(RepositoryException.class, () -> execute("default", s -> {
             throw new RepositoryException("boom");

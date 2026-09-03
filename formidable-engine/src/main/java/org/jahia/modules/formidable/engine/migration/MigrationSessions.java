@@ -4,6 +4,8 @@ import org.jahia.services.cache.CacheHelper;
 import org.jahia.services.content.JCRCallback;
 import org.jahia.services.content.JCRObservationManager;
 import org.jahia.services.content.JCRTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.jcr.RepositoryException;
 
@@ -28,7 +30,8 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WO
  * either: a live pass that rewrote anything flushes the output caches itself, cluster-wide,
  * so the published forms render the migrated content without a republish. A live pass
  * that fails flushes too — it saves node by node, so whatever it committed before dying
- * is live already.
+ * is live already. The flush is a best-effort follow-up on both paths: the content is
+ * committed by then, and a cache hiccup must not fail the migration nor its component.
  *
  * <p>The module's other direct live writer, FormPublicationAclSyncListener, is not
  * concerned: the j:acl / ACE nodes it maintains are created in live and carry no
@@ -36,6 +39,8 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WO
  * anyway. The rule above is about system rewrites of PUBLISHED nodes.
  */
 final class MigrationSessions {
+
+    private static final Logger log = LoggerFactory.getLogger(MigrationSessions.class);
 
     private MigrationSessions() {
     }
@@ -77,7 +82,12 @@ final class MigrationSessions {
             throw e;
         }
         if (rewritten > 0) {
-            outputCacheFlush.run();
+            try {
+                outputCacheFlush.run();
+            } catch (RuntimeException flushFailure) {
+                log.warn("[MigrationSessions] The live content is migrated but the output caches could not be flushed;"
+                        + " pages may serve the previous content until their cache entries expire", flushFailure);
+            }
         }
         return rewritten;
     }

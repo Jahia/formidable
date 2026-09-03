@@ -265,9 +265,10 @@ JCR observation switched off**: Jahia records a direct live write on a published
 node as user-generated content (`UGCListener` stamps `jmix:liveProperties` and
 lists the properties in `j:liveProperties`), after which every publication skips
 those properties for good — a migrated field would never take a later publication
-into account (#281). A live pass that rewrote anything (or failed after saving
-some nodes) flushes the output caches itself, cluster-wide, since the cache
-invalidation does not see the change either. The Cypress specs exercising a
+into account (#281). A live pass that rewrote anything (or failed, since it may
+already have saved some nodes) flushes the output caches itself, cluster-wide,
+since the cache invalidation does not see the change either; the flush is
+best-effort and never fails the migration. The Cypress specs exercising a
 migration assert the invariant with `expectNoLiveOwnedProperty`, translation
 subnodes included.
 

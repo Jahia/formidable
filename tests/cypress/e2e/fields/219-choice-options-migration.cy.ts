@@ -234,8 +234,9 @@ describe('Form fields - 219 Choice options migration', () => {
 				{value: 'vert', label: 'Vert', selected: true}
 			], 'fr');
 
-			// The redeploy run is the one real upgrades take: same rule, nothing live-owned.
-			expectNoLiveOwnedProperty(BILINGUAL_SELECT_PATH);
+			// The redeploy run is the one real upgrades take: same rule, nothing live-owned —
+			// on the field nor on either of its translation subnodes, where the options live.
+			expectNoLiveOwnedProperty(BILINGUAL_SELECT_PATH, ['en', 'fr']);
 		});
 	});
 });

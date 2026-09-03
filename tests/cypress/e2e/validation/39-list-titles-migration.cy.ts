@@ -96,8 +96,9 @@ describe('Validation - 39 Field and action list titles', () => {
 
 			// The live pass is a system rewrite, not user-generated content: nothing may
 			// be left live-owned, or every later publication would skip it (#281).
-			expectNoLiveOwnedProperty(`${FORM_PATH}/fields`);
-			expectNoLiveOwnedProperty(`${FORM_PATH}/actions`);
+			// The form is published in English only, so live carries that translation alone.
+			expectNoLiveOwnedProperty(`${FORM_PATH}/fields`, ['en']);
+			expectNoLiveOwnedProperty(`${FORM_PATH}/actions`, ['en']);
 
 			// Idempotence: a second run leaves everything as it stands.
 			cy.executeGroovy('groovy/restartFormidableEngine.groovy', {});
