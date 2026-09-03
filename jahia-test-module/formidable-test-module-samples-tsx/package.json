@@ -1,6 +1,6 @@
 {
 	"name": "formidable-test-module-samples-tsx",
-	"version": "0.4.0",
+	"version": "0.5.0",
 	"type": "module",
 	"files": [
 		"dist",
@@ -45,7 +45,7 @@
 		"yarn": ">=4.0.0"
 	},
 	"jahia": {
-		"snapshot": false,
+		"snapshot": true,
 		"module-dependencies": "default,formidable-elements",
 		"module-type": "module",
 		"server": "dist/server/index.js",
