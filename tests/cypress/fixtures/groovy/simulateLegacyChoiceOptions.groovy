@@ -1,4 +1,5 @@
 import groovy.json.JsonOutput
+import org.jahia.services.content.JCRObservationManager
 import org.jahia.services.content.JCRSessionFactory
 
 // Simulates a 0.3-era choice field: the option list lived in a legacy i18n
@@ -27,7 +28,14 @@ def report = []
     def node = session.getNode(fieldPath)
     def translation = node.getOrCreateI18N(Locale.forLanguageTag(language))
     translation.setProperty(legacyProperty, legacyValues)
-    session.save()
+    // A 0.3 site never wrote these nodes in live directly: keep Jahia's UGCListener
+    // from marking the simulated legacy state as live-owned (#281).
+    JCRObservationManager.setAllEventListenersDisabled(workspace == "live")
+    try {
+        session.save()
+    } finally {
+        JCRObservationManager.setAllEventListenersDisabled(false)
+    }
     report << "${workspace}: set ${legacyProperty} on ${translation.path}"
 }
 

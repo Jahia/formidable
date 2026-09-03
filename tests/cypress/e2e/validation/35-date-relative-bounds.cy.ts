@@ -4,22 +4,13 @@ import {
 	getInputDatetimeLocalNode,
 	visitLiveForm
 } from '../../support/fixtures';
-import {useFormidableSite} from './support';
+import {localDay, useFormidableSite} from './support';
 import {
 	expectErrorResponse,
 	expectSuccessResponse,
 	postDirectMultipartSubmission,
 	withSameOriginHeaders
 } from '../security/support';
-
-// The browser-local calendar day, the same way the hydrated input resolves it.
-const localDay = (offsetDays = 0): string => {
-	const day = new Date();
-	day.setDate(day.getDate() + offsetDays);
-	const month = String(day.getMonth() + 1).padStart(2, '0');
-	const date = String(day.getDate()).padStart(2, '0');
-	return `${day.getFullYear()}-${month}-${date}`;
-};
 
 describe('Validation - 35 Date bounds relative to the submission day', () => {
 	useFormidableSite();

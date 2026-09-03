@@ -260,6 +260,23 @@ They exist for instances upgrading from 0.3.x/0.4.x content and are all to be
 source and every instance has run them at least once. Each class carries a
 `Lifecycle:` note in its Javadoc pointing here.
 
+Every workspace pass goes through `MigrationSessions`. The **live pass runs with
+JCR observation switched off**: Jahia records a direct live write on a published
+node as user-generated content (`UGCListener` stamps `jmix:liveProperties` and
+lists the properties in `j:liveProperties`), after which every publication skips
+those properties for good — a migrated field would never take a later publication
+into account (#281). A live pass that rewrote anything (or failed, since it may
+already have saved some nodes) flushes the output caches itself, cluster-wide,
+since the cache invalidation does not see the change either; the flush is
+best-effort and never fails the migration. The Cypress specs exercising a
+migration assert the invariant with `expectNoLiveOwnedProperty`, translation
+subnodes included.
+
+An instance upgraded from 0.3 with a **0.4.0 development build older than #282**
+carries that marker on its migrated fields, and the migrations never revisit a
+migrated node: clear `jmix:liveProperties` from them in live, or upgrade again
+from a 0.3 restore. No released version is concerned.
+
 | Class (`org.jahia.modules.formidable.engine.migration`) | Introduced | What it rewrites |
 |---|---|---|
 | `ChoiceOptionsContentMigration` | 0.4.0 (#193) | Legacy `options`/`choices` of choice fields → `fmdb:options` + manual mode |
@@ -269,4 +286,4 @@ source and every instance has run them at least once. Each class carries a
 
 Removal checklist: delete the class and its unit test, drop the Cypress spec that
 restarts the engine to exercise it, and remove the row above. When the last row
-goes, also delete `ElementsRedeployRetriggeredMigration` and its test.
+goes, also delete `ElementsRedeployRetriggeredMigration`, `MigrationSessions` and their tests.

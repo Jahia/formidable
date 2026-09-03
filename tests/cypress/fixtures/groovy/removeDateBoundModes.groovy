@@ -1,3 +1,4 @@
+import org.jahia.services.content.JCRObservationManager
 import org.jahia.services.content.JCRSessionFactory
 
 // Simulates a field stored before the bound modes existed by removing the
@@ -23,7 +24,14 @@ def report = []
             node.getProperty(property).remove()
         }
     }
-    session.save()
+    // A 0.3 site never wrote these nodes in live directly: keep Jahia's UGCListener
+    // from marking the simulated legacy state as live-owned (#281).
+    JCRObservationManager.setAllEventListenersDisabled(workspace == "live")
+    try {
+        session.save()
+    } finally {
+        JCRObservationManager.setAllEventListenersDisabled(false)
+    }
     report << "${workspace}: removed bound modes on ${node.path}"
 }
 
