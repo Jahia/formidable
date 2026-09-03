@@ -14,7 +14,6 @@
     <properties>
         <jahia-depends>default,formidable-elements</jahia-depends>
         <maven-clean-plugin.version>3.4.0</maven-clean-plugin.version>
-        <exec-maven-plugin.version>3.6.3</exec-maven-plugin.version>
         <build-helper-maven-plugin.version>3.6.0</build-helper-maven-plugin.version>
         <maven-antrun-plugin.version>3.1.0</maven-antrun-plugin.version>
     </properties>
@@ -137,13 +136,6 @@
             <id>release-prepare</id>
             <build>
                 <plugins>
-                    <plugin>
-                        <artifactId>maven-scm-plugin</artifactId>
-                        <configuration>
-                            <includes>package.json</includes>
-                            <message>chore(release): Prepare release ${project.version}</message>
-                        </configuration>
-                    </plugin>
                     <plugin>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>exec-maven-plugin</artifactId>
