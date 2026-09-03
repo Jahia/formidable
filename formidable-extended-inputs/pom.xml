@@ -95,8 +95,11 @@
                         </configuration>
                     </execution>
                     <execution>
+                        <!-- prepare-package, not package: the release profile inherits an exec execution from
+                             the root pom, which reorders this plugin after the antrun copy within the
+                             package phase — the build must have produced dist/package.tgz before then. -->
                         <id>yarn build - Formidable Extended Inputs</id>
-                        <phase>package</phase>
+                        <phase>prepare-package</phase>
                         <goals>
                             <goal>exec</goal>
                         </goals>
