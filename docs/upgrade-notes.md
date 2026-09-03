@@ -255,19 +255,26 @@ The engine carries one-shot content migrations that run at every module start
 engine-activation run fails against the previous element definitions, and the
 elements-redeploy run is the one that does the work. They run on both
 workspaces, keyed on the content state and idempotent.
+They exist for instances upgrading from 0.3.x/0.4.x content and are all to be
+**removed when 0.5.0 is cut** — from then on 0.4.x is the minimum upgrade
+source and every instance has run them at least once. Each class carries a
+`Lifecycle:` note in its Javadoc pointing here.
 
 Every workspace pass goes through `MigrationSessions`. The **live pass runs with
 JCR observation switched off**: Jahia records a direct live write on a published
 node as user-generated content (`UGCListener` stamps `jmix:liveProperties` and
 lists the properties in `j:liveProperties`), after which every publication skips
 those properties for good — a migrated field would never take a later publication
-into account (#281). A live pass that rewrote anything flushes the output caches
-itself, since the cache invalidation does not see the change either. The Cypress
-specs exercising a migration assert the invariant with `expectNoLiveOwnedProperty`.
-They exist for instances upgrading from 0.3.x/0.4.x content and are all to be
-**removed when 0.5.0 is cut** — from then on 0.4.x is the minimum upgrade
-source and every instance has run them at least once. Each class carries a
-`Lifecycle:` note in its Javadoc pointing here.
+into account (#281). A live pass that rewrote anything (or failed after saving
+some nodes) flushes the output caches itself, cluster-wide, since the cache
+invalidation does not see the change either. The Cypress specs exercising a
+migration assert the invariant with `expectNoLiveOwnedProperty`, translation
+subnodes included.
+
+An instance upgraded from 0.3 with a **0.4.0 development build older than #282**
+carries that marker on its migrated fields, and the migrations never revisit a
+migrated node: clear `jmix:liveProperties` from them in live, or upgrade again
+from a 0.3 restore. No released version is concerned.
 
 | Class (`org.jahia.modules.formidable.engine.migration`) | Introduced | What it rewrites |
 |---|---|---|

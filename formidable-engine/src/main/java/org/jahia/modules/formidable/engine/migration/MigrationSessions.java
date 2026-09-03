@@ -25,8 +25,15 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WO
  * {@link ChoiceOptionsContentMigration#isMigrationWrite()}.
  *
  * <p>With observation off, the output-cache invalidation does not see the live changes
- * either: a live pass that rewrote anything flushes the output caches itself, so the
- * published forms render the migrated content without a republish.
+ * either: a live pass that rewrote anything flushes the output caches itself, cluster-wide,
+ * so the published forms render the migrated content without a republish. A live pass
+ * that fails flushes too — it saves node by node, so whatever it committed before dying
+ * is live already.
+ *
+ * <p>The module's other direct live writer, FormPublicationAclSyncListener, is not
+ * concerned: the j:acl / ACE nodes it maintains are created in live and carry no
+ * j:originWS, so the UGCListener ignores them — and it rewrites them on every publication
+ * anyway. The rule above is about system rewrites of PUBLISHED nodes.
  */
 final class MigrationSessions {
 
@@ -39,28 +46,43 @@ final class MigrationSessions {
      * @return the number of rewritten nodes
      */
     static int execute(String workspace, JCRCallback<Integer> pass) throws RepositoryException {
-        return execute(JCRTemplate.getInstance(), CacheHelper::flushOutputCaches, workspace, pass);
+        return execute(JCRTemplate.getInstance(), () -> CacheHelper.flushOutputCaches(true), workspace, pass);
     }
 
     /** Seams for the unit test: the template opening the system session, and the output-cache flush. */
     static int execute(JCRTemplate template, Runnable outputCacheFlush, String workspace, JCRCallback<Integer> pass)
             throws RepositoryException {
-        boolean live = WORKSPACE_LIVE.equals(workspace);
-        Integer rewritten = template.doExecuteWithSystemSessionAsUser(null, workspace, null, session -> {
-            if (!live) {
-                return pass.doInJCR(session);
-            }
-            JCRObservationManager.setAllEventListenersDisabled(Boolean.TRUE);
+        if (!WORKSPACE_LIVE.equals(workspace)) {
+            return count(template.doExecuteWithSystemSessionAsUser(null, workspace, null, pass));
+        }
+
+        int rewritten;
+        try {
+            rewritten = count(template.doExecuteWithSystemSessionAsUser(null, workspace, null, session -> {
+                JCRObservationManager.setAllEventListenersDisabled(Boolean.TRUE);
+                try {
+                    return pass.doInJCR(session);
+                } finally {
+                    JCRObservationManager.setAllEventListenersDisabled(Boolean.FALSE);
+                }
+            }));
+        } catch (RuntimeException | RepositoryException e) {
+            // The count died with the pass, and some nodes may already be saved: flush
+            // rather than guess, without letting a flush failure mask the real one.
             try {
-                return pass.doInJCR(session);
-            } finally {
-                JCRObservationManager.setAllEventListenersDisabled(Boolean.FALSE);
+                outputCacheFlush.run();
+            } catch (RuntimeException flushFailure) {
+                e.addSuppressed(flushFailure);
             }
-        });
-        int count = rewritten == null ? 0 : rewritten;
-        if (live && count > 0) {
+            throw e;
+        }
+        if (rewritten > 0) {
             outputCacheFlush.run();
         }
-        return count;
+        return rewritten;
+    }
+
+    private static int count(Integer rewritten) {
+        return rewritten == null ? 0 : rewritten;
     }
 }

@@ -25,7 +25,8 @@ import static org.mockito.Mockito.when;
  * The live pass of a migration must be invisible to JCR observation — Jahia's UGCListener
  * would otherwise mark the rewritten properties as live-owned and every later publication
  * would skip them (#281) — and must flush the output caches itself when it rewrote
- * anything, since the cache invalidation listener does not see the change either.
+ * anything, since the cache invalidation listener does not see the change either. A pass
+ * that fails has possibly saved nodes already: it flushes too.
  */
 class MigrationSessionsTest {
 
@@ -86,12 +87,46 @@ class MigrationSessionsTest {
     }
 
     @Test
-    void observationComesBackOnWhenTheLivePassFails() {
+    void observationComesBackOnAndTheCachesAreFlushedWhenTheLivePassFails() {
         assertThrows(RepositoryException.class, () -> execute("live", s -> {
             throw new RepositoryException("boom");
         }));
 
         assertFalse(observationDisabled(), "a failing pass must not leave the thread deaf to events");
+        assertEquals(1, flushes.get(), "nodes saved before the failure are live: flush rather than guess");
+    }
+
+    @Test
+    void anUnexpectedFailureOfTheLivePassFlushesTooAndSurfacesAsItself() {
+        assertThrows(NullPointerException.class, () -> execute("live", s -> {
+            throw new NullPointerException("out of migrateNode");
+        }));
+
+        assertFalse(observationDisabled());
+        assertEquals(1, flushes.get());
+    }
+
+    @Test
+    void aFailingFlushNeverMasksTheFailureOfThePass() {
+        Runnable failingFlush = () -> {
+            throw new IllegalStateException("cache manager gone");
+        };
+
+        RepositoryException failure = assertThrows(RepositoryException.class,
+                () -> MigrationSessions.execute(template, failingFlush, "live", s -> {
+                    throw new RepositoryException("boom");
+                }));
+
+        assertEquals("boom", failure.getMessage());
+        assertEquals(1, failure.getSuppressed().length);
+    }
+
+    @Test
+    void theDefaultPassFailureIsNotFlushed() {
+        assertThrows(RepositoryException.class, () -> execute("default", s -> {
+            throw new RepositoryException("boom");
+        }));
+
         assertEquals(0, flushes.get());
     }
 
