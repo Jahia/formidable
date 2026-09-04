@@ -26,13 +26,43 @@ interface ExtendedNodeTypeLike {
 const primaryNodeTypeOf = (node: JCRNodeWrapper): ExtendedNodeTypeLike =>
 	(node as unknown as {getPrimaryNodeType(): ExtendedNodeTypeLike}).getPrimaryNodeType();
 
-// Property names the engine's action types expose as their one telling parameter.
-// A type absent from this map (a third-party action) shows no detail: the zone must
-// never guess at a property.
-const KEY_DETAIL_PROPERTY: Record<string, string> = {
-	"fmdb:emailNotificationAction": "to",
-	"fmdb:emailContentAction": "to",
-	"fmdb:forwardAction": "targetId",
+const FORMIDABLE_CONFIG_SERVICE = "org.jahia.modules.formidable.engine.config.FormidableConfigService";
+
+const stringProperty = (node: JCRNodeWrapper, name: string): string | undefined => {
+	try {
+		return node.hasProperty(name) ? node.getProperty(name).getString() || undefined : undefined;
+	} catch {
+		return undefined;
+	}
+};
+
+// A forward target is stored by its stable id (targetId); the contributor picked it by
+// the label the administrator configured (the choicelist shows labels, the same way the
+// Content Editor does). Show that label; fall back to the id when the target is no
+// longer configured, which is worth seeing too.
+const forwardTargetLabel = (targetId: string): string => {
+	try {
+		const service = server.osgi.getService(FORMIDABLE_CONFIG_SERVICE);
+		const target = service.resolveForwardTarget(targetId);
+		if (target && target.isPresent()) {
+			return String(target.get().label()) || targetId;
+		}
+	} catch (error) {
+		console.warn(`[Formidable] Could not resolve the forward target '${targetId}'`, error);
+	}
+	return targetId;
+};
+
+// The one telling parameter of each of the engine's action types, as the contributor
+// sees it in the editor. A type absent from this map (a third-party action) shows no
+// detail: the zone must never guess at a property.
+const KEY_DETAIL: Record<string, (node: JCRNodeWrapper) => string | undefined> = {
+	"fmdb:emailNotificationAction": (node) => stringProperty(node, "to"),
+	"fmdb:emailContentAction": (node) => stringProperty(node, "to"),
+	"fmdb:forwardAction": (node) => {
+		const targetId = stringProperty(node, "targetId");
+		return targetId ? forwardTargetLabel(targetId) : undefined;
+	},
 };
 
 // Where a module keeps the resource bundle its node type labels are read from: a Java
@@ -107,13 +137,6 @@ export const describeActionType = (node: JCRNodeWrapper, renderContext: RenderCo
 	};
 };
 
-/** The one contributor-set parameter worth showing next to the title (recipient, target). */
-export const actionKeyDetail = (node: JCRNodeWrapper, typeName: string): string | undefined => {
-	const property = KEY_DETAIL_PROPERTY[typeName];
-	if (!property) return undefined;
-	try {
-		return node.hasProperty(property) ? node.getProperty(property).getString() || undefined : undefined;
-	} catch {
-		return undefined;
-	}
-};
+/** The one contributor-set parameter worth showing next to the title (recipient, target label). */
+export const actionKeyDetail = (node: JCRNodeWrapper, typeName: string): string | undefined =>
+	KEY_DETAIL[typeName]?.(node);
