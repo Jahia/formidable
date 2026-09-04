@@ -254,3 +254,18 @@ Use these implementations as references:
 - `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/email/SendEmailNotificationFormAction.java`
 - `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/forward/ForwardSubmissionFormAction.java`
 - `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/storage/SaveToJcrFormAction.java`
+
+## What the Page Builder shows about your action
+
+A form placed on a page lists its actions in an authoring zone (edit mode only), one card per
+action: the type icon, the title, the action's *key parameter* and, smaller, the type description.
+All of it comes from your declarations, nothing to register:
+
+- **icon**: `icons/<type>.png` in your module, the one the Content Editor shows;
+- **description**: the `<type>.ui.tooltip` key of your resource bundle;
+- **key parameter**: the first property declared after `jcr:title` in your CND that a contributor
+  reads at a glance — a single string edited as a small text or a `choicelist` (shown by its
+  label). Long texts, flags, numbers, references and multi-valued properties are skipped, and so
+  is a type that declares nothing telling (Save to JCR). Order your CND so that the property that
+  tells two instances of your action apart comes first.
+
