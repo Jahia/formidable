@@ -48,9 +48,15 @@
 	order: 1;
 }
 
+/* The space above the zone sits on the buttons row, not on the zone: the Page Builder wraps
+   the zone in a flex item whose box would include the zone's own top margin, so its hover
+   and selection frame would start at the buttons and read as a wider selection. */
+.fmdb-form[data-fmdb-edit-mode="true"] .fmdb-form-actions {
+	margin-bottom: var(--fmdb-zone-actions-margin, 1rem);
+}
+
 .fmdb-authoring-actions {
 	box-sizing: border-box;
-	margin-top: var(--fmdb-zone-actions-margin, 1rem);
 	padding: var(--fmdb-zone-actions-padding, 0.75rem);
 	border: var(--fmdb-zone-actions-border, 1px dashed #b8bcc4);
 	border-radius: var(--fmdb-zone-actions-radius, 4px);

@@ -202,7 +202,7 @@ zone exists in live, preview or the `cm` view.
 
 | Variable | Default | Description |
 |---|---|---|
-| `--fmdb-zone-actions-margin` | `1rem` | Space above the zone |
+| `--fmdb-zone-actions-margin` | `1rem` | Space between the buttons row and the zone (set on the row, so the zone's Page Builder frame hugs the zone) |
 | `--fmdb-zone-actions-padding` | `0.75rem` | Inner spacing of the zone |
 | `--fmdb-zone-actions-border` | `1px dashed #b8bcc4` | Border of the zone |
 | `--fmdb-zone-actions-radius` | `4px` | Corner radius of the zone |
