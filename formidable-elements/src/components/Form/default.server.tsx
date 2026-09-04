@@ -81,6 +81,7 @@ jahiaComponent(
 	) => {
 		const {t} = useTranslation("formidable-elements", {keyPrefix: "fmdb_form"});
 		const fieldListNode = currentNode.getNode("fields");
+		const actionListNode = currentNode.hasNode("actions") ? currentNode.getNode("actions") : null;
 		const formElements = fieldListNode ? Array.from(fieldListNode.getNodes()) : [];
 		const formId = `form-${currentNode.getIdentifier()}`;
 
@@ -208,6 +209,13 @@ jahiaComponent(
 							...(isEditMode ? {className: "fmdb-form-fields"} : {}),
 						}}
 					/>
+				)}
+				{/* The actions are invisible on a page otherwise: while authoring, the list
+				    renders as a zone of its own (cards + create button), inside the form so a
+				    business stylesheet's card keeps it, ordered under the buttons by
+				    authoring.css. Nothing of it exists in live or preview. */}
+				{isEditMode && actionListNode && (
+					<Render node={actionListNode} view="hidden.authoring"/>
 				)}
 				</Island>
 			</>

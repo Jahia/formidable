@@ -181,6 +181,43 @@ nothing changes in live.
 
 To remove the spacing, set the four variables to `0` on `.fmdb-form`.
 
+### Form actions zone
+
+Actions run after the submission and have no place in the visitor's form, so on a page they
+were invisible while authoring. In edit mode the form renders its action list as a zone of its
+own, under the buttons: a header, one compact card per action — its rank in the execution
+order (the list is orderable: dragging a card in the Page Builder reorders the pipeline), the
+type icon, the contributor's title with the one telling parameter (recipient, forward target),
+and smaller, the type description its module declares for the Content Editor (the
+`<type>.ui.tooltip` key of the module's resource bundle) — then the list's own **New Form
+Action** button (the placeholder's accepted type is the `fmdbmix:formAction` mixin, so jContent
+shows one button and then the type chooser). A form without any action gets a warning instead
+of the cards: its submissions are neither stored nor sent.
+
+Unlike the spacing above, the zone IS drawn (`aside.fmdb-authoring-actions`, light grey, dashed):
+it is authoring chrome, not the visitor's form, and must read as such; a business stylesheet
+does not style it. To order it after the buttons, the form is a flex column while authoring
+(`form[data-fmdb-edit-mode="true"]`); its children were stacked blocks already. Nothing of the
+zone exists in live, preview or the `cm` view.
+
+| Variable | Default | Description |
+|---|---|---|
+| `--fmdb-zone-actions-margin` | `1rem` | Space above the zone |
+| `--fmdb-zone-actions-padding` | `0.75rem` | Inner spacing of the zone |
+| `--fmdb-zone-actions-border` | `1px dashed #b8bcc4` | Border of the zone |
+| `--fmdb-zone-actions-radius` | `4px` | Corner radius of the zone |
+| `--fmdb-zone-actions-bg` | `#f4f5f7` | Background of the zone |
+| `--fmdb-zone-actions-color` | `#374151` | Text colour |
+| `--fmdb-zone-actions-muted` | `#6b7280` | Hint, telling parameter and description colour |
+| `--fmdb-zone-actions-font` | `400 13px/1.35 system-ui, …` | Font of the zone (the cards' second line is 11px) |
+| `--fmdb-zone-actions-card-bg` | `#ffffff` | Background of an action card |
+| `--fmdb-zone-actions-card-border` | `#e5e7eb` | Border of an action card |
+| `--fmdb-zone-actions-rank-bg` | `#e5e7eb` | Background of the rank badge |
+| `--fmdb-zone-actions-rank-color` | `#374151` | Text colour of the rank badge |
+| `--fmdb-zone-actions-warning-bg` | `#fff7ed` | Background of the "no action" warning |
+| `--fmdb-zone-actions-warning-border` | `#f59e0b` | Left border of the warning |
+| `--fmdb-zone-actions-warning-color` | `#9a3412` | Text colour of the warning |
+
 The Page Builder box colours are a jContent UI extension registered by the engine
 (`pageBuilderBoxConfig`), not CSS, so a template set cannot override them; purple is left to
 jExperience and orange to jContent's warnings.
