@@ -187,7 +187,7 @@ Actions run after the submission and have no place in the visitor's form, so on 
 were invisible while authoring. In edit mode the form renders its action list as a zone of its
 own, under the buttons: a header, one compact card per action — its rank in the execution
 order (the list is orderable: dragging a card in the Page Builder reorders the pipeline), the
-type icon, the contributor's title with the one telling parameter (recipient, forward target),
+type icon, the contributor's title with the action's key parameter — the first small text or choice property its type declares after the title (recipient, forward target), a choice shown by its label —
 and smaller, the type description its module declares for the Content Editor (the
 `<type>.ui.tooltip` key of the module's resource bundle) — then the list's own **New Form
 Action** button (the placeholder's accepted type is the `fmdbmix:formAction` mixin, so jContent

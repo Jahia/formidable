@@ -7,8 +7,9 @@ interface FormActionProps {
 
 /**
  * One action as a card of the authoring zone (see ActionList/hidden.authoring): its rank
- * (a CSS counter on the list), the type icon, the contributor's title with the one
- * parameter that tells two actions of a kind apart (recipient, forward target), and
+ * (a CSS counter on the list), the type icon, the contributor's title with the action's
+ * key parameter — the first small text or choice its type declares after the title
+ * (recipient, forward target), a choice shown by its label — and
  * under it, smaller, the type's own description — the tooltip its module declares for
  * the Content Editor. A view on the mixin so every action type, third-party included,
  * gets the card; nothing here reaches live.
@@ -21,7 +22,7 @@ jahiaComponent(
 	},
 	({"jcr:title": title}: FormActionProps, {currentNode, renderContext}) => {
 		const type = describeActionType(currentNode, renderContext);
-		const detail = actionKeyDetail(currentNode, type.name);
+		const detail = actionKeyDetail(currentNode, renderContext);
 
 		return (
 			<div className="fmdb-authoring-action" data-fmdb-action-type={type.name}>
