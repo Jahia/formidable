@@ -66,6 +66,13 @@
 	text-align: left;
 }
 
+/* jContent gives the create placeholder a 28px minimum height (its button sits on it) and a
+   10px bottom margin; the button is the last thing in the zone, so that margin only pads
+   the grey below it. */
+.fmdb-authoring-actions > [jahiatype="module"][type="placeholder"] {
+	margin-bottom: 0;
+}
+
 .fmdb-authoring-actions-header {
 	display: flex;
 	flex-wrap: wrap;
