@@ -303,6 +303,17 @@ All file parts pass through `FormDataParser` which enforces the following contro
 | 7 | MIME type allowlist | Field-level `accept` property (multiple choicelist) takes priority; falls back to global cfg allowlist. Rejections at this step are treated as validation failures (`FMDB-010`), not technical parse failures |
 
 Limits and the global allowlist are configured in `org.jahia.modules.formidable.cfg` via `FormidableConfig`.
+The module ships that file (`META-INF/configurations/org.jahia.modules.formidable.cfg`, every
+setting at its default): Jahia copies it to `digital-factory-data/karaf/etc` the first time the
+module starts without it, and never overwrites the copy afterwards (its first line is the
+`# default configuration` marker the extender looks for), so edits made in the file, through the
+provisioning API or the Felix console are kept. Upgrading an installation configured before the
+file existed (0.4 and earlier): that first copy would reset the configuration to the defaults, so
+the engine spots the switch (the configuration gains its `felix.fileinstall.filename`) and writes
+the previous settings back into the file, once. Limit: fileinstall loads the copied file one to two
+seconds after the module is resolved; the previous settings are only seen when the engine's
+components activated before that, which is the case when the module is installed or upgraded on
+a running server. Check the engine's log for "carried over into the file" after such an upgrade.
 
 ### Why the parser uses `Tika.detect(byte[], String)`
 

@@ -1,13 +1,19 @@
 package org.jahia.modules.formidable.engine.config;
 
 import org.json.JSONObject;
+import org.osgi.service.cm.Configuration;
+import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Modified;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.osgi.service.metatype.annotations.Designate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -18,6 +24,10 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Collection;
+import java.util.Dictionary;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -89,10 +99,38 @@ public class FormidableConfigService {
 
     private static final Logger log = LoggerFactory.getLogger(FormidableConfigService.class);
 
+    static final String PID = "org.jahia.modules.formidable";
+
     private final AtomicReference<ConfigSnapshot> config = new AtomicReference<>();
+
+    /** The raw configuration properties last received, to spot the deployed file taking over. */
+    private final AtomicReference<Map<String, Object>> lastProperties = new AtomicReference<>();
+
+    private volatile ConfigurationAdmin configurationAdmin;
+
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, unbind = "unsetConfigurationAdmin")
+    public void setConfigurationAdmin(ConfigurationAdmin configurationAdmin) {
+        this.configurationAdmin = configurationAdmin;
+    }
+
+    public void unsetConfigurationAdmin(ConfigurationAdmin configurationAdmin) {
+        if (this.configurationAdmin == configurationAdmin) {
+            this.configurationAdmin = null;
+        }
+    }
 
     @Activate
     @Modified
+    public void configure(FormidableConfig osgiConfig, Map<String, Object> properties) {
+        Map<String, Object> previous = lastProperties.getAndSet(new HashMap<>(properties));
+        activate(osgiConfig);
+        carryOverLegacySettings(previous, properties);
+    }
+
+    /**
+     * Reads the configuration into the snapshot every getter serves. The lifecycle entry
+     * point is {@link #configure}; this is public for the tests.
+     */
     public void activate(FormidableConfig osgiConfig) {
         String captchaSiteKey = osgiConfig.captchaSiteKey();
         String captchaSecretKey = osgiConfig.captchaSecretKey();
@@ -549,6 +587,45 @@ public class FormidableConfigService {
                 && snapshot.captchaScriptUrl() != null && !snapshot.captchaScriptUrl().isBlank()
                 && snapshot.captchaWidgetVar() != null && !snapshot.captchaWidgetVar().isBlank()
                 && snapshot.captchaTokenField() != null && !snapshot.captchaTokenField().isBlank();
+    }
+
+    /**
+     * Writes back the settings the deployed configuration file replaced on an installation
+     * configured without it (see {@link LegacyConfigurationCarryOver}). fileinstall then
+     * persists the update into the file, and the next {@link #configure} sees a configuration
+     * that already comes from the file: nothing to carry over any more. Limit: fileinstall
+     * loads the file one to two seconds after Jahia copies it at bundle resolution, so the
+     * previous settings are only seen when this component activated before that — which is
+     * the case when the module is installed or upgraded on a running server.
+     */
+    private void carryOverLegacySettings(Map<String, Object> previous, Map<String, Object> next) {
+        Map<String, Object> carried = LegacyConfigurationCarryOver.settingsToCarryOver(previous, next);
+        if (carried.isEmpty()) {
+            return;
+        }
+        ConfigurationAdmin admin = configurationAdmin;
+        if (admin == null) {
+            log.warn("[FormidableConfigService] The deployed configuration file replaced settings made without it, "
+                    + "and ConfigurationAdmin is not available to write them back: {}", carried);
+            return;
+        }
+        try {
+            Configuration configuration = admin.getConfiguration(PID, "?");
+            Dictionary<String, Object> updated = new Hashtable<>();
+            Dictionary<String, Object> current = configuration.getProperties();
+            if (current != null) {
+                for (Enumeration<String> keys = current.keys(); keys.hasMoreElements(); ) {
+                    String key = keys.nextElement();
+                    updated.put(key, current.get(key));
+                }
+            }
+            carried.forEach(updated::put);
+            configuration.update(updated);
+            log.warn("[FormidableConfigService] The deployed configuration file replaced settings made without it; "
+                    + "carried over into the file: {}", carried.keySet());
+        } catch (IOException e) {
+            log.error("[FormidableConfigService] Could not carry the previous settings over into the configuration file: {}", carried, e);
+        }
     }
 
     private ConfigSnapshot currentConfig() {
