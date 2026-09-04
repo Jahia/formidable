@@ -7,6 +7,10 @@ import {JahiaNode, NodeProperty} from './types';
 
 interface CreateFormNodeOptions {
 	actions?: JahiaNode[];
+	/** Properties of the 'fields' list node (e.g. an explicit jcr:title per language); empty = CND defaults. */
+	fieldListProperties?: NodeProperty[];
+	/** Properties of the 'actions' list node; only created when actions are given. */
+	actionListProperties?: NodeProperty[];
 	mixins?: string[];
 	properties?: NodeProperty[];
 	pageProperties?: NodeProperty[];
@@ -55,18 +59,23 @@ interface AddNodeResponse {
 	};
 }
 
-const buildFormChildren = (formElements: JahiaNode[], actions: JahiaNode[] = []): JahiaNode[] => ([
+const buildFormChildren = (
+	formElements: JahiaNode[],
+	actions: JahiaNode[] = [],
+	fieldListProperties: NodeProperty[] = [],
+	actionListProperties: NodeProperty[] = []
+): JahiaNode[] => ([
 	{
 		name: 'fields',
 		primaryNodeType: 'fmdb:fieldList',
-		properties: [],
+		properties: fieldListProperties,
 		children: formElements
 	},
 	...(actions.length > 0
 		? [{
 			name: 'actions',
 			primaryNodeType: 'fmdb:actionList',
-			properties: [],
+			properties: actionListProperties,
 			children: actions
 		}]
 		: [])
@@ -87,7 +96,7 @@ export const createFormNode = (
 			{name: 'jcr:title', value: formTitle, language: 'en'},
 			...(options.properties || [])
 		],
-		children: buildFormChildren(formElements, options.actions)
+		children: buildFormChildren(formElements, options.actions, options.fieldListProperties, options.actionListProperties)
 	});
 };
 

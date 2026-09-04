@@ -26,6 +26,29 @@
 	--fmdbext-chip-on-fg: #ffffff;
 	--fmdbext-switch-on-bg: var(--reg-yellow);
 
+	/* Multi-step navigation, through the module's hooks: the current step in the
+	   model's yellow, the steps already passed in its black, the others muted;
+	   square badges like the flat fields. */
+	--fmdb-steps-nav-mb: 20px;
+	--fmdb-step-font-size: 12px;
+	--fmdb-step-padding: 6px 8px;
+	--fmdb-step-color: var(--reg-muted);
+	--fmdb-step-border: var(--reg-grey);
+	--fmdb-step-active-color: var(--reg-ink);
+	--fmdb-step-active-border: var(--reg-yellow);
+	--fmdb-step-active-font-weight: 700;
+	--fmdb-step-done-color: var(--reg-ink);
+	--fmdb-step-done-border: var(--reg-black);
+	--fmdb-step-number-size: 22px;
+	--fmdb-step-number-radius: 0;
+	--fmdb-step-number-font-size: 11px;
+	--fmdb-step-number-bg: var(--reg-grey);
+	--fmdb-step-number-color: var(--reg-ink);
+	--fmdb-step-active-number-bg: var(--reg-yellow);
+	--fmdb-step-active-number-color: #ffffff;
+	--fmdb-step-done-number-bg: var(--reg-black);
+	--fmdb-step-done-number-color: #ffffff;
+
 	font-family: Verdana, Geneva, sans-serif;
 	font-size: 14px;
 	color: var(--reg-ink);
@@ -53,6 +76,21 @@
 	margin-bottom: 20px;
 }
 
+/* Step title and intro (shown when the steps are rendered in full: navigation off,
+   or the flat authoring view): a heading in the card's scale, not the page's h2. */
+.fmdb-form .fmdb-step-title {
+	margin: 0 0 12px;
+	font-size: 16px;
+	font-weight: 700;
+	color: var(--reg-ink);
+}
+
+.fmdb-form .fmdb-step-intro {
+	margin-bottom: 15px;
+	color: var(--reg-muted);
+	line-height: 1.5em;
+}
+
 .fmdb-form .fmdb-form-label,
 .fmdb-form .fmdb-group-legend {
 	display: inline-block;
@@ -66,15 +104,48 @@
 	padding: 0;
 }
 
+/* Fieldset (a group of fields inside a step): a thin square frame in the model's flat
+   style, a yellow accent echoing the card's top border, the legend in the label's scale.
+   No bottom padding: the last field's own margin ends the frame. */
+.fmdb-form .fmdb-fieldset {
+	margin: 0 0 20px;
+	padding: 12px 15px 0;
+	border: 1px solid var(--reg-grey);
+	border-top: 3px solid var(--reg-yellow);
+	border-radius: 0;
+	min-inline-size: 0;
+}
+
+.fmdb-form .fmdb-fieldset-legend {
+	padding: 0 6px;
+	margin-left: -6px;
+	font-size: 12px;
+	font-weight: 700;
+	color: var(--reg-ink);
+}
+
 .fmdb-form .fmdb-required-indicator {
 	color: var(--fmdb-validation-error-color);
 	margin-left: 0.15rem;
 }
 
+/* Help text: small, muted, tucked right under its label. The label keeps its 6px
+   gap before a control but only 2px before a help text; the help text is rich text
+   from the editor (paragraphs), whose margins are flattened so it stays one tight block. */
+.fmdb-form .fmdb-form-label:has(+ .fmdb-form-help),
+.fmdb-form .fmdb-group-legend:has(+ .fmdb-form-help) {
+	margin-bottom: 2px;
+}
+
 .fmdb-form .fmdb-form-help {
+	margin: 0 0 6px;
 	color: var(--reg-muted);
-	font-size: 12px;
-	line-height: 1.45;
+	font-size: 11px;
+	line-height: 1.4;
+}
+
+.fmdb-form .fmdb-form-help p {
+	margin: 0;
 }
 
 /* Inputs, selects, textareas: flat, square, thin grey border */
@@ -193,16 +264,23 @@
 	color: var(--reg-muted);
 }
 
-/* Buttons: flat, full-width yellow primary */
+/* Buttons: flat, one row. The primary (Submit, Next) takes the room left, so it is
+   full width when alone and shares the row with Previous or Reset otherwise. Both
+   kinds keep one height whatever their border. */
 .fmdb-form .fmdb-form-actions {
+	display: flex;
+	gap: 10px;
 	margin-top: 10px;
 }
 
 .fmdb-form .fmdb-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
 	border: none;
 	border-radius: 0;
 	height: 35px;
-	line-height: 35px;
 	padding: 0 18px;
 	font-family: inherit;
 	font-size: 1.1em;
@@ -214,8 +292,7 @@
 .fmdb-form .fmdb-btn-primary {
 	background: var(--reg-yellow);
 	color: #ffffff;
-	width: 100%;
-	margin-bottom: 10px;
+	flex: 1;
 }
 
 .fmdb-form .fmdb-btn-primary:hover:not(:disabled),
