@@ -67,6 +67,18 @@ const readBundleValue = (moduleId: string, language: string, key: string): strin
 const stripTags = (html: string): string => html.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
 
 /**
+ * URL of the icon a module declares for a node's primary type — the one jContent shows
+ * in the tree, on the Page Builder boxes and in the type chooser: `<module>/icons/<type>.png`,
+ * for a Java module (resources/icons) as for a JavaScript one (settings/content-types-icons).
+ * Reusing it keeps one icon per type across every surface.
+ */
+export const nodeTypeIconUrl = (node: JCRNodeWrapper, renderContext: RenderContext): string => {
+	const nodeType = primaryNodeTypeOf(node);
+	const contextPath = renderContext.getRequest().getContextPath();
+	return `${contextPath}/modules/${nodeType.getSystemId()}/icons/${nodeType.getName().replace(":", "_")}.png`;
+};
+
+/**
  * Describes the primary type of an action node from what its module already declares
  * for the Content Editor: the type label, the type-level tooltip and the type icon.
  * Nothing is duplicated in this module — a third-party action documented for the editor
@@ -78,7 +90,6 @@ export const describeActionType = (node: JCRNodeWrapper, renderContext: RenderCo
 	const moduleId = nodeType.getSystemId();
 	const bundleKey = name.replace(":", "_");
 	const locale = renderContext.getMainResourceLocale();
-	const contextPath = renderContext.getRequest().getContextPath();
 
 	let description: string | undefined;
 	try {
@@ -92,7 +103,7 @@ export const describeActionType = (node: JCRNodeWrapper, renderContext: RenderCo
 		name,
 		label: nodeType.getLabel(locale),
 		description,
-		iconUrl: `${contextPath}/modules/${moduleId}/icons/${bundleKey}.png`,
+		iconUrl: nodeTypeIconUrl(node, renderContext),
 	};
 };
 

@@ -1,13 +1,10 @@
 import {AddContentButtons, jahiaComponent, Render} from "@jahia/javascript-modules-library";
 import {useTranslation} from "react-i18next";
+import {nodeTypeIconUrl} from "~/utils/actionTypeInfo";
 
-// Lucide-inspired glyphs, drawn here: no icon library.
-const ZapIcon = () => (
-	<svg className="fmdb-authoring-actions-glyph" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-		<polygon points="13 2 4 14 11 14 10 22 20 10 13 10 14 2"/>
-	</svg>
-);
-
+// The one glyph drawn here (Lucide-inspired), for the warning: no icon library. The header
+// shows the list's own type icon instead (fmdb_actionList.png, the one jContent shows on
+// the list's box and in the tree), so the zone and the list read as one thing.
 const AlertIcon = () => (
 	<svg className="fmdb-authoring-actions-glyph" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
 		<path d="M12 3 2 20h20L12 3z"/>
@@ -32,7 +29,7 @@ jahiaComponent(
 		nodeType: "fmdb:actionList",
 		name: "hidden.authoring",
 	},
-	(_props, {currentNode}) => {
+	(_props, {currentNode, renderContext}) => {
 		const {t} = useTranslation("formidable-elements", {keyPrefix: "fmdb_actionList"});
 		const actionNodes = Array.from(currentNode.getNodes()).filter((node) => node.isNodeType("fmdbmix:formAction"));
 		const count = actionNodes.length;
@@ -41,7 +38,7 @@ jahiaComponent(
 			<aside className="fmdb-authoring-actions" aria-label={t("heading", {count})}>
 				<div className="fmdb-authoring-actions-header">
 					<span className="fmdb-authoring-actions-title">
-						<ZapIcon/>
+						<img className="fmdb-authoring-actions-glyph" src={nodeTypeIconUrl(currentNode, renderContext)} alt="" width={16} height={16}/>
 						{t("heading", {count})}
 					</span>
 					<span className="fmdb-authoring-actions-hint">{count > 0 ? t("inOrder") : t("notLive")}</span>

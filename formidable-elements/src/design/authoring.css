@@ -62,8 +62,9 @@
 
 .fmdb-authoring-actions-header {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
-	gap: 0.5rem;
+	gap: 0.25rem 0.5rem;
 	margin-bottom: 0.5rem;
 }
 
@@ -71,6 +72,7 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 0.35rem;
+	white-space: nowrap;
 	font-size: 11px;
 	font-weight: 600;
 	letter-spacing: 0.06em;
@@ -85,6 +87,8 @@
 
 .fmdb-authoring-actions-glyph {
 	flex: none;
+	width: 16px;
+	height: 16px;
 }
 
 /* A form without any action discards its submissions: the one loud element of the zone. */
