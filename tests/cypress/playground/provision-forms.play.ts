@@ -9,7 +9,8 @@
  * action so the results screens can be exercised:
  *   - playground-simple    minimal contact form
  *   - playground-steps     three-step form with navigation (step 2 holds a
- *                          fieldset, the deepest authoring level)
+ *                          fieldset, the deepest authoring level, and the
+ *                          delivery method drives a field and that fieldset)
  *   - playground-steps-styled  the same three-step form carrying the sample
  *                          theme in its css property, to exercise the
  *                          authoring UI (Page Builder zones, boxes) both
@@ -85,6 +86,21 @@ const saveToJcrAction = (): JahiaNode => ({
 	properties: []
 });
 
+// Titles of the two lists of every form, in both site languages: the words of the
+// module's default titles, set explicitly. The Page Builder shows a list's title on
+// its box, and a default left unresolved at provisioning time (a bundle not registered
+// yet) would leave the bare resource key there for the whole life of the playground.
+const LIST_TITLES = {
+	fieldListProperties: [
+		{name: 'jcr:title', value: 'Form fields', language: 'en'},
+		{name: 'jcr:title', value: 'Champs du formulaire', language: 'fr'}
+	],
+	actionListProperties: [
+		{name: 'jcr:title', value: 'Form actions', language: 'en'},
+		{name: 'jcr:title', value: 'Actions du formulaire', language: 'fr'}
+	]
+};
+
 // Adds French values on top of the fixture's English ones. Touching the French
 // locale of a choice field makes its French options mandatory (i18n property):
 // choice fields must always pair a French title with frOptions.
@@ -118,8 +134,9 @@ const FR_DEPARTMENT_OPTIONS = frOptions([
 // Department select in both languages. The empty first entry of the shared
 // fixture is replaced by the empty-option label property: the field still
 // starts empty, through the supported configuration.
-// The one conditional field of the playground: shown only when the delivery
-// method is "pickup", so rules can be tried in live, preview and edit mode.
+// Conditional logic driven by the delivery method, so rules can be tried in live,
+// preview and edit mode: the pickup location shows only for "pickup", and (on the
+// multi-step forms) the delivery address fieldset shows for every other method.
 const PICKUP_LOCATION_RULE = JSON.stringify({
 	logicId: 'pg-pickup-location',
 	sourceFieldName: 'deliveryMethod',
@@ -127,6 +144,21 @@ const PICKUP_LOCATION_RULE = JSON.stringify({
 	valueKind: 'choice',
 	operator: 'in',
 	values: ['pickup']
+});
+
+const DELIVERY_ADDRESS_RULE = JSON.stringify({
+	logicId: 'pg-delivery-address',
+	sourceFieldName: 'deliveryMethod',
+	sourceFieldType: 'fmdb:radio',
+	valueKind: 'choice',
+	operator: 'notIn',
+	values: ['pickup']
+});
+
+// Attaches conditional-logic rules (authoring format) to a field, fieldset or step.
+const withLogics = (node: JahiaNode, ...rules: string[]): JahiaNode => ({
+	...node,
+	properties: [...node.properties, {name: 'logics', values: rules}]
 });
 
 // Second conditional case, on the simple form this time: that form has no custom
@@ -162,7 +194,7 @@ const phoneNumberField = (): JahiaNode => {
 		placeholder: '+33 6 12 34 56 78'
 	});
 	return withFrench(
-		{...field, properties: [...field.properties, {name: 'logics', values: [PHONE_NUMBER_RULE]}]},
+		withLogics(field, PHONE_NUMBER_RULE),
 		[
 			{name: 'jcr:title', value: 'Numéro de téléphone (affiché si vous demandez un appel)'},
 			{name: 'placeholder', value: '+33 6 12 34 56 78'}
@@ -177,7 +209,7 @@ const pickupLocationField = (): JahiaNode => {
 		placeholder: 'Store name or city'
 	});
 	return withFrench(
-		{...field, properties: [...field.properties, {name: 'logics', values: [PICKUP_LOCATION_RULE]}]},
+		withLogics(field, PICKUP_LOCATION_RULE),
 		[
 			{name: 'jcr:title', value: 'Point de retrait (affiché si le mode de livraison est Retrait)'},
 			{name: 'placeholder', value: 'Nom du magasin ou ville'}
@@ -223,9 +255,13 @@ const nextWeekAtTen = (): string => {
 	return `${date.toISOString().slice(0, 10)}T10:00`;
 };
 
+// The first field of each form carries a help text in both languages, in the shape
+// the editor stores (a paragraph), so the help-text look can be judged on every form.
 const fullNameField = (): JahiaNode => {
 	const node = getInputTextNode({name: 'fullName', title: 'Full name', required: true});
 	node.properties.push(
+		{name: 'helpText', value: '<p>As written on your identity document.</p>', language: 'en'},
+		{name: 'helpText', value: '<p>Tel qu\'il figure sur votre pièce d\'identité.</p>', language: 'fr'},
 		{name: 'msgValueMissing', value: 'Please fill in your full name', language: 'en'},
 		{name: 'msgValueMissing', value: 'Merci de renseigner votre nom complet', language: 'fr'}
 	);
@@ -293,6 +329,7 @@ describe('Playground - provision manual-testing forms', () => {
 			undefined,
 			{
 				actions: [saveToJcrAction()],
+				...LIST_TITLES,
 				properties: [{name: 'jcr:title', value: 'Playground - Formulaire de contact simple', language: 'fr'}],
 				pageProperties: [{name: 'jcr:title', value: 'Playground - Formulaire de contact simple', language: 'fr'}],
 				publishLanguages: ['en', 'fr']
@@ -330,8 +367,12 @@ describe('Playground - provision manual-testing forms', () => {
 					children: [
 						departmentSelect(),
 						withFrench(getRadioNode(RADIO_GROUP), [{name: 'jcr:title', value: 'Mode de livraison'}, FR_DELIVERY_OPTIONS]),
+						// The delivery method drives what follows: the pickup location for "pickup",
+						// the address fieldset for the other methods — a rule on a field and a rule
+						// on a container, in the same step as their source.
+						pickupLocationField(),
 						// A fieldset inside a step: the deepest authoring level (list > step > fieldset > field).
-						withFrench(getFieldsetNode({
+						withLogics(withFrench(getFieldsetNode({
 							name: 'deliveryAddress',
 							title: 'Delivery address',
 							children: [
@@ -339,7 +380,7 @@ describe('Playground - provision manual-testing forms', () => {
 								withFrench(getInputTextNode({name: 'postalCode', title: 'Postal code'}), [{name: 'jcr:title', value: 'Code postal'}]),
 								withFrench(getInputTextNode({name: 'city', title: 'City'}), [{name: 'jcr:title', value: 'Ville'}])
 							]
-						}), [{name: 'jcr:title', value: 'Adresse de livraison'}])
+						}), [{name: 'jcr:title', value: 'Adresse de livraison'}]), DELIVERY_ADDRESS_RULE)
 					]
 				}), [{name: 'jcr:title', value: 'Préférences'}, {name: 'label', value: 'Préférences'}]),
 				withFrench(getStepNode({
@@ -367,6 +408,7 @@ describe('Playground - provision manual-testing forms', () => {
 			// so an en-only publication would leave their fr translation unpublished.
 			{
 				actions: [saveToJcrAction()],
+				...LIST_TITLES,
 				properties: [{name: 'jcr:title', value: frTitle, language: 'fr'}, ...extraProperties],
 				pageProperties: [{name: 'jcr:title', value: frTitle, language: 'fr'}],
 				publishLanguages: ['en', 'fr']
@@ -407,8 +449,9 @@ describe('Playground - provision manual-testing forms', () => {
 					[
 						// placeholder and list are i18n as well: without a French value the
 						// field loses its example and its suggestion list in that language.
-						withFrench(getInputTextNode({...INPUT_TEXT_COMPLETE, defaultValue: undefined}), [
+						withFrench(getInputTextNode({...INPUT_TEXT_COMPLETE, defaultValue: undefined, helpText: '<p>Two capital letters, a dash, four digits: <strong>AB-1234</strong>.</p>'}), [
 							{name: 'jcr:title', value: 'Code employé'},
+							{name: 'helpText', value: '<p>Deux lettres majuscules, un tiret, quatre chiffres : <strong>AB-1234</strong>.</p>'},
 							{name: 'placeholder', value: 'AB-1234'},
 							{name: 'list', values: ['AB-1234', 'CD-5678']}
 						]),
@@ -457,6 +500,7 @@ describe('Playground - provision manual-testing forms', () => {
 					undefined,
 					{
 						actions: [saveToJcrAction()],
+						...LIST_TITLES,
 						properties: [
 							{name: 'jcr:title', value: 'Playground - Formulaire complet', language: 'fr'},
 							// The showcase theme lives in the form's own css property, so it
@@ -480,19 +524,25 @@ describe('Playground - provision manual-testing forms', () => {
 					getSelectNode({
 						name: 'flavor',
 						title: 'Flavor',
+						helpText: '<p>Two of the three flavours are left untranslated on purpose.</p>',
 						options: [
 							{value: 'vanilla', label: 'Vanilla'},
 							{value: 'chocolate', label: 'Chocolate'},
 							{value: 'pistachio', label: 'Pistachio'}
 						]
 					}),
-					[{name: 'jcr:title', value: 'Parfum'}, FR_FLAVOR_OPTIONS]
+					[
+						{name: 'jcr:title', value: 'Parfum'},
+						{name: 'helpText', value: '<p>Deux des trois parfums sont volontairement laissés sans traduction.</p>'},
+						FR_FLAVOR_OPTIONS
+					]
 				)
 			],
 			undefined,
 			undefined,
 			{
 				actions: [saveToJcrAction()],
+				...LIST_TITLES,
 				properties: [{name: 'jcr:title', value: 'Playground - Options traduites à moitié', language: 'fr'}],
 				pageProperties: [{name: 'jcr:title', value: 'Playground - Options traduites à moitié', language: 'fr'}],
 				publishLanguages: ['en', 'fr']
