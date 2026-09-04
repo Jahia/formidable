@@ -77,16 +77,21 @@ function normalizePropertyValues(property: SubmissionProperty): string[] {
     return [String(property.value)];
 }
 
+/** The field types whose stored value is a date the reader should see in their own format. */
+export type FieldValueKind = 'date' | 'datetime';
+
 /**
  * What the results screen knows about the source form: the label of each field in
- * the UI language, and the order in which the fields are displayed in the form.
+ * the UI language, the order in which the fields are displayed in the form, and the
+ * fields whose values are dates (stored as the ISO strings the browser inputs post).
  */
 export interface FormFields {
     labels: Map<string, string>;
     order: string[];
+    kinds: Map<string, FieldValueKind>;
 }
 
-export const EMPTY_FORM_FIELDS: FormFields = {labels: new Map(), order: []};
+export const EMPTY_FORM_FIELDS: FormFields = {labels: new Map(), order: [], kinds: new Map()};
 
 /**
  * Sorts items by the position of their field in the form. Fields the form no longer
@@ -230,6 +235,48 @@ export function formatDate(isoDate: string): string {
     }
 }
 
+const DATE_VALUE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const DATETIME_VALUE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/;
+
+/**
+ * Formats a stored field value for the reader when the field is a date or a datetime
+ * field, the same way the submission metadata is (the browser's locale). The inputs
+ * post local wall-clock strings without a zone ("2026-09-09", "2026-09-05T12:53"), so
+ * they are parsed as local time — `new Date("2026-09-09")` would read UTC midnight and
+ * show the previous day west of Greenwich. Anything that does not parse, and every
+ * other field kind, is shown as stored.
+ */
+export function formatFieldValue(value: string, kind: FieldValueKind | undefined): string {
+    if (kind === 'date') {
+        const date = localDate(DATE_VALUE.exec(value));
+        return date ? date.toLocaleDateString() : value;
+    }
+
+    if (kind === 'datetime') {
+        const date = localDate(DATETIME_VALUE.exec(value));
+        return date ? date.toLocaleString(undefined, {dateStyle: 'short', timeStyle: 'short'}) : value;
+    }
+
+    return value;
+}
+
+/**
+ * Builds the local Date the matched parts describe, or null when they do not describe
+ * one: Date silently rolls an out-of-range part over ("2026-13-45" becomes February
+ * 2027), so every part is read back and compared.
+ */
+function localDate(match: RegExpExecArray | null): Date | null {
+    if (!match) {
+        return null;
+    }
+
+    const [year, month, day, hours = 0, minutes = 0, seconds = 0] = match.slice(1).map(part => Number(part ?? 0));
+    const date = new Date(year, month - 1, day, hours, minutes, seconds);
+    const roundTrips = date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+        && date.getHours() === hours && date.getMinutes() === minutes && date.getSeconds() === seconds;
+    return roundTrips ? date : null;
+}
+
 export function formatFileSize(bytes: number | null): string {
     if (bytes == null) {
         return '';
@@ -250,13 +297,15 @@ export function formatFileSize(bytes: number | null): string {
  * Reads GET_FORM_FIELD_LABELS. The descendants come back in tree order, which is
  * the order the form displays its fields in (steps, then blocks, then fields).
  */
+type GqlFormFieldNode = {name: string; displayName?: string; isDate?: boolean; isDatetime?: boolean} & Record<string, unknown>;
 type GqlFormFieldsResponse = {
-    jcr?: {nodeById?: {fields?: {nodes?: Array<{descendants?: {nodes?: Array<{name: string; displayName?: string} & Record<string, unknown>>}}>}}};
+    jcr?: {nodeById?: {fields?: {nodes?: Array<{descendants?: {nodes?: Array<GqlFormFieldNode>}}>}}};
 };
 
 export function parseFormFields(data: GqlFormFieldsResponse | undefined): FormFields {
     const labels = new Map<string, string>();
     const order: string[] = [];
+    const kinds = new Map<string, FieldValueKind>();
     const fieldListNodes = data?.jcr?.nodeById?.fields?.nodes;
     if (!Array.isArray(fieldListNodes) || fieldListNodes.length === 0) {
         return EMPTY_FORM_FIELDS;
@@ -276,9 +325,15 @@ export function parseFormFields(data: GqlFormFieldsResponse | undefined): FormFi
         if (node.displayName && node.displayName !== node.name) {
             labels.set(node.name, node.displayName);
         }
+
+        if (node.isDate === true) {
+            kinds.set(node.name, 'date');
+        } else if (node.isDatetime === true) {
+            kinds.set(node.name, 'datetime');
+        }
     }
 
-    return {labels, order};
+    return {labels, order, kinds};
 }
 
 /** Typed access to Jahia's global UI context (window.contextJsParameters). */
