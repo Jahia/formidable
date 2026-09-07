@@ -337,6 +337,12 @@ class FormidableConfigServiceTest {
             LegacyConfigurationCarryOver.FILEINSTALL_FILENAME, "file:/karaf/etc/org.jahia.modules.formidable.cfg",
             "forwardTargets", "");
 
+    /** The file after an administrator edited the target while a write-back was still pending. */
+    private static final String EDITED_TARGETS = "other|Other|https://other.example.com/forms";
+    private static final Map<String, Object> EDITED_FILE_PROPERTIES = Map.of(
+            LegacyConfigurationCarryOver.FILEINSTALL_FILENAME, "file:/karaf/etc/org.jahia.modules.formidable.cfg",
+            "forwardTargets", EDITED_TARGETS);
+
     private static Configuration configurationHolding(ConfigurationAdmin admin) throws IOException {
         Configuration configuration = mock(Configuration.class);
         when(admin.getConfiguration(FormidableConfigService.PID, "?")).thenReturn(configuration);
@@ -351,6 +357,9 @@ class FormidableConfigServiceTest {
         service.configure(new TestFormidableConfig(LEGACY_TARGETS, false, ""), LEGACY_PROPERTIES);
         service.configure(new TestFormidableConfig("", false, ""), FILE_PROPERTIES);
 
+        // Meanwhile the settings in force are still the legacy ones, not the file's defaults.
+        assertTrue(service.resolveForwardTarget("crm01").isPresent());
+
         ConfigurationAdmin admin = mock(ConfigurationAdmin.class);
         Configuration configuration = configurationHolding(admin);
         service.setConfigurationAdmin(admin);
@@ -360,6 +369,29 @@ class FormidableConfigServiceTest {
         ArgumentCaptor<Dictionary<String, Object>> written = ArgumentCaptor.forClass(Dictionary.class);
         verify(configuration).update(written.capture());
         assertEquals(LEGACY_TARGETS, written.getValue().get("forwardTargets"));
+    }
+
+    @Test
+    void aRetryLeavesASettingTheAdministratorEditedSince() throws IOException {
+        // The first write fails; before the retry, the administrator changes the target in the file.
+        FormidableConfigService service = new FormidableConfigService();
+        ConfigurationAdmin admin = mock(ConfigurationAdmin.class);
+        Configuration configuration = configurationHolding(admin);
+        doThrow(new IOException("disk full")).when(configuration).update(any());
+        service.setConfigurationAdmin(admin);
+        service.configure(new TestFormidableConfig(LEGACY_TARGETS, false, ""), LEGACY_PROPERTIES);
+        service.configure(new TestFormidableConfig("", false, ""), FILE_PROPERTIES);
+        verify(configuration, times(1)).update(any());
+
+        when(configuration.getProperties()).thenAnswer(invocation -> new Hashtable<>(EDITED_FILE_PROPERTIES));
+        service.configure(new TestFormidableConfig(EDITED_TARGETS, false, ""), EDITED_FILE_PROPERTIES);
+
+        // Expected outcome: the edit wins, nothing is rewritten, and nothing stays pending.
+        verify(configuration, times(1)).update(any());
+        assertTrue(service.resolveForwardTarget("other").isPresent());
+        assertFalse(service.resolveForwardTarget("crm01").isPresent());
+        service.configure(new TestFormidableConfig(EDITED_TARGETS, false, ""), EDITED_FILE_PROPERTIES);
+        verify(configuration, times(1)).update(any());
     }
 
     @Test

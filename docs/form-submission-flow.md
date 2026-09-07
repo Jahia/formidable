@@ -310,8 +310,10 @@ module starts without it, and never overwrites the copy afterwards (its first li
 provisioning API or the Felix console are kept. Upgrading an installation configured before the
 file existed (0.4 and earlier): that first copy would reset the configuration to the defaults, so
 the engine spots the switch (the configuration gains its `felix.fileinstall.filename`) and writes
-the previous settings back into the file. The write is kept pending until it succeeds (ConfigurationAdmin
-bound later, a failed update), and the logs name the settings, never their values. Limit: fileinstall loads the copied file one to two
+the previous settings back into the file. Until that write comes back through the file, the settings in
+force stay the previous ones (no window on the defaults); the write is kept pending until it succeeds
+(ConfigurationAdmin bound later, a failed update), a retry leaves alone any setting edited in the
+meantime, and the logs name the settings, never their values. Limit: fileinstall loads the copied file one to two
 seconds after the module is resolved; the previous settings are only seen when the engine's
 components activated before that, which is the case when the module is installed or upgraded on
 a running server. Check the engine's log for "carried over into the file" after such an upgrade.
