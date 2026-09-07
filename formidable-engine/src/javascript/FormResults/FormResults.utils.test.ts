@@ -1,4 +1,4 @@
-import {afterEach, describe, expect, it} from 'vitest';
+import {afterEach, describe, expect, it, vi} from 'vitest';
 import {formatFieldValue, parseFormFields} from './FormResults.utils';
 
 /** The value as typed, in the reader's locale: the parts are formatted in UTC so no zone shifts them. */
@@ -8,20 +8,14 @@ const asTypedDateTime = (year: number, month: number, day: number, hours: number
     new Date(Date.UTC(year, month - 1, day, hours, minutes)).toLocaleString(undefined, {dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC'});
 
 describe('formatFieldValue', () => {
-    const initialTimeZone = process.env.TZ;
-
     afterEach(() => {
-        // Node re-reads TZ on assignment; restore the runner's zone after a zone-specific case.
-        if (initialTimeZone === undefined) {
-            delete process.env.TZ;
-        } else {
-            process.env.TZ = initialTimeZone;
-        }
+        // Node re-reads TZ when the variable is assigned; the zone-specific cases stub it.
+        vi.unstubAllEnvs();
     });
 
     it('shows a date field value as typed, not shifted by the reader\'s zone', () => {
         // "2026-09-09" parsed as a zoned instant would read as the 8th west of Greenwich.
-        process.env.TZ = 'America/Los_Angeles';
+        vi.stubEnv('TZ', 'America/Los_Angeles');
         expect(formatFieldValue('2026-09-09', 'date')).toEqual(asTypedDate(2026, 9, 9));
     });
 
@@ -37,7 +31,7 @@ describe('formatFieldValue', () => {
 
     it('keeps a wall-clock time that does not exist in the reader\'s zone (spring-forward gap)', () => {
         // 02:30 on 2026-03-08 is skipped in New York; the submitter typed it where it existed.
-        process.env.TZ = 'America/New_York';
+        vi.stubEnv('TZ', 'America/New_York');
         expect(formatFieldValue('2026-03-08T02:30', 'datetime')).toEqual(asTypedDateTime(2026, 3, 8, 2, 30));
     });
 
