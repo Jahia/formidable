@@ -25,9 +25,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Collection;
 import java.util.Dictionary;
-import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.Hashtable;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -106,17 +104,15 @@ public class FormidableConfigService {
     /** The raw configuration properties last received, to spot the deployed file taking over. */
     private final AtomicReference<Map<String, Object>> lastProperties = new AtomicReference<>();
 
-    private volatile ConfigurationAdmin configurationAdmin;
+    private final AtomicReference<ConfigurationAdmin> configurationAdmin = new AtomicReference<>();
 
     @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, unbind = "unsetConfigurationAdmin")
     public void setConfigurationAdmin(ConfigurationAdmin configurationAdmin) {
-        this.configurationAdmin = configurationAdmin;
+        this.configurationAdmin.set(configurationAdmin);
     }
 
     public void unsetConfigurationAdmin(ConfigurationAdmin configurationAdmin) {
-        if (this.configurationAdmin == configurationAdmin) {
-            this.configurationAdmin = null;
-        }
+        this.configurationAdmin.compareAndSet(configurationAdmin, null);
     }
 
     @Activate
@@ -603,7 +599,7 @@ public class FormidableConfigService {
         if (carried.isEmpty()) {
             return;
         }
-        ConfigurationAdmin admin = configurationAdmin;
+        ConfigurationAdmin admin = configurationAdmin.get();
         if (admin == null) {
             log.warn("[FormidableConfigService] The deployed configuration file replaced settings made without it, "
                     + "and ConfigurationAdmin is not available to write them back: {}", carried);
@@ -611,13 +607,14 @@ public class FormidableConfigService {
         }
         try {
             Configuration configuration = admin.getConfiguration(PID, "?");
-            Dictionary<String, Object> updated = new Hashtable<>();
-            Dictionary<String, Object> current = configuration.getProperties();
-            if (current != null) {
-                for (Enumeration<String> keys = current.keys(); keys.hasMoreElements(); ) {
-                    String key = keys.nextElement();
-                    updated.put(key, current.get(key));
-                }
+            // The dictionary returned is the caller's private copy (Configuration#getProperties):
+            // edited in place, then written back. Null means the configuration holds nothing yet,
+            // so there is no file-backed configuration to carry the settings into.
+            Dictionary<String, Object> updated = configuration.getProperties();
+            if (updated == null) {
+                log.warn("[FormidableConfigService] The deployed configuration file replaced settings made without it, "
+                        + "but the configuration holds no properties to write them into: {}", carried);
+                return;
             }
             carried.forEach(updated::put);
             configuration.update(updated);
