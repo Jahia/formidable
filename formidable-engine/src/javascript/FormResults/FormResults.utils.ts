@@ -276,7 +276,10 @@ function wallClockDate(match: RegExpExecArray | null): Date | null {
     }
 
     const [year, month, day, hours = 0, minutes = 0, seconds = 0] = match.slice(1).map(part => Number(part ?? 0));
-    const date = new Date(Date.UTC(year, month - 1, day, hours, minutes, seconds));
+    // Not Date.UTC(): it maps the years 0-99 to 1900-1999, and "0099-01-01" is a valid date value.
+    const date = new Date(0);
+    date.setUTCFullYear(year, month - 1, day);
+    date.setUTCHours(hours, minutes, seconds, 0);
     const roundTrips = date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
         && date.getUTCHours() === hours && date.getUTCMinutes() === minutes && date.getUTCSeconds() === seconds;
     return roundTrips ? date : null;

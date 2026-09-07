@@ -2,10 +2,16 @@ import {afterEach, describe, expect, it, vi} from 'vitest';
 import {formatFieldValue, parseFormFields} from './FormResults.utils';
 
 /** The value as typed, in the reader's locale: the parts are formatted in UTC so no zone shifts them. */
+const utcDate = (year: number, month: number, day: number, hours = 0, minutes = 0): Date => {
+    const date = new Date(0);
+    date.setUTCFullYear(year, month - 1, day);
+    date.setUTCHours(hours, minutes, 0, 0);
+    return date;
+};
 const asTypedDate = (year: number, month: number, day: number): string =>
-    new Date(Date.UTC(year, month - 1, day)).toLocaleDateString(undefined, {timeZone: 'UTC'});
+    utcDate(year, month, day).toLocaleDateString(undefined, {timeZone: 'UTC'});
 const asTypedDateTime = (year: number, month: number, day: number, hours: number, minutes: number): string =>
-    new Date(Date.UTC(year, month - 1, day, hours, minutes)).toLocaleString(undefined, {dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC'});
+    utcDate(year, month, day, hours, minutes).toLocaleString(undefined, {dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC'});
 
 describe('formatFieldValue', () => {
     afterEach(() => {
@@ -17,6 +23,13 @@ describe('formatFieldValue', () => {
         // "2026-09-09" parsed as a zoned instant would read as the 8th west of Greenwich.
         vi.stubEnv('TZ', 'America/Los_Angeles');
         expect(formatFieldValue('2026-09-09', 'date')).toEqual(asTypedDate(2026, 9, 9));
+    });
+
+    it('keeps a year below 100 as typed', () => {
+        // Date.UTC() would read "0099" as 1999; the date input accepts any four-digit year.
+        expect(formatFieldValue('0099-01-01', 'date')).toEqual(asTypedDate(99, 1, 1));
+        expect(formatFieldValue('0099-01-01T08:00', 'datetime')).toEqual(asTypedDateTime(99, 1, 1, 8, 0));
+        expect(formatFieldValue('0099-01-01', 'date')).not.toContain('1999');
     });
 
     it('shows a datetime field value as typed, in the reader\'s locale, without the ISO separator', () => {
