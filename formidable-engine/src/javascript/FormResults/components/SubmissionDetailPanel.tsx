@@ -1,7 +1,7 @@
 import React, {useState} from 'react';
 import {Button, Close, Download, File, FilePdf, FileVideo, Paper, Separator, Typography, Visibility} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
-import {formatDate, type FormFields, type SubmissionRow, type SubmissionFile} from '../FormResults.utils';
+import {formatDate, formatFieldValue, type FormFields, type SubmissionRow, type SubmissionFile} from '../FormResults.utils';
 import {FilePreviewDialog} from './FilePreviewDialog';
 
 interface SubmissionDetailPanelProps {
@@ -120,7 +120,7 @@ export const SubmissionDetailPanel = ({submission, formFields, onClose}: Submiss
                                             )}
                                         </div>
                                         <Typography variant="body" style={{wordBreak: 'break-all'}}>
-                                            {field.values.join(', ')}
+                                            {field.values.map(value => formatFieldValue(value, formFields.kinds.get(field.name))).join(', ')}
                                         </Typography>
                                     </React.Fragment>
                                 );

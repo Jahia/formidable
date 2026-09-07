@@ -16,7 +16,7 @@ const submission = (fieldValues: Array<{name: string; values: string[]}>): Submi
     files: []
 });
 
-const formFields = (order: string[]): FormFields => ({labels: new Map(), order});
+const formFields = (order: string[]): FormFields => ({labels: new Map(), order, kinds: new Map()});
 
 const lastRow = (content: string): string => content.split('\n').at(-1)!;
 
