@@ -23,7 +23,7 @@
 	--fmdbext-focus: rgba(255, 169, 0, 0.25);
 	--fmdbext-rating-on: var(--reg-yellow);
 	--fmdbext-chip-on-bg: var(--reg-yellow);
-	--fmdbext-chip-on-fg: #ffffff;
+	--fmdbext-chip-on-fg: var(--reg-black);
 	--fmdbext-switch-on-bg: var(--reg-yellow);
 
 	/* Multi-step navigation, through the module's hooks: the current step in the
@@ -45,7 +45,7 @@
 	--fmdb-step-number-bg: var(--reg-grey);
 	--fmdb-step-number-color: var(--reg-ink);
 	--fmdb-step-active-number-bg: var(--reg-yellow);
-	--fmdb-step-active-number-color: #ffffff;
+	--fmdb-step-active-number-color: var(--reg-black);
 	--fmdb-step-done-number-bg: var(--reg-black);
 	--fmdb-step-done-number-color: #ffffff;
 
@@ -209,7 +209,7 @@
 	border-radius: 0;
 	padding: 6px 14px;
 	background: var(--reg-yellow);
-	color: #ffffff;
+	color: var(--reg-black);
 	font-family: inherit;
 	cursor: pointer;
 	transition: all 0.3s ease-in-out;
@@ -291,7 +291,7 @@
 
 .fmdb-form .fmdb-btn-primary {
 	background: var(--reg-yellow);
-	color: #ffffff;
+	color: var(--reg-black);
 	flex: 1;
 }
 
