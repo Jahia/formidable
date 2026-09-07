@@ -236,7 +236,9 @@ export function formatDate(isoDate: string): string {
 }
 
 const DATE_VALUE = /^(\d{4})-(\d{2})-(\d{2})$/;
-const DATETIME_VALUE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/;
+// Seconds and a fraction are optional, as in the backend's format (HH:mm[:ss[.SSS]]); the
+// fraction is matched but not read: the short time style shows none of it.
+const DATETIME_VALUE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,3})?)?$/;
 
 /**
  * Formats a stored field value for the reader when the field is a date or a datetime
