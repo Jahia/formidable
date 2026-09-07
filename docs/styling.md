@@ -224,6 +224,23 @@ The Page Builder box colours are a jContent UI extension registered by the engin
 (`pageBuilderBoxConfig`), not CSS, so a template set cannot override them; purple is left to
 jExperience and orange to jContent's warnings.
 
+### Page Builder frame of a standalone form
+
+A form opened in the Page Builder from its content folder (Jahia 8.2.5.0+) is rendered in an
+otherwise empty page, so the module gives it a column and a heading: `.fmdb-visual-edit`
+wraps the form, `.fmdb-visual-edit-title` carries the form's title. Both exist in that frame
+only — never in a page, in preview or in live — so a business stylesheet can ignore them; a
+template set that wants a different authoring width sets the variables on `.fmdb-visual-edit`.
+
+| Variable | Default | Description |
+|---|---|---|
+| `--fmdb-visual-edit-max-width` | `60rem` | Width of the authoring column |
+| `--fmdb-visual-edit-margin` | `0 auto` | Placement of the column (centred) |
+| `--fmdb-visual-edit-padding` | `1.5rem 1rem 3rem` | Inner spacing of the column |
+| `--fmdb-visual-edit-title-margin` | `0 0 1.5rem` | Spacing under the heading |
+| `--fmdb-visual-edit-title-size` | `1.5rem` | Font size of the heading |
+| `--fmdb-visual-edit-title-weight` | `600` | Font weight of the heading |
+
 ## Spinner variables
 
 ### Overlay
