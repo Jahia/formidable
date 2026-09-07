@@ -126,7 +126,15 @@
 	display: flex;
 	flex-direction: column;
 	gap: 0.25rem;
-	margin-bottom: 0.5rem;
+	/* An ordered list for assistive technology; the native numbering gives way to the counter. */
+	list-style: none;
+	margin: 0 0 0.5rem;
+	padding: 0;
+}
+
+.fmdb-authoring-actions-item {
+	margin: 0;
+	padding: 0;
 }
 
 .fmdb-authoring-action {

@@ -55,12 +55,15 @@ jahiaComponent(
 					</p>
 				)}
 
+				{/* An ordered list: the execution order is the meaning, so assistive technology gets it too. */}
 				{count > 0 && (
-					<div className="fmdb-authoring-actions-list">
+					<ol className="fmdb-authoring-actions-list">
 						{actionNodes.map((actionNode) => (
-							<Render key={actionNode.getIdentifier()} node={actionNode} view="hidden.authoring"/>
+							<li key={actionNode.getIdentifier()} className="fmdb-authoring-actions-item">
+								<Render node={actionNode} view="hidden.authoring"/>
+							</li>
 						))}
-					</div>
+					</ol>
 				)}
 
 				<AddContentButtons/>
