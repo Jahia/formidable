@@ -306,14 +306,16 @@ Limits and the global allowlist are configured in `org.jahia.modules.formidable.
 The module ships that file (`META-INF/configurations/org.jahia.modules.formidable.cfg`, every
 setting at its default): Jahia copies it to `digital-factory-data/karaf/etc` the first time the
 module starts without it, and never overwrites the copy afterwards (its first line is the
-`# default configuration` marker the extender looks for), so edits made in the file, through the
-provisioning API or the Felix console are kept. Upgrading an installation configured before the
-file existed (0.4 and earlier): that first copy would reset the configuration to the defaults, so
-the engine spots the switch (the configuration gains its `felix.fileinstall.filename`) and writes
-the previous settings back into the file. Until that write comes back through the file, the settings in
-force stay the previous ones (no window on the defaults); the write is kept pending until it succeeds
-(ConfigurationAdmin bound later, a failed update), a retry leaves alone any setting edited in the
-meantime, and the logs name the settings, never their values. Limit: fileinstall loads the copied file one to two
+`# default configuration` marker the extender looks for), so edits made in the file or through the
+provisioning API (`editConfiguration`) are kept. Avoid the Felix Web Console for this PID: it
+rewrites the file in a typed syntax (`L"5"`, quoted strings) that a `.cfg` file does not read back.
+Upgrading an installation configured before the file existed (0.4 and earlier): that first copy
+would reset the configuration to the defaults, so the engine spots the switch (the configuration
+gains its `felix.fileinstall.filename`) and writes the previous settings back into the file, as
+strings. Until that write comes back through the file, the settings in force stay the previous
+ones (no window on the defaults); the write is kept pending until it succeeds (ConfigurationAdmin
+bound later, a failed update), a retry leaves alone any setting edited in the meantime, and the
+logs name the settings, never their values. Limit: fileinstall loads the copied file one to two
 seconds after the module is resolved; the previous settings are only seen when the engine's
 components activated before that, which is the case when the module is installed or upgraded on
 a running server. Check the engine's log for "carried over into the file" after such an upgrade.

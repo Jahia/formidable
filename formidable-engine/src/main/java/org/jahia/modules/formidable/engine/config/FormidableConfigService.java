@@ -109,7 +109,7 @@ public class FormidableConfigService {
 
     /**
      * Settings the deployed configuration file replaced, still waiting to be written back (see
-     * {@link #carryOverLegacySettings}), with the file's values observed at the transition: a
+     * {@link #writeBack}), with the file's values observed at the transition: a
      * retry only rewrites the settings that still hold that value, so an edit made in between
      * (file, provisioning API, console) is never undone.
      *
@@ -633,15 +633,6 @@ public class FormidableConfigService {
     }
 
     /**
-     * Writes back the settings the deployed configuration file replaced on an installation
-     * configured without it (see {@link LegacyConfigurationCarryOver}). fileinstall then
-     * persists the update into the file, and the next {@link #configure} sees a configuration
-     * that already comes from the file: nothing to carry over any more. Limit: fileinstall
-     * loads the file one to two seconds after Jahia copies it at bundle resolution, so the
-     * previous settings are only seen when this component activated before that — which is
-     * the case when the module is installed or upgraded on a running server.
-     */
-    /**
      * Writes the settings the deployed configuration file replaced back into the configuration
      * (see {@link LegacyConfigurationCarryOver}); fileinstall then persists the update into the
      * file, and the next {@link #configure} sees a configuration that already carries them.
@@ -674,10 +665,13 @@ public class FormidableConfigService {
                         + "but the configuration holds no properties yet; the write-back of {} waits", names);
                 return WriteBack.PENDING;
             }
+            // Written as strings: a value typed by the Felix console (a Long, a Boolean) would
+            // otherwise be persisted in fileinstall's typed syntax (L"5"), which a .cfg file
+            // does not know — the metatype coerces the string back to the attribute's type.
             Map<String, Object> stillDefault = new LinkedHashMap<>();
             pending.settings().forEach((name, legacyValue) -> {
                 if (Objects.equals(String.valueOf(pending.baseline().get(name)), String.valueOf(updated.get(name)))) {
-                    stillDefault.put(name, legacyValue);
+                    stillDefault.put(name, String.valueOf(legacyValue));
                 }
             });
             if (stillDefault.isEmpty()) {

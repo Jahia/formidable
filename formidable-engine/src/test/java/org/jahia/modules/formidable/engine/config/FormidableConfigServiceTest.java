@@ -453,6 +453,30 @@ class FormidableConfigServiceTest {
         verify(configuration, never()).update(any());
     }
 
+    @Test
+    void aTypedLegacyValueIsWrittenBackAsAString() throws IOException {
+        // The Felix console stores typed values (a Long here); written back typed, fileinstall would
+        // persist L"7" into the .cfg file, which a .cfg does not read back. Strings only.
+        FormidableConfigService service = new FormidableConfigService();
+        ConfigurationAdmin admin = mock(ConfigurationAdmin.class);
+        Configuration configuration = configurationHolding(admin);
+        service.setConfigurationAdmin(admin);
+        Map<String, Object> typedLegacy = Map.of("forwardTargets", LEGACY_TARGETS, "uploadMaxFileCount", 7L);
+        Map<String, Object> file = Map.of(
+                LegacyConfigurationCarryOver.FILEINSTALL_FILENAME, "file:/karaf/etc/org.jahia.modules.formidable.cfg",
+                "forwardTargets", "", "uploadMaxFileCount", "10");
+        when(configuration.getProperties()).thenAnswer(invocation -> new Hashtable<>(file));
+
+        service.configure(new TestFormidableConfig(LEGACY_TARGETS, false, ""), typedLegacy);
+        service.configure(new TestFormidableConfig("", false, ""), file);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Dictionary<String, Object>> written = ArgumentCaptor.forClass(Dictionary.class);
+        verify(configuration).update(written.capture());
+        assertEquals("7", written.getValue().get("uploadMaxFileCount"));
+        assertEquals(LEGACY_TARGETS, written.getValue().get("forwardTargets"));
+    }
+
     private static final class TestFormidableConfig implements FormidableConfig {
         private final String forwardTargets;
         private final boolean enableDevForwardTargets;
