@@ -110,8 +110,10 @@ public class ActionSummaryService {
             context.put("contextType", node.getPrimaryNodeType());
             context.put("contextNode", node);
             context.put("contextParent", node.getParent());
-            if (options.containsKey(DEPENDENT_PROPERTIES)) {
-                List<String> dependentProperties = Arrays.asList(StringUtils.split(options.get(DEPENDENT_PROPERTIES), ','));
+            // split() returns null for a null value (the option declared without a list).
+            String[] dependentNames = StringUtils.split(options.get(DEPENDENT_PROPERTIES), ',');
+            if (dependentNames != null) {
+                List<String> dependentProperties = Arrays.asList(dependentNames);
                 context.put(DEPENDENT_PROPERTIES, dependentProperties);
                 for (String dependentProperty : dependentProperties) {
                     String name = dependentProperty.trim();
