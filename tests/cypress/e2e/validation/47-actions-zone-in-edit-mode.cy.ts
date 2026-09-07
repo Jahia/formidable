@@ -11,9 +11,9 @@ import {useFormidableSite} from './support';
 /**
  * A form placed on a page shows its actions while authoring: the Page Builder renders the
  * form's action list as a zone under the buttons — one card per action (title, telling
- * parameter, type description), in execution order, and the list's own create button, the
- * placeholder jContent reads the accepted type from. A form without any action is called
- * out, since its submissions go nowhere. Nothing of the zone exists in live.
+ * parameter, type description), in execution order, and the list's own create button, whose
+ * module declares the accepted type to jContent. A form without any action is called out,
+ * since its submissions go nowhere. Nothing of the zone exists in live.
  */
 describe('Validation - 47 Form actions zone in the Page Builder', () => {
 	useFormidableSite();
@@ -51,12 +51,14 @@ describe('Validation - 47 Form actions zone in the Page Builder', () => {
 				cy.get('.fmdb-authoring-actions-empty').should('not.exist');
 			});
 
-			// The list's own module carries the create placeholder, restricted to the action
-			// mixin: jContent turns it into one "New Form Action" button, then the type chooser.
-			// Suffix selector: the path is reference-scoped (ref@/form/actions).
+			// The list's own module declares the accepted type — the action mixin, which jContent
+			// turns into one "New Form Action" button, then the type chooser — and holds the create
+			// placeholder (the placeholder itself carries no type: the core puts the constraint on
+			// the list's module). Suffix selector: the path is reference-scoped (ref@/form/actions).
 			cy.get('[jahiatype="module"][path$="/actions"]')
 				.should('have.length', 1)
-				.find('[jahiatype="module"][type="placeholder"][nodetypes*="fmdbmix:formAction"]')
+				.should('have.attr', 'nodetypes', 'fmdbmix:formAction')
+				.find('[jahiatype="module"][type="placeholder"]')
 				.should('have.length', 1);
 
 			// Live: the visitor's form only.

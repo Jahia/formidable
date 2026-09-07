@@ -19,8 +19,8 @@ const AlertIcon = () => (
  * and are otherwise invisible on a page: the zone lists them in their execution order
  * (the list is orderable, so the Page Builder's drag reorders the pipeline), calls out a
  * form that has none (its submissions are neither stored nor sent), and carries the
- * list's own create button — the placeholder jContent reads the accepted type from, which
- * is the fmdbmix:formAction mixin: one "New Form Action" button, then the type chooser.
+ * list's own create button — its module declares the accepted type to jContent, the
+ * fmdbmix:formAction mixin: one "New Form Action" button, then the type chooser.
  * Authoring chrome, deliberately not styled like the form: it is not the visitor's form.
  */
 jahiaComponent(
