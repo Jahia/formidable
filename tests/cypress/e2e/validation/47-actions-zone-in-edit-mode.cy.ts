@@ -2,6 +2,7 @@ import {
 	createPublishedLiveFormPage,
 	getEmailNotificationActionNode,
 	getInputTextNode,
+	getLogSubmissionActionNode,
 	getSaveToJcrActionNode,
 	visitEditForm,
 	visitLiveForm
@@ -12,8 +13,10 @@ import {useFormidableSite} from './support';
  * A form placed on a page shows its actions while authoring: the Page Builder renders the
  * form's action list as a zone under the buttons — one card per action (title, telling
  * parameter, type description), in execution order, and the list's own create button, whose
- * module declares the accepted type to jContent. A form without any action is called out,
- * since its submissions go nowhere. Nothing of the zone exists in live.
+ * module declares the accepted type to jContent. A third-party action (the test module's) gets
+ * its card the same way, from what its own module declares for the Content Editor. A form
+ * without any action is called out, since its submissions go nowhere. Nothing of the zone
+ * exists in live, not even when its views are requested directly.
  */
 describe('Validation - 47 Form actions zone in the Page Builder', () => {
 	useFormidableSite();
@@ -28,14 +31,15 @@ describe('Validation - 47 Form actions zone in the Page Builder', () => {
 			{
 				actions: [
 					getEmailNotificationActionNode({name: 'notifySales', title: 'Notify sales', to: 'sales@example.com'}),
-					getSaveToJcrActionNode()
+					getSaveToJcrActionNode(),
+					getLogSubmissionActionNode()
 				]
 			}
-		).then(({pagePath, livePath}) => {
+		).then(({pagePath, livePath, formPath}) => {
 			visitEditForm(pagePath);
 
 			cy.get('.fmdb-authoring-actions').should('have.length', 1).within(() => {
-				cy.get('.fmdb-authoring-action').should('have.length', 2);
+				cy.get('.fmdb-authoring-action').should('have.length', 3);
 				// Execution order: the email first, the save second.
 				cy.get('.fmdb-authoring-action').eq(0).within(() => {
 					cy.get('.fmdb-authoring-action-title').should('have.text', 'Notify sales');
@@ -48,7 +52,23 @@ describe('Validation - 47 Form actions zone in the Page Builder', () => {
 					cy.get('.fmdb-authoring-action-title').should('have.text', 'Save to JCR');
 					cy.get('.fmdb-authoring-action-detail').should('not.exist');
 				});
+				// Third-party contract: the test module's type is dispatched to the mixin view, and
+				// its label, tooltip and icon are read from THAT module (its resource bundle, its icons).
+				cy.get('.fmdb-authoring-action').eq(2)
+					.should('have.attr', 'data-fmdb-action-type', 'fmdbsample:logSubmissionAction')
+					.within(() => {
+						cy.get('.fmdb-authoring-action-title').should('have.text', 'Log submission action');
+						cy.get('.fmdb-authoring-action-description').should('contain.text', 'Writes each submission to the server log');
+						cy.get('.fmdb-authoring-action-icon').should('have.attr', 'src')
+							.and('include', '/modules/formidable-test-module-samples-java/icons/fmdbsample_logSubmissionAction.png');
+					});
 				cy.get('.fmdb-authoring-actions-empty').should('not.exist');
+			});
+
+			// The authoring views guard themselves: asked for directly in live, they render nothing.
+			[`${formPath}/actions`, `${formPath}/actions/notifySales`].forEach(path => {
+				cy.request({url: `/cms/render/live/en${path}.hidden.authoring.html`, failOnStatusCode: false})
+					.its('body').should('not.contain', 'fmdb-authoring-action');
 			});
 
 			// The list's own module declares the accepted type — the action mixin, which jContent

@@ -36,3 +36,15 @@ export function getSaveToJcrActionNode(name: string = 'storeSubmission'): JahiaN
 		properties: []
 	};
 }
+
+/**
+ * The test module's own action (fmdbsample:logSubmissionAction, formidable-test-module-samples-java):
+ * a third-party type, declared with its label, tooltip and icon outside formidable-engine.
+ */
+export function getLogSubmissionActionNode(name: string = 'logSubmission'): JahiaNode {
+	return {
+		name,
+		primaryNodeType: 'fmdbsample:logSubmissionAction',
+		properties: []
+	};
+}

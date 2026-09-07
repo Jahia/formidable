@@ -21,6 +21,10 @@ jahiaComponent(
 		name: "hidden.authoring",
 	},
 	({"jcr:title": title}: FormActionProps, {currentNode, renderContext}) => {
+		// Authoring-only, whatever asks for the view: recipients and targets stay out of live and preview.
+		if (!renderContext.isEditMode()) {
+			return null;
+		}
 		const type = describeActionType(currentNode, renderContext);
 		const detail = actionKeyDetail(currentNode, renderContext);
 

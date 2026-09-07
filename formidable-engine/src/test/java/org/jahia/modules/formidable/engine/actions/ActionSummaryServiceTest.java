@@ -32,6 +32,9 @@ class ActionSummaryServiceTest {
 
         assertEquals("crm99", ActionSummaryService.labelOf("crm99", targets));
         assertEquals("crm01", ActionSummaryService.labelOf("crm01", List.of()));
+        // A matching choice whose label is blank or missing is no better than the value.
+        assertEquals("crm03", ActionSummaryService.labelOf("crm03", List.of(new ChoiceListValue(" ", "crm03"))));
+        assertEquals("crm04", ActionSummaryService.labelOf("crm04", List.of(new ChoiceListValue(null, "crm04"))));
     }
 
     private static boolean telling(String name, int requiredType, int selector) {

@@ -31,6 +31,10 @@ jahiaComponent(
 	},
 	(_props, {currentNode, renderContext}) => {
 		const {t} = useTranslation("formidable-elements", {keyPrefix: "fmdb_actionList"});
+		// Authoring-only, whatever asks for the view: a live or preview request of it gets nothing.
+		if (!renderContext.isEditMode()) {
+			return null;
+		}
 		const actionNodes = Array.from(currentNode.getNodes()).filter((node) => node.isNodeType("fmdbmix:formAction"));
 		const count = actionNodes.length;
 

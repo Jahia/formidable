@@ -113,13 +113,14 @@ public class ActionSummaryService {
 
     /**
      * The display name of the choice whose stored value is {@code raw}, or {@code raw} itself
-     * when no choice matches (a target removed from the configuration, a stale value): the
-     * card then shows the identifier rather than nothing.
+     * when no choice matches (a target removed from the configuration, a stale value) or the
+     * matching choice has no label: the card then shows the identifier rather than nothing.
      */
     static String labelOf(String raw, List<ChoiceListValue> values) throws RepositoryException {
         for (ChoiceListValue value : values) {
             if (value.getValue() != null && raw.equals(value.getValue().getString())) {
-                return value.getDisplayName();
+                String label = value.getDisplayName();
+                return label != null && !label.isBlank() ? label : raw;
             }
         }
         return raw;
