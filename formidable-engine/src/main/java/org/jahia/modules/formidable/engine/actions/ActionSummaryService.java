@@ -104,13 +104,23 @@ public class ActionSummaryService {
                     values = initializer.getChoiceListValues(definition, option.getValue(), values, locale, context);
                 }
             }
-            for (ChoiceListValue value : values) {
-                if (value.getValue() != null && raw.equals(value.getValue().getString())) {
-                    return value.getDisplayName();
-                }
-            }
+            return labelOf(raw, values);
         } catch (RepositoryException | RuntimeException e) {
             log.warn("[ActionSummaryService] Could not resolve the label of {} on {}", definition.getName(), node.getPath(), e);
+        }
+        return raw;
+    }
+
+    /**
+     * The display name of the choice whose stored value is {@code raw}, or {@code raw} itself
+     * when no choice matches (a target removed from the configuration, a stale value): the
+     * card then shows the identifier rather than nothing.
+     */
+    static String labelOf(String raw, List<ChoiceListValue> values) throws RepositoryException {
+        for (ChoiceListValue value : values) {
+            if (value.getValue() != null && raw.equals(value.getValue().getString())) {
+                return value.getDisplayName();
+            }
         }
         return raw;
     }

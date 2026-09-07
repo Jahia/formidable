@@ -95,7 +95,7 @@
 .fmdb-authoring-actions-hint {
 	margin-left: auto;
 	font-size: 11px;
-	color: var(--fmdb-zone-actions-muted, #6b7280);
+	color: var(--fmdb-zone-actions-muted, #626977);
 }
 
 .fmdb-authoring-actions-glyph {
@@ -185,7 +185,7 @@
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	color: var(--fmdb-zone-actions-muted, #6b7280);
+	color: var(--fmdb-zone-actions-muted, #626977);
 }
 
 .fmdb-authoring-action-description {
@@ -193,5 +193,5 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	font-size: 11px;
-	color: var(--fmdb-zone-actions-muted, #6b7280);
+	color: var(--fmdb-zone-actions-muted, #626977);
 }

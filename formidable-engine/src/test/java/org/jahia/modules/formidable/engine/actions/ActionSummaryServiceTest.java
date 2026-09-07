@@ -1,14 +1,38 @@
 package org.jahia.modules.formidable.engine.actions;
 
 import org.jahia.services.content.nodetypes.SelectorType;
+import org.jahia.services.content.nodetypes.initializers.ChoiceListValue;
 import org.junit.jupiter.api.Test;
 
 import javax.jcr.PropertyType;
+import javax.jcr.RepositoryException;
+import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ActionSummaryServiceTest {
+
+    @Test
+    void aChoiceValueShowsAsItsLabel() throws RepositoryException {
+        // The forward action stores the target id; the card shows the label the choicelist gave it.
+        List<ChoiceListValue> targets = List.of(
+                new ChoiceListValue("Salesforce Marketing", "crm01"),
+                new ChoiceListValue("HubSpot", "crm02"));
+
+        assertEquals("Salesforce Marketing", ActionSummaryService.labelOf("crm01", targets));
+        assertEquals("HubSpot", ActionSummaryService.labelOf("crm02", targets));
+    }
+
+    @Test
+    void aChoiceValueWithoutALabelShowsAsStored() throws RepositoryException {
+        // A target removed from the configuration, or an empty list: the id is better than nothing.
+        List<ChoiceListValue> targets = List.of(new ChoiceListValue("Salesforce Marketing", "crm01"));
+
+        assertEquals("crm99", ActionSummaryService.labelOf("crm99", targets));
+        assertEquals("crm01", ActionSummaryService.labelOf("crm01", List.of()));
+    }
 
     private static boolean telling(String name, int requiredType, int selector) {
         return ActionSummaryService.isTelling(name, false, false, false, requiredType, selector);

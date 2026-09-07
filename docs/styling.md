@@ -208,7 +208,7 @@ zone exists in live, preview or the `cm` view.
 | `--fmdb-zone-actions-radius` | `4px` | Corner radius of the zone |
 | `--fmdb-zone-actions-bg` | `#f4f5f7` | Background of the zone |
 | `--fmdb-zone-actions-color` | `#374151` | Text colour |
-| `--fmdb-zone-actions-muted` | `#6b7280` | Hint, telling parameter and description colour |
+| `--fmdb-zone-actions-muted` | `#626977` | Hint, telling parameter and description colour |
 | `--fmdb-zone-actions-font` | `400 13px/1.35 system-ui, …` | Font of the zone (the cards' second line is 11px) |
 | `--fmdb-zone-actions-card-bg` | `#ffffff` | Background of an action card |
 | `--fmdb-zone-actions-card-border` | `#e5e7eb` | Border of an action card |

@@ -66,8 +66,9 @@ const readBundleValue = (moduleId: string, language: string, key: string): strin
 };
 
 // The tooltip is Content Editor rich text (light formatting allowed); the zone shows it
-// as a single plain line, so tags are dropped.
-const stripTags = (html: string): string => html.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+// as a single plain line, so tags are dropped — each replaced by a space, so text that markup
+// separated ("First.<br/>Second.") does not run together, then whitespace collapses.
+const stripTags = (html: string): string => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
 /**
  * Describes the primary type of an action node from what its module already declares
