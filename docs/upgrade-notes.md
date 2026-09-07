@@ -114,7 +114,13 @@ property to its `pom.xml`, its Maven group id is unchanged.
    without it, the results panel does not. The engine's identity is unchanged
    by this upgrade, so a site that had it keeps it — this only concerns sites
    where it was never enabled.
-5. Check that forms render again on the site.
+5. **Reload jContent in every browser tab that was open during the upgrade**
+   (a full page reload, not just closing the editor) before editing a form.
+   The form editor's client code ships with the modules: a tab that kept the
+   previous bundle shows fields with empty or missing settings — typically a
+   conditional-logic rule whose value column is blank although the rule is
+   stored — and nothing is wrong with the content.
+6. Check that forms render again on the site.
 
 This is a one-time migration: from 0.4.0 on, the group id is stable and later
 versions install in place as usual — but the ordering rule of step 1 holds for
