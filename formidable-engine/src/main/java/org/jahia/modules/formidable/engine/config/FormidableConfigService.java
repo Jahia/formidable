@@ -121,12 +121,18 @@ public class FormidableConfigService {
     /** Null when nothing is pending; kept until the write succeeds or nothing is left to write. */
     private final AtomicReference<PendingCarryOver> pendingCarryOver = new AtomicReference<>();
 
+    /** The configuration last received, to activate it once a pending write-back turns out to have nothing left. */
+    private final AtomicReference<FormidableConfig> lastConfig = new AtomicReference<>();
+
+    /** What a write-back attempt did. */
+    private enum WriteBack { WRITTEN, NOTHING_LEFT, PENDING }
+
     @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, unbind = "unsetConfigurationAdmin")
     public void setConfigurationAdmin(ConfigurationAdmin configurationAdmin) {
         this.configurationAdmin.set(configurationAdmin);
         PendingCarryOver pending = pendingCarryOver.get();
-        if (pending != null) {
-            writeBack(pending);
+        if (pending != null && writeBack(pending) == WriteBack.NOTHING_LEFT && lastConfig.get() != null) {
+            activate(lastConfig.get());
         }
     }
 
@@ -137,21 +143,31 @@ public class FormidableConfigService {
     @Activate
     @Modified
     public void configure(FormidableConfig osgiConfig, Map<String, Object> properties) {
+        lastConfig.set(osgiConfig);
         Map<String, Object> previous = lastProperties.getAndSet(new HashMap<>(properties));
         Map<String, Object> carried = LegacyConfigurationCarryOver.settingsToCarryOver(previous, properties);
-        if (carried.isEmpty()) {
-            activate(osgiConfig);
-            carryOverLegacySettings(null);
+        if (!carried.isEmpty()) {
+            // The deployed file just replaced settings made without it. The snapshot in use still
+            // holds those settings: it stays in force, rather than the file's defaults, until the
+            // write-back's own callback brings the merged configuration — so a stricter upload
+            // policy or a forward target never lapses in between.
+            if (config.get() == null) {
+                activate(osgiConfig);
+            }
+            writeBack(new PendingCarryOver(carried, new HashMap<>(properties)));
             return;
         }
-        // The deployed file just replaced settings made without it. The snapshot in use still
-        // holds those settings: it stays in force, rather than the file's defaults, until the
-        // write-back's own callback brings the merged configuration — so a stricter upload
-        // policy or a forward target never lapses in between.
-        if (config.get() == null) {
+        PendingCarryOver pending = pendingCarryOver.get();
+        if (pending == null) {
+            activate(osgiConfig);
+            return;
+        }
+        // A write-back is still pending, so this callback does not carry the legacy values yet:
+        // retry it, and keep the pre-transition snapshot in force — unless nothing is left to
+        // carry (every pending setting was edited since), in which case the file is authoritative.
+        if (writeBack(pending) == WriteBack.NOTHING_LEFT) {
             activate(osgiConfig);
         }
-        carryOverLegacySettings(new PendingCarryOver(carried, new HashMap<>(properties)));
     }
 
     /**
@@ -625,30 +641,27 @@ public class FormidableConfigService {
      * previous settings are only seen when this component activated before that — which is
      * the case when the module is installed or upgraded on a running server.
      */
-    private void carryOverLegacySettings(PendingCarryOver transition) {
-        // A transition starts a write-back; otherwise a write that failed earlier is retried.
-        PendingCarryOver pending = transition != null ? transition : pendingCarryOver.get();
-        if (pending != null) {
-            writeBack(pending);
-        }
-    }
-
     /**
-     * Writes the carried settings into the configuration, which fileinstall then persists into
-     * the file. The settings stay pending until the write succeeds: the optional
-     * ConfigurationAdmin may not be bound yet, and a failed update must not consume the one
-     * transition that makes the legacy values eligible. A setting whose file value moved since
-     * the transition was edited by an administrator in the meantime and is left alone. Values
-     * never reach the logs (the settings include the CAPTCHA secret), only their names do.
+     * Writes the settings the deployed configuration file replaced back into the configuration
+     * (see {@link LegacyConfigurationCarryOver}); fileinstall then persists the update into the
+     * file, and the next {@link #configure} sees a configuration that already carries them.
+     * The settings stay pending until the write succeeds: the optional ConfigurationAdmin may
+     * not be bound yet, and a failed update must not consume the one transition that makes the
+     * legacy values eligible. A setting whose file value moved since the transition was edited
+     * by an administrator in the meantime and is left alone. Values never reach the logs (the
+     * settings include the CAPTCHA secret), only their names do. Limit: fileinstall loads the
+     * file one to two seconds after Jahia copies it at bundle resolution, so the previous
+     * settings are only seen when this component activated before that — which is the case
+     * when the module is installed or upgraded on a running server.
      */
-    private void writeBack(PendingCarryOver pending) {
+    private WriteBack writeBack(PendingCarryOver pending) {
         pendingCarryOver.set(pending);
         Set<String> names = pending.settings().keySet();
         ConfigurationAdmin admin = configurationAdmin.get();
         if (admin == null) {
             log.warn("[FormidableConfigService] The deployed configuration file replaced settings made without it; "
                     + "ConfigurationAdmin is not available yet, the write-back of {} waits for it", names);
-            return;
+            return WriteBack.PENDING;
         }
         try {
             Configuration configuration = admin.getConfiguration(PID, "?");
@@ -659,7 +672,7 @@ public class FormidableConfigService {
             if (updated == null) {
                 log.warn("[FormidableConfigService] The deployed configuration file replaced settings made without it, "
                         + "but the configuration holds no properties yet; the write-back of {} waits", names);
-                return;
+                return WriteBack.PENDING;
             }
             Map<String, Object> stillDefault = new LinkedHashMap<>();
             pending.settings().forEach((name, legacyValue) -> {
@@ -670,15 +683,17 @@ public class FormidableConfigService {
             if (stillDefault.isEmpty()) {
                 pendingCarryOver.compareAndSet(pending, null);
                 log.info("[FormidableConfigService] Nothing left to carry over: {} were edited since the file took over", names);
-                return;
+                return WriteBack.NOTHING_LEFT;
             }
             stillDefault.forEach(updated::put);
             configuration.update(updated);
             pendingCarryOver.compareAndSet(pending, null);
             log.warn("[FormidableConfigService] The deployed configuration file replaced settings made without it; "
                     + "carried over into the file: {}", stillDefault.keySet());
+            return WriteBack.WRITTEN;
         } catch (IOException e) {
             log.error("[FormidableConfigService] Could not carry {} over into the configuration file; will retry", names, e);
+            return WriteBack.PENDING;
         }
     }
 

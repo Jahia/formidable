@@ -407,13 +407,37 @@ class FormidableConfigServiceTest {
         service.configure(new TestFormidableConfig("", false, ""), FILE_PROPERTIES);
         verify(configuration, times(1)).update(any());
 
-        // A later callback with the same file-backed properties retries the pending write...
+        // A later callback with the same file-backed properties retries the pending write, and
+        // the legacy settings stay in force until the merged configuration comes back...
         service.configure(new TestFormidableConfig("", false, ""), FILE_PROPERTIES);
         verify(configuration, times(2)).update(any());
+        assertTrue(service.resolveForwardTarget("crm01").isPresent());
 
-        // ...and once written, nothing is pending any more.
-        service.configure(new TestFormidableConfig("", false, ""), FILE_PROPERTIES);
+        // ...which is this callback: nothing is pending any more, the file rules.
+        Map<String, Object> merged = Map.of(
+                LegacyConfigurationCarryOver.FILEINSTALL_FILENAME, "file:/karaf/etc/org.jahia.modules.formidable.cfg",
+                "forwardTargets", LEGACY_TARGETS);
+        service.configure(new TestFormidableConfig(LEGACY_TARGETS, false, ""), merged);
         verify(configuration, times(2)).update(any());
+        assertTrue(service.resolveForwardTarget("crm01").isPresent());
+    }
+
+    @Test
+    void theLegacySettingsStayInForceWhileTheWriteKeepsFailing() throws IOException {
+        // Every write fails: the file's defaults must not take over in the meantime.
+        FormidableConfigService service = new FormidableConfigService();
+        ConfigurationAdmin admin = mock(ConfigurationAdmin.class);
+        Configuration configuration = configurationHolding(admin);
+        doThrow(new IOException("disk full")).when(configuration).update(any());
+        service.setConfigurationAdmin(admin);
+
+        service.configure(new TestFormidableConfig(LEGACY_TARGETS, false, ""), LEGACY_PROPERTIES);
+        service.configure(new TestFormidableConfig("", false, ""), FILE_PROPERTIES);
+        service.configure(new TestFormidableConfig("", false, ""), FILE_PROPERTIES);
+
+        // Expected outcome: two failed attempts, the legacy target still resolves.
+        verify(configuration, times(2)).update(any());
+        assertTrue(service.resolveForwardTarget("crm01").isPresent());
     }
 
     @Test
