@@ -110,7 +110,7 @@ public class ActionSummaryService {
                 }
             }
         } catch (RepositoryException | RuntimeException e) {
-            log.warn("[ActionSummaryService] Could not resolve the label of {}='{}' on {}", definition.getName(), raw, node.getPath(), e);
+            log.warn("[ActionSummaryService] Could not resolve the label of {} on {}", definition.getName(), node.getPath(), e);
         }
         return raw;
     }
