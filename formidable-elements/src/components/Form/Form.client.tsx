@@ -6,6 +6,7 @@ import '~/design/validation.css';
 import '~/design/logic.css';
 import '~/design/prefill.css';
 import '~/design/authoring.css';
+import '~/design/visualEdit.css';
 import '~/design/matrix.css';
 import '~/design/oneAtATime.css';
 import {type FormProps} from './types';

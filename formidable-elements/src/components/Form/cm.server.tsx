@@ -10,11 +10,11 @@ import {CmShell} from "~/design/CmShell";
  * the buttons (navigation, submit) that cannot work without a script. The form's own CSS
  * still applies, so the contributor recognises the form's look.
  *
- * Reached through graphql-core's cm fallback: jContent asks for no view at all while the
- * form is not a displayable node. The day fmdb:form becomes a displayable main resource
- * (the Page Builder work of #232), jContent asks for the default view instead and this
- * inspection is silently bypassed — re-point the preview (a j:view, or a jContent lever)
- * in that change.
+ * Reached through graphql-core's cm fallback: jContent asks for no view at all because the
+ * form is not a displayable node. Opening a form in the Page Builder does not change that:
+ * the form stays without a page of its own (jmix:visuallyEditable, rendered through the
+ * platform's content template and the hidden.visualEdit view), so this inspection keeps
+ * its role in the drawer and the Content Editor preview.
  */
 jahiaComponent(
 	{

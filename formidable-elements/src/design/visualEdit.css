@@ -1,0 +1,18 @@
+/* The Page Builder frame of a form opened from its content folder (hidden.visualEdit view).
+   The platform's content template is an empty page, so the view gives the form a readable
+   column and a heading. Every value is a variable, so a template set or the form's own CSS
+   can override it; nothing here applies in preview or live, where the view is never used. */
+
+.fmdb-visual-edit {
+	box-sizing: border-box;
+	max-width: var(--fmdb-visual-edit-max-width, 60rem);
+	margin: var(--fmdb-visual-edit-margin, 0 auto);
+	padding: var(--fmdb-visual-edit-padding, 1.5rem 1rem 3rem);
+}
+
+.fmdb-visual-edit-title {
+	margin: var(--fmdb-visual-edit-title-margin, 0 0 1.5rem);
+	font-size: var(--fmdb-visual-edit-title-size, 1.5rem);
+	font-weight: var(--fmdb-visual-edit-title-weight, 600);
+	line-height: 1.25;
+}
