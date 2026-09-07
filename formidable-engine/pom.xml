@@ -170,6 +170,13 @@
             <artifactId>mockito-core</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Mocking ConfigurationAdmin in the tests needs org.osgi.framework (thrown types) on the classpath -->
+        <dependency>
+            <groupId>org.osgi</groupId>
+            <artifactId>osgi.core</artifactId>
+            <version>${osgi.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -278,6 +285,7 @@
                         <ignoredUnusedDeclaredDependency>org.apache.commons:commons-text</ignoredUnusedDeclaredDependency>
                         <ignoredUnusedDeclaredDependency>org.junit.jupiter:junit-jupiter-api</ignoredUnusedDeclaredDependency>
                         <ignoredUnusedDeclaredDependency>org.mockito:mockito-core</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>org.osgi:osgi.core</ignoredUnusedDeclaredDependency>
                         <!-- Used by Surefire/JUnit platform at test runtime, not by direct imports. -->
                         <ignoredUnusedDeclaredDependency>org.junit.jupiter:junit-jupiter-engine</ignoredUnusedDeclaredDependency>
                         <!-- Inherited from the Jahia modules parent and unused by formidable-engine. -->

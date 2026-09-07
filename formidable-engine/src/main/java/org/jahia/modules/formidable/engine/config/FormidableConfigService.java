@@ -106,9 +106,20 @@ public class FormidableConfigService {
 
     private final AtomicReference<ConfigurationAdmin> configurationAdmin = new AtomicReference<>();
 
+    /**
+     * Settings the deployed configuration file replaced and that still wait to be written back
+     * (see {@link #carryOverLegacySettings}); null when nothing is pending. Kept until the write
+     * succeeds, so a failed attempt is retried when ConfigurationAdmin binds or at the next callback.
+     */
+    private final AtomicReference<Map<String, Object>> pendingCarryOver = new AtomicReference<>();
+
     @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, unbind = "unsetConfigurationAdmin")
     public void setConfigurationAdmin(ConfigurationAdmin configurationAdmin) {
         this.configurationAdmin.set(configurationAdmin);
+        Map<String, Object> pending = pendingCarryOver.get();
+        if (pending != null) {
+            writeBack(pending);
+        }
     }
 
     public void unsetConfigurationAdmin(ConfigurationAdmin configurationAdmin) {
@@ -597,12 +608,28 @@ public class FormidableConfigService {
     private void carryOverLegacySettings(Map<String, Object> previous, Map<String, Object> next) {
         Map<String, Object> carried = LegacyConfigurationCarryOver.settingsToCarryOver(previous, next);
         if (carried.isEmpty()) {
-            return;
+            // Not a transition — but a write that failed earlier is retried on this callback.
+            carried = pendingCarryOver.get();
+            if (carried == null) {
+                return;
+            }
         }
+        writeBack(carried);
+    }
+
+    /**
+     * Writes the carried settings into the configuration, which fileinstall then persists into
+     * the file. The settings stay pending until the write succeeds: the optional
+     * ConfigurationAdmin may not be bound yet, and a failed update must not consume the one
+     * transition that makes the legacy values eligible. Values never reach the logs (the
+     * settings include the CAPTCHA secret), only their names do.
+     */
+    private void writeBack(Map<String, Object> carried) {
+        pendingCarryOver.set(carried);
         ConfigurationAdmin admin = configurationAdmin.get();
         if (admin == null) {
-            log.warn("[FormidableConfigService] The deployed configuration file replaced settings made without it, "
-                    + "and ConfigurationAdmin is not available to write them back: {}", carried);
+            log.warn("[FormidableConfigService] The deployed configuration file replaced settings made without it; "
+                    + "ConfigurationAdmin is not available yet, the write-back of {} waits for it", carried.keySet());
             return;
         }
         try {
@@ -613,15 +640,17 @@ public class FormidableConfigService {
             Dictionary<String, Object> updated = configuration.getProperties();
             if (updated == null) {
                 log.warn("[FormidableConfigService] The deployed configuration file replaced settings made without it, "
-                        + "but the configuration holds no properties to write them into: {}", carried);
+                        + "but the configuration holds no properties yet; the write-back of {} waits", carried.keySet());
                 return;
             }
             carried.forEach(updated::put);
             configuration.update(updated);
+            pendingCarryOver.compareAndSet(carried, null);
             log.warn("[FormidableConfigService] The deployed configuration file replaced settings made without it; "
                     + "carried over into the file: {}", carried.keySet());
         } catch (IOException e) {
-            log.error("[FormidableConfigService] Could not carry the previous settings over into the configuration file: {}", carried, e);
+            log.error("[FormidableConfigService] Could not carry {} over into the configuration file; will retry",
+                    carried.keySet(), e);
         }
     }
 

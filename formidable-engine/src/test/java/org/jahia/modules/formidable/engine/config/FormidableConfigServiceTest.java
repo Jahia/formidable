@@ -1,9 +1,16 @@
 package org.jahia.modules.formidable.engine.config;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.osgi.service.cm.Configuration;
+import org.osgi.service.cm.ConfigurationAdmin;
 
+import java.io.IOException;
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.util.Dictionary;
+import java.util.Hashtable;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -11,6 +18,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class FormidableConfigServiceTest {
 
@@ -313,6 +327,74 @@ class FormidableConfigServiceTest {
         // Expected outcome: the shipped default TTL applies.
         assertEquals(FormidableConfig.DEFAULT_OPTIONS_SOURCES_CACHE_TTL_SECONDS,
                 service.getOptionsSourcesCacheTtl().toSeconds());
+    }
+
+    private static final String LEGACY_TARGETS = "crm01|CRM|https://crm.example.com/forms";
+
+    /** The raw properties DS hands over: without the file (legacy), then from the deployed file. */
+    private static final Map<String, Object> LEGACY_PROPERTIES = Map.of("forwardTargets", LEGACY_TARGETS);
+    private static final Map<String, Object> FILE_PROPERTIES = Map.of(
+            LegacyConfigurationCarryOver.FILEINSTALL_FILENAME, "file:/karaf/etc/org.jahia.modules.formidable.cfg",
+            "forwardTargets", "");
+
+    private static Configuration configurationHolding(ConfigurationAdmin admin) throws IOException {
+        Configuration configuration = mock(Configuration.class);
+        when(admin.getConfiguration(FormidableConfigService.PID, "?")).thenReturn(configuration);
+        when(configuration.getProperties()).thenAnswer(invocation -> new Hashtable<>(FILE_PROPERTIES));
+        return configuration;
+    }
+
+    @Test
+    void carryOverWaitsForConfigurationAdminAndWritesWhenItBinds() throws IOException {
+        // The deployed file takes over while the optional ConfigurationAdmin is not bound yet.
+        FormidableConfigService service = new FormidableConfigService();
+        service.configure(new TestFormidableConfig(LEGACY_TARGETS, false, ""), LEGACY_PROPERTIES);
+        service.configure(new TestFormidableConfig("", false, ""), FILE_PROPERTIES);
+
+        ConfigurationAdmin admin = mock(ConfigurationAdmin.class);
+        Configuration configuration = configurationHolding(admin);
+        service.setConfigurationAdmin(admin);
+
+        // Expected outcome: the legacy target is written into the file-backed configuration on bind.
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Dictionary<String, Object>> written = ArgumentCaptor.forClass(Dictionary.class);
+        verify(configuration).update(written.capture());
+        assertEquals(LEGACY_TARGETS, written.getValue().get("forwardTargets"));
+    }
+
+    @Test
+    void carryOverIsRetriedOnTheNextCallbackWhenTheWriteFailed() throws IOException {
+        // The first write fails; the transition must not be consumed by that failure.
+        FormidableConfigService service = new FormidableConfigService();
+        ConfigurationAdmin admin = mock(ConfigurationAdmin.class);
+        Configuration configuration = configurationHolding(admin);
+        doThrow(new IOException("disk full")).doNothing().when(configuration).update(any());
+        service.setConfigurationAdmin(admin);
+
+        service.configure(new TestFormidableConfig(LEGACY_TARGETS, false, ""), LEGACY_PROPERTIES);
+        service.configure(new TestFormidableConfig("", false, ""), FILE_PROPERTIES);
+        verify(configuration, times(1)).update(any());
+
+        // A later callback with the same file-backed properties retries the pending write...
+        service.configure(new TestFormidableConfig("", false, ""), FILE_PROPERTIES);
+        verify(configuration, times(2)).update(any());
+
+        // ...and once written, nothing is pending any more.
+        service.configure(new TestFormidableConfig("", false, ""), FILE_PROPERTIES);
+        verify(configuration, times(2)).update(any());
+    }
+
+    @Test
+    void nothingIsWrittenWhenTheConfigurationWasFileBackedAllAlong() throws IOException {
+        FormidableConfigService service = new FormidableConfigService();
+        ConfigurationAdmin admin = mock(ConfigurationAdmin.class);
+        Configuration configuration = configurationHolding(admin);
+        service.setConfigurationAdmin(admin);
+
+        service.configure(new TestFormidableConfig("", false, ""), FILE_PROPERTIES);
+        service.configure(new TestFormidableConfig("", false, ""), FILE_PROPERTIES);
+
+        verify(configuration, never()).update(any());
     }
 
     private static final class TestFormidableConfig implements FormidableConfig {
