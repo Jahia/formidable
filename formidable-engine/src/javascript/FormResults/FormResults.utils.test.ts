@@ -1,20 +1,44 @@
-import {describe, expect, it} from 'vitest';
+import {afterEach, describe, expect, it} from 'vitest';
 import {formatFieldValue, parseFormFields} from './FormResults.utils';
 
+/** The value as typed, in the reader's locale: the parts are formatted in UTC so no zone shifts them. */
+const asTypedDate = (year: number, month: number, day: number): string =>
+    new Date(Date.UTC(year, month - 1, day)).toLocaleDateString(undefined, {timeZone: 'UTC'});
+const asTypedDateTime = (year: number, month: number, day: number, hours: number, minutes: number): string =>
+    new Date(Date.UTC(year, month - 1, day, hours, minutes)).toLocaleString(undefined, {dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC'});
+
 describe('formatFieldValue', () => {
-    it('shows a date field value as the reader\'s local date, not shifted by the zone', () => {
-        // "2026-09-09" parsed as UTC midnight reads as the 8th west of Greenwich.
-        expect(formatFieldValue('2026-09-09', 'date')).toEqual(new Date(2026, 8, 9).toLocaleDateString());
+    const initialTimeZone = process.env.TZ;
+
+    afterEach(() => {
+        // Node re-reads TZ on assignment; restore the runner's zone after a zone-specific case.
+        if (initialTimeZone === undefined) {
+            delete process.env.TZ;
+        } else {
+            process.env.TZ = initialTimeZone;
+        }
     });
 
-    it('shows a datetime field value as the reader\'s local date and time, without the ISO separator', () => {
-        const expected = new Date(2026, 8, 5, 12, 53).toLocaleString(undefined, {dateStyle: 'short', timeStyle: 'short'});
+    it('shows a date field value as typed, not shifted by the reader\'s zone', () => {
+        // "2026-09-09" parsed as a zoned instant would read as the 8th west of Greenwich.
+        process.env.TZ = 'America/Los_Angeles';
+        expect(formatFieldValue('2026-09-09', 'date')).toEqual(asTypedDate(2026, 9, 9));
+    });
+
+    it('shows a datetime field value as typed, in the reader\'s locale, without the ISO separator', () => {
+        const expected = asTypedDateTime(2026, 9, 5, 12, 53);
 
         expect(formatFieldValue('2026-09-05T12:53', 'datetime')).toEqual(expected);
         expect(formatFieldValue('2026-09-05T12:53:00', 'datetime')).toEqual(expected);
         // The backend also accepts a fraction of a second.
         expect(formatFieldValue('2026-09-05T12:53:00.123', 'datetime')).toEqual(expected);
         expect(formatFieldValue('2026-09-05T12:53', 'datetime')).not.toContain('T');
+    });
+
+    it('keeps a wall-clock time that does not exist in the reader\'s zone (spring-forward gap)', () => {
+        // 02:30 on 2026-03-08 is skipped in New York; the submitter typed it where it existed.
+        process.env.TZ = 'America/New_York';
+        expect(formatFieldValue('2026-03-08T02:30', 'datetime')).toEqual(asTypedDateTime(2026, 3, 8, 2, 30));
     });
 
     it('leaves a value that does not parse as stored', () => {

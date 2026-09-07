@@ -242,40 +242,43 @@ const DATETIME_VALUE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.
 
 /**
  * Formats a stored field value for the reader when the field is a date or a datetime
- * field, the same way the submission metadata is (the browser's locale). The inputs
- * post local wall-clock strings without a zone ("2026-09-09", "2026-09-05T12:53"), so
- * they are parsed as local time — `new Date("2026-09-09")` would read UTC midnight and
- * show the previous day west of Greenwich. Anything that does not parse, and every
- * other field kind, is shown as stored.
+ * field, in the browser's locale like the submission metadata. The inputs post wall-clock
+ * strings without a zone ("2026-09-09", "2026-09-05T12:53"), and the results show them as
+ * typed: the parts are carried in UTC and formatted in UTC, so the reader's own zone never
+ * shifts them (`new Date("2026-09-09")` would read UTC midnight and show the previous day
+ * west of Greenwich) nor rejects them (02:30 on a spring-forward day does not exist in the
+ * reader's zone but did where the submitter typed it). Anything that does not parse, and
+ * every other field kind, is shown as stored.
  */
 export function formatFieldValue(value: string, kind: FieldValueKind | undefined): string {
     if (kind === 'date') {
-        const date = localDate(DATE_VALUE.exec(value));
-        return date ? date.toLocaleDateString() : value;
+        const date = wallClockDate(DATE_VALUE.exec(value));
+        return date ? date.toLocaleDateString(undefined, {timeZone: 'UTC'}) : value;
     }
 
     if (kind === 'datetime') {
-        const date = localDate(DATETIME_VALUE.exec(value));
-        return date ? date.toLocaleString(undefined, {dateStyle: 'short', timeStyle: 'short'}) : value;
+        const date = wallClockDate(DATETIME_VALUE.exec(value));
+        return date ? date.toLocaleString(undefined, {dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC'}) : value;
     }
 
     return value;
 }
 
 /**
- * Builds the local Date the matched parts describe, or null when they do not describe
- * one: Date silently rolls an out-of-range part over ("2026-13-45" becomes February
- * 2027), so every part is read back and compared.
+ * Builds the Date carrying the matched parts as UTC fields, or null when they do not
+ * describe a date: Date silently rolls an out-of-range part over ("2026-13-45" becomes
+ * February 2027), so every part is read back and compared. UTC has no daylight-saving
+ * gap, so a valid wall-clock value always round-trips.
  */
-function localDate(match: RegExpExecArray | null): Date | null {
+function wallClockDate(match: RegExpExecArray | null): Date | null {
     if (!match) {
         return null;
     }
 
     const [year, month, day, hours = 0, minutes = 0, seconds = 0] = match.slice(1).map(part => Number(part ?? 0));
-    const date = new Date(year, month - 1, day, hours, minutes, seconds);
-    const roundTrips = date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
-        && date.getHours() === hours && date.getMinutes() === minutes && date.getSeconds() === seconds;
+    const date = new Date(Date.UTC(year, month - 1, day, hours, minutes, seconds));
+    const roundTrips = date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+        && date.getUTCHours() === hours && date.getUTCMinutes() === minutes && date.getUTCSeconds() === seconds;
     return roundTrips ? date : null;
 }
 
