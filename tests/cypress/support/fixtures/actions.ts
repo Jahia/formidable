@@ -1,5 +1,4 @@
 import {JahiaNode, NodeProperty} from './types';
-
 /**
  * Builders for the action nodes of a form (children of its 'actions' list).
  * The titles are i18n (mix:title), the recipients are not.
@@ -46,5 +45,20 @@ export function getLogSubmissionActionNode(name: string = 'logSubmission'): Jahi
 		name,
 		primaryNodeType: 'fmdbsample:logSubmissionAction',
 		properties: []
+	};
+}
+
+/**
+ * A forward action pointing at a configured forward target (fmdb:forwardAction, targetId is a
+ * choicelist fed by the module configuration's forwardTargets).
+ */
+export function getForwardActionNode(data: {name?: string; title?: string; targetId: string}): JahiaNode {
+	const properties: NodeProperty[] = [{name: 'targetId', value: data.targetId}];
+	if (data.title) properties.push({name: 'jcr:title', value: data.title, language: 'en'});
+
+	return {
+		name: data.name || 'forwardData',
+		primaryNodeType: 'fmdb:forwardAction',
+		properties
 	};
 }

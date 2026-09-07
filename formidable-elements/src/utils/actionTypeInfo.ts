@@ -1,4 +1,5 @@
 import {server} from "@jahia/javascript-modules-library";
+import {propertyValue, tooltipText} from "./bundleText";
 import type {JCRNodeWrapper} from "org.jahia.services.content";
 import type {RenderContext} from "org.jahia.services.render";
 import type {Locale} from "java.util";
@@ -52,23 +53,16 @@ const readBundleValue = (moduleId: string, language: string, key: string): strin
 	if (!bundle) return undefined;
 	for (const path of bundlePaths(moduleId, language)) {
 		try {
-			const properties = server.osgi.loadPropertiesResource(bundle, path);
-			// A Java Map reaches the script as a host object: read it through get().
-			const value = properties && typeof properties.get === "function"
-				? properties.get(key)
-				: properties?.[key];
-			if (value) return String(value);
+			// Read as text (UTF-8), not through Properties.load: see propertyValue.
+			const text = server.osgi.loadResource(bundle, path, true);
+			const value = text ? propertyValue(String(text), key) : undefined;
+			if (value) return value;
 		} catch {
 			// Not in this file (or no such file): try the next candidate.
 		}
 	}
 	return undefined;
 };
-
-// The tooltip is Content Editor rich text (light formatting allowed); the zone shows it
-// as a single plain line, so tags are dropped — each replaced by a space, so text that markup
-// separated ("First.<br/>Second.") does not run together, then whitespace collapses.
-const stripTags = (html: string): string => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
 /**
  * Describes the primary type of an action node from what its module already declares
@@ -86,7 +80,7 @@ export const describeActionType = (node: JCRNodeWrapper, renderContext: RenderCo
 	let description: string | undefined;
 	try {
 		const tooltip = readBundleValue(moduleId, locale.getLanguage(), `${bundleKey}.ui.tooltip`);
-		description = tooltip ? stripTags(tooltip) : undefined;
+		description = tooltip ? tooltipText(tooltip) : undefined;
 	} catch (error) {
 		console.warn(`[Formidable] Could not read the tooltip of action type ${name}`, error);
 	}

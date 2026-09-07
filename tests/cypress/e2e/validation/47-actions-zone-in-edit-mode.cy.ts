@@ -1,6 +1,7 @@
 import {
 	createPublishedLiveFormPage,
 	getEmailNotificationActionNode,
+	getForwardActionNode,
 	getInputTextNode,
 	getLogSubmissionActionNode,
 	getSaveToJcrActionNode,
@@ -9,17 +10,37 @@ import {
 } from '../../support/fixtures';
 import {useFormidableSite} from './support';
 
+/** A forward target of the module configuration, the choicelist the forward action's targetId is fed from. */
+const FORWARD_TARGET = {id: 'crm01', label: 'Salesforce Marketing', url: 'https://crm.example.com/hook'};
+
+const setForwardTargets = (lines: string): Cypress.Chainable => cy.runProvisioningScript({
+	script: {
+		fileContent: JSON.stringify([{editConfiguration: 'org.jahia.modules.formidable', properties: {forwardTargets: lines}}]),
+		type: 'application/json'
+	}
+});
+
 /**
  * A form placed on a page shows its actions while authoring: the Page Builder renders the
  * form's action list as a zone under the buttons — one card per action (title, telling
  * parameter, type description), in execution order, and the list's own create button, whose
- * module declares the accepted type to jContent. A third-party action (the test module's) gets
+ * module declares the accepted type to jContent. A choice parameter shows the label its
+ * choicelist gives it (the forward target's), a third-party action (the test module's) gets
  * its card the same way, from what its own module declares for the Content Editor. A form
  * without any action is called out, since its submissions go nowhere. Nothing of the zone
  * exists in live, not even when its views are requested directly.
  */
 describe('Validation - 47 Form actions zone in the Page Builder', () => {
 	useFormidableSite();
+
+	before(() => {
+		setForwardTargets(`${FORWARD_TARGET.id}|${FORWARD_TARGET.label}|${FORWARD_TARGET.url}`);
+	});
+
+	after(() => {
+		// The configuration is instance-global: back to the shipped default.
+		setForwardTargets('');
+	});
 
 	it('lists the actions of the form with their create button, in edit mode only', () => {
 		createPublishedLiveFormPage(
@@ -32,14 +53,15 @@ describe('Validation - 47 Form actions zone in the Page Builder', () => {
 				actions: [
 					getEmailNotificationActionNode({name: 'notifySales', title: 'Notify sales', to: 'sales@example.com'}),
 					getSaveToJcrActionNode(),
-					getLogSubmissionActionNode()
+					getLogSubmissionActionNode(),
+					getForwardActionNode({name: 'forwardToCrm', title: 'Forward to CRM', targetId: FORWARD_TARGET.id})
 				]
 			}
 		).then(({pagePath, livePath, formPath}) => {
 			visitEditForm(pagePath);
 
 			cy.get('.fmdb-authoring-actions').should('have.length', 1).within(() => {
-				cy.get('.fmdb-authoring-action').should('have.length', 3);
+				cy.get('.fmdb-authoring-action').should('have.length', 4);
 				// Execution order: the email first, the save second.
 				cy.get('.fmdb-authoring-action').eq(0).within(() => {
 					cy.get('.fmdb-authoring-action-title').should('have.text', 'Notify sales');
@@ -62,13 +84,22 @@ describe('Validation - 47 Form actions zone in the Page Builder', () => {
 						cy.get('.fmdb-authoring-action-icon').should('have.attr', 'src')
 							.and('include', '/modules/formidable-test-module-samples-java/icons/fmdbsample_logSubmissionAction.png');
 					});
+				// A choice parameter: the stored target id is shown as the label its choicelist
+				// (fed by the module configuration) gives it, resolved through the engine's initializer.
+				cy.get('.fmdb-authoring-action').eq(3).within(() => {
+					cy.get('.fmdb-authoring-action-title').should('have.text', 'Forward to CRM');
+					cy.get('.fmdb-authoring-action-detail').should('have.text', FORWARD_TARGET.label);
+				});
 				cy.get('.fmdb-authoring-actions-empty').should('not.exist');
 			});
 
-			// The authoring views guard themselves: asked for directly in live, they render nothing.
+			// The authoring views guard themselves: asked for directly in live, they render — successfully —
+			// nothing of the zone. The status is checked too: an error page would lack the markup as well.
 			[`${formPath}/actions`, `${formPath}/actions/notifySales`].forEach(path => {
-				cy.request({url: `/cms/render/live/en${path}.hidden.authoring.html`, failOnStatusCode: false})
-					.its('body').should('not.contain', 'fmdb-authoring-action');
+				cy.request(`/cms/render/live/en${path}.hidden.authoring.html`).then(response => {
+					expect(response.status, `live render of ${path}`).to.equal(200);
+					expect(response.body, `live body of ${path}`).not.to.contain('fmdb-authoring-action');
+				});
 			});
 
 			// The list's own module declares the accepted type — the action mixin, which jContent

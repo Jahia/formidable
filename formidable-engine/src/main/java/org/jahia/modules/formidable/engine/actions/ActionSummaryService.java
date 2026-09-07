@@ -39,6 +39,9 @@ public class ActionSummaryService {
 
     private static final Logger log = LoggerFactory.getLogger(ActionSummaryService.class);
 
+    /** Selector option (and context key) listing the properties a choicelist depends on, as the Content Editor names it. */
+    private static final String DEPENDENT_PROPERTIES = "dependentProperties";
+
     /** The key parameter of an action: property name and display value. */
     public record KeyParameter(String name, String value) {}
 
@@ -107,9 +110,9 @@ public class ActionSummaryService {
             context.put("contextType", node.getPrimaryNodeType());
             context.put("contextNode", node);
             context.put("contextParent", node.getParent());
-            if (options.containsKey("dependentProperties")) {
-                List<String> dependentProperties = Arrays.asList(StringUtils.split(options.get("dependentProperties"), ','));
-                context.put("dependentProperties", dependentProperties);
+            if (options.containsKey(DEPENDENT_PROPERTIES)) {
+                List<String> dependentProperties = Arrays.asList(StringUtils.split(options.get(DEPENDENT_PROPERTIES), ','));
+                context.put(DEPENDENT_PROPERTIES, dependentProperties);
                 for (String dependentProperty : dependentProperties) {
                     String name = dependentProperty.trim();
                     if (node.hasProperty(name)) {
