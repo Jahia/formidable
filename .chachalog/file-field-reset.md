@@ -3,4 +3,4 @@
 formidable: patch
 ---
 
-Fixed the file field still listing the uploaded file after the form was reset or submitted again (#290)
+Fixed the file field still listing the uploaded file after a reset or when the visitor starts another submission (#290)
