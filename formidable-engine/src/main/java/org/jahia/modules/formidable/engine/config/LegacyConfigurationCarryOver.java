@@ -70,26 +70,26 @@ final class LegacyConfigurationCarryOver {
      */
     static String attributeId(String methodName) {
         StringBuilder id = new StringBuilder(methodName.length());
-        for (int i = 0; i < methodName.length(); i++) {
-            char c = methodName.charAt(i);
-            if (c == '$') {
-                if (methodName.startsWith("$_$", i)) {
-                    id.append('-');
-                    i += 2;
-                } else if (methodName.startsWith("$$", i)) {
-                    id.append('$');
-                    i++;
-                }
-                // a lone $ is dropped
-            } else if (c == '_') {
-                if (methodName.startsWith("__", i)) {
-                    id.append('_');
-                    i++;
-                } else {
-                    id.append('.');
-                }
+        int i = 0;
+        while (i < methodName.length()) {
+            if (methodName.startsWith("$_$", i)) {
+                id.append('-');
+                i += 3;
+            } else if (methodName.startsWith("$$", i)) {
+                id.append('$');
+                i += 2;
+            } else if (methodName.startsWith("__", i)) {
+                id.append('_');
+                i += 2;
             } else {
-                id.append(c);
+                char c = methodName.charAt(i);
+                if (c == '_') {
+                    id.append('.');
+                } else if (c != '$') {
+                    // a lone $ is dropped
+                    id.append(c);
+                }
+                i++;
             }
         }
         return id.toString();
