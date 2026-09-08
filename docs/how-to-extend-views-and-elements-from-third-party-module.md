@@ -2,12 +2,13 @@
 
 This guide explains how to extend Formidable rendering from another Jahia module.
 
-It covers two different cases:
+It covers three different cases:
 
 1. adding a new view for an existing Formidable node type
 2. adding a new custom form element type
+3. adding a contributor setting to a built-in field, shown in that field's own editor form
 
-These two cases do not follow the same rendering contract.
+The first two cases do not follow the same rendering contract.
 
 ## Module dependencies
 
@@ -278,6 +279,99 @@ jahiaComponent(
 ```
 
 This is intentionally similar to Formidable's built-in `fmdb:inputText`.
+
+## Case 4: add a contributor setting to a built-in field, in the field's own form
+
+Sometimes the field types are fine and only one rendering choice is missing — the sample
+module `formidable-test-module-samples-tsx` lets the contributor place a field's help text
+above the field (the built-in rendering), below it, or in both places. Three pieces, none of
+them in Formidable itself:
+
+**1. A mixin extending the built-in types** carries the setting. `extends` (not a supertype)
+is what a third-party CND can do to types it does not own, and it takes a list. `helpText` is
+declared by each concrete field type, not by `fmdbmix:element`, so the list names every type
+that has one:
+
+```cnd
+[fmdbsamplemix:helpTextPosition] mixin
+ extends = fmdb:inputText, fmdb:inputEmail, fmdb:textarea, fmdb:inputNumber, fmdb:inputRange, fmdb:inputDate, fmdb:inputDatetimeLocal, fmdb:inputColor, fmdb:inputFile, fmdb:checkbox, fmdb:radio, fmdb:select
+ itemtype = content
+ - helpTextPosition (string, choicelist[resourceBundle]) = 'up' autocreated indexed=no < 'up', 'down', 'both'
+```
+
+Every type named must exist when your module deploys — the sample leaves out the optional
+types of `formidable-extended-inputs` because it does not depend on that module. The value
+labels come from your module's bundle, keyed `fmdbsamplemix_helpTextPosition.helpTextPosition.<value>`.
+
+**2. A form override puts the setting where the contributor expects it.** Left alone, an
+`extends` mixin shows up in the Content Editor as a fieldset of its own, behind an enable
+switch. One override, on the mixin itself
+(`settings/jahia-content-editor-forms/forms/fmdbsamplemix_helpTextPosition.json`), moves the
+field into the edited field's own fieldset — `<main>` — right under Help text, and keeps the
+mixin always activated so the value is saved without a switch to flip:
+
+```json
+{
+  "nodeType": "fmdbsamplemix:helpTextPosition",
+  "priority": 2.0,
+  "sections": [
+    {
+      "name": "content",
+      "fieldSets": [
+        { "name": "<main>", "fields": [{ "name": "helpTextPosition", "rank": 1.4 }] },
+        { "name": "fmdbsamplemix:helpTextPosition", "isAlwaysActivated": true, "hide": true }
+      ]
+    }
+  ]
+}
+```
+
+How it reads: `<main>` in an override means the fieldset of the type being edited, whichever
+form declares the override — so this single file serves the twelve types the mixin extends.
+Any field of the form can be pulled into `<main>` this way, whichever fieldset declared it.
+The mixin's own fieldset, emptied by the move, would still show as a bare switch: `hide`
+takes it off the screen while the editor keeps tracking it, so the mixin is still added on save.
+The fields of `<main>` are ranked 1, 2, 3… in declaration order and `helpText` is the first
+declared property of every field type (title and system name sit before it with lower ranks),
+so 1.4 lands right after Help text — before Required, and before the options mode the choice
+fields already place at 1.5. With the mixin always activated, every extended field saved in
+the editor gets it — acceptable for a sample, a deliberate choice for a product module.
+
+**3. A view honouring the setting.** Two ways to ship it. A view registered on the built-in
+type under a *new name* is opt-in: the contributor picks it in the View chooser
+(`fmdb:inputText` is renderable, like every `jnt:content`), as with the fieldset samples. A
+`default` view registered with a `priority` above Formidable's — which registers its views at
+the default priority, 0 — *takes over*: on every site where your module is enabled, every text
+input renders through it, nothing to pick, and the built-in view is no longer reachable there.
+The sample takes over (`src/components/Input/Text/default.server.tsx`, `priority: 1`), so the
+setting is honoured wherever it is set:
+
+```tsx
+jahiaComponent(
+  { componentType: "view", nodeType: "fmdb:inputText", name: "default", priority: 1 },
+  (props, { currentNode }) => { /* … */ },
+);
+```
+
+Taking a default view over means owning the whole built-in contract of the field — the HTML
+conventions below, the validation-message attributes, and for the text input the `pattern` and
+formatted default a mask stands for (the sample writes the mask tokens out, as it does the
+validation attributes) — and knowing what you cannot reach: the formatting while typing of a
+masked field is a client island of Formidable, so on such a site a masked field keeps its format
+validation but loses its live mask. The view reads `helpTextPosition` (absent until the
+node was saved with the mixin — default to the built-in placement). One accessibility point
+when the help is shown twice: the control describes a single block (`aria-describedby` →
+`help-<nodeId>`); the repeat after the field has no id and `aria-hidden="true"`, so a screen
+reader hears the help once.
+
+How the engine picks among several views of the same name: every view registered on the
+node's primary type *or on any of its supertypes and mixins* is a candidate, and the candidates
+are ordered by **priority (highest first), then the module's display name (alphabetical), then
+the view key** — the type a view is registered on carries no weight. So a `default` view
+registered on the mixin would win or lose against Formidable's on the name of your module,
+which is not a rule to build on; **priority is the only deterministic lever**, on the mixin as on
+the type. The sample registers its view on `fmdb:inputText` for readability — the setting is
+honoured by the type that has the help text — and relies on the priority alone.
 
 ## HTML conventions for custom fields
 
