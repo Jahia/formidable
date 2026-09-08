@@ -27,8 +27,11 @@ const FIELDS = {
 	// A text input without the mixin's setting: the built-in placement.
 	unset: {name: 'helpUnset', title: 'Help unset', helpText: HELP},
 	// A placement without any help text: nothing to place.
-	none: {name: 'helpNone', title: 'No help'}
+	none: {name: 'helpNone', title: 'No help'},
+	// A masked field: the rendering keeps what the mask stands for, a pattern and a formatted default.
+	masked: {name: 'helpMasked', title: 'Masked code', helpText: HELP, mask: 'AA-9999', defaultValue: 'ab1234'}
 };
+const MASK_PATTERN = '^[A-Za-z][A-Za-z]-[0-9][0-9][0-9][0-9]$';
 
 // The mixin extends every built-in field type with a help text, not the text input alone.
 const SELECT_FIELD = {
@@ -115,7 +118,8 @@ describe('Form fields - 222 Help text position (third-party sample)', () => {
 			withHelpTextPosition(getInputTextNode(FIELDS.down), 'down'),
 			withHelpTextPosition(getInputTextNode(FIELDS.both), 'both'),
 			getInputTextNode(FIELDS.unset),
-			withHelpTextPosition(getInputTextNode(FIELDS.none), 'down')
+			withHelpTextPosition(getInputTextNode(FIELDS.none), 'down'),
+			withHelpTextPosition(getInputTextNode(FIELDS.masked), 'down')
 		]).then(({livePath}) => {
 			const form = visitLiveForm(livePath);
 
@@ -164,6 +168,13 @@ describe('Form fields - 222 Help text position (third-party sample)', () => {
 			none.getContainer().should('have.attr', POSITION_ATTRIBUTE, 'down');
 			none.shouldNotHaveHelpText();
 			none.getInput().should('not.have.attr', 'aria-describedby');
+
+			// A masked field keeps its format: the mask on the input, the pattern derived from it, the
+			// default formatted by it. Only the formatting while typing (Formidable's island) is gone.
+			const masked = form.getTextInput(FIELDS.masked.name);
+			masked.getContainer().should('have.attr', POSITION_ATTRIBUTE, 'down');
+			masked.shouldHaveMask(FIELDS.masked.mask).shouldHavePattern(MASK_PATTERN).shouldHaveValue('AB-1234');
+			masked.getInput().next().should('have.class', 'fmdb-form-help');
 		});
 	});
 

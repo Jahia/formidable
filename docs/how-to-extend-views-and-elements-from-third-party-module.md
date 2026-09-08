@@ -354,17 +354,24 @@ jahiaComponent(
 ```
 
 Taking a default view over means owning the whole built-in contract of the field — the HTML
-conventions below, the validation-message attributes — and knowing what you cannot reach:
-the input mask of the built-in text input is a client island of Formidable, so a masked
-field loses its live mask on such a site. The view reads `helpTextPosition` (absent until the
+conventions below, the validation-message attributes, and for the text input the `pattern` and
+formatted default a mask stands for (the sample writes the mask tokens out, as it does the
+validation attributes) — and knowing what you cannot reach: the formatting while typing of a
+masked field is a client island of Formidable, so on such a site a masked field keeps its format
+validation but loses its live mask. The view reads `helpTextPosition` (absent until the
 node was saved with the mixin — default to the built-in placement). One accessibility point
 when the help is shown twice: the control describes a single block (`aria-describedby` →
 `help-<nodeId>`); the repeat after the field has no id and `aria-hidden="true"`, so a screen
 reader hears the help once.
 
-Views are resolved on the primary type first, then on the node's mixins: a `default` view
-registered on the mixin would only be a fallback behind Formidable's, which is why the sample
-registers its view on `fmdb:inputText` itself and relies on the priority.
+How the engine picks among several views of the same name: every view registered on the
+node's primary type *or on any of its supertypes and mixins* is a candidate, and the candidates
+are ordered by **priority (highest first), then the module's display name (alphabetical), then
+the view key** — the type a view is registered on carries no weight. So a `default` view
+registered on the mixin would win or lose against Formidable's on the name of your module,
+which is not a rule to build on; **priority is the only deterministic lever**, on the mixin as on
+the type. The sample registers its view on `fmdb:inputText` for readability — the setting is
+honoured by the type that has the help text — and relies on the priority alone.
 
 ## HTML conventions for custom fields
 

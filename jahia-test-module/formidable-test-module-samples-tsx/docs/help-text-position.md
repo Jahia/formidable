@@ -59,8 +59,11 @@ Sites where the module is not enabled keep Formidable's rendering and editor for
 
 ## Limits to know
 
-- Formidable's **input mask** is a client-side component of Formidable that a third-party view
-  cannot reuse: on a site enabled for this module, a masked text input loses its live mask.
+- Formidable's **input mask** stands for three things: the format the browser checks (the
+  `pattern` derived from the mask), a formatted default value, and the formatting while typing.
+  The rendering keeps the first two, written out from the mask tokens; the third is a client-side
+  component of Formidable a third-party view cannot reuse, so on a site enabled for this module a
+  masked text input keeps its format validation but loses its live mask.
 - The optional field types of `formidable-extended-inputs` (rating, scale, switch, consent) are
   not covered: this module does not depend on that module.
 - Taking over the default view replaces the standard rendering of _every_ text input of the
@@ -71,5 +74,5 @@ Sites where the module is not enabled keep Formidable's rendering and editor for
 
 [`tests/cypress/e2e/fields/222-help-text-position-sample.cy.ts`](../../../tests/cypress/e2e/fields/222-help-text-position-sample.cy.ts)
 enables the module on the test site, then checks the rendering of the three positions (and of a
-field without the setting or without help text) and the editor form of a text input and of a
-select.
+field without the setting or without help text), what a masked field keeps (its pattern and
+formatted default), and the editor form of a text input and of a select.

@@ -16,6 +16,7 @@ interface InputTextProps {
   "required"?: boolean;
   "autocomplete"?: string;
   // fmdbmix:advancedInputTextSettings
+  "mask"?: string;
   "pattern"?: string;
   "readonly"?: boolean;
   "autofocus"?: boolean;
@@ -37,6 +38,56 @@ const DEFAULT_LIST: string[] = [];
 
 const readPosition = (value: string | undefined): HelpTextPosition =>
   value === "down" || value === "both" ? value : "up";
+
+/**
+ * The input-mask tokens of the built-in text input, written out for the same reason as the
+ * validation attributes below: `9` digit, `A`/`a` letter (upper/lower case), `X`/`x` alphanumeric
+ * (upper/lower case), anything else a fixed literal. Two of the three things the built-in view
+ * derives from a mask are reproduced here — the HTML `pattern` the browser and the server validate
+ * against, and the formatting of a prefilled default; the third, formatting while typing, is a
+ * client island of Formidable a third-party view cannot reach.
+ */
+const MASK_TOKENS: Record<
+  string,
+  { test: RegExp; source: string; transform?: (c: string) => string }
+> = {
+  "9": { test: /[0-9]/, source: "[0-9]" },
+  "A": { test: /[a-zA-Z]/, source: "[A-Za-z]", transform: (c) => c.toUpperCase() },
+  "a": { test: /[a-zA-Z]/, source: "[A-Za-z]", transform: (c) => c.toLowerCase() },
+  "X": { test: /[a-zA-Z0-9]/, source: "[A-Za-z0-9]", transform: (c) => c.toUpperCase() },
+  "x": { test: /[a-zA-Z0-9]/, source: "[A-Za-z0-9]", transform: (c) => c.toLowerCase() },
+};
+
+/** The regular expression of the `pattern` attribute a mask stands for. */
+const maskToPattern = (mask: string): string =>
+  `^${Array.from(mask)
+    .map((char) => MASK_TOKENS[char]?.source ?? char.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("")}$`;
+
+/** A value formatted by the mask: literals inserted, rejected characters dropped, excess ignored. */
+const applyMask = (value: string, mask: string): string => {
+  let masked = "";
+  let maskIndex = 0;
+  let consumedToken = false;
+  for (const char of value.replace(/[^a-zA-Z0-9]/g, "")) {
+    while (maskIndex < mask.length && !MASK_TOKENS[mask[maskIndex]]) {
+      masked += mask[maskIndex++];
+    }
+    if (maskIndex >= mask.length) break;
+    const token = MASK_TOKENS[mask[maskIndex]];
+    if (token.test.test(char)) {
+      masked += token.transform ? token.transform(char) : char;
+      maskIndex++;
+      consumedToken = true;
+    }
+  }
+  // Trailing literals are completed once every remaining position is one, so the pattern holds.
+  const remainder = mask.slice(maskIndex);
+  if (consumedToken && remainder && Array.from(remainder).every((char) => !MASK_TOKENS[char])) {
+    masked += remainder;
+  }
+  return masked;
+};
 
 /**
  * The inline-validation contract of docs/custom-validation.md, written out rather than imported: a
@@ -62,9 +113,10 @@ const validationMessageAttributes = (props: InputTextProps) => ({
  * places. Taking a default view over means owning the whole built-in contract
  * (docs/how-to-extend-views-and-elements-from-third-party-module.md): the field's name and id, the
  * fmdb-* hooks, one help block with the `help-<nodeId>` id the control references, the
- * data-fmdb-msg-* validation messages — all kept here. One thing is out of a third-party view's
- * reach: the input mask of the built-in view is a client island of Formidable, so on a site enabled
- * for this module a masked text input loses its live mask.
+ * data-fmdb-msg-* validation messages, the `pattern` and formatted default a mask stands for — all
+ * kept here. One thing is out of a third-party view's reach: the formatting while typing of a
+ * masked field is a client island of Formidable, so on a site enabled for this module a masked text
+ * input keeps its format validation but loses its live mask.
  */
 jahiaComponent(
   {
@@ -86,6 +138,7 @@ jahiaComponent(
       maxLength,
       required,
       autocomplete,
+      mask,
       pattern,
       readonly,
       autofocus,
@@ -117,7 +170,9 @@ jahiaComponent(
       "list": datalistId,
       minLength,
       maxLength,
-      pattern,
+      // An explicit pattern wins; a mask alone stands for one the browser checks without JavaScript
+      "pattern": pattern || (mask ? maskToPattern(mask) : undefined),
+      "data-mask": mask,
       required,
       "autoComplete": autocomplete,
       "readOnly": readonly,
@@ -154,7 +209,10 @@ jahiaComponent(
           />
         )}
 
-        <input {...inputAttributes} defaultValue={defaultValue} />
+        <input
+          {...inputAttributes}
+          defaultValue={defaultValue && mask ? applyMask(defaultValue, mask) : defaultValue}
+        />
 
         {/* "both": the block after the field repeats the one the control already describes —
             no id (ids are unique) and out of the accessibility tree, so a screen reader hears the
