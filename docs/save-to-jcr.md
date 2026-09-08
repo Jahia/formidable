@@ -120,6 +120,10 @@ Typical submission-level properties:
   the sources apart
 - `locale`
 - `referer`
+- `timeZone` — the submitter's time zone as the form client declares it (the browser's zone,
+  an IANA id such as `Europe/Paris`), kept only when it is a zone the platform knows; absent
+  for a submission posted outside a browser. The results show it with the metadata and after
+  each date-time value, whose typed text applies in that zone
 
 The per-form results container (`formidable-results/<form>`) is created on the first
 submission with a collide-and-recover guard: the deterministic node name makes two

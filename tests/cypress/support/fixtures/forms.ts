@@ -30,6 +30,8 @@ export interface LiveFormPageInfo {
 export interface LiveFormSubmissionInfo {
 	name: string;
 	path: string;
+	/** The submitter's time zone as stored, null when the submission recorded none. */
+	timeZone: string | null;
 }
 
 interface LatestSubmissionQueryResponse {
@@ -41,6 +43,7 @@ interface LatestSubmissionQueryResponse {
 						name: string;
 						path: string;
 						created: {value: string};
+						timeZone?: {value?: string | null} | null;
 					}>;
 				};
 			};
@@ -289,6 +292,7 @@ export const getLatestLiveFormSubmission = (formName: string): Cypress.Chainable
 									name
 									path
 									created: property(name: "jcr:created") {value}
+									timeZone: property(name: "timeZone") {value}
 								}
 							}
 						}
@@ -311,6 +315,6 @@ export const getLatestLiveFormSubmission = (formName: string): Cypress.Chainable
 			throw new Error(`No form submissions found under ${submissionsRootPath}`);
 		}
 
-		return cy.wrap({name: submission.name, path: submission.path}, {log: false});
+		return cy.wrap({name: submission.name, path: submission.path, timeZone: submission.timeZone?.value ?? null}, {log: false});
 	});
 };

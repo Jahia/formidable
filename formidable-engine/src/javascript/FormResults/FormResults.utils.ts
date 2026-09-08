@@ -48,6 +48,7 @@ export interface SubmissionRow {
     origin: string | null;
     locale: string | null;
     referer: string | null;
+    timeZone: string | null;
     fieldValues: SubmissionFieldValue[];
     files: SubmissionFile[];
 }
@@ -128,6 +129,7 @@ export type GqlSubmissionNode = {
     origin?: {value?: string};
     locale?: {value?: string};
     referer?: {value?: string};
+    timeZone?: {value?: string};
     data?: {nodes?: Array<{properties?: SubmissionProperty[]}>};
     files?: {nodes?: Array<{children?: {nodes?: Array<{name: string; children?: {nodes?: GqlFileNode[]}}>}}>};
 } & Record<string, unknown>;
@@ -175,6 +177,7 @@ export function parseSubmissionNode(node: GqlSubmissionNode, fieldOrder: string[
         origin: node.origin?.value ?? null,
         locale: node.locale?.value ?? null,
         referer: node.referer?.value ?? null,
+        timeZone: node.timeZone?.value ?? null,
         fieldValues: sortByFormOrder(fieldValues, field => field.name, fieldOrder),
         files: sortByFormOrder(files, file => file.fieldName, fieldOrder)
     };
@@ -249,8 +252,13 @@ const DATETIME_VALUE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.
  * west of Greenwich) nor rejects them (02:30 on a spring-forward day does not exist in the
  * reader's zone but did where the submitter typed it). Anything that does not parse, and
  * every other field kind, is shown as stored.
+ *
+ * A datetime is followed by the submitter's time zone when the submission recorded one
+ * ("05/09/2026 12:53 (Europe/Paris)"): the value stays as typed, the zone says where 12:53
+ * applies. A date has no zone, and a submission without one (posted outside a browser, or
+ * stored before the zone was recorded) shows the value alone.
  */
-export function formatFieldValue(value: string, kind: FieldValueKind | undefined): string {
+export function formatFieldValue(value: string, kind: FieldValueKind | undefined, timeZone?: string | null): string {
     if (kind === 'date') {
         const date = wallClockDate(DATE_VALUE.exec(value));
         return date ? date.toLocaleDateString(undefined, {timeZone: 'UTC'}) : value;
@@ -258,7 +266,12 @@ export function formatFieldValue(value: string, kind: FieldValueKind | undefined
 
     if (kind === 'datetime') {
         const date = wallClockDate(DATETIME_VALUE.exec(value));
-        return date ? date.toLocaleString(undefined, {dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC'}) : value;
+        if (!date) {
+            return value;
+        }
+
+        const formatted = date.toLocaleString(undefined, {dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC'});
+        return timeZone ? `${formatted} (${timeZone})` : formatted;
     }
 
     return value;

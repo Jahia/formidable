@@ -109,6 +109,7 @@ Each `SubmissionRow` contains:
 | `origin` | `string \| null` | Submission origin |
 | `locale` | `string \| null` | Submission locale |
 | `referer` | `string \| null` | HTTP referer, still persisted when present |
+| `timeZone` | `string \| null` | The submitter's time zone (an IANA id such as `Europe/Paris`), when the browser declared one |
 | `fieldValues` | `SubmissionFieldValue[]` | Submitted form field values |
 | `files` | `SubmissionFile[]` | Uploaded file references with URLs |
 

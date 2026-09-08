@@ -63,6 +63,9 @@ export const GET_SUBMISSIONS = gql`
                     referer: property(name: "referer") {
                         value
                     }
+                    timeZone: property(name: "timeZone") {
+                        value
+                    }
                     data: children(names: ["data"]) {
                         nodes {
                             ...JcrNodeIdentity

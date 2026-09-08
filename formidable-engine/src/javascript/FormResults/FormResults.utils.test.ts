@@ -58,6 +58,25 @@ describe('formatFieldValue', () => {
     it('leaves the value of any other field kind as stored', () => {
         expect(formatFieldValue('2026-09-09', undefined)).toEqual('2026-09-09');
     });
+
+    it('follows a datetime value with the submitter\'s time zone when the submission recorded one', () => {
+        const expected = asTypedDateTime(2026, 9, 5, 12, 53);
+        expect(formatFieldValue('2026-09-05T12:53', 'datetime', 'Europe/Paris')).toEqual(`${expected} (Europe/Paris)`);
+        // A generic zone is still where the submitter was: shown as recorded.
+        expect(formatFieldValue('2026-09-05T12:53', 'datetime', 'UTC')).toEqual(`${expected} (UTC)`);
+    });
+
+    it('shows a datetime value alone when the submission recorded no zone', () => {
+        const expected = asTypedDateTime(2026, 9, 5, 12, 53);
+        expect(formatFieldValue('2026-09-05T12:53', 'datetime', null)).toEqual(expected);
+        expect(formatFieldValue('2026-09-05T12:53', 'datetime', undefined)).toEqual(expected);
+        expect(formatFieldValue('2026-09-05T12:53', 'datetime', '')).toEqual(expected);
+    });
+
+    it('never adds a zone to a date value or to a value that does not parse', () => {
+        expect(formatFieldValue('2026-09-09', 'date', 'Europe/Paris')).toEqual(asTypedDate(2026, 9, 9));
+        expect(formatFieldValue('yesterday', 'datetime', 'Europe/Paris')).toEqual('yesterday');
+    });
 });
 
 describe('parseFormFields', () => {

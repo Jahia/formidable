@@ -2,6 +2,17 @@ import {type FormEvent, type RefObject, useRef, useState} from 'react';
 import {fieldKindFromForm, interpolateMessage} from '~/utils/messageUtils';
 import {applyConditionalLogicVisibility, buildLogicStateHeader} from '~/utils/conditionalLogic';
 import {FORM_LOGIC_STATE_HEADER} from '~/utils/logicProviders';
+
+// The submitter's time zone travels with the submission like the locale does, for the results
+// to say where a typed date-time applies. The browser's own zone; none outside a browser.
+const TIME_ZONE_HEADER = 'X-Formidable-Time-Zone';
+const submitterTimeZone = (): string | undefined => {
+	try {
+		return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+	} catch {
+		return undefined;
+	}
+};
 import {type CaptchaHandle} from '~/components/Form/Captcha.client';
 
 interface SubmissionLabels {
@@ -109,6 +120,11 @@ export function useFormSubmission({
 
 				if (logicStateHeader) {
 					xhr.setRequestHeader(FORM_LOGIC_STATE_HEADER, logicStateHeader);
+				}
+
+				const timeZone = submitterTimeZone();
+				if (timeZone) {
+					xhr.setRequestHeader(TIME_ZONE_HEADER, timeZone);
 				}
 				xhr.withCredentials = true;
 				xhr.onload = () => resolve(xhr);

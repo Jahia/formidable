@@ -18,6 +18,7 @@ import javax.jcr.Value;
 import javax.servlet.http.HttpServletRequest;
 import java.io.ByteArrayInputStream;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.ZoneOffset;
 import java.util.Calendar;
@@ -40,6 +41,10 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WO
 public class SaveToJcrFormAction implements FormAction {
     private static final String RESULTS_ROOT_NAME = "formidable-results";
     private static final String SUBMISSION_ORIGIN = "formidable";
+    /** The submitter's time zone, sent by the form client as the browser reports it (an IANA zone id). */
+    static final String TIME_ZONE_HEADER = "X-Formidable-Time-Zone";
+    /** The longest IANA zone id is about 30 characters; anything past this is not a zone. */
+    private static final int MAX_TIME_ZONE_LENGTH = 64;
     private static final String SPLIT_CONFIG = "date,jcr:created,yyyy;date,jcr:created,MM;date,jcr:created,dd";
     private static final String SPLIT_NODE_TYPE = "fmdb:splittedSubmission";
     private static final String FILES_NODE_NAME = "files";
@@ -219,7 +224,26 @@ public class SaveToJcrFormAction implements FormAction {
         submission.setProperty("origin", SUBMISSION_ORIGIN);
         setOptionalProperty(submission, "locale", req.getParameter("lang"));
         setOptionalProperty(submission, "referer", req.getHeader("Referer"));
+        setOptionalProperty(submission, "timeZone", submitterTimeZone(req.getHeader(TIME_ZONE_HEADER)));
         return submission;
+    }
+
+    /**
+     * The submitter's time zone as the form client declares it — the zone the browser reports,
+     * sent in {@value #TIME_ZONE_HEADER} — kept only when it is a zone identifier the platform
+     * knows ({@code Europe/Paris}, {@code UTC}...): the header is under the client's control and
+     * the value is shown to editors, so anything else is dropped rather than stored. Null when the
+     * header is absent (a submission posted outside a browser) or not a known zone.
+     */
+    static String submitterTimeZone(String header) {
+        if (header == null) {
+            return null;
+        }
+        String candidate = header.trim();
+        if (candidate.isEmpty() || candidate.length() > MAX_TIME_ZONE_LENGTH || !ZoneId.getAvailableZoneIds().contains(candidate)) {
+            return null;
+        }
+        return candidate;
     }
 
     private static String buildSubmissionNodeName() {

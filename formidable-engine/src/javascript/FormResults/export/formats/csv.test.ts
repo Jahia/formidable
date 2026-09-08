@@ -12,6 +12,7 @@ const submission = (fieldValues: Array<{name: string; values: string[]}>): Submi
     origin: null,
     locale: 'en',
     referer: null,
+    timeZone: null,
     fieldValues,
     files: []
 });

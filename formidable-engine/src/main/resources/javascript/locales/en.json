@@ -158,7 +158,8 @@
 			"origin": "Origin",
 			"locale": "Locale",
 			"user": "User",
-			"referer": "Referer"
+			"referer": "Referer",
+			"timeZone": "Time zone"
 		},
 		"export": {
 			"title": "Export results",
