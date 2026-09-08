@@ -96,9 +96,12 @@ public class ActionSummaryService {
         // dependencies, then the platform's — whatever the bundle is named (the module declares it),
         // whatever its encoding (the platform reads it), and with the locale's fallbacks.
         JCRSiteNode site = action.getResolveSite();
-        String tooltip = resolveText(type.getTemplatePackage(), site != null ? site.getTemplatePackage() : null,
-                key + ".ui.tooltip", uiLocale);
-        return new TypeSummary(type.getName(), type.getLabel(uiLocale),
+        JahiaTemplatesPackage siteTemplates = site != null ? site.getTemplatePackage() : null;
+        String tooltip = resolveText(type.getTemplatePackage(), siteTemplates, key + ".ui.tooltip", uiLocale);
+        // The label too goes through the site's bundle first, as the editor resolves it; the type's own
+        // label (its module hierarchy only, cached per locale) is the fallback for a key found nowhere.
+        String label = resolveText(type.getTemplatePackage(), siteTemplates, key, uiLocale);
+        return new TypeSummary(type.getName(), StringUtils.isBlank(label) ? type.getLabel(uiLocale) : label,
                 StringUtils.isBlank(tooltip) ? null : tooltip, JCRContentUtils.getIconWithContext(type));
     }
 
