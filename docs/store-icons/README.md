@@ -7,17 +7,17 @@ tiles. Nothing in the modules reads these files.
 
 | Module | Tile | Glyph |
 |---|---|---|
-| formidable-elements | ![](formidable-elements.png) | the form: a clipboard with its fields |
-| formidable-engine | ![](formidable-engine.png) | a cog |
+| formidable-elements | ![](formidable-elements.png) | a form: its label, its field (blue), its button |
+| formidable-engine | ![](formidable-engine.png) | a gear, its hub blue |
 | formidable-extended-inputs | ![](formidable-extended-inputs.png) | three sliders |
 | formidable-jexperience-engine | ![](formidable-jexperience-engine.png) | an activity pulse |
 
 ## The family
 
 - The palette of Formidable's content-type icons (`fmdb:form`, `fmdb:fieldList`,
-  `fmdb:formReference`, `fmdb:actionList`…): slate `#1F2937` strokes with one accent in Jahia
-  blue `#00A0E3`, here on the white 125 × 125 rounded tile of the store (radius 22, a light
-  `#D1D5DB` edge so the tile reads on a white page).
+  `fmdb:formReference`, `fmdb:actionList`…) — slate `#1F2937`, one accent in Jahia blue
+  `#00A0E3` — turned into a store tile: the 125 × 125 rounded square (radius 22) is the slate,
+  the strokes are white, the accent stays blue.
 - The glyph: drawn on a 24-unit grid like every Formidable content-type icon (Lucide
   conventions: stroke 2, round caps and joins, no fill), scaled 3.5 times and centred. Hand-drawn
   SVG, no icon library.

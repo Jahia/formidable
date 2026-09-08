@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 125 125" width="125" height="125">
   <title>Formidable Extended Inputs: three sliders, their knobs in blue</title>
-  <rect x="1" y="1" width="123" height="123" rx="22" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="2"/>
-  <g transform="translate(20.5 20.5) scale(3.5)" fill="none" stroke="#1F2937" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="0" y="0" width="125" height="125" rx="22" fill="#1F2937"/>
+  <g transform="translate(20.5 20.5) scale(3.5)" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M3 5h10M17 5h4M3 12h4M11 12h10M3 19h12M19 19h2"/>
     <path d="M15 3v4M9 10v4M17 17v4" stroke="#00A0E3"/>
   </g>

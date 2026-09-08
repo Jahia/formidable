@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 125 125" width="125" height="125">
   <title>Formidable jExperience Engine: an activity pulse, its peak in blue</title>
-  <rect x="1" y="1" width="123" height="123" rx="22" fill="#FFFFFF" stroke="#D1D5DB" stroke-width="2"/>
-  <g transform="translate(20.5 20.5) scale(3.5)" fill="none" stroke="#1F2937" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="0" y="0" width="125" height="125" rx="22" fill="#1F2937"/>
+  <g transform="translate(20.5 20.5) scale(3.5)" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M2 12h4l3-9M15 21l3-9h4"/>
     <path d="M9 3l6 18" stroke="#00A0E3"/>
   </g>
