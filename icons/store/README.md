@@ -19,8 +19,9 @@ tiles. Nothing in the modules reads these files.
   `#00A0E3` — turned into a store tile: the 125 × 125 rounded square (radius 22) is the slate,
   the strokes are white, the accent stays blue.
 - The glyph: drawn on a 24-unit grid like every Formidable content-type icon (Lucide
-  conventions: stroke 2, round caps and joins, no fill), scaled 3.5 times and centred. Hand-drawn
-  SVG, no icon library.
+  conventions: round caps and joins, no fill), scaled 4.2 times and centred, with strokes of 2.4
+  (3 for the blue accent) rather than 2: the modules list of Jahia shows the tile at about 40
+  pixels, where a thinner or smaller glyph blurs away. Hand-drawn SVG, no icon library.
 
 ## Regenerating a PNG from its SVG
 
