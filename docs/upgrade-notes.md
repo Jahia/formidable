@@ -3,6 +3,45 @@
 Manual steps required when upgrading between specific versions. Most upgrades
 are in-place module installs; only the transitions listed here need attention.
 
+## 0.4.x → 0.5.0: the configuration file is deployed with the module
+
+**Automatic on most installations — check your settings if the module was configured through
+the Felix console.**
+
+### What changes
+
+The module now ships its configuration file. At the first start of 0.5.0, Jahia copies it to
+`karaf/etc/org.jahia.modules.formidable.cfg` — unless a file with that name exists — and
+fileinstall loads it. Every setting is in it, commented, at its default. From now on the file is
+the one place the module is configured from: edit it, or use the provisioning API; fileinstall
+applies a change without a restart. The Felix console is no longer a good tool for it: it
+rewrites the whole file in a typed syntax the file format does not read back.
+
+### Who is affected
+
+- **Configured through the provisioning API** (`editConfiguration`) before 0.5: not affected.
+  The API wrote `karaf/etc/org.jahia.modules.formidable.cfg` itself, so the deployed file is not
+  copied over it and your values stay. You do not get the commented file; the defaults it
+  documents are in the module's documentation.
+- **Configured through the Felix console** (or directly in ConfigAdmin) before 0.5: those
+  settings lived in no file, and the deployed file replaces them with its defaults. On a running
+  server the module detects the switch and writes the settings back into the file — the log
+  shows `carried over into the file:` with their names. The detection is a race the module can
+  lose: fileinstall loads the copied file a second or two after Jahia copies it, and when the
+  module starts after that, the first configuration it sees already comes from the file, exactly
+  like a fresh install. That is the usual case after an upgrade done while Jahia was stopped, and
+  possible on a running server. A warning at startup then points at the file, created or changed moments before.
+- **Never configured**: nothing to do.
+
+### How to check
+
+Open `karaf/etc/org.jahia.modules.formidable.cfg` after the upgrade. If your instance had CAPTCHA
+keys, forward targets, option sources or upload limits and the file shows them at their
+defaults, re-enter them in the file (or through the provisioning API). The log has the trace
+either way: `carried over into the file:` when the module did it, `Gave up carrying … over` when
+it tried and could not (the file's values are then in force), the startup warning when the file
+was loaded before the module started.
+
 ## 0.3.0 (and earlier) → 0.4.0: formidable-elements must be reinstalled
 
 **Manual procedure required** — this is the only step of the 0.4.0 upgrade
