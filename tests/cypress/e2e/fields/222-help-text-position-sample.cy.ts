@@ -132,10 +132,8 @@ describe('Form fields - 222 Help text position (third-party sample)', () => {
 				input.getContainer().find('.fmdb-form-help').should('have.length', 1);
 				input.getInput().prev().should('have.class', 'fmdb-form-help');
 				// The built-in contract of a text input is kept by the third-party view.
-				input.getInput()
-					.should('have.class', 'fmdb-form-control')
-					.and('have.attr', 'name', field.name)
-					.invoke('attr', 'id').should('match', /^input-/);
+				input.getInput().should('have.class', 'fmdb-form-control').and('have.attr', 'name', field.name);
+				input.getInput().invoke('attr', 'id').should('match', /^input-/);
 			});
 
 			// Below: the single help block follows the control, still the one it is described by.
@@ -153,12 +151,13 @@ describe('Form fields - 222 Help text position (third-party sample)', () => {
 			both.getContainer().find('.fmdb-form-help').should('have.length', 2).each($help => {
 				expect($help.text(), 'help text of each block').to.equal(HELP);
 			});
-			both.getInput().prev().should('have.class', 'fmdb-form-help')
-				.and('not.have.attr', 'aria-hidden')
-				.invoke('attr', 'id').then(helpId => {
-					expect(helpId, 'id of the described block').to.match(/^help-/);
-					both.getInput().should('have.attr', 'aria-describedby', helpId);
-				});
+			// (Cypress: `have.attr` with the name alone yields the attribute's value, so the id is read
+			// on a fresh query rather than chained after the aria-hidden assertion.)
+			both.getInput().prev().should('have.class', 'fmdb-form-help').and('not.have.attr', 'aria-hidden');
+			both.getInput().prev().invoke('attr', 'id').then(helpId => {
+				expect(helpId, 'id of the described block').to.match(/^help-/);
+				both.getInput().should('have.attr', 'aria-describedby', helpId);
+			});
 			both.getInput().next().should('have.class', 'fmdb-form-help')
 				.and('have.attr', 'aria-hidden', 'true')
 				.and('not.have.attr', 'id');
