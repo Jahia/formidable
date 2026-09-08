@@ -8,6 +8,7 @@ Cypress project for the Formidable modules. It targets a running Jahia instance
 ```bash
 yarn e2e:ci      # full headless run (what CI executes)
 yarn e2e:debug   # interactive Cypress runner
+yarn typecheck   # type-checks the whole suite (specs, support, page objects) in a second
 ```
 
 ## Manual-testing playground

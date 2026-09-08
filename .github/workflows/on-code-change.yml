@@ -28,6 +28,13 @@ jobs:
         with:
           node_version: 22
           auditci_level: critical
+      # The Cypress specs are type-checked here rather than after a forty-minute integration run (#280).
+      - uses: jdx/mise-action@v4
+      - name: Type-check the Cypress suite
+        working-directory: tests
+        run: |
+          yarn install --immutable
+          yarn typecheck
 
   build:
     name: Build Module
