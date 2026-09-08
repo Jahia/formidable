@@ -309,16 +309,25 @@ module starts without it, and never overwrites the copy afterwards (its first li
 `# default configuration` marker the extender looks for), so edits made in the file or through the
 provisioning API (`editConfiguration`) are kept. Avoid the Felix Web Console for this PID: it
 rewrites the file in a typed syntax (`L"5"`, quoted strings) that a `.cfg` file does not read back.
-Upgrading an installation configured before the file existed (0.4 and earlier): that first copy
-would reset the configuration to the defaults, so the engine spots the switch (the configuration
-gains its `felix.fileinstall.filename`) and writes the previous settings back into the file, as
-strings. Until that write comes back through the file, the settings in force stay the previous
-ones (no window on the defaults); the write is kept pending until it succeeds (ConfigurationAdmin
-bound later, a failed update), a retry leaves alone any setting edited in the meantime, and the
-logs name the settings, never their values. Limit: fileinstall loads the copied file one to two
-seconds after the module is resolved; the previous settings are only seen when the engine's
-components activated before that, which is the case when the module is installed or upgraded on
-a running server. Check the engine's log for "carried over into the file" after such an upgrade.
+Upgrading an installation configured before the file existed (0.4 and earlier) through the
+Felix console or directly in ConfigAdmin — not through the provisioning API, which writes the
+`karaf/etc` file itself, so that configuration came from a file from the start and keeps it: that
+first copy would reset the configuration to the defaults, so the engine spots the switch (the
+configuration gains its `felix.fileinstall.filename`) and writes the previous settings back into
+the file, as strings. Until that write comes back through the file, the settings in force stay
+the previous ones (no window on the defaults); the write is kept pending while it fails
+(ConfigurationAdmin bound later, a failed update) — three attempts, after which the file's values
+are declared in force and an error names the settings to re-enter, rather than keeping every
+later edit of the file from applying; a retry leaves alone any setting edited before it (an edit
+landing in the very instant of the write would be overwritten — the configuration's change
+counter tells, and a warning says so), and the logs name the settings, never their values.
+Limit: fileinstall loads the copied file one to two seconds after the module is resolved; the
+previous settings are only seen when the engine's components activate before that — usual on a
+running server, not guaranteed, and never after an upgrade done while Jahia was stopped. A miss
+looks exactly like a fresh install to the engine, so a first activation that already comes from a
+freshly copied file is reported with a warning naming the file. Check the engine's log for
+"carried over into the file" after such an upgrade, and see
+[docs/upgrade-notes.md](upgrade-notes.md) for who is affected and how to check.
 
 ### Why the parser uses `Tika.detect(byte[], String)`
 

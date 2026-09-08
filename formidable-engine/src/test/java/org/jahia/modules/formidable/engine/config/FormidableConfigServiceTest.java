@@ -698,4 +698,46 @@ class FormidableConfigServiceTest {
             return FormidableConfig.class;
         }
     }
+
+    @Test
+    void carryOverGivesUpAfterThreeFailedAttemptsAndLetsTheFileRule() throws IOException {
+        // An update that keeps failing must not keep every later edit of the file from applying.
+        FormidableConfigService service = new FormidableConfigService();
+        ConfigurationAdmin admin = mock(ConfigurationAdmin.class);
+        Configuration configuration = configurationHolding(admin);
+        doThrow(new IOException("read-only")).when(configuration).update(any());
+        service.setConfigurationAdmin(admin);
+
+        service.configure(new TestFormidableConfig(LEGACY_TARGETS, false, ""), LEGACY_PROPERTIES);
+        service.configure(new TestFormidableConfig("", false, ""), FILE_PROPERTIES);
+        service.configure(new TestFormidableConfig("", false, ""), FILE_PROPERTIES);
+        // Two failures so far: the legacy target is still in force.
+        assertTrue(service.resolveForwardTarget("crm01").isPresent());
+
+        // The third failure is the last attempt: the file's values (no target) rule from now on...
+        service.configure(new TestFormidableConfig("", false, ""), FILE_PROPERTIES);
+        verify(configuration, times(FormidableConfigService.MAX_WRITE_BACK_ATTEMPTS)).update(any());
+        assertTrue(service.resolveForwardTarget("crm01").isEmpty());
+
+        // ...and a later edit of the file applies, with no further write attempt.
+        service.configure(new TestFormidableConfig(EDITED_TARGETS, false, ""), EDITED_FILE_PROPERTIES);
+        verify(configuration, times(FormidableConfigService.MAX_WRITE_BACK_ATTEMPTS)).update(any());
+        assertTrue(service.resolveForwardTarget("other").isPresent());
+    }
+
+    @Test
+    void aFirstActivationFromAFreshlyCopiedFileIsReportedAndActivated() throws IOException {
+        // The miss the carry-over cannot see: the file was loaded before the component started.
+        java.nio.file.Path file = java.nio.file.Files.createTempFile("org.jahia.modules.formidable", ".cfg");
+        try {
+            FormidableConfigService service = new FormidableConfigService();
+            Map<String, Object> properties = Map.of(
+                    LegacyConfigurationCarryOver.FILEINSTALL_FILENAME, file.toUri().toString(),
+                    "forwardTargets", "");
+            service.configure(new TestFormidableConfig("", false, ""), properties);
+            assertTrue(service.getForwardTargets().isEmpty());
+        } finally {
+            java.nio.file.Files.deleteIfExists(file);
+        }
+    }
 }

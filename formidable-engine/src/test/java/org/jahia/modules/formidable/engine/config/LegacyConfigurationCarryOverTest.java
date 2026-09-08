@@ -5,7 +5,9 @@ import org.junit.jupiter.api.Test;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LegacyConfigurationCarryOverTest {
@@ -61,5 +63,25 @@ class LegacyConfigurationCarryOverTest {
         previous.put("component.id", 42);
 
         assertTrue(LegacyConfigurationCarryOver.settingsToCarryOver(previous, fromFile("", "")).isEmpty());
+    }
+
+    @Test
+    void attributeIdsFollowTheMetatypeNameMangling() {
+        assertEquals("forwardTargets", LegacyConfigurationCarryOver.attributeId("forwardTargets"));
+        assertEquals("my.setting", LegacyConfigurationCarryOver.attributeId("my_setting"));
+        assertEquals("my_setting", LegacyConfigurationCarryOver.attributeId("my__setting"));
+        assertEquals("my-setting", LegacyConfigurationCarryOver.attributeId("my$_$setting"));
+        assertEquals("my$setting", LegacyConfigurationCarryOver.attributeId("my$$setting"));
+        assertEquals("mysetting", LegacyConfigurationCarryOver.attributeId("my$setting"));
+    }
+
+    @Test
+    void multiValuedSettingsCompareAndWriteByTheirElements() {
+        assertEquals(LegacyConfigurationCarryOver.asText(new String[] {"a", "b"}),
+                LegacyConfigurationCarryOver.asText(new String[] {"a", "b"}));
+        assertNotEquals(LegacyConfigurationCarryOver.asText(new String[] {"a"}),
+                LegacyConfigurationCarryOver.asText(new String[] {"b"}));
+        assertArrayEquals(new String[] {"1", "2"}, (String[]) LegacyConfigurationCarryOver.asStrings(new Object[] {1L, 2L}));
+        assertEquals("7", LegacyConfigurationCarryOver.asStrings(7L));
     }
 }
