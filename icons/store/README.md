@@ -21,14 +21,12 @@ tiles. Nothing in the modules reads these files.
 - The glyph: drawn on a 24-unit grid like every Formidable content-type icon (Lucide
   conventions: stroke 2, round caps and joins, no fill), scaled 3.5 times and centred. Hand-drawn
   SVG, no icon library.
-- `*-gold.png`: a first take on the gold of the Page Builder boxes (`#a8945f`, white glyph),
-  kept as the alternative; the SVG sources are the slate-and-blue family.
 
 ## Regenerating a PNG from its SVG
 
 The SVG is the source; the PNG is what the store takes.
 
 ```bash
-cd docs/store-icons
+cd icons/store
 convert -background none -density 384 formidable-elements.svg -resize 125x125 formidable-elements.png
 ```
