@@ -254,3 +254,30 @@ Use these implementations as references:
 - `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/email/SendEmailNotificationFormAction.java`
 - `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/forward/ForwardSubmissionFormAction.java`
 - `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/storage/SaveToJcrFormAction.java`
+
+## What the Page Builder shows about your action
+
+A form placed on a page lists its actions in an authoring zone (edit mode only), one card per
+action: the type icon, the title, the action's *key parameter* and, smaller, the type description.
+All of it comes from your declarations, nothing to register, and all of it is resolved the way
+the Content Editor resolves it — in the editor's UI language, through the platform:
+
+- **icon**: `icons/<type>.png` in your module, the one the Content Editor shows; a type shipping
+  none gets a supertype's, `fmdbmix:formAction`'s in the end, as everywhere else in jContent;
+- **description**: the `<type>.ui.tooltip` key of your resource bundle — the bundle your module
+  declares, whatever its name and encoding, with a site's own rewording of the key honoured first,
+  as in the editor;
+- **key parameter**: the first property your type declares in its own CND after `jcr:title` — a
+  re-declaration of a property inherited from one of your mixins counts, a property merely
+  inherited does not — that a contributor reads at a glance: a single string edited as a small
+  text or a `choicelist` (shown by its label). Long texts, flags, numbers, references and
+  multi-valued properties are skipped, and so is a type that declares nothing telling (Save to
+  JCR). Order your CND so that the property that tells two instances of your action apart comes
+  first.
+
+To shape your own card instead, register a `hidden.authoring` view on your action type in a
+JavaScript module: Formidable's card view sits below the default priority, so yours wins at the
+default one (the engine picks among the candidate views of a node — its type's and its mixins' —
+by priority first, then by module name). A view in a Java module cannot take the card over:
+JavaScript views are resolved ahead of JSP ones.
+

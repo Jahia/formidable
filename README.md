@@ -83,6 +83,7 @@ The current release includes the ability to:
 ### Current known limitations
 - When selecting a field, users don't know what it will look like. This pain point will be addressed globally inside Jahia in 2026.
 - Forms embedded in a page can be edited through Page Builder (each element gets its own
-  box), but forms cannot yet be created or authored in Page Builder mode from jContent's
+  box, and the form's actions are listed under it with their own **New Form Action**
+  button), but forms cannot yet be created or authored in Page Builder mode from jContent's
   Content Folders — that is targeted for 1.0. Until then, form authoring happens in
   jContent's list or structured view.
