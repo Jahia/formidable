@@ -1,5 +1,5 @@
 {
-	"nodeType": "fmdb:inputText",
+	"nodeType": "fmdbsamplemix:helpTextPosition",
 	"priority": 2.0,
 	"sections": [
 		{
@@ -8,7 +8,7 @@
 				{
 					"name": "<main>",
 					"fields": [
-						{ "name": "helpTextPosition", "rank": 1.5 }
+						{ "name": "helpTextPosition", "rank": 1.4 }
 					]
 				},
 				{

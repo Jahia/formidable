@@ -282,40 +282,43 @@ This is intentionally similar to Formidable's built-in `fmdb:inputText`.
 
 ## Case 4: add a contributor setting to a built-in field, in the field's own form
 
-Sometimes the field type is fine and only one rendering choice is missing — the sample
-module `formidable-test-module-samples-tsx` lets the contributor place a text input's help
-text above the field (the built-in rendering), below it, or in both places. Three pieces,
-none of them in Formidable itself:
+Sometimes the field types are fine and only one rendering choice is missing — the sample
+module `formidable-test-module-samples-tsx` lets the contributor place a field's help text
+above the field (the built-in rendering), below it, or in both places. Three pieces, none of
+them in Formidable itself:
 
-**1. A mixin extending the built-in type** carries the setting. `extends` (not a supertype)
-is what a third-party CND can do to a type it does not own:
+**1. A mixin extending the built-in types** carries the setting. `extends` (not a supertype)
+is what a third-party CND can do to types it does not own, and it takes a list. `helpText` is
+declared by each concrete field type, not by `fmdbmix:element`, so the list names every type
+that has one:
 
 ```cnd
 [fmdbsamplemix:helpTextPosition] mixin
- extends = fmdb:inputText
+ extends = fmdb:inputText, fmdb:inputEmail, fmdb:textarea, fmdb:inputNumber, fmdb:inputRange, fmdb:inputDate, fmdb:inputDatetimeLocal, fmdb:inputColor, fmdb:inputFile, fmdb:checkbox, fmdb:radio, fmdb:select
  itemtype = content
  - helpTextPosition (string, choicelist[resourceBundle]) = 'up' autocreated indexed=no < 'up', 'down', 'both'
 ```
 
-The value labels come from your module's bundle, keyed
-`fmdbsamplemix_helpTextPosition.helpTextPosition.<value>`.
+Every type named must exist when your module deploys — the sample leaves out the optional
+types of `formidable-extended-inputs` because it does not depend on that module. The value
+labels come from your module's bundle, keyed `fmdbsamplemix_helpTextPosition.helpTextPosition.<value>`.
 
 **2. A form override puts the setting where the contributor expects it.** Left alone, an
 `extends` mixin shows up in the Content Editor as a fieldset of its own, behind an enable
-switch. The override below (`settings/jahia-content-editor-forms/forms/fmdb_inputText.json`,
-named after the *built-in* type) moves the field into the text input's own fieldset — `<main>`
-— right under Help text, and keeps the mixin always activated so the value is saved without
-a switch to flip:
+switch. One override, on the mixin itself
+(`settings/jahia-content-editor-forms/forms/fmdbsamplemix_helpTextPosition.json`), moves the
+field into the edited field's own fieldset — `<main>` — right under Help text, and keeps the
+mixin always activated so the value is saved without a switch to flip:
 
 ```json
 {
-  "nodeType": "fmdb:inputText",
+  "nodeType": "fmdbsamplemix:helpTextPosition",
   "priority": 2.0,
   "sections": [
     {
       "name": "content",
       "fieldSets": [
-        { "name": "<main>", "fields": [{ "name": "helpTextPosition", "rank": 1.5 }] },
+        { "name": "<main>", "fields": [{ "name": "helpTextPosition", "rank": 1.4 }] },
         { "name": "fmdbsamplemix:helpTextPosition", "isAlwaysActivated": true }
       ]
     }
@@ -323,12 +326,14 @@ a switch to flip:
 }
 ```
 
-How the rank reads: the fields of `<main>` are ranked 1, 2, 3… in declaration order,
-`helpText` being the first declared property of the field types (title and system name sit
-before it with their own, lower ranks), so 1.5 lands between Help text and Required. Any
-field of the form can be pulled into `<main>` this way, whichever fieldset declared it.
-With the mixin always activated, every text input saved in the editor gets it — acceptable
-for a sample, a deliberate choice for a product module.
+How it reads: `<main>` in an override means the fieldset of the type being edited, whichever
+form declares the override — so this single file serves the twelve types the mixin extends.
+Any field of the form can be pulled into `<main>` this way, whichever fieldset declared it.
+The fields of `<main>` are ranked 1, 2, 3… in declaration order and `helpText` is the first
+declared property of every field type (title and system name sit before it with lower ranks),
+so 1.4 lands right after Help text — before Required, and before the options mode the choice
+fields already place at 1.5. With the mixin always activated, every extended field saved in
+the editor gets it — acceptable for a sample, a deliberate choice for a product module.
 
 **3. A view honouring the setting**, registered on the built-in type under its own name so
 the contributor picks it in the View chooser (`fmdb:inputText` is renderable, like every

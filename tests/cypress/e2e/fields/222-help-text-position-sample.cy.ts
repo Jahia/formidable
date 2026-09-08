@@ -4,6 +4,7 @@ import {
 	createPublishedLiveFormPage,
 	FORMIDABLE_TEST_SITE,
 	getInputTextNode,
+	getSelectNode,
 	visitLiveForm
 } from '../../support/fixtures';
 import type {JahiaNode} from '../../support/fixtures';
@@ -28,10 +29,28 @@ const FIELDS = {
 	none: {name: 'helpNone', title: 'No help'}
 };
 
-/** A text input rendered by the sample view, the help text where the contributor put it. */
-const withHelpTextPosition = (node: JahiaNode, position?: HelpTextPosition): JahiaNode => {
-	node.mixins = [...(node.mixins ?? []), 'jmix:renderable', ...(position ? [POSITION_MIXIN] : [])];
-	node.properties.push({name: 'j:view', value: SAMPLE_VIEW});
+// The mixin extends every built-in field type with a help text, not the text input alone.
+const SELECT_FIELD = {
+	name: 'helpSelect',
+	title: 'Help on a select',
+	helpText: HELP,
+	options: [{value: 'one', label: 'One', selected: false}]
+};
+
+/**
+ * A field carrying the sample setting; a text input is also rendered by the sample view (the one
+ * view honouring the setting), the help text where the contributor put it.
+ */
+const withHelpTextPosition = (node: JahiaNode, position?: HelpTextPosition, sampleView = true): JahiaNode => {
+	node.mixins = [
+		...(node.mixins ?? []),
+		...(sampleView ? ['jmix:renderable'] : []),
+		...(position ? [POSITION_MIXIN] : [])
+	];
+	if (sampleView) {
+		node.properties.push({name: 'j:view', value: SAMPLE_VIEW});
+	}
+
 	if (position) {
 		node.properties.push({name: 'helpTextPosition', value: position});
 	}
@@ -84,12 +103,13 @@ interface EditFormResponse {
 }
 
 /**
- * A third-party module adds a setting to the built-in text input — where its help text goes —
- * and a view honouring it: above the field (the built-in rendering), below it, or in both
- * places. The setting is a mixin the module's own form override surfaces inside the text
- * input's own editor fieldset, right under Help text, and keeps in force without a switch; the
- * view is picked per field through the View chooser. Whatever the placement, the control keeps
- * describing one help block for assistive technology; the repeat of "both" is decorative.
+ * A third-party module adds a setting to every built-in field with a help text — where that
+ * help goes: above the field (the built-in rendering), below it, or in both places — and one
+ * view honouring it, on the text input. The setting is a mixin the module's own form override
+ * surfaces inside each field's own editor fieldset, right under Help text, and keeps in force
+ * without a switch; the view is picked per field through the View chooser. Whatever the
+ * placement, the control keeps describing one help block for assistive technology; the repeat
+ * of "both" is decorative.
  */
 describe('Form fields - 222 Help text position (third-party sample)', () => {
 	useFormidableSite();
@@ -153,35 +173,43 @@ describe('Form fields - 222 Help text position (third-party sample)', () => {
 		});
 	});
 
-	it('offers the position right under the help text in the editor, without a switch', () => {
+	it('offers the position right under the help text in the editor of every field, without a switch', () => {
 		createPublishedLiveFormPage('help-text-position-editor-form', 'Help Text Position Editor Form', [
-			withHelpTextPosition(getInputTextNode(FIELDS.up), 'up')
+			withHelpTextPosition(getInputTextNode(FIELDS.up), 'up'),
+			withHelpTextPosition(getSelectNode(SELECT_FIELD), 'down', false)
 		]).then(({formPath}) => {
-			cy.apollo({
-				query: EDIT_FORM,
-				variables: {path: `${formPath}/fields/${FIELDS.up.name}`}
-			}).then((response: EditFormResponse) => {
-				expect(response.errors, 'GraphQL errors for the edit form').to.be.undefined;
+			// One form override, on the mixin, serves every type it extends: its <main> fieldset
+			// resolves to the edited type's own fieldset.
+			[
+				{name: FIELDS.up.name, type: 'fmdb:inputText'},
+				{name: SELECT_FIELD.name, type: 'fmdb:select'}
+			].forEach(({name, type}) => {
+				cy.apollo({
+					query: EDIT_FORM,
+					variables: {path: `${formPath}/fields/${name}`}
+				}).then((response: EditFormResponse) => {
+					expect(response.errors, `GraphQL errors for the edit form of ${type}`).to.be.undefined;
 
-				const sections = response.data?.forms?.editForm?.sections ?? [];
-				const content = sections.find(section => section.name === 'content');
-				const main = content?.fieldSets.find(fieldSet => fieldSet.name === 'fmdb:inputText');
-				const names = main?.fields.map(field => field.name) ?? [];
+					const sections = response.data?.forms?.editForm?.sections ?? [];
+					const content = sections.find(section => section.name === 'content');
+					const main = content?.fieldSets.find(fieldSet => fieldSet.name === type);
+					const names = main?.fields.map(field => field.name) ?? [];
 
-				// Surfaced in the text input's own fieldset, right after Help text.
-				expect(names, 'fields of the text input fieldset').to.include('helpText');
-				expect(names[names.indexOf('helpText') + 1], 'field under Help text').to.equal('helpTextPosition');
+					// Surfaced in the field's own fieldset, right after Help text.
+					expect(names, `fields of the ${type} fieldset`).to.include('helpText');
+					expect(names[names.indexOf('helpText') + 1], `field under Help text of ${type}`).to.equal('helpTextPosition');
 
-				// Its own fieldset holds nothing any more: no switch to flip before the setting shows.
-				const own = content?.fieldSets.find(fieldSet => fieldSet.name === POSITION_MIXIN);
-				expect(own?.fields ?? [], 'fields left in the mixin fieldset').to.be.empty;
+					// The mixin's own fieldset holds nothing any more: no switch to flip before the setting shows.
+					const own = content?.fieldSets.find(fieldSet => fieldSet.name === POSITION_MIXIN);
+					expect(own?.fields ?? [], `fields left in the mixin fieldset of ${type}`).to.be.empty;
 
-				// The choices, labelled from the sample module's bundle.
-				const position = main?.fields.find(field => field.name === 'helpTextPosition');
-				expect(position?.valueConstraints?.map(constraint => constraint.value?.string), 'values')
-					.to.deep.equal(['up', 'down', 'both']);
-				expect(position?.valueConstraints?.map(constraint => constraint.displayValue), 'labels')
-					.to.deep.equal(['Above the field', 'Below the field', 'Above and below the field']);
+					// The choices, labelled from the sample module's bundle.
+					const position = main?.fields.find(field => field.name === 'helpTextPosition');
+					expect(position?.valueConstraints?.map(constraint => constraint.value?.string), `values for ${type}`)
+						.to.deep.equal(['up', 'down', 'both']);
+					expect(position?.valueConstraints?.map(constraint => constraint.displayValue), `labels for ${type}`)
+						.to.deep.equal(['Above the field', 'Below the field', 'Above and below the field']);
+				});
 			});
 		});
 	});
