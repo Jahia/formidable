@@ -2,12 +2,13 @@
 
 This guide explains how to extend Formidable rendering from another Jahia module.
 
-It covers two different cases:
+It covers three different cases:
 
 1. adding a new view for an existing Formidable node type
 2. adding a new custom form element type
+3. adding a contributor setting to a built-in field, shown in that field's own editor form
 
-These two cases do not follow the same rendering contract.
+The first two cases do not follow the same rendering contract.
 
 ## Module dependencies
 
@@ -278,6 +279,69 @@ jahiaComponent(
 ```
 
 This is intentionally similar to Formidable's built-in `fmdb:inputText`.
+
+## Case 4: add a contributor setting to a built-in field, in the field's own form
+
+Sometimes the field type is fine and only one rendering choice is missing — the sample
+module `formidable-test-module-samples-tsx` lets the contributor place a text input's help
+text above the field (the built-in rendering), below it, or in both places. Three pieces,
+none of them in Formidable itself:
+
+**1. A mixin extending the built-in type** carries the setting. `extends` (not a supertype)
+is what a third-party CND can do to a type it does not own:
+
+```cnd
+[fmdbsamplemix:helpTextPosition] mixin
+ extends = fmdb:inputText
+ itemtype = content
+ - helpTextPosition (string, choicelist[resourceBundle]) = 'up' autocreated indexed=no < 'up', 'down', 'both'
+```
+
+The value labels come from your module's bundle, keyed
+`fmdbsamplemix_helpTextPosition.helpTextPosition.<value>`.
+
+**2. A form override puts the setting where the contributor expects it.** Left alone, an
+`extends` mixin shows up in the Content Editor as a fieldset of its own, behind an enable
+switch. The override below (`settings/jahia-content-editor-forms/forms/fmdb_inputText.json`,
+named after the *built-in* type) moves the field into the text input's own fieldset — `<main>`
+— right under Help text, and keeps the mixin always activated so the value is saved without
+a switch to flip:
+
+```json
+{
+  "nodeType": "fmdb:inputText",
+  "priority": 2.0,
+  "sections": [
+    {
+      "name": "content",
+      "fieldSets": [
+        { "name": "<main>", "fields": [{ "name": "helpTextPosition", "rank": 1.5 }] },
+        { "name": "fmdbsamplemix:helpTextPosition", "isAlwaysActivated": true }
+      ]
+    }
+  ]
+}
+```
+
+How the rank reads: the fields of `<main>` are ranked 1, 2, 3… in declaration order,
+`helpText` being the first declared property of the field types (title and system name sit
+before it with their own, lower ranks), so 1.5 lands between Help text and Required. Any
+field of the form can be pulled into `<main>` this way, whichever fieldset declared it.
+With the mixin always activated, every text input saved in the editor gets it — acceptable
+for a sample, a deliberate choice for a product module.
+
+**3. A view honouring the setting**, registered on the built-in type under its own name so
+the contributor picks it in the View chooser (`fmdb:inputText` is renderable, like every
+`jnt:content`), as the fieldset samples do. The sample is
+`src/components/Input/Text/helpTextPosition.server.tsx`; it reads `helpTextPosition`
+(absent until the node was saved with the mixin — default to the built-in placement) and
+keeps the HTML conventions below. One accessibility point when the help is shown twice: the
+control describes a single block (`aria-describedby` → `help-<nodeId>`); the repeat after
+the field has no id and `aria-hidden="true"`, so a screen reader hears the help once.
+
+Views are resolved on the primary type first, then on the node's mixins: a view registered
+on the mixin under a name the built-in type already has would only be a fallback, which is
+why the sample registers its view on `fmdb:inputText` under a new name.
 
 ## HTML conventions for custom fields
 

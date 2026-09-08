@@ -10,3 +10,14 @@
  extends = fmdb:fieldset
  itemtype = fmdbSampleStyle
  - customCssClassname (string) multiple indexed=no
+
+// Lets the contributor place a text input's help text above the field (the built-in
+// rendering), below it, or in both places. Read by the "Input text - Help text position"
+// view (src/components/Input/Text/helpTextPosition.server.tsx). Demonstrates a third-party
+// setting surfaced INSIDE the built-in type's own editor fieldset, right under the field it
+// qualifies (settings/jahia-content-editor-forms/forms/fmdb_inputText.json), rather than
+// in a section of its own.
+[fmdbsamplemix:helpTextPosition] mixin
+ extends = fmdb:inputText
+ itemtype = content
+ - helpTextPosition (string, choicelist[resourceBundle]) = 'up' autocreated indexed=no < 'up', 'down', 'both'
