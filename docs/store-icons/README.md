@@ -7,18 +7,22 @@ tiles. Nothing in the modules reads these files.
 
 | Module | Tile | Glyph |
 |---|---|---|
-| formidable-elements | ![](formidable-elements.png) | a form: label, field, button |
+| formidable-elements | ![](formidable-elements.png) | the form: a clipboard with its fields |
 | formidable-engine | ![](formidable-engine.png) | a cog |
 | formidable-extended-inputs | ![](formidable-extended-inputs.png) | three sliders |
 | formidable-jexperience-engine | ![](formidable-jexperience-engine.png) | an activity pulse |
 
 ## The family
 
-- The tile of the store: a 125 × 125 rounded square (radius 22), in Formidable's own colour —
-  the gold of its Page Builder boxes and step navigation, `#a8945f`.
-- The glyph: white, drawn on a 24-unit grid like every Formidable content-type icon (Lucide
+- The palette of Formidable's content-type icons (`fmdb:form`, `fmdb:fieldList`,
+  `fmdb:formReference`, `fmdb:actionList`…): slate `#1F2937` strokes with one accent in Jahia
+  blue `#00A0E3`, here on the white 125 × 125 rounded tile of the store (radius 22, a light
+  `#D1D5DB` edge so the tile reads on a white page).
+- The glyph: drawn on a 24-unit grid like every Formidable content-type icon (Lucide
   conventions: stroke 2, round caps and joins, no fill), scaled 3.5 times and centred. Hand-drawn
   SVG, no icon library.
+- `*-gold.png`: a first take on the gold of the Page Builder boxes (`#a8945f`, white glyph),
+  kept as the alternative; the SVG sources are the slate-and-blue family.
 
 ## Regenerating a PNG from its SVG
 
