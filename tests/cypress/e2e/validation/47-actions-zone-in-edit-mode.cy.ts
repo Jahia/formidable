@@ -28,7 +28,7 @@ const setForwardTargets = (lines: string): Cypress.Chainable => cy.runProvisioni
  * choicelist gives it (the forward target's), a third-party action (the test module's) gets
  * its card the same way, from what its own module declares for the Content Editor. A form
  * without any action is called out, since its submissions go nowhere. Nothing of the zone
- * exists in live, not even when its views are requested directly.
+ * exists in live, not even when its views are requested directly, as fragments.
  */
 describe('Validation - 47 Form actions zone in the Page Builder', () => {
 	useFormidableSite();
@@ -94,9 +94,11 @@ describe('Validation - 47 Form actions zone in the Page Builder', () => {
 			});
 
 			// The authoring views guard themselves: asked for directly in live, they render — successfully —
-			// nothing of the zone. The status is checked too: an error page would lack the markup as well.
+			// nothing of the zone. Asked for as fragments (.ajax): a plain render URL names a page
+			// template after the view and is a 404 before the view ever runs. The status is checked too:
+			// an error page would lack the markup as well.
 			[`${formPath}/actions`, `${formPath}/actions/notifySales`].forEach(path => {
-				cy.request(`/cms/render/live/en${path}.hidden.authoring.html`).then(response => {
+				cy.request(`/cms/render/live/en${path}.hidden.authoring.html.ajax`).then(response => {
 					expect(response.status, `live render of ${path}`).to.equal(200);
 					expect(response.body, `live body of ${path}`).not.to.contain('fmdb-authoring-action');
 				});
