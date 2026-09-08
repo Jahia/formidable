@@ -95,17 +95,22 @@ public class ActionSummaryService {
         // rewording a label sees its text in both places), then the type's module and its
         // dependencies, then the platform's — whatever the bundle is named (the module declares it),
         // whatever its encoding (the platform reads it), and with the locale's fallbacks.
-        JahiaTemplatesPackage module = type.getTemplatePackage();
         JCRSiteNode site = action.getResolveSite();
-        JahiaTemplatesPackage siteTemplates = site != null ? site.getTemplatePackage() : null;
-        String tooltipKey = key + ".ui.tooltip";
-        String tooltip = siteTemplates != null && module != null
-                ? Messages.get(siteTemplates.getResourceBundleName(), module, tooltipKey, uiLocale, "")
-                : module != null
-                        ? Messages.get(module, tooltipKey, uiLocale, "")
-                        : Messages.getTypes(tooltipKey, uiLocale, "");
+        String tooltip = resolveText(type.getTemplatePackage(), site != null ? site.getTemplatePackage() : null,
+                key + ".ui.tooltip", uiLocale);
         return new TypeSummary(type.getName(), type.getLabel(uiLocale),
                 StringUtils.isBlank(tooltip) ? null : tooltip, JCRContentUtils.getIconWithContext(type));
+    }
+
+    /** A key through the editor's bundle chain: the site's bundle first, then the module's; the platform's types as last resort. */
+    private static String resolveText(JahiaTemplatesPackage module, JahiaTemplatesPackage siteTemplates, String key, Locale locale) {
+        if (module == null) {
+            return Messages.getTypes(key, locale, "");
+        }
+        if (siteTemplates == null) {
+            return Messages.get(module, key, locale, "");
+        }
+        return Messages.get(siteTemplates.getResourceBundleName(), module, key, locale, "");
     }
 
     /**
