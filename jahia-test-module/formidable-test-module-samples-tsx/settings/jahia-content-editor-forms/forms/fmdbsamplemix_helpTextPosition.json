@@ -13,7 +13,8 @@
 				},
 				{
 					"name": "fmdbsamplemix:helpTextPosition",
-					"isAlwaysActivated": true
+					"isAlwaysActivated": true,
+					"hide": true
 				}
 			]
 		}

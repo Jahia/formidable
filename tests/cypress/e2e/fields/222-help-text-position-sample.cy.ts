@@ -10,10 +10,11 @@ import {
 import type {JahiaNode} from '../../support/fixtures';
 import {useFormidableSite} from './support';
 
-/** The sample module extending the built-in text input with a help text position. */
+/** The sample module extending the built-in fields with a help text position. */
 const SAMPLE_MODULE = 'formidable-test-module-samples-tsx';
-const SAMPLE_VIEW = 'helpTextPosition';
 const POSITION_MIXIN = 'fmdbsamplemix:helpTextPosition';
+/** Set by the sample's rendering of the text input, which takes the place of Formidable's. */
+const POSITION_ATTRIBUTE = 'data-fmdbsample-help-position';
 
 type HelpTextPosition = 'up' | 'down' | 'both';
 
@@ -23,7 +24,7 @@ const FIELDS = {
 	up: {name: 'helpUp', title: 'Help above', helpText: HELP},
 	down: {name: 'helpDown', title: 'Help below', helpText: HELP},
 	both: {name: 'helpBoth', title: 'Help above and below', helpText: HELP},
-	// The view without the mixin's setting: the built-in placement.
+	// A text input without the mixin's setting: the built-in placement.
 	unset: {name: 'helpUnset', title: 'Help unset', helpText: HELP},
 	// A placement without any help text: nothing to place.
 	none: {name: 'helpNone', title: 'No help'}
@@ -37,29 +38,16 @@ const SELECT_FIELD = {
 	options: [{value: 'one', label: 'One', selected: false}]
 };
 
-/**
- * A field carrying the sample setting; a text input is also rendered by the sample view (the one
- * view honouring the setting), the help text where the contributor put it.
- */
-const withHelpTextPosition = (node: JahiaNode, position?: HelpTextPosition, sampleView = true): JahiaNode => {
-	node.mixins = [
-		...(node.mixins ?? []),
-		...(sampleView ? ['jmix:renderable'] : []),
-		...(position ? [POSITION_MIXIN] : [])
-	];
-	if (sampleView) {
-		node.properties.push({name: 'j:view', value: SAMPLE_VIEW});
-	}
-
-	if (position) {
-		node.properties.push({name: 'helpTextPosition', value: position});
-	}
+/** A field carrying the sample setting — nothing else to pick: the sample rendering is the default. */
+const withHelpTextPosition = (node: JahiaNode, position: HelpTextPosition): JahiaNode => {
+	node.mixins = [...(node.mixins ?? []), POSITION_MIXIN];
+	node.properties.push({name: 'helpTextPosition', value: position});
 
 	return node;
 };
 
 const EDIT_FORM = gql`
-	query editFormOfTextInput($path: String!) {
+	query editFormOfField($path: String!) {
 		forms {
 			editForm(uiLocale: "en", locale: "en", uuidOrPath: $path) {
 				sections {
@@ -104,12 +92,13 @@ interface EditFormResponse {
 
 /**
  * A third-party module adds a setting to every built-in field with a help text — where that
- * help goes: above the field (the built-in rendering), below it, or in both places — and one
- * view honouring it, on the text input. The setting is a mixin the module's own form override
- * surfaces inside each field's own editor fieldset, right under Help text, and keeps in force
- * without a switch; the view is picked per field through the View chooser. Whatever the
- * placement, the control keeps describing one help block for assistive technology; the repeat
- * of "both" is decorative.
+ * help goes: above the field (the built-in rendering), below it, or in both places — and a
+ * rendering of the text input honouring it, registered as a default view of higher priority
+ * than Formidable's: on a site enabled for the module, every text input renders through it,
+ * nothing to pick. The setting is a mixin the module's own form override surfaces inside each
+ * field's own editor fieldset, right under Help text, and keeps in force without a switch.
+ * Whatever the placement, the control keeps describing one help block for assistive
+ * technology; the repeat of "both" is decorative.
  */
 describe('Form fields - 222 Help text position (third-party sample)', () => {
 	useFormidableSite();
@@ -125,14 +114,16 @@ describe('Form fields - 222 Help text position (third-party sample)', () => {
 			withHelpTextPosition(getInputTextNode(FIELDS.up), 'up'),
 			withHelpTextPosition(getInputTextNode(FIELDS.down), 'down'),
 			withHelpTextPosition(getInputTextNode(FIELDS.both), 'both'),
-			withHelpTextPosition(getInputTextNode(FIELDS.unset)),
+			getInputTextNode(FIELDS.unset),
 			withHelpTextPosition(getInputTextNode(FIELDS.none), 'down')
 		]).then(({livePath}) => {
 			const form = visitLiveForm(livePath);
 
-			// Above: the single help block precedes the control, as the built-in view renders it.
+			// Above: the single help block precedes the control, as the built-in view renders it —
+			// through the sample rendering, the attribute says, the setting left unset included.
 			[FIELDS.up, FIELDS.unset].forEach(field => {
 				const input = form.getTextInput(field.name);
+				input.getContainer().should('have.attr', POSITION_ATTRIBUTE, 'up');
 				input.shouldHaveHelpText(HELP);
 				input.getContainer().find('.fmdb-form-help').should('have.length', 1);
 				input.getInput().prev().should('have.class', 'fmdb-form-help');
@@ -145,6 +136,7 @@ describe('Form fields - 222 Help text position (third-party sample)', () => {
 
 			// Below: the single help block follows the control, still the one it is described by.
 			const below = form.getTextInput(FIELDS.down.name);
+			below.getContainer().should('have.attr', POSITION_ATTRIBUTE, 'down');
 			below.shouldHaveHelpText(HELP);
 			below.getContainer().find('.fmdb-form-help').should('have.length', 1);
 			below.getInput().next().should('have.class', 'fmdb-form-help');
@@ -153,6 +145,7 @@ describe('Form fields - 222 Help text position (third-party sample)', () => {
 			// Both: two blocks. The first carries the id the control references; the second is a
 			// visual repeat, without id and hidden from assistive technology.
 			const both = form.getTextInput(FIELDS.both.name);
+			both.getContainer().should('have.attr', POSITION_ATTRIBUTE, 'both');
 			both.getContainer().find('.fmdb-form-help').should('have.length', 2).each($help => {
 				expect($help.text(), 'help text of each block').to.equal(HELP);
 			});
@@ -166,8 +159,9 @@ describe('Form fields - 222 Help text position (third-party sample)', () => {
 				.and('have.attr', 'aria-hidden', 'true')
 				.and('not.have.attr', 'id');
 
-			// No help text: nothing to place, and nothing referenced.
+			// No help text: nothing to place, and nothing referenced — the setting still read.
 			const none = form.getTextInput(FIELDS.none.name);
+			none.getContainer().should('have.attr', POSITION_ATTRIBUTE, 'down');
 			none.shouldNotHaveHelpText();
 			none.getInput().should('not.have.attr', 'aria-describedby');
 		});
@@ -176,7 +170,7 @@ describe('Form fields - 222 Help text position (third-party sample)', () => {
 	it('offers the position right under the help text in the editor of every field, without a switch', () => {
 		createPublishedLiveFormPage('help-text-position-editor-form', 'Help Text Position Editor Form', [
 			withHelpTextPosition(getInputTextNode(FIELDS.up), 'up'),
-			withHelpTextPosition(getSelectNode(SELECT_FIELD), 'down', false)
+			withHelpTextPosition(getSelectNode(SELECT_FIELD), 'down')
 		]).then(({formPath}) => {
 			// One form override, on the mixin, serves every type it extends: its <main> fieldset
 			// resolves to the edited type's own fieldset.

@@ -3,7 +3,7 @@ import { jahiaComponent } from "@jahia/javascript-modules-library";
 /** The values of fmdbsamplemix:helpTextPosition; "up" is the built-in rendering. */
 type HelpTextPosition = "up" | "down" | "both";
 
-interface InputTextHelpTextPositionProps {
+interface InputTextProps {
   "jcr:title"?: string;
   "helpText"?: string;
   /** From fmdbsamplemix:helpTextPosition, absent until the node is saved with the mixin. */
@@ -42,7 +42,7 @@ const readPosition = (value: string | undefined): HelpTextPosition =>
  * The inline-validation contract of docs/custom-validation.md, written out rather than imported: a
  * third-party module cannot depend on the monorepo's private shared package.
  */
-const validationMessageAttributes = (props: InputTextHelpTextPositionProps) => ({
+const validationMessageAttributes = (props: InputTextProps) => ({
   "data-fmdb-msg-value-missing": props.msgValueMissing || undefined,
   "data-fmdb-msg-type-mismatch": props.msgTypeMismatch || undefined,
   "data-fmdb-msg-pattern-mismatch": props.msgPatternMismatch || undefined,
@@ -51,23 +51,30 @@ const validationMessageAttributes = (props: InputTextHelpTextPositionProps) => (
 });
 
 /**
- * A text input whose help text goes where the contributor put it — above the field (the built-in
- * rendering), below it, or in both places — read from the sample mixin
- * fmdbsamplemix:helpTextPosition. Picked per field through the View chooser, like the fieldset
- * samples. The markup keeps the built-in contracts (docs/how-to-extend-views-and-elements-from-
- * third-party-module.md): the field's name and id, the fmdb-* hooks, one help block with the
- * `help-<nodeId>` id the control references, the data-fmdb-msg-* validation messages. The mask of
- * the built-in view is a client island of the built-in module, out of a third-party view's reach: a
- * masked field keeps the built-in view.
+ * TAKES THE PLACE of Formidable's default view of the text input. Formidable registers its
+ * `default` view of fmdb:inputText at the default priority (0); this one is registered under the
+ * same name with a higher priority, so on every site where this module is enabled, every text input
+ * renders through this file — nothing to pick in the View chooser, and the built-in view is no
+ * longer reachable there.
+ *
+ * What it adds: the help text goes where the contributor put it (the sample mixin
+ * fmdbsamplemix:helpTextPosition) — above the field, as Formidable renders it, below it, or in both
+ * places. Taking a default view over means owning the whole built-in contract
+ * (docs/how-to-extend-views-and-elements-from-third-party-module.md): the field's name and id, the
+ * fmdb-* hooks, one help block with the `help-<nodeId>` id the control references, the
+ * data-fmdb-msg-* validation messages — all kept here. One thing is out of a third-party view's
+ * reach: the input mask of the built-in view is a client island of Formidable, so on a site enabled
+ * for this module a masked text input loses its live mask.
  */
 jahiaComponent(
   {
     componentType: "view",
     nodeType: "fmdb:inputText",
-    name: "helpTextPosition",
-    displayName: "Input text - Help text position",
+    name: "default",
+    // Above Formidable's own default view (priority 0): the highest priority wins.
+    priority: 1,
   },
-  (props: InputTextHelpTextPositionProps, { currentNode }) => {
+  (props: InputTextProps, { currentNode }) => {
     const {
       "jcr:title": label,
       helpText,
@@ -126,7 +133,8 @@ jahiaComponent(
     };
 
     return (
-      <div className="fmdb-form-group">
+      // The data attribute tells this rendering from Formidable's, whatever the position.
+      <div className="fmdb-form-group" data-fmdbsample-help-position={position}>
         {label && (
           <label htmlFor={inputId} className="fmdb-form-label">
             {label}

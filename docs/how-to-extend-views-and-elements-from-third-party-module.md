@@ -319,7 +319,7 @@ mixin always activated so the value is saved without a switch to flip:
       "name": "content",
       "fieldSets": [
         { "name": "<main>", "fields": [{ "name": "helpTextPosition", "rank": 1.4 }] },
-        { "name": "fmdbsamplemix:helpTextPosition", "isAlwaysActivated": true }
+        { "name": "fmdbsamplemix:helpTextPosition", "isAlwaysActivated": true, "hide": true }
       ]
     }
   ]
@@ -329,24 +329,42 @@ mixin always activated so the value is saved without a switch to flip:
 How it reads: `<main>` in an override means the fieldset of the type being edited, whichever
 form declares the override — so this single file serves the twelve types the mixin extends.
 Any field of the form can be pulled into `<main>` this way, whichever fieldset declared it.
+The mixin's own fieldset, emptied by the move, would still show as a bare switch: `hide`
+takes it off the screen while the editor keeps tracking it, so the mixin is still added on save.
 The fields of `<main>` are ranked 1, 2, 3… in declaration order and `helpText` is the first
 declared property of every field type (title and system name sit before it with lower ranks),
 so 1.4 lands right after Help text — before Required, and before the options mode the choice
 fields already place at 1.5. With the mixin always activated, every extended field saved in
 the editor gets it — acceptable for a sample, a deliberate choice for a product module.
 
-**3. A view honouring the setting**, registered on the built-in type under its own name so
-the contributor picks it in the View chooser (`fmdb:inputText` is renderable, like every
-`jnt:content`), as the fieldset samples do. The sample is
-`src/components/Input/Text/helpTextPosition.server.tsx`; it reads `helpTextPosition`
-(absent until the node was saved with the mixin — default to the built-in placement) and
-keeps the HTML conventions below. One accessibility point when the help is shown twice: the
-control describes a single block (`aria-describedby` → `help-<nodeId>`); the repeat after
-the field has no id and `aria-hidden="true"`, so a screen reader hears the help once.
+**3. A view honouring the setting.** Two ways to ship it. A view registered on the built-in
+type under a *new name* is opt-in: the contributor picks it in the View chooser
+(`fmdb:inputText` is renderable, like every `jnt:content`), as with the fieldset samples. A
+`default` view registered with a `priority` above Formidable's — which registers its views at
+the default priority, 0 — *takes over*: on every site where your module is enabled, every text
+input renders through it, nothing to pick, and the built-in view is no longer reachable there.
+The sample takes over (`src/components/Input/Text/default.server.tsx`, `priority: 1`), so the
+setting is honoured wherever it is set:
 
-Views are resolved on the primary type first, then on the node's mixins: a view registered
-on the mixin under a name the built-in type already has would only be a fallback, which is
-why the sample registers its view on `fmdb:inputText` under a new name.
+```tsx
+jahiaComponent(
+  { componentType: "view", nodeType: "fmdb:inputText", name: "default", priority: 1 },
+  (props, { currentNode }) => { /* … */ },
+);
+```
+
+Taking a default view over means owning the whole built-in contract of the field — the HTML
+conventions below, the validation-message attributes — and knowing what you cannot reach:
+the input mask of the built-in text input is a client island of Formidable, so a masked
+field loses its live mask on such a site. The view reads `helpTextPosition` (absent until the
+node was saved with the mixin — default to the built-in placement). One accessibility point
+when the help is shown twice: the control describes a single block (`aria-describedby` →
+`help-<nodeId>`); the repeat after the field has no id and `aria-hidden="true"`, so a screen
+reader hears the help once.
+
+Views are resolved on the primary type first, then on the node's mixins: a `default` view
+registered on the mixin would only be a fallback behind Formidable's, which is why the sample
+registers its view on `fmdb:inputText` itself and relies on the priority.
 
 ## HTML conventions for custom fields
 
