@@ -37,12 +37,13 @@ jahiaComponent(
 		}
 		const actionNodes = Array.from(currentNode.getNodes()).filter((node) => node.isNodeType("fmdbmix:formAction"));
 		const count = actionNodes.length;
+		const iconUrl = nodeTypeIconUrl(currentNode, renderContext);
 
 		return (
 			<aside className="fmdb-authoring-actions" aria-label={t("heading", {count})}>
 				<div className="fmdb-authoring-actions-header">
 					<span className="fmdb-authoring-actions-title">
-						<img className="fmdb-authoring-actions-glyph" src={nodeTypeIconUrl(currentNode, renderContext)} alt="" width={16} height={16}/>
+						{iconUrl && <img className="fmdb-authoring-actions-glyph" src={iconUrl} alt="" width={16} height={16}/>}
 						{t("heading", {count})}
 					</span>
 					<span className="fmdb-authoring-actions-hint">{count > 0 ? t("inOrder") : t("notLive")}</span>

@@ -8,7 +8,7 @@ import {
 	visitEditForm,
 	visitLiveForm
 } from '../../support/fixtures';
-import {useFormidableSite} from './support';
+import {useFormidableSite} from '../support/useFormidableSite';
 
 /** A forward target of the module configuration, the choicelist the forward action's targetId is fed from. */
 const FORWARD_TARGET = {id: 'crm01', label: 'Salesforce Marketing', url: 'https://crm.example.com/hook'};
@@ -28,9 +28,9 @@ const setForwardTargets = (lines: string): Cypress.Chainable => cy.runProvisioni
  * choicelist gives it (the forward target's), a third-party action (the test module's) gets
  * its card the same way, from what its own module declares for the Content Editor. A form
  * without any action is called out, since its submissions go nowhere. Nothing of the zone
- * exists in live, not even when its views are requested directly, as fragments.
+ * exists in live or in preview, not even when its views are requested directly, as fragments.
  */
-describe('Validation - 47 Form actions zone in the Page Builder', () => {
+describe('Actions - 71 Form actions zone in the Page Builder', () => {
 	useFormidableSite();
 
 	before(() => {
@@ -93,14 +93,20 @@ describe('Validation - 47 Form actions zone in the Page Builder', () => {
 				cy.get('.fmdb-authoring-actions-empty').should('not.exist');
 			});
 
-			// The authoring views guard themselves: asked for directly in live, they render — successfully —
-			// nothing of the zone. Asked for as fragments (.ajax): a plain render URL names a page
-			// template after the view and is a 404 before the view ever runs. The status is checked too:
-			// an error page would lack the markup as well.
-			[`${formPath}/actions`, `${formPath}/actions/notifySales`].forEach(path => {
-				cy.request(`/cms/render/live/en${path}.hidden.authoring.html.ajax`).then(response => {
-					expect(response.status, `live render of ${path}`).to.equal(200);
-					expect(response.body, `live body of ${path}`).not.to.contain('fmdb-authoring-action');
+			// The authoring views guard themselves: asked for directly in live or in preview (two
+			// controllers, one guard), they render — successfully — nothing of the zone. Asked for as
+			// fragments (.ajax): a plain render URL names a page template after the view and is a 404
+			// before the view ever runs. The status is checked too: an error page would lack the markup
+			// as well.
+			[
+				{mode: 'live', base: '/cms/render/live/en'},
+				{mode: 'preview', base: '/cms/preview/default/en'}
+			].forEach(({mode, base}) => {
+				[`${formPath}/actions`, `${formPath}/actions/notifySales`].forEach(path => {
+					cy.request(`${base}${path}.hidden.authoring.html.ajax`).then(response => {
+						expect(response.status, `${mode} render of ${path}`).to.equal(200);
+						expect(response.body, `${mode} body of ${path}`).not.to.contain('fmdb-authoring-action');
+					});
 				});
 			});
 

@@ -1,14 +1,19 @@
 package org.jahia.modules.formidable.engine.actions;
 
 import org.apache.commons.lang.StringUtils;
+import org.jahia.data.templates.JahiaTemplatesPackage;
+import org.jahia.services.content.JCRContentUtils;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRPropertyWrapper;
+import org.jahia.services.content.decorator.JCRSiteNode;
+import org.jahia.services.content.nodetypes.ExtendedItemDefinition;
 import org.jahia.services.content.nodetypes.ExtendedNodeType;
 import org.jahia.services.content.nodetypes.ExtendedPropertyDefinition;
 import org.jahia.services.content.nodetypes.SelectorType;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListInitializer;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListInitializerService;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListValue;
+import org.jahia.utils.i18n.Messages;
 import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,12 +30,16 @@ import java.util.Map;
 
 /**
  * What the authoring surfaces (the Page Builder's actions zone) show about an action node
- * besides its title: its <em>key parameter</em>, the first property its type declares after
+ * besides its title. Its <em>key parameter</em>: the first property its type declares after
  * the title that a contributor can read at a glance — a small text or a choice, never a long
  * text, a flag or a list. A choice is shown by the label its choicelist initializer gives it,
- * the same label the Content Editor showed when the contributor picked it.
+ * the same label the Content Editor showed when the contributor picked it. And its
+ * <em>type</em>: label, description and icon, resolved the way the Content Editor resolves
+ * them — through the platform's resource bundle chain (the site's own bundle first, then the
+ * module's and its dependencies', in the UI language) and the platform's icon lookup (the
+ * type's icon, else a supertype's).
  * <p>
- * The rule reads the type declaration, so every action type gets it for free: the engine's
+ * The rules read the type declaration, so every action type gets them for free: the engine's
  * e-mail actions show their recipient, the forward action its target's label, and a
  * third-party action whatever it declares first — nothing to register anywhere.
  */
@@ -62,10 +71,52 @@ public class ActionSummaryService {
         return new KeyParameter(definition.getName(), displayValue(action, definition, raw, locale));
     }
 
-    /** The first telling property in CND declaration order, or null. */
+    /**
+     * What the zone shows about an action's type, as the Content Editor shows it.
+     *
+     * @param name the node type name, e.g. fmdb:emailNotificationAction
+     * @param label the type label
+     * @param description the type-level tooltip ({@code <type>.ui.tooltip}), rich text as declared, or null
+     * @param iconUrl the URL of the type icon, without extension as the platform serves it: the type's own
+     *                or, failing that, a supertype's (fmdbmix:formAction's for an action type shipping none)
+     */
+    public record TypeSummary(String name, String label, String description, String iconUrl) {}
+
+    /**
+     * @param action an action node (fmdbmix:formAction)
+     * @param uiLocale the UI locale of the editor — labels and tooltips are editor texts and follow it,
+     *                 not the content language (jContent resolves them the same way)
+     * @return the label, description and icon of the action's primary type
+     */
+    public TypeSummary describeType(JCRNodeWrapper action, Locale uiLocale) throws RepositoryException {
+        ExtendedNodeType type = action.getPrimaryNodeType();
+        String key = JCRContentUtils.replaceColon(type.getName());
+        // The resource bundle chain of the Content Editor: the site's own bundle first (a site
+        // rewording a label sees its text in both places), then the type's module and its
+        // dependencies, then the platform's — whatever the bundle is named (the module declares it),
+        // whatever its encoding (the platform reads it), and with the locale's fallbacks.
+        JahiaTemplatesPackage module = type.getTemplatePackage();
+        JCRSiteNode site = action.getResolveSite();
+        JahiaTemplatesPackage siteTemplates = site != null ? site.getTemplatePackage() : null;
+        String tooltipKey = key + ".ui.tooltip";
+        String tooltip = siteTemplates != null && module != null
+                ? Messages.get(siteTemplates.getResourceBundleName(), module, tooltipKey, uiLocale, "")
+                : module != null
+                        ? Messages.get(module, tooltipKey, uiLocale, "")
+                        : Messages.getTypes(tooltipKey, uiLocale, "");
+        return new TypeSummary(type.getName(), type.getLabel(uiLocale),
+                StringUtils.isBlank(tooltip) ? null : tooltip, JCRContentUtils.getIconWithContext(type));
+    }
+
+    /**
+     * The first telling property in CND declaration order, or null. Read from the items the type
+     * declares itself, a re-declaration of an inherited property included — the usual way for a
+     * type to tighten a property it gets from one of its mixins; properties merely inherited are
+     * not read.
+     */
     static ExtendedPropertyDefinition firstTellingProperty(ExtendedNodeType type) {
-        for (ExtendedPropertyDefinition definition : type.getDeclaredPropertyDefinitions()) {
-            if (isTelling(definition)) {
+        for (ExtendedItemDefinition item : type.getDeclaredItems(true)) {
+            if (item instanceof ExtendedPropertyDefinition definition && isTelling(definition)) {
                 return definition;
             }
         }
