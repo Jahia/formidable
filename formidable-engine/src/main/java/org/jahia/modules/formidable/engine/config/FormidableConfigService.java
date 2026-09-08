@@ -207,7 +207,9 @@ public class FormidableConfigService {
      * fileinstall loaded it before this component activated, so the first configuration received
      * already comes from the file — byte-identical to a fresh install, whatever ConfigAdmin held
      * a moment earlier. Settings made without a file (the Felix console) are then gone without a
-     * trace; this warning is the trace. A fresh install gets it once, harmlessly.
+     * trace; this warning is the trace. A fresh install gets it once, harmlessly, and so does a
+     * restart right after a carry-over or an edit of the file — the modification time cannot tell
+     * them apart, which is why the message claims no more than "created or last changed".
      */
     private void reportFreshFileOnFirstActivation(Map<String, Object> properties) {
         Object fileName = properties.get(LegacyConfigurationCarryOver.FILEINSTALL_FILENAME);
@@ -216,14 +218,16 @@ public class FormidableConfigService {
         }
         try {
             Path file = Path.of(URI.create(String.valueOf(fileName)));
-            Instant created = Files.getLastModifiedTime(file).toInstant();
-            if (Duration.between(created, Instant.now()).abs().compareTo(FRESH_FILE_WINDOW) < 0) {
-                log.warn("[FormidableConfigService] The configuration file {} was created on this start, with every setting "
-                        + "at its default. Settings this instance had without a configuration file (the Felix console), "
-                        + "if any, are not in it: check the file and re-enter them there.", file);
+            // The modification time: a file just copied has one, so has a file fileinstall just
+            // wrote a carry-over into — hence a claim no stronger than "created or last changed".
+            Instant changed = Files.getLastModifiedTime(file).toInstant();
+            if (Duration.between(changed, Instant.now()).abs().compareTo(FRESH_FILE_WINDOW) < 0) {
+                log.warn("[FormidableConfigService] The configuration file {} was created or last changed moments ago. "
+                        + "If this instance was configured without a configuration file (the Felix console) before this "
+                        + "start, those settings are not in it: check the file and re-enter them there.", file);
             }
         } catch (IOException | RuntimeException e) {
-            log.debug("[FormidableConfigService] Could not tell when the configuration file {} was created", fileName, e);
+            log.debug("[FormidableConfigService] Could not tell when the configuration file {} was last changed", fileName, e);
         }
     }
 

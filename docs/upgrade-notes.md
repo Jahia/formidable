@@ -30,7 +30,7 @@ rewrites the whole file in a typed syntax the file format does not read back.
   lose: fileinstall loads the copied file a second or two after Jahia copies it, and when the
   module starts after that, the first configuration it sees already comes from the file, exactly
   like a fresh install. That is the usual case after an upgrade done while Jahia was stopped, and
-  possible on a running server. A warning at startup then names the freshly created file.
+  possible on a running server. A warning at startup then points at the file, created or changed moments before.
 - **Never configured**: nothing to do.
 
 ### How to check

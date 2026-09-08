@@ -325,7 +325,7 @@ Limit: fileinstall loads the copied file one to two seconds after the module is 
 previous settings are only seen when the engine's components activate before that — usual on a
 running server, not guaranteed, and never after an upgrade done while Jahia was stopped. A miss
 looks exactly like a fresh install to the engine, so a first activation that already comes from a
-freshly copied file is reported with a warning naming the file. Check the engine's log for
+file created or changed moments before is reported with a warning pointing at it. Check the engine's log for
 "carried over into the file" after such an upgrade, and see
 [docs/upgrade-notes.md](upgrade-notes.md) for who is affected and how to check.
 

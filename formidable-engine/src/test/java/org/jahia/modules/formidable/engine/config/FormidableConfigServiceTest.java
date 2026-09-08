@@ -6,6 +6,8 @@ import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.Dictionary;
@@ -728,7 +730,7 @@ class FormidableConfigServiceTest {
     @Test
     void aFirstActivationFromAFreshlyCopiedFileIsReportedAndActivated() throws IOException {
         // The miss the carry-over cannot see: the file was loaded before the component started.
-        java.nio.file.Path file = java.nio.file.Files.createTempFile("org.jahia.modules.formidable", ".cfg");
+        Path file = Files.createTempFile("org.jahia.modules.formidable", ".cfg");
         try {
             FormidableConfigService service = new FormidableConfigService();
             Map<String, Object> properties = Map.of(
@@ -737,7 +739,7 @@ class FormidableConfigServiceTest {
             service.configure(new TestFormidableConfig("", false, ""), properties);
             assertTrue(service.getForwardTargets().isEmpty());
         } finally {
-            java.nio.file.Files.deleteIfExists(file);
+            Files.deleteIfExists(file);
         }
     }
 }
