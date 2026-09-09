@@ -53,7 +53,9 @@
  + * (fmdbmix:formContent) = fmdbmix:formContent
  + * (fmdbmix:formStep) = fmdbmix:formStep
 
-[fmdb:form] > jnt:content, fmdbmix:component, jmix:visibleInContentTree, fmdbmix:buttons, fmdbmix:responses, fmdbmix:multiStep, fmdbmix:style, mix:title
+// jmix:visuallyEditable (Jahia 8.2.5.0+) lets jContent open the form in the Page Builder from a content
+// folder, rendered through the platform's content-template wrapper: the form gets no URL of its own.
+[fmdb:form] > jnt:content, fmdbmix:component, jmix:visibleInContentTree, fmdbmix:buttons, fmdbmix:responses, fmdbmix:multiStep, fmdbmix:style, mix:title, jmix:visuallyEditable
  orderable
  - intro (string, richtext) i18n indexed=no
  + fields (fmdb:fieldList) = fmdb:fieldList autocreated mandatory
