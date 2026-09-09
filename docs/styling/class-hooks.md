@@ -28,7 +28,7 @@ client, under the same names. Where each one sits in the rendered tree is drawn 
 | `fmdb-range`, `fmdb-range-row`, `fmdb-range-output`, `fmdb-range-end-label` | Range slider structure (variables: `--fmdb-range-gap`, `--fmdb-range-output-min-width`, `--fmdb-range-end-label-size`) |
 | `fmdb-message`, `fmdb-message-content`, `fmdb-message-success`, `fmdb-message-error`, `fmdb-message-maintenance`, `fmdb-message-details`, `fmdb-message-error-details` | Submission feedback; the two `-details` classes sit on the `<small>` under an error, carrying the error code and the actions' progress |
 | `fmdb-file-*` (`-input-container`, `-list`, `-item`, `-info`, `-name`, `-size`, `-remove`, `-selection-note`), `fmdb-selected-files`, `fmdb-selected-files-title` | File field and its selected files: `fmdb-selected-files` wraps the list under its heading, `fmdb-file-info` holds a file's name and size |
-| `fmdb-validation-error`, `fmdb-invalid` | Inline validation (see [Custom validation](../custom-validation.md)) |
+| `fmdb-validation-error`, `fmdb-invalid` | Inline validation (see [Custom validation](../architecture/custom-validation.md)) |
 | `fmdb-logic-target` | Wrapper of an element driven by conditional logic (see below) |
 | `fmdb-spinner` | The submission overlay |
 | `fmdb-form-fields` | The field list — in edit mode only, where the authoring spacing below pads it |
@@ -41,9 +41,9 @@ Every element wrapper also exposes `data-fmdb-node-name`, `data-fmdb-node-id` an
 Four other `data-fmdb-*` attributes are functional markers the client reads, not styling hooks,
 and they may change with the feature they serve: `data-fmdb-step` on each step wrapper (the
 class `fmdb-step` is the hook), `data-fmdb-msg-*` on the controls (the contributor's validation
-messages, see [Custom validation](../custom-validation.md)), `data-fmdb-logics` and
+messages, see [Custom validation](../architecture/custom-validation.md)), `data-fmdb-logics` and
 `data-fmdb-logic-value` (conditional logic, see
-[How to extend views and elements](../how-to-extend-views-and-elements-from-third-party-module.md)).
+[How to extend views and elements](../extension/how-to-extend-views-and-elements-from-third-party-module.md)).
 
 ## Surfaces: live, edit mode, inspection previews
 

@@ -12,7 +12,7 @@ projects: ["Jahia/29"]
 1. [Minimum Jahia version](#user-content-minimum-jahia-version)
 2. [Testing matrix](#user-content-testing-matrix)
 3. [Prepare checklist](#user-content-prepare-checklist)
-4. [Tests checklist](#user-content-test-checklist)
+4. [Tests checklist](#user-content-tests-checklist)
 5. [Publication checklist](#user-content-publication-checklist)
 
 <h2 id="minimum-jahia-version">Minimum Jahia version</h2>

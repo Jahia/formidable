@@ -90,7 +90,7 @@ const applyMask = (value: string, mask: string): string => {
 };
 
 /**
- * The inline-validation contract of docs/custom-validation.md, written out rather than imported: a
+ * The inline-validation contract of docs/architecture/custom-validation.md, written out rather than imported: a
  * third-party module cannot depend on the monorepo's private shared package.
  */
 const validationMessageAttributes = (props: InputTextProps) => ({
@@ -111,7 +111,7 @@ const validationMessageAttributes = (props: InputTextProps) => ({
  * What it adds: the help text goes where the contributor put it (the sample mixin
  * fmdbsamplemix:helpTextPosition) — above the field, as Formidable renders it, below it, or in both
  * places. Taking a default view over means owning the whole built-in contract
- * (docs/how-to-extend-views-and-elements-from-third-party-module.md): the field's name and id, the
+ * (docs/extension/how-to-extend-views-and-elements-from-third-party-module.md): the field's name and id, the
  * fmdb-* hooks, one help block with the `help-<nodeId>` id the control references, the
  * data-fmdb-msg-* validation messages, the `pattern` and formatted default a mask stands for — all
  * kept here. One thing is out of a third-party view's reach: the formatting while typing of a

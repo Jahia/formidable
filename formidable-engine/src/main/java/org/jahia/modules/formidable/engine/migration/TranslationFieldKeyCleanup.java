@@ -30,7 +30,7 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FO
  * translation is clean.
  *
  * <p>Lifecycle: startup migration introduced in 0.4.0 (#215), to be removed in 0.5 — see
- * docs/upgrade-notes.md, "Startup migrations".
+ * docs/administration/upgrade-notes.md, "Startup migrations".
  */
 @Component(immediate = true)
 public class TranslationFieldKeyCleanup {

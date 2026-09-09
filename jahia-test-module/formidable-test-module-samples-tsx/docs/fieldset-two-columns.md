@@ -21,5 +21,5 @@ columns on the page — one column on narrow screens, under 720 pixels.
 
 Why a container view must delegate to `hidden.logic`, and what happens when it does not, is
 explained in
-[How to extend Formidable views and elements from a third-party module](../../../docs/how-to-extend-views-and-elements-from-third-party-module.md)
+[How to extend Formidable views and elements from a third-party module](../../../docs/extension/how-to-extend-views-and-elements-from-third-party-module.md)
 ("Case 1").

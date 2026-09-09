@@ -15,4 +15,4 @@ One page per sample:
 
 The rules the samples follow (rendering contracts, what a third-party view must keep, how the
 editor form can be shaped) are in
-[How to extend Formidable views and elements from a third-party module](../../docs/how-to-extend-views-and-elements-from-third-party-module.md).
+[How to extend Formidable views and elements from a third-party module](../../docs/extension/how-to-extend-views-and-elements-from-third-party-module.md).

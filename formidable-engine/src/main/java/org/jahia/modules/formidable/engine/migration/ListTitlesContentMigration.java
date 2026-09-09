@@ -48,7 +48,7 @@ import java.util.function.BiFunction;
  * is the one that does the work on the engine-first upgrade path.
  *
  * <p>Lifecycle: startup migration introduced in 0.4.x (#231), to be removed in 0.5 — see
- * docs/upgrade-notes.md, "Startup migrations".
+ * docs/administration/upgrade-notes.md, "Startup migrations".
  */
 @Component(service = {ListTitlesContentMigration.class, JahiaEventListener.class}, immediate = true)
 public class ListTitlesContentMigration extends ElementsRedeployRetriggeredMigration {

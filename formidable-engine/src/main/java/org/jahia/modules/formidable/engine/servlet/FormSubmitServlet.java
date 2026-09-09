@@ -37,7 +37,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * URL: /modules/formidable-engine/form-submit
  *
  * All submission logic lives in {@link FormSubmissionPipeline}.
- * Error codes returned to clients are documented in docs/error-codes.md.
+ * Error codes returned to clients are documented in docs/administration/error-codes.md.
  */
 @Component(
     service = { HttpServlet.class, Servlet.class },

@@ -91,7 +91,7 @@ Action engine types: `formidable-engine/src/main/resources/META-INF/definitions.
 
 The structural mixins are split across the two modules — the engine owns the
 semantics it interprets, the elements module owns the authoring entry points
-(full ownership catalog: `docs/cnd-module-ownership.md`).
+(full ownership catalog: `docs/architecture/cnd-module-ownership.md`).
 
 ```
 fmdbmix:formElement (engine)   > mix:title, fmdbmix:formLogicElement, orderable
@@ -151,7 +151,7 @@ There is no provider derivation: everything provider-specific (verify URL, widge
 variable, native token field name) is explicit configuration. The only URL inspection is
 `ensureCaptchaExplicit` in `default.server.tsx`, which appends `render=explicit` for the
 script hosts that auto-render (Cloudflare, `google.com/recaptcha`, `recaptcha.net`). See
-`docs/captcha-server-side-validation.md`.
+`docs/administration/captcha-server-side-validation.md`.
 
 ---
 
@@ -179,7 +179,7 @@ submitActionUrl = /modules/formidable-engine/form-submit?fid={form uuid}&lang={l
 
 Submission is an OSGi HTTP-Whiteboard servlet — `FormSubmitServlet`, gated by the
 `formidable-submit` Security Filter scope (`origin: hosted`) — that delegates to
-`FormSubmissionPipeline`, a 12-step pipeline (see `docs/form-submission-flow.md`, the
+`FormSubmissionPipeline`, a 12-step pipeline (see `docs/architecture/form-submission-flow.md`, the
 authoritative walkthrough). The pipeline resolves the form, validates everything
 (whitelist, types, constraints, logic coherence), THEN runs the form's `actions`
 children in order: for each action node, the OSGi `FormAction` service whose
@@ -235,7 +235,7 @@ FormActionException.serverError("message");   // HTTP 500
 Captcha is NOT an action (see the captcha section). The action types are
 `fmdb:emailNotificationAction`, `fmdb:emailContentAction`, `fmdb:forwardAction` and
 `fmdb:save2jcrAction` — all but save2jcr carry `fmdbmix:readOnlyCompatibleAction`
-(see `docs/upgrade-notes.md` and the read-only maintenance behaviour).
+(see `docs/administration/upgrade-notes.md` and the read-only maintenance behaviour).
 
 #### `fmdb:emailNotificationAction` → `SendEmailNotificationFormAction`
 
@@ -305,7 +305,7 @@ A field that depends on another field's value carries:
 The canonical business reference for which field a rule targets is the source field's
 `fieldKey` (stored in the rule as `sourceFieldKey`); `sourceNodeId` and the weakreference
 are technical shortcuts, `sourceFieldName` the legacy fallback. The authoritative
-walkthrough is `docs/conditional-logic-field-resolution.md`.
+walkthrough is `docs/architecture/conditional-logic-field-resolution.md`.
 
 ### JSON format in `logics`
 
@@ -332,7 +332,7 @@ walkthrough is `docs/conditional-logic-field-resolution.md`.
 ### Source resolution order (`FormLogicSourceResolver`, at SAVE time)
 
 Runs when a form is saved (the sync listeners), never at evaluation time — see
-`docs/conditional-logic-field-resolution.md` for the full order. In short: the
+`docs/architecture/conditional-logic-field-resolution.md` for the full order. In short: the
 `fieldKey` chain first (sourceNodeId if it carries the key, then the weakref, then the
 first matching field in document order), the legacy chain (sourceNodeId, weakref,
 sourceFieldName) for rules stored before `fieldKey` existed; the sync then backfills
