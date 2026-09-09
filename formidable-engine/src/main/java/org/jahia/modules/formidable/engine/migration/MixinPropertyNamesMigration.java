@@ -37,7 +37,7 @@ import java.util.Set;
  * node already carries the manual-options mixin.
  *
  * <p>Lifecycle: startup migration introduced in 0.5.0, to be removed in 0.6 — see
- * docs/upgrade-notes.md, "Startup migrations".
+ * docs/administration/upgrade-notes.md, "Startup migrations".
  */
 @Component(service = {MixinPropertyNamesMigration.class, JahiaEventListener.class}, immediate = true)
 public class MixinPropertyNamesMigration extends ElementsRedeployRetriggeredMigration {

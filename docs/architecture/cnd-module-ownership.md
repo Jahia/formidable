@@ -99,6 +99,15 @@ These types are part of the engine contract. They support submission handling, p
 
 When adding a new CND definition, use these questions:
 
+### Naming a property
+
+A property is never namespaced, whichever type or mixin declares it: `fieldKey`, `logics`,
+`msg*`, `min`, `max`, `optionsMode`, `minBoundMode`… A field type names its properties after
+the HTML attribute they render when there is one. The `fmdb:` prefix belongs to node type and
+mixin names only — 0.4.0 shipped twelve prefixed properties on the options-source and
+date-bounds mixins, removed in 0.5.0 with a startup migration (#310), so that a view, a query or
+a label key never has to check the definition to know which spelling to use.
+
 ### Put it in `formidable-elements` if...
 
 - the type exists mainly to render the form or structure authorable content

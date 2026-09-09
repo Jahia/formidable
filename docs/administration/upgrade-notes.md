@@ -42,6 +42,53 @@ either way: `carried over into the file:` when the module did it, `Gave up carry
 it tried and could not (the file's values are then in force), the startup warning when the file
 was loaded before the module started.
 
+## 0.4.x → 0.5.0: the mixin properties lose their `fmdb:` prefix, migrated at startup
+
+**Who is affected**: every site with forms created or edited under 0.4.0 whose choice
+fields take their options from the options-source mixins (`optionsMode`, `options`,
+`optionsSourceKey`, `optionsRootCategory`, `optionsRootNode`, `optionsNodeType`) or whose
+date and datetime fields carry bound modes (`minBoundMode`, `maxBoundMode`,
+`minRelativeAmount`, `minRelativeUnit`, `maxRelativeAmount`, `maxRelativeUnit`). In 0.4.0
+those twelve properties were named with an `fmdb:` prefix (`fmdb:options`,
+`fmdb:minBoundMode`…) — the only prefixed properties of the model, where `fieldKey`,
+`logics`, `msg*`, `min` and `max` never had one. Since 0.5.0 they bear the unprefixed
+names above ([#310](https://github.com/Jahia/formidable/issues/310)).
+
+**What happens at startup**: `MixinPropertyNamesMigration` rewrites every prefixed property
+still present on a field under its unprefixed name — value and type kept, the translated
+option list on each `j:translation_*` subnode — and removes the prefixed one, in the
+default and live workspaces, through a system session Jahia does not mistake for
+user-generated content. It runs at engine activation and again on an elements redeploy,
+and is a no-op once no prefixed property remains. The twelve prefixed definitions stay in
+the CND for this release, hidden, so that an export taken from 0.4.0 is still accepted by
+the import; **after importing such an export, restart the engine** (or redeploy
+`formidable-elements`) so the migration renames what the import brought in — until then
+those fields render without their options and bounds. The deprecated definitions and the
+migration leave in 0.6.
+
+**How to check**: `jahia.log` reports
+`[MixinPropertyNamesMigration] Renamed the prefixed mixin properties of N field(s) in workspace 'default'`
+(then `'live'`), and a field reads back under the new names:
+
+```graphql
+{
+  jcr(workspace: LIVE) {
+    nodeByPath(path: "/sites/<site>/contents/<form>/fields/<field>") {
+      optionsMode: property(name: "optionsMode") { value }
+      minBoundMode: property(name: "minBoundMode") { value }
+      old: property(name: "fmdb:optionsMode") { value }   # null once migrated
+    }
+  }
+}
+```
+
+**What to do in your own code**: a template set, a third-party module or an integration
+that reads these properties — a view through `getNodeProps`, a GraphQL query, a JCR-SQL2
+condition, a Content Editor override, a label key such as
+`fmdbmix_dateBounds.fmdb_minBoundMode` — must drop the prefix (`minBoundMode`,
+`fmdbmix_dateBounds.minBoundMode`). The rendered markup and the submission payload do not
+change.
+
 ## 0.3.0 (and earlier) → 0.4.0: formidable-elements must be reinstalled
 
 **Manual procedure required** — this is the only step of the 0.4.0 upgrade
@@ -328,6 +375,7 @@ from a 0.3 restore. No released version is concerned.
 | `DateBoundsContentMigration` | 0.4.0 (#202) | Fixed date/datetime bounds without a bound mode → mode `date` + fixed-bound mixins |
 | `TranslationFieldKeyCleanup` | 0.4.0 (#215) | Stray `fieldKey` on `j:translation_*` subnodes of form elements |
 | `ListTitlesContentMigration` | 0.4.x (#231) | Missing `jcr:title` on a form's `fields`/`actions` lists → the type's default label, per site language (in live, published languages only) |
+| `MixinPropertyNamesMigration` | 0.5.0 (#312) | `fmdb:`-prefixed options-source and date-bounds properties → unprefixed names, translations included (leaves in 0.6 with the deprecated definitions) |
 
 Removal checklist: delete the class and its unit test, drop the Cypress spec that
 restarts the engine to exercise it, and remove the row above. When the last row
