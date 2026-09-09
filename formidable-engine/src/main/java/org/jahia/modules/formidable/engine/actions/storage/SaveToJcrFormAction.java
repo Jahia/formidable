@@ -259,8 +259,10 @@ public class SaveToJcrFormAction implements FormAction {
             return null;
         }
         if (candidate.length() > MAX_TIME_ZONE_LENGTH || !KNOWN_ZONE_IDS.contains(candidate)) {
-            log.debug("[SaveToJcrFormAction] Dropping the {} header, not a zone this platform knows: '{}'",
-                    TIME_ZONE_HEADER, abbreviate(candidate));
+            if (log.isDebugEnabled()) {
+                log.debug("[SaveToJcrFormAction] Dropping the {} header, not a zone this platform knows: '{}'",
+                        TIME_ZONE_HEADER, abbreviate(candidate));
+            }
             return null;
         }
         return candidate;
