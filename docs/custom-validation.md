@@ -208,38 +208,9 @@ Only non-empty messages are rendered as attributes. Empty strings are converted 
 
 ## Styling
 
-Error messages and invalid fields use CSS classes with custom properties for full control:
-
-| CSS class | Applied to | Purpose |
-|---|---|---|
-| `fmdb-validation-error` | Injected `<div>` | Error message text |
-| `fmdb-invalid` | `<input>` / `<select>` / `<textarea>` | Visual invalid state (border highlight) |
-
-### CSS custom properties
-
-Override these in your theme or in the form's `fmdbmix:style` CSS field:
-
-```css
-:root {
-    --fmdb-validation-error-color: #dc2626;
-    --fmdb-validation-error-font-size: 0.875rem;
-    --fmdb-validation-error-mt: 0.25rem;
-    --fmdb-validation-error-padding: 0;
-    --fmdb-validation-error-line-height: 1.25;
-    --fmdb-invalid-border-color: #dc2626;
-    --fmdb-invalid-outline-color: #dc2626;
-}
-```
-
-### Example: softer styling
-
-```css
-:root {
-    --fmdb-validation-error-color: #b45309;
-    --fmdb-validation-error-font-size: 0.8rem;
-    --fmdb-invalid-border-color: #b45309;
-}
-```
+The classes (`fmdb-validation-error` on the injected message, `fmdb-invalid` on the control) and
+the `--fmdb-validation-error-*` / `--fmdb-invalid-*` variables are part of the styling contract:
+see [Class hooks](styling/class-hooks.md) and [CSS variables](styling/css-variables.md#validation).
 
 ---
 

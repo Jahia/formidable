@@ -1,3 +1,4 @@
+/* Class hooks and variables are a documented contract: docs/styling/ (class-hooks.md, css-variables.md). */
 /* Authoring spacing (edit mode only). A multi-step form is authored flat, so three levels
    stack on one page: the field list, its steps (or fieldsets), their fields. The Page
    Builder boxes (coloured per level by the engine's box configs) and the mixin icons on the

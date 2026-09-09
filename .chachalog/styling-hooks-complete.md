@@ -3,4 +3,4 @@
 formidable: patch
 ---
 
-Added every class hook and variable of the forms and of the extended inputs to the styling guide (#303)
+Improved the styling guide: every class hook and variable documented, with a map of the rendered form (#303)
