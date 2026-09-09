@@ -57,6 +57,13 @@ Every element wrapper also exposes `data-fmdb-node-name`, `data-fmdb-node-id` an
 `data-fmdb-node-type`, for rules that target one field by name:
 `.fmdb-form [data-fmdb-node-name="email"] { … }`.
 
+Four other `data-fmdb-*` attributes are functional markers the client reads, not styling hooks,
+and they may change with the feature they serve: `data-fmdb-step` on each step wrapper (the
+class `fmdb-step` is the hook), `data-fmdb-msg-*` on the controls (the contributor's validation
+messages, see [Custom validation](custom-validation.md)), `data-fmdb-logics` and
+`data-fmdb-logic-value` (conditional logic, see
+[How to extend views and elements](how-to-extend-views-and-elements-from-third-party-module.md)).
+
 ## Validation variables
 
 `--fmdb-validation-error-*` and `--fmdb-invalid-*` are documented with the feature, in
