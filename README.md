@@ -17,19 +17,12 @@ Formidable is based on Jahia standard technologies:
 
 ## Documentation
 
-- [CND module ownership](docs/cnd-module-ownership.md) - where JCR types and mixins belong, and how to choose between `formidable-elements` and `formidable-engine`
-- [Form submission flow](docs/form-submission-flow.md) - request lifecycle, pipeline steps, and server-side safeguards
-- [CAPTCHA server-side validation](docs/captcha-server-side-validation.md) - provider verification endpoints and token handling
-- [How to create a form action](docs/how-to-create-form-action.md) - step-by-step guide for implementing a custom `FormAction` OSGi service
-- [How to extend views and elements from a third-party module](docs/how-to-extend-views-and-elements-from-third-party-module.md) - rendering contract for external container views and custom form elements
-- [Save to JCR](docs/save-to-jcr.md) - how submissions and uploaded files are stored in JCR
-- [Results permissions](docs/results-permissions.md) - per-form access control for submission results (`fmdb-results-reader` role)
-- [Export](docs/export.md) - multi-format export architecture (CSV, JSON) with date range filtering
-- [Styling a form](docs/styling/README.md) - how the rendered markup is structured, the [class hooks](docs/styling/class-hooks.md) and [CSS variables](docs/styling/css-variables.md) for template sets and custom CSS
-- [Custom validation](docs/custom-validation.md) - inline validation messages replacing native browser tooltips, with per-field contributor overrides
-- [Conditional logic field resolution](docs/conditional-logic-field-resolution.md) - weakref-based model for conditional logic dependencies
-- [Error codes](docs/error-codes.md) - server-side error codes returned on form submission failure
-- [Dependency decisions](docs/dependency-decisions.md) - rationale for embedded vs. provided dependencies in Java modules
+[`docs/README.md`](docs/README.md) is the map: one folder per reader.
+
+- [`docs/styling/`](docs/styling/README.md) — for the template set: how the rendered form is structured, the class hooks, the CSS variables
+- [`docs/extension/`](docs/extension/README.md) — for a third-party module: adding a form action, a view, a container, a field
+- [`docs/administration/`](docs/administration/README.md) — for the administrator: upgrade notes, error codes, CAPTCHA verification, results permissions
+- [`docs/architecture/`](docs/architecture/README.md) — for the maintainer: how the modules work, and why they are built this way
 
 ## Scope
 

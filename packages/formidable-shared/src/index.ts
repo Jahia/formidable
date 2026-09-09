@@ -10,8 +10,8 @@
 // This package is private and consumed from source through the yarn workspace:
 // each module's vite build bundles it. Genuinely third-party modules (outside
 // this monorepo) cannot depend on it — for them the contract is documented in
-// docs/how-to-extend-views-and-elements-from-third-party-module.md and
-// docs/custom-validation.md.
+// docs/extension/how-to-extend-views-and-elements-from-third-party-module.md and
+// docs/architecture/custom-validation.md.
 export {HelpText, helpTextId, type HelpTextProps} from './HelpText';
 export {
 	validationDataAttributes,

@@ -92,7 +92,7 @@ is, is in [Class hooks](class-hooks.md); the variables that size and colour thes
   nothing of it exists in live, so a stylesheet written against the hooks keeps its look while
   authoring.
 - **A third-party field follows the same conventions**: see the HTML conventions for custom
-  fields in [How to extend views and elements](../how-to-extend-views-and-elements-from-third-party-module.md).
+  fields in [How to extend views and elements](../extension/how-to-extend-views-and-elements-from-third-party-module.md).
 
 ## Keeping the contract complete
 

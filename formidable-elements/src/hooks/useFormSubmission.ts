@@ -12,7 +12,7 @@ interface SubmissionLabels {
 	maintenanceUnavailable: string;
 }
 
-// Server rejection while the platform is in read-only maintenance (see docs/error-codes.md).
+// Server rejection while the platform is in read-only maintenance (see docs/administration/error-codes.md).
 // Covers the window where the mode is switched between render and submit: the visitor gets
 // the same maintenance message as the render-time state, not a technical error.
 const MAINTENANCE_ERROR_CODE = 'FMDB-014';

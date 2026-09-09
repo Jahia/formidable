@@ -328,7 +328,7 @@ running server, not guaranteed, and never after an upgrade done while Jahia was 
 looks exactly like a fresh install to the engine, so a first activation that already comes from a
 file created or changed moments before is reported with a warning pointing at it. Check the engine's log for
 "carried over into the file" after such an upgrade, and see
-[docs/upgrade-notes.md](upgrade-notes.md) for who is affected and how to check.
+[docs/administration/upgrade-notes.md](../administration/upgrade-notes.md) for who is affected and how to check.
 
 ### Why the parser uses `Tika.detect(byte[], String)`
 
@@ -450,7 +450,7 @@ appear in the list.
 
 | Node type | Description |
 |---|---|
-| `fmdb:save2jcrAction` | Saves form data as JCR child nodes under `formidable-results` (see `docs/save-to-jcr.md`) |
+| `fmdb:save2jcrAction` | Saves form data as JCR child nodes under `formidable-results` (see `docs/architecture/save-to-jcr.md`) |
 | `fmdb:emailNotificationAction` | Sends a notification email via Jahia `MailService`; `${fieldName}` interpolation in subject and body; headers normalized and HTML body escaped |
 | `fmdb:emailContentAction` | Sends the submitted form content by email; may optionally attach validated uploaded files |
 | `fmdb:forwardAction` | Forwards declared form fields + pre-parsed files to a target endpoint resolved from config by ID |
@@ -493,7 +493,7 @@ To add a new action type, see `AGENTS.md` → *Form action pipeline*.
 Failed submissions return `{ "success": false, "errorCode": "FMDB-XXX" }`, plus
 `actionsCompleted` / `actionsTotal` when the failure happened inside the action pipeline —
 the client shows that progress under the error message.
-Detailed reasons are written to server logs only. See `docs/error-codes.md` for the full glossary.
+Detailed reasons are written to server logs only. See `docs/administration/error-codes.md` for the full glossary.
 
 ---
 
@@ -523,7 +523,7 @@ the same-origin `formidable-submit` Security Filter is the CSRF control for this
 | `src/components/Form/default.server.tsx` | Builds `submitActionUrl` with `fid` and `lang` query params |
 | `formidable-engine/.../servlet/FormSubmitServlet.java` | OSGi entry point — checks `formidable-submit` permission, then delegates to `FormSubmissionPipeline` |
 | `formidable-engine/.../servlet/FormSubmissionPipeline.java` | 12-step pipeline — all submission logic |
-| `formidable-engine/.../servlet/ErrorCode.java` | Error code enum — see `docs/error-codes.md` |
+| `formidable-engine/.../servlet/ErrorCode.java` | Error code enum — see `docs/administration/error-codes.md` |
 | `formidable-engine/.../actions/FormDataParser.java` | Secure multipart parser: whitelist, input validation, Tika, allowlist, size + count limits |
 | `formidable-engine/.../actions/FieldEscaper.java` | Output escaping utility: `html`, `headerSafe`, `plainText` |
 | `formidable-engine/.../actions/forward/ForwardSubmissionFormAction.java` | Resolves `targetId` via `FormidableConfigService`; forwards declared fields only |

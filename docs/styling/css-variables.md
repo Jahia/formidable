@@ -10,7 +10,7 @@ selectors. The defaults below are the modules' own; the elements they apply to a
 
 Inline validation messages (`fmdb-validation-error`, injected under an invalid control) and the
 invalid state of the control itself (`fmdb-invalid`) — the feature is described in
-[Custom validation](../custom-validation.md).
+[Custom validation](../architecture/custom-validation.md).
 
 | Variable | Default | Description |
 |---|---|---|

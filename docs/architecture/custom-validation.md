@@ -210,7 +210,7 @@ Only non-empty messages are rendered as attributes. Empty strings are converted 
 
 The classes (`fmdb-validation-error` on the injected message, `fmdb-invalid` on the control) and
 the `--fmdb-validation-error-*` / `--fmdb-invalid-*` variables are part of the styling contract:
-see [Class hooks](styling/class-hooks.md) and [CSS variables](styling/css-variables.md#validation).
+see [Class hooks](../styling/class-hooks.md) and [CSS variables](../styling/css-variables.md#validation).
 
 ---
 

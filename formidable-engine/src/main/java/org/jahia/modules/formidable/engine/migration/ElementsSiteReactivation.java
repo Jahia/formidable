@@ -46,7 +46,7 @@ import java.util.Set;
  * refuses only an absent or stopping package.
  *
  * <p>Lifecycle: upgrade healing introduced in 0.4.0, to be removed in 0.5 with the other
- * startup migrations — see docs/upgrade-notes.md, "Startup migrations".
+ * startup migrations — see docs/administration/upgrade-notes.md, "Startup migrations".
  */
 @Component(service = {ElementsSiteReactivation.class, JahiaEventListener.class}, immediate = true)
 public class ElementsSiteReactivation extends ElementsRedeployRetriggeredMigration {
@@ -170,7 +170,7 @@ public class ElementsSiteReactivation extends ElementsRedeployRetriggeredMigrati
     /**
      * One site at a time: a failure must never keep the later sites broken, and the
      * one-shot marker is stamped only on success so a failed site is retried on the
-     * next run. The remedy is the exact gesture docs/upgrade-notes.md step 4 asks of
+     * next run. The remedy is the exact gesture docs/administration/upgrade-notes.md step 4 asks of
      * the operator.
      */
     private static void reactivate(JCRSessionWrapper session, String sitePath) {
@@ -188,7 +188,7 @@ public class ElementsSiteReactivation extends ElementsRedeployRetriggeredMigrati
                            : "");
         } catch (RepositoryException | RuntimeException e) {
             log.error("[ElementsSiteReactivation] Could not re-enable {} on site '{}' — do it manually "
-                    + "(docs/upgrade-notes.md step 4): {}", ELEMENTS_MODULE_ID, sitePath, e.getMessage(), e);
+                    + "(docs/administration/upgrade-notes.md step 4): {}", ELEMENTS_MODULE_ID, sitePath, e.getMessage(), e);
         }
     }
 }

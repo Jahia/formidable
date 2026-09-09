@@ -46,7 +46,7 @@ Three files, and nothing in Formidable:
 
 The mechanics behind each piece (how the editor ranks fields, how views of the same name are
 ordered, what a default view must keep) are the "Case 4" of
-[How to extend Formidable views and elements from a third-party module](../../../docs/how-to-extend-views-and-elements-from-third-party-module.md).
+[How to extend Formidable views and elements from a third-party module](../../../docs/extension/how-to-extend-views-and-elements-from-third-party-module.md).
 
 ## Enabling it on a site
 

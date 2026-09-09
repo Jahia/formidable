@@ -33,7 +33,7 @@ import javax.jcr.query.Query;
  * legacy property remains.
  *
  * <p>Lifecycle: startup migration introduced in 0.4.0 (#193), to be removed in 0.5 — see
- * docs/upgrade-notes.md, "Startup migrations".
+ * docs/administration/upgrade-notes.md, "Startup migrations".
  */
 // Registered as its own service so components whose activation must wait for the
 // migration (ManualOptionsLanguageSyncListener) can express that ordering as a

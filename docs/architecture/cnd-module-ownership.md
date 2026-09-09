@@ -206,4 +206,4 @@ That split gives external modules a stable contract: they can define their own f
 
 See also:
 
-- `docs/how-to-extend-views-and-elements-from-third-party-module.md` for the rendering contract to follow when a third-party module adds a custom container view or a new form element.
+- `docs/extension/how-to-extend-views-and-elements-from-third-party-module.md` for the rendering contract to follow when a third-party module adds a custom container view or a new form element.

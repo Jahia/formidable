@@ -393,7 +393,7 @@ Two more contracts matter for help texts and inline validation errors:
 - the help block is a `div.fmdb-form-help` with id `help-<nodeId>`, referenced by the
   control through `aria-describedby`;
 - custom validation messages are emitted as `data-fmdb-msg-*` attributes on the control
-  (see `docs/custom-validation.md` for the full attribute table).
+  (see `docs/architecture/custom-validation.md` for the full attribute table).
 
 Modules living in this monorepo consume both contracts from the private
 `formidable-shared` workspace package (`HelpText`, `helpTextId`,

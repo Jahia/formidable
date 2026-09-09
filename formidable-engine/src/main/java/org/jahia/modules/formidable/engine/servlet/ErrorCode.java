@@ -2,7 +2,7 @@ package org.jahia.modules.formidable.engine.servlet;
 
 /**
  * Error codes returned in JSON responses when a form submission fails.
- * See docs/error-codes.md for the full glossary.
+ * See docs/administration/error-codes.md for the full glossary.
  *
  * Clients receive only the code (e.g. "FMDB-006"); detailed reasons are
  * written to server logs only, never exposed to the caller.

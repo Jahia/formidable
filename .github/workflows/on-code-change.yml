@@ -35,6 +35,8 @@ jobs:
         run: |
           yarn install --immutable
           yarn typecheck
+      - name: Check the documentation links
+        run: node scripts/check-doc-links.mjs
 
   build:
     name: Build Module

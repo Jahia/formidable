@@ -61,7 +61,7 @@ CND locations:
 - **Component-specific types**: `formidable-elements/src/components/<ComponentName>/definition.cnd`
 - **Action & engine types** (actions, submissions, results, logic): `formidable-engine/src/main/resources/META-INF/definitions.cnd`
 
-See `docs/cnd-module-ownership.md` for the decision framework.
+See `docs/architecture/cnd-module-ownership.md` for the decision framework.
 
 ### Component File Layout
 
@@ -121,7 +121,7 @@ Built-in actions: `SaveToJcrFormAction`, `SendEmailNotificationFormAction`, `Sen
 3. Read config from `actionNode` properties, not from hardcoded values
 4. If the action never writes to the repository, also extend `fmdbmix:readOnlyCompatibleAction`;
    otherwise its forms are blocked (FMDB-014) while the platform is in read-only maintenance
-   (see `docs/how-to-create-form-action.md`)
+   (see `docs/extension/how-to-create-form-action.md`)
 
 ## Developer Commands
 

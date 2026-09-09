@@ -20,7 +20,7 @@ import java.util.EventObject;
  * expose {@link JahiaEventListener} as a service interface to receive the event.
  *
  * <p>Lifecycle: to be removed in 0.5 with the migrations it retriggers — see
- * docs/upgrade-notes.md, "Startup migrations".
+ * docs/administration/upgrade-notes.md, "Startup migrations".
  */
 abstract class ElementsRedeployRetriggeredMigration implements JahiaEventListener<EventObject> {
 
