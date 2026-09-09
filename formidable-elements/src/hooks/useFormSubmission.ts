@@ -2,6 +2,7 @@ import {type FormEvent, type RefObject, useRef, useState} from 'react';
 import {fieldKindFromForm, interpolateMessage} from '~/utils/messageUtils';
 import {applyConditionalLogicVisibility, buildLogicStateHeader} from '~/utils/conditionalLogic';
 import {FORM_LOGIC_STATE_HEADER} from '~/utils/logicProviders';
+import {submitterTimeZone, TIME_ZONE_HEADER} from '~/utils/timeZone';
 import {type CaptchaHandle} from '~/components/Form/Captcha.client';
 
 interface SubmissionLabels {
@@ -109,6 +110,11 @@ export function useFormSubmission({
 
 				if (logicStateHeader) {
 					xhr.setRequestHeader(FORM_LOGIC_STATE_HEADER, logicStateHeader);
+				}
+
+				const timeZone = submitterTimeZone();
+				if (timeZone) {
+					xhr.setRequestHeader(TIME_ZONE_HEADER, timeZone);
 				}
 				xhr.withCredentials = true;
 				xhr.onload = () => resolve(xhr);

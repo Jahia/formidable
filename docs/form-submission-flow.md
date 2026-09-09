@@ -94,6 +94,7 @@ multipart bodies during streaming.
 | `lang` query param | BCP 47 language tag (e.g. `en`, `fr`) | `default.server.tsx` |
 | `X-Formidable-Captcha-Token` header | CAPTCHA token — only when CAPTCHA protection is enabled on the form | `useFormSubmission.ts` at submit time |
 | `X-Formidable-Logic-State` header | One base64 declaration of the provider state (JS variables, URL params, cookies) the browser evaluated its logic rules against — lets the server evaluate provider rules coherently | `useFormSubmission.ts` at submit time |
+| `X-Formidable-Time-Zone` header | The browser's time zone (an IANA id such as `Europe/Paris`), stored on the submission when it names a zone the platform knows — the results tell where a typed date-time applies | `useFormSubmission.ts` at submit time |
 
 No hidden `<input>` fields are injected into the form body for routing.
 The CAPTCHA widget field (`cf-turnstile-response`, etc.) is deleted from `FormData` by

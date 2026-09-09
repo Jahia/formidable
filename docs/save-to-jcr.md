@@ -120,6 +120,13 @@ Typical submission-level properties:
   the sources apart
 - `locale`
 - `referer`
+- `timeZone` — the submitter's time zone as the form client declares it (the browser's zone,
+  an IANA id such as `Europe/Paris`), kept only when it is a zone the platform knows; absent
+  for a submission posted outside a browser, and when the browser named a zone this platform's
+  JVM does not know yet (logged at debug level). The results show it with the metadata and
+  after each date-time value. The zone is the submitter's — where the text was typed — not a
+  property of the value: a date-time meant for a fixed remote place still shows the submitter's
+  zone
 
 The per-form results container (`formidable-results/<form>`) is created on the first
 submission with a collide-and-recover guard: the deterministic node name makes two
@@ -132,13 +139,18 @@ properties if they were created before that change.
 
 ### Personal Data
 
-At submission level, the only request-derived metadata still persisted by default is:
+At submission level, the request-derived metadata still persisted by default is:
 
 - `referer` — the HTTP `Referer` header, when present
+- `timeZone` — the browser's time zone from the `X-Formidable-Time-Zone` header, when it names
+  a zone the platform knows
 
-This value may contain personal data or contextual URL information depending on the
-site and browser behavior. It is stored to help operators understand where a submission
-came from in the site flow and to support operational troubleshooting. Submitted field
+The referer may contain personal data or contextual URL information depending on the site
+and browser behavior; it is stored to help operators understand where a submission came from
+in the site flow and to support operational troubleshooting. The time zone is coarse location
+data (one of some 600 zones), and beside the locale and the referer it narrows a submitter
+further than either does alone; it is stored because a date-time typed in a form cannot be
+read in another zone without it. Submitted field
 values and uploaded files may of course also contain personal data depending on the form
 design; those are persisted because `fmdb:save2jcrAction` is explicitly a storage action.
 

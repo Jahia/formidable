@@ -233,5 +233,6 @@ orderable
  - origin (string) mandatory indexed=no
  - locale (string) indexed=no
  - referer (string) indexed=no
+ - timeZone (string) indexed=no
  + data (fmdb:submissionData) = fmdb:submissionData autocreated
  + files (jnt:folder) = jnt:folder

@@ -10,6 +10,8 @@ import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRTemplate;
 import org.osgi.service.component.annotations.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.jcr.Binary;
 import javax.jcr.NodeIterator;
@@ -18,11 +20,13 @@ import javax.jcr.Value;
 import javax.servlet.http.HttpServletRequest;
 import java.io.ByteArrayInputStream;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.ZoneOffset;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACL_NODE;
@@ -38,8 +42,22 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WO
  */
 @Component(service = FormAction.class)
 public class SaveToJcrFormAction implements FormAction {
+    private static final Logger log = LoggerFactory.getLogger(SaveToJcrFormAction.class);
     private static final String RESULTS_ROOT_NAME = "formidable-results";
     private static final String SUBMISSION_ORIGIN = "formidable";
+    /** The submitter's time zone, sent by the form client as the browser reports it (an IANA zone id). */
+    static final String TIME_ZONE_HEADER = "X-Formidable-Time-Zone";
+    /**
+     * The longest IANA zone id is 32 characters ({@code America/Argentina/ComodRivadavia}); twice that
+     * leaves room for future ids and stops a header that is not a zone at all before the set lookup.
+     */
+    private static final int MAX_TIME_ZONE_LENGTH = 64;
+    /**
+     * The zones this JVM knows, read once: {@link ZoneId#getAvailableZoneIds()} returns a fresh copy
+     * of some 600 ids on every call. Zones added at runtime ({@code ZoneRulesProvider.refresh()}) are
+     * not a case a Jahia module carries.
+     */
+    private static final Set<String> KNOWN_ZONE_IDS = ZoneId.getAvailableZoneIds();
     private static final String SPLIT_CONFIG = "date,jcr:created,yyyy;date,jcr:created,MM;date,jcr:created,dd";
     private static final String SPLIT_NODE_TYPE = "fmdb:splittedSubmission";
     private static final String FILES_NODE_NAME = "files";
@@ -219,7 +237,39 @@ public class SaveToJcrFormAction implements FormAction {
         submission.setProperty("origin", SUBMISSION_ORIGIN);
         setOptionalProperty(submission, "locale", req.getParameter("lang"));
         setOptionalProperty(submission, "referer", req.getHeader("Referer"));
+        setOptionalProperty(submission, "timeZone", submitterTimeZone(req.getHeader(TIME_ZONE_HEADER)));
         return submission;
+    }
+
+    /**
+     * The submitter's time zone as the form client declares it — the zone the browser reports,
+     * sent in {@value #TIME_ZONE_HEADER} — kept only when it is a zone identifier the platform
+     * knows ({@code Europe/Paris}, {@code UTC}...): the header is under the client's control and
+     * the value is shown to editors, so anything else is dropped rather than stored. Null when the
+     * header is absent (a submission posted outside a browser) or names no zone this JVM knows: a
+     * browser whose zone list runs ahead of the JVM's tzdb, or a tampered header. That second case
+     * is logged at debug level so the two can be told apart; an absent header is not.
+     */
+    static String submitterTimeZone(String header) {
+        if (header == null) {
+            return null;
+        }
+        String candidate = header.trim();
+        if (candidate.isEmpty()) {
+            return null;
+        }
+        if (candidate.length() > MAX_TIME_ZONE_LENGTH || !KNOWN_ZONE_IDS.contains(candidate)) {
+            if (log.isDebugEnabled()) {
+                log.debug("[SaveToJcrFormAction] Dropping the {} header, not a zone this platform knows: '{}'",
+                        TIME_ZONE_HEADER, abbreviate(candidate));
+            }
+            return null;
+        }
+        return candidate;
+    }
+
+    private static String abbreviate(String value) {
+        return value.length() > MAX_TIME_ZONE_LENGTH ? value.substring(0, MAX_TIME_ZONE_LENGTH) + "..." : value;
     }
 
     private static String buildSubmissionNodeName() {

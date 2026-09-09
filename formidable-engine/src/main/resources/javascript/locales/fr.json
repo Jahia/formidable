@@ -158,7 +158,8 @@
 			"origin": "Origine",
 			"locale": "Langue",
 			"user": "Utilisateur",
-			"referer": "Provenance"
+			"referer": "Provenance",
+			"timeZone": "Fuseau horaire"
 		},
 		"export": {
 			"title": "Exporter les résultats",
