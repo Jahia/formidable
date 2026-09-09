@@ -3,4 +3,4 @@
 formidable: patch
 ---
 
-Improved the documentation: one folder per reader — styling, extension, administration, architecture (#PR)
+Improved the documentation: one folder per reader — styling, extension, administration, architecture (#307)
