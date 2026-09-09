@@ -20,7 +20,12 @@ without fighting selectors.
 ## Class hooks
 
 Stable class names, kept across releases. Most are rendered server-side; the multi-step navigation,
-the submission messages and the selected-files list are drawn by the client, under the same names:
+the submission messages and the selected-files list are drawn by the client, under the same names.
+
+Measured against the sources at `b5afcb0` (2026-09-08): every class name the modules render is in
+this document, this table and the two sections below. No check keeps it so yet
+([#305](https://github.com/Jahia/formidable/issues/305)); until one does, a hook renamed, added or
+removed in the sources comes with its edit here.
 
 | Class | Element |
 |---|---|
