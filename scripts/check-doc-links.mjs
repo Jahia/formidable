@@ -4,7 +4,8 @@ import {existsSync, readdirSync, readFileSync, statSync} from 'node:fs';
 import {dirname, join, relative, resolve} from 'node:path';
 
 const root = resolve(process.argv[2] ?? '.');
-const SKIP = new Set(['node_modules', 'target', 'dist', '.git', '.yarn', 'results']);
+// .harness holds local working notes (git-ignored), never part of the repository.
+const SKIP = new Set(['node_modules', 'target', 'dist', '.git', '.yarn', 'results', '.harness']);
 const walk = dir => readdirSync(dir).flatMap(name => {
     if (SKIP.has(name)) return [];
     const path = join(dir, name);
