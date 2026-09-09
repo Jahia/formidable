@@ -16,10 +16,10 @@ const GET_MIGRATED_FIELD = gql`
 				mixinTypes {
 					name
 				}
-				optionsMode: property(name: "fmdb:optionsMode") {
+				optionsMode: property(name: "optionsMode") {
 					value
 				}
-				options: property(name: "fmdb:options", language: $language) {
+				options: property(name: "options", language: $language) {
 					values
 				}
 			}
@@ -112,7 +112,7 @@ describe('Form fields - 219 Choice options migration', () => {
 					(response: MigratedFieldResponse) =>
 						response.data?.jcr?.nodeByPath?.optionsMode?.value === 'manual'
 				),
-				{timeout: 60000, interval: 2000, errorMsg: 'the migration never stamped fmdb:optionsMode'}
+				{timeout: 60000, interval: 2000, errorMsg: 'the migration never stamped optionsMode'}
 			);
 
 			// Both legacy property names, in both workspaces, values moved as-is.
@@ -214,7 +214,7 @@ describe('Form fields - 219 Choice options migration', () => {
 					(response: MigratedFieldResponse) =>
 						response.data?.jcr?.nodeByPath?.optionsMode?.value === 'manual'
 				),
-				{timeout: 60000, interval: 2000, errorMsg: 'the redeploy run never stamped fmdb:optionsMode'}
+				{timeout: 60000, interval: 2000, errorMsg: 'the redeploy run never stamped optionsMode'}
 			);
 
 			expectMigrated(BILINGUAL_SELECT_PATH, 'EDIT', [

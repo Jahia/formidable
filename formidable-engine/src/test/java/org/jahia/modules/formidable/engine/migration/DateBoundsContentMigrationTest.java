@@ -39,8 +39,8 @@ class DateBoundsContentMigrationTest {
         Calendar min = Calendar.getInstance();
 
         when(node.getRealNode()).thenReturn(realNode);
-        when(node.hasProperty("fmdb:minBoundMode")).thenReturn(false);
-        when(node.hasProperty("fmdb:maxBoundMode")).thenReturn(false);
+        when(node.hasProperty("minBoundMode")).thenReturn(false);
+        when(node.hasProperty("maxBoundMode")).thenReturn(false);
         when(realNode.hasProperty("min")).thenReturn(true);
         when(realNode.hasProperty("max")).thenReturn(false);
         when(realNode.getProperty("min")).thenReturn(rawMin);
@@ -55,10 +55,10 @@ class DateBoundsContentMigrationTest {
         verify(node).addMixin("fmdbmix:dateBounds");
         verify(node).addMixin("fmdbmix:fixedMinDate");
         verify(node).setProperty("min", min);
-        verify(node).setProperty("fmdb:minBoundMode", "date");
+        verify(node).setProperty("minBoundMode", "date");
         // The unconfigured side stays untouched.
         verify(node, never()).addMixin("fmdbmix:fixedMaxDate");
-        verify(node, never()).setProperty("fmdb:maxBoundMode", "date");
+        verify(node, never()).setProperty("maxBoundMode", "date");
     }
 
     @Test
@@ -70,8 +70,8 @@ class DateBoundsContentMigrationTest {
         Node realNode = mock(Node.class);
 
         when(node.getRealNode()).thenReturn(realNode);
-        when(node.hasProperty("fmdb:minBoundMode")).thenReturn(true);
-        when(node.hasProperty("fmdb:maxBoundMode")).thenReturn(true);
+        when(node.hasProperty("minBoundMode")).thenReturn(true);
+        when(node.hasProperty("maxBoundMode")).thenReturn(true);
         when(realNode.hasProperty("min")).thenReturn(true);
         when(realNode.hasProperty("max")).thenReturn(true);
 

@@ -22,7 +22,7 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.OP
 
 /**
  * The single reading of a manual option entry's storage, shared by everything
- * that interprets fmdb:options — the language sync, the forged-value allowed
+ * that interprets options — the language sync, the forged-value allowed
  * set — so a storage-format evolution has one parser to update.
  */
 public final class ManualOptionEntries {

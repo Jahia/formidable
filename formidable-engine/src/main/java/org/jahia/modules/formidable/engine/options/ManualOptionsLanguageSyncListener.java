@@ -25,7 +25,7 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.TR
 /**
  * Re-aligns the manual options of every language on the site's default language
  * whenever a contributor saves them (see ManualOptionsLanguageSync for the
- * contract). fmdb:options is i18n, so its events fire on the j:translation_*
+ * contract). options is i18n, so its events fire on the j:translation_*
  * subnode; Jahia's observation manager merges the parent node's types into
  * translation events, so the fmdbmix:manualOptions type filter applies before
  * onEvent, and the path is stripped back to the field node here.

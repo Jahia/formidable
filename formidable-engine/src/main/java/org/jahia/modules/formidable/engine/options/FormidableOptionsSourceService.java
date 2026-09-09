@@ -43,7 +43,7 @@ public class FormidableOptionsSourceService {
 
     private static final Logger log = LoggerFactory.getLogger(FormidableOptionsSourceService.class);
 
-    private static final String OPTIONS_NODE_TYPE_PROPERTY = "fmdb:optionsNodeType";
+    private static final String OPTIONS_NODE_TYPE_PROPERTY = "optionsNodeType";
     private static final String DESCENDANTS_OF_TYPE_QUERY = "SELECT * FROM [%s] WHERE ISDESCENDANTNODE('%s')";
     private static final String OPTION_VALUE_KEY = "value";
     private static final String OPTION_LABEL_KEY = "label";
@@ -101,8 +101,8 @@ public class FormidableOptionsSourceService {
      */
     public String[] resolveForField(JCRNodeWrapper fieldNode, String languageTag) throws javax.jcr.RepositoryException {
         if (fieldNode.isNodeType("fmdbmix:sourcedOptions")) {
-            String sourceKey = fieldNode.hasProperty("fmdb:optionsSourceKey")
-                    ? fieldNode.getProperty("fmdb:optionsSourceKey").getString()
+            String sourceKey = fieldNode.hasProperty("optionsSourceKey")
+                    ? fieldNode.getProperty("optionsSourceKey").getString()
                     : "";
             return resolve(sourceKey, languageTag);
         }
@@ -151,7 +151,7 @@ public class FormidableOptionsSourceService {
      */
     private String[] resolveContentOptions(JCRNodeWrapper fieldNode, int maxResults)
             throws javax.jcr.RepositoryException {
-        if (!fieldNode.hasProperty("fmdb:optionsRootNode")) {
+        if (!fieldNode.hasProperty("optionsRootNode")) {
             throw new IllegalStateException("Choice field '" + fieldNode.getPath()
                     + "' is in content mode but no root node is selected");
         }
@@ -163,7 +163,7 @@ public class FormidableOptionsSourceService {
 
         JCRNodeWrapper root;
         try {
-            root = (JCRNodeWrapper) fieldNode.getProperty("fmdb:optionsRootNode").getNode();
+            root = (JCRNodeWrapper) fieldNode.getProperty("optionsRootNode").getNode();
         } catch (javax.jcr.RepositoryException e) {
             throw new IllegalStateException("Root node of choice field '" + fieldNode.getPath()
                     + "' cannot be read (deleted, or not published in this workspace)", e);
@@ -279,7 +279,7 @@ public class FormidableOptionsSourceService {
     private java.util.function.BiFunction<Locale, Integer, String> capExceededMessageResolver = (locale, limit) -> {
         try {
             return org.jahia.utils.i18n.Messages.getWithArgs("resources.formidable-engine",
-                    "fmdbmix_contentOptions.fmdb_optionsNodeType.capExceeded", locale, limit);
+                    "fmdbmix_contentOptions.optionsNodeType.capExceeded", locale, limit);
         } catch (Exception e) {
             return "more than " + limit + " options resolve";
         }
@@ -372,14 +372,14 @@ public class FormidableOptionsSourceService {
      * staying fresh means a category publication shows up on the next render.
      */
     private static String[] resolveCategoryOptions(JCRNodeWrapper fieldNode) throws javax.jcr.RepositoryException {
-        if (!fieldNode.hasProperty("fmdb:optionsRootCategory")) {
+        if (!fieldNode.hasProperty("optionsRootCategory")) {
             throw new IllegalStateException("Choice field '" + fieldNode.getPath()
                     + "' is in category mode but no root category is selected");
         }
 
         JCRNodeWrapper root;
         try {
-            root = (JCRNodeWrapper) fieldNode.getProperty("fmdb:optionsRootCategory").getNode();
+            root = (JCRNodeWrapper) fieldNode.getProperty("optionsRootCategory").getNode();
         } catch (javax.jcr.RepositoryException e) {
             throw new IllegalStateException("Root category of choice field '" + fieldNode.getPath()
                     + "' cannot be read (deleted, or not published in this workspace)", e);
@@ -405,7 +405,7 @@ public class FormidableOptionsSourceService {
     /**
      * Resolves the options of a declared source for one language.
      *
-     * @param sourceKey   id of an admin-declared options source ({@code fmdb:optionsSourceKey})
+     * @param sourceKey   id of an admin-declared options source ({@code optionsSourceKey})
      * @param languageTag BCP-47 language tag of the rendered form (for example {@code en}, {@code fr-FR})
      * @return the options as JSON-encoded {@code {"value","label","selected"}} strings,
      *         possibly empty — never null

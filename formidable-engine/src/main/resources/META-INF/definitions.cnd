@@ -77,9 +77,10 @@ orderable
 // The default 'manual' auto-activates the manual fieldset on creation, so typing
 // options by hand stays the out-of-the-box experience.
 [fmdbmix:optionsSource] mixin
- - fmdb:optionsMode (string, choicelist) = 'manual' indexed=no
+ - optionsMode (string, choicelist) = 'manual' indexed=no
+ - fmdb:optionsMode (string) hidden indexed=no
 
-// fmdb:options is deliberately NOT mandatory: options are authored in the
+// options is deliberately NOT mandatory: options are authored in the
 // site's default language only (the language sync then feeds every other
 // language at save), while a mandatory i18n property is validated in EVERY
 // language a contributor merely visits — in the Content Editor, opening
@@ -88,20 +89,25 @@ orderable
 // ManualOptionsLanguageSync, not by a per-language JCR constraint.
 [fmdbmix:manualOptions] > jmix:dynamicFieldset mixin
  extends = fmdbmix:optionsSource
- - fmdb:options (string) i18n multiple indexed=no
+ - options (string) i18n multiple indexed=no
+ - fmdb:options (string) i18n multiple hidden indexed=no
 
 [fmdbmix:sourcedOptions] > jmix:dynamicFieldset mixin
  extends = fmdbmix:optionsSource
- - fmdb:optionsSourceKey (string, choicelist[formidableOptionsSources]) mandatory indexed=no
+ - optionsSourceKey (string, choicelist[formidableOptionsSources]) mandatory indexed=no
+ - fmdb:optionsSourceKey (string) hidden indexed=no
 
 [fmdbmix:categoryOptions] > jmix:dynamicFieldset mixin
  extends = fmdbmix:optionsSource
- - fmdb:optionsRootCategory (weakreference, picker[type='category']) mandatory < 'jnt:category'
+ - optionsRootCategory (weakreference, picker[type='category']) mandatory < 'jnt:category'
+ - fmdb:optionsRootCategory (weakreference) hidden
 
 [fmdbmix:contentOptions] > jmix:dynamicFieldset mixin
  extends = fmdbmix:optionsSource
- - fmdb:optionsRootNode (weakreference, picker[type='editorial']) mandatory
- - fmdb:optionsNodeType (string, choicelist[formidableContentTypes,dependentProperties='fmdb:optionsRootNode']) mandatory indexed=no
+ - optionsRootNode (weakreference, picker[type='editorial']) mandatory
+ - optionsNodeType (string, choicelist[formidableContentTypes,dependentProperties='optionsRootNode']) mandatory indexed=no
+ - fmdb:optionsRootNode (weakreference) hidden
+ - fmdb:optionsNodeType (string) hidden indexed=no
 
 // Date-bound contract for date and datetime fields: each bound is a mode switch.
 // Every dynamic-fieldset property below is mandatory: once a mode is chosen its
@@ -114,8 +120,10 @@ orderable
 // submission day, never an ambiguous combination of both. Two flavors only because
 // the calendar widget differs (date-only picker vs date and time).
 [fmdbmix:dateBounds] mixin
- - fmdb:minBoundMode (string, choicelist) = 'none' indexed=no
- - fmdb:maxBoundMode (string, choicelist) = 'none' indexed=no
+ - minBoundMode (string, choicelist) = 'none' indexed=no
+ - maxBoundMode (string, choicelist) = 'none' indexed=no
+ - fmdb:minBoundMode (string) hidden indexed=no
+ - fmdb:maxBoundMode (string) hidden indexed=no
 
 [fmdbmix:fixedMinDate] > jmix:dynamicFieldset mixin
  extends = fmdbmix:dateBounds
@@ -131,17 +139,23 @@ orderable
 // the property names are shared so the runtime reads one set.
 [fmdbmix:relativeMinDate] > jmix:dynamicFieldset mixin
  extends = fmdbmix:dateBounds
- - fmdb:minRelativeAmount (long) = 0 mandatory indexed=no
- - fmdb:minRelativeUnit (string, choicelist) = 'days' mandatory indexed=no
+ - minRelativeAmount (long) = 0 mandatory indexed=no
+ - minRelativeUnit (string, choicelist) = 'days' mandatory indexed=no
+ - fmdb:minRelativeAmount (long) hidden indexed=no
+ - fmdb:minRelativeUnit (string) hidden indexed=no
 
 [fmdbmix:relativeMaxDate] > jmix:dynamicFieldset mixin
  extends = fmdbmix:dateBounds
- - fmdb:maxRelativeAmount (long) = 0 mandatory indexed=no
- - fmdb:maxRelativeUnit (string, choicelist) = 'days' mandatory indexed=no
+ - maxRelativeAmount (long) = 0 mandatory indexed=no
+ - maxRelativeUnit (string, choicelist) = 'days' mandatory indexed=no
+ - fmdb:maxRelativeAmount (long) hidden indexed=no
+ - fmdb:maxRelativeUnit (string) hidden indexed=no
 
 [fmdbmix:datetimeBounds] mixin
- - fmdb:minBoundMode (string, choicelist) = 'none' indexed=no
- - fmdb:maxBoundMode (string, choicelist) = 'none' indexed=no
+ - minBoundMode (string, choicelist) = 'none' indexed=no
+ - maxBoundMode (string, choicelist) = 'none' indexed=no
+ - fmdb:minBoundMode (string) hidden indexed=no
+ - fmdb:maxBoundMode (string) hidden indexed=no
 
 [fmdbmix:fixedMinDatetime] > jmix:dynamicFieldset mixin
  extends = fmdbmix:datetimeBounds
@@ -153,13 +167,17 @@ orderable
 
 [fmdbmix:relativeMinDatetime] > jmix:dynamicFieldset mixin
  extends = fmdbmix:datetimeBounds
- - fmdb:minRelativeAmount (long) = 0 mandatory indexed=no
- - fmdb:minRelativeUnit (string, choicelist) = 'days' mandatory indexed=no
+ - minRelativeAmount (long) = 0 mandatory indexed=no
+ - minRelativeUnit (string, choicelist) = 'days' mandatory indexed=no
+ - fmdb:minRelativeAmount (long) hidden indexed=no
+ - fmdb:minRelativeUnit (string) hidden indexed=no
 
 [fmdbmix:relativeMaxDatetime] > jmix:dynamicFieldset mixin
  extends = fmdbmix:datetimeBounds
- - fmdb:maxRelativeAmount (long) = 0 mandatory indexed=no
- - fmdb:maxRelativeUnit (string, choicelist) = 'days' mandatory indexed=no
+ - maxRelativeAmount (long) = 0 mandatory indexed=no
+ - maxRelativeUnit (string, choicelist) = 'days' mandatory indexed=no
+ - fmdb:maxRelativeAmount (long) hidden indexed=no
+ - fmdb:maxRelativeUnit (string) hidden indexed=no
 
 [fmdbmix:choiceField] > fmdbmix:optionsSource mixin
 // Semantic value-kind mixins: a field type carrying one becomes eligible as a

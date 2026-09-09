@@ -2,7 +2,7 @@
 	"name": "fmdbmix:relativeMaxDatetime",
 	"fields": [
 		{
-			"name": "fmdb:maxRelativeUnit",
+			"name": "maxRelativeUnit",
 			"valueConstraints": [
 				{
 					"value": {

@@ -68,13 +68,62 @@ class ChoiceOptionsContentMigrationTest {
         assertTrue(new ChoiceOptionsContentMigration().migrateNode(session, field));
 
         verify(session).checkout(field);
-        verify(en).setProperty("fmdb:options", english);
-        verify(fr).setProperty("fmdb:options", french);
+        verify(en).setProperty("options", english);
+        verify(fr).setProperty("options", french);
         verify(en.getProperty("choices")).remove();
         verify(fr.getProperty("choices")).remove();
         verify(field).addMixin("fmdbmix:manualOptions");
         verify(field).addMixin("fmdbmix:migratedChoiceOptions");
-        verify(field).setProperty("fmdb:optionsMode", "manual");
+        verify(field).setProperty("optionsMode", "manual");
+    }
+
+    @Test
+    void aLegacySelectKeepsItsOptionsInPlaceAndGainsTheMixin() throws Exception {
+        JCRSessionWrapper session = mock(JCRSessionWrapper.class);
+        JCRNodeWrapper field = mock(JCRNodeWrapper.class);
+
+        // 0.3-era select: 'options' already bears the unified name, but as a single value
+        // and without the mixin that owns the property since 0.4.
+        Node en = mock(Node.class);
+        Property legacy = mock(Property.class);
+        Value single = mock(Value.class);
+        when(en.hasProperty("options")).thenReturn(true);
+        when(en.getProperty("options")).thenReturn(legacy);
+        when(legacy.isMultiple()).thenReturn(false);
+        when(legacy.getValue()).thenReturn(single);
+        when(field.isNodeType("fmdbmix:manualOptions")).thenReturn(false);
+
+        JCRNodeIteratorWrapper translations = mock(JCRNodeIteratorWrapper.class);
+        when(translations.hasNext()).thenReturn(true, false);
+        when(translations.nextNode()).thenReturn(en);
+        when(field.getNodes("j:translation_*")).thenReturn(translations);
+
+        assertTrue(new ChoiceOptionsContentMigration().migrateNode(session, field));
+
+        verify(en).setProperty("options", new Value[]{single});
+        verify(legacy, never()).remove();
+        verify(field).addMixin("fmdbmix:manualOptions");
+        verify(field).setProperty("optionsMode", "manual");
+    }
+
+    @Test
+    void aMigratedSelectIsNotMigratedAgain() throws Exception {
+        JCRSessionWrapper session = mock(JCRSessionWrapper.class);
+        JCRNodeWrapper field = mock(JCRNodeWrapper.class);
+
+        // 0.4+ content: the mixin owns 'options' — that property is not a legacy one.
+        Node en = mock(Node.class);
+        when(en.hasProperty("options")).thenReturn(true);
+        when(field.isNodeType("fmdbmix:manualOptions")).thenReturn(true);
+        JCRNodeIteratorWrapper translations = mock(JCRNodeIteratorWrapper.class);
+        when(translations.hasNext()).thenReturn(true, false);
+        when(translations.nextNode()).thenReturn(en);
+        when(field.getNodes("j:translation_*")).thenReturn(translations);
+
+        assertFalse(new ChoiceOptionsContentMigration().migrateNode(session, field));
+
+        verify(session, never()).checkout(any(JCRNodeWrapper.class));
+        verify(en, never()).setProperty(anyString(), any(Value[].class));
     }
 
     @Test

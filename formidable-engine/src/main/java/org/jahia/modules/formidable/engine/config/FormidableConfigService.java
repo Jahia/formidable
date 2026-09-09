@@ -69,7 +69,7 @@ public class FormidableConfigService {
      * An admin-declared options source for choice fields: a curated Jahia choicelist
      * initializer exposed to contributors under a stable id.
      *
-     * @param id             stored in JCR ({@code fmdb:optionsSourceKey})
+     * @param id             stored in JCR ({@code optionsSourceKey})
      * @param label          shown in the source picker
      * @param initializerKey key of the Jahia choicelist initializer to evaluate
      * @param param          optional initializer parameter (empty when absent)
@@ -645,7 +645,7 @@ public class FormidableConfigService {
     /**
      * Resolves an options source by its stable id.
      *
-     * @param id the value stored in the JCR {@code fmdb:optionsSourceKey} property
+     * @param id the value stored in the JCR {@code optionsSourceKey} property
      * @return the configured options source, or empty if the id is unknown
      */
     public Optional<OptionsSource> resolveOptionsSource(String id) {

@@ -76,9 +76,9 @@ export function getSelectNode(data: SelectData = SELECT_SINGLE): JahiaNode {
 	if (data.size !== undefined) properties.push({name: 'size', value: String(data.size), type: 'LONG'});
 	if (data.disabled !== undefined) properties.push({name: 'disabled', value: String(data.disabled), type: 'BOOLEAN'});
 	if (data.autofocus !== undefined) properties.push({name: 'autofocus', value: String(data.autofocus), type: 'BOOLEAN'});
-	properties.push({name: 'fmdb:optionsMode', value: 'manual'});
+	properties.push({name: 'optionsMode', value: 'manual'});
 	properties.push({
-		name: 'fmdb:options',
+		name: 'options',
 		values: data.options.map(option => JSON.stringify({
 			value: option.value,
 			label: option.label,

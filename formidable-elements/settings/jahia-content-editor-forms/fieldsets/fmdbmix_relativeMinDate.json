@@ -2,7 +2,7 @@
 	"name": "fmdbmix:relativeMinDate",
 	"fields": [
 		{
-			"name": "fmdb:minRelativeUnit",
+			"name": "minRelativeUnit",
 			"valueConstraints": [
 				{
 					"value": {

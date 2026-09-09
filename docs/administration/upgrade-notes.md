@@ -214,7 +214,7 @@ one edit — is never label-paired or rule-remapped on the shape alone.
 
 PR [#193](https://github.com/Jahia/formidable/pull/193) unified the per-type
 option properties (`options` on `fmdb:select`, `choices` on `fmdb:radio` /
-`fmdb:checkbox`) into the single `fmdb:options` property carried by the
+`fmdb:checkbox`) into the single `options` property carried by the
 `fmdbmix:manualOptions` mixin, as part of the options-source feature.
 
 ### The one case needing attention: importing a 0.3-era export
@@ -252,8 +252,8 @@ mode), so re-running it is a no-op. The migrated fields do show up as
 
 The fixed `min`/`max` properties of date and datetime-local fields moved from
 the field types into the `fmdbmix:fixedMinDate`/`fmdbmix:fixedMaxDate` (and
-datetime) dynamic-fieldset mixins, driven by the new `fmdb:minBoundMode` /
-`fmdb:maxBoundMode` properties (`none`, `date`, `today` — the day the visitor
+datetime) dynamic-fieldset mixins, driven by the new `minBoundMode` /
+`maxBoundMode` properties (`none`, `date`, `today` — the day the visitor
 submits the form — or `relative`, that day shifted by a signed offset). In the
 editor each bound is now a dropdown, and the calendar (or the offset fields)
 only appears for the choice that needs it.
@@ -324,7 +324,7 @@ from a 0.3 restore. No released version is concerned.
 
 | Class (`org.jahia.modules.formidable.engine.migration`) | Introduced | What it rewrites |
 |---|---|---|
-| `ChoiceOptionsContentMigration` | 0.4.0 (#193) | Legacy `options`/`choices` of choice fields → `fmdb:options` + manual mode |
+| `ChoiceOptionsContentMigration` | 0.4.0 (#193) | Legacy `options`/`choices` of choice fields → `options` + manual mode |
 | `DateBoundsContentMigration` | 0.4.0 (#202) | Fixed date/datetime bounds without a bound mode → mode `date` + fixed-bound mixins |
 | `TranslationFieldKeyCleanup` | 0.4.0 (#215) | Stray `fieldKey` on `j:translation_*` subnodes of form elements |
 | `ListTitlesContentMigration` | 0.4.x (#231) | Missing `jcr:title` on a form's `fields`/`actions` lists → the type's default label, per site language (in live, published languages only) |

@@ -9,7 +9,7 @@
 					"name": "<main>",
 					"fields": [
 						{
-							"name": "fmdb:optionsMode",
+							"name": "optionsMode",
 							"rank": 1.5
 						},
 						{

@@ -79,8 +79,8 @@ Applies to: date, datetime-local, number — elements with range and step constr
 
 ### Date bounds: none, a fixed date, or the submission day
 
-Each bound of a date or datetime-local field is a **mode**: `fmdb:minBoundMode` /
-`fmdb:maxBoundMode` (from the `fmdbmix:dateBounds` / `fmdbmix:datetimeBounds`
+Each bound of a date or datetime-local field is a **mode**: `minBoundMode` /
+`maxBoundMode` (from the `fmdbmix:dateBounds` / `fmdbmix:datetimeBounds`
 contracts) hold `none`, `date`, `today` or `relative`. In the editor the mode is
 a dropdown; choosing the fixed date reveals its calendar (a `jmix:dynamicFieldset`
 mixin — `fmdbmix:fixedMinDate` and friends — carries the `min`/`max` property),

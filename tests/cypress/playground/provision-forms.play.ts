@@ -117,7 +117,7 @@ const withEnglish = (node: JahiaNode, enProperties: Array<{name: string; value?:
 
 // French option list in the manual-options storage format.
 const frOptions = (options: Array<{value: string; label: string; selected?: boolean}>): {name: string; values: string[]} => ({
-	name: 'fmdb:options',
+	name: 'options',
 	values: options.map(option => JSON.stringify({
 		value: option.value,
 		label: option.label,

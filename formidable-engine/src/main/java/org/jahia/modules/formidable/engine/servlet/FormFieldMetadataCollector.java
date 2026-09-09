@@ -36,7 +36,7 @@ class FormFieldMetadataCollector {
 
     private static final Logger log = LoggerFactory.getLogger(FormFieldMetadataCollector.class);
     private static final String CHOICES_PROPERTY = "choices";
-    private static final String UNIFIED_OPTIONS_PROPERTY = "fmdb:options";
+    private static final String UNIFIED_OPTIONS_PROPERTY = "options";
     // Mixins whose options are resolved by the engine instead of being stored on the
     // node; must stay aligned with FormidableOptionsSourceService.resolveForField.
     private static final String[] RESOLVED_OPTIONS_MIXINS =
@@ -281,7 +281,7 @@ class FormFieldMetadataCollector {
      * default-language master (a field authored in another language only), the
      * localized read stays the identity.
      *
-     * Keyed on the MIXIN, not on the submitted locale carrying fmdb:options: a form
+     * Keyed on the MIXIN, not on the submitted locale carrying options: a form
      * rendered in a language nobody translated still renders the master's entries
      * (ManualOptionsDisplayService), so the values it can legitimately submit must be
      * read there too.
@@ -497,7 +497,7 @@ class FormFieldMetadataCollector {
      * migration re-homes it under the fixed-bound mixin.
      */
     private static String resolveDateBound(JCRNodeWrapper node, boolean minBound, boolean withTime) {
-        String mode = JcrProps.string(node, minBound ? "fmdb:minBoundMode" : "fmdb:maxBoundMode", null);
+        String mode = JcrProps.string(node, minBound ? "minBoundMode" : "maxBoundMode", null);
         String fixedProperty = minBound ? "min" : "max";
         if ("today".equals(mode) || "relative".equals(mode)) {
             return resolveDayFollowingBound(node, minBound, withTime, "relative".equals(mode));
@@ -526,8 +526,8 @@ class FormFieldMetadataCollector {
      * the "until the end of the submission day" contract allows.
      */
     private static String resolveDayFollowingBound(JCRNodeWrapper node, boolean minBound, boolean withTime, boolean relative) {
-        String amountProperty = minBound ? "fmdb:minRelativeAmount" : "fmdb:maxRelativeAmount";
-        String unitProperty = minBound ? "fmdb:minRelativeUnit" : "fmdb:maxRelativeUnit";
+        String amountProperty = minBound ? "minRelativeAmount" : "maxRelativeAmount";
+        String unitProperty = minBound ? "minRelativeUnit" : "maxRelativeUnit";
         long amount = relative ? JcrProps.longValue(node, amountProperty, 0) : 0;
         String unit = relative ? JcrProps.string(node, unitProperty, "days") : "days";
         java.time.LocalDate day = shiftDay(

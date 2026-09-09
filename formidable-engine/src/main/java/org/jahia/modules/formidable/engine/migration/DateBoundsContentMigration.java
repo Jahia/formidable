@@ -16,8 +16,8 @@ import java.util.Calendar;
 
 /**
  * One-shot content migration for date and datetime fields: nodes stored before the
- * bound modes existed carry fixed 'min'/'max' values but no fmdb:minBoundMode /
- * fmdb:maxBoundMode. Each such bound is stamped with mode 'date' plus the matching
+ * bound modes existed carry fixed 'min'/'max' values but no minBoundMode /
+ * maxBoundMode. Each such bound is stamped with mode 'date' plus the matching
  * fixed-bound dynamic-fieldset mixin, and its value is re-written under the mixin's
  * definition, so the editor reopens it as the fixed-date choice with its calendar.
  *
@@ -50,8 +50,8 @@ public class DateBoundsContentMigration extends ElementsRedeployRetriggeredMigra
     private static final Logger log = LoggerFactory.getLogger(DateBoundsContentMigration.class);
 
     private static final String MODE_FIXED_DATE = "date";
-    private static final String MIN_MODE_PROPERTY = "fmdb:minBoundMode";
-    private static final String MAX_MODE_PROPERTY = "fmdb:maxBoundMode";
+    private static final String MIN_MODE_PROPERTY = "minBoundMode";
+    private static final String MAX_MODE_PROPERTY = "maxBoundMode";
 
     /** One legacy field type, with its bounds-contract mixin and fixed-bound fieldset mixins. */
     record BoundsContract(String legacyNodeType, String contractMixin, String fixedMinMixin, String fixedMaxMixin) {

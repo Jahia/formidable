@@ -37,8 +37,8 @@ export interface ContentChoiceFieldData {
 export function getSourcedChoiceFieldNode(data: SourcedChoiceFieldData): JahiaNode {
 	const properties: JahiaNode['properties'] = [
 		{name: 'jcr:title', value: data.title, language: 'en'},
-		{name: 'fmdb:optionsMode', value: 'sourced'},
-		{name: 'fmdb:optionsSourceKey', value: data.sourceKey}
+		{name: 'optionsMode', value: 'sourced'},
+		{name: 'optionsSourceKey', value: data.sourceKey}
 	];
 
 	if (data.required !== undefined) properties.push({name: 'required', value: String(data.required), type: 'BOOLEAN'});
@@ -59,8 +59,8 @@ export function getSourcedChoiceFieldNode(data: SourcedChoiceFieldData): JahiaNo
 export function getCategoryChoiceFieldNode(data: CategoryChoiceFieldData): JahiaNode {
 	const properties: JahiaNode['properties'] = [
 		{name: 'jcr:title', value: data.title, language: 'en'},
-		{name: 'fmdb:optionsMode', value: 'category'},
-		{name: 'fmdb:optionsRootCategory', value: data.rootCategoryUuid, type: 'WEAKREFERENCE'}
+		{name: 'optionsMode', value: 'category'},
+		{name: 'optionsRootCategory', value: data.rootCategoryUuid, type: 'WEAKREFERENCE'}
 	];
 
 	if (data.required !== undefined) properties.push({name: 'required', value: String(data.required), type: 'BOOLEAN'});
@@ -82,9 +82,9 @@ export function getCategoryChoiceFieldNode(data: CategoryChoiceFieldData): Jahia
 export function getContentChoiceFieldNode(data: ContentChoiceFieldData): JahiaNode {
 	const properties: JahiaNode['properties'] = [
 		{name: 'jcr:title', value: data.title, language: 'en'},
-		{name: 'fmdb:optionsMode', value: 'content'},
-		{name: 'fmdb:optionsRootNode', value: data.rootNodeUuid, type: 'WEAKREFERENCE'},
-		{name: 'fmdb:optionsNodeType', value: data.nodeType}
+		{name: 'optionsMode', value: 'content'},
+		{name: 'optionsRootNode', value: data.rootNodeUuid, type: 'WEAKREFERENCE'},
+		{name: 'optionsNodeType', value: data.nodeType}
 	];
 
 	if (data.required !== undefined) properties.push({name: 'required', value: String(data.required), type: 'BOOLEAN'});
