@@ -257,6 +257,11 @@ const DATETIME_VALUE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.
  * ("05/09/2026 12:53 (Europe/Paris)"): the value stays as typed, the zone says where 12:53
  * applies. A date has no zone, and a submission without one (posted outside a browser, or
  * stored before the zone was recorded) shows the value alone.
+ *
+ * The zone is the submitter's — where the text was typed — not a property of the value, which
+ * the datetime-local input stores without one: a datetime meant for a fixed remote place (an
+ * appointment at a venue in another zone) still shows the submitter's zone. The exports keep
+ * the two apart, the raw value in its column and the zone in its own.
  */
 export function formatFieldValue(value: string, kind: FieldValueKind | undefined, timeZone?: string | null): string {
     if (kind === 'date') {
