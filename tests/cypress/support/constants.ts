@@ -36,9 +36,9 @@ export const LOGIC_STATE_HEADER = 'X-Formidable-Logic-State'
  * The local calendar day shifted by offsetDays, as yyyy-MM-dd — the same clock
  * the browser evaluator reads (and the server's, in CI). Never toISOString,
  * which reads the UTC day and shifts around midnight for non-UTC runners.
- * Shared so every spec reasoning about "today" agrees on the same day.
+ * Shared so every spec reasoning about "today" agrees on the same day; no offset is today.
  */
-export const localDay = (offsetDays: number): string => {
+export const localDay = (offsetDays = 0): string => {
 	const date = new Date()
 	date.setDate(date.getDate() + offsetDays)
 	const month = String(date.getMonth() + 1).padStart(2, '0')
