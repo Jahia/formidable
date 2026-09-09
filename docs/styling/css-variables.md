@@ -1,67 +1,55 @@
-# Styling a form
+# CSS variables
 
-How a template set — or, exceptionally, a form's own custom CSS — styles the forms rendered
-by `formidable-elements`: the stable class hooks, the CSS variables, and the edit-mode cues.
+Every value the base stylesheets hard-code is exposed as a variable: `--fmdb-*` for the core
+(`formidable-elements`), `--fmdbext-*` for the extended inputs. Set them on `.fmdb-form` (or on
+`:root`) in the template set's stylesheet or in a form's custom CSS, rather than restyling the
+selectors. The defaults below are the modules' own; the elements they apply to are named in
+[Class hooks](class-hooks.md) and drawn in [Styling a form](README.md#what-the-markup-looks-like).
 
-## Where styles belong
+## Validation
 
-A form's look normally belongs to the **site template set**, like any other content: ship the
-rules in its stylesheet, targeting the class hooks below. The **Custom CSS** field of a form
-(`Style` section in Content Editor) is for the exceptional case where the site stylesheet cannot
-be changed. Its content is injected in a `<style>` element next to the form, in live, preview
-and edit mode alike, and it is **not scoped to the form**: a broad rule affects the whole page.
+Inline validation messages (`fmdb-validation-error`, injected under an invalid control) and the
+invalid state of the control itself (`fmdb-invalid`) — the feature is described in
+[Custom validation](../custom-validation.md).
 
-The base stylesheet of `formidable-elements` (`dist/assets/style.css`) only carries functional
-rules — validation messages, the multi-step navigation, the spinner, the edit-mode cues — and
-every value it hard-codes is exposed as a CSS variable, so a template set overrides values
-without fighting selectors.
+| Variable | Default | Description |
+|---|---|---|
+| `--fmdb-validation-error-color` | `#dc2626` | Text colour of the message |
+| `--fmdb-validation-error-font-size` | `0.875rem` | Font size of the message |
+| `--fmdb-validation-error-mt` | `0.25rem` | Margin above the message |
+| `--fmdb-validation-error-padding` | `0` | Padding of the message |
+| `--fmdb-validation-error-line-height` | `1.25` | Line height of the message |
+| `--fmdb-invalid-border-color` | `#dc2626` | Border of an invalid control |
+| `--fmdb-invalid-outline-color` | `#dc2626` | Focus outline of an invalid control |
 
-## Class hooks
+A softer look, for instance:
 
-Stable class names, rendered server-side and kept across releases:
+```css
+.fmdb-form {
+	--fmdb-validation-error-color: #b45309;
+	--fmdb-validation-error-font-size: 0.8rem;
+	--fmdb-invalid-border-color: #b45309;
+}
+```
 
-| Class | Element |
-|---|---|
-| `fmdb-form` | The `<form>`; carries `data-fmdb-edit-mode="true"` in the Page Builder. In jContent's inspection previews it is a `div` carrying `data-fmdb-cm-view="true"` (see below) — avoid qualifying rules with the tag (`form.fmdb-form`) |
-| `fmdb-form-intro` | The introduction rich text |
-| `fmdb-form-group` | The wrapper of one field (label + control + help); `fmdb-radio-group`, `fmdb-checkbox-group`, `fmdb-captcha` refine it |
-| `fmdb-form-label`, `fmdb-file-label`, `fmdb-radio-label`, `fmdb-checkbox-label` | Field labels |
-| `fmdb-group-legend` | Legend of a radio or checkbox group |
-| `fmdb-group-items`, `fmdb-group-item` | Options of a radio or checkbox group |
-| `fmdb-required-indicator` | The `*` of a required field |
-| `fmdb-form-control` | Inputs, selects and textareas |
-| `fmdb-fieldset`, `fmdb-fieldset-legend` | A fieldset and its legend |
-| `fmdb-step`, `fmdb-step-title`, `fmdb-step-intro`, `fmdb-steps-nav`, `fmdb-step-indicator`, `fmdb-step-label` | Multi-step structure and navigation |
-| `fmdb-form-actions`, `fmdb-btn`, `fmdb-btn-primary`, `fmdb-btn-secondary`, `fmdb-new-form-btn`, `fmdb-next-btn`, `fmdb-prev-btn` | Buttons, including the multi-step navigation pair |
-| `fmdb-form-help` | Help text under a field (present on nearly every field) |
-| `fmdb-range`, `fmdb-range-row`, `fmdb-range-output`, `fmdb-range-end-label` | Range slider structure (variables: `--fmdb-range-gap`, `--fmdb-range-output-min-width`, `--fmdb-range-end-label-size`) |
-| `fmdb-message`, `fmdb-message-content`, `fmdb-message-success`, `fmdb-message-error`, `fmdb-message-maintenance` | Submission feedback |
-| `fmdb-file-*` (`-input-container`, `-list`, `-item`, `-name`, `-size`, `-remove`, `-selection-note`) | File field and its selected files |
-| `fmdb-validation-error`, `fmdb-invalid` | Inline validation (see [Custom validation](custom-validation.md)) |
-| `fmdb-logic-target` | Wrapper of an element driven by conditional logic (see below) |
-| `fmdb-spinner` | The submission overlay |
+## Range slider
 
-Every element wrapper also exposes `data-fmdb-node-name`, `data-fmdb-node-id` and
-`data-fmdb-node-type`, for rules that target one field by name:
-`.fmdb-form [data-fmdb-node-name="email"] { … }`.
+| Variable | Default | Description |
+|---|---|---|
+| `--fmdb-range-gap` | `0.75rem` | Gap between the slider, its end labels and its output |
+| `--fmdb-range-end-label-size` | `0.875em` | Font size of the minimum and maximum labels |
+| `--fmdb-range-output-min-width` | `3ch` | Minimum width of the current-value output |
 
-## Validation variables
+## Multi-step navigation
 
-`--fmdb-validation-error-*` and `--fmdb-invalid-*` are documented with the feature, in
-[Custom validation](custom-validation.md#styling).
-
-## Form variables
-
-### Multi-step navigation
-
-#### Navigation bar
+### Navigation bar
 
 | Variable | Default | Description |
 |---|---|---|
 | `--fmdb-steps-nav-gap` | `0` | Gap between step indicators |
 | `--fmdb-steps-nav-mb` | `1.5rem` | Margin below the navigation bar |
 
-#### Step indicator
+### Step indicator
 
 | Variable | Default | Description |
 |---|---|---|
@@ -73,7 +61,7 @@ Every element wrapper also exposes `data-fmdb-node-name`, `data-fmdb-node-id` an
 | `--fmdb-step-border-width` | `2px` | Bottom border width |
 | `--fmdb-step-transition` | `color 0.2s, border-color 0.2s` | Transition on state change |
 
-#### Active step
+### Active step
 
 | Variable | Default | Description |
 |---|---|---|
@@ -81,7 +69,7 @@ Every element wrapper also exposes `data-fmdb-node-name`, `data-fmdb-node-id` an
 | `--fmdb-step-active-border` | `#2563eb` | Border color |
 | `--fmdb-step-active-font-weight` | `600` | Font weight |
 
-#### Done step
+### Done step
 
 | Variable | Default | Description |
 |---|---|---|
@@ -89,7 +77,7 @@ Every element wrapper also exposes `data-fmdb-node-name`, `data-fmdb-node-id` an
 | `--fmdb-step-done-border` | `#16a34a` | Border color |
 | `--fmdb-step-done-font-weight` | `normal` | Font weight |
 
-#### Step number badge
+### Step number badge
 
 | Variable | Default | Description |
 |---|---|---|
@@ -104,15 +92,11 @@ Every element wrapper also exposes `data-fmdb-node-name`, `data-fmdb-node-id` an
 | `--fmdb-step-done-number-bg` | `#16a34a` | Background (done state) |
 | `--fmdb-step-done-number-color` | `#fff` | Text color (done state) |
 
-### Conditional logic
+## Conditional logic
 
-Every element carrying at least one visibility rule is wrapped in `.fmdb-logic-target`
-(server-rendered, so present in live, preview and edit mode; the current state stays in
-`data-fmdb-logic-hidden`). Nothing is drawn in live. In edit mode
-(`form[data-fmdb-edit-mode="true"]`) and in jContent's inspection previews
-(`[data-fmdb-cm-view="true"]`, the other surface that shows logic-hidden fields) the core
-lifts the element's form group on a light grey card with a soft shadow, shrunk to its
-content, so contributors spot conditional fields.
+Every element carrying at least one visibility rule is wrapped in `.fmdb-logic-target`; in edit
+mode and in jContent's inspection previews the core lifts its form group on a light grey card
+(see [Class hooks](class-hooks.md#conditional-logic)). Nothing is drawn in live.
 
 | Variable | Default | Description |
 |---|---|---|
@@ -121,7 +105,7 @@ content, so contributors spot conditional fields.
 | `--fmdb-logic-target-card-shadow` | `0 0 0 4px #f3f4f6, 0 2px 4px rgba(0, 0, 0, 0.58)` | Shadow of the card |
 | `--fmdb-logic-target-card-radius` | `2px` | Border radius of the card |
 
-#### Turning the edit-mode cue off
+### Turning the edit-mode cue off
 
 To show nothing special for conditional fields, a template set or the form's own custom
 CSS resets the three visual variables **and** the display — the card is an `inline-block`,
@@ -145,18 +129,7 @@ place in every mode:
 }
 ```
 
-### Inspection previews (cm view)
-
-jContent's scriptless preview surfaces (the preview drawer, the Content Editor preview)
-render the `cm` view: an inspection of the form's content — every step stacked under its
-title, logic-driven fields visible on their card, no buttons. There the `fmdb-form` hook is
-a `div` (nothing submits), and it carries `data-fmdb-cm-view="true"` instead of the edit-mode
-attribute: a stylesheet targets that surface with
-`.fmdb-form[data-fmdb-cm-view="true"] { … }`. The form's own CSS and this module's
-stylesheet apply; a template set's stylesheet only reaches previews opened from a page
-(jContent injects the hosting page's CSS there).
-
-### Authoring spacing
+## Authoring spacing
 
 A multi-step form is authored flat, so three levels stack on one page — the field list, its
 steps (or fieldsets), their fields — each with its own Page Builder **New content** button.
@@ -181,26 +154,11 @@ nothing changes in live.
 
 To remove the spacing, set the four variables to `0` on `.fmdb-form`.
 
-### Form actions zone
+## Form actions zone
 
-Actions run after the submission and have no place in the visitor's form, so on a page they
-were invisible while authoring. In edit mode the form renders its action list as a zone of its
-own, under the buttons: a header, one compact card per action — its rank in the execution
-order (the list is orderable: dragging a card in the Page Builder reorders the pipeline), the
-type icon, the contributor's title with the action's key parameter — the first small text or
-choice property its type declares after the title (recipient, forward target), a choice shown
-by its label —
-and smaller, the type description its module declares for the Content Editor (the
-`<type>.ui.tooltip` key of the module's resource bundle) — then the list's own **New Form
-Action** button (the placeholder's accepted type is the `fmdbmix:formAction` mixin, so jContent
-shows one button and then the type chooser). A form without any action gets a warning instead
-of the cards: its submissions are neither stored nor sent.
-
-Unlike the spacing above, the zone IS drawn (`aside.fmdb-authoring-actions`, light grey, dashed):
-it is authoring chrome, not the visitor's form, and must read as such; a business stylesheet
-does not style it. To order it after the buttons, the form is a flex column while authoring
-(`form[data-fmdb-edit-mode="true"]`); its children were stacked blocks already. Nothing of the
-zone exists in live, preview or the `cm` view.
+The zone the form renders under its buttons in edit mode (its structure is in
+[Class hooks](class-hooks.md#form-actions-zone-edit-mode)) is authoring chrome, drawn light grey
+and dashed; these variables are the intended surface for a site that wants it to look otherwise.
 
 | Variable | Default | Description |
 |---|---|---|
@@ -224,7 +182,7 @@ The Page Builder box colours are a jContent UI extension registered by the engin
 (`pageBuilderBoxConfig`), not CSS, so a template set cannot override them; purple is left to
 jExperience and orange to jContent's warnings.
 
-## Spinner variables
+## Spinner
 
 ### Overlay
 
@@ -284,3 +242,32 @@ jExperience and orange to jContent's warnings.
 | `--fmdb-spinner-border-width-large-mobile` | `3px` | Border width (large) |
 | `--fmdb-spinner-text-size-medium-mobile` | `0.8rem` | Font size (medium) |
 | `--fmdb-spinner-text-size-large-mobile` | `0.9rem` | Font size (large) |
+
+## Extended inputs
+
+Chips are the number-mode rating items, the scale items and the switch buttons; the rating's
+default chip colour is the star colour, the others' the focus blue.
+
+| Variable | Default | Description |
+|---|---|---|
+| `--fmdbext-chip-bg` | `transparent` | Background of a chip |
+| `--fmdbext-chip-border` | `#c7c7c7` | Border of a chip |
+| `--fmdbext-chip-radius` | `4px` | Corner radius of a chip |
+| `--fmdbext-chip-on-bg` | `#4c9aff` (rating: `#f5a623`) | Background and border of a selected chip |
+| `--fmdbext-chip-on-fg` | `#fff` | Text colour of a selected chip |
+| `--fmdbext-chip-min-width` | `2.25rem` | Minimum width of a scale chip |
+| `--fmdbext-focus` | `#4c9aff` | Focus outline of every item |
+| `--fmdbext-rating-on` | `#f5a623` | Colour of a selected (and lower) rating icon |
+| `--fmdbext-rating-off` | `#c7c7c7` | Colour of an unselected rating icon |
+| `--fmdbext-rating-size` | `1.75rem` | Size of a rating icon |
+| `--fmdbext-rating-gap` | `0.25rem` | Gap between rating items |
+| `--fmdbext-rating-icon` | an SVG `url()` per icon kind | The icon's shape, a mask; the module sets it for `star`, `heart` and `thumb` on `[data-fmdbext-icon]`, so a template set that overrides it does so per kind |
+| `--fmdbext-scale-gap` | `0.25rem` | Gap between scale chips |
+| `--fmdbext-scale-max-width` | `100%` | Maximum width of the row of chips |
+| `--fmdbext-switch-on-bg` | `#36b37e` | Track colour of a switch that is on |
+| `--fmdbext-switch-off-bg` | `#c7c7c7` | Track colour of a switch that is off |
+| `--fmdbext-switch-knob` | `#fff` | Colour of the switch knob |
+| `--fmdbext-end-labels-color` | `#666` | Colour of the minimum and maximum labels |
+| `--fmdbext-warning-fg` | `#7a4d05` | Text colour of an edit-mode warning |
+| `--fmdbext-warning-bg` | `#fff3d6` | Background of an edit-mode warning |
+| `--fmdbext-warning-border` | `#f0c36d` | Border of an edit-mode warning |

@@ -445,7 +445,7 @@ Every `fmdb:form` has an autocreated `actions` child node of type `fmdb:actionLi
 contributor adds action nodes inside via the Content Editor, or from the actions zone the
 Page Builder shows under a form placed on a page (edit mode only: the zone lists the actions
 in their execution order, warns when there is none, and carries the list's **New Form Action**
-button — see `docs/styling.md`, "Form actions zone"). Actions are executed in the order they
+button — see `docs/styling/README.md`, "Form actions zone"). Actions are executed in the order they
 appear in the list.
 
 | Node type | Description |
