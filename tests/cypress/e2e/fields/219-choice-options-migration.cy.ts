@@ -1,5 +1,5 @@
 import gql from 'graphql-tag';
-import {createPublishedLiveFormPage, expectNoLiveOwnedProperty, visitLiveForm} from '../../support/fixtures';
+import {createPublishedLiveFormPage, expectNoLiveOwnedProperty, getSelectNode, SELECT_SINGLE, visitLiveForm} from '../../support/fixtures';
 import {CONTENT_PATH} from '../../support/constants';
 import {useFormidableSite} from './support';
 
@@ -8,6 +8,9 @@ const SELECT_PATH = `${CONTENT_PATH}/${FORM_NAME}/fields/legacySelect`;
 const RADIO_PATH = `${CONTENT_PATH}/${FORM_NAME}/fields/legacyRadio`;
 const BILINGUAL_FORM_NAME = 'legacy-options-bilingual-form';
 const BILINGUAL_SELECT_PATH = `${CONTENT_PATH}/${BILINGUAL_FORM_NAME}/fields/legacySelect`;
+const SWITCHED_FORM_NAME = 'switched-options-form';
+const SWITCHED_SELECT_PATH = `${CONTENT_PATH}/${SWITCHED_FORM_NAME}/fields/switchedSelect`;
+const SWITCHED_RADIO_PATH = `${CONTENT_PATH}/${SWITCHED_FORM_NAME}/fields/legacyRadio`;
 
 const GET_MIGRATED_FIELD = gql`
 	query getMigratedField($path: String!, $workspace: Workspace!, $language: String!) {
@@ -39,6 +42,25 @@ type MigratedFieldResponse = {
 		};
 	};
 };
+
+// What the Content Editor does when the contributor picks another options mode: the manual
+// fieldset's mixin goes, its properties stay (the manual list remains on the translations).
+const SWITCH_TO_SOURCED = gql`
+	mutation switchSelectToSourcedOptions($path: String!) {
+		jcr {
+			mutateNode(pathOrId: $path) {
+				removeMixins(mixins: ["fmdbmix:manualOptions"])
+				addMixins(mixins: ["fmdbmix:sourcedOptions"])
+				mode: mutateProperty(name: "optionsMode") {
+					setValue(value: "sourced")
+				}
+				source: mutateProperty(name: "optionsSourceKey") {
+					setValue(value: "countries")
+				}
+			}
+		}
+	}
+`;
 
 const getMigratedField = (path: string, workspace: 'EDIT' | 'LIVE', language = 'en') =>
 	cy.apollo({query: GET_MIGRATED_FIELD, variables: {path, workspace, language}});
@@ -238,6 +260,53 @@ describe('Form fields - 219 Choice options migration', () => {
 			// The redeploy run is the one real upgrades take: same rule, nothing live-owned —
 			// on the field nor on either of its translation subnodes, where the options live.
 			expectNoLiveOwnedProperty(BILINGUAL_SELECT_PATH, ['en', 'fr']);
+		});
+	});
+
+	it('leaves a select switched from a manual list to a source alone', () => {
+		// Since 0.5.0 the unified property bears the 0.3 legacy name (#310), so a manual list
+		// left on the translations by a mode switch looks like legacy storage — only the mixins
+		// tell current content apart. Such a field must not be pushed back to manual.
+		createPublishedLiveFormPage(SWITCHED_FORM_NAME, 'Switched Options Form', [
+			getSelectNode({...SELECT_SINGLE, name: 'switchedSelect'}),
+			{
+				name: 'legacyRadio',
+				primaryNodeType: 'fmdb:radio',
+				mixins: [],
+				properties: [{name: 'jcr:title', value: 'Legacy radio', language: 'en'}]
+			}
+		]).then(() => {
+			cy.apollo({mutation: SWITCH_TO_SOURCED, variables: {path: SWITCHED_SELECT_PATH}})
+				.then(response => expect(response.errors, 'switch the select to a source').to.be.undefined);
+
+			// A genuine 0.3 field in the same form tells when the restarted migration has run.
+			cy.executeGroovy('groovy/simulateLegacyChoiceOptions.groovy', {
+				__FIELD_PATH__: SWITCHED_RADIO_PATH,
+				__LEGACY_PROPERTY__: 'choices',
+				__LANGUAGE__: 'en',
+				__PAIRS__: 'yes:Yes,no:No',
+				__SELECTED__: ''
+			}).then(result => cy.log(String(result)));
+			cy.executeGroovy('groovy/restartFormidableEngine.groovy', {})
+				.then(result => cy.log(String(result)));
+			cy.waitUntil(
+				() => getMigratedField(SWITCHED_RADIO_PATH, 'EDIT').then(
+					(response: MigratedFieldResponse) =>
+						response.data?.jcr?.nodeByPath?.optionsMode?.value === 'manual'
+				),
+				{timeout: 60000, interval: 2000, errorMsg: 'the migration never ran after the restart'}
+			);
+
+			getMigratedField(SWITCHED_SELECT_PATH, 'EDIT').then((response: MigratedFieldResponse) => {
+				const node = response.data?.jcr?.nodeByPath;
+				const mixins = node?.mixinTypes?.map(mixin => mixin.name) ?? [];
+				expect(node?.optionsMode?.value, 'mode after the restart').to.equal('sourced');
+				expect(mixins, 'mixins after the restart').to.include('fmdbmix:sourcedOptions');
+				expect(mixins, 'no manual mode forced back').not.to.include('fmdbmix:manualOptions');
+				expect(mixins, 'no migration marker').not.to.include('fmdbmix:migratedChoiceOptions');
+				// The leftover list stays where the editor left it, untouched.
+				expect(node?.options?.values, 'leftover manual list').to.have.length(SELECT_SINGLE.options.length);
+			});
 		});
 	});
 });

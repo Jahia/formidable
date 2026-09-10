@@ -45,6 +45,12 @@ const GET_FIELD = gql`
 				options: property(name: "options", language: "en") {
 					values
 				}
+				optionsFr: property(name: "options", language: "fr") {
+					values
+				}
+				optionsEmptyLabel: property(name: "optionsEmptyLabel", language: "en") {
+					value
+				}
 				oldMinBoundMode: property(name: "fmdb:minBoundMode") {
 					value
 				}
@@ -53,6 +59,12 @@ const GET_FIELD = gql`
 				}
 				oldOptions: property(name: "fmdb:options", language: "en") {
 					values
+				}
+				oldOptionsFr: property(name: "fmdb:options", language: "fr") {
+					values
+				}
+				oldOptionsEmptyLabel: property(name: "fmdb:optionsEmptyLabel", language: "en") {
+					value
 				}
 			}
 		}
@@ -68,10 +80,26 @@ type Field = {
 	max?: {value?: string} | null;
 	optionsMode?: {value?: string} | null;
 	options?: {values?: string[]} | null;
+	optionsFr?: {values?: string[]} | null;
+	optionsEmptyLabel?: {value?: string} | null;
 	oldMinBoundMode?: {value?: string} | null;
 	oldOptionsMode?: {value?: string} | null;
 	oldOptions?: {values?: string[]} | null;
+	oldOptionsFr?: {values?: string[]} | null;
+	oldOptionsEmptyLabel?: {value?: string} | null;
 };
+
+const EMPTY_LABEL = 'Choose a department';
+// 0.4 stored the translated option list per language: the select gets a French list too.
+const FR_OPTIONS = SELECT_SINGLE.options.map(option =>
+	JSON.stringify({value: option.value, label: `${option.label} (fr)`, selected: option.selected}));
+
+/** Puts a field into its 0.4.0 shape, and fails — rather than logs — when the fixture could not. */
+const prefixProperties = (path: string) =>
+	cy.executeGroovy('groovy/prefixMixinProperties.groovy', {__FIELD_PATH__: path}).then(result => {
+		// The script reports what it prefixed in each workspace; an exception leaves no such report.
+		expect(String(result), `0.4 shape of ${path}`).to.match(/^default: prefixed .+ \| live: prefixed .+$/);
+	});
 
 type FieldResponse = {data?: {jcr?: {nodeByPath?: Field | null}}};
 
@@ -107,6 +135,8 @@ describe('Validation - 48 Mixin property names migration', () => {
 	useFormidableSite();
 
 	it('renames the prefixed properties of fields stored by 0.4.0 and keeps their values', () => {
+		const select = getSelectNode({...SELECT_SINGLE, emptyLabel: EMPTY_LABEL});
+		select.properties.push({name: 'options', values: FR_OPTIONS, language: 'fr'});
 		createPublishedLiveFormPage(
 			FORM_NAME,
 			'Prefixed Properties Form',
@@ -117,20 +147,27 @@ describe('Validation - 48 Mixin property names migration', () => {
 					minRelative: {amount: -18, unit: 'years'},
 					max: '2030-12-31T00:00:00.000'
 				}),
-				getSelectNode(SELECT_SINGLE)
+				select
 			]
 		).then(({livePath}) => {
-			cy.executeGroovy('groovy/prefixMixinProperties.groovy', {__FIELD_PATH__: DATE_PATH})
-				.then(result => cy.log(String(result)));
-			cy.executeGroovy('groovy/prefixMixinProperties.groovy', {__FIELD_PATH__: SELECT_PATH})
-				.then(result => cy.log(String(result)));
+			prefixProperties(DATE_PATH);
+			prefixProperties(SELECT_PATH);
 
-			// The simulated 0.4 shape, before the migration: prefixed names only.
+			// The simulated 0.4 shape, before the migration: prefixed names only, on both fields.
+			getField(DATE_PATH, 'EDIT').then((response: FieldResponse) => {
+				const node = response.data?.jcr?.nodeByPath;
+				expect(node?.oldMinBoundMode?.value, 'simulated 0.4 minBoundMode').to.equal('relative');
+				expect(node?.minBoundMode, 'unprefixed minBoundMode before the migration').to.be.null;
+				expect(node?.minRelativeAmount, 'unprefixed offset before the migration').to.be.null;
+			});
 			getField(SELECT_PATH, 'EDIT').then((response: FieldResponse) => {
 				const node = response.data?.jcr?.nodeByPath;
 				expect(node?.oldOptionsMode?.value, 'simulated 0.4 optionsMode').to.equal('manual');
 				expect(node?.oldOptions?.values, 'simulated 0.4 options').to.have.length(SELECT_SINGLE.options.length);
+				expect(node?.oldOptionsFr?.values, 'simulated 0.4 French options').to.have.length(FR_OPTIONS.length);
+				expect(node?.oldOptionsEmptyLabel?.value, 'simulated 0.4 empty-option label').to.equal(EMPTY_LABEL);
 				expect(node?.optionsMode, 'unprefixed optionsMode before the migration').to.be.null;
+				expect(node?.optionsEmptyLabel, 'unprefixed empty-option label before the migration').to.be.null;
 			});
 
 			// The migration is keyed on content state and runs at module activation:
@@ -138,14 +175,15 @@ describe('Validation - 48 Mixin property names migration', () => {
 			cy.executeGroovy('groovy/restartFormidableEngine.groovy', {})
 				.then(result => cy.log(String(result)));
 
-			// Module activation is asynchronous, and the migration processes the
-			// default workspace before live: gate on the LAST renamed state (the
-			// select's translated options in LIVE) so no assertion races the migration.
+			// Module activation is asynchronous, and the migration processes the default
+			// workspace before live, the options-source carriers before the date-bounds ones:
+			// gate on the LAST renamed state (the date field in LIVE) so no assertion races it.
 			cy.waitUntil(
-				() => getField(SELECT_PATH, 'LIVE').then(
-					(response: FieldResponse) => (response.data?.jcr?.nodeByPath?.options?.values?.length ?? 0) > 0
-				),
-				{timeout: 60000, interval: 2000, errorMsg: 'the migration never renamed the options in live'}
+				() => getField(DATE_PATH, 'LIVE').then((response: FieldResponse) => {
+					const node = response.data?.jcr?.nodeByPath;
+					return node?.minBoundMode?.value === 'relative' && node?.oldMinBoundMode === null;
+				}),
+				{timeout: 60000, interval: 2000, errorMsg: 'the migration never renamed the date bounds in live'}
 			);
 
 			(['EDIT', 'LIVE'] as const).forEach(workspace => {
@@ -172,8 +210,13 @@ describe('Validation - 48 Mixin property names migration', () => {
 					expect(node?.optionsMode?.value, scope).to.equal('manual');
 					expect(options.map(option => option.value), scope)
 						.to.deep.equal(SELECT_SINGLE.options.map(option => option.value));
+					// Each language keeps its own list, verbatim
+					expect(node?.optionsFr?.values, `${scope}: French options`).to.deep.equal(FR_OPTIONS);
+					expect(node?.optionsEmptyLabel?.value, `${scope}: empty-option label`).to.equal(EMPTY_LABEL);
 					expect(node?.oldOptionsMode, `${scope}: the prefixed mode is gone`).to.be.null;
 					expect(node?.oldOptions, `${scope}: the prefixed options are gone`).to.be.null;
+					expect(node?.oldOptionsFr, `${scope}: the prefixed French options are gone`).to.be.null;
+					expect(node?.oldOptionsEmptyLabel, `${scope}: the prefixed empty-option label is gone`).to.be.null;
 				});
 			});
 
