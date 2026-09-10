@@ -46,25 +46,30 @@ was loaded before the module started.
 
 **Who is affected**: every site with forms created or edited under 0.4.0 whose choice
 fields take their options from the options-source mixins (`optionsMode`, `options`,
-`optionsSourceKey`, `optionsRootCategory`, `optionsRootNode`, `optionsNodeType`) or whose
-date and datetime fields carry bound modes (`minBoundMode`, `maxBoundMode`,
-`minRelativeAmount`, `minRelativeUnit`, `maxRelativeAmount`, `maxRelativeUnit`). In 0.4.0
-those twelve properties were named with an `fmdb:` prefix (`fmdb:options`,
-`fmdb:minBoundMode`…) — the only prefixed properties of the model, where `fieldKey`,
+`optionsSourceKey`, `optionsRootCategory`, `optionsRootNode`, `optionsNodeType`), whose
+select fields carry an empty-option label (`optionsEmptyLabel`), or whose date and datetime
+fields carry bound modes (`minBoundMode`, `maxBoundMode`, `minRelativeAmount`,
+`minRelativeUnit`, `maxRelativeAmount`, `maxRelativeUnit`). In 0.4.0 those thirteen
+properties were named with an `fmdb:` prefix (`fmdb:options`, `fmdb:minBoundMode`,
+`fmdb:optionsEmptyLabel`…) — the only prefixed properties of the model, where `fieldKey`,
 `logics`, `msg*`, `min` and `max` never had one. Since 0.5.0 they bear the unprefixed
 names above ([#310](https://github.com/Jahia/formidable/issues/310)).
 
 **What happens at startup**: `MixinPropertyNamesMigration` rewrites every prefixed property
 still present on a field under its unprefixed name — value and type kept, the translated
-option list on each `j:translation_*` subnode — and removes the prefixed one, in the
-default and live workspaces, through a system session Jahia does not mistake for
-user-generated content. It runs at engine activation and again on an elements redeploy,
-and is a no-op once no prefixed property remains. The twelve prefixed definitions stay in
-the CND for this release, hidden, so that an export taken from 0.4.0 is still accepted by
-the import; **after importing such an export, restart the engine** (or redeploy
-`formidable-elements`) so the migration renames what the import brought in — until then
-those fields render without their options and bounds. The deprecated definitions and the
-migration leave in 0.6.
+option list and empty-option label on each `j:translation_*` subnode — and removes the
+prefixed one, in the default and live workspaces, through a system session Jahia does not
+mistake for user-generated content. A field edited in the editor between an import and
+the restart keeps its edited value: the prefixed one is dropped, never copied over a newer
+value. It runs at engine activation and again on an elements redeploy, and is a no-op once
+no prefixed property remains. The thirteen prefixed definitions stay in the CND for this
+release, hidden, and the JCR-level `mandatory` of `optionsSourceKey`, `optionsNodeType`
+and the four relative offsets is lifted for this release (the editor still requires them),
+so that an export taken from 0.4.0 — whose fields carry only the prefixed names — is still
+accepted by the import; **after importing such an export, restart the engine** (or
+redeploy `formidable-elements`) so the migration renames what the import brought in —
+until then those fields render without their options and bounds. The deprecated
+definitions and the migration leave in 0.6, and the `mandatory` flags come back with them.
 
 **How to check**: `jahia.log` reports
 `[MixinPropertyNamesMigration] Renamed the prefixed mixin properties of N field(s) in workspace 'default'`
@@ -85,8 +90,8 @@ migration leave in 0.6.
 **What to do in your own code**: a template set, a third-party module or an integration
 that reads these properties — a view through `getNodeProps`, a GraphQL query, a JCR-SQL2
 condition, a Content Editor override, a label key such as
-`fmdbmix_dateBounds.fmdb_minBoundMode` — must drop the prefix (`minBoundMode`,
-`fmdbmix_dateBounds.minBoundMode`). The rendered markup and the submission payload do not
+`fmdbmix_dateBounds.fmdb_minBoundMode` or `fmdb_select.fmdb_optionsEmptyLabel` — must drop the
+prefix (`minBoundMode`, `fmdbmix_dateBounds.minBoundMode`, `fmdb_select.optionsEmptyLabel`). The rendered markup and the submission payload do not
 change.
 
 ## 0.3.0 (and earlier) → 0.4.0: formidable-elements must be reinstalled
@@ -261,8 +266,8 @@ one edit — is never label-paired or rule-remapped on the shape alone.
 
 PR [#193](https://github.com/Jahia/formidable/pull/193) unified the per-type
 option properties (`options` on `fmdb:select`, `choices` on `fmdb:radio` /
-`fmdb:checkbox`) into the single `options` property carried by the
-`fmdbmix:manualOptions` mixin, as part of the options-source feature.
+`fmdb:checkbox`) into the single `fmdb:options` property (renamed `options` in 0.5.0, see
+above) carried by the `fmdbmix:manualOptions` mixin, as part of the options-source feature.
 
 ### The one case needing attention: importing a 0.3-era export
 
@@ -299,8 +304,9 @@ mode), so re-running it is a no-op. The migrated fields do show up as
 
 The fixed `min`/`max` properties of date and datetime-local fields moved from
 the field types into the `fmdbmix:fixedMinDate`/`fmdbmix:fixedMaxDate` (and
-datetime) dynamic-fieldset mixins, driven by the new `minBoundMode` /
-`maxBoundMode` properties (`none`, `date`, `today` — the day the visitor
+datetime) dynamic-fieldset mixins, driven by the new `fmdb:minBoundMode` /
+`fmdb:maxBoundMode` properties (renamed `minBoundMode` / `maxBoundMode` in 0.5.0, see
+above; `none`, `date`, `today` — the day the visitor
 submits the form — or `relative`, that day shifted by a signed offset). In the
 editor each bound is now a dropdown, and the calendar (or the offset fields)
 only appears for the choice that needs it.
@@ -339,7 +345,7 @@ published there, so publishing a flagged list ALSO pushes the default titles
 of the not-yet-published languages; that is a real (if minor) change to live,
 and publishing remains the contributor's decision.
 
-## Startup migrations (to remove in 0.5)
+## Startup migrations
 
 The engine carries one-shot content migrations that run at every module start
 (`@Activate`) **and re-run whenever formidable-elements is (re)deployed**
@@ -347,10 +353,12 @@ The engine carries one-shot content migrations that run at every module start
 engine-activation run fails against the previous element definitions, and the
 elements-redeploy run is the one that does the work. They run on both
 workspaces, keyed on the content state and idempotent.
-They exist for instances upgrading from 0.3.x/0.4.x content and are all to be
-**removed when 0.5.0 is cut** — from then on 0.4.x is the minimum upgrade
-source and every instance has run them at least once. Each class carries a
-`Lifecycle:` note in its Javadoc pointing here.
+They come in two waves. The 0.4.x wave exists for instances upgrading from 0.3.x
+content and is to be **removed when 0.5.0 is cut** — from then on 0.4.x is the
+minimum upgrade source and every instance has run them at least once. The 0.5.0 wave
+(`MixinPropertyNamesMigration`) exists for 0.4.x content and leaves in 0.6, with the
+deprecated definitions it reads. Each class carries a `Lifecycle:` note in its Javadoc
+pointing here.
 
 Every workspace pass goes through `MigrationSessions`. The **live pass runs with
 JCR observation switched off**: Jahia records a direct live write on a published
@@ -371,11 +379,11 @@ from a 0.3 restore. No released version is concerned.
 
 | Class (`org.jahia.modules.formidable.engine.migration`) | Introduced | What it rewrites |
 |---|---|---|
-| `ChoiceOptionsContentMigration` | 0.4.0 (#193) | Legacy `options`/`choices` of choice fields → `options` + manual mode |
+| `ChoiceOptionsContentMigration` | 0.4.0 (#193) | Legacy `options`/`choices` of choice fields → `fmdb:options` (`options` since 0.5.0) + manual mode |
 | `DateBoundsContentMigration` | 0.4.0 (#202) | Fixed date/datetime bounds without a bound mode → mode `date` + fixed-bound mixins |
 | `TranslationFieldKeyCleanup` | 0.4.0 (#215) | Stray `fieldKey` on `j:translation_*` subnodes of form elements |
 | `ListTitlesContentMigration` | 0.4.x (#231) | Missing `jcr:title` on a form's `fields`/`actions` lists → the type's default label, per site language (in live, published languages only) |
-| `MixinPropertyNamesMigration` | 0.5.0 (#312) | `fmdb:`-prefixed options-source and date-bounds properties → unprefixed names, translations included (leaves in 0.6 with the deprecated definitions) |
+| `MixinPropertyNamesMigration` | 0.5.0 (#312) | The thirteen `fmdb:`-prefixed properties (options source, date bounds, the select's empty-option label) → unprefixed names, translations included (leaves in 0.6 with the deprecated definitions) |
 
 Removal checklist: delete the class and its unit test, drop the Cypress spec that
 restarts the engine to exercise it, and remove the row above. When the last row
