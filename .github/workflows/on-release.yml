@@ -39,13 +39,25 @@ jobs:
       # can only ship under a new version — fail loudly rather than report a publish that never happened.
       - name: Publish, unless this exact tarball is already on npm
         working-directory: packages/formidable
+        shell: bash
         run: |
           version=$(node -p "require('./package.json').version")
           yarn pack --out /tmp/formidable.tgz
           local_shasum=$(sha1sum /tmp/formidable.tgz | cut -d " " -f 1)
-          remote_shasum=$(npm view "@jahia/formidable@$version" dist.shasum 2>/dev/null || true)
+          [ -n "$local_shasum" ] || { echo "::error::could not hash the packed tarball"; exit 1; }
+          # Three answers from the registry, told apart: the version exists (its shasum), it does not
+          # (E404), or the lookup itself failed — which must not be mistaken for "not published yet".
+          if remote_shasum=$(npm view "@jahia/formidable@$version" dist.shasum 2>/tmp/npm-view.err); then
+            :
+          elif grep -q "E404" /tmp/npm-view.err; then
+            remote_shasum=""
+          else
+            echo "::error::npm view @jahia/formidable@$version failed: $(cat /tmp/npm-view.err)"
+            exit 1
+          fi
           if [ -z "$remote_shasum" ]; then
-            yarn npm publish --access public --provenance
+            # --tolerate-republish stays as a belt: a retry that raced this check is a warning, not a red job
+            yarn npm publish --access public --provenance --tolerate-republish
           elif [ "$remote_shasum" = "$local_shasum" ]; then
             echo "@jahia/formidable@$version is already on npm with this exact content, nothing to publish"
           else

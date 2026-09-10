@@ -32,7 +32,8 @@
 		"format": "prettier --write --list-different .",
 		"lint": "eslint .",
 		"smoke": "node scripts/smoke.mjs",
-		"test": "vitest run"
+		"test": "vitest run",
+		"typecheck": "tsc -p tsconfig.json"
 	},
 	"peerDependencies": {
 		"react": "^19.1.0"

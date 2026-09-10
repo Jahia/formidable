@@ -68,6 +68,20 @@
                         </configuration>
                     </execution>
                     <execution>
+                        <!-- The tests are excluded from the build: this is what type-checks them -->
+                        <id>yarn typecheck - Formidable npm package</id>
+                        <phase>process-sources</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>yarn</executable>
+                            <arguments>
+                                <argument>typecheck</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>yarn build - Formidable npm package</id>
                         <phase>compile</phase>
                         <goals>
