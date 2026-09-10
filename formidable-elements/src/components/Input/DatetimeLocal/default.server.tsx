@@ -1,6 +1,6 @@
 import {Island, jahiaComponent} from "@jahia/javascript-modules-library";
-import {type RangeValidationMessageProps, validationDataAttributes} from "@jahia/formidable-library";
-import {HelpText, helpTextId} from "@jahia/formidable-library";
+import {type RangeValidationMessageProps, validationDataAttributes} from "@jahia/formidable";
+import {HelpText, helpTextId} from "@jahia/formidable";
 import TodayBoundedInput from "../Date/TodayBoundedInput.client";
 import {resolveDateBounds} from "../Date/bounds";
 

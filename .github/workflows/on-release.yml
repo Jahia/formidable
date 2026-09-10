@@ -15,7 +15,7 @@ jobs:
       job_container: "ghcr.io/jahia/jahia-docker-mvn-cache:17-jdk-resolute-mvn-loaded"
 
   publish-npm:
-    name: Publish @jahia/formidable-library to npmjs.com
+    name: Publish @jahia/formidable to npmjs.com
     needs: release-module
     runs-on: ubuntu-latest
     # npm trusted publishing: the job exchanges its OIDC token for a short-lived publish token,
@@ -32,5 +32,5 @@ jobs:
           ref: ${{ github.event.release.tag_name }}
       - uses: jdx/mise-action@v4
       - run: yarn install --immutable
-      - run: yarn workspace @jahia/formidable-library build
-      - run: yarn workspace @jahia/formidable-library npm publish --access public --tolerate-republish --provenance
+      - run: yarn workspace @jahia/formidable build
+      - run: yarn workspace @jahia/formidable npm publish --access public --tolerate-republish --provenance

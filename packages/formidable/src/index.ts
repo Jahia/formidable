@@ -1,7 +1,7 @@
 // The markup contract and the input-mask behaviour of Formidable forms, for
 // every module that renders a form field: the two form modules of this monorepo
 // through the yarn workspace, modules outside it through the published
-// `@jahia/formidable-library` package (#308).
+// `@jahia/formidable` package (#308).
 //
 // - `HelpText` / `helpTextId`: the help block (`div.fmdb-form-help` with id
 //   `help-<nodeId>`, referenced by the control's `aria-describedby`);

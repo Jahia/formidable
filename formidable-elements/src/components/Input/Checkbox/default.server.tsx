@@ -2,9 +2,9 @@ import {Island, jahiaComponent} from "@jahia/javascript-modules-library";
 import Checkbox from "./Checkbox.client";
 import {resolveFieldOptions} from "~/utils/optionsSource.server";
 import OptionsSourceError from "~/design/OptionsSourceError";
-import {type BaseValidationMessageProps, validationDataAttributes} from "@jahia/formidable-library";
+import {type BaseValidationMessageProps, validationDataAttributes} from "@jahia/formidable";
 import {resolveUrlPlaceholders} from "~/utils/richTextUtils";
-import {HelpText, helpTextId} from "@jahia/formidable-library";
+import {HelpText, helpTextId} from "@jahia/formidable";
 
 interface CheckboxProps extends BaseValidationMessageProps {
 	"jcr:title"?: string;

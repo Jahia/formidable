@@ -1,5 +1,5 @@
 {
-	"name": "@jahia/formidable-library",
+	"name": "@jahia/formidable",
 	"version": "0.5.0",
 	"description": "The markup contract and the input-mask behaviour of Formidable forms, for Jahia JavaScript modules that render form fields of their own",
 	"keywords": [
@@ -7,12 +7,12 @@
 		"formidable",
 		"forms"
 	],
-	"homepage": "https://github.com/Jahia/formidable/tree/main/packages/formidable-library#readme",
+	"homepage": "https://github.com/Jahia/formidable/tree/main/packages/formidable#readme",
 	"bugs": "https://github.com/Jahia/formidable/issues",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/Jahia/formidable.git",
-		"directory": "packages/formidable-library"
+		"directory": "packages/formidable"
 	},
 	"license": "Apache-2.0",
 	"sideEffects": false,

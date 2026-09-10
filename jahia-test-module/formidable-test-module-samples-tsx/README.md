@@ -2,7 +2,7 @@
 
 This module shows how a JavaScript module of your own extends Formidable **without changing
 Formidable**: it depends on `formidable-elements` at run time and on the published
-[`@jahia/formidable-library`](../../packages/formidable-library/README.md) at build time, as a
+[`@jahia/formidable`](../../packages/formidable/README.md) at build time, as a
 module of your own would, and ships its own definitions, editor overrides and views. It is deployed on our test instances; nothing in it is meant for production
 as is, everything in it is meant to be copied.
 

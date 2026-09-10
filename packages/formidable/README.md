@@ -1,4 +1,4 @@
-# @jahia/formidable-library
+# @jahia/formidable
 
 The markup contract and the input-mask behaviour of [Formidable](https://github.com/Jahia/formidable)
 forms, for Jahia JavaScript modules that render form fields of their own — a new field type, or a
@@ -13,7 +13,7 @@ your module builds, not as a silent drift.
 ## Installation
 
 ```sh
-yarn add @jahia/formidable-library
+yarn add @jahia/formidable
 ```
 
 React 19 is a peer dependency, as in every Jahia JavaScript module. The package follows
@@ -65,7 +65,7 @@ lower-cased, anything else a fixed literal — stands for three things:
 
 ```tsx
 // MyField.client.tsx
-import { useMask } from "@jahia/formidable-library";
+import { useMask } from "@jahia/formidable";
 
 export default function MaskedInput({ mask, defaultValue, inputAttributes }) {
   const { inputRef, handleInput } = useMask({ mask });

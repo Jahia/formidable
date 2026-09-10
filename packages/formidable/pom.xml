@@ -7,15 +7,15 @@
         <version>0.5.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
-    <artifactId>formidable-library</artifactId>
-    <name>Formidable Library</name>
+    <artifactId>formidable-npm</artifactId>
+    <name>Formidable npm package</name>
     <packaging>pom</packaging>
-    <!-- Not a Jahia module: the npm package @jahia/formidable-library, published by the
+    <!-- Not a Jahia module: the npm package @jahia/formidable, published by the
          publish-npm job of .github/workflows/on-release.yml. This pom puts the package in the
          reactor so the regular build lints, builds and tests it, and so the release keeps its
          package.json version in step with the maven version (sync-version execution inherited
          from the release-prepare profile of the root pom, which reads .m2/sync-version.js). -->
-    <description>The markup contract and input-mask behaviour of Formidable forms, published to npm as @jahia/formidable-library</description>
+    <description>The markup contract and input-mask behaviour of Formidable forms, published to npm as @jahia/formidable</description>
 
     <scm>
         <connection>scm:git:git@github.com:Jahia/formidable.git</connection>
@@ -42,7 +42,7 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>yarn install - Formidable Library</id>
+                        <id>yarn install - Formidable npm package</id>
                         <phase>initialize</phase>
                         <goals>
                             <goal>exec</goal>
@@ -55,7 +55,7 @@
                         </configuration>
                     </execution>
                     <execution>
-                        <id>yarn lint - Formidable Library</id>
+                        <id>yarn lint - Formidable npm package</id>
                         <phase>process-sources</phase>
                         <goals>
                             <goal>exec</goal>
@@ -68,7 +68,7 @@
                         </configuration>
                     </execution>
                     <execution>
-                        <id>yarn build - Formidable Library</id>
+                        <id>yarn build - Formidable npm package</id>
                         <phase>compile</phase>
                         <goals>
                             <goal>exec</goal>
@@ -81,7 +81,7 @@
                         </configuration>
                     </execution>
                     <execution>
-                        <id>yarn test - Formidable Library</id>
+                        <id>yarn test - Formidable npm package</id>
                         <phase>test</phase>
                         <goals>
                             <goal>exec</goal>

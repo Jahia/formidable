@@ -968,9 +968,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@jahia/formidable-library@workspace:*, @jahia/formidable-library@workspace:packages/formidable-library":
+"@jahia/formidable@workspace:*, @jahia/formidable@workspace:packages/formidable":
   version: 0.0.0-use.local
-  resolution: "@jahia/formidable-library@workspace:packages/formidable-library"
+  resolution: "@jahia/formidable@workspace:packages/formidable"
   dependencies:
     "@types/react": "npm:^19.1.2"
     eslint: "npm:^9.39.2"
@@ -3840,7 +3840,7 @@ __metadata:
     "@eslint-react/eslint-plugin": "npm:^1.49.0"
     "@eslint/compat": "npm:^1.2.9"
     "@eslint/js": "npm:^9.26.0"
-    "@jahia/formidable-library": "workspace:*"
+    "@jahia/formidable": "workspace:*"
     "@jahia/javascript-modules-library": "npm:^1.2.0"
     "@jahia/vite-plugin": "npm:^1.2.0"
     "@types/react": "npm:^19.1.2"
@@ -3891,7 +3891,7 @@ __metadata:
     "@eslint-react/eslint-plugin": "npm:^1.49.0"
     "@eslint/compat": "npm:^1.2.9"
     "@eslint/js": "npm:^9.26.0"
-    "@jahia/formidable-library": "workspace:*"
+    "@jahia/formidable": "workspace:*"
     "@jahia/javascript-modules-library": "npm:^1.2.0"
     "@jahia/vite-plugin": "npm:^1.2.0"
     "@types/react": "npm:^19.1.2"
@@ -3917,7 +3917,7 @@ __metadata:
     "@eslint-react/eslint-plugin": "npm:^1.49.0"
     "@eslint/compat": "npm:^1.2.9"
     "@eslint/js": "npm:^9.26.0"
-    "@jahia/formidable-library": "workspace:*"
+    "@jahia/formidable": "workspace:*"
     "@jahia/javascript-modules-library": "npm:^1.2.0"
     "@jahia/vite-plugin": "npm:^1.2.0"
     "@types/react": "npm:^19.1.2"

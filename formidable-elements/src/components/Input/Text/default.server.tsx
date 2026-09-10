@@ -6,7 +6,7 @@ import {
 	maskToPattern,
 	type TextValidationMessageProps,
 	validationDataAttributes
-} from "@jahia/formidable-library";
+} from "@jahia/formidable";
 import MaskedTextInput from "./Text.client";
 
 interface InputTextProps extends TextValidationMessageProps {

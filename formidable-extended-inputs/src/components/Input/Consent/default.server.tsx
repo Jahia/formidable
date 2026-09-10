@@ -5,8 +5,8 @@ import {
   jahiaComponent,
 } from "@jahia/javascript-modules-library";
 import { useTranslation } from "react-i18next";
-import { type BaseValidationMessageProps, validationDataAttributes } from "@jahia/formidable-library";
-import { HelpText, helpTextId } from "@jahia/formidable-library";
+import { type BaseValidationMessageProps, validationDataAttributes } from "@jahia/formidable";
+import { HelpText, helpTextId } from "@jahia/formidable";
 import "~/design/edit-warning.css";
 import "./consent.css";
 
