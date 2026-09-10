@@ -973,6 +973,8 @@ __metadata:
   resolution: "@jahia/formidable-library@workspace:packages/formidable-library"
   dependencies:
     "@types/react": "npm:^19.1.2"
+    eslint: "npm:^9.39.2"
+    prettier: "npm:^3.7.4"
     react: "npm:^19.1.0"
     typescript: "npm:^5.9.3"
     vitest: "npm:^3.2.4"
