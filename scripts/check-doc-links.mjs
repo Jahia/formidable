@@ -5,7 +5,9 @@ import {dirname, join, relative, resolve} from 'node:path';
 
 const root = resolve(process.argv[2] ?? '.');
 // .harness holds local working notes (git-ignored), never part of the repository.
-const SKIP = new Set(['node_modules', 'target', 'dist', '.git', '.yarn', 'results', '.harness']);
+// ISSUE_TEMPLATE: the issue templates are synced from Jahia/.github (#314), so their
+// anchors are not ours to fix here.
+const SKIP = new Set(['node_modules', 'target', 'dist', '.git', '.yarn', 'results', '.harness', 'ISSUE_TEMPLATE']);
 const walk = dir => readdirSync(dir).flatMap(name => {
     if (SKIP.has(name)) return [];
     const path = join(dir, name);
