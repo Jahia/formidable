@@ -1,8 +1,8 @@
 import {jahiaComponent} from "@jahia/javascript-modules-library";
 import {resolveFieldOptions} from "~/utils/optionsSource.server";
 import OptionsSourceError from "~/design/OptionsSourceError";
-import {type BaseValidationMessageProps, validationDataAttributes} from "formidable-shared";
-import {HelpText, helpTextId} from "formidable-shared";
+import {type BaseValidationMessageProps, validationDataAttributes} from "@jahia/formidable-library";
+import {HelpText, helpTextId} from "@jahia/formidable-library";
 
 interface SelectProps extends BaseValidationMessageProps {
 	"jcr:title"?: string;

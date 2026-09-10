@@ -72,6 +72,7 @@ The current release includes the ability to:
   - **formidable-elements** — provides the fields, form structure and rendering views
   - **formidable-engine** — provides the action framework (Java/OSGi), CAPTCHA verification, editor extensions (custom selectors, form results panel)
   - **formidable-extended-inputs** — provides the optional extra field types, as a separate module so a site can stay on the core set
+- 1 npm package, [`@jahia/formidable-library`](packages/formidable-library/README.md) — the markup contract and input-mask behaviour a module of your own builds on to render form fields, published with each release
 
 ### Current known limitations
 - When selecting a field, users don't know what it will look like. This pain point will be addressed globally inside Jahia in 2026.

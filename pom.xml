@@ -48,6 +48,8 @@
     </scm>
 
     <modules>
+        <!-- First: the form modules build against its dist/ (the npm package @jahia/formidable-library) -->
+        <module>packages/formidable-library</module>
         <module>formidable-engine</module>
         <module>formidable-elements</module>
         <module>formidable-extended-inputs</module>

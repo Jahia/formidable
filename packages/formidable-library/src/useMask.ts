@@ -1,7 +1,7 @@
-import {useRef} from "react";
-import {applyMask, extractRawValue, maskedCursorPosition} from "~/utils/mask";
+import {type FormEvent, useRef} from "react";
+import {applyMask, extractRawValue, maskedCursorPosition} from "./mask";
 
-interface UseMaskOptions {
+export interface UseMaskOptions {
 	mask?: string;
 }
 
@@ -14,7 +14,7 @@ interface UseMaskOptions {
 export const useMask = ({mask}: UseMaskOptions) => {
 	const inputRef = useRef<HTMLInputElement>(null);
 
-	const handleInput = (e: React.FormEvent<HTMLInputElement>) => {
+	const handleInput = (e: FormEvent<HTMLInputElement>) => {
 		if (!mask) return;
 
 		const input = e.currentTarget;

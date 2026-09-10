@@ -11,7 +11,7 @@
  * Any other character is a fixed literal (e.g. `-`, `(`, `)`, ` `, `/`).
  */
 
-interface MaskTokenConfig {
+export interface MaskTokenConfig {
 	pattern: RegExp;
 	/** Character class used to derive the HTML `pattern` attribute (kept permissive: without JS no case transform happens). */
 	patternSource: string;
@@ -29,7 +29,7 @@ export const MASK_TOKENS: Record<string, MaskTokenConfig> = {
 /** Strip everything that can never match a mask token, keeping only alphanumerics. */
 export const extractRawValue = (value: string): string => value.replace(/[^a-zA-Z0-9]/g, "");
 
-interface ApplyMaskOptions {
+export interface ApplyMaskOptions {
 	/**
 	 * Complete trailing fixed literals once every remaining mask position is a
 	 * literal (e.g. `(99)` -> `(12)`), so the mask-derived pattern can be

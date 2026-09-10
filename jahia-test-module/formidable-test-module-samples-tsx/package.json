@@ -9,7 +9,7 @@
 		"static"
 	],
 	"scripts": {
-		"build": "tsc --noEmit && vite build && run package",
+		"build": "yarn workspace @jahia/formidable-library build && tsc --noEmit && vite build && run package",
 		"clean": "rm -rf dist/",
 		"deploy": "jahia-deploy",
 		"dev": "vite build --watch",
@@ -20,6 +20,7 @@
 		"watch:callback": "run package && run deploy"
 	},
 	"dependencies": {
+		"@jahia/formidable-library": "workspace:*",
 		"clsx": "^2.1.1"
 	},
 	"devDependencies": {

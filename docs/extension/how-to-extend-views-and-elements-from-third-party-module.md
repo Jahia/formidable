@@ -354,12 +354,14 @@ jahiaComponent(
 ```
 
 Taking a default view over means owning the whole built-in contract of the field — the HTML
-conventions below, the validation-message attributes, and for the text input the `pattern` and
-formatted default a mask stands for (the sample writes the mask tokens out, as it does the
-validation attributes) — and knowing what you cannot reach: the formatting while typing of a
-masked field is a client island of Formidable, so on such a site a masked field keeps its format
-validation but loses its live mask. The view reads `helpTextPosition` (absent until the
-node was saved with the mixin — default to the built-in placement). One accessibility point
+conventions below, the validation-message attributes, and for the text input everything a mask
+stands for: the `pattern`, the formatted default and the formatting while typing. None of it is
+rewritten: the sample depends on `@jahia/formidable-library`, the package Formidable's own views
+are built on (see [HTML conventions for custom fields](#html-conventions-for-custom-fields)), and
+imports `HelpText`, `validationDataAttributes`, `maskToPattern` and `applyMask` in the view,
+`useMask` in an island of its own (`Text.client.tsx`) for the live mask. The view reads
+`helpTextPosition` (absent until the node was saved with the mixin — default to the built-in
+placement). One accessibility point
 when the help is shown twice: the control describes a single block (`aria-describedby` →
 `help-<nodeId>`); the repeat after the field has no id and `aria-hidden="true"`, so a screen
 reader hears the help once.
@@ -395,11 +397,20 @@ Two more contracts matter for help texts and inline validation errors:
 - custom validation messages are emitted as `data-fmdb-msg-*` attributes on the control
   (see `docs/architecture/custom-validation.md` for the full attribute table).
 
-Modules living in this monorepo consume both contracts from the private
-`formidable-shared` workspace package (`HelpText`, `helpTextId`,
-`validationDataAttributes`) instead of copying them. Genuinely third-party modules
-cannot depend on that unpublished package: implement the documented markup contract
-directly.
+Both contracts, and the input-mask behaviour of the text input, are published on npm as
+[`@jahia/formidable-library`](https://www.npmjs.com/package/@jahia/formidable-library) — the
+package the modules of this repository themselves are built on. Depend on it rather than copying
+the markup: `HelpText` and `helpTextId` render the help block, `validationDataAttributes` emits
+the attributes from the mixin props, `maskToPattern` and `applyMask` give a masked field its
+`pattern` and its formatted default, `useMask` its formatting while typing (in an island of your
+module). A change of contract then surfaces as a type error when your module builds, not as a
+silent drift. Its [README](../../packages/formidable-library/README.md) lists the API; take the
+version matching the Formidable release you target — the package follows Formidable's version
+numbers.
+
+```sh
+yarn add @jahia/formidable-library
+```
 
 ## When to add more engine mixins
 

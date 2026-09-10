@@ -968,6 +968,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@jahia/formidable-library@workspace:*, @jahia/formidable-library@workspace:packages/formidable-library":
+  version: 0.0.0-use.local
+  resolution: "@jahia/formidable-library@workspace:packages/formidable-library"
+  dependencies:
+    "@types/react": "npm:^19.1.2"
+    react: "npm:^19.1.0"
+    typescript: "npm:^5.9.3"
+    vitest: "npm:^3.2.4"
+  peerDependencies:
+    react: ^19.1.0
+  languageName: unknown
+  linkType: soft
+
 "@jahia/javascript-modules-library@npm:^1.2.0":
   version: 1.2.0
   resolution: "@jahia/javascript-modules-library@npm:1.2.0"
@@ -3825,12 +3838,12 @@ __metadata:
     "@eslint-react/eslint-plugin": "npm:^1.49.0"
     "@eslint/compat": "npm:^1.2.9"
     "@eslint/js": "npm:^9.26.0"
+    "@jahia/formidable-library": "workspace:*"
     "@jahia/javascript-modules-library": "npm:^1.2.0"
     "@jahia/vite-plugin": "npm:^1.2.0"
     "@types/react": "npm:^19.1.2"
     clsx: "npm:^2.1.1"
     eslint: "npm:^9.26.0"
-    formidable-shared: "workspace:*"
     globals: "npm:^16.0.0"
     i18next: "npm:^25.5.3"
     jsdom: "npm:^26.0.0"
@@ -3876,12 +3889,12 @@ __metadata:
     "@eslint-react/eslint-plugin": "npm:^1.49.0"
     "@eslint/compat": "npm:^1.2.9"
     "@eslint/js": "npm:^9.26.0"
+    "@jahia/formidable-library": "workspace:*"
     "@jahia/javascript-modules-library": "npm:^1.2.0"
     "@jahia/vite-plugin": "npm:^1.2.0"
     "@types/react": "npm:^19.1.2"
     clsx: "npm:^2.1.1"
     eslint: "npm:^9.26.0"
-    formidable-shared: "workspace:*"
     globals: "npm:^16.0.0"
     i18next: "npm:^25.5.3"
     prettier: "npm:^3.5.3"
@@ -3895,15 +3908,6 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"formidable-shared@workspace:*, formidable-shared@workspace:packages/formidable-shared":
-  version: 0.0.0-use.local
-  resolution: "formidable-shared@workspace:packages/formidable-shared"
-  dependencies:
-    "@types/react": "npm:^19.1.2"
-    react: "npm:^19.1.0"
-  languageName: unknown
-  linkType: soft
-
 "formidable-test-module-samples-tsx@workspace:jahia-test-module/formidable-test-module-samples-tsx":
   version: 0.0.0-use.local
   resolution: "formidable-test-module-samples-tsx@workspace:jahia-test-module/formidable-test-module-samples-tsx"
@@ -3911,6 +3915,7 @@ __metadata:
     "@eslint-react/eslint-plugin": "npm:^1.49.0"
     "@eslint/compat": "npm:^1.2.9"
     "@eslint/js": "npm:^9.26.0"
+    "@jahia/formidable-library": "workspace:*"
     "@jahia/javascript-modules-library": "npm:^1.2.0"
     "@jahia/vite-plugin": "npm:^1.2.0"
     "@types/react": "npm:^19.1.2"

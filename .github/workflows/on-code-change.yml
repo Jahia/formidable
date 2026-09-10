@@ -37,6 +37,12 @@ jobs:
           yarn typecheck
       - name: Check the documentation links
         run: node scripts/check-doc-links.mjs
+      # The published package must stay installable: exports map, files list, types (#308).
+      - name: Check the npm package of @jahia/formidable-library
+        run: |
+          yarn install --immutable
+          yarn workspace @jahia/formidable-library build
+          yarn workspace @jahia/formidable-library pack --dry-run
 
   build:
     name: Build Module

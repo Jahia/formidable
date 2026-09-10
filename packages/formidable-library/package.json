@@ -1,0 +1,51 @@
+{
+	"name": "@jahia/formidable-library",
+	"version": "0.5.0",
+	"description": "The markup contract and the input-mask behaviour of Formidable forms, for Jahia JavaScript modules that render form fields of their own",
+	"keywords": [
+		"jahia",
+		"formidable",
+		"forms"
+	],
+	"homepage": "https://github.com/Jahia/formidable/tree/main/packages/formidable-library#readme",
+	"bugs": "https://github.com/Jahia/formidable/issues",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Jahia/formidable.git",
+		"directory": "packages/formidable-library"
+	},
+	"license": "Apache-2.0",
+	"sideEffects": false,
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "rm -rf dist/ && tsc -p tsconfig.build.json",
+		"clean": "rm -rf dist/",
+		"format": "prettier --write --list-different .",
+		"lint": "eslint .",
+		"test": "vitest run"
+	},
+	"peerDependencies": {
+		"react": "^19.1.0"
+	},
+	"devDependencies": {
+		"@types/react": "^19.1.2",
+		"react": "^19.1.0",
+		"typescript": "^5.9.3",
+		"vitest": "^3.2.4"
+	},
+	"engines": {
+		"node": ">=22.0.0"
+	},
+	"publishConfig": {
+		"access": "public"
+	}
+}
