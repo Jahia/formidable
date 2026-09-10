@@ -26,13 +26,16 @@ targets.
 
 `HelpText` renders the help block — `div.fmdb-form-help` with the id `helpTextId(nodeId)`, that is
 `help-<nodeId>` — and nothing without a text. The control references the block through
-`aria-describedby`. The text is contributor-authored rich text, rendered as HTML.
+`aria-describedby`. The text is contributor-authored rich text, rendered as HTML. A rendering that
+shows the help twice (above and below the field) renders the repeat with `decorative`: no id, hidden
+from assistive technology, so a screen reader hears the help once.
 
 ```tsx
 const helpId = helpText ? helpTextId(currentNode.getIdentifier()) : undefined;
 
 <HelpText id={helpId} text={helpText} />
 <input id={`input-${currentNode.getIdentifier()}`} aria-describedby={helpId} className="fmdb-form-control" />
+<HelpText text={helpText} decorative />
 ```
 
 ### Validation messages
@@ -60,8 +63,8 @@ lower-cased, anything else a fixed literal — stands for three things:
 - `maskToPattern(mask)` — the HTML `pattern` the browser and the server validate against;
 - `applyMask(value, mask)` — a value formatted by the mask, for a prefilled default;
 - `useMask({mask})` — the formatting while typing, in a client island: the hook returns an
-  `inputRef`, an `onInput` handler that formats the value and keeps the caret where the user is
-  editing, and `formatValue`.
+  `inputRef`, a `handleInput` handler (for the input's `onInput`) that formats the value and keeps
+  the caret where the user is editing, and `formatValue`.
 
 ```tsx
 // MyField.client.tsx
@@ -73,8 +76,8 @@ export default function MaskedInput({ mask, defaultValue, inputAttributes }) {
 }
 ```
 
-`MASK_TOKENS`, `extractRawValue` and `maskedCursorPosition` are the lower-level pieces the hook is
-built on.
+These three, with the help text and validation exports above, are the whole public API: the mask
+tokens and the caret arithmetic the hook is built on stay inside the package.
 
 ## Documentation
 

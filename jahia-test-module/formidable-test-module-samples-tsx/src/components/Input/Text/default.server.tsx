@@ -61,10 +61,10 @@ const readPosition = (value: string | undefined): HelpTextPosition =>
  * and id, the fmdb-* hooks, one help block with the `help-<nodeId>` id the control references, the
  * data-fmdb-msg-* validation messages, and everything a mask stands for — the `pattern`, the
  * formatted default, the formatting while typing. None of it is written out here: the contract
- * comes from @jahia/formidable, the package Formidable's own views are built on, so this
- * view stays byte-compatible with them and a change of contract shows up as a type error when this
- * module builds. The live mask is Text.client.tsx, an island of this module built on the library's
- * useMask hook, hydrated only when a mask is configured — as in Formidable.
+ * comes from @jahia/formidable, the package Formidable's own views are built on, so this view stays
+ * byte-compatible with them and a change of contract shows up as a type error when this module
+ * builds. The live mask is Text.client.tsx, an island of this module built on the library's useMask
+ * hook, hydrated only when a mask is configured — as in Formidable.
  */
 jahiaComponent(
   {
@@ -169,17 +169,9 @@ jahiaComponent(
         )}
 
         {/* "down": the help block, with the id, follows the field. "both": the block after the
-            field repeats the one the control already describes — no id (ids are unique) and out of
-            the accessibility tree, so a screen reader hears the help once; decorative and outside
-            the contract, it is written out rather than rendered by HelpText. */}
-        {helpBelow && !helpAbove && <HelpText id={helpId} text={helpText} />}
-        {helpBelow && helpAbove && helpText && (
-          <div
-            className="fmdb-form-help"
-            aria-hidden="true"
-            dangerouslySetInnerHTML={{ __html: helpText }}
-          />
-        )}
+            field is the decorative repeat of the one the control already describes — no id (ids
+            are unique), hidden from assistive technology, so a screen reader hears the help once. */}
+        {helpBelow && <HelpText id={helpId} text={helpText} decorative={helpAbove} />}
 
         {list.length > 0 && (
           <datalist id={datalistId}>

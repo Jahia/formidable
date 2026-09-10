@@ -11,14 +11,14 @@
  * Any other character is a fixed literal (e.g. `-`, `(`, `)`, ` `, `/`).
  */
 
-export interface MaskTokenConfig {
+interface MaskTokenConfig {
 	pattern: RegExp;
 	/** Character class used to derive the HTML `pattern` attribute (kept permissive: without JS no case transform happens). */
 	patternSource: string;
 	transform?: (char: string) => string;
 }
 
-export const MASK_TOKENS: Record<string, MaskTokenConfig> = {
+const MASK_TOKENS: Record<string, MaskTokenConfig> = {
 	"9": {pattern: /[0-9]/, patternSource: "[0-9]"},
 	"A": {pattern: /[a-zA-Z]/, patternSource: "[A-Za-z]", transform: (char) => char.toUpperCase()},
 	"a": {pattern: /[a-zA-Z]/, patternSource: "[A-Za-z]", transform: (char) => char.toLowerCase()},
@@ -29,7 +29,7 @@ export const MASK_TOKENS: Record<string, MaskTokenConfig> = {
 /** Strip everything that can never match a mask token, keeping only alphanumerics. */
 export const extractRawValue = (value: string): string => value.replace(/[^a-zA-Z0-9]/g, "");
 
-export interface ApplyMaskOptions {
+interface FormatOptions {
 	/**
 	 * Complete trailing fixed literals once every remaining mask position is a
 	 * literal (e.g. `(99)` -> `(12)`), so the mask-derived pattern can be
@@ -43,9 +43,10 @@ export interface ApplyMaskOptions {
  * Format a value according to the mask. Characters rejected by the current
  * token are dropped (not truncating the rest of the input), literals are
  * inserted automatically once a following token character is typed, and input
- * beyond the mask length is ignored.
+ * beyond the mask length is ignored. Package-internal: the option exists for
+ * the hook's deletion keystrokes; `applyMask` is the public entry point.
  */
-export const applyMask = (value: string, mask: string, {fillTrailingLiterals = true}: ApplyMaskOptions = {}): string => {
+export const formatWithMask = (value: string, mask: string, {fillTrailingLiterals = true}: FormatOptions = {}): string => {
 	if (!mask) return value;
 
 	let masked = "";
@@ -79,6 +80,13 @@ export const applyMask = (value: string, mask: string, {fillTrailingLiterals = t
 
 	return masked;
 };
+
+/**
+ * A value formatted by the mask: literals inserted, rejected characters dropped,
+ * input beyond the mask ignored, trailing literals completed so the value
+ * satisfies the pattern `maskToPattern` derives from the same mask.
+ */
+export const applyMask = (value: string, mask: string): string => formatWithMask(value, mask);
 
 /** Convert a mask to a regex string suitable for the HTML `pattern` attribute. */
 export const maskToPattern = (mask?: string): string | undefined => {

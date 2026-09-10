@@ -1,5 +1,5 @@
 import {describe, expect, it} from "vitest";
-import {applyMask, extractRawValue, maskToPattern, maskedCursorPosition} from "./mask";
+import {applyMask, extractRawValue, formatWithMask, maskToPattern, maskedCursorPosition} from "./mask.js";
 
 describe("maskToPattern", () => {
 	it("is undefined without a mask", () => {
@@ -34,7 +34,7 @@ describe("applyMask", () => {
 
 	it("completes trailing literals once a token was consumed, unless told not to", () => {
 		expect(applyMask("12", "(99)")).toBe("(12)");
-		expect(applyMask("12", "(99)", {fillTrailingLiterals: false})).toBe("(12");
+		expect(formatWithMask("12", "(99)", {fillTrailingLiterals: false})).toBe("(12");
 		expect(applyMask("", "(99)")).toBe("");
 	});
 });
