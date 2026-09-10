@@ -412,6 +412,11 @@ numbers.
 yarn add @jahia/formidable
 ```
 
+The samples module of this repository declares the same dependency as `"workspace:*"`, which links
+the monorepo's own sources: that value is for this repository only — in your module, the command
+above (its [README](../../jahia-test-module/formidable-test-module-samples-tsx/README.md) spells out
+what to change when copying it).
+
 ## When to add more engine mixins
 
 `fmdbmix:element` is enough for a simple text-like field.
