@@ -13,6 +13,7 @@
     <properties>
         <jahia-depends>javascript-modules-engine</jahia-depends>
         <jahia-module-signature>MC0CFA34BUMVXOQaf1i8dEQX4aD9Lac5AhUAkOEYgGmNqIt+xpMlhtzXofNoskI=</jahia-module-signature>
+        <sonar.sources>src,package.json,pom.xml</sonar.sources>
     </properties>
     <scm>
         <connection>scm:git:git@github.com:Jahia/formidable.git</connection>
