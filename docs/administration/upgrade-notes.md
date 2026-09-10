@@ -3,6 +3,17 @@
 Manual steps required when upgrading between specific versions. Most upgrades
 are in-place module installs; only the transitions listed here need attention.
 
+## Supported upgrade paths
+
+| From | To | How |
+|---|---|---|
+| 0.4.x | 0.5.0 | In-place module install. The 0.5.0 wave of startup migrations renames the prefixed properties at the first start (see below) |
+| 0.3.x | 0.4.0 | The reinstall procedure below (formidable-elements changed identity), then the 0.4.0 wave of startup migrations runs at the first start |
+| 0.3.x | 0.5.0 directly | The same reinstall procedure, with the 0.5.0 artifacts: 0.5.0 still ships the 0.4.0 wave of startup migrations, so both waves run at the first start. Expected by construction, not yet exercised on a real instance — the paths verified on a real instance are 0.3.0 → 0.4.0 and 0.4.0 → 0.5.0 |
+
+0.6 removes both waves of startup migrations: from 0.6 on, **0.5.x is the minimum upgrade
+source** — an instance must have started 0.5.x at least once before moving to 0.6.
+
 ## 0.4.x → 0.5.0: the configuration file is deployed with the module
 
 **Automatic on most installations — check your settings if the module was configured through
@@ -359,11 +370,12 @@ engine-activation run fails against the previous element definitions, and the
 elements-redeploy run is the one that does the work. They run on both
 workspaces, keyed on the content state and idempotent.
 They come in two waves. The 0.4.x wave exists for instances upgrading from 0.3.x
-content and is to be **removed when 0.5.0 is cut** — from then on 0.4.x is the
-minimum upgrade source and every instance has run them at least once. The 0.5.0 wave
-(`MixinPropertyNamesMigration`) exists for 0.4.x content and leaves in 0.6, with the
-deprecated definitions it reads. Each class carries a `Lifecycle:` note in its Javadoc
-pointing here.
+content. It **stays in 0.5.0** (decided 2026-09-10) so that a 0.3.x instance can upgrade
+to 0.5.0 directly, without a stop at 0.4.0; it leaves in 0.6 together with the 0.5.0 wave
+(`MixinPropertyNamesMigration`, for 0.4.x content) and the deprecated definitions that
+wave reads. From 0.6 on, 0.5.x is the minimum upgrade source: every instance has then run
+both waves at least once. Each class carries a `Lifecycle:` note in its Javadoc pointing
+here.
 
 Every workspace pass goes through `MigrationSessions`. The **live pass runs with
 JCR observation switched off**: Jahia records a direct live write on a published
@@ -382,14 +394,17 @@ carries that marker on its migrated fields, and the migrations never revisit a
 migrated node: clear `jmix:liveProperties` from them in live, or upgrade again
 from a 0.3 restore. No released version is concerned.
 
-| Class (`org.jahia.modules.formidable.engine.migration`) | Introduced | What it rewrites |
-|---|---|---|
-| `ChoiceOptionsContentMigration` | 0.4.0 (#193) | Legacy `options`/`choices` of choice fields → `fmdb:options` (`options` since 0.5.0) + manual mode |
-| `DateBoundsContentMigration` | 0.4.0 (#202) | Fixed date/datetime bounds without a bound mode → mode `date` + fixed-bound mixins |
-| `TranslationFieldKeyCleanup` | 0.4.0 (#215) | Stray `fieldKey` on `j:translation_*` subnodes of form elements |
-| `ListTitlesContentMigration` | 0.4.x (#231) | Missing `jcr:title` on a form's `fields`/`actions` lists → the type's default label, per site language (in live, published languages only) |
-| `MixinPropertyNamesMigration` | 0.5.0 (#312) | The thirteen `fmdb:`-prefixed properties (options source, date bounds, the select's empty-option label) → unprefixed names, translations included (leaves in 0.6 with the deprecated definitions) |
+| Class (`org.jahia.modules.formidable.engine.migration`) | Introduced | Leaves in | What it rewrites |
+|---|---|---|---|
+| `ChoiceOptionsContentMigration` | 0.4.0 (#193) | 0.6 | Legacy `options`/`choices` of choice fields → `fmdb:options` (`options` since 0.5.0) + manual mode |
+| `DateBoundsContentMigration` | 0.4.0 (#202) | 0.6 | Fixed date/datetime bounds without a bound mode → mode `date` + fixed-bound mixins |
+| `TranslationFieldKeyCleanup` | 0.4.0 (#215) | 0.6 | Stray `fieldKey` on `j:translation_*` subnodes of form elements |
+| `ListTitlesContentMigration` | 0.4.x (#231) | 0.6 | Missing `jcr:title` on a form's `fields`/`actions` lists → the type's default label, per site language (in live, published languages only) |
+| `MixinPropertyNamesMigration` | 0.5.0 (#312) | 0.6 | The thirteen `fmdb:`-prefixed properties (options source, date bounds, the select's empty-option label) → unprefixed names, translations included; the deprecated definitions it reads leave with it |
 
 Removal checklist: delete the class and its unit test, drop the Cypress spec that
 restarts the engine to exercise it, and remove the row above. When the last row
-goes, also delete `ElementsRedeployRetriggeredMigration`, `MigrationSessions` and their tests.
+goes, also delete `ElementsRedeployRetriggeredMigration`, `MigrationSessions`,
+`ElementsSiteReactivation` and their tests, and the two marker mixins of the engine's
+CND, `fmdbmix:elementsReactivated` and `fmdbmix:migratedChoiceOptions` — the latter
+once no field still carries it.

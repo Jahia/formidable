@@ -35,8 +35,9 @@ import javax.jcr.query.Query;
  * change), so no version information survives it. Re-running is a no-op once no
  * legacy property remains.
  *
- * <p>Lifecycle: startup migration introduced in 0.4.0 (#193), to be removed in 0.5 — see
- * docs/administration/upgrade-notes.md, "Startup migrations".
+ * <p>Lifecycle: startup migration introduced in 0.4.0 (#193), kept through 0.5.x so that a
+ * 0.3.x instance can still upgrade directly, to be removed in 0.6 with the other startup
+ * migrations — see docs/administration/upgrade-notes.md, "Startup migrations".
  */
 // Registered as its own service so components whose activation must wait for the
 // migration (ManualOptionsLanguageSyncListener) can express that ordering as a

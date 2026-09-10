@@ -29,8 +29,9 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FO
  * NOT on the previously installed module version. Re-running is a no-op once every
  * translation is clean.
  *
- * <p>Lifecycle: startup migration introduced in 0.4.0 (#215), to be removed in 0.5 — see
- * docs/administration/upgrade-notes.md, "Startup migrations".
+ * <p>Lifecycle: startup migration introduced in 0.4.0 (#215), kept through 0.5.x so that a
+ * 0.3.x instance can still upgrade directly, to be removed in 0.6 with the other startup
+ * migrations — see docs/administration/upgrade-notes.md, "Startup migrations".
  */
 @Component(immediate = true)
 public class TranslationFieldKeyCleanup {
