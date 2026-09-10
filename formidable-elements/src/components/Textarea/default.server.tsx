@@ -1,6 +1,6 @@
 import {jahiaComponent} from "@jahia/javascript-modules-library";
-import {type TextValidationMessageProps, validationDataAttributes} from "formidable-shared";
-import {HelpText, helpTextId} from "formidable-shared";
+import {type TextValidationMessageProps, validationDataAttributes} from "@jahia/formidable";
+import {HelpText, helpTextId} from "@jahia/formidable";
 
 interface TextareaProps extends TextValidationMessageProps {
 	"jcr:title"?: string;

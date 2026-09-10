@@ -4,8 +4,8 @@ import {
   jahiaComponent,
 } from "@jahia/javascript-modules-library";
 import { useTranslation } from "react-i18next";
-import { type BaseValidationMessageProps, validationDataAttributes } from "formidable-shared";
-import { HelpText, helpTextId } from "formidable-shared";
+import { type BaseValidationMessageProps, validationDataAttributes } from "@jahia/formidable";
+import { HelpText, helpTextId } from "@jahia/formidable";
 import "./switch.css";
 
 interface SwitchProps extends BaseValidationMessageProps {

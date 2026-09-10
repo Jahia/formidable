@@ -28,7 +28,8 @@ const FIELDS = {
 	unset: {name: 'helpUnset', title: 'Help unset', helpText: HELP},
 	// A placement without any help text: nothing to place.
 	none: {name: 'helpNone', title: 'No help'},
-	// A masked field: the rendering keeps what the mask stands for, a pattern and a formatted default.
+	// A masked field: the rendering keeps everything the mask stands for — pattern, formatted default,
+	// formatting while typing.
 	masked: {name: 'helpMasked', title: 'Masked code', helpText: HELP, mask: 'AA-9999', defaultValue: 'ab1234'}
 };
 const MASK_PATTERN = '^[A-Za-z][A-Za-z]-[0-9][0-9][0-9][0-9]$';
@@ -168,12 +169,17 @@ describe('Form fields - 222 Help text position (third-party sample)', () => {
 			none.shouldNotHaveHelpText();
 			none.getInput().should('not.have.attr', 'aria-describedby');
 
-			// A masked field keeps its format: the mask on the input, the pattern derived from it, the
-			// default formatted by it. Only the formatting while typing (Formidable's island) is gone.
+			// A masked field keeps everything the mask stands for: the mask on the input, the pattern
+			// derived from it, the default formatted by it, and the formatting while typing — the sample's
+			// own island, built on the hook of @jahia/formidable (#308).
 			const masked = form.getTextInput(FIELDS.masked.name);
 			masked.getContainer().should('have.attr', POSITION_ATTRIBUTE, 'down');
 			masked.shouldHaveMask(FIELDS.masked.mask).shouldHavePattern(MASK_PATTERN).shouldHaveValue('AB-1234');
-			masked.getInput().next().should('have.class', 'fmdb-form-help');
+			// The island wraps the control (one extra DOM level, `display: contents`, as in Formidable's
+			// own rendering): the help block follows the wrapper, not the input itself.
+			masked.getInput().closest('.fmdb-form-group > *').next().should('have.class', 'fmdb-form-help');
+			masked.type('cd5678');
+			masked.shouldHaveValue('CD-5678');
 		});
 	});
 

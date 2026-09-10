@@ -35,6 +35,13 @@ jobs:
         run: |
           yarn install --immutable
           yarn typecheck
+      # The tarball yarn would publish must import under Node ESM through its exports map, with its
+      # types: scripts/smoke.mjs packs it, unpacks it and imports it by name (#308).
+      - name: Smoke-import the packed @jahia/formidable
+        run: |
+          yarn install --immutable
+          yarn workspace @jahia/formidable build
+          yarn workspace @jahia/formidable smoke
       - name: Check the documentation links
         run: node scripts/check-doc-links.mjs
 

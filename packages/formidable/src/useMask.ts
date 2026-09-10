@@ -1,7 +1,7 @@
-import {useRef} from "react";
-import {applyMask, extractRawValue, maskedCursorPosition} from "~/utils/mask";
+import {type FormEvent, useRef} from "react";
+import {applyMask, extractRawValue, formatWithMask, maskedCursorPosition} from "./mask.js";
 
-interface UseMaskOptions {
+export interface UseMaskOptions {
 	mask?: string;
 }
 
@@ -14,7 +14,7 @@ interface UseMaskOptions {
 export const useMask = ({mask}: UseMaskOptions) => {
 	const inputRef = useRef<HTMLInputElement>(null);
 
-	const handleInput = (e: React.FormEvent<HTMLInputElement>) => {
+	const handleInput = (e: FormEvent<HTMLInputElement>) => {
 		if (!mask) return;
 
 		const input = e.currentTarget;
@@ -25,7 +25,7 @@ export const useMask = ({mask}: UseMaskOptions) => {
 
 		// Do not re-append trailing literals while the user is deleting, or they could never be removed
 		const isDeletion = ((e.nativeEvent as InputEvent).inputType ?? "").startsWith("delete");
-		const maskedValue = applyMask(input.value, mask, {fillTrailingLiterals: !isDeletion});
+		const maskedValue = formatWithMask(input.value, mask, {fillTrailingLiterals: !isDeletion});
 		input.value = maskedValue;
 
 		const newCursorPos = caretAtEnd

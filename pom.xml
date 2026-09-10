@@ -48,6 +48,9 @@
     </scm>
 
     <modules>
+        <!-- Not a Jahia module: the npm package @jahia/formidable, linted, built, tested and smoke-imported here;
+             the form modules read its sources through the yarn workspace and need no build order -->
+        <module>packages/formidable</module>
         <module>formidable-engine</module>
         <module>formidable-elements</module>
         <module>formidable-extended-inputs</module>

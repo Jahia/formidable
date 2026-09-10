@@ -1,9 +1,23 @@
-import { jahiaComponent } from "@jahia/javascript-modules-library";
+import { Island, jahiaComponent } from "@jahia/javascript-modules-library";
+import {
+  applyMask,
+  HelpText,
+  helpTextId,
+  maskToPattern,
+  type TextValidationMessageProps,
+  validationDataAttributes,
+} from "@jahia/formidable";
+import MaskedTextInput from "./Text.client";
 
 /** The values of fmdbsamplemix:helpTextPosition; "up" is the built-in rendering. */
 type HelpTextPosition = "up" | "down" | "both";
 
-interface InputTextProps {
+/**
+ * The props of the built-in text input. The `msg*` props of fmdbmix:textValidationMessages come
+ * from the library's type, so a message Formidable adds to the mixin reaches this view as a type
+ * error to act on, not as a silent omission.
+ */
+interface InputTextProps extends TextValidationMessageProps {
   "jcr:title"?: string;
   "helpText"?: string;
   /** From fmdbsamplemix:helpTextPosition, absent until the node is saved with the mixin. */
@@ -26,80 +40,12 @@ interface InputTextProps {
   "spellcheck"?: boolean;
   "size"?: number;
   "title"?: string;
-  // fmdbmix:textValidationMessages
-  "msgValueMissing"?: string;
-  "msgTypeMismatch"?: string;
-  "msgPatternMismatch"?: string;
-  "msgTooShort"?: string;
-  "msgTooLong"?: string;
 }
 
 const DEFAULT_LIST: string[] = [];
 
 const readPosition = (value: string | undefined): HelpTextPosition =>
   value === "down" || value === "both" ? value : "up";
-
-/**
- * The input-mask tokens of the built-in text input, written out for the same reason as the
- * validation attributes below: `9` digit, `A`/`a` letter (upper/lower case), `X`/`x` alphanumeric
- * (upper/lower case), anything else a fixed literal. Two of the three things the built-in view
- * derives from a mask are reproduced here — the HTML `pattern` the browser and the server validate
- * against, and the formatting of a prefilled default; the third, formatting while typing, is a
- * client island of Formidable a third-party view cannot reach.
- */
-const MASK_TOKENS: Record<
-  string,
-  { test: RegExp; source: string; transform?: (c: string) => string }
-> = {
-  "9": { test: /[0-9]/, source: "[0-9]" },
-  "A": { test: /[a-zA-Z]/, source: "[A-Za-z]", transform: (c) => c.toUpperCase() },
-  "a": { test: /[a-zA-Z]/, source: "[A-Za-z]", transform: (c) => c.toLowerCase() },
-  "X": { test: /[a-zA-Z0-9]/, source: "[A-Za-z0-9]", transform: (c) => c.toUpperCase() },
-  "x": { test: /[a-zA-Z0-9]/, source: "[A-Za-z0-9]", transform: (c) => c.toLowerCase() },
-};
-
-/** The regular expression of the `pattern` attribute a mask stands for. */
-const maskToPattern = (mask: string): string =>
-  `^${Array.from(mask)
-    .map((char) => MASK_TOKENS[char]?.source ?? char.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-    .join("")}$`;
-
-/** A value formatted by the mask: literals inserted, rejected characters dropped, excess ignored. */
-const applyMask = (value: string, mask: string): string => {
-  let masked = "";
-  let maskIndex = 0;
-  let consumedToken = false;
-  for (const char of value.replace(/[^a-zA-Z0-9]/g, "")) {
-    while (maskIndex < mask.length && !MASK_TOKENS[mask[maskIndex]]) {
-      masked += mask[maskIndex++];
-    }
-    if (maskIndex >= mask.length) break;
-    const token = MASK_TOKENS[mask[maskIndex]];
-    if (token.test.test(char)) {
-      masked += token.transform ? token.transform(char) : char;
-      maskIndex++;
-      consumedToken = true;
-    }
-  }
-  // Trailing literals are completed once every remaining position is one, so the pattern holds.
-  const remainder = mask.slice(maskIndex);
-  if (consumedToken && remainder && Array.from(remainder).every((char) => !MASK_TOKENS[char])) {
-    masked += remainder;
-  }
-  return masked;
-};
-
-/**
- * The inline-validation contract of docs/architecture/custom-validation.md, written out rather than imported: a
- * third-party module cannot depend on the monorepo's private shared package.
- */
-const validationMessageAttributes = (props: InputTextProps) => ({
-  "data-fmdb-msg-value-missing": props.msgValueMissing || undefined,
-  "data-fmdb-msg-type-mismatch": props.msgTypeMismatch || undefined,
-  "data-fmdb-msg-pattern-mismatch": props.msgPatternMismatch || undefined,
-  "data-fmdb-msg-too-short": props.msgTooShort || undefined,
-  "data-fmdb-msg-too-long": props.msgTooLong || undefined,
-});
 
 /**
  * TAKES THE PLACE of Formidable's default view of the text input. Formidable registers its
@@ -111,12 +57,14 @@ const validationMessageAttributes = (props: InputTextProps) => ({
  * What it adds: the help text goes where the contributor put it (the sample mixin
  * fmdbsamplemix:helpTextPosition) — above the field, as Formidable renders it, below it, or in both
  * places. Taking a default view over means owning the whole built-in contract
- * (docs/extension/how-to-extend-views-and-elements-from-third-party-module.md): the field's name and id, the
- * fmdb-* hooks, one help block with the `help-<nodeId>` id the control references, the
- * data-fmdb-msg-* validation messages, the `pattern` and formatted default a mask stands for — all
- * kept here. One thing is out of a third-party view's reach: the formatting while typing of a
- * masked field is a client island of Formidable, so on a site enabled for this module a masked text
- * input keeps its format validation but loses its live mask.
+ * (docs/extension/how-to-extend-views-and-elements-from-third-party-module.md): the field's name
+ * and id, the fmdb-* hooks, one help block with the `help-<nodeId>` id the control references, the
+ * data-fmdb-msg-* validation messages, and everything a mask stands for — the `pattern`, the
+ * formatted default, the formatting while typing. None of it is written out here: the contract
+ * comes from @jahia/formidable, the package Formidable's own views are built on, so this view stays
+ * byte-compatible with them and a change of contract shows up as a type error when this module
+ * builds. The live mask is Text.client.tsx, an island of this module built on the library's useMask
+ * hook, hydrated only when a mask is configured — as in Formidable.
  */
 jahiaComponent(
   {
@@ -126,8 +74,8 @@ jahiaComponent(
     // Above Formidable's own default view (priority 0): the highest priority wins.
     priority: 1,
   },
-  (props: InputTextProps, { currentNode }) => {
-    const {
+  (
+    {
       "jcr:title": label,
       helpText,
       helpTextPosition,
@@ -148,18 +96,21 @@ jahiaComponent(
       spellcheck = true,
       size,
       title,
-    } = props;
-
+      ...validationMsgs
+    }: InputTextProps,
+    { currentNode },
+  ) => {
     const position = readPosition(helpTextPosition);
     const nodeId = currentNode.getIdentifier();
     const inputId = `input-${nodeId}`;
     const inputName = currentNode.getName();
     const datalistId = list.length > 0 ? `datalist-${nodeId}` : undefined;
     // The one block assistive technology is pointed to, wherever it stands.
-    const helpId = helpText ? `help-${nodeId}` : undefined;
+    const helpId = helpText ? helpTextId(nodeId) : undefined;
     const helpAbove = position !== "down";
     const helpBelow = position !== "up";
 
+    // Shared between the static input and the masked island so both render identical markup
     const inputAttributes = {
       "type": "text",
       "id": inputId,
@@ -171,7 +122,7 @@ jahiaComponent(
       minLength,
       maxLength,
       // An explicit pattern wins; a mask alone stands for one the browser checks without JavaScript
-      "pattern": pattern || (mask ? maskToPattern(mask) : undefined),
+      "pattern": pattern || maskToPattern(mask),
       "data-mask": mask,
       required,
       "autoComplete": autocomplete,
@@ -184,7 +135,7 @@ jahiaComponent(
       "spellCheck": spellcheck,
       size,
       title,
-      ...validationMessageAttributes(props),
+      ...validationDataAttributes(validationMsgs),
     };
 
     return (
@@ -201,30 +152,26 @@ jahiaComponent(
           </label>
         )}
 
-        {helpText && helpAbove && (
-          <div
-            id={helpId}
-            className="fmdb-form-help"
-            dangerouslySetInnerHTML={{ __html: helpText }}
+        {helpAbove && <HelpText id={helpId} text={helpText} />}
+
+        {mask ? (
+          // Hydrated only when a mask is configured; the default value is pre-formatted server-side
+          <Island
+            component={MaskedTextInput}
+            props={{
+              mask,
+              defaultValue: defaultValue ? applyMask(defaultValue, mask) : undefined,
+              inputAttributes,
+            }}
           />
+        ) : (
+          <input {...inputAttributes} defaultValue={defaultValue} />
         )}
 
-        <input
-          {...inputAttributes}
-          defaultValue={defaultValue && mask ? applyMask(defaultValue, mask) : defaultValue}
-        />
-
-        {/* "both": the block after the field repeats the one the control already describes —
-            no id (ids are unique) and out of the accessibility tree, so a screen reader hears the
-            help once. "down": this is the help block, with the id. */}
-        {helpText && helpBelow && (
-          <div
-            id={helpAbove ? undefined : helpId}
-            className="fmdb-form-help"
-            aria-hidden={helpAbove ? "true" : undefined}
-            dangerouslySetInnerHTML={{ __html: helpText }}
-          />
-        )}
+        {/* "down": the help block, with the id, follows the field. "both": the block after the
+            field is the decorative repeat of the one the control already describes — no id (ids
+            are unique), hidden from assistive technology, so a screen reader hears the help once. */}
+        {helpBelow && <HelpText id={helpId} text={helpText} decorative={helpAbove} />}
 
         {list.length > 0 && (
           <datalist id={datalistId}>
