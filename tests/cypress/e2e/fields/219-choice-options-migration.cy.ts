@@ -138,21 +138,22 @@ describe('Form fields - 219 Choice options migration', () => {
 			expectNoLiveOwnedProperty(SELECT_PATH);
 			expectNoLiveOwnedProperty(RADIO_PATH);
 
-			// The legacy property is moved, not copied: nothing remains on the
-			// translation node.
+			// A legacy property is moved, not copied: the radio's 'choices' leaves its translation
+			// node. (The select's legacy 'options' IS the unified property since 0.5.0 (#310): it
+			// stays where it is, normalised in place — what expectMigrated asserted above.)
 			cy.apollo({
 				query: gql`
 					query getLegacyResidue($path: String!) {
 						jcr {
 							nodeByPath(path: $path) {
-								legacy: property(name: "options") {
+								legacy: property(name: "choices") {
 									values
 								}
 							}
 						}
 					}
 				`,
-				variables: {path: `${SELECT_PATH}/j:translation_en`}
+				variables: {path: `${RADIO_PATH}/j:translation_en`}
 			}).then((response: {data?: {jcr?: {nodeByPath?: {legacy?: unknown}}}}) => {
 				expect(response.data?.jcr?.nodeByPath?.legacy, 'legacy property left on the translation node')
 					.to.be.null;
