@@ -20,15 +20,21 @@ import java.util.Set;
 
 /**
  * One-shot content migration for fields stored by 0.4.0: the properties carried by the
- * options-source and date-bounds mixins lose their {@code fmdb:} prefix (#310). They were
- * the only prefixed ones — every other mixin property ({@code fieldKey}, {@code logics},
- * {@code msg*}, {@code min}, {@code max}) never had one. Each prefixed property still
- * present is copied under its unprefixed name and removed; {@code fmdb:options} is i18n
- * and lives on the {@code j:translation_*} subnodes, where it moves the same way.
+ * options-source and date-bounds mixins, and the select's empty-option label, lose their
+ * {@code fmdb:} prefix (#310). They were the only prefixed properties of the model — every
+ * other one ({@code fieldKey}, {@code logics}, {@code msg*}, {@code min}, {@code max}) never
+ * had one. Each prefixed property still present is copied under its unprefixed name and
+ * removed; the i18n ones ({@code fmdb:options}, {@code fmdb:optionsEmptyLabel}) live on the
+ * translation subnodes, where they move the same way. Where the unprefixed name already
+ * holds a value — a 0.4 export imported, then edited in the editor, before this ran — the
+ * current value wins and the prefixed one is dropped: a migration never moves content
+ * backwards.
  *
  * <p>The deprecated definitions stay in the CND for this one release, hidden, so that a
- * 0.4 export imported into 0.5 is still accepted and lands here; they leave with this
- * class in 0.6.
+ * 0.4 export imported into 0.5 is still accepted and lands here; for the same reason the
+ * JCR-level {@code mandatory} of the renamed properties is lifted for this release (the
+ * editor keeps requiring them through its fieldset overrides). Both come back to normal in
+ * 0.6, when this class leaves.
  *
  * <p>Runs at module activation on BOTH workspaces (default and live, the live pass through
  * {@link MigrationSessions}) and again on an elements redeploy. Keyed on content state:
@@ -44,7 +50,7 @@ public class MixinPropertyNamesMigration extends ElementsRedeployRetriggeredMigr
 
     private static final Logger log = LoggerFactory.getLogger(MixinPropertyNamesMigration.class);
 
-    /** The mixins whose nodes may carry a prefixed property. */
+    /** The mixins whose nodes may carry a prefixed property (fmdb:select carries the first through fmdbmix:choiceField). */
     private static final String[] CARRIER_MIXINS = {"fmdbmix:optionsSource", "fmdbmix:dateBounds", "fmdbmix:datetimeBounds"};
     /** Node-level properties, prefixed name to unprefixed name. */
     static final Map<String, String> NODE_PROPERTIES = Map.ofEntries(
@@ -59,10 +65,10 @@ public class MixinPropertyNamesMigration extends ElementsRedeployRetriggeredMigr
             Map.entry("fmdb:minRelativeUnit", "minRelativeUnit"),
             Map.entry("fmdb:maxRelativeAmount", "maxRelativeAmount"),
             Map.entry("fmdb:maxRelativeUnit", "maxRelativeUnit"));
-    /** The i18n property, stored on the translation subnodes. */
-    static final String TRANSLATED_PROPERTY = "fmdb:options";
-    static final String TRANSLATED_PROPERTY_RENAMED = "options";
-    private static final String TRANSLATION_NODES_PATTERN = "j:translation_*";
+    /** The i18n properties, stored on the translation subnodes, prefixed name to unprefixed name. */
+    static final Map<String, String> TRANSLATED_PROPERTIES = Map.of(
+            "fmdb:options", "options",
+            "fmdb:optionsEmptyLabel", "optionsEmptyLabel");
 
     @Activate
     public void activate() {
@@ -77,6 +83,7 @@ public class MixinPropertyNamesMigration extends ElementsRedeployRetriggeredMigr
     /** @return the number of migrated fields */
     private int migrateWorkspace(JCRSessionWrapper session, String workspace) throws RepositoryException {
         int migrated = 0;
+        int failed = 0;
         Set<String> visited = new HashSet<>();
         for (String mixin : CARRIER_MIXINS) {
             // Scoped to editorial content: module-bundled nodes under /modules belong to
@@ -95,8 +102,12 @@ public class MixinPropertyNamesMigration extends ElementsRedeployRetriggeredMigr
                         // nodes already migrated before it, nor poison the later saves.
                         session.save();
                         migrated++;
+                        // Reported once the save went through: this line is what the upgrade
+                        // note tells the administrator to look for.
+                        log.info("[MixinPropertyNamesMigration] Renamed the prefixed properties of '{}'", node.getPath());
                     }
                 } catch (RepositoryException e) {
+                    failed++;
                     log.error("[MixinPropertyNamesMigration] Could not migrate node '{}' in workspace '{}': {}",
                             node.getPath(), workspace, e.getMessage(), e);
                     session.refresh(false);
@@ -107,7 +118,11 @@ public class MixinPropertyNamesMigration extends ElementsRedeployRetriggeredMigr
         if (migrated > 0) {
             log.info("[MixinPropertyNamesMigration] Renamed the prefixed mixin properties of {} field(s) in workspace '{}'",
                     migrated, workspace);
-        } else {
+        }
+        if (failed > 0) {
+            log.warn("[MixinPropertyNamesMigration] {} field(s) still carry prefixed properties in workspace '{}' after the errors above;"
+                    + " the next engine start or elements redeploy retries them", failed, workspace);
+        } else if (migrated == 0) {
             log.debug("[MixinPropertyNamesMigration] No prefixed mixin property found in workspace '{}'", workspace);
         }
         return migrated;
@@ -125,31 +140,40 @@ public class MixinPropertyNamesMigration extends ElementsRedeployRetriggeredMigr
                     session.checkout(node);
                     touched = true;
                 }
-                moveProperty(node.getProperty(rename.getKey()), node, rename.getValue());
+                moveProperty(node, rename.getKey(), rename.getValue());
             }
         }
 
-        NodeIterator translations = node.getNodes(TRANSLATION_NODES_PATTERN);
+        // getI18Ns answers whether or not the session is bound to a locale, unlike a
+        // getNodes("j:translation_*") walk (see ManualOptionsLanguageSync).
+        NodeIterator translations = node.getI18Ns();
         while (translations.hasNext()) {
             Node translation = translations.nextNode();
-            if (translation.hasProperty(TRANSLATED_PROPERTY)) {
-                if (!touched) {
-                    session.checkout(node);
-                    touched = true;
+            for (Map.Entry<String, String> rename : TRANSLATED_PROPERTIES.entrySet()) {
+                if (translation.hasProperty(rename.getKey())) {
+                    if (!touched) {
+                        session.checkout(node);
+                        touched = true;
+                    }
+                    moveProperty(translation, rename.getKey(), rename.getValue());
                 }
-                moveProperty(translation.getProperty(TRANSLATED_PROPERTY), translation, TRANSLATED_PROPERTY_RENAMED);
             }
         }
 
-        if (touched) {
-            log.info("[MixinPropertyNamesMigration] Renamed the prefixed properties of '{}'", node.getPath());
-        }
         return touched;
     }
 
-    /** Copies the value(s) under the new name, type preserved, and removes the old property. */
-    private static void moveProperty(Property old, Node owner, String newName) throws RepositoryException {
-        if (old.isMultiple()) {
+    /**
+     * Copies the value(s) under the new name, type preserved, and removes the old property —
+     * unless the new name already holds a value, which is then the more recent one (written
+     * by the editor after a 0.4 import) and wins: only the prefixed property goes.
+     */
+    private static void moveProperty(Node owner, String oldName, String newName) throws RepositoryException {
+        Property old = owner.getProperty(oldName);
+        if (owner.hasProperty(newName)) {
+            log.info("[MixinPropertyNamesMigration] '{}' already carries {}: its 0.4 value under {} is dropped, the current one kept",
+                    owner.getPath(), newName, oldName);
+        } else if (old.isMultiple()) {
             owner.setProperty(newName, old.getValues());
         } else {
             owner.setProperty(newName, old.getValue());

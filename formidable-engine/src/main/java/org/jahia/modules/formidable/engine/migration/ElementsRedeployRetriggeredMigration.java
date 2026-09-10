@@ -61,15 +61,22 @@ abstract class ElementsRedeployRetriggeredMigration implements JahiaEventListene
      * Runs one pass per workspace, default then live, each in the session
      * {@link MigrationSessions} provides (the live one a system session, so that Jahia does
      * not mistake the rewrite for user-generated content). A failure in one workspace is
-     * logged and never blocks the other.
+     * logged and never blocks the other. The thread is marked as a migration write
+     * throughout ({@link MigrationWrites}), so the listeners reacting to contributor saves
+     * leave these writes alone — the default pass keeps JCR observation on.
      */
     void migrateBothWorkspaces(WorkspacePass pass) {
-        for (String workspace : new String[]{"default", "live"}) {
-            try {
-                MigrationSessions.execute(workspace, session -> pass.migrate(session, workspace));
-            } catch (RepositoryException e) {
-                log.error("[{}] Migration failed in workspace '{}': {}", getClass().getSimpleName(), workspace, e.getMessage(), e);
+        MigrationWrites.begin();
+        try {
+            for (String workspace : new String[]{"default", "live"}) {
+                try {
+                    MigrationSessions.execute(workspace, session -> pass.migrate(session, workspace));
+                } catch (RepositoryException e) {
+                    log.error("[{}] Migration failed in workspace '{}': {}", getClass().getSimpleName(), workspace, e.getMessage(), e);
+                }
             }
+        } finally {
+            MigrationWrites.end();
         }
     }
 }

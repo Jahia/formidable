@@ -63,7 +63,7 @@ class ChoiceOptionsContentMigrationTest {
         JCRNodeIteratorWrapper translations = mock(JCRNodeIteratorWrapper.class);
         when(translations.hasNext()).thenReturn(true, true, false);
         when(translations.nextNode()).thenReturn(en, fr);
-        when(field.getNodes("j:translation_*")).thenReturn(translations);
+        when(field.getI18Ns()).thenReturn(translations);
 
         assertTrue(new ChoiceOptionsContentMigration().migrateNode(session, field));
 
@@ -96,7 +96,7 @@ class ChoiceOptionsContentMigrationTest {
         JCRNodeIteratorWrapper translations = mock(JCRNodeIteratorWrapper.class);
         when(translations.hasNext()).thenReturn(true, false);
         when(translations.nextNode()).thenReturn(en);
-        when(field.getNodes("j:translation_*")).thenReturn(translations);
+        when(field.getI18Ns()).thenReturn(translations);
 
         assertTrue(new ChoiceOptionsContentMigration().migrateNode(session, field));
 
@@ -104,6 +104,29 @@ class ChoiceOptionsContentMigrationTest {
         verify(legacy, never()).remove();
         verify(field).addMixin("fmdbmix:manualOptions");
         verify(field).setProperty("optionsMode", "manual");
+    }
+
+    @Test
+    void aSelectSwitchedToAnotherModeKeepsItsLeftoverOptions() throws Exception {
+        // The Content Editor removes fmdbmix:manualOptions when the contributor picks another
+        // mode but keeps the fieldset's properties: 'options' stays on the translations. That
+        // is current content, not a 0.3 select — the field must not be pushed back to manual.
+        JCRSessionWrapper session = mock(JCRSessionWrapper.class);
+        JCRNodeWrapper field = mock(JCRNodeWrapper.class);
+        Node en = mock(Node.class);
+        when(en.hasProperty("options")).thenReturn(true);
+        when(field.isNodeType("fmdbmix:manualOptions")).thenReturn(false);
+        when(field.isNodeType("fmdbmix:sourcedOptions")).thenReturn(true);
+        JCRNodeIteratorWrapper translations = mock(JCRNodeIteratorWrapper.class);
+        when(translations.hasNext()).thenReturn(true, false);
+        when(translations.nextNode()).thenReturn(en);
+        when(field.getI18Ns()).thenReturn(translations);
+
+        assertFalse(new ChoiceOptionsContentMigration().migrateNode(session, field));
+
+        verify(field, never()).addMixin(anyString());
+        verify(field, never()).setProperty(anyString(), anyString());
+        verify(en, never()).setProperty(anyString(), any(Value[].class));
     }
 
     @Test
@@ -118,7 +141,7 @@ class ChoiceOptionsContentMigrationTest {
         JCRNodeIteratorWrapper translations = mock(JCRNodeIteratorWrapper.class);
         when(translations.hasNext()).thenReturn(true, false);
         when(translations.nextNode()).thenReturn(en);
-        when(field.getNodes("j:translation_*")).thenReturn(translations);
+        when(field.getI18Ns()).thenReturn(translations);
 
         assertFalse(new ChoiceOptionsContentMigration().migrateNode(session, field));
 
@@ -135,7 +158,7 @@ class ChoiceOptionsContentMigrationTest {
         JCRNodeIteratorWrapper translations = mock(JCRNodeIteratorWrapper.class);
         when(translations.hasNext()).thenReturn(true, false);
         when(translations.nextNode()).thenReturn(translation);
-        when(field.getNodes("j:translation_*")).thenReturn(translations);
+        when(field.getI18Ns()).thenReturn(translations);
 
         assertFalse(new ChoiceOptionsContentMigration().migrateNode(session, field));
 
@@ -149,15 +172,15 @@ class ChoiceOptionsContentMigrationTest {
         ManualOptionsLanguageSyncListener listener = new ManualOptionsLanguageSyncListener();
         EventIterator events = mock(EventIterator.class);
 
-        assertFalse(ChoiceOptionsContentMigration.isMigrationWrite());
-        ChoiceOptionsContentMigration.beginMigrationWrite();
+        assertFalse(MigrationWrites.isActive());
+        MigrationWrites.begin();
         try {
-            assertTrue(ChoiceOptionsContentMigration.isMigrationWrite());
+            assertTrue(MigrationWrites.isActive());
             listener.onEvent(events);
         } finally {
-            ChoiceOptionsContentMigration.endMigrationWrite();
+            MigrationWrites.end();
         }
-        assertFalse(ChoiceOptionsContentMigration.isMigrationWrite());
+        assertFalse(MigrationWrites.isActive());
 
         // The guard must return before the events are even read: past it, the listener
         // re-aligns every language on the default one and blanks the migrated labels.
