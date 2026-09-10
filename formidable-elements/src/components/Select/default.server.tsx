@@ -27,7 +27,7 @@ jahiaComponent(
 		{
 			"jcr:title": label,
 			helpText,
-			"options": options = [],
+			options = [],
 			"fmdb:optionsEmptyLabel": optionsEmptyLabel,
 			required,
 			multiple,
