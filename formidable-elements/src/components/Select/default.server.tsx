@@ -8,7 +8,7 @@ interface SelectProps extends BaseValidationMessageProps {
 	"jcr:title"?: string;
 	helpText?: string;
 	"options"?: string[];
-	"fmdb:optionsEmptyLabel"?: string;
+	optionsEmptyLabel?: string;
 	required?: boolean;
 	multiple?: boolean;
 	size?: number;
@@ -28,7 +28,7 @@ jahiaComponent(
 			"jcr:title": label,
 			helpText,
 			options = [],
-			"fmdb:optionsEmptyLabel": optionsEmptyLabel,
+			optionsEmptyLabel,
 			required,
 			multiple,
 			size,

@@ -121,7 +121,7 @@ language the editor reads an empty value as "nothing to translate here" and show
 a pointer to the default language where the label input would be. The stored
 label survives untouched (same-value entries pair positionally, so the
 re-alignment keeps it); it simply cannot be edited there.
-`fmdb:optionsEmptyLabel` is the supported way to start a select empty, and being
+`optionsEmptyLabel` is the supported way to start a select empty, and being
 an ordinary i18n property it translates normally.
 
 Why `options` is **not mandatory**: options are authored in one language

@@ -220,11 +220,11 @@ const pickupLocationField = (): JahiaNode => {
 const departmentSelect = (): JahiaNode => withFrench(
 	withEnglish(
 		getSelectNode({...SELECT_SINGLE, options: SELECT_SINGLE.options.filter(option => option.value !== '')}),
-		[{name: 'fmdb:optionsEmptyLabel', value: 'Please select'}]
+		[{name: 'optionsEmptyLabel', value: 'Please select'}]
 	),
 	[
 		{name: 'jcr:title', value: 'Service'},
-		{name: 'fmdb:optionsEmptyLabel', value: 'Veuillez sélectionner'},
+		{name: 'optionsEmptyLabel', value: 'Veuillez sélectionner'},
 		FR_DEPARTMENT_OPTIONS
 	]
 );
@@ -485,11 +485,11 @@ describe('Playground - provision manual-testing forms', () => {
 						withFrench(
 							withEnglish(
 								getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'country', title: 'Country (sourced: countries)', sourceKey: 'countries'}),
-								[{name: 'fmdb:optionsEmptyLabel', value: 'Select a country…'}]
+								[{name: 'optionsEmptyLabel', value: 'Select a country…'}]
 							),
 							[
 								{name: 'jcr:title', value: 'Pays (source : countries)'},
-								{name: 'fmdb:optionsEmptyLabel', value: 'Sélectionnez un pays…'}
+								{name: 'optionsEmptyLabel', value: 'Sélectionnez un pays…'}
 							]
 						),
 						withFrench(getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:radio', name: 'tvType', title: 'TV type (sourced: static screen-type list)', sourceKey: 'tv'}), [{name: 'jcr:title', value: 'Type de TV (source : liste statique de types d\'écrans)'}]),

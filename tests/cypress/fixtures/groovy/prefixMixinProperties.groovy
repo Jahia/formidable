@@ -4,7 +4,8 @@ import org.jahia.services.content.JCRSessionFactory
 // Simulates a field stored by Formidable 0.4.0, whose options-source and date-bounds
 // mixins carried fmdb:-prefixed properties (#310): every unprefixed property of that
 // family present on the node is rewritten under its prefixed name and removed; the
-// i18n option list moves the same way on each j:translation_* subnode. The prefixed
+// i18n properties (option list, empty-option label) move the same way on each
+// j:translation_* subnode. The prefixed
 // definitions still exist in the CND (hidden, deprecated), so the writes are accepted.
 def fieldPath = "__FIELD_PATH__"
 def nodeProperties = [
@@ -39,9 +40,11 @@ def report = []
         }
     }
     node.getNodes("j:translation_*").each { translation ->
-        if (translation.hasProperty("options")) {
-            prefix(translation, "options")
-            renamed << "options@" + translation.name
+        ["options", "optionsEmptyLabel"].each { name ->
+            if (translation.hasProperty(name)) {
+                prefix(translation, name)
+                renamed << name + "@" + translation.name
+            }
         }
     }
     // A 0.4 site never wrote these nodes in live directly: keep Jahia's UGCListener
