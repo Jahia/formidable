@@ -19,8 +19,8 @@
 	"type": "module",
 	"exports": {
 		".": {
-			"types": "./dist/index.d.ts",
-			"default": "./dist/index.js"
+			"types": "./src/index.ts",
+			"default": "./src/index.ts"
 		}
 	},
 	"files": [
@@ -31,6 +31,7 @@
 		"clean": "rm -rf dist/",
 		"format": "prettier --write --list-different .",
 		"lint": "eslint .",
+		"smoke": "node scripts/smoke.mjs",
 		"test": "vitest run"
 	},
 	"peerDependencies": {
@@ -38,9 +39,12 @@
 	},
 	"devDependencies": {
 		"@types/react": "^19.1.2",
+		"@types/react-dom": "^19.1.2",
 		"eslint": "^9.39.2",
+		"jsdom": "^26.0.0",
 		"prettier": "^3.7.4",
 		"react": "^19.1.0",
+		"react-dom": "19.2.4",
 		"typescript": "^5.9.3",
 		"vitest": "^3.2.4"
 	},
@@ -48,6 +52,12 @@
 		"node": ">=22.0.0"
 	},
 	"publishConfig": {
-		"access": "public"
+		"access": "public",
+		"exports": {
+			".": {
+				"types": "./dist/index.d.ts",
+				"default": "./dist/index.js"
+			}
+		}
 	}
 }

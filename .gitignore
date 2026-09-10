@@ -31,3 +31,6 @@ node_modules
 .harness/
 /.settings/
 /.project
+
+# scratch directory of packages/formidable/scripts/smoke.mjs
+.smoke

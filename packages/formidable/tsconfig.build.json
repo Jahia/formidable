@@ -5,10 +5,12 @@
 		"declaration": true,
 		"declarationMap": true,
 		"sourceMap": true,
+		"inlineSources": true,
 		"rootDir": "src",
 		"outDir": "dist"
 	},
 	"exclude": [
-		"src/**/*.test.ts"
+		"src/**/*.test.ts",
+		"src/**/*.test.tsx"
 	]
 }

@@ -33,4 +33,22 @@ jobs:
       - uses: jdx/mise-action@v4
       - run: yarn install --immutable
       - run: yarn workspace @jahia/formidable build
-      - run: yarn workspace @jahia/formidable npm publish --access public --tolerate-republish --provenance
+      - run: yarn workspace @jahia/formidable smoke
+      # A retried release keeps its Maven version, so the npm version is unchanged too. The same
+      # tarball already on npm is fine (nothing to do); a different one is a corrected release, which
+      # can only ship under a new version — fail loudly rather than report a publish that never happened.
+      - name: Publish, unless this exact tarball is already on npm
+        working-directory: packages/formidable
+        run: |
+          version=$(node -p "require('./package.json').version")
+          yarn pack --out /tmp/formidable.tgz
+          local_shasum=$(sha1sum /tmp/formidable.tgz | cut -d " " -f 1)
+          remote_shasum=$(npm view "@jahia/formidable@$version" dist.shasum 2>/dev/null || true)
+          if [ -z "$remote_shasum" ]; then
+            yarn npm publish --access public --provenance
+          elif [ "$remote_shasum" = "$local_shasum" ]; then
+            echo "@jahia/formidable@$version is already on npm with this exact content, nothing to publish"
+          else
+            echo "::error::@jahia/formidable@$version is already on npm with different content (npm $remote_shasum, this build $local_shasum): a corrected release needs a new version"
+            exit 1
+          fi

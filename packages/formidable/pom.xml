@@ -93,6 +93,20 @@
                             </arguments>
                         </configuration>
                     </execution>
+                    <execution>
+                        <!-- The packed tarball must import under Node ESM through its exports map (scripts/smoke.mjs) -->
+                        <id>yarn smoke - Formidable npm package</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>yarn</executable>
+                            <arguments>
+                                <argument>smoke</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
         </plugins>
