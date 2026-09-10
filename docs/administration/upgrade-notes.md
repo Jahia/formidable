@@ -63,17 +63,22 @@ mistake for user-generated content. A field edited in the editor between an impo
 the restart keeps its edited value: the prefixed one is dropped, never copied over a newer
 value. It runs at engine activation and again on an elements redeploy, and is a no-op once
 no prefixed property remains. The thirteen prefixed definitions stay in the CND for this
-release, hidden, and the JCR-level `mandatory` of `optionsSourceKey`, `optionsNodeType`
-and the four relative offsets is lifted for this release (the editor still requires them),
-so that an export taken from 0.4.0 — whose fields carry only the prefixed names — is still
-accepted by the import; **after importing such an export, restart the engine** (or
+release, hidden, and the JCR-level `mandatory` of the four options-source settings
+(`optionsSourceKey`, `optionsRootCategory`, `optionsRootNode`, `optionsNodeType`) and the four
+relative offsets is lifted for this release (the editor still requires them) — both so that an
+export taken from 0.4.0, whose fields carry only the prefixed names, is still accepted by the
+import, and because Jahia refuses to deploy a module that adds a mandatory property to a
+deployed type ("Major change in definition"), which would have blocked this very upgrade; **after importing such an export, restart the engine** (or
 redeploy `formidable-elements`) so the migration renames what the import brought in —
 until then those fields render without their options and bounds. The deprecated
 definitions and the migration leave in 0.6, and the `mandatory` flags come back with them.
 
 **How to check**: `jahia.log` reports
 `[MixinPropertyNamesMigration] Renamed the prefixed mixin properties of N field(s) in workspace 'default'`
-(then `'live'`), and a field reads back under the new names:
+(then `'live'`). If the engine was upgraded before the elements, the engine start reports instead
+`N field(s) … wait for the formidable-elements (re)deploy` — the field types still carry their 0.4.0
+definitions — and the rename happens when the elements module is deployed. A field then reads back
+under the new names:
 
 ```graphql
 {

@@ -33,8 +33,9 @@ import java.util.Set;
  * <p>The deprecated definitions stay in the CND for this one release, hidden, so that a
  * 0.4 export imported into 0.5 is still accepted and lands here; for the same reason the
  * JCR-level {@code mandatory} of the renamed properties is lifted for this release (the
- * editor keeps requiring them through its fieldset overrides). Both come back to normal in
- * 0.6, when this class leaves.
+ * editor keeps requiring them through its fieldset overrides) — a mandatory property added to
+ * a deployed type is also a change Jahia's definitions checker refuses to deploy. Both come
+ * back to normal in 0.6, when this class leaves.
  *
  * <p>Runs at module activation on BOTH workspaces (default and live, the live pass through
  * {@link MigrationSessions}) and again on an elements redeploy. Keyed on content state:
@@ -84,6 +85,7 @@ public class MixinPropertyNamesMigration extends ElementsRedeployRetriggeredMigr
     private int migrateWorkspace(JCRSessionWrapper session, String workspace) throws RepositoryException {
         int migrated = 0;
         int failed = 0;
+        int deferred = 0;
         Set<String> visited = new HashSet<>();
         for (String mixin : CARRIER_MIXINS) {
             // Scoped to editorial content: module-bundled nodes under /modules belong to
@@ -94,6 +96,10 @@ public class MixinPropertyNamesMigration extends ElementsRedeployRetriggeredMigr
             while (nodes.hasNext()) {
                 JCRNodeWrapper node = (JCRNodeWrapper) nodes.nextNode();
                 if (!visited.add(node.getIdentifier())) {
+                    continue;
+                }
+                if (!definitionsReady(node)) {
+                    deferred++;
                     continue;
                 }
                 try {
@@ -119,13 +125,36 @@ public class MixinPropertyNamesMigration extends ElementsRedeployRetriggeredMigr
             log.info("[MixinPropertyNamesMigration] Renamed the prefixed mixin properties of {} field(s) in workspace '{}'",
                     migrated, workspace);
         }
+        if (deferred > 0) {
+            log.info("[MixinPropertyNamesMigration] {} field(s) in workspace '{}' wait for the formidable-elements (re)deploy:"
+                    + " their types do not know the unprefixed names yet (engine upgraded first); the redeploy rerun renames them",
+                    deferred, workspace);
+        }
         if (failed > 0) {
             log.warn("[MixinPropertyNamesMigration] {} field(s) still carry prefixed properties in workspace '{}' after the errors above;"
                     + " the next engine start or elements redeploy retries them", failed, workspace);
-        } else if (migrated == 0) {
+        } else if (migrated == 0 && deferred == 0) {
             log.debug("[MixinPropertyNamesMigration] No prefixed mixin property found in workspace '{}'", workspace);
         }
         return migrated;
+    }
+
+    /**
+     * On the engine-first upgrade path the element types keep their cached definitions until
+     * formidable-elements is redeployed, and a write under a name they do not know yet fails
+     * ("Couldn't find definition for property"): such a node is left, quietly, to the redeploy
+     * rerun. The translated properties live on jnt:translation, whose residual definitions
+     * accept any name, so only the node-level targets are checked.
+     *
+     * @return true when every unprefixed name this node needs is defined on it
+     */
+    boolean definitionsReady(JCRNodeWrapper node) throws RepositoryException {
+        for (Map.Entry<String, String> rename : NODE_PROPERTIES.entrySet()) {
+            if (node.hasProperty(rename.getKey()) && node.getApplicablePropertyDefinition(rename.getValue()) == null) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

@@ -176,6 +176,22 @@ class MixinPropertyNamesMigrationTest {
     }
 
     @Test
+    void aFieldWhoseTypeDoesNotKnowTheNewNameYetWaitsForTheElementsRedeploy() throws Exception {
+        // Engine upgraded first: the element types still carry their 0.4 definitions, so the
+        // unprefixed name has no definition on the node — the node is left to the redeploy rerun.
+        JCRNodeWrapper field = mock(JCRNodeWrapper.class);
+        when(field.hasProperty("fmdb:minBoundMode")).thenReturn(true);
+        when(field.getApplicablePropertyDefinition("minBoundMode")).thenReturn(null);
+
+        assertFalse(new MixinPropertyNamesMigration().definitionsReady(field));
+
+        // A node with no prefixed property has nothing to wait for, whatever its type knows.
+        JCRNodeWrapper untouched = mock(JCRNodeWrapper.class);
+        assertTrue(new MixinPropertyNamesMigration().definitionsReady(untouched));
+        verify(untouched, never()).getApplicablePropertyDefinition(anyString());
+    }
+
+    @Test
     void aFieldWithoutPrefixedPropertiesIsLeftAlone() throws Exception {
         JCRSessionWrapper session = mock(JCRSessionWrapper.class);
         JCRNodeWrapper field = mock(JCRNodeWrapper.class);

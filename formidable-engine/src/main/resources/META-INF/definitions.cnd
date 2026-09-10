@@ -99,12 +99,12 @@ orderable
 
 [fmdbmix:categoryOptions] > jmix:dynamicFieldset mixin
  extends = fmdbmix:optionsSource
- - optionsRootCategory (weakreference, picker[type='category']) mandatory < 'jnt:category'
+ - optionsRootCategory (weakreference, picker[type='category']) < 'jnt:category'
  - fmdb:optionsRootCategory (weakreference) hidden
 
 [fmdbmix:contentOptions] > jmix:dynamicFieldset mixin
  extends = fmdbmix:optionsSource
- - optionsRootNode (weakreference, picker[type='editorial']) mandatory
+ - optionsRootNode (weakreference, picker[type='editorial'])
  - optionsNodeType (string, choicelist[formidableContentTypes,dependentProperties='optionsRootNode']) indexed=no
  - fmdb:optionsRootNode (weakreference) hidden
  - fmdb:optionsNodeType (string) hidden indexed=no
@@ -118,12 +118,15 @@ orderable
 // the calendar widget differs (date-only picker vs date and time).
 // The fixed dates are mandatory: once a mode is chosen its value must be provided —
 // the mixin only exists while the mode is selected, so the constraint applies exactly
-// then. The relative offsets (and optionsSourceKey / optionsNodeType above) are required
-// by the editor only for this release (fieldset JSON overrides in formidable-elements):
-// a JCR-level mandatory on the renamed name would reject a node that still carries only
-// its 0.4 prefixed value — exactly what a 0.4.0 export brings in — before
-// MixinPropertyNamesMigration renames it. The flag comes back in 0.6 with the removal of
-// the prefixed definitions (#310).
+// then. The relative offsets and the four options-source settings above (source key,
+// root category, root node, node type) are required by the editor only for this release
+// (fieldset JSON overrides in formidable-elements), for two reasons: a JCR-level mandatory
+// on the renamed name would reject a node that still carries only its 0.4 prefixed value —
+// exactly what a 0.4.0 export brings in — before MixinPropertyNamesMigration renames it;
+// and Jahia's DefinitionsBundleChecker rates a mandatory property ADDED to a deployed type
+// as a MAJOR change and cancels the module deployment, which would block the very upgrade
+// from 0.4.0 (seen on a real 0.4.0 instance). The flags come back in 0.6 with the removal
+// of the prefixed definitions (#310).
 [fmdbmix:dateBounds] mixin
  - minBoundMode (string, choicelist) = 'none' indexed=no
  - maxBoundMode (string, choicelist) = 'none' indexed=no

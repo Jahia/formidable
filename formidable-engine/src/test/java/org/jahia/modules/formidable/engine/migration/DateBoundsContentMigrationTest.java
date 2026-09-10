@@ -10,6 +10,8 @@ import java.util.Calendar;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -59,6 +61,28 @@ class DateBoundsContentMigrationTest {
         // The unconfigured side stays untouched.
         verify(node, never()).addMixin("fmdbmix:fixedMaxDate");
         verify(node, never()).setProperty("maxBoundMode", "date");
+    }
+
+    @Test
+    void aFieldStoredByZeroFourWithPrefixedModesIsLeftToTheRenameMigration() throws Exception {
+        // 0.4.0 wrote fmdb:minBoundMode / fmdb:maxBoundMode: the field has its modes, and stamping
+        // 'date' here would win over the 0.4 value when MixinPropertyNamesMigration renames them.
+        JCRSessionWrapper session = mock(JCRSessionWrapper.class);
+        JCRNodeWrapper node = mock(JCRNodeWrapper.class);
+        Node realNode = mock(Node.class);
+        when(node.getRealNode()).thenReturn(realNode);
+        when(node.hasProperty("minBoundMode")).thenReturn(false);
+        when(node.hasProperty("maxBoundMode")).thenReturn(false);
+        when(realNode.hasProperty("fmdb:minBoundMode")).thenReturn(true);
+        when(realNode.hasProperty("fmdb:maxBoundMode")).thenReturn(true);
+        when(realNode.hasProperty("min")).thenReturn(true);
+        when(realNode.hasProperty("max")).thenReturn(true);
+
+        assertFalse(new DateBoundsContentMigration().migrateNode(session, node, new DateBoundsContentMigration.BoundsContract(
+                    "fmdb:inputDate", "fmdbmix:dateBounds", "fmdbmix:fixedMinDate", "fmdbmix:fixedMaxDate")));
+
+        verify(session, never()).checkout(any(JCRNodeWrapper.class));
+        verify(node, never()).setProperty(anyString(), anyString());
     }
 
     @Test
