@@ -7,8 +7,8 @@ import {HelpText, helpTextId} from "formidable-shared";
 interface SelectProps extends BaseValidationMessageProps {
 	"jcr:title"?: string;
 	helpText?: string;
-	"fmdb:options"?: string[];
-	"fmdb:optionsEmptyLabel"?: string;
+	"options"?: string[];
+	optionsEmptyLabel?: string;
 	required?: boolean;
 	multiple?: boolean;
 	size?: number;
@@ -27,8 +27,8 @@ jahiaComponent(
 		{
 			"jcr:title": label,
 			helpText,
-			"fmdb:options": options = [],
-			"fmdb:optionsEmptyLabel": optionsEmptyLabel,
+			options = [],
+			optionsEmptyLabel,
 			required,
 			multiple,
 			size,

@@ -476,7 +476,7 @@ Semantics to know:
   server-side validation accepts `"true"`/`"false"` (case-insensitive) and `"on"`
   (the browser default for a checkbox without a `value` attribute) — anything
   else is rejected at submission.
-- **choice**: the editor reads the choice list from the `fmdb:options` property
+- **choice**: the editor reads the choice list from the `options` property
   declared by `fmdbmix:manualOptions` (same JSON-encoded `{value, label}` entries
   as the built-in select/radio/checkbox); apply that mixin to your field nodes —
   there is no registration API for a custom choice property (the editor's source

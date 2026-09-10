@@ -21,7 +21,7 @@ public final class FormidableJcrConstants {
     public static final String READ_ONLY_COMPATIBLE_ACTION_MIXIN = "fmdbmix:readOnlyCompatibleAction";
 
     public static final String MANUAL_OPTIONS_MIXIN = "fmdbmix:manualOptions";
-    public static final String OPTIONS_PROPERTY = "fmdb:options";
+    public static final String OPTIONS_PROPERTY = "options";
 
     public static final String ACL_NODE = "j:acl";
     public static final String FIELD_KEY_PROPERTY = "fieldKey";

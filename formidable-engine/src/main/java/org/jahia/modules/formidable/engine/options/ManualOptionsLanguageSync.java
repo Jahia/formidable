@@ -28,7 +28,7 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.OP
  * (form behavior travels with the value). Only the label is editorial content
  * that varies per language.
  *
- * The site's default language is the authority: whenever fmdb:options is saved,
+ * The site's default language is the authority: whenever options is saved,
  * EVERY site language is fed the master's values, order and count — its translation
  * subnode created when it has none — while a language keeps its own label for a
  * value it already carries. Labels are never copied from the master: an entry

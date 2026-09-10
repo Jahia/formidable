@@ -9,7 +9,7 @@ import {HelpText, helpTextId} from "formidable-shared";
 interface CheckboxProps extends BaseValidationMessageProps {
 	"jcr:title"?: string;
 	helpText?: string;
-	"fmdb:options"?: string[];
+	"options"?: string[];
 	required?: boolean;
 }
 jahiaComponent(
@@ -19,7 +19,7 @@ jahiaComponent(
 		name: "default"
 	},
 	(
-		{"jcr:title": label, helpText, "fmdb:options": rawChoices = [], required, ...validationMsgs}: CheckboxProps,
+		{"jcr:title": label, helpText, "options": rawChoices = [], required, ...validationMsgs}: CheckboxProps,
 		{currentNode, renderContext}
 	) => {
 		const inputName = currentNode.getName();

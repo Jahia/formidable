@@ -19,14 +19,14 @@ kinds exist:
 
 The mode lives on the engine-owned mixin pair (industrial's mediaSource pattern):
 
-- `fmdbmix:optionsSource` carries the `fmdb:optionsMode` switch (`manual` default);
-- `fmdbmix:manualOptions` carries the unified `fmdb:options` property
+- `fmdbmix:optionsSource` carries the `optionsMode` switch (`manual` default);
+- `fmdbmix:manualOptions` carries the unified `options` property
   (i18n, multiple, JSON-encoded `{"value","label","selected"}` strings);
-- `fmdbmix:sourcedOptions` carries only `fmdb:optionsSourceKey`;
-- `fmdbmix:categoryOptions` carries only `fmdb:optionsRootCategory`, a
+- `fmdbmix:sourcedOptions` carries only `optionsSourceKey`;
+- `fmdbmix:categoryOptions` carries only `optionsRootCategory`, a
   weakreference to a `jnt:category` node picked with the category picker;
-- `fmdbmix:contentOptions` carries `fmdb:optionsRootNode` (a weakreference to
-  the picked root, editorial picker) and `fmdb:optionsNodeType` (the content
+- `fmdbmix:contentOptions` carries `optionsRootNode` (a weakreference to
+  the picked root, editorial picker) and `optionsNodeType` (the content
   type to list, as a qualified node type name).
 
 In all three non-manual modes nothing else is stored — the option list never
@@ -42,7 +42,7 @@ An option's **value** is its identity: submissions store it, conditional logic
 rules match it, and the forged-value validation checks it. It must therefore be
 one single set across languages — only the **label** is editorial content that
 translates (the default selection is form behavior, and travels with the value).
-Since `fmdb:options` is an i18n property, three rules keep the languages
+Since `options` is an i18n property, three rules keep the languages
 coherent.
 
 **In the editor, options are authored in the site's default language.** Outside
@@ -121,10 +121,10 @@ language the editor reads an empty value as "nothing to translate here" and show
 a pointer to the default language where the label input would be. The stored
 label survives untouched (same-value entries pair positionally, so the
 re-alignment keeps it); it simply cannot be edited there.
-`fmdb:optionsEmptyLabel` is the supported way to start a select empty, and being
+`optionsEmptyLabel` is the supported way to start a select empty, and being
 an ordinary i18n property it translates normally.
 
-Why `fmdb:options` is **not mandatory**: options are authored in one language
+Why `options` is **not mandatory**: options are authored in one language
 only, while a mandatory i18n property is validated in **every** language a
 contributor merely visits. During a field's creation, opening another language
 made the whole form unsavable — the visited language failed the required
@@ -158,7 +158,7 @@ Each entry has the form `id|Label|initializerKey` or `id|Label|initializerKey|pa
 
 | Segment | Role |
 |---|---|
-| `id` | Stable identifier stored in JCR (`fmdb:optionsSourceKey`) |
+| `id` | Stable identifier stored in JCR (`optionsSourceKey`) |
 | `Label` | Shown to contributors in the source picker |
 | `initializerKey` | Key of the Jahia choicelist initializer to evaluate (e.g. `country`) |
 | `param` | Optional parameter string handed to the initializer |

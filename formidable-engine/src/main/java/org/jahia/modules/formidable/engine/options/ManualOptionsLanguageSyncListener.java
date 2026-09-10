@@ -1,6 +1,7 @@
 package org.jahia.modules.formidable.engine.options;
 
 import org.jahia.modules.formidable.engine.migration.ChoiceOptionsContentMigration;
+import org.jahia.modules.formidable.engine.migration.MigrationWrites;
 import org.jahia.services.content.DefaultEventListener;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
@@ -25,7 +26,7 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.TR
 /**
  * Re-aligns the manual options of every language on the site's default language
  * whenever a contributor saves them (see ManualOptionsLanguageSync for the
- * contract). fmdb:options is i18n, so its events fire on the j:translation_*
+ * contract). options is i18n, so its events fire on the j:translation_*
  * subnode; Jahia's observation manager merges the parent node's types into
  * translation events, so the fmdbmix:manualOptions type filter applies before
  * onEvent, and the path is stripped back to the field node here.
@@ -59,7 +60,7 @@ public class ManualOptionsLanguageSyncListener extends DefaultEventListener {
      * <p>This ordering only covers the engine-activation run. On the engine-first
      * upgrade path the migration does its work on the elements-redeploy run, when
      * this listener is already registered — that entry point is covered by the
-     * {@code isMigrationWrite()} check in {@link #onEvent}.
+     * {@link MigrationWrites#isActive()} check in {@link #onEvent}.
      */
     @Reference
     @SuppressWarnings("unused")
@@ -138,7 +139,7 @@ public class ManualOptionsLanguageSyncListener extends DefaultEventListener {
     public void onEvent(EventIterator events) {
         // The migration's own saves must never be re-aligned: the migrated values are
         // the 0.3-era per-language truth (values were allowed to diverge back then).
-        if (ChoiceOptionsContentMigration.isMigrationWrite()) {
+        if (MigrationWrites.isActive()) {
             return;
         }
 
