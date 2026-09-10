@@ -264,9 +264,11 @@ describe('Form fields - 219 Choice options migration', () => {
 	});
 
 	it('leaves a select switched from a manual list to a source alone', () => {
-		// Since 0.5.0 the unified property bears the 0.3 legacy name (#310), so a manual list
-		// left on the translations by a mode switch looks like legacy storage — only the mixins
-		// tell current content apart. Such a field must not be pushed back to manual.
+		// Since 0.5.0 the unified property bears the 0.3 legacy name (#310), so a manual list found
+		// on the translations of a field in another mode looks like legacy storage — only the mixins
+		// tell current content apart. Such a field must not be pushed back to manual. (Switching the
+		// mode in the editor removes the list with its mixin — verified: removeMixin clears the i18n
+		// properties too — so the leftover is planted the way an import or a script would leave it.)
 		createPublishedLiveFormPage(SWITCHED_FORM_NAME, 'Switched Options Form', [
 			getSelectNode({...SELECT_SINGLE, name: 'switchedSelect'}),
 			{
@@ -278,6 +280,14 @@ describe('Form fields - 219 Choice options migration', () => {
 		]).then(() => {
 			cy.apollo({mutation: SWITCH_TO_SOURCED, variables: {path: SWITCHED_SELECT_PATH}})
 				.then(response => expect(response.errors, 'switch the select to a source').to.be.undefined);
+			// The leftover list, on the translation node where the migration would read it.
+			cy.executeGroovy('groovy/simulateLegacyChoiceOptions.groovy', {
+				__FIELD_PATH__: SWITCHED_SELECT_PATH,
+				__LEGACY_PROPERTY__: 'options',
+				__LANGUAGE__: 'en',
+				__PAIRS__: 'email:Email,phone:Phone',
+				__SELECTED__: ''
+			}).then(result => expect(String(result), 'planted leftover').not.to.contain('.failed'));
 
 			// A genuine 0.3 field in the same form tells when the restarted migration has run.
 			cy.executeGroovy('groovy/simulateLegacyChoiceOptions.groovy', {
@@ -305,8 +315,8 @@ describe('Form fields - 219 Choice options migration', () => {
 				expect(mixins, 'no manual mode forced back').not.to.include('fmdbmix:manualOptions');
 				expect(mixins, 'no migration marker').not.to.include('fmdbmix:migratedChoiceOptions');
 			});
-			// The leftover list stays where the editor left it, untouched — on the translation node,
-			// the only place it is still readable once the field's types no longer declare 'options'.
+			// The planted list stays where it was, untouched — on the translation node, the only place
+			// it is readable once the field's types no longer declare 'options'.
 			cy.apollo({
 				query: gql`
 					query getLeftoverOptions($path: String!) {
@@ -321,8 +331,7 @@ describe('Form fields - 219 Choice options migration', () => {
 				`,
 				variables: {path: `${SWITCHED_SELECT_PATH}/j:translation_en`}
 			}).then((response: {data?: {jcr?: {nodeByPath?: {options?: {values?: string[]} | null}}}}) => {
-				expect(response.data?.jcr?.nodeByPath?.options?.values, 'leftover manual list')
-					.to.have.length(SELECT_SINGLE.options.length);
+				expect(response.data?.jcr?.nodeByPath?.options?.values, 'leftover manual list').to.have.length(2);
 			});
 		});
 	});

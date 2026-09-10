@@ -151,7 +151,11 @@ describe('Validation - 48 Mixin property names migration', () => {
 					max: '2030-12-31T00:00:00.000'
 				}),
 				select
-			]
+			],
+			`${FORM_NAME}-page`,
+			'Prefixed Properties Form',
+			// Both languages published: the French list must reach live for the migration to rename it there too
+			{publishLanguages: ['en', 'fr']}
 		).then(({livePath}) => {
 			prefixProperties(DATE_PATH);
 			prefixProperties(SELECT_PATH);
