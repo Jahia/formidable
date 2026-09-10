@@ -94,7 +94,7 @@ orderable
 
 [fmdbmix:sourcedOptions] > jmix:dynamicFieldset mixin
  extends = fmdbmix:optionsSource
- - optionsSourceKey (string, choicelist[formidableOptionsSources]) mandatory indexed=no
+ - optionsSourceKey (string, choicelist[formidableOptionsSources]) indexed=no
  - fmdb:optionsSourceKey (string) hidden indexed=no
 
 [fmdbmix:categoryOptions] > jmix:dynamicFieldset mixin
@@ -105,20 +105,25 @@ orderable
 [fmdbmix:contentOptions] > jmix:dynamicFieldset mixin
  extends = fmdbmix:optionsSource
  - optionsRootNode (weakreference, picker[type='editorial']) mandatory
- - optionsNodeType (string, choicelist[formidableContentTypes,dependentProperties='optionsRootNode']) mandatory indexed=no
+ - optionsNodeType (string, choicelist[formidableContentTypes,dependentProperties='optionsRootNode']) indexed=no
  - fmdb:optionsRootNode (weakreference) hidden
  - fmdb:optionsNodeType (string) hidden indexed=no
 
-// Date-bound contract for date and datetime fields: each bound is a mode switch.
-// Every dynamic-fieldset property below is mandatory: once a mode is chosen its
-// value must be provided — the mixin only exists while the mode is selected, so
-// the constraint applies exactly then (same rule as the options-source contract).
+// Date-bound contract for date and datetime fields: each bound is a mode switch
 // (no bound, a fixed date, or the submission day), and the fixed mode's calendar
 // lives in a jmix:dynamicFieldset mixin the Content Editor activates through the
 // addMixin wiring declared in the fieldset JSON overrides (formidable-elements).
 // Modes are exclusive by construction: a bound is either fixed or relative to the
 // submission day, never an ambiguous combination of both. Two flavors only because
 // the calendar widget differs (date-only picker vs date and time).
+// The fixed dates are mandatory: once a mode is chosen its value must be provided —
+// the mixin only exists while the mode is selected, so the constraint applies exactly
+// then. The relative offsets (and optionsSourceKey / optionsNodeType above) are required
+// by the editor only for this release (fieldset JSON overrides in formidable-elements):
+// a JCR-level mandatory on the renamed name would reject a node that still carries only
+// its 0.4 prefixed value — exactly what a 0.4.0 export brings in — before
+// MixinPropertyNamesMigration renames it. The flag comes back in 0.6 with the removal of
+// the prefixed definitions (#310).
 [fmdbmix:dateBounds] mixin
  - minBoundMode (string, choicelist) = 'none' indexed=no
  - maxBoundMode (string, choicelist) = 'none' indexed=no
@@ -139,15 +144,15 @@ orderable
 // the property names are shared so the runtime reads one set.
 [fmdbmix:relativeMinDate] > jmix:dynamicFieldset mixin
  extends = fmdbmix:dateBounds
- - minRelativeAmount (long) = 0 mandatory indexed=no
- - minRelativeUnit (string, choicelist) = 'days' mandatory indexed=no
+ - minRelativeAmount (long) = 0 indexed=no
+ - minRelativeUnit (string, choicelist) = 'days' indexed=no
  - fmdb:minRelativeAmount (long) hidden indexed=no
  - fmdb:minRelativeUnit (string) hidden indexed=no
 
 [fmdbmix:relativeMaxDate] > jmix:dynamicFieldset mixin
  extends = fmdbmix:dateBounds
- - maxRelativeAmount (long) = 0 mandatory indexed=no
- - maxRelativeUnit (string, choicelist) = 'days' mandatory indexed=no
+ - maxRelativeAmount (long) = 0 indexed=no
+ - maxRelativeUnit (string, choicelist) = 'days' indexed=no
  - fmdb:maxRelativeAmount (long) hidden indexed=no
  - fmdb:maxRelativeUnit (string) hidden indexed=no
 
@@ -167,15 +172,15 @@ orderable
 
 [fmdbmix:relativeMinDatetime] > jmix:dynamicFieldset mixin
  extends = fmdbmix:datetimeBounds
- - minRelativeAmount (long) = 0 mandatory indexed=no
- - minRelativeUnit (string, choicelist) = 'days' mandatory indexed=no
+ - minRelativeAmount (long) = 0 indexed=no
+ - minRelativeUnit (string, choicelist) = 'days' indexed=no
  - fmdb:minRelativeAmount (long) hidden indexed=no
  - fmdb:minRelativeUnit (string) hidden indexed=no
 
 [fmdbmix:relativeMaxDatetime] > jmix:dynamicFieldset mixin
  extends = fmdbmix:datetimeBounds
- - maxRelativeAmount (long) = 0 mandatory indexed=no
- - maxRelativeUnit (string, choicelist) = 'days' mandatory indexed=no
+ - maxRelativeAmount (long) = 0 indexed=no
+ - maxRelativeUnit (string, choicelist) = 'days' indexed=no
  - fmdb:maxRelativeAmount (long) hidden indexed=no
  - fmdb:maxRelativeUnit (string) hidden indexed=no
 

@@ -2,6 +2,10 @@
 	"name": "fmdbmix:relativeMinDatetime",
 	"fields": [
 		{
+			"name": "minRelativeAmount",
+			"mandatory": true
+		},
+		{
 			"name": "minRelativeUnit",
 			"valueConstraints": [
 				{
@@ -25,7 +29,8 @@
 					},
 					"displayValueKey": "formidable-engine:relativeUnit.years"
 				}
-			]
+			],
+			"mandatory": true
 		}
 	]
 }
