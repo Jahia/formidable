@@ -81,46 +81,67 @@ public class MixinPropertyNamesMigration extends ElementsRedeployRetriggeredMigr
         migrateBothWorkspaces(this::migrateWorkspace);
     }
 
+    /** What became of one carrier node. */
+    private enum Outcome { MIGRATED, DEFERRED, UNTOUCHED, FAILED }
+
     /** @return the number of migrated fields */
     private int migrateWorkspace(JCRSessionWrapper session, String workspace) throws RepositoryException {
-        int migrated = 0;
-        int failed = 0;
-        int deferred = 0;
+        int[] counts = new int[Outcome.values().length];
         Set<String> visited = new HashSet<>();
         for (String mixin : CARRIER_MIXINS) {
-            // Scoped to editorial content: module-bundled nodes under /modules belong to
-            // their module and must not be rewritten from here.
-            Query query = session.getWorkspace().getQueryManager()
-                    .createQuery("SELECT * FROM [" + mixin + "] WHERE ISDESCENDANTNODE('/sites')", Query.JCR_SQL2);
-            JCRNodeIteratorWrapper nodes = (JCRNodeIteratorWrapper) query.execute().getNodes();
+            JCRNodeIteratorWrapper nodes = carriersOf(session, mixin);
             while (nodes.hasNext()) {
                 JCRNodeWrapper node = (JCRNodeWrapper) nodes.nextNode();
-                if (!visited.add(node.getIdentifier())) {
-                    continue;
-                }
-                if (!definitionsReady(node)) {
-                    deferred++;
-                    continue;
-                }
-                try {
-                    if (migrateNode(session, node)) {
-                        // One save per migrated node: a failure must never discard the
-                        // nodes already migrated before it, nor poison the later saves.
-                        session.save();
-                        migrated++;
-                        // Reported once the save went through: this line is what the upgrade
-                        // note tells the administrator to look for.
-                        log.info("[MixinPropertyNamesMigration] Renamed the prefixed properties of '{}'", node.getPath());
-                    }
-                } catch (RepositoryException e) {
-                    failed++;
-                    log.error("[MixinPropertyNamesMigration] Could not migrate node '{}' in workspace '{}': {}",
-                            node.getPath(), workspace, e.getMessage(), e);
-                    session.refresh(false);
+                // A node may carry two of the mixins (a datetime field, the date and datetime bounds): once
+                if (visited.add(node.getIdentifier())) {
+                    counts[migrateOne(session, node, workspace).ordinal()]++;
                 }
             }
         }
+        logSummary(workspace, counts[Outcome.MIGRATED.ordinal()], counts[Outcome.DEFERRED.ordinal()], counts[Outcome.FAILED.ordinal()]);
+        return counts[Outcome.MIGRATED.ordinal()];
+    }
 
+    /** Scoped to editorial content: module-bundled nodes under /modules belong to their module and must not be rewritten from here. */
+    private static JCRNodeIteratorWrapper carriersOf(JCRSessionWrapper session, String mixin) throws RepositoryException {
+        Query query = session.getWorkspace().getQueryManager()
+                .createQuery("SELECT * FROM [" + mixin + "] WHERE ISDESCENDANTNODE('/sites')", Query.JCR_SQL2);
+        return (JCRNodeIteratorWrapper) query.execute().getNodes();
+    }
+
+    private Outcome migrateOne(JCRSessionWrapper session, JCRNodeWrapper node, String workspace) {
+        try {
+            if (!definitionsReady(node)) {
+                return Outcome.DEFERRED;
+            }
+            if (!migrateNode(session, node)) {
+                return Outcome.UNTOUCHED;
+            }
+            // One save per migrated node: a failure must never discard the nodes already
+            // migrated before it, nor poison the later saves.
+            session.save();
+            // Reported once the save went through: this line is what the upgrade note tells
+            // the administrator to look for.
+            log.info("[MixinPropertyNamesMigration] Renamed the prefixed properties of '{}'", node.getPath());
+            return Outcome.MIGRATED;
+        } catch (RepositoryException e) {
+            log.error("[MixinPropertyNamesMigration] Could not migrate node '{}' in workspace '{}': {}",
+                    node.getPath(), workspace, e.getMessage(), e);
+            refreshQuietly(session);
+            return Outcome.FAILED;
+        }
+    }
+
+    /** Drops the half-applied changes, or every later save would re-throw them. */
+    private static void refreshQuietly(JCRSessionWrapper session) {
+        try {
+            session.refresh(false);
+        } catch (RepositoryException e) {
+            log.warn("[MixinPropertyNamesMigration] Could not discard the pending changes: {}", e.getMessage(), e);
+        }
+    }
+
+    private static void logSummary(String workspace, int migrated, int deferred, int failed) {
         if (migrated > 0) {
             log.info("[MixinPropertyNamesMigration] Renamed the prefixed mixin properties of {} field(s) in workspace '{}'",
                     migrated, workspace);
@@ -136,7 +157,6 @@ public class MixinPropertyNamesMigration extends ElementsRedeployRetriggeredMigr
         } else if (migrated == 0 && deferred == 0) {
             log.debug("[MixinPropertyNamesMigration] No prefixed mixin property found in workspace '{}'", workspace);
         }
-        return migrated;
     }
 
     /**
@@ -161,35 +181,35 @@ public class MixinPropertyNamesMigration extends ElementsRedeployRetriggeredMigr
      * @return true when the node carried at least one prefixed property and was migrated
      */
     boolean migrateNode(JCRSessionWrapper session, JCRNodeWrapper node) throws RepositoryException {
-        boolean touched = false;
-
-        for (Map.Entry<String, String> rename : NODE_PROPERTIES.entrySet()) {
-            if (node.hasProperty(rename.getKey())) {
-                if (!touched) {
-                    session.checkout(node);
-                    touched = true;
-                }
-                moveProperty(node, rename.getKey(), rename.getValue());
-            }
-        }
-
+        boolean touched = renameProperties(session, node, node, NODE_PROPERTIES, false);
         // getI18Ns answers whether or not the session is bound to a locale, unlike a
         // getNodes("j:translation_*") walk (see ManualOptionsLanguageSync).
         NodeIterator translations = node.getI18Ns();
         while (translations.hasNext()) {
-            Node translation = translations.nextNode();
-            for (Map.Entry<String, String> rename : TRANSLATED_PROPERTIES.entrySet()) {
-                if (translation.hasProperty(rename.getKey())) {
-                    if (!touched) {
-                        session.checkout(node);
-                        touched = true;
-                    }
-                    moveProperty(translation, rename.getKey(), rename.getValue());
+            touched = renameProperties(session, node, translations.nextNode(), TRANSLATED_PROPERTIES, touched);
+        }
+        return touched;
+    }
+
+    /**
+     * Renames every prefixed property of the map present on the owner (the field itself, or one
+     * of its translation subnodes), checking the field out before the first write.
+     *
+     * @return true when the field was written to, now or before
+     */
+    private static boolean renameProperties(JCRSessionWrapper session, JCRNodeWrapper field, Node owner,
+                                            Map<String, String> renames, boolean touched) throws RepositoryException {
+        boolean written = touched;
+        for (Map.Entry<String, String> rename : renames.entrySet()) {
+            if (owner.hasProperty(rename.getKey())) {
+                if (!written) {
+                    session.checkout(field);
+                    written = true;
                 }
+                moveProperty(owner, rename.getKey(), rename.getValue());
             }
         }
-
-        return touched;
+        return written;
     }
 
     /**
