@@ -1,10 +1,12 @@
 // Proves the tarball `yarn npm publish` would upload: packs it, unpacks the archive under a
 // scratch node_modules and imports the package by name, the way a module outside the monorepo
 // does — through the exports map publishConfig rewrites to dist/, under Node's ESM resolver,
-// which needs the `.js` extensions tsc never adds. (`yarn pack --dry-run` only lists files and
-// proves none of this.) Run after `yarn build`.
+// which needs the `.js` extensions tsc never adds — then type-checks a consumer of it under
+// nodenext, so the `types` target and every declaration it re-exports must resolve. (`yarn pack
+// --dry-run` only lists files and proves none of this.) Run after `yarn build`.
 import {execFileSync} from "node:child_process";
-import {existsSync, mkdirSync, rmSync, writeFileSync} from "node:fs";
+import {existsSync, mkdirSync, readFileSync, rmSync, writeFileSync} from "node:fs";
+import {createRequire} from "node:module";
 import {dirname, join} from "node:path";
 import {fileURLToPath} from "node:url";
 
@@ -24,8 +26,17 @@ const tarball = join(scratch, "package.tgz");
 execFileSync("yarn", ["pack", "--out", tarball], {cwd: packageDir, stdio: "inherit"});
 execFileSync("tar", ["-xzf", tarball, "-C", installed, "--strip-components=1"]);
 
-for (const file of ["package.json", "dist/index.js", "dist/index.d.ts", "README.md", "LICENSE"]) {
+for (const file of ["package.json", "README.md", "LICENSE"]) {
 	if (!existsSync(join(installed, file))) fail(`${file} is missing from the tarball`);
+}
+// The exports map of the packed manifest (publishConfig applied): every target must exist. A
+// consumer's TypeScript would silently fall back from a dangling `types` to the `.d.ts` next to
+// `default`, so this is checked here explicitly rather than left to the type probe below.
+const manifest = JSON.parse(readFileSync(join(installed, "package.json"), "utf8"));
+for (const [subpath, conditions] of Object.entries(manifest.exports ?? {})) {
+	for (const [condition, target] of Object.entries(conditions)) {
+		if (!existsSync(join(installed, target))) fail(`exports["${subpath}"].${condition} points at ${target}, which is not in the tarball`);
+	}
 }
 
 // The scratch directory is a package of its own: without this manifest the probe would sit in the
@@ -53,5 +64,24 @@ if (failed.length > 0) {
 console.log("smoke: @jahia/formidable imports from its packed tarball under Node ESM, " + Object.keys(checks).length + " checks pass");
 `);
 execFileSync(process.execPath, [probe], {stdio: "inherit"});
+
+// The declarations, as a consumer's tsc resolves them: a dangling `types` target or a missing
+// `.d.ts` behind a re-export is an error here, not something the first user of the package finds.
+const typeProbe = join(scratch, "probe.ts");
+writeFileSync(typeProbe, `
+import {HelpText, helpTextId, validationDataAttributes, maskToPattern, applyMask, useMask} from "@jahia/formidable";
+import type {HelpTextProps, TextValidationMessageProps, UseMaskOptions} from "@jahia/formidable";
+
+const props: HelpTextProps = {id: helpTextId("n1"), text: "help", decorative: false};
+const messages: TextValidationMessageProps = {msgValueMissing: "required"};
+const options: UseMaskOptions = {mask: "AA-9999"};
+const pattern: string | undefined = maskToPattern(options.mask);
+const formatted: string = applyMask("ab1234", "AA-9999");
+const attributes: Record<string, string | undefined> = validationDataAttributes(messages);
+export const probe = {HelpText, useMask, props, pattern, formatted, attributes};
+`);
+const tsc = createRequire(import.meta.url).resolve("typescript/bin/tsc");
+execFileSync(process.execPath, [tsc, "--noEmit", "--strict", "--skipLibCheck", "false", "--module", "nodenext", "--moduleResolution", "nodenext", "--target", "es2022", "--jsx", "react-jsx", typeProbe], {stdio: "inherit"});
+console.log("smoke: the declarations of the packed tarball type-check for a nodenext consumer");
 
 rmSync(scratch, {recursive: true, force: true});

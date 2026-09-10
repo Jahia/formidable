@@ -67,6 +67,8 @@ describe("useMask", () => {
 		const input = mount("(99)");
 		typeAt(input, "12", 2);
 		expect(input.value).toBe("(12)");
+		// The caret was at the end: it follows the completed literal (the raw count alone would put it at 3)
+		expect(input.selectionStart).toBe(4);
 		// Backspace on the ")": the literal must stay gone, or it could never be removed
 		typeAt(input, "(12", 3, "deleteContentBackward");
 		expect(input.value).toBe("(12");
