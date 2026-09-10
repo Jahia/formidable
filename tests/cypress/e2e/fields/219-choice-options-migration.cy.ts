@@ -304,8 +304,25 @@ describe('Form fields - 219 Choice options migration', () => {
 				expect(mixins, 'mixins after the restart').to.include('fmdbmix:sourcedOptions');
 				expect(mixins, 'no manual mode forced back').not.to.include('fmdbmix:manualOptions');
 				expect(mixins, 'no migration marker').not.to.include('fmdbmix:migratedChoiceOptions');
-				// The leftover list stays where the editor left it, untouched.
-				expect(node?.options?.values, 'leftover manual list').to.have.length(SELECT_SINGLE.options.length);
+			});
+			// The leftover list stays where the editor left it, untouched — on the translation node,
+			// the only place it is still readable once the field's types no longer declare 'options'.
+			cy.apollo({
+				query: gql`
+					query getLeftoverOptions($path: String!) {
+						jcr {
+							nodeByPath(path: $path) {
+								options: property(name: "options") {
+									values
+								}
+							}
+						}
+					}
+				`,
+				variables: {path: `${SWITCHED_SELECT_PATH}/j:translation_en`}
+			}).then((response: {data?: {jcr?: {nodeByPath?: {options?: {values?: string[]} | null}}}}) => {
+				expect(response.data?.jcr?.nodeByPath?.options?.values, 'leftover manual list')
+					.to.have.length(SELECT_SINGLE.options.length);
 			});
 		});
 	});

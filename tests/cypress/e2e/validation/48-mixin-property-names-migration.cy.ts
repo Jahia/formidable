@@ -94,11 +94,14 @@ const EMPTY_LABEL = 'Choose a department';
 const FR_OPTIONS = SELECT_SINGLE.options.map(option =>
 	JSON.stringify({value: option.value, label: `${option.label} (fr)`, selected: option.selected}));
 
-/** Puts a field into its 0.4.0 shape, and fails — rather than logs — when the fixture could not. */
+/**
+ * Puts a field into its 0.4.0 shape, and fails — rather than logs — when the fixture could not:
+ * cy.executeGroovy yields the provisioning status ('.installed', or '.failed' on a script error),
+ * never the script's own report. The pre-migration guards below then assert the shape itself.
+ */
 const prefixProperties = (path: string) =>
 	cy.executeGroovy('groovy/prefixMixinProperties.groovy', {__FIELD_PATH__: path}).then(result => {
-		// The script reports what it prefixed in each workspace; an exception leaves no such report.
-		expect(String(result), `0.4 shape of ${path}`).to.match(/^default: prefixed .+ \| live: prefixed .+$/);
+		expect(String(result), `0.4 shape of ${path}`).not.to.contain('.failed');
 	});
 
 type FieldResponse = {data?: {jcr?: {nodeByPath?: Field | null}}};
