@@ -71,13 +71,7 @@ public class MixinPropertyNamesMigration extends ElementsRedeployRetriggeredMigr
 
     @Override
     void run() {
-        for (String workspace : new String[]{"default", "live"}) {
-            try {
-                MigrationSessions.execute(workspace, session -> migrateWorkspace(session, workspace));
-            } catch (RepositoryException e) {
-                log.error("[MixinPropertyNamesMigration] Migration failed in workspace '{}': {}", workspace, e.getMessage(), e);
-            }
-        }
+        migrateBothWorkspaces(this::migrateWorkspace);
     }
 
     /** @return the number of migrated fields */

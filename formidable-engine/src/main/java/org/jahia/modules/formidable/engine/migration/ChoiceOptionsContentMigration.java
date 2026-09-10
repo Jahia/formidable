@@ -96,19 +96,9 @@ public class ChoiceOptionsContentMigration extends ElementsRedeployRetriggeredMi
     void run() {
         beginMigrationWrite();
         try {
-            migrateBothWorkspaces();
+            migrateBothWorkspaces(this::migrateWorkspace);
         } finally {
             endMigrationWrite();
-        }
-    }
-
-    private void migrateBothWorkspaces() {
-        for (String workspace : new String[]{"default", "live"}) {
-            try {
-                MigrationSessions.execute(workspace, session -> migrateWorkspace(session, workspace));
-            } catch (RepositoryException e) {
-                log.error("[ChoiceOptionsContentMigration] Migration failed in workspace '{}': {}", workspace, e.getMessage(), e);
-            }
         }
     }
 
