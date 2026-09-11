@@ -37,8 +37,9 @@ import java.util.Calendar;
  * NOT on the previously installed module version. Re-running is a no-op once
  * every bound carries a mode.
  *
- * <p>Lifecycle: startup migration introduced in 0.4.0 (#202), to be removed in 0.5 — see
- * docs/administration/upgrade-notes.md, "Startup migrations".
+ * <p>Lifecycle: startup migration introduced in 0.4.0 (#202), kept through 0.5.x so that a
+ * 0.3.x instance can still upgrade directly, to be removed in 0.6 with the other startup
+ * migrations — see docs/administration/upgrade-notes.md, "Startup migrations".
  */
 // Also a JahiaEventListener: the modes and mixins it stamps resolve through the
 // element types, so the engine-activation run fails against pre-0.4 element
