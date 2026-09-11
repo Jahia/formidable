@@ -25,8 +25,9 @@ Browser
        + header X-Formidable-Captcha-Token: TOKEN when CAPTCHA is enabled
        FormSubmitServlet → FormSubmissionPipeline (outside Jahia render chain):
 
-         Gate 0   checkSecurityFilter     require auto-applied `formidable-submit` scope
-                                          (same-origin via Origin/Referer)
+         Gate 0   FormSubmitServlet       PermissionService.hasPermission on the auto-applied
+                                          `formidable-submit` scope (same-origin via
+                                          Origin/Referer) — before the pipeline starts
          Step 1   verifyMultipart         Content-Type must be multipart/form-data
          Step 2   readRoutingParams       fid (UUID-validated) + lang read from URL query params  — 0 byte read
          Step 3   guardContentLength      early reject if Content-Length > max                    — 0 byte read
@@ -59,9 +60,15 @@ Browser
          Step 11  validateRequired        post-parse: check required fields absent from the
                                           submitted body (e.g. unchecked checkbox/radio)
          Step 12  dispatchActions         execute fmdb:actionList nodes in order
+                   ├─ fmdb:save2jcrAction:
+                   │    - stores the submission under the site's formidable-results
+                   │      (system session — see save-to-jcr.md)
                    ├─ fmdb:emailNotificationAction:
                    │    - subject + to normalized with FieldEscaper.headerSafe()
                    │    - HTML body uses FieldEscaper.html() for interpolated values
+                   ├─ fmdb:emailContentAction:
+                   │    - emails the submitted values; optionally attaches the validated
+                   │      uploads (in memory), within the action's and the global caps
                    └─ fmdb:forwardAction:
                         - reads targetId from JCR node
                         - resolves URI via configService.resolveForwardTarget(targetId)
@@ -97,9 +104,9 @@ multipart bodies during streaming.
 | `X-Formidable-Time-Zone` header | The browser's time zone (an IANA id such as `Europe/Paris`), stored on the submission when it names a zone the platform knows — the results tell where a typed date-time applies | `useFormSubmission.ts` at submit time |
 
 No hidden `<input>` fields are injected into the form body for routing.
-The CAPTCHA widget field (`cf-turnstile-response`, etc.) is deleted from `FormData` by
-the submit hook before submission — it is never in the body, and the effective token is sent
-in the `X-Formidable-Captcha-Token` header.
+The hidden field the CAPTCHA widget injects (the provider's `captchaTokenField`, read from
+the configuration) is deleted from `FormData` by the submit hook before submission — it is
+never in the body, and the effective token is sent in the `X-Formidable-Captcha-Token` header.
 
 Submissions are always processed against the `live` workspace.
 Edit and preview modes disable the submit button server-side; any bypass attempt receives
@@ -424,18 +431,20 @@ heap pressure remains bounded under large-file workloads.
 | `fmdbmix:captcha` mixin present on the form | Wrapper resolves to `fmdbmix:captchaProtectedForm`; token verified at step 7 before any file data is read |
 | `fmdbmix:captcha` mixin absent | No CAPTCHA semantic on the form; pipeline continues |
 
-CAPTCHA configuration (`siteKey`, `scriptUrl`, `verifyUrl`, `secretKey`) is read from
-`org.jahia.modules.formidable.cfg` — not stored in JCR.
+CAPTCHA configuration is read from `org.jahia.modules.formidable.cfg` — not stored in JCR:
+`captchaSiteKey`, `captchaSecretKey`, `captchaScriptUrl`, `captchaVerifyUrl`, the two
+provider-specific names `captchaWidgetVar` (the global object the provider script exposes) and
+`captchaTokenField` (the hidden field the widget injects), and the timeouts
+`captchaHttpConnectTimeoutSeconds` / `captchaHttpRequestTimeoutSeconds` — the connect one doubles
+as the client's wait budget for the widget API to appear. `CaptchaRenderFilter` hands the site key,
+the script URL, the two provider names and that budget to the form view as request attributes, so
+the client never hardcodes a provider.
 
 The CAPTCHA widget injects a hidden field into the DOM, but the submit hook removes it
-from `FormData` before submission and sends the token through the
+(`formData.delete(tokenField)`) before submission and sends the token through the
 `X-Formidable-Captcha-Token` header instead. The token never appears in the request body.
-
-| Provider | Widget field (removed client-side) |
-|---|---|
-| Cloudflare Turnstile | `cf-turnstile-response` |
-| hCaptcha | `h-captcha-response` |
-| Google reCAPTCHA v2 | `g-recaptcha-response` |
+The per-provider field names and verification endpoints are listed in
+[captcha-server-side-validation.md](../administration/captcha-server-side-validation.md).
 
 ---
 
