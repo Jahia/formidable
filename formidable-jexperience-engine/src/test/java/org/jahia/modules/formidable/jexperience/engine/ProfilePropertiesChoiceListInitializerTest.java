@@ -36,8 +36,8 @@ class ProfilePropertiesChoiceListInitializerTest {
 
     @Test
     void offersOnlyPropertiesOfTheFieldsTypeAndCardinality() throws Exception {
-        // Verifies the compatibility rule: a single email field sees email and string, single-valued only;
-        // a checkbox group sees the multivalued strings only; a number field the integer.
+        // Verifies the compatibility rule: a single email field sees email and string (single-valued only),
+        // a checkbox group sees the multivalued strings only, and a number field sees the integer.
         ProfilePropertiesChoiceListInitializer initializer = initializerOver(CATALOG);
         assertEquals(List.of("email", "firstName"), values(initializer.choices(new FieldShape(Set.of("email", "string"), false), "site", Locale.ENGLISH)));
         assertEquals(List.of("interests"), values(initializer.choices(new FieldShape(Set.of("string"), true), "site", Locale.ENGLISH)));

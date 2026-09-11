@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 /**
@@ -44,8 +45,7 @@ public class ProfilePropertyCatalog {
     private final Supplier<Instant> clock;
 
     // jExperience may start after, restart, or be absent: the reference follows it
-    @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY)
-    private volatile ContextServerService contextServerService;
+    private final AtomicReference<ContextServerService> contextServerService = new AtomicReference<>();
 
     public ProfilePropertyCatalog() {
         this(Instant::now);
@@ -57,7 +57,16 @@ public class ProfilePropertyCatalog {
 
     ProfilePropertyCatalog(ContextServerService contextServerService, Supplier<Instant> clock) {
         this(clock);
-        this.contextServerService = contextServerService;
+        this.contextServerService.set(contextServerService);
+    }
+
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY)
+    public void bindContextServerService(ContextServerService service) {
+        contextServerService.set(service);
+    }
+
+    public void unbindContextServerService(ContextServerService service) {
+        contextServerService.compareAndSet(service, null);
     }
 
     /** The mappable profile properties of the site, sorted by label. */
@@ -87,7 +96,7 @@ public class ProfilePropertyCatalog {
     }
 
     private List<ProfilePropertyDescriptor> fetch(String siteKey) throws ProfilePropertiesUnavailableException {
-        ContextServerService service = contextServerService;
+        ContextServerService service = contextServerService.get();
         if (service == null) {
             throw new ProfilePropertiesUnavailableException("the jExperience module is not available");
         }

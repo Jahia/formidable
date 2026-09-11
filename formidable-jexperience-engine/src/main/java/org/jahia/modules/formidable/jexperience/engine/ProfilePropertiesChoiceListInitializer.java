@@ -38,7 +38,7 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
 
     private static final Logger log = LoggerFactory.getLogger(ProfilePropertiesChoiceListInitializer.class);
 
-    private String key = KEY;
+    private String registeredKey = KEY;
 
     @Reference
     private ProfilePropertyCatalog catalog;
@@ -107,11 +107,11 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
 
     @Override
     public void setKey(String key) {
-        this.key = key;
+        this.registeredKey = key;
     }
 
     @Override
     public String getKey() {
-        return key;
+        return registeredKey;
     }
 }
