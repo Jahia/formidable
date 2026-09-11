@@ -375,8 +375,9 @@ from the tracker — then completed by the client script:
 [fmdb:inputText] > jnt:content, fmdbmix:element, fmdbmix:textField, fmdbmix:profileMappableField, ...
 [fmdbext:switch]  > jnt:content, fmdbmix:element, fmdbmix:booleanField, fmdbmix:profileMappableField, ...
 
-// formidable-jexperience-engine — one extension target, no list of field types, no dependency on the extended inputs
-[fmdbmix:jExperienceProfileMapping] > fmdbmix:profileMappableField mixin
+// formidable-jexperience-engine — one extension target, no list of field types, no dependency on the extended inputs.
+// `extends` only, no supertype: carrying the mapping must not make a node "mappable" — the type declares that.
+[fmdbmix:jExperienceProfileMapping] mixin
  extends = fmdbmix:profileMappableField
  itemtype = content
  - jExperienceProfileProperty (string, choicelist[formidableJExperienceProfileProperties]) indexed=no
@@ -571,6 +572,7 @@ accepted, purged values) and the tracker decides **for whom** (its own cookies) 
 | 2026-09-10 | **Identifier `formidable-jxp-<uuid>`**, never equal to the DOM `<form id>`; `target.properties.name`/`path` for readability; shown in the editor (HDU) | The tracker attaches its own raw-fields listener to any `<form>` whose `id`/`name` matches a tracked `formId`: a distinct identifier is what makes the island the only sender, even once a marketer creates a goal. Unomi's `itemId` pattern allows it (51 chars, `[\w@.-]`); goals are typed by hand in jExperience, so the author must be able to copy it; dashboards keyed on an opaque id need the name as a label |
 | 2026-09-10 | `data-form-id` is not used as the opt-out | Forms' convention, honoured by the tracker's initial scan only and ignored by jExperience's observer of late forms |
 | 2026-09-11 | The form identifier is a read-only property stamped by a listener, not a custom selector | One read-only string does not justify a Module Federation bundle in the module; the Content Editor renders a `readOnly` field of the mixin; forms created before the module get it at their next save |
+| 2026-09-11 | `fmdbmix:jExperienceProfileMapping` extends the marker without inheriting from it (the first draft wrote `> fmdbmix:profileMappableField` too) | Mappability is what a field *type* declares; the mapping is what an author configures. With the supertype, any node the mixin lands on — by API or import, a file field included — would pass every `isNodeType(marker)` check and the marker would stop meaning anything. `extends` alone is how every property mixin of the repository attaches to its target, and the Content Editor resolves it with `isNodeType`, so nothing needs the inheritance |
 | 2026-09-11 | Field shape from the value-kind mixins; `fmdb:checkbox` is the one type name read | No mixin tells the checkbox group (always a list) from a radio group; every other cardinality comes from the `multiple` property |
 | 2026-09-11 | `choicelist[resourceBundle]` for the write strategy | Labels for `alwaysSet` / `setIfMissing` come from the module's bundle instead of raw values in the dropdown |
 | 2026-09-11 | Local stack: the test Jahia joins the jCustomer compose network with a fixed address, jExperience 4.2.1 is installed by jar upload | jCustomer trusts privileged calls by IP; the artifact is only on Nexus' internal group, so `installModule mvn:` is a silent no-op on the test container (kit: `~/Jahia/modules/Formidable/jexperience/README.md`) |
