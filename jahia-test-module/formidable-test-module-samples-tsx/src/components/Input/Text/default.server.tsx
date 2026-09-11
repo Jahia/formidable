@@ -6,7 +6,7 @@ import {
   maskToPattern,
   type TextValidationMessageProps,
   validationDataAttributes,
-} from "@jahia/formidable";
+} from "@jahia/formidable-library";
 import MaskedTextInput from "./Text.client";
 
 /** The values of fmdbsamplemix:helpTextPosition; "up" is the built-in rendering. */
@@ -61,7 +61,7 @@ const readPosition = (value: string | undefined): HelpTextPosition =>
  * and id, the fmdb-* hooks, one help block with the `help-<nodeId>` id the control references, the
  * data-fmdb-msg-* validation messages, and everything a mask stands for — the `pattern`, the
  * formatted default, the formatting while typing. None of it is written out here: the contract
- * comes from @jahia/formidable, the package Formidable's own views are built on, so this view stays
+ * comes from @jahia/formidable-library, the package Formidable's own views are built on, so this view stays
  * byte-compatible with them and a change of contract shows up as a type error when this module
  * builds. The live mask is Text.client.tsx, an island of this module built on the library's useMask
  * hook, hydrated only when a mask is configured — as in Formidable.
