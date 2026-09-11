@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.jcr.RepositoryException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -21,7 +22,10 @@ import java.util.Optional;
  * The {@code formidableJExperienceProfileProperties} choicelist: the profile properties a
  * field can be mapped to, filtered on the field's shape so that the dropdown and the mapping
  * rule never disagree. An unreachable jCustomer, or a schema with no property of the field's
- * kind, yields one explanatory entry with an empty value, never a blank or broken dropdown.
+ * kind, yields one explanatory entry with an empty value, never a blank or broken dropdown. The
+ * field's current mapping is always offered, whatever the list says: the Content Editor resets a
+ * value it cannot find among the constraints, and a save during a jCustomer outage must not wipe
+ * a mapping the author never touched.
  */
 @Component(service = ModuleChoiceListInitializer.class, immediate = true)
 public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListInitializer {
@@ -31,6 +35,8 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
     static final String BUNDLE = "resources.formidable-jexperience-engine";
     static final String UNAVAILABLE_KEY = "formidableJExperienceProfileProperties.unavailable";
     static final String NONE_KEY = "formidableJExperienceProfileProperties.none";
+    static final String KEPT_KEY = "formidableJExperienceProfileProperties.kept";
+    static final String PROPERTY = "jExperienceProfileProperty";
     /** The value property the Content Editor reads to pre-select an entry (jcontent, registerChoiceList initValue). */
     static final String DEFAULT_PROPERTY = "defaultProperty";
 
@@ -65,26 +71,49 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
             if (shape.isEmpty() || siteKey == null) {
                 return List.of();
             }
-            return choices(shape.get(), siteKey, locale);
+            return choices(shape.get(), siteKey, locale, storedOf(context));
         } catch (RepositoryException e) {
             log.warn("[ProfilePropertiesChoiceListInitializer] Could not read the field being edited: {}", e.getMessage());
             return List.of();
         }
     }
 
-    List<ChoiceListValue> choices(FieldShape shape, String siteKey, Locale locale) {
+    List<ChoiceListValue> choices(FieldShape shape, String siteKey, Locale locale, Optional<String> stored) {
+        List<ChoiceListValue> offered;
         try {
             List<ChoiceListValue> compatible = catalog.profileProperties(siteKey).stream()
                     .filter(property -> shape.accepts(property.valueTypeId(), property.multivalued()))
                     .map(property -> new ChoiceListValue(property.label(), property.name()))
                     .toList();
-            if (compatible.isEmpty()) {
-                return messageEntry(noneMessage(locale));
-            }
-            return compatible;
+            offered = compatible.isEmpty() ? messageEntry(noneMessage(locale)) : compatible;
         } catch (ProfilePropertiesUnavailableException e) {
             log.warn("[ProfilePropertiesChoiceListInitializer] No profile properties for site '{}': {}", siteKey, e.getMessage());
-            return messageEntry(unavailableMessage(locale));
+            offered = messageEntry(unavailableMessage(locale));
+        }
+        return withStored(offered, stored, locale);
+    }
+
+    /**
+     * The current mapping of the field, first in the list when the list does not carry it: the
+     * Content Editor resets a value it cannot find among the constraints, and neither a jCustomer
+     * outage nor a property gone from the schema may wipe a mapping behind the author's back. The
+     * entry says the mapping is kept as is; the author keeps it or picks another entry.
+     */
+    private List<ChoiceListValue> withStored(List<ChoiceListValue> offered, Optional<String> stored, Locale locale) {
+        if (stored.isEmpty() || offered.stream().anyMatch(entry -> stored.get().equals(stringValue(entry)))) {
+            return offered;
+        }
+        List<ChoiceListValue> withKept = new ArrayList<>(offered.size() + 1);
+        withKept.add(new ChoiceListValue(stored.get() + " " + keptMessage(locale), stored.get()));
+        withKept.addAll(offered);
+        return withKept;
+    }
+
+    private static String stringValue(ChoiceListValue entry) {
+        try {
+            return entry.getValue() == null ? null : entry.getValue().getString();
+        } catch (RepositoryException e) {
+            return null;
         }
     }
 
@@ -111,6 +140,15 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
         return Optional.empty();
     }
 
+    /** The mapping the field already stores, if it is an existing field with one. */
+    private static Optional<String> storedOf(Map<String, Object> context) throws RepositoryException {
+        if (context.get(CONTEXT_NODE) instanceof JCRNodeWrapper node && node.hasProperty(PROPERTY)) {
+            String value = node.getProperty(PROPERTY).getString();
+            return value == null || value.isBlank() ? Optional.empty() : Optional.of(value);
+        }
+        return Optional.empty();
+    }
+
     private static String siteKeyOf(Map<String, Object> context) throws RepositoryException {
         for (String key : List.of(CONTEXT_NODE, CONTEXT_PARENT)) {
             if (context.get(key) instanceof JCRNodeWrapper node) {
@@ -118,6 +156,10 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
             }
         }
         return null;
+    }
+
+    String keptMessage(Locale locale) {
+        return Messages.get(BUNDLE, KEPT_KEY, locale, "(current mapping, kept)");
     }
 
     String noneMessage(Locale locale) {
