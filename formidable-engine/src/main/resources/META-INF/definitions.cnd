@@ -205,6 +205,12 @@ orderable
 [fmdbmix:datetimeLocalField] mixin
 [fmdbmix:colorField] mixin
 
+// Marker for profile mapping: a field type carrying it can take part in a jExperience
+// profile mapping. The jExperience module attaches its property mixin to this single
+// marker (extends), never to a list of field types, so a third-party field opts in from
+// its own CND exactly as it opts into a value kind. Files are not mappable; hidden inputs are.
+[fmdbmix:profileMappableField] mixin
+
 // Sends a notification email after a successful form submission.
 // Subject and body support ${fieldName} interpolation from the submitted form data.
 [fmdb:emailNotificationAction] > jnt:content, fmdbmix:formAction, fmdbmix:readOnlyCompatibleAction, mix:title

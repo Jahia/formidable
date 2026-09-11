@@ -27,11 +27,11 @@ CND cannot resolve those mixins and the module fails to register its definitions
 
 - Java module: `<jahia-depends>formidable-elements,formidable-engine</jahia-depends>`
   in the pom's `<properties>`
-- JS module: `"module-dependencies": "default,formidable-elements=0.4,formidable-engine=0.4"`
+- JS module: `"module-dependencies": "default,formidable-elements=0.5,formidable-engine=0.5"`
   in the package.json `jahia` section
 
-This is exactly what `formidable-extended-inputs` — the module that did this for 0.4.0 —
-declares; pin the versions like it does.
+This is exactly what `formidable-extended-inputs` declares; pin the versions like it does, to the
+release you build against.
 
 In practice, external CND definitions often reuse both layers, directly or indirectly.
 
@@ -436,6 +436,12 @@ Examples:
 - `fmdbmix:textField`
 
 This lets the submission pipeline react to semantics instead of hard-coding your concrete node type name.
+
+One more marker is not a value kind: `fmdbmix:profileMappableField` says the field can be mapped to a
+jCustomer profile property. Declare it on every field whose value a profile could hold (never on a file
+field): when `formidable-jexperience-engine` is deployed, the field gets the **jExperience** section of
+the editor, with the profile properties matching its value kind and cardinality
+(`docs/architecture/jexperience-integration.md`).
 
 ## Make your field a conditional-logic source
 
