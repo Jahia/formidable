@@ -16,6 +16,7 @@ Yarn 4 workspaces + Maven multi-module. Toolchain: Java 17 (Temurin), Node LTS, 
 | `formidable-elements/` | Front-end — form rendering (React 19 SSR + client hydration via Islands) | Vite, `@jahia/vite-plugin`, TypeScript |
 | `formidable-engine/` | Java/OSGi action pipeline + editor extensions (custom selectors, form results panel) | Maven bundle, `@jahia/vite-federation-plugin` (Module Federation, React 18) |
 | `formidable-extended-inputs/` | Optional field types (consent, switch, rating, scale) | Vite, TypeScript |
+| `formidable-jexperience-engine/` | jExperience integration: the profile mapping of fields (editor section fed by jCustomer's profile properties), the form's identifier in jCustomer; later the mapping rule sync, the submission event and the prefill — see `docs/architecture/jexperience-integration.md` | Maven bundle, depends on `formidable-engine` and `jexperience` |
 | `packages/formidable/` | The npm package `@jahia/formidable-library`: the rendering contract (help text, validation attributes, input mask) every view is built on. Consumed as `workspace:*` inside the monorepo (a plain version range would still resolve to the workspace), published to npm by the release workflow | TypeScript (tsc, nodenext), vitest |
 | `jahia-test-module/` | Test modules for Cypress: a JSP template set (Java), a tsx template set, and the two third-party extension examples: `formidable-test-module-samples-tsx` (definitions, editor overrides, views — copyable, its README says what to change) and `formidable-test-module-samples-java` (an external `FormAction`, a choicelist initializer, content-integrity checks) | Maven, Vite |
 | `tests/` | Cypress E2E suite (not a Maven module) | Cypress 14, `@jahia/cypress` |
@@ -108,8 +109,9 @@ Built-in actions: `SaveToJcrFormAction`, `SendEmailNotificationFormAction`, `Sen
 
 1. Create `formidable-elements/src/components/Input/MyField/definition.cnd`:
    ```cnd
-   [fmdb:myField] > jnt:content, fmdbmix:element
+   [fmdb:myField] > jnt:content, fmdbmix:element, fmdbmix:profileMappableField
    ```
+   `fmdbmix:profileMappableField` (engine marker) lets an author map the field to a jCustomer profile property when the jExperience module is deployed — declare it on every field whose value a profile could hold (never on a file field). Add the value-kind mixin (`fmdbmix:textField`, `fmdbmix:numberField`…) that matches what the field submits.
 2. Create `default.server.tsx` with `jahiaComponent({ componentType: "view", nodeType: "fmdb:myField", name: "default" }, ...)`
 3. HTML `name` = `currentNode.getName()`; HTML `id` = `input-${currentNode.getIdentifier()}`
 

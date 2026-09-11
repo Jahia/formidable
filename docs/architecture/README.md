@@ -10,6 +10,7 @@ For the maintainer: how the modules work, and why they are built this way.
 - [Custom validation](custom-validation.md) — inline validation messages replacing the native browser tooltips, with per-field contributor overrides
 - [Conditional logic field resolution](conditional-logic-field-resolution.md) — the weakref-based model of the conditional-logic dependencies, and how rules are resolved
 - [Choice field options sources](choice-field-options-sources.md) — options from categories or from content: storage model, resolution, cache, writing a source initializer
+- [jExperience integration](jexperience-integration.md) — design specification (revised 2026-09-10, browser-side): the auto-generated form mapping, the submission event sent by the tracker with the values the pipeline accepted, prefill from the tracker's context, the send condition and consent gates, the `formidable-jxp-<uuid>` identifier; not implemented yet
 
 ## Why it is built this way
 

@@ -72,6 +72,7 @@ Examples (non-exhaustive — the CND files are the source of truth):
 - `fmdbmix:colorField`
 - `fmdbmix:numberField`
 - `fmdbmix:booleanField`
+- `fmdbmix:profileMappableField` (the marker a field type claims to take part in a jExperience profile mapping; the jExperience module's property mixin extends this single marker, never a list of field types — see `jexperience-integration.md`)
 
 These are not presentation hints. They are runtime contracts interpreted by Java code in the submission pipeline (the options-mode mixins additionally drive the server-side resolution of choice options).
 

@@ -55,7 +55,7 @@
 			"groupId": "org.jahia.modules.javascript"
 		},
 		"snapshot": true,
-		"module-dependencies": "default,formidable-engine=0.4",
+		"module-dependencies": "default,formidable-engine=0.5",
 		"module-type": "module",
 		"required-version": "8.2.2.0",
 		"server": "dist/server/index.js",

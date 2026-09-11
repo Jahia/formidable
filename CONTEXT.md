@@ -9,6 +9,7 @@ Yarn monorepo + Maven multi-module. Root: `/formidable-modules/`.
 | `formidable-elements/` | Jahia front-end module – form rendering (React SSR + client hydration) |
 | `formidable-engine/` | Jahia editor extension + Java/OSGi action pipeline |
 | `formidable-extended-inputs/` | Optional field types (consent, switch, rating, scale) |
+| `formidable-jexperience-engine/` | jExperience integration (Java): profile mapping of fields, form identifier in jCustomer; mapping rule, event and prefill to come — `docs/architecture/jexperience-integration.md` |
 | `packages/formidable/` | npm package `@jahia/formidable-library` — the rendering contract the views import; `workspace:*` inside the monorepo (a version range would still resolve to the workspace, only `npm:` forces the registry), published at release |
 | `jahia-test-module/` | Test modules for Cypress: JSP template set, tsx template set, and the two third-party extension examples meant to be copied — `formidable-test-module-samples-tsx` (definitions, editor overrides, views) and `formidable-test-module-samples-java` (external `FormAction`, choicelist initializer, content-integrity checks) |
 | `tests/` | Cypress E2E suite (not a Maven module) |
@@ -85,7 +86,7 @@ Action engine types: `formidable-engine/src/main/resources/META-INF/definitions.
 
 ### Rules for a new field type
 
-1. Declare `[fmdb:myField] > jnt:content, fmdbmix:element` in its `definition.cnd`
+1. Declare `[fmdb:myField] > jnt:content, fmdbmix:element, fmdbmix:profileMappableField` in its `definition.cnd` — the marker lets the field be mapped to a jCustomer profile property (jExperience module); leave it out of a file field. Add the value-kind mixin matching what the field submits
 2. Create `default.server.tsx` with `jahiaComponent({ componentType: "view", nodeType: "fmdb:myField", name: "default" }, ...)`
 3. HTML `name` = `currentNode.getName()`; HTML `id` = `input-${currentNode.getIdentifier()}`
 
@@ -101,6 +102,8 @@ fmdbmix:formElement (engine)   > mix:title, fmdbmix:formLogicElement, orderable
                                    today (reserved elements-side extension point)
 fmdbmix:formContent (elements) ← non-field content embeddable in a form
 fmdbmix:formStep (engine)      > fmdbmix:formContainer — step marker
+fmdbmix:profileMappableField (engine) ← marker: the field can be mapped to a jCustomer profile property;
+                                   fmdbmix:jExperienceProfileMapping (formidable-jexperience-engine) extends it
 fmdbmix:component (elements)   ← makes a type visible/droppable in the editor
 ```
 
