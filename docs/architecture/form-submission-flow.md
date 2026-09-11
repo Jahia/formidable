@@ -434,10 +434,11 @@ heap pressure remains bounded under large-file workloads.
 CAPTCHA configuration is read from `org.jahia.modules.formidable.cfg` — not stored in JCR:
 `captchaSiteKey`, `captchaSecretKey`, `captchaScriptUrl`, `captchaVerifyUrl`, the two
 provider-specific names `captchaWidgetVar` (the global object the provider script exposes) and
-`captchaTokenField` (the hidden field the widget injects), and the HTTP timeouts
-`captchaHttpConnectTimeoutSeconds` / `captchaHttpRequestTimeoutSeconds`. `CaptchaRenderFilter`
-hands `widgetVar` and `tokenField` to the form view as request attributes, so the client never
-hardcodes a provider.
+`captchaTokenField` (the hidden field the widget injects), and the timeouts
+`captchaHttpConnectTimeoutSeconds` / `captchaHttpRequestTimeoutSeconds` — the connect one doubles
+as the client's wait budget for the widget API to appear. `CaptchaRenderFilter` hands the site key,
+the script URL, the two provider names and that budget to the form view as request attributes, so
+the client never hardcodes a provider.
 
 The CAPTCHA widget injects a hidden field into the DOM, but the submit hook removes it
 (`formData.delete(tokenField)`) before submission and sends the token through the
