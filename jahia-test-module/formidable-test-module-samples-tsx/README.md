@@ -14,14 +14,19 @@ repository only**: `packages/formidable` is a workspace of the same monorepo, an
 tells Yarn to link its sources, so the sample always follows the current code.
 
 In your module, write the published version instead — the one matching the Formidable release
-you target:
+you target (the package is published with each release, from 0.5.0 on):
 
 ```sh
-yarn add @jahia/formidable@0.5.0
+yarn add @jahia/formidable@<release>
 ```
 
-Everything else in `package.json` is copyable as is. `jahia.module-dependencies` names
-`formidable-elements`: Jahia refuses to start your module until the elements module is deployed.
+The rest of `package.json` is copyable, except the lines that are ours: `name` and `version`,
+of course; `"jahia": { "snapshot": true }`, which deploys the module as a snapshot — a module
+you release does not want it; and `jahia.module-dependencies`, which names `formidable-elements`
+so that Jahia refuses to start your module until the elements module is deployed. The sample
+leaves that dependency unversioned because it follows the current code; a module of yours pins
+the release it was built against — `formidable-elements=0.5` for 0.5.x — the way
+`formidable-extended-inputs` pins its own.
 
 Why the sample does not write the published version itself: from inside the monorepo, a version
 range that matches `packages/formidable` still resolves to the workspace, not to npm (Yarn's

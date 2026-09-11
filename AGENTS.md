@@ -17,7 +17,7 @@ Yarn 4 workspaces + Maven multi-module. Toolchain: Java 17 (Temurin), Node LTS, 
 | `formidable-engine/` | Java/OSGi action pipeline + editor extensions (custom selectors, form results panel) | Maven bundle, `@jahia/vite-federation-plugin` (Module Federation, React 18) |
 | `formidable-extended-inputs/` | Optional field types (consent, switch, rating, scale) | Vite, TypeScript |
 | `packages/formidable/` | The npm package `@jahia/formidable`: the rendering contract (help text, validation attributes, input mask) every view is built on. Consumed as `workspace:*` inside the monorepo (a plain version range would still resolve to the workspace), published to npm by the release workflow | TypeScript (tsc, nodenext), vitest |
-| `jahia-test-module/` | Test modules for Cypress: a JSP template set (Java), a tsx template set, and `formidable-test-module-samples-tsx`, the third-party extension example (copyable, its README says what to change) | Maven, Vite |
+| `jahia-test-module/` | Test modules for Cypress: a JSP template set (Java), a tsx template set, and the two third-party extension examples: `formidable-test-module-samples-tsx` (definitions, editor overrides, views — copyable, its README says what to change) and `formidable-test-module-samples-java` (an external `FormAction`, a choicelist initializer, content-integrity checks) | Maven, Vite |
 | `tests/` | Cypress E2E suite (not a Maven module) | Cypress 14, `@jahia/cypress` |
 
 ### Key Documentation
