@@ -1,9 +1,9 @@
-<nt = 'http://www.jcp.org/jcr/nt/0.6'>
-<mix = 'http://www.jcp.org/jcr/mix/0.6'>
-<jnt = 'http://www.jahia.org/jahia/nt/0.6'>
-<jmix = 'http://www.jahia.org/jahia/mix/0.6'>
-<fmdb = 'http://www.jahia.org/jahia/fmdb/nt/0.6'>
-<fmdbmix = 'http://www.jahia.org/jahia/fmdb/mix/0.6'>
+<nt = 'http://www.jcp.org/jcr/nt/1.0'>
+<mix = 'http://www.jcp.org/jcr/mix/1.0'>
+<jnt = 'http://www.jahia.org/jahia/nt/1.0'>
+<jmix = 'http://www.jahia.org/jahia/mix/1.0'>
+<fmdb = 'http://www.jahia.org/jahia/fmdb/nt/1.0'>
+<fmdbmix = 'http://www.jahia.org/jahia/fmdb/mix/1.0'>
 
 // Marks a node as a form action. All concrete action types must implement this mixin.
 // Actions are stored as child nodes of fmdb:actionList under a fmdb:form node.
