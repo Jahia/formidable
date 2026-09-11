@@ -20,10 +20,14 @@ class ProfilePropertiesChoiceListInitializerTest {
             new ProfilePropertyDescriptor("age", "Age (age)", "integer", false)
     );
 
-    private static ProfilePropertiesChoiceListInitializer initializerOver(List<ProfilePropertyDescriptor> properties) throws Exception {
+    private static ProfilePropertyCatalog catalogOver(List<ProfilePropertyDescriptor> properties) throws Exception {
         ProfilePropertyCatalog catalog = mock(ProfilePropertyCatalog.class);
         when(catalog.profileProperties("site")).thenReturn(properties);
-        return new ProfilePropertiesChoiceListInitializer(catalog);
+        return catalog;
+    }
+
+    private static ProfilePropertiesChoiceListInitializer initializerOver(List<ProfilePropertyDescriptor> properties) throws Exception {
+        return new ProfilePropertiesChoiceListInitializer(catalogOver(properties));
     }
 
     private static List<String> values(List<ChoiceListValue> choices) throws Exception {
@@ -50,6 +54,22 @@ class ProfilePropertiesChoiceListInitializerTest {
         ProfilePropertiesChoiceListInitializer initializer = initializerOver(CATALOG);
         List<ChoiceListValue> choices = initializer.choices(new FieldShape(Set.of("integer"), false), "site", Locale.ENGLISH);
         assertEquals("Age (age)", choices.get(0).getDisplayName());
+    }
+
+    @Test
+    void noCompatiblePropertyYieldsOneMessageEntryWithAnEmptyValue() throws Exception {
+        // Verifies that a field whose kind no profile property matches (a boolean on jCustomer's default
+        // schema) reads why the dropdown is empty instead of facing a blank list.
+        ProfilePropertiesChoiceListInitializer initializer = new ProfilePropertiesChoiceListInitializer(catalogOver(CATALOG)) {
+            @Override
+            String noneMessage(Locale locale) {
+                return "none";
+            }
+        };
+        List<ChoiceListValue> choices = initializer.choices(new FieldShape(Set.of("boolean"), false), "site", Locale.ENGLISH);
+        assertEquals(1, choices.size());
+        assertEquals("none", choices.get(0).getDisplayName());
+        assertEquals("", choices.get(0).getValue().getString());
     }
 
     @Test

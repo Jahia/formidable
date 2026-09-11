@@ -25,8 +25,8 @@ import java.util.function.Supplier;
 
 /**
  * The profile properties of a site's jCustomer, read through jExperience's admin client and
- * kept for a few minutes: property types change rarely, and the editor asks on every field
- * opened. A failed refresh serves the previous list when there is one, so a jCustomer hiccup
+ * kept for a minute: property types change rarely, the editor asks on every field opened, and
+ * a property an author has just created in jExperience must show up at the next opening. A failed refresh serves the previous list when there is one, so a jCustomer hiccup
  * never blanks the dropdown; without one it reports the schema unavailable, which the
  * initializer turns into a message rather than a broken editor.
  */
@@ -34,7 +34,7 @@ import java.util.function.Supplier;
 public class ProfilePropertyCatalog {
 
     static final String PROPERTY_TYPES_PATH = "/cxs/profiles/properties/targets/profiles";
-    static final Duration TIME_TO_LIVE = Duration.ofMinutes(5);
+    static final Duration TIME_TO_LIVE = Duration.ofMinutes(1);
 
     private static final Logger log = LoggerFactory.getLogger(ProfilePropertyCatalog.class);
 

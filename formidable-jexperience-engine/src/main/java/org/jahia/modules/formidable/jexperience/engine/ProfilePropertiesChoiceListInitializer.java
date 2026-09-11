@@ -20,8 +20,8 @@ import java.util.Optional;
 /**
  * The {@code formidableJExperienceProfileProperties} choicelist: the profile properties a
  * field can be mapped to, filtered on the field's shape so that the dropdown and the mapping
- * rule never disagree. An unreachable jCustomer yields one explanatory entry, never an error
- * in the editor.
+ * rule never disagree. An unreachable jCustomer, or a schema with no property of the field's
+ * kind, yields one explanatory entry with an empty value, never a blank or broken dropdown.
  */
 @Component(service = ModuleChoiceListInitializer.class, immediate = true)
 public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListInitializer {
@@ -30,6 +30,7 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
 
     static final String BUNDLE = "resources.formidable-jexperience-engine";
     static final String UNAVAILABLE_KEY = "formidableJExperienceProfileProperties.unavailable";
+    static final String NONE_KEY = "formidableJExperienceProfileProperties.none";
 
     // the keys jcontent's editor puts in the initializer context
     static final String CONTEXT_NODE = "contextNode";
@@ -71,10 +72,14 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
 
     List<ChoiceListValue> choices(FieldShape shape, String siteKey, Locale locale) {
         try {
-            return catalog.profileProperties(siteKey).stream()
+            List<ChoiceListValue> compatible = catalog.profileProperties(siteKey).stream()
                     .filter(property -> shape.accepts(property.valueTypeId(), property.multivalued()))
                     .map(property -> new ChoiceListValue(property.label(), property.name()))
                     .toList();
+            if (compatible.isEmpty()) {
+                return List.of(new ChoiceListValue(noneMessage(locale), ""));
+            }
+            return compatible;
         } catch (ProfilePropertiesUnavailableException e) {
             log.warn("[ProfilePropertiesChoiceListInitializer] No profile properties for site '{}': {}", siteKey, e.getMessage());
             return List.of(new ChoiceListValue(unavailableMessage(locale), ""));
@@ -99,6 +104,10 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
             }
         }
         return null;
+    }
+
+    String noneMessage(Locale locale) {
+        return Messages.get(BUNDLE, NONE_KEY, locale, "No visitor profile property matches this field's type yet");
     }
 
     String unavailableMessage(Locale locale) {
