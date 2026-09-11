@@ -7,7 +7,7 @@ Formidable**: it ships its own definitions, editor overrides and views, depends 
 a module of your own does. It is deployed on our test instances; nothing in it is meant for
 production as is, everything in it is meant to be copied.
 
-## Copying this module: the one line to change
+## Copying this module: what to change
 
 `package.json` declares `"@jahia/formidable": "workspace:*"`. That value works **inside this
 repository only**: `packages/formidable` is a workspace of the same monorepo, and `workspace:*`
@@ -21,8 +21,9 @@ yarn add @jahia/formidable@<release>
 ```
 
 The rest of `package.json` is copyable, except the lines that are ours: `name` and `version`,
-of course; `"jahia": { "snapshot": true }`, which deploys the module as a snapshot — a module
-you release does not want it; and `jahia.module-dependencies`, which names `formidable-elements`
+of course; `"jahia": { "snapshot": true }`, which makes the JavaScript modules engine suffix the
+bundle version with `.SNAPSHOT` so that a build redeploys over the same version — a module you
+release does not want it; and `jahia.module-dependencies`, which names `formidable-elements`
 so that Jahia refuses to start your module until the elements module is deployed. The sample
 leaves that dependency unversioned because it follows the current code; a module of yours pins
 the release it was built against — `formidable-elements=0.5` for 0.5.x — the way
