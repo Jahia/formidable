@@ -44,6 +44,7 @@ describe("validationDataAttributes", () => {
 		const attrs = validationDataAttributes({msgValueMissing: "", msgTooShort: undefined});
 		expect("data-fmdb-msg-value-missing" in attrs).toBe(true);
 		expect(attrs["data-fmdb-msg-value-missing"]).toBeUndefined();
+		expect("data-fmdb-msg-too-short" in attrs).toBe(true);
 		expect(attrs["data-fmdb-msg-too-short"]).toBeUndefined();
 	});
 
