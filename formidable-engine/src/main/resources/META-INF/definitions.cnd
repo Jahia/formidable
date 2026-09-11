@@ -12,8 +12,10 @@
 // One-shot marker stamped on a SITE node by ElementsSiteReactivation after it re-enabled
 // formidable-elements there (0.3 -> 0.4 module-identity healing): a marked site is never
 // touched again, so an administrator's later deliberate deactivation sticks.
-// Lifecycle: kept through 0.5.x (a 0.3.x instance may still upgrade directly), to be removed in 0.6
-// with the reactivation itself.
+// Lifecycle: kept through 0.5.x (a 0.3.x instance may still upgrade directly). The reactivation code
+// leaves in 0.6 but this declaration OUTLIVES it: every healed site still carries the marker, and a
+// declaration dropped while nodes carry it is flagged by nothing — see docs/administration/upgrade-notes.md,
+// "Startup migrations", for the two ways out.
 [fmdbmix:elementsReactivated] mixin
 
 // One-shot marker stamped on a CHOICE FIELD by ChoiceOptionsContentMigration: this
@@ -22,7 +24,8 @@
 // identity. It licenses the divergent-list heuristics (positional label carry-over,
 // conditional-rule value remap) that must NEVER run on native 0.4 content, and is
 // removed the first time the field's languages realign — after which value-keying is
-// authoritative again. Lifecycle: kept through 0.5.x, to be removed in 0.6 with the migration.
+// authoritative again. Lifecycle: kept through 0.5.x; the migration leaves in 0.6, this declaration
+// only once no field still carries the marker (see docs/administration/upgrade-notes.md).
 [fmdbmix:migratedChoiceOptions] mixin
 
 // Logic-aware structural mixins and helper content types used by the engine to

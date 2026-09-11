@@ -47,7 +47,8 @@ import java.util.Set;
  *
  * <p>Lifecycle: upgrade healing introduced in 0.4.0, kept through 0.5.x so that a
  * 0.3.x instance can still upgrade directly, to be removed in 0.6 with the other startup
- * migrations — see docs/administration/upgrade-notes.md, "Startup migrations".
+ * migrations — the {@code fmdbmix:elementsReactivated} declaration outlives this class, every
+ * healed site carries it — see docs/administration/upgrade-notes.md, "Startup migrations".
  */
 @Component(service = {ElementsSiteReactivation.class, JahiaEventListener.class}, immediate = true)
 public class ElementsSiteReactivation extends ElementsRedeployRetriggeredMigration {
