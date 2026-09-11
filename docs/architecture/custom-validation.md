@@ -252,7 +252,7 @@ Current implementation detail:
 | File | Role |
 |---|---|
 | `src/utils/validationUtils.ts` | `resolveValidationMessage`, `showFieldError`, `clearFieldError`, `clearAllFieldErrors` |
-| `packages/formidable/src/validationProps.ts` | `validationDataAttributes` — server-side helper to convert mixin props to data attributes (UI-contract package, published as `@jahia/formidable`, #178, #308) |
+| `packages/formidable/src/validationProps.ts` | `validationDataAttributes` — server-side helper to convert mixin props to data attributes (UI-contract package, published as `@jahia/formidable-library`, #178, #308) |
 | `src/hooks/useCustomFormValidation.ts` | `useCustomFormValidation` hook + `validateInputs` function |
 | `src/design/validation.css` | CSS classes and custom properties |
 | `settings/definitions.cnd` | `fmdbmix:validationMessages`, `fmdbmix:textValidationMessages`, `fmdbmix:rangeValidationMessages` |

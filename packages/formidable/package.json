@@ -1,5 +1,5 @@
 {
-	"name": "@jahia/formidable",
+	"name": "@jahia/formidable-library",
 	"version": "0.5.0",
 	"description": "The markup contract and the input-mask behaviour of Formidable forms, for Jahia JavaScript modules that render form fields of their own",
 	"keywords": [

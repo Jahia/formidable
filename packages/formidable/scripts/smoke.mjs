@@ -12,7 +12,9 @@ import {fileURLToPath} from "node:url";
 
 const packageDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const scratch = join(packageDir, ".smoke");
-const installed = join(scratch, "node_modules", "@jahia", "formidable");
+// The package name drives the unpack path and the probes' imports: a rename cannot desync them.
+const {name} = JSON.parse(readFileSync(join(packageDir, "package.json"), "utf8"));
+const installed = join(scratch, "node_modules", ...name.split("/"));
 
 const fail = (message) => {
 	console.error(`smoke: ${message}`);
@@ -41,12 +43,12 @@ for (const [subpath, conditions] of Object.entries(manifest.exports ?? {})) {
 
 // The scratch directory is a package of its own: without this manifest the probe would sit in the
 // scope of packages/formidable/package.json, and Node's self-reference rule would resolve
-// `@jahia/formidable` to the workspace sources instead of the unpacked tarball. `react` still
+// the package name to the workspace sources instead of the unpacked tarball. `react` still
 // resolves by walking up to the workspace's node_modules.
 writeFileSync(join(scratch, "package.json"), JSON.stringify({name: "smoke", private: true, type: "module"}));
 const probe = join(scratch, "probe.mjs");
 writeFileSync(probe, `
-import {HelpText, helpTextId, validationDataAttributes, maskToPattern, applyMask, useMask} from "@jahia/formidable";
+import {HelpText, helpTextId, validationDataAttributes, maskToPattern, applyMask, useMask} from "${name}";
 
 const checks = {
 	helpTextId: helpTextId("n1") === "help-n1",
@@ -61,7 +63,7 @@ if (failed.length > 0) {
 	console.error("smoke: " + failed.join(", ") + " failed");
 	process.exit(1);
 }
-console.log("smoke: @jahia/formidable imports from its packed tarball under Node ESM, " + Object.keys(checks).length + " checks pass");
+console.log("smoke: ${name} imports from its packed tarball under Node ESM, " + Object.keys(checks).length + " checks pass");
 `);
 execFileSync(process.execPath, [probe], {stdio: "inherit"});
 
@@ -69,8 +71,8 @@ execFileSync(process.execPath, [probe], {stdio: "inherit"});
 // `.d.ts` behind a re-export is an error here, not something the first user of the package finds.
 const typeProbe = join(scratch, "probe.ts");
 writeFileSync(typeProbe, `
-import {HelpText, helpTextId, validationDataAttributes, maskToPattern, applyMask, useMask} from "@jahia/formidable";
-import type {HelpTextProps, TextValidationMessageProps, UseMaskOptions} from "@jahia/formidable";
+import {HelpText, helpTextId, validationDataAttributes, maskToPattern, applyMask, useMask} from "${name}";
+import type {HelpTextProps, TextValidationMessageProps, UseMaskOptions} from "${name}";
 
 const props: HelpTextProps = {id: helpTextId("n1"), text: "help", decorative: false};
 const messages: TextValidationMessageProps = {msgValueMissing: "required"};

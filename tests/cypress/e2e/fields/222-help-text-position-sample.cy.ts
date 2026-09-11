@@ -171,7 +171,7 @@ describe('Form fields - 222 Help text position (third-party sample)', () => {
 
 			// A masked field keeps everything the mask stands for: the mask on the input, the pattern
 			// derived from it, the default formatted by it, and the formatting while typing — the sample's
-			// own island, built on the hook of @jahia/formidable (#308).
+			// own island, built on the hook of @jahia/formidable-library (#308).
 			const masked = form.getTextInput(FIELDS.masked.name);
 			masked.getContainer().should('have.attr', POSITION_ATTRIBUTE, 'down');
 			masked.shouldHaveMask(FIELDS.masked.mask).shouldHavePattern(MASK_PATTERN).shouldHaveValue('AB-1234');
