@@ -12,7 +12,13 @@ are in-place module installs; only the transitions listed here need attention.
 | 0.3.x | 0.5.0 directly | The same reinstall procedure, with the 0.5.0 artifacts: 0.5.0 still ships the 0.4.0 wave of startup migrations, so both waves run when formidable-elements deploys (step 3). Verified on a real 0.3.0 instance (2026-09-10): the engine upload is refused by the definitions check as in step 1 (bypass it), the engine-first start logs the expected `Could not migrate node` errors, the elements deploy migrates every field in both workspaces, published forms render and accept submissions, republication works |
 
 0.6 removes both waves of startup migrations: from 0.6 on, **0.5.x is the minimum upgrade
-source** — an instance must have started 0.5.x at least once before moving to 0.6.
+source**, and the precondition is an outcome, not a version number — **both waves must have
+run** on the instance. Starting the 0.5.x engine alone is not enough: the 0.5.0 wave only
+completes when `formidable-elements` 0.5.x deploys (elements 0.4.x only requires engine 0.4,
+which engine 0.5.x satisfies, so an instance can run that pair indefinitely without renaming a
+property), and 0.6 drops the migration together with the prefixed definitions it reads. The
+proof an administrator can look for is the engine log line
+`Renamed the prefixed mixin properties of N field(s)` (see "How to check" below).
 
 ## 0.4.x → 0.5.0: the configuration file is deployed with the module
 
@@ -405,6 +411,15 @@ from a 0.3 restore. No released version is concerned.
 Removal checklist: delete the class and its unit test, drop the Cypress spec that
 restarts the engine to exercise it, and remove the row above. When the last row
 goes, also delete `ElementsRedeployRetriggeredMigration`, `MigrationSessions`,
-`ElementsSiteReactivation` and their tests, and the two marker mixins of the engine's
-CND, `fmdbmix:elementsReactivated` and `fmdbmix:migratedChoiceOptions` — the latter
-once no field still carries it.
+`ElementsSiteReactivation` and their tests. The two marker mixins of the engine's CND
+are a different matter: a declaration that disappears while nodes still carry it leaves
+those nodes with an unknown mixin, and nothing flags it at deploy time — the definitions
+check diffs only the types present in the new CND.
+
+- `fmdbmix:migratedChoiceOptions` clears itself: `ManualOptionsLanguageSync` removes it the
+  first time a field's languages realign, so its declaration goes once no field carries it.
+- `fmdbmix:elementsReactivated` is stamped once per site healed on a 0.3.x path and removed
+  nowhere — that permanence is what makes the healing one-shot — so every such site still
+  carries it in 0.6. Keep its (empty) declaration in the CND and delete only the code that
+  stamps and reads it; or ship a one-shot that strips it from the sites first, and drop the
+  declaration one version later.
