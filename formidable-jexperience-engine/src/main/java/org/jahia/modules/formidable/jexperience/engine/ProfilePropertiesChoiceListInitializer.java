@@ -102,7 +102,7 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
     }
 
     String unavailableMessage(Locale locale) {
-        return Messages.get(BUNDLE, UNAVAILABLE_KEY, locale, "jCustomer is not reachable, the profile properties cannot be listed");
+        return Messages.get(BUNDLE, UNAVAILABLE_KEY, locale, "The visitor profile properties cannot be listed right now: jExperience is not connected");
     }
 
     @Override
