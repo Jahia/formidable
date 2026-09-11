@@ -45,7 +45,8 @@ Four files, and nothing in Formidable:
    formatted default of a masked field — and only changes where the help text goes. Nothing of
    that contract is written out: the view imports it from
    [`@jahia/formidable-library`](../../../packages/formidable/README.md), the package
-   Formidable's own views are built on, as a module of your own would.
+   Formidable's own views are built on, as a module of your own would (declared as `workspace:*`
+   in this repository — the [module README](../README.md) says what to write in yours).
 4. **The live mask** —
    [`src/components/Input/Text/Text.client.tsx`](../src/components/Input/Text/Text.client.tsx), a
    client island hydrated when the field has a mask, built on the library's `useMask` hook: the

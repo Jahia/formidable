@@ -8,7 +8,9 @@ Yarn monorepo + Maven multi-module. Root: `/formidable-modules/`.
 |---|---|
 | `formidable-elements/` | Jahia front-end module – form rendering (React SSR + client hydration) |
 | `formidable-engine/` | Jahia editor extension + Java/OSGi action pipeline |
-| `jahia-test-module/` | Java/JSP helper module for Cypress tests |
+| `formidable-extended-inputs/` | Optional field types (consent, switch, rating, scale) |
+| `packages/formidable/` | npm package `@jahia/formidable-library` — the rendering contract the views import; `workspace:*` inside the monorepo (a version range would still resolve to the workspace, only `npm:` forces the registry), published at release |
+| `jahia-test-module/` | Test modules for Cypress: JSP template set, tsx template set, and the two third-party extension examples meant to be copied — `formidable-test-module-samples-tsx` (definitions, editor overrides, views) and `formidable-test-module-samples-java` (external `FormAction`, choicelist initializer, content-integrity checks) |
 | `tests/` | Cypress E2E suite (not a Maven module) |
 
 Toolchain: Java 17 (Temurin), Node LTS, Yarn 4, Maven 3 (see `mise.toml`).
