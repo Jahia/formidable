@@ -31,6 +31,8 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
     static final String BUNDLE = "resources.formidable-jexperience-engine";
     static final String UNAVAILABLE_KEY = "formidableJExperienceProfileProperties.unavailable";
     static final String NONE_KEY = "formidableJExperienceProfileProperties.none";
+    /** The value property the Content Editor reads to pre-select an entry (jcontent, registerChoiceList initValue). */
+    static final String DEFAULT_PROPERTY = "defaultProperty";
 
     // the keys jcontent's editor puts in the initializer context
     static final String CONTEXT_NODE = "contextNode";
@@ -77,13 +79,25 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
                     .map(property -> new ChoiceListValue(property.label(), property.name()))
                     .toList();
             if (compatible.isEmpty()) {
-                return List.of(new ChoiceListValue(noneMessage(locale), ""));
+                return messageEntry(noneMessage(locale));
             }
             return compatible;
         } catch (ProfilePropertiesUnavailableException e) {
             log.warn("[ProfilePropertiesChoiceListInitializer] No profile properties for site '{}': {}", siteKey, e.getMessage());
-            return List.of(new ChoiceListValue(unavailableMessage(locale), ""));
+            return messageEntry(unavailableMessage(locale));
         }
+    }
+
+    /**
+     * The one entry a dropdown shows when it has nothing to offer: the message as its label, an empty
+     * value (saving it stores nothing), and pre-selected — the Content Editor picks a value flagged
+     * {@code defaultProperty} as the field's initial value, so the author reads the message in the
+     * closed select instead of finding it in the list.
+     */
+    static List<ChoiceListValue> messageEntry(String message) {
+        ChoiceListValue entry = new ChoiceListValue(message, "");
+        entry.addProperty(DEFAULT_PROPERTY, "true");
+        return List.of(entry);
     }
 
     private static Optional<FieldShape> shapeOf(Map<String, Object> context) throws RepositoryException {

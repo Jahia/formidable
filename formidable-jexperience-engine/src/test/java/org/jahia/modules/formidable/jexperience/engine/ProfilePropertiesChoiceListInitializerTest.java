@@ -70,12 +70,14 @@ class ProfilePropertiesChoiceListInitializerTest {
         assertEquals(1, choices.size());
         assertEquals("none", choices.get(0).getDisplayName());
         assertEquals("", choices.get(0).getValue().getString());
+        // pre-selected, so the closed select shows the message
+        assertEquals("true", choices.get(0).getProperties().get(ProfilePropertiesChoiceListInitializer.DEFAULT_PROPERTY));
     }
 
     @Test
     void anUnreachableJCustomerYieldsOneMessageEntryWithAnEmptyValue() throws Exception {
-        // Verifies that the editor shows a message instead of an empty or broken dropdown, and that
-        // picking it stores nothing.
+        // Verifies that the editor shows a message instead of an empty or broken dropdown, pre-selected,
+        // and that saving it stores nothing.
         ProfilePropertyCatalog catalog = mock(ProfilePropertyCatalog.class);
         when(catalog.profileProperties("site")).thenThrow(new ProfilePropertiesUnavailableException("down"));
         ProfilePropertiesChoiceListInitializer initializer = new ProfilePropertiesChoiceListInitializer(catalog) {
@@ -88,5 +90,6 @@ class ProfilePropertiesChoiceListInitializerTest {
         assertEquals(1, choices.size());
         assertEquals("unreachable", choices.get(0).getDisplayName());
         assertEquals("", choices.get(0).getValue().getString());
+        assertEquals("true", choices.get(0).getProperties().get(ProfilePropertiesChoiceListInitializer.DEFAULT_PROPERTY));
     }
 }
