@@ -99,7 +99,8 @@ Nothing in Formidable depends on jExperience; the new module depends on both.
 |---|---|---|
 | `fmdbmix:profileMappableField` | formidable-engine, CND | Marker mixin, no properties: "this field can take part in a profile mapping". Declared as a supertype by every mappable field type in the elements and extended-inputs modules, and by third-party fields that want the feature. |
 | `fmdbmix:jExperienceProfileMapping` | jexperience-engine, CND | Property mixin that `extends` the marker, so it reaches every field claiming it without naming a field type or depending on the extended inputs: profile property (choicelist), prefill toggle, write strategy. Surfaced as a "jExperience" section in the field's editor form through a Content Editor form override. |
-| `ProfilePropertiesChoiceListInitializer` | jexperience-engine | Lists profile properties compatible with the field's shape, filtered on system tags, through the module's admin client. Property types change rarely: cached for a few minutes, and an unreachable jCustomer gives an empty list with a message, never a broken editor. Nothing reusable exists today in jExperience; the generic half is written so it can be lifted there later. |
+| `ProfilePropertiesChoiceListInitializer` | jexperience-engine | Lists profile properties compatible with the field's shape (`FieldShapes`, inferred from the value-kind mixins), filtered on flags and system tags (`ProfilePropertyFilter`), through the module's admin client. Property types change rarely: `ProfilePropertyCatalog` keeps them five minutes per site and serves the previous list when a refresh fails; an unreachable jCustomer on a first read gives one message entry with an empty value, never a broken editor. Nothing reusable exists today in jExperience; the generic half is written so it can be lifted there later. |
+| `FormIdentifierListener` | jexperience-engine | Default-workspace listener on `fmdb:form`: when a form is created, or first edited after the module arrived, adds `fmdbmix:jExperienceForm` and writes the read-only `jExperienceIdentifier` (`formidable-jxp-<uuid>`) the author copies into a goal. Climbs from the `j:translation_*` subnode an i18n edit fires on. |
 | `MappingRuleSyncListener` | jexperience-engine | Live-workspace publication listener that upserts the form's mapping rule, and deletes it when nothing is mapped, when the form is unpublished and when it is removed. Same pattern as `FormPublicationAclSyncListener`. |
 | `FormJExperienceRenderFilter` | jexperience-engine | Render filter on `fmdb:form` (same family as `CaptchaRenderFilter`). When the module is available on the site, it writes next to the form: the inline `digitalDataOverrides.push` of the mapped profile properties, a JSON config block (identifier, mappings), and the module's client script once per page. Its output carries no visitor data: the fragment stays cached. |
 | `formidable-jxp.js` | jexperience-engine, static resource | The client half: at `wemLoaded`, prefills the mapped fields from `wem.getLoadedContext().profileProperties`; on the island's `formidable:submitted` event, decides with `shouldCollect()` and sends the `form` event through `wem.collectEvent`. |
@@ -379,8 +380,14 @@ from the tracker — then completed by the client script:
  extends = fmdbmix:profileMappableField
  itemtype = content
  - jExperienceProfileProperty (string, choicelist[formidableJExperienceProfileProperties]) indexed=no
- - jExperiencePrefillFromProfile (boolean) = false autocreated
- - jExperienceSetStrategy (string, choicelist) = 'alwaysSet' autocreated < 'alwaysSet', 'setIfMissing'
+ - jExperiencePrefillFromProfile (boolean) = false autocreated indexed=no
+ - jExperienceSetStrategy (string, choicelist[resourceBundle]) = 'alwaysSet' autocreated indexed=no < 'alwaysSet', 'setIfMissing'
+
+// formidable-jexperience-engine — the form's identity in jCustomer, shown read-only to the author
+[fmdbmix:jExperienceForm] mixin
+ extends = fmdb:form
+ itemtype = content
+ - jExperienceIdentifier (string) indexed=no
 ```
 
 This follows the two-family rule of [CND module ownership](cnd-module-ownership.md): marker
@@ -425,8 +432,9 @@ key the rule builder picks, so the dropdown and the rule never disagree.
   and lets jCustomer convert at rule time; the Forms bridge filters per input type with a table
   close to this one. Formidable follows the bridge's stance: a filtered dropdown is what makes
   the section usable for an author who does not know the profile schema.
-- **To confirm on jCustomer 3**: the exact `valueTypeId` set exposed by the property types
-  endpoint, and the `setPropertyAction` parameter for dates.
+- **Seen on jCustomer 3.0.0** (2026-09-11, default schema): `valueTypeId` ∈ {`string` ×24, `integer` ×5,
+  `date` ×4, `email` ×1}; 7 read-only properties, 5 multivalued; `systemProfileProperties` on 5 and
+  `hiddenFromFormMappingProperties` on 7. Still to confirm: the `setPropertyAction` parameter for dates.
 
 ### The editor section: a Content Editor form override
 
@@ -480,8 +488,13 @@ formidable-jexperience-engine/src/main/resources/META-INF/jahia-content-editor-f
 - **No custom selector.** The standard choicelist selector renders the initializer's values, so
   no `fieldsets/` override is needed; the Logic section needs one only because its rules editor
   is a React selector of its own.
-- **The form's identifier.** A read-only, copyable `formidable-jxp-<uuid>` on the form itself
-  (a small override on `fmdb:form`), since jExperience's goal editor asks for it as free text.
+- **The form's identifier.** A read-only `formidable-jxp-<uuid>` on the form itself, since
+  jExperience's goal editor asks for it as free text: `fmdbmix:jExperienceForm` extends `fmdb:form`
+  with `jExperienceIdentifier`, stamped by `FormIdentifierListener` when the form is created or
+  first edited after the module's arrival, shown in a **jExperience** section of the form
+  (`isAlwaysActivated` fieldset, `readOnly` field — `forms/fmdbmix_jExperienceForm.json`). No UI
+  bundle for one read-only value; the author selects and copies it. A form saved before the
+  module was deployed receives it at its next save.
 
 ---
 
@@ -557,17 +570,21 @@ accepted, purged values) and the tracker decides **for whom** (its own cookies) 
 | 2026-09-10 | **`disableTrackedConditionsListeners` is honoured**, and never set by Formidable (HDU) | It is the integrator's page-level "no automatic form tracking", possibly the outcome of a refusal; Forms goes silent under it (its watch list is empty) and Formidable does the same. Setting it would silence every other module on the page |
 | 2026-09-10 | **Identifier `formidable-jxp-<uuid>`**, never equal to the DOM `<form id>`; `target.properties.name`/`path` for readability; shown in the editor (HDU) | The tracker attaches its own raw-fields listener to any `<form>` whose `id`/`name` matches a tracked `formId`: a distinct identifier is what makes the island the only sender, even once a marketer creates a goal. Unomi's `itemId` pattern allows it (51 chars, `[\w@.-]`); goals are typed by hand in jExperience, so the author must be able to copy it; dashboards keyed on an opaque id need the name as a label |
 | 2026-09-10 | `data-form-id` is not used as the opt-out | Forms' convention, honoured by the tracker's initial scan only and ignored by jExperience's observer of late forms |
+| 2026-09-11 | The form identifier is a read-only property stamped by a listener, not a custom selector | One read-only string does not justify a Module Federation bundle in the module; the Content Editor renders a `readOnly` field of the mixin; forms created before the module get it at their next save |
+| 2026-09-11 | Field shape from the value-kind mixins; `fmdb:checkbox` is the one type name read | No mixin tells the checkbox group (always a list) from a radio group; every other cardinality comes from the `multiple` property |
+| 2026-09-11 | `choicelist[resourceBundle]` for the write strategy | Labels for `alwaysSet` / `setIfMissing` come from the module's bundle instead of raw values in the dropdown |
+| 2026-09-11 | Local stack: the test Jahia joins the jCustomer compose network with a fixed address, jExperience 4.2.1 is installed by jar upload | jCustomer trusts privileged calls by IP; the artifact is only on Nexus' internal group, so `installModule mvn:` is a silent no-op on the test container (kit: `~/Jahia/modules/Formidable/jexperience/README.md`) |
 
 ## Open questions
 
 | Question | Owner | Status |
 |---|---|---|
-| Hydration vs prefill ordering: the client script waits for `wemLoaded` and `formidable:ready`; confirm React does not reset the values, and the shape of multi-valued `profileProperties` | dev | verify in phase 1 |
+| Hydration vs prefill ordering: the client script waits for `wemLoaded` and `formidable:ready`; confirm React does not reset the values, and the shape of multi-valued `profileProperties` | dev | verify in phase 4 |
 | Honour profile consents (`profile.consents`) before sending and before prefilling, on top of the tracker-level gates | dev | phase 2 |
 | Extended inputs (consent, switch, rating, scale): covered by the marker mixin, no dependency; their prefill rendering | dev | phase 2 |
 | Prefill for choice fields, which have no default-value property today | dev | phase 2 |
 | Date profile properties: which `setPropertyAction` parameter Unomi 3 expects | dev | verify |
-| A local jCustomer for the dev loop and CI (docker compose jexperience + jcustomer + elasticsearch) — the phases' proofs are Cypress against it | dev | **open, critical path** |
+| A local jCustomer for the dev loop and CI (docker compose jexperience + jcustomer + elasticsearch) — the phases' proofs are Cypress against it | dev | **dev loop done** 2026-09-11 (jCustomer 3.0.0 + jExperience 4.2.1 next to the test Jahia, kit on the developer's machine); the CI compose profile is still to add |
 | Upstream the generic profile-properties choicelist into jExperience | dev, jExperience team | proposal |
 | If jExperience removes or reworks `trackedConditions`: replace the `getFormNamesToWatch()` line of `shouldCollect()` by whatever replaces it | dev | when it happens |
 
@@ -575,7 +592,7 @@ accepted, purged values) and the tracker decides **for whom** (its own cookies) 
 
 | Phase | Deliverable | Proof |
 |---|---|---|
-| 1 | Module skeleton recalibrated on jExperience 4.2.1 with open OSGi ranges, added to the root pom. Marker mixin in the engine and on the field types, editor section with the copyable identifier, ported choicelist initializer with cache, strategy and failure handling. FR bundle with escaped accents, prototype's harness file dropped | JUnit on shape inference and filtering; module deploys next to jExperience |
+| 1 | Module skeleton recalibrated on jExperience 4.2.1 with open OSGi ranges, added to the root pom. Marker mixin in the engine and on the field types, editor section with the copyable identifier, ported choicelist initializer with cache, strategy and failure handling. FR bundle with escaped accents, prototype's harness file dropped | **Shipped 2026-09-11.** 23 JUnit tests (shape inference, property filter, catalog cache and failure paths, initializer, identifier); deployed on the test instance next to jExperience 4.2.1: the section lists 18 properties on a text field, the identifier is stamped on creation and on the first edit |
 | 2 | Mapping rule sync: rule builder on `formidable-jxp-<uuid>`, publication listener, diff, delete on unpublish/removal, resync on availability | Golden JSON test; Cypress: publish a mapped form, read the rule through the proxy |
 | 3 | Engine `SubmissionResponseEnricher` SPI and the elements' `formidable:submitted` event; render filter (overrides push, config block, script); client script with `shouldCollect()` and the event | Pipeline unit tests; Cypress: submit with a profile cookie, the event and the profile read back through the proxy; the tracker attaches no listener to the form (the DOM id is not the identifier); a form referenced only by a goal sends; no send under `activateWem` off |
 | 4 | Prefill: text-like fields and hidden, from the context's profile properties | Cypress: live page with a profile cookie shows the value after `wemLoaded`; a second visitor does not; the page stays cached (same HTML for both) |

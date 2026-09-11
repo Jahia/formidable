@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <artifactId>formidable</artifactId>
+        <groupId>org.jahia.modules</groupId>
+        <version>0.5.0-SNAPSHOT</version>
+    </parent>
+    <artifactId>formidable-jexperience-engine</artifactId>
+    <name>Formidable jExperience Engine</name>
+    <packaging>bundle</packaging>
+    <description>The jExperience integration of Formidable forms: profile mapping of the fields, the form's identity in jCustomer, and later the mapping rule, the submission event and the prefill (docs/architecture/jexperience-integration.md)</description>
+    <properties>
+        <!-- The marker mixin comes from the engine; ContextServerService from jExperience. -->
+        <jahia-depends>formidable-engine,jexperience</jahia-depends>
+        <sonar.sources>src,pom.xml</sonar.sources>
+        <!-- Jahia EE refuses an org.jahia.modules bundle without a valid Jahia-Signature. Computed with keymaker
+             (java -jar keymaker-cli.jar pom -f pom.xml -s); the CI's update-signature job keeps it current. -->
+        <jahia-module-signature>MCwCFFS8L/8Dgf0DjASs0Va+xTAHPSSYAhQ7IE66CiaGPqKwGXw2BTiZnQ335Q==</jahia-module-signature>
+        <!-- 4.2.1 is the compile-time API; the OSGi imports below stay open to any 4.x. The artifact lives in
+             Nexus' internal group (jahia-internal in .github/maven.settings.xml and in a developer's settings). -->
+        <jexperience.version>4.2.1</jexperience.version>
+    </properties>
+    <!-- jExperience is not in Nexus' public group: this repository needs the credentials of the
+         matching <server id="jahia-internal"> of the builder's settings.xml (.github/maven.settings.xml has it). -->
+    <repositories>
+        <repository>
+            <id>jahia-internal</id>
+            <name>Jahia Internal Repository</name>
+            <url>https://devtools.jahia.com/nexus/content/groups/internal</url>
+            <releases>
+                <enabled>true</enabled>
+                <updatePolicy>never</updatePolicy>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+    <dependencies>
+        <dependency>
+            <groupId>org.jahia.server</groupId>
+            <artifactId>jahia-impl</artifactId>
+            <scope>provided</scope>
+            <exclusions>
+                <!-- Prevent transitive Jahia core dependencies from being used in lieu of explicit declarations. -->
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.jahia.modules</groupId>
+            <artifactId>jexperience</artifactId>
+            <version>${jexperience.version}</version>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>javax.jcr</groupId>
+            <artifactId>jcr</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.osgi</groupId>
+            <artifactId>osgi.cmpn</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.osgi</groupId>
+            <artifactId>osgi.annotation</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>maven-bundle-plugin</artifactId>
+                <extensions>true</extensions>
+                <configuration>
+                    <instructions>
+                        <!-- Process OSGi Declarative Services annotations -->
+                        <_dsannotations>*</_dsannotations>
+                        <Export-Package>
+                            org.jahia.modules.formidable.jexperience.engine
+                        </Export-Package>
+                        <!-- jExperience exports its admin package without a version and the Unomi API at its
+                             major: no range on the former, the 3.x range on the latter, so a 4.x upgrade of
+                             jExperience resolves without a rebuild. -->
+                        <Import-Package>
+                            org.jahia.modules.jexperience.admin;version="[4,5)",
+                            org.apache.unomi.api;version="[3,4)",
+                            org.jahia.services.content,
+                            org.jahia.services.content.nodetypes,
+                            org.jahia.services.content.nodetypes.initializers,
+                            org.jahia.utils.i18n,
+                            *
+                        </Import-Package>
+                    </instructions>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <release>17</release>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

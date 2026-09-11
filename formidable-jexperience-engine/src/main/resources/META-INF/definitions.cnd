@@ -1,0 +1,23 @@
+<jnt = 'http://www.jahia.org/jahia/nt/1.0'>
+<fmdb = 'http://www.jahia.org/jahia/fmdb/nt/1.0'>
+<fmdbmix = 'http://www.jahia.org/jahia/fmdb/mix/1.0'>
+
+// The jExperience mapping of a field: attached to the engine's marker mixin (extends), so it
+// reaches every field type that claims fmdbmix:profileMappableField — built-in, extended or
+// third-party — without naming one. Shown as the "jExperience" section of the field's editor
+// (META-INF/jahia-content-editor-forms/forms/fmdbmix_jExperienceProfileMapping.json); the
+// section's switch is the author's "map this field to the visitor profile".
+[fmdbmix:jExperienceProfileMapping] mixin
+ extends = fmdbmix:profileMappableField
+ itemtype = content
+ - jExperienceProfileProperty (string, choicelist[formidableJExperienceProfileProperties]) indexed=no
+ - jExperiencePrefillFromProfile (boolean) = false autocreated indexed=no
+ - jExperienceSetStrategy (string, choicelist[resourceBundle]) = 'alwaysSet' autocreated indexed=no < 'alwaysSet', 'setIfMissing'
+
+// The form's identity in jCustomer, formidable-jxp-<uuid>, stamped by FormIdentifierListener
+// when the form is created or first edited, read-only for the author who copies it into a
+// jExperience goal (jExperience's goal editor asks for it as free text).
+[fmdbmix:jExperienceForm] mixin
+ extends = fmdb:form
+ itemtype = content
+ - jExperienceIdentifier (string) indexed=no

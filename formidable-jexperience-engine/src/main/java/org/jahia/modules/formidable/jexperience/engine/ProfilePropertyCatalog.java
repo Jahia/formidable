@@ -1,0 +1,111 @@
+package org.jahia.modules.formidable.jexperience.engine;
+
+import org.apache.unomi.api.PropertyType;
+import org.jahia.modules.jexperience.admin.ContextServerService;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
+import org.osgi.service.component.annotations.ReferencePolicyOption;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
+
+/**
+ * The profile properties of a site's jCustomer, read through jExperience's admin client and
+ * kept for a few minutes: property types change rarely, and the editor asks on every field
+ * opened. A failed refresh serves the previous list when there is one, so a jCustomer hiccup
+ * never blanks the dropdown; without one it reports the schema unavailable, which the
+ * initializer turns into a message rather than a broken editor.
+ */
+@Component(service = ProfilePropertyCatalog.class, immediate = true)
+public class ProfilePropertyCatalog {
+
+    static final String PROPERTY_TYPES_PATH = "/cxs/profiles/properties/targets/profiles";
+    static final Duration TIME_TO_LIVE = Duration.ofMinutes(5);
+
+    private static final Logger log = LoggerFactory.getLogger(ProfilePropertyCatalog.class);
+
+    private record Entry(List<ProfilePropertyDescriptor> properties, Instant expires) {
+    }
+
+    private final Map<String, Entry> cache = new ConcurrentHashMap<>();
+    private final Supplier<Instant> clock;
+
+    // jExperience may start after, restart, or be absent: the reference follows it
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY)
+    private volatile ContextServerService contextServerService;
+
+    public ProfilePropertyCatalog() {
+        this(Instant::now);
+    }
+
+    ProfilePropertyCatalog(Supplier<Instant> clock) {
+        this.clock = clock;
+    }
+
+    ProfilePropertyCatalog(ContextServerService contextServerService, Supplier<Instant> clock) {
+        this(clock);
+        this.contextServerService = contextServerService;
+    }
+
+    /** The mappable profile properties of the site, sorted by label. */
+    public List<ProfilePropertyDescriptor> profileProperties(String siteKey) throws ProfilePropertiesUnavailableException {
+        Objects.requireNonNull(siteKey, "siteKey");
+        Entry cached = cache.get(siteKey);
+        Instant now = clock.get();
+        if (cached != null && cached.expires().isAfter(now)) {
+            return cached.properties();
+        }
+        try {
+            List<ProfilePropertyDescriptor> fresh = fetch(siteKey);
+            cache.put(siteKey, new Entry(fresh, now.plus(TIME_TO_LIVE)));
+            return fresh;
+        } catch (ProfilePropertiesUnavailableException e) {
+            if (cached != null) {
+                log.warn("[ProfilePropertyCatalog] Serving the previous profile properties of site '{}': {}", siteKey, e.getMessage());
+                return cached.properties();
+            }
+            throw e;
+        }
+    }
+
+    /** Forgets every cached list — after a mapping was rejected for an unknown property, for instance. */
+    public void invalidate() {
+        cache.clear();
+    }
+
+    private List<ProfilePropertyDescriptor> fetch(String siteKey) throws ProfilePropertiesUnavailableException {
+        ContextServerService service = contextServerService;
+        if (service == null) {
+            throw new ProfilePropertiesUnavailableException("the jExperience module is not available");
+        }
+        if (!service.isAvailable(siteKey)) {
+            throw new ProfilePropertiesUnavailableException("jCustomer is not available for site '" + siteKey + "'");
+        }
+        try {
+            PropertyType[] types = service.executeGetRequest(siteKey, PROPERTY_TYPES_PATH, null, null, PropertyType[].class);
+            if (types == null) {
+                return List.of();
+            }
+            return Arrays.stream(types)
+                    .map(ProfilePropertyFilter::describe)
+                    .flatMap(Optional::stream)
+                    .sorted(Comparator.comparing(ProfilePropertyDescriptor::label, String.CASE_INSENSITIVE_ORDER))
+                    .toList();
+        } catch (IOException | RuntimeException e) {
+            throw new ProfilePropertiesUnavailableException("could not read the profile properties of site '" + siteKey + "': " + e.getMessage(), e);
+        }
+    }
+}

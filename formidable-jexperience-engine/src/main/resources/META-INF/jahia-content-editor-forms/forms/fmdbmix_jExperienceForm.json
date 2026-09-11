@@ -1,0 +1,21 @@
+{
+	"nodeType": "fmdbmix:jExperienceForm",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "jexperience",
+			"labelKey": "fmdb.section.jexperience",
+			"rank": 1.15,
+			"fieldSets": [
+				{
+					"name": "fmdbmix:jExperienceForm",
+					"rank": 0.0,
+					"isAlwaysActivated": true,
+					"fields": [
+						{ "name": "jExperienceIdentifier", "readOnly": true }
+					]
+				}
+			]
+		}
+	]
+}
