@@ -3,13 +3,13 @@
 This module shows how a JavaScript module of your own extends Formidable **without changing
 Formidable**: it ships its own definitions, editor overrides and views, depends on
 `formidable-elements` at run time, and builds on
-[`@jahia/formidable`](../../packages/formidable/README.md) for the rendering contract, exactly as
+[`@jahia/formidable-library`](../../packages/formidable/README.md) for the rendering contract, exactly as
 a module of your own does. It is deployed on our test instances; nothing in it is meant for
 production as is, everything in it is meant to be copied.
 
 ## Copying this module: what to change
 
-`package.json` declares `"@jahia/formidable": "workspace:*"`. That value works **inside this
+`package.json` declares `"@jahia/formidable-library": "workspace:*"`. That value works **inside this
 repository only**: `packages/formidable` is a workspace of the same monorepo, and `workspace:*`
 tells Yarn to link its sources, so the sample always follows the current code.
 
@@ -17,7 +17,7 @@ In your module, write the published version instead — the one matching the For
 you target (the package is published with each release, from 0.5.0 on):
 
 ```sh
-yarn add @jahia/formidable@<release>
+yarn add @jahia/formidable-library@<release>
 ```
 
 The rest of `package.json` is copyable, except the lines that are ours: `name` and `version`,

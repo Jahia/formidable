@@ -1,6 +1,6 @@
 import {Island, jahiaComponent} from "@jahia/javascript-modules-library";
-import {type BaseValidationMessageProps, validationDataAttributes} from "@jahia/formidable";
-import {HelpText, helpTextId} from "@jahia/formidable";
+import {type BaseValidationMessageProps, validationDataAttributes} from "@jahia/formidable-library";
+import {HelpText, helpTextId} from "@jahia/formidable-library";
 import RangeInput from "./Range.client";
 
 interface InputRangeProps extends BaseValidationMessageProps {

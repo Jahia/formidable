@@ -44,7 +44,7 @@ Four files, and nothing in Formidable:
    hooks, help block referenced by the field, custom validation messages, the `pattern` and
    formatted default of a masked field — and only changes where the help text goes. Nothing of
    that contract is written out: the view imports it from
-   [`@jahia/formidable`](../../../packages/formidable/README.md), the package
+   [`@jahia/formidable-library`](../../../packages/formidable/README.md), the package
    Formidable's own views are built on, as a module of your own would (declared as `workspace:*`
    in this repository — the [module README](../README.md) says what to write in yours).
 4. **The live mask** —
