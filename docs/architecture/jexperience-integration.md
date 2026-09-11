@@ -549,8 +549,39 @@ accepted, purged values) and the tracker decides **for whom** (its own cookies) 
 - **Submission**: the pipeline does one more thing, serialising the accepted fields into the 200
   (microseconds); the event is one request from the browser to jCustomer, after the visitor
   already has the answer.
-- **Editing**: the property-types call is cached in the module; the editor never waits on
-  jCustomer twice for the same field.
+- **Editing**: the property-types call is cached in the module, one minute per site — see below.
+
+### The profile-property catalog: when jCustomer is called, and why there is a cache
+
+**When the call happens.** The Content Editor builds the whole form definition of a node in one
+request (`forms.editForm`, or `forms.createForm` for a field being created): every section, every
+fieldset — the dynamic ones included, switched on or not — and every choicelist initializer is
+evaluated then. So the `formidableJExperienceProfileProperties` initializer runs **each time an
+author opens or creates a mappable field**, whether or not they ever unfold the jExperience section
+or switch the mapping on. Nothing in the module can make it lazier: the editor only re-asks a
+choicelist on its own (`forms.fieldConstraints`) when it depends on another field's value.
+
+**What the call costs.** `GET /cxs/profiles/properties/targets/profiles` through jExperience's admin
+client (HTTPS, authenticated): 10 to 17 ms and 19 KB against a jCustomer on the same machine
+(2026-09-11, 36 property types); a whole `editForm` of a text field, initializer included, 90 to
+130 ms. A jCustomer on another network — the usual production layout — adds its round trip and TLS,
+typically 50 to 200 ms, on every field opening of every author.
+
+**What the cache does.** `ProfilePropertyCatalog` is one OSGi service per Jahia node, so its memory
+is **shared by every author of the instance**, keyed by site: at most one jCustomer call per site
+per minute, however many people edit forms. A property created in jExperience therefore shows in
+the dropdown at the first opening after the minute — the tooltip of the property field says so, in
+the author's words. When a refresh fails, the previous list is served, so a jCustomer hiccup never
+blanks a dropdown that was full a minute ago; only a first read with jCustomer unreachable yields
+the "jExperience is not connected" entry. What the minute buys is thus not CPU: it keeps the remote
+round trip out of every field opening, keeps a flapping jCustomer invisible to authors, and keeps
+authors from being a source of traffic on jCustomer's admin API.
+
+**What it does not do.** No invalidation from the UI: the list refreshes by expiry (or when the
+module restarts). A shorter time to live would not change the worst case (one call per site per
+period) and would only shorten the wait of the one author who just created a property; no cache
+would give the exact state of jCustomer at each opening at the price above. Kept at one minute
+(decision of 2026-09-11).
 
 ---
 
@@ -575,6 +606,7 @@ accepted, purged values) and the tracker decides **for whom** (its own cookies) 
 | 2026-09-11 | `fmdbmix:jExperienceProfileMapping` extends the marker without inheriting from it (the first draft wrote `> fmdbmix:profileMappableField` too) | Mappability is what a field *type* declares; the mapping is what an author configures. With the supertype, any node the mixin lands on — by API or import, a file field included — would pass every `isNodeType(marker)` check and the marker would stop meaning anything. `extends` alone is how every property mixin of the repository attaches to its target, and the Content Editor resolves it with `isNodeType`, so nothing needs the inheritance |
 | 2026-09-11 | Field shape from the value-kind mixins; `fmdb:checkbox` is the one type name read | No mixin tells the checkbox group (always a list) from a radio group; every other cardinality comes from the `multiple` property |
 | 2026-09-11 | `choicelist[resourceBundle]` for the write strategy | Labels for `alwaysSet` / `setIfMissing` come from the module's bundle instead of raw values in the dropdown |
+| 2026-09-11 | The profile-property catalog keeps its list one minute per site, shared by every author; an empty match and an unreachable jCustomer each yield one explanatory entry (HDU) | The editor evaluates the initializer at every opening of a mappable field, section unfolded or not; one minute keeps the remote round trip and jCustomer's hiccups out of the editor at the cost of a one-minute delay after a property is created — said in the tooltip. Removing the cache was weighed and declined: same worst case, no resilience. jCustomer ships no boolean property, so a blank dropdown had to explain itself |
 | 2026-09-11 | Local stack: the test Jahia joins the jCustomer compose network with a fixed address, jExperience 4.2.1 is installed by jar upload | jCustomer trusts privileged calls by IP; the artifact is only on Nexus' internal group, so `installModule mvn:` is a silent no-op on the test container (kit: `~/Jahia/modules/Formidable/jexperience/README.md`) |
 
 ## Open questions

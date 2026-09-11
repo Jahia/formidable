@@ -25,10 +25,15 @@ import java.util.function.Supplier;
 
 /**
  * The profile properties of a site's jCustomer, read through jExperience's admin client and
- * kept for a minute: property types change rarely, the editor asks on every field opened, and
- * a property an author has just created in jExperience must show up at the next opening. A failed refresh serves the previous list when there is one, so a jCustomer hiccup
- * never blanks the dropdown; without one it reports the schema unavailable, which the
- * initializer turns into a message rather than a broken editor.
+ * kept for a minute, per site, in this single service — shared by every author of the Jahia
+ * node. The Content Editor evaluates the choicelist initializer each time a mappable field is
+ * opened or created, whether or not the jExperience section is unfolded, so without this memory
+ * every field opening would carry a jCustomer round trip (10-17 ms next door, 50-200 ms across
+ * a network). A failed refresh serves the previous list when there is one, so a jCustomer
+ * hiccup never blanks a dropdown; a first read with jCustomer unreachable reports the schema
+ * unavailable, which the initializer turns into a message. A property created in jExperience
+ * shows at the first opening after the minute — the property's tooltip says so. Details and the
+ * decision: docs/architecture/jexperience-integration.md, "The profile-property catalog".
  */
 @Component(service = ProfilePropertyCatalog.class, immediate = true)
 public class ProfilePropertyCatalog {
