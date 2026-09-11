@@ -10,12 +10,12 @@
     <artifactId>formidable-npm</artifactId>
     <name>Formidable npm package</name>
     <packaging>pom</packaging>
-    <!-- Not a Jahia module: the npm package @jahia/formidable, published by the
+    <!-- Not a Jahia module: the npm package @jahia/formidable-library, published by the
          publish-npm job of .github/workflows/on-release.yml. This pom puts the package in the
          reactor so the regular build lints, builds and tests it, and so the release keeps its
          package.json version in step with the maven version (sync-version execution inherited
          from the release-prepare profile of the root pom, which reads .m2/sync-version.js). -->
-    <description>The markup contract and input-mask behaviour of Formidable forms, published to npm as @jahia/formidable</description>
+    <description>The markup contract and input-mask behaviour of Formidable forms, published to npm as @jahia/formidable-library</description>
 
     <scm>
         <connection>scm:git:git@github.com:Jahia/formidable.git</connection>

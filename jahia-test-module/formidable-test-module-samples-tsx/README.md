@@ -1,10 +1,39 @@
 # Formidable samples (JavaScript module)
 
 This module shows how a JavaScript module of your own extends Formidable **without changing
-Formidable**: it depends on `formidable-elements` at run time and on the published
-[`@jahia/formidable`](../../packages/formidable/README.md) at build time, as a
-module of your own would, and ships its own definitions, editor overrides and views. It is deployed on our test instances; nothing in it is meant for production
-as is, everything in it is meant to be copied.
+Formidable**: it ships its own definitions, editor overrides and views, depends on
+`formidable-elements` at run time, and builds on
+[`@jahia/formidable-library`](../../packages/formidable/README.md) for the rendering contract, exactly as
+a module of your own does. It is deployed on our test instances; nothing in it is meant for
+production as is, everything in it is meant to be copied.
+
+## Copying this module: what to change
+
+`package.json` declares `"@jahia/formidable-library": "workspace:*"`. That value works **inside this
+repository only**: `packages/formidable` is a workspace of the same monorepo, and `workspace:*`
+tells Yarn to link its sources, so the sample always follows the current code.
+
+In your module, write the published version instead — the one matching the Formidable release
+you target (the package is published with each release, from 0.5.0 on):
+
+```sh
+yarn add @jahia/formidable-library@<release>
+```
+
+The rest of `package.json` is copyable, except the lines that are ours: `name` and `version`,
+of course; `"jahia": { "snapshot": true }`, which makes the JavaScript modules engine suffix the
+bundle version with `.SNAPSHOT` so that a build redeploys over the same version — a module you
+release does not want it; and `jahia.module-dependencies`, which names `formidable-elements`
+so that Jahia refuses to start your module until the elements module is deployed. The sample
+leaves that dependency unversioned because it follows the current code; a module of yours pins
+the release it was built against — `formidable-elements=0.5` for 0.5.x — the way
+`formidable-extended-inputs` pins its own.
+
+Why the sample does not write the published version itself: from inside the monorepo, a version
+range that matches `packages/formidable` still resolves to the workspace, not to npm (Yarn's
+`enableTransparentWorkspaces`, on by default) — only the `npm:` protocol, `"npm:^0.5.0"`, would
+force the registry. Staying on `workspace:*` means a change of the contract and the sample that
+exercises it land in the same pull request.
 
 One page per sample:
 

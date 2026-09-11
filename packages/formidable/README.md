@@ -1,4 +1,4 @@
-# @jahia/formidable
+# @jahia/formidable-library
 
 The markup contract and the input-mask behaviour of [Formidable](https://github.com/Jahia/formidable)
 forms, for Jahia JavaScript modules that render form fields of their own — a new field type, or a
@@ -13,7 +13,7 @@ your module builds, not as a silent drift.
 ## Installation
 
 ```sh
-yarn add @jahia/formidable
+yarn add @jahia/formidable-library
 ```
 
 React 19 is a peer dependency, as in every Jahia JavaScript module. The package follows
@@ -68,7 +68,7 @@ lower-cased, anything else a fixed literal — stands for three things:
 
 ```tsx
 // MyField.client.tsx
-import { useMask } from "@jahia/formidable";
+import { useMask } from "@jahia/formidable-library";
 
 export default function MaskedInput({ mask, defaultValue, inputAttributes }) {
   const { inputRef, handleInput } = useMask({ mask });
@@ -85,6 +85,21 @@ tokens and the caret arithmetic the hook is built on stay inside the package.
 - [Custom validation](https://github.com/Jahia/formidable/blob/main/docs/architecture/custom-validation.md) — the `data-fmdb-msg-*` attributes and how the client uses them
 - [Styling a form](https://github.com/Jahia/formidable/blob/main/docs/styling/README.md) — the class hooks and CSS variables
 - [The samples module](https://github.com/Jahia/formidable/tree/main/jahia-test-module/formidable-test-module-samples-tsx) — a module of this kind, built on the package
+
+## Inside this repository
+
+`packages/formidable` is a workspace of the monorepo. `formidable-elements`,
+`formidable-extended-inputs` and the samples module depend on it as
+`"@jahia/formidable-library": "workspace:*"`: Yarn links the sources (`exports` → `src/index.ts`), every
+module builds against the current code, and a change of contract is fixed in the same pull request
+as the views it affects. The tarball on npm is the same code, packed from `dist/` by the release
+workflow (`yarn pack` applies `publishConfig.exports`).
+
+Do not write a version range in one of these modules to "test the published package": a range that
+matches the workspace version resolves to the workspace, not to npm (Yarn's
+`enableTransparentWorkspaces`, on by default). From inside the monorepo only the `npm:` protocol
+forces the registry — `"@jahia/formidable-library": "npm:^0.5.0"`. A module outside this repository has no
+such workspace: `yarn add @jahia/formidable-library` simply goes to npm.
 
 ## Versioning
 
