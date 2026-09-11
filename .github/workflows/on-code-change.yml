@@ -42,6 +42,15 @@ jobs:
           yarn install --immutable
           yarn workspace @jahia/formidable-library build
           yarn workspace @jahia/formidable-library smoke
+      # The package was renamed before its first publish (#321): a reference to the old name points at
+      # a package that never exists on the registry, and nothing type-checks a Markdown file. The gate
+      # reads the tracked files (yarn.lock included) and skips only this workflow, whose pattern would
+      # match itself.
+      - name: No reference to the pre-rename package name
+        run: |
+          if git grep -I -n -E '@jahia/formidable([^-[:alnum:]_]|$)' -- . ':!.github/workflows/on-code-change.yml'; then
+            echo "::error::the npm package is @jahia/formidable-library"; exit 1
+          fi
       - name: Check the documentation links
         run: node scripts/check-doc-links.mjs
 
