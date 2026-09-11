@@ -99,7 +99,7 @@ Nothing in Formidable depends on jExperience; the new module depends on both.
 |---|---|---|
 | `fmdbmix:profileMappableField` | formidable-engine, CND | Marker mixin, no properties: "this field can take part in a profile mapping". Declared as a supertype by every mappable field type in the elements and extended-inputs modules, and by third-party fields that want the feature. |
 | `fmdbmix:jExperienceProfileMapping` | jexperience-engine, CND | Property mixin that `extends` the marker, so it reaches every field claiming it without naming a field type or depending on the extended inputs: profile property (choicelist), prefill toggle, write strategy. Surfaced as a "jExperience" section in the field's editor form through a Content Editor form override. |
-| `ProfilePropertiesChoiceListInitializer` | jexperience-engine | Lists profile properties compatible with the field's shape (`FieldShapes`, inferred from the value-kind mixins), filtered on flags and system tags (`ProfilePropertyFilter`), through the module's admin client. Property types change rarely: `ProfilePropertyCatalog` keeps them one minute per site (a property just created in jExperience shows at the next opening) and serves the previous list when a refresh fails; an unreachable jCustomer on a first read, or a schema with no property of the field's kind (jCustomer ships no boolean property), gives one message entry with an empty value, pre-selected so the closed select reads it (jcontent's `defaultProperty`), never a blank or broken dropdown. A message without a select would need a selector of the module's own — a UI bundle, left for a later phase. Nothing reusable exists today in jExperience; the generic half is written so it can be lifted there later. |
+| `ProfilePropertiesChoiceListInitializer` | jexperience-engine | Lists profile properties compatible with the field's shape (`FieldShapes`, inferred from the value-kind mixins), filtered on flags and system tags (`ProfilePropertyFilter`), through the module's admin client. Property types change rarely: `ProfilePropertyCatalog` keeps them one minute per site (a property just created in jExperience shows at the next opening); past the minute a failed read reports the schema unavailable rather than serving a list that may no longer be true. An unreachable jCustomer, or a schema with no property of the field's kind (jCustomer ships no boolean property), gives one message entry with an empty value, pre-selected so the closed select reads it (jcontent's `defaultProperty`), never a blank or broken dropdown. A message without a select would need a selector of the module's own — a UI bundle, left for a later phase. Nothing reusable exists today in jExperience; the generic half is written so it can be lifted there later. |
 | `FormIdentifierListener` | jexperience-engine | Default-workspace listener on `fmdb:form`: when a form is created, or first edited after the module arrived, adds `fmdbmix:jExperienceForm` and writes the read-only `jExperienceIdentifier` (`formidable-jxp-<uuid>`) the author copies into a goal. Climbs from the `j:translation_*` subnode an i18n edit fires on. |
 | `MappingRuleSyncListener` | jexperience-engine | Live-workspace publication listener that upserts the form's mapping rule, and deletes it when nothing is mapped, when the form is unpublished and when it is removed. Same pattern as `FormPublicationAclSyncListener`. |
 | `FormJExperienceRenderFilter` | jexperience-engine | Render filter on `fmdb:form` (same family as `CaptchaRenderFilter`). When the module is available on the site, it writes next to the form: the inline `digitalDataOverrides.push` of the mapped profile properties, a JSON config block (identifier, mappings), and the module's client script once per page. Its output carries no visitor data: the fragment stays cached. |
@@ -571,17 +571,21 @@ typically 50 to 200 ms, on every field opening of every author.
 is **shared by every author of the instance**, keyed by site: at most one jCustomer call per site
 per minute, however many people edit forms. A property created in jExperience therefore shows in
 the dropdown at the first opening after the minute — the tooltip of the property field says so, in
-the author's words. When a refresh fails, the previous list is served, so a jCustomer hiccup never
-blanks a dropdown that was full a minute ago; only a first read with jCustomer unreachable yields
-the "jExperience is not connected" entry. What the minute buys is thus not CPU: it keeps the remote
-round trip out of every field opening, keeps a flapping jCustomer invisible to authors, and keeps
-authors from being a source of traffic on jCustomer's admin API.
+the author's words. **One duration rules everything**: a list is served while it is under a minute
+old; past that, the next opening reads jCustomer again, and a read that fails yields the
+"jExperience is not connected" entry instead of a list that may no longer be true (the stale entry
+is dropped, so a later success starts a fresh minute). What the minute buys is thus not CPU: it
+keeps the remote round trip out of every field opening and keeps authors from being a source of
+traffic on jCustomer's admin API. What it does not buy, by choice, is hiding an outage: an author
+opening a field while jCustomer is down reads the message.
 
 **What it does not do.** No invalidation from the UI: the list refreshes by expiry (or when the
 module restarts). A shorter time to live would not change the worst case (one call per site per
 period) and would only shorten the wait of the one author who just created a property; no cache
-would give the exact state of jCustomer at each opening at the price above. Kept at one minute
-(decision of 2026-09-11).
+would give the exact state of jCustomer at each opening at the price above. Serving an expired
+list through an outage was built first and removed: a bounded grace period needed a second
+duration to explain, and a list that may be an hour old is worse than a message. Kept at one
+minute, one rule (decisions of 2026-09-11).
 
 ---
 
@@ -606,7 +610,8 @@ would give the exact state of jCustomer at each opening at the price above. Kept
 | 2026-09-11 | `fmdbmix:jExperienceProfileMapping` extends the marker without inheriting from it (the first draft wrote `> fmdbmix:profileMappableField` too) | Mappability is what a field *type* declares; the mapping is what an author configures. With the supertype, any node the mixin lands on — by API or import, a file field included — would pass every `isNodeType(marker)` check and the marker would stop meaning anything. `extends` alone is how every property mixin of the repository attaches to its target, and the Content Editor resolves it with `isNodeType`, so nothing needs the inheritance |
 | 2026-09-11 | Field shape from the value-kind mixins; `fmdb:checkbox` is the one type name read | No mixin tells the checkbox group (always a list) from a radio group; every other cardinality comes from the `multiple` property |
 | 2026-09-11 | `choicelist[resourceBundle]` for the write strategy | Labels for `alwaysSet` / `setIfMissing` come from the module's bundle instead of raw values in the dropdown |
-| 2026-09-11 | The profile-property catalog keeps its list one minute per site, shared by every author; an empty match and an unreachable jCustomer each yield one explanatory entry (HDU) | The editor evaluates the initializer at every opening of a mappable field, section unfolded or not; one minute keeps the remote round trip and jCustomer's hiccups out of the editor at the cost of a one-minute delay after a property is created — said in the tooltip. Removing the cache was weighed and declined: same worst case, no resilience. jCustomer ships no boolean property, so a blank dropdown had to explain itself |
+| 2026-09-11 | The profile-property catalog keeps its list one minute per site, shared by every author; an empty match and an unreachable jCustomer each yield one explanatory entry, pre-selected (HDU) | The editor evaluates the initializer at every opening of a mappable field, section unfolded or not; one minute keeps the remote round trip out of the editor at the cost of a one-minute delay after a property is created — said in the tooltip. Removing the cache was weighed and declined: same worst case. jCustomer ships no boolean property, so a blank dropdown had to explain itself |
+| 2026-09-11 | One duration: an expired list is never served, a failed read past the minute gives the message (HDU) | The first design served the previous list through any outage; a bounded grace period would have needed a second duration to explain, and a list that may be an hour old misleads an author more than a message. What the author sees is under a minute old, or says why it is not |
 | 2026-09-11 | Local stack: the test Jahia joins the jCustomer compose network with a fixed address, jExperience 4.2.1 is installed by jar upload | jCustomer trusts privileged calls by IP; the artifact is only on Nexus' internal group, so `installModule mvn:` is a silent no-op on the test container (kit: `~/Jahia/modules/Formidable/jexperience/README.md`) |
 
 ## Open questions

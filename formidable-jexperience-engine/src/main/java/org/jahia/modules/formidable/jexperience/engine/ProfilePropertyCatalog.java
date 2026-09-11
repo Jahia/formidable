@@ -29,11 +29,12 @@ import java.util.function.Supplier;
  * node. The Content Editor evaluates the choicelist initializer each time a mappable field is
  * opened or created, whether or not the jExperience section is unfolded, so without this memory
  * every field opening would carry a jCustomer round trip (10-17 ms next door, 50-200 ms across
- * a network). A failed refresh serves the previous list when there is one, so a jCustomer
- * hiccup never blanks a dropdown; a first read with jCustomer unreachable reports the schema
- * unavailable, which the initializer turns into a message. A property created in jExperience
- * shows at the first opening after the minute — the property's tooltip says so. Details and the
- * decision: docs/architecture/jexperience-integration.md, "The profile-property catalog".
+ * a network). One duration rules everything: a list is served while it is less than a minute
+ * old; past that, the next opening reads jCustomer again, and a read that fails reports the
+ * schema unavailable — the initializer turns it into a message — rather than serving a list
+ * that may no longer be true. A property created in jExperience shows at the first opening after
+ * the minute; the property's tooltip says so. Details and the decision:
+ * docs/architecture/jexperience-integration.md, "The profile-property catalog".
  */
 @Component(service = ProfilePropertyCatalog.class, immediate = true)
 public class ProfilePropertyCatalog {
@@ -74,7 +75,7 @@ public class ProfilePropertyCatalog {
         contextServerService.compareAndSet(service, null);
     }
 
-    /** The mappable profile properties of the site, sorted by label. */
+    /** The mappable profile properties of the site, sorted by label, less than a minute old. */
     public List<ProfilePropertyDescriptor> profileProperties(String siteKey) throws ProfilePropertiesUnavailableException {
         Objects.requireNonNull(siteKey, "siteKey");
         Entry cached = cache.get(siteKey);
@@ -87,10 +88,8 @@ public class ProfilePropertyCatalog {
             cache.put(siteKey, new Entry(fresh, now.plus(TIME_TO_LIVE)));
             return fresh;
         } catch (ProfilePropertiesUnavailableException e) {
-            if (cached != null) {
-                log.warn("[ProfilePropertyCatalog] Serving the previous profile properties of site '{}': {}", siteKey, e.getMessage());
-                return cached.properties();
-            }
+            // an expired list is not served: what the author sees is under a minute old, or a message
+            cache.remove(siteKey);
             throw e;
         }
     }

@@ -65,15 +65,20 @@ class ProfilePropertyCatalogTest {
     }
 
     @Test
-    void servesThePreviousListWhenARefreshFails() throws Exception {
-        // Verifies that a jCustomer hiccup after a successful read never blanks the dropdown.
+    void anExpiredListIsNotServedWhenTheRefreshFails() throws Exception {
+        // Verifies the single-duration rule: past the minute, a failed read reports the schema
+        // unavailable instead of serving a list that may no longer be true — and forgets it, so a
+        // later success starts a fresh minute.
         ContextServerService service = serviceAnswering(type("a", "A", "string"));
         AtomicReference<Instant> now = new AtomicReference<>(Instant.EPOCH);
         ProfilePropertyCatalog catalog = new ProfilePropertyCatalog(service, now::get);
-        List<ProfilePropertyDescriptor> first = catalog.profileProperties("site");
+        catalog.profileProperties("site");
         when(service.executeGetRequest(any(), any(), any(), any(), any())).thenThrow(new IOException("connection refused"));
         now.set(Instant.EPOCH.plus(ProfilePropertyCatalog.TIME_TO_LIVE).plusSeconds(1));
-        assertEquals(first, catalog.profileProperties("site"));
+        assertThrows(ProfilePropertiesUnavailableException.class, () -> catalog.profileProperties("site"));
+        // within the minute, the list is still served without a call
+        now.set(Instant.EPOCH.plus(ProfilePropertyCatalog.TIME_TO_LIVE).minusSeconds(1));
+        assertThrows(ProfilePropertiesUnavailableException.class, () -> catalog.profileProperties("site"));
     }
 
     @Test
