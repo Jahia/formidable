@@ -7,8 +7,6 @@ import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.osgi.service.component.annotations.ReferencePolicy;
 import org.osgi.service.component.annotations.ReferencePolicyOption;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -41,8 +39,6 @@ public class ProfilePropertyCatalog {
 
     static final String PROPERTY_TYPES_PATH = "/cxs/profiles/properties/targets/profiles";
     static final Duration TIME_TO_LIVE = Duration.ofMinutes(1);
-
-    private static final Logger log = LoggerFactory.getLogger(ProfilePropertyCatalog.class);
 
     private record Entry(List<ProfilePropertyDescriptor> properties, Instant expires) {
     }
