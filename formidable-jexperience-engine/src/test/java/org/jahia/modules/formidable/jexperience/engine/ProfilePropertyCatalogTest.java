@@ -33,7 +33,7 @@ class ProfilePropertyCatalogTest {
     private static ContextServerService serviceAnswering(PropertyType... types) throws IOException {
         ContextServerService service = mock(ContextServerService.class);
         when(service.isAvailable("site")).thenReturn(true);
-        when(service.executeGetRequest(eq("site"), eq(ProfilePropertyCatalog.PROPERTY_TYPES_PATH), isNull(), isNull(), eq(PropertyType[].class)))
+        when(service.executeGetRequest(eq("site"), eq(ProfilePropertyCatalog.PROPERTY_TYPES_ENDPOINT), isNull(), isNull(), eq(PropertyType[].class)))
                 .thenReturn(types);
         return service;
     }

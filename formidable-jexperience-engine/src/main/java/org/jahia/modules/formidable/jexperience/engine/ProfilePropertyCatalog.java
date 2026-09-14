@@ -37,7 +37,7 @@ import java.util.function.Supplier;
 @Component(service = ProfilePropertyCatalog.class, immediate = true)
 public class ProfilePropertyCatalog {
 
-    static final String PROPERTY_TYPES_PATH = "/cxs/profiles/properties/targets/profiles";
+    static final String PROPERTY_TYPES_ENDPOINT = "/cxs/profiles/properties/targets/profiles";
     static final Duration TIME_TO_LIVE = Duration.ofMinutes(1);
 
     private record Entry(List<ProfilePropertyDescriptor> properties, Instant expires) {
@@ -104,7 +104,7 @@ public class ProfilePropertyCatalog {
             throw new ProfilePropertiesUnavailableException("jCustomer is not available for site '" + siteKey + "'");
         }
         try {
-            PropertyType[] types = service.executeGetRequest(siteKey, PROPERTY_TYPES_PATH, null, null, PropertyType[].class);
+            PropertyType[] types = service.executeGetRequest(siteKey, PROPERTY_TYPES_ENDPOINT, null, null, PropertyType[].class);
             if (types == null) {
                 return List.of();
             }
