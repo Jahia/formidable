@@ -36,7 +36,7 @@ If the action belongs to another Jahia module:
   `fmdbmix:formAction` and the module fails to register its definitions:
   - Java module: `<jahia-depends>formidable-engine</jahia-depends>` in the pom's
     `<properties>`
-  - JS module: `"module-dependencies": "default,formidable-engine=0.4"` in the
+  - JS module: `"module-dependencies": "default,formidable-engine=0.5"` in the
     package.json `jahia` section (pin the version, as `formidable-extended-inputs` does)
 
 If the action belongs to this repository, the same rules apply, except the node type and handler live directly in `formidable-engine`.
