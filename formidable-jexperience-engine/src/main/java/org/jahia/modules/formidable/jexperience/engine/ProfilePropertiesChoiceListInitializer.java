@@ -47,9 +47,11 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
     static final String DEFAULT_PROPERTY = "defaultProperty";
     /**
      * The value property the Content Editor shows under an entry's label in the open list (jcontent,
-     * SingleSelect). jcontent hands it to i18next as if it were a key: a colon would be read as a
-     * namespace separator and a dot as a key separator, and a miss returns only what follows them —
-     * so the sentence carries neither (pinned by ResourceBundlesTest).
+     * SingleSelect). jcontent hands it to i18next's {@code t()} as if it were a key, whose default
+     * separators are {@code :} (namespace) and {@code .} (key path). Whether jcontent's i18next then
+     * truncates a plain sentence at those characters has NOT been observed; by precaution the kept
+     * sentence carries neither (ResourceBundlesTest). Only this message travels as a description:
+     * the "none" and "unavailable" messages are entry labels, rendered verbatim, and keep their colon.
      */
     static final String DESCRIPTION_PROPERTY = "description";
 
