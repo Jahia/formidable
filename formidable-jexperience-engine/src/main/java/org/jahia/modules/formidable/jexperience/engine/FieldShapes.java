@@ -57,14 +57,28 @@ public final class FieldShapes {
     }
 
     /**
+     * A choice count computed only when a rule needs it — the checkbox's: counting may resolve an
+     * options source, a repository query for a content-sourced field, which must not be paid by
+     * every mappable field the editor opens.
+     */
+    @FunctionalInterface
+    public interface ChoiceCount {
+        OptionalInt get() throws RepositoryException;
+
+        static ChoiceCount of(OptionalInt count) {
+            return () -> count;
+        }
+    }
+
+    /**
      * The shape of an existing field node; empty when the field is not mappable.
      *
      * @param pendingMultiple the "multiple" toggle as the editor holds it unsaved, when it re-asks
      *                        the list for that change; empty on a plain opening, where the stored
      *                        value applies
-     * @param choiceCount     how many choices a choice field offers, when known
+     * @param choiceCount     how many choices a choice field offers, asked only for a checkbox
      */
-    public static Optional<FieldShape> infer(JCRNodeWrapper node, Optional<Boolean> pendingMultiple, OptionalInt choiceCount) throws RepositoryException {
+    public static Optional<FieldShape> infer(JCRNodeWrapper node, Optional<Boolean> pendingMultiple, ChoiceCount choiceCount) throws RepositoryException {
         // JCR reads throw RepositoryException, which a predicate cannot: read the node once, up front
         Set<String> types = new HashSet<>();
         for (String type : RELEVANT_TYPES) {
@@ -84,11 +98,11 @@ public final class FieldShapes {
      * toggle as the editor holds it (false until the author switches it on), and the choices typed
      * so far.
      */
-    public static Optional<FieldShape> infer(NodeType type, boolean multiple, OptionalInt choiceCount) {
+    public static Optional<FieldShape> infer(NodeType type, boolean multiple, ChoiceCount choiceCount) throws RepositoryException {
         return infer(type::isNodeType, name -> MULTIPLE_PROPERTY.equals(name) && multiple, choiceCount);
     }
 
-    static Optional<FieldShape> infer(Predicate<String> isNodeType, Predicate<String> flag, OptionalInt choiceCount) {
+    static Optional<FieldShape> infer(Predicate<String> isNodeType, Predicate<String> flag, ChoiceCount choiceCount) throws RepositoryException {
         if (!isNodeType.test(MAPPABLE_MARKER) || isNodeType.test(FILE_FIELD)) {
             return Optional.empty();
         }
@@ -97,7 +111,8 @@ public final class FieldShapes {
             return Optional.of(new FieldShape(EMAIL, flag.test(MULTIPLE_PROPERTY)));
         }
         if (isNodeType.test(CHOICE_FIELD)) {
-            boolean multivalued = isNodeType.test(CHECKBOX_TYPE) ? isAGroup(choiceCount) : flag.test(MULTIPLE_PROPERTY);
+            // the count is asked here only: the other choice fields never need it
+            boolean multivalued = isNodeType.test(CHECKBOX_TYPE) ? isAGroup(choiceCount.get()) : flag.test(MULTIPLE_PROPERTY);
             return Optional.of(new FieldShape(STRING, multivalued));
         }
         if (isNodeType.test(NUMBER_FIELD)) {

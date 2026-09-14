@@ -361,4 +361,17 @@ class ProfilePropertiesChoiceListInitializerTest {
                 ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, sourced,
                 ProfilePropertiesChoiceListInitializer.OPTIONS_PROPERTY, List.of("a", "b", "c")))));
     }
+
+    @Test
+    void theChoiceCountIsAskedForCheckboxesOnly() throws Exception {
+        // Verifies the laziness the review asked for: a text field or a select never reaches the engine's
+        // resolver (a sourced select would pay a repository query for a count its rule never reads).
+        ChoiceOptionsResolver resolver = counting(OptionalInt.of(1));
+        ProfilePropertiesChoiceListInitializer initializer = new ProfilePropertiesChoiceListInitializer(catalogOver(CATALOG), resolver);
+        listed(initializer, context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, fieldNode(null, null, FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD)));
+        listed(initializer, context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, fieldNode(null, true, FieldShapes.MAPPABLE_MARKER, FieldShapes.CHOICE_FIELD)));
+        verify(resolver, never()).countChoices(any(), any());
+        listed(initializer, context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, checkbox()));
+        verify(resolver).countChoices(any(), any());
+    }
 }

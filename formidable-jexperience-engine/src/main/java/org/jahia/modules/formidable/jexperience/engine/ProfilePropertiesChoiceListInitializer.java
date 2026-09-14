@@ -142,17 +142,18 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
     private Optional<FieldShape> shapeOf(Map<String, Object> context) throws RepositoryException {
         Optional<Boolean> pendingMultiple = pendingMultiple(context);
         if (context.get(CONTEXT_NODE) instanceof JCRNodeWrapper node) {
-            return FieldShapes.infer(node, pendingMultiple, choiceCountOf(context, node));
+            return FieldShapes.infer(node, pendingMultiple, () -> choiceCountOf(context, node));
         }
         // a field being created: its type is known, its properties only as the editor holds them
         if (context.get(CONTEXT_TYPE) instanceof NodeType type) {
-            return FieldShapes.infer(type, pendingMultiple.orElse(false), choiceCountOf(context, null));
+            return FieldShapes.infer(type, pendingMultiple.orElse(false), () -> choiceCountOf(context, null));
         }
         return Optional.empty();
     }
 
     /**
-     * How many choices the field offers, for the checkbox rule: the manual options the editor holds
+     * How many choices the field offers, for the checkbox rule — and asked for a checkbox only, since
+     * a sourced field's count may cost a repository query: the manual options the editor holds
      * unsaved when it re-asks the list (a change of {@code options} or {@code optionsMode}), else
      * the stored state counted as the view counts it, through the engine. A switch to a sourced
      * mode that is not saved yet leaves the count unknown — a group — until the save resolves it.
