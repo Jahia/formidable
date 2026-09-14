@@ -67,8 +67,8 @@ class DefinitionsCndTest {
 
     @Test
     void theFormMixinInheritsTheSwitchLessMarkerAndExtendsTheForm() throws Exception {
-        // Verifies the clause that removes the fieldset's enable switch (jcontent drops it only for a
-        // jmix:templateMixin) and the one that attaches the identifier to fmdb:form.
+        // Verifies the clause that removes the fieldset's enable switch, which jcontent drops only for a
+        // template mixin, and the clause that attaches the identifier to the form type.
         List<String> lines = cnd();
         assertTrue(lines.stream().anyMatch(line -> line.strip().startsWith("<jmix = 'http://www.jahia.org/jahia/mix/1.0'>")), "the jmix namespace is declared");
         List<String> mixin = declarationOf(lines, FormIdentifier.FORM_MIXIN);
