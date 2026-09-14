@@ -1,0 +1,145 @@
+package org.jahia.modules.formidable.jexperience.engine;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+/**
+ * The jCustomer rule that copies a form's mapped fields into the visitor profile, built as the
+ * JSON jCustomer stores — a map, so that the sync can compare it with what jCustomer holds and
+ * post only a change. Same shape as the rules jExperience's Form mappings screen writes: one
+ * {@code formEventCondition} on the form's identifier, a whole-site source condition, one
+ * {@code setPropertyAction} per mapped field whose value parameter follows the property's type
+ * (docs/architecture/jexperience-integration.md, "The mapping rule").
+ */
+public final class MappingRule {
+
+    public static final String ID_PREFIX = "formidable-form-mapping_";
+    public static final String SYSTEM_TAG = "formMappingRule";
+    static final String DESCRIPTION = "Formidable auto mapping";
+    static final String VALUE_PREFIX = "eventProperty::flattenedProperties(fields)(";
+    static final String PROPERTY_PREFIX = "properties(";
+    static final int PRIORITY = -1;
+
+    /** The parameter of {@code setPropertyAction} that carries the value, by profile-property type — the four jCustomer 3 offers. */
+    public enum ValueKind {
+        STRING("setPropertyValue"),
+        INTEGER("setPropertyValueInteger"),
+        BOOLEAN("setPropertyValueBoolean"),
+        MULTIPLE("setPropertyValueMultiple");
+
+        final String parameter;
+
+        ValueKind(String parameter) {
+            this.parameter = parameter;
+        }
+
+        /**
+         * jExperience's own rule: a multivalued property takes the list parameter whatever its type;
+         * integers and booleans their typed parameter; everything else — string, email, date, float —
+         * the plain value, as a string the profile schema then converts.
+         */
+        public static ValueKind of(String valueTypeId, boolean multivalued) {
+            if (multivalued) {
+                return MULTIPLE;
+            }
+            String type = valueTypeId == null ? "" : valueTypeId.toLowerCase(Locale.ROOT);
+            return switch (type) {
+                case "integer", "long" -> INTEGER;
+                case "boolean" -> BOOLEAN;
+                default -> STRING;
+            };
+        }
+    }
+
+    /**
+     * One mapped field.
+     *
+     * @param fieldName    the input's name, the key of the event's {@code fields}
+     * @param propertyName the profile property id
+     * @param strategy     {@code alwaysSet} or {@code setIfMissing}
+     * @param kind         which value parameter the action uses
+     */
+    public record FieldMapping(String fieldName, String propertyName, String strategy, ValueKind kind) {
+    }
+
+    /** What the published form says: its site, identity, title and mapped fields. */
+    public record FormMapping(String siteKey, String formUuid, String formName, List<FieldMapping> fields) {
+    }
+
+    private MappingRule() {
+    }
+
+    /** The rule id: site and form UUID, so a renamed form keeps its rule. */
+    public static String idOf(String siteKey, String formUuid) {
+        return ID_PREFIX + siteKey + "_" + formUuid;
+    }
+
+    /** The rule as jCustomer stores it; actions ordered by field name so two builds compare. */
+    public static Map<String, Object> build(FormMapping mapping) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("id", idOf(mapping.siteKey(), mapping.formUuid()));
+        metadata.put("name", mapping.formName());
+        metadata.put("description", DESCRIPTION);
+        metadata.put("scope", mapping.siteKey());
+        metadata.put("systemTags", List.of(SYSTEM_TAG));
+
+        Map<String, Object> formCondition = condition("formEventCondition", Map.of("formId", FormIdentifier.of(mapping.formUuid())));
+        Map<String, Object> siteCondition = condition("sourceEventPropertyCondition", Map.of("scope", mapping.siteKey()));
+        Map<String, Object> anySource = condition("booleanCondition", ordered("operator", "or", "subConditions", List.of(siteCondition)));
+        Map<String, Object> condition = condition("booleanCondition", ordered("operator", "and", "subConditions", List.of(formCondition, anySource)));
+
+        List<Map<String, Object>> actions = new ArrayList<>();
+        mapping.fields().stream()
+                .sorted(Comparator.comparing(FieldMapping::fieldName))
+                .forEach(field -> actions.add(action(field)));
+
+        Map<String, Object> rule = new LinkedHashMap<>();
+        rule.put("metadata", metadata);
+        rule.put("priority", PRIORITY);
+        rule.put("condition", condition);
+        rule.put("actions", actions);
+        return rule;
+    }
+
+    private static Map<String, Object> action(FieldMapping field) {
+        Map<String, Object> parameters = new LinkedHashMap<>();
+        parameters.put("setPropertyName", PROPERTY_PREFIX + field.propertyName() + ")");
+        parameters.put("setPropertyStrategy", field.strategy());
+        parameters.put(field.kind().parameter, VALUE_PREFIX + field.fieldName() + ")");
+        return ordered("type", "setPropertyAction", "parameterValues", parameters);
+    }
+
+    private static Map<String, Object> condition(String type, Map<String, Object> parameters) {
+        return ordered("type", type, "parameterValues", parameters);
+    }
+
+    private static Map<String, Object> ordered(String key1, Object value1, String key2, Object value2) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put(key1, value1);
+        map.put(key2, value2);
+        return map;
+    }
+
+    /**
+     * The parts of a rule this module owns, for the comparison with a stored one: jCustomer adds
+     * fields of its own on read (item type, version, enabled…) that must not count as a change.
+     */
+    @SuppressWarnings("unchecked")
+    public static Map<String, Object> owned(Map<String, Object> rule) {
+        Map<String, Object> owned = new LinkedHashMap<>();
+        Map<String, Object> metadata = rule.get("metadata") instanceof Map<?, ?> m ? (Map<String, Object>) m : Map.of();
+        Map<String, Object> ownedMetadata = new LinkedHashMap<>();
+        for (String key : List.of("id", "name", "description", "scope", "systemTags")) {
+            ownedMetadata.put(key, metadata.get(key));
+        }
+        owned.put("metadata", ownedMetadata);
+        owned.put("priority", rule.get("priority") instanceof Number n ? n.intValue() : null);
+        owned.put("condition", rule.get("condition"));
+        owned.put("actions", rule.get("actions"));
+        return owned;
+    }
+}
