@@ -99,7 +99,6 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
     }
 
     List<ChoiceListValue> choices(FieldShape shape, String siteKey, Locale locale, Optional<String> stored) {
-        List<ChoiceListValue> offered;
         try {
             List<ChoiceListValue> compatible = catalog.profileProperties(siteKey).stream()
                     .filter(property -> shape.accepts(property.valueTypeId(), property.multivalued()))

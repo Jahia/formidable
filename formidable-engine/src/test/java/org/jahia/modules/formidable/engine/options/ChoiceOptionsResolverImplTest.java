@@ -56,7 +56,7 @@ class ChoiceOptionsResolverImplTest {
         FormidableOptionsSourceService sources = mock(FormidableOptionsSourceService.class);
         ManualOptionsDisplayService display = mock(ManualOptionsDisplayService.class);
         JCRNodeWrapper field = choiceField("a", "b");
-        when(display.forDisplay(eq(field), eq("fr"))).thenReturn(new String[]{"a", "b", "c"});
+        when(display.forDisplay(field, "fr")).thenReturn(new String[]{"a", "b", "c"});
         assertEquals(OptionalInt.of(3), new ChoiceOptionsResolverImpl(sources, display).countChoices(field, "fr"));
     }
 
