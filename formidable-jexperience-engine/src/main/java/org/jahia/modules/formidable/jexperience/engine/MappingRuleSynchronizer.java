@@ -202,12 +202,12 @@ public class MappingRuleSynchronizer {
                     try {
                         return reader.read(session, form, form.getDisplayableName());
                     } catch (ProfilePropertiesUnavailableException e) {
-                        throw new UnavailableSchema(e);
+                        throw new UnavailableSchemaException(e);
                     }
                 }));
             } catch (ItemNotFoundException e) {
                 // not published in this language: a live session bound to a locale hides the node
-            } catch (UnavailableSchema e) {
+            } catch (UnavailableSchemaException e) {
                 throw e.cause;
             }
         }
@@ -216,10 +216,11 @@ public class MappingRuleSynchronizer {
     }
 
     /** Carries the checked exception through the JCR callback, which only lets RepositoryException out. */
-    private static final class UnavailableSchema extends RuntimeException {
+    private static final class UnavailableSchemaException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
         private final transient ProfilePropertiesUnavailableException cause;
 
-        UnavailableSchema(ProfilePropertiesUnavailableException cause) {
+        UnavailableSchemaException(ProfilePropertiesUnavailableException cause) {
             super(cause);
             this.cause = cause;
         }

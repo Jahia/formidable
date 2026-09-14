@@ -67,8 +67,8 @@ class MappingRuleTest {
         stored.put("itemId", MappingRule.idOf("mysite", FORM_UUID));
         stored.put("itemType", "rule");
         stored.put("version", 3);
-        Map<String, Object> storedMetadata = new HashMap<>((Map<?, ?>) built.get("metadata")).entrySet().stream()
-                .collect(HashMap::new, (m, e) -> m.put((String) e.getKey(), e.getValue()), HashMap::putAll);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> storedMetadata = new HashMap<>((Map<String, Object>) built.get("metadata"));
         storedMetadata.put("enabled", true);
         storedMetadata.put("readOnly", false);
         stored.put("metadata", storedMetadata);
