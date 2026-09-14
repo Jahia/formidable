@@ -62,19 +62,15 @@ class ProfilePropertiesChoiceListInitializerTest {
     }
 
     @Test
-    void theCurrentMappingIsKeptWhenTheListNoLongerCarriesIt() throws Exception {
-        // Verifies that a property gone from jCustomer's schema stays offered, first and flagged, so the
-        // Content Editor does not reset the stored value on the next save.
-        ProfilePropertiesChoiceListInitializer initializer = new ProfilePropertiesChoiceListInitializer(catalogOver(CATALOG)) {
-            @Override
-            String keptMessage(Locale locale) {
-                return "(kept)";
-            }
-        };
-        List<ChoiceListValue> choices = initializer.choices(new FieldShape(Set.of("string"), false), "site", Locale.ENGLISH, Optional.of("nickname"));
-        assertEquals(List.of("nickname", "firstName"), values(choices));
-        assertEquals("nickname (kept)", choices.get(0).getDisplayName());
-        // a mapping the list still carries is not duplicated
+    void aStoredMappingTheAvailableListLacksIsNotOffered() throws Exception {
+        // Verifies that the list is the truth when jCustomer answers: a stored mapping it does not carry —
+        // a property gone from the schema, or one whose cardinality no longer fits the field — is not
+        // offered, so the Content Editor resets it instead of showing a mapping that would never apply.
+        ProfilePropertiesChoiceListInitializer initializer = initializerOver(CATALOG);
+        assertEquals(List.of("firstName"), values(initializer.choices(new FieldShape(Set.of("string"), false), "site", Locale.ENGLISH, Optional.of("nickname"))));
+        // a checkbox that became a group: its single-valued mapping is gone from the multivalued list
+        assertEquals(List.of("interests"), values(initializer.choices(new FieldShape(Set.of("string"), true), "site", Locale.ENGLISH, Optional.of("firstName"))));
+        // a mapping the list carries is simply listed, once
         assertEquals(List.of("firstName"), values(initializer.choices(new FieldShape(Set.of("string"), false), "site", Locale.ENGLISH, Optional.of("firstName"))));
     }
 
@@ -199,17 +195,26 @@ class ProfilePropertiesChoiceListInitializerTest {
     @Test
     void anExistingFieldIsShapedAndSitedFromTheContextNode() throws Exception {
         // Verifies the edit path end to end: the field's node gives its kinds, its site key and its stored
-        // mapping — kept first when the list lacks it.
-        ProfilePropertiesChoiceListInitializer initializer = new ProfilePropertiesChoiceListInitializer(catalogOver(CATALOG)) {
+        // mapping — read from the property and kept, flagged, when jCustomer cannot be asked.
+        ProfilePropertyCatalog down = mock(ProfilePropertyCatalog.class);
+        when(down.profileProperties("site")).thenThrow(new ProfilePropertiesUnavailableException("down"));
+        ProfilePropertiesChoiceListInitializer initializer = new ProfilePropertiesChoiceListInitializer(down) {
             @Override
             String keptMessage(Locale locale) {
                 return "(kept)";
             }
+
+            @Override
+            String unavailableMessage(Locale locale) {
+                return "unreachable";
+            }
         };
         JCRNodeWrapper text = fieldNode("nickname", null, FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD);
         List<ChoiceListValue> choices = listed(initializer, context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, text));
-        assertEquals(List.of("nickname", "firstName"), values(choices));
+        assertEquals(List.of("nickname", ""), values(choices));
         assertEquals("nickname (kept)", choices.get(0).getDisplayName());
+        // with the list available, the site and kinds come from the same node and the list is what it is
+        assertEquals(List.of("firstName"), values(listed(initializerOver(CATALOG), context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, text))));
     }
 
     @Test

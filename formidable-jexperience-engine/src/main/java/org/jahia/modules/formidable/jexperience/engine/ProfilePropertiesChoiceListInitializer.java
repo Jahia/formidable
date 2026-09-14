@@ -25,10 +25,12 @@ import java.util.OptionalInt;
  * The {@code formidableJExperienceProfileProperties} choicelist: the profile properties a
  * field can be mapped to, filtered on the field's shape so that the dropdown and the mapping
  * rule never disagree. An unreachable jCustomer, or a schema with no property of the field's
- * kind, yields one explanatory entry with an empty value, never a blank or broken dropdown. The
- * field's current mapping is always offered, whatever the list says: the Content Editor resets a
- * value it cannot find among the constraints, and a save during a jCustomer outage must not wipe
- * a mapping the author never touched.
+ * kind, yields one explanatory entry with an empty value, never a blank or broken dropdown. When
+ * the list is available it is the truth: a stored mapping it does not carry — a property whose
+ * cardinality or type no longer fits the field, or one gone from the schema — is not offered, so
+ * the Content Editor resets it and the next save clears a mapping that would never be applied.
+ * Only when jCustomer cannot be asked is the stored mapping kept in the list, flagged: the outage
+ * says nothing about the mapping, and a save during it must not wipe one the author never touched.
  */
 @Component(service = ModuleChoiceListInitializer.class, immediate = true)
 public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListInitializer {
@@ -100,18 +102,18 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
                     .filter(property -> shape.accepts(property.valueTypeId(), property.multivalued()))
                     .map(property -> new ChoiceListValue(property.label(), property.name()))
                     .toList();
-            offered = compatible.isEmpty() ? messageEntry(noneMessage(locale)) : compatible;
+            // the list is the truth: a stored mapping it lacks is invalid and the editor resets it
+            return compatible.isEmpty() ? messageEntry(noneMessage(locale)) : compatible;
         } catch (ProfilePropertiesUnavailableException e) {
             log.warn("[ProfilePropertiesChoiceListInitializer] No profile properties for site '{}': {}", siteKey, e.getMessage());
-            offered = messageEntry(unavailableMessage(locale));
+            return withStored(messageEntry(unavailableMessage(locale)), stored, locale);
         }
-        return withStored(offered, stored, locale);
     }
 
     /**
-     * The current mapping of the field, first in the list when the list does not carry it: the
-     * Content Editor resets a value it cannot find among the constraints, and neither a jCustomer
-     * outage nor a property gone from the schema may wipe a mapping behind the author's back. The
+     * During an outage only: the current mapping of the field, first in the list. The Content
+     * Editor resets a value it cannot find among the constraints, and a jCustomer that cannot be
+     * asked says nothing about the mapping, so it must not be wiped behind the author's back. The
      * entry says the mapping is kept as is; the author keeps it or picks another entry.
      */
     private List<ChoiceListValue> withStored(List<ChoiceListValue> offered, Optional<String> stored, Locale locale) {
