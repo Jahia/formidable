@@ -27,20 +27,32 @@ import java.util.function.Supplier;
  * node. The Content Editor evaluates the choicelist initializer each time a mappable field is
  * opened or created, whether or not the jExperience section is unfolded, so without this memory
  * every field opening would carry a jCustomer round trip (10-17 ms next door, 50-200 ms across
- * a network). One duration rules everything: a list is served while it is less than a minute
- * old; past that, the next opening reads jCustomer again, and a read that fails reports the
- * schema unavailable — the initializer turns it into a message — rather than serving a list
- * that may no longer be true. A property created in jExperience shows at the first opening after
- * the minute; the property's tooltip says so. Details and the decision:
- * docs/architecture/jexperience-integration.md, "The profile-property catalog".
+ * a network). One duration rules the list: it is served while it is less than a minute old;
+ * past that, the next opening reads jCustomer again, and a read that fails reports the schema
+ * unavailable — the initializer turns it into a message — rather than serving a list that may
+ * no longer be true. A property created in jExperience shows at the first opening after the
+ * minute; the property's tooltip says so.
+ *
+ * <p>A failed read is remembered too, for a few seconds: jExperience's admin client waits up to
+ * its configured timeout (30 s by default) on a hung jCustomer, and without that memory every
+ * opening of every mappable field by every author would start a fresh call and wait on it,
+ * while Jahia kept loading a jCustomer already in trouble. The entry then reads "unavailable,
+ * ask again after {@link #UNAVAILABLE_TIME_TO_LIVE}"; a recovery shows within the tooltip's
+ * minute. Details and the decision: docs/architecture/jexperience-integration.md, "The
+ * profile-property catalog".
  */
 @Component(service = ProfilePropertyCatalog.class, immediate = true)
 public class ProfilePropertyCatalog {
 
     static final String PROPERTY_TYPES_ENDPOINT = "/cxs/profiles/properties/targets/profiles";
     static final Duration TIME_TO_LIVE = Duration.ofMinutes(1);
+    static final Duration UNAVAILABLE_TIME_TO_LIVE = Duration.ofSeconds(10);
 
-    private record Entry(List<ProfilePropertyDescriptor> properties, Instant expires) {
+    /** A site's entry: the list, or — with a null list — the memory of a failed read and its reason. */
+    private record Entry(List<ProfilePropertyDescriptor> properties, String failure, Instant expires) {
+        boolean unavailable() {
+            return properties == null;
+        }
     }
 
     private final Map<String, Entry> cache = new ConcurrentHashMap<>();
@@ -77,20 +89,25 @@ public class ProfilePropertyCatalog {
         Entry cached = cache.get(siteKey);
         Instant now = clock.get();
         if (cached != null && cached.expires().isAfter(now)) {
+            if (cached.unavailable()) {
+                throw new ProfilePropertiesUnavailableException(cached.failure()
+                        + " (remembered for " + UNAVAILABLE_TIME_TO_LIVE.toSeconds() + " s before jCustomer is asked again)");
+            }
             return cached.properties();
         }
         try {
             List<ProfilePropertyDescriptor> fresh = fetch(siteKey);
-            cache.put(siteKey, new Entry(fresh, now.plus(TIME_TO_LIVE)));
+            cache.put(siteKey, new Entry(fresh, null, now.plus(TIME_TO_LIVE)));
             return fresh;
         } catch (ProfilePropertiesUnavailableException e) {
-            // an expired list is not served: what the author sees is under a minute old, or a message
-            cache.remove(siteKey);
+            // an expired list is not served: what the author sees is under a minute old, or a message —
+            // and the failure is remembered a few seconds, so an outage is not paid at every field opening
+            cache.put(siteKey, new Entry(null, e.getMessage(), now.plus(UNAVAILABLE_TIME_TO_LIVE)));
             throw e;
         }
     }
 
-    /** Forgets every cached list — after a mapping was rejected for an unknown property, for instance. */
+    /** Forgets every cached list and every remembered failure — after a mapping was rejected for an unknown property, for instance. */
     public void invalidate() {
         cache.clear();
     }
@@ -106,6 +123,7 @@ public class ProfilePropertyCatalog {
         try {
             PropertyType[] types = service.executeGetRequest(siteKey, PROPERTY_TYPES_ENDPOINT, null, null, PropertyType[].class);
             if (types == null) {
+                // a bodyless answer is an empty schema, not an outage
                 return List.of();
             }
             return Arrays.stream(types)

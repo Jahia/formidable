@@ -1,9 +1,8 @@
 package org.jahia.modules.formidable.jexperience.engine;
 
 import org.jahia.services.content.JCRNodeWrapper;
-import org.jahia.services.content.nodetypes.ExtendedNodeType;
-
 import javax.jcr.RepositoryException;
+import javax.jcr.nodetype.NodeType;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -13,8 +12,11 @@ import java.util.function.Predicate;
 /**
  * Infers a field's {@link FieldShape} from the semantic mixins the engine defines, never from
  * primary type names: a third-party field that opts into {@code fmdbmix:numberField} is treated
- * like the built-in number field. The table is the one of the integration design
- * (docs/architecture/jexperience-integration.md, "Type compatibility in the dropdown").
+ * like the built-in number field. Cardinality follows the {@code multiple} boolean property —
+ * the convention of the built-in select and email inputs, which a third-party type adopts by
+ * declaring a property of that name; without it a field is single-valued. The table is the one
+ * of the integration design (docs/architecture/jexperience-integration.md, "Type compatibility
+ * in the dropdown").
  */
 public final class FieldShapes {
 
@@ -30,7 +32,12 @@ public final class FieldShapes {
     static final String COLOR_FIELD = "fmdbmix:colorField";
     static final String TEXT_FIELD = "fmdbmix:textField";
 
-    /** The checkbox group is the one choice field with no "multiple" property: it always submits a list. */
+    /**
+     * The checkbox is the one choice field with no "multiple" property; it is classified as a
+     * group, a list, whatever its option count. The renderer draws one input for a single option,
+     * which then submits one value: a limit recorded in the design's compatibility table (the
+     * count is unknown at edit time for a sourced list).
+     */
     static final String CHECKBOX_TYPE = "fmdb:checkbox";
     static final String MULTIPLE_PROPERTY = "multiple";
 
@@ -46,8 +53,17 @@ public final class FieldShapes {
     private FieldShapes() {
     }
 
-    /** The shape of an existing field node; empty when the field is not mappable. */
+    /** The shape of an existing field node, cardinality as stored; empty when the field is not mappable. */
     public static Optional<FieldShape> infer(JCRNodeWrapper node) throws RepositoryException {
+        boolean multiple = node.hasProperty(MULTIPLE_PROPERTY) && node.getProperty(MULTIPLE_PROPERTY).getBoolean();
+        return infer(node, multiple);
+    }
+
+    /**
+     * The shape of an existing field node whose "multiple" toggle the editor holds unsaved: the
+     * given value wins over the stored one.
+     */
+    public static Optional<FieldShape> infer(JCRNodeWrapper node, boolean multiple) throws RepositoryException {
         // JCR reads throw RepositoryException, which a predicate cannot: read the node once, up front
         Set<String> types = new HashSet<>();
         for (String type : RELEVANT_TYPES) {
@@ -55,17 +71,16 @@ public final class FieldShapes {
                 types.add(type);
             }
         }
-        boolean multiple = node.hasProperty(MULTIPLE_PROPERTY) && node.getProperty(MULTIPLE_PROPERTY).getBoolean();
         return infer(types::contains, name -> MULTIPLE_PROPERTY.equals(name) && multiple);
     }
 
     /**
-     * The shape of a field that does not exist yet (the editor creating it): only its type is
-     * known, so a field that becomes multi-valued through a property counts as single-valued
-     * until it is saved.
+     * The shape of a field that does not exist yet (the editor creating it): its type — the JCR
+     * interface Jahia's ExtendedNodeType implements, which is all the rule needs — and the
+     * "multiple" toggle as the editor holds it, false until the author switches it on.
      */
-    public static Optional<FieldShape> infer(ExtendedNodeType type) {
-        return infer(type::isNodeType, name -> false);
+    public static Optional<FieldShape> infer(NodeType type, boolean multiple) {
+        return infer(type::isNodeType, name -> MULTIPLE_PROPERTY.equals(name) && multiple);
     }
 
     static Optional<FieldShape> infer(Predicate<String> isNodeType, Predicate<String> flag) {

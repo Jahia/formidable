@@ -6,15 +6,18 @@ import org.jahia.modules.jexperience.admin.ContextServerService;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -39,6 +42,15 @@ class ProfilePropertyCatalogTest {
     }
 
     @Test
+    void theDurationsAreTheOnesTheDesignPromises() {
+        // Verifies the two constants the tooltip and the design quote: a one-minute list, a failure
+        // remembered for a few seconds — shorter than the minute, so a recovery shows within it.
+        assertEquals(Duration.ofMinutes(1), ProfilePropertyCatalog.TIME_TO_LIVE);
+        assertEquals(Duration.ofSeconds(10), ProfilePropertyCatalog.UNAVAILABLE_TIME_TO_LIVE);
+        assertTrue(ProfilePropertyCatalog.UNAVAILABLE_TIME_TO_LIVE.compareTo(ProfilePropertyCatalog.TIME_TO_LIVE) < 0);
+    }
+
+    @Test
     void listsFilteredPropertiesSortedByLabel() throws Exception {
         // Verifies the end-to-end shape of a fetch: filter applied, labels sorted case-insensitively.
         PropertyType hidden = type("h", "Hidden", "string");
@@ -50,7 +62,15 @@ class ProfilePropertyCatalogTest {
     }
 
     @Test
-    void cachesForFiveMinutesThenRefreshes() throws Exception {
+    void aBodylessAnswerIsAnEmptySchemaNotAnOutage() throws Exception {
+        // Verifies that a jCustomer answering without a body yields an empty list, which the initializer
+        // turns into the "no matching property" entry, not the "not connected" one.
+        ContextServerService service = serviceAnswering((PropertyType[]) null);
+        assertEquals(List.of(), new ProfilePropertyCatalog(service, () -> Instant.EPOCH).profileProperties("site"));
+    }
+
+    @Test
+    void cachesForAMinuteThenRefreshes() throws Exception {
         // Verifies that a second call within the time to live does not reach jCustomer, and a later one does.
         ContextServerService service = serviceAnswering(type("a", "A", "string"));
         AtomicReference<Instant> now = new AtomicReference<>(Instant.EPOCH);
@@ -66,19 +86,55 @@ class ProfilePropertyCatalogTest {
 
     @Test
     void anExpiredListIsNotServedWhenTheRefreshFails() throws Exception {
-        // Verifies the single-duration rule: past the minute, a failed read reports the schema
-        // unavailable instead of serving a list that may no longer be true — and forgets it, so a
-        // later success starts a fresh minute.
+        // Verifies the single-duration rule of the list: past the minute, a failed read reports the schema
+        // unavailable instead of serving a list that may no longer be true — and the failure is what is
+        // remembered, so the next opening within its memory gets the message without a call.
         ContextServerService service = serviceAnswering(type("a", "A", "string"));
         AtomicReference<Instant> now = new AtomicReference<>(Instant.EPOCH);
         ProfilePropertyCatalog catalog = new ProfilePropertyCatalog(service, now::get);
         catalog.profileProperties("site");
         when(service.executeGetRequest(any(), any(), any(), any(), any())).thenThrow(new IOException("connection refused"));
-        now.set(Instant.EPOCH.plus(ProfilePropertyCatalog.TIME_TO_LIVE).plusSeconds(1));
+        Instant failure = Instant.EPOCH.plus(ProfilePropertyCatalog.TIME_TO_LIVE).plusSeconds(1);
+        now.set(failure);
         assertThrows(ProfilePropertiesUnavailableException.class, () -> catalog.profileProperties("site"));
-        // within the minute, the list is still served without a call
-        now.set(Instant.EPOCH.plus(ProfilePropertyCatalog.TIME_TO_LIVE).minusSeconds(1));
+        // within the failure's memory: the message again, no call, and never the expired list
+        now.set(failure.plus(ProfilePropertyCatalog.UNAVAILABLE_TIME_TO_LIVE).minusSeconds(1));
         assertThrows(ProfilePropertiesUnavailableException.class, () -> catalog.profileProperties("site"));
+        verify(service, times(2)).executeGetRequest(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void aFailedReadIsRememberedAFewSecondsThenRetried() throws Exception {
+        // Verifies the failure memory: a hung or refusing jCustomer is asked once per memory span, not at
+        // every field opening; once the span is over, a recovered jCustomer serves the list again.
+        ContextServerService service = mock(ContextServerService.class);
+        when(service.isAvailable("site")).thenReturn(true);
+        when(service.executeGetRequest(any(), any(), any(), any(), any())).thenThrow(new IOException("timeout"));
+        AtomicReference<Instant> now = new AtomicReference<>(Instant.EPOCH);
+        ProfilePropertyCatalog catalog = new ProfilePropertyCatalog(service, now::get);
+        assertThrows(ProfilePropertiesUnavailableException.class, () -> catalog.profileProperties("site"));
+        now.set(Instant.EPOCH.plus(ProfilePropertyCatalog.UNAVAILABLE_TIME_TO_LIVE).minusSeconds(1));
+        ProfilePropertiesUnavailableException remembered = assertThrows(ProfilePropertiesUnavailableException.class, () -> catalog.profileProperties("site"));
+        assertTrue(remembered.getMessage().contains("remembered"), remembered.getMessage());
+        verify(service, times(1)).executeGetRequest(any(), any(), any(), any(), any());
+
+        doReturn(new PropertyType[]{type("a", "A", "string")}).when(service).executeGetRequest(any(), any(), any(), any(), any());
+        now.set(Instant.EPOCH.plus(ProfilePropertyCatalog.UNAVAILABLE_TIME_TO_LIVE).plusSeconds(1));
+        assertEquals(List.of("A (a)"), catalog.profileProperties("site").stream().map(ProfilePropertyDescriptor::label).toList());
+        verify(service, times(2)).executeGetRequest(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void invalidateForgetsARememberedFailureToo() throws Exception {
+        // Verifies that invalidate() drops the failure memory as well as the lists: the next read asks jCustomer.
+        ContextServerService service = mock(ContextServerService.class);
+        when(service.isAvailable("site")).thenReturn(true);
+        when(service.executeGetRequest(any(), any(), any(), any(), any())).thenThrow(new IOException("timeout"));
+        ProfilePropertyCatalog catalog = new ProfilePropertyCatalog(service, () -> Instant.EPOCH);
+        assertThrows(ProfilePropertiesUnavailableException.class, () -> catalog.profileProperties("site"));
+        catalog.invalidate();
+        assertThrows(ProfilePropertiesUnavailableException.class, () -> catalog.profileProperties("site"));
+        verify(service, times(2)).executeGetRequest(any(), any(), any(), any(), any());
     }
 
     @Test

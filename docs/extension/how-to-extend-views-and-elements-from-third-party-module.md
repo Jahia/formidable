@@ -441,7 +441,10 @@ One more marker is not a value kind: `fmdbmix:profileMappableField` says the fie
 jCustomer profile property. Declare it on every field whose value a profile could hold (never on a file
 field): when `formidable-jexperience-engine` is deployed, the field gets the **jExperience** section of
 the editor, with the profile properties matching its value kind and cardinality
-(`docs/architecture/jexperience-integration.md`).
+(`docs/architecture/jexperience-integration.md`). Cardinality follows a `multiple` boolean property, the
+convention of the built-in select and email inputs: declare one to be offered multivalued profile
+properties while it is on; without it your field is single-valued (the checkbox type is the one exception,
+read by name — always a group).
 
 ## Make your field a conditional-logic source
 

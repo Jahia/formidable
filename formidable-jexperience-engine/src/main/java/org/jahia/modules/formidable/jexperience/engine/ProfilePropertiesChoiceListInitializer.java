@@ -1,7 +1,6 @@
 package org.jahia.modules.formidable.jexperience.engine;
 
 import org.jahia.services.content.JCRNodeWrapper;
-import org.jahia.services.content.nodetypes.ExtendedNodeType;
 import org.jahia.services.content.nodetypes.ExtendedPropertyDefinition;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListValue;
 import org.jahia.services.content.nodetypes.initializers.ModuleChoiceListInitializer;
@@ -12,7 +11,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.jcr.RepositoryException;
+import javax.jcr.nodetype.NodeType;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -46,8 +47,6 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
     static final String CONTEXT_TYPE = "contextType";
 
     private static final Logger log = LoggerFactory.getLogger(ProfilePropertiesChoiceListInitializer.class);
-
-    private String registeredKey = KEY;
 
     @Reference
     private ProfilePropertyCatalog catalog;
@@ -130,14 +129,29 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
     }
 
     private static Optional<FieldShape> shapeOf(Map<String, Object> context) throws RepositoryException {
+        Optional<Boolean> pendingMultiple = pendingMultiple(context);
         if (context.get(CONTEXT_NODE) instanceof JCRNodeWrapper node) {
-            return FieldShapes.infer(node);
+            return pendingMultiple.isPresent() ? FieldShapes.infer(node, pendingMultiple.get()) : FieldShapes.infer(node);
         }
-        // a field being created: its type is known, not its properties
-        if (context.get(CONTEXT_TYPE) instanceof ExtendedNodeType type) {
-            return FieldShapes.infer(type);
+        // a field being created: its type is known, its properties only as the editor holds them
+        if (context.get(CONTEXT_TYPE) instanceof NodeType type) {
+            return FieldShapes.infer(type, pendingMultiple.orElse(false));
         }
         return Optional.empty();
+    }
+
+    /**
+     * The field's "multiple" toggle as the editor holds it, unsaved: the choicelist declares
+     * {@code dependentProperties='multiple'}, so when the author switches the toggle the Content
+     * Editor asks the list again with the new value in the context (jcontent sends a boolean, or an
+     * empty list for null). Absent from a plain opening, where the stored value applies.
+     */
+    static Optional<Boolean> pendingMultiple(Map<String, Object> context) {
+        Object value = context.get(FieldShapes.MULTIPLE_PROPERTY);
+        if (value instanceof Collection<?> values) {
+            value = values.isEmpty() ? null : values.iterator().next();
+        }
+        return value == null ? Optional.empty() : Optional.of(Boolean.parseBoolean(String.valueOf(value)));
     }
 
     /** The mapping the field already stores, if it is an existing field with one. */
@@ -172,11 +186,11 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
 
     @Override
     public void setKey(String key) {
-        this.registeredKey = key;
+        // Jahia injects the service key on registration; this initializer uses a fixed key, like the engine's
     }
 
     @Override
     public String getKey() {
-        return registeredKey;
+        return KEY;
     }
 }

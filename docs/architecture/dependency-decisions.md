@@ -69,6 +69,32 @@ This project uses two distinct dependency strategies in its Java modules:
   - keep the current package-level SPI isolation as the intermediate step
   - revisit the split only if Formidable gains multiple external consumers or if OSGi refresh cascades become an operational issue
 
+## `formidable-jexperience-engine`
+
+### Provided libraries
+
+- `org.jahia.modules:jexperience` 4.2.1 — compile-time API for `ContextServerService` and the Unomi
+  `PropertyType`; `provided`, every transitive excluded. The artifact is only on Nexus' internal
+  group, so the module pom declares that repository and the build needs the matching server
+  credentials (`.github/maven.settings.xml` in CI, a developer's own `settings.xml` locally).
+- `commons-lang:commons-lang` — referenced by the signatures of the JCR wrappers the unit tests mock,
+  never called directly.
+
+### Notes
+
+- OSGi imports: `org.jahia.modules.jexperience.admin;version="[4,5)"` (jExperience exports it at the
+  module version) and `org.apache.unomi.api;version="[3,4)"` (re-exported by jExperience at Unomi's
+  major), so a jExperience 4.x upgrade resolves without a rebuild.
+- `maven-dependency-plugin:analyze-only` with `failOnWarning`, as in the engine.
+- `jahia-depends`: `formidable-engine` (the marker mixin), `formidable-elements` (`fmdb:form`, which
+  `fmdbmix:jExperienceForm` extends) and `jexperience`.
+
+### OSGi SPI surface
+
+- **Nothing is exported.** No module consumes the listener, the catalog or the initializer, and an
+  exported package is a compatibility promise (see the engine's section above). The phase-2
+  `SubmissionResponseEnricher` gets its own `api` package when it lands.
+
 ## `jahia-test-module/formidable-test-module-templateset-jsp`
 
 ### Provided libraries

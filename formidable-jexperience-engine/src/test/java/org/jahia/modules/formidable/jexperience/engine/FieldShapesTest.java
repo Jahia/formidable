@@ -1,6 +1,10 @@
 package org.jahia.modules.formidable.jexperience.engine;
 
+import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.services.content.JCRPropertyWrapper;
 import org.junit.jupiter.api.Test;
+
+import javax.jcr.nodetype.NodeType;
 
 import java.util.Optional;
 import java.util.Set;
@@ -9,6 +13,8 @@ import java.util.function.Predicate;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class FieldShapesTest {
 
@@ -85,5 +91,53 @@ class FieldShapesTest {
         assertFalse(single.accepts("string", true));
         assertFalse(single.accepts("integer", false));
         assertFalse(single.accepts(null, false));
+    }
+
+    private static JCRNodeWrapper node(Boolean multiple, String... types) throws Exception {
+        JCRNodeWrapper node = mock(JCRNodeWrapper.class);
+        for (String type : types) {
+            when(node.isNodeType(type)).thenReturn(true);
+        }
+        if (multiple != null) {
+            JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
+            when(property.getBoolean()).thenReturn(multiple);
+            when(node.hasProperty(FieldShapes.MULTIPLE_PROPERTY)).thenReturn(true);
+            when(node.getProperty(FieldShapes.MULTIPLE_PROPERTY)).thenReturn(property);
+        }
+        return node;
+    }
+
+    @Test
+    void anExistingFieldIsReadFromItsNode() throws Exception {
+        // Verifies the runtime entry point on an existing node: the kinds come from isNodeType, the
+        // cardinality from the stored "multiple" property, and a node without the marker is not mappable.
+        JCRNodeWrapper multipleSelect = node(true, FieldShapes.MAPPABLE_MARKER, FieldShapes.CHOICE_FIELD);
+        assertEquals(Optional.of(new FieldShape(Set.of("string"), true)), FieldShapes.infer(multipleSelect));
+        JCRNodeWrapper text = node(null, FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD);
+        assertEquals(Optional.of(new FieldShape(Set.of("string"), false)), FieldShapes.infer(text));
+        assertTrue(FieldShapes.infer(node(null, FieldShapes.TEXT_FIELD)).isEmpty());
+    }
+
+    @Test
+    void theEditorsUnsavedMultipleToggleWinsOverTheStoredOne() throws Exception {
+        // Verifies the dependentProperties path: the value the author just switched, not yet saved, decides.
+        JCRNodeWrapper singleSelect = node(false, FieldShapes.MAPPABLE_MARKER, FieldShapes.CHOICE_FIELD);
+        assertTrue(FieldShapes.infer(singleSelect, true).orElseThrow().multivalued());
+        JCRNodeWrapper multipleSelect = node(true, FieldShapes.MAPPABLE_MARKER, FieldShapes.CHOICE_FIELD);
+        assertFalse(FieldShapes.infer(multipleSelect, false).orElseThrow().multivalued());
+    }
+
+    @Test
+    void aFieldBeingCreatedIsReadFromItsTypeAndTheEditorsToggle() {
+        // Verifies the runtime entry point on a type (create mode): single until the author switches
+        // "multiple" on, and never mappable without the marker.
+        NodeType email = mock(NodeType.class);
+        when(email.isNodeType(FieldShapes.MAPPABLE_MARKER)).thenReturn(true);
+        when(email.isNodeType(FieldShapes.EMAIL_FIELD)).thenReturn(true);
+        when(email.isNodeType(FieldShapes.TEXT_FIELD)).thenReturn(true);
+        assertEquals(Optional.of(new FieldShape(Set.of("email", "string"), false)), FieldShapes.infer(email, false));
+        assertEquals(Optional.of(new FieldShape(Set.of("email", "string"), true)), FieldShapes.infer(email, true));
+        NodeType plain = mock(NodeType.class);
+        assertTrue(FieldShapes.infer(plain, false).isEmpty());
     }
 }

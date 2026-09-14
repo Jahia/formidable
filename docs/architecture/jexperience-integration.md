@@ -1,9 +1,10 @@
 # jExperience Integration
 
-> **Status: design specification, not implemented yet.** First design dated 2026-09-09
-> (server-side event and prefill), **revised 2026-09-10 after Romain's review: everything the
-> visitor triggers runs in the browser, through jExperience's tracker**. The implementation lands
-> on the `feat/jexperience-integration` branch and this document is updated as each phase ships.
+> **Status: design specification; phase 1 shipped 2026-09-11 and reviewed 2026-09-14 (PR #324),
+> phases 2 to 4 to come — the roadmap at the end says what is shipped.** First design dated
+> 2026-09-09 (server-side event and prefill), **revised 2026-09-10 after Romain's review: everything
+> the visitor triggers runs in the browser, through jExperience's tracker**. The implementation
+> lands on the `feat/jexperience-integration` branch and this document is updated as each phase ships.
 > Targets: Formidable 0.5.x, jExperience 4.x (the OSGi ranges stay open to 3.4+), jCustomer 3.x.
 
 ## Overview
@@ -212,6 +213,12 @@ event, `formId` of the mapping rule, and what a marketer types in a goal.
   its series.
 - **Shown to the author.** The jExperience section of the form displays the identifier, copyable,
   because jExperience's goal editor asks for it as free text and offers no discovery of forms.
+- **Derived, never read back.** Every runtime use — the mapping rule, the event, the render
+  filter's config block — recomputes the identifier from the UUID; the stored property exists for
+  the author (and, later, for jExperience's pickers). That is why the start-up pass writes it in
+  the default workspace only, and why a copied form is re-stamped: the core copies the mixin and
+  its value onto a node with a new UUID, so the listener compares the stored value with the one
+  the node's own UUID gives and never trusts its presence.
 
 ---
 
@@ -418,13 +425,26 @@ key the rule builder picks, so the dropdown and the rule never disagree.
 | `booleanField` | extended consent, switch | `boolean` | single |
 | `dateField`, `datetimeLocalField` | date, datetime | `date` | single |
 | `colorField` | color | `string` | single |
-| `choiceField` | radio, select, checkbox | `string` (option values are strings) | single for radio and single select; multivalued for checkbox groups and multiple selects |
+| `choiceField` | radio, select, checkbox | `string` (option values are strings) | single for radio and single select; multivalued for checkboxes (always, see below) and multiple selects |
 | no kind mixin | hidden | `string` | single |
 | `fileField` | file | not mappable | — |
 
 - **Cardinality must match.** A multivalued property is offered only to a multi-valued field and
   vice versa. Relaxing single field → multivalued property, which jCustomer accepts, is a
   possible later refinement.
+- **Cardinality comes from the `multiple` property.** The built-in select and email inputs declare
+  a `multiple` boolean; a third-party type adopts the convention by declaring a property of that
+  name and is single-valued without it — the value-kind mixins themselves carry no cardinality.
+  The dropdown follows the toggle as the author holds it, unsaved: the choicelist declares
+  `dependentProperties='multiple'`, so the Content Editor asks the list again when the toggle
+  changes (jcontent re-queries a choicelist only for the properties its selector options name,
+  and ships the unsaved value in the initializer's context).
+- **The checkbox is always a group.** `fmdb:checkbox` is the one type name read: no mixin tells a
+  checkbox group from a radio group, and the checkbox declares no `multiple`. Known limit: with
+  exactly one option the renderer draws a single `<input type="checkbox">` that submits one value,
+  while the dropdown offers multivalued properties only — a one-option "I accept" checkbox cannot
+  be mapped to a single-valued property in phase 1. Classifying by option count would need the
+  count at edit time, which a sourced options list does not have; an open question below.
 - **Always removed**, whatever the type: properties flagged hidden, read-only or protected in
   their metadata, and those tagged `systemProfileProperties` or
   `hiddenFromFormMappingProperties`, the union of what the prototype, the Forms bridge and
@@ -491,13 +511,19 @@ formidable-jexperience-engine/src/main/resources/META-INF/jahia-content-editor-f
   is a React selector of its own.
 - **The form's identifier.** A read-only `formidable-jxp-<uuid>` on the form itself, since
   jExperience's goal editor asks for it as free text: `fmdbmix:jExperienceForm` extends `fmdb:form`
-  with `jExperienceIdentifier`, stamped by `FormIdentifierListener` when the form is created or
-  first edited after the module's arrival, shown in a **jExperience** section of the form
-  (`isAlwaysActivated` fieldset, `readOnly` field — `forms/fmdbmix_jExperienceForm.json`). No UI
-  bundle for one read-only value; the author selects and copies it. Every form the module finds
-  when it starts is stamped at once (the identifier derives from the UUID, so the pass is
-  idempotent and needs neither jExperience nor jCustomer): no author meets an empty read-only
-  field.
+  with `jExperienceIdentifier`, stamped by `FormIdentifierListener`, shown in a **jExperience**
+  section of the form (`forms/fmdbmix_jExperienceForm.json`: `isAlwaysActivated` fieldset,
+  `readOnly` field). The mixin inherits `jmix:templateMixin`, the one supertype the Content Editor
+  renders without an enable switch: a plain `extends` mixin keeps its toggle even when always
+  activated, and switching that toggle off would drop the mixin and the value behind the author's
+  back. No UI bundle for one read-only value; the author selects and copies it.
+- **When the identifier is written.** Every form under `/sites` the module finds when it starts
+  is stamped at once, one save per form — a form that cannot be saved is logged and skipped, the
+  others keep their identifier — and the pass needs neither jExperience nor jCustomer; afterwards
+  the listener stamps a form when it is created, copied, imported or edited. The pass writes the
+  default workspace only, since live never reads the property (see "The identifier"), so an
+  upgraded instance shows every form as *modified* in jContent once: the effect the
+  [upgrade notes](../administration/upgrade-notes.md) explain.
 
 ---
 
@@ -571,12 +597,18 @@ typically 50 to 200 ms, on every field opening of every author.
 
 **What the cache does.** `ProfilePropertyCatalog` is one OSGi service per Jahia node, so its memory
 is **shared by every author of the instance**, keyed by site: at most one jCustomer call per site
-per minute, however many people edit forms. A property created in jExperience therefore shows in
+per minute on the success path, however many people edit forms (an outage costs at most one call
+per site per ten seconds, see below). A property created in jExperience therefore shows in
 the dropdown at the first opening after the minute — the tooltip of the property field says so, in
 the author's words. **One duration rules everything**: a list is served while it is under a minute
 old; past that, the next opening reads jCustomer again, and a read that fails yields the
 "jExperience is not connected" entry instead of a list that may no longer be true (the stale entry
-is dropped, so a later success starts a fresh minute). What the minute buys is thus not CPU: it
+is dropped, so a later success starts a fresh minute). **A failure is remembered for ten seconds**:
+jExperience's admin client waits up to its configured timeout — 30 s by default — on a hung
+jCustomer, and without that memory every opening of every mappable field by every author would
+start a fresh call and wait on it while Jahia kept loading a jCustomer already in trouble; within
+the ten seconds the entry reads unavailable without a call, then jCustomer is asked again, so a
+recovery shows well within the tooltip's minute. What the minute buys is thus not CPU: it
 keeps the remote round trip out of every field opening and keeps authors from being a source of
 traffic on jCustomer's admin API. What it does not buy, by choice, is hiding an outage: an author
 opening a field while jCustomer is down reads the message.
@@ -608,7 +640,7 @@ minute, one rule (decisions of 2026-09-11).
 | 2026-09-10 | **`disableTrackedConditionsListeners` is honoured**, and never set by Formidable (HDU) | It is the integrator's page-level "no automatic form tracking", possibly the outcome of a refusal; Forms goes silent under it (its watch list is empty) and Formidable does the same. Setting it would silence every other module on the page |
 | 2026-09-10 | **Identifier `formidable-jxp-<uuid>`**, never equal to the DOM `<form id>`; `target.properties.name`/`path` for readability; shown in the editor (HDU) | The tracker attaches its own raw-fields listener to any `<form>` whose `id`/`name` matches a tracked `formId`: a distinct identifier is what makes the island the only sender, even once a marketer creates a goal. Unomi's `itemId` pattern allows it (51 chars, `[\w@.-]`); goals are typed by hand in jExperience, so the author must be able to copy it; dashboards keyed on an opaque id need the name as a label |
 | 2026-09-10 | `data-form-id` is not used as the opt-out | Forms' convention, honoured by the tracker's initial scan only and ignored by jExperience's observer of late forms |
-| 2026-09-11 | The form identifier is a read-only property stamped by a listener, not a custom selector | One read-only string does not justify a Module Federation bundle in the module; the Content Editor renders a `readOnly` field of the mixin; forms created before the module get it at their next save |
+| 2026-09-11 | The form identifier is a read-only property stamped by a listener, not a custom selector | One read-only string does not justify a Module Federation bundle in the module; the Content Editor renders a `readOnly` field of the mixin; every form under `/sites` is stamped when the module starts (decided later that day, dd05aa5), the listener covers creation, copy, import and edit |
 | 2026-09-11 | `fmdbmix:jExperienceProfileMapping` extends the marker without inheriting from it (the first draft wrote `> fmdbmix:profileMappableField` too) | Mappability is what a field *type* declares; the mapping is what an author configures. With the supertype, any node the mixin lands on — by API or import, a file field included — would pass every `isNodeType(marker)` check and the marker would stop meaning anything. `extends` alone is how every property mixin of the repository attaches to its target, and the Content Editor resolves it with `isNodeType`, so nothing needs the inheritance |
 | 2026-09-11 | Field shape from the value-kind mixins; `fmdb:checkbox` is the one type name read | No mixin tells the checkbox group (always a list) from a radio group; every other cardinality comes from the `multiple` property |
 | 2026-09-11 | `choicelist[resourceBundle]` for the write strategy | Labels for `alwaysSet` / `setIfMissing` come from the module's bundle instead of raw values in the dropdown |
@@ -616,6 +648,14 @@ minute, one rule (decisions of 2026-09-11).
 | 2026-09-11 | The field's stored mapping is always in the dropdown, flagged "kept", when the list lacks it | jcontent's single select resets a value absent from its constraints: without this, opening a mapped field while jCustomer is down (or after the property left the schema) and saving anything would wipe the mapping silently. The author keeps it or picks another entry, knowingly |
 | 2026-09-11 | One duration: an expired list is never served, a failed read past the minute gives the message (HDU) | The first design served the previous list through any outage; a bounded grace period would have needed a second duration to explain, and a list that may be an hour old misleads an author more than a message. What the author sees is under a minute old, or says why it is not |
 | 2026-09-11 | Local stack: the test Jahia joins the jCustomer compose network with a fixed address, jExperience 4.2.1 is installed by jar upload | jCustomer trusts privileged calls by IP; the artifact is only on Nexus' internal group, so `installModule mvn:` is a silent no-op on the test container (kit: `~/Jahia/modules/Formidable/jexperience/README.md`) |
+| 2026-09-14 | **A copied form is re-stamped**: the listener compares the stored identifier with the one the node's own UUID gives, never trusts its presence (review of PR #324) | The core's copy carries every mixin and property it does not forbid onto the new node, so a copy kept the source's identifier and two forms shared one jCustomer identity — indistinguishable in every goal, segment and dashboard, competing for the same mapping rule. Idempotence is kept: the right value means nothing to do |
+| 2026-09-14 | The start-up pass follows the engine's rules: `ISDESCENDANTNODE('/sites')`, one save per form with a `refresh(false)` on failure, observation scoped to `/sites` too | Module-bundled nodes under `/modules` belong to their module; one unsavable form must not lose the whole pass. The engine's helpers are package-private, the two rules are cheap to reproduce |
+| 2026-09-14 | The pass writes the **default workspace only**, documented in the upgrade notes and the listener's Lifecycle note | The identifier is derived from the UUID everywhere it is used at runtime, so live never reads the stored property; writing live would bring the UGC traps MigrationSessions exists for, for no reader. The one visible effect — every form flagged *modified* once — is what the upgrade page explains |
+| 2026-09-14 | **A failed read of the profile properties is remembered for ten seconds** | Only the success path honoured "one call per site per minute": a hung jCustomer (30 s admin timeout) was paid by every author at every field opening. Ten seconds keeps an outage to one call per site per span and shows a recovery well within the tooltip's minute; the entry stays one rule — "unavailable, ask again after N seconds" |
+| 2026-09-14 | Cardinality contract for third-party fields = a `multiple` boolean property (the select/email convention), written down; the choicelist declares `dependentProperties='multiple'` and reads the unsaved value from the context | The value-kind mixins carry no cardinality, so the convention is the contract phase 2's rule builder agrees with. Without the re-query an author switching **Multiple** on and mapping in the same session picked from the single-valued list and only saw the mismatch on reopening, as a "(kept)" entry that reads like an outage |
+| 2026-09-14 | The one-option checkbox is recorded as a known limit, not fixed | The renderer submits one value for a single option while the shape says list; the option count is unknown at edit time for a sourced list, so classifying by count is a design question (open questions), not a phase-1 fix |
+| 2026-09-14 | `fmdbmix:jExperienceForm` inherits `jmix:templateMixin` | `isAlwaysActivated` forces the fieldset on but keeps its enable switch; only a `jmix:templateMixin` fieldset loses it (jcontent `EditorFormServiceImpl`). Switching the toggle off dropped the mixin and the value, which the listener then restored: confusing UI plus a spurious write. The core marker has no runtime semantics (only the legacy GWT editor read it) |
+| 2026-09-14 | The bundle exports nothing; `analyze-only` with `failOnWarning`; `jahia-depends` names `formidable-elements` too | An exported implementation is a compatibility promise nobody asked for (`dependency-decisions.md`); the phase-2 SPI gets its own `api` package. `fmdbmix:jExperienceForm` extends `fmdb:form`, an elements type, and the declared dependencies must say so even though the node-type capability already carried the resolution |
 
 ## Open questions
 
@@ -628,13 +668,14 @@ minute, one rule (decisions of 2026-09-11).
 | Date profile properties: which `setPropertyAction` parameter Unomi 3 expects | dev | verify |
 | A local jCustomer for the dev loop and CI (docker compose jexperience + jcustomer + elasticsearch) — the phases' proofs are Cypress against it | dev | **dev loop done** 2026-09-11 (jCustomer 3.0.0 + jExperience 4.2.1 next to the test Jahia, kit on the developer's machine); the CI compose profile is still to add |
 | Upstream the generic profile-properties choicelist into jExperience | dev, jExperience team | proposal |
+| A one-option checkbox submits a scalar while its dropdown offers multivalued properties only: classify by inline option count (unknown for a sourced list), or leave the limit? | dev, HDU | open — phase 1 records the limit in the compatibility table |
 | If jExperience removes or reworks `trackedConditions`: replace the `getFormNamesToWatch()` line of `shouldCollect()` by whatever replaces it | dev | when it happens |
 
 ## Roadmap
 
 | Phase | Deliverable | Proof |
 |---|---|---|
-| 1 | Module skeleton recalibrated on jExperience 4.2.1 with open OSGi ranges, added to the root pom. Marker mixin in the engine and on the field types, editor section with the copyable identifier, ported choicelist initializer with cache, strategy and failure handling. FR bundle with escaped accents, prototype's harness file dropped | **Shipped 2026-09-11.** 23 JUnit tests (shape inference, property filter, catalog cache and failure paths, initializer, identifier); deployed on the test instance next to jExperience 4.2.1: the section lists 18 properties on a text field, the identifier is stamped on creation and on the first edit |
+| 1 | Module skeleton recalibrated on jExperience 4.2.1 with open OSGi ranges, added to the root pom. Marker mixin in the engine and on the field types, editor section with the copyable identifier, ported choicelist initializer with cache, strategy and failure handling. FR bundle with escaped accents, prototype's harness file dropped | **Shipped 2026-09-11, review fixes 2026-09-14 (PR #324).** 47 JUnit tests (shape inference on nodes and types, property filter, catalog cache, failure paths and failure memory, initializer through the editor's context, identifier, listener: copy re-derivation and per-form start-up pass); deployed on the test instance next to jExperience 4.2.1: the section lists 18 properties on a text field, every existing form is stamped at start, a copied form gets its own identifier |
 | 2 | Mapping rule sync: rule builder on `formidable-jxp-<uuid>`, publication listener, diff, delete on unpublish/removal, resync on availability | Golden JSON test; Cypress: publish a mapped form, read the rule through the proxy |
 | 3 | Engine `SubmissionResponseEnricher` SPI and the elements' `formidable:submitted` event; render filter (overrides push, config block, script); client script with `shouldCollect()` and the event | Pipeline unit tests; Cypress: submit with a profile cookie, the event and the profile read back through the proxy; the tracker attaches no listener to the form (the DOM id is not the identifier); a form referenced only by a goal sends; no send under `activateWem` off |
 | 4 | Prefill: text-like fields and hidden, from the context's profile properties | Cypress: live page with a profile cookie shows the value after `wemLoaded`; a second visitor does not; the page stays cached (same HTML for both) |
