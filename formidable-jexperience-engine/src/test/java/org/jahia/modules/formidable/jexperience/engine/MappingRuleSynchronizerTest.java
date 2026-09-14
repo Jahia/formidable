@@ -233,7 +233,7 @@ class MappingRuleSynchronizerTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void aPublicationsBurstsAreCoalescedIntoOneSynchronisation() throws Exception {
+    void aPublicationsBurstsAreCoalescedIntoOneSynchronisation() {
         // Verifies the wait the listener relies on: a second request for the same form cancels the first
         // and schedules a new one, and running the scheduled task performs the synchronisation.
         FakeStore store = new FakeStore();

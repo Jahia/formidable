@@ -28,6 +28,13 @@ public final class MappingRule {
     static final String PROPERTY_PREFIX = "properties(";
     static final int PRIORITY = -1;
 
+    // the keys of the rule JSON the build writes and the comparison reads
+    private static final String METADATA = "metadata";
+    private static final String SCOPE = "scope";
+    private static final String PRIORITY_KEY = "priority";
+    private static final String CONDITION = "condition";
+    private static final String ACTIONS = "actions";
+
     /** The parameter of {@code setPropertyAction} that carries the value, by profile-property type — the four jCustomer 3 offers. */
     public enum ValueKind {
         STRING("setPropertyValue"),
@@ -89,11 +96,11 @@ public final class MappingRule {
         metadata.put("id", idOf(mapping.siteKey(), mapping.formUuid()));
         metadata.put("name", mapping.formName());
         metadata.put("description", DESCRIPTION);
-        metadata.put("scope", mapping.siteKey());
+        metadata.put(SCOPE, mapping.siteKey());
         metadata.put("systemTags", List.of(SYSTEM_TAG));
 
         Map<String, Object> formCondition = condition("formEventCondition", Map.of("formId", FormIdentifier.of(mapping.formUuid())));
-        Map<String, Object> siteCondition = condition("sourceEventPropertyCondition", Map.of("scope", mapping.siteKey()));
+        Map<String, Object> siteCondition = condition("sourceEventPropertyCondition", Map.of(SCOPE, mapping.siteKey()));
         Map<String, Object> anySource = condition("booleanCondition", ordered("operator", "or", "subConditions", List.of(siteCondition)));
         Map<String, Object> condition = condition("booleanCondition", ordered("operator", "and", "subConditions", List.of(formCondition, anySource)));
 
@@ -103,10 +110,10 @@ public final class MappingRule {
                 .forEach(field -> actions.add(action(field)));
 
         Map<String, Object> rule = new LinkedHashMap<>();
-        rule.put("metadata", metadata);
-        rule.put("priority", PRIORITY);
-        rule.put("condition", condition);
-        rule.put("actions", actions);
+        rule.put(METADATA, metadata);
+        rule.put(PRIORITY_KEY, PRIORITY);
+        rule.put(CONDITION, condition);
+        rule.put(ACTIONS, actions);
         return rule;
     }
 
@@ -136,15 +143,15 @@ public final class MappingRule {
     @SuppressWarnings("unchecked")
     public static Map<String, Object> owned(Map<String, Object> rule) {
         Map<String, Object> owned = new LinkedHashMap<>();
-        Map<String, Object> metadata = rule.get("metadata") instanceof Map<?, ?> m ? (Map<String, Object>) m : Map.of();
+        Map<String, Object> metadata = rule.get(METADATA) instanceof Map<?, ?> m ? (Map<String, Object>) m : Map.of();
         Map<String, Object> ownedMetadata = new LinkedHashMap<>();
-        for (String key : List.of("id", "name", "description", "scope", "systemTags")) {
+        for (String key : List.of("id", "name", "description", SCOPE, "systemTags")) {
             ownedMetadata.put(key, metadata.get(key));
         }
-        owned.put("metadata", ownedMetadata);
-        owned.put("priority", rule.get("priority") instanceof Number n ? n.intValue() : null);
-        owned.put("condition", rule.get("condition"));
-        owned.put("actions", rule.get("actions"));
+        owned.put(METADATA, ownedMetadata);
+        owned.put(PRIORITY_KEY, rule.get(PRIORITY_KEY) instanceof Number n ? n.intValue() : null);
+        owned.put(CONDITION, rule.get(CONDITION));
+        owned.put(ACTIONS, rule.get(ACTIONS));
         return owned;
     }
 }
