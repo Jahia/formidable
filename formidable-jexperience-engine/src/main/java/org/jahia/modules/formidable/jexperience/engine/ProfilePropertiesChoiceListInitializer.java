@@ -45,7 +45,12 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
     static final String PROPERTY = "jExperienceProfileProperty";
     /** The value property the Content Editor reads to pre-select an entry (jcontent, registerChoiceList initValue). */
     static final String DEFAULT_PROPERTY = "defaultProperty";
-    /** The value property the Content Editor shows under an entry's label in the open list (jcontent, SingleSelect). */
+    /**
+     * The value property the Content Editor shows under an entry's label in the open list (jcontent,
+     * SingleSelect). jcontent hands it to i18next as if it were a key: a colon would be read as a
+     * namespace separator and a dot as a key separator, and a miss returns only what follows them —
+     * so the sentence carries neither (pinned by ResourceBundlesTest).
+     */
     static final String DESCRIPTION_PROPERTY = "description";
 
     // the keys jcontent's editor puts in the initializer context
@@ -225,7 +230,7 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
     }
 
     String keptMessage(Locale locale) {
-        return Messages.get(BUNDLE, KEPT_KEY, locale, "Current mapping, left unchanged: the visitor profile properties cannot be listed right now (jExperience is not connected)");
+        return Messages.get(BUNDLE, KEPT_KEY, locale, "Current mapping, left unchanged because the visitor profile properties cannot be listed right now (jExperience is not connected)");
     }
 
     String noneMessage(Locale locale) {
