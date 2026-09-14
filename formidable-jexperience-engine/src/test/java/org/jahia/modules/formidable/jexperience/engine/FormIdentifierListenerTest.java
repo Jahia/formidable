@@ -122,13 +122,16 @@ class FormIdentifierListenerTest {
         JCRNodeWrapper first = form(UUID_A, null, false);
         JCRNodeWrapper locked = form(UUID_B, null, false);
         when(locked.setProperty(eq(FormIdentifier.PROPERTY), anyString())).thenThrow(new RepositoryException("locked"));
+        JCRNodeWrapper alreadyStamped = form("4a1b2c3d-0000-4000-8000-000000000004", FormIdentifier.of("4a1b2c3d-0000-4000-8000-000000000004"), true);
         JCRNodeWrapper third = form("3f9c1d20-0000-4000-8000-000000000003", FormIdentifier.of(UUID_A), true);
 
-        int stamped = new FormIdentifierListener().stampAll(session, formsOf(first, locked, third));
+        int stamped = new FormIdentifierListener().stampAll(session, formsOf(first, locked, alreadyStamped, third));
 
+        // four forms: two stamped, one failed, one already right — the count says two, as the log line will
         assertEquals(2, stamped);
         verify(session, times(2)).save();
         verify(session).refresh(false);
+        verify(alreadyStamped, never()).setProperty(anyString(), anyString());
         verify(third).setProperty(FormIdentifier.PROPERTY, FormIdentifier.of("3f9c1d20-0000-4000-8000-000000000003"));
     }
 

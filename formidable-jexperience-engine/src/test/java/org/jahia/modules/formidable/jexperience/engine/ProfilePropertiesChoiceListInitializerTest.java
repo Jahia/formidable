@@ -16,7 +16,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -242,7 +241,11 @@ class ProfilePropertiesChoiceListInitializerTest {
                 ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, singleSelect, FieldShapes.MULTIPLE_PROPERTY, Boolean.TRUE))));
         assertEquals(List.of("interests"), values(listed(initializerOver(CATALOG), context(
                 ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, singleSelect, FieldShapes.MULTIPLE_PROPERTY, List.of("true")))));
-        // jcontent sends an empty list for a null value: the stored cardinality applies
+        // jcontent sends an empty list for a null value: the stored cardinality applies — told apart from
+        // "forced single-valued" on a node whose stored multiple is true
+        JCRNodeWrapper multipleSelect = fieldNode(null, true, FieldShapes.MAPPABLE_MARKER, FieldShapes.CHOICE_FIELD);
+        assertEquals(List.of("interests"), values(listed(initializerOver(CATALOG), context(
+                ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, multipleSelect, FieldShapes.MULTIPLE_PROPERTY, List.of()))));
         assertEquals(List.of("firstName"), values(listed(initializerOver(CATALOG), context(
                 ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, singleSelect, FieldShapes.MULTIPLE_PROPERTY, List.of()))));
 
@@ -264,6 +267,6 @@ class ProfilePropertiesChoiceListInitializerTest {
         ProfilePropertiesChoiceListInitializer initializer = new ProfilePropertiesChoiceListInitializer();
         initializer.setKey("somethingElse");
         assertEquals(ProfilePropertiesChoiceListInitializer.KEY, initializer.getKey());
-        assertTrue(ProfilePropertiesChoiceListInitializer.KEY.equals("formidableJExperienceProfileProperties"));
+        assertEquals("formidableJExperienceProfileProperties", ProfilePropertiesChoiceListInitializer.KEY);
     }
 }

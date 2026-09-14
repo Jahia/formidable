@@ -97,12 +97,13 @@ public class ProfilePropertyCatalog {
         }
         try {
             List<ProfilePropertyDescriptor> fresh = fetch(siteKey);
-            cache.put(siteKey, new Entry(fresh, null, now.plus(TIME_TO_LIVE)));
+            // the clock is read again: the call may have waited out the admin client's timeout (30 s by default)
+            cache.put(siteKey, new Entry(fresh, null, clock.get().plus(TIME_TO_LIVE)));
             return fresh;
         } catch (ProfilePropertiesUnavailableException e) {
             // an expired list is not served: what the author sees is under a minute old, or a message —
             // and the failure is remembered a few seconds, so an outage is not paid at every field opening
-            cache.put(siteKey, new Entry(null, e.getMessage(), now.plus(UNAVAILABLE_TIME_TO_LIVE)));
+            cache.put(siteKey, new Entry(null, e.getMessage(), clock.get().plus(UNAVAILABLE_TIME_TO_LIVE)));
             throw e;
         }
     }

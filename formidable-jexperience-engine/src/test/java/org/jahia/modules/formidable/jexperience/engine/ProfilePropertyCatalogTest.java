@@ -45,8 +45,8 @@ class ProfilePropertyCatalogTest {
     void theDurationsAreTheOnesTheDesignPromises() {
         // Verifies the two constants the tooltip and the design quote: a one-minute list, a failure
         // remembered for a few seconds — shorter than the minute, so a recovery shows within it.
-        assertEquals(Duration.ofMinutes(1), ProfilePropertyCatalog.TIME_TO_LIVE);
-        assertEquals(Duration.ofSeconds(10), ProfilePropertyCatalog.UNAVAILABLE_TIME_TO_LIVE);
+        assertEquals(60, ProfilePropertyCatalog.TIME_TO_LIVE.toSeconds());
+        assertEquals(10, ProfilePropertyCatalog.UNAVAILABLE_TIME_TO_LIVE.toSeconds());
         assertTrue(ProfilePropertyCatalog.UNAVAILABLE_TIME_TO_LIVE.compareTo(ProfilePropertyCatalog.TIME_TO_LIVE) < 0);
     }
 
@@ -122,6 +122,25 @@ class ProfilePropertyCatalogTest {
         now.set(Instant.EPOCH.plus(ProfilePropertyCatalog.UNAVAILABLE_TIME_TO_LIVE).plusSeconds(1));
         assertEquals(List.of("A (a)"), catalog.profileProperties("site").stream().map(ProfilePropertyDescriptor::label).toList());
         verify(service, times(2)).executeGetRequest(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void aFailureThatTookTheWholeTimeoutIsStillRemembered() throws Exception {
+        // Verifies that the memory is dated from the end of the call, not its start: a hung jCustomer makes
+        // the admin client wait out its timeout (30 s by default), and an entry dated from the start would be
+        // born expired — the next author would wait the timeout again, as before the memory existed.
+        ContextServerService service = mock(ContextServerService.class);
+        when(service.isAvailable("site")).thenReturn(true);
+        AtomicReference<Instant> now = new AtomicReference<>(Instant.EPOCH);
+        when(service.executeGetRequest(any(), any(), any(), any(), any())).thenAnswer(invocation -> {
+            now.set(now.get().plus(Duration.ofSeconds(30)));
+            throw new IOException("read timed out");
+        });
+        ProfilePropertyCatalog catalog = new ProfilePropertyCatalog(service, now::get);
+        assertThrows(ProfilePropertiesUnavailableException.class, () -> catalog.profileProperties("site"));
+        now.set(now.get().plusSeconds(1));
+        assertThrows(ProfilePropertiesUnavailableException.class, () -> catalog.profileProperties("site"));
+        verify(service, times(1)).executeGetRequest(any(), any(), any(), any(), any());
     }
 
     @Test
