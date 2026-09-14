@@ -39,18 +39,18 @@ public class FormMappingReader {
     }
 
     /**
-     * @param session  a live session
+     * @param session  a live session bound to the site's default language
      * @param form     the published form node
+     * @param siteKey  the form's site, the scope of the rule and of jCustomer's schema
+     * @param language the language the choices are counted in — the site's default, where option values live
      * @param formName the title to show in jExperience's Form mappings screen
      * @throws ProfilePropertiesUnavailableException when jCustomer's schema cannot be read — the
      *                                               caller retries later rather than writing a rule
      *                                               that ignores half the mappings
      */
-    public MappingRule.FormMapping read(JCRSessionWrapper session, JCRNodeWrapper form, String formName)
+    public MappingRule.FormMapping read(JCRSessionWrapper session, JCRNodeWrapper form, String siteKey, String language, String formName)
             throws RepositoryException, ProfilePropertiesUnavailableException {
-        String siteKey = form.getResolveSite().getSiteKey();
         List<ProfilePropertyDescriptor> schema = catalog.profileProperties(siteKey);
-        String language = form.getLanguage();
         List<MappingRule.FieldMapping> fields = new ArrayList<>();
         NodeIterator mapped = mappedFields(session, form);
         while (mapped.hasNext()) {
@@ -60,11 +60,18 @@ public class FormMappingReader {
         return new MappingRule.FormMapping(siteKey, form.getIdentifier(), formName, fields);
     }
 
+    /**
+     * The query of the mapped fields under a form. The path is a SQL2 string literal: a quote in it
+     * is doubled, the rule of {@code JCRContentUtils.sqlEncode} — applied here by hand because that
+     * class does not load outside a running Jahia, and this query has a unit test.
+     */
+    static String queryFor(String formPath) {
+        return "SELECT * FROM [" + MAPPING_MIXIN + "] WHERE ISDESCENDANTNODE('" + formPath.replace("'", "''") + "')";
+    }
+
     /** The fields under the form carrying the mapping mixin — a seam for the tests, which have no query engine. */
     NodeIterator mappedFields(JCRSessionWrapper session, JCRNodeWrapper form) throws RepositoryException {
-        return session.getWorkspace().getQueryManager()
-                .createQuery("SELECT * FROM [" + MAPPING_MIXIN + "] WHERE ISDESCENDANTNODE('" + form.getPath() + "')", Query.JCR_SQL2)
-                .execute().getNodes();
+        return session.getWorkspace().getQueryManager().createQuery(queryFor(form.getPath()), Query.JCR_SQL2).execute().getNodes();
     }
 
     Optional<MappingRule.FieldMapping> fieldMappingOf(JCRNodeWrapper field, List<ProfilePropertyDescriptor> schema, String language)
@@ -95,6 +102,6 @@ public class FormMappingReader {
     }
 
     private OptionalInt countChoices(JCRNodeWrapper field, String language) throws RepositoryException {
-        return optionsResolver.countChoices(field, language != null ? language : field.getResolveSite().getDefaultLanguage());
+        return language == null ? OptionalInt.empty() : optionsResolver.countChoices(field, language);
     }
 }

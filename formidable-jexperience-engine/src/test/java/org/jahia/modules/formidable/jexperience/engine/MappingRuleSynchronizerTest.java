@@ -26,32 +26,40 @@ class MappingRuleSynchronizerTest {
     /** An in-memory jCustomer, switchable to "down". */
     private static final class FakeStore implements MappingRuleSynchronizer.RuleStore {
         final Map<String, Map<String, Object>> rules = new HashMap<>();
+        final java.util.Set<String> failing = new java.util.HashSet<>();
         boolean down;
+        boolean connected = true;
         int saves;
         int deletes;
 
-        private void check() throws IOException {
-            if (down) {
+        private void check(String ruleId) throws IOException {
+            if (down || failing.contains(ruleId)) {
                 throw new IOException("connection refused");
             }
         }
 
         @Override
+        public boolean connected(String siteKey) {
+            return connected;
+        }
+
+        @Override
         public Optional<Map<String, Object>> fetch(String siteKey, String ruleId) throws IOException {
-            check();
+            check(ruleId);
             return Optional.ofNullable(rules.get(ruleId));
         }
 
         @Override
         public void save(String siteKey, Map<String, Object> rule) throws IOException {
-            check();
+            String ruleId = (String) ((Map<?, ?>) rule.get("metadata")).get("id");
+            check(ruleId);
             saves++;
-            rules.put((String) ((Map<?, ?>) rule.get("metadata")).get("id"), rule);
+            rules.put(ruleId, rule);
         }
 
         @Override
         public void delete(String siteKey, String ruleId) throws IOException {
-            check();
+            check(ruleId);
             deletes++;
             rules.remove(ruleId);
         }
@@ -143,20 +151,84 @@ class MappingRuleSynchronizerTest {
     }
 
     @Test
-    void aSuccessfulSynchronisationDrainsThePendingForms() {
-        // Verifies that the pending list is retried at the next successful synchronisation of any form, in
-        // order, and stops at the first form still unreachable.
+    void theRetryStopsAtTheFirstFormStillUnreachable() {
+        // Verifies the early return of the retry: with two forms pending and jCustomer still refusing the
+        // first, the second is not even attempted — one failing call per retry, not one per pending form.
         FakeStore store = new FakeStore();
         store.down = true;
         MappingRuleSynchronizer sync = new MappingRuleSynchronizer(store, (site, uuid) -> Optional.of(mapping(uuid, FIRST_NAME)), null);
         sync.sync(SITE, FORM);
         sync.sync(SITE, OTHER_FORM);
         assertEquals(2, sync.pending().size());
+
         store.down = false;
+        store.failing.add(MappingRule.idOf(SITE, FORM));
+        sync.retryPending();
+        assertEquals(0, store.saves, "the second form waits behind the first");
+        assertEquals(2, sync.pending().size());
+
+        store.failing.clear();
         sync.retryPending();
         assertEquals(2, store.saves);
         assertTrue(sync.pending().isEmpty());
-        assertFalse(store.rules.isEmpty());
+    }
+
+    @Test
+    void aSiteWithoutJExperienceIsLeftAlone() {
+        // Verifies the difference between "no configuration" and "outage": a site jExperience knows nothing
+        // about gets no rule, no error and no pending entry — whatever the listeners hand over for it.
+        FakeStore store = new FakeStore();
+        store.connected = false;
+        MappingRuleSynchronizer sync = new MappingRuleSynchronizer(store, (site, uuid) -> Optional.of(mapping(uuid, FIRST_NAME)), null);
+        sync.sync(SITE, FORM);
+        assertEquals(0, store.saves);
+        assertTrue(sync.pending().isEmpty());
+    }
+
+    @Test
+    void aFormThatCannotBeReadIsDroppedNotRetried() {
+        // Verifies that a repository error is not an outage: logged, and the form leaves the pending list.
+        FakeStore store = new FakeStore();
+        store.down = true;
+        MappingRuleSynchronizer sync = new MappingRuleSynchronizer(store, (site, uuid) -> Optional.of(mapping(uuid, FIRST_NAME)), null);
+        sync.sync(SITE, FORM);
+        assertEquals(Map.of(FORM, SITE), sync.pending());
+        store.down = false;
+        MappingRuleSynchronizer broken = new MappingRuleSynchronizer(store, (site, uuid) -> {
+            throw new javax.jcr.RepositoryException("invalid query");
+        }, null);
+        broken.sync(SITE, FORM);
+        assertTrue(broken.pending().isEmpty());
+        assertEquals(0, store.saves);
+    }
+
+    @Test
+    void theRetryLoopSurvivesAnUnexpectedError() {
+        // Verifies that an unchecked error in one retry neither escapes (the scheduler would drop every later
+        // retry) nor blocks: the form is dropped and the next one is handled.
+        FakeStore store = new FakeStore();
+        store.down = true;
+        MappingRuleSynchronizer sync = new MappingRuleSynchronizer(store, (site, uuid) -> {
+            if (FORM.equals(uuid) && !store.down) {
+                throw new IllegalStateException("outside a site");
+            }
+            return Optional.of(mapping(uuid, FIRST_NAME));
+        }, null);
+        sync.sync(SITE, FORM);
+        sync.sync(SITE, OTHER_FORM);
+        store.down = false;
+        sync.retryPending();
+        assertEquals(1, store.saves, "the other form is synchronised");
+        assertTrue(sync.pending().isEmpty(), "the failing form is dropped");
+    }
+
+    @Test
+    void jahiaLanguageCodesBecomeTheirLocale() {
+        // Verifies the converter Jahia itself uses: an underscore code with a country is a real locale, not
+        // the root one the BCP-47 parser would give.
+        assertEquals(new java.util.Locale("en", "US"), MappingRuleSynchronizer.localeOf("en_US"));
+        assertEquals(new java.util.Locale("fr"), MappingRuleSynchronizer.localeOf("fr"));
+        assertFalse(MappingRuleSynchronizer.localeOf("pt_BR").getCountry().isEmpty());
     }
 
     @Test

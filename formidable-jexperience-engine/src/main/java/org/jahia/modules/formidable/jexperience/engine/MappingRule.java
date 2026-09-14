@@ -10,9 +10,13 @@ import java.util.Map;
 /**
  * The jCustomer rule that copies a form's mapped fields into the visitor profile, built as the
  * JSON jCustomer stores — a map, so that the sync can compare it with what jCustomer holds and
- * post only a change. Same shape as the rules jExperience's Form mappings screen writes: one
- * {@code formEventCondition} on the form's identifier, a whole-site source condition, one
- * {@code setPropertyAction} per mapped field whose value parameter follows the property's type
+ * post only a change. The shape jExperience's Form mappings screen reads: metadata with the
+ * {@code formMappingRule} tag, priority -1, one {@code formEventCondition} on the form's
+ * identifier, {@code setPropertyAction}s with the screen's parameter names. Two deliberate
+ * differences from what that screen writes: the source condition is the whole site alone,
+ * where the screen always adds the page path of the form (a Formidable form is reusable content,
+ * placed on any page), and an integer property gets its typed value parameter only, where the
+ * screen writes the typed and the plain one side by side
  * (docs/architecture/jexperience-integration.md, "The mapping rule").
  */
 public final class MappingRule {
@@ -38,9 +42,10 @@ public final class MappingRule {
         }
 
         /**
-         * jExperience's own rule: a multivalued property takes the list parameter whatever its type;
-         * integers and booleans their typed parameter; everything else — string, email, date, float —
-         * the plain value, as a string the profile schema then converts.
+         * jExperience's own rule, as its screen and the Forms bridge apply it: a multivalued property
+         * takes the list parameter whatever its type; {@code integer} and {@code boolean} their typed
+         * parameter; everything else — string, email, date, long, float — the plain value, as a
+         * string the profile schema then converts.
          */
         public static ValueKind of(String valueTypeId, boolean multivalued) {
             if (multivalued) {
@@ -48,7 +53,7 @@ public final class MappingRule {
             }
             String type = valueTypeId == null ? "" : valueTypeId.toLowerCase(Locale.ROOT);
             return switch (type) {
-                case "integer", "long" -> INTEGER;
+                case "integer" -> INTEGER;
                 case "boolean" -> BOOLEAN;
                 default -> STRING;
             };

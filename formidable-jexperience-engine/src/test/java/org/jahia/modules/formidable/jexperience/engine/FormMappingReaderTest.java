@@ -3,7 +3,6 @@ package org.jahia.modules.formidable.jexperience.engine;
 import org.jahia.modules.formidable.engine.api.ChoiceOptionsResolver;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
-import org.jahia.services.content.decorator.JCRSiteNode;
 import org.junit.jupiter.api.Test;
 
 import javax.jcr.NodeIterator;
@@ -89,10 +88,6 @@ class FormMappingReaderTest {
         JCRNodeWrapper form = mock(JCRNodeWrapper.class);
         when(form.getPath()).thenReturn("/sites/mysite/contents/contact");
         when(form.getIdentifier()).thenReturn("form-uuid");
-        when(form.getLanguage()).thenReturn("en");
-        JCRSiteNode site = mock(JCRSiteNode.class);
-        when(site.getSiteKey()).thenReturn("mysite");
-        when(form.getResolveSite()).thenReturn(site);
 
         JCRNodeWrapper first = field("firstName", "firstName", null, FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD);
         JCRNodeWrapper second = field("age", "age", "setIfMissing", FieldShapes.MAPPABLE_MARKER, FieldShapes.NUMBER_FIELD);
@@ -106,7 +101,7 @@ class FormMappingReaderTest {
             }
         };
 
-        MappingRule.FormMapping mapping = reader.read(mock(JCRSessionWrapper.class), form, "Contact form");
+        MappingRule.FormMapping mapping = reader.read(mock(JCRSessionWrapper.class), form, "mysite", "en", "Contact form");
         assertEquals("mysite", mapping.siteKey());
         assertEquals("form-uuid", mapping.formUuid());
         assertEquals("Contact form", mapping.formName());
@@ -121,10 +116,17 @@ class FormMappingReaderTest {
         ProfilePropertyCatalog down = mock(ProfilePropertyCatalog.class);
         when(down.profileProperties("mysite")).thenThrow(new ProfilePropertiesUnavailableException("down"));
         JCRNodeWrapper form = mock(JCRNodeWrapper.class);
-        JCRSiteNode site = mock(JCRSiteNode.class);
-        when(site.getSiteKey()).thenReturn("mysite");
-        when(form.getResolveSite()).thenReturn(site);
         assertThrows(ProfilePropertiesUnavailableException.class,
-                () -> new FormMappingReader(down, counting(1)).read(mock(JCRSessionWrapper.class), form, "Contact form"));
+                () -> new FormMappingReader(down, counting(1)).read(mock(JCRSessionWrapper.class), form, "mysite", "en", "Contact form"));
+    }
+
+    @Test
+    void theQueryIsScopedToTheFormAndEncodesItsPath() {
+        // Verifies the one query the reader runs: every mapped field under the form (descendants, not
+        // children only), the path written as a SQL2 literal — a quote in it is doubled, not a break.
+        assertEquals("SELECT * FROM [fmdbmix:jExperienceProfileMapping] WHERE ISDESCENDANTNODE('/sites/mysite/contents/contact')",
+                FormMappingReader.queryFor("/sites/mysite/contents/contact"));
+        assertEquals("SELECT * FROM [fmdbmix:jExperienceProfileMapping] WHERE ISDESCENDANTNODE('/sites/mysite/contents/l''enquete')",
+                FormMappingReader.queryFor("/sites/mysite/contents/l'enquete"));
     }
 }

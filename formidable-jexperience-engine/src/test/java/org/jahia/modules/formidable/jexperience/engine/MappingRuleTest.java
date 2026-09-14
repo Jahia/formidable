@@ -50,7 +50,7 @@ class MappingRuleTest {
         assertEquals(MappingRule.ValueKind.MULTIPLE, MappingRule.ValueKind.of("string", true));
         assertEquals(MappingRule.ValueKind.MULTIPLE, MappingRule.ValueKind.of("integer", true));
         assertEquals(MappingRule.ValueKind.INTEGER, MappingRule.ValueKind.of("integer", false));
-        assertEquals(MappingRule.ValueKind.INTEGER, MappingRule.ValueKind.of("long", false));
+        assertEquals(MappingRule.ValueKind.STRING, MappingRule.ValueKind.of("long", false), "long is not integer for jExperience's screen either");
         assertEquals(MappingRule.ValueKind.BOOLEAN, MappingRule.ValueKind.of("boolean", false));
         assertEquals(MappingRule.ValueKind.STRING, MappingRule.ValueKind.of("string", false));
         assertEquals(MappingRule.ValueKind.STRING, MappingRule.ValueKind.of("email", false));
@@ -76,5 +76,15 @@ class MappingRuleTest {
 
         Map<String, Object> renamed = MappingRule.build(new MappingRule.FormMapping("mysite", FORM_UUID, "Renamed", contactForm().fields()));
         assertNotEquals(MappingRule.owned(built), MappingRule.owned(renamed));
+        // a rule edited on the jCustomer side — another priority, another condition, another action — reads as a change
+        Map<String, Object> reprioritised = new HashMap<>(built);
+        reprioritised.put("priority", 5);
+        assertNotEquals(MappingRule.owned(built), MappingRule.owned(reprioritised));
+        Map<String, Object> otherCondition = new HashMap<>(built);
+        otherCondition.put("condition", Map.of("type", "matchAllCondition", "parameterValues", Map.of()));
+        assertNotEquals(MappingRule.owned(built), MappingRule.owned(otherCondition));
+        Map<String, Object> fewerActions = new HashMap<>(built);
+        fewerActions.put("actions", List.of());
+        assertNotEquals(MappingRule.owned(built), MappingRule.owned(fewerActions));
     }
 }

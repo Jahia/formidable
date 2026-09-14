@@ -3,8 +3,9 @@ package org.jahia.modules.formidable.jexperience.engine;
 import org.jahia.modules.formidable.engine.api.ChoiceOptionsResolver;
 import org.jahia.modules.jexperience.admin.ContextServerService;
 import org.jahia.services.content.JCRNodeWrapper;
-import org.jahia.services.content.decorator.JCRSiteNode;
 import org.jahia.services.content.JCRTemplate;
+import org.jahia.services.content.decorator.JCRSiteNode;
+import org.jahia.utils.LanguageCodeConverters;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
@@ -18,9 +19,7 @@ import org.slf4j.LoggerFactory;
 import javax.jcr.ItemNotFoundException;
 import javax.jcr.RepositoryException;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -39,10 +38,11 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>A publication reaches the listener as several bursts of events — the form first, its fields
  * after — so a synchronisation asked by the listener waits {@link #COALESCE_SECONDS} and is
  * replaced by any newer request for the same form: the rule is built once, from the whole
- * publication. A jCustomer that cannot be asked — module absent, site not connected, request
- * failed — puts the form on a pending list, retried every minute, so a publication made during an
- * outage reaches jCustomer once it is back (docs/architecture/jexperience-integration.md,
- * "Publishing: keeping the mapping rule in sync").
+ * publication. A site with no jExperience configuration is left alone. A jCustomer that cannot be
+ * asked — module absent, connection down, request failed — puts the form on a pending list,
+ * retried every minute, so a publication made during an outage reaches jCustomer once it is
+ * back (docs/architecture/jexperience-integration.md, "Publishing: keeping the mapping rule in
+ * sync").
  */
 @Component(service = MappingRuleSynchronizer.class, immediate = true)
 public class MappingRuleSynchronizer {
@@ -56,6 +56,9 @@ public class MappingRuleSynchronizer {
 
     /** Where the rules live: jCustomer through jExperience's admin client, or a fake in the tests. */
     interface RuleStore {
+        /** Whether the site has a jExperience configuration at all — a site without one gets no rule and no retry. */
+        boolean connected(String siteKey);
+
         Optional<Map<String, Object>> fetch(String siteKey, String ruleId) throws IOException;
 
         void save(String siteKey, Map<String, Object> rule) throws IOException;
@@ -133,9 +136,19 @@ public class MappingRuleSynchronizer {
         }
     }
 
-    /** Brings jCustomer's rule for the form in line with live, now; a form absent from live loses its rule. */
+    /**
+     * Brings jCustomer's rule for the form in line with live, now; a form absent from live loses its
+     * rule. A site without jExperience is left alone; a jCustomer that cannot be asked leaves the
+     * form pending; a form that cannot be read is logged and dropped — not an outage, retrying
+     * would not help.
+     */
     public void sync(String siteKey, String formUuid) {
         String ruleId = MappingRule.idOf(siteKey, formUuid);
+        if (!store.connected(siteKey)) {
+            pending.remove(formUuid);
+            log.debug("[MappingRuleSynchronizer] Site '{}' has no jExperience configuration: rule '{}' not synchronised", siteKey, ruleId);
+            return;
+        }
         try {
             Optional<MappingRule.FormMapping> mapping = live.read(siteKey, formUuid);
             apply(siteKey, ruleId, mapping);
@@ -144,7 +157,8 @@ public class MappingRuleSynchronizer {
             pending.put(formUuid, siteKey);
             log.warn("[MappingRuleSynchronizer] Rule '{}' left pending, jCustomer cannot be asked: {}", ruleId, e.getMessage());
         } catch (RepositoryException e) {
-            log.error("[MappingRuleSynchronizer] Could not read form {} in live: {}", formUuid, e.getMessage(), e);
+            pending.remove(formUuid);
+            log.error("[MappingRuleSynchronizer] Could not read form {} in live, rule '{}' not synchronised: {}", formUuid, ruleId, e.getMessage(), e);
         }
     }
 
@@ -166,10 +180,20 @@ public class MappingRuleSynchronizer {
         log.info("[MappingRuleSynchronizer] {} rule '{}' with {} mapped field(s)", stored.isPresent() ? "Updated" : "Created", ruleId, mapping.get().fields().size());
     }
 
-    /** The forms whose last synchronisation found jCustomer unreachable, retried in order; stops at the first still unreachable. */
+    /**
+     * The forms whose last synchronisation found jCustomer unreachable, retried in order and
+     * stopping at the first still unreachable. Nothing may escape: the scheduler drops a task that
+     * throws, and with it every later retry — so an unexpected error drops the form instead.
+     */
     void retryPending() {
         for (Map.Entry<String, String> entry : new LinkedHashMap<>(pending).entrySet()) {
-            sync(entry.getValue(), entry.getKey());
+            try {
+                sync(entry.getValue(), entry.getKey());
+            } catch (RuntimeException e) {
+                pending.remove(entry.getKey());
+                log.error("[MappingRuleSynchronizer] Unexpected error retrying form {}, dropped from the pending list: {}", entry.getKey(), e.getMessage(), e);
+                continue;
+            }
             if (pending.containsKey(entry.getKey())) {
                 return;
             }
@@ -180,39 +204,42 @@ public class MappingRuleSynchronizer {
         return Map.copyOf(pending);
     }
 
+    /** Jahia's language codes are {@code Locale.toString()} forms ({@code en_US}): the BCP-47 parser would return the root locale. */
+    static Locale localeOf(String languageCode) {
+        return LanguageCodeConverters.languageCodeToLocale(languageCode);
+    }
+
     private Optional<MappingRule.FormMapping> readLive(String siteKey, String formUuid) throws RepositoryException, ProfilePropertiesUnavailableException {
         FormMappingReader reader = new FormMappingReader(catalog, optionsResolver);
         JCRTemplate template = JCRTemplate.getInstance();
-        // the site's languages, default first: where the option values live and the title jExperience's screen shows
-        List<String> languages = template.doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, null, session -> {
+        // the site's default language: where the option values live, and the title jExperience's screen shows
+        String language = template.doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, null, session -> {
             try {
                 JCRSiteNode site = session.getNodeByIdentifier(formUuid).getResolveSite();
-                List<String> ordered = new ArrayList<>();
-                ordered.add(site.getDefaultLanguage());
-                site.getLanguages().stream().filter(language -> !ordered.contains(language)).sorted().forEach(ordered::add);
-                return ordered;
+                return site == null ? null : site.getDefaultLanguage();
             } catch (ItemNotFoundException e) {
-                return List.of();
+                return null;
             }
         });
-        for (String language : languages) {
-            try {
-                return Optional.of(template.doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, Locale.forLanguageTag(language), session -> {
-                    JCRNodeWrapper form = session.getNodeByIdentifier(formUuid);
-                    try {
-                        return reader.read(session, form, form.getDisplayableName());
-                    } catch (ProfilePropertiesUnavailableException e) {
-                        throw new UnavailableSchemaException(e);
-                    }
-                }));
-            } catch (ItemNotFoundException e) {
-                // not published in this language: a live session bound to a locale hides the node
-            } catch (UnavailableSchemaException e) {
-                throw e.cause;
-            }
+        if (language == null) {
+            // not in live (unpublished, removed), or outside a site: no rule
+            return Optional.empty();
         }
-        // in live in no language: unpublished, or removed
-        return Optional.empty();
+        try {
+            return Optional.of(template.doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, localeOf(language), session -> {
+                JCRNodeWrapper form = session.getNodeByIdentifier(formUuid);
+                try {
+                    return reader.read(session, form, siteKey, language, form.getDisplayableName());
+                } catch (ProfilePropertiesUnavailableException e) {
+                    throw new UnavailableSchemaException(e);
+                }
+            }));
+        } catch (ItemNotFoundException e) {
+            // gone between the two reads: an unpublication in progress
+            return Optional.empty();
+        } catch (UnavailableSchemaException e) {
+            throw e.cause;
+        }
     }
 
     /** Carries the checked exception through the JCR callback, which only lets RepositoryException out. */
@@ -228,6 +255,13 @@ public class MappingRuleSynchronizer {
 
     /** jCustomer through jExperience's admin client, site-scoped like every call of the module. */
     private final class JExperienceRuleStore implements RuleStore {
+
+        @Override
+        public boolean connected(String siteKey) {
+            // no settings for the site → jExperience answers no status at all, as opposed to an offline one
+            ContextServerService service = contextServerService.get();
+            return service != null && service.getContextServerStatus(siteKey) != null;
+        }
 
         private ContextServerService service(String siteKey) throws IOException {
             ContextServerService service = contextServerService.get();
