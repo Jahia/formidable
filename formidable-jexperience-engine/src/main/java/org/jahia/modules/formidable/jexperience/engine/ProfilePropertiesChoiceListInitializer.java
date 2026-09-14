@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.jexperience.engine;
 
+import org.jahia.modules.formidable.engine.api.ChoiceOptionsResolver;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.nodetypes.ExtendedPropertyDefinition;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListValue;
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 /**
  * The {@code formidableJExperienceProfileProperties} choicelist: the profile properties a
@@ -45,17 +47,31 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
     static final String CONTEXT_NODE = "contextNode";
     static final String CONTEXT_PARENT = "contextParent";
     static final String CONTEXT_TYPE = "contextType";
+    // the choice-field properties the choicelist declares as dependentProperties, sent unsaved on a re-query
+    static final String OPTIONS_PROPERTY = "options";
+    static final String OPTIONS_MODE_PROPERTY = "optionsMode";
+    static final String MANUAL_MODE = "manual";
+    private static final List<String> SOURCED_OPTIONS_MIXINS = List.of("fmdbmix:sourcedOptions", "fmdbmix:categoryOptions", "fmdbmix:contentOptions");
 
     private static final Logger log = LoggerFactory.getLogger(ProfilePropertiesChoiceListInitializer.class);
 
     @Reference
     private ProfilePropertyCatalog catalog;
 
+    // the engine counts a field's choices as its views render them
+    @Reference
+    private ChoiceOptionsResolver optionsResolver;
+
     public ProfilePropertiesChoiceListInitializer() {
     }
 
     ProfilePropertiesChoiceListInitializer(ProfilePropertyCatalog catalog) {
+        this(catalog, (field, languageTag) -> OptionalInt.empty());
+    }
+
+    ProfilePropertiesChoiceListInitializer(ProfilePropertyCatalog catalog, ChoiceOptionsResolver optionsResolver) {
         this.catalog = catalog;
+        this.optionsResolver = optionsResolver;
     }
 
     @Override
@@ -128,16 +144,57 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
         return List.of(entry);
     }
 
-    private static Optional<FieldShape> shapeOf(Map<String, Object> context) throws RepositoryException {
+    private Optional<FieldShape> shapeOf(Map<String, Object> context) throws RepositoryException {
         Optional<Boolean> pendingMultiple = pendingMultiple(context);
         if (context.get(CONTEXT_NODE) instanceof JCRNodeWrapper node) {
-            return pendingMultiple.isPresent() ? FieldShapes.infer(node, pendingMultiple.get()) : FieldShapes.infer(node);
+            return FieldShapes.infer(node, pendingMultiple, choiceCountOf(context, node));
         }
         // a field being created: its type is known, its properties only as the editor holds them
         if (context.get(CONTEXT_TYPE) instanceof NodeType type) {
-            return FieldShapes.infer(type, pendingMultiple.orElse(false));
+            return FieldShapes.infer(type, pendingMultiple.orElse(false), choiceCountOf(context, null));
         }
         return Optional.empty();
+    }
+
+    /**
+     * How many choices the field offers, for the checkbox rule: the manual options the editor holds
+     * unsaved when it re-asks the list (a change of {@code options} or {@code optionsMode}), else
+     * the stored state counted as the view counts it, through the engine. A switch to a sourced
+     * mode that is not saved yet leaves the count unknown — a group — until the save resolves it.
+     */
+    OptionalInt choiceCountOf(Map<String, Object> context, JCRNodeWrapper node) throws RepositoryException {
+        Optional<String> pendingMode = pendingString(context, OPTIONS_MODE_PROPERTY);
+        boolean manual = pendingMode.isPresent() ? MANUAL_MODE.equals(pendingMode.get()) : node == null || !usesASource(node);
+        if (!manual) {
+            return node == null || pendingMode.isPresent() ? OptionalInt.empty() : countStored(node);
+        }
+        if (context.get(OPTIONS_PROPERTY) instanceof Collection<?> options) {
+            return OptionalInt.of((int) options.stream().filter(option -> option != null && !String.valueOf(option).isBlank()).count());
+        }
+        return node == null ? OptionalInt.empty() : countStored(node);
+    }
+
+    private OptionalInt countStored(JCRNodeWrapper node) throws RepositoryException {
+        String language = node.getLanguage();
+        return optionsResolver.countChoices(node, language != null ? language : node.getResolveSite().getDefaultLanguage());
+    }
+
+    private static boolean usesASource(JCRNodeWrapper node) throws RepositoryException {
+        for (String mixin : SOURCED_OPTIONS_MIXINS) {
+            if (node.isNodeType(mixin)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** A dependent property's unsaved value as jcontent sends it: a string, or a list holding one. */
+    private static Optional<String> pendingString(Map<String, Object> context, String key) {
+        Object value = context.get(key);
+        if (value instanceof Collection<?> values) {
+            value = values.isEmpty() ? null : values.iterator().next();
+        }
+        return value == null ? Optional.empty() : Optional.of(String.valueOf(value));
     }
 
     /**

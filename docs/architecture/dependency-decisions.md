@@ -42,10 +42,9 @@ This project uses two distinct dependency strategies in its Java modules:
 ### OSGi SPI surface
 
 - Only `org.jahia.modules.formidable.engine.api` is exported from the bundle.
-- That package is the public SPI for third-party action implementations and currently contains:
-  - `FormAction`
-  - `FormActionException`
-  - `SubmittedFile`
+- That package is the public SPI for third-party modules and currently contains:
+  - `FormAction`, `FormActionException`, `SubmittedFile` — the action SPI
+  - `ChoiceOptionsResolver` — the number of choices a choice field offers, counted as the views render it (manual list or options source); read by the jExperience integration for the checkbox's cardinality
 - All other `org.jahia.modules.formidable.engine.*` packages are internal implementation details with no compatibility promise.
 
 ### Technical debt: split SPI and runtime bundles
@@ -77,6 +76,8 @@ This project uses two distinct dependency strategies in its Java modules:
   `PropertyType`; `provided`, every transitive excluded. The artifact is only on Nexus' internal
   group, so the module pom declares that repository and the build needs the matching server
   credentials (`.github/maven.settings.xml` in CI, a developer's own `settings.xml` locally).
+- `org.jahia.modules:formidable-engine` — `provided`, for the exported `api` package only (`ChoiceOptionsResolver`);
+  imported as `org.jahia.modules.formidable.engine.api;version="[0.5,1)"`.
 - `commons-lang:commons-lang` — referenced by the signatures of the JCR wrappers the unit tests mock,
   never called directly.
 

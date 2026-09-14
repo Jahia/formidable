@@ -39,6 +39,13 @@
         </repository>
     </repositories>
     <dependencies>
+        <!-- The engine's exported api only: ChoiceOptionsResolver counts a field's choices as the view does. -->
+        <dependency>
+            <groupId>org.jahia.modules</groupId>
+            <artifactId>formidable-engine</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
         <dependency>
             <groupId>org.jahia.server</groupId>
             <artifactId>jahia-impl</artifactId>
@@ -124,6 +131,7 @@
                              Unomi API at Unomi's major (3.0.0): [4,5) is "any jExperience 4.x", [3,4) "any Unomi 3.x",
                              so a 4.x upgrade of jExperience resolves without a rebuild. -->
                         <Import-Package>
+                            org.jahia.modules.formidable.engine.api;version="[0.5,1)",
                             org.jahia.modules.jexperience.admin;version="[4,5)",
                             org.apache.unomi.api;version="[3,4)",
                             org.jahia.services.content,

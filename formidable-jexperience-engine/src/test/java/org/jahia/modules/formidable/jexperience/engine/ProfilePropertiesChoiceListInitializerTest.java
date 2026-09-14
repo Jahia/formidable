@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.jexperience.engine;
 
+import org.jahia.modules.formidable.engine.api.ChoiceOptionsResolver;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRPropertyWrapper;
 import org.jahia.services.content.decorator.JCRSiteNode;
@@ -13,10 +14,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class ProfilePropertiesChoiceListInitializerTest {
@@ -268,5 +273,84 @@ class ProfilePropertiesChoiceListInitializerTest {
         initializer.setKey("somethingElse");
         assertEquals(ProfilePropertiesChoiceListInitializer.KEY, initializer.getKey());
         assertEquals("formidableJExperienceProfileProperties", ProfilePropertiesChoiceListInitializer.KEY);
+    }
+
+    // ---- the checkbox: its shape follows its number of choices, as the view renders it ----
+
+    private static JCRNodeWrapper checkbox(String... sourceMixins) throws Exception {
+        JCRNodeWrapper node = fieldNode(null, null, FieldShapes.MAPPABLE_MARKER, FieldShapes.CHOICE_FIELD, FieldShapes.CHECKBOX_TYPE);
+        for (String mixin : sourceMixins) {
+            when(node.isNodeType(mixin)).thenReturn(true);
+        }
+        return node;
+    }
+
+    private static ChoiceOptionsResolver counting(OptionalInt count) throws Exception {
+        ChoiceOptionsResolver resolver = mock(ChoiceOptionsResolver.class);
+        when(resolver.countChoices(any(), any())).thenReturn(count);
+        return resolver;
+    }
+
+    @Test
+    void aStoredCheckboxIsCountedThroughTheEngine() throws Exception {
+        // Verifies the plain opening of a checkbox: the engine counts its choices as the view does — one
+        // choice offers single-valued strings, several offer the multivalued ones, no count means a group.
+        JCRNodeWrapper checkbox = checkbox();
+        assertEquals(List.of("firstName"), values(listed(new ProfilePropertiesChoiceListInitializer(catalogOver(CATALOG), counting(OptionalInt.of(1))),
+                context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, checkbox))));
+        assertEquals(List.of("interests"), values(listed(new ProfilePropertiesChoiceListInitializer(catalogOver(CATALOG), counting(OptionalInt.of(3))),
+                context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, checkbox))));
+        assertEquals(List.of("interests"), values(listed(new ProfilePropertiesChoiceListInitializer(catalogOver(CATALOG), counting(OptionalInt.empty())),
+                context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, checkbox))));
+    }
+
+    @Test
+    void theEditorsUnsavedChoicesReshapeACheckbox() throws Exception {
+        // Verifies the dependentProperties re-query on "options": the list the author is typing decides,
+        // blank entries ignored, and the stored count is not consulted — on an existing node and in create mode.
+        ChoiceOptionsResolver stored = counting(OptionalInt.of(4));
+        JCRNodeWrapper checkbox = checkbox();
+        assertEquals(List.of("firstName"), values(listed(new ProfilePropertiesChoiceListInitializer(catalogOver(CATALOG), stored),
+                context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, checkbox, ProfilePropertiesChoiceListInitializer.OPTIONS_PROPERTY, List.of("yes", " ")))));
+        assertEquals(List.of("interests"), values(listed(new ProfilePropertiesChoiceListInitializer(catalogOver(CATALOG), stored),
+                context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, checkbox, ProfilePropertiesChoiceListInitializer.OPTIONS_PROPERTY, List.of("a", "b")))));
+        verify(stored, never()).countChoices(any(), any());
+
+        NodeType checkboxType = mock(NodeType.class);
+        when(checkboxType.isNodeType(FieldShapes.MAPPABLE_MARKER)).thenReturn(true);
+        when(checkboxType.isNodeType(FieldShapes.CHOICE_FIELD)).thenReturn(true);
+        when(checkboxType.isNodeType(FieldShapes.CHECKBOX_TYPE)).thenReturn(true);
+        JCRNodeWrapper parent = mock(JCRNodeWrapper.class);
+        JCRSiteNode parentSite = site();
+        when(parent.getResolveSite()).thenReturn(parentSite);
+        assertEquals(List.of("firstName"), values(listed(new ProfilePropertiesChoiceListInitializer(catalogOver(CATALOG), stored), context(
+                ProfilePropertiesChoiceListInitializer.CONTEXT_TYPE, checkboxType,
+                ProfilePropertiesChoiceListInitializer.CONTEXT_PARENT, parent,
+                ProfilePropertiesChoiceListInitializer.OPTIONS_PROPERTY, List.of("yes")))));
+        // a checkbox being created with no choice typed yet is a group
+        assertEquals(List.of("interests"), values(listed(new ProfilePropertiesChoiceListInitializer(catalogOver(CATALOG), stored), context(
+                ProfilePropertiesChoiceListInitializer.CONTEXT_TYPE, checkboxType,
+                ProfilePropertiesChoiceListInitializer.CONTEXT_PARENT, parent))));
+    }
+
+    @Test
+    void anUnsavedSwitchToASourcedModeLeavesTheCountUnknown() throws Exception {
+        // Verifies the "optionsMode" re-query: a mode the save has not resolved yet is a group, whatever the
+        // manual list still says; a switch back to manual counts the manual list again. A node stored in a
+        // sourced mode ignores the manual options the editor may still hold and asks the engine.
+        ChoiceOptionsResolver stored = counting(OptionalInt.of(1));
+        JCRNodeWrapper checkbox = checkbox();
+        assertEquals(List.of("interests"), values(listed(new ProfilePropertiesChoiceListInitializer(catalogOver(CATALOG), stored), context(
+                ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, checkbox,
+                ProfilePropertiesChoiceListInitializer.OPTIONS_MODE_PROPERTY, List.of("categories"),
+                ProfilePropertiesChoiceListInitializer.OPTIONS_PROPERTY, List.of("yes")))));
+        assertEquals(List.of("firstName"), values(listed(new ProfilePropertiesChoiceListInitializer(catalogOver(CATALOG), stored), context(
+                ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, checkbox,
+                ProfilePropertiesChoiceListInitializer.OPTIONS_MODE_PROPERTY, "manual",
+                ProfilePropertiesChoiceListInitializer.OPTIONS_PROPERTY, List.of("yes")))));
+        JCRNodeWrapper sourced = checkbox("fmdbmix:categoryOptions");
+        assertEquals(List.of("firstName"), values(listed(new ProfilePropertiesChoiceListInitializer(catalogOver(CATALOG), stored), context(
+                ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, sourced,
+                ProfilePropertiesChoiceListInitializer.OPTIONS_PROPERTY, List.of("a", "b", "c")))));
     }
 }

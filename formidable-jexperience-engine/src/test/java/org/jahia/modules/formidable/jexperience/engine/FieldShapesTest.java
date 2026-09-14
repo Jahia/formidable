@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import javax.jcr.nodetype.NodeType;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -21,7 +22,7 @@ class FieldShapesTest {
     private static Optional<FieldShape> shape(Set<String> types, Set<String> flags) {
         Predicate<String> isNodeType = types::contains;
         Predicate<String> flag = flags::contains;
-        return FieldShapes.infer(isNodeType, flag);
+        return FieldShapes.infer(isNodeType, flag, OptionalInt.empty());
     }
 
     private static Set<String> mappable(String... kinds) {
@@ -61,16 +62,28 @@ class FieldShapesTest {
     }
 
     @Test
-    void choiceFieldsAreStringsSingleUnlessCheckboxOrMultipleSelect() {
-        // Verifies the cardinality rule of choice fields: radio and single select hold one value,
-        // the checkbox group and a multiple select hold a list.
+    void choiceFieldsAreStringsSingleUnlessMultipleSelect() {
+        // Verifies the cardinality rule of choice fields with a "multiple" property: radio and single select
+        // hold one value, a multiple select holds a list.
         assertFalse(shape(mappable(FieldShapes.CHOICE_FIELD), Set.of()).orElseThrow().multivalued());
         assertTrue(shape(mappable(FieldShapes.CHOICE_FIELD), Set.of(FieldShapes.MULTIPLE_PROPERTY)).orElseThrow().multivalued());
+    }
+
+    @Test
+    void theCheckboxFollowsItsNumberOfChoicesAsTheViewDoes() {
+        // Verifies the renderer's rule applied to the shape: exactly one choice is one checkbox, one value;
+        // two or more, none, or an unknown count is a group — and the "multiple" flag plays no part.
         Set<String> checkbox = mappable(FieldShapes.CHOICE_FIELD);
         checkbox.add(FieldShapes.CHECKBOX_TYPE);
-        FieldShape shape = shape(checkbox, Set.of()).orElseThrow();
-        assertTrue(shape.multivalued());
-        assertEquals(Set.of("string"), shape.valueTypeIds());
+        Predicate<String> isCheckbox = checkbox::contains;
+        Predicate<String> noFlag = name -> false;
+        assertFalse(FieldShapes.infer(isCheckbox, noFlag, OptionalInt.of(1)).orElseThrow().multivalued());
+        assertTrue(FieldShapes.infer(isCheckbox, noFlag, OptionalInt.of(2)).orElseThrow().multivalued());
+        assertTrue(FieldShapes.infer(isCheckbox, noFlag, OptionalInt.of(0)).orElseThrow().multivalued());
+        FieldShape unknown = FieldShapes.infer(isCheckbox, noFlag, OptionalInt.empty()).orElseThrow();
+        assertTrue(unknown.multivalued());
+        assertEquals(Set.of("string"), unknown.valueTypeIds());
+        assertFalse(FieldShapes.infer(isCheckbox, FieldShapes.MULTIPLE_PROPERTY::equals, OptionalInt.of(1)).orElseThrow().multivalued());
     }
 
     @Test
@@ -112,19 +125,19 @@ class FieldShapesTest {
         // Verifies the runtime entry point on an existing node: the kinds come from isNodeType, the
         // cardinality from the stored "multiple" property, and a node without the marker is not mappable.
         JCRNodeWrapper multipleSelect = node(true, FieldShapes.MAPPABLE_MARKER, FieldShapes.CHOICE_FIELD);
-        assertEquals(Optional.of(new FieldShape(Set.of("string"), true)), FieldShapes.infer(multipleSelect));
+        assertEquals(Optional.of(new FieldShape(Set.of("string"), true)), FieldShapes.infer(multipleSelect, Optional.empty(), OptionalInt.empty()));
         JCRNodeWrapper text = node(null, FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD);
-        assertEquals(Optional.of(new FieldShape(Set.of("string"), false)), FieldShapes.infer(text));
-        assertTrue(FieldShapes.infer(node(null, FieldShapes.TEXT_FIELD)).isEmpty());
+        assertEquals(Optional.of(new FieldShape(Set.of("string"), false)), FieldShapes.infer(text, Optional.empty(), OptionalInt.empty()));
+        assertTrue(FieldShapes.infer(node(null, FieldShapes.TEXT_FIELD), Optional.empty(), OptionalInt.empty()).isEmpty());
     }
 
     @Test
     void theEditorsUnsavedMultipleToggleWinsOverTheStoredOne() throws Exception {
         // Verifies the dependentProperties path: the value the author just switched, not yet saved, decides.
         JCRNodeWrapper singleSelect = node(false, FieldShapes.MAPPABLE_MARKER, FieldShapes.CHOICE_FIELD);
-        assertTrue(FieldShapes.infer(singleSelect, true).orElseThrow().multivalued());
+        assertTrue(FieldShapes.infer(singleSelect, Optional.of(true), OptionalInt.empty()).orElseThrow().multivalued());
         JCRNodeWrapper multipleSelect = node(true, FieldShapes.MAPPABLE_MARKER, FieldShapes.CHOICE_FIELD);
-        assertFalse(FieldShapes.infer(multipleSelect, false).orElseThrow().multivalued());
+        assertFalse(FieldShapes.infer(multipleSelect, Optional.of(false), OptionalInt.empty()).orElseThrow().multivalued());
     }
 
     @Test
@@ -135,9 +148,9 @@ class FieldShapesTest {
         when(email.isNodeType(FieldShapes.MAPPABLE_MARKER)).thenReturn(true);
         when(email.isNodeType(FieldShapes.EMAIL_FIELD)).thenReturn(true);
         when(email.isNodeType(FieldShapes.TEXT_FIELD)).thenReturn(true);
-        assertEquals(Optional.of(new FieldShape(Set.of("email", "string"), false)), FieldShapes.infer(email, false));
-        assertEquals(Optional.of(new FieldShape(Set.of("email", "string"), true)), FieldShapes.infer(email, true));
+        assertEquals(Optional.of(new FieldShape(Set.of("email", "string"), false)), FieldShapes.infer(email, false, OptionalInt.empty()));
+        assertEquals(Optional.of(new FieldShape(Set.of("email", "string"), true)), FieldShapes.infer(email, true, OptionalInt.empty()));
         NodeType plain = mock(NodeType.class);
-        assertTrue(FieldShapes.infer(plain, false).isEmpty());
+        assertTrue(FieldShapes.infer(plain, false, OptionalInt.empty()).isEmpty());
     }
 }

@@ -425,7 +425,7 @@ key the rule builder picks, so the dropdown and the rule never disagree.
 | `booleanField` | extended consent, switch | `boolean` | single |
 | `dateField`, `datetimeLocalField` | date, datetime | `date` | single |
 | `colorField` | color | `string` | single |
-| `choiceField` | radio, select, checkbox | `string` (option values are strings) | single for radio and single select; multivalued for checkboxes (always, see below) and multiple selects |
+| `choiceField` | radio, select, checkbox | `string` (option values are strings) | single for radio, single select and a one-choice checkbox; multivalued for multiple selects and checkbox groups (two choices or more, or a count the source cannot give) |
 | no kind mixin | hidden | `string` | single |
 | `fileField` | file | not mappable | — |
 
@@ -439,12 +439,18 @@ key the rule builder picks, so the dropdown and the rule never disagree.
   `dependentProperties='multiple'`, so the Content Editor asks the list again when the toggle
   changes (jcontent re-queries a choicelist only for the properties its selector options name,
   and ships the unsaved value in the initializer's context).
-- **The checkbox is always a group.** `fmdb:checkbox` is the one type name read: no mixin tells a
-  checkbox group from a radio group, and the checkbox declares no `multiple`. Known limit: with
-  exactly one option the renderer draws a single `<input type="checkbox">` that submits one value,
-  while the dropdown offers multivalued properties only — a one-option "I accept" checkbox cannot
-  be mapped to a single-valued property in phase 1. Classifying by option count would need the
-  count at edit time, which a sourced options list does not have; an open question below.
+- **The checkbox follows its number of choices, as the view does.** `fmdb:checkbox` is the one type
+  name read: no mixin tells a checkbox group from a radio group, and the checkbox declares no
+  `multiple`. The renderer draws one `<input type="checkbox">`, submitting one value, for exactly
+  one choice and a group otherwise; the shape applies the same rule to the same count. The count
+  comes from the engine's `ChoiceOptionsResolver` (its `api` package), which resolves the choices
+  as the view does — the manual list aligned on the default language, or what the options source
+  delivers — or, while the author edits, from the `options` list the editor holds unsaved
+  (`dependentProperties` names `options` and `optionsMode`). A count the source cannot give, or a
+  switch to a sourced mode not saved yet, is a group. When a change of choices moves a checkbox
+  from one shape to the other, a mapping already saved stays in the list flagged "(current
+  mapping, kept)" and the author picks a compatible property; a mapping not saved yet is reset by
+  the editor, since its constraints no longer carry it.
 - **Always removed**, whatever the type: properties flagged hidden, read-only or protected in
   their metadata, and those tagged `systemProfileProperties` or
   `hiddenFromFormMappingProperties`, the union of what the prototype, the Forms bridge and
@@ -654,7 +660,8 @@ minute, one rule (decisions of 2026-09-11).
 | 2026-09-14 | The pass writes the **default workspace only**, documented in the upgrade notes and the listener's Lifecycle note | The identifier is derived from the UUID everywhere it is used at runtime, so live never reads the stored property; writing live would bring the UGC traps MigrationSessions exists for, for no reader. The one visible effect — every form flagged *modified* once — is what the upgrade page explains |
 | 2026-09-14 | **A failed read of the profile properties is remembered for ten seconds** | Only the success path honoured "one call per site per minute": a hung jCustomer (30 s admin timeout) was paid by every author at every field opening. Ten seconds keeps an outage to one call per site per span and shows a recovery well within the tooltip's minute; the entry stays one rule — "unavailable, ask again after N seconds" |
 | 2026-09-14 | Cardinality contract for third-party fields = a `multiple` boolean property (the select/email convention), written down; the choicelist declares `dependentProperties='multiple'` and reads the unsaved value from the context | The value-kind mixins carry no cardinality, so the convention is the contract phase 2's rule builder agrees with. Without the re-query an author switching **Multiple** on and mapping in the same session picked from the single-valued list and only saw the mismatch on reopening, as a "(kept)" entry that reads like an outage |
-| 2026-09-14 | The one-option checkbox is recorded as a known limit, not fixed | The renderer submits one value for a single option while the shape says list; the option count is unknown at edit time for a sourced list, so classifying by count is a design question (open questions), not a phase-1 fix |
+| 2026-09-14 | ~~The one-option checkbox is recorded as a known limit, not fixed~~ — superseded the same day, see below | ~~The renderer submits one value for a single option while the shape says list; the option count is unknown at edit time for a sourced list~~ |
+| 2026-09-14 | **The checkbox's cardinality follows its number of choices, counted as the view counts them** (HDU): one choice = one value, otherwise a group; the count comes from a new engine API, `ChoiceOptionsResolver`, and from the editor's unsaved `options` on a re-query (`dependentProperties='multiple,options,optionsMode'`). No `multiple` property on the checkbox (HDU) | The view already decides single vs group on `parsedChoices.length === 1`; the shape must apply the very same rule to the very same count, or the dropdown and the event disagree. The view resolves through an engine service that is not exported, so the engine gains one small `api` interface rather than an exported implementation package. A sourced list is counted through the same resolver on the saved node; while a mode switch is unsaved the count is unknown, a group, until the save |
 | 2026-09-14 | `fmdbmix:jExperienceForm` inherits `jmix:templateMixin` | `isAlwaysActivated` forces the fieldset on but keeps its enable switch; only a `jmix:templateMixin` fieldset loses it (jcontent `EditorFormServiceImpl`). Switching the toggle off dropped the mixin and the value, which the listener then restored: confusing UI plus a spurious write. The core marker has no runtime semantics (only the legacy GWT editor read it) |
 | 2026-09-14 | The bundle exports nothing; `analyze-only` with `failOnWarning`; `jahia-depends` names `formidable-elements` too | An exported implementation is a compatibility promise nobody asked for (`dependency-decisions.md`); the phase-2 SPI gets its own `api` package. `fmdbmix:jExperienceForm` extends `fmdb:form`, an elements type, and the declared dependencies must say so even though the node-type capability already carried the resolution |
 | 2026-09-14 | The catalog dates an entry from the **end** of the call, not its start (second review) | `now` was read before the blocking fetch: after a 30 s admin timeout the failure entry was born 20 s expired and never served anyone, so the memory only covered instant failures. Re-reading the clock when storing is the whole fix; the test advances the clock inside the stubbed call |
@@ -671,14 +678,14 @@ minute, one rule (decisions of 2026-09-11).
 | Date profile properties: which `setPropertyAction` parameter Unomi 3 expects | dev | verify |
 | A local jCustomer for the dev loop and CI (docker compose jexperience + jcustomer + elasticsearch) — the phases' proofs are Cypress against it | dev | **dev loop done** 2026-09-11 (jCustomer 3.0.0 + jExperience 4.2.1 next to the test Jahia, kit on the developer's machine); the CI compose profile is still to add |
 | Upstream the generic profile-properties choicelist into jExperience | dev, jExperience team | proposal |
-| A one-option checkbox submits a scalar while its dropdown offers multivalued properties only: classify by inline option count (unknown for a sourced list), or leave the limit? | dev, HDU | open — phase 1 records the limit in the compatibility table |
+| A one-option checkbox submits a scalar while its dropdown offered multivalued properties only | HDU | **resolved 2026-09-14**: the shape follows the choice count as the view does, through the engine's `ChoiceOptionsResolver` |
 | If jExperience removes or reworks `trackedConditions`: replace the `getFormNamesToWatch()` line of `shouldCollect()` by whatever replaces it | dev | when it happens |
 
 ## Roadmap
 
 | Phase | Deliverable | Proof |
 |---|---|---|
-| 1 | Module skeleton recalibrated on jExperience 4.2.1 with open OSGi ranges, added to the root pom. Marker mixin in the engine and on the field types, editor section with the copyable identifier, ported choicelist initializer with cache, strategy and failure handling. FR bundle with escaped accents, prototype's harness file dropped | **Shipped 2026-09-11, review fixes 2026-09-14 (PR #324).** 50 JUnit tests (shape inference on nodes and types, property filter, catalog cache, failure paths and failure memory dated from the end of the call, initializer through the editor's context, identifier, listener: copy re-derivation and per-form start-up pass, the CND clauses the Java relies on); deployed on the test instance next to jExperience 4.2.1: the section lists 18 properties on a text field, every existing form is stamped at start, a copied form gets its own identifier |
+| 1 | Module skeleton recalibrated on jExperience 4.2.1 with open OSGi ranges, added to the root pom. Marker mixin in the engine and on the field types, editor section with the copyable identifier, ported choicelist initializer with cache, strategy and failure handling. FR bundle with escaped accents, prototype's harness file dropped | **Shipped 2026-09-11, review fixes 2026-09-14 (PR #324).** 54 JUnit tests in the module (shape inference on nodes and types, the checkbox's choice count, property filter, catalog cache, failure paths and failure memory dated from the end of the call, initializer through the editor's context, identifier, listener: copy re-derivation and per-form start-up pass, the CND clauses the Java relies on) and 5 in the engine for `ChoiceOptionsResolver`; deployed on the test instance next to jExperience 4.2.1: the section lists 18 properties on a text field, every existing form is stamped at start, a copied form gets its own identifier |
 | 2 | Mapping rule sync: rule builder on `formidable-jxp-<uuid>`, publication listener, diff, delete on unpublish/removal, resync on availability | Golden JSON test; Cypress: publish a mapped form, read the rule through the proxy |
 | 3 | Engine `SubmissionResponseEnricher` SPI and the elements' `formidable:submitted` event; render filter (overrides push, config block, script); client script with `shouldCollect()` and the event | Pipeline unit tests; Cypress: submit with a profile cookie, the event and the profile read back through the proxy; the tracker attaches no listener to the form (the DOM id is not the identifier); a form referenced only by a goal sends; no send under `activateWem` off |
 | 4 | Prefill: text-like fields and hidden, from the context's profile properties | Cypress: live page with a profile cookie shows the value after `wemLoaded`; a second visitor does not; the page stays cached (same HTML for both) |

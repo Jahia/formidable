@@ -444,7 +444,7 @@ the editor, with the profile properties matching its value kind and cardinality
 (`docs/architecture/jexperience-integration.md`). Cardinality follows a `multiple` boolean property, the
 convention of the built-in select and email inputs: declare one to be offered multivalued profile
 properties while it is on; without it your field is single-valued (the checkbox type is the one exception,
-read by name — always a group).
+read by name: its cardinality follows its number of choices, as the view renders it).
 
 ## Make your field a conditional-logic source
 

@@ -62,7 +62,7 @@ class DefinitionsCndTest {
         assertEquals("[fmdbmix:jExperienceProfileMapping] mixin", mixin.get(0), "no supertype: mappability is the type's claim, not the mixin's");
         assertEquals("extends = " + FieldShapes.MAPPABLE_MARKER, lineStartingWith(mixin, "extends"));
         String property = lineStartingWith(mixin, "- " + ProfilePropertiesChoiceListInitializer.PROPERTY + " ");
-        assertTrue(property.contains("choicelist[" + ProfilePropertiesChoiceListInitializer.KEY + ",dependentProperties='" + FieldShapes.MULTIPLE_PROPERTY + "']"), property);
+        assertTrue(property.contains("choicelist[" + ProfilePropertiesChoiceListInitializer.KEY + ",dependentProperties='" + FieldShapes.MULTIPLE_PROPERTY + "," + ProfilePropertiesChoiceListInitializer.OPTIONS_PROPERTY + "," + ProfilePropertiesChoiceListInitializer.OPTIONS_MODE_PROPERTY + "']"), property);
     }
 
     @Test

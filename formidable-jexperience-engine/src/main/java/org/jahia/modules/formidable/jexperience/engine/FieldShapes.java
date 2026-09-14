@@ -1,11 +1,13 @@
 package org.jahia.modules.formidable.jexperience.engine;
 
 import org.jahia.services.content.JCRNodeWrapper;
+
 import javax.jcr.RepositoryException;
 import javax.jcr.nodetype.NodeType;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -14,9 +16,10 @@ import java.util.function.Predicate;
  * primary type names: a third-party field that opts into {@code fmdbmix:numberField} is treated
  * like the built-in number field. Cardinality follows the {@code multiple} boolean property —
  * the convention of the built-in select and email inputs, which a third-party type adopts by
- * declaring a property of that name; without it a field is single-valued. The table is the one
- * of the integration design (docs/architecture/jexperience-integration.md, "Type compatibility
- * in the dropdown").
+ * declaring a property of that name; without it a field is single-valued. The checkbox is the
+ * exception: its cardinality follows its number of choices, as the view renders it. The table is
+ * the one of the integration design (docs/architecture/jexperience-integration.md, "Type
+ * compatibility in the dropdown").
  */
 public final class FieldShapes {
 
@@ -33,10 +36,10 @@ public final class FieldShapes {
     static final String TEXT_FIELD = "fmdbmix:textField";
 
     /**
-     * The checkbox is the one choice field with no "multiple" property; it is classified as a
-     * group, a list, whatever its option count. The renderer draws one input for a single option,
-     * which then submits one value: a limit recorded in the design's compatibility table (the
-     * count is unknown at edit time for a sourced list).
+     * The checkbox is the one choice field with no "multiple" property: the renderer draws one
+     * input, submitting one value, for exactly one choice, and a group otherwise — so does the
+     * shape, from the same count (the engine's ChoiceOptionsResolver, or the options the editor
+     * holds unsaved). A count the source cannot give is a group.
      */
     static final String CHECKBOX_TYPE = "fmdb:checkbox";
     static final String MULTIPLE_PROPERTY = "multiple";
@@ -53,17 +56,15 @@ public final class FieldShapes {
     private FieldShapes() {
     }
 
-    /** The shape of an existing field node, cardinality as stored; empty when the field is not mappable. */
-    public static Optional<FieldShape> infer(JCRNodeWrapper node) throws RepositoryException {
-        boolean multiple = node.hasProperty(MULTIPLE_PROPERTY) && node.getProperty(MULTIPLE_PROPERTY).getBoolean();
-        return infer(node, multiple);
-    }
-
     /**
-     * The shape of an existing field node whose "multiple" toggle the editor holds unsaved: the
-     * given value wins over the stored one.
+     * The shape of an existing field node; empty when the field is not mappable.
+     *
+     * @param pendingMultiple the "multiple" toggle as the editor holds it unsaved, when it re-asks
+     *                        the list for that change; empty on a plain opening, where the stored
+     *                        value applies
+     * @param choiceCount     how many choices a choice field offers, when known
      */
-    public static Optional<FieldShape> infer(JCRNodeWrapper node, boolean multiple) throws RepositoryException {
+    public static Optional<FieldShape> infer(JCRNodeWrapper node, Optional<Boolean> pendingMultiple, OptionalInt choiceCount) throws RepositoryException {
         // JCR reads throw RepositoryException, which a predicate cannot: read the node once, up front
         Set<String> types = new HashSet<>();
         for (String type : RELEVANT_TYPES) {
@@ -71,19 +72,23 @@ public final class FieldShapes {
                 types.add(type);
             }
         }
-        return infer(types::contains, name -> MULTIPLE_PROPERTY.equals(name) && multiple);
+        boolean multiple = pendingMultiple.isPresent()
+                ? pendingMultiple.get()
+                : node.hasProperty(MULTIPLE_PROPERTY) && node.getProperty(MULTIPLE_PROPERTY).getBoolean();
+        return infer(types::contains, name -> MULTIPLE_PROPERTY.equals(name) && multiple, choiceCount);
     }
 
     /**
      * The shape of a field that does not exist yet (the editor creating it): its type — the JCR
-     * interface Jahia's ExtendedNodeType implements, which is all the rule needs — and the
-     * "multiple" toggle as the editor holds it, false until the author switches it on.
+     * interface Jahia's ExtendedNodeType implements, which is all the rule needs — the "multiple"
+     * toggle as the editor holds it (false until the author switches it on), and the choices typed
+     * so far.
      */
-    public static Optional<FieldShape> infer(NodeType type, boolean multiple) {
-        return infer(type::isNodeType, name -> MULTIPLE_PROPERTY.equals(name) && multiple);
+    public static Optional<FieldShape> infer(NodeType type, boolean multiple, OptionalInt choiceCount) {
+        return infer(type::isNodeType, name -> MULTIPLE_PROPERTY.equals(name) && multiple, choiceCount);
     }
 
-    static Optional<FieldShape> infer(Predicate<String> isNodeType, Predicate<String> flag) {
+    static Optional<FieldShape> infer(Predicate<String> isNodeType, Predicate<String> flag, OptionalInt choiceCount) {
         if (!isNodeType.test(MAPPABLE_MARKER) || isNodeType.test(FILE_FIELD)) {
             return Optional.empty();
         }
@@ -92,7 +97,8 @@ public final class FieldShapes {
             return Optional.of(new FieldShape(EMAIL, flag.test(MULTIPLE_PROPERTY)));
         }
         if (isNodeType.test(CHOICE_FIELD)) {
-            return Optional.of(new FieldShape(STRING, isNodeType.test(CHECKBOX_TYPE) || flag.test(MULTIPLE_PROPERTY)));
+            boolean multivalued = isNodeType.test(CHECKBOX_TYPE) ? isAGroup(choiceCount) : flag.test(MULTIPLE_PROPERTY);
+            return Optional.of(new FieldShape(STRING, multivalued));
         }
         if (isNodeType.test(NUMBER_FIELD)) {
             return Optional.of(new FieldShape(NUMBER, false));
@@ -105,5 +111,10 @@ public final class FieldShapes {
         }
         // text, colour, and the kinds without a value mixin (the hidden input) hold a string
         return Optional.of(new FieldShape(STRING, false));
+    }
+
+    /** The renderer's own rule: exactly one choice is one checkbox, one value; anything else, unknown included, is a group. */
+    static boolean isAGroup(OptionalInt choiceCount) {
+        return choiceCount.isEmpty() || choiceCount.getAsInt() != 1;
     }
 }

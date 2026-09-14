@@ -9,12 +9,13 @@
 // (META-INF/jahia-content-editor-forms/forms/fmdbmix_jExperienceProfileMapping.json); the
 // section's switch is the author's "map this field to the visitor profile". dependentProperties:
 // the editor asks the property list again when the author switches the field's "multiple"
-// toggle, so the offered cardinality follows the unsaved value (jcontent re-queries a choicelist
-// only for the properties its selector options name).
+// toggle or edits a checkbox's choices or options mode, so the offered cardinality follows the
+// unsaved values (jcontent re-queries a choicelist only for the properties its selector options
+// name, and sends their current values in the initializer's context).
 [fmdbmix:jExperienceProfileMapping] mixin
  extends = fmdbmix:profileMappableField
  itemtype = content
- - jExperienceProfileProperty (string, choicelist[formidableJExperienceProfileProperties,dependentProperties='multiple']) indexed=no
+ - jExperienceProfileProperty (string, choicelist[formidableJExperienceProfileProperties,dependentProperties='multiple,options,optionsMode']) indexed=no
  - jExperiencePrefillFromProfile (boolean) = false autocreated indexed=no
  - jExperienceSetStrategy (string, choicelist[resourceBundle]) = 'alwaysSet' autocreated indexed=no < 'alwaysSet', 'setIfMissing'
 
