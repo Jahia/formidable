@@ -76,8 +76,8 @@ class ProfilePropertiesChoiceListInitializerTest {
 
     @Test
     void theCurrentMappingSurvivesAnUnreachableJCustomer() throws Exception {
-        // Verifies the outage case: the stored mapping comes first, the explanatory entry second, so a
-        // save during the outage keeps the mapping and the author still reads why the list is short.
+        // Verifies the outage case: the stored mapping is the one entry of the list — nothing else can be
+        // picked, so a save during the outage keeps it — and its description says why the list is short.
         ProfilePropertyCatalog catalog = mock(ProfilePropertyCatalog.class);
         when(catalog.profileProperties("site")).thenThrow(new ProfilePropertiesUnavailableException("down"));
         ProfilePropertiesChoiceListInitializer initializer = new ProfilePropertiesChoiceListInitializer(catalog) {
@@ -92,9 +92,11 @@ class ProfilePropertiesChoiceListInitializerTest {
             }
         };
         List<ChoiceListValue> choices = initializer.choices(new FieldShape(Set.of("string"), false), "site", Locale.ENGLISH, Optional.of("firstName"));
-        assertEquals(List.of("firstName", ""), values(choices));
-        assertEquals("firstName (kept)", choices.get(0).getDisplayName());
-        assertEquals("unreachable", choices.get(1).getDisplayName());
+        assertEquals(List.of("firstName"), values(choices));
+        assertEquals("firstName", choices.get(0).getDisplayName());
+        assertEquals("(kept)", choices.get(0).getProperties().get(ProfilePropertiesChoiceListInitializer.DESCRIPTION_PROPERTY));
+        // without a stored mapping, the outage shows the explanatory entry alone
+        assertEquals(List.of(""), values(initializer.choices(new FieldShape(Set.of("string"), false), "site", Locale.ENGLISH, Optional.empty())));
     }
 
     @Test
@@ -211,8 +213,9 @@ class ProfilePropertiesChoiceListInitializerTest {
         };
         JCRNodeWrapper text = fieldNode("nickname", null, FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD);
         List<ChoiceListValue> choices = listed(initializer, context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, text));
-        assertEquals(List.of("nickname", ""), values(choices));
-        assertEquals("nickname (kept)", choices.get(0).getDisplayName());
+        assertEquals(List.of("nickname"), values(choices));
+        assertEquals("nickname", choices.get(0).getDisplayName());
+        assertEquals("(kept)", choices.get(0).getProperties().get(ProfilePropertiesChoiceListInitializer.DESCRIPTION_PROPERTY));
         // with the list available, the site and kinds come from the same node and the list is what it is
         assertEquals(List.of("firstName"), values(listed(initializerOver(CATALOG), context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, text))));
     }

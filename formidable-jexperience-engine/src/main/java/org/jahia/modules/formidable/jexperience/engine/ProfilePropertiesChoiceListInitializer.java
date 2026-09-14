@@ -13,7 +13,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.jcr.RepositoryException;
 import javax.jcr.nodetype.NodeType;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
@@ -29,8 +28,10 @@ import java.util.OptionalInt;
  * the list is available it is the truth: a stored mapping it does not carry — a property whose
  * cardinality or type no longer fits the field, or one gone from the schema — is not offered, so
  * the Content Editor resets it and the next save clears a mapping that would never be applied.
- * Only when jCustomer cannot be asked is the stored mapping kept in the list, flagged: the outage
- * says nothing about the mapping, and a save during it must not wipe one the author never touched.
+ * Only when jCustomer cannot be asked is the stored mapping left in place: it is then the one entry
+ * of the list, its description saying why, so nothing else can be picked and nothing can break it
+ * — the outage says nothing about the mapping, and a save during it must not wipe one the author
+ * never touched.
  */
 @Component(service = ModuleChoiceListInitializer.class, immediate = true)
 public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListInitializer {
@@ -44,6 +45,8 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
     static final String PROPERTY = "jExperienceProfileProperty";
     /** The value property the Content Editor reads to pre-select an entry (jcontent, registerChoiceList initValue). */
     static final String DEFAULT_PROPERTY = "defaultProperty";
+    /** The value property the Content Editor shows under an entry's label in the open list (jcontent, SingleSelect). */
+    static final String DESCRIPTION_PROPERTY = "description";
 
     // the keys jcontent's editor puts in the initializer context
     static final String CONTEXT_NODE = "contextNode";
@@ -106,32 +109,22 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
             return compatible.isEmpty() ? messageEntry(noneMessage(locale)) : compatible;
         } catch (ProfilePropertiesUnavailableException e) {
             log.warn("[ProfilePropertiesChoiceListInitializer] No profile properties for site '{}': {}", siteKey, e.getMessage());
-            return withStored(messageEntry(unavailableMessage(locale)), stored, locale);
+            return stored.map(value -> keptAlone(value, locale)).orElseGet(() -> messageEntry(unavailableMessage(locale)));
         }
     }
 
     /**
-     * During an outage only: the current mapping of the field, first in the list. The Content
-     * Editor resets a value it cannot find among the constraints, and a jCustomer that cannot be
-     * asked says nothing about the mapping, so it must not be wiped behind the author's back. The
-     * entry says the mapping is kept as is; the author keeps it or picks another entry.
+     * During an outage only: the current mapping as the one entry of the list, its description
+     * saying why the list is short. The Content Editor resets a value it cannot find among the
+     * constraints, and a jCustomer that cannot be asked says nothing about the mapping, so the
+     * value must stay listed; listed alone, nothing else can be picked and nothing can break it.
+     * (The editor makes a select read-only only when its list is empty, and an empty list also
+     * resets the value — one entry is how the mapping is protected.)
      */
-    private List<ChoiceListValue> withStored(List<ChoiceListValue> offered, Optional<String> stored, Locale locale) {
-        if (stored.isEmpty() || offered.stream().anyMatch(entry -> stored.get().equals(stringValue(entry)))) {
-            return offered;
-        }
-        List<ChoiceListValue> withKept = new ArrayList<>(offered.size() + 1);
-        withKept.add(new ChoiceListValue(stored.get() + " " + keptMessage(locale), stored.get()));
-        withKept.addAll(offered);
-        return withKept;
-    }
-
-    private static String stringValue(ChoiceListValue entry) {
-        try {
-            return entry.getValue() == null ? null : entry.getValue().getString();
-        } catch (RepositoryException e) {
-            return null;
-        }
+    private List<ChoiceListValue> keptAlone(String stored, Locale locale) {
+        ChoiceListValue entry = new ChoiceListValue(stored, stored);
+        entry.addProperty(DESCRIPTION_PROPERTY, keptMessage(locale));
+        return List.of(entry);
     }
 
     /**
@@ -232,7 +225,7 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
     }
 
     String keptMessage(Locale locale) {
-        return Messages.get(BUNDLE, KEPT_KEY, locale, "(current mapping, kept)");
+        return Messages.get(BUNDLE, KEPT_KEY, locale, "Current mapping, left unchanged: the visitor profile properties cannot be listed right now (jExperience is not connected)");
     }
 
     String noneMessage(Locale locale) {
