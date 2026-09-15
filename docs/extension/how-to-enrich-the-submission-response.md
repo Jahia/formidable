@@ -69,7 +69,9 @@ Files never reach an enricher: they belong to the actions.
 - **Values are plain Java.** `Map`, `Collection`, `String`, `Number`, `Boolean`, nested as needed;
   they are serialised as JSON. No JCR node, no exception, nothing that is not data.
 - **Never fail the submission.** The actions ran; an exception thrown by an enricher is logged and
-  its entries left out, the `200` stands. Keep the work light: it runs in the request, before the
+  its entries left out, the `200` stands. That holds for every value `org.json` can refuse. It does
+  not hold for a structure that contains itself, whose serialisation ends in a `StackOverflowError`
+  no `catch` on the way out is meant to swallow: do not return one. Keep the work light: it runs in the request, before the
   visitor sees the success message.
 - **Nothing personal that the page could not already know.** The body goes to the browser that
   submitted the form, and only there; still, return what the page needs, not the whole

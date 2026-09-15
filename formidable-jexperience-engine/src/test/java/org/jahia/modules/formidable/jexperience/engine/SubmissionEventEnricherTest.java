@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.OptionalInt;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -36,6 +37,7 @@ class SubmissionEventEnricherTest {
     private static JCRNodeWrapper field(String name, String... types) throws RepositoryException {
         JCRNodeWrapper node = mock(JCRNodeWrapper.class);
         when(node.getName()).thenReturn(name);
+        when(node.getIdentifier()).thenReturn("uuid-of-" + name);
         for (String type : types) {
             when(node.isNodeType(type)).thenReturn(true);
         }
@@ -87,11 +89,24 @@ class SubmissionEventEnricherTest {
     private static SubmissionEventEnricher enricher(ContextServerService service, int choices, List<JCRNodeWrapper> fields) throws RepositoryException {
         ChoiceOptionsResolver resolver = mock(ChoiceOptionsResolver.class);
         when(resolver.countChoices(any(), any())).thenReturn(OptionalInt.of(choices));
+        return enricher(service, choices, fields, Set.of());
+    }
+
+    /** The same, with the identifiers the DEFAULT workspace reports as sensitive — what the editor holds unsaved. */
+    private static SubmissionEventEnricher enricher(ContextServerService service, int choices, List<JCRNodeWrapper> fields,
+                                                    Set<String> markedInTheEditor) throws RepositoryException {
+        ChoiceOptionsResolver resolver = mock(ChoiceOptionsResolver.class);
+        when(resolver.countChoices(any(), any())).thenReturn(OptionalInt.of(choices));
         NodeIterator nodes = iterator(fields);
         return new SubmissionEventEnricher(resolver, service) {
             @Override
             NodeIterator mappableFields(JCRNodeWrapper form) {
                 return nodes;
+            }
+
+            @Override
+            Set<String> markedSensitiveWhileUnpublished(List<JCRNodeWrapper> published) {
+                return markedInTheEditor;
             }
         };
     }
@@ -192,5 +207,24 @@ class SubmissionEventEnricherTest {
         when(broken.getResolveSite()).thenThrow(new RepositoryException("gone"));
         assertTrue(enricher(configured("mysite"), 1, fields)
                 .enrich(new AcceptedSubmission(broken, "mysite", Locale.ENGLISH, Map.of("firstName", List.of("Ada")))).isEmpty());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void aFieldMarkedSensitiveAndNotPublishedYetIsAlreadyHeldBack() throws Exception {
+        // Verifies when the control starts holding. The submission is resolved in live, so live is what the
+        // other readers see; waiting for a publication would mean an author who ticks the box on a form that
+        // is already collecting keeps sending that value until someone publishes. Either workspace saying
+        // sensitive is enough.
+        List<JCRNodeWrapper> fields = List.of(
+                field("email", FieldShapes.MAPPABLE_MARKER, FieldShapes.EMAIL_FIELD),
+                field("nationalId", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD));
+        Map<String, List<String>> parameters = Map.of("email", List.of("ada@example.com"), "nationalId", List.of("1234567890"));
+
+        Map<String, Object> entries = enricher(configured("mysite"), 1, fields, Set.of("uuid-of-nationalId"))
+                .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH, parameters));
+
+        Map<String, Object> block = (Map<String, Object>) entries.get(SubmissionEventEnricher.KEY);
+        assertEquals(Map.of("email", "ada@example.com"), block.get("fields"));
     }
 }

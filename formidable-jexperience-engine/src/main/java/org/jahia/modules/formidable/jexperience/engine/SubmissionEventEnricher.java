@@ -13,14 +13,19 @@ import org.osgi.service.component.annotations.ReferencePolicyOption;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.jahia.services.content.JCRTemplate;
+
+import javax.jcr.ItemNotFoundException;
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import javax.jcr.query.Query;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -42,6 +47,8 @@ public class SubmissionEventEnricher implements SubmissionResponseEnricher {
 
     /** The top-level key of the block in the response body. */
     static final String KEY = "jexperience";
+    /** Where the author's unpublished answer lives; the submission itself is resolved in live. */
+    static final String WORKSPACE_DEFAULT = "default";
 
     private static final Logger log = LoggerFactory.getLogger(SubmissionEventEnricher.class);
 
@@ -95,17 +102,71 @@ public class SubmissionEventEnricher implements SubmissionResponseEnricher {
         }
     }
 
-    /** The fields whose value may be sent: every mappable one the author did not mark sensitive. */
+    /**
+     * The fields whose value may be sent: every mappable one the author did not mark sensitive, in
+     * <strong>either</strong> workspace.
+     *
+     * <p>The submission is resolved in live, so the fields read here are the published ones. Asking
+     * live alone would arm this control only at the next publication: an author who ticks the box on
+     * a form that is already published and collecting would keep sending that value until someone
+     * publishes, which is not what "this value never leaves the site" promises. So a field the author
+     * has marked sensitive but not yet published counts as sensitive too. The reverse — unticking the
+     * box without publishing — also holds the value back, which is the safe way round.</p>
+     */
     List<JCRNodeWrapper> sendableFields(JCRNodeWrapper form) throws RepositoryException {
         NodeIterator nodes = mappableFields(form);
-        List<JCRNodeWrapper> fields = new ArrayList<>();
+        List<JCRNodeWrapper> published = new ArrayList<>();
         while (nodes.hasNext()) {
             JCRNodeWrapper field = (JCRNodeWrapper) nodes.nextNode();
             if (!SensitiveField.isSensitive(field)) {
-                fields.add(field);
+                published.add(field);
             }
         }
-        return fields;
+        Set<String> markedSinceLastPublication = markedSensitiveWhileUnpublished(published);
+        return published.stream().filter(field -> !markedSensitiveIn(markedSinceLastPublication, field)).toList();
+    }
+
+    private static boolean markedSensitiveIn(Set<String> identifiers, JCRNodeWrapper field) {
+        try {
+            return identifiers.contains(field.getIdentifier());
+        } catch (RepositoryException e) {
+            log.warn("[SubmissionEventEnricher] A submitted field could not be identified: its value is not sent", e);
+            return true;
+        }
+    }
+
+    /**
+     * Of the fields live says are not sensitive, those the author has marked in the editor and not
+     * published yet — read once, in a session of the default workspace, by identifier.
+     *
+     * <p>When that reading fails the published answer stands, with a warning: a transient repository
+     * error must not empty the block for every visitor, and the window this closes is the one between
+     * ticking the box and publishing. A seam for the tests, which have no repository.</p>
+     */
+    Set<String> markedSensitiveWhileUnpublished(List<JCRNodeWrapper> published) {
+        if (published.isEmpty()) {
+            return Set.of();
+        }
+        try {
+            return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, WORKSPACE_DEFAULT, null, session -> {
+                Set<String> marked = new HashSet<>();
+                for (JCRNodeWrapper field : published) {
+                    String identifier = field.getIdentifier();
+                    try {
+                        if (SensitiveField.isSensitive(session.getNodeByIdentifier(identifier))) {
+                            marked.add(identifier);
+                        }
+                    } catch (ItemNotFoundException e) {
+                        // published but deleted since: nothing unpublished to honour
+                        log.debug("[SubmissionEventEnricher] Field '{}' is gone from the default workspace", identifier);
+                    }
+                }
+                return marked;
+            });
+        } catch (RepositoryException | RuntimeException e) {
+            log.warn("[SubmissionEventEnricher] The editor's sensitive flags could not be read; the published ones stand for this submission", e);
+            return Set.of();
+        }
     }
 
     /** The query of the fields carrying the marker — a seam for the tests, which have no query engine. */

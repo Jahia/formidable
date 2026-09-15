@@ -185,7 +185,10 @@ public class FormSubmitServlet extends HttpServlet {
         // org.json validates the value it is handed, never what a Map or a Collection holds: a non-finite
         // number one level down is stored here and only refused at serialisation, where toString() answers
         // null instead of throwing — and the writer, which runs outside every guard, would NPE on it and
-        // answer 500 for a submission whose actions all ran. Serialising here is what keeps the promise.
+        // answer 500 for a submission whose actions all ran. Serialising here catches every value org.json
+        // can refuse. It does not catch a structure that contains itself: toString() then recurses until
+        // StackOverflowError, an Error, which walks past this and every catch on the way out. Catching Error
+        // would be the wrong cure, so a cyclic block stays the enricher author's own bug.
         if (entries.toString() == null) {
             entries.remove(key);
             log.warn("[FormSubmitServlet] Response enricher {} wrote a value for '{}' that org.json cannot serialise: ignored", enricher, key);

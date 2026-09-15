@@ -14,6 +14,12 @@ import java.util.Optional;
  * which leaves the field out of the page's configuration; and the response enricher, which leaves
  * its value out of the submission's answer. The last is the one that matters: whatever the editor
  * allowed, the value does not leave the server.
+ *
+ * <p><strong>When it holds.</strong> The rule and the page describe the published form, so they
+ * follow the flag at the next publication, like every other property. The enricher does not wait for
+ * one: it treats a field as sensitive when either workspace says so, because a control that reads
+ * "this value never leaves the site" cannot be armed only by an act the author may not think to
+ * perform (see {@code SubmissionEventEnricher.sendableFields}).</p>
  */
 final class SensitiveField {
 
