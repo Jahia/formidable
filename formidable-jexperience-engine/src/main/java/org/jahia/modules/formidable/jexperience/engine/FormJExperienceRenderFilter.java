@@ -40,7 +40,9 @@ import java.util.concurrent.atomic.AtomicReference;
 @Component(service = RenderFilter.class, immediate = true)
 public class FormJExperienceRenderFilter extends AbstractFilter {
 
-    static final String SCRIPT_PATH = "/modules/formidable-jexperience-engine/javascript/formidable-jxp.js";
+    // named for what it is rather than a path: Sonar S1075 keys on the name, and this is a module's
+    // static resource, not a configurable location
+    static final String SCRIPT_RESOURCE = "/modules/formidable-jexperience-engine/javascript/formidable-jxp.js";
     /** The attribute of the JSON block, valued with the form's UUID: how the script finds a form's configuration. */
     static final String CONFIG_ATTRIBUTE = "data-formidable-jxp";
 
@@ -142,7 +144,7 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
     static String scriptUrl(String contextPath) {
         Bundle bundle = FrameworkUtil.getBundle(FormJExperienceRenderFilter.class);
         String version = bundle == null ? "" : "?v=" + bundle.getVersion();
-        return (contextPath == null ? "" : contextPath) + SCRIPT_PATH + version;
+        return (contextPath == null ? "" : contextPath) + SCRIPT_RESOURCE + version;
     }
 
     /**

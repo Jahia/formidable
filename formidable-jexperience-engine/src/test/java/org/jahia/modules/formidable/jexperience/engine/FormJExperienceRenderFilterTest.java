@@ -207,9 +207,9 @@ class FormJExperienceRenderFilterTest {
         // under a context path answers 404 for the bare path and the script never defines its API — silently,
         // with the server still writing a block nobody reads. The version is what makes a browser holding the
         // previous script fetch the new one after an upgrade.
-        assertTrue(FormJExperienceRenderFilter.scriptUrl("/dx").startsWith("/dx" + FormJExperienceRenderFilter.SCRIPT_PATH),
+        assertTrue(FormJExperienceRenderFilter.scriptUrl("/dx").startsWith("/dx" + FormJExperienceRenderFilter.SCRIPT_RESOURCE),
                 FormJExperienceRenderFilter.scriptUrl("/dx"));
-        assertTrue(FormJExperienceRenderFilter.scriptUrl(null).startsWith(FormJExperienceRenderFilter.SCRIPT_PATH),
+        assertTrue(FormJExperienceRenderFilter.scriptUrl(null).startsWith(FormJExperienceRenderFilter.SCRIPT_RESOURCE),
                 FormJExperienceRenderFilter.scriptUrl(null));
     }
 
