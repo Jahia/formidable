@@ -25,15 +25,19 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Adds the {@code jexperience} block to the 200 of an accepted submission — the form's UUID and the
- * accepted values of its profile-mappable fields — for the client script that sends the {@code form}
+ * accepted values of the fields the author mapped — for the client script that sends the {@code form}
  * event through the tracker (docs/architecture/jexperience-integration.md, "Submitting").
  *
- * <p>Only the fields carrying {@code fmdbmix:profileMappableField} are in the block: the marker that
- * lets a field be mapped is the boundary of what jExperience receives; files, buttons, containers
- * and any type outside the marker never leave the server. A value is a string, or a list when the
- * field holds several values (a checkbox group, a multiple select), the same shape the mapping rule
- * expects — {@link FieldShapes} decides both. Nothing is added for a site without a jExperience
- * configuration.</p>
+ * <p><strong>Only a mapped field's value leaves the server.</strong> A field the author did not map
+ * to a visitor profile property has no reason to reach jCustomer: the mapping is the declared
+ * purpose, and the value of an unmapped message or phone number would otherwise sit in the event
+ * store for none. So the boundary is the mapping itself — the same non-blank
+ * {@code jExperienceProfileProperty} the rule and the rendered configuration read, so all three
+ * agree — and files, buttons, containers and every unmapped field never leave. A value is a string,
+ * or a list when the field holds several values (a checkbox group, a multiple select), the shape the
+ * mapping rule expects: {@link FieldShapes} decides both. Nothing is added for a site without a
+ * jExperience configuration; a form with no mapping gets an empty {@code fields}, which is all a
+ * goal counting submissions needs.</p>
  */
 @Component(service = SubmissionResponseEnricher.class, immediate = true)
 public class SubmissionEventEnricher implements SubmissionResponseEnricher {
@@ -75,7 +79,7 @@ public class SubmissionEventEnricher implements SubmissionResponseEnricher {
             // choices are counted in the site's default language, where option values live (see FormMappingReader)
             String language = form.getResolveSite().getDefaultLanguage();
             Map<String, Object> fields = new LinkedHashMap<>();
-            for (JCRNodeWrapper field : mappableFields(form)) {
+            for (JCRNodeWrapper field : mappedFields(form)) {
                 List<String> values = submission.parameters().get(field.getName());
                 if (values == null || values.isEmpty()) {
                     continue;
@@ -93,19 +97,37 @@ public class SubmissionEventEnricher implements SubmissionResponseEnricher {
         }
     }
 
-    /** The profile-mappable fields under the form — a seam for the tests, which have no query engine. */
-    List<JCRNodeWrapper> mappableFields(JCRNodeWrapper form) throws RepositoryException {
-        NodeIterator nodes = form.getSession().getWorkspace().getQueryManager()
-                .createQuery(queryFor(form.getPath()), Query.JCR_SQL2).execute().getNodes();
+    /**
+     * The fields under the form that carry a mapping. The mixin alone is not one: an author can switch
+     * the section on and leave the property empty, and jcontent clears a property its list no longer
+     * offers, so the value is what decides — the same rule the reader and the rendered configuration
+     * apply.
+     */
+    List<JCRNodeWrapper> mappedFields(JCRNodeWrapper form) throws RepositoryException {
+        NodeIterator nodes = fieldsCarryingTheMixin(form);
         List<JCRNodeWrapper> fields = new ArrayList<>();
         while (nodes.hasNext()) {
-            fields.add((JCRNodeWrapper) nodes.nextNode());
+            JCRNodeWrapper field = (JCRNodeWrapper) nodes.nextNode();
+            String property = field.getPropertyAsString(ProfilePropertiesChoiceListInitializer.PROPERTY);
+            if (property != null && !property.isBlank()) {
+                fields.add(field);
+            }
         }
         return fields;
     }
 
-    /** The query of the mappable fields under a form; the path is a SQL2 literal, quotes doubled (the rule of {@code JCRContentUtils.sqlEncode}). */
+    /** The query of the fields carrying the mapping mixin — a seam for the tests, which have no query engine. */
+    NodeIterator fieldsCarryingTheMixin(JCRNodeWrapper form) throws RepositoryException {
+        return form.getSession().getWorkspace().getQueryManager()
+                .createQuery(queryFor(form.getPath()), Query.JCR_SQL2).execute().getNodes();
+    }
+
+    /**
+     * The fields the server even considers: the reader's own query, on the mapping mixin — never the
+     * marker every mappable field carries, which would put an unmapped field's value back in the
+     * block. Named here so that boundary has a test of its own.
+     */
     static String queryFor(String formPath) {
-        return "SELECT * FROM [" + FieldShapes.MAPPABLE_MARKER + "] WHERE ISDESCENDANTNODE('" + formPath.replace("'", "''") + "')";
+        return FormMappingReader.queryFor(formPath);
     }
 }

@@ -107,7 +107,7 @@ Nothing in Formidable depends on jExperience; the new module depends on both.
 | `FormMappingReader` | jexperience-engine | Reads a published form's mapped fields and applies the dropdown's own rule at publication: a property gone from the schema or no longer fitting the field's shape is skipped and logged, never turned into an action. |
 | `FormJExperienceRenderFilter` | jexperience-engine | Render filter on `fmdb:form` (same family as `CaptchaRenderFilter`). When the module is available on the site, it writes next to the form: the inline `digitalDataOverrides.push` of the mapped profile properties, a JSON config block (identifier, mappings), and the module's client script once per page. Its output carries no visitor data: the fragment stays cached. |
 | `formidable-jxp.js` | jexperience-engine, static resource | The client half: at `wemLoaded`, prefills the mapped fields from `wem.getLoadedContext().profileProperties`; on the island's `formidable:submitted` event, decides with `shouldCollect()` and sends the `form` event through `wem.collectEvent`. |
-| `SubmissionResponseEnricher` SPI | formidable-engine, `api` package | Called by the pipeline after all actions succeeded, with the form node, the site and the validated parameters; returns a JSON block to add to the 200. The jExperience module contributes `jexperience: {formId, fields}` — the accepted values of the profile-mappable fields — when it is available on the site. Enrichers never fail the submission. |
+| `SubmissionResponseEnricher` SPI | formidable-engine, `api` package | Called by the pipeline after all actions succeeded, with the form node, the site and the validated parameters; returns a JSON block to add to the 200. The jExperience module contributes `jexperience: {formId, fields}` — the accepted values of the fields the author mapped — when the site has a jExperience configuration. Enrichers never fail the submission. |
 | `formidable:submitted` | formidable-elements, `Form.client.tsx` | DOM `CustomEvent` (bubbling) dispatched after a 200, carrying the form's UUID and the parsed response. The elements module knows nothing of jExperience: it only says "this was accepted, here is what the server answered". |
 
 ---
@@ -185,8 +185,8 @@ this extension point through its own tests (`wem.digitalDataOverrides.cy.ts`).
 7  jCustomer                                      stores the event, applies the mapping rule → profile updated
 ```
 
-The event carries only what the pipeline accepted: undeclared fields, rejected values, files and
-fields outside the profile-mappable marker never reach jCustomer. A rejected submission (400)
+The event carries only what the pipeline accepted **and the author mapped**: undeclared fields,
+rejected values, files and every unmapped field never reach jCustomer. A rejected submission (400)
 sends nothing, since the island only dispatches on a 200.
 
 ---
@@ -322,7 +322,7 @@ stays private to what the form needs.
 | `?fid` | Form node UUID | existing | Validated as UUID, resolved in live (pipeline steps 2 and 4, see [Form submission flow](form-submission-flow.md)) |
 | `?lang` | Language tag of the rendered form | existing | Locale of the submission |
 | Cookies | `wem-profile-id`, `wem-session-id` | existing (jExperience) | **Not read by Formidable.** The tracker attaches them to the event it sends; Formidable never sees, stores or forwards a profile id |
-| Response `jexperience` block | `{formId, fields}` on a 200 | new | Added by the `SubmissionResponseEnricher` of the jExperience module when it is available on the site: the accepted values of the profile-mappable fields (`fmdbmix:profileMappableField`): files, buttons, containers and any field type outside the marker never leave the server, as strings, multi-valued as arrays |
+| Response `jexperience` block | `{formId, fields}` on a 200 | new | Added by the `SubmissionResponseEnricher` of the jExperience module when it is available on the site: the accepted values of the mapped fields (a non-blank `jExperienceProfileProperty`, the reader's own rule): files, buttons, containers and every field the author did not map never leave the server, as strings, multi-valued as arrays |
 
 Nothing of the first design's `pid` parameter and `X-Formidable-Tracking` header remains: the
 page identity comes from the tracker's own `buildSourcePage()`, in the browser that shows it.
@@ -348,9 +348,10 @@ from the tracker — then completed by the client script:
 ```
 
 - **Values** come from the `jexperience.fields` block of the 200 — never from the DOM. Every
-  profile-mappable field the pipeline accepted (`fmdbmix:profileMappableField`, the marker that
-  makes a field mappable), as strings, multi-valued as arrays; files, buttons, containers and any
-  field type outside the marker never leave the server. Type conversion is the rule's job.
+  **mapped** field the pipeline accepted, as strings, multi-valued as arrays; files, buttons,
+  containers and every field the author did not map never leave the server. A form with no mapping
+  sends an empty `fields`, which is all a goal counting submissions needs. Type conversion is the
+  rule's job.
 - **Source** is the page as the tracker sees it: identity, real URL, referrer — the same source
   jExperience puts in every page view, so marketing can test by URL.
 - **Target properties** are the readable label of the identifier; Unomi's `FormSource` schema
@@ -552,7 +553,7 @@ accepted, purged values) and the tracker decides **for whom** (its own cookies) 
 | Gate | Source of truth | Applies to |
 |---|---|---|
 | jExperience installed on the site, configured, and jCustomer reachable | `getInstalledModules`, `isAvailable(siteKey)` | render filter output, response block, mapping rule |
-| The values that may leave | Pipeline steps 1 to 12: field whitelist, validation, actions succeeded; only the profile-mappable fields kept | response block, hence the event |
+| The values that may leave | Pipeline steps 1 to 12: field whitelist, validation, actions succeeded; only the fields the author mapped kept | response block, hence the event |
 | The mapping rule | Publication listener in a system session, admin client owned by jExperience | rule |
 
 ### What the browser establishes
@@ -689,10 +690,11 @@ minute, one rule (decisions of 2026-09-11).
 | 2026-09-14 | The three CND clauses the Java relies on are pinned by a test reading the module's own CND | No test environment installs the module yet; `dependentProperties='multiple'`, `> jmix:templateMixin` and the `extends` to the marker each survived deletion with the suite green. A line-level reader cross-checked with the Java constants guards them until a Cypress spec does |
 | 2026-09-15 | **The identifier is the form's UUID**, carried by the rendered `<form>` as `id` and `name`; the `formidable-jxp-<uuid>` property, its mixin `fmdbmix:jExperienceForm`, the editor field and the stamping listener are removed (HDU) | Reading wem.min.js 4.2.1 and the Form mappings screen showed that every reader takes `name` then `id`, and that two attributes keep the tracker off: a distinct identifier only protected against a tracker two attributes silence. The UUID needs no storage, no listener and no upgrade note, and jContent already shows it |
 | 2026-09-15 | **`data-form-id` and `data-wem-observed="true"` are rendered by elements on every form**, jExperience module or not; the form's title is its `aria-label` | One attribute per code path of the tracker (initial scan, observer). Unconditional: a goal created on a site without the module must not make the tracker send raw, unvalidated DOM fields — a Formidable form is tracked through this module or not at all. The title is not a `name` candidate: read before `id` by the tracker, the picker and the page lookup, it would key a mapping on a label that changes with the language |
-| 2026-09-15 | The response block's `fields` are the accepted values of the **profile-mappable** fields (`fmdbmix:profileMappableField`) | The pipeline has no notion of a sensitive field ([formidable#161](https://github.com/Jahia/formidable/issues/161) is open); the marker is the boundary that already exists: what jExperience may map is what jExperience receives — files, buttons and containers never |
+| 2026-09-15 | ~~The response block's `fields` are the accepted values of the **profile-mappable** fields (`fmdbmix:profileMappableField`)~~ — superseded the same day by the mapped-only rule below | The pipeline has no notion of a sensitive field ([formidable#161](https://github.com/Jahia/formidable/issues/161) is open); the marker is the boundary that already exists: what jExperience may map is what jExperience receives — files, buttons and containers never |
 | 2026-09-15 | **The render filter reads the form in a session of its own**, not the render session | A form placed through a reference renders as a node contextualised under it, whose path `…/theReference@/theForm` is no JCR path: the mapped-fields query matched nothing and the block named a place the mapping rule never mentions. Asking the render session for the identifier gives that same contextualised node back — observed in live, and the first fix, which trusted the session, shipped nothing (its unit test mocked the very lookup that fails). A session that never saw the reference resolves the identifier to the form itself |
 | 2026-09-15 | The response block is **serialised inside each enricher's own guard**, not by the writer | The writer runs outside every guard: a null key or a NaN from one enricher threw there and turned an accepted submission into a 500. Building the JSON where the failure can still be attributed keeps the SPI's one promise — an enricher costs its own entries and nothing else |
 | 2026-09-15 | The client script is emitted next to **every** form of a page and keeps one instance by itself | The filter has no page-level state to dedupe on, and a `<script defer>` fetched twice is one fetch; the script returns early when `window.formidableJxp` is already there |
+| 2026-09-15 | **Only a mapped field's value is in the response block**, so only a mapped field's value reaches jCustomer (HDU: « quel intérêt de tout renvoyer ? vu que l'on n'utilise que les champs mappés ») | The mapping is the declared purpose: the value of an unmapped message or phone number would sit in the event store for none, and data minimisation is the right default for a CDP. The boundary is the non-blank `jExperienceProfileProperty` the reader and the rendered configuration already read, so the block, the rule and the editor cannot disagree. It also settles this path's half of [formidable#161](https://github.com/Jahia/formidable/issues/161): a sensitive field is simply one nobody maps. **Consequence to know:** a mapping created from jExperience's own Form mappings screen on a field Formidable does not map receives nothing — the field to map is chosen in the form's editor |
 
 ## Open questions
 
