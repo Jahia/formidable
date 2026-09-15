@@ -72,7 +72,7 @@ class SubmissionEventEnricherTest {
     }
 
     /** The fields the query returns, as an iterator over the given list — empty list included. */
-    private static NodeIterator iterator(List<JCRNodeWrapper> fields) throws RepositoryException {
+    private static NodeIterator iterator(List<JCRNodeWrapper> fields) {
         Iterator<JCRNodeWrapper> remaining = fields.iterator();
         NodeIterator nodes = mock(NodeIterator.class);
         when(nodes.hasNext()).thenAnswer(call -> remaining.hasNext());
