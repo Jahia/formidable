@@ -9,20 +9,22 @@
  * docs/architecture/jexperience-integration.md ("Submitting", "The send condition").
  *
  * One instance per page whatever the number of forms: the render filter writes the script tag
- * next to every form, the first one wins.
+ * next to every form, the first one to run wins.
  */
 (function () {
-  'use strict';
+  "use strict";
 
   if (window.formidableJxp) {
     return;
   }
-  var api = {};
+  const api = {};
   window.formidableJxp = api;
 
   /** The configuration block the render filter wrote for the form, or null. */
-  api.configOf = function (formId) {
-    var block = document.querySelector('script[type="application/json"][data-formidable-jxp="' + formId + '"]');
+  api.configOf = (formId) => {
+    const block = document.querySelector(
+      'script[type="application/json"][data-formidable-jxp="' + formId + '"]',
+    );
     if (!block) {
       return null;
     }
@@ -30,57 +32,70 @@
       return JSON.parse(block.textContent);
     } catch (e) {
       // the render filter wrote the block, so a broken one is a bug worth seeing
-      console.warn('[Formidable] the jExperience configuration of form ' + formId + ' is not valid JSON', e);
+      console.warn(
+        "[Formidable] the jExperience configuration of form " + formId + " is not valid JSON",
+        e,
+      );
       return null;
     }
   };
 
   /**
-   * Every reason to send or not, in one place: the one function of Formidable that depends on
-   * the tracker's API. `wem` is jExperience's tracker; a consent manager that blocked it leaves
-   * none. `wemLoaded` is set once the tracker ran its callbacks — also in its fallback mode, where
-   * no context was loaded, so the loaded context must carry a profile. `activateWem` false is the
+   * Every reason to send or not, in one place: the one function of Formidable that depends on the
+   * tracker's API. `wem` is jExperience's tracker; a consent manager that blocked it leaves none.
+   * `wemLoaded` is set once the tracker ran its callbacks — also in its fallback mode, where no
+   * context was loaded, so the loaded context must carry a profile. `activateWem` false is the
    * visitor's own "disable tracking"; `disableTrackedConditionsListeners` is the integrator's
    * page-level "no automatic form tracking", honoured and never set here. Then the form must be
    * tracked: a field mapped by the author, or a goal, segment or rule referencing the form in the
    * context (`getFormNamesToWatch`, filled by the tracker at context load).
    */
-  api.shouldCollect = function (formId, config) {
-    var wem = window.wem;
-    var init = (window.digitalData && window.digitalData.wemInitConfig) || {};
-    var context = wem && typeof wem.getLoadedContext === 'function' ? wem.getLoadedContext() : null;
-    return !!wem
-      && window.wemLoaded === true
-      && !!(context && context.profileId)
-      && init.activateWem !== false
-      && !init.disableTrackedConditionsListeners
-      && (config.mappings.length > 0
-        || (typeof wem.getFormNamesToWatch === 'function' && wem.getFormNamesToWatch().indexOf(formId) > -1));
+  api.shouldCollect = (formId, config) => {
+    const wem = window.wem;
+    const init = (window.digitalData && window.digitalData.wemInitConfig) || {};
+    const context =
+      wem && typeof wem.getLoadedContext === "function" ? wem.getLoadedContext() : null;
+    return (
+      Boolean(wem) &&
+      window.wemLoaded === true &&
+      Boolean(context && context.profileId) &&
+      init.activateWem !== false &&
+      !init.disableTrackedConditionsListeners &&
+      (config.mappings.length > 0 ||
+        (typeof wem.getFormNamesToWatch === "function" &&
+          wem.getFormNamesToWatch().indexOf(formId) > -1))
+    );
   };
 
-  /** The `form` event: the tracker's own builder, the form named for dashboards, the accepted values as fields. */
-  api.buildEvent = function (config, fields) {
-    var event = window.wem.buildFormEvent(config.formId);
-    event.target.properties = {name: config.name, path: config.path};
-    event.flattenedProperties = {fields: fields || {}};
+  /**
+   * The `form` event: the tracker's own builder, the form named for dashboards, the accepted values
+   * as fields.
+   */
+  api.buildEvent = (config, fields) => {
+    const event = window.wem.buildFormEvent(config.formId);
+    event.target.properties = { name: config.name, path: config.path };
+    event.flattenedProperties = { fields: fields || {} };
     return event;
   };
 
-  document.addEventListener('formidable:submitted', function (e) {
-    var detail = e.detail || {};
-    var response = detail.response || {};
-    var block = response.jexperience;
+  document.addEventListener("formidable:submitted", (e) => {
+    const detail = e.detail || {};
+    const block = (detail.response || {}).jexperience;
     if (!block || block.formId !== detail.formId) {
       return; // the server did not describe this submission for jExperience
     }
-    var config = api.configOf(detail.formId);
+    const config = api.configOf(detail.formId);
     if (!config || !api.shouldCollect(detail.formId, config)) {
       return;
     }
-    window.wem.collectEvent(api.buildEvent(config, block.fields), function () {
-      /* collected */
-    }, function (xhr) {
-      console.warn('[Formidable] jExperience did not collect the form event: ' + (xhr && xhr.status) + ' ' + (xhr && xhr.statusText));
+    // No success callback: nothing of the page depends on the event having landed.
+    window.wem.collectEvent(api.buildEvent(config, block.fields), undefined, (xhr) => {
+      console.warn(
+        "[Formidable] jExperience did not collect the form event: " +
+          (xhr && xhr.status) +
+          " " +
+          (xhr && xhr.statusText),
+      );
     });
   });
 })();
