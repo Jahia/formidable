@@ -7,6 +7,14 @@ package org.jahia.modules.formidable.jexperience.engine;
  */
 final class Json {
 
+    /**
+     * The two separators JSON allows inside a string and JavaScript once refused. Written as code
+     * points, never as {@code '\}{@code u2028'}: the compiler resolves a Unicode escape before the
+     * lexer runs, so the escape would leave the raw separator in this file.
+     */
+    private static final char LINE_SEPARATOR = 0x2028;
+    private static final char PARAGRAPH_SEPARATOR = 0x2029;
+
     private Json() {
     }
 
@@ -30,7 +38,7 @@ final class Json {
                 case '\r' -> out.append("\\r");
                 case '\t' -> out.append("\\t");
                 default -> {
-                    if (c < 0x20 || c == '<' || c == '>' || c == '&' || c == ' ' || c == ' ') {
+                    if (c < 0x20 || c == '<' || c == '>' || c == '&' || c == LINE_SEPARATOR || c == PARAGRAPH_SEPARATOR) {
                         out.append(String.format("\\u%04x", (int) c));
                     } else {
                         out.append(c);

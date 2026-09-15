@@ -55,6 +55,21 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
         contextServerService.compareAndSet(service, null);
     }
 
+    /**
+     * The identity of a filter is its instance: the parent compares filters to order a chain, and the
+     * service reference this class adds is a binding, not part of what the filter is. Spelt out
+     * because a subclass that adds a field and inherits an equality is a smell on its own.
+     */
+    @Override
+    public boolean equals(Object other) {
+        return super.equals(other);
+    }
+
+    @Override
+    public int hashCode() {
+        return super.hashCode();
+    }
+
     @Activate
     public void activate() {
         setPriority(11);

@@ -41,7 +41,7 @@ export default function Form({
 	stepIds,
 	captcha,
 	children
-}: FormProps) {
+}: Readonly<FormProps>) {
 	const formRef = useRef<HTMLFormElement>(null);
 	const {t} = useTranslation('formidable-elements', {keyPrefix: 'fmdb_form'});
 	const [hasBlockingSourceError, setHasBlockingSourceError] = useState(false);
