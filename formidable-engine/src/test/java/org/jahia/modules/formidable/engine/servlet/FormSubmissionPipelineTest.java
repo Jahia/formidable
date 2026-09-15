@@ -1081,6 +1081,7 @@ class FormSubmissionPipelineTest {
         assertEquals("mysite", accepted.siteKey());
         assertEquals(Locale.FRENCH, accepted.locale());
         assertEquals(Map.of("firstName", List.of("Ada")), accepted.parameters());
-        assertThrows(UnsupportedOperationException.class, () -> accepted.parameters().get("firstName").clear());
+        List<String> snapshot = accepted.parameters().get("firstName");
+        assertThrows(UnsupportedOperationException.class, snapshot::clear);
     }
 }
