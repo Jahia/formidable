@@ -1,8 +1,10 @@
 package org.jahia.modules.formidable.engine.servlet;
 
+import org.jahia.modules.formidable.engine.api.AcceptedSubmission;
 import org.jahia.modules.formidable.engine.api.FormAction;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService;
+import org.jahia.services.content.JCRNodeWrapper;
 import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 
@@ -10,10 +12,14 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -147,6 +153,116 @@ class FormSubmitServletTest {
         assertEquals("FMDB-500", json.getString("errorCode"));
         assertFalse(json.has("actionsCompleted"));
         assertFalse(json.has("actionsTotal"));
+    }
+
+    @Test
+    void mergesTheResponseEnrichersEntriesIntoTheSuccessBody() throws Exception {
+        // Verifies the enrichment of an accepted submission: what an enricher returns lands next to
+        // "success", under its own key, serialised as JSON — here the parameters it was handed.
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter body = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(body));
+        AcceptedSubmission accepted = new AcceptedSubmission(mock(JCRNodeWrapper.class), "mysite", Locale.ENGLISH, Map.of("firstName", List.of("Ada")));
+        EnrichingFormSubmitServlet servlet = new EnrichingFormSubmitServlet(accepted);
+        servlet.setConfig(mock(FormidableConfigService.class));
+        servlet.bindResponseEnricher(submission -> Map.of("jexperience", Map.of("formId", "f-1", "fields", submission.parameters())));
+
+        servlet.doPost(request, response);
+
+        // Expected outcome: a 200 whose body carries success and the enricher's block.
+        verify(response).setStatus(HttpServletResponse.SC_OK);
+        JSONObject json = new JSONObject(body.toString());
+        assertTrue(json.getBoolean("success"));
+        assertEquals("f-1", json.getJSONObject("jexperience").getString("formId"));
+        assertEquals("Ada", json.getJSONObject("jexperience").getJSONObject("fields").getJSONArray("firstName").getString(0));
+    }
+
+    @Test
+    void nothingAnEnricherDoesWrongCanFailAnAcceptedSubmission() throws Exception {
+        // Verifies the SPI's one promise, four ways: a throw, a servlet-owned key, a key that is not one
+        // and a value org.json refuses each cost that entry alone — the 200 and "success" stand, and the
+        // entries of the other enrichers are written.
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter body = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(body));
+        AcceptedSubmission accepted = new AcceptedSubmission(mock(JCRNodeWrapper.class), "mysite", Locale.ENGLISH, Map.of());
+        EnrichingFormSubmitServlet servlet = new EnrichingFormSubmitServlet(accepted);
+        servlet.setConfig(mock(FormidableConfigService.class));
+        servlet.bindResponseEnricher(submission -> {
+            throw new IllegalStateException("boom");
+        });
+        servlet.bindResponseEnricher(submission -> {
+            Map<String, Object> entries = new HashMap<>();
+            entries.put("success", false);
+            entries.put(null, "no key");
+            entries.put("notJson", Double.NaN);
+            entries.put("extra", "kept");
+            return entries;
+        });
+
+        servlet.doPost(request, response);
+
+        // Expected outcome: a 200 whose body says success and carries the one sound entry.
+        verify(response).setStatus(HttpServletResponse.SC_OK);
+        JSONObject json = new JSONObject(body.toString());
+        assertTrue(json.getBoolean("success"));
+        assertEquals("kept", json.getString("extra"));
+        assertFalse(json.has("notJson"));
+    }
+
+    @Test
+    void enrichersAreNotCalledWhenThePipelineRejectsTheSubmission() throws Exception {
+        // Verifies the boundary of the SPI: only an accepted submission is enriched; an error body
+        // carries nothing of theirs and they are never asked.
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter body = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(body));
+        TestableFormSubmitServlet servlet = new TestableFormSubmitServlet(true, new SubmissionException(ErrorCode.FMDB_010, "missing"), null);
+        servlet.setConfig(mock(FormidableConfigService.class));
+        AtomicBoolean called = new AtomicBoolean();
+        servlet.bindResponseEnricher(submission -> {
+            called.set(true);
+            return Map.of("jexperience", "never");
+        });
+
+        servlet.doPost(request, response);
+
+        // Expected outcome: the rejection is answered as before, the enricher was not called.
+        assertFalse(called.get());
+        assertFalse(body.toString().contains("jexperience"));
+        assertFalse(new JSONObject(body.toString()).getBoolean("success"));
+    }
+
+    /** A servlet whose pipeline accepts every request and describes the given submission. */
+    private static final class EnrichingFormSubmitServlet extends FormSubmitServlet {
+        private final AcceptedSubmission accepted;
+
+        private EnrichingFormSubmitServlet(AcceptedSubmission accepted) {
+            this.accepted = accepted;
+        }
+
+        @Override
+        boolean isRequestAllowed() {
+            return true;
+        }
+
+        @Override
+        FormSubmissionPipeline createPipeline() {
+            return new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false) {
+                @Override
+                void run(HttpServletRequest req) {
+                    // accepted as is
+                }
+
+                @Override
+                AcceptedSubmission accepted() {
+                    return accepted;
+                }
+            };
+        }
     }
 
     private static final class TestableFormSubmitServlet extends FormSubmitServlet {

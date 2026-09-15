@@ -16,6 +16,17 @@ interface SubmissionLabels {
 // Covers the window where the mode is switched between render and submit: the visitor gets
 // the same maintenance message as the render-time state, not a technical error.
 const MAINTENANCE_ERROR_CODE = 'FMDB-014';
+/** Dispatched on the form element after a 2xx, before the form is reset. Detail: {formId, response}. */
+export const SUBMITTED_EVENT = 'formidable:submitted';
+
+/** The server's JSON answer, or null for a body that is not JSON: the event never fails on it. */
+function parseJsonBody(text: string): unknown {
+	try {
+		return JSON.parse(text);
+	} catch {
+		return null;
+	}
+}
 
 interface UseFormSubmissionOptions {
 	submitActionUrl?: string;
@@ -132,6 +143,16 @@ export function useFormSubmission({
 				} catch { /* ignore non-JSON bodies */ }
 				throw new Error('Submission failed');
 			}
+
+			// The accepted submission, announced to the page before the island touches the form:
+			// a bubbling DOM event carrying the form's UUID and the server's answer, for scripts
+			// that know nothing of this island (the jExperience module listens for it). The
+			// event says "accepted, here is what the server answered" and nothing else; a listener
+			// that throws does not reach this code (dispatchEvent reports it to the window).
+			form.dispatchEvent(new CustomEvent(SUBMITTED_EVENT, {
+				bubbles: true,
+				detail: {formId: form.id, response: parseJsonBody(response.responseText)},
+			}));
 
 			await new Promise(resolve => setTimeout(resolve, 500));
 
