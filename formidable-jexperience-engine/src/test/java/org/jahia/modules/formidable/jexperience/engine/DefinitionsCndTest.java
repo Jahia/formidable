@@ -62,6 +62,24 @@ class DefinitionsCndTest {
         assertEquals("[fmdbmix:jExperienceProfileMapping] mixin", mixin.get(0), "no supertype: mappability is the type's claim, not the mixin's");
         assertEquals("extends = " + FieldShapes.MAPPABLE_MARKER, lineStartingWith(mixin, "extends"));
         String property = lineStartingWith(mixin, "- " + ProfilePropertiesChoiceListInitializer.PROPERTY + " ");
-        assertTrue(property.contains("choicelist[" + ProfilePropertiesChoiceListInitializer.KEY + ",dependentProperties='" + FieldShapes.MULTIPLE_PROPERTY + "," + ProfilePropertiesChoiceListInitializer.OPTIONS_PROPERTY + "," + ProfilePropertiesChoiceListInitializer.OPTIONS_MODE_PROPERTY + "']"), property);
+        assertTrue(property.contains("choicelist[" + ProfilePropertiesChoiceListInitializer.KEY + ",dependentProperties='"
+                + FieldShapes.MULTIPLE_PROPERTY + "," + ProfilePropertiesChoiceListInitializer.OPTIONS_PROPERTY + ","
+                + ProfilePropertiesChoiceListInitializer.OPTIONS_MODE_PROPERTY + "," + SensitiveField.PROPERTY + "']"), property);
+    }
+
+    @Test
+    void theSensitiveMixinIsSwitchLessAndItsFlagDrivesTheDropdown() throws Exception {
+        // Verifies the three clauses the sensitive flag lives on: it reaches every mappable field through the
+        // marker, jcontent renders it without an enable switch (only a jmix:templateMixin fieldset loses it, and
+        // the flag must be answerable before the mapping fieldset is switched on), and the mapping's choicelist
+        // names it, which is what empties the dropdown the moment the author ticks the box.
+        List<String> lines = cnd();
+        assertTrue(lines.stream().anyMatch(line -> line.strip().startsWith("<jmix = 'http://www.jahia.org/jahia/mix/1.0'>")), "the jmix namespace is declared");
+        List<String> mixin = declarationOf(lines, SensitiveField.MIXIN);
+        assertEquals("[" + SensitiveField.MIXIN + "] > jmix:templateMixin mixin", mixin.get(0));
+        assertEquals("extends = " + FieldShapes.MAPPABLE_MARKER, lineStartingWith(mixin, "extends"));
+        assertEquals("- " + SensitiveField.PROPERTY + " (boolean) = false autocreated indexed=no", lineStartingWith(mixin, "- " + SensitiveField.PROPERTY + " "));
+        assertTrue(lineStartingWith(declarationOf(lines, "fmdbmix:jExperienceProfileMapping"), "- " + ProfilePropertiesChoiceListInitializer.PROPERTY + " ")
+                .contains("," + SensitiveField.PROPERTY + "'"), "the choicelist depends on the flag");
     }
 }

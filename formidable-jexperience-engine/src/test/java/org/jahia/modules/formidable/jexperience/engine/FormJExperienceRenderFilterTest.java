@@ -4,16 +4,19 @@ import org.jahia.modules.jexperience.admin.ContextServerService;
 import org.jahia.modules.jexperience.admin.ContextServerStatus;
 import org.jahia.services.content.JCRCallback;
 import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.services.content.JCRPropertyWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRWorkspaceWrapper;
 import org.junit.jupiter.api.Test;
 
 import javax.jcr.RepositoryException;
-import java.util.LinkedHashMap;
+import javax.jcr.NodeIterator;
+import java.util.List;
+import java.util.Iterator;
 import java.util.Locale;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -63,9 +66,32 @@ class FormJExperienceRenderFilterTest {
         return session;
     }
 
-    /** A filter reading through the given session, over a form whose mapped fields are given (null: reading fails). */
-    private static FilterUnderTest filter(ContextServerService service, JCRSessionWrapper ownSession, Map<String, String> mappings) {
-        FilterUnderTest filter = new FilterUnderTest(ownSession, mappings);
+    /** A mapped field of the form, sensitive or not. */
+    private static JCRNodeWrapper mappedField(String name, String property, boolean sensitive) throws RepositoryException {
+        JCRNodeWrapper node = mock(JCRNodeWrapper.class);
+        when(node.getName()).thenReturn(name);
+        when(node.getPropertyAsString(ProfilePropertiesChoiceListInitializer.PROPERTY)).thenReturn(property);
+        if (sensitive) {
+            JCRPropertyWrapper flag = mock(JCRPropertyWrapper.class);
+            when(flag.getBoolean()).thenReturn(true);
+            when(node.hasProperty(SensitiveField.PROPERTY)).thenReturn(true);
+            when(node.getProperty(SensitiveField.PROPERTY)).thenReturn(flag);
+        }
+        return node;
+    }
+
+    /** The fields the query returns, as an iterator over the given list — empty list included. */
+    private static NodeIterator iterator(List<JCRNodeWrapper> fields) {
+        Iterator<JCRNodeWrapper> remaining = fields.iterator();
+        NodeIterator nodes = mock(NodeIterator.class);
+        when(nodes.hasNext()).thenAnswer(call -> remaining.hasNext());
+        when(nodes.nextNode()).thenAnswer(call -> remaining.next());
+        return nodes;
+    }
+
+    /** A filter reading through the given session, over a form whose fields are given (null: reading fails). */
+    private static FilterUnderTest filter(ContextServerService service, JCRSessionWrapper ownSession, List<JCRNodeWrapper> fields) {
+        FilterUnderTest filter = new FilterUnderTest(ownSession, fields);
         filter.bindContextServerService(service);
         return filter;
     }
@@ -73,13 +99,13 @@ class FormJExperienceRenderFilterTest {
     /** Replaces the two seams: the session the filter opens, and the query of the mapped fields. */
     private static final class FilterUnderTest extends FormJExperienceRenderFilter {
         private final JCRSessionWrapper ownSession;
-        private final Map<String, String> mappings;
+        private final List<JCRNodeWrapper> fields;
         private String queriedPath;
         private String openedWorkspace;
 
-        private FilterUnderTest(JCRSessionWrapper ownSession, Map<String, String> mappings) {
+        private FilterUnderTest(JCRSessionWrapper ownSession, List<JCRNodeWrapper> fields) {
             this.ownSession = ownSession;
-            this.mappings = mappings;
+            this.fields = fields;
         }
 
         @Override
@@ -89,12 +115,12 @@ class FormJExperienceRenderFilterTest {
         }
 
         @Override
-        Map<String, String> mappedFields(JCRNodeWrapper form) throws RepositoryException {
-            if (mappings == null) {
+        NodeIterator fieldsCarryingAMapping(JCRNodeWrapper form) throws RepositoryException {
+            if (fields == null) {
                 throw new RepositoryException("gone");
             }
             queriedPath = form.getPath();
-            return mappings;
+            return iterator(fields);
         }
     }
 
@@ -108,11 +134,9 @@ class FormJExperienceRenderFilterTest {
     void writesTheConfigurationBlockAndTheScriptBeforeTheForm() throws Exception {
         // Verifies the contribution: a JSON block keyed on the form's UUID with identifier, title, path and
         // the mapped fields in order, then the script tag, both before the form's own markup.
-        Map<String, String> mappings = new LinkedHashMap<>();
-        mappings.put("firstName", "firstName");
-        mappings.put("topics", "interests");
         JCRNodeWrapper form = form("Contact us");
-        String out = filter(configured("mysite"), ownSessionOver(form), mappings)
+        String out = filter(configured("mysite"), ownSessionOver(form),
+                List.of(mappedField("firstName", "firstName", false), mappedField("topics", "interests", false)))
                 .prepend("<form></form>", "mysite", rendered(form, false));
 
         assertEquals("<script type=\"application/json\" data-formidable-jxp=\"" + FORM_UUID + "\">"
@@ -127,7 +151,7 @@ class FormJExperienceRenderFilterTest {
         // Verifies the two edges of the block: an empty mappings list (a form a goal may still watch) and a
         // title that could otherwise close the script block.
         JCRNodeWrapper form = form("</script><b>&");
-        String out = filter(configured("mysite"), ownSessionOver(form), Map.of())
+        String out = filter(configured("mysite"), ownSessionOver(form), List.of())
                 .prepend("", "mysite", rendered(form, false));
 
         assertTrue(out.contains("\"name\":\"\\u003c/script\\u003e\\u003cb\\u003e\\u0026\""), out);
@@ -141,7 +165,7 @@ class FormJExperienceRenderFilterTest {
         // the identifier — so the block must carry the form's own path, the one the mapping rule names,
         // and the fields must be looked up there.
         JCRNodeWrapper form = form("Contact us");
-        FilterUnderTest filter = filter(configured("mysite"), ownSessionOver(form), Map.of("firstName", "firstName"));
+        FilterUnderTest filter = filter(configured("mysite"), ownSessionOver(form), List.of(mappedField("firstName", "firstName", false)));
 
         String out = filter.prepend("<form></form>", "mysite", rendered(form, true));
 
@@ -156,11 +180,24 @@ class FormJExperienceRenderFilterTest {
         // Verifies the silences: a site without jExperience settings, no site at all (a form outside a site), and a repository
         // failure while reading the form each leave the form's markup untouched.
         JCRNodeWrapper form = form("Contact");
-        assertEquals("<form></form>", filter(mock(ContextServerService.class), ownSessionOver(form), Map.of())
+        assertEquals("<form></form>", filter(mock(ContextServerService.class), ownSessionOver(form), List.of())
                 .prepend("<form></form>", "mysite", rendered(form, false)));
-        assertEquals("<form></form>", filter(configured("mysite"), ownSessionOver(form), Map.of())
+        assertEquals("<form></form>", filter(configured("mysite"), ownSessionOver(form), List.of())
                 .prepend("<form></form>", null, rendered(form, false)));
         assertEquals("<form></form>", filter(configured("mysite"), ownSessionOver(form), null)
                 .prepend("<form></form>", "mysite", rendered(form, false)));
+    }
+
+    @Test
+    void aSensitiveFieldIsNotInThePagesConfiguration() throws Exception {
+        // Verifies that the page never names a field the author marked sensitive: its mapping may predate the
+        // flag, and the block is what the client script reads to prefill and to decide it has something to send.
+        JCRNodeWrapper form = form("Contact us");
+        String out = filter(configured("mysite"), ownSessionOver(form), List.of(
+                mappedField("email", "email", false),
+                mappedField("nationalId", "firstName", true))).prepend("", "mysite", rendered(form, false));
+
+        assertTrue(out.contains("\"mappings\":[{\"field\":\"email\",\"property\":\"email\"}]}"), out);
+        assertFalse(out.contains("nationalId"), out);
     }
 }

@@ -6,6 +6,7 @@ import org.jahia.modules.jexperience.admin.ContextServerService;
 import org.jahia.modules.jexperience.admin.ContextServerStatus;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRPropertyWrapper;
+import org.jahia.services.content.JCRPropertyWrapper;
 import org.jahia.services.content.decorator.JCRSiteNode;
 import org.junit.jupiter.api.Test;
 
@@ -18,34 +19,37 @@ import java.util.Map;
 import java.util.OptionalInt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * The jexperience block of an accepted submission: the form's UUID and the accepted values of the
- * fields the author mapped, shaped as the mapping rule expects — and no block outside a configured site.
+ * The jexperience block of an accepted submission: the form's UUID and the accepted values of its
+ * fields, shaped as the mapping rule expects, minus the ones the author marked sensitive — and no
+ * block outside a configured site.
  */
 class SubmissionEventEnricherTest {
 
     private static final String FORM_UUID = "8f7e2a10-0000-4000-8000-000000000001";
 
-    /** A field carrying a mapping: the mixin's property named after it, which is what lets its value out. */
+    /** A field of the form, mappable and not sensitive. */
     private static JCRNodeWrapper field(String name, String... types) throws RepositoryException {
-        return mappedTo(name, "property-of-" + name, types);
-    }
-
-    /** A field whose mapping property holds the given value — blank or null for a field nobody mapped. */
-    private static JCRNodeWrapper mappedTo(String name, String property, String... types) throws RepositoryException {
         JCRNodeWrapper node = mock(JCRNodeWrapper.class);
         when(node.getName()).thenReturn(name);
-        when(node.getPropertyAsString(ProfilePropertiesChoiceListInitializer.PROPERTY)).thenReturn(property);
         for (String type : types) {
             when(node.isNodeType(type)).thenReturn(true);
         }
         return node;
+    }
+
+    /** The same field, with the author's "this value never leaves the site" ticked. */
+    private static JCRNodeWrapper sensitive(JCRNodeWrapper field) throws RepositoryException {
+        JCRPropertyWrapper flag = mock(JCRPropertyWrapper.class);
+        when(flag.getBoolean()).thenReturn(true);
+        when(field.hasProperty(SensitiveField.PROPERTY)).thenReturn(true);
+        when(field.getProperty(SensitiveField.PROPERTY)).thenReturn(flag);
+        return field;
     }
 
     private static JCRNodeWrapper multiple(JCRNodeWrapper field) throws RepositoryException {
@@ -80,14 +84,14 @@ class SubmissionEventEnricherTest {
         return nodes;
     }
 
-    /** An enricher over a form whose mixin-carrying fields the query returns; every choice field counts the given choices. */
+    /** An enricher over a form whose mappable fields the query returns; every choice field counts the given choices. */
     private static SubmissionEventEnricher enricher(ContextServerService service, int choices, List<JCRNodeWrapper> fields) throws RepositoryException {
         ChoiceOptionsResolver resolver = mock(ChoiceOptionsResolver.class);
         when(resolver.countChoices(any(), any())).thenReturn(OptionalInt.of(choices));
         NodeIterator nodes = iterator(fields);
         return new SubmissionEventEnricher(resolver, service) {
             @Override
-            NodeIterator fieldsCarryingTheMixin(JCRNodeWrapper form) {
+            NodeIterator mappableFields(JCRNodeWrapper form) {
                 return nodes;
             }
         };
@@ -95,7 +99,7 @@ class SubmissionEventEnricherTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void theBlockCarriesTheFormUuidAndTheMappedValuesShapedLikeTheRule() throws Exception {
+    void theBlockCarriesTheFormUuidAndTheValuesShapedLikeTheRule() throws Exception {
         // Verifies the nominal block: a text field gives a string, a checkbox group and a multiple select give
         // lists even with one value, a field the submitter left out is absent, an unknown parameter never appears.
         List<JCRNodeWrapper> fields = List.of(
@@ -134,30 +138,31 @@ class SubmissionEventEnricherTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void aFieldTheAuthorDidNotMapNeverLeavesTheServer() throws Exception {
-        // Verifies the boundary of the block: only a non-blank mapping lets a value out, so the message the
-        // author left unmapped — section switched on, property empty — stays on the server, as does a field
-        // the query never returned.
+    void aFieldTheAuthorMarkedSensitiveNeverLeavesTheServer() throws Exception {
+        // Verifies the one boundary the author draws: a sensitive field's value is left out even though the
+        // field is mappable and the submitter sent it, while the other values are all there — an unmapped one
+        // included, since a mapping made in jExperience's screen may name it.
         List<JCRNodeWrapper> fields = List.of(
                 field("email", FieldShapes.MAPPABLE_MARKER, FieldShapes.EMAIL_FIELD),
-                mappedTo("message", "  ", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD));
+                field("message", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD),
+                sensitive(field("nationalId", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD)));
         Map<String, List<String>> parameters = Map.of(
                 "email", List.of("ada@example.com"),
-                "message", List.of("a private note"),
-                "fullName", List.of("Ada"));
+                "message", List.of("a note"),
+                "nationalId", List.of("1234567890"));
 
         Map<String, Object> entries = enricher(configured("mysite"), 1, fields)
                 .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH, parameters));
 
         Map<String, Object> block = (Map<String, Object>) entries.get(SubmissionEventEnricher.KEY);
-        assertEquals(Map.of("email", "ada@example.com"), block.get("fields"));
+        assertEquals(Map.of("email", "ada@example.com", "message", "a note"), block.get("fields"));
     }
 
     @Test
     @SuppressWarnings("unchecked")
-    void aFormWithNoMappingGetsAnEmptyFieldsBlock() throws Exception {
-        // Verifies what a goal-only form sends: the block exists, so the script can send the event a goal
-        // counts, and it carries no value at all.
+    void aFormWhoseFieldsAreAllSensitiveGetsAnEmptyFieldsBlock() throws Exception {
+        // Verifies the far end: the block still exists, so the script can send the event a goal counts, and it
+        // carries no value at all.
         Map<String, Object> entries = enricher(configured("mysite"), 1, List.of())
                 .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH, Map.of("flavor", List.of("vanilla"))));
 
@@ -166,14 +171,14 @@ class SubmissionEventEnricherTest {
     }
 
     @Test
-    void theFieldsAreLookedUpByTheMappingMixin() {
-        // Verifies which fields the server even considers: the query is the reader's, on the mapping mixin, so
-        // the block, the rule and the editor agree. With the marker every mappable field carries, an unmapped
-        // field's value would be back in the block.
-        String query = SubmissionEventEnricher.queryFor("/sites/mysite/contents/contact");
-        assertEquals(FormMappingReader.queryFor("/sites/mysite/contents/contact"), query);
-        assertTrue(query.contains(FormMappingReader.MAPPING_MIXIN), query);
-        assertFalse(query.contains(FieldShapes.MAPPABLE_MARKER), query);
+    void theFieldsAreLookedUpByTheMappableMarker() {
+        // Verifies which fields the server considers: every one carrying the marker, not only the mapped ones,
+        // since a mapping made in jExperience's own screen names a field Formidable need not know. A quote in
+        // the path is doubled, as SQL2 wants.
+        assertEquals("SELECT * FROM [" + FieldShapes.MAPPABLE_MARKER + "] WHERE ISDESCENDANTNODE('/sites/mysite/contents/contact')",
+                SubmissionEventEnricher.queryFor("/sites/mysite/contents/contact"));
+        assertEquals("SELECT * FROM [" + FieldShapes.MAPPABLE_MARKER + "] WHERE ISDESCENDANTNODE('/sites/mysite/contents/l''enquete')",
+                SubmissionEventEnricher.queryFor("/sites/mysite/contents/l'enquete"));
     }
 
     @Test

@@ -147,19 +147,24 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
     /**
      * Field name to profile property, for the form's fields that carry a mapping — as stored, before
      * the schema check the rule applies: the script only asks whether the author mapped anything.
-     * A seam for the tests, which have no query engine.
+     * A field marked sensitive is left out, so the page never names it either.
      */
     Map<String, String> mappedFields(JCRNodeWrapper form) throws RepositoryException {
-        NodeIterator nodes = form.getSession().getWorkspace().getQueryManager()
-                .createQuery(FormMappingReader.queryFor(form.getPath()), Query.JCR_SQL2).execute().getNodes();
+        NodeIterator nodes = fieldsCarryingAMapping(form);
         Map<String, String> mappings = new LinkedHashMap<>();
         while (nodes.hasNext()) {
             JCRNodeWrapper field = (JCRNodeWrapper) nodes.nextNode();
             String property = field.getPropertyAsString(ProfilePropertiesChoiceListInitializer.PROPERTY);
-            if (property != null && !property.isBlank()) {
+            if (property != null && !property.isBlank() && !SensitiveField.isSensitive(field)) {
                 mappings.put(field.getName(), property);
             }
         }
         return mappings;
+    }
+
+    /** The query of the fields carrying the mapping mixin — a seam for the tests, which have no query engine. */
+    NodeIterator fieldsCarryingAMapping(JCRNodeWrapper form) throws RepositoryException {
+        return form.getSession().getWorkspace().getQueryManager()
+                .createQuery(FormMappingReader.queryFor(form.getPath()), Query.JCR_SQL2).execute().getNodes();
     }
 }

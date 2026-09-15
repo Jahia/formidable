@@ -80,6 +80,11 @@ public class FormMappingReader {
         if (propertyName == null || propertyName.isBlank()) {
             return Optional.empty();
         }
+        if (SensitiveField.isSensitive(field)) {
+            // the dropdown offers nothing on a sensitive field, but a mapping may predate the flag
+            log.warn("[FormMappingReader] '{}' maps '{}' but is marked sensitive: skipped", field.getPath(), propertyName);
+            return Optional.empty();
+        }
         Optional<FieldShape> shape = FieldShapes.infer(field, Optional.empty(), () -> countChoices(field, language));
         if (shape.isEmpty()) {
             log.warn("[FormMappingReader] '{}' maps '{}' but is not a mappable field: skipped", field.getPath(), propertyName);

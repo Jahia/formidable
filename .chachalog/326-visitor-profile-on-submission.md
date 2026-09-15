@@ -3,4 +3,4 @@
 formidable: minor
 ---
 
-Added visitor profile updates on submission, so a mapped field writes the submitted value to the profile (#326)
+Added visitor profile updates on submission, and a per-field switch to keep a sensitive value out (#326)

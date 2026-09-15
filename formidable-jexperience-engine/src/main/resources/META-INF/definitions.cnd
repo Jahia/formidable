@@ -1,6 +1,7 @@
 <jnt = 'http://www.jahia.org/jahia/nt/1.0'>
 <fmdb = 'http://www.jahia.org/jahia/fmdb/nt/1.0'>
 <fmdbmix = 'http://www.jahia.org/jahia/fmdb/mix/1.0'>
+<jmix = 'http://www.jahia.org/jahia/mix/1.0'>
 
 // The jExperience mapping of a field: attached to the engine's marker mixin (extends), so it
 // reaches every field type that claims fmdbmix:profileMappableField — built-in, extended or
@@ -14,7 +15,18 @@
 [fmdbmix:jExperienceProfileMapping] mixin
  extends = fmdbmix:profileMappableField
  itemtype = content
- - jExperienceProfileProperty (string, choicelist[formidableJExperienceProfileProperties,dependentProperties='multiple,options,optionsMode']) indexed=no
+ - jExperienceProfileProperty (string, choicelist[formidableJExperienceProfileProperties,dependentProperties='multiple,options,optionsMode,jExperienceSensitive']) indexed=no
  - jExperiencePrefillFromProfile (boolean) = false autocreated indexed=no
  - jExperienceSetStrategy (string, choicelist[resourceBundle]) = 'alwaysSet' autocreated indexed=no < 'alwaysSet', 'setIfMissing'
 
+
+// A field the author marked sensitive: its value never leaves the site — it is not in the
+// submission event, and no mapping can be made on it. The flag has to be answerable before the
+// mapping fieldset is switched on, and a switch of its own could contradict that one, so it is a
+// property of a mixin jcontent renders without an enable switch: jmix:templateMixin, the one
+// supertype that drops it. The mapping's choicelist names this property in its dependentProperties,
+// so ticking the box empties the dropdown at once, without a save.
+[fmdbmix:jExperienceSensitiveField] > jmix:templateMixin mixin
+ extends = fmdbmix:profileMappableField
+ itemtype = content
+ - jExperienceSensitive (boolean) = false autocreated indexed=no
