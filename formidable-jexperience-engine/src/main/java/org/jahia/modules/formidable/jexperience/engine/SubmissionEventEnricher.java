@@ -86,18 +86,11 @@ public class SubmissionEventEnricher implements SubmissionResponseEnricher {
             Fields sendable = sendableFields(form);
             for (JCRNodeWrapper field : sendable.sendable()) {
                 String name = field.getName();
-                // a sensitive field's name is withheld, not its node: two fields of one form can carry the
-                // same name — unique among siblings only — and the pipeline accumulates both their values
-                // under it, so sending the name at all would send the sensitive one's value too
-                if (sendable.withheldNames().contains(name)) {
-                    continue;
+                List<String> values = sendableValues(submission, sendable, name);
+                if (!values.isEmpty()) {
+                    Optional<FieldShape> shape = FieldShapes.infer(field, Optional.empty(), () -> optionsResolver.countChoices(field, language));
+                    shape.ifPresent(s -> fields.put(name, s.multivalued() ? List.copyOf(values) : values.get(0)));
                 }
-                List<String> values = submission.parameters().get(name);
-                if (values == null || values.isEmpty()) {
-                    continue;
-                }
-                Optional<FieldShape> shape = FieldShapes.infer(field, Optional.empty(), () -> optionsResolver.countChoices(field, language));
-                shape.ifPresent(s -> fields.put(name, s.multivalued() ? List.copyOf(values) : values.get(0)));
             }
             Map<String, Object> block = new LinkedHashMap<>();
             block.put("formId", form.getIdentifier());
@@ -107,6 +100,23 @@ public class SubmissionEventEnricher implements SubmissionResponseEnricher {
             log.warn("[SubmissionEventEnricher] The fields of the submitted form could not be read: no jexperience block in the response", e);
             return Map.of();
         }
+    }
+
+    /**
+     * What the submission holds under a field's name, or nothing at all.
+     *
+     * <p>Nothing when the name is withheld: a sensitive field's <em>name</em> is what is held back, not
+     * its node. Two fields of one form can carry the same name — unique among siblings only — and the
+     * pipeline accumulates both their submitted values under it, so sending the name at all would send
+     * the sensitive one's value too. Nothing, too, when the name carries no value: a group with nothing
+     * ticked can reach the pipeline as an empty list, which has no first value to read.</p>
+     */
+    private static List<String> sendableValues(AcceptedSubmission submission, Fields sendable, String name) {
+        if (sendable.withheldNames().contains(name)) {
+            return List.of();
+        }
+        List<String> values = submission.parameters().get(name);
+        return values == null ? List.of() : values;
     }
 
     /**

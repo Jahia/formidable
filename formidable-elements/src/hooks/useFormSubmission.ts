@@ -118,7 +118,7 @@ export function useFormSubmission({
 			// rule, which is what lets the server evaluate them coherently.
 			const logicStateHeader = buildLogicStateHeader(form);
 			// getAttribute, not form.action: a control named "action" shadows the property (see formId above)
-			const targetUrl = submitActionUrl ?? form.getAttribute('action') ?? window.location.href;
+			const targetUrl = submitActionUrl ?? form.getAttribute('action') ?? globalThis.location.href;
 
 			// XHR is kept here because Jahia's CSRFGuard integrates with XMLHttpRequest rather than fetch.
 			// Direct authenticated submissions to this servlet path are still protected server-side and
