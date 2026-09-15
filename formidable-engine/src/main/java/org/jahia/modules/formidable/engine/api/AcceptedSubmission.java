@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * What the submission pipeline accepted, handed to every {@link SubmissionResponseEnricher} once
@@ -15,7 +16,9 @@ import java.util.Objects;
  * @param siteKey    the key of the form's site
  * @param locale     the locale of the submission (the {@code lang} parameter of the request)
  * @param parameters the accepted values by field name: declared, validated, non-file fields only,
- *                   each value as the submitter sent it; a snapshot, never the pipeline's own map
+ *                   each value as the submitter sent it. A deep snapshot, immutable to its lists:
+ *                   several enrichers are asked in turn for one submission, and one of them sorting
+ *                   or clearing a list it was handed would change what the next ones read
  */
 public record AcceptedSubmission(
         JCRNodeWrapper formNode,
@@ -27,6 +30,7 @@ public record AcceptedSubmission(
         Objects.requireNonNull(formNode, "formNode");
         Objects.requireNonNull(siteKey, "siteKey");
         Objects.requireNonNull(locale, "locale");
-        parameters = parameters == null ? Map.of() : Map.copyOf(parameters);
+        parameters = parameters == null ? Map.of() : parameters.entrySet().stream()
+                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, entry -> List.copyOf(entry.getValue())));
     }
 }

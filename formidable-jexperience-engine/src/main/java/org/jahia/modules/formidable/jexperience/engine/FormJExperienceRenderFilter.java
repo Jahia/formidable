@@ -21,12 +21,8 @@ import org.osgi.service.component.annotations.ReferencePolicyOption;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
-import javax.jcr.query.Query;
-import java.util.LinkedHashMap;
 import java.util.Locale;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -120,7 +116,7 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
                 session -> block(session.getNodeByIdentifier(uuid), uuid, contextPath));
     }
 
-    private String block(JCRNodeWrapper form, String uuid, String contextPath) throws RepositoryException {
+    private String block(JCRNodeWrapper form, String uuid, String contextPath) {
         // Built by hand: this module carries no JSON library at runtime, and the page needs three
         // strings. What the form maps is deliberately NOT here — the send decision reads the tracker's
         // own watch list, which a mapped form is in through the rule this integration publishes, so

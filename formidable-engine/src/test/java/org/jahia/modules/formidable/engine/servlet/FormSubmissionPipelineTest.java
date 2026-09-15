@@ -19,6 +19,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -1064,7 +1065,8 @@ class FormSubmissionPipelineTest {
         when(site.getSiteKey()).thenReturn("mysite");
         when(formNode.getResolveSite()).thenReturn(site);
         Map<String, List<String>> parameters = new HashMap<>();
-        parameters.put("firstName", List.of("Ada"));
+        // a mutable list, as the parser builds them: a shallow copy would hand this very list to every enricher
+        parameters.put("firstName", new ArrayList<>(List.of("Ada")));
         setField(pipeline, "formNode", formNode);
         setField(pipeline, "locale", Locale.FRENCH);
         setField(pipeline, "parsed", new FormDataParser.ParseResult(parameters, List.of()));
@@ -1072,10 +1074,13 @@ class FormSubmissionPipelineTest {
         AcceptedSubmission accepted = pipeline.accepted();
         parameters.put("late", List.of("x"));
 
-        // Expected outcome: the record names the form and its site, and its parameters are a snapshot.
+        // Expected outcome: the record names the form and its site, and its parameters are a snapshot down to
+        // the lists — several enrichers are asked in turn, and one that sorts or clears what it was handed
+        // must not change what the next ones read.
         assertSame(formNode, accepted.formNode());
         assertEquals("mysite", accepted.siteKey());
         assertEquals(Locale.FRENCH, accepted.locale());
         assertEquals(Map.of("firstName", List.of("Ada")), accepted.parameters());
+        assertThrows(UnsupportedOperationException.class, () -> accepted.parameters().get("firstName").clear());
     }
 }

@@ -4,19 +4,15 @@ import org.jahia.modules.jexperience.admin.ContextServerService;
 import org.jahia.modules.jexperience.admin.ContextServerStatus;
 import org.jahia.services.content.JCRCallback;
 import org.jahia.services.content.JCRNodeWrapper;
-import org.jahia.services.content.JCRPropertyWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRWorkspaceWrapper;
 import org.junit.jupiter.api.Test;
 
 import javax.jcr.RepositoryException;
-import javax.jcr.NodeIterator;
 import java.util.List;
-import java.util.Iterator;
 import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;

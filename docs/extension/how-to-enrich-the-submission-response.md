@@ -48,7 +48,26 @@ the same two a [`FormAction`](how-to-create-form-action.md) needs:
 <Import-Package>org.jahia.modules.formidable.engine.api;version="[0.5,1)",*</Import-Package>
 ```
 
-## Step 2: Understand the input you receive
+## Step 2: Answer only for the submissions that concern you
+
+**The servlet asks every registered enricher, for every accepted submission of the platform.** It
+does not know which module cares about which form: that question is yours to answer, and answering
+it is the difference between an enricher and a module that puts its key in every form's response.
+
+Nothing in the SPI decides it for you, and there is no configuration to fill in — the gate is a line
+of your own at the top of `enrich`, returning an empty map when the submission is not yours. The two
+enrichers in this repository gate on different things, because they are not asking the same question:
+
+| Enricher | Its question | Why that one |
+|---|---|---|
+| `SubmissionEventEnricher` (jExperience integration) | does this site have a jExperience configuration? | without one there is no jCustomer to send anything to |
+| `SampleResponseEnricher` (samples module) | does this form carry my mixin? | a module must not add its block to a form nobody pointed at it |
+
+A site, a node type, a mixin the author adds, an OSGi configuration — whatever your module already
+knows. What matters is that the answer is cheap: it runs on every accepted submission of the
+platform, inside the request.
+
+## Step 3: Understand the input you receive
 
 `AcceptedSubmission` is a record:
 
@@ -61,11 +80,15 @@ the same two a [`FormAction`](how-to-create-form-action.md) needs:
 
 Files never reach an enricher: they belong to the actions.
 
-## Step 3: Respect the rules of the body
+## Step 4: Respect the rules of the body
 
 - **Keys are top-level.** Name yours after your module. `success`, `errorCode`, `actionsCompleted`
   and `actionsTotal` belong to the servlet: an enricher writing one of them is logged and that key
-  ignored, the rest of its entries kept.
+  ignored, the rest of its entries kept. A key **another enricher already wrote** is refused the same
+  way, the first writer keeping it — which is what makes naming the key after your module a
+  requirement rather than a convention: a collision costs the second module its block, silently
+  except for a line in the server log, and the binding order of two OSGi services is not yours to
+  predict.
 - **Values are plain Java.** `Map`, `Collection`, `String`, `Number`, `Boolean`, nested as needed;
   they are serialised as JSON. No JCR node, no exception, nothing that is not data.
 - **Never fail the submission.** The actions ran; an exception thrown by an enricher is logged and
