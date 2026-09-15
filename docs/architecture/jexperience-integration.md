@@ -283,26 +283,37 @@ prefilled either.
 
 ### The render filter's contributions
 
-Emitted before the form markup by `FormJExperienceRenderFilter` when the jExperience module is
-available on the site; cacheable, identical for every visitor.
+Emitted before the form markup, in live, by `FormJExperienceRenderFilter` when the site has a
+jExperience configuration; cacheable, identical for every visitor. **Shipped in phase 3:**
+
+```html
+<script type="application/json" data-formidable-jxp="FORM-UUID">
+  {"formId": "FORM-UUID", "name": "Contact form", "path": "/sites/mysite/contents/contact",
+   "mappings": [{"field": "firstName", "property": "firstName"}]}
+</script>
+<script src="/modules/formidable-jexperience-engine/javascript/formidable-jxp.js" defer></script>
+```
+
+The config block is emitted for every form, so that a form referenced by a goal without any
+mapping is sent too, and the script tag comes with each form of the page — the filter has no
+page-level state to dedupe on, a `<script defer>` fetched twice is one fetch, and the script
+returns early when it is already there. The form is read in a session of the filter's own: a form
+placed through a reference renders contextualised under it, and the render session hands that same
+node back for the identifier (see the decision log), so the block would otherwise name the
+reference and find no mapped field.
+
+**Phase 4 adds** the prefill push before the block, emitted only when at least one mapping asks
+for prefill, with a `prefill` flag on each mapping:
 
 ```html
 <script>
   window.digitalDataOverrides = window.digitalDataOverrides || [];
   window.digitalDataOverrides.push({wemInitConfig: {requiredProfileProperties: ["firstName", "email"]}});
 </script>
-<script type="application/json" data-formidable-jxp="FORM-UUID">
-  {"formId": "FORM-UUID", "name": "Contact form", "path": "/sites/mysite/contents/contact",
-   "mappings": [{"field": "firstName", "property": "firstName", "prefill": true},
-                {"field": "email", "property": "email", "prefill": false}]}
-</script>
-<script src="/modules/formidable-jexperience-engine/javascript/formidable-jxp.js" defer></script>
 ```
 
-The `requiredProfileProperties` push is emitted only when at least one mapping asks for prefill;
-the config block is emitted for every form, so that a form referenced by a goal without any
-mapping is sent too. The property names in the push are exactly the mapped profile properties,
-no wildcard: the profile stays private to what the form needs.
+The property names in the push are exactly the mapped profile properties, no wildcard: the profile
+stays private to what the form needs.
 
 ### Submission request and response
 
