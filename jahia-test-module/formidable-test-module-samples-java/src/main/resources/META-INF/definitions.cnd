@@ -6,14 +6,17 @@
 
 [fmdbsample:logSubmissionAction] > jnt:content, fmdbmix:formAction, mix:title
 
-// The author's opt-in for the sample response enricher: only a form carrying this mixin gets the
-// sample block in the JSON body of an accepted submission. An enricher is asked for every
-// submission of the platform, so gating on a mixin is what keeps a module's key out of every other
-// form's response — the part of the sample worth copying.
+// The opt-in of the sample response enricher: only a form carrying this mixin gets the sample block
+// in the JSON body of an accepted submission. An enricher is asked for every submission of the
+// platform, so gating on something the author set is what keeps a module's key out of every other
+// form's response — the part of the sample worth copying into a real module.
+//
+// No `extends`, deliberately: this is a test module, and a mixin extending fmdb:form would offer
+// itself in the editor of every form of every site the module is deployed on. The Cypress spec adds
+// it to its own fixtures; a real module would extend the type it means to offer it on.
 //
 // The fmdbsamplemix prefix is the one the tsx samples module already declares, with its URI: a
 // prefix is global to the platform, so binding it to a URI of this module's own would have taken it
 // from that module and left its own types unregistered — which is exactly what happened once.
 [fmdbsamplemix:enrichedResponse] mixin
- extends = fmdb:form
- itemtype = fmdbSampleEnricher
+ itemtype = content
