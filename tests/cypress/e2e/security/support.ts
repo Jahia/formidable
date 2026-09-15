@@ -43,6 +43,8 @@ export const expectErrorResponse = (
 		errorCode: string
 ) => {
 	expect(response.status).to.eq(status);
+	// Exact, unlike the success case: a rejected submission is never enriched, so anything else in
+	// the body would be a leak worth failing on.
 	expect(response.body).to.deep.equal({
 		success: false,
 		errorCode
@@ -51,7 +53,12 @@ export const expectErrorResponse = (
 
 export const expectSuccessResponse = (response: Cypress.Response<unknown>) => {
 	expect(response.status).to.eq(200);
-	expect(response.body).to.deep.equal({success: true});
+	// A subset, not a deep equality: a module of its own may add top-level keys to the body of an
+	// accepted submission through the engine's SubmissionResponseEnricher SPI (the jExperience
+	// integration does). What these specs assert is that the submission was accepted and that the
+	// body says so without an error code.
+	expect(response.body).to.include({success: true});
+	expect(response.body).to.not.have.property('errorCode');
 };
 
 export const postDirectMultipartSubmission = ({
