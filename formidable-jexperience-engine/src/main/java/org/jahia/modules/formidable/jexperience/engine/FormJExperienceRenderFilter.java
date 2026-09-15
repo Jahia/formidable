@@ -121,17 +121,14 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
     }
 
     private String block(JCRNodeWrapper form, String uuid, String contextPath) throws RepositoryException {
-        StringBuilder json = new StringBuilder("{\"formId\":").append(Json.string(uuid))
-                .append(",\"name\":").append(Json.string(form.getDisplayableName()))
-                .append(",\"path\":").append(Json.string(form.getPath()))
-                .append(",\"mappings\":[");
-        String separator = "";
-        for (Map.Entry<String, String> mapping : mappedFields(form).entrySet()) {
-            json.append(separator).append("{\"field\":").append(Json.string(mapping.getKey()))
-                    .append(",\"property\":").append(Json.string(mapping.getValue())).append('}');
-            separator = ",";
-        }
-        json.append("]}");
+        // Built by hand: this module carries no JSON library at runtime, and the page needs three
+        // strings. What the form maps is deliberately NOT here — the send decision reads the tracker's
+        // own watch list, which a mapped form is in through the rule this integration publishes, so
+        // declaring the mappings again would be one more thing to keep in step for nothing. Phase 4
+        // will add what prefill needs at page load, which is the first thing the context cannot say.
+        String json = "{\"formId\":" + Json.string(uuid)
+                + ",\"name\":" + Json.string(form.getDisplayableName())
+                + ",\"path\":" + Json.string(form.getPath()) + "}";
         return "<script type=\"application/json\" " + CONFIG_ATTRIBUTE + "=\"" + uuid + "\">" + json + "</script>\n"
                 + "<script src=\"" + scriptUrl(contextPath) + "\" defer></script>\n";
     }
@@ -165,26 +162,5 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
         return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, workspace, locale, callback);
     }
 
-    /**
-     * Field name to profile property, for the form's fields that carry a mapping — as stored, before
-     * the schema check the rule applies: the script only asks whether the author mapped anything.
-     * A field marked sensitive is left out, so the page never names it either.
-     */
-    Map<String, String> mappedFields(JCRNodeWrapper form) throws RepositoryException {
-        NodeIterator nodes = fieldsCarryingAMapping(form);
-        Map<String, String> mappings = new LinkedHashMap<>();
-        while (nodes.hasNext()) {
-            JCRNodeWrapper field = (JCRNodeWrapper) nodes.nextNode();
-            if (SensitiveField.isMapped(field) && !SensitiveField.isSensitive(field)) {
-                mappings.put(field.getName(), field.getPropertyAsString(ProfilePropertiesChoiceListInitializer.PROPERTY));
-            }
-        }
-        return mappings;
-    }
 
-    /** The query of the fields carrying the mapping mixin — a seam for the tests, which have no query engine. */
-    NodeIterator fieldsCarryingAMapping(JCRNodeWrapper form) throws RepositoryException {
-        return form.getSession().getWorkspace().getQueryManager()
-                .createQuery(FormMappingReader.queryFor(form.getPath()), Query.JCR_SQL2).execute().getNodes();
-    }
 }

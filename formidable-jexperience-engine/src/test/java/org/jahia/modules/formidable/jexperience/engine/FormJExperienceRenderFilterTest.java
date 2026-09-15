@@ -66,65 +66,37 @@ class FormJExperienceRenderFilterTest {
         return session;
     }
 
-    /** A mapped field of the form, sensitive or not. */
-    private static JCRNodeWrapper mappedField(String name, String property, boolean sensitive) throws RepositoryException {
-        JCRNodeWrapper node = mock(JCRNodeWrapper.class);
-        when(node.getName()).thenReturn(name);
-        when(node.getPropertyAsString(ProfilePropertiesChoiceListInitializer.PROPERTY)).thenReturn(property);
-        if (sensitive) {
-            JCRPropertyWrapper flag = mock(JCRPropertyWrapper.class);
-            when(flag.getBoolean()).thenReturn(true);
-            when(node.hasProperty(SensitiveField.PROPERTY)).thenReturn(true);
-            when(node.getProperty(SensitiveField.PROPERTY)).thenReturn(flag);
-        }
-        return node;
-    }
 
-    /** The fields the query returns, as an iterator over the given list — empty list included. */
-    private static NodeIterator iterator(List<JCRNodeWrapper> fields) {
-        Iterator<JCRNodeWrapper> remaining = fields.iterator();
-        NodeIterator nodes = mock(NodeIterator.class);
-        when(nodes.hasNext()).thenAnswer(call -> remaining.hasNext());
-        when(nodes.nextNode()).thenAnswer(call -> remaining.next());
-        return nodes;
-    }
 
-    /** A filter reading through the given session, over a form whose fields are given (null: reading fails). */
-    private static FilterUnderTest filter(ContextServerService service, JCRSessionWrapper ownSession, List<JCRNodeWrapper> fields) {
-        FilterUnderTest filter = new FilterUnderTest(ownSession, fields);
+    /** A filter reading through the given session; `readable` false makes that reading fail. */
+    private static FilterUnderTest filter(ContextServerService service, JCRSessionWrapper ownSession, boolean readable) {
+        FilterUnderTest filter = new FilterUnderTest(ownSession, readable);
         filter.bindContextServerService(service);
         return filter;
     }
 
-    /** Replaces the two seams: the session the filter opens, and the query of the mapped fields. */
+    /** Replaces the one seam left: the session the filter opens to read the form where it lives. */
     private static final class FilterUnderTest extends FormJExperienceRenderFilter {
         private final JCRSessionWrapper ownSession;
-        private final List<JCRNodeWrapper> fields;
+        private final boolean readable;
         private boolean unchecked;
-        private String queriedPath;
         private String openedWorkspace;
 
-        private FilterUnderTest(JCRSessionWrapper ownSession, List<JCRNodeWrapper> fields) {
+        private FilterUnderTest(JCRSessionWrapper ownSession, boolean readable) {
             this.ownSession = ownSession;
-            this.fields = fields;
+            this.readable = readable;
         }
 
         @Override
         <T> T inOwnSession(String workspace, Locale locale, JCRCallback<T> callback) throws RepositoryException {
             openedWorkspace = workspace;
-            return callback.doInJCR(ownSession);
-        }
-
-        @Override
-        NodeIterator fieldsCarryingAMapping(JCRNodeWrapper form) throws RepositoryException {
-            if (fields == null) {
+            if (!readable) {
                 throw new RepositoryException("gone");
             }
             if (unchecked) {
                 throw new IllegalStateException("a decorator threw");
             }
-            queriedPath = form.getPath();
-            return iterator(fields);
+            return callback.doInJCR(ownSession);
         }
     }
 
@@ -136,30 +108,28 @@ class FormJExperienceRenderFilterTest {
 
     @Test
     void writesTheConfigurationBlockAndTheScriptBeforeTheForm() throws Exception {
-        // Verifies the contribution: a JSON block keyed on the form's UUID with identifier, title, path and
-        // the mapped fields in order, then the script tag, both before the form's own markup.
+        // Verifies the whole contribution: the three strings the page needs — the identifier the event is
+        // keyed on and the title and path the dashboards read — then the script tag, both before the form's
+        // own markup. What the form maps is not in it: the send decision reads the tracker's watch list.
         JCRNodeWrapper form = form("Contact us");
-        String out = filter(configured("mysite"), ownSessionOver(form),
-                List.of(mappedField("firstName", "firstName", false), mappedField("topics", "interests", false)))
+        String out = filter(configured("mysite"), ownSessionOver(form), true)
                 .prepend("<form></form>", "mysite", rendered(form, false), "");
 
         assertEquals("<script type=\"application/json\" data-formidable-jxp=\"" + FORM_UUID + "\">"
-                + "{\"formId\":\"" + FORM_UUID + "\",\"name\":\"Contact us\",\"path\":\"/sites/mysite/contents/contact\","
-                + "\"mappings\":[{\"field\":\"firstName\",\"property\":\"firstName\"},{\"field\":\"topics\",\"property\":\"interests\"}]}</script>\n"
+                + "{\"formId\":\"" + FORM_UUID + "\",\"name\":\"Contact us\",\"path\":\"/sites/mysite/contents/contact\"}</script>\n"
                 + "<script src=\"" + FormJExperienceRenderFilter.scriptUrl("") + "\" defer></script>\n"
                 + "<form></form>", out);
     }
 
     @Test
-    void aFormWithoutMappingsStillGetsItsBlockAndATitleIsEscaped() throws Exception {
+    void aTitleThatCouldCloseTheScriptBlockIsEscaped() throws Exception {
         // Verifies the two edges of the block: an empty mappings list (a form a goal may still watch) and a
         // title that could otherwise close the script block.
         JCRNodeWrapper form = form("</script><b>&");
-        String out = filter(configured("mysite"), ownSessionOver(form), List.of())
+        String out = filter(configured("mysite"), ownSessionOver(form), true)
                 .prepend("", "mysite", rendered(form, false), "");
 
         assertTrue(out.contains("\"name\":\"\\u003c/script\\u003e\\u003cb\\u003e\\u0026\""), out);
-        assertTrue(out.contains("\"mappings\":[]}"), out);
     }
 
     @Test
@@ -169,14 +139,12 @@ class FormJExperienceRenderFilterTest {
         // the identifier — so the block must carry the form's own path, the one the mapping rule names,
         // and the fields must be looked up there.
         JCRNodeWrapper form = form("Contact us");
-        FilterUnderTest filter = filter(configured("mysite"), ownSessionOver(form), List.of(mappedField("firstName", "firstName", false)));
+        FilterUnderTest filter = filter(configured("mysite"), ownSessionOver(form), true);
 
         String out = filter.prepend("<form></form>", "mysite", rendered(form, true), "");
 
         assertTrue(out.contains("\"path\":\"/sites/mysite/contents/contact\""), out);
-        assertEquals("/sites/mysite/contents/contact", filter.queriedPath);
         assertEquals("live", filter.openedWorkspace);
-        assertTrue(out.contains("{\"field\":\"firstName\",\"property\":\"firstName\"}"), out);
     }
 
     @Test
@@ -184,26 +152,14 @@ class FormJExperienceRenderFilterTest {
         // Verifies the silences: a site without jExperience settings, no site at all (a form outside a site), and a repository
         // failure while reading the form each leave the form's markup untouched.
         JCRNodeWrapper form = form("Contact");
-        assertEquals("<form></form>", filter(mock(ContextServerService.class), ownSessionOver(form), List.of())
+        assertEquals("<form></form>", filter(mock(ContextServerService.class), ownSessionOver(form), true)
                 .prepend("<form></form>", "mysite", rendered(form, false), ""));
-        assertEquals("<form></form>", filter(configured("mysite"), ownSessionOver(form), List.of())
+        assertEquals("<form></form>", filter(configured("mysite"), ownSessionOver(form), true)
                 .prepend("<form></form>", null, rendered(form, false), ""));
-        assertEquals("<form></form>", filter(configured("mysite"), ownSessionOver(form), null)
+        assertEquals("<form></form>", filter(configured("mysite"), ownSessionOver(form), false)
                 .prepend("<form></form>", "mysite", rendered(form, false), ""));
     }
 
-    @Test
-    void aSensitiveFieldIsNotInThePagesConfiguration() throws Exception {
-        // Verifies that the page never names a field the author marked sensitive: its mapping may predate the
-        // flag, and the block is what the client script reads to prefill and to decide it has something to send.
-        JCRNodeWrapper form = form("Contact us");
-        String out = filter(configured("mysite"), ownSessionOver(form), List.of(
-                mappedField("email", "email", false),
-                mappedField("nationalId", "firstName", true))).prepend("", "mysite", rendered(form, false), "");
-
-        assertTrue(out.contains("\"mappings\":[{\"field\":\"email\",\"property\":\"email\"}]}"), out);
-        assertFalse(out.contains("nationalId"), out);
-    }
 
     @Test
     void theScriptUrlCarriesTheContextPathAndAVersion() {
@@ -222,7 +178,7 @@ class FormJExperienceRenderFilterTest {
         // Verifies the configurations left out: a wrapper, an include or an option renders the same node again
         // through a second full chain, where node type, template type and mode all still match — the page would
         // carry two identical blocks and pay two sessions and two queries.
-        FilterUnderTest filter = new FilterUnderTest(null, List.of());
+        FilterUnderTest filter = new FilterUnderTest(null, true);
         filter.activate();
 
         // the base class keeps its conditions private; the summary is what it exposes of them
@@ -238,7 +194,7 @@ class FormJExperienceRenderFilterTest {
         // exception for a decorator, a query or getDisplayableName() failing at runtime, and an exception
         // escaping a render filter becomes a RenderFilterException: the page, not the block.
         JCRNodeWrapper form = form("Contact us");
-        FilterUnderTest filter = filter(configured("mysite"), ownSessionOver(form), List.of());
+        FilterUnderTest filter = filter(configured("mysite"), ownSessionOver(form), true);
         filter.unchecked = true;
 
         assertEquals("<form></form>", filter.prepend("<form></form>", "mysite", rendered(form, false), ""));

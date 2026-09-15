@@ -107,7 +107,7 @@ Nothing in Formidable depends on jExperience; the new module depends on both.
 | `MappingRule` | jexperience-engine | The rule as the JSON map jCustomer stores — id `formidable-form-mapping_<site>_<uuid>`, conditions, one `setPropertyAction` per mapped field with the value parameter of the property's type — and the "owned" projection the diff compares. |
 | `FormMappingReader` | jexperience-engine | Reads a published form's mapped fields and applies the dropdown's own rule at publication: a property gone from the schema or no longer fitting the field's shape is skipped and logged, never turned into an action. |
 | `FormJExperienceRenderFilter` | jexperience-engine | Render filter on `fmdb:form` (same family as `CaptchaRenderFilter`). When the module is available on the site, it writes next to the form: the inline `digitalDataOverrides.push` of the mapped profile properties, a JSON config block (identifier, mappings), and the module's client script once per page. Its output carries no visitor data: the fragment stays cached. |
-| `formidable-jxp.js` | jexperience-engine, static resource | The client half: at `wemLoaded`, prefills the mapped fields from `wem.getLoadedContext().profileProperties`; on the island's `formidable:submitted` event, decides with `shouldCollect()` and sends the `form` event through `wem.collectEvent`. |
+| `formidable-jxp.js` | jexperience-engine, static resource | The client half: on the island's `formidable:submitted` event, decides with `shouldCollect()` and sends the `form` event through `wem.collectEvent`. |
 | `SubmissionResponseEnricher` SPI | formidable-engine, `api` package | Called by the pipeline after all actions succeeded, with the form node, the site and the validated parameters; returns a JSON block to add to the 200. The jExperience module contributes `jexperience: {formId, fields}` — the accepted values of the form's fields, minus the ones marked sensitive — when the site has a jExperience configuration. Enrichers never fail the submission. |
 | `formidable:submitted` | formidable-elements, `Form.client.tsx` | DOM `CustomEvent` (bubbling) dispatched after a 200, carrying the form's UUID and the parsed response. The elements module knows nothing of jExperience: it only says "this was accepted, here is what the server answered". |
 
@@ -244,14 +244,13 @@ It is deliberately the single place where Formidable depends on the tracker's AP
 change on jExperience's side is a change of one function and its test.
 
 ```js
-const shouldCollect = (formId, config) =>
+const shouldCollect = (formId) =>
   window.wem !== undefined                                    // tracker present: no consent manager blocked it
   && window.wemLoaded === true                                // callbacks executed — set in the fallback mode too
   && Boolean(wem.getLoadedContext()?.profileId)               // a context really loaded: no profile, nothing to bind to
   && window.digitalData?.wemInitConfig?.activateWem !== false // the visitor did not disable tracking in jExperience
   && !window.digitalData?.wemInitConfig?.disableTrackedConditionsListeners
-  && (config.mappings.length > 0                              // the author mapped a field
-      || wem.getFormNamesToWatch().includes(formId));         // a marketer referenced the form (goal, segment, rule)
+  && wem.getFormNamesToWatch().includes(formId);              // the form is named by a rule of the context
 ```
 
 Why each line:
@@ -267,17 +266,18 @@ Why each line:
   kind: it follows the flag, exactly as Forms does — the Forms bridge sends only when
   `getFormNamesToWatch()` names the form, and that list stays empty under the flag. Formidable
   never sets the flag itself: it is global to the page and would silence other modules.
-- **Mapped field.** The author asked for collection; without the event the mapping never fires.
 - **`getFormNamesToWatch()`.** The `formId`s of the `trackedConditions` jCustomer returned for the
-  page: goals and segments are rules in Unomi, so this is the complete list of marketer-side
-  references, filtered for the current page as Unomi does (a goal with a start page only tracks
-  that page). **Kept on purpose** (HDU, 2026-09-10): without it, a goal created in jExperience on
-  a form nobody mapped would never count, and the marketer has no way to know why — Forms behaves
-  as the list says, and marketers expect the same. Romain would rather see `trackedConditions`
-  go; if jExperience removes or reworks them, this line is what changes. Two facts to remember
-  when it does: the list is filled inside the tracker's context callback, so it must be read at
-  submission time and not at page load; and it is empty under `disableTrackedConditionsListeners`,
-  which is the behaviour wanted anyway.
+  page: goals and segments are rules in Unomi, and **so is the mapping rule this integration writes
+  at publication**, so one list answers both "a marketer referenced this form" and "the author mapped
+  a field of it" — the page declares nothing about its mappings, and there is no second list to keep
+  in step (HDU, 2026-09-15). **Kept on purpose** (HDU, 2026-09-10): without it, a goal created in
+  jExperience on a form nobody mapped would never count, and the marketer has no way to know why —
+  Forms behaves as the list says, and marketers expect the same. Romain would rather see
+  `trackedConditions` go; if jExperience removes or reworks them, this line is what changes, and the
+  mappings the page would then have to declare are the fallback. Two facts to remember when it does:
+  the list is filled inside the tracker's context callback, so it must be read at submission time and
+  not at page load; and it is empty under `disableTrackedConditionsListeners`, which is the behaviour
+  wanted anyway.
 
 The same gates apply to prefill, minus the last two: a visitor who refused tracking is not
 prefilled either.
@@ -293,22 +293,26 @@ jExperience configuration; cacheable, identical for every visitor. **Shipped in 
 
 ```html
 <script type="application/json" data-formidable-jxp="FORM-UUID">
-  {"formId": "FORM-UUID", "name": "Contact form", "path": "/sites/mysite/contents/contact",
-   "mappings": [{"field": "firstName", "property": "firstName"}]}
+  {"formId": "FORM-UUID", "name": "Contact form", "path": "/sites/mysite/contents/contact"}
 </script>
 <script src="/modules/formidable-jexperience-engine/javascript/formidable-jxp.js" defer></script>
 ```
 
-The config block is emitted for every form, so that a form referenced by a goal without any
-mapping is sent too, and the script tag comes with each form of the page — the filter has no
+The block carries three strings and no more: the identifier the event is keyed on, and the title and
+path its target properties read. **What the form maps is deliberately not in it** — the send decision
+reads the tracker's own watch list, which a mapped form is in through the rule published for it, so
+declaring the mappings again would be a second list to keep in step for nothing (HDU, 2026-09-15).
+Phase 4 puts back what prefill needs, which is the first thing the context cannot say. The block is
+emitted for every form, and the script tag comes with each form of the page — the filter has no
 page-level state to dedupe on, a `<script defer>` fetched twice is one fetch, and the script
 returns early when it is already there. The form is read in a session of the filter's own: a form
 placed through a reference renders contextualised under it, and the render session hands that same
 node back for the identifier (see the decision log), so the block would otherwise name the
 reference and find no mapped field.
 
-**Phase 4 adds** the prefill push before the block, emitted only when at least one mapping asks
-for prefill, with a `prefill` flag on each mapping:
+**Phase 4 adds** the field-to-property pairs to the block — the page is the only place that can carry
+them, since the browser has no form model to read them from, unlike jExperience's own Forms bridge —
+and the prefill push before it, emitted only when at least one mapping asks for prefill:
 
 ```html
 <script>
@@ -720,6 +724,7 @@ minute, one rule (decisions of 2026-09-11).
 | 2026-09-15 | The flag lives in the **jExperience module**, and says only what it does there | [formidable#161](https://github.com/Jahia/formidable/issues/161) is a different concern — the use of a field's value inside the actions (HDU). An engine-level "sensitive field" would promise that a ticked field stays out of a notification email too, which nothing implements |
 | 2026-09-15 | The switch of the mapping fieldset is **not** disabled when the flag is on | jcontent has no declarative way to grey out a fieldset on a sibling property's value; doing it would need a Module Federation bundle in the module, declined in phase 1 for the identifier. The dropdown with its single message, plus the four server-side guards, make the mapping impossible and say why |
 | 2026-09-15 | **The sensitive flag holds from the save**, not from the next publication: the enricher treats a field as sensitive when either workspace says so (review) | Everything else in the integration describes the published form and follows it at the next publication, which is right for a mapping. A privacy stop is not of that kind: the submission is resolved in live, so reading live alone would leave an author who ticks the box on a form already collecting sending that value until someone publishes — with nothing in the editor saying the box is not armed. It costs one session of the default workspace per submitted form on a jExperience-configured site, and a failed reading keeps the published answer with a warning, since a transient error must not empty the block for every visitor |
+| 2026-09-15 | **The page declares nothing about the form's mappings** (HDU): the send decision reads `getFormNamesToWatch()` alone, and the config block carries the identifier, the title and the path | A mapped form is already in that list, because the rule this integration publishes for it is a `formEventCondition` of the context, exactly like a goal or a segment — observed on the local stack, where a form appeared in the list only once its mapping rule existed. Declaring the mappings as well was a second list to keep in step for a case the first already covers. If `trackedConditions` go, as Romain would like, the mappings come back as the fallback; that is a future problem, not an over-engineered present one. Phase 4 puts the pairs back for its own reason: prefill needs them at page load, and unlike jExperience's Forms bridge — which reads them from the Angular form model — our browser has no model to read |
 
 ## Open questions
 

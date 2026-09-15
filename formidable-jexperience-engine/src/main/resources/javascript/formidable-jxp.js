@@ -46,11 +46,14 @@
    * `wemLoaded` is set once the tracker ran its callbacks — also in its fallback mode, where no
    * context was loaded, so the loaded context must carry a profile. `activateWem` false is the
    * visitor's own "disable tracking"; `disableTrackedConditionsListeners` is the integrator's
-   * page-level "no automatic form tracking", honoured and never set here. Then the form must be
-   * tracked: a field mapped by the author, or a goal, segment or rule referencing the form in the
-   * context (`getFormNamesToWatch`, filled by the tracker at context load).
+   * page-level "no automatic form tracking", honoured and never set here.
+   *
+   * Then the form must be tracked, and `getFormNamesToWatch()` is the whole answer: the tracker
+   * fills it from the `formEventCondition`s of the loaded context, and a form the author mapped has
+   * one — the rule this integration writes at publication. Goals and segments are rules too, so one
+   * list covers both and the page has nothing to declare about it.
    */
-  api.shouldCollect = (formId, config) => {
+  api.shouldCollect = (formId) => {
     const wem = window.wem;
     const init = (window.digitalData && window.digitalData.wemInitConfig) || {};
     const context =
@@ -61,9 +64,8 @@
       Boolean(context && context.profileId) &&
       init.activateWem !== false &&
       !init.disableTrackedConditionsListeners &&
-      (config.mappings.length > 0 ||
-        (typeof wem.getFormNamesToWatch === "function" &&
-          wem.getFormNamesToWatch().indexOf(formId) > -1))
+      typeof wem.getFormNamesToWatch === "function" &&
+      wem.getFormNamesToWatch().indexOf(formId) > -1
     );
   };
 
@@ -85,7 +87,7 @@
       return; // the server did not describe this submission for jExperience
     }
     const config = api.configOf(detail.formId);
-    if (!config || !api.shouldCollect(detail.formId, config)) {
+    if (!config || !api.shouldCollect(detail.formId)) {
       return;
     }
     // No success callback: nothing of the page depends on the event having landed.
