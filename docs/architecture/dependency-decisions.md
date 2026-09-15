@@ -44,6 +44,7 @@ This project uses two distinct dependency strategies in its Java modules:
 - Only `org.jahia.modules.formidable.engine.api` is exported from the bundle.
 - That package is the public SPI for third-party modules and currently contains:
   - `FormAction`, `FormActionException`, `SubmittedFile` — the action SPI
+  - `SubmissionResponseEnricher`, `AcceptedSubmission` — the response SPI: entries a module of its own adds to the JSON body of an accepted submission (see [how to enrich the submission response](../extension/how-to-enrich-the-submission-response.md))
   - `ChoiceOptionsResolver` — the number of choices a choice field offers, counted as the views render it (manual list or options source); read by the jExperience integration for the checkbox's cardinality
 - All other `org.jahia.modules.formidable.engine.*` packages are internal implementation details with no compatibility promise.
 
@@ -58,7 +59,7 @@ This project uses two distinct dependency strategies in its Java modules:
   - the exported package boundary is now clean, but the bundle boundary is still broader than necessary
 - Target architecture:
   - `formidable-api`
-    - contains only stable SPI types such as `FormAction`, `FormActionException`, `SubmittedFile`, and future public DTOs
+    - contains only stable SPI types such as `FormAction`, `FormActionException`, `SubmittedFile`, `SubmissionResponseEnricher`, `AcceptedSubmission`, and future public DTOs
     - intended as the compile-time dependency for external modules
   - `formidable-engine`
     - contains only runtime implementation
@@ -88,14 +89,15 @@ This project uses two distinct dependency strategies in its Java modules:
   major), so a jExperience 4.x upgrade resolves without a rebuild.
 - `maven-dependency-plugin:analyze-only` with `failOnWarning`, as in the engine.
 - The mapping rules are built and compared as plain maps: no import of Unomi's rule, condition or action packages, no JSON library at runtime (jExperience's admin client serialises the maps). `org.json` is a test dependency, for the golden rule.
-- `jahia-depends`: `formidable-engine` (the marker mixin), `formidable-elements` (`fmdb:form`, which
-  `fmdbmix:jExperienceForm` extends) and `jexperience`.
+- `jahia-depends`: `formidable-engine` (the marker mixin), `formidable-elements` (`fmdb:form`, the type the publication listener and the render
+  filter apply to) and `jexperience`.
 
 ### OSGi SPI surface
 
 - **Nothing is exported.** No module consumes the listener, the catalog or the initializer, and an
-  exported package is a compatibility promise (see the engine's section above). The phase-2
-  `SubmissionResponseEnricher` gets its own `api` package when it lands.
+  exported package is a compatibility promise (see the engine's section above). `SubmissionResponseEnricher`
+  landed in the **engine's** `api` package instead of this module's: the servlet calls it, so it is the
+  engine's contract, and this module is one of its implementations.
 
 ## `jahia-test-module/formidable-test-module-templateset-jsp`
 

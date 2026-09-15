@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The CND clauses the Java depends on, pinned: no test environment installs this module yet, so
  * the three load-bearing declarations — the mapping mixin attaching to the marker, the
- * dependent-property re-query, the form mixin inheriting the switch-less marker — would otherwise
+ * dependent-property re-query, the sensitive flag on a switch-less mixin — would otherwise
  * be guarded by nothing. The reader is a line-level parser of the module's own file, not Jahia's
  * (which needs a registry); it knows type headers, {@code extends} lines and property lines.
  */
@@ -62,18 +62,24 @@ class DefinitionsCndTest {
         assertEquals("[fmdbmix:jExperienceProfileMapping] mixin", mixin.get(0), "no supertype: mappability is the type's claim, not the mixin's");
         assertEquals("extends = " + FieldShapes.MAPPABLE_MARKER, lineStartingWith(mixin, "extends"));
         String property = lineStartingWith(mixin, "- " + ProfilePropertiesChoiceListInitializer.PROPERTY + " ");
-        assertTrue(property.contains("choicelist[" + ProfilePropertiesChoiceListInitializer.KEY + ",dependentProperties='" + FieldShapes.MULTIPLE_PROPERTY + "," + ProfilePropertiesChoiceListInitializer.OPTIONS_PROPERTY + "," + ProfilePropertiesChoiceListInitializer.OPTIONS_MODE_PROPERTY + "']"), property);
+        assertTrue(property.contains("choicelist[" + ProfilePropertiesChoiceListInitializer.KEY + ",dependentProperties='"
+                + FieldShapes.MULTIPLE_PROPERTY + "," + ProfilePropertiesChoiceListInitializer.OPTIONS_PROPERTY + ","
+                + ProfilePropertiesChoiceListInitializer.OPTIONS_MODE_PROPERTY + "," + SensitiveField.PROPERTY + "']"), property);
     }
 
     @Test
-    void theFormMixinInheritsTheSwitchLessMarkerAndExtendsTheForm() throws Exception {
-        // Verifies the clause that removes the fieldset's enable switch, which jcontent drops only for a
-        // template mixin, and the clause that attaches the identifier to the form type.
+    void theSensitiveMixinIsSwitchLessAndItsFlagDrivesTheDropdown() throws Exception {
+        // Verifies the three clauses the sensitive flag lives on. It reaches every mappable field through the
+        // marker. jcontent renders it without an enable switch, which only a jmix:templateMixin fieldset loses,
+        // and the flag has to be answerable before the mapping fieldset is switched on. The mapping's choicelist
+        // names it, which is what empties that dropdown the moment the author ticks the box.
         List<String> lines = cnd();
         assertTrue(lines.stream().anyMatch(line -> line.strip().startsWith("<jmix = 'http://www.jahia.org/jahia/mix/1.0'>")), "the jmix namespace is declared");
-        List<String> mixin = declarationOf(lines, FormIdentifier.FORM_MIXIN);
-        assertEquals("[" + FormIdentifier.FORM_MIXIN + "] > jmix:templateMixin mixin", mixin.get(0));
-        assertEquals("extends = " + FormIdentifierListener.FORM_NODE_TYPE, lineStartingWith(mixin, "extends"));
-        assertTrue(lineStartingWith(mixin, "- " + FormIdentifier.PROPERTY + " ").contains("(string)"));
+        List<String> mixin = declarationOf(lines, SensitiveField.MIXIN);
+        assertEquals("[" + SensitiveField.MIXIN + "] > jmix:templateMixin mixin", mixin.get(0));
+        assertEquals("extends = " + FieldShapes.MAPPABLE_MARKER, lineStartingWith(mixin, "extends"));
+        assertEquals("- " + SensitiveField.PROPERTY + " (boolean) = false autocreated indexed=no", lineStartingWith(mixin, "- " + SensitiveField.PROPERTY + " "));
+        assertTrue(lineStartingWith(declarationOf(lines, "fmdbmix:jExperienceProfileMapping"), "- " + ProfilePropertiesChoiceListInitializer.PROPERTY + " ")
+                .contains("," + SensitiveField.PROPERTY + "'"), "the choicelist depends on the flag");
     }
 }

@@ -9,7 +9,7 @@ Yarn monorepo + Maven multi-module. Root: `/formidable-modules/`.
 | `formidable-elements/` | Jahia front-end module – form rendering (React SSR + client hydration) |
 | `formidable-engine/` | Jahia editor extension + Java/OSGi action pipeline |
 | `formidable-extended-inputs/` | Optional field types (consent, switch, rating, scale) |
-| `formidable-jexperience-engine/` | jExperience integration (Java): profile mapping of fields, form identifier in jCustomer; mapping rule, event and prefill to come — `docs/architecture/jexperience-integration.md` |
+| `formidable-jexperience-engine/` | jExperience integration (Java): profile mapping of fields, the mapping rule kept in sync with publication, the submission event sent by the browser through jExperience's tracker; prefill to come — `docs/architecture/jexperience-integration.md` |
 | `packages/formidable/` | npm package `@jahia/formidable-library` — the rendering contract the views import; `workspace:*` inside the monorepo (a version range would still resolve to the workspace, only `npm:` forces the registry), published at release |
 | `jahia-test-module/` | Test modules for Cypress: JSP template set, tsx template set, and the two third-party extension examples meant to be copied — `formidable-test-module-samples-tsx` (definitions, editor overrides, views) and `formidable-test-module-samples-java` (external `FormAction`, choicelist initializer, content-integrity checks) |
 | `tests/` | Cypress E2E suite (not a Maven module) |
@@ -190,7 +190,8 @@ authoritative walkthrough). The pipeline resolves the form, validates everything
 children in order: for each action node, the OSGi `FormAction` service whose
 `getNodeType()` matches the node's primary type executes. On `FormActionException` the
 response carries the exception's HTTP status and an opaque `errorCode`; on success,
-`{"success": true}`.
+`{"success": true}` plus whatever the `SubmissionResponseEnricher` services add to the body
+(see `docs/extension/how-to-enrich-the-submission-response.md`).
 
 ### Java class layout
 
@@ -199,7 +200,10 @@ org.jahia.modules.formidable.engine
 ├── api/                                 ← the EXPORTED SPI (Export-Package)
 │   ├── FormAction.java                  ← strategy interface (getNodeType + execute)
 │   ├── FormActionException.java         ← exception carrying an httpStatus
-│   └── SubmittedFile.java               ← a validated uploaded file
+│   ├── SubmittedFile.java               ← a validated uploaded file
+│   ├── ChoiceOptionsResolver.java       ← how many choices a choice field offers
+│   ├── AcceptedSubmission.java          ← what the pipeline accepted (form, site, locale, parameters)
+│   └── SubmissionResponseEnricher.java  ← adds entries to the 200 of an accepted submission
 ├── servlet/
 │   ├── FormSubmitServlet.java           ← whiteboard entry point
 │   └── FormSubmissionPipeline.java      ← the 12 steps

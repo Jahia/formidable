@@ -12,7 +12,7 @@
     "parameterValues": {
       "operator": "and",
       "subConditions": [
-        { "type": "formEventCondition", "parameterValues": { "formId": "formidable-jxp-8f7e2a10-0000-4000-8000-000000000001" } },
+        { "type": "formEventCondition", "parameterValues": { "formId": "8f7e2a10-0000-4000-8000-000000000001" } },
         { "type": "booleanCondition", "parameterValues": { "operator": "or", "subConditions": [
           { "type": "sourceEventPropertyCondition", "parameterValues": { "scope": "mysite" } }
         ] } }

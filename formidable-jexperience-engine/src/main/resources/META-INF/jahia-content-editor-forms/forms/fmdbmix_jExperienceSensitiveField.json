@@ -1,5 +1,5 @@
 {
-	"nodeType": "fmdbmix:jExperienceForm",
+	"nodeType": "fmdbmix:jExperienceSensitiveField",
 	"priority": 2.0,
 	"sections": [
 		{
@@ -8,11 +8,11 @@
 			"rank": 1.15,
 			"fieldSets": [
 				{
-					"name": "fmdbmix:jExperienceForm",
-					"rank": 0.0,
+					"name": "fmdbmix:jExperienceSensitiveField",
+					"rank": -1.0,
 					"isAlwaysActivated": true,
 					"fields": [
-						{ "name": "jExperienceIdentifier", "readOnly": true }
+						{ "name": "jExperienceSensitive" }
 					]
 				}
 			]

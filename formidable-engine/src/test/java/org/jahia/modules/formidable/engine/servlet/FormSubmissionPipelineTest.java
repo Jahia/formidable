@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.engine.servlet;
 
+import org.jahia.modules.formidable.engine.api.AcceptedSubmission;
 import org.jahia.modules.formidable.engine.api.FormAction;
 import org.jahia.modules.formidable.engine.api.FormActionException;
 import org.jahia.modules.formidable.engine.actions.FormDataParser;
@@ -9,6 +10,7 @@ import org.jahia.modules.formidable.engine.logic.ConditionalLogicRule;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionFactory;
 import org.jahia.services.content.JCRTemplate;
+import org.jahia.services.content.decorator.JCRSiteNode;
 import org.jahia.services.usermanager.JahiaUser;
 import org.junit.jupiter.api.Test;
 
@@ -17,12 +19,16 @@ import javax.servlet.http.HttpServletRequest;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Locale;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -1045,5 +1051,37 @@ class FormSubmissionPipelineTest {
         Field field = target.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);
         field.set(target, value);
+    }
+
+    @Test
+    void acceptedDescribesTheFormItsSiteAndASnapshotOfTheParameters() throws Exception {
+        // Verifies what the response enrichers receive: the live form node, its site key, the locale
+        // and a copy of the validated parameters — and nothing before a run accepted a submission.
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
+        assertThrows(IllegalStateException.class, pipeline::accepted);
+
+        JCRNodeWrapper formNode = mock(JCRNodeWrapper.class);
+        JCRSiteNode site = mock(JCRSiteNode.class);
+        when(site.getSiteKey()).thenReturn("mysite");
+        when(formNode.getResolveSite()).thenReturn(site);
+        Map<String, List<String>> parameters = new HashMap<>();
+        // a mutable list, as the parser builds them: a shallow copy would hand this very list to every enricher
+        parameters.put("firstName", new ArrayList<>(List.of("Ada")));
+        setField(pipeline, "formNode", formNode);
+        setField(pipeline, "locale", Locale.FRENCH);
+        setField(pipeline, "parsed", new FormDataParser.ParseResult(parameters, List.of()));
+
+        AcceptedSubmission accepted = pipeline.accepted();
+        parameters.put("late", List.of("x"));
+
+        // Expected outcome: the record names the form and its site, and its parameters are a snapshot down to
+        // the lists — several enrichers are asked in turn, and one that sorts or clears what it was handed
+        // must not change what the next ones read.
+        assertSame(formNode, accepted.formNode());
+        assertEquals("mysite", accepted.siteKey());
+        assertEquals(Locale.FRENCH, accepted.locale());
+        assertEquals(Map.of("firstName", List.of("Ada")), accepted.parameters());
+        List<String> snapshot = accepted.parameters().get("firstName");
+        assertThrows(UnsupportedOperationException.class, snapshot::clear);
     }
 }

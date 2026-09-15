@@ -258,9 +258,7 @@ public class MappingRuleSynchronizer {
 
         @Override
         public boolean connected(String siteKey) {
-            // no settings for the site → jExperience answers no status at all, as opposed to an offline one
-            ContextServerService service = contextServerService.get();
-            return service != null && service.getContextServerStatus(siteKey) != null;
+            return JExperienceSite.configured(contextServerService.get(), siteKey);
         }
 
         private ContextServerService service(String siteKey) throws IOException {

@@ -84,7 +84,9 @@
                     <instructions>
                         <_dsannotations>*</_dsannotations>
                         <Jahia-Module-Type>module</Jahia-Module-Type>
-                        <Jahia-Depends>default,formidable-engine,content-integrity</Jahia-Depends>
+                        <!-- formidable-elements owns the types the integrity checks resolve: fmdb:form,
+                             fmdb:formSubmission, fmdb:logicSrc and fmdb:formReference (AbstractFormidableIntegrityCheck) -->
+                        <Jahia-Depends>default,formidable-engine,formidable-elements,content-integrity</Jahia-Depends>
                     </instructions>
                 </configuration>
             </plugin>
