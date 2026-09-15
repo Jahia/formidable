@@ -39,7 +39,7 @@
         </repository>
     </repositories>
     <dependencies>
-        <!-- The engine's exported api only: ChoiceOptionsResolver counts a field's choices as the view does. -->
+        <!-- The engine's exported api only: ChoiceOptionsResolver, AcceptedSubmission, SubmissionResponseEnricher counts a field's choices as the view does. -->
         <dependency>
             <groupId>org.jahia.modules</groupId>
             <artifactId>formidable-engine</artifactId>

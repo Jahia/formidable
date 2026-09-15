@@ -10,7 +10,7 @@ For the maintainer: how the modules work, and why they are built this way.
 - [Custom validation](custom-validation.md) — inline validation messages replacing the native browser tooltips, with per-field contributor overrides
 - [Conditional logic field resolution](conditional-logic-field-resolution.md) — the weakref-based model of the conditional-logic dependencies, and how rules are resolved
 - [Choice field options sources](choice-field-options-sources.md) — options from categories or from content: storage model, resolution, cache, writing a source initializer
-- [jExperience integration](jexperience-integration.md) — design and implementation log (revised 2026-09-10, browser-side): the auto-generated form mapping, the submission event sent by the tracker with the accepted values of the mapped fields, prefill from the tracker's context, the send condition and consent gates, the form's UUID as its identity in jCustomer; phases 1 and 2 (profile-mappable fields, the jExperience editor section, the mapping rule kept in sync with publication) shipped, phase 3 (the submission event) in progress
+- [jExperience integration](jexperience-integration.md) — design and implementation log (revised 2026-09-10, browser-side): the auto-generated form mapping, the submission event sent by the tracker with the accepted values of the form's fields, minus those the author marked sensitive, prefill from the tracker's context, the send condition and consent gates, the form's UUID as its identity in jCustomer; phases 1 and 2 (profile-mappable fields, the jExperience editor section, the mapping rule kept in sync with publication) shipped, phase 3 (the submission event) in progress
 
 ## Why it is built this way
 

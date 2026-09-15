@@ -100,6 +100,7 @@ class FormJExperienceRenderFilterTest {
     private static final class FilterUnderTest extends FormJExperienceRenderFilter {
         private final JCRSessionWrapper ownSession;
         private final List<JCRNodeWrapper> fields;
+        private boolean unchecked;
         private String queriedPath;
         private String openedWorkspace;
 
@@ -118,6 +119,9 @@ class FormJExperienceRenderFilterTest {
         NodeIterator fieldsCarryingAMapping(JCRNodeWrapper form) throws RepositoryException {
             if (fields == null) {
                 throw new RepositoryException("gone");
+            }
+            if (unchecked) {
+                throw new IllegalStateException("a decorator threw");
             }
             queriedPath = form.getPath();
             return iterator(fields);
@@ -226,5 +230,17 @@ class FormJExperienceRenderFilterTest {
         for (String configuration : List.of("include", "wrapper", "option")) {
             assertTrue(conditions.contains(configuration), conditions);
         }
+    }
+
+    @Test
+    void anUncheckedFailureCostsTheBlockAndNotThePage() throws Exception {
+        // Verifies the unchecked half of prepend()'s catch. Nothing in the reading declares a checked
+        // exception for a decorator, a query or getDisplayableName() failing at runtime, and an exception
+        // escaping a render filter becomes a RenderFilterException: the page, not the block.
+        JCRNodeWrapper form = form("Contact us");
+        FilterUnderTest filter = filter(configured("mysite"), ownSessionOver(form), List.of());
+        filter.unchecked = true;
+
+        assertEquals("<form></form>", filter.prepend("<form></form>", "mysite", rendered(form, false), ""));
     }
 }

@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The CND clauses the Java depends on, pinned: no test environment installs this module yet, so
  * the three load-bearing declarations — the mapping mixin attaching to the marker, the
- * dependent-property re-query, the form mixin inheriting the switch-less marker — would otherwise
+ * dependent-property re-query, the sensitive flag on a switch-less mixin — would otherwise
  * be guarded by nothing. The reader is a line-level parser of the module's own file, not Jahia's
  * (which needs a registry); it knows type headers, {@code extends} lines and property lines.
  */

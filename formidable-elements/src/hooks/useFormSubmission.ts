@@ -33,7 +33,9 @@ interface UseFormSubmissionOptions {
 	 * The form node's UUID, from the server — never read back from the DOM. `HTMLFormElement` is
 	 * `[LegacyOverrideBuiltIns]`: a control whose name matches an IDL attribute shadows it, and a field's
 	 * name is the contributor's system name, so a field named `id` would turn `form.id` into that input
-	 * and every listener of the event below would stop recognising the form, silently.
+	 * and every listener of the event below would stop recognising the form, silently. The same rule
+	 * governs every other read of a form's own property here: `action` goes through `getAttribute`, and
+	 * `reset` is called off the prototype.
 	 */
 	formId: string;
 	submitActionUrl?: string;
@@ -115,7 +117,8 @@ export function useFormSubmission({
 			// Read once, at the moment of submit: one declared state backs every provider
 			// rule, which is what lets the server evaluate them coherently.
 			const logicStateHeader = buildLogicStateHeader(form);
-			const targetUrl = submitActionUrl ?? form.action ?? window.location.href;
+			// getAttribute, not form.action: a control named "action" shadows the property (see formId above)
+			const targetUrl = submitActionUrl ?? form.getAttribute('action') ?? window.location.href;
 
 			// XHR is kept here because Jahia's CSRFGuard integrates with XMLHttpRequest rather than fetch.
 			// Direct authenticated submissions to this servlet path are still protected server-side and
@@ -166,7 +169,9 @@ export function useFormSubmission({
 
 			setMessage(interpolatedSubmissionMessage || 'Form submitted successfully!');
 			setMessageType('success');
-			form.reset();
+			// called off the prototype: a control named "reset" shadows the method, and this runs after the
+			// 200 and after every action, so throwing here would tell the visitor the submission failed
+			HTMLFormElement.prototype.reset.call(form);
 			if (isMultiStep) setCurrentStep(0);
 		} catch (error) {
 			if (serverErrorCode === MAINTENANCE_ERROR_CODE) {

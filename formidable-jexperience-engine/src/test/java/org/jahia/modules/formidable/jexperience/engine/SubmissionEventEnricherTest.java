@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import java.util.Iterator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -42,6 +43,15 @@ class SubmissionEventEnricherTest {
             when(node.isNodeType(type)).thenReturn(true);
         }
         return node;
+    }
+
+    /** The same field with the flag saved as false: the author ticked the box, then unticked it. */
+    private static JCRNodeWrapper unticked(JCRNodeWrapper field) throws RepositoryException {
+        JCRPropertyWrapper flag = mock(JCRPropertyWrapper.class);
+        when(flag.getBoolean()).thenReturn(false);
+        when(field.hasProperty(SensitiveField.PROPERTY)).thenReturn(true);
+        when(field.getProperty(SensitiveField.PROPERTY)).thenReturn(flag);
+        return field;
     }
 
     /** The same field, with the author's "this value never leaves the site" ticked. */
@@ -226,5 +236,95 @@ class SubmissionEventEnricherTest {
 
         Map<String, Object> block = (Map<String, Object>) entries.get(SubmissionEventEnricher.KEY);
         assertEquals(Map.of("email", "ada@example.com"), block.get("fields"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void aSensitiveFieldWithheldsItsNameSoASiblingCannotSendItsValue() throws Exception {
+        // Verifies the key the exclusion uses. Node names are unique among siblings only: a multi-step form
+        // can carry "email" in two steps, and the pipeline accumulates both submitted values under that one
+        // name. Excluding the sensitive NODE would leave the other node sending values.get(0) — the sensitive
+        // one, half the time — so the name is what is withheld.
+        JCRNodeWrapper sensitiveEmail = sensitive(field("email", FieldShapes.MAPPABLE_MARKER, FieldShapes.EMAIL_FIELD));
+        JCRNodeWrapper otherEmail = field("email", FieldShapes.MAPPABLE_MARKER, FieldShapes.EMAIL_FIELD);
+        when(otherEmail.getIdentifier()).thenReturn("uuid-of-the-second-email");
+        Map<String, List<String>> parameters = Map.of(
+                "email", List.of("private@example.com", "public@example.com"),
+                "fullName", List.of("Ada"));
+
+        Map<String, Object> entries = enricher(configured("mysite"), 1,
+                List.of(sensitiveEmail, otherEmail, field("fullName", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD)))
+                .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH, parameters));
+
+        Map<String, Object> block = (Map<String, Object>) entries.get(SubmissionEventEnricher.KEY);
+        assertEquals(Map.of("fullName", "Ada"), block.get("fields"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void aFieldPresentWithNoValueIsSkippedRatherThanRead() throws Exception {
+        // Verifies the empty case, which is not the absent one: a checkbox group with nothing ticked can reach
+        // the pipeline as a name mapped to an empty list, and reading its first value would throw — dropping
+        // the whole block through the servlet's per-enricher guard, not just that field.
+        Map<String, List<String>> parameters = new HashMap<>();
+        parameters.put("topics", List.of());
+        parameters.put("fullName", List.of("Ada"));
+
+        Map<String, Object> entries = enricher(configured("mysite"), 1, List.of(
+                field("topics", FieldShapes.MAPPABLE_MARKER, FieldShapes.CHOICE_FIELD),
+                field("fullName", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD)))
+                .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH, parameters));
+
+        Map<String, Object> block = (Map<String, Object>) entries.get(SubmissionEventEnricher.KEY);
+        assertEquals(Map.of("fullName", "Ada"), block.get("fields"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void aFieldWhoseEditorFlagCannotBeReadIsNotSent() throws Exception {
+        // Verifies the policy of the unreadable field, and that one failure does not disarm the rest:
+        // getNodeByIdentifier rethrows every provider failure as an ItemNotFoundException, so a transient
+        // error looks exactly like a deletion — reading it as "not marked" would send the value in the very
+        // window the default-workspace check exists to close.
+        JCRNodeWrapper unreadable = field("nationalId", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD);
+        JCRNodeWrapper readable = field("fullName", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD);
+        ChoiceOptionsResolver resolver = mock(ChoiceOptionsResolver.class);
+        when(resolver.countChoices(any(), any())).thenReturn(OptionalInt.of(1));
+        NodeIterator nodes = iterator(List.of(unreadable, readable));
+        SubmissionEventEnricher enricher = new SubmissionEventEnricher(resolver, configured("mysite")) {
+            @Override
+            NodeIterator mappableFields(JCRNodeWrapper form) {
+                return nodes;
+            }
+
+            @Override
+            Set<String> markedSensitiveWhileUnpublished(List<JCRNodeWrapper> published) {
+                // what the real method does when the identifier reads but the node does not
+                return Set.of("uuid-of-nationalId");
+            }
+        };
+
+        Map<String, Object> block = (Map<String, Object>) enricher.enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH,
+                Map.of("nationalId", List.of("1234567890"), "fullName", List.of("Ada")))).get(SubmissionEventEnricher.KEY);
+
+        assertEquals(Map.of("fullName", "Ada"), block.get("fields"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void aFieldWhoseFlagWasTickedThenUntickedIsSentAgain() throws Exception {
+        // Verifies that the flag's VALUE decides, not the presence of the mixin it lives on. Unticking the box
+        // leaves the mixin and the property on the node, with false in it; reading the presence alone would
+        // hold that field's value back for good, and nothing in the editor would explain why.
+        List<JCRNodeWrapper> fields = List.of(
+                unticked(field("email", FieldShapes.MAPPABLE_MARKER, FieldShapes.EMAIL_FIELD)),
+                field("fullName", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD));
+
+        Map<String, Object> entries = enricher(configured("mysite"), 1, fields)
+                .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH,
+                        Map.of("email", List.of("ada@example.com"), "fullName", List.of("Ada"))));
+
+        Map<String, Object> block = (Map<String, Object>) entries.get(SubmissionEventEnricher.KEY);
+        assertEquals(Map.of("email", "ada@example.com", "fullName", "Ada"), block.get("fields"));
     }
 }

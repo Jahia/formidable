@@ -193,6 +193,9 @@ class FormSubmitServletTest {
         servlet.bindResponseEnricher(submission -> {
             throw new IllegalStateException("boom");
         });
+        // the describing of the submission failing unchecked is the other half of the same catch: without it
+        // an accepted submission would answer FMDB-500
+        servlet.bindResponseEnricher(submission -> Map.of("fromTheSecond", "kept"));
         servlet.bindResponseEnricher(submission -> {
             Map<String, Object> entries = new HashMap<>();
             entries.put("success", false);
@@ -210,6 +213,7 @@ class FormSubmitServletTest {
         JSONObject json = new JSONObject(body.toString());
         assertTrue(json.getBoolean("success"));
         assertEquals("kept", json.getString("extra"));
+        assertEquals("kept", json.getString("fromTheSecond"));
         assertFalse(json.has("notJson"));
         // one level down org.json accepts the value and only refuses it at serialisation, where toString()
         // answers null; unguarded, the writer NPEs outside every guard and the accepted submission gets a 500
@@ -306,7 +310,81 @@ class FormSubmitServletTest {
                     }
                     // No-op: these tests only verify the gate and whether the pipeline would be reached.
                 }
+
+                @Override
+                AcceptedSubmission accepted() {
+                    // Describable even on the rejection path, as the real pipeline is: run() fills formNode in
+                    // resolveFormNode() and parsed in parseMultipart(), both before the three steps that can
+                    // still reject. A fake that threw here would hold nothing — the enrichers would look
+                    // uncalled because accepted() failed, not because the submission was refused.
+                    return new AcceptedSubmission(mock(JCRNodeWrapper.class), "mysite", Locale.ENGLISH, Map.of("fullName", List.of("Ada")));
+                }
             };
         }
+    }
+
+    @Test
+    void anAcceptedSubmissionStandsWhenItsOwnDescriptionFailsUnchecked() throws Exception {
+        // Verifies the unchecked half of enrich()'s catch: describing the accepted submission reads the form
+        // node, so a repository decorator throwing unchecked lands here. Narrowed to RepositoryException, this
+        // would leave doPost answering FMDB-500 for a submission whose actions had all run.
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter body = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(body));
+        FormSubmitServlet servlet = new FormSubmitServlet() {
+            @Override
+            boolean isRequestAllowed() {
+                return true;
+            }
+
+            @Override
+            FormSubmissionPipeline createPipeline() {
+                return new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false) {
+                    @Override
+                    void run(HttpServletRequest req) {
+                        // accepted
+                    }
+
+                    @Override
+                    AcceptedSubmission accepted() {
+                        throw new IllegalStateException("a decorator threw");
+                    }
+                };
+            }
+        };
+        servlet.setConfig(mock(FormidableConfigService.class));
+        servlet.bindResponseEnricher(submission -> Map.of("never", "asked"));
+
+        servlet.doPost(request, response);
+
+        // Expected outcome: a 200 saying success, without any enricher entry.
+        verify(response).setStatus(HttpServletResponse.SC_OK);
+        JSONObject json = new JSONObject(body.toString());
+        assertTrue(json.getBoolean("success"));
+        assertFalse(json.has("never"));
+    }
+
+    @Test
+    void oneEnrichersBadValueCannotCostAnothersGoodEntry() throws Exception {
+        // Verifies the promise that an enricher costs its own entries and nothing else, where two of them
+        // collide on a key: put overwrites and the serialisation check then removes the key, so without the
+        // first-writer rule the second enricher's NaN would have taken the first's block with it. Bind order
+        // is not deterministic, so the surviving entry must be the one written first, whoever that is.
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter body = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(body));
+        AcceptedSubmission accepted = new AcceptedSubmission(mock(JCRNodeWrapper.class), "mysite", Locale.ENGLISH, Map.of());
+        EnrichingFormSubmitServlet servlet = new EnrichingFormSubmitServlet(accepted);
+        servlet.setConfig(mock(FormidableConfigService.class));
+        servlet.bindResponseEnricher(submission -> Map.of("analytics", Map.of("visits", 3)));
+        servlet.bindResponseEnricher(submission -> Map.of("analytics", Map.of("score", Double.NaN)));
+
+        servlet.doPost(request, response);
+
+        JSONObject json = new JSONObject(body.toString());
+        assertTrue(json.getBoolean("success"));
+        assertEquals(3, json.getJSONObject("analytics").getInt("visits"));
     }
 }

@@ -1,7 +1,7 @@
 # jExperience Integration
 
 > **Status: design specification; phase 1 shipped 2026-09-11 and reviewed 2026-09-14 (PR #324),
-> phases 2 to 4 to come — the roadmap at the end says what is shipped.** First design dated
+> phases 2 and 3 shipped, phase 4 (prefill) to come — the roadmap at the end says what is shipped.** First design dated
 > 2026-09-09 (server-side event and prefill), **revised 2026-09-10 after Romain's review: everything
 > the visitor triggers runs in the browser, through jExperience's tracker**. The implementation
 > lands on the `feat/jexperience-integration` branch and this document is updated as each phase ships.
@@ -246,7 +246,8 @@ change on jExperience's side is a change of one function and its test.
 ```js
 const shouldCollect = (formId, config) =>
   window.wem !== undefined                                    // tracker present: no consent manager blocked it
-  && window.wemLoaded === true                                // context loaded, callbacks executed
+  && window.wemLoaded === true                                // callbacks executed — set in the fallback mode too
+  && Boolean(wem.getLoadedContext()?.profileId)               // a context really loaded: no profile, nothing to bind to
   && window.digitalData?.wemInitConfig?.activateWem !== false // the visitor did not disable tracking in jExperience
   && !window.digitalData?.wemInitConfig?.disableTrackedConditionsListeners
   && (config.mappings.length > 0                              // the author mapped a field
@@ -709,7 +710,7 @@ minute, one rule (decisions of 2026-09-11).
 | 2026-09-14 | The three CND clauses the Java relies on are pinned by a test reading the module's own CND | No test environment installs the module yet; `dependentProperties='multiple'`, `> jmix:templateMixin` and the `extends` to the marker each survived deletion with the suite green. A line-level reader cross-checked with the Java constants guards them until a Cypress spec does |
 | 2026-09-15 | **The identifier is the form's UUID**, carried by the rendered `<form>` as `id` and `name`; the `formidable-jxp-<uuid>` property, its mixin `fmdbmix:jExperienceForm`, the editor field and the stamping listener are removed (HDU) | Reading wem.min.js 4.2.1 and the Form mappings screen showed that every reader takes `name` then `id`, and that two attributes keep the tracker off: a distinct identifier only protected against a tracker two attributes silence. The UUID needs no storage, no listener and no upgrade note, and jContent already shows it |
 | 2026-09-15 | **`data-form-id` and `data-wem-observed="true"` are rendered by elements on every form**, jExperience module or not; the form's title is its `aria-label` | One attribute per code path of the tracker (initial scan, observer). Unconditional: a goal created on a site without the module must not make the tracker send raw, unvalidated DOM fields — a Formidable form is tracked through this module or not at all. The title is not a `name` candidate: read before `id` by the tracker, the picker and the page lookup, it would key a mapping on a label that changes with the language |
-| 2026-09-15 | ~~The response block's `fields` are the accepted values of the **profile-mappable** fields (`fmdbmix:profileMappableField`)~~ — superseded the same day by the mapped-only rule below | The pipeline has no notion of a sensitive field ([formidable#161](https://github.com/Jahia/formidable/issues/161) is open); the marker is the boundary that already exists: what jExperience may map is what jExperience receives — files, buttons and containers never |
+| 2026-09-15 | **The response block's `fields` are the accepted values of the profile-mappable fields** (`fmdbmix:profileMappableField`), minus the sensitive ones | The pipeline has no notion of a sensitive field, so the marker is the boundary that already exists: what jExperience may map is what jExperience receives — files, buttons and containers never. **Struck and restored the same day:** the rule was narrowed to the mapped fields only, then restored when that turned jExperience's own Form mappings screen into a dead end (the two rows below), and the author's per-field sensitive flag took over the job of keeping a value in |
 | 2026-09-15 | **The render filter reads the form in a session of its own**, not the render session | A form placed through a reference renders as a node contextualised under it, whose path `…/theReference@/theForm` is no JCR path: the mapped-fields query matched nothing and the block named a place the mapping rule never mentions. Asking the render session for the identifier gives that same contextualised node back — observed in live, and the first fix, which trusted the session, shipped nothing (its unit test mocked the very lookup that fails). A session that never saw the reference resolves the identifier to the form itself |
 | 2026-09-15 | The response block is **serialised inside each enricher's own guard**, not by the writer | The writer runs outside every guard: a null key or a NaN from one enricher threw there and turned an accepted submission into a 500. Building the JSON where the failure can still be attributed keeps the SPI's one promise — an enricher costs its own entries and nothing else |
 | 2026-09-15 | The client script is emitted next to **every** form of a page and keeps one instance by itself | The filter has no page-level state to dedupe on, and a `<script defer>` fetched twice is one fetch; the script returns early when `window.formidableJxp` is already there |

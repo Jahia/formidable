@@ -176,6 +176,13 @@ public class FormSubmitServlet extends HttpServlet {
             log.warn("[FormSubmitServlet] Response enricher {} wrote the reserved key '{}': ignored", enricher, key);
             return;
         }
+        if (entries.has(key)) {
+            // first writer keeps it: put overwrites, and the check below then removes the key entirely, so a
+            // second enricher's bad value would cost the first one's good entry. Two modules on one key is
+            // their own contract to settle, and the log names both
+            log.warn("[FormSubmitServlet] Response enricher {} wrote the key '{}', which another enricher already wrote: ignored", enricher, key);
+            return;
+        }
         try {
             entries.put(key, value);
         } catch (JSONException e) {

@@ -15,7 +15,6 @@ import org.slf4j.LoggerFactory;
 
 import org.jahia.services.content.JCRTemplate;
 
-import javax.jcr.ItemNotFoundException;
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import javax.jcr.query.Query;
@@ -84,13 +83,21 @@ public class SubmissionEventEnricher implements SubmissionResponseEnricher {
             // choices are counted in the site's default language, where option values live (see FormMappingReader)
             String language = form.getResolveSite().getDefaultLanguage();
             Map<String, Object> fields = new LinkedHashMap<>();
-            for (JCRNodeWrapper field : sendableFields(form)) {
-                List<String> values = submission.parameters().get(field.getName());
+            Fields sendable = sendableFields(form);
+            for (JCRNodeWrapper field : sendable.sendable()) {
+                String name = field.getName();
+                // a sensitive field's name is withheld, not its node: two fields of one form can carry the
+                // same name — unique among siblings only — and the pipeline accumulates both their values
+                // under it, so sending the name at all would send the sensitive one's value too
+                if (sendable.withheldNames().contains(name)) {
+                    continue;
+                }
+                List<String> values = submission.parameters().get(name);
                 if (values == null || values.isEmpty()) {
                     continue;
                 }
                 Optional<FieldShape> shape = FieldShapes.infer(field, Optional.empty(), () -> optionsResolver.countChoices(field, language));
-                shape.ifPresent(s -> fields.put(field.getName(), s.multivalued() ? List.copyOf(values) : values.get(0)));
+                shape.ifPresent(s -> fields.put(name, s.multivalued() ? List.copyOf(values) : values.get(0)));
             }
             Map<String, Object> block = new LinkedHashMap<>();
             block.put("formId", form.getIdentifier());
@@ -113,17 +120,35 @@ public class SubmissionEventEnricher implements SubmissionResponseEnricher {
      * has marked sensitive but not yet published counts as sensitive too. The reverse — unticking the
      * box without publishing — also holds the value back, which is the safe way round.</p>
      */
-    List<JCRNodeWrapper> sendableFields(JCRNodeWrapper form) throws RepositoryException {
+    Fields sendableFields(JCRNodeWrapper form) throws RepositoryException {
         NodeIterator nodes = mappableFields(form);
-        List<JCRNodeWrapper> published = new ArrayList<>();
+        List<JCRNodeWrapper> candidates = new ArrayList<>();
+        Set<String> withheldNames = new HashSet<>();
         while (nodes.hasNext()) {
             JCRNodeWrapper field = (JCRNodeWrapper) nodes.nextNode();
-            if (!SensitiveField.isSensitive(field)) {
-                published.add(field);
+            if (SensitiveField.isSensitive(field)) {
+                withheldNames.add(field.getName());
+            } else {
+                candidates.add(field);
             }
         }
-        Set<String> markedSinceLastPublication = markedSensitiveWhileUnpublished(published);
-        return published.stream().filter(field -> !markedSensitiveIn(markedSinceLastPublication, field)).toList();
+        Set<String> markedSinceLastPublication = markedSensitiveWhileUnpublished(candidates);
+        List<JCRNodeWrapper> sendable = new ArrayList<>();
+        for (JCRNodeWrapper field : candidates) {
+            if (markedSensitiveIn(markedSinceLastPublication, field)) {
+                withheldNames.add(field.getName());
+            } else {
+                sendable.add(field);
+            }
+        }
+        return new Fields(sendable, withheldNames);
+    }
+
+    /**
+     * The fields of one submission: those whose value may be sent, and the names no value may be sent
+     * under. The second is what the block is filtered on, since that is how the values are keyed.
+     */
+    record Fields(List<JCRNodeWrapper> sendable, Set<String> withheldNames) {
     }
 
     private static boolean markedSensitiveIn(Set<String> identifiers, JCRNodeWrapper field) {
@@ -139,9 +164,10 @@ public class SubmissionEventEnricher implements SubmissionResponseEnricher {
      * Of the fields live says are not sensitive, those the author has marked in the editor and not
      * published yet — read once, in a session of the default workspace, by identifier.
      *
-     * <p>When that reading fails the published answer stands, with a warning: a transient repository
-     * error must not empty the block for every visitor, and the window this closes is the one between
-     * ticking the box and publishing. A seam for the tests, which have no repository.</p>
+     * <p>A field that cannot be read counts as sensitive, and one field's failure never disarms the
+     * check for the others. Only a failure that is global — no session at all — falls back to the
+     * published answer, with a warning: that must not empty the block for every visitor. A seam for
+     * the tests, which have no repository.</p>
      */
     Set<String> markedSensitiveWhileUnpublished(List<JCRNodeWrapper> published) {
         if (published.isEmpty()) {
@@ -151,14 +177,23 @@ public class SubmissionEventEnricher implements SubmissionResponseEnricher {
             return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, WORKSPACE_DEFAULT, null, session -> {
                 Set<String> marked = new HashSet<>();
                 for (JCRNodeWrapper field : published) {
-                    String identifier = field.getIdentifier();
+                    String identifier = null;
                     try {
+                        identifier = field.getIdentifier();
                         if (SensitiveField.isSensitive(session.getNodeByIdentifier(identifier))) {
                             marked.add(identifier);
                         }
-                    } catch (ItemNotFoundException e) {
-                        // published but deleted since: nothing unpublished to honour
-                        log.debug("[SubmissionEventEnricher] Field '{}' is gone from the default workspace", identifier);
+                    } catch (RepositoryException e) {
+                        // A field that cannot be read counts as sensitive, the policy markedSensitiveIn
+                        // already applies: getNodeByIdentifier rethrows every provider failure wrapped in an
+                        // ItemNotFoundException, so a transient error is indistinguishable from a field
+                        // deleted since publication — and reading it as "not marked" would send the value in
+                        // exactly the window this method exists to close. The cost is one held-back value per
+                        // submission for a field really deleted, until the next publication.
+                        log.warn("[SubmissionEventEnricher] A field's editor flag could not be read: its value is not sent", e);
+                        if (identifier != null) {
+                            marked.add(identifier);
+                        }
                     }
                 }
                 return marked;
