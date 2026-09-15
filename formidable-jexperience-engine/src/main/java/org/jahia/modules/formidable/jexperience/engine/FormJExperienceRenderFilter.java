@@ -5,6 +5,7 @@ import org.jahia.services.content.JCRCallback;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRTemplate;
+import org.jahia.services.content.decorator.JCRSiteNode;
 import org.jahia.services.render.RenderContext;
 import org.jahia.services.render.Resource;
 import org.jahia.services.render.filter.AbstractFilter;
@@ -26,7 +27,7 @@ import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Writes, before every form of a jExperience-configured site in live, what the client script needs
+ * Writes, before every form of a tracked site in live, what the client script needs
  * to send the form event: a JSON block keyed on the form's UUID — identifier, title, path, mapped
  * fields — and the script itself. The output depends on the published form alone, never on the
  * visitor, so the fragment stays cached and identical for everyone. The script tag comes with each
@@ -85,18 +86,17 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
 
     @Override
     public String execute(String previousOut, RenderContext renderContext, Resource resource, RenderChain chain) {
-        String siteKey = renderContext.getSite() == null ? null : renderContext.getSite().getSiteKey();
-        return prepend(previousOut, siteKey, resource.getNode(), renderContext.getRequest().getContextPath());
+        return prepend(previousOut, renderContext.getSite(), resource.getNode(), renderContext.getRequest().getContextPath());
     }
 
     /**
-     * The form's markup preceded by the contribution, or the markup alone: outside a
-     * jExperience-configured site, and whenever the form cannot be read — a form that renders is
-     * worth more than a form that fails over its analytics.
+     * The form's markup preceded by the contribution, or the markup alone: outside a site whose
+     * pages carry the tracker, and whenever the form cannot be read — a form that renders is worth
+     * more than a form that fails over its analytics.
      */
-    String prepend(String previousOut, String siteKey, JCRNodeWrapper form, String contextPath) {
+    String prepend(String previousOut, JCRSiteNode site, JCRNodeWrapper form, String contextPath) {
         try {
-            if (!JExperienceSite.configured(contextServerService.get(), siteKey)) {
+            if (!JExperienceSite.tracked(site, contextServerService.get())) {
                 return previousOut;
             }
             return contribution(form, contextPath) + previousOut;

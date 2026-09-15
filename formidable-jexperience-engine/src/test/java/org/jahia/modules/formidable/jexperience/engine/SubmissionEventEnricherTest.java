@@ -28,7 +28,7 @@ import static org.mockito.Mockito.when;
 /**
  * The jexperience block of an accepted submission: the form's UUID and the accepted values of its
  * fields, shaped as the mapping rule expects, minus the ones the author marked sensitive — and no
- * block outside a configured site.
+ * block on a site whose pages carry no tracker.
  */
 class SubmissionEventEnricherTest {
 
@@ -72,10 +72,19 @@ class SubmissionEventEnricherTest {
     }
 
     private static JCRNodeWrapper form() throws RepositoryException {
+        return form(true);
+    }
+
+    /** The same form on a site that does, or does not, run jExperience. */
+    private static JCRNodeWrapper form(boolean jExperienceEnabled) throws RepositoryException {
         JCRNodeWrapper form = mock(JCRNodeWrapper.class);
         when(form.getIdentifier()).thenReturn(FORM_UUID);
         JCRSiteNode site = mock(JCRSiteNode.class);
+        when(site.getSiteKey()).thenReturn("mysite");
         when(site.getDefaultLanguage()).thenReturn("en");
+        when(site.getInstalledModules()).thenReturn(jExperienceEnabled
+                ? List.of("formidable-elements", JExperienceSite.MODULE)
+                : List.of("formidable-elements"));
         when(form.getResolveSite()).thenReturn(site);
         return form;
     }
@@ -206,12 +215,16 @@ class SubmissionEventEnricherTest {
     }
 
     @Test
-    void nothingIsAddedOutsideAConfiguredSiteOrWhenTheFormCannotBeRead() throws Exception {
-        // Verifies the silences: no jExperience settings for the site, and a repository failure while reading
-        // the form, each give an empty map — the submission stays accepted, the body has no block.
+    void nothingIsAddedOnAnUntrackedSiteOrWhenTheFormCannotBeRead() throws Exception {
+        // Verifies the silences: no jExperience settings for the site, a site holding the settings but not
+        // running jExperience (the settings are not a per-site answer — jExperience falls back to the
+        // platform's, so this site would claim to be configured), and a repository failure while reading the
+        // form, each give an empty map — the submission stays accepted, the body has no block.
         List<JCRNodeWrapper> fields = List.of(field("firstName", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD));
         assertTrue(enricher(mock(ContextServerService.class), 1, fields)
                 .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH, Map.of("firstName", List.of("Ada")))).isEmpty());
+        assertTrue(enricher(configured("mysite"), 1, fields)
+                .enrich(new AcceptedSubmission(form(false), "mysite", Locale.ENGLISH, Map.of("firstName", List.of("Ada")))).isEmpty());
 
         JCRNodeWrapper broken = mock(JCRNodeWrapper.class);
         when(broken.getResolveSite()).thenThrow(new RepositoryException("gone"));

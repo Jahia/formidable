@@ -5,6 +5,7 @@ import org.jahia.modules.jexperience.admin.ContextServerStatus;
 import org.jahia.services.content.JCRCallback;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
+import org.jahia.services.content.decorator.JCRSiteNode;
 import org.jahia.services.content.JCRWorkspaceWrapper;
 import org.junit.jupiter.api.Test;
 
@@ -96,6 +97,19 @@ class FormJExperienceRenderFilterTest {
         }
     }
 
+    /**
+     * The site the render context hands over: its key, and whether jExperience is among the modules
+     * enabled on it — the half of the gate that does not depend on any jCustomer being connected.
+     */
+    private static JCRSiteNode site(boolean jExperienceEnabled) {
+        JCRSiteNode node = mock(JCRSiteNode.class);
+        when(node.getSiteKey()).thenReturn("mysite");
+        when(node.getInstalledModules()).thenReturn(jExperienceEnabled
+                ? List.of("formidable-elements", JExperienceSite.MODULE)
+                : List.of("formidable-elements"));
+        return node;
+    }
+
     private static ContextServerService configured(String siteKey) {
         ContextServerService service = mock(ContextServerService.class);
         when(service.getContextServerStatus(siteKey)).thenReturn(mock(ContextServerStatus.class));
@@ -109,7 +123,7 @@ class FormJExperienceRenderFilterTest {
         // own markup. What the form maps is not in it: the send decision reads the tracker's watch list.
         JCRNodeWrapper form = form("Contact us");
         String out = filter(configured("mysite"), ownSessionOver(form), true)
-                .prepend("<form></form>", "mysite", rendered(form, false), "");
+                .prepend("<form></form>", site(true), rendered(form, false), "");
 
         assertEquals("<script type=\"application/json\" data-formidable-jxp=\"" + FORM_UUID + "\">"
                 + "{\"formId\":\"" + FORM_UUID + "\",\"name\":\"Contact us\",\"path\":\"/sites/mysite/contents/contact\"}</script>\n"
@@ -123,7 +137,7 @@ class FormJExperienceRenderFilterTest {
         // title that could otherwise close the script block.
         JCRNodeWrapper form = form("</script><b>&");
         String out = filter(configured("mysite"), ownSessionOver(form), true)
-                .prepend("", "mysite", rendered(form, false), "");
+                .prepend("", site(true), rendered(form, false), "");
 
         assertTrue(out.contains("\"name\":\"\\u003c/script\\u003e\\u003cb\\u003e\\u0026\""), out);
     }
@@ -137,23 +151,27 @@ class FormJExperienceRenderFilterTest {
         JCRNodeWrapper form = form("Contact us");
         FilterUnderTest filter = filter(configured("mysite"), ownSessionOver(form), true);
 
-        String out = filter.prepend("<form></form>", "mysite", rendered(form, true), "");
+        String out = filter.prepend("<form></form>", site(true), rendered(form, true), "");
 
         assertTrue(out.contains("\"path\":\"/sites/mysite/contents/contact\""), out);
         assertEquals("live", filter.openedWorkspace);
     }
 
     @Test
-    void nothingIsWrittenOutsideAConfiguredSiteOrWhenTheFormCannotBeRead() throws Exception {
-        // Verifies the silences: a site without jExperience settings, no site at all (a form outside a site), and a repository
+    void nothingIsWrittenOnAnUntrackedSiteOrWhenTheFormCannotBeRead() throws Exception {
+        // Verifies the silences: a site without jExperience settings, a site that has the settings but does not
+        // run jExperience (the settings are not a per-site answer — jExperience falls back to the platform's,
+        // so this site would claim to be configured), no site at all (a form outside a site), and a repository
         // failure while reading the form each leave the form's markup untouched.
         JCRNodeWrapper form = form("Contact");
         assertEquals("<form></form>", filter(mock(ContextServerService.class), ownSessionOver(form), true)
-                .prepend("<form></form>", "mysite", rendered(form, false), ""));
+                .prepend("<form></form>", site(true), rendered(form, false), ""));
+        assertEquals("<form></form>", filter(configured("mysite"), ownSessionOver(form), true)
+                .prepend("<form></form>", site(false), rendered(form, false), ""));
         assertEquals("<form></form>", filter(configured("mysite"), ownSessionOver(form), true)
                 .prepend("<form></form>", null, rendered(form, false), ""));
         assertEquals("<form></form>", filter(configured("mysite"), ownSessionOver(form), false)
-                .prepend("<form></form>", "mysite", rendered(form, false), ""));
+                .prepend("<form></form>", site(true), rendered(form, false), ""));
     }
 
 
@@ -193,6 +211,6 @@ class FormJExperienceRenderFilterTest {
         FilterUnderTest filter = filter(configured("mysite"), ownSessionOver(form), true);
         filter.unchecked = true;
 
-        assertEquals("<form></form>", filter.prepend("<form></form>", "mysite", rendered(form, false), ""));
+        assertEquals("<form></form>", filter.prepend("<form></form>", site(true), rendered(form, false), ""));
     }
 }

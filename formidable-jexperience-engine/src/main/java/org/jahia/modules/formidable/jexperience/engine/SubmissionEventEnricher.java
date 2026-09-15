@@ -5,6 +5,7 @@ import org.jahia.modules.formidable.engine.api.ChoiceOptionsResolver;
 import org.jahia.modules.formidable.engine.api.SubmissionResponseEnricher;
 import org.jahia.modules.jexperience.admin.ContextServerService;
 import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.services.content.decorator.JCRSiteNode;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
@@ -75,13 +76,14 @@ public class SubmissionEventEnricher implements SubmissionResponseEnricher {
 
     @Override
     public Map<String, Object> enrich(AcceptedSubmission submission) {
-        if (!JExperienceSite.configured(contextServerService.get(), submission.siteKey())) {
-            return Map.of();
-        }
         JCRNodeWrapper form = submission.formNode();
         try {
+            JCRSiteNode site = form.getResolveSite();
+            if (!JExperienceSite.tracked(site, contextServerService.get())) {
+                return Map.of();
+            }
             // choices are counted in the site's default language, where option values live (see FormMappingReader)
-            String language = form.getResolveSite().getDefaultLanguage();
+            String language = site.getDefaultLanguage();
             Map<String, Object> fields = new LinkedHashMap<>();
             Fields sendable = sendableFields(form);
             for (JCRNodeWrapper field : sendable.sendable()) {
