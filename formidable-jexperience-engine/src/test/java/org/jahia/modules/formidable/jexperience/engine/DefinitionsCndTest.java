@@ -69,10 +69,10 @@ class DefinitionsCndTest {
 
     @Test
     void theSensitiveMixinIsSwitchLessAndItsFlagDrivesTheDropdown() throws Exception {
-        // Verifies the three clauses the sensitive flag lives on: it reaches every mappable field through the
-        // marker, jcontent renders it without an enable switch (only a jmix:templateMixin fieldset loses it, and
-        // the flag must be answerable before the mapping fieldset is switched on), and the mapping's choicelist
-        // names it, which is what empties the dropdown the moment the author ticks the box.
+        // Verifies the three clauses the sensitive flag lives on. It reaches every mappable field through the
+        // marker. jcontent renders it without an enable switch, which only a jmix:templateMixin fieldset loses,
+        // and the flag has to be answerable before the mapping fieldset is switched on. The mapping's choicelist
+        // names it, which is what empties that dropdown the moment the author ticks the box.
         List<String> lines = cnd();
         assertTrue(lines.stream().anyMatch(line -> line.strip().startsWith("<jmix = 'http://www.jahia.org/jahia/mix/1.0'>")), "the jmix namespace is declared");
         List<String> mixin = declarationOf(lines, SensitiveField.MIXIN);

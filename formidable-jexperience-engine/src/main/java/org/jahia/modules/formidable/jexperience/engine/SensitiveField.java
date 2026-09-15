@@ -23,6 +23,16 @@ final class SensitiveField {
     private SensitiveField() {
     }
 
+    /**
+     * Whether the field is mapped to a visitor profile property: the mixin alone is not enough, since an
+     * author can switch the section on and leave the property empty, and jcontent clears a property its list
+     * no longer offers. Written here once because the reader, the render filter and the rule must agree.
+     */
+    static boolean isMapped(JCRNodeWrapper field) {
+        String property = field.getPropertyAsString(ProfilePropertiesChoiceListInitializer.PROPERTY);
+        return property != null && !property.isBlank();
+    }
+
     /** Whether the stored field is marked sensitive; false for a field that never carried the mixin. */
     static boolean isSensitive(JCRNodeWrapper field) throws RepositoryException {
         return field.hasProperty(PROPERTY) && field.getProperty(PROPERTY).getBoolean();

@@ -180,9 +180,9 @@ class FormSubmitServletTest {
 
     @Test
     void nothingAnEnricherDoesWrongCanFailAnAcceptedSubmission() throws Exception {
-        // Verifies the SPI's one promise, four ways: a throw, a servlet-owned key, a key that is not one
-        // and a value org.json refuses each cost that entry alone — the 200 and "success" stand, and the
-        // entries of the other enrichers are written.
+        // Verifies the SPI's one promise, five ways: a throw, a servlet-owned key, a key that is not one, a
+        // value org.json refuses and one it refuses only one level down, each costing that entry alone — the
+        // 200 and "success" stand, and the entries of the other enrichers are written.
         HttpServletRequest request = mock(HttpServletRequest.class);
         HttpServletResponse response = mock(HttpServletResponse.class);
         StringWriter body = new StringWriter();
@@ -198,6 +198,7 @@ class FormSubmitServletTest {
             entries.put("success", false);
             entries.put(null, "no key");
             entries.put("notJson", Double.NaN);
+            entries.put("notJsonNested", Map.of("jexperience", Map.of("fields", Map.of("score", Double.NaN))));
             entries.put("extra", "kept");
             return entries;
         });
@@ -210,6 +211,9 @@ class FormSubmitServletTest {
         assertTrue(json.getBoolean("success"));
         assertEquals("kept", json.getString("extra"));
         assertFalse(json.has("notJson"));
+        // one level down org.json accepts the value and only refuses it at serialisation, where toString()
+        // answers null; unguarded, the writer NPEs outside every guard and the accepted submission gets a 500
+        assertFalse(json.has("notJsonNested"));
     }
 
     @Test

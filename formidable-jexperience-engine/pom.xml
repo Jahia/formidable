@@ -9,10 +9,10 @@
     <artifactId>formidable-jexperience-engine</artifactId>
     <name>Formidable jExperience Engine</name>
     <packaging>bundle</packaging>
-    <description>The jExperience integration of Formidable forms: profile mapping of the fields, the form's identity in jCustomer, and later the mapping rule, the submission event and the prefill (docs/architecture/jexperience-integration.md)</description>
+    <description>The jExperience integration of Formidable forms: profile mapping of the fields, the mapping rule kept in sync with publication, the submission event sent by the browser through jExperience's tracker, and later the prefill (docs/architecture/jexperience-integration.md)</description>
     <properties>
-        <!-- The marker mixin comes from the engine, fmdb:form (which fmdbmix:jExperienceForm extends) from the
-             elements, ContextServerService from jExperience. -->
+        <!-- The marker mixin and the response SPI come from the engine, fmdb:form (the type the publication
+             listener and the render filter apply to) from the elements, ContextServerService from jExperience. -->
         <jahia-depends>formidable-engine,formidable-elements,jexperience</jahia-depends>
         <sonar.sources>src,pom.xml</sonar.sources>
         <!-- Jahia EE refuses an org.jahia.modules bundle without a valid Jahia-Signature. Computed with keymaker
@@ -87,6 +87,15 @@
             <artifactId>slf4j-api</artifactId>
             <scope>provided</scope>
         </dependency>
+        <!-- FrameworkUtil, for the module's own version in the client script's URL: a browser holding the
+             previous script must fetch the new one after an upgrade. The framework is always there at runtime. -->
+        <dependency>
+            <groupId>org.osgi</groupId>
+            <artifactId>osgi.core</artifactId>
+            <version>${osgi.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.osgi</groupId>
             <artifactId>osgi.cmpn</artifactId>
@@ -130,8 +139,8 @@
                         <!-- Process OSGi Declarative Services annotations -->
                         <_dsannotations>*</_dsannotations>
                         <!-- Nothing is exported: no module consumes these types, and an exported package is a
-                             compatibility promise (docs/architecture/dependency-decisions.md). The phase-2 SPI gets
-                             its own api package when it lands. -->
+                             compatibility promise (docs/architecture/dependency-decisions.md). The response SPI this
+                             module implements belongs to the engine, which calls it, and is exported there. -->
                         <Export-Package>!*</Export-Package>
                         <!-- jExperience exports its admin package at the module version (4.2.1) and re-exports the
                              Unomi API at Unomi's major (3.0.0): [4,5) is "any jExperience 4.x", [3,4) "any Unomi 3.x",

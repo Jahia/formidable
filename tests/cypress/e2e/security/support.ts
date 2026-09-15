@@ -53,12 +53,11 @@ export const expectErrorResponse = (
 
 export const expectSuccessResponse = (response: Cypress.Response<unknown>) => {
 	expect(response.status).to.eq(200);
-	// A subset, not a deep equality: a module of its own may add top-level keys to the body of an
-	// accepted submission through the engine's SubmissionResponseEnricher SPI (the jExperience
-	// integration does). What these specs assert is that the submission was accepted and that the
-	// body says so without an error code.
-	expect(response.body).to.include({success: true});
-	expect(response.body).to.not.have.property('errorCode');
+	// Exactly one key, as before the response-enricher SPI: none of the forms these specs submit
+	// carries the sample enricher's mixin, so nothing may be added to their body — an enricher, or a
+	// pipeline regression, putting a JCR path or a stack trace there must fail here. The enriched
+	// shape has its own spec, which names the keys it expects.
+	expect(response.body).to.deep.equal({success: true});
 };
 
 export const postDirectMultipartSubmission = ({

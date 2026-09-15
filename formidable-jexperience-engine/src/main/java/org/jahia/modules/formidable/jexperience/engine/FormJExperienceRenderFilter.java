@@ -10,6 +10,8 @@ import org.jahia.services.render.Resource;
 import org.jahia.services.render.filter.AbstractFilter;
 import org.jahia.services.render.filter.RenderChain;
 import org.jahia.services.render.filter.RenderFilter;
+import org.osgi.framework.Bundle;
+import org.osgi.framework.FrameworkUtil;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
@@ -38,7 +40,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @Component(service = RenderFilter.class, immediate = true)
 public class FormJExperienceRenderFilter extends AbstractFilter {
 
-    static final String SCRIPT_URL = "/modules/formidable-jexperience-engine/javascript/formidable-jxp.js";
+    static final String SCRIPT_PATH = "/modules/formidable-jexperience-engine/javascript/formidable-jxp.js";
     /** The attribute of the JSON block, valued with the form's UUID: how the script finds a form's configuration. */
     static final String CONFIG_ATTRIBUTE = "data-formidable-jxp";
 
@@ -76,13 +78,17 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
         setApplyOnNodeTypes(MappingRuleSyncListener.FORM_NODE_TYPE);
         setApplyOnTemplateTypes("html");
         setApplyOnModes("live");
+        // the same node is rendered again through a second full chain by a wrapper, an include or an option,
+        // and node type, template type and mode all still match: without this the page would carry the block
+        // twice, and pay its session and query twice (core's own contribute-once filters say the same)
+        setSkipOnConfigurations("include,wrapper,option");
         setDescription("Adds the jExperience configuration block and client script before a form");
     }
 
     @Override
     public String execute(String previousOut, RenderContext renderContext, Resource resource, RenderChain chain) {
         String siteKey = renderContext.getSite() == null ? null : renderContext.getSite().getSiteKey();
-        return prepend(previousOut, siteKey, resource.getNode());
+        return prepend(previousOut, siteKey, resource.getNode(), renderContext.getRequest().getContextPath());
     }
 
     /**
@@ -90,27 +96,29 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
      * jExperience-configured site, and whenever the form cannot be read — a form that renders is
      * worth more than a form that fails over its analytics.
      */
-    String prepend(String previousOut, String siteKey, JCRNodeWrapper form) {
-        if (!JExperienceSite.configured(contextServerService.get(), siteKey)) {
-            return previousOut;
-        }
+    String prepend(String previousOut, String siteKey, JCRNodeWrapper form, String contextPath) {
         try {
-            return contribution(form) + previousOut;
-        } catch (RepositoryException e) {
+            if (!JExperienceSite.configured(contextServerService.get(), siteKey)) {
+                return previousOut;
+            }
+            return contribution(form, contextPath) + previousOut;
+        } catch (RepositoryException | RuntimeException e) {
+            // everything, including the site check: an escaped exception is turned into a RenderFilterException
+            // and costs the page, not the block, and a form that renders is worth more than its analytics
             log.warn("[FormJExperienceRenderFilter] The jExperience configuration of a form could not be written; the form renders without it", e);
             return previousOut;
         }
     }
 
     /** The configuration block of the form, then the script tag. */
-    String contribution(JCRNodeWrapper rendered) throws RepositoryException {
+    String contribution(JCRNodeWrapper rendered, String contextPath) throws RepositoryException {
         String uuid = rendered.getIdentifier();
         JCRSessionWrapper renderSession = rendered.getSession();
         return inOwnSession(renderSession.getWorkspace().getName(), renderSession.getLocale(),
-                session -> block(session.getNodeByIdentifier(uuid), uuid));
+                session -> block(session.getNodeByIdentifier(uuid), uuid, contextPath));
     }
 
-    private String block(JCRNodeWrapper form, String uuid) throws RepositoryException {
+    private String block(JCRNodeWrapper form, String uuid, String contextPath) throws RepositoryException {
         StringBuilder json = new StringBuilder("{\"formId\":").append(Json.string(uuid))
                 .append(",\"name\":").append(Json.string(form.getDisplayableName()))
                 .append(",\"path\":").append(Json.string(form.getPath()))
@@ -123,7 +131,18 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
         }
         json.append("]}");
         return "<script type=\"application/json\" " + CONFIG_ATTRIBUTE + "=\"" + uuid + "\">" + json + "</script>\n"
-                + "<script src=\"" + SCRIPT_URL + "\" defer></script>\n";
+                + "<script src=\"" + scriptUrl(contextPath) + "\" defer></script>\n";
+    }
+
+    /**
+     * The script's URL: the webapp's context path, since {@code /modules/…} is a mapping inside it and a Jahia
+     * deployed under one would answer 404 for the bare path, and the module's version, so that a browser holding
+     * the previous script fetches the new one after an upgrade instead of running it against a changed block.
+     */
+    static String scriptUrl(String contextPath) {
+        Bundle bundle = FrameworkUtil.getBundle(FormJExperienceRenderFilter.class);
+        String version = bundle == null ? "" : "?v=" + bundle.getVersion();
+        return (contextPath == null ? "" : contextPath) + SCRIPT_PATH + version;
     }
 
     /**
@@ -154,9 +173,8 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
         Map<String, String> mappings = new LinkedHashMap<>();
         while (nodes.hasNext()) {
             JCRNodeWrapper field = (JCRNodeWrapper) nodes.nextNode();
-            String property = field.getPropertyAsString(ProfilePropertiesChoiceListInitializer.PROPERTY);
-            if (property != null && !property.isBlank() && !SensitiveField.isSensitive(field)) {
-                mappings.put(field.getName(), property);
+            if (SensitiveField.isMapped(field) && !SensitiveField.isSensitive(field)) {
+                mappings.put(field.getName(), field.getPropertyAsString(ProfilePropertiesChoiceListInitializer.PROPERTY));
             }
         }
         return mappings;

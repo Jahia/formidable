@@ -29,6 +29,13 @@ function parseJsonBody(text: string): unknown {
 }
 
 interface UseFormSubmissionOptions {
+	/**
+	 * The form node's UUID, from the server — never read back from the DOM. `HTMLFormElement` is
+	 * `[LegacyOverrideBuiltIns]`: a control whose name matches an IDL attribute shadows it, and a field's
+	 * name is the contributor's system name, so a field named `id` would turn `form.id` into that input
+	 * and every listener of the event below would stop recognising the form, silently.
+	 */
+	formId: string;
 	submitActionUrl?: string;
 	submissionMessage?: string;
 	errorMessage?: string;
@@ -52,6 +59,7 @@ interface UseFormSubmissionReturn {
 }
 
 export function useFormSubmission({
+	formId,
 	submitActionUrl,
 	submissionMessage,
 	errorMessage,
@@ -151,7 +159,7 @@ export function useFormSubmission({
 			// that throws does not reach this code (dispatchEvent reports it to the window).
 			form.dispatchEvent(new CustomEvent(SUBMITTED_EVENT, {
 				bubbles: true,
-				detail: {formId: form.id, response: parseJsonBody(response.responseText)},
+				detail: {formId, response: parseJsonBody(response.responseText)},
 			}));
 
 			await new Promise(resolve => setTimeout(resolve, 500));

@@ -84,6 +84,7 @@ export default function Form({
 		handleSubmit,
 		showForm,
 	} = useFormSubmission({
+		formId,
 		submitActionUrl,
 		submissionMessage,
 		errorMessage,
@@ -171,14 +172,19 @@ export default function Form({
 				encType="multipart/form-data"
 				id={formId}
 				name={formId}
-				// The accessible name of the form landmark: nothing inside the form repeats its title.
-				aria-label={formTitle}
-				// jExperience's tracker attaches its own submit listener to any form whose name or
-				// id a goal or a mapping rule watches, and sends the raw DOM fields before validation.
-				// Two attributes keep it off, one per code path of wem.js: data-form-id (its initial
-				// scan skips forms carrying one — the Jahia Forms convention) and data-wem-observed
-				// (its observer of late forms skips those already marked). Submissions reach jCustomer
-				// through formidable-jexperience-engine only, with the values the pipeline accepted.
+				// The accessible name of the form landmark, when the author gave the form a title: nothing
+				// inside the form repeats it. Without a title there is no name — getDisplayableName() would
+				// fall back to the node name, and three untitled forms would be announced "form", "form-2",
+				// "form-3"; an unnamed landmark is not announced as one, which is better than a wrong name.
+				aria-label={formTitle || undefined}
+				// jExperience's tracker attaches its own submit listener to any form whose name or id a
+				// goal or a mapping rule watches, and sends the raw DOM fields before validation. Two
+				// attributes keep it off, one per code path, and they live in different files: the
+				// initial scan is the Unomi tracker's, bundled into wem.min.js, and it skips a form
+				// carrying data-form-id (the Jahia Forms convention); the observer of late forms is
+				// jExperience's own wem.js, and it skips a form whose dataset.wemObserved is set.
+				// Submissions reach jCustomer through formidable-jexperience-engine only, with the
+				// values the pipeline accepted. Asserted by the Cypress spec of the form's attributes.
 				data-form-id={formId}
 				data-wem-observed="true"
 				// Read back from the DOM by the visibility pass: the rules describe the

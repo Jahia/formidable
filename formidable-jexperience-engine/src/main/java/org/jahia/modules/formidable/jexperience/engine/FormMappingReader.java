@@ -76,10 +76,10 @@ public class FormMappingReader {
 
     Optional<MappingRule.FieldMapping> fieldMappingOf(JCRNodeWrapper field, List<ProfilePropertyDescriptor> schema, String language)
             throws RepositoryException {
-        String propertyName = field.getPropertyAsString(ProfilePropertiesChoiceListInitializer.PROPERTY);
-        if (propertyName == null || propertyName.isBlank()) {
+        if (!SensitiveField.isMapped(field)) {
             return Optional.empty();
         }
+        String propertyName = field.getPropertyAsString(ProfilePropertiesChoiceListInitializer.PROPERTY);
         if (SensitiveField.isSensitive(field)) {
             // the dropdown offers nothing on a sensitive field, but a mapping may predate the flag
             log.warn("[FormMappingReader] '{}' maps '{}' but is marked sensitive: skipped", field.getPath(), propertyName);

@@ -102,6 +102,8 @@ The public API for custom actions lives in `formidable-engine/src/main/java/org/
 - `FormAction.java` — strategy interface (`getNodeType()` + `execute()`)
 - `FormActionException.java` — exception with HTTP status (`badRequest()`, `serverError()`)
 - `SubmittedFile.java` — file upload abstraction
+- `ChoiceOptionsResolver.java` — how many choices a choice field offers, counted as the views render it
+- `SubmissionResponseEnricher.java` + `AcceptedSubmission.java` — entries a module of its own adds to the JSON body of an accepted submission
 
 Built-in actions: `SaveToJcrFormAction`, `SendEmailNotificationFormAction`, `SendEmailContentFormAction`, `ForwardSubmissionFormAction` (four — captcha is not an action: it is a mixin plus OSGi config, verified by the pipeline before the actions run).
 

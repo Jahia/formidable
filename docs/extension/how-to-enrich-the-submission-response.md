@@ -33,8 +33,20 @@ public class MyEnricher implements SubmissionResponseEnricher {
 ```
 
 Register it as an OSGi service (the `@Component` above does); the servlet tracks every
-`SubmissionResponseEnricher` dynamically, no configuration needed. Import
-`org.jahia.modules.formidable.engine.api` with an open range in your bundle, as for a `FormAction`.
+`SubmissionResponseEnricher` dynamically, no configuration needed. Two things your module declares,
+the same two a [`FormAction`](how-to-create-form-action.md) needs:
+
+```xml
+<properties>
+  <!-- deploy time: your module starts after the engine, whose SPI it implements -->
+  <jahia-depends>formidable-engine</jahia-depends>
+</properties>
+```
+
+```xml
+<!-- compile and resolution time, in the bnd instructions -->
+<Import-Package>org.jahia.modules.formidable.engine.api;version="[0.5,1)",*</Import-Package>
+```
 
 ## Step 2: Understand the input you receive
 
@@ -65,7 +77,15 @@ Files never reach an enricher: they belong to the actions.
 
 ## Related example in this repository
 
-`formidable-jexperience-engine`'s `SubmissionEventEnricher` returns
-`jexperience: {formId, fields}` — the form's UUID and the accepted values of its profile-mappable
-fields — for the client script that sends the form event through jExperience's tracker; see
-[jExperience integration](../architecture/jexperience-integration.md), "Submitting".
+[`SampleResponseEnricher`](../../jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/enricher/SampleResponseEnricher.java)
+in the samples module is this page in runnable form, and the one to copy: it shows the gate a real
+enricher needs. An enricher is asked for **every** accepted submission of the platform, so one that
+answers unconditionally puts its key in every form's response; the sample answers only for a form
+carrying its own mixin, which the author adds. Its Cypress spec
+(`tests/cypress/e2e/security/47-response-enricher.cy.ts`) asserts both halves.
+
+`formidable-jexperience-engine`'s `SubmissionEventEnricher` is the other example: it returns
+`jexperience: {formId, fields}` — the form's UUID and the accepted values of its fields, minus the
+ones the author marked sensitive — for the client script that sends the form event through
+jExperience's tracker; see [jExperience integration](../architecture/jexperience-integration.md),
+"Submitting".

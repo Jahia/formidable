@@ -137,12 +137,12 @@ class FormJExperienceRenderFilterTest {
         JCRNodeWrapper form = form("Contact us");
         String out = filter(configured("mysite"), ownSessionOver(form),
                 List.of(mappedField("firstName", "firstName", false), mappedField("topics", "interests", false)))
-                .prepend("<form></form>", "mysite", rendered(form, false));
+                .prepend("<form></form>", "mysite", rendered(form, false), "");
 
         assertEquals("<script type=\"application/json\" data-formidable-jxp=\"" + FORM_UUID + "\">"
                 + "{\"formId\":\"" + FORM_UUID + "\",\"name\":\"Contact us\",\"path\":\"/sites/mysite/contents/contact\","
                 + "\"mappings\":[{\"field\":\"firstName\",\"property\":\"firstName\"},{\"field\":\"topics\",\"property\":\"interests\"}]}</script>\n"
-                + "<script src=\"" + FormJExperienceRenderFilter.SCRIPT_URL + "\" defer></script>\n"
+                + "<script src=\"" + FormJExperienceRenderFilter.scriptUrl("") + "\" defer></script>\n"
                 + "<form></form>", out);
     }
 
@@ -152,7 +152,7 @@ class FormJExperienceRenderFilterTest {
         // title that could otherwise close the script block.
         JCRNodeWrapper form = form("</script><b>&");
         String out = filter(configured("mysite"), ownSessionOver(form), List.of())
-                .prepend("", "mysite", rendered(form, false));
+                .prepend("", "mysite", rendered(form, false), "");
 
         assertTrue(out.contains("\"name\":\"\\u003c/script\\u003e\\u003cb\\u003e\\u0026\""), out);
         assertTrue(out.contains("\"mappings\":[]}"), out);
@@ -167,7 +167,7 @@ class FormJExperienceRenderFilterTest {
         JCRNodeWrapper form = form("Contact us");
         FilterUnderTest filter = filter(configured("mysite"), ownSessionOver(form), List.of(mappedField("firstName", "firstName", false)));
 
-        String out = filter.prepend("<form></form>", "mysite", rendered(form, true));
+        String out = filter.prepend("<form></form>", "mysite", rendered(form, true), "");
 
         assertTrue(out.contains("\"path\":\"/sites/mysite/contents/contact\""), out);
         assertEquals("/sites/mysite/contents/contact", filter.queriedPath);
@@ -181,11 +181,11 @@ class FormJExperienceRenderFilterTest {
         // failure while reading the form each leave the form's markup untouched.
         JCRNodeWrapper form = form("Contact");
         assertEquals("<form></form>", filter(mock(ContextServerService.class), ownSessionOver(form), List.of())
-                .prepend("<form></form>", "mysite", rendered(form, false)));
+                .prepend("<form></form>", "mysite", rendered(form, false), ""));
         assertEquals("<form></form>", filter(configured("mysite"), ownSessionOver(form), List.of())
-                .prepend("<form></form>", null, rendered(form, false)));
+                .prepend("<form></form>", null, rendered(form, false), ""));
         assertEquals("<form></form>", filter(configured("mysite"), ownSessionOver(form), null)
-                .prepend("<form></form>", "mysite", rendered(form, false)));
+                .prepend("<form></form>", "mysite", rendered(form, false), ""));
     }
 
     @Test
@@ -195,9 +195,36 @@ class FormJExperienceRenderFilterTest {
         JCRNodeWrapper form = form("Contact us");
         String out = filter(configured("mysite"), ownSessionOver(form), List.of(
                 mappedField("email", "email", false),
-                mappedField("nationalId", "firstName", true))).prepend("", "mysite", rendered(form, false));
+                mappedField("nationalId", "firstName", true))).prepend("", "mysite", rendered(form, false), "");
 
         assertTrue(out.contains("\"mappings\":[{\"field\":\"email\",\"property\":\"email\"}]}"), out);
         assertFalse(out.contains("nationalId"), out);
+    }
+
+    @Test
+    void theScriptUrlCarriesTheContextPathAndAVersion() {
+        // Verifies the URL the browser is given: /modules/… is a mapping inside the webapp, so a Jahia deployed
+        // under a context path answers 404 for the bare path and the script never defines its API — silently,
+        // with the server still writing a block nobody reads. The version is what makes a browser holding the
+        // previous script fetch the new one after an upgrade.
+        assertTrue(FormJExperienceRenderFilter.scriptUrl("/dx").startsWith("/dx" + FormJExperienceRenderFilter.SCRIPT_PATH),
+                FormJExperienceRenderFilter.scriptUrl("/dx"));
+        assertTrue(FormJExperienceRenderFilter.scriptUrl(null).startsWith(FormJExperienceRenderFilter.SCRIPT_PATH),
+                FormJExperienceRenderFilter.scriptUrl(null));
+    }
+
+    @Test
+    void theFilterDoesNotContributeTwiceForOneForm() {
+        // Verifies the configurations left out: a wrapper, an include or an option renders the same node again
+        // through a second full chain, where node type, template type and mode all still match — the page would
+        // carry two identical blocks and pay two sessions and two queries.
+        FilterUnderTest filter = new FilterUnderTest(null, List.of());
+        filter.activate();
+
+        // the base class keeps its conditions private; the summary is what it exposes of them
+        String conditions = filter.getConditionsSummary();
+        for (String configuration : List.of("include", "wrapper", "option")) {
+            assertTrue(conditions.contains(configuration), conditions);
+        }
     }
 }

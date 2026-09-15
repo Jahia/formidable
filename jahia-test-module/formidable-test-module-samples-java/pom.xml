@@ -84,7 +84,8 @@
                     <instructions>
                         <_dsannotations>*</_dsannotations>
                         <Jahia-Module-Type>module</Jahia-Module-Type>
-                        <Jahia-Depends>default,formidable-engine,content-integrity</Jahia-Depends>
+                        <!-- formidable-elements owns fmdb:form, which the sample enricher's opt-in mixin extends -->
+                        <Jahia-Depends>default,formidable-engine,formidable-elements,content-integrity</Jahia-Depends>
                     </instructions>
                 </configuration>
             </plugin>
