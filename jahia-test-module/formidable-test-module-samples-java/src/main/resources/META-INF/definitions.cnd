@@ -2,7 +2,7 @@
 <fmdb = 'http://www.jahia.org/jahia/fmdb/nt/1.0'>
 <fmdbmix = 'http://www.jahia.org/jahia/fmdb/mix/1.0'>
 <fmdbsample = 'http://www.jahia.org/jahia/fmdbsample/nt/1.0'>
-<fmdbsamplemix = 'http://www.jahia.org/jahia/fmdbsample/mix/1.0'>
+<fmdbsamplemix = 'http://www.jahia.org/jahia/fmdb/sample/mix/1.0'>
 
 [fmdbsample:logSubmissionAction] > jnt:content, fmdbmix:formAction, mix:title
 
@@ -10,6 +10,10 @@
 // sample block in the JSON body of an accepted submission. An enricher is asked for every
 // submission of the platform, so gating on a mixin is what keeps a module's key out of every other
 // form's response — the part of the sample worth copying.
+//
+// The fmdbsamplemix prefix is the one the tsx samples module already declares, with its URI: a
+// prefix is global to the platform, so binding it to a URI of this module's own would have taken it
+// from that module and left its own types unregistered — which is exactly what happened once.
 [fmdbsamplemix:enrichedResponse] mixin
  extends = fmdb:form
  itemtype = content
