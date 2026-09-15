@@ -16,4 +16,4 @@
 // from that module and left its own types unregistered — which is exactly what happened once.
 [fmdbsamplemix:enrichedResponse] mixin
  extends = fmdb:form
- itemtype = content
+ itemtype = fmdbSampleEnricher

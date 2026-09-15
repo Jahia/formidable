@@ -1,0 +1,11 @@
+{
+	"nodeType": "fmdbsamplemix:enrichedResponse",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "fmdbSampleEnricher",
+			"labelKey": "fmdbsamplemix.section.enricher",
+			"rank": 1.45
+		}
+	]
+}
