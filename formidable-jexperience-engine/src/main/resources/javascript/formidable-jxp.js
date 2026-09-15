@@ -29,6 +29,8 @@
     try {
       return JSON.parse(block.textContent);
     } catch (e) {
+      // the render filter wrote the block, so a broken one is a bug worth seeing
+      console.warn('[Formidable] the jExperience configuration of form ' + formId + ' is not valid JSON', e);
       return null;
     }
   };
