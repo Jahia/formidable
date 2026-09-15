@@ -64,16 +64,4 @@ class DefinitionsCndTest {
         String property = lineStartingWith(mixin, "- " + ProfilePropertiesChoiceListInitializer.PROPERTY + " ");
         assertTrue(property.contains("choicelist[" + ProfilePropertiesChoiceListInitializer.KEY + ",dependentProperties='" + FieldShapes.MULTIPLE_PROPERTY + "," + ProfilePropertiesChoiceListInitializer.OPTIONS_PROPERTY + "," + ProfilePropertiesChoiceListInitializer.OPTIONS_MODE_PROPERTY + "']"), property);
     }
-
-    @Test
-    void theFormMixinInheritsTheSwitchLessMarkerAndExtendsTheForm() throws Exception {
-        // Verifies the clause that removes the fieldset's enable switch, which jcontent drops only for a
-        // template mixin, and the clause that attaches the identifier to the form type.
-        List<String> lines = cnd();
-        assertTrue(lines.stream().anyMatch(line -> line.strip().startsWith("<jmix = 'http://www.jahia.org/jahia/mix/1.0'>")), "the jmix namespace is declared");
-        List<String> mixin = declarationOf(lines, FormIdentifier.FORM_MIXIN);
-        assertEquals("[" + FormIdentifier.FORM_MIXIN + "] > jmix:templateMixin mixin", mixin.get(0));
-        assertEquals("extends = " + FormIdentifierListener.FORM_NODE_TYPE, lineStartingWith(mixin, "extends"));
-        assertTrue(lineStartingWith(mixin, "- " + FormIdentifier.PROPERTY + " ").contains("(string)"));
-    }
 }

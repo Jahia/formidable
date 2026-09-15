@@ -357,9 +357,7 @@ again. Restart the server (or the formidable-engine bundle) to re-run it.
 Every startup migration below writes into **both** workspaces, so the live
 site never waits for a publication — but the default-workspace nodes are
 modified *after* their last publication, and jContent truthfully flags the
-migrated fields and lists as *modified* (pending publication). The jExperience
-integration's identifier pass is the documented exception (next section): it
-writes the default workspace only, because nothing in live reads what it writes.
+migrated fields and lists as *modified* (pending publication).
 
 For the choice-options and date-bounds migrations both workspaces carry
 identical migrated values (verified byte-for-byte): publishing the flagged
@@ -368,28 +366,6 @@ migration is the one exception — in live it only titles the languages already
 published there, so publishing a flagged list ALSO pushes the default titles
 of the not-yet-published languages; that is a real (if minor) change to live,
 and publishing remains the contributor's decision.
-
-## Installing the jExperience integration flags every form as *modified*
-
-**Cosmetic — publish when convenient, or leave as is.**
-
-When `formidable-jexperience-engine` starts for the first time, it stamps every existing
-form under `/sites` with its jExperience identifier — the `fmdbmix:jExperienceForm` mixin
-and its read-only `jExperienceIdentifier` property, `formidable-jxp-<uuid>` — one save per
-form, in the **default workspace only**. Each stamped form is therefore modified after its
-last publication, and jContent truthfully flags it as *modified* (pending publication). The
-log says `Stamped the jExperience identifier on N existing form(s) at start`.
-
-Unlike the engine's migrations, this pass does not write into live, and nothing waits for a
-publication: the identifier is a pure function of the form's UUID, which publication
-preserves, and every runtime use — the mapping rule, the submission event, the rendered
-configuration — recomputes it from the UUID instead of reading the stored property. The
-stored property exists for the author, who copies it into a jExperience goal. Publishing a
-flagged form only carries the property into live and clears the flag; not publishing changes
-nothing for visitors. A form the pass could not save (locked, for instance) is logged and
-stamped again when it is next edited. A copied or imported form gets its own identifier as
-soon as it lands: the value is recomputed from the new node's UUID, never kept from the
-source.
 
 ## Startup migrations
 

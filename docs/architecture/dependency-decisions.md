@@ -88,8 +88,8 @@ This project uses two distinct dependency strategies in its Java modules:
   major), so a jExperience 4.x upgrade resolves without a rebuild.
 - `maven-dependency-plugin:analyze-only` with `failOnWarning`, as in the engine.
 - The mapping rules are built and compared as plain maps: no import of Unomi's rule, condition or action packages, no JSON library at runtime (jExperience's admin client serialises the maps). `org.json` is a test dependency, for the golden rule.
-- `jahia-depends`: `formidable-engine` (the marker mixin), `formidable-elements` (`fmdb:form`, which
-  `fmdbmix:jExperienceForm` extends) and `jexperience`.
+- `jahia-depends`: `formidable-engine` (the marker mixin), `formidable-elements` (`fmdb:form`, the type the publication listener and the render
+  filter apply to) and `jexperience`.
 
 ### OSGi SPI surface
 

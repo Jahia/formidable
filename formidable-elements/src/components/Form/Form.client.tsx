@@ -35,6 +35,7 @@ export default function Form({
 	nextBtnLabel,
 	showStepsNav = true,
 	formId,
+	formTitle,
 	locale,
 	stepLabels,
 	stepIds,
@@ -169,6 +170,17 @@ export default function Form({
 				action={submitActionUrl}
 				encType="multipart/form-data"
 				id={formId}
+				name={formId}
+				// The accessible name of the form landmark: nothing inside the form repeats its title.
+				aria-label={formTitle}
+				// jExperience's tracker attaches its own submit listener to any form whose name or
+				// id a goal or a mapping rule watches, and sends the raw DOM fields before validation.
+				// Two attributes keep it off, one per code path of wem.js: data-form-id (its initial
+				// scan skips forms carrying one — the Jahia Forms convention) and data-wem-observed
+				// (its observer of late forms skips those already marked). Submissions reach jCustomer
+				// through formidable-jexperience-engine only, with the values the pipeline accepted.
+				data-form-id={formId}
+				data-wem-observed="true"
 				// Read back from the DOM by the visibility pass: the rules describe the
 				// visitor experience, so they must not run while the form is authored.
 				data-fmdb-edit-mode={isEditMode ? "true" : undefined}

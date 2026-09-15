@@ -83,7 +83,10 @@ jahiaComponent(
 		const fieldListNode = currentNode.getNode("fields");
 		const actionListNode = currentNode.hasNode("actions") ? currentNode.getNode("actions") : null;
 		const formElements = fieldListNode ? Array.from(fieldListNode.getNodes()) : [];
-		const formId = `form-${currentNode.getIdentifier()}`;
+		// The form's UUID is its one identity: the DOM id and name, what jExperience calls the form
+		// (goals, mapping rules, the submission event) and the value of its data-form-id opt-out.
+		const formId = currentNode.getIdentifier();
+		const formTitle = currentNode.getDisplayableName();
 
 		const stepNodes = formElements.filter((el) => el.isNodeType("fmdb:step"));
 		const stepLabels = stepNodes.length > 0
@@ -182,6 +185,7 @@ jahiaComponent(
 				nextBtnLabel,
 				showStepsNav,
 				formId,
+				formTitle,
 				locale: currentNode.getLanguage(),
 				stepLabels,
 				stepIds,

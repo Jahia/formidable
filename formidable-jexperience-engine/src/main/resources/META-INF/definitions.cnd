@@ -1,7 +1,6 @@
 <jnt = 'http://www.jahia.org/jahia/nt/1.0'>
 <fmdb = 'http://www.jahia.org/jahia/fmdb/nt/1.0'>
 <fmdbmix = 'http://www.jahia.org/jahia/fmdb/mix/1.0'>
-<jmix = 'http://www.jahia.org/jahia/mix/1.0'>
 
 // The jExperience mapping of a field: attached to the engine's marker mixin (extends), so it
 // reaches every field type that claims fmdbmix:profileMappableField — built-in, extended or
@@ -19,13 +18,3 @@
  - jExperiencePrefillFromProfile (boolean) = false autocreated indexed=no
  - jExperienceSetStrategy (string, choicelist[resourceBundle]) = 'alwaysSet' autocreated indexed=no < 'alwaysSet', 'setIfMissing'
 
-// The form's identity in jCustomer, formidable-jxp-<uuid>, stamped by FormIdentifierListener
-// when the module starts, when a form is created or copied, and when one is edited; read-only
-// for the author who copies it into a jExperience goal (jExperience's goal editor asks for it as
-// free text). jmix:templateMixin is what makes the Content Editor render the fieldset without
-// an enable switch: a plain extends mixin keeps a toggle even when isAlwaysActivated, and
-// switching that toggle off would drop the mixin and the value behind the author's back.
-[fmdbmix:jExperienceForm] > jmix:templateMixin mixin
- extends = fmdb:form
- itemtype = content
- - jExperienceIdentifier (string) indexed=no
