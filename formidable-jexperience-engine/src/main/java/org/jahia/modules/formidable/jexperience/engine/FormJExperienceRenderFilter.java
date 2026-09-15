@@ -1,7 +1,10 @@
 package org.jahia.modules.formidable.jexperience.engine;
 
 import org.jahia.modules.jexperience.admin.ContextServerService;
+import org.jahia.services.content.JCRCallback;
 import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.services.content.JCRSessionWrapper;
+import org.jahia.services.content.JCRTemplate;
 import org.jahia.services.render.RenderContext;
 import org.jahia.services.render.Resource;
 import org.jahia.services.render.filter.AbstractFilter;
@@ -20,6 +23,7 @@ import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import javax.jcr.query.Query;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -84,8 +88,14 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
     }
 
     /** The configuration block of the form, then the script tag. */
-    String contribution(JCRNodeWrapper form) throws RepositoryException {
-        String uuid = form.getIdentifier();
+    String contribution(JCRNodeWrapper rendered) throws RepositoryException {
+        String uuid = rendered.getIdentifier();
+        JCRSessionWrapper renderSession = rendered.getSession();
+        return inOwnSession(renderSession.getWorkspace().getName(), renderSession.getLocale(),
+                session -> block(session.getNodeByIdentifier(uuid), uuid));
+    }
+
+    private String block(JCRNodeWrapper form, String uuid) throws RepositoryException {
         StringBuilder json = new StringBuilder("{\"formId\":").append(Json.string(uuid))
                 .append(",\"name\":").append(Json.string(form.getDisplayableName()))
                 .append(",\"path\":").append(Json.string(form.getPath()))
@@ -99,6 +109,24 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
         json.append("]}");
         return "<script type=\"application/json\" " + CONFIG_ATTRIBUTE + "=\"" + uuid + "\">" + json + "</script>\n"
                 + "<script src=\"" + SCRIPT_URL + "\" defer></script>\n";
+    }
+
+    /**
+     * Runs the reading in a session of its own, which is what names the form where it lives.
+     *
+     * <p>A form placed through a reference renders as a node contextualised under it, whose path —
+     * {@code …/theReference@/theForm} — is no JCR path: the query of the mapped fields matches
+     * nothing and the event would name a place the mapping rule never mentions. Asking the render
+     * session for the identifier gives that same contextualised node back, since the session holds
+     * it under the form's identifier (observed in live on a referenced form); only a session that
+     * never saw the reference resolves the identifier to the form itself. The identifier is the
+     * form's own either way, so it is read from the rendered node.</p>
+     *
+     * <p>A seam for the tests, and the one place a session is opened: the filter runs on a cache
+     * miss, and its output is the same for every visitor.</p>
+     */
+    <T> T inOwnSession(String workspace, Locale locale, JCRCallback<T> callback) throws RepositoryException {
+        return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, workspace, locale, callback);
     }
 
     /**
