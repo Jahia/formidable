@@ -1,5 +1,3 @@
-import {formAttribute} from './formDom';
-
 type ValidityFlag =
 	| 'valueMissing'
 	| 'typeMismatch'
@@ -53,11 +51,10 @@ const getGroupedInputs = (
  * A form's own id, never the control that shadows it. `HTMLFormElement` is `[LegacyOverrideBuiltIns]`:
  * a control whose name matches an IDL attribute takes that property over, and a field's name is the
  * contributor's system name — so a field named `id` turns `form.id` into an `HTMLInputElement`, which
- * is truthy and has no `replace`. The read goes through {@link formAttribute}, which no control can
- * shadow — `form.getAttribute` itself can be one.
+ * is truthy and has no `replace`. Reading the attribute cannot be shadowed.
  */
 export const formIdOf = (form: HTMLFormElement | null | undefined): string =>
-	formAttribute(form, 'id') ?? '';
+	form?.getAttribute('id') ?? '';
 
 const sanitizeIdPart = (value: string): string => {
 	const sanitized = value.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');

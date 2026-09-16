@@ -3,7 +3,6 @@ import {fieldKindFromForm, interpolateMessage} from '~/utils/messageUtils';
 import {applyConditionalLogicVisibility, buildLogicStateHeader} from '~/utils/conditionalLogic';
 import {FORM_LOGIC_STATE_HEADER} from '~/utils/logicProviders';
 import {submitterTimeZone, TIME_ZONE_HEADER} from '~/utils/timeZone';
-import {dispatchOnForm, formAttribute, resetForm} from '~/utils/formDom';
 import {type CaptchaHandle} from '~/components/Form/Captcha.client';
 
 interface SubmissionLabels {
@@ -35,8 +34,9 @@ interface UseFormSubmissionOptions {
 	 * `[LegacyOverrideBuiltIns]`: a control whose name matches an IDL attribute shadows it, and a field's
 	 * name is the contributor's system name, so a field named `id` would turn `form.id` into that input
 	 * and every listener of the event below would stop recognising the form, silently. The same rule
-	 * governs every other read of the form here: the action, the submitted event and the reset all go
-	 * through {@link formDom}, which reads off the prototype rather than off the form.
+	 * governs the two other names a contributor plausibly types: `action` goes through `getAttribute`, and
+	 * `reset` is called off the prototype. `getAttribute` itself, and the `dispatchEvent` below, are read
+	 * straight off the form — a field would have to be named after them, which no label leads to.
 	 */
 	formId: string;
 	submitActionUrl?: string;
@@ -118,8 +118,8 @@ export function useFormSubmission({
 			// Read once, at the moment of submit: one declared state backs every provider
 			// rule, which is what lets the server evaluate them coherently.
 			const logicStateHeader = buildLogicStateHeader(form);
-			// formAttribute, not form.action: a control named "action" shadows the property (see formId above)
-			const targetUrl = submitActionUrl ?? formAttribute(form, 'action') ?? globalThis.location.href;
+			// getAttribute, not form.action: a control named "action" shadows the property (see formId above)
+			const targetUrl = submitActionUrl ?? form.getAttribute('action') ?? globalThis.location.href;
 
 			// XHR is kept here because Jahia's CSRFGuard integrates with XMLHttpRequest rather than fetch.
 			// Direct authenticated submissions to this servlet path are still protected server-side and
@@ -161,7 +161,7 @@ export function useFormSubmission({
 			// that know nothing of this island (the jExperience module listens for it). The
 			// event says "accepted, here is what the server answered" and nothing else; a listener
 			// that throws does not reach this code (dispatchEvent reports it to the window).
-			dispatchOnForm(form, new CustomEvent(SUBMITTED_EVENT, {
+			form.dispatchEvent(new CustomEvent(SUBMITTED_EVENT, {
 				bubbles: true,
 				detail: {formId, response: parseJsonBody(response.responseText)},
 			}));
@@ -170,9 +170,9 @@ export function useFormSubmission({
 
 			setMessage(interpolatedSubmissionMessage || 'Form submitted successfully!');
 			setMessageType('success');
-			// off the prototype: a control named "reset" shadows the method, and this runs after the
+			// called off the prototype: a control named "reset" shadows the method, and this runs after the
 			// 200 and after every action, so throwing here would tell the visitor the submission failed
-			resetForm(form);
+			HTMLFormElement.prototype.reset.call(form);
 			if (isMultiStep) setCurrentStep(0);
 		} catch (error) {
 			if (serverErrorCode === MAINTENANCE_ERROR_CODE) {
