@@ -16,8 +16,29 @@ interface SubmissionLabels {
 // Covers the window where the mode is switched between render and submit: the visitor gets
 // the same maintenance message as the render-time state, not a technical error.
 const MAINTENANCE_ERROR_CODE = 'FMDB-014';
+/** Dispatched on the form element after a 2xx, before the form is reset. Detail: {formId, response}. */
+export const SUBMITTED_EVENT = 'formidable:submitted';
+
+/** The server's JSON answer, or null for a body that is not JSON: the event never fails on it. */
+function parseJsonBody(text: string): unknown {
+	try {
+		return JSON.parse(text);
+	} catch {
+		return null;
+	}
+}
 
 interface UseFormSubmissionOptions {
+	/**
+	 * The form node's UUID, from the server — never read back from the DOM. `HTMLFormElement` is
+	 * `[LegacyOverrideBuiltIns]`: a control whose name matches an IDL attribute shadows it, and a field's
+	 * name is the contributor's system name, so a field named `id` would turn `form.id` into that input
+	 * and every listener of the event below would stop recognising the form, silently. The same rule
+	 * governs the two other names a contributor plausibly types: `action` goes through `getAttribute`, and
+	 * `reset` is called off the prototype. `getAttribute` itself, and the `dispatchEvent` below, are read
+	 * straight off the form — a field would have to be named after them, which no label leads to.
+	 */
+	formId: string;
 	submitActionUrl?: string;
 	submissionMessage?: string;
 	errorMessage?: string;
@@ -41,6 +62,7 @@ interface UseFormSubmissionReturn {
 }
 
 export function useFormSubmission({
+	formId,
 	submitActionUrl,
 	submissionMessage,
 	errorMessage,
@@ -96,7 +118,8 @@ export function useFormSubmission({
 			// Read once, at the moment of submit: one declared state backs every provider
 			// rule, which is what lets the server evaluate them coherently.
 			const logicStateHeader = buildLogicStateHeader(form);
-			const targetUrl = submitActionUrl ?? form.action ?? window.location.href;
+			// getAttribute, not form.action: a control named "action" shadows the property (see formId above)
+			const targetUrl = submitActionUrl ?? form.getAttribute('action') ?? globalThis.location.href;
 
 			// XHR is kept here because Jahia's CSRFGuard integrates with XMLHttpRequest rather than fetch.
 			// Direct authenticated submissions to this servlet path are still protected server-side and
@@ -133,11 +156,23 @@ export function useFormSubmission({
 				throw new Error('Submission failed');
 			}
 
+			// The accepted submission, announced to the page before the island touches the form:
+			// a bubbling DOM event carrying the form's UUID and the server's answer, for scripts
+			// that know nothing of this island (the jExperience module listens for it). The
+			// event says "accepted, here is what the server answered" and nothing else; a listener
+			// that throws does not reach this code (dispatchEvent reports it to the window).
+			form.dispatchEvent(new CustomEvent(SUBMITTED_EVENT, {
+				bubbles: true,
+				detail: {formId, response: parseJsonBody(response.responseText)},
+			}));
+
 			await new Promise(resolve => setTimeout(resolve, 500));
 
 			setMessage(interpolatedSubmissionMessage || 'Form submitted successfully!');
 			setMessageType('success');
-			form.reset();
+			// called off the prototype: a control named "reset" shadows the method, and this runs after the
+			// 200 and after every action, so throwing here would tell the visitor the submission failed
+			HTMLFormElement.prototype.reset.call(form);
 			if (isMultiStep) setCurrentStep(0);
 		} catch (error) {
 			if (serverErrorCode === MAINTENANCE_ERROR_CODE) {

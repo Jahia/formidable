@@ -34,7 +34,8 @@ import static org.jahia.modules.formidable.engine.api.FormidableMixins.SOURCED_O
  * Only when jCustomer cannot be asked is the stored mapping left in place: it is then the one entry
  * of the list, its description saying why, so nothing else can be picked and nothing can break it
  * — the outage says nothing about the mapping, and a save during it must not wipe one the author
- * never touched.
+ * never touched. A field the author marked sensitive is answered before any of that: it offers the
+ * one message saying so, and jCustomer is not asked at all.
  */
 @Component(service = ModuleChoiceListInitializer.class, immediate = true)
 public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListInitializer {
@@ -45,6 +46,7 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
     static final String UNAVAILABLE_KEY = "formidableJExperienceProfileProperties.unavailable";
     static final String NONE_KEY = "formidableJExperienceProfileProperties.none";
     static final String KEPT_KEY = "formidableJExperienceProfileProperties.kept";
+    static final String SENSITIVE_KEY = "formidableJExperienceProfileProperties.sensitive";
     static final String PROPERTY = "jExperienceProfileProperty";
     /** The value property the Content Editor reads to pre-select an entry (jcontent, registerChoiceList initValue). */
     static final String DEFAULT_PROPERTY = "defaultProperty";
@@ -97,6 +99,11 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
             return List.of();
         }
         try {
+            // asked before anything else: a sensitive field has nothing to offer whatever jCustomer says,
+            // and this way an outage cannot even be reached from here
+            if (SensitiveField.isSensitive(context, context.get(CONTEXT_NODE))) {
+                return messageEntry(sensitiveMessage(locale));
+            }
             Optional<FieldShape> shape = shapeOf(context);
             String siteKey = siteKeyOf(context);
             if (shape.isEmpty() || siteKey == null) {
@@ -233,6 +240,10 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
             }
         }
         return null;
+    }
+
+    String sensitiveMessage(Locale locale) {
+        return Messages.get(BUNDLE, SENSITIVE_KEY, locale, "This field is marked as sensitive, so it cannot be mapped to a visitor profile property");
     }
 
     String keptMessage(Locale locale) {

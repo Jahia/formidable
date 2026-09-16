@@ -357,9 +357,7 @@ again. Restart the server (or the formidable-engine bundle) to re-run it.
 Every startup migration below writes into **both** workspaces, so the live
 site never waits for a publication — but the default-workspace nodes are
 modified *after* their last publication, and jContent truthfully flags the
-migrated fields and lists as *modified* (pending publication). The jExperience
-integration's identifier pass is the documented exception (next section): it
-writes the default workspace only, because nothing in live reads what it writes.
+migrated fields and lists as *modified* (pending publication).
 
 For the choice-options and date-bounds migrations both workspaces carry
 identical migrated values (verified byte-for-byte): publishing the flagged
@@ -369,27 +367,22 @@ published there, so publishing a flagged list ALSO pushes the default titles
 of the not-yet-published languages; that is a real (if minor) change to live,
 and publishing remains the contributor's decision.
 
-## Installing the jExperience integration flags every form as *modified*
+## A jExperience mapping rule written by an earlier 0.5.0 snapshot must be rewritten
 
-**Cosmetic — publish when convenient, or leave as is.**
+**Only instances that ran an earlier 0.5.0 snapshot with the jExperience integration.** Nothing is
+released, so this is development and QA instances, not upgrades from 0.4.
 
-When `formidable-jexperience-engine` starts for the first time, it stamps every existing
-form under `/sites` with its jExperience identifier — the `fmdbmix:jExperienceForm` mixin
-and its read-only `jExperienceIdentifier` property, `formidable-jxp-<uuid>` — one save per
-form, in the **default workspace only**. Each stamped form is therefore modified after its
-last publication, and jContent truthfully flags it as *modified* (pending publication). The
-log says `Stamped the jExperience identifier on N existing form(s) at start`.
+The identity of a form in jCustomer changed from `formidable-jxp-<uuid>` to the form's bare UUID.
+The rule the integration keeps in jCustomer is not recreated by that change: its id is derived from
+the site and the form's UUID, neither of which moved, so it stays in place with its old `formId`
+condition, while the browser now sends the new one. Unomi accepts the event, no action fires, and
+nothing is logged — the profile simply stops being updated.
 
-Unlike the engine's migrations, this pass does not write into live, and nothing waits for a
-publication: the identifier is a pure function of the form's UUID, which publication
-preserves, and every runtime use — the mapping rule, the submission event, the rendered
-configuration — recomputes it from the UUID instead of reading the stored property. The
-stored property exists for the author, who copies it into a jExperience goal. Publishing a
-flagged form only carries the property into live and clears the flag; not publishing changes
-nothing for visitors. A form the pass could not save (locked, for instance) is logged and
-stamped again when it is next edited. A copied or imported form gets its own identifier as
-soon as it lands: the value is recomputed from the new node's UUID, never kept from the
-source.
+The synchroniser only ever runs from a publication, so **republish every form that maps a field**
+and the rule is rewritten with the identity in use. There is no start-up pass to wait for. An
+administrator who would rather check first can list them in jCustomer: a rule whose id starts with
+`formidable-form-mapping_` and whose `formEventCondition` still names a `formidable-jxp-` form is
+one of these.
 
 ## Startup migrations
 

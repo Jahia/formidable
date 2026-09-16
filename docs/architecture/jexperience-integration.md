@@ -1,7 +1,7 @@
 # jExperience Integration
 
 > **Status: design specification; phase 1 shipped 2026-09-11 and reviewed 2026-09-14 (PR #324),
-> phases 2 to 4 to come — the roadmap at the end says what is shipped.** First design dated
+> phases 2 and 3 shipped, phase 4 (prefill) to come — the roadmap at the end says what is shipped.** First design dated
 > 2026-09-09 (server-side event and prefill), **revised 2026-09-10 after Romain's review: everything
 > the visitor triggers runs in the browser, through jExperience's tracker**. The implementation
 > lands on the `feat/jexperience-integration` branch and this document is updated as each phase ships.
@@ -43,7 +43,7 @@ event with two consumers, and that coupling drives every decision below.
 
 | | Lives in | What it is |
 |---|---|---|
-| **The `form` event** | jCustomer | The trace of one submission: `eventType form`, target `itemType form` with the form's jExperience identifier as `itemId`, the page as source, the accepted values under `flattenedProperties.fields`. Persisted in jCustomer's event store, hence the statistics and dashboards. |
+| **The `form` event** | jCustomer | The trace of one submission: `eventType form`, target `itemType form` with the form's UUID as `itemId`, the page as source, the accepted values under `flattenedProperties.fields`. Persisted in jCustomer's event store, hence the statistics and dashboards. |
 | **The mapping rule** | jCustomer | A rule tagged `formMappingRule` whose condition is a `formEventCondition` on that identifier and whose actions copy event fields into profile properties. Nothing about it lives in JCR. It is a *consumer* of the event: no event, no profile update. |
 | **Prefill** | Browser | Reading the profile properties back into the form. It needs a mapped property to know what to read, but a mapping does not imply prefill. |
 
@@ -99,16 +99,16 @@ Nothing in Formidable depends on jExperience; the new module depends on both.
 | Piece | Module | Role |
 |---|---|---|
 | `fmdbmix:profileMappableField` | formidable-engine, CND | Marker mixin, no properties: "this field can take part in a profile mapping". Declared as a supertype by every mappable field type in the elements and extended-inputs modules, and by third-party fields that want the feature. |
+| `fmdbmix:jExperienceSensitiveField` | jexperience-engine, CND | The author's per-field "this value never leaves the site", held from the save and not from the next publication (the enricher reads both workspaces; see the decision log): one boolean, on a mixin that `extends` the marker like the mapping does and inherits `jmix:templateMixin`, so the Content Editor renders the checkbox without an enable switch. It has to be answerable before the mapping fieldset is switched on, and a switch of its own could contradict that one. |
 | `fmdbmix:jExperienceProfileMapping` | jexperience-engine, CND | Property mixin that `extends` the marker, so it reaches every field claiming it without naming a field type or depending on the extended inputs: profile property (choicelist), prefill toggle, write strategy. Surfaced as a "jExperience" section in the field's editor form through a Content Editor form override. |
 | `ProfilePropertiesChoiceListInitializer` | jexperience-engine | Lists profile properties compatible with the field's shape (`FieldShapes`, inferred from the value-kind mixins), filtered on flags and system tags (`ProfilePropertyFilter`), through the module's admin client. Property types change rarely: `ProfilePropertyCatalog` keeps them one minute per site (a property just created in jExperience shows at the next opening); past the minute a failed read reports the schema unavailable rather than serving a list that may no longer be true. An unreachable jCustomer, or a schema with no property of the field's kind (jCustomer ships no boolean property), gives one message entry with an empty value, pre-selected so the closed select reads it (jcontent's `defaultProperty`), never a blank or broken dropdown. When jCustomer answers, the list is the truth: a stored mapping it does not carry is not offered and the Content Editor resets it. When jCustomer cannot be asked, the stored mapping is the one entry of the list, described as left unchanged, so a save during the outage cannot wipe a mapping the author never touched. A message without a select would need a selector of the module's own — a UI bundle, left for a later phase. Nothing reusable exists today in jExperience; the generic half is written so it can be lifted there later. |
-| `FormIdentifierListener` | jexperience-engine | Stamps every existing form when the module starts, then, as a default-workspace listener on `fmdb:form`, every form created (or edited, should the start-up pass have missed it): adds `fmdbmix:jExperienceForm` and writes the read-only `jExperienceIdentifier` (`formidable-jxp-<uuid>`) the author copies into a goal. Needs neither jExperience nor jCustomer. Climbs from the `j:translation_*` subnode an i18n edit fires on. |
 | `MappingRuleSyncListener` | jexperience-engine | Live-workspace publication listener under `/sites`, **without a node-type filter**: it keeps two kinds of events by name — `j:lastPublished` added or changed (publication writes it on every published node; the nearest form above is resynchronised) and a node removed whose parent still exists (the head of a removal: the form above, or the removed node itself by its identifier). A typed listener would miss a form deleted by a published deletion and a field whose jExperience section was switched off. |
 | `MappingRuleSynchronizer` | jexperience-engine | Builds the rule from live in the site's default language, compares it with the stored one (`GET /cxs/rules/{id}`, 204 = absent), posts only a change, deletes when the form leaves live or maps nothing. Coalesces a publication's bursts of events (2 s); leaves alone a site with no jExperience configuration; keeps a pending list retried every minute while jCustomer cannot be asked, guarded so that no error can stop the retries. |
 | `MappingRule` | jexperience-engine | The rule as the JSON map jCustomer stores — id `formidable-form-mapping_<site>_<uuid>`, conditions, one `setPropertyAction` per mapped field with the value parameter of the property's type — and the "owned" projection the diff compares. |
 | `FormMappingReader` | jexperience-engine | Reads a published form's mapped fields and applies the dropdown's own rule at publication: a property gone from the schema or no longer fitting the field's shape is skipped and logged, never turned into an action. |
-| `FormJExperienceRenderFilter` | jexperience-engine | Render filter on `fmdb:form` (same family as `CaptchaRenderFilter`). When the module is available on the site, it writes next to the form: the inline `digitalDataOverrides.push` of the mapped profile properties, a JSON config block (identifier, mappings), and the module's client script once per page. Its output carries no visitor data: the fragment stays cached. |
-| `formidable-jxp.js` | jexperience-engine, static resource | The client half: at `wemLoaded`, prefills the mapped fields from `wem.getLoadedContext().profileProperties`; on the island's `formidable:submitted` event, decides with `shouldCollect()` and sends the `form` event through `wem.collectEvent`. |
-| `SubmissionResponseEnricher` SPI | formidable-engine, `api` package | Called by the pipeline after all actions succeeded, with the form node, the site and the validated parameters; returns a JSON block to add to the 200. The jExperience module contributes `jexperience: {formId, fields}` — the accepted values, minus files and sensitive fields — when it is available on the site. Enrichers never fail the submission. |
+| `FormJExperienceRenderFilter` | jexperience-engine | Render filter on `fmdb:form` (same family as `CaptchaRenderFilter`). On a site whose pages carry the tracker — jExperience among the site's modules **and** settings for it, `JExperienceSite` — it writes next to the form: a JSON config block (`{formId, name, path}` — the mappings are not in it, the accepted values reach the script through the submission's answer) and the module's client script, one tag per form, the script keeping one instance per page. The prefill push (`digitalDataOverrides`) is phase 4. Its output carries no visitor data: the fragment stays cached. |
+| `formidable-jxp.js` | jexperience-engine, static resource | The client half: on the island's `formidable:submitted` event, decides with `shouldCollect()` and sends the `form` event through `wem.collectEvent`. |
+| `SubmissionResponseEnricher` SPI | formidable-engine, `api` package | Called by the pipeline after all actions succeeded, with the form node, the site and the validated parameters; returns a JSON block to add to the 200. The jExperience module contributes `jexperience: {formId, fields}` — the accepted values of the form's fields, minus the ones marked sensitive — when the site's pages carry the tracker (`JExperienceSite`). Enrichers never fail the submission. |
 | `formidable:submitted` | formidable-elements, `Form.client.tsx` | DOM `CustomEvent` (bubbling) dispatched after a 200, carrying the form's UUID and the parsed response. The elements module knows nothing of jExperience: it only says "this was accepted, here is what the server answered". |
 
 ---
@@ -186,42 +186,54 @@ this extension point through its own tests (`wem.digitalDataOverrides.cy.ts`).
 7  jCustomer                                      stores the event, applies the mapping rule → profile updated
 ```
 
-The event carries only what the pipeline accepted: undeclared fields, rejected values, files and
-sensitive fields never reach jCustomer. A rejected submission (400) sends nothing, since the
-island only dispatches on a 200.
+The event carries what the pipeline accepted, minus what the author marked sensitive: undeclared
+fields, rejected values, files and every field flagged sensitive never reach jCustomer. A rejected
+submission (400) sends nothing, since the island only dispatches on a 200.
 
 ---
 
 ## The identifier
 
-The form's identity in jCustomer is **`formidable-jxp-<form UUID>`**: `target.itemId` of the
-event, `formId` of the mapping rule, and what a marketer types in a goal.
+The form's identity in jCustomer is **its JCR UUID**: `target.itemId` of the event, `formId` of the
+mapping rule, what a marketer types in a goal, and what the rendered `<form>` carries as `id` and
+`name`.
 
-- **Stable.** The UUID survives renames and moves; Forms used a node name and lost its history on
-  a rename.
-- **Valid.** Unomi's item schema constrains `itemId` to `^(\w|[-_@\.]){0,60}$`: 51 characters,
-  letters, digits and dashes. A colon would be rejected.
-- **Never the DOM id.** The rendered `<form id>` is the bare UUID, and stays so. jExperience's
-  tracker attaches its own `submit` listener to any `<form>` whose `name` or `id` equals the
-  `formId` of a tracked condition, then sends the raw DOM fields *before* validation. With an
-  identifier that no DOM attribute carries, the tracker never finds a form to watch, whatever a
-  marketer creates — so the only event is the island's, sent after the 200 with the accepted
-  values. (Forms opted out with a `data-form-id` attribute; the tracker honours it in its initial
-  scan only, and jExperience's observer of late forms ignores it, so it is not relied upon.)
-- **Self-describing.** The `jxp` infix tells, in the Form mappings screen and in a goal report,
-  that this is the jExperience identity of a Formidable form, not a Jahia identifier.
+- **Stable.** The UUID survives renames, moves and languages; Forms used a node name and lost its
+  history on a rename.
+- **Valid.** Unomi's item schema constrains `itemId` to `^(\w|[-_@\.]){0,60}$`: 36 characters,
+  hexadecimal digits and dashes.
+- **Nothing to store, nothing to show.** The UUID is what Jahia already gives every node: jContent
+  and the Content Editor's technical information display it, GraphQL and the MCP server return it.
+  No mixin, no property, no listener, no editor field: the first design's `formidable-jxp-<uuid>`
+  property and its stamping pass were removed on 2026-09-15 (decision log). That is true of the CND
+  and of the node; a rule already written **outside** Jahia by an earlier snapshot keeps the old
+  identity until the form is republished, which the
+  [upgrade notes](../administration/upgrade-notes.md) tell the administrator to do.
+- **Carried by the markup.** elements renders `id` and `name` equal to the UUID, so everything in
+  jExperience that reads a form from the page agrees with the rule and the event: the tracker's key
+  is `name`, then `id`; the tag picker of the Form mappings screen reads `name|id`, first present
+  wins; the same screen loads the live page and looks the form up by `form[name=…]`, then `#…`. A
+  mapping created from jExperience's own screen therefore keys on the identifier the island sends.
+  The title is not a candidate: read before `id` by all three, it would key a mapping on a label
+  that changes with the language.
+- **The tracker is kept off by two attributes**, rendered by elements on every form, jExperience
+  module or not: `data-form-id` (its initial scan skips any form carrying one — the Jahia Forms
+  convention) and `data-wem-observed="true"` (its observer of late forms skips those already
+  marked). Without them the tracker would attach its own `submit` listener as soon as a goal or
+  our own mapping rule names the form — its watch list is the `formId` of every
+  `formEventCondition` of the context — and send the raw DOM fields before validation, then the
+  island would send again. Both hooks were read in wem.min.js 4.2.1
+  (`_registerListenersForTrackedConditions`, `_observeForms`); the one side effect sits in the Form
+  mappings screen, which tries the Forms API for a form carrying `data-form-id`, gets a 404, logs
+  it and extracts the fields from the page. Consequence: a Formidable form is never auto-tracked by
+  jExperience; submissions reach jCustomer through this module only, with the values the pipeline
+  accepted.
 - **Readable in dashboards.** The event's target carries `properties: {name, path}` — Unomi's item
   schema allows a free `properties` object on the target, no schema extension needed — so a Kibana
   dashboard keys on `target.itemId` and labels with `target.properties.name`; a renamed form keeps
   its series.
-- **Shown to the author.** The jExperience section of the form displays the identifier, copyable,
-  because jExperience's goal editor asks for it as free text and offers no discovery of forms.
-- **Derived, never read back.** Every runtime use — the mapping rule, the event, the render
-  filter's config block — recomputes the identifier from the UUID; the stored property exists for
-  the author (and, later, for jExperience's pickers). That is why the start-up pass writes it in
-  the default workspace only, and why a copied form is re-stamped: the core copies the mixin and
-  its value onto a node with a new UUID, so the listener compares the stored value with the one
-  the node's own UUID gives and never trusts its presence.
+- **Accessible name.** The form's title goes in `aria-label`: nothing inside the `<form>` repeats
+  it, and a form landmark without a name is not announced as one.
 
 ---
 
@@ -232,13 +244,13 @@ It is deliberately the single place where Formidable depends on the tracker's AP
 change on jExperience's side is a change of one function and its test.
 
 ```js
-const shouldCollect = (formId, config) =>
+const shouldCollect = (formId) =>
   window.wem !== undefined                                    // tracker present: no consent manager blocked it
-  && window.wemLoaded === true                                // context loaded, callbacks executed
+  && window.wemLoaded === true                                // callbacks executed — set in the fallback mode too
+  && Boolean(wem.getLoadedContext()?.profileId)               // a context really loaded: no profile, nothing to bind to
   && window.digitalData?.wemInitConfig?.activateWem !== false // the visitor did not disable tracking in jExperience
   && !window.digitalData?.wemInitConfig?.disableTrackedConditionsListeners
-  && (config.mappings.length > 0                              // the author mapped a field
-      || wem.getFormNamesToWatch().includes(formId));         // a marketer referenced the form (goal, segment, rule)
+  && wem.getFormNamesToWatch().includes(formId);              // the form is named by a rule of the context
 ```
 
 Why each line:
@@ -254,17 +266,18 @@ Why each line:
   kind: it follows the flag, exactly as Forms does — the Forms bridge sends only when
   `getFormNamesToWatch()` names the form, and that list stays empty under the flag. Formidable
   never sets the flag itself: it is global to the page and would silence other modules.
-- **Mapped field.** The author asked for collection; without the event the mapping never fires.
 - **`getFormNamesToWatch()`.** The `formId`s of the `trackedConditions` jCustomer returned for the
-  page: goals and segments are rules in Unomi, so this is the complete list of marketer-side
-  references, filtered for the current page as Unomi does (a goal with a start page only tracks
-  that page). **Kept on purpose** (HDU, 2026-09-10): without it, a goal created in jExperience on
-  a form nobody mapped would never count, and the marketer has no way to know why — Forms behaves
-  as the list says, and marketers expect the same. Romain would rather see `trackedConditions`
-  go; if jExperience removes or reworks them, this line is what changes. Two facts to remember
-  when it does: the list is filled inside the tracker's context callback, so it must be read at
-  submission time and not at page load; and it is empty under `disableTrackedConditionsListeners`,
-  which is the behaviour wanted anyway.
+  page: goals and segments are rules in Unomi, and **so is the mapping rule this integration writes
+  at publication**, so one list answers both "a marketer referenced this form" and "the author mapped
+  a field of it" — the page declares nothing about its mappings, and there is no second list to keep
+  in step (HDU, 2026-09-15). **Kept on purpose** (HDU, 2026-09-10): without it, a goal created in
+  jExperience on a form nobody mapped would never count, and the marketer has no way to know why —
+  Forms behaves as the list says, and marketers expect the same. Romain would rather see
+  `trackedConditions` go; if jExperience removes or reworks them, this line is what changes, and the
+  mappings the page would then have to declare are the fallback. Two facts to remember when it does:
+  the list is filled inside the tracker's context callback, so it must be read at submission time and
+  not at page load; and it is empty under `disableTrackedConditionsListeners`, which is the behaviour
+  wanted anyway.
 
 The same gates apply to prefill, minus the last two: a visitor who refused tracking is not
 prefilled either.
@@ -275,26 +288,41 @@ prefilled either.
 
 ### The render filter's contributions
 
-Emitted before the form markup by `FormJExperienceRenderFilter` when the jExperience module is
-available on the site; cacheable, identical for every visitor.
+Emitted before the form markup, in live, by `FormJExperienceRenderFilter` when the site's pages
+carry jExperience's tracker; cacheable, identical for every visitor. **Shipped in phase 3:**
+
+```html
+<script type="application/json" data-formidable-jxp="FORM-UUID">
+  {"formId": "FORM-UUID", "name": "Contact form", "path": "/sites/mysite/contents/contact"}
+</script>
+<script src="/modules/formidable-jexperience-engine/javascript/formidable-jxp.js" defer></script>
+```
+
+The block carries three strings and no more: the identifier the event is keyed on, and the title and
+path its target properties read. **What the form maps is deliberately not in it** — the send decision
+reads the tracker's own watch list, which a mapped form is in through the rule published for it, so
+declaring the mappings again would be a second list to keep in step for nothing (HDU, 2026-09-15).
+Phase 4 puts back what prefill needs, which is the first thing the context cannot say. The block is
+emitted for every form, and the script tag comes with each form of the page — the filter has no
+page-level state to dedupe on, a `<script defer>` fetched twice is one fetch, and the script
+returns early when it is already there. The form is read in a session of the filter's own: a form
+placed through a reference renders contextualised under it, and the render session hands that same
+node back for the identifier (see the decision log), so the block would otherwise name the
+reference and find no mapped field.
+
+**Phase 4 adds** the field-to-property pairs to the block — the page is the only place that can carry
+them, since the browser has no form model to read them from, unlike jExperience's own Forms bridge —
+and the prefill push before it, emitted only when at least one mapping asks for prefill:
 
 ```html
 <script>
   window.digitalDataOverrides = window.digitalDataOverrides || [];
   window.digitalDataOverrides.push({wemInitConfig: {requiredProfileProperties: ["firstName", "email"]}});
 </script>
-<script type="application/json" data-formidable-jxp="FORM-UUID">
-  {"formId": "formidable-jxp-FORM-UUID", "name": "Contact form", "path": "/sites/mysite/contents/contact",
-   "mappings": [{"field": "firstName", "property": "firstName", "prefill": true},
-                {"field": "email", "property": "email", "prefill": false}]}
-</script>
-<script src="/modules/formidable-jexperience-engine/javascript/formidable-jxp.js" defer></script>
 ```
 
-The `requiredProfileProperties` push is emitted only when at least one mapping asks for prefill;
-the config block is emitted for every form, so that a form referenced by a goal without any
-mapping is sent too. The property names in the push are exactly the mapped profile properties,
-no wildcard: the profile stays private to what the form needs.
+The property names in the push are exactly the mapped profile properties, no wildcard: the profile
+stays private to what the form needs.
 
 ### Submission request and response
 
@@ -303,7 +331,7 @@ no wildcard: the profile stays private to what the form needs.
 | `?fid` | Form node UUID | existing | Validated as UUID, resolved in live (pipeline steps 2 and 4, see [Form submission flow](form-submission-flow.md)) |
 | `?lang` | Language tag of the rendered form | existing | Locale of the submission |
 | Cookies | `wem-profile-id`, `wem-session-id` | existing (jExperience) | **Not read by Formidable.** The tracker attaches them to the event it sends; Formidable never sees, stores or forwards a profile id |
-| Response `jexperience` block | `{formId, fields}` on a 200 | new | Added by the `SubmissionResponseEnricher` of the jExperience module when it is available on the site: the validated parameters after the field whitelist, minus file fields and fields marked sensitive ([formidable#161](https://github.com/Jahia/formidable/issues/161)), as strings, multi-valued as arrays |
+| Response `jexperience` block | `{formId, fields}` on a 200 | new | Added by the `SubmissionResponseEnricher` of the jExperience module on a tracked site — jExperience among the site's modules **and** settings for it: the accepted values of the fields carrying `fmdbmix:profileMappableField`, minus those flagged sensitive: files, buttons, containers and every sensitive field never leave the server, as strings, multi-valued as arrays |
 
 Nothing of the first design's `pid` parameter and `X-Formidable-Tracking` header remains: the
 page identity comes from the tracker's own `buildSourcePage()`, in the browser that shows it.
@@ -320,7 +348,7 @@ from the tracker — then completed by the client script:
   "source": { "itemType": "page", "itemId": "PAGE-UUID", "scope": "mysite",
               "properties": { "pageInfo": { "pageID": "PAGE-UUID", "pagePath": "/sites/mysite/home/contact",
                                             "destinationURL": "https://www.example.com/contact-us", "referringURL": "https://www.example.com/" } } },
-  "target": { "itemType": "form", "itemId": "formidable-jxp-FORM-UUID", "scope": "mysite",
+  "target": { "itemType": "form", "itemId": "FORM-UUID", "scope": "mysite",
               "properties": { "name": "Contact form", "path": "/sites/mysite/contents/contact" } },
   "flattenedProperties": {
     "fields": { "firstName": "Ada", "email": "ada@example.com", "topics": ["cdp", "forms"], "newsletter": "true" }
@@ -329,8 +357,10 @@ from the tracker — then completed by the client script:
 ```
 
 - **Values** come from the `jexperience.fields` block of the 200 — never from the DOM. Every
-  value-bearing field the pipeline accepted, as strings, multi-valued as arrays; files and
-  sensitive fields excluded server-side. Type conversion is the rule's job.
+  value-bearing field the pipeline accepted, as strings, multi-valued as arrays; files, buttons,
+  containers and every field the author marked **sensitive** never leave the server. Unmapped
+  fields are in it on purpose, as in Forms: a mapping made in jExperience's own Form mappings
+  screen names a field this module need not know. Type conversion is the rule's job.
 - **Source** is the page as the tracker sees it: identity, real URL, referrer — the same source
   jExperience puts in every page view, so marketing can test by URL.
 - **Target properties** are the readable label of the identifier; Unomi's `FormSource` schema
@@ -347,7 +377,7 @@ from the tracker — then completed by the client script:
   },
   "priority": -1,
   "condition": { "type": "booleanCondition", "parameterValues": { "operator": "and", "subConditions": [
-    { "type": "formEventCondition", "parameterValues": { "formId": "formidable-jxp-FORM-UUID" } },
+    { "type": "formEventCondition", "parameterValues": { "formId": "FORM-UUID" } },
     { "type": "booleanCondition", "parameterValues": { "operator": "or", "subConditions": [
       { "type": "sourceEventPropertyCondition", "parameterValues": { "scope": "mysite" } }
     ] } }
@@ -394,11 +424,13 @@ from the tracker — then completed by the client script:
  - jExperiencePrefillFromProfile (boolean) = false autocreated indexed=no
  - jExperienceSetStrategy (string, choicelist[resourceBundle]) = 'alwaysSet' autocreated indexed=no < 'alwaysSet', 'setIfMissing'
 
-// formidable-jexperience-engine — the form's identity in jCustomer, shown read-only to the author
-[fmdbmix:jExperienceForm] mixin
- extends = fmdb:form
+// formidable-jexperience-engine — the author's "this field is sensitive"; jmix:templateMixin is what
+// drops the fieldset's enable switch, and the mapping's choicelist names the property in its
+// dependentProperties, so ticking the box empties that dropdown without a save
+[fmdbmix:jExperienceSensitiveField] > jmix:templateMixin mixin
+ extends = fmdbmix:profileMappableField
  itemtype = content
- - jExperienceIdentifier (string) indexed=no
+ - jExperienceSensitive (boolean) = false autocreated indexed=no
 ```
 
 This follows the two-family rule of [CND module ownership](cnd-module-ownership.md): marker
@@ -518,23 +550,18 @@ formidable-jexperience-engine/src/main/resources/META-INF/jahia-content-editor-f
 - **No custom selector.** The standard choicelist selector renders the initializer's values, so
   no `fieldsets/` override is needed; the Logic section needs one only because its rules editor
   is a React selector of its own.
-- **The form's identifier.** A read-only `formidable-jxp-<uuid>` on the form itself, since
-  jExperience's goal editor asks for it as free text: `fmdbmix:jExperienceForm` extends `fmdb:form`
-  with `jExperienceIdentifier`, stamped by `FormIdentifierListener`, shown in a **jExperience**
-  section of the form (`forms/fmdbmix_jExperienceForm.json`: `isAlwaysActivated` fieldset,
-  `readOnly` field). The mixin inherits `jmix:templateMixin`, the one supertype the Content Editor
-  renders without an enable switch: a plain `extends` mixin keeps its toggle even when always
-  activated, and switching that toggle off would drop the mixin and the value behind the author's
-  back. No UI bundle for one read-only value; the author selects and copies it.
-- **When the identifier is written.** Every form under `/sites` the module finds when it starts
-  is stamped at once, one save per form — a form that cannot be saved is logged and skipped, the
-  others keep their identifier — and the pass needs neither jExperience nor jCustomer; afterwards
-  the listener stamps a form when it is created, copied, imported or edited. The pass writes the
-  default workspace only, since live never reads the property (see "The identifier"), so an
-  upgraded instance shows every form as *modified* in jContent once: the effect the
-  [upgrade notes](../administration/upgrade-notes.md) explain.
-
----
+- **Two controls, in this order.** The sensitive checkbox first, rendered without a switch
+  (`forms/fmdbmix_jExperienceSensitiveField.json`, rank -1, `isAlwaysActivated` on a
+  `jmix:templateMixin` fieldset), then the mapping fieldset with its own switch. The flag gates the
+  mapping, so it must be answerable before the mapping is switched on — which is why it is a
+  property of a second mixin and not a field of the mapping's own. The mapping's dropdown names it
+  in `dependentProperties`, so ticking the box replaces the properties with one message before any
+  save; nothing greys out the mapping switch itself (see the decision log).
+- **No section on the form itself.** The form's identity in jCustomer is its UUID, which the
+  Content Editor's technical information and jContent already display; the author copies it into a
+  goal from there. The first design stamped a `formidable-jxp-<uuid>` property on every form through
+  a mixin, a listener and a start-up pass, and showed it read-only in a section of the form —
+  removed 2026-09-15, see "The identifier".
 
 ## Security and trust model
 
@@ -549,8 +576,10 @@ accepted, purged values) and the tracker decides **for whom** (its own cookies) 
 
 | Gate | Source of truth | Applies to |
 |---|---|---|
-| jExperience installed on the site, configured, and jCustomer reachable | `getInstalledModules`, `isAvailable(siteKey)` | render filter output, response block, mapping rule |
-| The values that may leave | Pipeline steps 1 to 12: field whitelist, validation, actions succeeded; files and sensitive fields removed | response block, hence the event |
+| jExperience installed on the site **and** holding settings for it | `JExperienceSite.tracked` (`getInstalledModules`, `getContextServerStatus`) | render filter output, response block |
+| jExperience holding settings for the site | `JExperienceSite.configured` | the mapping rule — its question is reaching jCustomer, not contributing to a page |
+| jCustomer reachable | `isAvailable(siteKey)`, called from `MappingRuleSynchronizer` and `ProfilePropertyCatalog` only | the mapping rule, and the profile properties the editor offers — the two things that talk to jCustomer |
+| The values that may leave | Pipeline steps 1 to 12: field whitelist, validation, actions succeeded; the mappable marker, then the author's sensitive flag | response block, hence the event |
 | The mapping rule | Publication listener in a system session, admin client owned by jExperience | rule |
 
 ### What the browser establishes
@@ -571,7 +600,7 @@ accepted, purged values) and the tracker decides **for whom** (its own cookies) 
 | Poison another visitor's profile through Formidable | The victim's profile cookie | No new path: Formidable never handles a profile id; the tracker binds the event to the cookies of the browser it runs in, as for every page view | Same as jExperience |
 | Prefill leaking to another visitor | A shared cache serving one visitor's HTML to another | Impossible by construction: no profile value is ever in the HTML; prefill happens in the browser from the tracker's own context response | Design |
 | Read the mapped profile properties of a visitor | Being that visitor's browser | The tracker only requests the properties named in the push (the mapped ones); a page without a mapped form requests nothing more than today | Named properties, never `*` |
-| A double event (tracker + island) on a form referenced by a rule | Rule `formId` equal to the DOM `<form id>` | Prevented: the identifier is `formidable-jxp-<uuid>`, the DOM id the bare UUID; the tracker finds no form to watch | Identifier rule, asserted by a Cypress spec |
+| A double event (tracker + island) on a form referenced by a rule | A goal or a mapping rule naming the form: its `formId` is the form's DOM `id` and `name` | Prevented: elements renders `data-form-id` and `data-wem-observed="true"` on every form, the two attributes wem.min.js 4.2.1 checks before attaching its listener (initial scan, observer); the island is the only sender | The four attributes asserted by `tests/cypress/e2e/validation/49-form-element-attributes.cy.ts`; the absence of a `[WEM] Watching form` line was verified by hand on the local stack, the tracker needing a jCustomer CI has not got |
 
 ---
 
@@ -648,9 +677,9 @@ minute, one rule (decisions of 2026-09-11).
 | 2026-09-10 | **No server-side probe of jCustomer's rules** (the first design's "is this form referenced here?", cached 60 s) (Romain) | The browser already holds the answer in the context the tracker loaded; recomputing it server-side costs a jCustomer round trip per submission for the same information |
 | 2026-09-10 | **Tracked = mapped OR referenced in jCustomer**, the latter read from `wem.getFormNamesToWatch()`, kept on purpose; a form-level switch stays recorded, not built (HDU) | A goal or segment created in jExperience on a form nobody mapped must count, as with Forms; without the list the marketer has no way to know why it does not. Romain would rather see `trackedConditions` go: the dependency is confined to `shouldCollect()`, one function to change when jExperience reworks them |
 | 2026-09-10 | **`disableTrackedConditionsListeners` is honoured**, and never set by Formidable (HDU) | It is the integrator's page-level "no automatic form tracking", possibly the outcome of a refusal; Forms goes silent under it (its watch list is empty) and Formidable does the same. Setting it would silence every other module on the page |
-| 2026-09-10 | **Identifier `formidable-jxp-<uuid>`**, never equal to the DOM `<form id>`; `target.properties.name`/`path` for readability; shown in the editor (HDU) | The tracker attaches its own raw-fields listener to any `<form>` whose `id`/`name` matches a tracked `formId`: a distinct identifier is what makes the island the only sender, even once a marketer creates a goal. Unomi's `itemId` pattern allows it (51 chars, `[\w@.-]`); goals are typed by hand in jExperience, so the author must be able to copy it; dashboards keyed on an opaque id need the name as a label |
-| 2026-09-10 | `data-form-id` is not used as the opt-out | Forms' convention, honoured by the tracker's initial scan only and ignored by jExperience's observer of late forms |
-| 2026-09-11 | The form identifier is a read-only property stamped by a listener, not a custom selector | One read-only string does not justify a Module Federation bundle in the module; the Content Editor renders a `readOnly` field of the mixin; every form under `/sites` is stamped when the module starts (decided later that day, dd05aa5), the listener covers creation, copy, import and edit |
+| 2026-09-10 | ~~**Identifier `formidable-jxp-<uuid>`**, never equal to the DOM `<form id>`; `target.properties.name`/`path` for readability; shown in the editor (HDU)~~ — superseded 2026-09-15, see below | The tracker attaches its own raw-fields listener to any `<form>` whose `id`/`name` matches a tracked `formId`: a distinct identifier is what makes the island the only sender, even once a marketer creates a goal. Unomi's `itemId` pattern allows it (51 chars, `[\w@.-]`); goals are typed by hand in jExperience, so the author must be able to copy it; dashboards keyed on an opaque id need the name as a label |
+| 2026-09-10 | ~~`data-form-id` is not used as the opt-out~~ — superseded 2026-09-15, see below | Forms' convention, honoured by the tracker's initial scan only and ignored by jExperience's observer of late forms |
+| 2026-09-11 | ~~The form identifier is a read-only property stamped by a listener, not a custom selector~~ — superseded 2026-09-15, see below | One read-only string does not justify a Module Federation bundle in the module; the Content Editor renders a `readOnly` field of the mixin; every form under `/sites` is stamped when the module starts (decided later that day, dd05aa5), the listener covers creation, copy, import and edit |
 | 2026-09-11 | `fmdbmix:jExperienceProfileMapping` extends the marker without inheriting from it (the first draft wrote `> fmdbmix:profileMappableField` too) | Mappability is what a field *type* declares; the mapping is what an author configures. With the supertype, any node the mixin lands on — by API or import, a file field included — would pass every `isNodeType(marker)` check and the marker would stop meaning anything. `extends` alone is how every property mixin of the repository attaches to its target, and the Content Editor resolves it with `isNodeType`, so nothing needs the inheritance |
 | 2026-09-11 | Field shape from the value-kind mixins; `fmdb:checkbox` is the one type name read | No mixin tells the checkbox group (always a list) from a radio group; every other cardinality comes from the `multiple` property |
 | 2026-09-11 | `choicelist[resourceBundle]` for the write strategy | Labels for `alwaysSet` / `setIfMissing` come from the module's bundle instead of raw values in the dropdown |
@@ -658,9 +687,9 @@ minute, one rule (decisions of 2026-09-11).
 | 2026-09-11 | The field's stored mapping is in the dropdown, flagged "kept", when the list lacks it — **narrowed 2026-09-14 to the outage case, see below** | jcontent's single select resets a value absent from its constraints: without this, opening a mapped field while jCustomer is down and saving anything would wipe the mapping silently. The author keeps it or picks another entry, knowingly |
 | 2026-09-11 | One duration: an expired list is never served, a failed read past the minute gives the message (HDU) | The first design served the previous list through any outage; a bounded grace period would have needed a second duration to explain, and a list that may be an hour old misleads an author more than a message. What the author sees is under a minute old, or says why it is not |
 | 2026-09-11 | Local stack: the test Jahia joins the jCustomer compose network with a fixed address, jExperience 4.2.1 is installed by jar upload | jCustomer trusts privileged calls by IP; the artifact is only on Nexus' internal group, so `installModule mvn:` is a silent no-op on the test container (kit: `~/Jahia/modules/Formidable/jexperience/README.md`) |
-| 2026-09-14 | **A copied form is re-stamped**: the listener compares the stored identifier with the one the node's own UUID gives, never trusts its presence (review of PR #324) | The core's copy carries every mixin and property it does not forbid onto the new node, so a copy kept the source's identifier and two forms shared one jCustomer identity — indistinguishable in every goal, segment and dashboard, competing for the same mapping rule. Idempotence is kept: the right value means nothing to do |
-| 2026-09-14 | The start-up pass follows the engine's rules: `ISDESCENDANTNODE('/sites')`, one save per form with a `refresh(false)` on failure, observation scoped to `/sites` too | Module-bundled nodes under `/modules` belong to their module; one unsavable form must not lose the whole pass. The engine's helpers are package-private, the two rules are cheap to reproduce |
-| 2026-09-14 | The pass writes the **default workspace only**, documented in the upgrade notes and the listener's Lifecycle note | The identifier is derived from the UUID everywhere it is used at runtime, so live never reads the stored property; writing live would bring the UGC traps MigrationSessions exists for, for no reader. The one visible effect — every form flagged *modified* once — is what the upgrade page explains |
+| 2026-09-14 | ~~**A copied form is re-stamped**: the listener compares the stored identifier with the one the node's own UUID gives, never trusts its presence (review of PR #324)~~ — superseded 2026-09-15, see below | The core's copy carries every mixin and property it does not forbid onto the new node, so a copy kept the source's identifier and two forms shared one jCustomer identity — indistinguishable in every goal, segment and dashboard, competing for the same mapping rule. Idempotence is kept: the right value means nothing to do |
+| 2026-09-14 | ~~The start-up pass follows the engine's rules: `ISDESCENDANTNODE('/sites')`, one save per form with a `refresh(false)` on failure, observation scoped to `/sites` too~~ — superseded 2026-09-15, see below | Module-bundled nodes under `/modules` belong to their module; one unsavable form must not lose the whole pass. The engine's helpers are package-private, the two rules are cheap to reproduce |
+| 2026-09-14 | ~~The pass writes the **default workspace only**, documented in the upgrade notes and the listener's Lifecycle note~~ — superseded 2026-09-15, see below | The identifier is derived from the UUID everywhere it is used at runtime, so live never reads the stored property; writing live would bring the UGC traps MigrationSessions exists for, for no reader. The one visible effect — every form flagged *modified* once — is what the upgrade page explains |
 | 2026-09-14 | **A failed read of the profile properties is remembered for ten seconds** | Only the success path honoured "one call per site per minute": a hung jCustomer (30 s admin timeout) was paid by every author at every field opening. Ten seconds keeps an outage to one call per site per span and shows a recovery well within the tooltip's minute; the entry stays one rule — "unavailable, ask again after N seconds" |
 | 2026-09-14 | Cardinality contract for third-party fields = a `multiple` boolean property (the select/email convention), written down; the choicelist declares `dependentProperties='multiple'` and reads the unsaved value from the context | The value-kind mixins carry no cardinality, so the convention is the contract phase 2's rule builder agrees with. Without the re-query an author switching **Multiple** on and mapping in the same session picked from the single-valued list and only saw the mismatch on reopening, as a "(kept)" entry that reads like an outage |
 | 2026-09-14 | ~~The one-option checkbox is recorded as a known limit, not fixed~~ — superseded the same day, see below | ~~The renderer submits one value for a single option while the shape says list; the option count is unknown at edit time for a sourced list~~ |
@@ -681,10 +710,24 @@ minute, one rule (decisions of 2026-09-11).
 | 2026-09-14 | The form's path is a SQL2 literal: quotes doubled (the rule of `JCRContentUtils.sqlEncode`, applied by hand because that class does not load outside Jahia) (review of #325) | An imported or mounted form with a quote in its path would have made the query invalid, silently, at every publication |
 | 2026-09-14 | `long` is not a typed integer: only `integer` takes `setPropertyValueInteger`, as jExperience's screen and the Forms bridge do (review of #325) | The javadoc claims the screen's rule; the screen tests `integer` on strict equality |
 | 2026-09-14 | Two documented differences from the rules jExperience's screen writes: the source condition is the whole site alone (the screen always adds the form's page path), and an integer property gets its typed parameter only (the screen writes typed and plain side by side) (review of #325) | A Formidable form is reusable content placed on any page, so a page path would be wrong; the typed parameter alone is what the Forms bridge writes. Whether the Form mappings screen writes such a rule back unchanged when a marketer saves it there is a manual check to make, once, before the shapes are called interchangeable |
-| 2026-09-14 | `fmdbmix:jExperienceForm` inherits `jmix:templateMixin` | `isAlwaysActivated` forces the fieldset on but keeps its enable switch; only a `jmix:templateMixin` fieldset loses it (jcontent `EditorFormServiceImpl`). Switching the toggle off dropped the mixin and the value, which the listener then restored: confusing UI plus a spurious write. The core marker has no runtime semantics (only the legacy GWT editor read it) |
-| 2026-09-14 | The bundle exports nothing; `analyze-only` with `failOnWarning`; `jahia-depends` names `formidable-elements` too | An exported implementation is a compatibility promise nobody asked for (`dependency-decisions.md`); the phase-2 SPI gets its own `api` package. `fmdbmix:jExperienceForm` extends `fmdb:form`, an elements type, and the declared dependencies must say so even though the node-type capability already carried the resolution |
+| 2026-09-14 | ~~`fmdbmix:jExperienceForm` inherits `jmix:templateMixin`~~ — superseded 2026-09-15, see below | `isAlwaysActivated` forces the fieldset on but keeps its enable switch; only a `jmix:templateMixin` fieldset loses it (jcontent `EditorFormServiceImpl`). Switching the toggle off dropped the mixin and the value, which the listener then restored: confusing UI plus a spurious write. The core marker has no runtime semantics (only the legacy GWT editor read it) |
+| 2026-09-14 | The bundle exports nothing; `analyze-only` with `failOnWarning`; `jahia-depends` names `formidable-elements` too | An exported implementation is a compatibility promise nobody asked for (`dependency-decisions.md`). ~~The phase-2 SPI gets its own `api` package.~~ — superseded 2026-09-15: `SubmissionResponseEnricher` landed in the **engine's** `api` package, since the servlet is what calls it. The publication listener and the render filter apply to `fmdb:form`, an elements type ~~which `fmdbmix:jExperienceForm` extends~~, and the declared dependencies must say so even though the node-type capability already carried the resolution |
 | 2026-09-14 | The catalog dates an entry from the **end** of the call, not its start (second review) | `now` was read before the blocking fetch: after a 30 s admin timeout the failure entry was born 20 s expired and never served anyone, so the memory only covered instant failures. Re-reading the clock when storing is the whole fix; the test advances the clock inside the stubbed call |
 | 2026-09-14 | The three CND clauses the Java relies on are pinned by a test reading the module's own CND | No test environment installs the module yet; `dependentProperties='multiple'`, `> jmix:templateMixin` and the `extends` to the marker each survived deletion with the suite green. A line-level reader cross-checked with the Java constants guards them until a Cypress spec does |
+| 2026-09-15 | **The identifier is the form's UUID**, carried by the rendered `<form>` as `id` and `name`; the `formidable-jxp-<uuid>` property, its mixin `fmdbmix:jExperienceForm`, the editor field and the stamping listener are removed (HDU) | Reading wem.min.js 4.2.1 and the Form mappings screen showed that every reader takes `name` then `id`, and that two attributes keep the tracker off: a distinct identifier only protected against a tracker two attributes silence. The UUID needs no storage, no listener and no upgrade note, and jContent already shows it |
+| 2026-09-15 | **`data-form-id` and `data-wem-observed="true"` are rendered by elements on every form**, jExperience module or not; the form's title is its `aria-label` | One attribute per code path of the tracker (initial scan, observer). Unconditional: a goal created on a site without the module must not make the tracker send raw, unvalidated DOM fields — a Formidable form is tracked through this module or not at all. The title is not a `name` candidate: read before `id` by the tracker, the picker and the page lookup, it would key a mapping on a label that changes with the language |
+| 2026-09-15 | **The response block's `fields` are the accepted values of the profile-mappable fields** (`fmdbmix:profileMappableField`), minus the sensitive ones | The pipeline has no notion of a sensitive field, so the marker is the boundary that already exists: what jExperience may map is what jExperience receives — files, buttons and containers never. **Struck and restored the same day:** the rule was narrowed to the mapped fields only, then restored when that turned jExperience's own Form mappings screen into a dead end (the two rows below), and the author's per-field sensitive flag took over the job of keeping a value in |
+| 2026-09-15 | **The render filter reads the form in a session of its own**, not the render session | A form placed through a reference renders as a node contextualised under it, whose path `…/theReference@/theForm` is no JCR path: the mapped-fields query matched nothing and the block named a place the mapping rule never mentions. Asking the render session for the identifier gives that same contextualised node back — observed in live, and the first fix, which trusted the session, shipped nothing (its unit test mocked the very lookup that fails). A session that never saw the reference resolves the identifier to the form itself |
+| 2026-09-15 | The response block is **serialised inside each enricher's own guard**, not by the writer | The writer runs outside every guard: a null key or a NaN from one enricher threw there and turned an accepted submission into a 500. Building the JSON where the failure can still be attributed keeps the SPI's one promise — an enricher costs its own entries and nothing else |
+| 2026-09-15 | The client script is emitted next to **every** form of a page and keeps one instance by itself | The filter has no page-level state to dedupe on, and a `<script defer>` fetched twice is one fetch; the script returns early when `window.formidableJxp` is already there |
+| 2026-09-15 | ~~**Only a mapped field's value is in the response block**~~ — superseded the same day, see the two rows below | The reasoning held for data minimisation but broke a behaviour Forms has: both of jExperience's own paths send every field, so a mapping made in its Form mappings screen always receives a value there, and restricting ours turned that screen into a dead end |
+| 2026-09-15 | **Back to every accepted value**, as jExperience's own paths do (HDU) | Verified in wem.min.js 4.2.1: the Forms bridge sends `resultData` whole and the plain-form listener every named input of `form.elements`. Sending less would make jExperience's Form mappings screen a dead end for our forms — a mapping made there on a field we do not map would receive nothing, silently. The marker still leaves out files, buttons and containers |
+| 2026-09-15 | **A per-field sensitive flag** (`fmdbmix:jExperienceSensitiveField`, HDU): its value never leaves the site and it cannot be mapped | Data minimisation belongs to the author, field by field, not to a blanket rule: a national id or a free-text note is the author's call, and a node-type-level notion (a "password" type) would be both too coarse and too late. Four readers honour the one flag — the dropdown offers a single message saying why, the reader skips a mapping made before the box was ticked, the render filter leaves the field out of the page, and the enricher leaves its value out of the answer. The last is the one that matters: whatever the editor allowed, the value does not leave the server |
+| 2026-09-15 | The flag lives in the **jExperience module**, and says only what it does there | [formidable#161](https://github.com/Jahia/formidable/issues/161) is a different concern — the use of a field's value inside the actions (HDU). An engine-level "sensitive field" would promise that a ticked field stays out of a notification email too, which nothing implements |
+| 2026-09-15 | The switch of the mapping fieldset is **not** disabled when the flag is on | jcontent has no declarative way to grey out a fieldset on a sibling property's value; doing it would need a Module Federation bundle in the module, declined in phase 1 for the identifier. The dropdown with its single message, plus the four server-side guards, make the mapping impossible and say why |
+| 2026-09-15 | **The sensitive flag holds from the save**, not from the next publication: the enricher treats a field as sensitive when either workspace says so (review) | Everything else in the integration describes the published form and follows it at the next publication, which is right for a mapping. A privacy stop is not of that kind: the submission is resolved in live, so reading live alone would leave an author who ticks the box on a form already collecting sending that value until someone publishes — with nothing in the editor saying the box is not armed. It costs one session of the default workspace per submitted form on a tracked site, and a failed reading keeps the published answer with a warning, since a transient error must not empty the block for every visitor |
+| 2026-09-15 | **The page declares nothing about the form's mappings** (HDU): the send decision reads `getFormNamesToWatch()` alone, and the config block carries the identifier, the title and the path | A mapped form is already in that list, because the rule this integration publishes for it is a `formEventCondition` of the context, exactly like a goal or a segment — observed on the local stack, where a form appeared in the list only once its mapping rule existed. Declaring the mappings as well was a second list to keep in step for a case the first already covers. If `trackedConditions` go, as Romain would like, the mappings come back as the fallback; that is a future problem, not an over-engineered present one. Phase 4 puts the pairs back for its own reason: prefill needs them at page load, and unlike jExperience's Forms bridge — which reads them from the Angular form model — our browser has no model to read |
+| 2026-09-15 | **The server-side gate asks two questions, not one** (HDU): jExperience must be among the site's modules **and** hold settings for it, before the render filter writes a block or the enricher answers | Only the pair means there is a tracker on the page, and without a tracker nothing reads what we write. jExperience puts both there itself: `ContextServerScriptFilter`, the filter that emits the tracker, is declared `applyOnSiteTemplateSets="jexperience"` (mod-wem-components.xml), which the core resolves as `getSite().getInstalledModules().contains(templateSet)` — so our first term is that filter's own condition, on the same site object — and that filter takes the tracker's URL from the settings. (`ContextActivatorFilter` reads the installed modules too, but only inside `shouldSetWemSessionId`, for the cookie.) Neither half stands alone: the settings are not a per-site answer — jExperience falls back to the platform's for a site that has none, so on a platform holding a global configuration every site claimed to be configured — and enablement alone says nothing about a jCustomer ever having been connected. Both halves are reads from memory, a list held by the site node and a map lookup, which is what keeps them affordable on every accepted submission and every render cache miss. The rule synchroniser keeps the settings question alone: reaching jCustomer is not contributing to a page |
 
 ## Open questions
 
@@ -704,9 +747,9 @@ minute, one rule (decisions of 2026-09-11).
 
 | Phase | Deliverable | Proof |
 |---|---|---|
-| 1 | Module skeleton recalibrated on jExperience 4.2.1 with open OSGi ranges, added to the root pom. Marker mixin in the engine and on the field types, editor section with the copyable identifier, ported choicelist initializer with cache, strategy and failure handling. FR bundle with escaped accents, prototype's harness file dropped | **Shipped 2026-09-11, review fixes 2026-09-14 (PR #324).** 55 JUnit tests in the module (shape inference on nodes and types, the checkbox's choice count asked for checkboxes only, property filter, catalog cache, failure paths and failure memory dated from the end of the call, initializer through the editor's context, identifier, listener: copy re-derivation and per-form start-up pass, the CND clauses the Java relies on) and 5 in the engine for `ChoiceOptionsResolver`; deployed on the test instance next to jExperience 4.2.1: the section lists 18 properties on a text field, every existing form is stamped at start, a copied form gets its own identifier |
-| 2 | Mapping rule sync: rule builder on `formidable-jxp-<uuid>`, publication listener, diff, delete on unpublish/removal, resync on availability | **Shipped 2026-09-14** (branch `feat/jexperience-phase2-rule-sync`). Golden JSON test of the rule, synchronizer tests (create, unchanged, update, delete, pending and retry, coalescing), listener and reader tests; on the local stack: publishing a mapped form creates the rule in jCustomer, republishing it unchanged writes nothing, unpublishing it or publishing its deletion deletes the rule, republishing recreates it, un-mapping a field by switching its section off and publishing that field alone deletes the rule too; a `form` event sent through the public `context.json` with the profile cookie — what the phase-3 script will do through the tracker — set the mapped profile property (`processedEvents: 1`). Cypress through the proxy waits for a jCustomer in CI |
-| 3 | Engine `SubmissionResponseEnricher` SPI and the elements' `formidable:submitted` event; render filter (overrides push, config block, script); client script with `shouldCollect()` and the event | Pipeline unit tests; Cypress: submit with a profile cookie, the event and the profile read back through the proxy; the tracker attaches no listener to the form (the DOM id is not the identifier); a form referenced only by a goal sends; no send under `activateWem` off |
+| 1 | Module skeleton recalibrated on jExperience 4.2.1 with open OSGi ranges, added to the root pom. Marker mixin in the engine and on the field types, editor section (its copyable identifier field was removed 2026-09-15, see "The identifier"), ported choicelist initializer with cache, strategy and failure handling. FR bundle with escaped accents, prototype's harness file dropped | **Shipped 2026-09-11, review fixes 2026-09-14 (PR #324).** 55 JUnit tests in the module (shape inference on nodes and types, the checkbox's choice count asked for checkboxes only, property filter, catalog cache, failure paths and failure memory dated from the end of the call, initializer through the editor's context, the CND clauses the Java relies on; the identifier and listener tests went with the identifier on 2026-09-15) and 5 in the engine for `ChoiceOptionsResolver`; deployed on the test instance next to jExperience 4.2.1: the section lists 18 properties on a text field |
+| 2 | Mapping rule sync: rule builder on the form's UUID, publication listener, diff, delete on unpublish/removal, resync on availability | **Shipped 2026-09-14** (branch `feat/jexperience-phase2-rule-sync`). Golden JSON test of the rule, synchronizer tests (create, unchanged, update, delete, pending and retry, coalescing), listener and reader tests; on the local stack: publishing a mapped form creates the rule in jCustomer, republishing it unchanged writes nothing, unpublishing it or publishing its deletion deletes the rule, republishing recreates it, un-mapping a field by switching its section off and publishing that field alone deletes the rule too; a `form` event sent through the public `context.json` with the profile cookie — what the phase-3 script will do through the tracker — set the mapped profile property (`processedEvents: 1`). Cypress through the proxy waits for a jCustomer in CI |
+| 3 | Engine `SubmissionResponseEnricher` SPI and the elements' `formidable:submitted` event; render filter (config block, script); client script with `shouldCollect()` and the event | **Shipped 2026-09-15.** 360 engine and 105 module unit tests, the response guards mutation-proven. End to end on the local stack: the block renders with the form's own path, a submission answers `jexperience {formId, fields}`, and in the browser the tracker's initial scan and observer attach nothing (no `[WEM] Watching form` although the form is in `getFormNamesToWatch`), one `eventcollector` call per submission, the event stored with the bare UUID as `itemId` and the form's name and path as target properties, and a proof rule setting the mapped profile property. Prefill stays phase 4 |
 | 4 | Prefill: text-like fields and hidden, from the context's profile properties | Cypress: live page with a profile cookie shows the value after `wemLoaded`; a second visitor does not; the page stays cached (same HTML for both) |
 | 5 | Phase 2 items from the open questions as decided: choice fields, extended inputs, consents | Per item |
 | 6 | Changelog entry, submission-flow doc updated with the response block, [formidable#153](https://github.com/Jahia/formidable/issues/153)'s jCustomer question answered | Review |

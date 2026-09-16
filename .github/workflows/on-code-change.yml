@@ -57,6 +57,11 @@ jobs:
             1) ;;
             *) echo "::error::the name guard itself failed (git grep exited $status)"; exit 1 ;;
           esac
+      # A CND prefix is global to the platform: two modules binding one prefix to different URIs
+      # means the types of one of them never register, and only the integration run says so (#326).
+      - name: Check the CND namespace prefixes
+        run: node scripts/check-cnd-namespaces.mjs
+
       - name: Check the documentation links
         run: node scripts/check-doc-links.mjs
       # One spelling for every node type and mixin the engine declares: the CND and the exported

@@ -176,6 +176,15 @@ class ProfilePropertiesChoiceListInitializerTest {
         return node;
     }
 
+    /** The same field node with the author's "this field is sensitive" saved on it. */
+    private static JCRNodeWrapper sensitive(JCRNodeWrapper node) throws Exception {
+        JCRPropertyWrapper flag = mock(JCRPropertyWrapper.class);
+        when(flag.getBoolean()).thenReturn(true);
+        when(node.hasProperty(SensitiveField.PROPERTY)).thenReturn(true);
+        when(node.getProperty(SensitiveField.PROPERTY)).thenReturn(flag);
+        return node;
+    }
+
     private static Map<String, Object> context(Object... keyValues) {
         Map<String, Object> context = new HashMap<>();
         for (int i = 0; i < keyValues.length; i += 2) {
@@ -374,5 +383,46 @@ class ProfilePropertiesChoiceListInitializerTest {
         verify(resolver, never()).countChoices(any(), any());
         listed(initializer, context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, checkbox()));
         verify(resolver).countChoices(any(), any());
+    }
+
+    @Test
+    void aSensitiveFieldOffersTheOneMessageSayingSo() throws Exception {
+        // Verifies what the author sees on a field they marked sensitive: one entry, pre-selected, saying the
+        // field cannot be mapped — whatever the schema holds, and with a stored mapping still on the node,
+        // which the editor then resets and the next save clears.
+        ProfilePropertiesChoiceListInitializer initializer = sensitiveSaying("cannot be mapped");
+        JCRNodeWrapper node = sensitive(fieldNode("firstName", false, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN));
+
+        List<ChoiceListValue> choices = listed(initializer, context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, node));
+
+        assertEquals(1, choices.size());
+        assertEquals("", choices.get(0).getValue().getString());
+        assertEquals("cannot be mapped", choices.get(0).getDisplayName());
+        assertEquals("true", choices.get(0).getProperties().get(ProfilePropertiesChoiceListInitializer.DEFAULT_PROPERTY));
+    }
+
+    @Test
+    void theFlagIsReadUnsavedSoTheDropdownEmptiesAsTheBoxIsTicked() throws Exception {
+        // Verifies the point of naming the flag in dependentProperties: the editor re-asks the list with the
+        // unsaved checkbox in the context, so the message replaces the properties before any save — and the
+        // unsaved value wins over what the node still stores, in both directions.
+        ProfilePropertiesChoiceListInitializer initializer = sensitiveSaying("cannot be mapped");
+
+        assertEquals(List.of(""), values(listed(initializer, context(
+                ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, fieldNode(null, false, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN),
+                SensitiveField.PROPERTY, true))));
+        assertEquals(List.of("firstName"), values(listed(initializer, context(
+                ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, sensitive(fieldNode(null, false, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN)),
+                SensitiveField.PROPERTY, List.of(false)))));
+    }
+
+    /** The initializer with its sensitive message stubbed: Jahia's bundle lookup does not run outside a container. */
+    private static ProfilePropertiesChoiceListInitializer sensitiveSaying(String message) throws Exception {
+        return new ProfilePropertiesChoiceListInitializer(catalogOver(CATALOG)) {
+            @Override
+            String sensitiveMessage(Locale locale) {
+                return message;
+            }
+        };
     }
 }

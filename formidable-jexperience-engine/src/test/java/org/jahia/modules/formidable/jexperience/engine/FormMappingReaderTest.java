@@ -2,6 +2,7 @@ package org.jahia.modules.formidable.jexperience.engine;
 
 import org.jahia.modules.formidable.engine.api.ChoiceOptionsResolver;
 import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.services.content.JCRPropertyWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.junit.jupiter.api.Test;
 
@@ -129,5 +130,19 @@ class FormMappingReaderTest {
                 FormMappingReader.queryFor("/sites/mysite/contents/contact"));
         assertEquals("SELECT * FROM [fmdbmix:jExperienceProfileMapping] WHERE ISDESCENDANTNODE('/sites/mysite/contents/l''enquete')",
                 FormMappingReader.queryFor("/sites/mysite/contents/l'enquete"));
+    }
+
+    @Test
+    void aMappingOnASensitiveFieldIsSkipped() throws Exception {
+        // Verifies the belt to the dropdown's braces: the dropdown offers nothing on a sensitive field, but a
+        // mapping made before the author ticked the box is still on the node — it must never become a rule
+        // action, or the value the author forbade would be written to the visitor's profile.
+        JCRNodeWrapper field = field("nationalId", "firstName", null, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN);
+        JCRPropertyWrapper flag = mock(JCRPropertyWrapper.class);
+        when(flag.getBoolean()).thenReturn(true);
+        when(field.hasProperty(SensitiveField.PROPERTY)).thenReturn(true);
+        when(field.getProperty(SensitiveField.PROPERTY)).thenReturn(flag);
+
+        assertTrue(new FormMappingReader(catalog(), counting(1)).fieldMappingOf(field, SCHEMA, "en").isEmpty());
     }
 }
