@@ -106,7 +106,7 @@ Nothing in Formidable depends on jExperience; the new module depends on both.
 | `MappingRuleSynchronizer` | jexperience-engine | Builds the rule from live in the site's default language, compares it with the stored one (`GET /cxs/rules/{id}`, 204 = absent), posts only a change, deletes when the form leaves live or maps nothing. Coalesces a publication's bursts of events (2 s); leaves alone a site with no jExperience configuration; keeps a pending list retried every minute while jCustomer cannot be asked, guarded so that no error can stop the retries. |
 | `MappingRule` | jexperience-engine | The rule as the JSON map jCustomer stores — id `formidable-form-mapping_<site>_<uuid>`, conditions, one `setPropertyAction` per mapped field with the value parameter of the property's type — and the "owned" projection the diff compares. |
 | `FormMappingReader` | jexperience-engine | Reads a published form's mapped fields and applies the dropdown's own rule at publication: a property gone from the schema or no longer fitting the field's shape is skipped and logged, never turned into an action. |
-| `FormJExperienceRenderFilter` | jexperience-engine | Render filter on `fmdb:form` (same family as `CaptchaRenderFilter`). On a site whose pages carry the tracker — jExperience among the site's modules **and** settings for it, `JExperienceSite` — it writes next to the form: a JSON config block (`{formId, name, path}` — the mappings are not in it, the accepted values reach the script through the submission's answer) and the module's client script, one tag per form, the script keeping one instance per page. The prefill push (`digitalDataOverrides`) is phase 4. Its output carries no visitor data: the fragment stays cached. |
+| `FormJExperienceRenderFilter` | jexperience-engine | Render filter on `fmdb:form` (same family as `CaptchaRenderFilter`). On a site whose pages carry the tracker — jExperience among the site's modules **and** settings for it, `JExperienceSite` — it writes next to the form: a JSON config block (`{formId, name, path}` — the mappings are not in it, the accepted values reach the script through the submission's answer) and a `<jahia:resource>` declaration of the module's client script, which core hoists into the `<head>` and keeps one of for the whole page. The prefill push (`digitalDataOverrides`) is phase 4. Its output carries no visitor data: the fragment stays cached. |
 | `formidable-jxp.js` | jexperience-engine, static resource | The client half: on the island's `formidable:submitted` event, decides with `shouldCollect()` and sends the `form` event through `wem.collectEvent`. |
 | `SubmissionResponseEnricher` SPI | formidable-engine, `api` package | Called by the pipeline after all actions succeeded, with the form node, the site and the validated parameters; returns a JSON block to add to the 200. The jExperience module contributes `jexperience: {formId, fields}` — the accepted values of the form's fields, minus the ones marked sensitive — when the site's pages carry the tracker (`JExperienceSite`). Enrichers never fail the submission. |
 | `formidable:submitted` | formidable-elements, `Form.client.tsx` | DOM `CustomEvent` (bubbling) dispatched after a 200, carrying the form's UUID and the parsed response. The elements module knows nothing of jExperience: it only says "this was accepted, here is what the server answered". |
@@ -303,9 +303,12 @@ path its target properties read. **What the form maps is deliberately not in it*
 reads the tracker's own watch list, which a mapped form is in through the rule published for it, so
 declaring the mappings again would be a second list to keep in step for nothing (HDU, 2026-09-15).
 Phase 4 puts back what prefill needs, which is the first thing the context cannot say. The block is
-emitted for every form, and the script tag comes with each form of the page — the filter has no
-page-level state to dedupe on, a `<script defer>` fetched twice is one fetch, and the script
-returns early when it is already there. The form is read in a session of the filter's own: a form
+emitted for every form, and so is the script's `<jahia:resource>` declaration — the filter is called
+once per form and has no page-level state to dedupe on. Core's `StaticAssetsFilter` does that part:
+it hoists the declarations of the aggregated page into the `<head>` and keeps one per path, so a page
+carrying several forms loads and runs the script once. The marker travels inside the cached fragment,
+which is why it is written into the output rather than registered on the request — this filter runs on
+a cache miss only, and a cached fragment replays nothing. The form is read in a session of the filter's own: a form
 placed through a reference renders contextualised under it, and the render session hands that same
 node back for the identifier (see the decision log), so the block would otherwise name the
 reference and find no mapped field.

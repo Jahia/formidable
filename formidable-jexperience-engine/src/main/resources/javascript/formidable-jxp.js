@@ -8,8 +8,9 @@
  * the form's configuration in a JSON block next to the form. Design and gates:
  * docs/architecture/jexperience-integration.md ("Submitting", "The send condition").
  *
- * One instance per page whatever the number of forms: the render filter writes the script tag
- * next to every form, the first one to run wins.
+ * One instance per page whatever the number of forms: every form declares the same static asset and
+ * core keeps one of them in the head. The guard below is the belt to that braces — a page built
+ * another way, or a second copy loaded by hand, still gets one instance.
  */
 (function () {
   "use strict";
