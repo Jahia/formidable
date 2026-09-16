@@ -184,6 +184,11 @@ The two gaps this document used to list are closed. `fmdbmix:formRoot` replaced 
 replaced the one read of `fmdb:checkbox`, in the jExperience shape inference. Both are declared by the
 engine and carried by the elements' concrete types, the same way `fmdbmix:formElement` already was.
 
+Both are **supertypes, never assigned mixins** — a type declares `> fmdbmix:formRoot`, nothing writes
+it into `jcr:mixinTypes`. That is the form a third-party type must follow, and it is what keeps the
+JCR observation filters matching: an event carries its node's primary type, and Jackrabbit tests a
+listener's node types with `isDerivedFrom`, so a supertype counts where an unapplied mixin would not.
+
 What is left is two literals in live code — `fmdb:formReference`, which a reference is and no form
 marker covers, and `fmdbmix:component`, the elements' own authoring marker — and the count is printed
 on every run, so a third does not appear unnoticed.

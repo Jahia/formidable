@@ -64,9 +64,14 @@ orderable
 
 // Marks the root of a form: the node the submission pipeline resolves, the ACL sync follows and
 // the results reference. It is the entry point of the whole tree, which is why the engine reads
-// this rather than fmdb:form — the concrete type formidable-elements declares — and why a module
-// of its own can offer another form type by carrying this mixin, as it already can offer another
-// field type by carrying fmdbmix:formElement.
+// this rather than fmdb:form — the concrete type formidable-elements declares.
+//
+// A SUPERTYPE, never an assigned mixin. fmdb:form names it in its own declaration and nothing
+// writes it into jcr:mixinTypes, which is the form a third-party form type must follow too:
+// declare "> fmdbmix:formRoot", do not addMixin it. The distinction is what keeps the JCR
+// observation filters working — an event carries its node's PRIMARY type and Jackrabbit matches a
+// listener's node types with isDerivedFrom, so a supertype counts, while a mixin an author never
+// applied would not be there to match.
 [fmdbmix:formRoot] mixin
 
 // Classification mixins used by the engine to interpret form field semantics
@@ -216,6 +221,7 @@ orderable
 // draws one input per choice, so one choice submits one value and several submit a list. The
 // built-in checkbox is that field; the select and the email input take their cardinality from the
 // "multiple" property instead, and a choice field carrying neither is single-valued.
+// A supertype as fmdbmix:formRoot is: a field type declares "> fmdbmix:cardinalityFromChoices".
 [fmdbmix:cardinalityFromChoices] mixin
 // Semantic value-kind mixins: a field type carrying one becomes eligible as a
 // conditional-logic source with the operators of that kind (number: comparisons,
