@@ -200,7 +200,7 @@ public class SubmissionEventEnricher implements SubmissionResponseEnricher {
     /**
      * The session the editor's answer is read in: the default workspace, since that is where an unpublished
      * answer lives; a system session, since the submitter has no read access to it; and no locale, since the
-     * flag is not translated and binding a language the site does not have would fail the whole reading.
+     * flag is a non-i18n boolean and nothing read here needs a language.
      */
     <T> T inDefaultWorkspace(JCRCallback<T> callback) throws RepositoryException {
         return template().doExecuteWithSystemSessionAsUser(null, WORKSPACE_DEFAULT, null, callback);

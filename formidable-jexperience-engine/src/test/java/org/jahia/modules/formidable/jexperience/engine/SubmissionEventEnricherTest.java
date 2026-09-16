@@ -480,8 +480,8 @@ class SubmissionEventEnricherTest {
         // can see. The workspace is the whole point of the reading: default is where an unpublished answer lives,
         // and a regression to live reopens the publish window this control exists to close with every other
         // assertion still green. The session is a system one because the submitter cannot read that answer, and
-        // no locale is bound because the flag is not translated — binding a language the site does not have
-        // would fail the reading as a whole and fall back to the published answer for every field.
+        // no locale is bound because the flag is a non-i18n boolean: nothing read in that session needs a
+        // language, and a session is cheaper without one to resolve.
         JCRNodeWrapper inTheEditor = field("fullName", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD);
         JCRNodeWrapper published = field("fullName", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD);
         JCRSessionWrapper editor = mock(JCRSessionWrapper.class);

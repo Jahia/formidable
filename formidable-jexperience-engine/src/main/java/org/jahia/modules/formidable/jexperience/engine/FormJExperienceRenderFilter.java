@@ -158,8 +158,8 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
      * Runs the reading in a session of its own, which is what names the form where it lives.
      *
      * <p>A form placed through a reference renders as a node contextualised under it, whose path —
-     * {@code …/theReference@/theForm} — is no JCR path: the query of the mapped fields matches
-     * nothing and the event would name a place the mapping rule never mentions. Asking the render
+     * {@code …/theReference@/theForm} — is no JCR path: written into the block it would name a
+     * place the mapping rule never mentions, and the event would carry it. Asking the render
      * session for the identifier gives that same contextualised node back, since the session holds
      * it under the form's identifier (observed in live on a referenced form); only a session that
      * never saw the reference resolves the identifier to the form itself. The identifier is the
