@@ -7,7 +7,9 @@
  *
  * Provisioned forms (pages under /sites/<site>/home), all with a save-to-JCR
  * action so the results screens can be exercised:
- *   - playground-simple    minimal contact form
+ *   - playground-simple    minimal contact form, the visitor named by a first and a last name so
+ *                          that each maps to its own visitor-profile property
+ *   - playground-newsletter a second small form, shown only on the two-forms page below
  *   - playground-steps     three-step form with navigation (step 2 holds a
  *                          fieldset, the deepest authoring level, and the
  *                          delivery method drives a field and that fieldset)
@@ -15,6 +17,8 @@
  *                          theme in its css property, to exercise the
  *                          authoring UI (Page Builder zones, boxes) both
  *                          with and without a business stylesheet
+ *   - playground-two-forms-page  the simple form and the newsletter one on a single page, the case a
+ *                          page with one form never shows (two results sets, two mappings, one script)
  *   - playground-complete  every built-in field type (same set as spec 20)
  *                          plus sourced choice fields (countries + categories)
  *                          and a content-mode select (texts under
@@ -67,7 +71,7 @@ import {
 	setOptionsSourcesConfig,
 	TEXTAREA_COMPLETE
 } from '../support/fixtures';
-import {createPublishedLiveFormPage, visitLiveForm} from '../support/fixtures/forms';
+import {createFormNode, createPublishedLiveFormPage, visitLiveForm} from '../support/fixtures/forms';
 import {CONTENT_PATH, FORMIDABLE_MODULE_IDS, SITE_HOME_PATH} from '../support/constants';
 import type {JahiaNode} from '../support/fixtures/types';
 
@@ -268,6 +272,28 @@ const fullNameField = (): JahiaNode => {
 	return node;
 };
 
+const firstNameField = (): JahiaNode => {
+	const node = getInputTextNode({name: 'firstName', title: 'First name', required: true});
+	node.properties.push(
+		{name: 'helpText', value: '<p>As written on your identity document.</p>', language: 'en'},
+		{name: 'helpText', value: '<p>Tel qu\'il figure sur votre pièce d\'identité.</p>', language: 'fr'},
+		{name: 'msgValueMissing', value: 'Please fill in your first name', language: 'en'},
+		{name: 'msgValueMissing', value: 'Merci de renseigner votre prénom', language: 'fr'}
+	);
+	return node;
+};
+
+// Given and family name rather than one "full name" field: a visitor profile holds them apart, so
+// this is the form that exercises a mapping field by field.
+const lastNameField = (): JahiaNode => {
+	const node = getInputTextNode({name: 'lastName', title: 'Last name', required: true});
+	node.properties.push(
+		{name: 'msgValueMissing', value: 'Please fill in your last name', language: 'en'},
+		{name: 'msgValueMissing', value: 'Merci de renseigner votre nom', language: 'fr'}
+	);
+	return node;
+};
+
 const OPTIONS_SOURCES_CONFIG = [
 	// Literal label
 	'countries|Countries|country',
@@ -319,7 +345,8 @@ describe('Playground - provision manual-testing forms', () => {
 			'playground-simple',
 			'Playground - Simple contact form',
 			[
-				withFrench(fullNameField(), [{name: 'jcr:title', value: 'Nom complet'}]),
+				withFrench(firstNameField(), [{name: 'jcr:title', value: 'Prénom'}]),
+				withFrench(lastNameField(), [{name: 'jcr:title', value: 'Nom'}]),
 				withFrench(getInputEmailNode({name: 'email', title: 'Email', required: true}), [{name: 'jcr:title', value: 'Email'}]),
 				withFrench(getTextareaNode({name: 'message', title: 'Message'}), [{name: 'jcr:title', value: 'Message'}]),
 				contactChannelSelect(),
@@ -414,6 +441,67 @@ describe('Playground - provision manual-testing forms', () => {
 				publishLanguages: ['en', 'fr']
 			}
 		);
+
+	it('provisions a page carrying two forms', () => {
+		// The case a page with one form never shows: two forms side by side, each with its own results and
+		// its own mapping. It is also what the jExperience integration has to get right — one configuration
+		// block per form, one tracking script for the page. The simple form is referenced rather than copied,
+		// so the page also shows one form living in two places, which is how an author uses a reference.
+		createFormNode(
+			'playground-newsletter',
+			'Playground - Newsletter',
+			[
+				withFrench(getInputEmailNode({name: 'email', title: 'Email', required: true}), [{name: 'jcr:title', value: 'Email'}]),
+				withFrench(getInputTextNode({name: 'firstName', title: 'First name'}), [{name: 'jcr:title', value: 'Prénom'}])
+			],
+			{
+				actions: [saveToJcrAction()],
+				...LIST_TITLES,
+				properties: [{name: 'jcr:title', value: 'Playground - Lettre d\'information', language: 'fr'}]
+			}
+		).then(response => {
+			const newsletterId: string = response.data.jcr.addNode.uuid;
+
+			getNodeByPath(`${CONTENT_PATH}/playground-simple`).then(simpleResponse => {
+				const simpleId: string = simpleResponse.data.jcr.nodeByPath.uuid;
+
+				addNode({
+					parentPathOrId: SITE_HOME_PATH,
+					name: 'playground-two-forms-page',
+					primaryNodeType: 'jnt:page',
+					properties: [
+						{name: 'jcr:title', value: 'Playground - Two forms on one page', language: 'en'},
+						{name: 'jcr:title', value: 'Playground - Deux formulaires sur une page', language: 'fr'},
+						{name: 'j:templateName', value: 'simple'}
+					],
+					children: [
+						{
+							name: 'pagecontent',
+							primaryNodeType: 'jnt:contentList',
+							properties: [],
+							children: [
+								{name: 'main-resource-display', primaryNodeType: 'jnt:mainResourceDisplay', properties: []},
+								{
+									name: 'playground-simple-reference',
+									primaryNodeType: 'fmdb:formReference',
+									properties: [{name: 'j:node', value: simpleId, type: 'WEAKREFERENCE'}]
+								},
+								{
+									name: 'playground-newsletter-reference',
+									primaryNodeType: 'fmdb:formReference',
+									properties: [{name: 'j:node', value: newsletterId, type: 'WEAKREFERENCE'}]
+								}
+							]
+						}
+					]
+				});
+
+				publishAndWaitJobEnding(`${CONTENT_PATH}/playground-newsletter`, ['en', 'fr']);
+				publishAndWaitJobEnding(`${SITE_HOME_PATH}/playground-two-forms-page`, ['en', 'fr']);
+				cy.log(`Two forms on one page: /en/sites/${FORMIDABLE_TEST_SITE.key}/home/playground-two-forms-page.html`);
+			});
+		});
+	});
 
 	it('provisions the multi-step form', () => {
 		provisionMultiStepForm('playground-steps', 'Playground - Multi-step form', 'Playground - Formulaire multi-étapes')
@@ -561,12 +649,13 @@ describe('Playground - provision manual-testing forms', () => {
 		// Simple contact form: three visitors, one of them in French. Typed values stay
 		// ASCII: realType (cypress-real-events) rejects accented characters.
 		[
-			{lang: 'en', fullName: 'Alice Martin', email: 'alice.martin@example.com', message: 'Could you send me the brochure of your spring collection?'},
-			{lang: 'en', fullName: 'Bob Dupont', email: 'bob.dupont@example.com', message: 'The store in Lyon was closed on Monday, is that expected?', phone: '+33 6 12 34 56 78'},
-			{lang: 'fr', fullName: 'Chloe Bernard', email: 'chloe.bernard@example.com', message: 'Bonjour, je souhaite recevoir le catalogue par courrier.'}
-		].forEach(({lang, fullName, email, message, phone}) => {
+			{lang: 'en', firstName: 'Alice', lastName: 'Martin', email: 'alice.martin@example.com', message: 'Could you send me the brochure of your spring collection?'},
+			{lang: 'en', firstName: 'Bob', lastName: 'Dupont', email: 'bob.dupont@example.com', message: 'The store in Lyon was closed on Monday, is that expected?', phone: '+33 6 12 34 56 78'},
+			{lang: 'fr', firstName: 'Chloe', lastName: 'Bernard', email: 'chloe.bernard@example.com', message: 'Bonjour, je souhaite recevoir le catalogue par courrier.'}
+		].forEach(({lang, firstName, lastName, email, message, phone}) => {
 			const form = visitLiveForm(liveFormPath('playground-simple'), lang);
-			form.getTextInput('fullName').type(fullName);
+			form.getTextInput('firstName').type(firstName);
+			form.getTextInput('lastName').type(lastName);
 			form.getEmailInput('email').type(email);
 			form.getTextarea('message').type(message);
 			if (phone) {
