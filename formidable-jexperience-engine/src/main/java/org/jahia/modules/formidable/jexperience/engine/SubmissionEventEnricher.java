@@ -14,6 +14,8 @@ import org.osgi.service.component.annotations.ReferencePolicyOption;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.jahia.services.content.JCRCallback;
+import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRTemplate;
 
 import javax.jcr.NodeIterator;
@@ -177,43 +179,53 @@ public class SubmissionEventEnricher implements SubmissionResponseEnricher {
      * published yet — read once, in a session of the default workspace, by identifier.
      *
      * <p>A field that cannot be read counts as sensitive, and one field's failure never disarms the
-     * check for the others. Only a failure that is global — no session at all — falls back to the
-     * published answer, with a warning: that must not empty the block for every visitor. A seam for
-     * the tests, which have no repository.</p>
+     * check for the others — checked or unchecked, which is why the inner catch takes both: an
+     * unchecked failure escaping one field would land in the fallback below and drop the editor's
+     * answer for every field of the submission. Only a failure that is global — no session at all —
+     * falls back to the published answer, with a warning: that must not empty the block for every
+     * visitor.</p>
      */
     Set<String> markedSensitiveWhileUnpublished(List<JCRNodeWrapper> published) {
         if (published.isEmpty()) {
             return Set.of();
         }
         try {
-            return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, WORKSPACE_DEFAULT, null, session -> {
-                Set<String> marked = new HashSet<>();
-                for (JCRNodeWrapper field : published) {
-                    String identifier = null;
-                    try {
-                        identifier = field.getIdentifier();
-                        if (SensitiveField.isSensitive(session.getNodeByIdentifier(identifier))) {
-                            marked.add(identifier);
-                        }
-                    } catch (RepositoryException e) {
-                        // A field that cannot be read counts as sensitive, the policy markedSensitiveIn
-                        // already applies: getNodeByIdentifier rethrows every provider failure wrapped in an
-                        // ItemNotFoundException, so a transient error is indistinguishable from a field
-                        // deleted since publication — and reading it as "not marked" would send the value in
-                        // exactly the window this method exists to close. The cost is one held-back value per
-                        // submission for a field really deleted, until the next publication.
-                        log.warn("[SubmissionEventEnricher] A field's editor flag could not be read: its value is not sent", e);
-                        if (identifier != null) {
-                            marked.add(identifier);
-                        }
-                    }
-                }
-                return marked;
-            });
+            return inDefaultWorkspace(session -> markedIn(session, published));
         } catch (RepositoryException | RuntimeException e) {
             log.warn("[SubmissionEventEnricher] The editor's sensitive flags could not be read; the published ones stand for this submission", e);
             return Set.of();
         }
+    }
+
+    /** The session the editor's answer is read in — a seam for the tests, which have no repository. */
+    <T> T inDefaultWorkspace(JCRCallback<T> callback) throws RepositoryException {
+        return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, WORKSPACE_DEFAULT, null, callback);
+    }
+
+    /** The identifiers that session reports as sensitive, one field's failure counting as sensitive. */
+    private static Set<String> markedIn(JCRSessionWrapper session, List<JCRNodeWrapper> published) {
+        Set<String> marked = new HashSet<>();
+        for (JCRNodeWrapper field : published) {
+            String identifier = null;
+            try {
+                identifier = field.getIdentifier();
+                if (SensitiveField.isSensitive(session.getNodeByIdentifier(identifier))) {
+                    marked.add(identifier);
+                }
+            } catch (RepositoryException | RuntimeException e) {
+                // A field that cannot be read counts as sensitive, the policy markedSensitiveIn
+                // already applies: getNodeByIdentifier rethrows every provider failure wrapped in an
+                // ItemNotFoundException, so a transient error is indistinguishable from a field
+                // deleted since publication — and reading it as "not marked" would send the value in
+                // exactly the window this method exists to close. The cost is one held-back value per
+                // submission for a field really deleted, until the next publication.
+                log.warn("[SubmissionEventEnricher] A field's editor flag could not be read: its value is not sent", e);
+                if (identifier != null) {
+                    marked.add(identifier);
+                }
+            }
+        }
+        return marked;
     }
 
     /** The query of the fields carrying the marker — a seam for the tests, which have no query engine. */

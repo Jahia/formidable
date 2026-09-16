@@ -4,11 +4,14 @@ import org.jahia.modules.formidable.engine.api.AcceptedSubmission;
 import org.jahia.modules.formidable.engine.api.ChoiceOptionsResolver;
 import org.jahia.modules.jexperience.admin.ContextServerService;
 import org.jahia.modules.jexperience.admin.ContextServerStatus;
+import org.jahia.services.content.JCRCallback;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRPropertyWrapper;
+import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.decorator.JCRSiteNode;
 import org.junit.jupiter.api.Test;
 
+import javax.jcr.ItemNotFoundException;
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import java.util.Iterator;
@@ -126,6 +129,24 @@ class SubmissionEventEnricherTest {
             @Override
             Set<String> markedSensitiveWhileUnpublished(List<JCRNodeWrapper> published) {
                 return markedInTheEditor;
+            }
+        };
+    }
+
+    /** An enricher that really reads the editor's answer, in the given session instead of a repository one. */
+    private static SubmissionEventEnricher enricherReadingTheEditor(List<JCRNodeWrapper> fields, JCRSessionWrapper editor) throws RepositoryException {
+        ChoiceOptionsResolver resolver = mock(ChoiceOptionsResolver.class);
+        when(resolver.countChoices(any(), any())).thenReturn(OptionalInt.of(1));
+        NodeIterator nodes = iterator(fields);
+        return new SubmissionEventEnricher(resolver, configured("mysite")) {
+            
+            NodeIterator mappableFields(JCRNodeWrapper form) {
+                return nodes;
+            }
+
+            
+            <T> T inDefaultWorkspace(JCRCallback<T> callback) throws RepositoryException {
+                return callback.doInJCR(editor);
             }
         };
     }
@@ -339,5 +360,95 @@ class SubmissionEventEnricherTest {
 
         Map<String, Object> block = (Map<String, Object>) entries.get(SubmissionEventEnricher.KEY);
         assertEquals(Map.of("email", "ada@example.com", "fullName", "Ada"), block.get("fields"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void theEditorsAnswerIsReadFieldByFieldInTheDefaultWorkspace() throws Exception {
+        // Verifies the read itself, which the seam of the tests above stands in for: the identifiers the
+        // default workspace reports as sensitive are the ones held back, and a field live and the editor
+        // both call ordinary is sent.
+        JCRNodeWrapper markedInTheEditor = sensitive(field("nationalId", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD));
+        JCRNodeWrapper ordinary = field("fullName", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD);
+        JCRSessionWrapper editor = mock(JCRSessionWrapper.class);
+        when(editor.getNodeByIdentifier("uuid-of-nationalId")).thenReturn(markedInTheEditor);
+        when(editor.getNodeByIdentifier("uuid-of-fullName")).thenReturn(ordinary);
+
+        Map<String, Object> block = (Map<String, Object>) enricherReadingTheEditor(List.of(
+                field("nationalId", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD),
+                field("fullName", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD)), editor)
+                .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH,
+                        Map.of("nationalId", List.of("1234567890"), "fullName", List.of("Ada"))))
+                .get(SubmissionEventEnricher.KEY);
+
+        assertEquals(Map.of("fullName", "Ada"), block.get("fields"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void aFieldTheEditorCannotAnswerForIsNotSent() throws Exception {
+        // Verifies the fail-closed half of that read: getNodeByIdentifier rethrows a provider failure as an
+        // ItemNotFoundException, indistinguishable from a field deleted since publication, so an unreadable
+        // field counts as sensitive rather than as ordinary.
+        JCRNodeWrapper ordinary = field("fullName", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD);
+        JCRSessionWrapper editor = mock(JCRSessionWrapper.class);
+        when(editor.getNodeByIdentifier("uuid-of-nationalId")).thenThrow(new ItemNotFoundException("gone"));
+        when(editor.getNodeByIdentifier("uuid-of-fullName")).thenReturn(ordinary);
+
+        Map<String, Object> block = (Map<String, Object>) enricherReadingTheEditor(List.of(
+                field("nationalId", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD),
+                field("fullName", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD)), editor)
+                .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH,
+                        Map.of("nationalId", List.of("1234567890"), "fullName", List.of("Ada"))))
+                .get(SubmissionEventEnricher.KEY);
+
+        assertEquals(Map.of("fullName", "Ada"), block.get("fields"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void anUncheckedFailureOnOneFieldLeavesTheEditorsAnswerStandingForTheOthers() throws Exception {
+        // Verifies the inner catch takes unchecked failures too. Escaping it would land in the global
+        // fallback, which returns the published answer for EVERY field: the field that failed would be sent,
+        // and so would a sibling the author marked and did not publish — the window this read exists to close.
+        JCRNodeWrapper markedInTheEditor = sensitive(field("email", FieldShapes.MAPPABLE_MARKER, FieldShapes.EMAIL_FIELD));
+        JCRNodeWrapper ordinary = field("fullName", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD);
+        JCRSessionWrapper editor = mock(JCRSessionWrapper.class);
+        when(editor.getNodeByIdentifier("uuid-of-nationalId")).thenThrow(new IllegalStateException("provider down"));
+        when(editor.getNodeByIdentifier("uuid-of-email")).thenReturn(markedInTheEditor);
+        when(editor.getNodeByIdentifier("uuid-of-fullName")).thenReturn(ordinary);
+
+        Map<String, Object> block = (Map<String, Object>) enricherReadingTheEditor(List.of(
+                field("nationalId", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD),
+                field("email", FieldShapes.MAPPABLE_MARKER, FieldShapes.EMAIL_FIELD),
+                field("fullName", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD)), editor)
+                .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH, Map.of(
+                        "nationalId", List.of("1234567890"),
+                        "email", List.of("ada@example.com"),
+                        "fullName", List.of("Ada"))))
+                .get(SubmissionEventEnricher.KEY);
+
+        assertEquals(Map.of("fullName", "Ada"), block.get("fields"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void aFieldMarkedInTheEditorAlsoWithheldsItsNameFromASibling() throws Exception {
+        // The same rule as the published sibling above, on the branch the editor decides: node names are
+        // unique among siblings only, and the pipeline accumulates both values under the one name, so the
+        // name is what is withheld — excluding the node alone would let the other one send values.get(0).
+        JCRNodeWrapper markedEmail = field("email", FieldShapes.MAPPABLE_MARKER, FieldShapes.EMAIL_FIELD);
+        JCRNodeWrapper otherEmail = field("email", FieldShapes.MAPPABLE_MARKER, FieldShapes.EMAIL_FIELD);
+        when(otherEmail.getIdentifier()).thenReturn("uuid-of-the-second-email");
+
+        Map<String, Object> block = (Map<String, Object>) enricher(configured("mysite"), 1,
+                List.of(markedEmail, otherEmail, field("fullName", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD)),
+                Set.of("uuid-of-email"))
+                .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH, Map.of(
+                        "email", List.of("private@example.com", "public@example.com"),
+                        "fullName", List.of("Ada"))))
+                .get(SubmissionEventEnricher.KEY);
+
+        assertEquals(Map.of("fullName", "Ada"), block.get("fields"));
     }
 }
