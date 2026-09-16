@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test;
 
 import javax.jcr.Node;
 import java.util.Set;
-import org.jahia.modules.formidable.engine.api.FormidableMixins;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
