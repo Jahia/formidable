@@ -51,7 +51,8 @@ const getGroupedInputs = (
  * A form's own id, never the control that shadows it. `HTMLFormElement` is `[LegacyOverrideBuiltIns]`:
  * a control whose name matches an IDL attribute takes that property over, and a field's name is the
  * contributor's system name — so a field named `id` turns `form.id` into an `HTMLInputElement`, which
- * is truthy and has no `replace`. Reading the attribute cannot be shadowed.
+ * is truthy and has no `replace`. A control named `id` cannot shadow the attribute read;
+ * `getAttribute` itself could, which is accepted — no label leads a contributor to that name.
  */
 export const formIdOf = (form: HTMLFormElement | null | undefined): string =>
 	form?.getAttribute('id') ?? '';

@@ -20,7 +20,7 @@ import static org.mockito.Mockito.when;
 
 /**
  * What the filter writes before a form: the configuration block the client script reads and the
- * script tag — and nothing at all outside a jExperience-configured site or when the form cannot be read.
+ * script tag — and nothing at all outside a tracked site, or when the form cannot be read.
  */
 class FormJExperienceRenderFilterTest {
 
@@ -78,6 +78,7 @@ class FormJExperienceRenderFilterTest {
         private final boolean readable;
         private boolean unchecked;
         private String openedWorkspace;
+        private Locale openedLocale;
 
         private FilterUnderTest(JCRSessionWrapper ownSession, boolean readable) {
             this.ownSession = ownSession;
@@ -87,6 +88,7 @@ class FormJExperienceRenderFilterTest {
         @Override
         <T> T inOwnSession(String workspace, Locale locale, JCRCallback<T> callback) throws RepositoryException {
             openedWorkspace = workspace;
+            openedLocale = locale;
             if (!readable) {
                 throw new RepositoryException("gone");
             }
@@ -155,6 +157,9 @@ class FormJExperienceRenderFilterTest {
 
         assertTrue(out.contains("\"path\":\"/sites/mysite/contents/contact\""), out);
         assertEquals("live", filter.openedWorkspace);
+        // and in the page's language: the block carries the form's displayable name, so a session opened
+        // without the locale would put one language's title into every localised page
+        assertEquals(Locale.ENGLISH, filter.openedLocale);
     }
 
     @Test
@@ -181,10 +186,14 @@ class FormJExperienceRenderFilterTest {
         // under a context path answers 404 for the bare path and the script never defines its API — silently,
         // with the server still writing a block nobody reads. The version is what makes a browser holding the
         // previous script fetch the new one after an upgrade.
-        assertTrue(FormJExperienceRenderFilter.scriptUrl("/dx").startsWith("/dx" + FormJExperienceRenderFilter.SCRIPT_RESOURCE),
-                FormJExperienceRenderFilter.scriptUrl("/dx"));
-        assertTrue(FormJExperienceRenderFilter.scriptUrl(null).startsWith(FormJExperienceRenderFilter.SCRIPT_RESOURCE),
-                FormJExperienceRenderFilter.scriptUrl(null));
+        assertEquals("/dx/modules/formidable-jexperience-engine/javascript/formidable-jxp.js?v=0.5.0.SNAPSHOT",
+                FormJExperienceRenderFilter.scriptUrl("/dx", "0.5.0.SNAPSHOT"));
+        assertEquals("/modules/formidable-jexperience-engine/javascript/formidable-jxp.js?v=0.5.0.SNAPSHOT",
+                FormJExperienceRenderFilter.scriptUrl(null, "0.5.0.SNAPSHOT"));
+        // outside a framework there is no version to give, and the URL is still the right path
+        assertEquals("/modules/formidable-jexperience-engine/javascript/formidable-jxp.js",
+                FormJExperienceRenderFilter.scriptUrl(null, ""));
+        assertEquals(FormJExperienceRenderFilter.scriptUrl(null, ""), FormJExperienceRenderFilter.scriptUrl(null));
     }
 
     @Test

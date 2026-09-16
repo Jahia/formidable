@@ -42,7 +42,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * and {@link SensitiveField}, the author's per-field "this value never leaves the site". A value is
  * a string, or a list when the field holds several values (a checkbox group, a multiple select), the
  * shape the mapping rule expects: {@link FieldShapes} decides both. Nothing is added for a site
- * without a jExperience configuration.</p>
+ * whose pages carry no tracker ({@link JExperienceSite#tracked}): there would be nobody to read it.</p>
  */
 @Component(service = SubmissionResponseEnricher.class, immediate = true)
 public class SubmissionEventEnricher implements SubmissionResponseEnricher {
@@ -197,9 +197,18 @@ public class SubmissionEventEnricher implements SubmissionResponseEnricher {
         }
     }
 
-    /** The session the editor's answer is read in — a seam for the tests, which have no repository. */
+    /**
+     * The session the editor's answer is read in: the default workspace, since that is where an unpublished
+     * answer lives; a system session, since the submitter has no read access to it; and no locale, since the
+     * flag is not translated and binding a language the site does not have would fail the whole reading.
+     */
     <T> T inDefaultWorkspace(JCRCallback<T> callback) throws RepositoryException {
-        return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, WORKSPACE_DEFAULT, null, callback);
+        return template().doExecuteWithSystemSessionAsUser(null, WORKSPACE_DEFAULT, null, callback);
+    }
+
+    /** The repository access — a seam for the tests, which have no framework to give one. */
+    JCRTemplate template() {
+        return JCRTemplate.getInstance();
     }
 
     /** The identifiers that session reports as sensitive, one field's failure counting as sensitive. */

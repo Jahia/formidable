@@ -28,11 +28,14 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Writes, before every form of a tracked site in live, what the client script needs
- * to send the form event: a JSON block keyed on the form's UUID — identifier, title, path, mapped
- * fields — and the script itself. The output depends on the published form alone, never on the
- * visitor, so the fragment stays cached and identical for everyone. The script tag comes with each
+ * to send the form event: a JSON block keyed on the form's UUID — {@code formId}, {@code name} and
+ * {@code path} — and the script itself. What the form maps is not in it: the accepted values reach the script through
+ * the submission's answer, so the page says nothing about the mappings (see {@code block}).
+ *
+ * <p>The output depends on the published form alone, never on the visitor, so the fragment stays
+ * cached and identical for everyone. The script tag comes with each
  * form of a page; the script keeps one instance per page by itself. The prefill push
- * ({@code digitalDataOverrides}) belongs to phase 4 of the integration.
+ * ({@code digitalDataOverrides}) belongs to phase 4 of the integration.</p>
  */
 @Component(service = RenderFilter.class, immediate = true)
 public class FormJExperienceRenderFilter extends AbstractFilter {
@@ -135,9 +138,20 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
      * the previous script fetches the new one after an upgrade instead of running it against a changed block.
      */
     static String scriptUrl(String contextPath) {
+        return scriptUrl(contextPath, bundleVersion());
+    }
+
+    /** The module's version, or nothing outside a framework — the tests have none. */
+    private static String bundleVersion() {
         Bundle bundle = FrameworkUtil.getBundle(FormJExperienceRenderFilter.class);
-        String version = bundle == null ? "" : "?v=" + bundle.getVersion();
-        return (contextPath == null ? "" : contextPath) + SCRIPT_RESOURCE + version;
+        return bundle == null ? "" : bundle.getVersion().toString();
+    }
+
+    /** Both halves of the URL, apart so that a test can assert the one a framework would give. */
+    static String scriptUrl(String contextPath, String version) {
+        return (contextPath == null ? "" : contextPath)
+                + SCRIPT_RESOURCE
+                + (version.isEmpty() ? "" : "?v=" + version);
     }
 
     /**

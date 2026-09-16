@@ -5,6 +5,7 @@ import org.jahia.modules.formidable.engine.api.ChoiceOptionsResolver;
 import org.jahia.modules.jexperience.admin.ContextServerService;
 import org.jahia.modules.jexperience.admin.ContextServerStatus;
 import org.jahia.services.content.JCRCallback;
+import org.jahia.services.content.JCRTemplate;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRPropertyWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import javax.jcr.ItemNotFoundException;
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.HashMap;
 import java.util.List;
@@ -23,6 +25,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -135,9 +138,16 @@ class SubmissionEventEnricherTest {
 
     /** An enricher that really reads the editor's answer, in the given session instead of a repository one. */
     private static SubmissionEventEnricher enricherReadingTheEditor(List<JCRNodeWrapper> fields, JCRSessionWrapper editor) throws RepositoryException {
+        return enricherReadingTheEditor(fields, editor, new ArrayList<>());
+    }
+
+    /** The same, keeping how the session was asked for: the user, the workspace and the locale, in that order. */
+    private static SubmissionEventEnricher enricherReadingTheEditor(List<JCRNodeWrapper> fields, JCRSessionWrapper editor,
+                                                                    List<Object> arguments) throws RepositoryException {
         ChoiceOptionsResolver resolver = mock(ChoiceOptionsResolver.class);
         when(resolver.countChoices(any(), any())).thenReturn(OptionalInt.of(1));
         NodeIterator nodes = iterator(fields);
+        JCRTemplate repository = repositoryOf(editor, arguments);
         return new SubmissionEventEnricher(resolver, configured("mysite")) {
             @Override
             NodeIterator mappableFields(JCRNodeWrapper form) {
@@ -145,10 +155,23 @@ class SubmissionEventEnricherTest {
             }
 
             @Override
-            <T> T inDefaultWorkspace(JCRCallback<T> callback) throws RepositoryException {
-                return callback.doInJCR(editor);
+            JCRTemplate template() {
+                return repository;
             }
         };
+    }
+
+    /** A JCRTemplate that runs the callback against the given session, recording how it was asked for one. */
+    private static JCRTemplate repositoryOf(JCRSessionWrapper session, List<Object> arguments) throws RepositoryException {
+        JCRTemplate template = mock(JCRTemplate.class);
+        when(template.doExecuteWithSystemSessionAsUser(any(), any(), any(), any())).thenAnswer(call -> {
+            arguments.clear();
+            arguments.add(call.getArgument(0));
+            arguments.add(call.getArgument(1));
+            arguments.add(call.getArgument(2));
+            return ((JCRCallback<?>) call.getArgument(3)).doInJCR(session);
+        });
+        return template;
     }
 
     @Test
@@ -450,5 +473,26 @@ class SubmissionEventEnricherTest {
                 .get(SubmissionEventEnricher.KEY);
 
         assertEquals(Map.of("fullName", "Ada"), block.get("fields"));
+    }
+    @Test
+    void theEditorIsReadInASystemSessionOfTheDefaultWorkspaceWithNoLocale() throws Exception {
+        // Verifies the three choices made on the one line that opens that session, none of which any other test
+        // can see. The workspace is the whole point of the reading: default is where an unpublished answer lives,
+        // and a regression to live reopens the publish window this control exists to close with every other
+        // assertion still green. The session is a system one because the submitter cannot read that answer, and
+        // no locale is bound because the flag is not translated — binding a language the site does not have
+        // would fail the reading as a whole and fall back to the published answer for every field.
+        JCRNodeWrapper inTheEditor = field("fullName", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD);
+        JCRNodeWrapper published = field("fullName", FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD);
+        JCRSessionWrapper editor = mock(JCRSessionWrapper.class);
+        when(editor.getNodeByIdentifier("uuid-of-fullName")).thenReturn(inTheEditor);
+        List<Object> arguments = new ArrayList<>();
+
+        enricherReadingTheEditor(List.of(published), editor, arguments)
+                .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH, Map.of("fullName", List.of("Ada"))));
+
+        assertNull(arguments.get(0), "the session is opened as no user in particular, so as the system");
+        assertEquals("default", arguments.get(1));
+        assertNull(arguments.get(2), "no locale is bound to the session");
     }
 }

@@ -60,7 +60,7 @@ enrichers in this repository gate on different things, because they are not aski
 
 | Enricher | Its question | Why that one |
 |---|---|---|
-| `SubmissionEventEnricher` (jExperience integration) | does this site have a jExperience configuration? | without one there is no jCustomer to send anything to |
+| `SubmissionEventEnricher` (jExperience integration) | does this site run jExperience *and* hold settings for it? | only the pair means there is a tracker on the page, and without a tracker nothing reads the block |
 | `SampleResponseEnricher` (samples module) | does this form carry my mixin? | a module must not add its block to a form nobody pointed at it |
 
 A site, a node type, a mixin the author adds, an OSGi configuration — whatever your module already
@@ -76,7 +76,7 @@ platform, inside the request.
 | `formNode()` | The form, read in the **live** workspace in the submission's locale |
 | `siteKey()` | The key of the form's site |
 | `locale()` | The locale of the submission (the `lang` parameter of the request) |
-| `parameters()` | The accepted values by field name — declared, validated, non-file fields, each value as the submitter sent it. A snapshot: changing it changes nothing |
+| `parameters()` | The accepted values by field name — declared, validated, non-file fields, each value as the submitter sent it. A deep snapshot, immutable down to its lists: sorting or clearing one throws, and would otherwise change what the next enrichers read |
 
 Files never reach an enricher: they belong to the actions.
 
