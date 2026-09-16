@@ -1,6 +1,7 @@
 package org.jahia.modules.formidable.engine.servlet;
 
 import org.apache.commons.fileupload.servlet.ServletFileUpload;
+import org.jahia.modules.formidable.engine.api.AcceptedSubmission;
 import org.jahia.modules.formidable.engine.api.FormAction;
 import org.jahia.modules.formidable.engine.api.FormActionException;
 import org.jahia.modules.formidable.engine.actions.FormDataParser;
@@ -166,6 +167,20 @@ class FormSubmissionPipeline {
         validateLogicCoherence(req);
         validateRequired();
         dispatchActions(req);
+    }
+
+    /**
+     * What the pipeline accepted, for the response enrichers the servlet calls once {@link #run}
+     * returned: the live form node, its site, the locale and the validated parameters — declared,
+     * non-file fields only, files never leave the pipeline.
+     *
+     * @throws IllegalStateException before a run accepted a submission
+     */
+    AcceptedSubmission accepted() throws RepositoryException {
+        if (formNode == null || parsed == null) {
+            throw new IllegalStateException("the pipeline has not accepted a submission");
+        }
+        return new AcceptedSubmission(formNode, formNode.getResolveSite().getSiteKey(), locale, parsed.parameters());
     }
 
     // --- Steps ---

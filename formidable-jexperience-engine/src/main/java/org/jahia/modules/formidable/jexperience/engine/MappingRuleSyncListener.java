@@ -41,7 +41,7 @@ import java.util.Optional;
 @Component(service = DefaultEventListener.class, immediate = true)
 public class MappingRuleSyncListener extends DefaultEventListener {
 
-    static final String FORM_NODE_TYPE = FormIdentifierListener.FORM_NODE_TYPE;
+    static final String FORM_NODE_TYPE = "fmdb:form";
     static final String SCOPE = "/sites";
     /** Written by every publication on every published node: the one property event worth a look. */
     static final String PUBLICATION_MARK = "j:lastPublished";

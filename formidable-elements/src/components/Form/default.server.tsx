@@ -83,7 +83,11 @@ jahiaComponent(
 		const fieldListNode = currentNode.getNode("fields");
 		const actionListNode = currentNode.hasNode("actions") ? currentNode.getNode("actions") : null;
 		const formElements = fieldListNode ? Array.from(fieldListNode.getNodes()) : [];
-		const formId = `form-${currentNode.getIdentifier()}`;
+		// The form's UUID is its one identity: the DOM id and name, what jExperience calls the form
+		// (goals, mapping rules, the submission event) and the value of its data-form-id opt-out.
+		const formId = currentNode.getIdentifier();
+		// the title the author gave, not the fallback getDisplayableName() makes from the node name
+		const formTitle = getNodeProps<{'jcr:title'?: string}>(currentNode, ['jcr:title'])['jcr:title'];
 
 		const stepNodes = formElements.filter((el) => el.isNodeType("fmdb:step"));
 		const stepLabels = stepNodes.length > 0
@@ -118,7 +122,8 @@ jahiaComponent(
 
 		const isEditMode = renderContext.isEditMode();
 		const isSubmitDisabled = isEditMode || renderContext.isPreviewMode();
-		const submitActionUrl = `/modules/formidable-engine/form-submit?fid=${currentNode.getIdentifier()}&lang=${currentNode.getLanguage()}`;
+		// /modules/… is a mapping inside the Jahia webapp: under a context path the bare path 404s
+		const submitActionUrl = `${renderContext.getRequest().getContextPath()}/modules/formidable-engine/form-submit?fid=${currentNode.getIdentifier()}&lang=${currentNode.getLanguage()}`;
 
 		// Maintenance state: only for forms whose actions write to the repository, and only
 		// in live (contributors keep seeing the real form in edit/preview). Render-time
@@ -182,6 +187,7 @@ jahiaComponent(
 				nextBtnLabel,
 				showStepsNav,
 				formId,
+				formTitle,
 				locale: currentNode.getLanguage(),
 				stepLabels,
 				stepIds,

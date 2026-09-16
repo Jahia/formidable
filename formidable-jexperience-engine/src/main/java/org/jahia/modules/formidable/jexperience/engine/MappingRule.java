@@ -99,7 +99,7 @@ public final class MappingRule {
         metadata.put(SCOPE, mapping.siteKey());
         metadata.put("systemTags", List.of(SYSTEM_TAG));
 
-        Map<String, Object> formCondition = condition("formEventCondition", Map.of("formId", FormIdentifier.of(mapping.formUuid())));
+        Map<String, Object> formCondition = condition("formEventCondition", Map.of("formId", mapping.formUuid()));
         Map<String, Object> siteCondition = condition("sourceEventPropertyCondition", Map.of(SCOPE, mapping.siteKey()));
         Map<String, Object> anySource = condition("booleanCondition", ordered("operator", "or", "subConditions", List.of(siteCondition)));
         Map<String, Object> condition = condition("booleanCondition", ordered("operator", "and", "subConditions", List.of(formCondition, anySource)));

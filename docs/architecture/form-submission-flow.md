@@ -76,9 +76,20 @@ Browser
                         - reconstructs multipart/form-data body with pre-parsed files
                         - POSTs to resolved URI
 
-       └─ { "success": true } or { "success": false, "errorCode": "FMDB-XXX" }
+       └─ { "success": true, ...entries of the response enrichers } or { "success": false, "errorCode": "FMDB-XXX" }
   └─ show success or error message
 ```
+
+### Response enrichers
+
+Once every action succeeded, the servlet asks the `SubmissionResponseEnricher` OSGi services
+(engine `api` package) for entries to add to the `200` body, next to `success`. Each receives an
+`AcceptedSubmission` — the live form node, its site key, the locale and a snapshot of the validated
+parameters (declared, non-file fields) — and answers a map of top-level keys. An enricher never
+fails a submission: an exception is logged and its entries left out; the keys the servlet writes
+(`success`, `errorCode`, `actionsCompleted`, `actionsTotal`) cannot be overwritten; a rejected
+submission is never enriched. The jExperience module contributes its `jexperience` block this way.
+See [How to enrich the submission response](../extension/how-to-enrich-the-submission-response.md).
 
 > **DoS mitigation (defence in depth):**
 - Gate 0: cross-origin requests are rejected before the multipart pipeline starts
