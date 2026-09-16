@@ -16,9 +16,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.MANUAL_OPTIONS_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.OPTIONS_PROPERTY;
+import static org.jahia.modules.formidable.engine.migration.MigrationMarkers.MIGRATED_CHOICE_OPTIONS_MIXIN;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LANGUAGE_PROPERTY;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.MANUAL_OPTIONS_MIXIN;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.OPTIONS_PROPERTY;
 
 /**
  * Keeps the manual options of a choice field coherent across languages. An
@@ -64,8 +65,6 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.OP
  * the sync's own writes re-enter.
  */
 public final class ManualOptionsLanguageSync {
-
-    private static final String MIGRATED_MARKER_MIXIN = "fmdbmix:migratedChoiceOptions";
 
     private static final Logger log = LoggerFactory.getLogger(ManualOptionsLanguageSync.class);
 
@@ -120,7 +119,7 @@ public final class ManualOptionsLanguageSync {
         // The provenance gate: only a field the migration marked (its per-language
         // values may still translate the identity) may use the divergent-list
         // heuristics. Read once; cleared below when the languages converge.
-        boolean migrated = fieldNode.isNodeType(MIGRATED_MARKER_MIXIN);
+        boolean migrated = fieldNode.isNodeType(MIGRATED_CHOICE_OPTIONS_MIXIN);
 
         boolean updated = seeded;
         Map<String, String> valueReplacements = new LinkedHashMap<>();
@@ -147,7 +146,7 @@ public final class ManualOptionsLanguageSync {
         // nothing else changed: the marker itself is the state that must not persist.
         if (migrated) {
             fieldNode.getSession().checkout(fieldNode);
-            fieldNode.removeMixin(MIGRATED_MARKER_MIXIN);
+            fieldNode.removeMixin(MIGRATED_CHOICE_OPTIONS_MIXIN);
             updated = true;
         }
 

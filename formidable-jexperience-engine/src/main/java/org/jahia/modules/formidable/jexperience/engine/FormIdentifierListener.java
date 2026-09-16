@@ -44,6 +44,8 @@ import java.util.Set;
 @Component(service = DefaultEventListener.class, immediate = true)
 public class FormIdentifierListener extends DefaultEventListener {
 
+    // formidable-elements declares the form type, so the engine publishes no constant for it:
+    // reading it by name is the gap a form marker would close (docs/architecture/cnd-module-ownership.md).
     static final String FORM_NODE_TYPE = "fmdb:form";
     static final String WORKSPACE_DEFAULT = "default";
     static final String TRANSLATION_NODE_PREFIX = "j:translation_";

@@ -18,7 +18,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.OPTIONS_PROPERTY;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.OPTIONS_PROPERTY;
 
 /**
  * The single reading of a manual option entry's storage, shared by everything

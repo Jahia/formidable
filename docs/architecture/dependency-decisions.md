@@ -45,6 +45,7 @@ This project uses two distinct dependency strategies in its Java modules:
 - That package is the public SPI for third-party modules and currently contains:
   - `FormAction`, `FormActionException`, `SubmittedFile` — the action SPI
   - `ChoiceOptionsResolver` — the number of choices a choice field offers, counted as the views render it (manual list or options source); read by the jExperience integration for the checkbox's cardinality
+  - `FormidableNodeTypes`, `FormidableMixins`, `FormidableProperties` — the names of the content model, so a module names a node type once instead of copying the string (see `cnd-module-ownership.md`, "Naming these types from Java")
 - All other `org.jahia.modules.formidable.engine.*` packages are internal implementation details with no compatibility promise.
 
 ### Technical debt: split SPI and runtime bundles

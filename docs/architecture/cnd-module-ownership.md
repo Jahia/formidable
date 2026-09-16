@@ -124,6 +124,67 @@ definition to know which spelling to use.
 - a third-party module should be able to opt into engine behavior by applying the mixin
 - the meaning of the definition is operational rather than presentational
 
+## Naming these types from Java
+
+A node type or mixin name is written **once** in Java, in `formidable-engine`'s exported API
+package, and every reader imports it from there — the engine itself, `formidable-jexperience-engine`,
+and a module of your own:
+
+| Class in `org.jahia.modules.formidable.engine.api` | Holds |
+|---|---|
+| `FormidableNodeTypes` | the primary types the engine's CND declares — the logic storage, the built-in actions, the submission storage |
+| `FormidableMixins` | every mixin it declares — the extension surface |
+| `FormidableProperties` | the item names (properties and child nodes) another module reads on that content |
+
+```java
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FILE_FIELD_MIXIN;
+
+if (field.isNodeType(FILE_FIELD_MIXIN)) { … }
+```
+
+### What the API carries, and what it does not
+
+The two type classes carry the engine's **whole** CND vocabulary, and are checked both ways: a
+mixin added to the CND without a constant fails the build. A mixin is how a module opts into
+engine behaviour, so all of them are contract — and they are frozen already, by the content
+stored in every repository that runs Formidable.
+
+`FormidableProperties` is checked one way only. A property is local to the type that declares it
+until something outside reads it, so the class holds the names that crossed and grows when
+another does. The same asymmetry explains the two mixins that are absent: the one-shot markers of
+the 0.4 content migrations, which the CND documents as leaving in 0.6. A name documented as
+transitional is not a contract, and lives in `migration/MigrationMarkers`.
+
+These are compile-time constants, so a consumer's bytecode carries the value, not a reference to
+the class: they buy one spelling and a compiler error on a typo, not the ability to change a name
+later. That is the right trade for a node type — it is a persistence contract, and changing one is
+a content migration, never a silent update.
+
+### The two places a literal is still correct
+
+**A migration.** `formidable-engine/…/migration/` is exempt. A migration is a frozen script: it
+must keep naming the vocabulary of the release it heals, not follow the live one, exactly as a
+database migration does not import the current model. Give it its own private constant and leave
+it alone.
+
+**A name another module declares.** The engine publishes only what its own CND declares, so
+`fmdb:form`, `fmdb:checkbox` and the other concrete field types — `formidable-elements`' — have no
+constant, and the modules that read them still spell them out. That residue is the measure of a
+missing marker, not of sloppiness: under the rule above, server-side code reads a mixin. Two are
+known and open:
+
+- **the form.** `FormIdentifierListener`, the sample integrity checks and the engine each name
+  `fmdb:form`. An engine-owned marker applied to `fmdb:form` would close it and let a third-party
+  form type exist, the way `fmdbmix:captcha` already wraps `fmdbmix:captchaProtectedForm`.
+- **the checkbox.** `FieldShapes` reads `fmdb:checkbox` to tell one choice from a group, the one
+  distinction no mixin carries.
+
+### The guard
+
+`node scripts/check-nodetype-names.mjs` runs in the static-analysis job and enforces both halves:
+the parity above, and that no Java source outside those classes spells an engine-declared name
+out. It prints how many literals name another module's types, so the residue stays visible.
+
 ## Content Editor form ownership
 
 The same ownership rules should also be applied to `jahia-content-editor-forms` JSON files, but with one extra distinction:
@@ -189,7 +250,8 @@ Example:
 
 - add `fmdbmix:phoneField` in `formidable-engine`
 - make `fmdb:inputPhone` in `formidable-elements` extend that mixin
-- let the parser or validator react to `node.isNodeType("fmdbmix:phoneField")`
+- export its name as `FormidableMixins.PHONE_FIELD_MIXIN` and let the parser or validator react to
+  `node.isNodeType(PHONE_FIELD_MIXIN)`
 
 This keeps the engine coupled to semantics, not to one concrete node type name.
 

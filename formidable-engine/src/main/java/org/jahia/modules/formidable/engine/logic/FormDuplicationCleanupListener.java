@@ -15,11 +15,11 @@ import javax.jcr.observation.EventIterator;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FIELD_KEY_PROPERTY;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_LOGIC_ELEMENT_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_LOGIC_ELEMENT_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.FIELD_KEY_PROPERTY;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.LOGICS_PROPERTY;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.LOGICS_SRC_NODE;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_NODE_TYPE;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGICS_PROPERTY;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGICS_SRC_NODE;
 
 /**
  * Cleans up logic dependencies after a subtree duplication (copy/paste, import).

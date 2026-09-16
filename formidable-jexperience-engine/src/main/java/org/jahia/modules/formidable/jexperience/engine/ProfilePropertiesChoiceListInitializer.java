@@ -19,6 +19,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.CATEGORY_OPTIONS_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.CONTENT_OPTIONS_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.SOURCED_OPTIONS_MIXIN;
 
 /**
  * The {@code formidableJExperienceProfileProperties} choicelist: the profile properties a
@@ -63,7 +66,8 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
     static final String OPTIONS_PROPERTY = "options";
     static final String OPTIONS_MODE_PROPERTY = "optionsMode";
     static final String MANUAL_MODE = "manual";
-    private static final List<String> SOURCED_OPTIONS_MIXINS = List.of("fmdbmix:sourcedOptions", "fmdbmix:categoryOptions", "fmdbmix:contentOptions");
+    private static final List<String> SOURCED_OPTIONS_MIXINS =
+            List.of(SOURCED_OPTIONS_MIXIN, CATEGORY_OPTIONS_MIXIN, CONTENT_OPTIONS_MIXIN);
 
     private static final Logger log = LoggerFactory.getLogger(ProfilePropertiesChoiceListInitializer.class);
 

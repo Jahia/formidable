@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.OptionalInt;
 
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.OPTIONS_SOURCE_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.OPTIONS_PROPERTY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -23,7 +25,7 @@ class ChoiceOptionsResolverImplTest {
 
     private static JCRNodeWrapper choiceField(String... storedOptions) throws Exception {
         JCRNodeWrapper field = mock(JCRNodeWrapper.class);
-        when(field.isNodeType(ChoiceOptionsResolverImpl.OPTIONS_SOURCE_MIXIN)).thenReturn(true);
+        when(field.isNodeType(OPTIONS_SOURCE_MIXIN)).thenReturn(true);
         when(field.getPath()).thenReturn("/sites/site/contents/form/fields/choice");
         if (storedOptions.length > 0) {
             JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
@@ -33,8 +35,8 @@ class ChoiceOptionsResolverImplTest {
                 when(values[i].getString()).thenReturn(storedOptions[i]);
             }
             when(property.getValues()).thenReturn(values);
-            when(field.hasProperty(ChoiceOptionsResolverImpl.OPTIONS_PROPERTY)).thenReturn(true);
-            when(field.getProperty(ChoiceOptionsResolverImpl.OPTIONS_PROPERTY)).thenReturn(property);
+            when(field.hasProperty(OPTIONS_PROPERTY)).thenReturn(true);
+            when(field.getProperty(OPTIONS_PROPERTY)).thenReturn(property);
         }
         return field;
     }

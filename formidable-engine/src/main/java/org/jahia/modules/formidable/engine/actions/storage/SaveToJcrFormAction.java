@@ -29,12 +29,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.FORM_RESULTS_NODE_TYPE;
+import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.FORM_SUBMISSION_NODE_TYPE;
+import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.RESULTS_FOLDER_NODE_TYPE;
+import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.SAVE_TO_JCR_ACTION_NODE_TYPE;
+import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.SPLITTED_SUBMISSION_NODE_TYPE;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.PARENT_FORM_PROPERTY;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACL_NODE;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACL_NODE_TYPE;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_NODE_TYPE;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_RESULTS_NODE_TYPE;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.INHERIT_PROPERTY;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.PARENT_FORM_PROPERTY;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WORKSPACE_LIVE;
 
 /**
@@ -59,14 +63,13 @@ public class SaveToJcrFormAction implements FormAction {
      */
     private static final Set<String> KNOWN_ZONE_IDS = ZoneId.getAvailableZoneIds();
     private static final String SPLIT_CONFIG = "date,jcr:created,yyyy;date,jcr:created,MM;date,jcr:created,dd";
-    private static final String SPLIT_NODE_TYPE = "fmdb:splittedSubmission";
     private static final String FILES_NODE_NAME = "files";
     private static final DateTimeFormatter SUBMISSION_NAME_FORMATTER =
             DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
     @Override
     public String getNodeType() {
-        return "fmdb:save2jcrAction";
+        return SAVE_TO_JCR_ACTION_NODE_TYPE;
     }
 
     @Override
@@ -190,7 +193,7 @@ public class SaveToJcrFormAction implements FormAction {
 
         session.checkout(siteNode);
         try {
-            JCRNodeWrapper resultsRoot = siteNode.addNode(RESULTS_ROOT_NAME, "fmdb:resultsFolder");
+            JCRNodeWrapper resultsRoot = siteNode.addNode(RESULTS_ROOT_NAME, RESULTS_FOLDER_NODE_TYPE);
             session.save();
             return resultsRoot;
         } catch (RepositoryException e) {
@@ -221,7 +224,7 @@ public class SaveToJcrFormAction implements FormAction {
 
     private static void ensureAutoSplit(JCRNodeWrapper submissions) throws RepositoryException {
         if (!submissions.isNodeType("jmix:autoSplitFolders")) {
-            JCRAutoSplitUtils.enableAutoSplitting(submissions, SPLIT_CONFIG, SPLIT_NODE_TYPE);
+            JCRAutoSplitUtils.enableAutoSplitting(submissions, SPLIT_CONFIG, SPLITTED_SUBMISSION_NODE_TYPE);
         }
     }
 
@@ -233,7 +236,7 @@ public class SaveToJcrFormAction implements FormAction {
         session.checkout(submissions);
         String submissionName = buildSubmissionNodeName();
         String availableName = JCRContentUtils.findAvailableNodeName(submissions, submissionName);
-        JCRNodeWrapper submission = submissions.addNode(availableName, "fmdb:formSubmission");
+        JCRNodeWrapper submission = submissions.addNode(availableName, FORM_SUBMISSION_NODE_TYPE);
         submission.setProperty("origin", SUBMISSION_ORIGIN);
         setOptionalProperty(submission, "locale", req.getParameter("lang"));
         setOptionalProperty(submission, "referer", req.getHeader("Referer"));

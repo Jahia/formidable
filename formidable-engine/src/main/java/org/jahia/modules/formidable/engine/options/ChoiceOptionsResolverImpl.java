@@ -10,6 +10,9 @@ import org.slf4j.LoggerFactory;
 import javax.jcr.RepositoryException;
 import java.util.OptionalInt;
 
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.OPTIONS_SOURCE_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.OPTIONS_PROPERTY;
+
 /**
  * Counts a field's choices the way the elements' views resolve them (optionsSource.server.ts):
  * a sourced field asks {@link FormidableOptionsSourceService#resolveForField}; a manual field
@@ -19,9 +22,6 @@ import java.util.OptionalInt;
  */
 @Component(service = ChoiceOptionsResolver.class, immediate = true)
 public class ChoiceOptionsResolverImpl implements ChoiceOptionsResolver {
-
-    static final String OPTIONS_SOURCE_MIXIN = "fmdbmix:optionsSource";
-    static final String OPTIONS_PROPERTY = "options";
 
     private static final Logger log = LoggerFactory.getLogger(ChoiceOptionsResolverImpl.class);
 

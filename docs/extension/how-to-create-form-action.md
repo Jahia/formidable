@@ -6,6 +6,7 @@ Relevant runtime files:
 
 - `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/FormAction.java`
 - `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/FormActionException.java`
+- `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/FormidableNodeTypes.java`, `FormidableMixins.java`, `FormidableProperties.java` — the names of the content model, to import rather than to retype (see `docs/architecture/cnd-module-ownership.md`)
 - `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/servlet/FormSubmissionPipeline.java`
 - `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/servlet/FormSubmitServlet.java`
 - `formidable-engine/src/main/resources/META-INF/definitions.cnd`

@@ -31,10 +31,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.AUTHENTICATED_ONLY_FORM_MIXIN;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.CAPTCHA_PROTECTED_FORM_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.AUTHENTICATED_ONLY_FORM_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.CAPTCHA_PROTECTED_FORM_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.READ_ONLY_COMPATIBLE_ACTION_MIXIN;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_NODE_TYPE;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.READ_ONLY_COMPATIBLE_ACTION_MIXIN;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WORKSPACE_LIVE;
 
 /**
