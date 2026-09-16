@@ -139,12 +139,12 @@ class SubmissionEventEnricherTest {
         when(resolver.countChoices(any(), any())).thenReturn(OptionalInt.of(1));
         NodeIterator nodes = iterator(fields);
         return new SubmissionEventEnricher(resolver, configured("mysite")) {
-            
+            @Override
             NodeIterator mappableFields(JCRNodeWrapper form) {
                 return nodes;
             }
 
-            
+            @Override
             <T> T inDefaultWorkspace(JCRCallback<T> callback) throws RepositoryException {
                 return callback.doInJCR(editor);
             }
