@@ -144,7 +144,13 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
      * cache filter replays what a cached fragment declared.</p>
      */
     static String scriptAsset(String contextPath) {
-        return "<jahia:resource type=\"javascript\" path=\"" + scriptUrl(contextPath) + "\" insert=\"false\" defer=\"true\" />\n";
+        // key="" rather than no key at all: StaticAssetsFilter skips a declaration whose key it has already
+        // seen, and it keeps those keys in one set for the whole page — so a keyless marker is deduplicated
+        // against every other keyless marker, ours or another module's, instead of against its own path.
+        // The empty key takes the branch that merges by path, which is the deduplication we want. It is what
+        // AddResourcesTag writes when a JSP tag leaves the attribute out.
+        return "<jahia:resource type=\"javascript\" path=\"" + scriptUrl(contextPath)
+                + "\" insert=\"false\" key=\"\" defer=\"true\" />\n";
     }
 
     /**

@@ -146,7 +146,7 @@ class FormJExperienceRenderFilterTest {
         assertEquals("<script type=\"application/json\" data-formidable-jxp=\"" + FORM_UUID + "\">"
                 + "{\"formId\":\"" + FORM_UUID + "\",\"name\":\"Contact us\",\"path\":\"/sites/mysite/contents/contact\"}</script>\n"
                 + "<jahia:resource type=\"javascript\" path=\"" + FormJExperienceRenderFilter.scriptUrl("")
-                + "\" insert=\"false\" defer=\"true\" />\n"
+                + "\" insert=\"false\" key=\"\" defer=\"true\" />\n"
                 + "<form></form>", out);
     }
 
