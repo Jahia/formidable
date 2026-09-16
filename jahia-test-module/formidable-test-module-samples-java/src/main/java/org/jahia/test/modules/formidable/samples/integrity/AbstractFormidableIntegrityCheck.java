@@ -20,6 +20,7 @@ import java.util.Set;
 
 import static org.jahia.modules.formidable.engine.api.FormidableMixins.FILE_FIELD_MIXIN;
 import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ELEMENT_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ROOT_MIXIN;
 import static org.jahia.modules.formidable.engine.api.FormidableMixins.NON_SUBMITTABLE_MIXIN;
 import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.FORM_RESULTS_NODE_TYPE;
 import static org.jahia.modules.formidable.engine.api.FormidableProperties.LOGICS_PROPERTY;
@@ -35,7 +36,6 @@ abstract class AbstractFormidableIntegrityCheck extends AbstractContentIntegrity
 
     // The authoring model formidable-elements declares, for which the engine publishes no
     // constant — see docs/architecture/cnd-module-ownership.md.
-    protected static final String FMDB_FORM = "fmdb:form";
     protected static final String FMDB_FORM_REFERENCE = "fmdb:formReference";
     protected static final String FIELDS_NODE = "fields";
 
@@ -172,7 +172,7 @@ abstract class AbstractFormidableIntegrityCheck extends AbstractContentIntegrity
     protected JCRNodeWrapper findOwningForm(JCRNodeWrapper node) throws RepositoryException {
         JCRNodeWrapper current = node;
         while (current != null) {
-            if (current.isNodeType(FMDB_FORM)) {
+            if (current.isNodeType(FORM_ROOT_MIXIN)) {
                 return current;
             }
 

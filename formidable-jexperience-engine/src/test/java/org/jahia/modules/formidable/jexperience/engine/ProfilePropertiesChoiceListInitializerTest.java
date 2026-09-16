@@ -296,7 +296,7 @@ class ProfilePropertiesChoiceListInitializerTest {
     // ---- the checkbox: its shape follows its number of choices, as the view renders it ----
 
     private static JCRNodeWrapper checkbox(String... sourceMixins) throws Exception {
-        JCRNodeWrapper node = fieldNode(null, null, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.CHOICE_FIELD_MIXIN, FieldShapes.CHECKBOX_TYPE);
+        JCRNodeWrapper node = fieldNode(null, null, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.CHOICE_FIELD_MIXIN, FormidableMixins.CARDINALITY_FROM_CHOICES_MIXIN);
         for (String mixin : sourceMixins) {
             when(node.isNodeType(mixin)).thenReturn(true);
         }
@@ -337,7 +337,7 @@ class ProfilePropertiesChoiceListInitializerTest {
         NodeType checkboxType = mock(NodeType.class);
         when(checkboxType.isNodeType(FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN)).thenReturn(true);
         when(checkboxType.isNodeType(FormidableMixins.CHOICE_FIELD_MIXIN)).thenReturn(true);
-        when(checkboxType.isNodeType(FieldShapes.CHECKBOX_TYPE)).thenReturn(true);
+        when(checkboxType.isNodeType(FormidableMixins.CARDINALITY_FROM_CHOICES_MIXIN)).thenReturn(true);
         JCRNodeWrapper parent = mock(JCRNodeWrapper.class);
         JCRSiteNode parentSite = site();
         when(parent.getResolveSite()).thenReturn(parentSite);

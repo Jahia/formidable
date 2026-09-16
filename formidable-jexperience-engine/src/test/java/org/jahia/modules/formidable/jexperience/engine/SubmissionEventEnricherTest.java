@@ -182,7 +182,7 @@ class SubmissionEventEnricherTest {
         // lists even with one value, a field the submitter left out is absent, an unknown parameter never appears.
         List<JCRNodeWrapper> fields = List.of(
                 field("firstName", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN),
-                field("check-me", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.CHOICE_FIELD_MIXIN, FieldShapes.CHECKBOX_TYPE),
+                field("check-me", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.CHOICE_FIELD_MIXIN, FormidableMixins.CARDINALITY_FROM_CHOICES_MIXIN),
                 multiple(field("topics", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.CHOICE_FIELD_MIXIN)),
                 field("nickname", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN));
         Map<String, List<String>> parameters = Map.of(
@@ -206,7 +206,7 @@ class SubmissionEventEnricherTest {
         // dropped; a single checkbox is one string.
         List<JCRNodeWrapper> fields = List.of(
                 field("upload", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.FILE_FIELD_MIXIN),
-                field("consent", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.CHOICE_FIELD_MIXIN, FieldShapes.CHECKBOX_TYPE));
+                field("consent", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.CHOICE_FIELD_MIXIN, FormidableMixins.CARDINALITY_FROM_CHOICES_MIXIN));
         Map<String, Object> entries = enricher(configured("mysite"), 1, fields)
                 .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH, Map.of("upload", List.of("f.txt"), "consent", List.of("yes"))));
 

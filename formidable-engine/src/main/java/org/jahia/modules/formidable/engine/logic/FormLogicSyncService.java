@@ -17,9 +17,9 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_LOGIC_ELEMENT_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ROOT_MIXIN;
 import static org.jahia.modules.formidable.engine.api.FormidableProperties.LOGICS_PROPERTY;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FIELDS_NODE;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_NODE_TYPE;
 
 /**
  * Idempotent service that keeps the logicsSrc child structure in sync
@@ -243,7 +243,7 @@ public final class FormLogicSyncService {
 
     static JCRNodeWrapper findFormAncestor(JCRNodeWrapper node) throws RepositoryException {
         for (JCRItemWrapper ancestor : node.getAncestors()) {
-            if (ancestor instanceof JCRNodeWrapper n && n.isNodeType(FORM_NODE_TYPE)) {
+            if (ancestor instanceof JCRNodeWrapper n && n.isNodeType(FORM_ROOT_MIXIN)) {
                 return n;
             }
         }

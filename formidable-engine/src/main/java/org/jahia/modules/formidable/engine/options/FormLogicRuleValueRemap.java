@@ -15,8 +15,8 @@ import java.util.List;
 import java.util.Map;
 
 import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_LOGIC_ELEMENT_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ROOT_MIXIN;
 import static org.jahia.modules.formidable.engine.api.FormidableProperties.LOGICS_PROPERTY;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_NODE_TYPE;
 
 /**
  * Follows a choice field's value realignment into the logic rules that reference it.
@@ -58,7 +58,7 @@ final class FormLogicRuleValueRemap {
 
     private static JCRNodeWrapper formAncestor(JCRNodeWrapper node) throws RepositoryException {
         for (JCRNodeWrapper current = node; current != null; current = parentOrNull(current)) {
-            if (current.isNodeType(FORM_NODE_TYPE)) {
+            if (current.isNodeType(FORM_ROOT_MIXIN)) {
                 return current;
             }
         }

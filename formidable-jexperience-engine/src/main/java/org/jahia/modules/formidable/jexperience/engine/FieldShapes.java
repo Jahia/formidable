@@ -12,6 +12,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 
 import static org.jahia.modules.formidable.engine.api.FormidableMixins.BOOLEAN_FIELD_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.CARDINALITY_FROM_CHOICES_MIXIN;
 import static org.jahia.modules.formidable.engine.api.FormidableMixins.CHOICE_FIELD_MIXIN;
 import static org.jahia.modules.formidable.engine.api.FormidableMixins.COLOR_FIELD_MIXIN;
 import static org.jahia.modules.formidable.engine.api.FormidableMixins.DATETIME_LOCAL_FIELD_MIXIN;
@@ -34,21 +35,11 @@ import static org.jahia.modules.formidable.engine.api.FormidableMixins.TEXT_FIEL
  */
 public final class FieldShapes {
 
-    /**
-     * The checkbox is the one choice field with no "multiple" property: the renderer draws one
-     * input, submitting one value, for exactly one choice, and a group otherwise — so does the
-     * shape, from the same count (the engine's ChoiceOptionsResolver, or the options the editor
-     * holds unsaved). A count the source cannot give is a group.
-     * <p>
-     * The one concrete type name this class reads, because no mixin carries that distinction yet:
-     * formidable-elements declares it, so the engine publishes no constant for it.
-     */
-    static final String CHECKBOX_TYPE = "fmdb:checkbox";
     static final String MULTIPLE_PROPERTY = "multiple";
 
     private static final List<String> RELEVANT_TYPES = List.of(PROFILE_MAPPABLE_FIELD_MIXIN, FILE_FIELD_MIXIN,
             EMAIL_FIELD_MIXIN, CHOICE_FIELD_MIXIN, NUMBER_FIELD_MIXIN, BOOLEAN_FIELD_MIXIN, DATE_FIELD_MIXIN,
-            DATETIME_LOCAL_FIELD_MIXIN, COLOR_FIELD_MIXIN, TEXT_FIELD_MIXIN, CHECKBOX_TYPE);
+            DATETIME_LOCAL_FIELD_MIXIN, COLOR_FIELD_MIXIN, TEXT_FIELD_MIXIN, CARDINALITY_FROM_CHOICES_MIXIN);
 
     private static final Set<String> STRING = Set.of("string");
     private static final Set<String> EMAIL = Set.of("email", "string");
@@ -115,7 +106,7 @@ public final class FieldShapes {
         }
         if (isNodeType.test(CHOICE_FIELD_MIXIN)) {
             // the count is asked here only: the other choice fields never need it
-            boolean multivalued = isNodeType.test(CHECKBOX_TYPE) ? isAGroup(choiceCount.get()) : flag.test(MULTIPLE_PROPERTY);
+            boolean multivalued = isNodeType.test(CARDINALITY_FROM_CHOICES_MIXIN) ? isAGroup(choiceCount.get()) : flag.test(MULTIPLE_PROPERTY);
             return Optional.of(new FieldShape(STRING, multivalued));
         }
         if (isNodeType.test(NUMBER_FIELD_MIXIN)) {

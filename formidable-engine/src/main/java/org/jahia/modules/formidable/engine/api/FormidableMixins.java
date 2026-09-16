@@ -22,7 +22,8 @@ public final class FormidableMixins {
     public static final String FORM_ACTION_MIXIN = "fmdbmix:formAction";
     public static final String READ_ONLY_COMPATIBLE_ACTION_MIXIN = "fmdbmix:readOnlyCompatibleAction";
 
-    // Form tree: what carries logic, what contains, what submits
+    // Form tree: the root, what carries logic, what contains, what submits
+    public static final String FORM_ROOT_MIXIN = "fmdbmix:formRoot";
     public static final String FORM_LOGIC_ELEMENT_MIXIN = "fmdbmix:formLogicElement";
     public static final String FORM_CONTAINER_MIXIN = "fmdbmix:formContainer";
     public static final String FORM_STEP_MIXIN = "fmdbmix:formStep";
@@ -43,6 +44,7 @@ public final class FormidableMixins {
 
     // The kind of value a field holds, which decides the conditional-logic operators it offers
     public static final String CHOICE_FIELD_MIXIN = "fmdbmix:choiceField";
+    public static final String CARDINALITY_FROM_CHOICES_MIXIN = "fmdbmix:cardinalityFromChoices";
     public static final String NUMBER_FIELD_MIXIN = "fmdbmix:numberField";
     public static final String BOOLEAN_FIELD_MIXIN = "fmdbmix:booleanField";
     public static final String TEXT_FIELD_MIXIN = "fmdbmix:textField";

@@ -2,13 +2,9 @@ package org.jahia.modules.formidable.engine.util;
 
 /**
  * The names the engine reads that are not its own to publish: Jahia's own types and properties,
- * and the two names of the authoring model — the form and its fields container — that
- * formidable-elements declares. Everything the engine's CND declares lives in the exported
- * api package instead (FormidableNodeTypes, FormidableMixins, FormidableProperties), so that
- * another module names it once.
- * <p>
- * The form has no engine-owned marker yet, which is why its type name is still read here and
- * copied in the jExperience engine and in the sample integrity checks — see
+ * and the names of the authoring model that formidable-elements declares. Everything the engine's
+ * CND declares lives in the exported api package instead (FormidableNodeTypes, FormidableMixins,
+ * FormidableProperties), so that another module names it once — see
  * docs/architecture/cnd-module-ownership.md, "Naming these types from Java".
  */
 public final class FormidableJcrConstants {
@@ -24,7 +20,6 @@ public final class FormidableJcrConstants {
     public static final String TRANSLATION_NODE_PREFIX = "j:translation_";
 
     // Declared by formidable-elements
-    public static final String FORM_NODE_TYPE = "fmdb:form";
     public static final String FIELDS_NODE = "fields";
     public static final String COMPONENT_MIXIN = "fmdbmix:component";
 

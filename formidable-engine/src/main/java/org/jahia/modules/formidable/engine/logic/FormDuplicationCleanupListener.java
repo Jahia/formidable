@@ -16,10 +16,10 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_LOGIC_ELEMENT_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ROOT_MIXIN;
 import static org.jahia.modules.formidable.engine.api.FormidableProperties.FIELD_KEY_PROPERTY;
 import static org.jahia.modules.formidable.engine.api.FormidableProperties.LOGICS_PROPERTY;
 import static org.jahia.modules.formidable.engine.api.FormidableProperties.LOGICS_SRC_NODE;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_NODE_TYPE;
 
 /**
  * Cleans up logic dependencies after a subtree duplication (copy/paste, import).
@@ -54,7 +54,7 @@ public class FormDuplicationCleanupListener extends DefaultEventListener {
 
     @Override
     public String[] getNodeTypes() {
-        return new String[]{FORM_NODE_TYPE, FORM_LOGIC_ELEMENT_MIXIN};
+        return new String[]{FORM_ROOT_MIXIN, FORM_LOGIC_ELEMENT_MIXIN};
     }
 
     @Override
@@ -87,7 +87,7 @@ public class FormDuplicationCleanupListener extends DefaultEventListener {
             return;
         }
 
-        JCRNodeWrapper formNode = node.isNodeType(FORM_NODE_TYPE)
+        JCRNodeWrapper formNode = node.isNodeType(FORM_ROOT_MIXIN)
                 ? node
                 : FormLogicSyncService.findFormAncestor(node);
 
@@ -98,7 +98,7 @@ public class FormDuplicationCleanupListener extends DefaultEventListener {
         // A copied subtree inside an existing form may collide with the
         // original's fieldKeys; remap them before the weakref cleanup so
         // key-based resolution binds the copy to its own internal sources.
-        boolean changed = !node.isNodeType(FORM_NODE_TYPE)
+        boolean changed = !node.isNodeType(FORM_ROOT_MIXIN)
                 && FormLogicSyncService.remapFieldKeysAfterCopy(node, formNode);
 
         changed |= FormLogicSyncService.cleanupAfterDuplication(formNode);
@@ -141,7 +141,7 @@ public class FormDuplicationCleanupListener extends DefaultEventListener {
             return hasLogicContent(node);
         }
 
-        return node.isNodeType(FORM_NODE_TYPE) && containsLogicContent(node);
+        return node.isNodeType(FORM_ROOT_MIXIN) && containsLogicContent(node);
     }
 
     private static boolean containsLogicContent(JCRNodeWrapper node) throws RepositoryException {

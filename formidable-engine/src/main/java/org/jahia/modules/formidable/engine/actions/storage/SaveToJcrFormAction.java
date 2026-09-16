@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ROOT_MIXIN;
 import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.FORM_RESULTS_NODE_TYPE;
 import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.FORM_SUBMISSION_NODE_TYPE;
 import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.RESULTS_FOLDER_NODE_TYPE;
@@ -40,7 +41,6 @@ import static org.jahia.modules.formidable.engine.api.FormidableProperties.PAREN
 import static org.jahia.modules.formidable.engine.api.FormidableProperties.SUBMISSIONS_NODE;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACL_NODE;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACL_NODE_TYPE;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_NODE_TYPE;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.INHERIT_PROPERTY;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WORKSPACE_LIVE;
 
@@ -123,7 +123,7 @@ public class SaveToJcrFormAction implements FormAction {
             }
 
             JCRNodeWrapper formNode = actionListNode.getParent();
-            if (formNode == null || !formNode.isNodeType(FORM_NODE_TYPE)) {
+            if (formNode == null || !formNode.isNodeType(FORM_ROOT_MIXIN)) {
                 throw FormActionException.serverError("The JCR storage action parent form could not be resolved.");
             }
 

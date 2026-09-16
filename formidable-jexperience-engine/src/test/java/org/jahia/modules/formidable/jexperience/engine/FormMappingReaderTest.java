@@ -76,9 +76,9 @@ class FormMappingReaderTest {
         // Verifies the dropdown's rule at publication: a checkbox turned group cannot feed a single-valued
         // property, a property gone from the schema is not mapped, a blank mapping is no mapping.
         FormMappingReader groupReader = new FormMappingReader(catalog(), counting(3));
-        assertTrue(groupReader.fieldMappingOf(field("check-me", "gender", null, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.CHOICE_FIELD_MIXIN, FieldShapes.CHECKBOX_TYPE), SCHEMA, "en").isEmpty());
+        assertTrue(groupReader.fieldMappingOf(field("check-me", "gender", null, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.CHOICE_FIELD_MIXIN, FormidableMixins.CARDINALITY_FROM_CHOICES_MIXIN), SCHEMA, "en").isEmpty());
         FormMappingReader singleReader = new FormMappingReader(catalog(), counting(1));
-        assertTrue(singleReader.fieldMappingOf(field("check-me", "gender", null, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.CHOICE_FIELD_MIXIN, FieldShapes.CHECKBOX_TYPE), SCHEMA, "en").isPresent());
+        assertTrue(singleReader.fieldMappingOf(field("check-me", "gender", null, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.CHOICE_FIELD_MIXIN, FormidableMixins.CARDINALITY_FROM_CHOICES_MIXIN), SCHEMA, "en").isPresent());
         assertTrue(singleReader.fieldMappingOf(field("nick", "nickname", null, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN), SCHEMA, "en").isEmpty());
         assertTrue(singleReader.fieldMappingOf(field("free", "", null, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN), SCHEMA, "en").isEmpty());
         assertTrue(singleReader.fieldMappingOf(field("upload", "firstName", null, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.FILE_FIELD_MIXIN), SCHEMA, "en").isEmpty());

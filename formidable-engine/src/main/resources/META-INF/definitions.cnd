@@ -62,6 +62,13 @@
 [fmdbmix:formElement] > mix:title, fmdbmix:formLogicElement mixin
 orderable
 
+// Marks the root of a form: the node the submission pipeline resolves, the ACL sync follows and
+// the results reference. It is the entry point of the whole tree, which is why the engine reads
+// this rather than fmdb:form — the concrete type formidable-elements declares — and why a module
+// of its own can offer another form type by carrying this mixin, as it already can offer another
+// field type by carrying fmdbmix:formElement.
+[fmdbmix:formRoot] mixin
+
 // Classification mixins used by the engine to interpret form field semantics
 // without coupling to concrete field node type names from formidable-elements.
 [fmdbmix:captchaProtectedForm] mixin
@@ -205,6 +212,11 @@ orderable
  - fmdb:maxRelativeUnit (string) hidden indexed=no
 
 [fmdbmix:choiceField] > fmdbmix:optionsSource mixin
+// A choice field whose cardinality is its number of choices, not a "multiple" property: the view
+// draws one input per choice, so one choice submits one value and several submit a list. The
+// built-in checkbox is that field; the select and the email input take their cardinality from the
+// "multiple" property instead, and a choice field carrying neither is single-valued.
+[fmdbmix:cardinalityFromChoices] mixin
 // Semantic value-kind mixins: a field type carrying one becomes eligible as a
 // conditional-logic source with the operators of that kind (number: comparisons,
 // boolean: is true / is false, text: filled / empty / equals / contains).
