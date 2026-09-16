@@ -8,9 +8,11 @@ package org.jahia.modules.formidable.engine.api;
  * See docs/architecture/cnd-module-ownership.md.
  * <p>
  * Two mixins are missing on purpose: the one-shot markers of the 0.4 content migrations
- * ({@code fmdbmix:elementsReactivated}, {@code fmdbmix:migratedChoiceOptions}), whose
- * declarations are scheduled to leave with the migrations that stamp them. A name that is
- * documented as transitional is not a contract, so it stays with its migration.
+ * ({@code fmdbmix:elementsReactivated}, {@code fmdbmix:migratedChoiceOptions}). Each records
+ * that a migration has already healed a node, which is the engine talking to itself; their
+ * declarations outlive the migrations, so that content still carrying one stays valid, but
+ * publishing the names would freeze as contract something no other module has a reason to
+ * read. They stay with the migrations, in {@code migration/MigrationMarkers}.
  * <p>
  * These are compile-time constants — see {@link FormidableNodeTypes} for what that implies.
  */

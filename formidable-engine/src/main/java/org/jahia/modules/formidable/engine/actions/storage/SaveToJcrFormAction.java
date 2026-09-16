@@ -34,7 +34,10 @@ import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.FORM_S
 import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.RESULTS_FOLDER_NODE_TYPE;
 import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.SAVE_TO_JCR_ACTION_NODE_TYPE;
 import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.SPLITTED_SUBMISSION_NODE_TYPE;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.DATA_NODE;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.FILES_NODE;
 import static org.jahia.modules.formidable.engine.api.FormidableProperties.PARENT_FORM_PROPERTY;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.SUBMISSIONS_NODE;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACL_NODE;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACL_NODE_TYPE;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_NODE_TYPE;
@@ -63,7 +66,6 @@ public class SaveToJcrFormAction implements FormAction {
      */
     private static final Set<String> KNOWN_ZONE_IDS = ZoneId.getAvailableZoneIds();
     private static final String SPLIT_CONFIG = "date,jcr:created,yyyy;date,jcr:created,MM;date,jcr:created,dd";
-    private static final String FILES_NODE_NAME = "files";
     private static final DateTimeFormatter SUBMISSION_NAME_FORMATTER =
             DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
@@ -92,7 +94,7 @@ public class SaveToJcrFormAction implements FormAction {
             JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, null, systemSession -> {
                 JCRNodeWrapper sysFormNode = systemSession.getNodeByIdentifier(formNodeId);
                 JCRNodeWrapper formResults = resolveOrCreateFormResults(sysFormNode, systemSession);
-                JCRNodeWrapper submissions = formResults.getNode("submissions");
+                JCRNodeWrapper submissions = formResults.getNode(SUBMISSIONS_NODE);
                 ensureAutoSplit(submissions);
 
                 JCRNodeWrapper submission = createSubmissionNode(submissions, req, systemSession);
@@ -289,7 +291,7 @@ public class SaveToJcrFormAction implements FormAction {
             JCRSessionWrapper session
     ) throws RepositoryException {
         session.checkout(submission);
-        JCRNodeWrapper dataNode = submission.getNode("data");
+        JCRNodeWrapper dataNode = submission.getNode(DATA_NODE);
         for (Map.Entry<String, List<String>> entry : parameters.entrySet()) {
             writeParameterValue(dataNode, entry.getKey(), entry.getValue());
         }
@@ -327,9 +329,9 @@ public class SaveToJcrFormAction implements FormAction {
         if (files.isEmpty()) {
             return;
         }
-        JCRNodeWrapper filesNode = submission.hasNode(FILES_NODE_NAME)
-                ? submission.getNode(FILES_NODE_NAME)
-                : submission.addNode(FILES_NODE_NAME, "jnt:folder");
+        JCRNodeWrapper filesNode = submission.hasNode(FILES_NODE)
+                ? submission.getNode(FILES_NODE)
+                : submission.addNode(FILES_NODE, "jnt:folder");
         for (SubmittedFile file : files) {
             JCRNodeWrapper fieldFolder = resolveOrCreateFieldFolder(filesNode, file.fieldName());
             addFileNode(fieldFolder, file, session);

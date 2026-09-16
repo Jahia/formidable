@@ -152,8 +152,10 @@ stored in every repository that runs Formidable.
 `FormidableProperties` is checked one way only. A property is local to the type that declares it
 until something outside reads it, so the class holds the names that crossed and grows when
 another does. The same asymmetry explains the two mixins that are absent: the one-shot markers of
-the 0.4 content migrations, which the CND documents as leaving in 0.6. A name documented as
-transitional is not a contract, and lives in `migration/MigrationMarkers`.
+the 0.4 content migrations. Each records that a migration has already healed a node — the engine
+talking to itself — and although the CND keeps the declarations after the migrations leave, so that
+marked content stays valid, no other module has a reason to read one. They live in
+`migration/MigrationMarkers`.
 
 These are compile-time constants, so a consumer's bytecode carries the value, not a reference to
 the class: they buy one spelling and a compiler error on a typo, not the ability to change a name
@@ -173,7 +175,7 @@ constant, and the modules that read them still spell them out. That residue is t
 missing marker, not of sloppiness: under the rule above, server-side code reads a mixin. Two are
 known and open:
 
-- **the form.** `FormIdentifierListener`, the sample integrity checks and the engine each name
+- **the form.** The engine, the jExperience integration and the sample integrity checks each name
   `fmdb:form`. An engine-owned marker applied to `fmdb:form` would close it and let a third-party
   form type exist, the way `fmdbmix:captcha` already wraps `fmdbmix:captchaProtectedForm`.
 - **the checkbox.** `FieldShapes` reads `fmdb:checkbox` to tell one choice from a group, the one
@@ -182,8 +184,14 @@ known and open:
 ### The guard
 
 `node scripts/check-nodetype-names.mjs` runs in the static-analysis job and enforces both halves:
-the parity above, and that no Java source outside those classes spells an engine-declared name
+the parity above, and that no **main** source outside those classes spells an engine-declared name
 out. It prints how many literals name another module's types, so the residue stays visible.
+
+Test sources are deliberately outside it. A test that writes `"fmdbmix:choiceField"` where the
+constant would do is how a wrong constant *value* gets caught — the parity check proves the name is
+declared somewhere, not that the right one was picked — so the literal there is an asset. Use the
+constants in a test when the name is plumbing for a fixture; keep the literal when the name is the
+thing under test.
 
 ## Content Editor form ownership
 

@@ -3,9 +3,9 @@ package org.jahia.modules.formidable.engine.migration;
 /**
  * The one-shot mixins the 0.4 content migrations stamp on the content they healed, so that they
  * never touch it twice. They are engine-internal on purpose and stay out of the exported api
- * package: both declarations are scheduled to leave with the migrations that write them (see
- * docs/administration/upgrade-notes.md), and a name documented as transitional must not become
- * a contract another module depends on.
+ * package: each says only that this module has already been here, and the declarations outlive
+ * the migrations that write them — kept so that content still carrying one stays valid, not
+ * because anything outside reads them (see docs/administration/upgrade-notes.md).
  * <p>
  * They live here rather than in each reader because the choice-options marker outlived its
  * migration: the display service and the language sync read it on every save.

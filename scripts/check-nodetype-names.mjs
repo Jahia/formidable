@@ -9,8 +9,10 @@
 //     direction is enforced too, and why a new one cannot be added without exporting its name.
 //     Properties are checked one way only: a property is local to the type that declares it until
 //     something outside reads it, so FormidableProperties holds the ones that crossed.
-//  2. No second spelling. An engine-declared name appears in Java only in those classes — anywhere
-//     else the constant exists and the literal is a copy that no rename would follow. A migration
+//  2. No second spelling. An engine-declared name appears in the MAIN sources only in those classes —
+//     anywhere else the constant exists and the literal is a copy that no rename would follow. Test
+//     sources are out of scope on purpose: a test that writes the name out is how a constant holding
+//     the WRONG declared name gets caught, which parity alone cannot do. A migration
 //     is exempt: it is a frozen script that must keep naming the vocabulary of the release it
 //     heals, not follow the live one. A name another module declares (fmdb:form and the concrete
 //     field types, from formidable-elements) has no constant to use, and is counted, not refused.
@@ -22,15 +24,16 @@ import {join, relative, resolve} from 'node:path';
 const root = resolve(process.argv[2] ?? '.');
 const CND = 'formidable-engine/src/main/resources/META-INF/definitions.cnd';
 const API = 'formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api';
-// Stamped by a 0.4 content migration and scheduled to leave with it (docs/administration/upgrade-notes.md):
-// documented as transitional, so engine-internal, and declared once in migration/MigrationMarkers.java.
+// Stamped by a 0.4 content migration to record that it has already healed a node. The declarations
+// outlive the migrations (docs/administration/upgrade-notes.md) so that marked content stays valid,
+// but the names are the engine talking to itself: engine-internal, in migration/MigrationMarkers.java.
 const TRANSITIONAL = new Set(['fmdbmix:elementsReactivated', 'fmdbmix:migratedChoiceOptions']);
 
 const cnd = readFileSync(join(root, CND), 'utf8');
 const declared = {type: new Set(), mixin: new Set(), item: new Set()};
 for (const line of cnd.split('\n')) {
     const type = line.match(/^\[([\w]+:[\w]+)]/);
-    if (type) declared[/\bmixin\s*$/.test(line) ? 'mixin' : 'type'].add(type[1]);
+    if (type) declared[/\bmixin\b/.test(line) ? 'mixin' : 'type'].add(type[1]);
     const item = line.match(/^\s*[-+]\s+([\w:]+)\s*\(/);
     if (item) declared.item.add(item[1]);
 }
