@@ -27,11 +27,24 @@ class FormJExperienceRenderFilterTest {
     private static final String FORM_UUID = "8f7e2a10-0000-4000-8000-000000000001";
 
     private static JCRNodeWrapper form(String title) throws RepositoryException {
+        return form(title, FORM_UUID, "/sites/mysite/contents/contact");
+    }
+
+    /** Another form of the same site, for the page that carries two. */
+    private static JCRNodeWrapper form(String title, String uuid, String path) throws RepositoryException {
         JCRNodeWrapper form = mock(JCRNodeWrapper.class);
-        when(form.getIdentifier()).thenReturn(FORM_UUID);
+        when(form.getIdentifier()).thenReturn(uuid);
         when(form.getDisplayableName()).thenReturn(title);
-        when(form.getPath()).thenReturn("/sites/mysite/contents/contact");
+        when(form.getPath()).thenReturn(path);
         return form;
+    }
+
+    /** The single asset declaration of an output, as it stands in it. */
+    private static String assetOf(String out) {
+        int from = out.indexOf("<jahia:resource ");
+        assertTrue(from >= 0, out);
+        assertEquals(-1, out.indexOf("<jahia:resource ", from + 1), out);
+        return out.substring(from, out.indexOf("/>", from) + 2);
     }
 
     /**
@@ -40,10 +53,11 @@ class FormJExperienceRenderFilterTest {
      * session answers that same contextualised node for the identifier, as live does.
      */
     private static JCRNodeWrapper rendered(JCRNodeWrapper form, boolean throughAReference) throws RepositoryException {
+        String uuid = form.getIdentifier();
         JCRNodeWrapper node = form;
         if (throughAReference) {
             node = mock(JCRNodeWrapper.class);
-            when(node.getIdentifier()).thenReturn(FORM_UUID);
+            when(node.getIdentifier()).thenReturn(uuid);
             when(node.getPath()).thenReturn("/sites/mysite/home/contact-page/pagecontent/theReference@/contact");
         }
         JCRSessionWrapper renderSession = mock(JCRSessionWrapper.class);
@@ -51,7 +65,7 @@ class FormJExperienceRenderFilterTest {
         when(workspace.getName()).thenReturn("live");
         when(renderSession.getWorkspace()).thenReturn(workspace);
         when(renderSession.getLocale()).thenReturn(Locale.ENGLISH);
-        when(renderSession.getNodeByIdentifier(FORM_UUID)).thenReturn(node);
+        when(renderSession.getNodeByIdentifier(uuid)).thenReturn(node);
         when(node.getSession()).thenReturn(renderSession);
         return node;
     }
@@ -59,7 +73,8 @@ class FormJExperienceRenderFilterTest {
     /** A session of the filter's own: the one that resolves the identifier to the form where it lives. */
     private static JCRSessionWrapper ownSessionOver(JCRNodeWrapper form) throws RepositoryException {
         JCRSessionWrapper session = mock(JCRSessionWrapper.class);
-        when(session.getNodeByIdentifier(FORM_UUID)).thenReturn(form);
+        String uuid = form.getIdentifier();
+        when(session.getNodeByIdentifier(uuid)).thenReturn(form);
         return session;
     }
 
@@ -121,16 +136,43 @@ class FormJExperienceRenderFilterTest {
     @Test
     void writesTheConfigurationBlockAndTheScriptBeforeTheForm() throws Exception {
         // Verifies the whole contribution: the three strings the page needs — the identifier the event is
-        // keyed on and the title and path the dashboards read — then the script tag, both before the form's
-        // own markup. What the form maps is not in it: the send decision reads the tracker's watch list.
+        // keyed on and the title and path the dashboards read — then the script, declared as a static asset
+        // so that core hoists it into the head and keeps one for the whole page. What the form maps is not
+        // in it: the send decision reads the tracker's watch list.
         JCRNodeWrapper form = form("Contact us");
         String out = filter(configured("mysite"), ownSessionOver(form), true)
                 .prepend("<form></form>", site(true), rendered(form, false), "");
 
         assertEquals("<script type=\"application/json\" data-formidable-jxp=\"" + FORM_UUID + "\">"
                 + "{\"formId\":\"" + FORM_UUID + "\",\"name\":\"Contact us\",\"path\":\"/sites/mysite/contents/contact\"}</script>\n"
-                + "<script src=\"" + FormJExperienceRenderFilter.scriptUrl("") + "\" defer></script>\n"
+                + "<jahia:resource type=\"javascript\" path=\"" + FormJExperienceRenderFilter.scriptUrl("")
+                + "\" insert=\"false\" key=\"\" defer=\"true\" />\n"
                 + "<form></form>", out);
+    }
+
+    @Test
+    void twoFormsOfOnePageDeclareTheSameAsset() throws Exception {
+        // Verifies what a page with several forms is given: one configuration block per form, keyed on its
+        // own identifier, and the very same asset declaration from each. This filter cannot deduplicate —
+        // it is called once per form and knows nothing of the page — so what makes the browser fetch and run
+        // the script once is that the declarations are identical and core keeps one per path. Written as a
+        // <script src> tag, as it was before, two identical tags reached the page and the file ran twice.
+        JCRNodeWrapper first = form("Contact us");
+        JCRNodeWrapper second = form("Newsletter", "8f7e2a10-0000-4000-8000-000000000002", "/sites/mysite/contents/news");
+
+        String firstOut = filter(configured("mysite"), ownSessionOver(first), true)
+                .prepend("<form></form>", site(true), rendered(first, false), "");
+        String secondOut = filter(configured("mysite"), ownSessionOver(second), true)
+                .prepend("<form></form>", site(true), rendered(second, false), "");
+
+        // read out of the outputs, not built from the method under test: an asset carrying anything of
+        // the form — its identifier as a cache key, say — would be two declarations and two downloads
+        String firstAsset = assetOf(firstOut);
+        assertEquals(firstAsset, assetOf(secondOut));
+        assertTrue(firstAsset.contains("formidable-jxp.js"), firstAsset);
+        assertTrue(firstOut.contains("data-formidable-jxp=\"" + FORM_UUID + "\"")
+                && secondOut.contains("data-formidable-jxp=\"8f7e2a10-0000-4000-8000-000000000002\""),
+                firstOut + secondOut);
     }
 
     @Test

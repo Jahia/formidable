@@ -30,13 +30,14 @@ import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ROOT
 /**
  * Writes, before every form of a tracked site in live, what the client script needs
  * to send the form event: a JSON block keyed on the form's UUID — {@code formId}, {@code name} and
- * {@code path} — and the script itself. What the form maps is not in it: the accepted values reach the script through
- * the submission's answer, so the page says nothing about the mappings (see {@code block}).
+ * {@code path} — and the declaration of the script as a static asset. What the form maps is not in it:
+ * the accepted values reach the script through the submission's answer, so the page says nothing about
+ * the mappings (see {@code block}).
  *
  * <p>The output depends on the published form alone, never on the visitor, so the fragment stays
- * cached and identical for everyone. The script tag comes with each
- * form of a page; the script keeps one instance per page by itself. The prefill push
- * ({@code digitalDataOverrides}) belongs to phase 4 of the integration.</p>
+ * cached and identical for everyone. Every form of a page declares the same asset, and core keeps one
+ * per path in the head, so the script is fetched and run once whatever the number of forms. The prefill
+ * push ({@code digitalDataOverrides}) belongs to phase 4 of the integration.</p>
  */
 @Component(service = RenderFilter.class, immediate = true)
 public class FormJExperienceRenderFilter extends AbstractFilter {
@@ -130,7 +131,27 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
                 + ",\"name\":" + Json.string(form.getDisplayableName())
                 + ",\"path\":" + Json.string(form.getPath()) + "}";
         return "<script type=\"application/json\" " + CONFIG_ATTRIBUTE + "=\"" + uuid + "\">" + json + "</script>\n"
-                + "<script src=\"" + scriptUrl(contextPath) + "\" defer></script>\n";
+                + scriptAsset(contextPath);
+    }
+
+    /**
+     * The script, declared as a static asset instead of a tag of its own: core's
+     * {@code StaticAssetsFilter} hoists every {@code jahia:resource} of the aggregated page into the
+     * head and keeps one per path, so a page carrying several forms loads and runs it once — before
+     * this, each form wrote its own tag and the browser executed the file again for every one of them.
+     *
+     * <p>The marker is written into the fragment, so it travels with it into the cache. Registering
+     * the asset on the request instead would not: this filter runs on a cache miss only, and neither
+     * cache filter replays what a cached fragment declared.</p>
+     */
+    static String scriptAsset(String contextPath) {
+        // key="" rather than no key at all: StaticAssetsFilter skips a declaration whose key it has already
+        // seen, and it keeps those keys in one set for the whole page — so a keyless marker is deduplicated
+        // against every other keyless marker, ours or another module's, instead of against its own path.
+        // The empty key takes the branch that merges by path, which is the deduplication we want. It is what
+        // AddResourcesTag writes when a JSP tag leaves the attribute out.
+        return "<jahia:resource type=\"javascript\" path=\"" + scriptUrl(contextPath)
+                + "\" insert=\"false\" key=\"\" defer=\"true\" />\n";
     }
 
     /**
