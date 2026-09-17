@@ -35,6 +35,14 @@ export function remainingFeedbackPause(shownForMs: number): number {
 	return Math.max(0, MINIMUM_FEEDBACK_MS - shownForMs);
 }
 
+/** Holds the success message until the spinner, shown since `spinnerShownAt`, has had its floor; a slow answer waits nothing. */
+async function completeFeedbackPause(spinnerShownAt: number): Promise<void> {
+	const pause = remainingFeedbackPause(Date.now() - spinnerShownAt);
+	if (pause > 0) {
+		await new Promise(resolve => setTimeout(resolve, pause));
+	}
+}
+
 /** The server's JSON answer, or null for a body that is not JSON: the event never fails on it. */
 function parseJsonBody(text: string): unknown {
 	try {
@@ -184,10 +192,7 @@ export function useFormSubmission({
 			}));
 
 			// The spinner has been visible since before the request: only the rest of the floor is waited for
-			const pause = remainingFeedbackPause(Date.now() - spinnerShownAt);
-			if (pause > 0) {
-				await new Promise(resolve => setTimeout(resolve, pause));
-			}
+			await completeFeedbackPause(spinnerShownAt);
 
 			setMessage(interpolatedSubmissionMessage || 'Form submitted successfully!');
 			setMessageType('success');
