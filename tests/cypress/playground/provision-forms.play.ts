@@ -733,7 +733,8 @@ describe('Playground - provision manual-testing forms', () => {
 						// The two shapes the profile mapping had no field for: a single choice to a string property,
 						// a number to an integer one.
 						mappedTo(withFrench(getRadioNode(GENDER_RADIO), [{name: 'jcr:title', value: 'Genre'}, FR_GENDER_OPTIONS]), 'gender', {strategy: 'setIfMissing', prefill: true}),
-						mappedTo(withFrench(getInputNumberNode({name: 'kids', title: 'Number of children', minValue: 0, maxValue: 20, step: 1}), [{name: 'jcr:title', value: 'Nombre d\'enfants'}]), 'kids', {strategy: 'setIfMissing'}),
+						// The one field with an author's default AND the override ticked: the profile's value replaces the 1.
+						mappedTo(withFrench(getInputNumberNode({name: 'kids', title: 'Number of children', minValue: 0, maxValue: 20, step: 1, defaultValue: 1}), [{name: 'jcr:title', value: 'Nombre d\'enfants'}]), 'kids', {strategy: 'setIfMissing', prefill: true, overridesDefault: true}),
 						departmentSelect(),
 						withFrench(getTextareaNode({...TEXTAREA_COMPLETE, defaultValue: undefined}), [
 							{name: 'jcr:title', value: 'Résumé du projet'},
@@ -752,7 +753,9 @@ describe('Playground - provision manual-testing forms', () => {
 								{name: 'jcr:title', value: 'Pays (source : countries)'},
 								{name: 'optionsEmptyLabel', value: 'Sélectionnez un pays…'}
 							]
-						), 'countryName', {strategy: 'setIfMissing'}),
+						// Prefilled too: a select is the shape whose first option the browser selects by itself, the one a
+						// "did the visitor choose" guard reading the live state mistakes for a choice.
+						), 'countryName', {strategy: 'setIfMissing', prefill: true}),
 						withFrench(getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:radio', name: 'tvType', title: 'TV type (sourced: static screen-type list)', sourceKey: 'tv'}), [{name: 'jcr:title', value: 'Type de TV (source : liste statique de types d\'écrans)'}]),
 						withFrench(getCategoryChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'tvCategory', title: 'TV category (category mode, multiple select)', rootCategoryUuid: tvCategoryUuid, multiple: true}), [{name: 'jcr:title', value: 'Catégorie TV (mode catégorie, sélection multiple)'}]),
 						withFrench(getContentChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'agency', title: 'Agency (content mode: texts under contents/agencies)', rootNodeUuid: agenciesRootUuid, nodeType: 'jnt:text'}), [{name: 'jcr:title', value: 'Agence (mode contenu : textes sous contents/agencies)'}])
@@ -879,7 +882,7 @@ describe('Playground - provision manual-testing forms', () => {
 			}
 
 			form.getRadioGroup('gender').select(gender);
-			form.getNumberInput('kids').type(kids);
+			form.getNumberInput('kids').clear().type(kids);
 			if (newsletter) {
 				// the switch's track covers its input, as spec 214 knows: force the check
 				form.getCheckbox('newsletter').getInput().check({force: true});

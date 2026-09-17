@@ -64,8 +64,8 @@ publication, submission event, profile update — is testable at once:
 | complete | `email` | `email` | set if missing |
 | complete | birth date | `birthDate` | always set, prefill on |
 | complete | `gender` (radio) | `gender` | set if missing, prefill on |
-| complete | `kids` (number) | `kids` | set if missing |
-| complete | `country` (sourced select, ISO codes) | `countryName` | set if missing |
+| complete | `kids` (number, default 1) | `kids` | set if missing, prefill on with **Replace the field's default value** ticked — the one field where the profile replaces an author's default |
+| complete | `country` (sourced select, ISO codes) | `countryName` | set if missing, prefill on — the select is the shape a guard reading the live state mistakes for a visitor's choice |
 | complete | interests (checkbox group) | `formidableInterests` — multi-valued, playground card | always set |
 | complete | `newsletter` (switch) | `formidableOptIn` — boolean, playground card | set if missing |
 | complete | employee code | — | marked **sensitive** |
