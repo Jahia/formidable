@@ -4,8 +4,11 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -94,7 +97,8 @@ class DefinitionsCndTest {
     /**
      * The module names its own model once, and both ways: every mixin and property the CND declares
      * has its constant in {@code JxpMixin} or {@code JxpProperty}, and every constant there is declared.
-     * The engine's guard does this for the engine's CND; this test does it for the module's.
+     * The engine's guard does this for the engine's CND; this test does it for the module's. The expected
+     * side is read off the holder classes, so a constant added to one cannot escape the check.
      */
     @Test
     void theModelIsNamedOnceAndBothWays() throws Exception {
@@ -103,11 +107,22 @@ class DefinitionsCndTest {
                 .filter(line -> line.startsWith("[") && line.matches(".*\\bmixin\\b.*"))
                 .map(line -> line.substring(1, line.indexOf(']')))
                 .collect(Collectors.toSet());
-        assertEquals(Set.of(JxpMixin.MAPPING, JxpMixin.SENSITIVE_FIELD), mixins);
+        assertEquals(declaredIn(JxpMixin.class), mixins);
         Set<String> properties = lines.stream()
                 .filter(line -> line.startsWith("- "))
                 .map(line -> line.substring(2, line.indexOf(' ', 2)))
                 .collect(Collectors.toSet());
-        assertEquals(Set.of(JxpProperty.PROFILE_PROPERTY, JxpProperty.PREFILL, JxpProperty.SET_STRATEGY, JxpProperty.SENSITIVE), properties);
+        assertEquals(declaredIn(JxpProperty.class), properties);
+    }
+
+    /** Every String constant the holder declares, read off the class so that a new one cannot escape the check. */
+    private static Set<String> declaredIn(Class<?> holder) throws IllegalAccessException {
+        Set<String> values = new HashSet<>();
+        for (Field field : holder.getDeclaredFields()) {
+            if (Modifier.isStatic(field.getModifiers()) && field.getType() == String.class) {
+                values.add((String) field.get(null));
+            }
+        }
+        return values;
     }
 }
