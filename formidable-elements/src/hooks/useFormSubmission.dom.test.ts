@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import {type FormEvent} from 'react';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import {SUBMITTED_EVENT, useFormSubmission} from './useFormSubmission';
 
 /**
  * The wiring of the minimum feedback pause (#327), which the arithmetic tests of
@@ -10,7 +11,8 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
  *
  * React's state is the one seam mocked: `useState` and `useRef` become plain holders, so the hook runs
  * as a function and `handleSubmit` is driven end to end against a fake `XMLHttpRequest` under fake
- * timers. Rendering it would need react-dom, which this module does not depend on.
+ * timers. Rendering it would need react-dom, which this module does not depend on. `vi.mock` is hoisted
+ * above the imports, so the static import of the hook already sees the mocked React.
  */
 const react = vi.hoisted(() => ({setters: [] as Array<ReturnType<typeof vi.fn>>}));
 vi.mock('react', () => ({
@@ -51,22 +53,27 @@ const labels = {
 };
 
 describe('useFormSubmission: the minimum feedback pause is a floor', () => {
+	/** Hears the accepted submission bubble up from the form; the body keeps its listeners across replaceChildren. */
+	const submitted = vi.fn();
+
 	beforeEach(() => {
 		vi.useFakeTimers();
 		vi.stubGlobal('XMLHttpRequest', FakeXhr);
 		react.setters.length = 0;
 		FakeXhr.last = undefined;
+		submitted.mockClear();
+		document.body.addEventListener(SUBMITTED_EVENT, submitted);
 	});
 
 	afterEach(() => {
+		document.body.removeEventListener(SUBMITTED_EVENT, submitted);
 		vi.useRealTimers();
 		vi.unstubAllGlobals();
 		document.body.replaceChildren();
 	});
 
 	/** Runs `handleSubmit` on a fresh form; the hook's `useState` calls are message, message type, loading, captcha. */
-	async function submit() {
-		const {useFormSubmission} = await import('./useFormSubmission');
+	function submit() {
 		const {handleSubmit} = useFormSubmission({
 			formId: 'form-under-test',
 			locale: 'en',
@@ -84,7 +91,7 @@ describe('useFormSubmission: the minimum feedback pause is a floor', () => {
 	}
 
 	it('waits nothing more after an answer slower than the floor', async () => {
-		const {done, successShown} = await submit();
+		const {done, successShown} = submit();
 		await vi.advanceTimersByTimeAsync(1200);
 		FakeXhr.last?.answer(200, '{"success":true}');
 
@@ -96,7 +103,7 @@ describe('useFormSubmission: the minimum feedback pause is a floor', () => {
 	});
 
 	it('completes the floor after a fast answer, counted from the spinner, not from the answer', async () => {
-		const {done, successShown} = await submit();
+		const {done, successShown} = submit();
 		await vi.advanceTimersByTimeAsync(40);
 		FakeXhr.last?.answer(200, '{"success":true}');
 
@@ -105,6 +112,19 @@ describe('useFormSubmission: the minimum feedback pause is a floor', () => {
 
 		await vi.advanceTimersByTimeAsync(1);
 		expect(successShown()).toBe(true);
+		await done;
+	});
+
+	it('announces the accepted submission before the pause, not after it', async () => {
+		const {done, successShown} = submit();
+		await vi.advanceTimersByTimeAsync(40);
+		FakeXhr.last?.answer(200, '{"success":true}');
+		await vi.advanceTimersByTimeAsync(0);
+
+		// the page hears of the acceptance at once: a listener (the jExperience script) is never made to wait for the floor
+		expect(submitted).toHaveBeenCalledOnce();
+		expect(successShown()).toBe(false);
+		await vi.advanceTimersByTimeAsync(460);
 		await done;
 	});
 });
