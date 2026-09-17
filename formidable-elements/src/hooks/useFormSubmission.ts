@@ -19,6 +19,30 @@ const MAINTENANCE_ERROR_CODE = 'FMDB-014';
 /** Dispatched on the form element after a 2xx, before the form is reset. Detail: {formId, response}. */
 export const SUBMITTED_EVENT = 'formidable:submitted';
 
+/**
+ * How long the spinner stays on screen at least. A submission answered faster than the eye would
+ * swap the form for its result without the spinner ever being seen, and the visitor would read the
+ * change as if nothing had happened in between. The floor is measured from the moment the spinner
+ * appears, so an answer that already took longer waits nothing more (#327).
+ *
+ * This is not what protects a click before hydration: Form.client.tsx sets `noValidate` on mount,
+ * and a pre-hydration submit leaves the page as a native POST without reaching this code.
+ */
+const MINIMUM_FEEDBACK_MS = 500;
+
+/** What is left of the minimum feedback pause once the spinner has been shown for `shownForMs`: nothing past the floor. */
+export function remainingFeedbackPause(shownForMs: number): number {
+	return Math.max(0, MINIMUM_FEEDBACK_MS - shownForMs);
+}
+
+/** Holds the success message until the spinner, shown since `spinnerShownAt`, has had its floor; a slow answer waits nothing. */
+async function completeFeedbackPause(spinnerShownAt: number): Promise<void> {
+	const pause = remainingFeedbackPause(Date.now() - spinnerShownAt);
+	if (pause > 0) {
+		await new Promise(resolve => setTimeout(resolve, pause));
+	}
+}
+
 /** The server's JSON answer, or null for a body that is not JSON: the event never fails on it. */
 function parseJsonBody(text: string): unknown {
 	try {
@@ -87,6 +111,7 @@ export function useFormSubmission({
 		if (preValidate && !preValidate()) return;
 
 		setIsLoading(true);
+		const spinnerShownAt = Date.now();
 
 		if (captcha && !captchaRef.current?.getToken()) {
 			setMessage(labels.captchaRequired);
@@ -166,7 +191,8 @@ export function useFormSubmission({
 				detail: {formId, response: parseJsonBody(response.responseText)},
 			}));
 
-			await new Promise(resolve => setTimeout(resolve, 500));
+			// The spinner has been visible since before the request: only the rest of the floor is waited for
+			await completeFeedbackPause(spinnerShownAt);
 
 			setMessage(interpolatedSubmissionMessage || 'Form submitted successfully!');
 			setMessageType('success');
