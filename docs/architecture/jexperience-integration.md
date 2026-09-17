@@ -100,13 +100,13 @@ Nothing in Formidable depends on jExperience; the new module depends on both.
 |---|---|---|
 | `fmdbmix:profileMappableField` | formidable-engine, CND | Marker mixin, no properties: "this field can take part in a profile mapping". Declared as a supertype by every mappable field type in the elements and extended-inputs modules, and by third-party fields that want the feature. |
 | `fmdbmix:jExperienceSensitiveField` | jexperience-engine, CND | The author's per-field "this value never leaves the site", held from the save and not from the next publication (the enricher reads both workspaces; see the decision log): one boolean, on a mixin that `extends` the marker like the mapping does and inherits `jmix:templateMixin`, so the Content Editor renders the checkbox without an enable switch. It has to be answerable before the mapping fieldset is switched on, and a switch of its own could contradict that one. |
-| `fmdbmix:jExperienceProfileMapping` | jexperience-engine, CND | Property mixin that `extends` the marker, so it reaches every field claiming it without naming a field type or depending on the extended inputs: profile property (choicelist), prefill toggle, write strategy. Surfaced as a "jExperience" section in the field's editor form through a Content Editor form override. |
+| `fmdbmix:jExperienceProfileMapping` | jexperience-engine, CND | Property mixin that `extends` the marker, so it reaches every field claiming it without naming a field type or depending on the extended inputs: profile property (choicelist), prefill toggle, whether the prefill may replace the author's default value, write strategy. Surfaced as a "jExperience" section in the field's editor form through a Content Editor form override. |
 | `ProfilePropertiesChoiceListInitializer` | jexperience-engine | Lists profile properties compatible with the field's shape (`FieldShapes`, inferred from the value-kind mixins), filtered on flags and system tags (`ProfilePropertyFilter`), through the module's admin client. Property types change rarely: `ProfilePropertyCatalog` keeps them one minute per site (a property just created in jExperience shows at the next opening); past the minute a failed read reports the schema unavailable rather than serving a list that may no longer be true. An unreachable jCustomer, or a schema with no property of the field's kind (jCustomer ships no boolean property), gives one message entry with an empty value, pre-selected so the closed select reads it (jcontent's `defaultProperty`), never a blank or broken dropdown. When jCustomer answers, the list is the truth: a stored mapping it does not carry is not offered and the Content Editor resets it. When jCustomer cannot be asked, the stored mapping is the one entry of the list, described as left unchanged, so a save during the outage cannot wipe a mapping the author never touched. A message without a select would need a selector of the module's own — a UI bundle, left for a later phase. Nothing reusable exists today in jExperience; the generic half is written so it can be lifted there later. |
 | `MappingRuleSyncListener` | jexperience-engine | Live-workspace publication listener under `/sites`, **without a node-type filter**: it keeps two kinds of events by name — `j:lastPublished` added or changed (publication writes it on every published node; the nearest form above is resynchronised) and a node removed whose parent still exists (the head of a removal: the form above, or the removed node itself by its identifier). A typed listener would miss a form deleted by a published deletion and a field whose jExperience section was switched off. |
 | `MappingRuleSynchronizer` | jexperience-engine | Builds the rule from live in the site's default language, compares it with the stored one (`GET /cxs/rules/{id}`, 204 = absent), posts only a change, deletes when the form leaves live or maps nothing. Coalesces a publication's bursts of events (2 s); leaves alone a site with no jExperience configuration; keeps a pending list retried every minute while jCustomer cannot be asked, guarded so that no error can stop the retries. |
 | `MappingRule` | jexperience-engine | The rule as the JSON map jCustomer stores — id `formidable-form-mapping_<site>_<uuid>`, conditions, one `setPropertyAction` per mapped field with the value parameter of the property's type — and the "owned" projection the diff compares. |
 | `FormMappingReader` | jexperience-engine | Reads a published form's mapped fields and applies the dropdown's own rule at publication: a property gone from the schema or no longer fitting the field's shape is skipped and logged, never turned into an action. A node that is not a form maps nothing — Jahia republishes a folder by removing and re-adding it in live, and the listener then resolves the folder by its identifier — so a rule is written for a form only. |
-| `FormJExperienceRenderFilter` | jexperience-engine | Render filter on `fmdb:form` (same family as `CaptchaRenderFilter`). On a site whose pages carry the tracker — jExperience among the site's modules **and** settings for it, `JExperienceSite` — it writes next to the form: a JSON config block (`{formId, name, path}` — the mappings are not in it, the accepted values reach the script through the submission's answer) and a `<jahia:resource>` declaration of the module's client script, which core hoists into the `<head>` and keeps one for the whole page. The prefill push (`digitalDataOverrides`) is phase 4. Its output carries no visitor data: the fragment stays cached. |
+| `FormJExperienceRenderFilter` | jexperience-engine | Render filter on `fmdb:form` (same family as `CaptchaRenderFilter`). On a site whose pages carry the tracker — jExperience among the site's modules **and** settings for it, `JExperienceSite` — it writes next to the form: a JSON config block (`{formId, name, path, prefill}` — the mappings for sending are not in it, the accepted values reach the script through the submission's answer; `prefill` names, field by field, the profile property to read and whether it may replace the author's default) and a `<jahia:resource>` declaration of the module's client script, which core hoists into the `<head>` and keeps one for the whole page. Nothing inline and nothing per form: that one script reads every block of the page and asks the tracker for the union of the prefill properties in a single `digitalDataOverrides` entry. Its output carries no visitor data: the fragment stays cached. |
 | `formidable-jxp.js` | jexperience-engine, static resource | The client half: on the island's `formidable:submitted` event, decides with `shouldCollect()` and sends the `form` event through `wem.collectEvent`. |
 | `SubmissionResponseEnricher` SPI | formidable-engine, `api` package | Called by the pipeline after all actions succeeded, with the form node, the site and the validated parameters; returns a JSON block to add to the 200. The jExperience module contributes `jexperience: {formId, fields}` — the accepted values of the form's fields, minus the ones marked sensitive — when the site's pages carry the tracker (`JExperienceSite`). Enrichers never fail the submission. |
 | `formidable:submitted` | formidable-elements, `Form.client.tsx` | DOM `CustomEvent` (bubbling) dispatched after a 200, carrying the form's UUID and the parsed response. The elements module knows nothing of jExperience: it only says "this was accepted, here is what the server answered". |
@@ -172,20 +172,23 @@ form never orphans a rule.
 
 ```
 1  Visitor's browser   ──►  Formidable            GET page
-2  Formidable          ──►  Visitor's browser     cached HTML: the form; before it, the render filter's
-                                                  digitalDataOverrides.push({wemInitConfig: {requiredProfileProperties}}),
-                                                  the JSON config block and the client script          (response)
-3  wem.js (end of page)                           starts, reads the overrides
+2  Formidable          ──►  Visitor's browser     cached HTML: the form; before it, the render filter's JSON config
+                                                  block with the prefill pairs, and the client script    (response)
+2b formidable-jxp.js (head, defer)                reads every block of the page, pushes the union of their
+                                                  properties once into digitalDataOverrides
+3  wem.js (end of page)                           starts; applies the overrides at DOMContentLoaded
 4  wem.js              ──►  jCustomer             /cxs/context.json — the request it makes anyway, now asking the properties
 5  jCustomer           ──►  wem.js                context: profile properties, trackedConditions      (response)
 6  formidable-jxp.js                              at wemLoaded: fills the mapped fields flagged prefill
 ```
 
 Nothing personal is in the HTML: the page and the form fragment stay cached for everyone, and
-one context request — the tracker's own — serves every prefilled field. The `push` must sit in the
-markup before the tracker starts, which is why the render filter emits it and not the island: an
-island runs after hydration, the tracker starts at the end of the body. jExperience documents
-this extension point through its own tests (`wem.digitalDataOverrides.cy.ts`).
+one context request — the tracker's own — serves every prefilled field. The `push` is the client
+script's, not the fragment's: jExperience creates `window.digitalDataOverrides` in the head and reads it
+at `DOMContentLoaded`, after every deferred script has run, so the one script core hoists into the head
+sees every block of the page and pushes their union once — nothing inline, nothing repeated per form,
+the lesson of #330. jExperience documents this extension point through its own tests
+(`wem.digitalDataOverrides.cy.ts`).
 
 > **To verify first.** Hydration of the form island must not undo a prefill that ran before it:
 > the client script waits for both `wemLoaded` and the island's `formidable:ready` event before
@@ -315,11 +318,13 @@ carry jExperience's tracker; cacheable, identical for every visitor. **Shipped i
 <script src="/modules/formidable-jexperience-engine/javascript/formidable-jxp.js" defer></script>
 ```
 
-The block carries three strings and no more: the identifier the event is keyed on, and the title and
-path its target properties read. **What the form maps is deliberately not in it** — the send decision
-reads the tracker's own watch list, which a mapped form is in through the rule published for it, so
-declaring the mappings again would be a second list to keep in step for nothing (HDU, 2026-09-15).
-Phase 4 puts back what prefill needs, which is the first thing the context cannot say. The block is
+The block carries three strings and the prefill pairs, no more: the identifier the event is keyed on,
+the title and path its target properties read, and for each field the author asked to prefill the
+profile property it reads and whether that value may replace the author's default. **What the form
+maps for sending is deliberately not in it** — the send decision reads the tracker's own watch list,
+which a mapped form is in through the rule published for it, so declaring the mappings again would be
+a second list to keep in step for nothing (HDU, 2026-09-15). The prefill pairs are the one thing the
+context cannot say: which field a returned property belongs to. The block is
 emitted for every form, and so is the script's `<jahia:resource>` declaration — the filter is called
 once per form and has no page-level state to dedupe on. Core's `StaticAssetsFilter` does that part:
 it hoists the declarations of the aggregated page into the `<head>` and keeps one per path, so a page
@@ -330,19 +335,23 @@ placed through a reference renders contextualised under it, and the render sessi
 node back for the identifier (see the decision log), so the block would otherwise name the
 reference and find no mapped field.
 
-**Phase 4 adds** the field-to-property pairs to the block — the page is the only place that can carry
-them, since the browser has no form model to read them from, unlike jExperience's own Forms bridge —
-and the prefill push before it, emitted only when at least one mapping asks for prefill:
+The pairs are read in the filter's own live session, from the JCR alone — a field carrying the mapping
+mixin with a property, its prefill switch on, not marked sensitive — never from jCustomer: a render is
+not the place for a network call, and a property the schema no longer offers simply comes back absent
+from the context.
 
 ```html
-<script>
-  window.digitalDataOverrides = window.digitalDataOverrides || [];
-  window.digitalDataOverrides.push({wemInitConfig: {requiredProfileProperties: ["firstName", "email"]}});
+<script type="application/json" data-formidable-jxp="FORM-UUID">
+  {"formId": "FORM-UUID", "name": "Contact form", "path": "/sites/mysite/contents/contact",
+   "prefill": {"firstName": {"property": "firstName", "overridesDefault": false},
+               "email": {"property": "email", "overridesDefault": true}}}
 </script>
 ```
 
-The property names in the push are exactly the mapped profile properties, no wildcard: the profile
-stays private to what the form needs.
+No inline script comes with it. The client script, once in the head, gathers the `prefill` properties
+of every block on the page and pushes them in one `digitalDataOverrides` entry before the tracker
+reads the array (see "Rendering and prefill"). The property names are exactly the mapped ones, no
+wildcard: the profile stays private to what the page's forms need.
 
 ### Submission request and response
 
@@ -442,6 +451,7 @@ from the tracker — then completed by the client script:
  itemtype = content
  - jExperienceProfileProperty (string, choicelist[formidableJExperienceProfileProperties]) indexed=no
  - jExperiencePrefillFromProfile (boolean) = false autocreated indexed=no
+ - jExperiencePrefillOverridesDefault (boolean) = false autocreated indexed=no
  - jExperienceSetStrategy (string, choicelist[resourceBundle]) = 'alwaysSet' autocreated indexed=no < 'alwaysSet', 'setIfMissing'
 
 // formidable-jexperience-engine — the author's "this field is sensitive"; jmix:templateMixin is what
@@ -546,6 +556,7 @@ formidable-jexperience-engine/src/main/resources/META-INF/jahia-content-editor-f
           "fields": [
             { "name": "jExperienceProfileProperty" },
             { "name": "jExperiencePrefillFromProfile" },
+            { "name": "jExperiencePrefillOverridesDefault" },
             { "name": "jExperienceSetStrategy" }
           ]
         }

@@ -11,7 +11,9 @@ import org.jahia.modules.formidable.jexperience.engine.util.JExperienceSite;
 import org.junit.jupiter.api.Test;
 
 import javax.jcr.RepositoryException;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -93,12 +95,18 @@ class FormJExperienceRenderFilterTest {
         private final JCRSessionWrapper ownSession;
         private final boolean readable;
         private boolean unchecked;
+        private Map<String, PrefillMappings.Entry> prefill = Map.of();
         private String openedWorkspace;
         private Locale openedLocale;
 
         private FilterUnderTest(JCRSessionWrapper ownSession, boolean readable) {
             this.ownSession = ownSession;
             this.readable = readable;
+        }
+
+        @Override
+        Map<String, PrefillMappings.Entry> prefillOf(JCRSessionWrapper session, JCRNodeWrapper form) {
+            return prefill;
         }
 
         @Override
@@ -136,16 +144,16 @@ class FormJExperienceRenderFilterTest {
 
     @Test
     void writesTheConfigurationBlockAndTheScriptBeforeTheForm() throws Exception {
-        // Verifies the whole contribution: the three strings the page needs — the identifier the event is
-        // keyed on and the title and path the dashboards read — then the script, declared as a static asset
-        // so that core hoists it into the head and keeps one for the whole page. What the form maps is not
-        // in it: the send decision reads the tracker's watch list.
+        // Verifies the whole contribution: the identifier the event is keyed on, the title and path the
+        // dashboards read, the prefill pairs (none here) — then the script, declared as a static asset so
+        // that core hoists it into the head and keeps one for the whole page. What the form maps for
+        // sending is not in it: the send decision reads the tracker's watch list.
         JCRNodeWrapper form = form("Contact us");
         String out = filter(configured("mysite"), ownSessionOver(form), true)
                 .prepend("<form></form>", site(true), rendered(form, false), "");
 
         assertEquals("<script type=\"application/json\" data-formidable-jxp=\"" + FORM_UUID + "\">"
-                + "{\"formId\":\"" + FORM_UUID + "\",\"name\":\"Contact us\",\"path\":\"/sites/mysite/contents/contact\"}</script>\n"
+                + "{\"formId\":\"" + FORM_UUID + "\",\"name\":\"Contact us\",\"path\":\"/sites/mysite/contents/contact\",\"prefill\":{}}</script>\n"
                 + "<jahia:resource type=\"javascript\" path=\"" + FormJExperienceRenderFilter.scriptUrl("")
                 + "\" insert=\"false\" key=\"\" defer=\"true\" />\n"
                 + "<form></form>", out);
@@ -174,6 +182,23 @@ class FormJExperienceRenderFilterTest {
         assertTrue(firstOut.contains("data-formidable-jxp=\"" + FORM_UUID + "\"")
                 && secondOut.contains("data-formidable-jxp=\"8f7e2a10-0000-4000-8000-000000000002\""),
                 firstOut + secondOut);
+    }
+
+    @Test
+    void theFieldsToPrefillTravelInTheBlockAsNamesOnly() throws Exception {
+        // Verifies that the block names which field reads which profile property, with the author's
+        // override choice, and carries no value: the fragment is cached for every visitor.
+        JCRNodeWrapper form = form("Contact us");
+        FilterUnderTest filter = filter(configured("mysite"), ownSessionOver(form), true);
+        filter.prefill = new LinkedHashMap<>();
+        filter.prefill.put("firstName", new PrefillMappings.Entry("firstName", false));
+        filter.prefill.put("email", new PrefillMappings.Entry("email", true));
+
+        String out = filter.prepend("<form></form>", site(true), rendered(form, false), "");
+
+        assertTrue(out.contains("\"prefill\":{\"firstName\":{\"property\":\"firstName\",\"overridesDefault\":false},"
+                + "\"email\":{\"property\":\"email\",\"overridesDefault\":true}}}</script>"), out);
+        assertEquals(-1, out.indexOf("<script>"), "no inline script: the hoisted one pushes for the whole page");
     }
 
     @Test

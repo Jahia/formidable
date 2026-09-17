@@ -17,6 +17,7 @@
  itemtype = content
  - jExperienceProfileProperty (string, choicelist[formidableJExperienceProfileProperties,dependentProperties='multiple,options,optionsMode,jExperienceSensitive']) indexed=no
  - jExperiencePrefillFromProfile (boolean) = false autocreated indexed=no
+ - jExperiencePrefillOverridesDefault (boolean) = false autocreated indexed=no
  - jExperienceSetStrategy (string, choicelist[resourceBundle]) = 'alwaysSet' autocreated indexed=no < 'alwaysSet', 'setIfMissing'
 
 

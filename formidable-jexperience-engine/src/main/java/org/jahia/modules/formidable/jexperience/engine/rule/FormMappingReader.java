@@ -80,7 +80,7 @@ public class FormMappingReader {
      * is doubled, the rule of {@code JCRContentUtils.sqlEncode} — applied here by hand because that
      * class does not load outside a running Jahia, and this query has a unit test.
      */
-    static String queryFor(String formPath) {
+    public static String queryFor(String formPath) {
         return "SELECT * FROM [" + JxpMixin.MAPPING + "] WHERE ISDESCENDANTNODE('" + formPath.replace("'", "''") + "')";
     }
 

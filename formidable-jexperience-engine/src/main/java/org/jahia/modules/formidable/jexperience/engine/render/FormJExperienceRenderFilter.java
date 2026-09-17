@@ -28,18 +28,20 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.jexperience.engine.util.JExperienceSite;
 import org.jahia.modules.formidable.jexperience.engine.util.Json;
+import java.util.Map;
 
 /**
- * Writes, before every form of a tracked site in live, what the client script needs
- * to send the form event: a JSON block keyed on the form's UUID — {@code formId}, {@code name} and
- * {@code path} — and the declaration of the script as a static asset. What the form maps is not in it:
- * the accepted values reach the script through the submission's answer, so the page says nothing about
- * the mappings (see {@code block}).
+ * Writes, before every form of a tracked site in live, what the client script needs: a JSON block
+ * keyed on the form's UUID — {@code formId}, {@code name}, {@code path}, and the {@code prefill} pairs,
+ * field to visitor profile property, for the fields the author asked to prefill — and the declaration
+ * of the script as a static asset. What the form maps for sending is not in it: the accepted values
+ * reach the script through the submission's answer (see {@code block}).
  *
  * <p>The output depends on the published form alone, never on the visitor, so the fragment stays
  * cached and identical for everyone. Every form of a page declares the same asset, and core keeps one
- * per path in the head, so the script is fetched and run once whatever the number of forms. The prefill
- * push ({@code digitalDataOverrides}) belongs to phase 4 of the integration.</p>
+ * per path in the head, so the script is fetched and run once whatever the number of forms — and that
+ * one script, having every block of the page in front of it, asks the tracker for the union of the
+ * prefill properties in a single {@code digitalDataOverrides} entry: nothing inline, nothing per form.</p>
  */
 @Component(service = RenderFilter.class, immediate = true)
 public class FormJExperienceRenderFilter extends AbstractFilter {
@@ -119,19 +121,29 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
     String contribution(JCRNodeWrapper rendered, String contextPath) throws RepositoryException {
         String uuid = rendered.getIdentifier();
         JCRSessionWrapper renderSession = rendered.getSession();
-        return inOwnSession(renderSession.getWorkspace().getName(), renderSession.getLocale(),
-                session -> block(session.getNodeByIdentifier(uuid), uuid, contextPath));
+        return inOwnSession(renderSession.getWorkspace().getName(), renderSession.getLocale(), session -> {
+            JCRNodeWrapper form = session.getNodeByIdentifier(uuid);
+            return block(form, uuid, contextPath, prefillOf(session, form));
+        });
     }
 
-    private String block(JCRNodeWrapper form, String uuid, String contextPath) {
-        // Built by hand: this module carries no JSON library at runtime, and the page needs three
-        // strings. What the form maps is deliberately NOT here — the send decision reads the tracker's
-        // own watch list, which a mapped form is in through the rule this integration publishes, so
-        // declaring the mappings again would be one more thing to keep in step for nothing. Phase 4
-        // will add what prefill needs at page load, which is the first thing the context cannot say.
+    /**
+     * The fields to prefill and their profile properties, read from the JCR alone in the filter's session;
+     * a seam for the tests, which have no query engine.
+     */
+    Map<String, PrefillMappings.Entry> prefillOf(JCRSessionWrapper session, JCRNodeWrapper form) throws RepositoryException {
+        return new PrefillMappings().read(session, form);
+    }
+
+    private String block(JCRNodeWrapper form, String uuid, String contextPath, Map<String, PrefillMappings.Entry> prefill) {
+        // Built by hand: this module carries no JSON library at runtime. What the form maps for SENDING is
+        // deliberately not here — the send decision reads the tracker's own watch list, which a mapped form
+        // is in through the rule this integration publishes. The prefill pairs are, because they are the one
+        // thing the context cannot say: which field a returned property belongs to. Names only, no value.
         String json = "{\"formId\":" + Json.string(uuid)
                 + ",\"name\":" + Json.string(form.getDisplayableName())
-                + ",\"path\":" + Json.string(form.getPath()) + "}";
+                + ",\"path\":" + Json.string(form.getPath())
+                + ",\"prefill\":" + PrefillMappings.json(prefill) + "}";
         return "<script type=\"application/json\" " + CONFIG_ATTRIBUTE + "=\"" + uuid + "\">" + json + "</script>\n"
                 + scriptAsset(contextPath);
     }

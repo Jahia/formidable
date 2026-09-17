@@ -13,6 +13,7 @@
 					"fields": [
 						{ "name": "jExperienceProfileProperty" },
 						{ "name": "jExperiencePrefillFromProfile" },
+						{ "name": "jExperiencePrefillOverridesDefault" },
 						{ "name": "jExperienceSetStrategy" }
 					]
 				}
