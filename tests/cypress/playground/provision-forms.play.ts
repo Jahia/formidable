@@ -138,18 +138,24 @@ const withEnglish = (node: JahiaNode, enProperties: Array<{name: string; value?:
 // The mixins below are declared by formidable-jexperience-engine; the flag is read in the first test, before
 // any form is built, and the two helpers hand the node back untouched when the module is absent.
 const JXP_MAPPING_MIXIN = 'fmdbmix:jExperienceProfileMapping';
+const JXP_PREFILL_MIXIN = 'fmdbmix:jExperiencePrefill';
 const JXP_SENSITIVE_MIXIN = 'fmdbmix:jExperienceSensitiveField';
 let jExperienceAvailable = false;
 
-/** Maps the field to a visitor profile property: the mapping mixin, the property, the write strategy and the prefill switch. */
-const mappedTo = (node: JahiaNode, profileProperty: string, options: {strategy?: 'alwaysSet' | 'setIfMissing'; prefill?: boolean} = {}): JahiaNode => {
+/**
+ * Maps the field to a visitor profile property: the mapping mixin, the property and the write strategy; with
+ * `prefill`, the prefill mixin too (its switch in the editor), and `overridesDefault` its one option.
+ */
+const mappedTo = (node: JahiaNode, profileProperty: string, options: {strategy?: 'alwaysSet' | 'setIfMissing'; prefill?: boolean; overridesDefault?: boolean} = {}): JahiaNode => {
 	if (!jExperienceAvailable) return node;
-	node.mixins = [...(node.mixins ?? []), JXP_MAPPING_MIXIN];
+	node.mixins = [...(node.mixins ?? []), JXP_MAPPING_MIXIN, ...(options.prefill ? [JXP_PREFILL_MIXIN] : [])];
 	node.properties.push(
 		{name: 'jExperienceProfileProperty', value: profileProperty},
-		{name: 'jExperienceSetStrategy', value: options.strategy ?? 'alwaysSet'},
-		{name: 'jExperiencePrefillFromProfile', value: String(options.prefill ?? false), type: 'BOOLEAN'}
+		{name: 'jExperienceSetStrategy', value: options.strategy ?? 'alwaysSet'}
 	);
+	if (options.prefill) {
+		node.properties.push({name: 'jExperiencePrefillOverridesDefault', value: String(options.overridesDefault ?? false), type: 'BOOLEAN'});
+	}
 	return node;
 };
 
@@ -176,6 +182,10 @@ const GENDER_RADIO = {
 // playground adds the two it needs, in a card of their own — through jExperience's admin proxy, which
 // carries the logged-in session; created once, found again on the next run. A proxy that does not
 // answer (no jCustomer connected) is logged, not fatal: the mappings are then skipped at publication.
+// jExperience groups the profile's properties into cards through this system tag: cardDataTag/<card id>/<card
+// position>/<card title>. The id is free (jExperience's own are an underscore and nine random characters), the
+// position orders the cards on the profile screen (jExperience's five default cards take 0 to 5), the title
+// is what the screen shows. Copied from a property created by hand in the jExperience UI.
 const PLAYGROUND_CARD_TAG = 'cardDataTag/_fmdbplaygd/6/Formidable playground';
 const CUSTOM_PROFILE_PROPERTIES = [
 	{id: 'formidableInterests', name: 'Interests (Formidable playground)', type: 'string', multivalued: true},
@@ -446,9 +456,8 @@ describe('Playground - provision manual-testing forms', () => {
 
 	it('resets the test site', () => {
 		detectJExperience();
-		cy.then(() => {
-			if (jExperienceAvailable) deleteMappingRulesOfTheSite();
-		});
+		// not gated on the module: the rules to clean up are the ones written while it *was* deployed
+		cy.then(() => deleteMappingRulesOfTheSite());
 		deleteSite(FORMIDABLE_TEST_SITE.key);
 		createSite(FORMIDABLE_TEST_SITE.key, FORMIDABLE_TEST_SITE.config);
 		FORMIDABLE_MODULE_IDS.forEach(moduleId => enableModule(moduleId, FORMIDABLE_TEST_SITE.key));
@@ -502,7 +511,7 @@ describe('Playground - provision manual-testing forms', () => {
 				mappedTo(withFrench(getInputEmailNode({name: 'email', title: 'Email', required: true}), [{name: 'jcr:title', value: 'Email'}]), 'email', {strategy: 'setIfMissing', prefill: true}),
 				sensitive(withFrench(getTextareaNode({name: 'message', title: 'Message'}), [{name: 'jcr:title', value: 'Message'}])),
 				contactChannelSelect(),
-				mappedTo(phoneNumberField(), 'phoneNumber', {strategy: 'setIfMissing'})
+				mappedTo(phoneNumberField(), 'phoneNumber', {strategy: 'setIfMissing', prefill: true})
 			],
 			undefined,
 			undefined,

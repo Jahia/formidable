@@ -56,9 +56,10 @@ publication, submission event, profile update — is testable at once:
 |---|---|---|---|
 | *rule* | *a required field* | | *always set: the visitor just stated it* |
 | *rule* | *an optional field* | | *set if missing: it completes the profile, never overrides it* |
+| *rule* | *an identifying value a later submission should not overwrite* (`email`) | | *set if missing even when required* |
 | simple | `firstName`, `lastName` | `firstName`, `lastName` | always set, prefill on |
 | simple | `email` | `email` | set if missing, prefill on |
-| simple | `phoneNumber` (shown when a call is asked for, masked `+99 9 99 99 99 99`) | `phoneNumber` | set if missing |
+| simple | `phoneNumber` (shown when a call is asked for, masked `+99 9 99 99 99 99`) | `phoneNumber` | set if missing, prefill on — a field the logic hides is prefilled all the same, and shows its value once revealed |
 | simple | `message` | — | marked **sensitive**: never leaves the site |
 | complete | `email` | `email` | set if missing |
 | complete | birth date | `birthDate` | always set, prefill on |
