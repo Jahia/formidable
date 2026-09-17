@@ -5,9 +5,9 @@ import {SUBMITTED_EVENT, useFormSubmission} from './useFormSubmission';
 
 /**
  * The wiring of the minimum feedback pause (#327), which the arithmetic tests of
- * `remainingFeedbackPause` cannot see: the clock starts when the spinner appears, and the success
+ * `remainingFeedbackPause` cannot see: the clock starts when the spinner appears, the success
  * message waits for what is left of the floor — nothing after a slow answer, the remainder after a
- * fast one.
+ * fast one — and the accepted submission is announced to the page before that wait, never after.
  *
  * React's state is the one seam mocked: `useState` and `useRef` become plain holders, so the hook runs
  * as a function and `handleSubmit` is driven end to end against a fake `XMLHttpRequest` under fake
@@ -26,16 +26,24 @@ vi.mock('react', () => ({
 
 /** The request the hook sends, answered by the test when it decides the server has taken long enough. */
 class FakeXhr {
-	static last: FakeXhr | undefined;
 	status = 0;
 	responseText = '';
 	withCredentials = false;
 	onload: (() => void) | null = null;
 	onerror: (() => void) | null = null;
-	open() {}
-	setRequestHeader() {}
+	opened: {method: string; url: string} | undefined;
+	readonly headers: Record<string, string> = {};
+
+	open(method: string, url: string) {
+		this.opened = {method, url};
+	}
+
+	setRequestHeader(name: string, value: string) {
+		this.headers[name] = value;
+	}
+
 	send() {
-		FakeXhr.last = this;
+		requests.push(this);
 	}
 
 	answer(status: number, body: string) {
@@ -45,12 +53,44 @@ class FakeXhr {
 	}
 }
 
+/** The requests sent, in order; the test answers the last one. Cleared before each test. */
+const requests: FakeXhr[] = [];
+
 const labels = {
 	captchaRequired: 'captcha',
 	errorCode: 'code',
 	actionsProgress: (completed: number, total: number) => `${completed}/${total}`,
 	maintenanceUnavailable: 'maintenance',
 };
+
+/**
+ * The component the hook runs in, as it runs in Form.client.tsx — a function component in shape,
+ * called directly since React is the mock above (what a hook-rendering test utility does under the hood).
+ */
+function SubmittingForm(options: Parameters<typeof useFormSubmission>[0]) {
+	return useFormSubmission(options);
+}
+
+/**
+ * Submits a fresh, empty form and hands back a way to ask whether the success message has been shown.
+ * The hook's `useState` calls come in a fixed order — message, message type, loading, captcha — so
+ * the second setter is the message type's.
+ */
+function submit() {
+	const {handleSubmit} = SubmittingForm({
+		formId: 'form-under-test',
+		locale: 'en',
+		isMultiStep: false,
+		isLastStep: true,
+		setCurrentStep: () => undefined,
+		labels,
+	});
+	const form = document.createElement('form');
+	document.body.append(form);
+	handleSubmit({preventDefault: () => undefined, currentTarget: form} as unknown as FormEvent<HTMLFormElement>);
+	const [, setMessageType] = react.setters;
+	return {successShown: () => setMessageType.mock.calls.some(([type]) => type === 'success')};
+}
 
 describe('useFormSubmission: the minimum feedback pause is a floor', () => {
 	/** Hears the accepted submission bubble up from the form; the body keeps its listeners across replaceChildren. */
@@ -60,7 +100,7 @@ describe('useFormSubmission: the minimum feedback pause is a floor', () => {
 		vi.useFakeTimers();
 		vi.stubGlobal('XMLHttpRequest', FakeXhr);
 		react.setters.length = 0;
-		FakeXhr.last = undefined;
+		requests.length = 0;
 		submitted.mockClear();
 		document.body.addEventListener(SUBMITTED_EVENT, submitted);
 	});
@@ -72,59 +112,40 @@ describe('useFormSubmission: the minimum feedback pause is a floor', () => {
 		document.body.replaceChildren();
 	});
 
-	/** Runs `handleSubmit` on a fresh form; the hook's `useState` calls are message, message type, loading, captcha. */
-	function submit() {
-		const {handleSubmit} = useFormSubmission({
-			formId: 'form-under-test',
-			locale: 'en',
-			isMultiStep: false,
-			isLastStep: true,
-			setCurrentStep: () => {},
-			labels,
-		});
-		const form = document.createElement('form');
-		document.body.append(form);
-		const event = {preventDefault() {}, currentTarget: form} as unknown as FormEvent<HTMLFormElement>;
-		const done = handleSubmit(event);
-		const [, setMessageType] = react.setters;
-		return {done, setMessageType, successShown: () => setMessageType.mock.calls.some(([type]) => type === 'success')};
-	}
-
 	it('waits nothing more after an answer slower than the floor', async () => {
-		const {done, successShown} = submit();
+		const {successShown} = submit();
 		await vi.advanceTimersByTimeAsync(1200);
-		FakeXhr.last?.answer(200, '{"success":true}');
+		requests.at(-1)?.answer(200, '{"success":true}');
 
 		await vi.advanceTimersByTimeAsync(0);
 
 		expect(successShown()).toBe(true);
 		expect(vi.getTimerCount()).toBe(0);
-		await done;
 	});
 
 	it('completes the floor after a fast answer, counted from the spinner, not from the answer', async () => {
-		const {done, successShown} = submit();
+		const {successShown} = submit();
 		await vi.advanceTimersByTimeAsync(40);
-		FakeXhr.last?.answer(200, '{"success":true}');
+		requests.at(-1)?.answer(200, '{"success":true}');
 
 		await vi.advanceTimersByTimeAsync(459);
 		expect(successShown()).toBe(false);
 
 		await vi.advanceTimersByTimeAsync(1);
 		expect(successShown()).toBe(true);
-		await done;
 	});
 
 	it('announces the accepted submission before the pause, not after it', async () => {
-		const {done, successShown} = submit();
+		const {successShown} = submit();
 		await vi.advanceTimersByTimeAsync(40);
-		FakeXhr.last?.answer(200, '{"success":true}');
+		requests.at(-1)?.answer(200, '{"success":true}');
 		await vi.advanceTimersByTimeAsync(0);
 
-		// the page hears of the acceptance at once: a listener (the jExperience script) is never made to wait for the floor
+		// the page hears of the acceptance at once: a listener (the jExperience script) never pays the floor
 		expect(submitted).toHaveBeenCalledOnce();
 		expect(successShown()).toBe(false);
+
 		await vi.advanceTimersByTimeAsync(460);
-		await done;
+		expect(successShown()).toBe(true);
 	});
 });
