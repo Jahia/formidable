@@ -111,6 +111,23 @@ Nothing in Formidable depends on jExperience; the new module depends on both.
 | `SubmissionResponseEnricher` SPI | formidable-engine, `api` package | Called by the pipeline after all actions succeeded, with the form node, the site and the validated parameters; returns a JSON block to add to the 200. The jExperience module contributes `jexperience: {formId, fields}` — the accepted values of the form's fields, minus the ones marked sensitive — when the site's pages carry the tracker (`JExperienceSite`). Enrichers never fail the submission. |
 | `formidable:submitted` | formidable-elements, `Form.client.tsx` | DOM `CustomEvent` (bubbling) dispatched after a 200, carrying the form's UUID and the parsed response. The elements module knows nothing of jExperience: it only says "this was accepted, here is what the server answered". |
 
+The Java of `formidable-jexperience-engine` sits in packages named for their concern, one each, and none
+is exported (`Export-Package: !*`): "public" there means "read across the module's packages", nothing more.
+
+| Package | Holds |
+|---|---|
+| `model` | `JxpMixin`, `JxpProperty` — the module's own CND names, spelt once; `DefinitionsCndTest` keeps them and the CND saying the same, both ways |
+| `profile` | the visitor profile schema as jCustomer describes it: `ProfilePropertyCatalog`, `ProfilePropertyDescriptor`, `ProfilePropertyFilter`, `ProfilePropertiesUnavailableException` |
+| `field` | what a field is to a mapping: its shape (`FieldShape`, `FieldShapes`) and the author's sensitive flag (`SensitiveField`) |
+| `choicelist` | the editor's dropdown: `ProfilePropertiesChoiceListInitializer` |
+| `rule` | the mapping rule and its life in jCustomer: `MappingRule`, `FormMappingReader`, `MappingRuleSynchronizer`, `MappingRuleSyncListener` |
+| `render` | the page: `FormJExperienceRenderFilter` |
+| `submission` | the answer: `SubmissionEventEnricher` |
+| `util` | `JExperienceSite` (is the site tracked, is it configured), `Json` |
+
+`render`, `rule`, `submission` and `choicelist` are the entry points, a Jahia or engine hook each; they read
+`field` and `profile`, and everything reads `model` and `util`. Nothing reads an entry point back.
+
 ---
 
 ## Data flows
