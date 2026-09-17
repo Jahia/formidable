@@ -367,53 +367,6 @@ published there, so publishing a flagged list ALSO pushes the default titles
 of the not-yet-published languages; that is a real (if minor) change to live,
 and publishing remains the contributor's decision.
 
-## A jExperience mapping rule written by an earlier 0.5.0 snapshot must be rewritten
-
-**Only instances that ran an earlier 0.5.0 snapshot with the jExperience integration.** Nothing is
-released, so this is development and QA instances, not upgrades from 0.4.
-
-The identity of a form in jCustomer changed from `formidable-jxp-<uuid>` to the form's bare UUID.
-The rule the integration keeps in jCustomer is not recreated by that change: its id is derived from
-the site and the form's UUID, neither of which moved, so it stays in place with its old `formId`
-condition, while the browser now sends the new one. Unomi accepts the event, no action fires, and
-nothing is logged — the profile simply stops being updated.
-
-The synchroniser only ever runs from a publication, so **republish every form that maps a field**
-and the rule is rewritten with the identity in use. There is no start-up pass to wait for. An
-administrator who would rather check first can list them in jCustomer: a rule whose id starts with
-`formidable-form-mapping_` and whose `formEventCondition` still names a `formidable-jxp-` form is
-one of these.
-
-## A prefill switched on with an earlier 0.5.0 snapshot must be switched on again
-
-**Only instances that ran an earlier 0.5.0 snapshot with the jExperience integration**, as above:
-development and QA instances, not upgrades from 0.4.
-
-The first snapshots kept the author's "prefill this field from the visitor profile" as a checkbox of
-the mapping section, stored in a property of the mapping mixin. It is now a section of its own, with
-its own switch and one option inside (**Replace the field's default value**). The property of the
-snapshot is no longer declared, no migration reads it — nothing was released that could carry it —
-and a field whose author ticked the old checkbox is simply no longer prefilled, without a trace in the
-editor; the module's log names it at debug level.
-
-**The upload of the new module is refused on such an instance** (verified 2026-09-17): the definitions
-check cancels a deployment that removes a declared property, whether content uses it or not. A
-provisioning script answers `install: []` with HTTP 200 and says nothing more; the server log does:
-
-> Major change in definition : [nodeTypeName=fmdbmix:jExperienceProfileMapping,type=MAJOR,
-> propDefDiffs={[itemName=jExperiencePrefillFromProfile,type=MAJOR,operation=REMOVED]}],
-> cancel module deployment
-
-Untick **Validate module definitions** in the module manager, or pass `"ignoreChecks": true` to
-`installOrUpgradeBundle` in the provisioning script. The values stored under the old property stay in
-place, undeclared, as the 0.4 upgrade left its own.
-
-**Open each field that was prefilled and switch the new section on** (and its option, where the
-profile's value was meant to replace a default); then republish the form. An administrator who would
-rather list them first can query the default workspace for nodes carrying the mapping mixin with the
-old property set: `SELECT * FROM [fmdbmix:jExperienceProfileMapping] WHERE [jExperiencePrefillFromProfile] = true`
-in the JCR query tool — undeclared, the property is still stored and indexed.
-
 ## Startup migrations
 
 The engine carries one-shot content migrations that run at every module start
