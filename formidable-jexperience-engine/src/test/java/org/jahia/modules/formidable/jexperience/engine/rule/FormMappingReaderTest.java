@@ -23,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -95,6 +97,7 @@ class FormMappingReaderTest {
         JCRNodeWrapper form = mock(JCRNodeWrapper.class);
         when(form.getPath()).thenReturn("/sites/mysite/contents/contact");
         when(form.getIdentifier()).thenReturn("form-uuid");
+        when(form.isNodeType(FmdbMixin.FORM_ROOT)).thenReturn(true);
 
         JCRNodeWrapper first = field("firstName", "firstName", null, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD);
         JCRNodeWrapper second = field("age", "age", "setIfMissing", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.NUMBER_FIELD);
@@ -123,8 +126,31 @@ class FormMappingReaderTest {
         ProfilePropertyCatalog down = mock(ProfilePropertyCatalog.class);
         when(down.profileProperties("mysite")).thenThrow(new ProfilePropertiesUnavailableException("down"));
         JCRNodeWrapper form = mock(JCRNodeWrapper.class);
+        when(form.isNodeType(FmdbMixin.FORM_ROOT)).thenReturn(true);
         assertThrows(ProfilePropertiesUnavailableException.class,
                 () -> new FormMappingReader(down, counting(1)).read(mock(JCRSessionWrapper.class), form, "mysite", "en", "Contact form"));
+    }
+
+    @Test
+    void aNodeThatIsNotAFormMapsNothingAndIsNeverQueried() throws Exception {
+        // Jahia republishes a folder by removing and re-adding it in live, and the listener then resolves the
+        // folder by its identifier: read on it, the query would gather every mapped field beneath as one rule.
+        JCRNodeWrapper folder = mock(JCRNodeWrapper.class);
+        when(folder.getPath()).thenReturn("/sites/mysite/contents");
+        when(folder.getIdentifier()).thenReturn("folder-uuid");
+        ProfilePropertyCatalog catalog = catalog();
+        FormMappingReader reader = new FormMappingReader(catalog, counting(1)) {
+            @Override
+            NodeIterator mappedFields(JCRSessionWrapper session, JCRNodeWrapper queried) {
+                throw new AssertionError("a node that is not a form must not be queried");
+            }
+        };
+
+        MappingRule.FormMapping mapping = reader.read(mock(JCRSessionWrapper.class), folder, "mysite", "en", "contents");
+
+        assertEquals("folder-uuid", mapping.formUuid());
+        assertTrue(mapping.fields().isEmpty());
+        verify(catalog, never()).profileProperties(any());
     }
 
     @Test

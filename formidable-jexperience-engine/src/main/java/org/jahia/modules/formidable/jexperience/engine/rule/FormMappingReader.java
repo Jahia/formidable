@@ -1,6 +1,7 @@
 package org.jahia.modules.formidable.jexperience.engine.rule;
 
 import org.jahia.modules.formidable.engine.api.ChoiceOptionsResolver;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.modules.formidable.jexperience.engine.model.JxpMixin;
@@ -57,6 +58,13 @@ public class FormMappingReader {
      */
     public MappingRule.FormMapping read(JCRSessionWrapper session, JCRNodeWrapper form, String siteKey, String language, String formName)
             throws RepositoryException, ProfilePropertiesUnavailableException {
+        if (!form.isNodeType(FmdbMixin.FORM_ROOT)) {
+            // The listener resolves a removed node by its identifier when no form stands above it, and Jahia
+            // republishes a folder by removing and re-adding it in live: the identifier then names the folder,
+            // whose descendants would be read as one form's mappings. A rule is written for a form only.
+            log.debug("[FormMappingReader] '{}' is not a form: nothing to map", form.getPath());
+            return new MappingRule.FormMapping(siteKey, form.getIdentifier(), formName, List.of());
+        }
         List<ProfilePropertyDescriptor> schema = catalog.profileProperties(siteKey);
         List<MappingRule.FieldMapping> fields = new ArrayList<>();
         NodeIterator mapped = mappedFields(session, form);
