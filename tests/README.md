@@ -54,17 +54,19 @@ publication, submission event, profile update — is testable at once:
 
 | Form | Field | Profile property | Strategy |
 |---|---|---|---|
+| *rule* | *a required field* | | *always set: the visitor just stated it* |
+| *rule* | *an optional field* | | *set if missing: it completes the profile, never overrides it* |
 | simple | `firstName`, `lastName` | `firstName`, `lastName` | always set, prefill on |
 | simple | `email` | `email` | set if missing, prefill on |
-| simple | `phoneNumber` (shown when a call is asked for, masked `+99 9 99 99 99 99`) | `phoneNumber` | always set |
+| simple | `phoneNumber` (shown when a call is asked for, masked `+99 9 99 99 99 99`) | `phoneNumber` | set if missing |
 | simple | `message` | — | marked **sensitive**: never leaves the site |
 | complete | `email` | `email` | set if missing |
 | complete | birth date | `birthDate` | always set, prefill on |
-| complete | `gender` (radio) | `gender` | always set, prefill on |
-| complete | `kids` (number) | `kids` | always set |
-| complete | `country` (sourced select, ISO codes) | `countryName` | always set |
+| complete | `gender` (radio) | `gender` | set if missing, prefill on |
+| complete | `kids` (number) | `kids` | set if missing |
+| complete | `country` (sourced select, ISO codes) | `countryName` | set if missing |
 | complete | interests (checkbox group) | `formidableInterests` — multi-valued, playground card | always set |
-| complete | `newsletter` (switch) | `formidableOptIn` — boolean, playground card | always set |
+| complete | `newsletter` (switch) | `formidableOptIn` — boolean, playground card | set if missing |
 | complete | employee code | — | marked **sensitive** |
 
 jCustomer's default schema has no multi-valued and no boolean property, so the script creates the two

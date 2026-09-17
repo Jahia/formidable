@@ -226,6 +226,30 @@ const deleteMappingRulesOfTheSite = (): void => {
 	});
 };
 
+// The mapping mixin is registered only when formidable-jexperience-engine is deployed (and it resolves only
+// with jExperience present). A missing type answers a GraphQL error, which cy.apollo reports rather than
+// throws — but so does a GraphQL schema being rebuilt, which is what a module deployed a minute earlier
+// leaves behind; one such run silently provisioned everything without mappings. So the question is asked
+// a few times before the module is declared absent, and the last error is logged.
+const DETECTION_ATTEMPTS = 5;
+const detectJExperience = (attempt = 1): void => {
+	cy.apollo({query: gql`query jExperienceMappingMixin { jcr { nodeTypeByName(name: "${JXP_MAPPING_MIXIN}") { name } } }`})
+		.then((response: {errors?: unknown; data?: {jcr?: {nodeTypeByName?: {name?: string} | null}}}) => {
+			if (!response.errors && response.data?.jcr?.nodeTypeByName?.name) {
+				jExperienceAvailable = true;
+				cy.log('formidable-jexperience-engine present: the simple and complete forms map their fields to visitor profile properties');
+			} else if (attempt < DETECTION_ATTEMPTS) {
+				cy.log(`the mapping mixin did not answer (attempt ${attempt}/${DETECTION_ATTEMPTS}), asking again in 2 s`);
+				// eslint-disable-next-line cypress/no-unnecessary-waiting -- a pause between two tries, not a wait for an element
+				cy.wait(2000);
+				detectJExperience(attempt + 1);
+			} else {
+				jExperienceAvailable = false;
+				cy.log(`formidable-jexperience-engine absent: forms provisioned without visitor profile mappings (last answer: ${JSON.stringify(response.errors ?? response.data)})`);
+			}
+		});
+};
+
 // French option list in the manual-options storage format.
 const frOptions = (options: Array<{value: string; label: string; selected?: boolean}>): {name: string; values: string[]} => ({
 	name: 'options',
@@ -421,16 +445,7 @@ describe('Playground - provision manual-testing forms', () => {
 	});
 
 	it('resets the test site', () => {
-		// The mapping mixin is registered only when formidable-jexperience-engine is deployed (and it resolves
-		// only with jExperience present); a missing type answers a GraphQL error, which cy.apollo reports
-		// rather than throws, so the flag is false and the playground goes on without mappings.
-		cy.apollo({query: gql`query jExperienceMappingMixin { jcr { nodeTypeByName(name: "${JXP_MAPPING_MIXIN}") { name } } }`})
-			.then((response: {errors?: unknown; data?: {jcr?: {nodeTypeByName?: {name?: string} | null}}}) => {
-				jExperienceAvailable = !response.errors && Boolean(response.data?.jcr?.nodeTypeByName?.name);
-				cy.log(jExperienceAvailable
-					? 'formidable-jexperience-engine present: the simple and complete forms map their fields to visitor profile properties'
-					: 'formidable-jexperience-engine absent: forms provisioned without visitor profile mappings');
-			});
+		detectJExperience();
 		cy.then(() => {
 			if (jExperienceAvailable) deleteMappingRulesOfTheSite();
 		});
@@ -480,14 +495,14 @@ describe('Playground - provision manual-testing forms', () => {
 			'playground-simple',
 			'Playground - Simple contact form',
 			[
-				// The visitor profile mapping, on the fields jCustomer knows by default; the two strategies and the
-				// prefill switch are both represented, and the free-text message stays out of the profile.
+				// The visitor profile mapping, on the fields jCustomer knows by default. A required field always sets
+				// its property, an optional one only completes a missing value; the free-text message stays out of the profile.
 				mappedTo(withFrench(firstNameField(), [{name: 'jcr:title', value: 'Prénom'}]), 'firstName', {prefill: true}),
 				mappedTo(withFrench(lastNameField(), [{name: 'jcr:title', value: 'Nom'}]), 'lastName', {prefill: true}),
 				mappedTo(withFrench(getInputEmailNode({name: 'email', title: 'Email', required: true}), [{name: 'jcr:title', value: 'Email'}]), 'email', {strategy: 'setIfMissing', prefill: true}),
 				sensitive(withFrench(getTextareaNode({name: 'message', title: 'Message'}), [{name: 'jcr:title', value: 'Message'}])),
 				contactChannelSelect(),
-				mappedTo(phoneNumberField(), 'phoneNumber')
+				mappedTo(phoneNumberField(), 'phoneNumber', {strategy: 'setIfMissing'})
 			],
 			undefined,
 			undefined,
@@ -703,13 +718,13 @@ describe('Playground - provision manual-testing forms', () => {
 							{name: 'jcr:title', value: 'Lettre d\'information'},
 							{name: 'onLabel', value: 'Oui'},
 							{name: 'offLabel', value: 'Non'}
-						]), 'formidableOptIn'),
+						]), 'formidableOptIn', {strategy: 'setIfMissing'}),
 						withFrench(getRadioNode(RADIO_GROUP), [{name: 'jcr:title', value: 'Mode de livraison'}, FR_DELIVERY_OPTIONS]),
 						pickupLocationField(),
 						// The two shapes the profile mapping had no field for: a single choice to a string property,
 						// a number to an integer one.
-						mappedTo(withFrench(getRadioNode(GENDER_RADIO), [{name: 'jcr:title', value: 'Genre'}, FR_GENDER_OPTIONS]), 'gender', {prefill: true}),
-						mappedTo(withFrench(getInputNumberNode({name: 'kids', title: 'Number of children', minValue: 0, maxValue: 20, step: 1}), [{name: 'jcr:title', value: 'Nombre d\'enfants'}]), 'kids'),
+						mappedTo(withFrench(getRadioNode(GENDER_RADIO), [{name: 'jcr:title', value: 'Genre'}, FR_GENDER_OPTIONS]), 'gender', {strategy: 'setIfMissing', prefill: true}),
+						mappedTo(withFrench(getInputNumberNode({name: 'kids', title: 'Number of children', minValue: 0, maxValue: 20, step: 1}), [{name: 'jcr:title', value: 'Nombre d\'enfants'}]), 'kids', {strategy: 'setIfMissing'}),
 						departmentSelect(),
 						withFrench(getTextareaNode({...TEXTAREA_COMPLETE, defaultValue: undefined}), [
 							{name: 'jcr:title', value: 'Résumé du projet'},
@@ -728,7 +743,7 @@ describe('Playground - provision manual-testing forms', () => {
 								{name: 'jcr:title', value: 'Pays (source : countries)'},
 								{name: 'optionsEmptyLabel', value: 'Sélectionnez un pays…'}
 							]
-						), 'countryName'),
+						), 'countryName', {strategy: 'setIfMissing'}),
 						withFrench(getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:radio', name: 'tvType', title: 'TV type (sourced: static screen-type list)', sourceKey: 'tv'}), [{name: 'jcr:title', value: 'Type de TV (source : liste statique de types d\'écrans)'}]),
 						withFrench(getCategoryChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'tvCategory', title: 'TV category (category mode, multiple select)', rootCategoryUuid: tvCategoryUuid, multiple: true}), [{name: 'jcr:title', value: 'Catégorie TV (mode catégorie, sélection multiple)'}]),
 						withFrench(getContentChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'agency', title: 'Agency (content mode: texts under contents/agencies)', rootNodeUuid: agenciesRootUuid, nodeType: 'jnt:text'}), [{name: 'jcr:title', value: 'Agence (mode contenu : textes sous contents/agencies)'}])
