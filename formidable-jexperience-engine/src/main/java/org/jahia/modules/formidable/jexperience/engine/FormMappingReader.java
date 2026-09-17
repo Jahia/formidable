@@ -3,6 +3,8 @@ package org.jahia.modules.formidable.jexperience.engine;
 import org.jahia.modules.formidable.engine.api.ChoiceOptionsResolver;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
+import org.jahia.modules.formidable.jexperience.engine.model.JxpMixin;
+import org.jahia.modules.formidable.jexperience.engine.model.JxpProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,8 +26,7 @@ import java.util.OptionalInt;
  */
 public class FormMappingReader {
 
-    static final String MAPPING_MIXIN = "fmdbmix:jExperienceProfileMapping";
-    static final String STRATEGY_PROPERTY = "jExperienceSetStrategy";
+    /** The CND default of the write strategy, applied when a mapping predates the property. */
     static final String DEFAULT_STRATEGY = "alwaysSet";
 
     private static final Logger log = LoggerFactory.getLogger(FormMappingReader.class);
@@ -66,7 +67,7 @@ public class FormMappingReader {
      * class does not load outside a running Jahia, and this query has a unit test.
      */
     static String queryFor(String formPath) {
-        return "SELECT * FROM [" + MAPPING_MIXIN + "] WHERE ISDESCENDANTNODE('" + formPath.replace("'", "''") + "')";
+        return "SELECT * FROM [" + JxpMixin.MAPPING + "] WHERE ISDESCENDANTNODE('" + formPath.replace("'", "''") + "')";
     }
 
     /** The fields under the form carrying the mapping mixin — a seam for the tests, which have no query engine. */
@@ -79,7 +80,7 @@ public class FormMappingReader {
         if (!SensitiveField.isMapped(field)) {
             return Optional.empty();
         }
-        String propertyName = field.getPropertyAsString(ProfilePropertiesChoiceListInitializer.PROPERTY);
+        String propertyName = field.getPropertyAsString(JxpProperty.PROFILE_PROPERTY);
         if (SensitiveField.isSensitive(field)) {
             // the dropdown offers nothing on a sensitive field, but a mapping may predate the flag
             log.warn("[FormMappingReader] '{}' maps '{}' but is marked sensitive: skipped", field.getPath(), propertyName);
@@ -100,7 +101,7 @@ public class FormMappingReader {
                     field.getPath(), propertyName, property.get().valueTypeId(), property.get().multivalued() ? ", multivalued" : "");
             return Optional.empty();
         }
-        String strategy = field.getPropertyAsString(STRATEGY_PROPERTY);
+        String strategy = field.getPropertyAsString(JxpProperty.SET_STRATEGY);
         return Optional.of(new MappingRule.FieldMapping(field.getName(), propertyName,
                 strategy == null || strategy.isBlank() ? DEFAULT_STRATEGY : strategy,
                 MappingRule.ValueKind.of(property.get().valueTypeId(), property.get().multivalued())));

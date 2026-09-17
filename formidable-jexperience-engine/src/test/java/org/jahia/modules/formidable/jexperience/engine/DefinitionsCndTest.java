@@ -7,8 +7,12 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.engine.api.FmdbProperty;
+import org.jahia.modules.formidable.jexperience.engine.model.JxpMixin;
+import org.jahia.modules.formidable.jexperience.engine.model.JxpProperty;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -63,10 +67,10 @@ class DefinitionsCndTest {
         List<String> mixin = declarationOf(cnd(), "fmdbmix:jExperienceProfileMapping");
         assertEquals("[fmdbmix:jExperienceProfileMapping] mixin", mixin.get(0), "no supertype: mappability is the type's claim, not the mixin's");
         assertEquals("extends = " + FmdbMixin.PROFILE_MAPPABLE_FIELD, lineStartingWith(mixin, "extends"));
-        String property = lineStartingWith(mixin, "- " + ProfilePropertiesChoiceListInitializer.PROPERTY + " ");
+        String property = lineStartingWith(mixin, "- " + JxpProperty.PROFILE_PROPERTY + " ");
         assertTrue(property.contains("choicelist[" + ProfilePropertiesChoiceListInitializer.KEY + ",dependentProperties='"
                 + FieldShapes.MULTIPLE_PROPERTY + "," + FmdbProperty.OPTIONS + ","
-                + FmdbProperty.OPTIONS_MODE + "," + SensitiveField.PROPERTY + "']"), property);
+                + FmdbProperty.OPTIONS_MODE + "," + JxpProperty.SENSITIVE + "']"), property);
     }
 
     @Test
@@ -77,11 +81,31 @@ class DefinitionsCndTest {
         // names it, which is what empties that dropdown the moment the author ticks the box.
         List<String> lines = cnd();
         assertTrue(lines.stream().anyMatch(line -> line.strip().startsWith("<jmix = 'http://www.jahia.org/jahia/mix/1.0'>")), "the jmix namespace is declared");
-        List<String> mixin = declarationOf(lines, SensitiveField.MIXIN);
-        assertEquals("[" + SensitiveField.MIXIN + "] > jmix:templateMixin mixin", mixin.get(0));
+        List<String> mixin = declarationOf(lines, JxpMixin.SENSITIVE_FIELD);
+        assertEquals("[" + JxpMixin.SENSITIVE_FIELD + "] > jmix:templateMixin mixin", mixin.get(0));
         assertEquals("extends = " + FmdbMixin.PROFILE_MAPPABLE_FIELD, lineStartingWith(mixin, "extends"));
-        assertEquals("- " + SensitiveField.PROPERTY + " (boolean) = false autocreated indexed=no", lineStartingWith(mixin, "- " + SensitiveField.PROPERTY + " "));
-        assertTrue(lineStartingWith(declarationOf(lines, "fmdbmix:jExperienceProfileMapping"), "- " + ProfilePropertiesChoiceListInitializer.PROPERTY + " ")
-                .contains("," + SensitiveField.PROPERTY + "'"), "the choicelist depends on the flag");
+        assertEquals("- " + JxpProperty.SENSITIVE + " (boolean) = false autocreated indexed=no", lineStartingWith(mixin, "- " + JxpProperty.SENSITIVE + " "));
+        assertTrue(lineStartingWith(declarationOf(lines, JxpMixin.MAPPING), "- " + JxpProperty.PROFILE_PROPERTY + " ")
+                .contains("," + JxpProperty.SENSITIVE + "'"), "the choicelist depends on the flag");
+    }
+
+    /**
+     * The module names its own model once, and both ways: every mixin and property the CND declares
+     * has its constant in {@code JxpMixin} or {@code JxpProperty}, and every constant there is declared.
+     * The engine's guard does this for the engine's CND; this test does it for the module's.
+     */
+    @Test
+    void theModelIsNamedOnceAndBothWays() throws Exception {
+        List<String> lines = cnd().stream().map(String::strip).toList();
+        Set<String> mixins = lines.stream()
+                .filter(line -> line.startsWith("[") && line.matches(".*\\bmixin\\b.*"))
+                .map(line -> line.substring(1, line.indexOf(']')))
+                .collect(Collectors.toSet());
+        assertEquals(Set.of(JxpMixin.MAPPING, JxpMixin.SENSITIVE_FIELD), mixins);
+        Set<String> properties = lines.stream()
+                .filter(line -> line.startsWith("- "))
+                .map(line -> line.substring(2, line.indexOf(' ', 2)))
+                .collect(Collectors.toSet());
+        assertEquals(Set.of(JxpProperty.PROFILE_PROPERTY, JxpProperty.PREFILL, JxpProperty.SET_STRATEGY, JxpProperty.SENSITIVE), properties);
     }
 }

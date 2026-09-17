@@ -24,7 +24,7 @@ import org.jahia.modules.formidable.engine.api.FmdbMixin;
  */
 public final class FieldShapes {
 
-    static final String MULTIPLE_PROPERTY = "multiple";
+    public static final String MULTIPLE_PROPERTY = "multiple";
 
     private static final List<String> RELEVANT_TYPES = List.of(FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.FILE_FIELD,
             FmdbMixin.EMAIL_FIELD, FmdbMixin.CHOICE_FIELD, FmdbMixin.NUMBER_FIELD, FmdbMixin.BOOLEAN_FIELD, FmdbMixin.DATE_FIELD,

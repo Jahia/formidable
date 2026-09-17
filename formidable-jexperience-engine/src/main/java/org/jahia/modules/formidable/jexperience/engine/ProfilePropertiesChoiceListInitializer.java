@@ -8,6 +8,7 @@ import org.jahia.services.content.nodetypes.ExtendedPropertyDefinition;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListValue;
 import org.jahia.services.content.nodetypes.initializers.ModuleChoiceListInitializer;
 import org.jahia.utils.i18n.Messages;
+import org.jahia.modules.formidable.jexperience.engine.model.JxpProperty;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
@@ -44,9 +45,8 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
     static final String BUNDLE = "resources.formidable-jexperience-engine";
     static final String UNAVAILABLE_KEY = "formidableJExperienceProfileProperties.unavailable";
     static final String NONE_KEY = "formidableJExperienceProfileProperties.none";
-    static final String KEPT_KEY = "formidableJExperienceProfileProperties.kept";
+    public static final String KEPT_KEY = "formidableJExperienceProfileProperties.kept";
     static final String SENSITIVE_KEY = "formidableJExperienceProfileProperties.sensitive";
-    static final String PROPERTY = "jExperienceProfileProperty";
     /** The value property the Content Editor reads to pre-select an entry (jcontent, registerChoiceList initValue). */
     static final String DEFAULT_PROPERTY = "defaultProperty";
     /**
@@ -222,8 +222,8 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
 
     /** The mapping the field already stores, if it is an existing field with one. */
     private static Optional<String> storedOf(Map<String, Object> context) throws RepositoryException {
-        if (context.get(CONTEXT_NODE) instanceof JCRNodeWrapper node && node.hasProperty(PROPERTY)) {
-            String value = node.getProperty(PROPERTY).getString();
+        if (context.get(CONTEXT_NODE) instanceof JCRNodeWrapper node && node.hasProperty(JxpProperty.PROFILE_PROPERTY)) {
+            String value = node.getProperty(JxpProperty.PROFILE_PROPERTY).getString();
             return value == null || value.isBlank() ? Optional.empty() : Optional.of(value);
         }
         return Optional.empty();

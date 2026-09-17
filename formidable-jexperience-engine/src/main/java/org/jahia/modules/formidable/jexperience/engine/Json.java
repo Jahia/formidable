@@ -5,7 +5,7 @@ package org.jahia.modules.formidable.jexperience.engine;
  * module builds its JSON by hand — maps for jCustomer, a few fields for the page — and carries no
  * JSON library at runtime.
  */
-final class Json {
+public final class Json {
 
     /**
      * The two separators JSON allows inside a string and JavaScript once refused. Written as code
@@ -24,7 +24,7 @@ final class Json {
      * close the script block it sits in, and the two Unicode line terminators JSON allows but
      * JavaScript once refused.
      */
-    static String string(String value) {
+    public static String string(String value) {
         if (value == null) {
             return "null";
         }

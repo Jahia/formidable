@@ -7,13 +7,13 @@ import org.jahia.services.content.decorator.JCRSiteNode;
  * Whether a site's pages carry jExperience's tracker: the one question the render filter and the
  * response enricher ask before contributing anything for a form.
  */
-final class JExperienceSite {
+public final class JExperienceSite {
 
     /**
      * The module the site must have, spelt as jExperience's own filters spell it — it is both the
      * module's name and the template set {@code ContextServerScriptFilter} is declared on.
      */
-    static final String MODULE = "jexperience";
+    public static final String MODULE = "jexperience";
 
     private JExperienceSite() {
     }
@@ -46,7 +46,7 @@ final class JExperienceSite {
      * jExperience's settings service — which is what makes this affordable on every accepted
      * submission and every render cache miss.</p>
      */
-    static boolean tracked(JCRSiteNode site, ContextServerService service) {
+    public static boolean tracked(JCRSiteNode site, ContextServerService service) {
         return site != null
                 && site.getInstalledModules().contains(MODULE)
                 && configured(service, site.getSiteKey());
@@ -59,7 +59,7 @@ final class JExperienceSite {
      * the visitor. A site without settings gets no status at all, as opposed to a jCustomer that is
      * offline, whose status says so.
      */
-    static boolean configured(ContextServerService service, String siteKey) {
+    public static boolean configured(ContextServerService service, String siteKey) {
         return service != null && siteKey != null && service.getContextServerStatus(siteKey) != null;
     }
 }

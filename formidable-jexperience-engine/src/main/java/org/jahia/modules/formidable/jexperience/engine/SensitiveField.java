@@ -1,6 +1,7 @@
 package org.jahia.modules.formidable.jexperience.engine;
 
 import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.modules.formidable.jexperience.engine.model.JxpProperty;
 
 import javax.jcr.RepositoryException;
 import java.util.Collection;
@@ -21,10 +22,7 @@ import java.util.Optional;
  * "this value never leaves the site" cannot be armed only by an act the author may not think to
  * perform (see {@code SubmissionEventEnricher.sendableFields}).</p>
  */
-final class SensitiveField {
-
-    static final String MIXIN = "fmdbmix:jExperienceSensitiveField";
-    static final String PROPERTY = "jExperienceSensitive";
+public final class SensitiveField {
 
     private SensitiveField() {
     }
@@ -34,14 +32,14 @@ final class SensitiveField {
      * author can switch the section on and leave the property empty, and jcontent clears a property its list
      * no longer offers. Written here once because the reader, the render filter and the rule must agree.
      */
-    static boolean isMapped(JCRNodeWrapper field) {
-        String property = field.getPropertyAsString(ProfilePropertiesChoiceListInitializer.PROPERTY);
+    public static boolean isMapped(JCRNodeWrapper field) {
+        String property = field.getPropertyAsString(JxpProperty.PROFILE_PROPERTY);
         return property != null && !property.isBlank();
     }
 
     /** Whether the stored field is marked sensitive; false for a field that never carried the mixin. */
-    static boolean isSensitive(JCRNodeWrapper field) throws RepositoryException {
-        return field.hasProperty(PROPERTY) && field.getProperty(PROPERTY).getBoolean();
+    public static boolean isSensitive(JCRNodeWrapper field) throws RepositoryException {
+        return field.hasProperty(JxpProperty.SENSITIVE) && field.getProperty(JxpProperty.SENSITIVE).getBoolean();
     }
 
     /**
@@ -49,7 +47,7 @@ final class SensitiveField {
      * when it re-asks the list for that change (the choicelist names the property in its
      * dependentProperties), else the stored value, else false for a field being created.
      */
-    static boolean isSensitive(Map<String, Object> context, Object node) throws RepositoryException {
+    public static boolean isSensitive(Map<String, Object> context, Object node) throws RepositoryException {
         Optional<Boolean> pending = pending(context);
         if (pending.isPresent()) {
             return pending.get();
@@ -59,7 +57,7 @@ final class SensitiveField {
 
     /** The unsaved value as jcontent sends it: a boolean, a string, or a list holding one; empty when absent. */
     static Optional<Boolean> pending(Map<String, Object> context) {
-        Object value = context.get(PROPERTY);
+        Object value = context.get(JxpProperty.SENSITIVE);
         if (value instanceof Collection<?> values) {
             value = values.isEmpty() ? null : values.iterator().next();
         }

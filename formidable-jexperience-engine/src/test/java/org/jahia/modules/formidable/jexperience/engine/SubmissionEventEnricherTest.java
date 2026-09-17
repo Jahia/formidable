@@ -11,6 +11,7 @@ import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRPropertyWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.decorator.JCRSiteNode;
+import org.jahia.modules.formidable.jexperience.engine.model.JxpProperty;
 import org.junit.jupiter.api.Test;
 
 import javax.jcr.ItemNotFoundException;
@@ -56,8 +57,8 @@ class SubmissionEventEnricherTest {
     private static JCRNodeWrapper unticked(JCRNodeWrapper field) throws RepositoryException {
         JCRPropertyWrapper flag = mock(JCRPropertyWrapper.class);
         when(flag.getBoolean()).thenReturn(false);
-        when(field.hasProperty(SensitiveField.PROPERTY)).thenReturn(true);
-        when(field.getProperty(SensitiveField.PROPERTY)).thenReturn(flag);
+        when(field.hasProperty(JxpProperty.SENSITIVE)).thenReturn(true);
+        when(field.getProperty(JxpProperty.SENSITIVE)).thenReturn(flag);
         return field;
     }
 
@@ -65,8 +66,8 @@ class SubmissionEventEnricherTest {
     private static JCRNodeWrapper sensitive(JCRNodeWrapper field) throws RepositoryException {
         JCRPropertyWrapper flag = mock(JCRPropertyWrapper.class);
         when(flag.getBoolean()).thenReturn(true);
-        when(field.hasProperty(SensitiveField.PROPERTY)).thenReturn(true);
-        when(field.getProperty(SensitiveField.PROPERTY)).thenReturn(flag);
+        when(field.hasProperty(JxpProperty.SENSITIVE)).thenReturn(true);
+        when(field.getProperty(JxpProperty.SENSITIVE)).thenReturn(flag);
         return field;
     }
 

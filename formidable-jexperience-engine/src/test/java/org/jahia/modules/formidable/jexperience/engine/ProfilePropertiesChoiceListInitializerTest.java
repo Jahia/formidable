@@ -7,6 +7,7 @@ import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRPropertyWrapper;
 import org.jahia.services.content.decorator.JCRSiteNode;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListValue;
+import org.jahia.modules.formidable.jexperience.engine.model.JxpProperty;
 import org.junit.jupiter.api.Test;
 
 import javax.jcr.nodetype.NodeType;
@@ -171,8 +172,8 @@ class ProfilePropertiesChoiceListInitializerTest {
         if (stored != null) {
             JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
             when(property.getString()).thenReturn(stored);
-            when(node.hasProperty(ProfilePropertiesChoiceListInitializer.PROPERTY)).thenReturn(true);
-            when(node.getProperty(ProfilePropertiesChoiceListInitializer.PROPERTY)).thenReturn(property);
+            when(node.hasProperty(JxpProperty.PROFILE_PROPERTY)).thenReturn(true);
+            when(node.getProperty(JxpProperty.PROFILE_PROPERTY)).thenReturn(property);
         }
         return node;
     }
@@ -181,8 +182,8 @@ class ProfilePropertiesChoiceListInitializerTest {
     private static JCRNodeWrapper sensitive(JCRNodeWrapper node) throws Exception {
         JCRPropertyWrapper flag = mock(JCRPropertyWrapper.class);
         when(flag.getBoolean()).thenReturn(true);
-        when(node.hasProperty(SensitiveField.PROPERTY)).thenReturn(true);
-        when(node.getProperty(SensitiveField.PROPERTY)).thenReturn(flag);
+        when(node.hasProperty(JxpProperty.SENSITIVE)).thenReturn(true);
+        when(node.getProperty(JxpProperty.SENSITIVE)).thenReturn(flag);
         return node;
     }
 
@@ -411,10 +412,10 @@ class ProfilePropertiesChoiceListInitializerTest {
 
         assertEquals(List.of(""), values(listed(initializer, context(
                 ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, fieldNode(null, false, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD),
-                SensitiveField.PROPERTY, true))));
+                JxpProperty.SENSITIVE, true))));
         assertEquals(List.of("firstName"), values(listed(initializer, context(
                 ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, sensitive(fieldNode(null, false, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD)),
-                SensitiveField.PROPERTY, List.of(false)))));
+                JxpProperty.SENSITIVE, List.of(false)))));
     }
 
     /** The initializer with its sensitive message stubbed: Jahia's bundle lookup does not run outside a container. */
