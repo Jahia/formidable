@@ -28,14 +28,16 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.jexperience.engine.util.JExperienceSite;
 import org.jahia.modules.formidable.jexperience.engine.util.Json;
-import java.util.Map;
+import java.util.Set;
 
 /**
  * Writes, before every form of a tracked site in live, what the client script needs: a JSON block
  * keyed on the form's UUID — {@code formId}, {@code name}, {@code path}, and the {@code prefill} pairs,
  * field to visitor profile property, for the fields the author asked to prefill — and the declaration
  * of the script as a static asset. What the form maps for sending is not in it: the accepted values
- * reach the script through the submission's answer (see {@code block}).
+ * reach the script through the submission's answer (see {@code block}). The form's mappable fields are
+ * registered as dependencies of the fragment: mapping one, or switching its prefill on, must refresh
+ * a block the cache would otherwise keep until the form itself is republished.
  *
  * <p>The output depends on the published form alone, never on the visitor, so the fragment stays
  * cached and identical for everyone. Every form of a page declares the same asset, and core keeps one
@@ -95,7 +97,7 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
 
     @Override
     public String execute(String previousOut, RenderContext renderContext, Resource resource, RenderChain chain) {
-        return prepend(previousOut, renderContext.getSite(), resource.getNode(), renderContext.getRequest().getContextPath());
+        return prepend(previousOut, renderContext.getSite(), resource.getNode(), renderContext.getRequest().getContextPath(), resource.getDependencies());
     }
 
     /**
@@ -103,12 +105,12 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
      * pages carry the tracker, and whenever the form cannot be read — a form that renders is worth
      * more than a form that fails over its analytics.
      */
-    String prepend(String previousOut, JCRSiteNode site, JCRNodeWrapper form, String contextPath) {
+    String prepend(String previousOut, JCRSiteNode site, JCRNodeWrapper form, String contextPath, Set<String> dependencies) {
         try {
             if (!JExperienceSite.tracked(site, contextServerService.get())) {
                 return previousOut;
             }
-            return contribution(form, contextPath) + previousOut;
+            return contribution(form, contextPath, dependencies) + previousOut;
         } catch (RepositoryException | RuntimeException e) {
             // everything, including the site check: an escaped exception is turned into a RenderFilterException
             // and costs the page, not the block, and a form that renders is worth more than its analytics
@@ -117,25 +119,27 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
         }
     }
 
-    /** The configuration block of the form, then the script tag. */
-    String contribution(JCRNodeWrapper rendered, String contextPath) throws RepositoryException {
+    /** The configuration block of the form, then the script tag; the fields read on the way become dependencies of the fragment. */
+    String contribution(JCRNodeWrapper rendered, String contextPath, Set<String> dependencies) throws RepositoryException {
         String uuid = rendered.getIdentifier();
         JCRSessionWrapper renderSession = rendered.getSession();
         return inOwnSession(renderSession.getWorkspace().getName(), renderSession.getLocale(), session -> {
             JCRNodeWrapper form = session.getNodeByIdentifier(uuid);
-            return block(form, uuid, contextPath, prefillOf(session, form));
+            PrefillMappings.Prefill prefill = prefillOf(session, form);
+            dependencies.addAll(prefill.dependencies());
+            return block(form, uuid, contextPath, prefill.entries());
         });
     }
 
     /**
-     * The fields to prefill and their profile properties, read from the JCR alone in the filter's session;
-     * a seam for the tests, which have no query engine.
+     * The fields to prefill and their profile properties, with every mappable field as a dependency, read
+     * from the JCR alone in the filter's session; a seam for the tests, which have no query engine.
      */
-    Map<String, PrefillMappings.Entry> prefillOf(JCRSessionWrapper session, JCRNodeWrapper form) throws RepositoryException {
+    PrefillMappings.Prefill prefillOf(JCRSessionWrapper session, JCRNodeWrapper form) throws RepositoryException {
         return new PrefillMappings().read(session, form);
     }
 
-    private String block(JCRNodeWrapper form, String uuid, String contextPath, Map<String, PrefillMappings.Entry> prefill) {
+    private String block(JCRNodeWrapper form, String uuid, String contextPath, java.util.Map<String, PrefillMappings.Entry> prefill) {
         // Built by hand: this module carries no JSON library at runtime. What the form maps for SENDING is
         // deliberately not here — the send decision reads the tracker's own watch list, which a mapped form
         // is in through the rule this integration publishes. The prefill pairs are, because they are the one

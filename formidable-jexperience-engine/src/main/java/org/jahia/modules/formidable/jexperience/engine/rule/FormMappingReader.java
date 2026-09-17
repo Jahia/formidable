@@ -12,6 +12,7 @@ import org.jahia.modules.formidable.jexperience.engine.field.SensitiveField;
 import org.jahia.modules.formidable.jexperience.engine.profile.ProfilePropertiesUnavailableException;
 import org.jahia.modules.formidable.jexperience.engine.profile.ProfilePropertyCatalog;
 import org.jahia.modules.formidable.jexperience.engine.profile.ProfilePropertyDescriptor;
+import org.jahia.modules.formidable.jexperience.engine.util.Sql2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -75,13 +76,9 @@ public class FormMappingReader {
         return new MappingRule.FormMapping(siteKey, form.getIdentifier(), formName, fields);
     }
 
-    /**
-     * The query of the mapped fields under a form. The path is a SQL2 string literal: a quote in it
-     * is doubled, the rule of {@code JCRContentUtils.sqlEncode} — applied here by hand because that
-     * class does not load outside a running Jahia, and this query has a unit test.
-     */
+    /** The query of the mapped fields under a form. */
     public static String queryFor(String formPath) {
-        return "SELECT * FROM [" + JxpMixin.MAPPING + "] WHERE ISDESCENDANTNODE('" + formPath.replace("'", "''") + "')";
+        return Sql2.descendantsOf(JxpMixin.MAPPING, formPath);
     }
 
     /** The fields under the form carrying the mapping mixin — a seam for the tests, which have no query engine. */

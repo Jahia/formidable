@@ -22,6 +22,7 @@ import org.jahia.modules.formidable.jexperience.engine.field.FieldShape;
 import org.jahia.modules.formidable.jexperience.engine.field.FieldShapes;
 import org.jahia.modules.formidable.jexperience.engine.field.SensitiveField;
 import org.jahia.modules.formidable.jexperience.engine.util.JExperienceSite;
+import org.jahia.modules.formidable.jexperience.engine.util.Sql2;
 
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
@@ -254,6 +255,6 @@ public class SubmissionEventEnricher implements SubmissionResponseEnricher {
      * The path is a SQL2 literal, quotes doubled (the rule of {@code JCRContentUtils.sqlEncode}).
      */
     static String queryFor(String formPath) {
-        return "SELECT * FROM [" + FmdbMixin.PROFILE_MAPPABLE_FIELD + "] WHERE ISDESCENDANTNODE('" + formPath.replace("'", "''") + "')";
+        return Sql2.descendantsOf(FmdbMixin.PROFILE_MAPPABLE_FIELD, formPath);
     }
 }

@@ -12,8 +12,6 @@
 					"rank": 0.0,
 					"fields": [
 						{ "name": "jExperienceProfileProperty" },
-						{ "name": "jExperiencePrefillFromProfile" },
-						{ "name": "jExperiencePrefillOverridesDefault" },
 						{ "name": "jExperienceSetStrategy" }
 					]
 				}

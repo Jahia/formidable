@@ -11,9 +11,11 @@ import org.jahia.modules.formidable.jexperience.engine.util.JExperienceSite;
 import org.junit.jupiter.api.Test;
 
 import javax.jcr.RepositoryException;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -96,6 +98,7 @@ class FormJExperienceRenderFilterTest {
         private final boolean readable;
         private boolean unchecked;
         private Map<String, PrefillMappings.Entry> prefill = Map.of();
+        private List<String> prefillDependencies = List.of();
         private String openedWorkspace;
         private Locale openedLocale;
 
@@ -105,8 +108,8 @@ class FormJExperienceRenderFilterTest {
         }
 
         @Override
-        Map<String, PrefillMappings.Entry> prefillOf(JCRSessionWrapper session, JCRNodeWrapper form) {
-            return prefill;
+        PrefillMappings.Prefill prefillOf(JCRSessionWrapper session, JCRNodeWrapper form) {
+            return new PrefillMappings.Prefill(prefill, prefillDependencies);
         }
 
         @Override
@@ -150,7 +153,7 @@ class FormJExperienceRenderFilterTest {
         // sending is not in it: the send decision reads the tracker's watch list.
         JCRNodeWrapper form = form("Contact us");
         String out = filter(configured("mysite"), ownSessionOver(form), true)
-                .prepend("<form></form>", site(true), rendered(form, false), "");
+                .prepend("<form></form>", site(true), rendered(form, false), "", new HashSet<>());
 
         assertEquals("<script type=\"application/json\" data-formidable-jxp=\"" + FORM_UUID + "\">"
                 + "{\"formId\":\"" + FORM_UUID + "\",\"name\":\"Contact us\",\"path\":\"/sites/mysite/contents/contact\",\"prefill\":{}}</script>\n"
@@ -170,9 +173,9 @@ class FormJExperienceRenderFilterTest {
         JCRNodeWrapper second = form("Newsletter", "8f7e2a10-0000-4000-8000-000000000002", "/sites/mysite/contents/news");
 
         String firstOut = filter(configured("mysite"), ownSessionOver(first), true)
-                .prepend("<form></form>", site(true), rendered(first, false), "");
+                .prepend("<form></form>", site(true), rendered(first, false), "", new HashSet<>());
         String secondOut = filter(configured("mysite"), ownSessionOver(second), true)
-                .prepend("<form></form>", site(true), rendered(second, false), "");
+                .prepend("<form></form>", site(true), rendered(second, false), "", new HashSet<>());
 
         // read out of the outputs, not built from the method under test: an asset carrying anything of
         // the form — its identifier as a cache key, say — would be two declarations and two downloads
@@ -193,12 +196,16 @@ class FormJExperienceRenderFilterTest {
         filter.prefill = new LinkedHashMap<>();
         filter.prefill.put("firstName", new PrefillMappings.Entry("firstName", false));
         filter.prefill.put("email", new PrefillMappings.Entry("email", true));
+        filter.prefillDependencies = List.of("/sites/mysite/contents/contact/fields/firstName", "/sites/mysite/contents/contact/fields/message");
+        Set<String> dependencies = new HashSet<>();
 
-        String out = filter.prepend("<form></form>", site(true), rendered(form, false), "");
+        String out = filter.prepend("<form></form>", site(true), rendered(form, false), "", dependencies);
 
         assertTrue(out.contains("\"prefill\":{\"firstName\":{\"property\":\"firstName\",\"overridesDefault\":false},"
                 + "\"email\":{\"property\":\"email\",\"overridesDefault\":true}}}</script>"), out);
         assertEquals(-1, out.indexOf("<script>"), "no inline script: the hoisted one pushes for the whole page");
+        // every mappable field, mentioned or not: mapping one later, or switching its prefill on, must refresh the cached block
+        assertEquals(Set.of("/sites/mysite/contents/contact/fields/firstName", "/sites/mysite/contents/contact/fields/message"), dependencies);
     }
 
     @Test
@@ -207,7 +214,7 @@ class FormJExperienceRenderFilterTest {
         // title that could otherwise close the script block.
         JCRNodeWrapper form = form("</script><b>&");
         String out = filter(configured("mysite"), ownSessionOver(form), true)
-                .prepend("", site(true), rendered(form, false), "");
+                .prepend("", site(true), rendered(form, false), "", new HashSet<>());
 
         assertTrue(out.contains("\"name\":\"\\u003c/script\\u003e\\u003cb\\u003e\\u0026\""), out);
     }
@@ -221,7 +228,7 @@ class FormJExperienceRenderFilterTest {
         JCRNodeWrapper form = form("Contact us");
         FilterUnderTest filter = filter(configured("mysite"), ownSessionOver(form), true);
 
-        String out = filter.prepend("<form></form>", site(true), rendered(form, true), "");
+        String out = filter.prepend("<form></form>", site(true), rendered(form, true), "", new HashSet<>());
 
         assertTrue(out.contains("\"path\":\"/sites/mysite/contents/contact\""), out);
         assertEquals("live", filter.openedWorkspace);
@@ -238,13 +245,13 @@ class FormJExperienceRenderFilterTest {
         // failure while reading the form each leave the form's markup untouched.
         JCRNodeWrapper form = form("Contact");
         assertEquals("<form></form>", filter(mock(ContextServerService.class), ownSessionOver(form), true)
-                .prepend("<form></form>", site(true), rendered(form, false), ""));
+                .prepend("<form></form>", site(true), rendered(form, false), "", new HashSet<>()));
         assertEquals("<form></form>", filter(configured("mysite"), ownSessionOver(form), true)
-                .prepend("<form></form>", site(false), rendered(form, false), ""));
+                .prepend("<form></form>", site(false), rendered(form, false), "", new HashSet<>()));
         assertEquals("<form></form>", filter(configured("mysite"), ownSessionOver(form), true)
-                .prepend("<form></form>", null, rendered(form, false), ""));
+                .prepend("<form></form>", null, rendered(form, false), "", new HashSet<>()));
         assertEquals("<form></form>", filter(configured("mysite"), ownSessionOver(form), false)
-                .prepend("<form></form>", site(true), rendered(form, false), ""));
+                .prepend("<form></form>", site(true), rendered(form, false), "", new HashSet<>()));
     }
 
 
@@ -288,6 +295,6 @@ class FormJExperienceRenderFilterTest {
         FilterUnderTest filter = filter(configured("mysite"), ownSessionOver(form), true);
         filter.unchecked = true;
 
-        assertEquals("<form></form>", filter.prepend("<form></form>", site(true), rendered(form, false), ""));
+        assertEquals("<form></form>", filter.prepend("<form></form>", site(true), rendered(form, false), "", new HashSet<>()));
     }
 }
