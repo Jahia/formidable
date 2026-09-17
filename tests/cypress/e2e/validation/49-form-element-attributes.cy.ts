@@ -1,5 +1,5 @@
 import {createPublishedLiveFormPage, visitLiveForm} from '../../support/fixtures/forms';
-import {getInputTextNode} from '../../support/fixtures';
+import {FORMIDABLE_TEST_SITE, getInputTextNode} from '../../support/fixtures';
 import {useFormidableSite} from '../fields/support';
 
 /**
@@ -33,6 +33,30 @@ describe('Form rendering - 49 the form element attributes', () => {
 
 			// the landmark takes the title the author gave, never a fallback built from the node name
 			form.get().should('have.attr', 'aria-label', 'Attributes Form');
+		});
+	});
+
+	it('announces once, with its UUID, that the island took the form over', () => {
+		// The fourth item of the contract: a script that writes into the fields (jExperience's prefill)
+		// waits for `formidable:ready`, dispatched from the island's mount effect together with
+		// noValidate — so the event and the flag must arrive together, once, carrying the form's UUID.
+		createPublishedLiveFormPage(
+			'form-ready-form',
+			'Ready Form',
+			[getInputTextNode({name: 'fullName', title: 'Full name'})]
+		).then(({formId, livePath}) => {
+			const announced: string[] = [];
+			cy.visit(`/en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`, {
+				onBeforeLoad(win) {
+					win.document.addEventListener('formidable:ready', event => {
+						announced.push((event as CustomEvent<{formId?: string}>).detail?.formId ?? '');
+					});
+				}
+			});
+			cy.get(`form[name="${formId}"]`).should($form => {
+				expect(($form[0] as HTMLFormElement).noValidate, 'the island took the form over').to.equal(true);
+			});
+			cy.then(() => expect(announced, 'formidable:ready, once, with the UUID').to.deep.equal([formId]));
 		});
 	});
 });
