@@ -4,7 +4,7 @@
 	"scripts": {
 		"instrument": "nyc instrument --compact=false cypress instrumented",
 		"e2e:ci": "cypress run --browser chrome",
-		"playground": "cypress run --browser chrome --config \"specPattern=cypress/playground/*.play.ts\" --spec cypress/playground/provision-forms.play.ts",
+		"playground": "cypress run --browser chrome --config '{\"specPattern\":\"cypress/playground/*.play.ts\",\"userAgent\":\"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36\"}' --spec cypress/playground/provision-forms.play.ts",
 		"playground:maintenance": "cypress run --browser chrome --config \"specPattern=cypress/playground/*.play.ts\" --spec cypress/playground/provision-maintenance-form.play.ts",
 		"e2e:debug": "cypress open",
 		"lint": "echo 'linting is available at the monorepo root'",
