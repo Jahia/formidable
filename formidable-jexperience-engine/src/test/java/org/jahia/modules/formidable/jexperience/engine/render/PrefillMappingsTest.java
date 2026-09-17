@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -73,6 +74,19 @@ class PrefillMappingsTest {
                 "email", new PrefillMappings.Entry("email", true)), prefill.entries());
         // in the form's order, which is the query's
         assertEquals(List.of("firstName", "email"), List.copyOf(prefill.entries().keySet()));
+    }
+
+    @Test
+    void theReasonAFieldIsLeftOutIsNamed() throws Exception {
+        // Verifies the one trace an author's dropped prefill switch leaves: the debug line names which of
+        // the four conditions failed, in the order the author meets them — nothing in the editor can say it,
+        // since jcontent offers a mixin that extends another only through the primary type.
+        assertEquals("the prefill is not switched on", PrefillMappings.leftOut(field("phoneNumber", "phoneNumber", true, false, false, false)));
+        assertEquals("the prefill is switched on but the field is not mapped", PrefillMappings.leftOut(field("message", null, false, true, false, false)));
+        assertEquals("the field is mapped but names no profile property (none chosen, or the list no longer offers it)",
+                PrefillMappings.leftOut(field("switchedOn", "", true, true, false, false)));
+        assertEquals("the field is marked sensitive", PrefillMappings.leftOut(field("secret", "nationality", true, true, true, true)));
+        assertNull(PrefillMappings.leftOut(field("firstName", "firstName", true, true, false, false)));
     }
 
     @Test

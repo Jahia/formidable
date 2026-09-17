@@ -384,6 +384,36 @@ administrator who would rather check first can list them in jCustomer: a rule wh
 `formidable-form-mapping_` and whose `formEventCondition` still names a `formidable-jxp-` form is
 one of these.
 
+## A prefill switched on with an earlier 0.5.0 snapshot must be switched on again
+
+**Only instances that ran an earlier 0.5.0 snapshot with the jExperience integration**, as above:
+development and QA instances, not upgrades from 0.4.
+
+The first snapshots kept the author's "prefill this field from the visitor profile" as a checkbox of
+the mapping section, stored in a property of the mapping mixin. It is now a section of its own, with
+its own switch and one option inside (**Replace the field's default value**). The property of the
+snapshot is no longer declared, no migration reads it — nothing was released that could carry it —
+and a field whose author ticked the old checkbox is simply no longer prefilled, without a trace in the
+editor; the module's log names it at debug level.
+
+**The upload of the new module is refused on such an instance** (verified 2026-09-17): the definitions
+check cancels a deployment that removes a declared property, whether content uses it or not. A
+provisioning script answers `install: []` with HTTP 200 and says nothing more; the server log does:
+
+> Major change in definition : [nodeTypeName=fmdbmix:jExperienceProfileMapping,type=MAJOR,
+> propDefDiffs={[itemName=jExperiencePrefillFromProfile,type=MAJOR,operation=REMOVED]}],
+> cancel module deployment
+
+Untick **Validate module definitions** in the module manager, or pass `"ignoreChecks": true` to
+`installOrUpgradeBundle` in the provisioning script. The values stored under the old property stay in
+place, undeclared, as the 0.4 upgrade left its own.
+
+**Open each field that was prefilled and switch the new section on** (and its option, where the
+profile's value was meant to replace a default); then republish the form. An administrator who would
+rather list them first can query the default workspace for nodes carrying the mapping mixin with the
+old property set: `SELECT * FROM [fmdbmix:jExperienceProfileMapping] WHERE [jExperiencePrefillFromProfile] = true`
+in the JCR query tool — undeclared, the property is still stored and indexed.
+
 ## Startup migrations
 
 The engine carries one-shot content migrations that run at every module start

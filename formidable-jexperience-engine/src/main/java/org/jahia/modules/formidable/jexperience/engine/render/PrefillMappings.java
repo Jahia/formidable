@@ -8,6 +8,8 @@ import org.jahia.modules.formidable.jexperience.engine.util.Json;
 import org.jahia.modules.formidable.jexperience.engine.util.Sql2;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
@@ -32,6 +34,8 @@ import java.util.Map;
  */
 class PrefillMappings {
 
+    private static final Logger log = LoggerFactory.getLogger(PrefillMappings.class);
+
     /** What one field needs: the profile property it reads, and whether it may replace the author's default. */
     record Entry(String property, boolean overridesDefault) {
     }
@@ -47,13 +51,38 @@ class PrefillMappings {
         while (fields.hasNext()) {
             JCRNodeWrapper field = (JCRNodeWrapper) fields.nextNode();
             dependencies.add(field.getPath());
-            if (field.isNodeType(JxpMixin.PREFILL) && field.isNodeType(JxpMixin.MAPPING)
-                    && SensitiveField.isMapped(field) && !SensitiveField.isSensitive(field)) {
+            String leftOut = leftOut(field);
+            if (leftOut == null) {
                 entries.put(field.getName(), new Entry(field.getPropertyAsString(JxpProperty.PROFILE_PROPERTY),
                         flag(field, JxpProperty.PREFILL_OVERRIDES_DEFAULT)));
+            } else if (field.isNodeType(JxpMixin.PREFILL)) {
+                // the one place an author's prefill switch is dropped: the editor cannot say it (the prefill
+                // fieldset extends the marker, not the mapping — jcontent offers extensions of the primary type
+                // only), so the log does, at a level an integrator turns on to ask
+                log.debug("[PrefillMappings] {} is not prefilled: {}", field.getPath(), leftOut);
             }
         }
         return new Prefill(entries, dependencies);
+    }
+
+    /**
+     * Why a mappable field is left out of the block, or null when it is in — the four conditions, in the
+     * order an author meets them.
+     */
+    static String leftOut(JCRNodeWrapper field) throws RepositoryException {
+        if (!field.isNodeType(JxpMixin.PREFILL)) {
+            return "the prefill is not switched on";
+        }
+        if (!field.isNodeType(JxpMixin.MAPPING)) {
+            return "the prefill is switched on but the field is not mapped";
+        }
+        if (!SensitiveField.isMapped(field)) {
+            return "the field is mapped but names no profile property (none chosen, or the list no longer offers it)";
+        }
+        if (SensitiveField.isSensitive(field)) {
+            return "the field is marked sensitive";
+        }
+        return null;
     }
 
     /** Every field under the form that can be mapped, mapped or not — a seam for the tests, which have no query engine. */

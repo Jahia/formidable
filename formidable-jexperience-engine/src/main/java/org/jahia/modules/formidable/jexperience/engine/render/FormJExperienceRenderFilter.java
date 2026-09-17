@@ -52,6 +52,12 @@ import java.util.Set;
  * fragment, whose dependencies do not include the fields, and what it adds to the form's dependencies comes
  * after the cache stored them. Found on the instance: a form placed through a reference kept the block of
  * the last cache miss until the site cache was flushed.</p>
+ *
+ * <p>A form rendered while the site is not tracked, or while it cannot be read, is cached without its block,
+ * deliberately. The transient case — jExperience restarting, its service unbound — heals itself: a module
+ * start flushes the output caches, so those fragments go when jExperience is back. The caught path is a
+ * failure that costs one warning and a form without its block until the next change, rather than a session,
+ * a query and a warning per request for as long as it lasts.</p>
  */
 @Component(service = RenderFilter.class, immediate = true)
 public class FormJExperienceRenderFilter extends AbstractFilter {
