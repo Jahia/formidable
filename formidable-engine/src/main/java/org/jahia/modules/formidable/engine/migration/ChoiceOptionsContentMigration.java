@@ -15,6 +15,7 @@ import javax.jcr.Property;
 import javax.jcr.RepositoryException;
 import javax.jcr.Value;
 import javax.jcr.query.Query;
+import static org.jahia.modules.formidable.engine.migration.MigrationMarkers.MIGRATED_CHOICE_OPTIONS_MIXIN;
 
 /**
  * One-shot content migration for choice fields (fmdbmix:choiceField): moves the
@@ -57,7 +58,6 @@ public class ChoiceOptionsContentMigration extends ElementsRedeployRetriggeredMi
     // lists may still diverge, since a legacy translation could rename the stored keys
     // themselves. The marker limits the divergent-list handling to migrated content; the
     // language sync clears it once the lists converge.
-    private static final String MIGRATED_MARKER_MIXIN = "fmdbmix:migratedChoiceOptions";
     private static final String OPTIONS_MODE_PROPERTY = "optionsMode";
     private static final String OPTIONS_MODE_MANUAL = "manual";
     private static final String UNIFIED_OPTIONS_PROPERTY = "options";
@@ -152,7 +152,7 @@ public class ChoiceOptionsContentMigration extends ElementsRedeployRetriggeredMi
 
         if (touched) {
             node.addMixin(MANUAL_OPTIONS_MIXIN);
-            node.addMixin(MIGRATED_MARKER_MIXIN);
+            node.addMixin(MIGRATED_CHOICE_OPTIONS_MIXIN);
             node.setProperty(OPTIONS_MODE_PROPERTY, OPTIONS_MODE_MANUAL);
             log.info("[ChoiceOptionsContentMigration] Migrated '{}'", node.getPath());
         }

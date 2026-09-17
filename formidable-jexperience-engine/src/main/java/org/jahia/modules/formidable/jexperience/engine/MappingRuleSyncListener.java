@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ROOT_MIXIN;
+
 /**
  * Publication listener of the mapping rules, live workspace, under {@code /sites}, with no
  * node-type filter — two things a typed listener cannot see: a form deleted by a published
@@ -41,7 +43,6 @@ import java.util.Optional;
 @Component(service = DefaultEventListener.class, immediate = true)
 public class MappingRuleSyncListener extends DefaultEventListener {
 
-    static final String FORM_NODE_TYPE = "fmdb:form";
     static final String SCOPE = "/sites";
     /** Written by every publication on every published node: the one property event worth a look. */
     static final String PUBLICATION_MARK = "j:lastPublished";
@@ -166,7 +167,7 @@ public class MappingRuleSyncListener extends DefaultEventListener {
         while (current != null && current.startsWith(SCOPE + "/")) {
             try {
                 JCRNodeWrapper node = session.getNode(current);
-                if (node.isNodeType(FORM_NODE_TYPE)) {
+                if (node.isNodeType(FORM_ROOT_MIXIN)) {
                     return Optional.of(node.getIdentifier());
                 }
             } catch (PathNotFoundException e) {

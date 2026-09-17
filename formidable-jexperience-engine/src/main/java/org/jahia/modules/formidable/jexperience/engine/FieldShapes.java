@@ -11,6 +11,18 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Predicate;
 
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.BOOLEAN_FIELD_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.CARDINALITY_FROM_CHOICES_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.CHOICE_FIELD_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.COLOR_FIELD_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.DATETIME_LOCAL_FIELD_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.DATE_FIELD_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.EMAIL_FIELD_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FILE_FIELD_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.NUMBER_FIELD_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.TEXT_FIELD_MIXIN;
+
 /**
  * Infers a field's {@link FieldShape} from the semantic mixins the engine defines, never from
  * primary type names: a third-party field that opts into {@code fmdbmix:numberField} is treated
@@ -23,29 +35,11 @@ import java.util.function.Predicate;
  */
 public final class FieldShapes {
 
-    public static final String MAPPABLE_MARKER = "fmdbmix:profileMappableField";
-
-    static final String FILE_FIELD = "fmdbmix:fileField";
-    static final String EMAIL_FIELD = "fmdbmix:emailField";
-    static final String CHOICE_FIELD = "fmdbmix:choiceField";
-    static final String NUMBER_FIELD = "fmdbmix:numberField";
-    static final String BOOLEAN_FIELD = "fmdbmix:booleanField";
-    static final String DATE_FIELD = "fmdbmix:dateField";
-    static final String DATETIME_LOCAL_FIELD = "fmdbmix:datetimeLocalField";
-    static final String COLOR_FIELD = "fmdbmix:colorField";
-    static final String TEXT_FIELD = "fmdbmix:textField";
-
-    /**
-     * The checkbox is the one choice field with no "multiple" property: the renderer draws one
-     * input, submitting one value, for exactly one choice, and a group otherwise — so does the
-     * shape, from the same count (the engine's ChoiceOptionsResolver, or the options the editor
-     * holds unsaved). A count the source cannot give is a group.
-     */
-    static final String CHECKBOX_TYPE = "fmdb:checkbox";
     static final String MULTIPLE_PROPERTY = "multiple";
 
-    private static final List<String> RELEVANT_TYPES = List.of(MAPPABLE_MARKER, FILE_FIELD, EMAIL_FIELD, CHOICE_FIELD,
-            NUMBER_FIELD, BOOLEAN_FIELD, DATE_FIELD, DATETIME_LOCAL_FIELD, COLOR_FIELD, TEXT_FIELD, CHECKBOX_TYPE);
+    private static final List<String> RELEVANT_TYPES = List.of(PROFILE_MAPPABLE_FIELD_MIXIN, FILE_FIELD_MIXIN,
+            EMAIL_FIELD_MIXIN, CHOICE_FIELD_MIXIN, NUMBER_FIELD_MIXIN, BOOLEAN_FIELD_MIXIN, DATE_FIELD_MIXIN,
+            DATETIME_LOCAL_FIELD_MIXIN, COLOR_FIELD_MIXIN, TEXT_FIELD_MIXIN, CARDINALITY_FROM_CHOICES_MIXIN);
 
     private static final Set<String> STRING = Set.of("string");
     private static final Set<String> EMAIL = Set.of("email", "string");
@@ -103,25 +97,25 @@ public final class FieldShapes {
     }
 
     static Optional<FieldShape> infer(Predicate<String> isNodeType, Predicate<String> flag, ChoiceCount choiceCount) throws RepositoryException {
-        if (!isNodeType.test(MAPPABLE_MARKER) || isNodeType.test(FILE_FIELD)) {
+        if (!isNodeType.test(PROFILE_MAPPABLE_FIELD_MIXIN) || isNodeType.test(FILE_FIELD_MIXIN)) {
             return Optional.empty();
         }
         // the email input also carries fmdbmix:textField: the more specific kind wins
-        if (isNodeType.test(EMAIL_FIELD)) {
+        if (isNodeType.test(EMAIL_FIELD_MIXIN)) {
             return Optional.of(new FieldShape(EMAIL, flag.test(MULTIPLE_PROPERTY)));
         }
-        if (isNodeType.test(CHOICE_FIELD)) {
+        if (isNodeType.test(CHOICE_FIELD_MIXIN)) {
             // the count is asked here only: the other choice fields never need it
-            boolean multivalued = isNodeType.test(CHECKBOX_TYPE) ? isAGroup(choiceCount.get()) : flag.test(MULTIPLE_PROPERTY);
+            boolean multivalued = isNodeType.test(CARDINALITY_FROM_CHOICES_MIXIN) ? isAGroup(choiceCount.get()) : flag.test(MULTIPLE_PROPERTY);
             return Optional.of(new FieldShape(STRING, multivalued));
         }
-        if (isNodeType.test(NUMBER_FIELD)) {
+        if (isNodeType.test(NUMBER_FIELD_MIXIN)) {
             return Optional.of(new FieldShape(NUMBER, false));
         }
-        if (isNodeType.test(BOOLEAN_FIELD)) {
+        if (isNodeType.test(BOOLEAN_FIELD_MIXIN)) {
             return Optional.of(new FieldShape(BOOLEAN, false));
         }
-        if (isNodeType.test(DATE_FIELD) || isNodeType.test(DATETIME_LOCAL_FIELD)) {
+        if (isNodeType.test(DATE_FIELD_MIXIN) || isNodeType.test(DATETIME_LOCAL_FIELD_MIXIN)) {
             return Optional.of(new FieldShape(DATE, false));
         }
         // text, colour, and the kinds without a value mixin (the hidden input) hold a string

@@ -22,6 +22,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.CATEGORY_OPTIONS_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.CONTENT_OPTIONS_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ELEMENT_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.SOURCED_OPTIONS_MIXIN;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.COMPONENT_MIXIN;
 
 /**
  * Resolves the option list of a sourced choice field at display time.
@@ -100,16 +105,16 @@ public class FormidableOptionsSourceService {
      * @throws IllegalStateException            when the source is declared but cannot deliver
      */
     public String[] resolveForField(JCRNodeWrapper fieldNode, String languageTag) throws javax.jcr.RepositoryException {
-        if (fieldNode.isNodeType("fmdbmix:sourcedOptions")) {
+        if (fieldNode.isNodeType(SOURCED_OPTIONS_MIXIN)) {
             String sourceKey = fieldNode.hasProperty("optionsSourceKey")
                     ? fieldNode.getProperty("optionsSourceKey").getString()
                     : "";
             return resolve(sourceKey, languageTag);
         }
-        if (fieldNode.isNodeType("fmdbmix:categoryOptions")) {
+        if (fieldNode.isNodeType(CATEGORY_OPTIONS_MIXIN)) {
             return resolveCategoryOptions(fieldNode);
         }
-        if (fieldNode.isNodeType("fmdbmix:contentOptions")) {
+        if (fieldNode.isNodeType(CONTENT_OPTIONS_MIXIN)) {
             return resolveContentOptions(fieldNode, config.getOptionsQueryMaxResults());
         }
 
@@ -220,8 +225,8 @@ public class FormidableOptionsSourceService {
             // contributor is after.
             if (!(child instanceof JCRNodeWrapper content)
                     || content.getPrimaryNodeTypeName() == null
-                    || content.isNodeType("fmdbmix:formElement")
-                    || content.isNodeType("fmdbmix:component")) {
+                    || content.isNodeType(FORM_ELEMENT_MIXIN)
+                    || content.isNodeType(COMPONENT_MIXIN)) {
                 continue;
             }
             labelsByType.computeIfAbsent(content.getPrimaryNodeTypeName(), name -> {

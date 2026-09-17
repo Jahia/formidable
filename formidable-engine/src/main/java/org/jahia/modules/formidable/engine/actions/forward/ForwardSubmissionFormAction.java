@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
+import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.FORWARD_ACTION_NODE_TYPE;
 
 /**
  * Forwards the submitted form data to a third-party endpoint as multipart/form-data.
@@ -65,7 +66,7 @@ public class ForwardSubmissionFormAction implements FormAction {
 
     @Override
     public String getNodeType() {
-        return "fmdb:forwardAction";
+        return FORWARD_ACTION_NODE_TYPE;
     }
 
     @Override

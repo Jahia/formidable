@@ -13,8 +13,8 @@ import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import javax.jcr.query.Query;
 
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FIELD_KEY_PROPERTY;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_LOGIC_ELEMENT_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_LOGIC_ELEMENT_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.FIELD_KEY_PROPERTY;
 
 /**
  * One-shot content cleanup: form elements created before the assignment listener

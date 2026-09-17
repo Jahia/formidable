@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jahia.modules.formidable.engine.api.FormidableMixins;
 
 /**
  * Adds the {@code jexperience} block to the 200 of an accepted submission — the form's UUID and the
@@ -249,6 +250,6 @@ public class SubmissionEventEnricher implements SubmissionResponseEnricher {
      * The path is a SQL2 literal, quotes doubled (the rule of {@code JCRContentUtils.sqlEncode}).
      */
     static String queryFor(String formPath) {
-        return "SELECT * FROM [" + FieldShapes.MAPPABLE_MARKER + "] WHERE ISDESCENDANTNODE('" + formPath.replace("'", "''") + "')";
+        return "SELECT * FROM [" + FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN + "] WHERE ISDESCENDANTNODE('" + formPath.replace("'", "''") + "')";
     }
 }

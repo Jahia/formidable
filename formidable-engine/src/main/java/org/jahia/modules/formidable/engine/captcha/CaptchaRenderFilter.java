@@ -14,6 +14,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Objects;
 
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.CAPTCHA_PROTECTED_FORM_MIXIN;
+
 /**
  * Render filter that injects CAPTCHA front-end configuration as request attributes
  * when the current fmdb:form node has fmdbmix:captchaProtectedForm applied.
@@ -31,7 +33,6 @@ import java.util.Objects;
 public class CaptchaRenderFilter extends AbstractFilter {
 
     private static final Logger log = LoggerFactory.getLogger(CaptchaRenderFilter.class);
-    private static final String CAPTCHA_PROTECTED_FORM_MIXIN = "fmdbmix:captchaProtectedForm";
 
     static final String ATTR_SITE_KEY       = "formidable.captcha.siteKey";
     static final String ATTR_SCRIPT_URL     = "formidable.captcha.scriptUrl";

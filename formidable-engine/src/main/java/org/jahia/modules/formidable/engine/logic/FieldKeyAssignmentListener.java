@@ -14,7 +14,7 @@ import javax.jcr.observation.EventIterator;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_LOGIC_ELEMENT_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_LOGIC_ELEMENT_MIXIN;
 
 /**
  * Assigns a fieldKey to every newly created form element (field, fieldset, step).

@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
+import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.EMAIL_NOTIFICATION_ACTION_NODE_TYPE;
 /**
  * Sends a notification email after a successful form submission.
  *
@@ -51,7 +52,7 @@ public class SendEmailNotificationFormAction implements FormAction {
 
     @Override
     public String getNodeType() {
-        return "fmdb:emailNotificationAction";
+        return EMAIL_NOTIFICATION_ACTION_NODE_TYPE;
     }
 
     @Override
@@ -69,7 +70,7 @@ public class SendEmailNotificationFormAction implements FormAction {
 
         String to = FieldEscaper.headerSafe(JcrProps.string(actionNode, "to", null));
         if (to.isBlank()) {
-            throw FormActionException.serverError("fmdb:emailNotificationAction is missing a 'to' address.");
+            throw FormActionException.serverError(EMAIL_NOTIFICATION_ACTION_NODE_TYPE + " is missing a 'to' address.");
         }
 
         String from = FieldEscaper.headerSafe(JcrProps.string(actionNode, "from", null));

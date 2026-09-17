@@ -19,8 +19,8 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.MANUAL_OPTIONS_MIXIN;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.OPTIONS_PROPERTY;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.MANUAL_OPTIONS_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.OPTIONS_PROPERTY;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.TRANSLATION_NODE_PREFIX;
 
 /**

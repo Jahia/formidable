@@ -32,10 +32,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.AUTHENTICATED_ONLY_FORM_MIXIN;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.CAPTCHA_PROTECTED_FORM_MIXIN;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_NODE_TYPE;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.READ_ONLY_COMPATIBLE_ACTION_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.AUTHENTICATED_ONLY_FORM_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.CAPTCHA_PROTECTED_FORM_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ROOT_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.READ_ONLY_COMPATIBLE_ACTION_MIXIN;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WORKSPACE_LIVE;
 
 /**
@@ -232,7 +232,7 @@ class FormSubmissionPipeline {
             // The identifier is caller-supplied: any readable live node resolves, but every
             // downstream step is written for a form. Reject other types with the same code
             // as a missing node, so the response does not disclose what the UUID points at.
-            if (!formNode.isNodeType(FORM_NODE_TYPE)) {
+            if (!formNode.isNodeType(FORM_ROOT_MIXIN)) {
                 throw new SubmissionException(ErrorCode.FMDB_004, "Not a form: " + formId);
             }
         } catch (RepositoryException e) {

@@ -10,6 +10,10 @@ import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import java.util.Set;
 
+import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.FORM_SUBMISSION_NODE_TYPE;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.DATA_NODE;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.FILES_NODE;
+
 /**
  * Semantic integrity check for form submissions.
  * Validates that the stored payload (data properties and file folders) only contains
@@ -25,7 +29,7 @@ import java.util.Set;
         service = ContentIntegrityCheck.class,
         immediate = true,
         property = {
-                ContentIntegrityCheck.ExecutionCondition.APPLY_ON_NT + "=" + AbstractFormidableIntegrityCheck.FMDB_FORM_SUBMISSION,
+                ContentIntegrityCheck.ExecutionCondition.APPLY_ON_NT + "=" + FORM_SUBMISSION_NODE_TYPE,
                 ContentIntegrityCheck.ExecutionCondition.APPLY_ON_SUBTREES + "=/sites"
         }
 )

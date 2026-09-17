@@ -56,6 +56,8 @@ These definitions belong in `formidable-engine` when the engine reads them to de
 
 Examples (non-exhaustive — the CND files are the source of truth):
 
+- `fmdbmix:formRoot` (the root of a form: what the submission pipeline resolves, the ACL sync
+  follows and the results reference — `fmdb:form` carries it, and so may a third-party form type)
 - `fmdbmix:formLogicElement`
 - `fmdbmix:formContainer`
 - `fmdbmix:formStep`
@@ -64,6 +66,9 @@ Examples (non-exhaustive — the CND files are the source of truth):
 - `fmdbmix:readOnlyCompatibleAction` (declares an action that keeps working while the platform is in read-only mode)
 - `fmdbmix:nonSubmittable`
 - `fmdbmix:choiceField` and its options modes: `fmdbmix:optionsSource`, `fmdbmix:manualOptions`, `fmdbmix:sourcedOptions`, `fmdbmix:categoryOptions`, `fmdbmix:contentOptions`
+- `fmdbmix:cardinalityFromChoices` (a choice field whose cardinality is its number of choices rather
+  than a `multiple` property: the view draws one input per choice, so one choice submits one value
+  and several submit a list — the built-in checkbox, and any field that renders the same way)
 - `fmdbmix:textField`
 - `fmdbmix:fileField`
 - `fmdbmix:emailField`
@@ -124,6 +129,85 @@ definition to know which spelling to use.
 - a third-party module should be able to opt into engine behavior by applying the mixin
 - the meaning of the definition is operational rather than presentational
 
+## Naming these types from Java
+
+A node type or mixin name is written **once** in Java, in `formidable-engine`'s exported API
+package, and every reader imports it from there — the engine itself, `formidable-jexperience-engine`,
+and a module of your own:
+
+| Class in `org.jahia.modules.formidable.engine.api` | Holds |
+|---|---|
+| `FormidableNodeTypes` | the primary types the engine's CND declares — the logic storage, the built-in actions, the submission storage |
+| `FormidableMixins` | every mixin it declares — the extension surface |
+| `FormidableProperties` | the item names (properties and child nodes) another module reads on that content |
+
+```java
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FILE_FIELD_MIXIN;
+
+if (field.isNodeType(FILE_FIELD_MIXIN)) { … }
+```
+
+### What the API carries, and what it does not
+
+The two type classes carry the engine's **whole** CND vocabulary, and are checked both ways: a
+mixin added to the CND without a constant fails the build. A mixin is how a module opts into
+engine behaviour, so all of them are contract — and they are frozen already, by the content
+stored in every repository that runs Formidable.
+
+`FormidableProperties` is checked one way only. A property is local to the type that declares it
+until something outside reads it, so the class holds the names that crossed and grows when
+another does. The same asymmetry explains the two mixins that are absent: the one-shot markers of
+the 0.4 content migrations. Each records that a migration has already healed a node — the engine
+talking to itself — and although the CND keeps the declarations after the migrations leave, so that
+marked content stays valid, no other module has a reason to read one. They live in
+`migration/MigrationMarkers`.
+
+These are compile-time constants, so a consumer's bytecode carries the value, not a reference to
+the class: they buy one spelling and a compiler error on a typo, not the ability to change a name
+later. That is the right trade for a node type — it is a persistence contract, and changing one is
+a content migration, never a silent update.
+
+### The two places a literal is still correct
+
+**A migration.** `formidable-engine/…/migration/` is exempt. A migration is a frozen script: it
+must keep naming the vocabulary of the release it heals, not follow the live one, exactly as a
+database migration does not import the current model. Give it its own private constant and leave
+it alone.
+
+**A name another module declares.** The engine publishes only what its own CND declares, so a
+concrete field type — `formidable-elements`' — has no constant, and a module that reads one spells
+it out. That residue is the measure of a missing marker, not of sloppiness: under the rule above,
+server-side code reads a mixin.
+
+The two gaps this document used to list are closed. `fmdbmix:formRoot` replaced every Java read of
+`fmdb:form`, which is what lets a module of its own offer a form type; `fmdbmix:cardinalityFromChoices`
+replaced the one read of `fmdb:checkbox`, in the jExperience shape inference. Both are declared by the
+engine and carried by the elements' concrete types, the same way `fmdbmix:formElement` already was.
+
+Both are **supertypes, never assigned mixins** — a type declares `> fmdbmix:formRoot`, nothing writes
+it into `jcr:mixinTypes`. That is the form a third-party type must follow, and it is what keeps the
+JCR observation filters matching: an event carries its node's primary type, and Jackrabbit tests a
+listener's node types with `isDerivedFrom`, so a supertype counts where an unapplied mixin would not.
+
+What is left is two literals in live code — `fmdb:formReference`, which a reference is and no form
+marker covers, and `fmdbmix:component`, the elements' own authoring marker — and the count is printed
+on every run, so a third does not appear unnoticed.
+
+### The guard
+
+`node scripts/check-nodetype-names.mjs` runs in the static-analysis job and enforces both halves:
+the parity above, and that no **main** source outside those classes spells an engine-declared name
+out. It also prints what the remaining literals are, split three ways, because the three mean
+different things: **owed a marker** is live code naming another module's type, the only number that
+tracks a gap; the ones a module *declares itself* are not residue at all; and the ones *inside a
+migration* are the frozen vocabulary of a past release.
+
+Test sources are deliberately outside it. A test that writes `"fmdbmix:choiceField"` where the
+constant would do is how a wrong constant *value* gets caught — the parity check proves the name is
+declared somewhere, not that the right one was picked — so the literal there is an asset. Use the
+constants in a test when the name is plumbing for a fixture; keep the literal when the name is the
+thing under test.
+
 ## Content Editor form ownership
 
 The same ownership rules should also be applied to `jahia-content-editor-forms` JSON files, but with one extra distinction:
@@ -179,6 +263,10 @@ The `formidable-elements` mixins act as wrappers:
 This keeps the authoring anchor on `fmdb:form`, while the runtime Java code reads
 `fmdbmix:captchaProtectedForm` and `fmdbmix:authenticatedOnlyForm`.
 
+The wrapper is needed only because those two are *author-facing*: a contributor ticks them in the
+editor. A marker nobody edits needs no wrapper — `fmdb:form` simply carries `fmdbmix:formRoot` among
+its supertypes, as it carries `fmdbmix:component`.
+
 ## Practical examples
 
 ### Example: adding a new field validation semantic
@@ -189,7 +277,8 @@ Example:
 
 - add `fmdbmix:phoneField` in `formidable-engine`
 - make `fmdb:inputPhone` in `formidable-elements` extend that mixin
-- let the parser or validator react to `node.isNodeType("fmdbmix:phoneField")`
+- export its name as `FormidableMixins.PHONE_FIELD_MIXIN` and let the parser or validator react to
+  `node.isNodeType(PHONE_FIELD_MIXIN)`
 
 This keeps the engine coupled to semantics, not to one concrete node type name.
 

@@ -4,6 +4,7 @@ import org.jahia.modules.contentintegrity.api.ContentIntegrityCheck;
 import org.jahia.modules.contentintegrity.api.ContentIntegrityErrorList;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.osgi.service.component.annotations.Component;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ROOT_MIXIN;
 
 @Component(
         service = ContentIntegrityCheck.class,
@@ -17,6 +18,6 @@ public class FormReferenceTargetIntegrityCheck extends AbstractFormidableIntegri
 
     @Override
     public ContentIntegrityErrorList checkIntegrityBeforeChildren(JCRNodeWrapper node) {
-        return requireReferencedNodeType(node, J_NODE, FMDB_FORM);
+        return requireReferencedNodeType(node, J_NODE, FORM_ROOT_MIXIN);
     }
 }

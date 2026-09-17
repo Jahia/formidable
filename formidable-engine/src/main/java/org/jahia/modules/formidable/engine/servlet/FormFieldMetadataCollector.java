@@ -17,15 +17,26 @@ import javax.jcr.RepositoryException;
 import javax.jcr.Value;
 import java.util.*;
 
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.BOOLEAN_FIELD_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.CATEGORY_OPTIONS_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.CHOICE_FIELD_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.COLOR_FIELD_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.CONTENT_OPTIONS_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.DATETIME_LOCAL_FIELD_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.DATE_FIELD_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.EMAIL_FIELD_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FILE_FIELD_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_CONTAINER_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ELEMENT_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_LOGIC_ELEMENT_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.MANUAL_OPTIONS_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.NON_SUBMITTABLE_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.NUMBER_FIELD_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.SOURCED_OPTIONS_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.LOGICS_PROPERTY;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.LOGICS_SRC_NODE;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.LOGIC_NODE_SOURCE_PROPERTY;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FIELDS_NODE;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_CONTAINER_MIXIN;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_ELEMENT_MIXIN;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FORM_LOGIC_ELEMENT_MIXIN;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGIC_NODE_SOURCE_PROPERTY;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGICS_PROPERTY;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGICS_SRC_NODE;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.MANUAL_OPTIONS_MIXIN;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.NON_SUBMITTABLE_MIXIN;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WORKSPACE_LIVE;
 
 /**
@@ -40,7 +51,7 @@ class FormFieldMetadataCollector {
     // Mixins whose options are resolved by the engine instead of being stored on the
     // node; must stay aligned with FormidableOptionsSourceService.resolveForField.
     private static final String[] RESOLVED_OPTIONS_MIXINS =
-            {"fmdbmix:sourcedOptions", "fmdbmix:categoryOptions", "fmdbmix:contentOptions"};
+            {SOURCED_OPTIONS_MIXIN, CATEGORY_OPTIONS_MIXIN, CONTENT_OPTIONS_MIXIN};
 
     record Result(
             Map<String, FormDataParser.FieldInfo> fieldInfos,
@@ -378,14 +389,14 @@ class FormFieldMetadataCollector {
     private static FormDataParser.FieldInfo buildFieldInfo(JCRNodeWrapper node, String nodeType,
             SourcedOptionsResolver optionsResolver) throws RepositoryException {
         boolean nonSubmittable = node.isNodeType(NON_SUBMITTABLE_MIXIN);
-        boolean choiceField = node.isNodeType("fmdbmix:choiceField");
-        boolean fileField = node.isNodeType("fmdbmix:fileField");
-        boolean emailField = node.isNodeType("fmdbmix:emailField");
-        boolean dateField = node.isNodeType("fmdbmix:dateField");
-        boolean datetimeLocalField = node.isNodeType("fmdbmix:datetimeLocalField");
-        boolean colorField = node.isNodeType("fmdbmix:colorField");
-        boolean numberField = node.isNodeType("fmdbmix:numberField");
-        boolean booleanField = node.isNodeType("fmdbmix:booleanField");
+        boolean choiceField = node.isNodeType(CHOICE_FIELD_MIXIN);
+        boolean fileField = node.isNodeType(FILE_FIELD_MIXIN);
+        boolean emailField = node.isNodeType(EMAIL_FIELD_MIXIN);
+        boolean dateField = node.isNodeType(DATE_FIELD_MIXIN);
+        boolean datetimeLocalField = node.isNodeType(DATETIME_LOCAL_FIELD_MIXIN);
+        boolean colorField = node.isNodeType(COLOR_FIELD_MIXIN);
+        boolean numberField = node.isNodeType(NUMBER_FIELD_MIXIN);
+        boolean booleanField = node.isNodeType(BOOLEAN_FIELD_MIXIN);
 
         Set<String> choices = Set.of();
         boolean choicesUnresolvable = false;

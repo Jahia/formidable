@@ -26,6 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.EMAIL_CONTENT_ACTION_NODE_TYPE;
 
 /**
  * Sends the submitted form content by email, optionally with uploaded files attached.
@@ -66,7 +67,7 @@ public class SendEmailContentFormAction implements FormAction {
 
     @Override
     public String getNodeType() {
-        return "fmdb:emailContentAction";
+        return EMAIL_CONTENT_ACTION_NODE_TYPE;
     }
 
     @Override
@@ -83,7 +84,7 @@ public class SendEmailContentFormAction implements FormAction {
 
         String to = FieldEscaper.headerSafe(JcrProps.string(actionNode, "to", ""));
         if (to.isBlank()) {
-            throw FormActionException.serverError("fmdb:emailContentAction is missing a 'to' address.");
+            throw FormActionException.serverError(EMAIL_CONTENT_ACTION_NODE_TYPE + " is missing a 'to' address.");
         }
 
         String from = FieldEscaper.headerSafe(JcrProps.string(actionNode, "from", ""));

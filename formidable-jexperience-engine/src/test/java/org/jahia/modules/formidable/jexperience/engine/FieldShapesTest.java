@@ -17,6 +17,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * Which mixin yields which shape — so the mixin names are written out here rather than imported.
+ * The exported constants are what the production code reads; asserting through them would make this
+ * file agree with any value they hold, and two of them swapped would leave every test green while an
+ * email field is shaped as a number. The name is the subject, not plumbing
+ * (docs/architecture/cnd-module-ownership.md, "The guard").
+ */
 class FieldShapesTest {
 
     private static Optional<FieldShape> shape(Set<String> types, Set<String> flags) throws Exception {
@@ -26,7 +33,7 @@ class FieldShapesTest {
     }
 
     private static Set<String> mappable(String... kinds) {
-        Set<String> types = new java.util.HashSet<>(Set.of(FieldShapes.MAPPABLE_MARKER, "fmdbmix:element"));
+        Set<String> types = new java.util.HashSet<>(Set.of("fmdbmix:profileMappableField", "fmdbmix:element"));
         types.addAll(Set.of(kinds));
         return types;
     }
@@ -40,14 +47,14 @@ class FieldShapesTest {
     @Test
     void aFileFieldIsNeverMappable() throws Exception {
         // Verifies that the file kind is excluded even when a type claims the marker.
-        assertTrue(shape(mappable(FieldShapes.FILE_FIELD), Set.of()).isEmpty());
+        assertTrue(shape(mappable("fmdbmix:fileField"), Set.of()).isEmpty());
     }
 
     @Test
     void textColourAndHiddenHoldOneString() throws Exception {
         // Verifies that text-like kinds, and a field with no value mixin at all, map to a single string.
-        assertEquals(Optional.of(new FieldShape(Set.of("string"), false)), shape(mappable(FieldShapes.TEXT_FIELD), Set.of()));
-        assertEquals(Optional.of(new FieldShape(Set.of("string"), false)), shape(mappable(FieldShapes.COLOR_FIELD), Set.of()));
+        assertEquals(Optional.of(new FieldShape(Set.of("string"), false)), shape(mappable("fmdbmix:textField"), Set.of()));
+        assertEquals(Optional.of(new FieldShape(Set.of("string"), false)), shape(mappable("fmdbmix:colorField"), Set.of()));
         assertEquals(Optional.of(new FieldShape(Set.of("string"), false)), shape(mappable(), Set.of()));
     }
 
@@ -55,9 +62,9 @@ class FieldShapesTest {
     void emailBeatsTextAndFollowsItsMultipleFlag() throws Exception {
         // Verifies that the email input, which also carries fmdbmix:textField, offers email and string,
         // and turns multivalued with its "multiple" property.
-        Optional<FieldShape> single = shape(mappable(FieldShapes.EMAIL_FIELD, FieldShapes.TEXT_FIELD), Set.of());
+        Optional<FieldShape> single = shape(mappable("fmdbmix:emailField", "fmdbmix:textField"), Set.of());
         assertEquals(Optional.of(new FieldShape(Set.of("email", "string"), false)), single);
-        Optional<FieldShape> multiple = shape(mappable(FieldShapes.EMAIL_FIELD, FieldShapes.TEXT_FIELD), Set.of(FieldShapes.MULTIPLE_PROPERTY));
+        Optional<FieldShape> multiple = shape(mappable("fmdbmix:emailField", "fmdbmix:textField"), Set.of(FieldShapes.MULTIPLE_PROPERTY));
         assertTrue(multiple.orElseThrow().multivalued());
     }
 
@@ -65,16 +72,16 @@ class FieldShapesTest {
     void choiceFieldsAreStringsSingleUnlessMultipleSelect() throws Exception {
         // Verifies the cardinality rule of choice fields with a "multiple" property: radio and single select
         // hold one value, a multiple select holds a list.
-        assertFalse(shape(mappable(FieldShapes.CHOICE_FIELD), Set.of()).orElseThrow().multivalued());
-        assertTrue(shape(mappable(FieldShapes.CHOICE_FIELD), Set.of(FieldShapes.MULTIPLE_PROPERTY)).orElseThrow().multivalued());
+        assertFalse(shape(mappable("fmdbmix:choiceField"), Set.of()).orElseThrow().multivalued());
+        assertTrue(shape(mappable("fmdbmix:choiceField"), Set.of(FieldShapes.MULTIPLE_PROPERTY)).orElseThrow().multivalued());
     }
 
     @Test
     void theCheckboxFollowsItsNumberOfChoicesAsTheViewDoes() throws Exception {
         // Verifies the renderer's rule applied to the shape. Exactly one choice is one checkbox holding one
         // value. Two or more, none, or an unknown count is a group, and the "multiple" flag plays no part.
-        Set<String> checkbox = mappable(FieldShapes.CHOICE_FIELD);
-        checkbox.add(FieldShapes.CHECKBOX_TYPE);
+        Set<String> checkbox = mappable("fmdbmix:choiceField");
+        checkbox.add("fmdbmix:cardinalityFromChoices");
         Predicate<String> isCheckbox = checkbox::contains;
         Predicate<String> noFlag = name -> false;
         assertFalse(FieldShapes.infer(isCheckbox, noFlag, () -> OptionalInt.of(1)).orElseThrow().multivalued());
@@ -89,10 +96,10 @@ class FieldShapesTest {
     @Test
     void numberBooleanAndDateKindsOfferTheirOwnTypes() throws Exception {
         // Verifies the value types offered for the numeric, boolean and date kinds.
-        assertEquals(Set.of("integer", "long", "float", "double"), shape(mappable(FieldShapes.NUMBER_FIELD), Set.of()).orElseThrow().valueTypeIds());
-        assertEquals(Set.of("boolean"), shape(mappable(FieldShapes.BOOLEAN_FIELD), Set.of()).orElseThrow().valueTypeIds());
-        assertEquals(Set.of("date"), shape(mappable(FieldShapes.DATE_FIELD), Set.of()).orElseThrow().valueTypeIds());
-        assertEquals(Set.of("date"), shape(mappable(FieldShapes.DATETIME_LOCAL_FIELD), Set.of()).orElseThrow().valueTypeIds());
+        assertEquals(Set.of("integer", "long", "float", "double"), shape(mappable("fmdbmix:numberField"), Set.of()).orElseThrow().valueTypeIds());
+        assertEquals(Set.of("boolean"), shape(mappable("fmdbmix:booleanField"), Set.of()).orElseThrow().valueTypeIds());
+        assertEquals(Set.of("date"), shape(mappable("fmdbmix:dateField"), Set.of()).orElseThrow().valueTypeIds());
+        assertEquals(Set.of("date"), shape(mappable("fmdbmix:datetimeLocalField"), Set.of()).orElseThrow().valueTypeIds());
     }
 
     @Test
@@ -124,19 +131,19 @@ class FieldShapesTest {
     void anExistingFieldIsReadFromItsNode() throws Exception {
         // Verifies the runtime entry point on an existing node: the kinds come from isNodeType, the
         // cardinality from the stored "multiple" property, and a node without the marker is not mappable.
-        JCRNodeWrapper multipleSelect = node(true, FieldShapes.MAPPABLE_MARKER, FieldShapes.CHOICE_FIELD);
+        JCRNodeWrapper multipleSelect = node(true, "fmdbmix:profileMappableField", "fmdbmix:choiceField");
         assertEquals(Optional.of(new FieldShape(Set.of("string"), true)), FieldShapes.infer(multipleSelect, Optional.empty(), OptionalInt::empty));
-        JCRNodeWrapper text = node(null, FieldShapes.MAPPABLE_MARKER, FieldShapes.TEXT_FIELD);
+        JCRNodeWrapper text = node(null, "fmdbmix:profileMappableField", "fmdbmix:textField");
         assertEquals(Optional.of(new FieldShape(Set.of("string"), false)), FieldShapes.infer(text, Optional.empty(), OptionalInt::empty));
-        assertTrue(FieldShapes.infer(node(null, FieldShapes.TEXT_FIELD), Optional.empty(), OptionalInt::empty).isEmpty());
+        assertTrue(FieldShapes.infer(node(null, "fmdbmix:textField"), Optional.empty(), OptionalInt::empty).isEmpty());
     }
 
     @Test
     void theEditorsUnsavedMultipleToggleWinsOverTheStoredOne() throws Exception {
         // Verifies the dependentProperties path: the value the author just switched, not yet saved, decides.
-        JCRNodeWrapper singleSelect = node(false, FieldShapes.MAPPABLE_MARKER, FieldShapes.CHOICE_FIELD);
+        JCRNodeWrapper singleSelect = node(false, "fmdbmix:profileMappableField", "fmdbmix:choiceField");
         assertTrue(FieldShapes.infer(singleSelect, Optional.of(true), OptionalInt::empty).orElseThrow().multivalued());
-        JCRNodeWrapper multipleSelect = node(true, FieldShapes.MAPPABLE_MARKER, FieldShapes.CHOICE_FIELD);
+        JCRNodeWrapper multipleSelect = node(true, "fmdbmix:profileMappableField", "fmdbmix:choiceField");
         assertFalse(FieldShapes.infer(multipleSelect, Optional.of(false), OptionalInt::empty).orElseThrow().multivalued());
     }
 
@@ -145,9 +152,9 @@ class FieldShapesTest {
         // Verifies the runtime entry point on a type (create mode): single until the author switches
         // "multiple" on, and never mappable without the marker.
         NodeType email = mock(NodeType.class);
-        when(email.isNodeType(FieldShapes.MAPPABLE_MARKER)).thenReturn(true);
-        when(email.isNodeType(FieldShapes.EMAIL_FIELD)).thenReturn(true);
-        when(email.isNodeType(FieldShapes.TEXT_FIELD)).thenReturn(true);
+        when(email.isNodeType("fmdbmix:profileMappableField")).thenReturn(true);
+        when(email.isNodeType("fmdbmix:emailField")).thenReturn(true);
+        when(email.isNodeType("fmdbmix:textField")).thenReturn(true);
         assertEquals(Optional.of(new FieldShape(Set.of("email", "string"), false)), FieldShapes.infer(email, false, OptionalInt::empty));
         assertEquals(Optional.of(new FieldShape(Set.of("email", "string"), true)), FieldShapes.infer(email, true, OptionalInt::empty));
         NodeType plain = mock(NodeType.class);

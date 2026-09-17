@@ -13,13 +13,19 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_LOGIC_ELEMENT_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.LOGIC_SRC_NODE_TYPE;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.LOGICS_PROPERTY;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.LOGICS_SRC_NODE;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.LOGIC_NODE_SOURCE_PROPERTY;
+
 @Component(
         service = ContentIntegrityCheck.class,
         immediate = true,
         property = {
-                ContentIntegrityCheck.ExecutionCondition.APPLY_ON_NT + "=" + AbstractFormidableIntegrityCheck.FMDB_LOGIC_ELEMENT,
+                ContentIntegrityCheck.ExecutionCondition.APPLY_ON_NT + "=" + FORM_LOGIC_ELEMENT_MIXIN,
                 ContentIntegrityCheck.ExecutionCondition.APPLY_ON_SUBTREES + "=/sites",
-                ContentIntegrityCheck.ExecutionCondition.APPLY_IF_HAS_PROP + "=" + AbstractFormidableIntegrityCheck.LOGICS_PROPERTY
+                ContentIntegrityCheck.ExecutionCondition.APPLY_IF_HAS_PROP + "=" + LOGICS_PROPERTY
         }
 )
 public class FormLogicReferenceIntegrityCheck extends AbstractFormidableIntegrityCheck {
@@ -110,16 +116,16 @@ public class FormLogicReferenceIntegrityCheck extends AbstractFormidableIntegrit
 
         // Verify the logicsSrc child has the expected node type
         JCRNodeWrapper logicSrcNode = targetNode.getNode(LOGICS_SRC_NODE).getNode(rule.logicId());
-        if (!logicSrcNode.isNodeType(FMDB_LOGIC_SRC)) {
+        if (!logicSrcNode.isNodeType(LOGIC_SRC_NODE_TYPE)) {
             ContentIntegrityError error = createError(targetNode, INVALID_CHILD_NODE_TYPE)
                     .addExtraInfo(EXTRA_INFO_CHILD_NAME, LOGICS_SRC_NODE + "/" + rule.logicId())
-                    .addExtraInfo(EXTRA_INFO_EXPECTED_NODE_TYPE, FMDB_LOGIC_SRC)
+                    .addExtraInfo(EXTRA_INFO_EXPECTED_NODE_TYPE, LOGIC_SRC_NODE_TYPE)
                     .addExtraInfo(EXTRA_INFO_ACTUAL_NODE_TYPE, logicSrcNode.getPrimaryNodeTypeName(), true);
             return trackError(errors, error);
         }
 
         // Ensure the JCR logicNodeSource reference stays within the owning form
-        JCRNodeWrapper actualSource = (JCRNodeWrapper) logicSrcNode.getProperty(LOGIC_NODE_SOURCE).getNode();
+        JCRNodeWrapper actualSource = (JCRNodeWrapper) logicSrcNode.getProperty(LOGIC_NODE_SOURCE_PROPERTY).getNode();
         if (!isWithinForm(actualSource, formNode)) {
             ContentIntegrityError error = createPropertyRelatedError(targetNode, OUT_OF_SCOPE_LOGIC_SOURCE)
                     .addExtraInfo(EXTRA_INFO_LOGIC_ID, rule.logicId())
@@ -159,16 +165,16 @@ public class FormLogicReferenceIntegrityCheck extends AbstractFormidableIntegrit
         }
 
         // Ensure we only inspect expected fmdb:logicSrc nodes (corruption can introduce wrong types)
-        if (!child.isNodeType(FMDB_LOGIC_SRC)) {
+        if (!child.isNodeType(LOGIC_SRC_NODE_TYPE)) {
             ContentIntegrityError error = createError(targetNode, INVALID_CHILD_NODE_TYPE)
                     .addExtraInfo(EXTRA_INFO_CHILD_NAME, LOGICS_SRC_NODE + "/" + child.getName())
-                    .addExtraInfo(EXTRA_INFO_EXPECTED_NODE_TYPE, FMDB_LOGIC_SRC)
+                    .addExtraInfo(EXTRA_INFO_EXPECTED_NODE_TYPE, LOGIC_SRC_NODE_TYPE)
                     .addExtraInfo(EXTRA_INFO_ACTUAL_NODE_TYPE, child.getPrimaryNodeTypeName(), true);
             return trackError(errors, error);
         }
 
         // Ensure the logicNodeSource reference stays within the owning form subtree
-        JCRNodeWrapper sourceNode = (JCRNodeWrapper) child.getProperty(LOGIC_NODE_SOURCE).getNode();
+        JCRNodeWrapper sourceNode = (JCRNodeWrapper) child.getProperty(LOGIC_NODE_SOURCE_PROPERTY).getNode();
         if (!isWithinForm(sourceNode, formNode)) {
             ContentIntegrityError error = createPropertyRelatedError(targetNode, OUT_OF_SCOPE_LOGIC_SOURCE)
                     .addExtraInfo(EXTRA_INFO_LOGIC_ID, child.getName())

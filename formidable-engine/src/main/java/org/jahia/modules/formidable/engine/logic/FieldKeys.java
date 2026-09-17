@@ -5,7 +5,7 @@ import org.jahia.services.content.JCRNodeWrapper;
 import javax.jcr.RepositoryException;
 import java.util.UUID;
 
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FIELD_KEY_PROPERTY;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.FIELD_KEY_PROPERTY;
 
 /**
  * Access to the fieldKey property: the stable business identity of a form element,

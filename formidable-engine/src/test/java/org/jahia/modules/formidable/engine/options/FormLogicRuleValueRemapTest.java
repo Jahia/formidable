@@ -19,6 +19,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ROOT_MIXIN;
 
 /**
  * The rules follow the realignment of their source's values: a 0.3-authored rule
@@ -55,7 +56,7 @@ class FormLogicRuleValueRemapTest {
         JCRSessionWrapper session = mock(JCRSessionWrapper.class);
 
         JCRNodeWrapper form = mock(JCRNodeWrapper.class);
-        when(form.isNodeType("fmdb:form")).thenReturn(true);
+        when(form.isNodeType(FORM_ROOT_MIXIN)).thenReturn(true);
 
         JCRNodeWrapper field = mock(JCRNodeWrapper.class);
         when(field.getIdentifier()).thenReturn("source-uuid");
@@ -98,7 +99,7 @@ class FormLogicRuleValueRemapTest {
     @Test
     void aRuleOnAnotherSourceIsLeftAlone() throws Exception {
         JCRNodeWrapper form = mock(JCRNodeWrapper.class);
-        when(form.isNodeType("fmdb:form")).thenReturn(true);
+        when(form.isNodeType(FORM_ROOT_MIXIN)).thenReturn(true);
 
         JCRNodeWrapper field = mock(JCRNodeWrapper.class);
         when(field.getIdentifier()).thenReturn("source-uuid");

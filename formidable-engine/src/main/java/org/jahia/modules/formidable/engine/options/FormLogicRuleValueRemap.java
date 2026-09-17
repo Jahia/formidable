@@ -14,6 +14,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_LOGIC_ELEMENT_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ROOT_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.LOGICS_PROPERTY;
+
 /**
  * Follows a choice field's value realignment into the logic rules that reference it.
  * The 0.3 rule editor stored the option value of the EDITING language; once a migrated
@@ -29,10 +33,6 @@ import java.util.Map;
 final class FormLogicRuleValueRemap {
 
     private static final Logger log = LoggerFactory.getLogger(FormLogicRuleValueRemap.class);
-
-    private static final String LOGICS_PROPERTY = "logics";
-    private static final String FORM_TYPE = "fmdb:form";
-    private static final String LOGIC_ELEMENT_MIXIN = "fmdbmix:formLogicElement";
 
     private FormLogicRuleValueRemap() {
     }
@@ -58,7 +58,7 @@ final class FormLogicRuleValueRemap {
 
     private static JCRNodeWrapper formAncestor(JCRNodeWrapper node) throws RepositoryException {
         for (JCRNodeWrapper current = node; current != null; current = parentOrNull(current)) {
-            if (current.isNodeType(FORM_TYPE)) {
+            if (current.isNodeType(FORM_ROOT_MIXIN)) {
                 return current;
             }
         }
@@ -77,7 +77,7 @@ final class FormLogicRuleValueRemap {
     private static boolean remapDescendants(JCRNodeWrapper node, String sourceId,
             Map<String, String> valueReplacements) throws RepositoryException {
         boolean updated = false;
-        if (node.isNodeType(LOGIC_ELEMENT_MIXIN) && node.hasProperty(LOGICS_PROPERTY)) {
+        if (node.isNodeType(FORM_LOGIC_ELEMENT_MIXIN) && node.hasProperty(LOGICS_PROPERTY)) {
             updated = remapRules(node, sourceId, valueReplacements);
         }
 

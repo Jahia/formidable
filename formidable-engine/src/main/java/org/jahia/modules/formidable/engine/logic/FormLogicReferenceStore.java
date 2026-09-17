@@ -9,10 +9,10 @@ import javax.jcr.RepositoryException;
 import java.util.HashSet;
 import java.util.Set;
 
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGIC_NODE_SOURCE_PROPERTY;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGIC_LIST_NODE_TYPE;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGIC_SRC_NODE_TYPE;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LOGICS_SRC_NODE;
+import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.LOGIC_LIST_NODE_TYPE;
+import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.LOGIC_SRC_NODE_TYPE;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.LOGICS_SRC_NODE;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.LOGIC_NODE_SOURCE_PROPERTY;
 
 final class FormLogicReferenceStore {
 

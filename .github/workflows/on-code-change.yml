@@ -64,6 +64,10 @@ jobs:
 
       - name: Check the documentation links
         run: node scripts/check-doc-links.mjs
+      # One spelling for every node type and mixin the engine declares: the CND and the exported
+      # constants agree, and no other Java source copies a name (docs/architecture/cnd-module-ownership.md).
+      - name: Check the node type names
+        run: node scripts/check-nodetype-names.mjs
 
   build:
     name: Build Module

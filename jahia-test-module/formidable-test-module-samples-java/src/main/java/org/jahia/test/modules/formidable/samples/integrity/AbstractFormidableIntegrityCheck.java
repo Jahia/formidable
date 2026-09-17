@@ -18,39 +18,31 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FILE_FIELD_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ELEMENT_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ROOT_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableMixins.NON_SUBMITTABLE_MIXIN;
+import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.FORM_RESULTS_NODE_TYPE;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.LOGICS_PROPERTY;
+import static org.jahia.modules.formidable.engine.api.FormidableProperties.PARENT_FORM_PROPERTY;
+
 /**
  * Base class for Formidable content-integrity checks.
- * Provides shared JCR node type / property constants, reusable error types,
- * and utility methods for navigating the form tree and parsing logic rules.
+ * Names the content model through the engine's exported constants — the way a module outside
+ * Formidable does it — and adds reusable error types and utility methods for navigating the
+ * form tree and parsing logic rules.
  */
 abstract class AbstractFormidableIntegrityCheck extends AbstractContentIntegrityCheck {
 
-    // -- JCR node type constants --
-
-    protected static final String FMDB_FORM = "fmdb:form";
+    // The authoring model formidable-elements declares, for which the engine publishes no
+    // constant — see docs/architecture/cnd-module-ownership.md.
     protected static final String FMDB_FORM_REFERENCE = "fmdb:formReference";
-    protected static final String FMDB_FORM_RESULTS = "fmdb:formResults";
-    protected static final String FMDB_FORM_SUBMISSION = "fmdb:formSubmission";
-    protected static final String FMDB_LOGIC_SRC = "fmdb:logicSrc";
-    protected static final String FMDB_LOGIC_ELEMENT = "fmdbmix:formLogicElement";
-    protected static final String FMDB_SUBMISSION_DATA = "fmdb:submissionData";
-    protected static final String FMDB_FILE_FIELD = "fmdbmix:fileField";
-    protected static final String FMDB_FORM_ELEMENT = "fmdbmix:formElement";
-    protected static final String FMDB_NON_SUBMITTABLE = "fmdbmix:nonSubmittable";
-
-    // -- JCR property / child-node name constants --
-
-    protected static final String DATA_NODE = "data";
-    protected static final String FILES_NODE = "files";
     protected static final String FIELDS_NODE = "fields";
+
+    // Jahia's own, and the two keys of a logic rule's JSON
     protected static final String J_NODE = "j:node";
-    protected static final String LOGICS_PROPERTY = "logics";
-    protected static final String LOGICS_SRC_NODE = "logicsSrc";
     protected static final String LOGIC_ID = "logicId";
-    protected static final String LOGIC_NODE_SOURCE = "logicNodeSource";
-    protected static final String PARENT_FORM = "parentForm";
     protected static final String SOURCE_NODE_ID = "sourceNodeId";
-    protected static final String SUBMISSIONS_NODE = "submissions";
 
     // -- Shared extra-info keys --
 
@@ -180,7 +172,7 @@ abstract class AbstractFormidableIntegrityCheck extends AbstractContentIntegrity
     protected JCRNodeWrapper findOwningForm(JCRNodeWrapper node) throws RepositoryException {
         JCRNodeWrapper current = node;
         while (current != null) {
-            if (current.isNodeType(FMDB_FORM)) {
+            if (current.isNodeType(FORM_ROOT_MIXIN)) {
                 return current;
             }
 
@@ -193,7 +185,7 @@ abstract class AbstractFormidableIntegrityCheck extends AbstractContentIntegrity
     protected JCRNodeWrapper findFormResultsAncestor(JCRNodeWrapper node) throws RepositoryException {
         JCRNodeWrapper current = node;
         while (current != null) {
-            if (current.isNodeType(FMDB_FORM_RESULTS)) {
+            if (current.isNodeType(FORM_RESULTS_NODE_TYPE)) {
                 return current;
             }
 
@@ -204,12 +196,12 @@ abstract class AbstractFormidableIntegrityCheck extends AbstractContentIntegrity
     }
 
     protected JCRNodeWrapper resolveOwningFormFromResults(JCRNodeWrapper resultsNode) throws RepositoryException {
-        if (resultsNode == null || !resultsNode.hasProperty(PARENT_FORM)) {
+        if (resultsNode == null || !resultsNode.hasProperty(PARENT_FORM_PROPERTY)) {
             return null;
         }
 
         try {
-            return (JCRNodeWrapper) resultsNode.getProperty(PARENT_FORM).getNode();
+            return (JCRNodeWrapper) resultsNode.getProperty(PARENT_FORM_PROPERTY).getNode();
         } catch (RepositoryException e) {
             return null;
         }
@@ -264,7 +256,7 @@ abstract class AbstractFormidableIntegrityCheck extends AbstractContentIntegrity
     }
 
     private void collectDeclaredFieldNamesRecursively(JCRNodeWrapper node, Set<String> fieldNames) throws RepositoryException {
-        if (node.isNodeType(FMDB_FORM_ELEMENT) && !node.isNodeType(FMDB_NON_SUBMITTABLE)) {
+        if (node.isNodeType(FORM_ELEMENT_MIXIN) && !node.isNodeType(NON_SUBMITTABLE_MIXIN)) {
             fieldNames.add(node.getName());
         }
 
@@ -278,7 +270,7 @@ abstract class AbstractFormidableIntegrityCheck extends AbstractContentIntegrity
     }
 
     private void collectDeclaredFileFieldNamesRecursively(JCRNodeWrapper node, Set<String> fieldNames) throws RepositoryException {
-        if (node.isNodeType(FMDB_FILE_FIELD) && !node.isNodeType(FMDB_NON_SUBMITTABLE)) {
+        if (node.isNodeType(FILE_FIELD_MIXIN) && !node.isNodeType(NON_SUBMITTABLE_MIXIN)) {
             fieldNames.add(node.getName());
         }
 
