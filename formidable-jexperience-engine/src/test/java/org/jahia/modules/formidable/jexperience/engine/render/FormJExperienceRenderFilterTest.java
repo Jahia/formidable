@@ -287,6 +287,21 @@ class FormJExperienceRenderFilterTest {
     }
 
     @Test
+    void theBlockIsStoredWithTheFormsFragment() {
+        // Verifies where the filter sits in the chain, against the two core filters that decide it. Below
+        // AggregateFilter (16.0) a filter also runs on the pass where the aggregation stands a placeholder in for
+        // the form: its block lands in the PARENT's cached fragment, whose dependencies are not the form's fields,
+        // and the dependencies it adds to the form's resource come after CacheFilter (16.5) stored them — on the
+        // instance, a form placed through a reference kept a stale block until the site cache was flushed. Just
+        // above 16.5, block and fields are stored with the form's own fragment, and a cached fragment costs nothing.
+        FilterUnderTest filter = new FilterUnderTest(null, true);
+        filter.activate();
+
+        assertTrue(filter.getPriority() > 16.5f, "inside the fragment cache: " + filter.getPriority());
+        assertTrue(filter.getPriority() < 99f, "before the script filter renders the view: " + filter.getPriority());
+    }
+
+    @Test
     void anUncheckedFailureCostsTheBlockAndNotThePage() throws Exception {
         // Verifies the unchecked half of prepend()'s catch. Nothing in the reading declares a checked
         // exception for a decorator, a query or getDisplayableName() failing at runtime, and an exception

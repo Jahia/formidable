@@ -44,6 +44,14 @@ import java.util.Set;
  * per path in the head, so the script is fetched and run once whatever the number of forms — and that
  * one script, having every block of the page in front of it, asks the tracker for the union of the
  * prefill properties in a single {@code digitalDataOverrides} entry: nothing inline, nothing per form.</p>
+ *
+ * <p>The filter sits just inside the fragment cache — priority 17, after core's {@code CacheFilter} at 16.5 —
+ * so that the block is stored with the form's fragment and the fields with its dependencies, and a cached
+ * fragment costs neither a session nor a query. Below {@code AggregateFilter} (16.0) a filter also runs on
+ * the pass where the aggregation stands a placeholder in for the form: its output is baked into the parent's
+ * fragment, whose dependencies do not include the fields, and what it adds to the form's dependencies comes
+ * after the cache stored them. Found on the instance: a form placed through a reference kept the block of
+ * the last cache miss until the site cache was flushed.</p>
  */
 @Component(service = RenderFilter.class, immediate = true)
 public class FormJExperienceRenderFilter extends AbstractFilter {
@@ -84,7 +92,8 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
 
     @Activate
     public void activate() {
-        setPriority(11);
+        // just inside the fragment cache: after CacheFilter (16.5) and AggregateFilter (16.0), see the class comment
+        setPriority(17);
         setApplyOnNodeTypes(FmdbMixin.FORM_ROOT);
         setApplyOnTemplateTypes("html");
         setApplyOnModes("live");
