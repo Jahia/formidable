@@ -18,9 +18,9 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
+import org.jahia.modules.formidable.engine.api.FmdbProperty;
 
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.MANUAL_OPTIONS_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableProperties.OPTIONS_PROPERTY;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.TRANSLATION_NODE_PREFIX;
 
 /**
@@ -46,7 +46,7 @@ public class ManualOptionsLanguageSyncListener extends DefaultEventListener {
 
     private static final Logger log = LoggerFactory.getLogger(ManualOptionsLanguageSyncListener.class);
 
-    private static final String OPTIONS_PROPERTY_SUFFIX = "/" + OPTIONS_PROPERTY;
+    private static final String OPTIONS_PROPERTY_SUFFIX = "/" + FmdbProperty.OPTIONS;
     private static final String TRANSLATION_SEGMENT = "/" + TRANSLATION_NODE_PREFIX;
 
     /**
@@ -132,7 +132,7 @@ public class ManualOptionsLanguageSyncListener extends DefaultEventListener {
 
     @Override
     public String[] getNodeTypes() {
-        return new String[]{MANUAL_OPTIONS_MIXIN};
+        return new String[]{FmdbMixin.MANUAL_OPTIONS};
     }
 
     @Override

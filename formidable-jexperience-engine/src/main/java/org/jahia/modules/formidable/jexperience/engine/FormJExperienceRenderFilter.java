@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
 import javax.jcr.RepositoryException;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ROOT_MIXIN;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
 
 /**
  * Writes, before every form of a tracked site in live, what the client script needs
@@ -79,7 +79,7 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
     @Activate
     public void activate() {
         setPriority(11);
-        setApplyOnNodeTypes(FORM_ROOT_MIXIN);
+        setApplyOnNodeTypes(FmdbMixin.FORM_ROOT);
         setApplyOnTemplateTypes("html");
         setApplyOnModes("live");
         // the same node is rendered again through a second full chain by a wrapper, an include or an option,

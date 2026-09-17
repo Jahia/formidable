@@ -1,14 +1,14 @@
-// The engine's CND and the constants it exports say the same thing, and nothing else in Java
-// spells one of those names out. Usage: node check-nodetype-names.mjs [repoRoot]
+// The engine's CND and the constants it exports say the same thing, nothing else in Java spells one
+// of those names out, and every use of a constant is qualified. Usage: node check-nodetype-names.mjs [repoRoot]
 //
-// Two checks, both from one reading of formidable-engine/src/main/resources/META-INF/definitions.cnd:
+// Three checks, the first two from one reading of formidable-engine/src/main/resources/META-INF/definitions.cnd:
 //
-//  1. Parity. Every node type and mixin the engine declares has a constant in FormidableNodeTypes
-//     or FormidableMixins, and every constant there is declared in that file. A mixin is how
+//  1. Parity. Every node type and mixin the engine declares has a constant in FmdbNodeType
+//     or FmdbMixin, and every constant there is declared in that file. A mixin is how
 //     another module opts into engine behaviour, so all of them are contract — which is why this
 //     direction is enforced too, and why a new one cannot be added without exporting its name.
 //     Properties are checked one way only: a property is local to the type that declares it until
-//     something outside reads it, so FormidableProperties holds the ones that crossed.
+//     something outside reads it, so FmdbProperty and FmdbNodeName hold the ones that crossed.
 //  2. No second spelling. An engine-declared name appears in the MAIN sources only in those classes —
 //     anywhere else the constant exists and the literal is a copy that no rename would follow. Test
 //     sources are out of scope on purpose: a test that writes the name out is how a constant holding
@@ -17,6 +17,9 @@
 //     is exempt: it is a frozen script that must keep naming the vocabulary of the release it
 //     heals, not follow the live one. A name another module declares (fmdb:form and the concrete
 //     field types, from formidable-elements) has no constant to use, and is counted, not refused.
+//  3. Qualified use. The holder names the kind and the constant names the thing, so a static import of
+//     a holder is refused, in main and test sources alike: `FILE_FIELD` alone no longer says what it is,
+//     and FmdbNodeType.SUBMISSIONS and FmdbNodeName.SUBMISSIONS would collide.
 //
 // See docs/architecture/cnd-module-ownership.md, "Naming these types from Java".
 import {readFileSync, readdirSync, statSync} from 'node:fs';
@@ -27,7 +30,7 @@ const CND = 'formidable-engine/src/main/resources/META-INF/definitions.cnd';
 const API = 'formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api';
 // Stamped by a 0.4 content migration to record that it has already healed a node. The declarations
 // outlive the migrations (docs/administration/upgrade-notes.md) so that marked content stays valid,
-// but the names are the engine talking to itself: engine-internal, in migration/MigrationMarkers.java.
+// but the names are the engine talking to itself: engine-internal, in migration/MigrationMarker.java.
 const TRANSITIONAL = new Set(['fmdbmix:elementsReactivated', 'fmdbmix:migratedChoiceOptions']);
 
 const cnd = readFileSync(join(root, CND), 'utf8');
@@ -49,20 +52,20 @@ const constantsOf = file => {
     return out;
 };
 const exported = {
-    type: constantsOf('FormidableNodeTypes.java'),
-    mixin: constantsOf('FormidableMixins.java'),
-    item: constantsOf('FormidableProperties.java'),
+    type: constantsOf('FmdbNodeType.java'),
+    mixin: constantsOf('FmdbMixin.java'),
+    item: new Map([...constantsOf('FmdbProperty.java'), ...constantsOf('FmdbNodeName.java')]),
 };
 
 const errors = [];
 for (const kind of ['type', 'mixin']) {
     for (const name of declared[kind]) {
         if (!TRANSITIONAL.has(name) && ![...exported[kind].values()].includes(name)) {
-            errors.push(`${CND}: ${name} has no constant in Formidable${kind === 'type' ? 'NodeTypes' : 'Mixins'}`);
+            errors.push(`${CND}: ${name} has no constant in Fmdb${kind === 'type' ? 'NodeType' : 'Mixin'}`);
         }
     }
 }
-for (const [kind, klass] of [['type', 'FormidableNodeTypes'], ['mixin', 'FormidableMixins'], ['item', 'FormidableProperties']]) {
+for (const [kind, klass] of [['type', 'FmdbNodeType'], ['mixin', 'FmdbMixin'], ['item', 'FmdbProperty or FmdbNodeName']]) {
     for (const [constant, value] of exported[kind]) {
         if (!declared[kind].has(value)) errors.push(`${klass}.${constant}: ${value} is not declared in ${CND}`);
     }
@@ -75,7 +78,8 @@ const walk = dir => readdirSync(dir).flatMap(name => {
     const path = join(dir, name);
     return statSync(path).isDirectory() ? walk(path) : [path];
 });
-const sources = walk(root).filter(f => f.endsWith('.java') && f.includes('/src/main/java/'));
+const javaSources = walk(root).filter(f => f.endsWith('.java'));
+const sources = javaSources.filter(f => f.includes('/src/main/java/'));
 // Which module declares each name of the repository, so that a literal can be told apart: a name
 // another module owns is the residue a marker would remove, a name the spelling module declares
 // itself is not residue at all, and a name nothing declares is a 0.4 spelling a migration still reads.
@@ -101,11 +105,19 @@ for (const file of sources) {
     }
 }
 
+// A holder is used qualified, never statically imported: the class carries the kind the constant dropped.
+const staticImport = /^import static org\.jahia\.modules\.formidable\.engine\.(api\.Fmdb\w+|migration\.MigrationMarker)\.\w+;/gm;
+for (const file of javaSources) {
+    for (const m of readFileSync(file, 'utf8').matchAll(staticImport)) {
+        errors.push(`${relative(root, file)}: static import of ${m[1]} — qualify the use, the class names the kind`);
+    }
+}
+
 if (errors.length > 0) {
     console.error(errors.join('\n'));
     process.exit(1);
 }
 console.log(`ok: ${declared.type.size} node types and ${declared.mixin.size} mixins declared and exported,`
-    + ` ${sources.length} Java sources hold no second spelling.`
+    + ` ${sources.length} Java sources hold no second spelling, ${javaSources.length} use the holders qualified.`
     + ` Literals naming what this CND does not declare: ${elsewhere.owed} owed a marker — live code naming`
     + ` another module's type — plus ${elsewhere.own} a module spells of its own and ${elsewhere.legacy} inside a migration.`);

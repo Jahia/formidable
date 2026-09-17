@@ -13,6 +13,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -24,7 +25,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ROOT_MIXIN;
 
 /**
  * How a publication finds its forms: the publication mark climbs to the nearest form, a removal
@@ -56,7 +56,7 @@ class MappingRuleSyncListenerTest {
             doReturn(mock(JCRNodeWrapper.class)).when(session).getNode(path);
         }
         JCRNodeWrapper form = mock(JCRNodeWrapper.class);
-        when(form.isNodeType(FORM_ROOT_MIXIN)).thenReturn(true);
+        when(form.isNodeType(FmdbMixin.FORM_ROOT)).thenReturn(true);
         when(form.getIdentifier()).thenReturn(FORM_UUID);
         doReturn(form).when(session).getNode(FORM_PATH);
         return session;

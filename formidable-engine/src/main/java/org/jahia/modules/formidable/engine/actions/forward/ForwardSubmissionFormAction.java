@@ -4,6 +4,7 @@ import org.jahia.modules.formidable.engine.actions.ContentDispositionUtils;
 import org.jahia.modules.formidable.engine.api.FormAction;
 import org.jahia.modules.formidable.engine.api.FormActionException;
 import org.jahia.modules.formidable.engine.api.SubmittedFile;
+import org.jahia.modules.formidable.engine.api.FmdbNodeType;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.modules.formidable.engine.util.JcrProps;
 import org.jahia.services.content.JCRNodeWrapper;
@@ -28,7 +29,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
-import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.FORWARD_ACTION_NODE_TYPE;
 
 /**
  * Forwards the submitted form data to a third-party endpoint as multipart/form-data.
@@ -66,7 +66,7 @@ public class ForwardSubmissionFormAction implements FormAction {
 
     @Override
     public String getNodeType() {
-        return FORWARD_ACTION_NODE_TYPE;
+        return FmdbNodeType.FORWARD_ACTION;
     }
 
     @Override

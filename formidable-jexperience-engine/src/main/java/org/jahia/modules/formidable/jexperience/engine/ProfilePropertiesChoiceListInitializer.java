@@ -1,6 +1,7 @@
 package org.jahia.modules.formidable.jexperience.engine;
 
 import org.jahia.modules.formidable.engine.api.ChoiceOptionsResolver;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.nodetypes.ExtendedPropertyDefinition;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListValue;
@@ -19,9 +20,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.CATEGORY_OPTIONS_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.CONTENT_OPTIONS_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.SOURCED_OPTIONS_MIXIN;
 
 /**
  * The {@code formidableJExperienceProfileProperties} choicelist: the profile properties a
@@ -69,7 +67,7 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
     static final String OPTIONS_MODE_PROPERTY = "optionsMode";
     static final String MANUAL_MODE = "manual";
     private static final List<String> SOURCED_OPTIONS_MIXINS =
-            List.of(SOURCED_OPTIONS_MIXIN, CATEGORY_OPTIONS_MIXIN, CONTENT_OPTIONS_MIXIN);
+            List.of(FmdbMixin.SOURCED_OPTIONS, FmdbMixin.CATEGORY_OPTIONS, FmdbMixin.CONTENT_OPTIONS);
 
     private static final Logger log = LoggerFactory.getLogger(ProfilePropertiesChoiceListInitializer.class);
 

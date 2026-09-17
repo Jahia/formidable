@@ -6,6 +6,7 @@ import org.jahia.modules.formidable.engine.api.FormAction;
 import org.jahia.modules.formidable.engine.api.FormActionException;
 import org.jahia.modules.formidable.engine.actions.FormDataParser;
 import org.jahia.modules.formidable.engine.api.SubmittedFile;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.modules.formidable.engine.logic.ConditionalLogicEvaluator;
 import org.jahia.modules.formidable.engine.logic.LogicStateDeclaration;
@@ -32,10 +33,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.AUTHENTICATED_ONLY_FORM_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.CAPTCHA_PROTECTED_FORM_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ROOT_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.READ_ONLY_COMPATIBLE_ACTION_MIXIN;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WORKSPACE_LIVE;
 
 /**
@@ -232,7 +229,7 @@ class FormSubmissionPipeline {
             // The identifier is caller-supplied: any readable live node resolves, but every
             // downstream step is written for a form. Reject other types with the same code
             // as a missing node, so the response does not disclose what the UUID points at.
-            if (!formNode.isNodeType(FORM_ROOT_MIXIN)) {
+            if (!formNode.isNodeType(FmdbMixin.FORM_ROOT)) {
                 throw new SubmissionException(ErrorCode.FMDB_004, "Not a form: " + formId);
             }
         } catch (RepositoryException e) {
@@ -264,7 +261,7 @@ class FormSubmissionPipeline {
     private void verifyAuthentication() throws SubmissionException {
         boolean requiresAuth;
         try {
-            requiresAuth = formNode.isNodeType(AUTHENTICATED_ONLY_FORM_MIXIN);
+            requiresAuth = formNode.isNodeType(FmdbMixin.AUTHENTICATED_ONLY_FORM);
         } catch (RepositoryException e) {
             throw new SubmissionException(ErrorCode.FMDB_500,
                     "Cannot verify authentication requirement for form: " + formId,
@@ -282,7 +279,7 @@ class FormSubmissionPipeline {
     private void verifyCaptcha(HttpServletRequest req) throws SubmissionException {
         boolean hasCaptcha;
         try {
-            hasCaptcha = formNode.isNodeType(CAPTCHA_PROTECTED_FORM_MIXIN);
+            hasCaptcha = formNode.isNodeType(FmdbMixin.CAPTCHA_PROTECTED_FORM);
         } catch (RepositoryException e) {
             throw new SubmissionException(ErrorCode.FMDB_500,
                     "Cannot verify CAPTCHA requirement for form: " + formId,
@@ -566,7 +563,7 @@ class FormSubmissionPipeline {
                                 w.getIdentifier(),
                                 w.getPath(),
                                 w.getPrimaryNodeTypeName(),
-                                w.isNodeType(READ_ONLY_COMPATIBLE_ACTION_MIXIN)
+                                w.isNodeType(FmdbMixin.READ_ONLY_COMPATIBLE_ACTION)
                         ));
                     }
                 }

@@ -1,6 +1,8 @@
 package org.jahia.modules.formidable.engine.options;
 
 import org.jahia.modules.formidable.engine.api.ChoiceOptionsResolver;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
+import org.jahia.modules.formidable.engine.api.FmdbProperty;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
@@ -9,9 +11,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.jcr.RepositoryException;
 import java.util.OptionalInt;
-
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.OPTIONS_SOURCE_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableProperties.OPTIONS_PROPERTY;
 
 /**
  * Counts a field's choices the way the elements' views resolve them (optionsSource.server.ts):
@@ -41,7 +40,7 @@ public class ChoiceOptionsResolverImpl implements ChoiceOptionsResolver {
 
     @Override
     public OptionalInt countChoices(JCRNodeWrapper field, String languageTag) throws RepositoryException {
-        if (!field.isNodeType(OPTIONS_SOURCE_MIXIN)) {
+        if (!field.isNodeType(FmdbMixin.OPTIONS_SOURCE)) {
             return OptionalInt.empty();
         }
         String[] resolved;
@@ -59,6 +58,6 @@ public class ChoiceOptionsResolverImpl implements ChoiceOptionsResolver {
         if (aligned != null) {
             return OptionalInt.of(aligned.length);
         }
-        return OptionalInt.of(field.hasProperty(OPTIONS_PROPERTY) ? field.getProperty(OPTIONS_PROPERTY).getValues().length : 0);
+        return OptionalInt.of(field.hasProperty(FmdbProperty.OPTIONS) ? field.getProperty(FmdbProperty.OPTIONS).getValues().length : 0);
     }
 }

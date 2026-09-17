@@ -15,7 +15,6 @@ import javax.jcr.Property;
 import javax.jcr.RepositoryException;
 import javax.jcr.Value;
 import javax.jcr.query.Query;
-import static org.jahia.modules.formidable.engine.migration.MigrationMarkers.MIGRATED_CHOICE_OPTIONS_MIXIN;
 
 /**
  * One-shot content migration for choice fields (fmdbmix:choiceField): moves the
@@ -152,7 +151,7 @@ public class ChoiceOptionsContentMigration extends ElementsRedeployRetriggeredMi
 
         if (touched) {
             node.addMixin(MANUAL_OPTIONS_MIXIN);
-            node.addMixin(MIGRATED_CHOICE_OPTIONS_MIXIN);
+            node.addMixin(MigrationMarker.MIGRATED_CHOICE_OPTIONS);
             node.setProperty(OPTIONS_MODE_PROPERTY, OPTIONS_MODE_MANUAL);
             log.info("[ChoiceOptionsContentMigration] Migrated '{}'", node.getPath());
         }

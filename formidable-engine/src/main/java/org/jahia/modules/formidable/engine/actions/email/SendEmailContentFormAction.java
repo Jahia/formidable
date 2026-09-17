@@ -5,6 +5,7 @@ import org.jahia.modules.formidable.engine.actions.FieldEscaper;
 import org.jahia.modules.formidable.engine.api.FormAction;
 import org.jahia.modules.formidable.engine.api.FormActionException;
 import org.jahia.modules.formidable.engine.api.SubmittedFile;
+import org.jahia.modules.formidable.engine.api.FmdbNodeType;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.modules.formidable.engine.util.JcrProps;
 import org.jahia.services.content.JCRNodeWrapper;
@@ -26,7 +27,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.EMAIL_CONTENT_ACTION_NODE_TYPE;
 
 /**
  * Sends the submitted form content by email, optionally with uploaded files attached.
@@ -67,7 +67,7 @@ public class SendEmailContentFormAction implements FormAction {
 
     @Override
     public String getNodeType() {
-        return EMAIL_CONTENT_ACTION_NODE_TYPE;
+        return FmdbNodeType.EMAIL_CONTENT_ACTION;
     }
 
     @Override
@@ -84,7 +84,7 @@ public class SendEmailContentFormAction implements FormAction {
 
         String to = FieldEscaper.headerSafe(JcrProps.string(actionNode, "to", ""));
         if (to.isBlank()) {
-            throw FormActionException.serverError(EMAIL_CONTENT_ACTION_NODE_TYPE + " is missing a 'to' address.");
+            throw FormActionException.serverError(FmdbNodeType.EMAIL_CONTENT_ACTION + " is missing a 'to' address.");
         }
 
         String from = FieldEscaper.headerSafe(JcrProps.string(actionNode, "from", ""));

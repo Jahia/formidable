@@ -4,6 +4,7 @@ import org.jahia.modules.formidable.engine.actions.FieldEscaper;
 import org.jahia.modules.formidable.engine.api.FormAction;
 import org.jahia.modules.formidable.engine.api.FormActionException;
 import org.jahia.modules.formidable.engine.api.SubmittedFile;
+import org.jahia.modules.formidable.engine.api.FmdbNodeType;
 import org.jahia.modules.formidable.engine.actions.TemplateInterpolator;
 import org.jahia.modules.formidable.engine.util.JcrProps;
 import org.jahia.services.content.JCRNodeWrapper;
@@ -20,7 +21,6 @@ import org.slf4j.LoggerFactory;
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
-import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.EMAIL_NOTIFICATION_ACTION_NODE_TYPE;
 /**
  * Sends a notification email after a successful form submission.
  *
@@ -52,7 +52,7 @@ public class SendEmailNotificationFormAction implements FormAction {
 
     @Override
     public String getNodeType() {
-        return EMAIL_NOTIFICATION_ACTION_NODE_TYPE;
+        return FmdbNodeType.EMAIL_NOTIFICATION_ACTION;
     }
 
     @Override
@@ -70,7 +70,7 @@ public class SendEmailNotificationFormAction implements FormAction {
 
         String to = FieldEscaper.headerSafe(JcrProps.string(actionNode, "to", null));
         if (to.isBlank()) {
-            throw FormActionException.serverError(EMAIL_NOTIFICATION_ACTION_NODE_TYPE + " is missing a 'to' address.");
+            throw FormActionException.serverError(FmdbNodeType.EMAIL_NOTIFICATION_ACTION + " is missing a 'to' address.");
         }
 
         String from = FieldEscaper.headerSafe(JcrProps.string(actionNode, "from", null));

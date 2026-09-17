@@ -1,6 +1,7 @@
 package org.jahia.modules.formidable.jexperience.engine;
 
 import org.jahia.modules.formidable.engine.api.ChoiceOptionsResolver;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRPropertyWrapper;
 import org.jahia.services.content.decorator.JCRSiteNode;
@@ -16,7 +17,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
-import org.jahia.modules.formidable.engine.api.FormidableMixins;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -221,7 +221,7 @@ class ProfilePropertiesChoiceListInitializerTest {
                 return "unreachable";
             }
         };
-        JCRNodeWrapper text = fieldNode("nickname", null, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN);
+        JCRNodeWrapper text = fieldNode("nickname", null, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD);
         List<ChoiceListValue> choices = listed(initializer, context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, text));
         assertEquals(List.of("nickname"), values(choices));
         assertEquals("nickname", choices.get(0).getDisplayName());
@@ -233,7 +233,7 @@ class ProfilePropertiesChoiceListInitializerTest {
     @Test
     void aNodeThatIsNotMappableYieldsNothing() throws Exception {
         // Verifies the shape guard: a node without the marker (a file field, a non-field) gets no list.
-        JCRNodeWrapper notMappable = fieldNode(null, null, FormidableMixins.TEXT_FIELD_MIXIN);
+        JCRNodeWrapper notMappable = fieldNode(null, null, FmdbMixin.TEXT_FIELD);
         assertEquals(List.of(), listed(initializerOver(CATALOG), context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, notMappable)));
     }
 
@@ -241,8 +241,8 @@ class ProfilePropertiesChoiceListInitializerTest {
     void aFieldBeingCreatedIsShapedFromItsTypeAndSitedFromItsParent() throws Exception {
         // Verifies the create path: no node yet, the type gives the kinds and the parent gives the site.
         NodeType number = mock(NodeType.class);
-        when(number.isNodeType(FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN)).thenReturn(true);
-        when(number.isNodeType(FormidableMixins.NUMBER_FIELD_MIXIN)).thenReturn(true);
+        when(number.isNodeType(FmdbMixin.PROFILE_MAPPABLE_FIELD)).thenReturn(true);
+        when(number.isNodeType(FmdbMixin.NUMBER_FIELD)).thenReturn(true);
         JCRNodeWrapper parent = mock(JCRNodeWrapper.class);
         JCRSiteNode parentSite = site();
         when(parent.getResolveSite()).thenReturn(parentSite);
@@ -258,7 +258,7 @@ class ProfilePropertiesChoiceListInitializerTest {
     void theEditorsUnsavedMultipleToggleReshapesTheList() throws Exception {
         // Verifies the dependentProperties re-query: the "multiple" value jcontent puts in the context —
         // a boolean, or a list of strings — wins over the stored one, on an existing node and in create mode.
-        JCRNodeWrapper singleSelect = fieldNode(null, false, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.CHOICE_FIELD_MIXIN);
+        JCRNodeWrapper singleSelect = fieldNode(null, false, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.CHOICE_FIELD);
         assertEquals(List.of("firstName"), values(listed(initializerOver(CATALOG), context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, singleSelect))));
         assertEquals(List.of("interests"), values(listed(initializerOver(CATALOG), context(
                 ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, singleSelect, FieldShapes.MULTIPLE_PROPERTY, Boolean.TRUE))));
@@ -266,15 +266,15 @@ class ProfilePropertiesChoiceListInitializerTest {
                 ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, singleSelect, FieldShapes.MULTIPLE_PROPERTY, List.of("true")))));
         // jcontent sends an empty list for a null value: the stored cardinality applies — told apart from
         // "forced single-valued" on a node whose stored multiple is true
-        JCRNodeWrapper multipleSelect = fieldNode(null, true, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.CHOICE_FIELD_MIXIN);
+        JCRNodeWrapper multipleSelect = fieldNode(null, true, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.CHOICE_FIELD);
         assertEquals(List.of("interests"), values(listed(initializerOver(CATALOG), context(
                 ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, multipleSelect, FieldShapes.MULTIPLE_PROPERTY, List.of()))));
         assertEquals(List.of("firstName"), values(listed(initializerOver(CATALOG), context(
                 ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, singleSelect, FieldShapes.MULTIPLE_PROPERTY, List.of()))));
 
         NodeType select = mock(NodeType.class);
-        when(select.isNodeType(FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN)).thenReturn(true);
-        when(select.isNodeType(FormidableMixins.CHOICE_FIELD_MIXIN)).thenReturn(true);
+        when(select.isNodeType(FmdbMixin.PROFILE_MAPPABLE_FIELD)).thenReturn(true);
+        when(select.isNodeType(FmdbMixin.CHOICE_FIELD)).thenReturn(true);
         JCRNodeWrapper parent = mock(JCRNodeWrapper.class);
         JCRSiteNode parentSite = site();
         when(parent.getResolveSite()).thenReturn(parentSite);
@@ -296,7 +296,7 @@ class ProfilePropertiesChoiceListInitializerTest {
     // ---- the checkbox: its shape follows its number of choices, as the view renders it ----
 
     private static JCRNodeWrapper checkbox(String... sourceMixins) throws Exception {
-        JCRNodeWrapper node = fieldNode(null, null, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.CHOICE_FIELD_MIXIN, FormidableMixins.CARDINALITY_FROM_CHOICES_MIXIN);
+        JCRNodeWrapper node = fieldNode(null, null, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.CHOICE_FIELD, FmdbMixin.CARDINALITY_FROM_CHOICES);
         for (String mixin : sourceMixins) {
             when(node.isNodeType(mixin)).thenReturn(true);
         }
@@ -335,9 +335,9 @@ class ProfilePropertiesChoiceListInitializerTest {
         verify(stored, never()).countChoices(any(), any());
 
         NodeType checkboxType = mock(NodeType.class);
-        when(checkboxType.isNodeType(FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN)).thenReturn(true);
-        when(checkboxType.isNodeType(FormidableMixins.CHOICE_FIELD_MIXIN)).thenReturn(true);
-        when(checkboxType.isNodeType(FormidableMixins.CARDINALITY_FROM_CHOICES_MIXIN)).thenReturn(true);
+        when(checkboxType.isNodeType(FmdbMixin.PROFILE_MAPPABLE_FIELD)).thenReturn(true);
+        when(checkboxType.isNodeType(FmdbMixin.CHOICE_FIELD)).thenReturn(true);
+        when(checkboxType.isNodeType(FmdbMixin.CARDINALITY_FROM_CHOICES)).thenReturn(true);
         JCRNodeWrapper parent = mock(JCRNodeWrapper.class);
         JCRSiteNode parentSite = site();
         when(parent.getResolveSite()).thenReturn(parentSite);
@@ -378,8 +378,8 @@ class ProfilePropertiesChoiceListInitializerTest {
         // resolver (a sourced select would pay a repository query for a count its rule never reads).
         ChoiceOptionsResolver resolver = counting(OptionalInt.of(1));
         ProfilePropertiesChoiceListInitializer initializer = new ProfilePropertiesChoiceListInitializer(catalogOver(CATALOG), resolver);
-        listed(initializer, context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, fieldNode(null, null, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN)));
-        listed(initializer, context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, fieldNode(null, true, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.CHOICE_FIELD_MIXIN)));
+        listed(initializer, context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, fieldNode(null, null, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD)));
+        listed(initializer, context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, fieldNode(null, true, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.CHOICE_FIELD)));
         verify(resolver, never()).countChoices(any(), any());
         listed(initializer, context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, checkbox()));
         verify(resolver).countChoices(any(), any());
@@ -391,7 +391,7 @@ class ProfilePropertiesChoiceListInitializerTest {
         // field cannot be mapped — whatever the schema holds, and with a stored mapping still on the node,
         // which the editor then resets and the next save clears.
         ProfilePropertiesChoiceListInitializer initializer = sensitiveSaying("cannot be mapped");
-        JCRNodeWrapper node = sensitive(fieldNode("firstName", false, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN));
+        JCRNodeWrapper node = sensitive(fieldNode("firstName", false, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD));
 
         List<ChoiceListValue> choices = listed(initializer, context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, node));
 
@@ -409,10 +409,10 @@ class ProfilePropertiesChoiceListInitializerTest {
         ProfilePropertiesChoiceListInitializer initializer = sensitiveSaying("cannot be mapped");
 
         assertEquals(List.of(""), values(listed(initializer, context(
-                ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, fieldNode(null, false, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN),
+                ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, fieldNode(null, false, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD),
                 SensitiveField.PROPERTY, true))));
         assertEquals(List.of("firstName"), values(listed(initializer, context(
-                ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, sensitive(fieldNode(null, false, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN)),
+                ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, sensitive(fieldNode(null, false, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD)),
                 SensitiveField.PROPERTY, List.of(false)))));
     }
 

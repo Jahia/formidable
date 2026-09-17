@@ -17,14 +17,9 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.FILE_FIELD_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ELEMENT_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ROOT_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.NON_SUBMITTABLE_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.FORM_RESULTS_NODE_TYPE;
-import static org.jahia.modules.formidable.engine.api.FormidableProperties.LOGICS_PROPERTY;
-import static org.jahia.modules.formidable.engine.api.FormidableProperties.PARENT_FORM_PROPERTY;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
+import org.jahia.modules.formidable.engine.api.FmdbNodeType;
+import org.jahia.modules.formidable.engine.api.FmdbProperty;
 
 /**
  * Base class for Formidable content-integrity checks.
@@ -172,7 +167,7 @@ abstract class AbstractFormidableIntegrityCheck extends AbstractContentIntegrity
     protected JCRNodeWrapper findOwningForm(JCRNodeWrapper node) throws RepositoryException {
         JCRNodeWrapper current = node;
         while (current != null) {
-            if (current.isNodeType(FORM_ROOT_MIXIN)) {
+            if (current.isNodeType(FmdbMixin.FORM_ROOT)) {
                 return current;
             }
 
@@ -185,7 +180,7 @@ abstract class AbstractFormidableIntegrityCheck extends AbstractContentIntegrity
     protected JCRNodeWrapper findFormResultsAncestor(JCRNodeWrapper node) throws RepositoryException {
         JCRNodeWrapper current = node;
         while (current != null) {
-            if (current.isNodeType(FORM_RESULTS_NODE_TYPE)) {
+            if (current.isNodeType(FmdbNodeType.FORM_RESULTS)) {
                 return current;
             }
 
@@ -196,12 +191,12 @@ abstract class AbstractFormidableIntegrityCheck extends AbstractContentIntegrity
     }
 
     protected JCRNodeWrapper resolveOwningFormFromResults(JCRNodeWrapper resultsNode) throws RepositoryException {
-        if (resultsNode == null || !resultsNode.hasProperty(PARENT_FORM_PROPERTY)) {
+        if (resultsNode == null || !resultsNode.hasProperty(FmdbProperty.PARENT_FORM)) {
             return null;
         }
 
         try {
-            return (JCRNodeWrapper) resultsNode.getProperty(PARENT_FORM_PROPERTY).getNode();
+            return (JCRNodeWrapper) resultsNode.getProperty(FmdbProperty.PARENT_FORM).getNode();
         } catch (RepositoryException e) {
             return null;
         }
@@ -256,7 +251,7 @@ abstract class AbstractFormidableIntegrityCheck extends AbstractContentIntegrity
     }
 
     private void collectDeclaredFieldNamesRecursively(JCRNodeWrapper node, Set<String> fieldNames) throws RepositoryException {
-        if (node.isNodeType(FORM_ELEMENT_MIXIN) && !node.isNodeType(NON_SUBMITTABLE_MIXIN)) {
+        if (node.isNodeType(FmdbMixin.FORM_ELEMENT) && !node.isNodeType(FmdbMixin.NON_SUBMITTABLE)) {
             fieldNames.add(node.getName());
         }
 
@@ -270,7 +265,7 @@ abstract class AbstractFormidableIntegrityCheck extends AbstractContentIntegrity
     }
 
     private void collectDeclaredFileFieldNamesRecursively(JCRNodeWrapper node, Set<String> fieldNames) throws RepositoryException {
-        if (node.isNodeType(FILE_FIELD_MIXIN) && !node.isNodeType(NON_SUBMITTABLE_MIXIN)) {
+        if (node.isNodeType(FmdbMixin.FILE_FIELD) && !node.isNodeType(FmdbMixin.NON_SUBMITTABLE)) {
             fieldNames.add(node.getName());
         }
 
@@ -292,11 +287,11 @@ abstract class AbstractFormidableIntegrityCheck extends AbstractContentIntegrity
      */
     protected List<LogicRule> parseLogicRules(JCRNodeWrapper node) throws RepositoryException {
         List<LogicRule> rules = new ArrayList<>();
-        if (!node.hasProperty(LOGICS_PROPERTY)) {
+        if (!node.hasProperty(FmdbProperty.LOGICS)) {
             return rules;
         }
 
-        for (Value value : node.getProperty(LOGICS_PROPERTY).getValues()) {
+        for (Value value : node.getProperty(FmdbProperty.LOGICS).getValues()) {
             String rawJson = value.getString();
             try {
                 JSONObject json = new JSONObject(rawJson);

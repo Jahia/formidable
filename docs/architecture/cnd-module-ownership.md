@@ -131,21 +131,29 @@ definition to know which spelling to use.
 
 ## Naming these types from Java
 
-A node type or mixin name is written **once** in Java, in `formidable-engine`'s exported API
-package, and every reader imports it from there — the engine itself, `formidable-jexperience-engine`,
-and a module of your own:
+A node type, mixin, property or child node name is written **once** in Java, in `formidable-engine`'s
+exported API package, and every reader names it from there — the engine itself,
+`formidable-jexperience-engine`, and a module of your own:
 
 | Class in `org.jahia.modules.formidable.engine.api` | Holds |
 |---|---|
-| `FormidableNodeTypes` | the primary types the engine's CND declares — the logic storage, the built-in actions, the submission storage |
-| `FormidableMixins` | every mixin it declares — the extension surface |
-| `FormidableProperties` | the item names (properties and child nodes) another module reads on that content |
+| `FmdbNodeType` | the primary types the engine's CND declares — the logic storage, the built-in actions, the submission storage |
+| `FmdbMixin` | every mixin it declares — the extension surface |
+| `FmdbProperty` | the properties another module reads on that content |
+| `FmdbNodeName` | the child node names another module walks on that content |
+
+The class states the kind and the constant states the thing, so a use is always qualified — the
+kind is read at the use site and never repeated in the constant:
 
 ```java
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.FILE_FIELD_MIXIN;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
 
-if (field.isNodeType(FILE_FIELD_MIXIN)) { … }
+if (field.isNodeType(FmdbMixin.FILE_FIELD)) { … }
 ```
+
+A static import of one of these classes fails the build (`scripts/check-nodetype-names.mjs`):
+`FILE_FIELD` alone no longer says what it is, and `FmdbNodeType.SUBMISSIONS` and
+`FmdbNodeName.SUBMISSIONS` would collide.
 
 ### What the API carries, and what it does not
 
@@ -154,13 +162,13 @@ mixin added to the CND without a constant fails the build. A mixin is how a modu
 engine behaviour, so all of them are contract — and they are frozen already, by the content
 stored in every repository that runs Formidable.
 
-`FormidableProperties` is checked one way only. A property is local to the type that declares it
-until something outside reads it, so the class holds the names that crossed and grows when
-another does. The same asymmetry explains the two mixins that are absent: the one-shot markers of
-the 0.4 content migrations. Each records that a migration has already healed a node — the engine
-talking to itself — and although the CND keeps the declarations after the migrations leave, so that
-marked content stays valid, no other module has a reason to read one. They live in
-`migration/MigrationMarkers`.
+`FmdbProperty` and `FmdbNodeName` are checked one way only. A property or a child node is local to
+the type that declares it until something outside reads it, so these classes hold the names that
+crossed and grow when another does. The same asymmetry explains the two mixins that are absent:
+the one-shot markers of the 0.4 content migrations. Each records that a migration has already
+healed a node — the engine talking to itself — and although the CND keeps the declarations after
+the migrations leave, so that marked content stays valid, no other module has a reason to read
+one. They live in `migration/MigrationMarker`.
 
 These are compile-time constants, so a consumer's bytecode carries the value, not a reference to
 the class: they buy one spelling and a compiler error on a typo, not the ability to change a name
@@ -277,8 +285,8 @@ Example:
 
 - add `fmdbmix:phoneField` in `formidable-engine`
 - make `fmdb:inputPhone` in `formidable-elements` extend that mixin
-- export its name as `FormidableMixins.PHONE_FIELD_MIXIN` and let the parser or validator react to
-  `node.isNodeType(PHONE_FIELD_MIXIN)`
+- export its name as `FmdbMixin.PHONE_FIELD` and let the parser or validator react to
+  `node.isNodeType(FmdbMixin.PHONE_FIELD)`
 
 This keeps the engine coupled to semantics, not to one concrete node type name.
 

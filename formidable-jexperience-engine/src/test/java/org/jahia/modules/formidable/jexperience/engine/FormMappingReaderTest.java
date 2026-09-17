@@ -1,6 +1,7 @@
 package org.jahia.modules.formidable.jexperience.engine;
 
 import org.jahia.modules.formidable.engine.api.ChoiceOptionsResolver;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRPropertyWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
@@ -11,7 +12,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
-import org.jahia.modules.formidable.engine.api.FormidableMixins;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -60,9 +60,9 @@ class FormMappingReaderTest {
     void mappedFieldsBecomeFieldMappingsWithTheirStrategyAndValueKind() throws Exception {
         // Verifies the nominal reading: a text field and a multiple select, one with the default strategy.
         FormMappingReader reader = new FormMappingReader(catalog(), counting(1));
-        Optional<MappingRule.FieldMapping> text = reader.fieldMappingOf(field("firstName", "firstName", null, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN), SCHEMA, "en");
+        Optional<MappingRule.FieldMapping> text = reader.fieldMappingOf(field("firstName", "firstName", null, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD), SCHEMA, "en");
         assertEquals(Optional.of(new MappingRule.FieldMapping("firstName", "firstName", "alwaysSet", MappingRule.ValueKind.STRING)), text);
-        JCRNodeWrapper select = field("topics", "interests", "setIfMissing", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.CHOICE_FIELD_MIXIN);
+        JCRNodeWrapper select = field("topics", "interests", "setIfMissing", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.CHOICE_FIELD);
         org.jahia.services.content.JCRPropertyWrapper multiple = mock(org.jahia.services.content.JCRPropertyWrapper.class);
         when(multiple.getBoolean()).thenReturn(true);
         when(select.hasProperty(FieldShapes.MULTIPLE_PROPERTY)).thenReturn(true);
@@ -76,12 +76,12 @@ class FormMappingReaderTest {
         // Verifies the dropdown's rule at publication: a checkbox turned group cannot feed a single-valued
         // property, a property gone from the schema is not mapped, a blank mapping is no mapping.
         FormMappingReader groupReader = new FormMappingReader(catalog(), counting(3));
-        assertTrue(groupReader.fieldMappingOf(field("check-me", "gender", null, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.CHOICE_FIELD_MIXIN, FormidableMixins.CARDINALITY_FROM_CHOICES_MIXIN), SCHEMA, "en").isEmpty());
+        assertTrue(groupReader.fieldMappingOf(field("check-me", "gender", null, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.CHOICE_FIELD, FmdbMixin.CARDINALITY_FROM_CHOICES), SCHEMA, "en").isEmpty());
         FormMappingReader singleReader = new FormMappingReader(catalog(), counting(1));
-        assertTrue(singleReader.fieldMappingOf(field("check-me", "gender", null, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.CHOICE_FIELD_MIXIN, FormidableMixins.CARDINALITY_FROM_CHOICES_MIXIN), SCHEMA, "en").isPresent());
-        assertTrue(singleReader.fieldMappingOf(field("nick", "nickname", null, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN), SCHEMA, "en").isEmpty());
-        assertTrue(singleReader.fieldMappingOf(field("free", "", null, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN), SCHEMA, "en").isEmpty());
-        assertTrue(singleReader.fieldMappingOf(field("upload", "firstName", null, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.FILE_FIELD_MIXIN), SCHEMA, "en").isEmpty());
+        assertTrue(singleReader.fieldMappingOf(field("check-me", "gender", null, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.CHOICE_FIELD, FmdbMixin.CARDINALITY_FROM_CHOICES), SCHEMA, "en").isPresent());
+        assertTrue(singleReader.fieldMappingOf(field("nick", "nickname", null, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD), SCHEMA, "en").isEmpty());
+        assertTrue(singleReader.fieldMappingOf(field("free", "", null, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD), SCHEMA, "en").isEmpty());
+        assertTrue(singleReader.fieldMappingOf(field("upload", "firstName", null, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.FILE_FIELD), SCHEMA, "en").isEmpty());
     }
 
     @Test
@@ -91,8 +91,8 @@ class FormMappingReaderTest {
         when(form.getPath()).thenReturn("/sites/mysite/contents/contact");
         when(form.getIdentifier()).thenReturn("form-uuid");
 
-        JCRNodeWrapper first = field("firstName", "firstName", null, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN);
-        JCRNodeWrapper second = field("age", "age", "setIfMissing", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.NUMBER_FIELD_MIXIN);
+        JCRNodeWrapper first = field("firstName", "firstName", null, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD);
+        JCRNodeWrapper second = field("age", "age", "setIfMissing", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.NUMBER_FIELD);
         NodeIterator fields = mock(NodeIterator.class);
         when(fields.hasNext()).thenReturn(true, true, false);
         when(fields.nextNode()).thenReturn(first, second);
@@ -137,7 +137,7 @@ class FormMappingReaderTest {
         // Verifies the belt to the dropdown's braces: the dropdown offers nothing on a sensitive field, but a
         // mapping made before the author ticked the box is still on the node — it must never become a rule
         // action, or the value the author forbade would be written to the visitor's profile.
-        JCRNodeWrapper field = field("nationalId", "firstName", null, FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN);
+        JCRNodeWrapper field = field("nationalId", "firstName", null, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD);
         JCRPropertyWrapper flag = mock(JCRPropertyWrapper.class);
         when(flag.getBoolean()).thenReturn(true);
         when(field.hasProperty(SensitiveField.PROPERTY)).thenReturn(true);

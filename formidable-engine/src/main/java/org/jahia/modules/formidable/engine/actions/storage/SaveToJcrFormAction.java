@@ -3,6 +3,10 @@ package org.jahia.modules.formidable.engine.actions.storage;
 import org.jahia.modules.formidable.engine.api.FormAction;
 import org.jahia.modules.formidable.engine.api.FormActionException;
 import org.jahia.modules.formidable.engine.api.SubmittedFile;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
+import org.jahia.modules.formidable.engine.api.FmdbNodeName;
+import org.jahia.modules.formidable.engine.api.FmdbNodeType;
+import org.jahia.modules.formidable.engine.api.FmdbProperty;
 import org.jahia.modules.formidable.engine.permissions.FormResultsAclSyncService;
 import org.jahia.services.content.JCRAutoSplitUtils;
 import org.jahia.services.content.JCRContentUtils;
@@ -29,16 +33,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ROOT_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.FORM_RESULTS_NODE_TYPE;
-import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.FORM_SUBMISSION_NODE_TYPE;
-import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.RESULTS_FOLDER_NODE_TYPE;
-import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.SAVE_TO_JCR_ACTION_NODE_TYPE;
-import static org.jahia.modules.formidable.engine.api.FormidableNodeTypes.SPLITTED_SUBMISSION_NODE_TYPE;
-import static org.jahia.modules.formidable.engine.api.FormidableProperties.DATA_NODE;
-import static org.jahia.modules.formidable.engine.api.FormidableProperties.FILES_NODE;
-import static org.jahia.modules.formidable.engine.api.FormidableProperties.PARENT_FORM_PROPERTY;
-import static org.jahia.modules.formidable.engine.api.FormidableProperties.SUBMISSIONS_NODE;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACL_NODE;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACL_NODE_TYPE;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.INHERIT_PROPERTY;
@@ -71,7 +65,7 @@ public class SaveToJcrFormAction implements FormAction {
 
     @Override
     public String getNodeType() {
-        return SAVE_TO_JCR_ACTION_NODE_TYPE;
+        return FmdbNodeType.SAVE_TO_JCR_ACTION;
     }
 
     @Override
@@ -94,7 +88,7 @@ public class SaveToJcrFormAction implements FormAction {
             JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, null, systemSession -> {
                 JCRNodeWrapper sysFormNode = systemSession.getNodeByIdentifier(formNodeId);
                 JCRNodeWrapper formResults = resolveOrCreateFormResults(sysFormNode, systemSession);
-                JCRNodeWrapper submissions = formResults.getNode(SUBMISSIONS_NODE);
+                JCRNodeWrapper submissions = formResults.getNode(FmdbNodeName.SUBMISSIONS);
                 ensureAutoSplit(submissions);
 
                 JCRNodeWrapper submission = createSubmissionNode(submissions, req, systemSession);
@@ -123,7 +117,7 @@ public class SaveToJcrFormAction implements FormAction {
             }
 
             JCRNodeWrapper formNode = actionListNode.getParent();
-            if (formNode == null || !formNode.isNodeType(FORM_ROOT_MIXIN)) {
+            if (formNode == null || !formNode.isNodeType(FmdbMixin.FORM_ROOT)) {
                 throw FormActionException.serverError("The JCR storage action parent form could not be resolved.");
             }
 
@@ -168,9 +162,9 @@ public class SaveToJcrFormAction implements FormAction {
     private static JCRNodeWrapper createFormResults(JCRNodeWrapper resultsRoot, String name,
                                                     JCRNodeWrapper formNode, JCRSessionWrapper session)
             throws RepositoryException {
-        JCRNodeWrapper formResults = resultsRoot.addNode(name, FORM_RESULTS_NODE_TYPE);
+        JCRNodeWrapper formResults = resultsRoot.addNode(name, FmdbNodeType.FORM_RESULTS);
         Value parentForm = session.getValueFactory().createValue(formNode);
-        formResults.setProperty(PARENT_FORM_PROPERTY, parentForm);
+        formResults.setProperty(FmdbProperty.PARENT_FORM, parentForm);
         if (formNode.getLanguage() != null && !formNode.getLanguage().isBlank()) {
             formResults.setProperty("buildingLang", formNode.getLanguage());
         }
@@ -195,7 +189,7 @@ public class SaveToJcrFormAction implements FormAction {
 
         session.checkout(siteNode);
         try {
-            JCRNodeWrapper resultsRoot = siteNode.addNode(RESULTS_ROOT_NAME, RESULTS_FOLDER_NODE_TYPE);
+            JCRNodeWrapper resultsRoot = siteNode.addNode(RESULTS_ROOT_NAME, FmdbNodeType.RESULTS_FOLDER);
             session.save();
             return resultsRoot;
         } catch (RepositoryException e) {
@@ -215,9 +209,9 @@ public class SaveToJcrFormAction implements FormAction {
         while (children.hasNext()) {
             javax.jcr.Node child = children.nextNode();
             if (child instanceof JCRNodeWrapper candidate
-                    && candidate.isNodeType(FORM_RESULTS_NODE_TYPE)
-                    && candidate.hasProperty(PARENT_FORM_PROPERTY)
-                    && formIdentifier.equals(candidate.getProperty(PARENT_FORM_PROPERTY).getString())) {
+                    && candidate.isNodeType(FmdbNodeType.FORM_RESULTS)
+                    && candidate.hasProperty(FmdbProperty.PARENT_FORM)
+                    && formIdentifier.equals(candidate.getProperty(FmdbProperty.PARENT_FORM).getString())) {
                 return candidate;
             }
         }
@@ -226,7 +220,7 @@ public class SaveToJcrFormAction implements FormAction {
 
     private static void ensureAutoSplit(JCRNodeWrapper submissions) throws RepositoryException {
         if (!submissions.isNodeType("jmix:autoSplitFolders")) {
-            JCRAutoSplitUtils.enableAutoSplitting(submissions, SPLIT_CONFIG, SPLITTED_SUBMISSION_NODE_TYPE);
+            JCRAutoSplitUtils.enableAutoSplitting(submissions, SPLIT_CONFIG, FmdbNodeType.SPLITTED_SUBMISSION);
         }
     }
 
@@ -238,7 +232,7 @@ public class SaveToJcrFormAction implements FormAction {
         session.checkout(submissions);
         String submissionName = buildSubmissionNodeName();
         String availableName = JCRContentUtils.findAvailableNodeName(submissions, submissionName);
-        JCRNodeWrapper submission = submissions.addNode(availableName, FORM_SUBMISSION_NODE_TYPE);
+        JCRNodeWrapper submission = submissions.addNode(availableName, FmdbNodeType.FORM_SUBMISSION);
         submission.setProperty("origin", SUBMISSION_ORIGIN);
         setOptionalProperty(submission, "locale", req.getParameter("lang"));
         setOptionalProperty(submission, "referer", req.getHeader("Referer"));
@@ -291,7 +285,7 @@ public class SaveToJcrFormAction implements FormAction {
             JCRSessionWrapper session
     ) throws RepositoryException {
         session.checkout(submission);
-        JCRNodeWrapper dataNode = submission.getNode(DATA_NODE);
+        JCRNodeWrapper dataNode = submission.getNode(FmdbNodeName.DATA);
         for (Map.Entry<String, List<String>> entry : parameters.entrySet()) {
             writeParameterValue(dataNode, entry.getKey(), entry.getValue());
         }
@@ -329,9 +323,9 @@ public class SaveToJcrFormAction implements FormAction {
         if (files.isEmpty()) {
             return;
         }
-        JCRNodeWrapper filesNode = submission.hasNode(FILES_NODE)
-                ? submission.getNode(FILES_NODE)
-                : submission.addNode(FILES_NODE, "jnt:folder");
+        JCRNodeWrapper filesNode = submission.hasNode(FmdbNodeName.FILES)
+                ? submission.getNode(FmdbNodeName.FILES)
+                : submission.addNode(FmdbNodeName.FILES, "jnt:folder");
         for (SubmittedFile file : files) {
             JCRNodeWrapper fieldFolder = resolveOrCreateFieldFolder(filesNode, file.fieldName());
             addFileNode(fieldFolder, file, session);
