@@ -19,8 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ROOT_MIXIN;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
 
 /**
  * Publication listener of the mapping rules, live workspace, under {@code /sites}, with no
@@ -167,7 +166,7 @@ public class MappingRuleSyncListener extends DefaultEventListener {
         while (current != null && current.startsWith(SCOPE + "/")) {
             try {
                 JCRNodeWrapper node = session.getNode(current);
-                if (node.isNodeType(FORM_ROOT_MIXIN)) {
+                if (node.isNodeType(FmdbMixin.FORM_ROOT)) {
                     return Optional.of(node.getIdentifier());
                 }
             } catch (PathNotFoundException e) {

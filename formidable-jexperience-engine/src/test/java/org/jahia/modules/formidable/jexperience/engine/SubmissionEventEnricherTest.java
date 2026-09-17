@@ -2,6 +2,7 @@ package org.jahia.modules.formidable.jexperience.engine;
 
 import org.jahia.modules.formidable.engine.api.AcceptedSubmission;
 import org.jahia.modules.formidable.engine.api.ChoiceOptionsResolver;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.jexperience.admin.ContextServerService;
 import org.jahia.modules.jexperience.admin.ContextServerStatus;
 import org.jahia.services.content.JCRCallback;
@@ -23,7 +24,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
-import org.jahia.modules.formidable.engine.api.FormidableMixins;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -181,10 +181,10 @@ class SubmissionEventEnricherTest {
         // Verifies the nominal block: a text field gives a string, a checkbox group and a multiple select give
         // lists even with one value, a field the submitter left out is absent, an unknown parameter never appears.
         List<JCRNodeWrapper> fields = List.of(
-                field("firstName", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN),
-                field("check-me", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.CHOICE_FIELD_MIXIN, FormidableMixins.CARDINALITY_FROM_CHOICES_MIXIN),
-                multiple(field("topics", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.CHOICE_FIELD_MIXIN)),
-                field("nickname", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN));
+                field("firstName", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD),
+                field("check-me", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.CHOICE_FIELD, FmdbMixin.CARDINALITY_FROM_CHOICES),
+                multiple(field("topics", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.CHOICE_FIELD)),
+                field("nickname", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD));
         Map<String, List<String>> parameters = Map.of(
                 "firstName", List.of("Ada"),
                 "check-me", List.of("one"),
@@ -205,8 +205,8 @@ class SubmissionEventEnricherTest {
         // Verifies the boundary: a file field carries the marker by mistake but has no shape, so its value is
         // dropped; a single checkbox is one string.
         List<JCRNodeWrapper> fields = List.of(
-                field("upload", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.FILE_FIELD_MIXIN),
-                field("consent", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.CHOICE_FIELD_MIXIN, FormidableMixins.CARDINALITY_FROM_CHOICES_MIXIN));
+                field("upload", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.FILE_FIELD),
+                field("consent", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.CHOICE_FIELD, FmdbMixin.CARDINALITY_FROM_CHOICES));
         Map<String, Object> entries = enricher(configured("mysite"), 1, fields)
                 .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH, Map.of("upload", List.of("f.txt"), "consent", List.of("yes"))));
 
@@ -221,9 +221,9 @@ class SubmissionEventEnricherTest {
         // field is mappable and the submitter sent it, while the other values are all there — an unmapped one
         // included, since a mapping made in jExperience's screen may name it.
         List<JCRNodeWrapper> fields = List.of(
-                field("email", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.EMAIL_FIELD_MIXIN),
-                field("message", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN),
-                sensitive(field("nationalId", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN)));
+                field("email", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.EMAIL_FIELD),
+                field("message", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD),
+                sensitive(field("nationalId", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD)));
         Map<String, List<String>> parameters = Map.of(
                 "email", List.of("ada@example.com"),
                 "message", List.of("a note"),
@@ -253,9 +253,9 @@ class SubmissionEventEnricherTest {
         // Verifies which fields the server considers: every one carrying the marker, not only the mapped ones,
         // since a mapping made in jExperience's own screen names a field Formidable need not know. A quote in
         // the path is doubled, as SQL2 wants.
-        assertEquals("SELECT * FROM [" + FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN + "] WHERE ISDESCENDANTNODE('/sites/mysite/contents/contact')",
+        assertEquals("SELECT * FROM [" + FmdbMixin.PROFILE_MAPPABLE_FIELD + "] WHERE ISDESCENDANTNODE('/sites/mysite/contents/contact')",
                 SubmissionEventEnricher.queryFor("/sites/mysite/contents/contact"));
-        assertEquals("SELECT * FROM [" + FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN + "] WHERE ISDESCENDANTNODE('/sites/mysite/contents/l''enquete')",
+        assertEquals("SELECT * FROM [" + FmdbMixin.PROFILE_MAPPABLE_FIELD + "] WHERE ISDESCENDANTNODE('/sites/mysite/contents/l''enquete')",
                 SubmissionEventEnricher.queryFor("/sites/mysite/contents/l'enquete"));
     }
 
@@ -265,7 +265,7 @@ class SubmissionEventEnricherTest {
         // running jExperience (the settings are not a per-site answer — jExperience falls back to the
         // platform's, so this site would claim to be configured), and a repository failure while reading the
         // form, each give an empty map — the submission stays accepted, the body has no block.
-        List<JCRNodeWrapper> fields = List.of(field("firstName", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN));
+        List<JCRNodeWrapper> fields = List.of(field("firstName", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD));
         assertTrue(enricher(mock(ContextServerService.class), 1, fields)
                 .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH, Map.of("firstName", List.of("Ada")))).isEmpty());
         assertTrue(enricher(configured("mysite"), 1, fields)
@@ -285,8 +285,8 @@ class SubmissionEventEnricherTest {
         // is already collecting keeps sending that value until someone publishes. Either workspace saying
         // sensitive is enough.
         List<JCRNodeWrapper> fields = List.of(
-                field("email", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.EMAIL_FIELD_MIXIN),
-                field("nationalId", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN));
+                field("email", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.EMAIL_FIELD),
+                field("nationalId", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD));
         Map<String, List<String>> parameters = Map.of("email", List.of("ada@example.com"), "nationalId", List.of("1234567890"));
 
         Map<String, Object> entries = enricher(configured("mysite"), 1, fields, Set.of("uuid-of-nationalId"))
@@ -303,15 +303,15 @@ class SubmissionEventEnricherTest {
         // can carry "email" in two steps, and the pipeline accumulates both submitted values under that one
         // name. Excluding the sensitive NODE would leave the other node sending values.get(0) — the sensitive
         // one, half the time — so the name is what is withheld.
-        JCRNodeWrapper sensitiveEmail = sensitive(field("email", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.EMAIL_FIELD_MIXIN));
-        JCRNodeWrapper otherEmail = field("email", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.EMAIL_FIELD_MIXIN);
+        JCRNodeWrapper sensitiveEmail = sensitive(field("email", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.EMAIL_FIELD));
+        JCRNodeWrapper otherEmail = field("email", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.EMAIL_FIELD);
         when(otherEmail.getIdentifier()).thenReturn("uuid-of-the-second-email");
         Map<String, List<String>> parameters = Map.of(
                 "email", List.of("private@example.com", "public@example.com"),
                 "fullName", List.of("Ada"));
 
         Map<String, Object> entries = enricher(configured("mysite"), 1,
-                List.of(sensitiveEmail, otherEmail, field("fullName", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN)))
+                List.of(sensitiveEmail, otherEmail, field("fullName", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD)))
                 .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH, parameters));
 
         Map<String, Object> block = (Map<String, Object>) entries.get(SubmissionEventEnricher.KEY);
@@ -329,8 +329,8 @@ class SubmissionEventEnricherTest {
         parameters.put("fullName", List.of("Ada"));
 
         Map<String, Object> entries = enricher(configured("mysite"), 1, List.of(
-                field("topics", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.CHOICE_FIELD_MIXIN),
-                field("fullName", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN)))
+                field("topics", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.CHOICE_FIELD),
+                field("fullName", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD)))
                 .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH, parameters));
 
         Map<String, Object> block = (Map<String, Object>) entries.get(SubmissionEventEnricher.KEY);
@@ -344,8 +344,8 @@ class SubmissionEventEnricherTest {
         // getNodeByIdentifier rethrows every provider failure as an ItemNotFoundException, so a transient
         // error looks exactly like a deletion — reading it as "not marked" would send the value in the very
         // window the default-workspace check exists to close.
-        JCRNodeWrapper unreadable = field("nationalId", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN);
-        JCRNodeWrapper readable = field("fullName", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN);
+        JCRNodeWrapper unreadable = field("nationalId", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD);
+        JCRNodeWrapper readable = field("fullName", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD);
         ChoiceOptionsResolver resolver = mock(ChoiceOptionsResolver.class);
         when(resolver.countChoices(any(), any())).thenReturn(OptionalInt.of(1));
         NodeIterator nodes = iterator(List.of(unreadable, readable));
@@ -375,8 +375,8 @@ class SubmissionEventEnricherTest {
         // leaves the mixin and the property on the node, with false in it; reading the presence alone would
         // hold that field's value back for good, and nothing in the editor would explain why.
         List<JCRNodeWrapper> fields = List.of(
-                unticked(field("email", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.EMAIL_FIELD_MIXIN)),
-                field("fullName", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN));
+                unticked(field("email", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.EMAIL_FIELD)),
+                field("fullName", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD));
 
         Map<String, Object> entries = enricher(configured("mysite"), 1, fields)
                 .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH,
@@ -392,15 +392,15 @@ class SubmissionEventEnricherTest {
         // Verifies the read itself, which the seam of the tests above stands in for: the identifiers the
         // default workspace reports as sensitive are the ones held back, and a field live and the editor
         // both call ordinary is sent.
-        JCRNodeWrapper markedInTheEditor = sensitive(field("nationalId", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN));
-        JCRNodeWrapper ordinary = field("fullName", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN);
+        JCRNodeWrapper markedInTheEditor = sensitive(field("nationalId", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD));
+        JCRNodeWrapper ordinary = field("fullName", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD);
         JCRSessionWrapper editor = mock(JCRSessionWrapper.class);
         when(editor.getNodeByIdentifier("uuid-of-nationalId")).thenReturn(markedInTheEditor);
         when(editor.getNodeByIdentifier("uuid-of-fullName")).thenReturn(ordinary);
 
         Map<String, Object> block = (Map<String, Object>) enricherReadingTheEditor(List.of(
-                field("nationalId", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN),
-                field("fullName", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN)), editor)
+                field("nationalId", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD),
+                field("fullName", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD)), editor)
                 .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH,
                         Map.of("nationalId", List.of("1234567890"), "fullName", List.of("Ada"))))
                 .get(SubmissionEventEnricher.KEY);
@@ -414,14 +414,14 @@ class SubmissionEventEnricherTest {
         // Verifies the fail-closed half of that read: getNodeByIdentifier rethrows a provider failure as an
         // ItemNotFoundException, indistinguishable from a field deleted since publication, so an unreadable
         // field counts as sensitive rather than as ordinary.
-        JCRNodeWrapper ordinary = field("fullName", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN);
+        JCRNodeWrapper ordinary = field("fullName", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD);
         JCRSessionWrapper editor = mock(JCRSessionWrapper.class);
         when(editor.getNodeByIdentifier("uuid-of-nationalId")).thenThrow(new ItemNotFoundException("gone"));
         when(editor.getNodeByIdentifier("uuid-of-fullName")).thenReturn(ordinary);
 
         Map<String, Object> block = (Map<String, Object>) enricherReadingTheEditor(List.of(
-                field("nationalId", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN),
-                field("fullName", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN)), editor)
+                field("nationalId", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD),
+                field("fullName", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD)), editor)
                 .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH,
                         Map.of("nationalId", List.of("1234567890"), "fullName", List.of("Ada"))))
                 .get(SubmissionEventEnricher.KEY);
@@ -435,17 +435,17 @@ class SubmissionEventEnricherTest {
         // Verifies the inner catch takes unchecked failures too. Escaping it would land in the global
         // fallback, which returns the published answer for EVERY field: the field that failed would be sent,
         // and so would a sibling the author marked and did not publish — the window this read exists to close.
-        JCRNodeWrapper markedInTheEditor = sensitive(field("email", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.EMAIL_FIELD_MIXIN));
-        JCRNodeWrapper ordinary = field("fullName", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN);
+        JCRNodeWrapper markedInTheEditor = sensitive(field("email", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.EMAIL_FIELD));
+        JCRNodeWrapper ordinary = field("fullName", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD);
         JCRSessionWrapper editor = mock(JCRSessionWrapper.class);
         when(editor.getNodeByIdentifier("uuid-of-nationalId")).thenThrow(new IllegalStateException("provider down"));
         when(editor.getNodeByIdentifier("uuid-of-email")).thenReturn(markedInTheEditor);
         when(editor.getNodeByIdentifier("uuid-of-fullName")).thenReturn(ordinary);
 
         Map<String, Object> block = (Map<String, Object>) enricherReadingTheEditor(List.of(
-                field("nationalId", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN),
-                field("email", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.EMAIL_FIELD_MIXIN),
-                field("fullName", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN)), editor)
+                field("nationalId", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD),
+                field("email", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.EMAIL_FIELD),
+                field("fullName", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD)), editor)
                 .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH, Map.of(
                         "nationalId", List.of("1234567890"),
                         "email", List.of("ada@example.com"),
@@ -461,12 +461,12 @@ class SubmissionEventEnricherTest {
         // The same rule as the published sibling above, on the branch the editor decides: node names are
         // unique among siblings only, and the pipeline accumulates both values under the one name, so the
         // name is what is withheld — excluding the node alone would let the other one send values.get(0).
-        JCRNodeWrapper markedEmail = field("email", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.EMAIL_FIELD_MIXIN);
-        JCRNodeWrapper otherEmail = field("email", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.EMAIL_FIELD_MIXIN);
+        JCRNodeWrapper markedEmail = field("email", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.EMAIL_FIELD);
+        JCRNodeWrapper otherEmail = field("email", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.EMAIL_FIELD);
         when(otherEmail.getIdentifier()).thenReturn("uuid-of-the-second-email");
 
         Map<String, Object> block = (Map<String, Object>) enricher(configured("mysite"), 1,
-                List.of(markedEmail, otherEmail, field("fullName", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN)),
+                List.of(markedEmail, otherEmail, field("fullName", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD)),
                 Set.of("uuid-of-email"))
                 .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH, Map.of(
                         "email", List.of("private@example.com", "public@example.com"),
@@ -483,8 +483,8 @@ class SubmissionEventEnricherTest {
         // assertion still green. The session is a system one because the submitter cannot read that answer, and
         // no locale is bound because the flag is a non-i18n boolean: nothing read in that session needs a
         // language, and a session is cheaper without one to resolve.
-        JCRNodeWrapper inTheEditor = field("fullName", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN);
-        JCRNodeWrapper published = field("fullName", FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, FormidableMixins.TEXT_FIELD_MIXIN);
+        JCRNodeWrapper inTheEditor = field("fullName", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD);
+        JCRNodeWrapper published = field("fullName", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD);
         JCRSessionWrapper editor = mock(JCRSessionWrapper.class);
         when(editor.getNodeByIdentifier("uuid-of-fullName")).thenReturn(inTheEditor);
         List<Object> arguments = new ArrayList<>();

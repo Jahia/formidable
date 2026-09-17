@@ -6,9 +6,9 @@ import org.jahia.services.content.JCRValueWrapper;
 import org.junit.jupiter.api.Test;
 
 import java.util.OptionalInt;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
+import org.jahia.modules.formidable.engine.api.FmdbProperty;
 
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.OPTIONS_SOURCE_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableProperties.OPTIONS_PROPERTY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -25,7 +25,7 @@ class ChoiceOptionsResolverImplTest {
 
     private static JCRNodeWrapper choiceField(String... storedOptions) throws Exception {
         JCRNodeWrapper field = mock(JCRNodeWrapper.class);
-        when(field.isNodeType(OPTIONS_SOURCE_MIXIN)).thenReturn(true);
+        when(field.isNodeType(FmdbMixin.OPTIONS_SOURCE)).thenReturn(true);
         when(field.getPath()).thenReturn("/sites/site/contents/form/fields/choice");
         if (storedOptions.length > 0) {
             JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
@@ -35,8 +35,8 @@ class ChoiceOptionsResolverImplTest {
                 when(values[i].getString()).thenReturn(storedOptions[i]);
             }
             when(property.getValues()).thenReturn(values);
-            when(field.hasProperty(OPTIONS_PROPERTY)).thenReturn(true);
-            when(field.getProperty(OPTIONS_PROPERTY)).thenReturn(property);
+            when(field.hasProperty(FmdbProperty.OPTIONS)).thenReturn(true);
+            when(field.getProperty(FmdbProperty.OPTIONS)).thenReturn(property);
         }
         return field;
     }

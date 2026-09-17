@@ -3,8 +3,8 @@ package org.jahia.modules.formidable.engine.util;
 /**
  * The names the engine reads that are not its own to publish: Jahia's own types and properties,
  * and the names of the authoring model that formidable-elements declares. Everything the engine's
- * CND declares lives in the exported api package instead (FormidableNodeTypes, FormidableMixins,
- * FormidableProperties), so that another module names it once — see
+ * CND declares lives in the exported api package instead (FmdbNodeType, FmdbMixin, FmdbProperty,
+ * FmdbNodeName), so that another module names it once — see
  * docs/architecture/cnd-module-ownership.md, "Naming these types from Java".
  */
 public final class FormidableJcrConstants {

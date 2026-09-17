@@ -12,9 +12,8 @@ import javax.jcr.Node;
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import javax.jcr.query.Query;
-
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_LOGIC_ELEMENT_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableProperties.FIELD_KEY_PROPERTY;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
+import org.jahia.modules.formidable.engine.api.FmdbProperty;
 
 /**
  * One-shot content cleanup: form elements created before the assignment listener
@@ -55,7 +54,7 @@ public class TranslationFieldKeyCleanup {
         // Scoped to editorial content: module-bundled nodes under /modules belong to
         // their module and must not be rewritten from here.
         Query query = session.getWorkspace().getQueryManager()
-                .createQuery("SELECT * FROM [" + FORM_LOGIC_ELEMENT_MIXIN + "]"
+                .createQuery("SELECT * FROM [" + FmdbMixin.FORM_LOGIC_ELEMENT + "]"
                         + " WHERE ISDESCENDANTNODE('/sites')", Query.JCR_SQL2);
         JCRNodeIteratorWrapper nodes = (JCRNodeIteratorWrapper) query.execute().getNodes();
 
@@ -98,8 +97,8 @@ public class TranslationFieldKeyCleanup {
         NodeIterator translations = node.getI18Ns();
         while (translations.hasNext()) {
             Node translation = translations.nextNode();
-            if (translation.hasProperty(FIELD_KEY_PROPERTY)) {
-                translation.getProperty(FIELD_KEY_PROPERTY).remove();
+            if (translation.hasProperty(FmdbProperty.FIELD_KEY)) {
+                translation.getProperty(FmdbProperty.FIELD_KEY).remove();
                 removed++;
             }
         }

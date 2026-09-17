@@ -12,8 +12,8 @@ import javax.jcr.observation.Event;
 import javax.jcr.observation.EventIterator;
 import java.util.HashSet;
 import java.util.Set;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
 
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ROOT_MIXIN;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACE_NODE_TYPE;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WORKSPACE_LIVE;
 
@@ -49,7 +49,7 @@ public class FormPublicationAclSyncListener extends DefaultEventListener {
 
     @Override
     public String[] getNodeTypes() {
-        return new String[]{FORM_ROOT_MIXIN, ACE_NODE_TYPE};
+        return new String[]{FmdbMixin.FORM_ROOT, ACE_NODE_TYPE};
     }
 
     @Override
@@ -110,7 +110,7 @@ public class FormPublicationAclSyncListener extends DefaultEventListener {
     }
 
     private static JCRNodeWrapper resolveFormNode(JCRNodeWrapper node) throws RepositoryException {
-        if (node.isNodeType(FORM_ROOT_MIXIN)) {
+        if (node.isNodeType(FmdbMixin.FORM_ROOT)) {
             return node;
         }
 
@@ -119,7 +119,7 @@ public class FormPublicationAclSyncListener extends DefaultEventListener {
             JCRNodeWrapper parent = node.getParent();
             if (parent != null) {
                 JCRNodeWrapper grandParent = parent.getParent();
-                if (grandParent != null && grandParent.isNodeType(FORM_ROOT_MIXIN)) {
+                if (grandParent != null && grandParent.isNodeType(FmdbMixin.FORM_ROOT)) {
                     return grandParent;
                 }
             }
@@ -136,7 +136,7 @@ public class FormPublicationAclSyncListener extends DefaultEventListener {
                 }
 
                 JCRNodeWrapper formNode = session.getNode(formPath);
-                if (!formNode.isNodeType(FORM_ROOT_MIXIN)) {
+                if (!formNode.isNodeType(FmdbMixin.FORM_ROOT)) {
                     return null;
                 }
 

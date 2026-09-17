@@ -7,7 +7,8 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import org.jahia.modules.formidable.engine.api.FormidableMixins;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
+import org.jahia.modules.formidable.engine.api.FmdbProperty;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -61,11 +62,11 @@ class DefinitionsCndTest {
         // Content Editor ask the list again when the author switches the cardinality).
         List<String> mixin = declarationOf(cnd(), "fmdbmix:jExperienceProfileMapping");
         assertEquals("[fmdbmix:jExperienceProfileMapping] mixin", mixin.get(0), "no supertype: mappability is the type's claim, not the mixin's");
-        assertEquals("extends = " + FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, lineStartingWith(mixin, "extends"));
+        assertEquals("extends = " + FmdbMixin.PROFILE_MAPPABLE_FIELD, lineStartingWith(mixin, "extends"));
         String property = lineStartingWith(mixin, "- " + ProfilePropertiesChoiceListInitializer.PROPERTY + " ");
         assertTrue(property.contains("choicelist[" + ProfilePropertiesChoiceListInitializer.KEY + ",dependentProperties='"
-                + FieldShapes.MULTIPLE_PROPERTY + "," + ProfilePropertiesChoiceListInitializer.OPTIONS_PROPERTY + ","
-                + ProfilePropertiesChoiceListInitializer.OPTIONS_MODE_PROPERTY + "," + SensitiveField.PROPERTY + "']"), property);
+                + FieldShapes.MULTIPLE_PROPERTY + "," + FmdbProperty.OPTIONS + ","
+                + FmdbProperty.OPTIONS_MODE + "," + SensitiveField.PROPERTY + "']"), property);
     }
 
     @Test
@@ -78,7 +79,7 @@ class DefinitionsCndTest {
         assertTrue(lines.stream().anyMatch(line -> line.strip().startsWith("<jmix = 'http://www.jahia.org/jahia/mix/1.0'>")), "the jmix namespace is declared");
         List<String> mixin = declarationOf(lines, SensitiveField.MIXIN);
         assertEquals("[" + SensitiveField.MIXIN + "] > jmix:templateMixin mixin", mixin.get(0));
-        assertEquals("extends = " + FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN, lineStartingWith(mixin, "extends"));
+        assertEquals("extends = " + FmdbMixin.PROFILE_MAPPABLE_FIELD, lineStartingWith(mixin, "extends"));
         assertEquals("- " + SensitiveField.PROPERTY + " (boolean) = false autocreated indexed=no", lineStartingWith(mixin, "- " + SensitiveField.PROPERTY + " "));
         assertTrue(lineStartingWith(declarationOf(lines, "fmdbmix:jExperienceProfileMapping"), "- " + ProfilePropertiesChoiceListInitializer.PROPERTY + " ")
                 .contains("," + SensitiveField.PROPERTY + "'"), "the choicelist depends on the flag");

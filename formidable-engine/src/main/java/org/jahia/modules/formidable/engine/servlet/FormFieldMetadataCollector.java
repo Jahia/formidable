@@ -16,26 +16,10 @@ import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import javax.jcr.Value;
 import java.util.*;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
+import org.jahia.modules.formidable.engine.api.FmdbNodeName;
+import org.jahia.modules.formidable.engine.api.FmdbProperty;
 
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.BOOLEAN_FIELD_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.CATEGORY_OPTIONS_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.CHOICE_FIELD_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.COLOR_FIELD_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.CONTENT_OPTIONS_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.DATETIME_LOCAL_FIELD_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.DATE_FIELD_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.EMAIL_FIELD_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.FILE_FIELD_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_CONTAINER_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ELEMENT_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_LOGIC_ELEMENT_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.MANUAL_OPTIONS_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.NON_SUBMITTABLE_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.NUMBER_FIELD_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.SOURCED_OPTIONS_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableProperties.LOGICS_PROPERTY;
-import static org.jahia.modules.formidable.engine.api.FormidableProperties.LOGICS_SRC_NODE;
-import static org.jahia.modules.formidable.engine.api.FormidableProperties.LOGIC_NODE_SOURCE_PROPERTY;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FIELDS_NODE;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WORKSPACE_LIVE;
 
@@ -47,11 +31,10 @@ class FormFieldMetadataCollector {
 
     private static final Logger log = LoggerFactory.getLogger(FormFieldMetadataCollector.class);
     private static final String CHOICES_PROPERTY = "choices";
-    private static final String UNIFIED_OPTIONS_PROPERTY = "options";
     // Mixins whose options are resolved by the engine instead of being stored on the
     // node; must stay aligned with FormidableOptionsSourceService.resolveForField.
     private static final String[] RESOLVED_OPTIONS_MIXINS =
-            {SOURCED_OPTIONS_MIXIN, CATEGORY_OPTIONS_MIXIN, CONTENT_OPTIONS_MIXIN};
+            {FmdbMixin.SOURCED_OPTIONS, FmdbMixin.CATEGORY_OPTIONS, FmdbMixin.CONTENT_OPTIONS};
 
     record Result(
             Map<String, FormDataParser.FieldInfo> fieldInfos,
@@ -158,12 +141,12 @@ class FormFieldMetadataCollector {
 
         // Only explicit structural containers can propagate a conditional-logic
         // visibility context to descendant fields.
-        if (node.isNodeType(FORM_CONTAINER_MIXIN)) {
+        if (node.isNodeType(FmdbMixin.FORM_CONTAINER)) {
             currentContainerName = registerConditionalContainer(node, parentContainerName, ctx);
         }
 
-        if (node.isNodeType(FORM_ELEMENT_MIXIN)
-                && !node.isNodeType(NON_SUBMITTABLE_MIXIN)) {
+        if (node.isNodeType(FmdbMixin.FORM_ELEMENT)
+                && !node.isNodeType(FmdbMixin.NON_SUBMITTABLE)) {
             registerField(node, currentContainerName, ctx);
         }
 
@@ -191,11 +174,11 @@ class FormFieldMetadataCollector {
      */
     private static String registerConditionalContainer(JCRNodeWrapper node, String parentContainerName,
             CollectorContext ctx) throws RepositoryException {
-        if (!node.hasProperty(LOGICS_PROPERTY)) {
+        if (!node.hasProperty(FmdbProperty.LOGICS)) {
             return parentContainerName;
         }
 
-        List<ConditionalLogicRule> rules = ConditionalLogicRule.parse(node.getProperty(LOGICS_PROPERTY).getValues());
+        List<ConditionalLogicRule> rules = ConditionalLogicRule.parse(node.getProperty(FmdbProperty.LOGICS).getValues());
         if (rules.isEmpty()) {
             return parentContainerName;
         }
@@ -231,8 +214,8 @@ class FormFieldMetadataCollector {
             return;
         }
 
-        if (node.isNodeType(FORM_LOGIC_ELEMENT_MIXIN) && node.hasProperty(LOGICS_PROPERTY)) {
-            List<ConditionalLogicRule> rules = ConditionalLogicRule.parse(node.getProperty(LOGICS_PROPERTY).getValues());
+        if (node.isNodeType(FmdbMixin.FORM_LOGIC_ELEMENT) && node.hasProperty(FmdbProperty.LOGICS)) {
+            List<ConditionalLogicRule> rules = ConditionalLogicRule.parse(node.getProperty(FmdbProperty.LOGICS).getValues());
             if (!rules.isEmpty()) {
                 ctx.fieldLogicRules.put(name, rules);
                 resolveLogicsSrc(node, rules, ctx);
@@ -244,17 +227,17 @@ class FormFieldMetadataCollector {
 
     private static void resolveLogicsSrc(JCRNodeWrapper node, List<ConditionalLogicRule> rules, CollectorContext ctx)
             throws RepositoryException {
-        if (!node.hasNode(LOGICS_SRC_NODE)) {
+        if (!node.hasNode(FmdbNodeName.LOGICS_SRC)) {
             return;
         }
 
-        JCRNodeWrapper logicsSrc = node.getNode(LOGICS_SRC_NODE);
+        JCRNodeWrapper logicsSrc = node.getNode(FmdbNodeName.LOGICS_SRC);
         for (ConditionalLogicRule rule : rules) {
             String logicId = rule.logicId();
             if (logicId != null && !logicId.isEmpty() && logicsSrc.hasNode(logicId)) {
                 JCRNodeWrapper srcNode = logicsSrc.getNode(logicId);
                 try {
-                    JCRNodeWrapper sourceField = (JCRNodeWrapper) srcNode.getProperty(LOGIC_NODE_SOURCE_PROPERTY).getNode();
+                    JCRNodeWrapper sourceField = (JCRNodeWrapper) srcNode.getProperty(FmdbProperty.LOGIC_NODE_SOURCE).getNode();
                     ctx.logicIdToFieldName.put(logicId, sourceField.getName());
                 } catch (Exception e) {
                     // No NODE_REMOVED listener cleans dangling rules yet: after the
@@ -298,7 +281,7 @@ class FormFieldMetadataCollector {
      * read there too.
      */
     private static Set<String> collectManualChoices(JCRNodeWrapper node) throws RepositoryException {
-        if (node.isNodeType(MANUAL_OPTIONS_MIXIN)) {
+        if (node.isNodeType(FmdbMixin.MANUAL_OPTIONS)) {
             Set<String> masterChoices = collectDefaultLanguageChoices(node);
             if (masterChoices != null) {
                 return masterChoices;
@@ -388,15 +371,15 @@ class FormFieldMetadataCollector {
 
     private static FormDataParser.FieldInfo buildFieldInfo(JCRNodeWrapper node, String nodeType,
             SourcedOptionsResolver optionsResolver) throws RepositoryException {
-        boolean nonSubmittable = node.isNodeType(NON_SUBMITTABLE_MIXIN);
-        boolean choiceField = node.isNodeType(CHOICE_FIELD_MIXIN);
-        boolean fileField = node.isNodeType(FILE_FIELD_MIXIN);
-        boolean emailField = node.isNodeType(EMAIL_FIELD_MIXIN);
-        boolean dateField = node.isNodeType(DATE_FIELD_MIXIN);
-        boolean datetimeLocalField = node.isNodeType(DATETIME_LOCAL_FIELD_MIXIN);
-        boolean colorField = node.isNodeType(COLOR_FIELD_MIXIN);
-        boolean numberField = node.isNodeType(NUMBER_FIELD_MIXIN);
-        boolean booleanField = node.isNodeType(BOOLEAN_FIELD_MIXIN);
+        boolean nonSubmittable = node.isNodeType(FmdbMixin.NON_SUBMITTABLE);
+        boolean choiceField = node.isNodeType(FmdbMixin.CHOICE_FIELD);
+        boolean fileField = node.isNodeType(FmdbMixin.FILE_FIELD);
+        boolean emailField = node.isNodeType(FmdbMixin.EMAIL_FIELD);
+        boolean dateField = node.isNodeType(FmdbMixin.DATE_FIELD);
+        boolean datetimeLocalField = node.isNodeType(FmdbMixin.DATETIME_LOCAL_FIELD);
+        boolean colorField = node.isNodeType(FmdbMixin.COLOR_FIELD);
+        boolean numberField = node.isNodeType(FmdbMixin.NUMBER_FIELD);
+        boolean booleanField = node.isNodeType(FmdbMixin.BOOLEAN_FIELD);
 
         Set<String> choices = Set.of();
         boolean choicesUnresolvable = false;
@@ -439,17 +422,14 @@ class FormFieldMetadataCollector {
     }
 
     private static String resolveChoicePropertyName(JCRNodeWrapper node) throws RepositoryException {
-        if (node.hasProperty(UNIFIED_OPTIONS_PROPERTY)) {
-            return UNIFIED_OPTIONS_PROPERTY;
+        if (node.hasProperty(FmdbProperty.OPTIONS)) {
+            return FmdbProperty.OPTIONS;
         }
         // Legacy names, kept for content not yet migrated to fmdbmix:manualOptions.
         if (node.hasProperty(CHOICES_PROPERTY)) {
             return CHOICES_PROPERTY;
         }
-        if (node.hasProperty("options")) {
-            return "options";
-        }
-        return UNIFIED_OPTIONS_PROPERTY;
+        return FmdbProperty.OPTIONS;
     }
 
     private static FormDataParser.FieldConstraints readConstraints(

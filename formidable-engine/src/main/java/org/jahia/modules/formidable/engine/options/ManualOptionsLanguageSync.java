@@ -15,10 +15,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
+import org.jahia.modules.formidable.engine.api.FmdbProperty;
+import org.jahia.modules.formidable.engine.migration.MigrationMarker;
 
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.MANUAL_OPTIONS_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableProperties.OPTIONS_PROPERTY;
-import static org.jahia.modules.formidable.engine.migration.MigrationMarkers.MIGRATED_CHOICE_OPTIONS_MIXIN;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LANGUAGE_PROPERTY;
 
 /**
@@ -78,7 +78,7 @@ public final class ManualOptionsLanguageSync {
      *         carries unsaved changes)
      */
     public static boolean sync(JCRNodeWrapper fieldNode, Set<String> savedLanguages) throws RepositoryException {
-        if (!fieldNode.isNodeType(MANUAL_OPTIONS_MIXIN)) {
+        if (!fieldNode.isNodeType(FmdbMixin.MANUAL_OPTIONS)) {
             return false;
         }
 
@@ -119,7 +119,7 @@ public final class ManualOptionsLanguageSync {
         // The provenance gate: only a field the migration marked (its per-language
         // values may still translate the identity) may use the divergent-list
         // heuristics. Read once; cleared below when the languages converge.
-        boolean migrated = fieldNode.isNodeType(MIGRATED_CHOICE_OPTIONS_MIXIN);
+        boolean migrated = fieldNode.isNodeType(MigrationMarker.MIGRATED_CHOICE_OPTIONS);
 
         boolean updated = seeded;
         Map<String, String> valueReplacements = new LinkedHashMap<>();
@@ -146,7 +146,7 @@ public final class ManualOptionsLanguageSync {
         // nothing else changed: the marker itself is the state that must not persist.
         if (migrated) {
             fieldNode.getSession().checkout(fieldNode);
-            fieldNode.removeMixin(MIGRATED_CHOICE_OPTIONS_MIXIN);
+            fieldNode.removeMixin(MigrationMarker.MIGRATED_CHOICE_OPTIONS);
             updated = true;
         }
 
@@ -208,7 +208,7 @@ public final class ManualOptionsLanguageSync {
             translation = fieldNode.getOrCreateI18N(LanguageCodeConverters.languageCodeToLocale(language));
         }
 
-        translation.setProperty(OPTIONS_PROPERTY, aligned.toArray(new String[0]));
+        translation.setProperty(FmdbProperty.OPTIONS, aligned.toArray(new String[0]));
         log.info("[ManualOptionsLanguageSync] Fed the options of '{}' to '{}'", fieldNode.getPath(), language);
         return true;
     }
@@ -276,7 +276,7 @@ public final class ManualOptionsLanguageSync {
         }
 
         Node master = fieldNode.getOrCreateI18N(LanguageCodeConverters.languageCodeToLocale(masterLanguage));
-        master.setProperty(OPTIONS_PROPERTY, sourceOptions.toArray(new String[0]));
+        master.setProperty(FmdbProperty.OPTIONS, sourceOptions.toArray(new String[0]));
         log.info("[ManualOptionsLanguageSync] Seeded the default language ({}) options of '{}' from '{}'",
                 masterLanguage, fieldNode.getPath(), sourceLanguage);
         return sourceOptions;

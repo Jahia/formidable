@@ -10,14 +10,14 @@ package org.jahia.modules.formidable.engine.migration;
  * They live here rather than in each reader because the choice-options marker outlived its
  * migration: the display service and the language sync read it on every save.
  */
-public final class MigrationMarkers {
+public final class MigrationMarker {
 
     /** Stamped on a site whose formidable-elements activation was healed. */
-    public static final String ELEMENTS_REACTIVATED_MIXIN = "fmdbmix:elementsReactivated";
+    public static final String ELEMENTS_REACTIVATED = "fmdbmix:elementsReactivated";
 
     /** Stamped on a choice field whose options came from 0.3 and have not realigned yet. */
-    public static final String MIGRATED_CHOICE_OPTIONS_MIXIN = "fmdbmix:migratedChoiceOptions";
+    public static final String MIGRATED_CHOICE_OPTIONS = "fmdbmix:migratedChoiceOptions";
 
-    private MigrationMarkers() {
+    private MigrationMarker() {
     }
 }

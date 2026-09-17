@@ -46,7 +46,7 @@ This project uses two distinct dependency strategies in its Java modules:
   - `FormAction`, `FormActionException`, `SubmittedFile` — the action SPI
   - `SubmissionResponseEnricher`, `AcceptedSubmission` — the response SPI: entries a module of its own adds to the JSON body of an accepted submission (see [how to enrich the submission response](../extension/how-to-enrich-the-submission-response.md))
   - `ChoiceOptionsResolver` — the number of choices a choice field offers, counted as the views render it (manual list or options source); read by the jExperience integration for the checkbox's cardinality
-  - `FormidableNodeTypes`, `FormidableMixins`, `FormidableProperties` — the names of the content model, so a module names a node type once instead of copying the string (see `cnd-module-ownership.md`, "Naming these types from Java")
+  - `FmdbNodeType`, `FmdbMixin`, `FmdbProperty`, `FmdbNodeName` — the names of the content model, so a module names a node type once instead of copying the string (see `cnd-module-ownership.md`, "Naming these types from Java")
 - All other `org.jahia.modules.formidable.engine.*` packages are internal implementation details with no compatibility promise.
 
 ### Technical debt: split SPI and runtime bundles

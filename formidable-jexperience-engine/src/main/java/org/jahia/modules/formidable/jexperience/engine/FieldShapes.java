@@ -10,18 +10,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Predicate;
-
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.BOOLEAN_FIELD_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.CARDINALITY_FROM_CHOICES_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.CHOICE_FIELD_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.COLOR_FIELD_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.DATETIME_LOCAL_FIELD_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.DATE_FIELD_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.EMAIL_FIELD_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.FILE_FIELD_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.NUMBER_FIELD_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.PROFILE_MAPPABLE_FIELD_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.TEXT_FIELD_MIXIN;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
 
 /**
  * Infers a field's {@link FieldShape} from the semantic mixins the engine defines, never from
@@ -37,9 +26,9 @@ public final class FieldShapes {
 
     static final String MULTIPLE_PROPERTY = "multiple";
 
-    private static final List<String> RELEVANT_TYPES = List.of(PROFILE_MAPPABLE_FIELD_MIXIN, FILE_FIELD_MIXIN,
-            EMAIL_FIELD_MIXIN, CHOICE_FIELD_MIXIN, NUMBER_FIELD_MIXIN, BOOLEAN_FIELD_MIXIN, DATE_FIELD_MIXIN,
-            DATETIME_LOCAL_FIELD_MIXIN, COLOR_FIELD_MIXIN, TEXT_FIELD_MIXIN, CARDINALITY_FROM_CHOICES_MIXIN);
+    private static final List<String> RELEVANT_TYPES = List.of(FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.FILE_FIELD,
+            FmdbMixin.EMAIL_FIELD, FmdbMixin.CHOICE_FIELD, FmdbMixin.NUMBER_FIELD, FmdbMixin.BOOLEAN_FIELD, FmdbMixin.DATE_FIELD,
+            FmdbMixin.DATETIME_LOCAL_FIELD, FmdbMixin.COLOR_FIELD, FmdbMixin.TEXT_FIELD, FmdbMixin.CARDINALITY_FROM_CHOICES);
 
     private static final Set<String> STRING = Set.of("string");
     private static final Set<String> EMAIL = Set.of("email", "string");
@@ -97,25 +86,25 @@ public final class FieldShapes {
     }
 
     static Optional<FieldShape> infer(Predicate<String> isNodeType, Predicate<String> flag, ChoiceCount choiceCount) throws RepositoryException {
-        if (!isNodeType.test(PROFILE_MAPPABLE_FIELD_MIXIN) || isNodeType.test(FILE_FIELD_MIXIN)) {
+        if (!isNodeType.test(FmdbMixin.PROFILE_MAPPABLE_FIELD) || isNodeType.test(FmdbMixin.FILE_FIELD)) {
             return Optional.empty();
         }
         // the email input also carries fmdbmix:textField: the more specific kind wins
-        if (isNodeType.test(EMAIL_FIELD_MIXIN)) {
+        if (isNodeType.test(FmdbMixin.EMAIL_FIELD)) {
             return Optional.of(new FieldShape(EMAIL, flag.test(MULTIPLE_PROPERTY)));
         }
-        if (isNodeType.test(CHOICE_FIELD_MIXIN)) {
+        if (isNodeType.test(FmdbMixin.CHOICE_FIELD)) {
             // the count is asked here only: the other choice fields never need it
-            boolean multivalued = isNodeType.test(CARDINALITY_FROM_CHOICES_MIXIN) ? isAGroup(choiceCount.get()) : flag.test(MULTIPLE_PROPERTY);
+            boolean multivalued = isNodeType.test(FmdbMixin.CARDINALITY_FROM_CHOICES) ? isAGroup(choiceCount.get()) : flag.test(MULTIPLE_PROPERTY);
             return Optional.of(new FieldShape(STRING, multivalued));
         }
-        if (isNodeType.test(NUMBER_FIELD_MIXIN)) {
+        if (isNodeType.test(FmdbMixin.NUMBER_FIELD)) {
             return Optional.of(new FieldShape(NUMBER, false));
         }
-        if (isNodeType.test(BOOLEAN_FIELD_MIXIN)) {
+        if (isNodeType.test(FmdbMixin.BOOLEAN_FIELD)) {
             return Optional.of(new FieldShape(BOOLEAN, false));
         }
-        if (isNodeType.test(DATE_FIELD_MIXIN) || isNodeType.test(DATETIME_LOCAL_FIELD_MIXIN)) {
+        if (isNodeType.test(FmdbMixin.DATE_FIELD) || isNodeType.test(FmdbMixin.DATETIME_LOCAL_FIELD)) {
             return Optional.of(new FieldShape(DATE, false));
         }
         // text, colour, and the kinds without a value mixin (the hidden input) hold a string

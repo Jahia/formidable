@@ -7,13 +7,13 @@ import org.junit.jupiter.api.Test;
 
 import javax.jcr.Node;
 import java.util.Set;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ROOT_MIXIN;
 
 class FormDuplicationCleanupListenerTest {
 
@@ -84,7 +84,7 @@ class FormDuplicationCleanupListenerTest {
         JCRNodeWrapper child = mock(JCRNodeWrapper.class);
         JCRNodeIteratorWrapper children = nodeIterator(java.util.List.of(child));
 
-        when(form.isNodeType(FORM_ROOT_MIXIN)).thenReturn(true);
+        when(form.isNodeType(FmdbMixin.FORM_ROOT)).thenReturn(true);
         when(form.hasProperty("logics")).thenReturn(false);
         when(form.hasNode("logicsSrc")).thenReturn(false);
         when(form.getNodes()).thenReturn(children);

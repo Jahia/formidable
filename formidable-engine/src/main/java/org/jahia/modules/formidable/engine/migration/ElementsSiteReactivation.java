@@ -18,7 +18,6 @@ import javax.jcr.RepositoryException;
 import javax.jcr.query.Query;
 import java.util.LinkedHashSet;
 import java.util.Set;
-import static org.jahia.modules.formidable.engine.migration.MigrationMarkers.ELEMENTS_REACTIVATED_MIXIN;
 
 /**
  * Re-enables formidable-elements on the sites that carry forms but lost the module from
@@ -99,7 +98,7 @@ public class ElementsSiteReactivation extends ElementsRedeployRetriggeredMigrati
         try {
             JCRNodeWrapper site = session.getNode(sitePath);
             session.checkout(site);
-            site.addMixin(ELEMENTS_REACTIVATED_MIXIN);
+            site.addMixin(MigrationMarker.ELEMENTS_REACTIVATED);
             session.save();
             return true;
         } catch (RepositoryException | RuntimeException e) {
@@ -163,7 +162,7 @@ public class ElementsSiteReactivation extends ElementsRedeployRetriggeredMigrati
     static String orphanedSitePath(JCRNodeWrapper form) throws RepositoryException {
         JCRSiteNode site = form.getResolveSite();
         if (site == null || site.getInstalledModules().contains(ELEMENTS_MODULE_ID)
-                || site.isNodeType(ELEMENTS_REACTIVATED_MIXIN)) {
+                || site.isNodeType(MigrationMarker.ELEMENTS_REACTIVATED)) {
             return null;
         }
         return site.getPath();

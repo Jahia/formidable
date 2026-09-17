@@ -22,10 +22,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.CATEGORY_OPTIONS_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.CONTENT_OPTIONS_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ELEMENT_MIXIN;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.SOURCED_OPTIONS_MIXIN;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.COMPONENT_MIXIN;
 
 /**
@@ -105,16 +102,16 @@ public class FormidableOptionsSourceService {
      * @throws IllegalStateException            when the source is declared but cannot deliver
      */
     public String[] resolveForField(JCRNodeWrapper fieldNode, String languageTag) throws javax.jcr.RepositoryException {
-        if (fieldNode.isNodeType(SOURCED_OPTIONS_MIXIN)) {
+        if (fieldNode.isNodeType(FmdbMixin.SOURCED_OPTIONS)) {
             String sourceKey = fieldNode.hasProperty("optionsSourceKey")
                     ? fieldNode.getProperty("optionsSourceKey").getString()
                     : "";
             return resolve(sourceKey, languageTag);
         }
-        if (fieldNode.isNodeType(CATEGORY_OPTIONS_MIXIN)) {
+        if (fieldNode.isNodeType(FmdbMixin.CATEGORY_OPTIONS)) {
             return resolveCategoryOptions(fieldNode);
         }
-        if (fieldNode.isNodeType(CONTENT_OPTIONS_MIXIN)) {
+        if (fieldNode.isNodeType(FmdbMixin.CONTENT_OPTIONS)) {
             return resolveContentOptions(fieldNode, config.getOptionsQueryMaxResults());
         }
 
@@ -225,7 +222,7 @@ public class FormidableOptionsSourceService {
             // contributor is after.
             if (!(child instanceof JCRNodeWrapper content)
                     || content.getPrimaryNodeTypeName() == null
-                    || content.isNodeType(FORM_ELEMENT_MIXIN)
+                    || content.isNodeType(FmdbMixin.FORM_ELEMENT)
                     || content.isNodeType(COMPONENT_MIXIN)) {
                 continue;
             }

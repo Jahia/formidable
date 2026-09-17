@@ -98,12 +98,18 @@ The `<Island>` is the SSR-to-client hydration boundary. **Props must be serialis
 
 ### Action Pipeline (Java)
 
-The public API for custom actions lives in `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/`:
+The public API — custom actions, the submission response, the names of the content model — lives in `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/`:
 - `FormAction.java` — strategy interface (`getNodeType()` + `execute()`)
 - `FormActionException.java` — exception with HTTP status (`badRequest()`, `serverError()`)
 - `SubmittedFile.java` — file upload abstraction
 - `ChoiceOptionsResolver.java` — how many choices a choice field offers, counted as the views render it
 - `SubmissionResponseEnricher.java` + `AcceptedSubmission.java` — entries a module of its own adds to the JSON body of an accepted submission
+- `FmdbNodeType.java` — the primary types the engine's CND declares (logic storage, built-in actions, submission storage)
+- `FmdbMixin.java` — every mixin it declares, the extension surface a third-party type opts into
+- `FmdbProperty.java` — the properties another module reads on that content
+- `FmdbNodeName.java` — the child node names another module walks on that content
+
+The four name holders are used qualified (`FmdbMixin.TEXT_FIELD`), never statically imported — the class states the kind, the constant the thing (`docs/architecture/cnd-module-ownership.md`, "Naming these types from Java").
 
 Built-in actions: `SaveToJcrFormAction`, `SendEmailNotificationFormAction`, `SendEmailContentFormAction`, `ForwardSubmissionFormAction` (four — captcha is not an action: it is a mixin plus OSGi config, verified by the pipeline before the actions run).
 

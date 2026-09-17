@@ -3,6 +3,7 @@ package org.jahia.modules.formidable.engine.servlet;
 import org.jahia.modules.formidable.engine.api.AcceptedSubmission;
 import org.jahia.modules.formidable.engine.api.FormAction;
 import org.jahia.modules.formidable.engine.api.FormActionException;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.engine.actions.FormDataParser;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService;
@@ -34,7 +35,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.jahia.modules.formidable.engine.api.FormidableMixins.FORM_ROOT_MIXIN;
 
 class FormSubmissionPipelineTest {
 
@@ -176,7 +176,7 @@ class FormSubmissionPipelineTest {
         org.jahia.services.content.JCRSessionWrapper session = mock(org.jahia.services.content.JCRSessionWrapper.class);
         JCRNodeWrapper pageNode = mock(JCRNodeWrapper.class);
         when(session.getNodeByIdentifier("some-page-id")).thenReturn(pageNode);
-        when(pageNode.isNodeType(FORM_ROOT_MIXIN)).thenReturn(false);
+        when(pageNode.isNodeType(FmdbMixin.FORM_ROOT)).thenReturn(false);
 
         FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
                 mock(FormidableConfigService.class),
@@ -442,7 +442,7 @@ class FormSubmissionPipelineTest {
         HttpServletRequest req = mock(HttpServletRequest.class);
 
         when(session.getNodeByIdentifier(formId)).thenReturn(formNode);
-        when(formNode.isNodeType(FORM_ROOT_MIXIN)).thenReturn(true);
+        when(formNode.isNodeType(FmdbMixin.FORM_ROOT)).thenReturn(true);
         when(req.getMethod()).thenReturn("POST");
         when(req.getContentType()).thenReturn("multipart/form-data; boundary=test");
         when(req.getParameter("fid")).thenReturn(formId);
@@ -674,7 +674,7 @@ class FormSubmissionPipelineTest {
         JahiaUser guestUser = mock(JahiaUser.class);
 
         when(session.getNodeByIdentifier(formId)).thenReturn(formNode);
-        when(formNode.isNodeType(FORM_ROOT_MIXIN)).thenReturn(true);
+        when(formNode.isNodeType(FmdbMixin.FORM_ROOT)).thenReturn(true);
         when(formNode.isNodeType("fmdbmix:authenticatedOnlyForm")).thenReturn(true);
         when(req.getMethod()).thenReturn("POST");
         when(req.getContentType()).thenReturn("multipart/form-data; boundary=test");
@@ -713,7 +713,7 @@ class FormSubmissionPipelineTest {
         JahiaUser authenticatedUser = mock(JahiaUser.class);
 
         when(session.getNodeByIdentifier(formId)).thenReturn(formNode);
-        when(formNode.isNodeType(FORM_ROOT_MIXIN)).thenReturn(true);
+        when(formNode.isNodeType(FmdbMixin.FORM_ROOT)).thenReturn(true);
         when(formNode.isNodeType("fmdbmix:authenticatedOnlyForm")).thenReturn(true);
         when(formNode.isNodeType("fmdbmix:captchaProtectedForm")).thenReturn(true);
         when(formNode.getPath()).thenReturn("/sites/test/form");
