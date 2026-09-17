@@ -203,18 +203,20 @@ on every run, so a third does not appear unnoticed.
 
 ### The guard
 
-`node scripts/check-nodetype-names.mjs` runs in the static-analysis job and enforces both halves:
-the parity above, and that no **main** source outside those classes spells an engine-declared name
-out. It also prints what the remaining literals are, split three ways, because the three mean
-different things: **owed a marker** is live code naming another module's type, the only number that
+`node scripts/check-nodetype-names.mjs` runs in the static-analysis job and enforces three things:
+the parity above; that no **main** source outside those classes spells an engine-declared name out —
+a namespaced name anywhere, a property or child node name at a JCR call site (`hasProperty("options")`),
+since only the call tells such a name apart from a word; and that no source, main or test, imports a
+holder statically, by member or by wildcard. It also prints what the remaining literals are, split
+three ways, because the three mean different things: **owed a marker** is live code naming another module's type, the only number that
 tracks a gap; the ones a module *declares itself* are not residue at all; and the ones *inside a
 migration* are the frozen vocabulary of a past release.
 
-Test sources are deliberately outside it. A test that writes `"fmdbmix:choiceField"` where the
-constant would do is how a wrong constant *value* gets caught — the parity check proves the name is
+Test sources are deliberately outside the second check. A test that writes `"fmdbmix:choiceField"`
+where the constant would do is how a wrong constant *value* gets caught — the parity check proves the name is
 declared somewhere, not that the right one was picked — so the literal there is an asset. Use the
 constants in a test when the name is plumbing for a fixture; keep the literal when the name is the
-thing under test.
+thing under test. The third check does reach the tests: a static import hides the kind wherever it sits.
 
 ## Content Editor form ownership
 

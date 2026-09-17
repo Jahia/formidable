@@ -2,6 +2,7 @@ package org.jahia.modules.formidable.jexperience.engine;
 
 import org.jahia.modules.formidable.engine.api.ChoiceOptionsResolver;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
+import org.jahia.modules.formidable.engine.api.FmdbProperty;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRPropertyWrapper;
 import org.jahia.services.content.decorator.JCRSiteNode;
@@ -329,9 +330,9 @@ class ProfilePropertiesChoiceListInitializerTest {
         ChoiceOptionsResolver stored = counting(OptionalInt.of(4));
         JCRNodeWrapper checkbox = checkbox();
         assertEquals(List.of("firstName"), values(listed(new ProfilePropertiesChoiceListInitializer(catalogOver(CATALOG), stored),
-                context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, checkbox, ProfilePropertiesChoiceListInitializer.OPTIONS_PROPERTY, List.of("yes", " ")))));
+                context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, checkbox, FmdbProperty.OPTIONS, List.of("yes", " ")))));
         assertEquals(List.of("interests"), values(listed(new ProfilePropertiesChoiceListInitializer(catalogOver(CATALOG), stored),
-                context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, checkbox, ProfilePropertiesChoiceListInitializer.OPTIONS_PROPERTY, List.of("a", "b")))));
+                context(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, checkbox, FmdbProperty.OPTIONS, List.of("a", "b")))));
         verify(stored, never()).countChoices(any(), any());
 
         NodeType checkboxType = mock(NodeType.class);
@@ -344,7 +345,7 @@ class ProfilePropertiesChoiceListInitializerTest {
         assertEquals(List.of("firstName"), values(listed(new ProfilePropertiesChoiceListInitializer(catalogOver(CATALOG), stored), context(
                 ProfilePropertiesChoiceListInitializer.CONTEXT_TYPE, checkboxType,
                 ProfilePropertiesChoiceListInitializer.CONTEXT_PARENT, parent,
-                ProfilePropertiesChoiceListInitializer.OPTIONS_PROPERTY, List.of("yes")))));
+                FmdbProperty.OPTIONS, List.of("yes")))));
         // a checkbox being created with no choice typed yet is a group
         assertEquals(List.of("interests"), values(listed(new ProfilePropertiesChoiceListInitializer(catalogOver(CATALOG), stored), context(
                 ProfilePropertiesChoiceListInitializer.CONTEXT_TYPE, checkboxType,
@@ -360,16 +361,16 @@ class ProfilePropertiesChoiceListInitializerTest {
         JCRNodeWrapper checkbox = checkbox();
         assertEquals(List.of("interests"), values(listed(new ProfilePropertiesChoiceListInitializer(catalogOver(CATALOG), stored), context(
                 ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, checkbox,
-                ProfilePropertiesChoiceListInitializer.OPTIONS_MODE_PROPERTY, List.of("categories"),
-                ProfilePropertiesChoiceListInitializer.OPTIONS_PROPERTY, List.of("yes")))));
+                FmdbProperty.OPTIONS_MODE, List.of("categories"),
+                FmdbProperty.OPTIONS, List.of("yes")))));
         assertEquals(List.of("firstName"), values(listed(new ProfilePropertiesChoiceListInitializer(catalogOver(CATALOG), stored), context(
                 ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, checkbox,
-                ProfilePropertiesChoiceListInitializer.OPTIONS_MODE_PROPERTY, "manual",
-                ProfilePropertiesChoiceListInitializer.OPTIONS_PROPERTY, List.of("yes")))));
+                FmdbProperty.OPTIONS_MODE, "manual",
+                FmdbProperty.OPTIONS, List.of("yes")))));
         JCRNodeWrapper sourced = checkbox("fmdbmix:categoryOptions");
         assertEquals(List.of("firstName"), values(listed(new ProfilePropertiesChoiceListInitializer(catalogOver(CATALOG), stored), context(
                 ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, sourced,
-                ProfilePropertiesChoiceListInitializer.OPTIONS_PROPERTY, List.of("a", "b", "c")))));
+                FmdbProperty.OPTIONS, List.of("a", "b", "c")))));
     }
 
     @Test

@@ -2,6 +2,7 @@ package org.jahia.modules.formidable.jexperience.engine;
 
 import org.jahia.modules.formidable.engine.api.ChoiceOptionsResolver;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
+import org.jahia.modules.formidable.engine.api.FmdbProperty;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.nodetypes.ExtendedPropertyDefinition;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListValue;
@@ -62,9 +63,6 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
     static final String CONTEXT_NODE = "contextNode";
     static final String CONTEXT_PARENT = "contextParent";
     static final String CONTEXT_TYPE = "contextType";
-    // the choice-field properties the choicelist declares as dependentProperties, sent unsaved on a re-query
-    static final String OPTIONS_PROPERTY = "options";
-    static final String OPTIONS_MODE_PROPERTY = "optionsMode";
     static final String MANUAL_MODE = "manual";
     private static final List<String> SOURCED_OPTIONS_MIXINS =
             List.of(FmdbMixin.SOURCED_OPTIONS, FmdbMixin.CATEGORY_OPTIONS, FmdbMixin.CONTENT_OPTIONS);
@@ -174,12 +172,12 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
      * mode that is not saved yet leaves the count unknown — a group — until the save resolves it.
      */
     OptionalInt choiceCountOf(Map<String, Object> context, JCRNodeWrapper node) throws RepositoryException {
-        Optional<String> pendingMode = pendingString(context, OPTIONS_MODE_PROPERTY);
+        Optional<String> pendingMode = pendingString(context, FmdbProperty.OPTIONS_MODE);
         boolean manual = pendingMode.isPresent() ? MANUAL_MODE.equals(pendingMode.get()) : node == null || !usesASource(node);
         if (!manual) {
             return node == null || pendingMode.isPresent() ? OptionalInt.empty() : countStored(node);
         }
-        if (context.get(OPTIONS_PROPERTY) instanceof Collection<?> options) {
+        if (context.get(FmdbProperty.OPTIONS) instanceof Collection<?> options) {
             return OptionalInt.of((int) options.stream().filter(option -> option != null && !String.valueOf(option).isBlank()).count());
         }
         return node == null ? OptionalInt.empty() : countStored(node);

@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
+import org.jahia.modules.formidable.engine.api.FmdbProperty;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -64,8 +65,8 @@ class DefinitionsCndTest {
         assertEquals("extends = " + FmdbMixin.PROFILE_MAPPABLE_FIELD, lineStartingWith(mixin, "extends"));
         String property = lineStartingWith(mixin, "- " + ProfilePropertiesChoiceListInitializer.PROPERTY + " ");
         assertTrue(property.contains("choicelist[" + ProfilePropertiesChoiceListInitializer.KEY + ",dependentProperties='"
-                + FieldShapes.MULTIPLE_PROPERTY + "," + ProfilePropertiesChoiceListInitializer.OPTIONS_PROPERTY + ","
-                + ProfilePropertiesChoiceListInitializer.OPTIONS_MODE_PROPERTY + "," + SensitiveField.PROPERTY + "']"), property);
+                + FieldShapes.MULTIPLE_PROPERTY + "," + FmdbProperty.OPTIONS + ","
+                + FmdbProperty.OPTIONS_MODE + "," + SensitiveField.PROPERTY + "']"), property);
     }
 
     @Test
