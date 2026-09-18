@@ -19,7 +19,19 @@
  *                          with and without a business stylesheet
  *   - playground-two-forms-page  the simple form and the newsletter one on a single page, the case a
  *                          page with one form never shows (two results sets, two mappings, one script)
- *   - playground-complete  every built-in field type (same set as spec 20)
+ *   - playground-complete  every built-in field type (same set as spec 20), plus a gender radio
+ *                           and a number of children — the two shapes the visitor profile mapping needs
+ *
+ * When formidable-jexperience-engine is on the instance, the simple and the complete forms map their
+ * fields to jCustomer's default visitor profile properties (firstName, lastName, email, phoneNumber,
+ * birthDate, gender, kids, countryName), one field per form is marked sensitive, and jExperience is
+ * enabled on the site — so a publication writes the mapping rules and a live submission feeds the
+ * profile. The two shapes jCustomer's default schema has no property for — a multi-valued string for the
+ * checkbox group, a boolean for the newsletter switch — get one in a "Formidable playground" card, created
+ * once through jExperience's admin proxy. Without the module the same forms are provisioned, mappings left
+ * out: nothing here depends on it. The yarn script runs the browser under a plain Chrome user agent: the tracker
+ * carries the crawler-user-agents list, which names HeadlessChrome, and would otherwise start in its fallback mode
+ * and send nothing for the sample submissions.
  *                          plus sourced choice fields (countries + categories)
  *                          and a content-mode select (texts under
  *                          contents/agencies, incl. an unpublished draft to
@@ -38,6 +50,7 @@
  * the server across runs, site member as editor) with fmdb-results-reader
  * granted on the simple form only — to test the results access rights.
  */
+import gql from 'graphql-tag';
 import {addNode, createSite, createUser, deleteSite, enableModule, getNodeByPath, grantRoles, publishAndWaitJobEnding} from '@jahia/cypress';
 import {
 	CHECKBOX_GROUP_COMPLETE,
@@ -53,11 +66,13 @@ import {
 	getInputDatetimeLocalNode,
 	getInputEmailNode,
 	getInputFileNode,
+	getInputNumberNode,
 	getInputTextNode,
 	getRadioNode,
 	getSelectNode,
 	getSourcedChoiceFieldNode,
 	getStepNode,
+	getSwitchNode,
 	getTextareaNode,
 	getTitledTextNode,
 	INPUT_COLOR_COMPLETE,
@@ -117,6 +132,132 @@ const withFrench = (node: JahiaNode, frProperties: Array<{name: string; value?: 
 const withEnglish = (node: JahiaNode, enProperties: Array<{name: string; value?: string; values?: string[]}>): JahiaNode => {
 	node.properties.push(...enProperties.map(property => ({...property, language: 'en'})));
 	return node;
+};
+
+// --- jExperience: the visitor profile mapping of a field, applied only when the module is on the instance.
+// The mixins below are declared by formidable-jexperience-engine; the flag is read in the first test, before
+// any form is built, and the two helpers hand the node back untouched when the module is absent.
+const JXP_MAPPING_MIXIN = 'fmdbmix:jExperienceProfileMapping';
+const JXP_PREFILL_MIXIN = 'fmdbmix:jExperiencePrefill';
+const JXP_SENSITIVE_MIXIN = 'fmdbmix:jExperienceSensitiveField';
+let jExperienceAvailable = false;
+
+/**
+ * Maps the field to a visitor profile property: the mapping mixin, the property and the write strategy; with
+ * `prefill`, the prefill mixin too (its switch in the editor), and `overridesDefault` its one option.
+ */
+const mappedTo = (node: JahiaNode, profileProperty: string, options: {strategy?: 'alwaysSet' | 'setIfMissing'; prefill?: boolean; overridesDefault?: boolean} = {}): JahiaNode => {
+	if (!jExperienceAvailable) return node;
+	node.mixins = [...(node.mixins ?? []), JXP_MAPPING_MIXIN, ...(options.prefill ? [JXP_PREFILL_MIXIN] : [])];
+	node.properties.push(
+		{name: 'jExperienceProfileProperty', value: profileProperty},
+		{name: 'jExperienceSetStrategy', value: options.strategy ?? 'alwaysSet'}
+	);
+	if (options.prefill) {
+		node.properties.push({name: 'jExperiencePrefillOverridesDefault', value: String(options.overridesDefault ?? false), type: 'BOOLEAN'});
+	}
+	return node;
+};
+
+/** Marks the field sensitive: its value never reaches the visitor profile, and the dropdown offers it no mapping. */
+const sensitive = (node: JahiaNode): JahiaNode => {
+	if (!jExperienceAvailable) return node;
+	node.mixins = [...(node.mixins ?? []), JXP_SENSITIVE_MIXIN];
+	node.properties.push({name: 'jExperienceSensitive', value: 'true', type: 'BOOLEAN'});
+	return node;
+};
+
+const GENDER_RADIO = {
+	name: 'gender',
+	title: 'Gender',
+	required: false,
+	choices: [
+		{value: 'female', label: 'Female', selected: false},
+		{value: 'male', label: 'Male', selected: false},
+		{value: 'other', label: 'Other', selected: false}
+	]
+};
+
+// jCustomer's default schema offers no multi-valued and no boolean property a form could feed, so the
+// playground adds the two it needs, in a card of their own — through jExperience's admin proxy, which
+// carries the logged-in session; created once, found again on the next run. A proxy that does not
+// answer (no jCustomer connected) is logged, not fatal: the mappings are then skipped at publication.
+// jExperience groups the profile's properties into cards through this system tag: cardDataTag/<card id>/<card
+// position>/<card title>. The id is free (jExperience's own are an underscore and nine random characters), the
+// position orders the cards on the profile screen (jExperience's five default cards take 0 to 5), the title
+// is what the screen shows. Copied from a property created by hand in the jExperience UI.
+const PLAYGROUND_CARD_TAG = 'cardDataTag/_fmdbplaygd/6/Formidable playground';
+const CUSTOM_PROFILE_PROPERTIES = [
+	{id: 'formidableInterests', name: 'Interests (Formidable playground)', type: 'string', multivalued: true},
+	{id: 'formidableOptIn', name: 'Newsletter opt-in (Formidable playground)', type: 'boolean', multivalued: false}
+];
+const ensureCustomProfileProperties = (): void => {
+	const endpoint = `/modules/jexperience/proxy/${FORMIDABLE_TEST_SITE.key}/cxs/profiles/properties`;
+	cy.request({url: `${endpoint}/targets/profiles`, failOnStatusCode: false}).then(response => {
+		if (response.status !== 200 || !Array.isArray(response.body)) {
+			cy.log(`jCustomer not reachable through jExperience (HTTP ${response.status}): the playground's profile properties are not created`);
+			return;
+		}
+		const existing = new Set((response.body as Array<{itemId: string}>).map(property => property.itemId));
+		CUSTOM_PROFILE_PROPERTIES.forEach((property, position) => {
+			if (existing.has(property.id)) return;
+			cy.request({
+				method: 'POST',
+				url: endpoint,
+				failOnStatusCode: false,
+				body: {
+					itemId: property.id,
+					itemType: 'propertyType',
+					target: 'profiles',
+					type: property.type,
+					multivalued: property.multivalued,
+					metadata: {id: property.id, name: property.name, tags: [], systemTags: [PLAYGROUND_CARD_TAG, `positionInCard.${position}`, 'hasCardDataTag'], enabled: true, hidden: false, readOnly: false}
+				}
+			}).then(created => cy.log(`visitor profile property ${property.id}: HTTP ${created.status}`));
+		});
+	});
+};
+
+// Deleting the site removes its forms without telling their mapping rules apart (a removed node's types cannot
+// be resolved), so each run would leave the previous run's rules behind in jCustomer — and every one of them
+// would still put a stale form id in the tracker's watch list. The rules of the site are deleted before the
+// site is, by the id prefix the synchroniser writes.
+const MAPPING_RULE_PREFIX = `formidable-form-mapping_${FORMIDABLE_TEST_SITE.key}_`;
+const deleteMappingRulesOfTheSite = (): void => {
+	const endpoint = `/modules/jexperience/proxy/${FORMIDABLE_TEST_SITE.key}/cxs/rules`;
+	cy.request({url: endpoint, failOnStatusCode: false}).then(response => {
+		if (response.status !== 200 || !Array.isArray(response.body)) {
+			cy.log(`jCustomer not reachable through jExperience (HTTP ${response.status}): the previous run's mapping rules are left as they are`);
+			return;
+		}
+		const stale = (response.body as Array<{id: string}>).map(rule => rule.id).filter(id => id.startsWith(MAPPING_RULE_PREFIX));
+		cy.log(`${stale.length} mapping rule(s) of a previous run to delete`);
+		stale.forEach(id => cy.request({method: 'DELETE', url: `${endpoint}/${id}`, failOnStatusCode: false}));
+	});
+};
+
+// The mapping mixin is registered only when formidable-jexperience-engine is deployed (and it resolves only
+// with jExperience present). A missing type answers a GraphQL error, which cy.apollo reports rather than
+// throws — but so does a GraphQL schema being rebuilt, which is what a module deployed a minute earlier
+// leaves behind; one such run silently provisioned everything without mappings. So the question is asked
+// a few times before the module is declared absent, and the last error is logged.
+const DETECTION_ATTEMPTS = 5;
+const detectJExperience = (attempt = 1): void => {
+	cy.apollo({query: gql`query jExperienceMappingMixin { jcr { nodeTypeByName(name: "${JXP_MAPPING_MIXIN}") { name } } }`})
+		.then((response: {errors?: unknown; data?: {jcr?: {nodeTypeByName?: {name?: string} | null}}}) => {
+			if (!response.errors && response.data?.jcr?.nodeTypeByName?.name) {
+				jExperienceAvailable = true;
+				cy.log('formidable-jexperience-engine present: the simple and complete forms map their fields to visitor profile properties');
+			} else if (attempt < DETECTION_ATTEMPTS) {
+				cy.log(`the mapping mixin did not answer (attempt ${attempt}/${DETECTION_ATTEMPTS}), asking again in 2 s`);
+				// eslint-disable-next-line cypress/no-unnecessary-waiting -- a pause between two tries, not a wait for an element
+				cy.wait(2000);
+				detectJExperience(attempt + 1);
+			} else {
+				jExperienceAvailable = false;
+				cy.log(`formidable-jexperience-engine absent: forms provisioned without visitor profile mappings (last answer: ${JSON.stringify(response.errors ?? response.data)})`);
+			}
+		});
 };
 
 // French option list in the manual-options storage format.
@@ -195,7 +336,9 @@ const phoneNumberField = (): JahiaNode => {
 	const field = getInputTextNode({
 		name: 'phoneNumber',
 		title: 'Phone number (shown when you ask for a call)',
-		placeholder: '+33 6 12 34 56 78'
+		placeholder: '+33 6 12 34 56 78',
+		// Digits only are typed, the literals come by themselves: what reaches the profile is the formatted number.
+		mask: '+99 9 99 99 99 99'
 	});
 	return withFrench(
 		withLogics(field, PHONE_NUMBER_RULE),
@@ -249,6 +392,11 @@ const FR_DELIVERY_OPTIONS = frOptions([
 	{value: 'standard', label: 'Standard'},
 	{value: 'express', label: 'Express', selected: true},
 	{value: 'pickup', label: 'Retrait sur place'}
+]);
+const FR_GENDER_OPTIONS = frOptions([
+	{value: 'female', label: 'Femme'},
+	{value: 'male', label: 'Homme'},
+	{value: 'other', label: 'Autre'}
 ]);
 
 // Full name field with a custom required message in both site languages.
@@ -307,9 +455,20 @@ describe('Playground - provision manual-testing forms', () => {
 	});
 
 	it('resets the test site', () => {
+		detectJExperience();
+		// not gated on the module: the rules to clean up are the ones written while it *was* deployed
+		cy.then(() => deleteMappingRulesOfTheSite());
 		deleteSite(FORMIDABLE_TEST_SITE.key);
 		createSite(FORMIDABLE_TEST_SITE.key, FORMIDABLE_TEST_SITE.config);
 		FORMIDABLE_MODULE_IDS.forEach(moduleId => enableModule(moduleId, FORMIDABLE_TEST_SITE.key));
+		cy.then(() => {
+			if (jExperienceAvailable) {
+				// Both halves of the render filter's site check: jExperience among the site's modules, and ours.
+				enableModule('jexperience', FORMIDABLE_TEST_SITE.key);
+				enableModule('formidable-jexperience-engine', FORMIDABLE_TEST_SITE.key);
+				ensureCustomProfileProperties();
+			}
+		});
 		// A live page renders only if the site home is published in the page
 		// language (getSite().getHome() resolves to null otherwise -> 500),
 		// and publishing a page does not cascade up to its home: publish the
@@ -345,12 +504,14 @@ describe('Playground - provision manual-testing forms', () => {
 			'playground-simple',
 			'Playground - Simple contact form',
 			[
-				withFrench(firstNameField(), [{name: 'jcr:title', value: 'Prénom'}]),
-				withFrench(lastNameField(), [{name: 'jcr:title', value: 'Nom'}]),
-				withFrench(getInputEmailNode({name: 'email', title: 'Email', required: true}), [{name: 'jcr:title', value: 'Email'}]),
-				withFrench(getTextareaNode({name: 'message', title: 'Message'}), [{name: 'jcr:title', value: 'Message'}]),
+				// The visitor profile mapping, on the fields jCustomer knows by default. A required field always sets
+				// its property, an optional one only completes a missing value; the free-text message stays out of the profile.
+				mappedTo(withFrench(firstNameField(), [{name: 'jcr:title', value: 'Prénom'}]), 'firstName', {prefill: true}),
+				mappedTo(withFrench(lastNameField(), [{name: 'jcr:title', value: 'Nom'}]), 'lastName', {prefill: true}),
+				mappedTo(withFrench(getInputEmailNode({name: 'email', title: 'Email', required: true}), [{name: 'jcr:title', value: 'Email'}]), 'email', {strategy: 'setIfMissing', prefill: true}),
+				sensitive(withFrench(getTextareaNode({name: 'message', title: 'Message'}), [{name: 'jcr:title', value: 'Message'}])),
 				contactChannelSelect(),
-				phoneNumberField()
+				mappedTo(phoneNumberField(), 'phoneNumber', {strategy: 'setIfMissing', prefill: true})
 			],
 			undefined,
 			undefined,
@@ -537,31 +698,43 @@ describe('Playground - provision manual-testing forms', () => {
 					[
 						// placeholder and list are i18n as well: without a French value the
 						// field loses its example and its suggestion list in that language.
-						withFrench(getInputTextNode({...INPUT_TEXT_COMPLETE, defaultValue: undefined, helpText: '<p>Two capital letters, a dash, four digits: <strong>AB-1234</strong>.</p>'}), [
+						// An employee code is the kind of value that must never reach a visitor profile: the sensitive flag.
+						sensitive(withFrench(getInputTextNode({...INPUT_TEXT_COMPLETE, defaultValue: undefined, helpText: '<p>Two capital letters, a dash, four digits: <strong>AB-1234</strong>.</p>'}), [
 							{name: 'jcr:title', value: 'Code employé'},
 							{name: 'helpText', value: '<p>Deux lettres majuscules, un tiret, quatre chiffres : <strong>AB-1234</strong>.</p>'},
 							{name: 'placeholder', value: 'AB-1234'},
 							{name: 'list', values: ['AB-1234', 'CD-5678']}
-						]),
-						withFrench(getInputEmailNode({...INPUT_EMAIL_COMPLETE, defaultValue: undefined}), [
+						])),
+						mappedTo(withFrench(getInputEmailNode({...INPUT_EMAIL_COMPLETE, defaultValue: undefined}), [
 							{name: 'jcr:title', value: 'Email de contact'},
 							{name: 'placeholder', value: 'Saisissez votre adresse e-mail'}
-						]),
+						]), 'email', {strategy: 'setIfMissing'}),
 						// A birth date cannot be after the submission day; the appointment
 						// cannot be before it — the relative bound modes showcased live.
-						withFrench(getInputDateNode({...INPUT_DATE_COMPLETE, defaultValue: undefined, max: undefined, maxBoundMode: 'today'}), [{name: 'jcr:title', value: 'Date de naissance'}]),
+						mappedTo(withFrench(getInputDateNode({...INPUT_DATE_COMPLETE, defaultValue: undefined, max: undefined, maxBoundMode: 'today'}), [{name: 'jcr:title', value: 'Date de naissance'}]), 'birthDate', {prefill: true}),
 						withFrench(getInputDatetimeLocalNode({...INPUT_DATETIME_LOCAL_COMPLETE, defaultValue: undefined, min: undefined, minBoundMode: 'today'}), [{name: 'jcr:title', value: 'Rendez-vous'}]),
 						withFrench(getInputColorNode(INPUT_COLOR_COMPLETE), [{name: 'jcr:title', value: 'Choisissez votre couleur préférée'}]),
-						withFrench(getCheckboxNode(CHECKBOX_GROUP_COMPLETE), [
+						// The group and the switch feed the two properties the playground adds to jCustomer (see above).
+						mappedTo(withFrench(getCheckboxNode(CHECKBOX_GROUP_COMPLETE), [
 							{name: 'jcr:title', value: 'Centres d\'intérêt requis'},
 							frOptions([
 								{value: 'reading', label: 'Lecture'},
 								{value: 'sports', label: 'Sport', selected: true},
 								{value: 'music', label: 'Musique'}
 							])
-						]),
+						]), 'formidableInterests'),
+						mappedTo(withFrench(getSwitchNode({name: 'newsletter', title: 'Newsletter opt-in', onLabel: 'Yes', offLabel: 'No'}), [
+							{name: 'jcr:title', value: 'Lettre d\'information'},
+							{name: 'onLabel', value: 'Oui'},
+							{name: 'offLabel', value: 'Non'}
+						]), 'formidableOptIn', {strategy: 'setIfMissing'}),
 						withFrench(getRadioNode(RADIO_GROUP), [{name: 'jcr:title', value: 'Mode de livraison'}, FR_DELIVERY_OPTIONS]),
 						pickupLocationField(),
+						// The two shapes the profile mapping had no field for: a single choice to a string property,
+						// a number to an integer one.
+						mappedTo(withFrench(getRadioNode(GENDER_RADIO), [{name: 'jcr:title', value: 'Genre'}, FR_GENDER_OPTIONS]), 'gender', {strategy: 'setIfMissing', prefill: true}),
+						// The one field with an author's default AND the override ticked: the profile's value replaces the 1.
+						mappedTo(withFrench(getInputNumberNode({name: 'kids', title: 'Number of children', minValue: 0, maxValue: 20, step: 1, defaultValue: 1}), [{name: 'jcr:title', value: 'Nombre d\'enfants'}]), 'kids', {strategy: 'setIfMissing', prefill: true, overridesDefault: true}),
 						departmentSelect(),
 						withFrench(getTextareaNode({...TEXTAREA_COMPLETE, defaultValue: undefined}), [
 							{name: 'jcr:title', value: 'Résumé du projet'},
@@ -570,7 +743,8 @@ describe('Playground - provision manual-testing forms', () => {
 						withFrench(getInputFileNode(INPUT_FILE_MULTIPLE), [{name: 'jcr:title', value: 'Pièces jointes'}]),
 						// The sourced select showcases the empty-option label: the field starts
 						// empty and its native required validation is exercisable on the site.
-						withFrench(
+						// The countries source holds ISO codes, which is what jCustomer's countryName expects.
+						mappedTo(withFrench(
 							withEnglish(
 								getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'country', title: 'Country (sourced: countries)', sourceKey: 'countries'}),
 								[{name: 'optionsEmptyLabel', value: 'Select a country…'}]
@@ -579,7 +753,9 @@ describe('Playground - provision manual-testing forms', () => {
 								{name: 'jcr:title', value: 'Pays (source : countries)'},
 								{name: 'optionsEmptyLabel', value: 'Sélectionnez un pays…'}
 							]
-						),
+						// Prefilled too: a select is the shape whose first option the browser selects by itself, the one a
+						// "did the visitor choose" guard reading the live state mistakes for a choice.
+						), 'countryName', {strategy: 'setIfMissing', prefill: true}),
 						withFrench(getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:radio', name: 'tvType', title: 'TV type (sourced: static screen-type list)', sourceKey: 'tv'}), [{name: 'jcr:title', value: 'Type de TV (source : liste statique de types d\'écrans)'}]),
 						withFrench(getCategoryChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'tvCategory', title: 'TV category (category mode, multiple select)', rootCategoryUuid: tvCategoryUuid, multiple: true}), [{name: 'jcr:title', value: 'Catégorie TV (mode catégorie, sélection multiple)'}]),
 						withFrench(getContentChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'agency', title: 'Agency (content mode: texts under contents/agencies)', rootNodeUuid: agenciesRootUuid, nodeType: 'jnt:text'}), [{name: 'jcr:title', value: 'Agence (mode contenu : textes sous contents/agencies)'}])
@@ -650,7 +826,7 @@ describe('Playground - provision manual-testing forms', () => {
 		// ASCII: realType (cypress-real-events) rejects accented characters.
 		[
 			{lang: 'en', firstName: 'Alice', lastName: 'Martin', email: 'alice.martin@example.com', message: 'Could you send me the brochure of your spring collection?'},
-			{lang: 'en', firstName: 'Bob', lastName: 'Dupont', email: 'bob.dupont@example.com', message: 'The store in Lyon was closed on Monday, is that expected?', phone: '+33 6 12 34 56 78'},
+			{lang: 'en', firstName: 'Bob', lastName: 'Dupont', email: 'bob.dupont@example.com', message: 'The store in Lyon was closed on Monday, is that expected?', phone: '33612345678'},
 			{lang: 'fr', firstName: 'Chloe', lastName: 'Bernard', email: 'chloe.bernard@example.com', message: 'Bonjour, je souhaite recevoir le catalogue par courrier.'}
 		].forEach(({lang, firstName, lastName, email, message, phone}) => {
 			const form = visitLiveForm(liveFormPath('playground-simple'), lang);
@@ -688,10 +864,10 @@ describe('Playground - provision manual-testing forms', () => {
 		// Complete form: every field type, with the PDF and CSV fixtures as attachments.
 		// The third entry picks "Pickup", which reveals the conditional pickup location.
 		[
-			{code: 'AB-1234', email: 'fanny.girard@example.com', birth: '1988-04-12', color: '#ff5733', interests: ['Sports', 'Music'], delivery: 'Express', pickup: null, department: 'Engineering', summary: 'A new intranet for the engineering team, with a form for incident reports.', files: ['cypress/fixtures/files/document.pdf']},
-			{code: 'CD-5678', email: 'gabriel.lefevre@example.com', birth: '1975-11-30', color: '#3366cc', interests: ['Reading'], delivery: 'Standard', pickup: null, department: 'Sales', summary: 'Quarterly sales dashboard with an export of the leads collected on the site.', files: ['cypress/fixtures/files/sample.csv']},
-			{code: 'EF-9012', email: 'helene.petit@example.com', birth: '1992-07-08', color: '#2e8b57', interests: ['Sports'], delivery: 'Pickup', pickup: 'Paris - Rue de Rivoli', department: 'Support', summary: 'Support knowledge base migration, including the attached inventory and specification.', files: ['cypress/fixtures/files/document.pdf', 'cypress/fixtures/files/sample.csv']}
-		].forEach(({code, email, birth, color, interests, delivery, pickup, department, summary, files}) => {
+			{code: 'AB-1234', email: 'fanny.girard@example.com', birth: '1988-04-12', color: '#ff5733', interests: ['Sports', 'Music'], delivery: 'Express', pickup: null, gender: 'Female', kids: '2', country: 'FR', newsletter: true, department: 'Engineering', summary: 'A new intranet for the engineering team, with a form for incident reports.', files: ['cypress/fixtures/files/document.pdf']},
+			{code: 'CD-5678', email: 'gabriel.lefevre@example.com', birth: '1975-11-30', color: '#3366cc', interests: ['Reading'], delivery: 'Standard', pickup: null, gender: 'Male', kids: '0', country: 'DE', newsletter: false, department: 'Sales', summary: 'Quarterly sales dashboard with an export of the leads collected on the site.', files: ['cypress/fixtures/files/sample.csv']},
+			{code: 'EF-9012', email: 'helene.petit@example.com', birth: '1992-07-08', color: '#2e8b57', interests: ['Sports'], delivery: 'Pickup', pickup: 'Paris - Rue de Rivoli', gender: 'Other', kids: '3', country: 'CH', newsletter: true, department: 'Support', summary: 'Support knowledge base migration, including the attached inventory and specification.', files: ['cypress/fixtures/files/document.pdf', 'cypress/fixtures/files/sample.csv']}
+		].forEach(({code, email, birth, color, interests, delivery, pickup, gender, kids, country, newsletter, department, summary, files}) => {
 			const form = visitLiveForm(liveFormPath('playground-complete'));
 			form.getTextInput(INPUT_TEXT_COMPLETE.name!).type(code);
 			form.getEmailInput(INPUT_EMAIL_COMPLETE.name!).type(email);
@@ -705,6 +881,14 @@ describe('Playground - provision manual-testing forms', () => {
 				form.getTextInput('pickupLocation').type(pickup);
 			}
 
+			form.getRadioGroup('gender').select(gender);
+			form.getNumberInput('kids').clear().type(kids);
+			if (newsletter) {
+				// the switch's track covers its input, as spec 214 knows: force the check
+				form.getCheckbox('newsletter').getInput().check({force: true});
+			}
+
+			form.getSelectInput('country').selectByValue(country);
 			form.getSelectInput('department').select(department);
 			form.getTextarea(TEXTAREA_COMPLETE.name!).type(summary);
 			form.getFileInput(INPUT_FILE_MULTIPLE.name!).attachFile(files).shouldHaveSelectedFileCount(files.length);
