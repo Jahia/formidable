@@ -66,6 +66,7 @@ the message sits beside the form and not inside it: a stylesheet that scopes its
 | `--fmdb-form-actions-gap` | `0.75rem` | Gap between the form's buttons |
 | `--fmdb-form-actions-mt` | `1.5rem` | Space above the button row |
 | `--fmdb-new-form-btn-mt` | `0.75rem` | Space between the message and its button |
+| `--fmdb-new-form-btn-width` | `100%` | Width of that button — it fills the message as the submit button fills the form; `auto` makes it inline |
 
 A flatter, squarer look, for instance:
 
