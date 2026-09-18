@@ -68,9 +68,11 @@ Prerequisites: current `formidable-engine`, `formidable-elements`,
 `formidable-extended-inputs` and `formidable-test-module-samples-java`
 deployed on the target instance.
 
-`yarn playground:maintenance` adds, on its own, a form with no repository-writing
+`yarn playground:maintenance` adds a form with no repository-writing
 action (`maintenance-free`, the contrast case for the read-only maintenance mode) to the
-same folder, which it creates if the main script has not run yet.
+same folder, which it creates and publishes if the main script has not run yet. Only the
+folder is its own: it needs a site `yarn playground` has already built, and its form renders
+live once that script has published the site's home in the page language.
 
 ### With jExperience
 

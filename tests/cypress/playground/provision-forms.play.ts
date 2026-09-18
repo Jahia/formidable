@@ -54,10 +54,12 @@
  * select carries an empty-option label in both languages to showcase the
  * native required validation on the site.
  *
- * It also declares the options sources in the OSGi config (countries + the
- * static screen-type list of the fmdbSampleStaticList initializer of
- * formidable-test-module-samples-java), creates the sample category tree
- * product/tv and product/audio the category-mode fields point at, and
+ * It also declares the options sources in the OSGi config (countries + two
+ * static lists of the fmdbSampleStaticList initializer of
+ * formidable-test-module-samples-java, the screen types and how you watch),
+ * creates the sample category trees product/tv and product/audio the
+ * category-mode fields point at and the contents/agencies and
+ * contents/services folders the content-mode ones read, and
  * provisions the results reader user john-doe (password John#1234, kept on
  * the server across runs, site member as editor) with fmdb-results-reader
  * granted on the two simple forms only — to test the results access rights.
