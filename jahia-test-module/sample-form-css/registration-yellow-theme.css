@@ -390,8 +390,13 @@
 	font-size: 12px;
 }
 
+/* The card's own scale, font size included: the message is not inside the form, so it inherits the
+   page's font size unless it is told — and the buttons size themselves in em, which made the one in
+   the message taller and its label bigger than the very same button inside the form. */
 .fmdb-message {
 	font-family: Verdana, Geneva, sans-serif;
+	font-size: 14px;
+	color: var(--reg-ink);
 	width: 400px;
 	max-width: 100%;
 	box-sizing: border-box;
