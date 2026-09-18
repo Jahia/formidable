@@ -143,8 +143,10 @@ export default function Form({
 		},
 	});
 
-	// The form comes back empty, so a script that filled it at page load — the jExperience prefill — is
-	// told to do its work again, on the same element the visitor is about to see.
+	// Another form, after an accepted submission: the island emptied it on the 2xx, so a script that
+	// filled it at page load — the jExperience prefill — is told to do its work again. Only this path
+	// says it: after an error the form keeps everything the visitor typed (see below), and a script
+	// told the form was new would write over their corrections.
 	const startAnother = () => {
 		showForm();
 		formRef.current?.dispatchEvent(new CustomEvent(NEW_FORM_EVENT, {bubbles: true, detail: {formId}}));
@@ -199,7 +201,7 @@ export default function Form({
 							<button
 								type="button"
 								className="fmdb-btn fmdb-btn-secondary fmdb-new-form-btn"
-								onClick={startAnother}
+								onClick={showForm}
 							>
 								{tryAgainBtnLabel || t('tryAgainBtn')}
 							</button>

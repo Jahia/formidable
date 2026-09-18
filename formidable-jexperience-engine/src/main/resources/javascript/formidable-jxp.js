@@ -208,6 +208,10 @@
     };
     form.addEventListener("input", mark, true);
     form.addEventListener("change", mark, true);
+    // A reset empties the form, so nothing is prefilled any more: one listener for the form, whatever
+    // the number of fields the prefill locked or hid, and the island's formidable:reset — which waits
+    // for the values to be back — is what tells the prefill to run again.
+    form.addEventListener("reset", () => undoPrefill(form));
   };
   api.configs().forEach((config) => watch(api.formOf(config.formId)));
 
@@ -427,7 +431,7 @@
       if (wrapper) {
         wrapper.dataset.fmdbPrefilled = "readonly";
       }
-      undoOnReset(form, () => {
+      onPrefill(form, () => {
         unlock();
         clearMarks(wrapper);
       });
@@ -435,18 +439,29 @@
       wrapper.dataset.fmdbPrefilled = "hidden";
       wrapper.style.display = "none";
       wrapper.setAttribute("aria-hidden", "true");
-      undoOnReset(form, () => clearMarks(wrapper));
+      onPrefill(form, () => clearMarks(wrapper));
     }
   }
 
   /**
-   * A reset empties the form, so nothing is prefilled any more and what followed the prefill goes with it:
-   * a field kept out of sight would otherwise come back to its default value behind a `display: none`
-   * wrapper — a required one then blocking a submission over an error the visitor cannot see — and a
-   * locked one would hold a value the reset has just taken away.
+   * What each form's prefill has to give back, gathered as `after()` takes it: the locks, the marks, the
+   * fields put out of sight. One list per form, run — and emptied — whenever the form goes back to what
+   * the page opened with. A reset does that (a field kept out of sight would otherwise come back to its
+   * default value behind a `display: none` wrapper, a required one then blocking a submission over an
+   * error the visitor cannot see), and so does a prefill run again: without this the second `lock()` of a
+   * field would read the read-only attribute the first one set and keep it for good.
    */
-  function undoOnReset(form, undo) {
-    form.addEventListener("reset", undo, { once: true });
+  const undos = new WeakMap();
+
+  function onPrefill(form, undo) {
+    const list = undos.get(form) || [];
+    list.push(undo);
+    undos.set(form, list);
+  }
+
+  function undoPrefill(form) {
+    (undos.get(form) || []).forEach((undo) => undo());
+    undos.set(form, []);
   }
 
   /** The wrapper as it was before the prefill: in sight, and saying nothing to the styling or the logic. */
@@ -559,16 +574,20 @@
 
   /**
    * The form is back to what the page opened with, so the prefill is due again: the visitor reset it, or
-   * asked for another one after a submission. Two memories are cleared for that form alone — the mark
-   * that says it was filled once, and what its controls remember of having been touched, since what the
-   * visitor typed went with the reset. Everything else is the first prefill: the same gates, the same
-   * writes, the same `then`. A form the author never set to prefill has no pairs and is left alone.
+   * asked for another one after a submission. Everything the previous prefill did is given back first —
+   * the locks, the marks, the fields put out of sight — so that a second run starts from an untouched
+   * form and cannot read its own work as the author's (a `lock()` running over a locked field would
+   * remember `readonly` as the author's and never give it back). Then two memories go, for that form
+   * alone: the mark that says it was filled once, and what its controls remember of having been touched,
+   * since what the visitor typed went with the reset. The rest is the first prefill — the same gates, the
+   * same writes, the same `then`. Running it twice for one return changes nothing.
    */
   api.prefillAgain = (formId) => {
     const form = api.formOf(formId);
     if (!form) {
       return false;
     }
+    undoPrefill(form);
     delete form.dataset.fmdbPrefilled;
     Array.prototype.slice.call(form.elements).forEach((control) => touched.delete(control));
     return api.prefill(formId);

@@ -17,10 +17,15 @@ rules in its stylesheet, targeting the class hooks. The **Custom CSS** field of 
 be changed. Its content is injected in a `<style>` element next to the form, in live, preview
 and edit mode alike, and it is **not scoped to the form**: a broad rule affects the whole page.
 
-The base stylesheet of `formidable-elements` (`dist/assets/style.css`) only carries functional
-rules — validation messages, the multi-step navigation, the spinner, the edit-mode cues — and
-every value it hard-codes is exposed as a CSS variable, so a template set overrides values
-without fighting selectors. The extended inputs follow the same rule with their own prefix.
+The base stylesheet of `formidable-elements` (`dist/assets/style.css`) carries the functional
+rules — validation messages, the multi-step navigation, the spinner, the edit-mode cues — and,
+since 0.5.0, one piece of plain looks: the **buttons**, which came out as the browser draws them
+and made a form look unfinished wherever a template set had not styled them one by one. Fields,
+labels and layout are still the template set's business. Every value the stylesheet hard-codes is
+exposed as a CSS variable, so a template set overrides values without fighting selectors, and the
+button rules are written at the lowest specificity (`.fmdb-btn`, one class) so that a rule of
+yours scoped under `.fmdb-form` wins over them. The extended inputs follow the same rule with
+their own prefix.
 
 ## What the markup looks like
 
@@ -82,7 +87,11 @@ is, is in [Class hooks](class-hooks.md); the variables that size and colour thes
   implementation (`_form_x1y2z3`): private, different at every build, never a target.
 - **Three kinds of things in the markup.** *Class hooks*: stable names, kept across releases,
   the contract. *CSS variables* (`--fmdb-*`, `--fmdbext-*`): every value the base stylesheets
-  hard-code; set them on `.fmdb-form` (or `:root`) rather than restyling the selectors.
+  hard-code; set them on `.fmdb-form` (or `:root`) rather than restyling the selectors. One
+  exception to `.fmdb-form`: the submission message and its button are rendered **beside** the
+  form, not inside it, so the variables they read — `--fmdb-btn-*` — have to be set on `:root`
+  (or on `.fmdb-form, .fmdb-message`) or that button keeps the defaults while every other one
+  follows you.
   *Data attributes*: some are part of the contract (`data-fmdb-node-name` to target one field,
   `data-fmdb-edit-mode` and `data-fmdb-cm-view` to target a surface, `data-fmdb-source-error`,
   `data-fmdb-logic-hidden`, `data-fmdb-prefilled`, `data-fmdb-action-type`, `data-fmdbext-icon`), the others are
@@ -96,7 +105,7 @@ is, is in [Class hooks](class-hooks.md); the variables that size and colour thes
 
 ## Keeping the contract complete
 
-Measured against the sources at `b5afcb0` (2026-09-08): every class name and every variable the
+Measured against the sources at `806417c` (2026-09-18): every class name and every variable the
 modules render is in these two pages. No check keeps it so yet
 ([#305](https://github.com/Jahia/formidable/issues/305)); until one does, a hook or a variable
 renamed, added or removed in the sources comes with its edit here.

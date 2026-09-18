@@ -35,7 +35,7 @@
  - jExperienceProfileProperty (string, choicelist[formidableJExperienceProfileProperties,dependentProperties='multiple,options,optionsMode,jExperienceSensitive']) indexed=no
  - jExperienceSetStrategy (string, choicelist[resourceBundle]) = 'alwaysSet' autocreated indexed=no < 'alwaysSet', 'setIfMissing'
  - jExperiencePrefill (boolean) = false autocreated indexed=no
- - jExperiencePrefillThen (string, choicelist[resourceBundle,formidableJExperiencePrefillThen,dependentProperties='jExperiencePrefill']) = 'editable' autocreated indexed=no < 'editable', 'readOnly', 'hidden'
+ - jExperiencePrefillThen (string, choicelist[resourceBundle,formidableJExperiencePrefillThen,dependentProperties='jExperiencePrefill,jExperiencePrefillThen']) = 'editable' autocreated indexed=no < 'editable', 'readOnly', 'hidden'
 
 
 // A field the author marked sensitive: its value never leaves the site — it is not in the

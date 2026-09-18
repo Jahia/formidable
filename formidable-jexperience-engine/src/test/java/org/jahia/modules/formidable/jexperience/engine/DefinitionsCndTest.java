@@ -129,8 +129,8 @@ class DefinitionsCndTest {
         assertEquals("- " + JxpProperty.PREFILL + " (boolean) = false autocreated indexed=no",
                 lineStartingWith(mixin, "- " + JxpProperty.PREFILL + " "));
         assertEquals("- " + JxpProperty.PREFILL_THEN + " (string, choicelist[resourceBundle,"
-                        + PrefillThenChoiceListInitializer.KEY + ",dependentProperties='" + JxpProperty.PREFILL
-                        + "']) = 'editable' autocreated indexed=no < 'editable', 'readOnly', 'hidden'",
+                        + PrefillThenChoiceListInitializer.KEY + ",dependentProperties='" + JxpProperty.PREFILL + ","
+                        + JxpProperty.PREFILL_THEN + "']) = 'editable' autocreated indexed=no < 'editable', 'readOnly', 'hidden'",
                 lineStartingWith(mixin, "- " + JxpProperty.PREFILL_THEN + " "));
         assertTrue(cnd().stream().noneMatch(line -> line.strip().startsWith("[fmdbmix:jExperiencePrefill]")),
                 "the prefill mixin of the first design is gone");

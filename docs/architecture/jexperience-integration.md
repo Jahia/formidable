@@ -523,7 +523,7 @@ from the tracker — then completed by the client script:
  // one fieldset only when another is on. Its option's choicelist chains our initializer, which puts a message
  // in the dropdown while the switch is off — dependentProperties asks the list again the moment it is ticked
  - jExperiencePrefill (boolean) = false autocreated indexed=no
- - jExperiencePrefillThen (string, choicelist[resourceBundle,formidableJExperiencePrefillThen,dependentProperties='jExperiencePrefill']) = 'editable' autocreated indexed=no < 'editable', 'readOnly', 'hidden'
+ - jExperiencePrefillThen (string, choicelist[resourceBundle,formidableJExperiencePrefillThen,dependentProperties='jExperiencePrefill,jExperiencePrefillThen']) = 'editable' autocreated indexed=no < 'editable', 'readOnly', 'hidden'
 
 // formidable-jexperience-engine — the author's "this field is sensitive"; jmix:templateMixin is what
 // drops the fieldset's enable switch, and the mapping's choicelist names the property in its

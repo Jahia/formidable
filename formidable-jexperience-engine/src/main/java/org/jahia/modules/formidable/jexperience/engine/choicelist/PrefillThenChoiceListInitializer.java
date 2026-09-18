@@ -9,6 +9,7 @@ import org.jahia.services.content.nodetypes.initializers.ModuleChoiceListInitial
 import org.jahia.utils.i18n.Messages;
 import org.osgi.service.component.annotations.Component;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -18,8 +19,9 @@ import java.util.Map;
  * profile's value is in it — but only while the prefill is switched on. The option is inside the mapping
  * fieldset, beside the switch, and the editor cannot hide one field of a fieldset on the value of
  * another; so when the switch is off the three answers are replaced by one entry saying where to turn
- * the prefill on. The choicelist names the switch in its {@code dependentProperties}, so the editor asks
- * the list again the moment the box is ticked, with no save in between.
+ * the prefill on. The choicelist names the switch in its {@code dependentProperties}, so the editor asks the
+ * list again the moment the box is ticked, with no save in between — and the option itself, so that the
+ * answer the author has just picked is in the context when it does.
  *
  * <p>That entry carries the value the field already holds rather than an empty one, which is what lets
  * the option stay required in the editor: picking it writes what is stored, so an author who never opens
@@ -54,8 +56,21 @@ public class PrefillThenChoiceListInitializer implements ModuleChoiceListInitial
                 && Boolean.parseBoolean(field.getPropertyAsString(JxpProperty.PREFILL));
     }
 
-    /** What the field answers today, so that the one entry changes nothing; the CND's default otherwise. */
+    /**
+     * What the field answers right now, so that the one entry changes nothing: the value the editor holds
+     * unsaved first — the option names itself in its own {@code dependentProperties}, so the answer the
+     * author has just picked is in the context, and an entry carrying the saved value instead would be a
+     * value the form no longer has, which the editor clears on a required field. The stored value next,
+     * the definition's default for a field that holds neither.
+     */
     private static String storedThen(Map<String, Object> context) {
+        Object pending = context.get(JxpProperty.PREFILL_THEN);
+        if (pending instanceof Collection<?> values) {
+            pending = values.isEmpty() ? null : values.iterator().next();
+        }
+        if (pending != null && !String.valueOf(pending).isBlank()) {
+            return String.valueOf(pending);
+        }
         if (context.get(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE) instanceof JCRNodeWrapper field) {
             String then = field.getPropertyAsString(JxpProperty.PREFILL_THEN);
             if (then != null && !then.isBlank()) {

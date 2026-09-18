@@ -5,6 +5,7 @@ import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListValue;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -38,6 +39,13 @@ class PrefillThenChoiceListInitializerTest {
         };
     }
 
+    /** The same, with an unsaved answer for the option itself — the editor sends it, the list names it. */
+    private static Map<String, Object> contextWithPendingThen(Boolean stored, String storedThen, Object pending, Object pendingThen) {
+        Map<String, Object> context = context(stored, storedThen, pending);
+        context.put(JxpProperty.PREFILL_THEN, pendingThen);
+        return context;
+    }
+
     /** A field as the editor holds it: what it has stored, and what the author has just changed unsaved. */
     private static Map<String, Object> context(Boolean stored, String storedThen, Object pending) {
         Map<String, Object> context = new HashMap<>();
@@ -54,7 +62,7 @@ class PrefillThenChoiceListInitializerTest {
     }
 
     private static List<String> values(List<ChoiceListValue> choices) throws Exception {
-        List<String> values = new java.util.ArrayList<>();
+        List<String> values = new ArrayList<>();
         for (ChoiceListValue choice : choices) {
             values.add(choice.getValue().getString());
         }
@@ -98,6 +106,20 @@ class PrefillThenChoiceListInitializerTest {
         // entry carries what the CND autocreates rather than a value the list would not offer.
         assertEquals(List.of("editable"), values(initializer().getChoiceListValues(null, null, LABELLED, Locale.ENGLISH, context(null, null, null))));
         assertEquals(List.of("editable"), values(initializer().getChoiceListValues(null, null, LABELLED, Locale.ENGLISH, context(false, null, null))));
+    }
+
+    @Test
+    void theEntryCarriesTheAnswerTheAuthorHasJustPicked_notTheSavedOne() throws Exception {
+        // Choose "hide it", then untick the prefill, with no save in between: an entry carrying the saved
+        // value would be a value the form no longer holds, and the editor clears a value its list does not
+        // offer — on a required field, that is an error the author cannot answer, since the one entry left
+        // is an instruction.
+        List<ChoiceListValue> choices = initializer().getChoiceListValues(null, null, LABELLED, Locale.ENGLISH,
+                contextWithPendingThen(false, null, List.of("false"), List.of("hidden")));
+
+        assertEquals(1, choices.size());
+        assertEquals(MESSAGE, choices.get(0).getDisplayName());
+        assertEquals("hidden", choices.get(0).getValue().getString());
     }
 
     @Test
