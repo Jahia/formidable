@@ -24,8 +24,9 @@
  *                 authoring level, and the delivery method drives a field and that fieldset)
  *   - complete    every built-in field type (same set as spec 20), the visitor profile fields
  *                 first (mapped, prefilled, then the sensitive one), and the whole options matrix
- *                 — manual, options source, category and content, each single and multiple (the
- *                 content ones point at texts under contents/agencies, incl. an unpublished draft
+ *                 — manual, options source, category and content, each single and multiple, every
+ *                 field with words of its own (the content ones point at texts under
+ *                 contents/agencies and contents/services; the agencies hold an unpublished draft
  *                 to showcase that only published contents reach live)
  *   - languages   a choice field whose French labels are half translated, to try the site's
  *                 "replace untranslated content" setting both ways
@@ -56,7 +57,7 @@
  * It also declares the options sources in the OSGi config (countries + the
  * static screen-type list of the fmdbSampleStaticList initializer of
  * formidable-test-module-samples-java), creates the sample category tree
- * product/tv (plasma, oled, led) the category-mode fields point at, and
+ * product/tv and product/audio the category-mode fields point at, and
  * provisions the results reader user john-doe (password John#1234, kept on
  * the server across runs, site member as editor) with fmdb-results-reader
  * granted on the two simple forms only — to test the results access rights.
@@ -111,6 +112,7 @@ let themeCss = '';
 const FORMS_FOLDER_PATH = `${CONTENT_PATH}/forms`;
 
 const AGENCIES_ROOT_PATH = `${CONTENT_PATH}/agencies`;
+const SERVICES_ROOT_PATH = `${CONTENT_PATH}/services`;
 const CATEGORY_ROOT = '/sites/systemsite/categories';
 
 const RESULTS_READER = {name: 'john-doe', password: 'John#1234'};
@@ -577,7 +579,9 @@ const multiStepNodes = (): JahiaNode[] => [
 /** The roots the complete form's category-mode and content-mode fields point at. */
 interface ChoiceRoots {
 	tvCategoryUuid: string;
+	audioCategoryUuid: string;
 	agenciesRootUuid: string;
+	servicesRootUuid: string;
 }
 
 // Every built-in field type, in three blocks. The visitor profile first — the mapped fields, all prefilled,
@@ -585,10 +589,12 @@ interface ChoiceRoots {
 // field types next; and last the choice fields that complete the options matrix — four sources (manual,
 // options source, category, content) each in a single and a multiple shape:
 //   manual         single: gender, deliveryMethod (radio), department (select)   multiple: interests (checkbox group)
-//   options source single: country (select)                                      multiple: tvTypes (checkbox group)
-//   category       single: tvCategory (radio)                                    multiple: tvCategories (checkbox group)
-//   content        single: agency (select)                                       multiple: agencies (multiple select)
-const completeFormNodes = ({tvCategoryUuid, agenciesRootUuid}: ChoiceRoots): JahiaNode[] => [
+//   options source single: country (select)                                      multiple: viewing (checkbox group)
+//   category       single: tvCategory (radio, product/tv)                        multiple: audioCategories (checkbox group, product/audio)
+//   content        single: agency (select, agencies)                             multiple: services (multiple select, services)
+// Each field has an option set of its own — the same three words under three sources read as one field
+// repeated (HDU, 2026-09-18).
+const completeFormNodes = ({tvCategoryUuid, audioCategoryUuid, agenciesRootUuid, servicesRootUuid}: ChoiceRoots): JahiaNode[] => [
 	mappedTo(withFrench(getInputEmailNode({...INPUT_EMAIL_COMPLETE, defaultValue: undefined}), [
 		{name: 'jcr:title', value: 'Email de contact'},
 		{name: 'placeholder', value: 'Saisissez votre adresse e-mail'}
@@ -652,11 +658,11 @@ const completeFormNodes = ({tvCategoryUuid, agenciesRootUuid}: ChoiceRoots): Jah
 	]),
 	withFrench(getInputFileNode(INPUT_FILE_MULTIPLE), [{name: 'jcr:title', value: 'Pièces jointes'}]),
 	// --- The rest of the options matrix (manual single and multiple, and the sourced single select, are above).
-	withFrench(getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:checkbox', name: 'tvTypes', title: 'Screen types you own (options source: static list, multiple)', sourceKey: 'tv'}), [{name: 'jcr:title', value: 'Types d\'écran possédés (source d\'options : liste statique, multiple)'}]),
-	withFrench(getCategoryChoiceFieldNode({primaryNodeType: 'fmdb:radio', name: 'tvCategory', title: 'TV category (category, single)', rootCategoryUuid: tvCategoryUuid}), [{name: 'jcr:title', value: 'Catégorie TV (catégorie, choix unique)'}]),
-	withFrench(getCategoryChoiceFieldNode({primaryNodeType: 'fmdb:checkbox', name: 'tvCategories', title: 'TV categories (category, multiple)', rootCategoryUuid: tvCategoryUuid}), [{name: 'jcr:title', value: 'Catégories TV (catégorie, choix multiple)'}]),
-	withFrench(getContentChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'agency', title: 'Agency (content: texts under contents/agencies, single)', rootNodeUuid: agenciesRootUuid, nodeType: 'jnt:text'}), [{name: 'jcr:title', value: 'Agence (contenu : textes sous contents/agencies, choix unique)'}]),
-	withFrench(getContentChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'agencies', title: 'Agencies to notify (content, multiple select)', rootNodeUuid: agenciesRootUuid, nodeType: 'jnt:text', multiple: true}), [{name: 'jcr:title', value: 'Agences à prévenir (contenu, sélection multiple)'}])
+	withFrench(getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:checkbox', name: 'viewing', title: 'How you watch TV (options source: static list, multiple)', sourceKey: 'viewing'}), [{name: 'jcr:title', value: 'Comment vous regardez la TV (source d\'options : liste statique, multiple)'}]),
+	withFrench(getCategoryChoiceFieldNode({primaryNodeType: 'fmdb:radio', name: 'tvCategory', title: 'Your TV technology (category product/tv, single)', rootCategoryUuid: tvCategoryUuid}), [{name: 'jcr:title', value: 'Votre technologie TV (catégorie product/tv, choix unique)'}]),
+	withFrench(getCategoryChoiceFieldNode({primaryNodeType: 'fmdb:checkbox', name: 'audioCategories', title: 'Audio products you are interested in (category product/audio, multiple)', rootCategoryUuid: audioCategoryUuid}), [{name: 'jcr:title', value: 'Produits audio qui vous intéressent (catégorie product/audio, choix multiple)'}]),
+	withFrench(getContentChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'agency', title: 'Your agency (content: texts under contents/agencies, single)', rootNodeUuid: agenciesRootUuid, nodeType: 'jnt:text'}), [{name: 'jcr:title', value: 'Votre agence (contenu : textes sous contents/agencies, choix unique)'}]),
+	withFrench(getContentChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'services', title: 'Services you need (content: texts under contents/services, multiple select)', rootNodeUuid: servicesRootUuid, nodeType: 'jnt:text', multiple: true}), [{name: 'jcr:title', value: 'Services souhaités (contenu : textes sous contents/services, sélection multiple)'}])
 ];
 
 const languagesFormNodes = (): JahiaNode[] => [
@@ -682,8 +688,12 @@ const languagesFormNodes = (): JahiaNode[] => [
 const OPTIONS_SOURCES_CONFIG = [
 	// Literal label
 	'countries|Countries|country',
-	// Localized label: resolved against the module's resource bundle in the editor UI language
-	'tv|formidable-test-module-samples-java:sample.optionsSource.tv|fmdbSampleStaticList|plasma,oled,led'
+	// Localized label: resolved against the module's resource bundle in the editor UI language (offered in the
+	// editor's dropdown, used by no field of the set: its values are the TV categories' words, see below)
+	'tv|formidable-test-module-samples-java:sample.optionsSource.tv|fmdbSampleStaticList|plasma,oled,led',
+	// A static list whose values have no label in the sample bundle: the raw value is the label, which is why
+	// they are capitalised here
+	'viewing|How you watch|fmdbSampleStaticList|Streaming,Cable,Satellite,Antenna'
 ];
 
 describe('Playground - provision manual-testing forms', () => {
@@ -724,23 +734,34 @@ describe('Playground - provision manual-testing forms', () => {
 		setOptionsSourcesConfig(OPTIONS_SOURCES_CONFIG);
 	});
 
-	it('creates and publishes the sample category tree product/tv (category-mode targets)', () => {
+	it('creates and publishes the sample category trees product/tv and product/audio (category-mode targets)', () => {
 		// Categories are global; creations are idempotent (existing nodes are kept).
 		addNode({parentPathOrId: CATEGORY_ROOT, ...getCategoryNode('product', 'Product', 'Produit')});
 		addNode({parentPathOrId: `${CATEGORY_ROOT}/product`, ...getCategoryNode('tv', 'TV', 'Téléviseur')});
 		addNode({parentPathOrId: `${CATEGORY_ROOT}/product/tv`, ...getCategoryNode('plasma', 'Plasma', 'Plasma')});
 		addNode({parentPathOrId: `${CATEGORY_ROOT}/product/tv`, ...getCategoryNode('oled', 'OLED', 'OLED')});
 		addNode({parentPathOrId: `${CATEGORY_ROOT}/product/tv`, ...getCategoryNode('led', 'LED', 'LED')});
+		// A second tree for the multiple category field, so that the two do not show the same words.
+		addNode({parentPathOrId: `${CATEGORY_ROOT}/product`, ...getCategoryNode('audio', 'Audio', 'Audio')});
+		addNode({parentPathOrId: `${CATEGORY_ROOT}/product/audio`, ...getCategoryNode('headphones', 'Headphones', 'Casques')});
+		addNode({parentPathOrId: `${CATEGORY_ROOT}/product/audio`, ...getCategoryNode('speakers', 'Speakers', 'Enceintes')});
+		addNode({parentPathOrId: `${CATEGORY_ROOT}/product/audio`, ...getCategoryNode('soundbar', 'Soundbar', 'Barre de son')});
 		publishAndWaitJobEnding(`${CATEGORY_ROOT}/product`, ['en', 'fr']);
 	});
 
-	it('creates and publishes the agency contents (content-mode targets)', () => {
+	it('creates and publishes the agency and service contents (content-mode targets)', () => {
 		addNode({parentPathOrId: CONTENT_PATH, name: 'agencies', primaryNodeType: 'jnt:contentFolder', properties: []});
 		addNode({parentPathOrId: AGENCIES_ROOT_PATH, ...getTitledTextNode('paris', 'Paris agency', 'Agence de Paris')});
 		addNode({parentPathOrId: AGENCIES_ROOT_PATH, ...getTitledTextNode('lyon', 'Lyon agency', 'Agence de Lyon')});
 		addNode({parentPathOrId: AGENCIES_ROOT_PATH, name: 'europe', primaryNodeType: 'jnt:contentFolder', properties: []});
 		addNode({parentPathOrId: `${AGENCIES_ROOT_PATH}/europe`, ...getTitledTextNode('berlin', 'Berlin agency', 'Agence de Berlin')});
 		publishAndWaitJobEnding(AGENCIES_ROOT_PATH, ['en', 'fr']);
+		// A second root for the multiple content field, so that the two do not show the same words.
+		addNode({parentPathOrId: CONTENT_PATH, name: 'services', primaryNodeType: 'jnt:contentFolder', properties: []});
+		addNode({parentPathOrId: SERVICES_ROOT_PATH, ...getTitledTextNode('repair', 'Repair', 'Réparation')});
+		addNode({parentPathOrId: SERVICES_ROOT_PATH, ...getTitledTextNode('installation', 'Installation', 'Installation')});
+		addNode({parentPathOrId: SERVICES_ROOT_PATH, ...getTitledTextNode('training', 'Training', 'Formation')});
+		publishAndWaitJobEnding(SERVICES_ROOT_PATH, ['en', 'fr']);
 	});
 
 	it('provisions the results reader user', () => {
@@ -751,30 +772,33 @@ describe('Playground - provision manual-testing forms', () => {
 		cy.log(`Results reader: ${RESULTS_READER.name} / ${RESULTS_READER.password} (access to the two simple forms' results only)`);
 	});
 
-	/** One form (or page) of the set: its English title decides its place in the creation order. */
+	/**
+	 * One form (or page) of the set. Its titles are what the nodes get, in both languages, and the English
+	 * one decides its place in the creation order.
+	 */
 	interface Entry {
 		title: string;
 		frTitle: string;
-		/** Provisions the entry in the look; the roots are what the complete form's category and content fields point at. */
-		provision: (look: Look, roots: ChoiceRoots) => void;
+		/** Provisions the entry in the look, under its own titles; the roots are what the complete form's category and content fields point at. */
+		provision: (look: Look, titles: Pick<Entry, 'title' | 'frTitle'>, roots: ChoiceRoots) => void;
 	}
 
-	// In TITLE order — the guard in the tests below refuses anything else. The two-forms page comes after
-	// the simple and the newsletter forms it references, which the alphabet happens to grant.
+	// In TITLE order, asserted by the guard in the tests below — and the two-forms page after the simple and
+	// the newsletter forms it resolves by path, the one ordering the set depends on, asserted as well.
 	const ENTRIES: Entry[] = [
 		{
 			title: 'Complete form',
 			frTitle: 'Formulaire complet',
-			provision: (look, roots) => {
-				provisionForm(look, 'complete', 'Complete form', 'Formulaire complet', completeFormNodes(roots))
+			provision: (look, {title, frTitle}, roots) => {
+				provisionForm(look, 'complete', title, frTitle, completeFormNodes(roots))
 					.then(({livePath}) => cy.log(`${look.label} complete form: /en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`));
 			}
 		},
 		{
 			title: 'Half-translated options',
 			frTitle: 'Options traduites à moitié',
-			provision: look => {
-				provisionForm(look, 'languages', 'Half-translated options', 'Options traduites à moitié', languagesFormNodes()).then(({livePath}) => {
+			provision: (look, {title, frTitle}) => {
+				provisionForm(look, 'languages', title, frTitle, languagesFormNodes()).then(({livePath}) => {
 					cy.log(`${look.label} half-translated options, English: /en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`);
 					cy.log(`${look.label} half-translated options, French: /fr/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`);
 					cy.log('Toggle "Replace untranslated content with the default language content" in the site settings: '
@@ -785,26 +809,26 @@ describe('Playground - provision manual-testing forms', () => {
 		{
 			title: 'Multi-step form',
 			frTitle: 'Formulaire multi-étapes',
-			provision: look => {
+			provision: (look, {title, frTitle}) => {
 				// A business stylesheet on a multi-step form (the CSS look): the authoring UI must stay readable on top of it.
-				provisionForm(look, 'steps', 'Multi-step form', 'Formulaire multi-étapes', multiStepNodes())
+				provisionForm(look, 'steps', title, frTitle, multiStepNodes())
 					.then(({livePath}) => cy.log(`${look.label} multi-step form: /en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`));
 			}
 		},
 		{
 			title: 'Newsletter',
 			frTitle: 'Lettre d\'information',
-			provision: look => {
+			provision: (look, {title, frTitle}) => {
 				// A form without a page of its own: it shows on the two-forms page only.
 				createFormNode(
 					nameOf(look, 'newsletter'),
-					titleOf(look, 'Newsletter'),
+					titleOf(look, title),
 					newsletterNodes(),
 					{
 						parentPath: PLAYGROUND_FORMS_PATH,
 						actions: [saveToJcrAction()],
 						...LIST_TITLES,
-						properties: [{name: 'jcr:title', value: frTitleOf(look, 'Lettre d\'information'), language: 'fr'}, ...cssOf(look)]
+						properties: [{name: 'jcr:title', value: frTitleOf(look, frTitle), language: 'fr'}, ...cssOf(look)]
 					}
 				);
 				publishAndWaitJobEnding(`${PLAYGROUND_FORMS_PATH}/${nameOf(look, 'newsletter')}`, ['en', 'fr']);
@@ -813,8 +837,8 @@ describe('Playground - provision manual-testing forms', () => {
 		{
 			title: 'Simple contact form',
 			frTitle: 'Formulaire de contact simple',
-			provision: look => {
-				provisionForm(look, 'simple', 'Simple contact form', 'Formulaire de contact simple', simpleFormNodes()).then(({formPath, livePath}) => {
+			provision: (look, {title, frTitle}) => {
+				provisionForm(look, 'simple', title, frTitle, simpleFormNodes()).then(({formPath, livePath}) => {
 					// Results access: fmdb-results-reader on the form node, propagated to the
 					// results by the ACL sync once the form is (re)published.
 					grantRoles(formPath, ['fmdb-results-reader'], RESULTS_READER.name, 'USER');
@@ -826,7 +850,7 @@ describe('Playground - provision manual-testing forms', () => {
 		{
 			title: 'Two forms on one page',
 			frTitle: 'Deux formulaires sur une page',
-			provision: look => {
+			provision: (look, {title, frTitle}) => {
 				// The case a page with one form never shows: two forms side by side, each with its own results and
 				// its own mapping. It is also what the jExperience integration has to get right — one configuration
 				// block per form, one tracking script for the page. Both forms are referenced rather than copied,
@@ -844,8 +868,8 @@ describe('Playground - provision manual-testing forms', () => {
 							name: pageName,
 							primaryNodeType: 'jnt:page',
 							properties: [
-								{name: 'jcr:title', value: titleOf(look, 'Two forms on one page'), language: 'en'},
-								{name: 'jcr:title', value: frTitleOf(look, 'Deux formulaires sur une page'), language: 'fr'},
+								{name: 'jcr:title', value: titleOf(look, title), language: 'en'},
+								{name: 'jcr:title', value: frTitleOf(look, frTitle), language: 'fr'},
 								{name: 'j:templateName', value: 'simple'}
 							],
 							children: [
@@ -883,14 +907,19 @@ describe('Playground - provision manual-testing forms', () => {
 		it(`provisions the ${look.label.toLowerCase()} forms and their pages, in title order`, () => {
 			expect(LOOKS.map(candidate => candidate.label), 'looks in label order').to.satisfy(inTitleOrder);
 			expect(ENTRIES.map(entry => entry.title), 'entries in title order').to.satisfy(inTitleOrder);
+			// the ordering the set actually depends on: the two-forms page resolves the two forms by path
+			const at = (title: string) => ENTRIES.findIndex(entry => entry.title === title);
+			expect(at('Two forms on one page'), 'the two-forms page comes after the forms it references')
+				.to.be.greaterThan(Math.max(at('Simple contact form'), at('Newsletter')));
 
-			getNodeByPath(`${CATEGORY_ROOT}/product/tv`).then(response => {
-				const tvCategoryUuid: string = response.data.jcr.nodeByPath.uuid;
-
-				getNodeByPath(AGENCIES_ROOT_PATH).then(agenciesResponse => {
-					const agenciesRootUuid: string = agenciesResponse.data.jcr.nodeByPath.uuid;
-
-					ENTRIES.forEach(entry => entry.provision(look, {tvCategoryUuid, agenciesRootUuid}));
+			const uuidOf = (path: string): Cypress.Chainable<string> => getNodeByPath(path).then(response => response.data.jcr.nodeByPath.uuid as string);
+			uuidOf(`${CATEGORY_ROOT}/product/tv`).then(tvCategoryUuid => {
+				uuidOf(`${CATEGORY_ROOT}/product/audio`).then(audioCategoryUuid => {
+					uuidOf(AGENCIES_ROOT_PATH).then(agenciesRootUuid => {
+						uuidOf(SERVICES_ROOT_PATH).then(servicesRootUuid => {
+							ENTRIES.forEach(entry => entry.provision(look, entry, {tvCategoryUuid, audioCategoryUuid, agenciesRootUuid, servicesRootUuid}));
+						});
+					});
 				});
 			});
 		});
