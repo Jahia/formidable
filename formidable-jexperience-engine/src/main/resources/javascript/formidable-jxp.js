@@ -210,7 +210,8 @@
    * Fills the mapped fields of the form from the loaded context, one field at a time, and once. A control
    * the visitor touched is left alone. A default value the author gave the field gives way: the profile is
    * the fresher word about this visitor. A field the profile has no value for is left as it is, default
-   * included — the prefill never blanks. Nothing happens without a tracker, a profile and a hydrated form;
+   * included — the prefill never blanks. A field that was written is then left editable, made read-only or
+   * hidden, as the author asked (`then`). Nothing happens without a tracker, a profile and a hydrated form;
    * a form is marked done once something was written into it, so the second of the two signals that open
    * the gates does not write again.
    */
@@ -226,7 +227,14 @@
     }
     watch(form);
     const values = window.wem.getLoadedContext().profileProperties || {};
-    const written = Object.keys(pairs).filter((field) => fill(form, field, values[pairs[field].property]));
+    const written = Object.keys(pairs).filter((field) => {
+      const entry = pairs[field];
+      const done = fill(form, field, values[entry.property], entry.then);
+      if (done && entry.then) {
+        after(form, field, entry.then);
+      }
+      return done;
+    });
     if (written.length > 0) {
       form.dataset.fmdbPrefilled = "true";
     }
@@ -236,9 +244,10 @@
   /**
    * Writes one profile value into the controls named `field`, by their shape; true when something was
    * written. `input` then `change` are dispatched on what changed, so the conditional logic, the input
-   * mask and any validation see the value as if the visitor had typed it.
+   * mask and any validation see the value as if the visitor had typed it. `then` travels to the island a
+   * hidden control may belong to, which applies it itself.
    */
-  function fill(form, field, value) {
+  function fill(form, field, value, then) {
     const controls = Array.prototype.slice.call(form.elements).filter((el) => el.name === field);
     if (controls.length === 0) {
       return false;
@@ -254,7 +263,7 @@
     if (type === "file" || type === "submit" || type === "button" || type === "reset") {
       return false;
     }
-    return fillText(first, value);
+    return fillText(first, value, then);
   }
 
   /**
@@ -314,7 +323,7 @@
    * control may be the mirror of an island's state (the range slider is built that way): it is written
    * like any other, then told, and the island takes the value over — or lets its state reset it.
    */
-  function fillText(control, value) {
+  function fillText(control, value, then) {
     if (touched.has(control)) {
       return false;
     }
@@ -331,7 +340,9 @@
     setValue(control, text);
     changed(control);
     if (control.type === "hidden") {
-      control.dispatchEvent(new CustomEvent(PREFILL_EVENT, { bubbles: true, detail: { value: text } }));
+      control.dispatchEvent(
+        new CustomEvent(PREFILL_EVENT, { bubbles: true, detail: { value: text, then: then } }),
+      );
     }
     return true;
   }
@@ -385,6 +396,62 @@
     }
     changed(select);
     return true;
+  }
+
+  /**
+   * What the author asked once the profile's value is in the field. `readOnly` keeps it in sight and takes
+   * the visitor's hand off it; `hidden` takes it out of sight, its value still submitted. Both write
+   * `data-fmdb-prefilled` on the field's wrapper — the styling hook, and what the conditional logic reads to
+   * keep a hidden one out of sight when a rule shows it again. Neither reaches a field the prefill left alone
+   * (the caller only asks after a write): the visitor has to be able to fill it. A value the field's own
+   * validation rejects is never hidden either — the visitor could neither see the error nor fix it.
+   */
+  function after(form, field, then) {
+    const controls = Array.prototype.slice.call(form.elements).filter((el) => el.name === field);
+    const wrapper = controls.length > 0 ? controls[0].closest("[data-fmdb-node-name]") : null;
+    if (then === "readOnly") {
+      lock(controls);
+      if (wrapper) {
+        wrapper.dataset.fmdbPrefilled = "readonly";
+      }
+    } else if (then === "hidden" && wrapper && controls.every((c) => c.checkValidity())) {
+      wrapper.dataset.fmdbPrefilled = "hidden";
+      wrapper.style.display = "none";
+      wrapper.setAttribute("aria-hidden", "true");
+    }
+  }
+
+  /**
+   * Read-only, by shape. A text-like control has the attribute. A select, a radio or a checkbox has none, and
+   * `disabled` would take the value out of the submission: they say `aria-readonly` and put the prefilled
+   * state back whenever the visitor changes it — on the control itself, before the change bubbles to the
+   * logic (the base stylesheet takes the pointer off them too). A hidden mirror belongs to an island, which
+   * was told through the event.
+   */
+  function lock(controls) {
+    const first = controls[0];
+    const type = (first.type || "").toLowerCase();
+    if (first.tagName === "SELECT" || type === "checkbox" || type === "radio") {
+      const state = controls.map((c) =>
+        c.tagName === "SELECT" ? Array.prototype.slice.call(c.options).map((o) => o.selected) : c.checked,
+      );
+      const restore = () =>
+        controls.forEach((c, i) => {
+          if (c.tagName === "SELECT") {
+            Array.prototype.slice.call(c.options).forEach((o, j) => {
+              o.selected = state[i][j];
+            });
+          } else {
+            c.checked = state[i];
+          }
+        });
+      controls.forEach((c) => {
+        c.setAttribute("aria-readonly", "true");
+        c.addEventListener("change", restore);
+      });
+    } else if (type !== "hidden") {
+      first.readOnly = true;
+    }
   }
 
   /**

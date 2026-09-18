@@ -27,7 +27,13 @@ import static org.mockito.Mockito.when;
 class PrefillMappingsTest {
 
     private static JCRNodeWrapper field(String name, String property, boolean mapped, boolean prefill, boolean sensitive) throws RepositoryException {
+        return field(name, property, mapped, prefill, sensitive, null);
+    }
+
+    /** {@code then}: the author's choice of what follows the write, as stored — null for a field saved before the option existed. */
+    private static JCRNodeWrapper field(String name, String property, boolean mapped, boolean prefill, boolean sensitive, String then) throws RepositoryException {
         JCRNodeWrapper node = mock(JCRNodeWrapper.class);
+        when(node.getPropertyAsString(JxpProperty.PREFILL_THEN)).thenReturn(then);
         when(node.getName()).thenReturn(name);
         when(node.getPath()).thenReturn("/sites/mysite/contents/contact/fields/" + name);
         when(node.isNodeType(JxpMixin.MAPPING)).thenReturn(mapped);
@@ -69,8 +75,8 @@ class PrefillMappingsTest {
         )).read(mock(JCRSessionWrapper.class), mock(JCRNodeWrapper.class));
 
         assertEquals(Map.of(
-                "firstName", new PrefillMappings.Entry("firstName"),
-                "email", new PrefillMappings.Entry("email")), prefill.entries());
+                "firstName", new PrefillMappings.Entry("firstName", null),
+                "email", new PrefillMappings.Entry("email", null)), prefill.entries());
         // in the form's order, which is the query's
         assertEquals(List.of("firstName", "email"), List.copyOf(prefill.entries().keySet()));
     }
@@ -101,9 +107,30 @@ class PrefillMappingsTest {
     }
 
     @Test
-    void theBlockCarriesNamesAndNothingElse() {
-        Map<String, PrefillMappings.Entry> entries = Map.of("first\"Name", new PrefillMappings.Entry("firstName"));
-        assertEquals("{\"first\\\"Name\":{\"property\":\"firstName\"}}", PrefillMappings.json(entries));
+    void whatFollowsTheWriteTravelsOnlyWhenTheAuthorAskedForSomething() throws Exception {
+        // Verifies the one option of the prefill fieldset as the block carries it: "editable" — the default the
+        // editor stores, and what a field saved before the option existed has nothing of — says nothing, the
+        // two others travel as they are stored.
+        PrefillMappings.Prefill prefill = over(List.of(
+                field("firstName", "firstName", true, true, false, "editable"),
+                field("email", "email", true, true, false, "readOnly"),
+                field("country", "countryName", true, true, false, "hidden"),
+                field("kids", "kids", true, true, false, null)
+        )).read(mock(JCRSessionWrapper.class), mock(JCRNodeWrapper.class));
+
+        assertEquals(Map.of(
+                "firstName", new PrefillMappings.Entry("firstName", null),
+                "email", new PrefillMappings.Entry("email", "readOnly"),
+                "country", new PrefillMappings.Entry("countryName", "hidden"),
+                "kids", new PrefillMappings.Entry("kids", null)), prefill.entries());
+    }
+
+    @Test
+    void theBlockCarriesNamesAndWhatFollowsTheWriteAndNothingElse() {
+        Map<String, PrefillMappings.Entry> entries = new java.util.LinkedHashMap<>();
+        entries.put("first\"Name", new PrefillMappings.Entry("firstName", null));
+        entries.put("email", new PrefillMappings.Entry("email", "readOnly"));
+        assertEquals("{\"first\\\"Name\":{\"property\":\"firstName\"},\"email\":{\"property\":\"email\",\"then\":\"readOnly\"}}", PrefillMappings.json(entries));
         assertEquals("{}", PrefillMappings.json(Map.of()));
     }
 }

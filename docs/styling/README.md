@@ -85,7 +85,7 @@ is, is in [Class hooks](class-hooks.md); the variables that size and colour thes
   hard-code; set them on `.fmdb-form` (or `:root`) rather than restyling the selectors.
   *Data attributes*: some are part of the contract (`data-fmdb-node-name` to target one field,
   `data-fmdb-edit-mode` and `data-fmdb-cm-view` to target a surface, `data-fmdb-source-error`,
-  `data-fmdb-logic-hidden`, `data-fmdb-action-type`, `data-fmdbext-icon`), the others are
+  `data-fmdb-logic-hidden`, `data-fmdb-prefilled`, `data-fmdb-action-type`, `data-fmdbext-icon`), the others are
   functional markers the client reads and may change with their feature — both lists are in
   [Class hooks](class-hooks.md).
 - **Edit mode adds, live does not.** The Page Builder gets wrappers, spacing and the actions zone;

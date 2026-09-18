@@ -13,7 +13,7 @@ public final class JxpMixin {
 
     /**
      * The author's "prefill this field from the visitor profile": a fieldset of its own, with the switch jcontent
-     * gives a mixin that extends a type. The profile's value replaces the author's default; no value, no write.
+     * gives a mixin that extends a type, and one option: what the page does with the field once the value is in.
      */
     public static final String PREFILL = "fmdbmix:jExperiencePrefill";
 

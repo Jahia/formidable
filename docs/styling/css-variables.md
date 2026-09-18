@@ -243,6 +243,17 @@ jExperience and orange to jContent's warnings.
 | `--fmdb-spinner-text-size-medium-mobile` | `0.8rem` | Font size (medium) |
 | `--fmdb-spinner-text-size-large-mobile` | `0.9rem` | Font size (large) |
 
+## Prefilled fields
+
+A field a prefill filled and the author made read-only carries `data-fmdb-prefilled="readonly"` on its
+wrapper (see [Class hooks](class-hooks.md#the-form-and-its-fields)): the field is toned down, and its
+select, radio and checkbox controls — which have no native read-only — and their labels lose the pointer.
+
+| Variable | Default | Description |
+|---|---|---|
+| `--fmdb-prefilled-readonly-opacity` | `0.75` | Opacity of the read-only field |
+| `--fmdb-prefilled-readonly-pointer-events` | `none` | Pointer events of its select, radio, checkbox and labels; `auto` gives them back |
+
 ## Extended inputs
 
 Chips are the number-mode rating items, the scale items and the switch buttons; the rating's

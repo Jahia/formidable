@@ -63,6 +63,9 @@ export default function RangeInput({
 	const mirrorRef = useRef<HTMLInputElement>(null);
 	const answeredByVisitorRef = useRef(false);
 	const mountedRef = useRef(false);
+	// Set when a prefill wrote the slider and the author asked for read-only: the visible slider is disabled,
+	// the named mirror keeps the value for the submission.
+	const [lockedByPrefill, setLockedByPrefill] = useState(false);
 
 	// The thumb needs a position even while unanswered; the midpoint mirrors the
 	// browser default for a valueless range, snapped to the step grid so the
@@ -138,7 +141,7 @@ export default function RangeInput({
 		const mirror = mirrorRef.current;
 		if (!mirror) return;
 		const handlePrefill = (event: Event) => {
-			const detail = (event as CustomEvent<{value?: unknown}>).detail ?? {};
+			const detail = (event as CustomEvent<{value?: unknown; then?: string}>).detail ?? {};
 			const accepted = prefillValue(detail, {
 				answeredByVisitor: answeredByVisitorRef.current,
 				minValue,
@@ -147,6 +150,9 @@ export default function RangeInput({
 			});
 			if (accepted !== null) {
 				setValue(accepted);
+				if (detail.then === 'readOnly') {
+					setLockedByPrefill(true);
+				}
 			}
 		};
 		mirror.addEventListener(PREFILL_EVENT, handlePrefill);
@@ -171,7 +177,7 @@ export default function RangeInput({
 					value={displayValue}
 					title={title}
 					autoFocus={autofocus}
-					disabled={disabled}
+					disabled={disabled || lockedByPrefill}
 					form={form}
 					onChange={event => {
 						answeredByVisitorRef.current = true;

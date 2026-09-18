@@ -38,6 +38,12 @@ Every element wrapper also exposes `data-fmdb-node-name`, `data-fmdb-node-id` an
 `data-fmdb-node-type`, for rules that target one field by name:
 `.fmdb-form [data-fmdb-node-name="email"] { … }`.
 
+A field a prefill filled (the jExperience integration, from the visitor profile) and the author made
+read-only or hidden carries `data-fmdb-prefilled="readonly"` or `"hidden"` on that same wrapper: the
+core tones the read-only one down and takes the pointer off its select, radio and checkbox controls
+(variables in [CSS variables](css-variables.md#prefilled-fields)), and hides the other inline, its value
+still submitted.
+
 Four other `data-fmdb-*` attributes are functional markers the client reads, not styling hooks,
 and they may change with the feature they serve: `data-fmdb-step` on each step wrapper (the
 class `fmdb-step` is the hook), `data-fmdb-msg-*` on the controls (the contributor's validation

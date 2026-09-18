@@ -97,12 +97,15 @@ class DefinitionsCndTest {
     @Test
     void thePrefillIsAMixinOfItsOwnAttachedToTheMarker() throws Exception {
         // Verifies the shape jcontent turns into a switchable fieldset: a mixin that extends the marker, no
-        // supertype — and no property: the switch is the whole decision, the profile's value replaces a
-        // default and a missing value leaves the field alone, by the client script's rule.
+        // supertype, holding the one option that shows only when the switch is on — what follows the write,
+        // editable by default. What the write itself does (the profile's value replaces a default, a missing
+        // value leaves the field alone) is the client script's rule, not a property.
         List<String> mixin = declarationOf(cnd(), JxpMixin.PREFILL);
         assertEquals("[" + JxpMixin.PREFILL + "] mixin", mixin.get(0));
         assertEquals("extends = " + FmdbMixin.PROFILE_MAPPABLE_FIELD, lineStartingWith(mixin, "extends"));
-        assertEquals(List.of(), mixin.stream().map(String::strip).filter(line -> line.startsWith("- ")).toList(), "no option beside the switch");
+        assertEquals("- " + JxpProperty.PREFILL_THEN + " (string, choicelist[resourceBundle]) = 'editable' autocreated indexed=no < 'editable', 'readOnly', 'hidden'",
+                lineStartingWith(mixin, "- " + JxpProperty.PREFILL_THEN + " "));
+        assertEquals(1, mixin.stream().map(String::strip).filter(line -> line.startsWith("- ")).count(), "one option beside the switch");
     }
 
     /**
