@@ -6,14 +6,21 @@
    deliberately left out).
    The test playground writes it into the complete form at provisioning time. */
 
-.fmdb-form {
+/* The palette is declared on the message as well as on the form: the message after a submission is
+   rendered beside the form, not inside it, so a variable declared on .fmdb-form alone is undefined
+   there — and a declaration that reads one, `border: 1px solid var(--reg-grey)`, is then dropped
+   whole, which left the "new form" button with no border at all. */
+.fmdb-form,
+.fmdb-message {
 	--reg-yellow: #f5ba1a;
 	--reg-yellow-dark: #dda40a;
 	--reg-black: #000000;
 	--reg-grey: #cccccc;
 	--reg-ink: #333333;
 	--reg-muted: #7b7b7b;
+}
 
+.fmdb-form {
 	/* Formidable theming hooks */
 	--fmdb-validation-error-color: #c0392b;
 	--fmdb-invalid-border-color: #c0392b;
@@ -292,14 +299,17 @@
 	transition: all 0.3s ease-in-out;
 }
 
-.fmdb-form .fmdb-btn-primary {
+.fmdb-form .fmdb-btn-primary,
+.fmdb-message .fmdb-btn-primary {
 	background: var(--reg-yellow);
 	color: var(--reg-black);
 	flex: 1;
 }
 
 .fmdb-form .fmdb-btn-primary:hover:not(:disabled),
-.fmdb-form .fmdb-btn-primary:active:not(:disabled) {
+.fmdb-form .fmdb-btn-primary:active:not(:disabled),
+.fmdb-message .fmdb-btn-primary:hover:not(:disabled),
+.fmdb-message .fmdb-btn-primary:active:not(:disabled) {
 	background: var(--reg-yellow-dark);
 }
 
