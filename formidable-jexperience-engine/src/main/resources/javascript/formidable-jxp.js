@@ -352,6 +352,8 @@
    * and only that. A profile naming nothing the options carry — no value at all, or values the field does
    * not offer — writes nothing, so an option the author checked by default stays checked: the prefill never
    * blanks a choice. A lone checkbox is a boolean too: an explicit false unchecks it, an absent value leaves it.
+   * Reports a write whenever the profile named a value, as the other shapes do — a choice the profile merely
+   * confirms is prefilled all the same, and gets what the author asked to follow.
    */
   function fillChoices(controls, value) {
     if (controls.some((c) => touched.has(c))) {
@@ -364,16 +366,14 @@
     if (matching.length === 0 && !asBoolean) {
       return false;
     }
-    let written = false;
     controls.forEach((control) => {
       const check = asBoolean ? value === true || value === "true" : matching.indexOf(control) > -1;
       if (control.checked !== check) {
         control.checked = check;
         changed(control);
-        written = true;
       }
     });
-    return written;
+    return true;
   }
 
   /** A select, single or multiple: select the options whose value the profile names; no match, nothing. */
@@ -404,11 +404,19 @@
    * `data-fmdb-prefilled` on the field's wrapper — the styling hook, and what the conditional logic reads to
    * keep a hidden one out of sight when a rule shows it again. Neither reaches a field the prefill left alone
    * (the caller only asks after a write): the visitor has to be able to fill it. A value the field's own
-   * validation rejects is never hidden either — the visitor could neither see the error nor fix it.
+   * validation rejects is never hidden either — the visitor could neither see the error nor fix it. A field
+   * whose named control is an island's hidden mirror is the island's to handle (see below).
    */
   function after(form, field, then) {
     const controls = Array.prototype.slice.call(form.elements).filter((el) => el.name === field);
-    const wrapper = controls.length > 0 ? controls[0].closest("[data-fmdb-node-name]") : null;
+    // A hidden control mirrors an island's state (the range slider): the write into it says nothing of
+    // what the island accepted — a value out of its bounds, an answer the visitor already gave — and the
+    // mirror is barred from constraint validation. The island was told through the event and applies the
+    // choice itself, on its own verdict.
+    if (controls.length === 0 || controls.some((c) => (c.type || "").toLowerCase() === "hidden")) {
+      return;
+    }
+    const wrapper = controls[0].closest("[data-fmdb-node-name]");
     if (then === "readOnly") {
       lock(controls);
       if (wrapper) {
@@ -422,33 +430,56 @@
   }
 
   /**
-   * Read-only, by shape. A text-like control has the attribute. A select, a radio or a checkbox has none, and
-   * `disabled` would take the value out of the submission: they say `aria-readonly` and put the prefilled
-   * state back whenever the visitor changes it — on the control itself, before the change bubbles to the
-   * logic (the base stylesheet takes the pointer off them too). A hidden mirror belongs to an island, which
-   * was told through the event.
+   * Read-only, by shape. A textual control has the attribute. A select, a radio, a checkbox or a colour input
+   * has none (`readonly` applies to the textual types only), and `disabled` would take the value out of the
+   * submission: they put the prefilled state back whenever the visitor changes it, and say the change again
+   * on what they put back, so that a listener registered before this one — an island's validation, attached at
+   * hydration — reads the restored state and not the visitor's transient one (the base stylesheet takes the
+   * pointer off them too). `aria-readonly` goes where the role supports it: the checkbox and the select
+   * themselves, the radio group's fieldset (the view marks it `radiogroup`); a colour input has no role to
+   * carry it.
    */
   function lock(controls) {
     const first = controls[0];
     const type = (first.type || "").toLowerCase();
-    if (first.tagName === "SELECT" || type === "checkbox" || type === "radio") {
-      const state = controls.map((c) =>
-        c.tagName === "SELECT" ? Array.prototype.slice.call(c.options).map((o) => o.selected) : c.checked,
-      );
-      const restore = () =>
+    if (first.tagName === "SELECT" || type === "checkbox" || type === "radio" || type === "color") {
+      const snapshot = (c) =>
+        c.tagName === "SELECT"
+          ? Array.prototype.slice.call(c.options).map((o) => o.selected)
+          : c.type === "color"
+            ? c.value
+            : c.checked;
+      const state = controls.map(snapshot);
+      const differs = (c, i) => JSON.stringify(snapshot(c)) !== JSON.stringify(state[i]);
+      const restore = () => {
         controls.forEach((c, i) => {
+          if (!differs(c, i)) {
+            return; // also what stops the change said below from coming back here
+          }
           if (c.tagName === "SELECT") {
             Array.prototype.slice.call(c.options).forEach((o, j) => {
               o.selected = state[i][j];
             });
+          } else if (c.type === "color") {
+            setValue(c, state[i]);
           } else {
             c.checked = state[i];
           }
+          changed(c);
         });
+      };
       controls.forEach((c) => {
-        c.setAttribute("aria-readonly", "true");
         c.addEventListener("change", restore);
+        if (c.tagName === "SELECT" || type === "checkbox") {
+          c.setAttribute("aria-readonly", "true");
+        }
       });
+      if (type === "radio") {
+        const group = first.closest("fieldset");
+        if (group) {
+          group.setAttribute("aria-readonly", "true");
+        }
+      }
     } else if (type !== "hidden") {
       first.readOnly = true;
     }

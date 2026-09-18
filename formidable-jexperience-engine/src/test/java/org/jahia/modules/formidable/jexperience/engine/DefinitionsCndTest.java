@@ -103,7 +103,8 @@ class DefinitionsCndTest {
         List<String> mixin = declarationOf(cnd(), JxpMixin.PREFILL);
         assertEquals("[" + JxpMixin.PREFILL + "] mixin", mixin.get(0));
         assertEquals("extends = " + FmdbMixin.PROFILE_MAPPABLE_FIELD, lineStartingWith(mixin, "extends"));
-        assertEquals("- " + JxpProperty.PREFILL_THEN + " (string, choicelist[resourceBundle]) = 'editable' autocreated indexed=no < 'editable', 'readOnly', 'hidden'",
+        // mandatory: the editor then offers no empty entry beside "leave it editable", which would say the same thing twice
+        assertEquals("- " + JxpProperty.PREFILL_THEN + " (string, choicelist[resourceBundle]) = 'editable' mandatory autocreated indexed=no < 'editable', 'readOnly', 'hidden'",
                 lineStartingWith(mixin, "- " + JxpProperty.PREFILL_THEN + " "));
         assertEquals(1, mixin.stream().map(String::strip).filter(line -> line.startsWith("- ")).count(), "one option beside the switch");
     }

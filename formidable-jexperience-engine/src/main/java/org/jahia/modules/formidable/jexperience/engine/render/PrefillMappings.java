@@ -58,7 +58,8 @@ class PrefillMappings {
             dependencies.add(field.getPath());
             String leftOut = leftOut(field);
             if (leftOut == null) {
-                String then = field.getPropertyAsString(JxpProperty.PREFILL_THEN);
+                // absent on a field that took the prefill mixin before the option existed: nothing follows the write then
+                String then = field.hasProperty(JxpProperty.PREFILL_THEN) ? field.getPropertyAsString(JxpProperty.PREFILL_THEN) : null;
                 entries.put(field.getName(), new Entry(field.getPropertyAsString(JxpProperty.PROFILE_PROPERTY),
                         then == null || EDITABLE.equals(then) ? null : then));
             } else if (field.isNodeType(JxpMixin.PREFILL)) {

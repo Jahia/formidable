@@ -30,7 +30,7 @@
 [fmdbmix:jExperiencePrefill] mixin
  extends = fmdbmix:profileMappableField
  itemtype = content
- - jExperiencePrefillThen (string, choicelist[resourceBundle]) = 'editable' autocreated indexed=no < 'editable', 'readOnly', 'hidden'
+ - jExperiencePrefillThen (string, choicelist[resourceBundle]) = 'editable' mandatory autocreated indexed=no < 'editable', 'readOnly', 'hidden'
 
 
 // A field the author marked sensitive: its value never leaves the site — it is not in the

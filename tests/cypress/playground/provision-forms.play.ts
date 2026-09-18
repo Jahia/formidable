@@ -605,10 +605,12 @@ const completeFormNodes = ({tvCategoryUuid, audioCategoryUuid, agenciesRootUuid,
 	mappedTo(withFrench(getInputEmailNode({...INPUT_EMAIL_COMPLETE, defaultValue: undefined}), [
 		{name: 'jcr:title', value: 'Email de contact'},
 		{name: 'placeholder', value: 'Saisissez votre adresse e-mail'}
-	// Read-only once the profile's value is in: the visitor sees the address the profile knows and cannot change it.
-	]), 'email', {strategy: 'setIfMissing', prefill: true, then: 'readOnly'}),
-	// A birth date cannot be after the submission day (the relative bound mode, showcased live).
-	mappedTo(withFrench(getInputDateNode({...INPUT_DATE_COMPLETE, defaultValue: undefined, max: undefined, maxBoundMode: 'today'}), [{name: 'jcr:title', value: 'Date de naissance'}]), 'birthDate', {prefill: true}),
+	]), 'email', {strategy: 'setIfMissing', prefill: true}),
+	// A birth date cannot be after the submission day (the relative bound mode, showcased live). Read-only once
+	// the profile's value is in: the visitor sees the date the profile knows and cannot change it — a date input,
+	// whose native read-only holds. Not the email: the simple form states it first, so the complete form's own
+	// visitors would never type theirs.
+	mappedTo(withFrench(getInputDateNode({...INPUT_DATE_COMPLETE, defaultValue: undefined, max: undefined, maxBoundMode: 'today'}), [{name: 'jcr:title', value: 'Date de naissance'}]), 'birthDate', {prefill: true, then: 'readOnly'}),
 	// The two shapes the profile mapping had no field for: a single choice to a string property,
 	// a number to an integer one.
 	// Read-only too, on a radio group: no native attribute for it, the page puts the profile's choice back on every change.
@@ -988,13 +990,19 @@ describe('Playground - provision manual-testing forms', () => {
 
 			// Complete form: every field type, with the PDF and CSV fixtures as attachments.
 			// The third entry picks "Pickup", which reveals the conditional pickup location.
-			// Three of the profile fields ask for something once the profile's value is in (email and gender
-			// read-only, country hidden): from the second visitor on, the profile knows them, and the entry
-			// leaves them to the prefill as a visitor would have to. The tracker's context is awaited first, so
-			// that the check reads the page after the prefill and not before it.
+			// Three of the profile fields ask for something once the profile's value is in (birth date and
+			// gender read-only, country hidden): from the second visitor on, the profile knows them, and the
+			// entry leaves them to the prefill as a visitor would have to. The tracker's context is awaited
+			// first, so that the check reads the page after the prefill and not before it — through the
+			// predicate the script itself gates on, not wemLoaded: the tracker sets that flag in its fallback
+			// mode too, where no context is loaded and nothing is ever prefilled, and the run would then
+			// hand-fill every field and stay green.
 			const contextLoaded = () => {
 				if (jExperienceAvailable) {
-					cy.window().should('have.property', 'wemLoaded', true);
+					cy.window().should(win => {
+						const jxp = (win as unknown as {formidableJxp?: {trackerReady: () => boolean}}).formidableJxp;
+						expect(jxp?.trackerReady(), 'jExperience context loaded').to.equal(true);
+					});
 				}
 			};
 			const unlessPrefilled = (fieldName: string, fill: () => void) => {
@@ -1014,8 +1022,9 @@ describe('Playground - provision manual-testing forms', () => {
 				const form = visitLiveForm(livePageOf(look, 'complete'));
 				contextLoaded();
 				form.getTextInput(INPUT_TEXT_COMPLETE.name!).type(code);
-				unlessPrefilled(INPUT_EMAIL_COMPLETE.name!, () => form.getEmailInput(INPUT_EMAIL_COMPLETE.name!).type(email));
-				form.getDateInput(INPUT_DATE_COMPLETE.name!).setDate(birth);
+				// prefilled with the first visitor's address from the simple form (set if missing), typed over
+				form.getEmailInput(INPUT_EMAIL_COMPLETE.name!).type(email);
+				unlessPrefilled(INPUT_DATE_COMPLETE.name!, () => form.getDateInput(INPUT_DATE_COMPLETE.name!).setDate(birth));
 				// The appointment cannot be before the submission day (relative "today" bound).
 				form.getDateTimeLocalInput(INPUT_DATETIME_LOCAL_COMPLETE.name!).setDateTime(nextWeekAtTen());
 				form.getColorInput(INPUT_COLOR_COMPLETE.name!).setColor(color);
@@ -1027,9 +1036,12 @@ describe('Playground - provision manual-testing forms', () => {
 
 				unlessPrefilled('gender', () => form.getRadioGroup('gender').select(gender));
 				form.getNumberInput('kids').clear().type(kids);
+				// the switch's track covers its input, as spec 214 knows: force the change. Said either way: from
+				// the second visitor on the prefill arrives with the profile's opt-in already on.
 				if (newsletter) {
-					// the switch's track covers its input, as spec 214 knows: force the check
 					form.getCheckbox('newsletter').getInput().check({force: true});
+				} else {
+					form.getCheckbox('newsletter').getInput().uncheck({force: true});
 				}
 
 				unlessPrefilled('country', () => form.getSelectInput('country').selectByValue(country));

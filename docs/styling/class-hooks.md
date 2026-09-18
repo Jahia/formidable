@@ -40,7 +40,7 @@ Every element wrapper also exposes `data-fmdb-node-name`, `data-fmdb-node-id` an
 
 A field a prefill filled (the jExperience integration, from the visitor profile) and the author made
 read-only or hidden carries `data-fmdb-prefilled="readonly"` or `"hidden"` on that same wrapper: the
-core tones the read-only one down and takes the pointer off its select, radio and checkbox controls
+core tones the read-only one down and takes the pointer off its select, radio, checkbox and colour controls
 (variables in [CSS variables](css-variables.md#prefilled-fields)), and hides the other inline, its value
 still submitted.
 

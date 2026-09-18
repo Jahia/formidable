@@ -1,6 +1,7 @@
-/** What a `formidable:prefill` event carries: the profile's value. */
+/** What a `formidable:prefill` event carries: the profile's value, and what the author asked to follow the write. */
 export interface PrefillDetail {
 	value?: unknown;
+	then?: string;
 }
 
 /** What the slider knows of itself when the event arrives. */
@@ -35,4 +36,27 @@ export function prefillValue(detail: PrefillDetail, state: RangeState): string |
 	const step = state.step > 0 ? state.step : 1;
 	const snapped = state.minValue + (Math.round((number - state.minValue) / step) * step);
 	return String(Math.min(state.maxValue, Number(snapped.toFixed(6))));
+}
+
+/**
+ * What the author asked once the profile's value is in the slider, applied by the island itself: the
+ * mirror is the only named control of the field and it is barred from constraint validation, so the
+ * prefill script — which knows what it wrote, not what the island accepted — leaves this shape to the
+ * island, which calls this only for a value it accepted (within the bounds, the visitor's own answer
+ * kept). `readOnly` marks the field's wrapper and says to disable the visible slider, the mirror keeping
+ * the value; `hidden` takes the wrapper out of sight, its value still submitted. Returns whether the
+ * slider is to be locked.
+ */
+export function applyAfterPrefill(then: string | undefined, mirror: HTMLElement | null): boolean {
+	const wrapper = mirror?.closest<HTMLElement>('[data-fmdb-node-name]') ?? null;
+	if (then === 'readOnly') {
+		wrapper?.setAttribute('data-fmdb-prefilled', 'readonly');
+		return true;
+	}
+	if (then === 'hidden' && wrapper) {
+		wrapper.setAttribute('data-fmdb-prefilled', 'hidden');
+		wrapper.style.display = 'none';
+		wrapper.setAttribute('aria-hidden', 'true');
+	}
+	return false;
 }

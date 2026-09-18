@@ -1,7 +1,7 @@
 import {useEffect, useRef, useState, type KeyboardEvent} from 'react';
 import {useTranslation} from 'react-i18next';
 import './range.css';
-import {prefillValue} from './rangePrefill';
+import {applyAfterPrefill, type PrefillDetail, prefillValue} from './rangePrefill';
 
 // Keys that operate a range slider: releasing a focus-navigation key (e.g. Tab
 // landing on the slider) must not count as an answer.
@@ -64,7 +64,8 @@ export default function RangeInput({
 	const answeredByVisitorRef = useRef(false);
 	const mountedRef = useRef(false);
 	// Set when a prefill wrote the slider and the author asked for read-only: the visible slider is disabled,
-	// the named mirror keeps the value for the submission.
+	// the named mirror keeps the value for the submission. The island applies what follows the write itself
+	// (rangePrefill.ts): the script knows what it wrote into the mirror, not what the slider accepted.
 	const [lockedByPrefill, setLockedByPrefill] = useState(false);
 
 	// The thumb needs a position even while unanswered; the midpoint mirrors the
@@ -141,7 +142,7 @@ export default function RangeInput({
 		const mirror = mirrorRef.current;
 		if (!mirror) return;
 		const handlePrefill = (event: Event) => {
-			const detail = (event as CustomEvent<{value?: unknown; then?: string}>).detail ?? {};
+			const detail = (event as CustomEvent<PrefillDetail>).detail ?? {};
 			const accepted = prefillValue(detail, {
 				answeredByVisitor: answeredByVisitorRef.current,
 				minValue,
@@ -150,7 +151,7 @@ export default function RangeInput({
 			});
 			if (accepted !== null) {
 				setValue(accepted);
-				if (detail.then === 'readOnly') {
+				if (applyAfterPrefill(detail.then, mirror)) {
 					setLockedByPrefill(true);
 				}
 			}

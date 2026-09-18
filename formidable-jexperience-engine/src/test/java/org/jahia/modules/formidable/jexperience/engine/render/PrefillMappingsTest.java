@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -33,6 +34,7 @@ class PrefillMappingsTest {
     /** {@code then}: the author's choice of what follows the write, as stored — null for a field saved before the option existed. */
     private static JCRNodeWrapper field(String name, String property, boolean mapped, boolean prefill, boolean sensitive, String then) throws RepositoryException {
         JCRNodeWrapper node = mock(JCRNodeWrapper.class);
+        when(node.hasProperty(JxpProperty.PREFILL_THEN)).thenReturn(then != null);
         when(node.getPropertyAsString(JxpProperty.PREFILL_THEN)).thenReturn(then);
         when(node.getName()).thenReturn(name);
         when(node.getPath()).thenReturn("/sites/mysite/contents/contact/fields/" + name);
@@ -127,7 +129,7 @@ class PrefillMappingsTest {
 
     @Test
     void theBlockCarriesNamesAndWhatFollowsTheWriteAndNothingElse() {
-        Map<String, PrefillMappings.Entry> entries = new java.util.LinkedHashMap<>();
+        Map<String, PrefillMappings.Entry> entries = new LinkedHashMap<>();
         entries.put("first\"Name", new PrefillMappings.Entry("firstName", null));
         entries.put("email", new PrefillMappings.Entry("email", "readOnly"));
         assertEquals("{\"first\\\"Name\":{\"property\":\"firstName\"},\"email\":{\"property\":\"email\",\"then\":\"readOnly\"}}", PrefillMappings.json(entries));

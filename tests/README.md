@@ -91,8 +91,8 @@ publication, submission event, profile update — is testable at once:
 | simple | `email` | `email` | set if missing, prefill on |
 | simple | `phoneNumber` (shown when a call is asked for, masked `+99 9 99 99 99 99`) | `phoneNumber` | set if missing, prefill on — a field the logic hides is prefilled all the same, and shows its value once revealed |
 | simple | `message` | — | marked **sensitive**: never leaves the site |
-| complete | `email` | `email` | set if missing, prefill on, then **read-only** — the visitor sees the address and cannot change it |
-| complete | birth date | `birthDate` | always set, prefill on |
+| complete | `email` | `email` | set if missing, prefill on — with the first visitor's address, which the simple form stated: the sample entries type theirs over it |
+| complete | birth date | `birthDate` | always set, prefill on, then **read-only** — the visitor sees the date the profile knows and cannot change it |
 | complete | `gender` (radio) | `gender` | set if missing, prefill on, then **read-only** — a radio group has no native read-only, the page puts the profile's choice back on every change |
 | complete | `kids` (number, default 1) | `kids` | set if missing, prefill on — the one field with an author's default: the profile's value replaces it, a profile without one leaves it |
 | complete | `country` (sourced select, ISO codes) | `countryName` | set if missing, prefill on, then **hidden** — the field disappears once the profile knows the country, its value still submitted |
@@ -107,8 +107,9 @@ publication). The other choice fields stay unmapped. The sample submissions the 
 through the live pages, so with the tracker on the site they reach jCustomer as `form` events and
 the mapped values land on one visitor's profile (all of them are one Cypress visitor, so the
 profile ends with the last values — and keeps the first email, which is set only if missing). The three
-fields that ask for something once the profile's value is in (email and gender read-only, country hidden)
-are left to the prefill from the second visitor on, as a visitor would have to leave them.
+fields that ask for something once the profile's value is in (birth date and gender read-only, country
+hidden) are left to the prefill from the second visitor on, as a visitor would have to leave them; the
+opt-in is set or cleared as each entry says, since the prefill brings the profile's own along.
 For that the run declares a plain Chrome user agent: the tracker's own crawler list names
 HeadlessChrome and would otherwise start in fallback mode and send nothing. The mapping rules of
 the previous run's forms are deleted from jCustomer before the site is, so they do not pile up.
