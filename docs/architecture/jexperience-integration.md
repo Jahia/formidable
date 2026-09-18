@@ -112,6 +112,8 @@ Nothing in Formidable depends on jExperience; the new module depends on both.
 | `SubmissionResponseEnricher` SPI | formidable-engine, `api` package | Called by the pipeline after all actions succeeded, with the form node, the site and the validated parameters; returns a JSON block to add to the 200. The jExperience module contributes `jexperience: {formId, fields}` — the accepted values of the form's fields, minus the ones marked sensitive — when the site's pages carry the tracker (`JExperienceSite`). Enrichers never fail the submission. |
 | `formidable:submitted` | formidable-elements, `Form.client.tsx` | DOM `CustomEvent` (bubbling) dispatched after a 200, carrying the form's UUID and the parsed response. The elements module knows nothing of jExperience: it only says "this was accepted, here is what the server answered". |
 | `formidable:ready` | formidable-elements, `Form.client.tsx` | DOM `CustomEvent` (bubbling) dispatched from the island's mount effect, together with `noValidate`, carrying the form's UUID: "the island is in charge from here". A script that writes into the fields waits for it, so that no island resets what it wrote. |
+| `formidable:reset` | formidable-elements, `Form.client.tsx` | DOM `CustomEvent` (bubbling) dispatched once a reset has been applied — the visitor's Reset button, or the one the island performs after an accepted submission. It waits for the end of the task, since the native `reset` event fires *before* the browser restores the defaults, and a listener that fills the form again must not be undone by the reset itself. |
+| `formidable:newForm` | formidable-elements, `Form.client.tsx` | DOM `CustomEvent` (bubbling) dispatched when the visitor asks for another form from the message that followed a submission. Same element, emptied. |
 | `formidable:prefill` | jexperience-engine → formidable-elements, `Range.client.tsx` | DOM `CustomEvent` (bubbling) the client script dispatches on a **hidden** control after writing it, with `{value, then}`. The range slider's named control is a hidden mirror of the island's state, which a write cannot reach — React reconciles it back at the next render — so the island takes the value from the event, under the prefill's own rules spelt in `rangePrefill.ts` (visitor's answer kept, author's default given way to, a number within the bounds snapped to the step). A plain hidden field has no island and keeps the written value. The island also applies what follows the write (`then`): the script knows what it wrote into the mirror, not what the slider accepted, and the mirror is barred from constraint validation — so `readOnly` disables the slider and marks the wrapper, `hidden` hides the wrapper, both only for a value the island took (`applyAfterPrefill`, unit-tested under jsdom). |
 
 The Java of `formidable-jexperience-engine` sits in packages named for their concern, one each, and none
@@ -236,6 +238,15 @@ field the prefill left alone — the visitor has to be able to fill it — and a
 rejects is never hidden, since the visitor could neither see the error nor fix it. The conditional logic keeps
 such a wrapper out of sight when a rule shows it again, while still enabling its controls and reading it as a
 source: it is not hidden *by the logic*.
+
+**The prefill runs again when the form goes back to what the page opened with.** A reset empties the
+fields and a "new form" hands the visitor the same empty element, so a form the profile fills would come
+back blank for a visitor it knows — and locked or hidden fields would stay locked over values that are
+gone. The island says both in the same vocabulary as the rest (`formidable:reset`, `formidable:newForm`,
+the form's UUID in the detail), and `api.prefillAgain` forgets two things for that form alone before
+running the ordinary prefill: the mark that says it was filled once, and what its controls remember of
+having been touched — what the visitor typed went with the reset. The gates are the same, so a page with
+no tracker or no context does nothing, as before.
 
 Two things a refusal and a reset must undo (review, 2026-09-18). The script writes the slider's mirror before
 telling the island, and the mirror is what the form posts: when the island refuses the value — out of the
@@ -638,11 +649,15 @@ the switch in its `dependentProperties`, so the editor asks the list again the m
 no save in between. That entry carries the value the field already holds rather than an empty one — which is
 what lets the option stay required while saying nothing.
 
-That option is **required by the editor only**: `"mandatory": true` in the same JSON, nothing in the CND.
-It is what drops the empty entry the editor otherwise adds beside "leave it editable" — an entry that would
-say the same thing twice — while leaving the deployed definition as it was: a mandatory flag added to a type
-already registered is a MAJOR change to Jahia's `DefinitionsBundleChecker`, which cancels the deployment of
-the module. The options-source settings of `formidable-engine` carry theirs the same way, for the same reason.
+That option is **required by the editor only**, and by the right file: `"mandatory": true` in
+`META-INF/jahia-content-editor-forms/**fieldsets**/fmdbmix_jExperienceProfileMapping.json`, nothing in the
+CND. The Content Editor keeps two static registries and merges only the fieldset one into a field's
+definition — a `forms/` file places the fields in sections and what it says about one of them is dropped,
+so the same flag there looks right and does nothing (measured: `mandatory: false` on the deployed instance,
+`true` once the override was a `fieldsets/` file keyed by `name`). The CND stays as it was deployed: a
+mandatory flag added to a type already registered is a MAJOR change to Jahia's `DefinitionsBundleChecker`,
+which cancels the deployment of the module. The options-source settings of `formidable-elements` carry
+theirs in a `fieldsets/` override for the same reason.
 
 - **Rank.** Sections order by rank, and the ranks Formidable already uses are 1.10 for Logic and
   Responses, 1.20 Buttons, 1.30 Multi-step, 1.40 Style, 1.50 Validation messages. 1.15 gives

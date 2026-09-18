@@ -159,13 +159,13 @@ export default function RangeInput({
 				if (applyAfterPrefill(detail.then, mirror)) {
 					setLockedByPrefill(true);
 				}
-
-				return;
 			}
 
-			// The script writes the profile's value into the mirror before telling the island, and the
-			// mirror is what the form posts: a value the slider refuses has to be taken back out of it.
-			restoreMirror(mirror, value);
+			// The script writes the profile's value into the mirror before telling the island, and the mirror
+			// is what the form posts and what the conditional logic reads: whatever the slider settled on has
+			// to be what it says — the value it took, since React skips the render when that already equals
+			// the state, or its own when it refused.
+			restoreMirror(mirror, accepted ?? value);
 		};
 		mirror.addEventListener(PREFILL_EVENT, handlePrefill);
 		return () => mirror.removeEventListener(PREFILL_EVENT, handlePrefill);

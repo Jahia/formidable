@@ -14,7 +14,7 @@
 						{ "name": "jExperienceProfileProperty" },
 						{ "name": "jExperienceSetStrategy" },
 						{ "name": "jExperiencePrefill" },
-						{ "name": "jExperiencePrefillThen", "mandatory": true }
+						{ "name": "jExperiencePrefillThen" }
 					]
 				}
 			]

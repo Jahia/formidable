@@ -78,6 +78,20 @@ describe('restoreMirror', () => {
 		expect(mirror.value).toBe('5');
 	});
 
+	it('says the change, so that the rules re-read the value the script had already announced', () => {
+		const {mirror} = slider();
+		const heard: string[] = [];
+		['input', 'change'].forEach(name => mirror.addEventListener(name, event => heard.push(`${name}:${event.bubbles}`)));
+
+		mirror.value = '87';
+		restoreMirror(mirror, '5');
+		expect(heard).toEqual(['input:true', 'change:true']);
+
+		// nothing to correct, nothing said
+		restoreMirror(mirror, '5');
+		expect(heard).toEqual(['input:true', 'change:true']);
+	});
+
 	it('empties it for a slider still unanswered, and survives no mirror at all', () => {
 		const {mirror} = slider();
 		mirror.value = '87';

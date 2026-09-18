@@ -211,8 +211,10 @@ const withEnglish = (node: JahiaNode, enProperties: Array<{name: string; value?:
 const JXP_MAPPING_MIXIN = 'fmdbmix:jExperienceProfileMapping';
 const JXP_SENSITIVE_MIXIN = 'fmdbmix:jExperienceSensitiveField';
 // The tracker loads its context through jCustomer: a cold instance takes longer than the default command
-// timeout, and the wait is for the script to be there, never for jCustomer to answer.
+// timeout, so the context is polled up to this long — and never waited for, since a jCustomer that does
+// not answer is a case this script goes on through.
 const JXP_CONTEXT_TIMEOUT_MS = 30000;
+const CONTEXT_ATTEMPT_PAUSE_MS = 2000;
 let jExperienceAvailable = false;
 
 /**
@@ -997,24 +999,31 @@ describe('Playground - provision manual-testing forms', () => {
 			// The third entry picks "Pickup", which reveals the conditional pickup location.
 			// Three of the profile fields ask for something once the profile's value is in (birth date and
 			// gender read-only, country hidden): from the second visitor on, the profile knows them, and the
-			// entry leaves them to the prefill as a visitor would have to. The script is awaited first, so
-			// that the check reads the page after the prefill and not before it, and its own predicate says
-			// whether a context was loaded — not wemLoaded, which the tracker sets in its fallback mode too,
-			// where nothing is ever prefilled. Logged, not asserted: a jCustomer that does not answer is the
-			// case this script degrades through everywhere else, and the entries then fill every field by hand.
-			const contextLoaded = () => {
+			// entry leaves them to the prefill as a visitor would have to. The prefill runs once the tracker
+			// has its context, and waiting for the script says nothing about that: formidable-jxp assigns
+			// window.formidableJxp synchronously at load. So poll the script's own predicate — not wemLoaded,
+			// which the tracker sets in its fallback mode too, where nothing is ever prefilled — bounded and
+			// logged rather than asserted: a jCustomer that does not answer is the case this script degrades
+			// through everywhere else, and the entries then fill every field by hand.
+			const contextLoaded = (attempt = 1): void => {
 				if (!jExperienceAvailable) {
 					return;
 				}
 
-				cy.window({timeout: JXP_CONTEXT_TIMEOUT_MS}).should(win => {
+				cy.window({log: false}).then(win => {
 					const jxp = (win as unknown as {formidableJxp?: {trackerReady: () => boolean}}).formidableJxp;
-					expect(Boolean(jxp), 'the jExperience client script is on the page').to.equal(true);
-				}).then(win => {
-					const jxp = (win as unknown as {formidableJxp?: {trackerReady: () => boolean}}).formidableJxp;
-					if (!jxp?.trackerReady()) {
-						cy.log('no jExperience context (jCustomer unreachable?): the entries fill every field by hand');
+					if (jxp?.trackerReady()) {
+						return;
 					}
+
+					if (attempt * CONTEXT_ATTEMPT_PAUSE_MS < JXP_CONTEXT_TIMEOUT_MS) {
+						// eslint-disable-next-line cypress/no-unnecessary-waiting -- a pause between two tries, not a wait for an element
+						cy.wait(CONTEXT_ATTEMPT_PAUSE_MS);
+						contextLoaded(attempt + 1);
+						return;
+					}
+
+					cy.log('no jExperience context (jCustomer unreachable?): the entries fill every field by hand');
 				});
 			};
 			const unlessPrefilled = (fieldName: string, fill: () => void) => {

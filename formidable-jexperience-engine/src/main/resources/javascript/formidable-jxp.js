@@ -31,6 +31,11 @@
   const BLOCK_SELECTOR = 'script[type="application/json"][data-formidable-jxp]';
   const READY_EVENT = "formidable:ready";
   const SUBMITTED_EVENT = "formidable:submitted";
+  // The island says when the form goes back to the state the visitor found it in: a reset, or the new
+  // form it offers after a submission. Both empty it, so the prefill is due again — the page opens anew
+  // for it.
+  const RESET_EVENT = "formidable:reset";
+  const NEW_FORM_EVENT = "formidable:newForm";
 
   /** The configuration block the render filter wrote for the form, or null. */
   api.configOf = (formId) => {
@@ -519,10 +524,13 @@
         ariaHolders.forEach((el) => el.removeAttribute("aria-readonly"));
       };
     }
-    // A hidden mirror never reaches here: after() leaves an island's field to the island.
+    // A hidden mirror never reaches here: after() leaves an island's field to the island. The undo puts
+    // the attribute back where it was, not to false: `readonly` is an author's property on a text or a
+    // number field, and a reset must not hand the visitor a field the author had closed.
+    const wasReadOnly = first.readOnly;
     first.readOnly = true;
     return () => {
-      first.readOnly = false;
+      first.readOnly = wasReadOnly;
     };
   }
 
@@ -548,6 +556,32 @@
 
   /** Tries every form of the page; each one fills once, when its two gates are open. */
   const attemptAll = () => api.configs().forEach((config) => api.prefill(config.formId));
+
+  /**
+   * The form is back to what the page opened with, so the prefill is due again: the visitor reset it, or
+   * asked for another one after a submission. Two memories are cleared for that form alone — the mark
+   * that says it was filled once, and what its controls remember of having been touched, since what the
+   * visitor typed went with the reset. Everything else is the first prefill: the same gates, the same
+   * writes, the same `then`. A form the author never set to prefill has no pairs and is left alone.
+   */
+  api.prefillAgain = (formId) => {
+    const form = api.formOf(formId);
+    if (!form) {
+      return false;
+    }
+    delete form.dataset.fmdbPrefilled;
+    Array.prototype.slice.call(form.elements).forEach((control) => touched.delete(control));
+    return api.prefill(formId);
+  };
+
+  [RESET_EVENT, NEW_FORM_EVENT].forEach((name) =>
+    document.addEventListener(name, (e) => {
+      const formId = e.detail && e.detail.formId;
+      if (formId) {
+        api.prefillAgain(formId);
+      }
+    }),
+  );
 
   // The island signals its readiness; the tracker does not fire a DOM event, so its own callback
   // registration is used, which runs the callback at once when the context is already loaded. The

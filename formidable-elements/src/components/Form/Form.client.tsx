@@ -20,6 +20,20 @@ import {useFormSubmission} from '~/hooks/useFormSubmission';
  */
 export const READY_EVENT = 'formidable:ready';
 
+/**
+ * Dispatched on the form element once a reset has been applied — the visitor's Reset button, or the one
+ * the island performs after an accepted submission. Detail: {formId}. It fires after the browser restored
+ * the default values, not with the native `reset` event, which fires before.
+ */
+export const RESET_EVENT = 'formidable:reset';
+
+/**
+ * Dispatched on the form element when the visitor asks for another form from the message that followed a
+ * submission. Detail: {formId}. The form is the same element, emptied: what a script put in it at page
+ * load — the jExperience prefill — is gone, and this is what tells it to do its work again.
+ */
+export const NEW_FORM_EVENT = 'formidable:newForm';
+
 // D10: a required sourced choice field whose source failed renders this marker
 // server-side; the form must not be submittable while it is present.
 const BLOCKING_SOURCE_ERROR_SELECTOR = '[data-fmdb-source-error="blocking"]';
@@ -73,6 +87,22 @@ export default function Form({
 		}
 	}, [formId]);
 
+	// A reset empties the form, so whatever a script had written into it is gone — the jExperience prefill
+	// included. The native event fires BEFORE the browser restores the defaults, so the announcement waits
+	// for the end of the task: a listener that fills the form again must not be undone by the reset itself.
+	useEffect(() => {
+		const form = formRef.current;
+		if (!form) {
+			return;
+		}
+
+		const announce = () => {
+			setTimeout(() => form.dispatchEvent(new CustomEvent(RESET_EVENT, {bubbles: true, detail: {formId}})), 0);
+		};
+		form.addEventListener('reset', announce);
+		return () => form.removeEventListener('reset', announce);
+	}, [formId]);
+
 	const {
 		currentStep,
 		setCurrentStep,
@@ -112,6 +142,13 @@ export default function Form({
 			maintenanceUnavailable: maintenanceText,
 		},
 	});
+
+	// The form comes back empty, so a script that filled it at page load — the jExperience prefill — is
+	// told to do its work again, on the same element the visitor is about to see.
+	const startAnother = () => {
+		showForm();
+		formRef.current?.dispatchEvent(new CustomEvent(NEW_FORM_EVENT, {bubbles: true, detail: {formId}}));
+	};
 
 	const isSubmitBlocked = isLoading || isSubmitDisabled || hasBlockingSourceError
 		|| (!!captcha && (!isMultiStep || isLastStep) && !isCaptchaValid);
@@ -153,7 +190,7 @@ export default function Form({
 							<button
 								type="button"
 								className="fmdb-btn fmdb-btn-secondary fmdb-new-form-btn"
-								onClick={showForm}
+								onClick={startAnother}
 							>
 								{newFormBtnLabel || t('newFormBtn')}
 							</button>
@@ -162,7 +199,7 @@ export default function Form({
 							<button
 								type="button"
 								className="fmdb-btn fmdb-btn-secondary fmdb-new-form-btn"
-								onClick={showForm}
+								onClick={startAnother}
 							>
 								{tryAgainBtnLabel || t('tryAgainBtn')}
 							</button>

@@ -21,6 +21,7 @@ import org.jahia.modules.formidable.jexperience.engine.choicelist.PrefillThenCho
 import org.jahia.modules.formidable.jexperience.engine.field.FieldShapes;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -40,11 +41,25 @@ class DefinitionsCndTest {
         }
     }
 
-    /** The editor form of the mapping fieldset, where the option carries what the CND cannot. */
+    /**
+     * The fieldset override of the mapping, where the option carries what the CND cannot. The Content
+     * Editor keeps two static registries and only this one is merged into a field's definition: what a
+     * {@code forms/} file says about a field is dropped, so a flag put there would look right and do
+     * nothing.
+     */
+    private static String fieldsetOverride() throws IOException {
+        try (InputStream in = DefinitionsCndTest.class.getResourceAsStream(
+                "/META-INF/jahia-content-editor-forms/fieldsets/fmdbmix_jExperienceProfileMapping.json")) {
+            assertNotNull(in, "the mapping fieldset override is on the classpath");
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    /** The form definition of the section, which places the fields; what it says about one is dropped. */
     private static String editorForm() throws IOException {
         try (InputStream in = DefinitionsCndTest.class.getResourceAsStream(
                 "/META-INF/jahia-content-editor-forms/forms/fmdbmix_jExperienceProfileMapping.json")) {
-            assertNotNull(in, "the mapping editor form is on the classpath");
+            assertNotNull(in, "the mapping form definition is on the classpath");
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
     }
@@ -123,11 +138,14 @@ class DefinitionsCndTest {
 
     @Test
     void theOptionIsRequiredByTheEditorOnly() throws Exception {
-        // The editor then offers no empty entry beside "leave it editable", which would say the same thing
-        // twice — while the CND stays as it was deployed: a mandatory flag ADDED to a registered type is a
-        // MAJOR change to Jahia's DefinitionsBundleChecker, which cancels the deployment of the module.
-        assertTrue(editorForm().contains("\"name\": \"" + JxpProperty.PREFILL_THEN + "\", \"mandatory\": true"),
-                "the editor form makes the option mandatory: " + editorForm());
+        // An author who switches the prefill on answers what follows it — while the CND stays as it was
+        // deployed: a mandatory flag ADDED to a registered type is a MAJOR change to Jahia's
+        // DefinitionsBundleChecker, which cancels the deployment of the module. The flag belongs to the
+        // fieldsets/ override, the one static registry the editor merges into a field's definition; the
+        // same flag in a forms/ file deserializes and is dropped.
+        assertTrue(fieldsetOverride().contains("\"name\": \"" + JxpProperty.PREFILL_THEN + "\", \"mandatory\": true"),
+                "the fieldset override makes the option mandatory: " + fieldsetOverride());
+        assertFalse(editorForm().contains("mandatory"), "nothing in the form definition, where it would be dropped");
         assertTrue(declarationOf(cnd(), JxpMixin.MAPPING).stream().noneMatch(line -> line.contains("mandatory")),
                 "no mandatory in the CND of " + JxpMixin.MAPPING);
     }

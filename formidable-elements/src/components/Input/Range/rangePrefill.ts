@@ -81,14 +81,19 @@ export function clearPrefillMarks(mirror: HTMLElement | null): void {
 }
 
 /**
- * What the mirror must say when the slider refuses the profile's value: what the slider shows. The script
- * writes the mirror before telling the island, and the mirror is the field's only named control — a write
- * left in place after a refusal would post a value the visitor never gave, out of the slider's bounds or
- * over their own answer. A refusal changes no state, so React never renders and never puts the mirror
- * back; this does.
+ * What the mirror must say once the island has settled a prefill: the value the slider shows. The script
+ * writes the mirror before telling the island, and the mirror is the field's only named control — what the
+ * form posts and what the conditional logic reads. Two ways the script's raw write would otherwise stay:
+ * the slider refused it, which changes no state, and the accepted value snapped to the one the slider
+ * already held, which React renders no second time. Both leave the mirror saying something the slider
+ * never showed, so this puts it back and says the change, since the script announced its own write to the
+ * rules before the island had a verdict.
  */
 export function restoreMirror(mirror: HTMLInputElement | null, value: string): void {
-	if (mirror && mirror.value !== value) {
-		mirror.value = value;
+	if (!mirror || mirror.value === value) {
+		return;
 	}
+	mirror.value = value;
+	mirror.dispatchEvent(new Event('input', {bubbles: true}));
+	mirror.dispatchEvent(new Event('change', {bubbles: true}));
 }

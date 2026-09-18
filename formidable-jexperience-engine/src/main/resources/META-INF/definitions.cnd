@@ -24,11 +24,11 @@
 // still submitted; a field the prefill left alone (nothing to write, or the visitor's own input) is never
 // touched by it. Its choicelist chains the resource bundle with an initializer of ours, which replaces the
 // three values with one message while the prefill is off, and dependentProperties makes the editor ask the
-// list again the moment the box is ticked, with no save. The option is required by the editor only
-// (fmdbmix_jExperienceProfileMapping.json), which is what drops the empty entry from its dropdown: a
-// JCR-level mandatory ADDED to a type already deployed is a MAJOR change to Jahia's
-// DefinitionsBundleChecker, which cancels the deployment — the same reason the options-source settings of
-// formidable-engine carry theirs in the editor form.
+// list again the moment the box is ticked, with no save. The option is required by the editor only — the
+// fieldsets/ override, the one static registry the Content Editor merges into a field (a forms/ file
+// places the fields and says nothing else about them): a JCR-level mandatory ADDED to a type already
+// deployed is a MAJOR change to Jahia's DefinitionsBundleChecker, which cancels the deployment. The
+// options-source settings of formidable-elements carry theirs in a fieldsets/ override for the same reason.
 [fmdbmix:jExperienceProfileMapping] mixin
  extends = fmdbmix:profileMappableField
  itemtype = content
