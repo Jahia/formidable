@@ -221,8 +221,12 @@ a listener that puts the prefilled state back on every change and says the chang
 — an island's validation, registered at hydration, runs before the restore and would otherwise keep the
 visitor's transient state — while the base stylesheet tones the field down and takes the pointer off those
 controls (`prefill.css`, two variables). `aria-readonly` goes where the role supports it: the checkbox and
-the select, the radio group's fieldset (which the view now marks `radiogroup`); a colour input has no role
-to carry it. Hidden sets `display: none` on the field's wrapper, the value still submitted. Both write
+the select, and for radios the group — the `radiogroup`, since a bare `fieldset` is a `group`, which carries
+it no better than a `radio` does. The four views that render same-named radios mark it (`fmdb:radio`, and
+`fmdbext:switch` in its buttons mode, `fmdbext:rating`, `fmdbext:scale`); the script looks for
+`[role="radiogroup"]` and falls back to the field's own `[data-fmdb-node-name]` wrapper, which every shape
+has — a one-choice radio has no fieldset at all, and climbing to the nearest one would mark an author's
+fieldset of unrelated fields. A colour input has no role to carry it. Hidden sets `display: none` on the field's wrapper, the value still submitted. Both write
 `data-fmdb-prefilled` (`readonly` or `hidden`) on the wrapper, the styling hook. A written choice counts as
 prefilled whether or not the DOM changed — a profile that merely confirms the author's default gets the
 same `then` as one that differs (review). The range slider is the island's own business: its named control
@@ -232,6 +236,15 @@ field the prefill left alone — the visitor has to be able to fill it — and a
 rejects is never hidden, since the visitor could neither see the error nor fix it. The conditional logic keeps
 such a wrapper out of sight when a rule shows it again, while still enabling its controls and reading it as a
 source: it is not hidden *by the logic*.
+
+Two things a refusal and a reset must undo (review, 2026-09-18). The script writes the slider's mirror before
+telling the island, and the mirror is what the form posts: when the island refuses the value — out of the
+slider's bounds, or over an answer the visitor already gave — nothing re-renders, so the island puts the
+mirror back itself (`restoreMirror`), or the form would carry a value the visitor never gave. And a form
+reset empties the fields, so nothing is prefilled any more: the wrapper comes back in sight and loses
+`data-fmdb-prefilled`, the lock is lifted, on both sides (`clearPrefillMarks` in the island, a one-shot
+`reset` listener in the script). Without it a required field hidden by the prefill would come back
+unanswered behind a `display: none` wrapper, blocking the submission over an error the visitor cannot see.
 
 ### Submitting: through the pipeline, then to the profile
 
@@ -501,7 +514,7 @@ from the tracker — then completed by the client script:
 [fmdbmix:jExperiencePrefill] mixin
  extends = fmdbmix:profileMappableField
  itemtype = content
- - jExperiencePrefillThen (string, choicelist[resourceBundle]) = 'editable' mandatory autocreated indexed=no < 'editable', 'readOnly', 'hidden'
+ - jExperiencePrefillThen (string, choicelist[resourceBundle]) = 'editable' autocreated indexed=no < 'editable', 'readOnly', 'hidden'
 
 // formidable-jexperience-engine — the author's "this field is sensitive"; jmix:templateMixin is what
 // drops the fieldset's enable switch, and the mapping's choicelist names the property in its
@@ -618,6 +631,12 @@ switch is the author's "prefill this field", and its one option — what the pag
 is in the field: leave it editable, make it read-only, hide it — shows only when the switch is on. The
 profile's value replaces a default the author gave the field and a missing value leaves it; the "replace the
 field's default value" option of the day before went with that decision (decision log, 2026-09-18).
+
+That option is **required by the editor only**: `"mandatory": true` in the same JSON, nothing in the CND.
+It is what drops the empty entry the editor otherwise adds beside "leave it editable" — an entry that would
+say the same thing twice — while leaving the deployed definition as it was: a mandatory flag added to a type
+already registered is a MAJOR change to Jahia's `DefinitionsBundleChecker`, which cancels the deployment of
+the module. The options-source settings of `formidable-engine` carry theirs the same way, for the same reason.
 
 - **Rank.** Sections order by rank, and the ranks Formidable already uses are 1.10 for Logic and
   Responses, 1.20 Buttons, 1.30 Multi-step, 1.40 Style, 1.50 Validation messages. 1.15 gives
@@ -827,7 +846,7 @@ minute, one rule (decisions of 2026-09-11).
 | 2026-09-17 | **Nothing is injected per form; the hoisted script pushes the union once** (HDU, the lesson of #330) | jExperience creates `window.digitalDataOverrides` in the head, hands the array to the tracker at `wem.init()`, and reads it at `DOMContentLoaded`, after every deferred script — so the one script core hoists into the head sees every block of the page and pushes one entry; the tracker concatenates arrays, so jExperience's own `j:nodename` stays. The block carries data per form, which it already did |
 | 2026-09-17 | **Consents are not read**: the tracker's presence and `activateWem` are the only gates (HDU) | jExperience's consent handling is out of date; whoever decides whether the tracker starts — a consent tool, the bot filter — decides for this integration too. `profile.consents` is not consulted, for sending or for prefilling |
 | 2026-09-18 | **The profile wins over an author's default, and a missing value never blanks** (HDU): the `jExperiencePrefillOverridesDefault` option of the day before goes, the prefill fieldset keeps its switch alone | The 2026-09-17 rule — empty fields only, the default replaced only when the author ticks the override — read the contract the wrong way round. A default is what the author knows without knowing the visitor; the profile's value is what is known about this visitor: the fresher word wins whenever there is one, and there is nothing for the author to decide. What must never happen is the trap Forms' prefill fell into — a default blanked because the profile had nothing. The text, select and slider paths already wrote nothing then, but the choice path unchecked a default-checked option whenever the override was on and the profile named nothing the options carried; the rule is now "nothing named, nothing written" for every shape. A value the visitor typed before the context landed stays protected as before |
-| 2026-09-18 | **What follows the write is one choice, not two flags** — `jExperiencePrefillThen`: editable (default), read-only, hidden (HDU: "comme dans Forms") | Forms' prefill offers `hideAfterPrefill` and `makeReadOnlyAfterPrefill` as two booleans, and a hidden field makes read-only moot: one choicelist cannot say both. It applies only to a field that was written — the profile had a value, the visitor had not typed — so a visitor the profile knows nothing about keeps a field to fill. Read-only has no native form for a select, a radio or a checkbox, and `disabled` would drop the value from the submission: `aria-readonly` plus a restore on change, the stylesheet taking the pointer off. Hidden is inline `display: none` with `data-fmdb-prefilled` on the wrapper, which the conditional logic reads so that a rule showing the field again does not undo it, without treating it as logic-hidden (that would disable its controls). A value that fails the field's validation is not hidden: the visitor could neither see nor fix the error. Review (HDU, same day): the range mirror is barred from constraint validation and the script cannot see the island's verdict, so the island applies `then` itself; a choice the profile merely confirms is prefilled all the same (`fillChoices` reported a write only on a DOM change, the other shapes on any value); `readonly` does nothing on a colour input, which joins the restored shapes; `aria-readonly` is the radiogroup's, not the radio's; the restore says the change again, since an island's own change listener runs first and validated the transient state |
+| 2026-09-18 | **What follows the write is one choice, not two flags** — `jExperiencePrefillThen`: editable (default), read-only, hidden (HDU: "comme dans Forms") | Forms' prefill offers `hideAfterPrefill` and `makeReadOnlyAfterPrefill` as two booleans, and a hidden field makes read-only moot: one choicelist cannot say both. It applies only to a field that was written — the profile had a value, the visitor had not typed — so a visitor the profile knows nothing about keeps a field to fill. Read-only has no native form for a select, a radio or a checkbox, and `disabled` would drop the value from the submission: `aria-readonly` plus a restore on change, the stylesheet taking the pointer off. Hidden is inline `display: none` with `data-fmdb-prefilled` on the wrapper, which the conditional logic reads so that a rule showing the field again does not undo it, without treating it as logic-hidden (that would disable its controls). A value that fails the field's validation is not hidden: the visitor could neither see nor fix the error. Review (HDU, same day): the range mirror is barred from constraint validation and the script cannot see the island's verdict, so the island applies `then` itself; a choice the profile merely confirms is prefilled all the same (`fillChoices` reported a write only on a DOM change, the other shapes on any value); `readonly` does nothing on a colour input, which joins the restored shapes; `aria-readonly` is the radiogroup's, not the radio's; the restore says the change again, since an island's own change listener runs first and validated the transient state. Round 2 (same day): the island takes its refused value back out of the mirror, which is what the form posts; a form reset undoes the prefill on both sides, since nothing is prefilled once the fields are empty; the group role goes on the four views that render same-named radios, with the field's wrapper as the script's fallback; and the option is mandatory in the editor form, not in the CND — a mandatory flag added to a registered type cancels the module's deployment |
 | 2026-09-16 | **Two engine markers replace the last two type names the Java read**: `fmdbmix:formRoot` on `fmdb:form`, `fmdbmix:cardinalityFromChoices` on `fmdb:checkbox` | The rule this integration already followed for a field — read the mixin, never the concrete type — now holds for the form and for the checkbox's cardinality. It closes the two gaps the ownership document listed, and it is what lets a module of its own offer a form type, or a field that renders one input per choice, and be treated like the built-in ones. Neither marker carries a property, so adding it to a deployed type adds no constraint; the deployment of the release that introduces them is forced past the definitions check |
 
 ## Open questions

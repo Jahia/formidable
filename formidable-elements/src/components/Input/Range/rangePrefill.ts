@@ -50,13 +50,45 @@ export function prefillValue(detail: PrefillDetail, state: RangeState): string |
 export function applyAfterPrefill(then: string | undefined, mirror: HTMLElement | null): boolean {
 	const wrapper = mirror?.closest<HTMLElement>('[data-fmdb-node-name]') ?? null;
 	if (then === 'readOnly') {
-		wrapper?.setAttribute('data-fmdb-prefilled', 'readonly');
+		if (wrapper) {
+			wrapper.dataset.fmdbPrefilled = 'readonly';
+		}
+
 		return true;
 	}
 	if (then === 'hidden' && wrapper) {
-		wrapper.setAttribute('data-fmdb-prefilled', 'hidden');
+		wrapper.dataset.fmdbPrefilled = 'hidden';
 		wrapper.style.display = 'none';
 		wrapper.setAttribute('aria-hidden', 'true');
 	}
 	return false;
+}
+
+/**
+ * A form reset empties the slider, so nothing is prefilled any more and what followed the prefill goes
+ * with it: the wrapper comes back in sight and loses the marker the styling and the conditional logic
+ * read. Without this a reset would leave a required slider unanswered behind a `display: none` wrapper —
+ * its error rendered out of sight, its value impossible to give.
+ */
+export function clearPrefillMarks(mirror: HTMLElement | null): void {
+	const wrapper = mirror?.closest<HTMLElement>('[data-fmdb-node-name]');
+	if (!wrapper) {
+		return;
+	}
+	delete wrapper.dataset.fmdbPrefilled;
+	wrapper.style.removeProperty('display');
+	wrapper.removeAttribute('aria-hidden');
+}
+
+/**
+ * What the mirror must say when the slider refuses the profile's value: what the slider shows. The script
+ * writes the mirror before telling the island, and the mirror is the field's only named control — a write
+ * left in place after a refusal would post a value the visitor never gave, out of the slider's bounds or
+ * over their own answer. A refusal changes no state, so React never renders and never puts the mirror
+ * back; this does.
+ */
+export function restoreMirror(mirror: HTMLInputElement | null, value: string): void {
+	if (mirror && mirror.value !== value) {
+		mirror.value = value;
+	}
 }

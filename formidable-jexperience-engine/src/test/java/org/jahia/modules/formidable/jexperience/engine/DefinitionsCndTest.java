@@ -39,6 +39,15 @@ class DefinitionsCndTest {
         }
     }
 
+    /** The editor form of the prefill fieldset, where the option carries what the CND cannot. */
+    private static String editorForm() throws IOException {
+        try (InputStream in = DefinitionsCndTest.class.getResourceAsStream(
+                "/META-INF/jahia-content-editor-forms/forms/fmdbmix_jExperiencePrefill.json")) {
+            assertNotNull(in, "the prefill editor form is on the classpath");
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
     /** The lines of one type declaration, header included, up to the next header or the end. */
     private static List<String> declarationOf(List<String> lines, String typeName) {
         List<String> block = new ArrayList<>();
@@ -103,10 +112,20 @@ class DefinitionsCndTest {
         List<String> mixin = declarationOf(cnd(), JxpMixin.PREFILL);
         assertEquals("[" + JxpMixin.PREFILL + "] mixin", mixin.get(0));
         assertEquals("extends = " + FmdbMixin.PROFILE_MAPPABLE_FIELD, lineStartingWith(mixin, "extends"));
-        // mandatory: the editor then offers no empty entry beside "leave it editable", which would say the same thing twice
-        assertEquals("- " + JxpProperty.PREFILL_THEN + " (string, choicelist[resourceBundle]) = 'editable' mandatory autocreated indexed=no < 'editable', 'readOnly', 'hidden'",
+        assertEquals("- " + JxpProperty.PREFILL_THEN + " (string, choicelist[resourceBundle]) = 'editable' autocreated indexed=no < 'editable', 'readOnly', 'hidden'",
                 lineStartingWith(mixin, "- " + JxpProperty.PREFILL_THEN + " "));
         assertEquals(1, mixin.stream().map(String::strip).filter(line -> line.startsWith("- ")).count(), "one option beside the switch");
+    }
+
+    @Test
+    void theOptionIsRequiredByTheEditorOnly() throws Exception {
+        // The editor then offers no empty entry beside "leave it editable", which would say the same thing
+        // twice — while the CND stays as it was deployed: a mandatory flag ADDED to a registered type is a
+        // MAJOR change to Jahia's DefinitionsBundleChecker, which cancels the deployment of the module.
+        assertTrue(editorForm().contains("\"name\": \"" + JxpProperty.PREFILL_THEN + "\", \"mandatory\": true"),
+                "the editor form makes the option mandatory: " + editorForm());
+        assertTrue(declarationOf(cnd(), JxpMixin.PREFILL).stream().noneMatch(line -> line.contains("mandatory")),
+                "no mandatory in the CND of " + JxpMixin.PREFILL);
     }
 
     /**

@@ -26,11 +26,15 @@
 // default value the author gave the field, and a field the profile has no value for keeps its default.
 // The one option inside says what the page does with the field once the profile's value is in it —
 // leave it editable, make it read-only, or hide it, its value still submitted; a field the prefill left
-// alone (nothing to write, or the visitor's own input) is never touched by it.
+// alone (nothing to write, or the visitor's own input) is never touched by it. The option is required by
+// the editor only (fmdbmix_jExperiencePrefill.json), which is what drops the empty entry from its
+// dropdown: a JCR-level mandatory ADDED to a type already deployed is a MAJOR change to Jahia's
+// DefinitionsBundleChecker, which cancels the deployment — the same reason the options-source settings
+// of formidable-engine carry theirs in the editor form.
 [fmdbmix:jExperiencePrefill] mixin
  extends = fmdbmix:profileMappableField
  itemtype = content
- - jExperiencePrefillThen (string, choicelist[resourceBundle]) = 'editable' mandatory autocreated indexed=no < 'editable', 'readOnly', 'hidden'
+ - jExperiencePrefillThen (string, choicelist[resourceBundle]) = 'editable' autocreated indexed=no < 'editable', 'readOnly', 'hidden'
 
 
 // A field the author marked sensitive: its value never leaves the site — it is not in the

@@ -418,15 +418,40 @@
     }
     const wrapper = controls[0].closest("[data-fmdb-node-name]");
     if (then === "readOnly") {
-      lock(controls);
+      const unlock = lock(controls);
       if (wrapper) {
         wrapper.dataset.fmdbPrefilled = "readonly";
       }
+      undoOnReset(form, () => {
+        unlock();
+        clearMarks(wrapper);
+      });
     } else if (then === "hidden" && wrapper && controls.every((c) => c.checkValidity())) {
       wrapper.dataset.fmdbPrefilled = "hidden";
       wrapper.style.display = "none";
       wrapper.setAttribute("aria-hidden", "true");
+      undoOnReset(form, () => clearMarks(wrapper));
     }
+  }
+
+  /**
+   * A reset empties the form, so nothing is prefilled any more and what followed the prefill goes with it:
+   * a field kept out of sight would otherwise come back to its default value behind a `display: none`
+   * wrapper — a required one then blocking a submission over an error the visitor cannot see — and a
+   * locked one would hold a value the reset has just taken away.
+   */
+  function undoOnReset(form, undo) {
+    form.addEventListener("reset", undo, { once: true });
+  }
+
+  /** The wrapper as it was before the prefill: in sight, and saying nothing to the styling or the logic. */
+  function clearMarks(wrapper) {
+    if (!wrapper) {
+      return;
+    }
+    delete wrapper.dataset.fmdbPrefilled;
+    wrapper.style.removeProperty("display");
+    wrapper.removeAttribute("aria-hidden");
   }
 
   /**
@@ -436,8 +461,9 @@
    * on what they put back, so that a listener registered before this one — an island's validation, attached at
    * hydration — reads the restored state and not the visitor's transient one (the base stylesheet takes the
    * pointer off them too). `aria-readonly` goes where the role supports it: the checkbox and the select
-   * themselves, the radio group's fieldset (the view marks it `radiogroup`); a colour input has no role to
-   * carry it.
+   * themselves, and for radios the group — a `radiogroup`, which the views that render same-named radios
+   * mark, with the field's own wrapper as the fallback; a colour input has no role to carry it. Returns
+   * what gives the visitor their hand back, for the reset.
    */
   function lock(controls) {
     const first = controls[0];
@@ -468,21 +494,36 @@
           changed(c);
         });
       };
+      const ariaHolders = [];
       controls.forEach((c) => {
         c.addEventListener("change", restore);
         if (c.tagName === "SELECT" || type === "checkbox") {
           c.setAttribute("aria-readonly", "true");
+          ariaHolders.push(c);
         }
       });
       if (type === "radio") {
-        const group = first.closest("fieldset");
+        // Only a radiogroup carries aria-readonly: a bare fieldset is a `group`, which does not, and a
+        // one-choice radio has no fieldset at all — climbing to the nearest one would mark whatever
+        // encloses the field, an author's fieldset of unrelated fields. The field's own wrapper is the
+        // fallback: every shape has one, and it already carries data-fmdb-prefilled.
+        const group =
+          first.closest('[role="radiogroup"]') || first.closest("[data-fmdb-node-name]");
         if (group) {
           group.setAttribute("aria-readonly", "true");
+          ariaHolders.push(group);
         }
       }
-    } else if (type !== "hidden") {
-      first.readOnly = true;
+      return () => {
+        controls.forEach((c) => c.removeEventListener("change", restore));
+        ariaHolders.forEach((el) => el.removeAttribute("aria-readonly"));
+      };
     }
+    // A hidden mirror never reaches here: after() leaves an island's field to the island.
+    first.readOnly = true;
+    return () => {
+      first.readOnly = false;
+    };
   }
 
   /**

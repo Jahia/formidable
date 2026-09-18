@@ -1,7 +1,7 @@
 import {useEffect, useRef, useState, type KeyboardEvent} from 'react';
 import {useTranslation} from 'react-i18next';
 import './range.css';
-import {applyAfterPrefill, type PrefillDetail, prefillValue} from './rangePrefill';
+import {applyAfterPrefill, clearPrefillMarks, type PrefillDetail, prefillValue, restoreMirror} from './rangePrefill';
 
 // Keys that operate a range slider: releasing a focus-navigation key (e.g. Tab
 // landing on the slider) must not count as an answer.
@@ -133,6 +133,11 @@ export default function RangeInput({
 		const handleReset = () => {
 			answeredByVisitorRef.current = false;
 			setValue(initialValue);
+			// Nothing is prefilled after a reset: give the slider back its hand and its wrapper back its
+			// place, or a required slider would stay unanswered behind a hidden wrapper, or locked on a
+			// value the visitor no longer has.
+			setLockedByPrefill(false);
+			clearPrefillMarks(mirrorRef.current);
 		};
 		formElement.addEventListener('reset', handleReset);
 		return () => formElement.removeEventListener('reset', handleReset);
@@ -154,11 +159,17 @@ export default function RangeInput({
 				if (applyAfterPrefill(detail.then, mirror)) {
 					setLockedByPrefill(true);
 				}
+
+				return;
 			}
+
+			// The script writes the profile's value into the mirror before telling the island, and the
+			// mirror is what the form posts: a value the slider refuses has to be taken back out of it.
+			restoreMirror(mirror, value);
 		};
 		mirror.addEventListener(PREFILL_EVENT, handlePrefill);
 		return () => mirror.removeEventListener(PREFILL_EVENT, handlePrefill);
-	}, [minValue, maxValue, stepValue]);
+	}, [minValue, maxValue, stepValue, value]);
 
 	return (
 		<>

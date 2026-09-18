@@ -11,7 +11,7 @@
 					"name": "fmdbmix:jExperiencePrefill",
 					"rank": 1.0,
 					"fields": [
-						{ "name": "jExperiencePrefillThen" }
+						{ "name": "jExperiencePrefillThen", "mandatory": true }
 					]
 				}
 			]
