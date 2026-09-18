@@ -97,12 +97,12 @@ class DefinitionsCndTest {
     @Test
     void thePrefillIsAMixinOfItsOwnAttachedToTheMarker() throws Exception {
         // Verifies the shape jcontent turns into a switchable fieldset: a mixin that extends the marker, no
-        // supertype, holding the one option that shows only when the switch is on.
+        // supertype — and no property: the switch is the whole decision, the profile's value replaces a
+        // default and a missing value leaves the field alone, by the client script's rule.
         List<String> mixin = declarationOf(cnd(), JxpMixin.PREFILL);
         assertEquals("[" + JxpMixin.PREFILL + "] mixin", mixin.get(0));
         assertEquals("extends = " + FmdbMixin.PROFILE_MAPPABLE_FIELD, lineStartingWith(mixin, "extends"));
-        assertEquals("- " + JxpProperty.PREFILL_OVERRIDES_DEFAULT + " (boolean) = false autocreated indexed=no",
-                lineStartingWith(mixin, "- " + JxpProperty.PREFILL_OVERRIDES_DEFAULT + " "));
+        assertEquals(List.of(), mixin.stream().map(String::strip).filter(line -> line.startsWith("- ")).toList(), "no option beside the switch");
     }
 
     /**

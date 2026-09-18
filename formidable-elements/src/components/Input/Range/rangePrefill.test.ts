@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest';
 import {prefillValue} from './rangePrefill';
 
-const unanswered = {initialValue: '', answeredByVisitor: false, minValue: 0, maxValue: 10, step: 1};
+const unanswered = {answeredByVisitor: false, minValue: 0, maxValue: 10, step: 1};
 
 describe('prefillValue', () => {
 	it('takes a number within the bounds for an unanswered slider', () => {
@@ -11,12 +11,6 @@ describe('prefillValue', () => {
 
 	it('leaves an answer the visitor gave alone', () => {
 		expect(prefillValue({value: 3}, {...unanswered, answeredByVisitor: true})).toBeNull();
-	});
-
-	it("keeps the author's default unless the author allowed the override", () => {
-		const withDefault = {...unanswered, initialValue: '5'};
-		expect(prefillValue({value: 3}, withDefault)).toBeNull();
-		expect(prefillValue({value: 3, overridesDefault: true}, withDefault)).toBe('3');
 	});
 
 	it('ignores what is not a number within the bounds', () => {

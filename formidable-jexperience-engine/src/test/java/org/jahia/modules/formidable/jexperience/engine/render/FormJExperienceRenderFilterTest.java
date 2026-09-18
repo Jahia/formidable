@@ -189,20 +189,20 @@ class FormJExperienceRenderFilterTest {
 
     @Test
     void theFieldsToPrefillTravelInTheBlockAsNamesOnly() throws Exception {
-        // Verifies that the block names which field reads which profile property, with the author's
-        // override choice, and carries no value: the fragment is cached for every visitor.
+        // Verifies that the block names which field reads which profile property and carries no value:
+        // the fragment is cached for every visitor.
         JCRNodeWrapper form = form("Contact us");
         FilterUnderTest filter = filter(configured("mysite"), ownSessionOver(form), true);
         filter.prefill = new LinkedHashMap<>();
-        filter.prefill.put("firstName", new PrefillMappings.Entry("firstName", false));
-        filter.prefill.put("email", new PrefillMappings.Entry("email", true));
+        filter.prefill.put("firstName", new PrefillMappings.Entry("firstName"));
+        filter.prefill.put("email", new PrefillMappings.Entry("email"));
         filter.prefillDependencies = List.of("/sites/mysite/contents/contact/fields/firstName", "/sites/mysite/contents/contact/fields/message");
         Set<String> dependencies = new HashSet<>();
 
         String out = filter.prepend("<form></form>", site(true), rendered(form, false), "", dependencies);
 
-        assertTrue(out.contains("\"prefill\":{\"firstName\":{\"property\":\"firstName\",\"overridesDefault\":false},"
-                + "\"email\":{\"property\":\"email\",\"overridesDefault\":true}}}</script>"), out);
+        assertTrue(out.contains("\"prefill\":{\"firstName\":{\"property\":\"firstName\"},"
+                + "\"email\":{\"property\":\"email\"}}}</script>"), out);
         assertEquals(-1, out.indexOf("<script>"), "no inline script: the hoisted one pushes for the whole page");
         // every mappable field, mentioned or not: mapping one later, or switching its prefill on, must refresh the cached block
         assertEquals(Set.of("/sites/mysite/contents/contact/fields/firstName", "/sites/mysite/contents/contact/fields/message"), dependencies);

@@ -22,12 +22,12 @@
 // The prefill, a mixin of its own rather than a property of the mapping: jcontent gives a mixin that
 // extends a type a fieldset with a switch, and what the fieldset holds shows only when the switch is
 // on — the one conditional display the editor offers declaratively. Switching it on is the author's
-// "fill this field from the visitor profile when the page opens"; the one option inside says whether
-// the profile's value may replace a default value the author gave the field.
+// "fill this field from the visitor profile when the page opens". The profile's value replaces a
+// default value the author gave the field, and a field the profile has no value for keeps its default:
+// no option about it, the switch is the whole decision.
 [fmdbmix:jExperiencePrefill] mixin
  extends = fmdbmix:profileMappableField
  itemtype = content
- - jExperiencePrefillOverridesDefault (boolean) = false autocreated indexed=no
 
 
 // A field the author marked sensitive: its value never leaves the site — it is not in the

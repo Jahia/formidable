@@ -207,11 +207,12 @@
   api.configs().forEach((config) => watch(api.formOf(config.formId)));
 
   /**
-   * Fills the mapped fields of the form from the loaded context, one field at a time, and once: a control
-   * the visitor touched is left alone, and a default value the author gave the field gives way only when
-   * the author said so (`overridesDefault`). Nothing happens without a tracker, a profile and a hydrated
-   * form; a form is marked done once something was written into it, so the second of the two signals
-   * that open the gates does not write again.
+   * Fills the mapped fields of the form from the loaded context, one field at a time, and once. A control
+   * the visitor touched is left alone. A default value the author gave the field gives way: the profile is
+   * the fresher word about this visitor. A field the profile has no value for is left as it is, default
+   * included — the prefill never blanks. Nothing happens without a tracker, a profile and a hydrated form;
+   * a form is marked done once something was written into it, so the second of the two signals that open
+   * the gates does not write again.
    */
   api.prefill = (formId) => {
     const form = api.formOf(formId);
@@ -225,9 +226,7 @@
     }
     watch(form);
     const values = window.wem.getLoadedContext().profileProperties || {};
-    const written = Object.keys(pairs).filter((field) =>
-      fill(form, field, values[pairs[field].property], Boolean(pairs[field].overridesDefault)),
-    );
+    const written = Object.keys(pairs).filter((field) => fill(form, field, values[pairs[field].property]));
     if (written.length > 0) {
       form.dataset.fmdbPrefilled = "true";
     }
@@ -239,7 +238,7 @@
    * written. `input` then `change` are dispatched on what changed, so the conditional logic, the input
    * mask and any validation see the value as if the visitor had typed it.
    */
-  function fill(form, field, value, overridesDefault) {
+  function fill(form, field, value) {
     const controls = Array.prototype.slice.call(form.elements).filter((el) => el.name === field);
     if (controls.length === 0) {
       return false;
@@ -247,29 +246,16 @@
     const first = controls[0];
     const type = (first.type || "").toLowerCase();
     if (type === "checkbox" || type === "radio") {
-      return fillChoices(controls, value, overridesDefault);
+      return fillChoices(controls, value);
     }
     if (first.tagName === "SELECT") {
-      return fillSelect(first, value, overridesDefault);
+      return fillSelect(first, value);
     }
     if (type === "file" || type === "submit" || type === "button" || type === "reset") {
       return false;
     }
-    return fillText(first, value, overridesDefault);
+    return fillText(first, value);
   }
-
-  /**
-   * What the author wrote, read from the content attributes — never from the live state, which the
-   * browser sets on its own (see `touched`). A textarea's default is its content, which typing leaves.
-   */
-  const authored = {
-    text: (control) =>
-      control.tagName === "TEXTAREA"
-        ? control.defaultValue !== ""
-        : Boolean(control.getAttribute("value")),
-    choice: (controls) => controls.some((c) => c.hasAttribute("checked")),
-    select: (options) => options.some((o) => o.hasAttribute("selected") && o.value !== ""),
-  };
 
   /**
    * One writable value out of what the context holds: a multi-valued property is an array, an empty one
@@ -328,8 +314,8 @@
    * control may be the mirror of an island's state (the range slider is built that way): it is written
    * like any other, then told, and the island takes the value over — or lets its state reset it.
    */
-  function fillText(control, value, overridesDefault) {
-    if (touched.has(control) || (authored.text(control) && !overridesDefault)) {
+  function fillText(control, value) {
+    if (touched.has(control)) {
       return false;
     }
     const one = scalar(value);
@@ -345,26 +331,31 @@
     setValue(control, text);
     changed(control);
     if (control.type === "hidden") {
-      control.dispatchEvent(
-        new CustomEvent(PREFILL_EVENT, { bubbles: true, detail: { value: text, overridesDefault } }),
-      );
+      control.dispatchEvent(new CustomEvent(PREFILL_EVENT, { bubbles: true, detail: { value: text } }));
     }
     return true;
   }
 
-  /** A checkbox group, a single checkbox (a boolean or its own value), radios: check what the value names. */
-  function fillChoices(controls, value, overridesDefault) {
-    if (controls.some((c) => touched.has(c)) || (authored.choice(controls) && !overridesDefault)) {
+  /**
+   * A checkbox group, a single checkbox (a boolean or its own value), radios: check what the value names,
+   * and only that. A profile naming nothing the options carry — no value at all, or values the field does
+   * not offer — writes nothing, so an option the author checked by default stays checked: the prefill never
+   * blanks a choice. A lone checkbox is a boolean too: an explicit false unchecks it, an absent value leaves it.
+   */
+  function fillChoices(controls, value) {
+    if (controls.some((c) => touched.has(c))) {
       return false;
     }
     const wanted = list(value);
     const single = controls.length === 1 && controls[0].type === "checkbox";
+    const asBoolean = single && (value === true || value === false || value === "true" || value === "false");
+    const matching = controls.filter((c) => wanted.indexOf(c.value) > -1);
+    if (matching.length === 0 && !asBoolean) {
+      return false;
+    }
     let written = false;
     controls.forEach((control) => {
-      // a lone checkbox maps a boolean: true checks it; a group checks the values the profile lists
-      const check = single
-        ? value === true || value === "true" || wanted.indexOf(control.value) > -1
-        : wanted.indexOf(control.value) > -1;
+      const check = asBoolean ? value === true || value === "true" : matching.indexOf(control) > -1;
       if (control.checked !== check) {
         control.checked = check;
         changed(control);
@@ -375,9 +366,9 @@
   }
 
   /** A select, single or multiple: select the options whose value the profile names; no match, nothing. */
-  function fillSelect(select, value, overridesDefault) {
+  function fillSelect(select, value) {
     const options = Array.prototype.slice.call(select.options);
-    if (touched.has(select) || (authored.select(options) && !overridesDefault)) {
+    if (touched.has(select)) {
       return false;
     }
     const wanted = list(value);

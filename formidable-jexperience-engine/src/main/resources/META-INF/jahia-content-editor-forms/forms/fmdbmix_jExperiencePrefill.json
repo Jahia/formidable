@@ -10,9 +10,7 @@
 				{
 					"name": "fmdbmix:jExperiencePrefill",
 					"rank": 1.0,
-					"fields": [
-						{ "name": "jExperiencePrefillOverridesDefault" }
-					]
+					"fields": []
 				}
 			]
 		}

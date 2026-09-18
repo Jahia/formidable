@@ -94,7 +94,7 @@ publication, submission event, profile update — is testable at once:
 | complete | `email` | `email` | set if missing, prefill on |
 | complete | birth date | `birthDate` | always set, prefill on |
 | complete | `gender` (radio) | `gender` | set if missing, prefill on |
-| complete | `kids` (number, default 1) | `kids` | set if missing, prefill on with **Replace the field's default value** ticked — the one field where the profile replaces an author's default |
+| complete | `kids` (number, default 1) | `kids` | set if missing, prefill on — the one field with an author's default: the profile's value replaces it, a profile without one leaves it |
 | complete | `country` (sourced select, ISO codes) | `countryName` | set if missing, prefill on — the select is the shape a guard reading the live state mistakes for a visitor's choice |
 | complete | interests (checkbox group) | `formidableInterests` — multi-valued, playground card | always set, prefill on — the multi-valued shape |
 | complete | `newsletter` (switch) | `formidableOptIn` — boolean, playground card | set if missing, prefill on — the boolean shape |

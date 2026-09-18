@@ -26,14 +26,13 @@ import static org.mockito.Mockito.when;
  */
 class PrefillMappingsTest {
 
-    private static JCRNodeWrapper field(String name, String property, boolean mapped, boolean prefill, boolean overrides, boolean sensitive) throws RepositoryException {
+    private static JCRNodeWrapper field(String name, String property, boolean mapped, boolean prefill, boolean sensitive) throws RepositoryException {
         JCRNodeWrapper node = mock(JCRNodeWrapper.class);
         when(node.getName()).thenReturn(name);
         when(node.getPath()).thenReturn("/sites/mysite/contents/contact/fields/" + name);
         when(node.isNodeType(JxpMixin.MAPPING)).thenReturn(mapped);
         when(node.isNodeType(JxpMixin.PREFILL)).thenReturn(prefill);
         when(node.getPropertyAsString(JxpProperty.PROFILE_PROPERTY)).thenReturn(mapped ? property : null);
-        flag(node, JxpProperty.PREFILL_OVERRIDES_DEFAULT, overrides);
         flag(node, JxpProperty.SENSITIVE, sensitive);
         return node;
     }
@@ -61,17 +60,17 @@ class PrefillMappingsTest {
     @Test
     void onlyAMappedFieldWithThePrefillMixinAndNotSensitiveIsListed() throws Exception {
         PrefillMappings.Prefill prefill = over(List.of(
-                field("firstName", "firstName", true, true, false, false),
-                field("email", "email", true, true, true, false),
-                field("phoneNumber", "phoneNumber", true, false, false, false), // mapped, prefill off
-                field("secret", "nationality", true, true, true, true),         // prefill on, but sensitive
-                field("switchedOn", "", true, true, false, false),              // mapping switched on, property left empty
-                field("message", null, false, false, false, false)              // mappable, never mapped
+                field("firstName", "firstName", true, true, false),
+                field("email", "email", true, true, false),
+                field("phoneNumber", "phoneNumber", true, false, false), // mapped, prefill off
+                field("secret", "nationality", true, true, true),         // prefill on, but sensitive
+                field("switchedOn", "", true, true, false),              // mapping switched on, property left empty
+                field("message", null, false, false, false)              // mappable, never mapped
         )).read(mock(JCRSessionWrapper.class), mock(JCRNodeWrapper.class));
 
         assertEquals(Map.of(
-                "firstName", new PrefillMappings.Entry("firstName", false),
-                "email", new PrefillMappings.Entry("email", true)), prefill.entries());
+                "firstName", new PrefillMappings.Entry("firstName"),
+                "email", new PrefillMappings.Entry("email")), prefill.entries());
         // in the form's order, which is the query's
         assertEquals(List.of("firstName", "email"), List.copyOf(prefill.entries().keySet()));
     }
@@ -81,30 +80,30 @@ class PrefillMappingsTest {
         // Verifies the one trace an author's dropped prefill switch leaves: the debug line names which of
         // the four conditions failed, in the order the author meets them — nothing in the editor can say it,
         // since jcontent offers a mixin that extends another only through the primary type.
-        assertEquals("the prefill is not switched on", PrefillMappings.leftOut(field("phoneNumber", "phoneNumber", true, false, false, false)));
-        assertEquals("the prefill is switched on but the field is not mapped", PrefillMappings.leftOut(field("message", null, false, true, false, false)));
+        assertEquals("the prefill is not switched on", PrefillMappings.leftOut(field("phoneNumber", "phoneNumber", true, false, false)));
+        assertEquals("the prefill is switched on but the field is not mapped", PrefillMappings.leftOut(field("message", null, false, true, false)));
         assertEquals("the field is mapped but names no profile property (none chosen, or the list no longer offers it)",
-                PrefillMappings.leftOut(field("switchedOn", "", true, true, false, false)));
-        assertEquals("the field is marked sensitive", PrefillMappings.leftOut(field("secret", "nationality", true, true, true, true)));
-        assertNull(PrefillMappings.leftOut(field("firstName", "firstName", true, true, false, false)));
+                PrefillMappings.leftOut(field("switchedOn", "", true, true, false)));
+        assertEquals("the field is marked sensitive", PrefillMappings.leftOut(field("secret", "nationality", true, true, true)));
+        assertNull(PrefillMappings.leftOut(field("firstName", "firstName", true, true, false)));
     }
 
     @Test
     void everyMappableFieldIsADependencyWhateverItMaps() throws Exception {
         // Verifies what the block's cache entry must be flushed for: mapping a field later, switching its
-        // prefill on, ticking its override — all changes to a field the block did not mention yet.
+        // prefill on — changes to a field the block did not mention yet.
         PrefillMappings.Prefill prefill = over(List.of(
-                field("firstName", "firstName", true, true, false, false),
-                field("message", null, false, false, false, false)
+                field("firstName", "firstName", true, true, false),
+                field("message", null, false, false, false)
         )).read(mock(JCRSessionWrapper.class), mock(JCRNodeWrapper.class));
 
         assertEquals(List.of("/sites/mysite/contents/contact/fields/firstName", "/sites/mysite/contents/contact/fields/message"), prefill.dependencies());
     }
 
     @Test
-    void theBlockCarriesNamesAndTheOverrideFlagAndNothingElse() {
-        Map<String, PrefillMappings.Entry> entries = Map.of("first\"Name", new PrefillMappings.Entry("firstName", true));
-        assertEquals("{\"first\\\"Name\":{\"property\":\"firstName\",\"overridesDefault\":true}}", PrefillMappings.json(entries));
+    void theBlockCarriesNamesAndNothingElse() {
+        Map<String, PrefillMappings.Entry> entries = Map.of("first\"Name", new PrefillMappings.Entry("firstName"));
+        assertEquals("{\"first\\\"Name\":{\"property\":\"firstName\"}}", PrefillMappings.json(entries));
         assertEquals("{}", PrefillMappings.json(Map.of()));
     }
 }

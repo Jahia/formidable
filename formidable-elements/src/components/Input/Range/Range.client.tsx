@@ -138,9 +138,8 @@ export default function RangeInput({
 		const mirror = mirrorRef.current;
 		if (!mirror) return;
 		const handlePrefill = (event: Event) => {
-			const detail = (event as CustomEvent<{value?: unknown; overridesDefault?: boolean}>).detail ?? {};
+			const detail = (event as CustomEvent<{value?: unknown}>).detail ?? {};
 			const accepted = prefillValue(detail, {
-				initialValue,
 				answeredByVisitor: answeredByVisitorRef.current,
 				minValue,
 				maxValue,
@@ -152,7 +151,7 @@ export default function RangeInput({
 		};
 		mirror.addEventListener(PREFILL_EVENT, handlePrefill);
 		return () => mirror.removeEventListener(PREFILL_EVENT, handlePrefill);
-	}, [initialValue, minValue, maxValue, stepValue]);
+	}, [minValue, maxValue, stepValue]);
 
 	return (
 		<>

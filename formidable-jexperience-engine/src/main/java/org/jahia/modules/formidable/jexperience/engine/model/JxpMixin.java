@@ -12,8 +12,8 @@ public final class JxpMixin {
     public static final String MAPPING = "fmdbmix:jExperienceProfileMapping";
 
     /**
-     * The author's "prefill this field from the visitor profile": a fieldset of its own with the switch jcontent
-     * gives a mixin that extends a type, so that its one option shows only when the switch is on.
+     * The author's "prefill this field from the visitor profile": a fieldset of its own, with the switch jcontent
+     * gives a mixin that extends a type. The profile's value replaces the author's default; no value, no write.
      */
     public static final String PREFILL = "fmdbmix:jExperiencePrefill";
 

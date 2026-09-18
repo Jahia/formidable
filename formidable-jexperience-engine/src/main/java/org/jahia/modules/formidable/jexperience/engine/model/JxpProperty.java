@@ -9,12 +9,6 @@ public final class JxpProperty {
     /** On a mapped field, the visitor profile property it feeds — the one piece a mapping cannot do without. */
     public static final String PROFILE_PROPERTY = "jExperienceProfileProperty";
 
-    /**
-     * On the prefill mixin: whether the profile's value may replace a default value the author gave the
-     * field. Off, the prefill fills empty fields only; a value the visitor typed is never replaced either way.
-     */
-    public static final String PREFILL_OVERRIDES_DEFAULT = "jExperiencePrefillOverridesDefault";
-
     /** How the profile property is written on submission: always, or only while it is still empty. */
     public static final String SET_STRATEGY = "jExperienceSetStrategy";
 

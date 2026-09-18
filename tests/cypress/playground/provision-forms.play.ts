@@ -215,18 +215,15 @@ let jExperienceAvailable = false;
 
 /**
  * Maps the field to a visitor profile property: the mapping mixin, the property and the write strategy; with
- * `prefill`, the prefill mixin too (its switch in the editor), and `overridesDefault` its one option.
+ * `prefill`, the prefill mixin too (its switch in the editor).
  */
-const mappedTo = (node: JahiaNode, profileProperty: string, options: {strategy?: 'alwaysSet' | 'setIfMissing'; prefill?: boolean; overridesDefault?: boolean} = {}): JahiaNode => {
+const mappedTo = (node: JahiaNode, profileProperty: string, options: {strategy?: 'alwaysSet' | 'setIfMissing'; prefill?: boolean} = {}): JahiaNode => {
 	if (!jExperienceAvailable) return node;
 	node.mixins = [...(node.mixins ?? []), JXP_MAPPING_MIXIN, ...(options.prefill ? [JXP_PREFILL_MIXIN] : [])];
 	node.properties.push(
 		{name: 'jExperienceProfileProperty', value: profileProperty},
 		{name: 'jExperienceSetStrategy', value: options.strategy ?? 'alwaysSet'}
 	);
-	if (options.prefill) {
-		node.properties.push({name: 'jExperiencePrefillOverridesDefault', value: String(options.overridesDefault ?? false), type: 'BOOLEAN'});
-	}
 	return node;
 };
 
@@ -610,8 +607,9 @@ const completeFormNodes = ({tvCategoryUuid, audioCategoryUuid, agenciesRootUuid,
 	// The two shapes the profile mapping had no field for: a single choice to a string property,
 	// a number to an integer one.
 	mappedTo(withFrench(getRadioNode(GENDER_RADIO), [{name: 'jcr:title', value: 'Genre'}, FR_GENDER_OPTIONS]), 'gender', {strategy: 'setIfMissing', prefill: true}),
-	// The one field with an author's default AND the override ticked: the profile's value replaces the 1.
-	mappedTo(withFrench(getInputNumberNode({name: 'kids', title: 'Number of children', minValue: 0, maxValue: 20, step: 1, defaultValue: 1}), [{name: 'jcr:title', value: 'Nombre d\'enfants'}]), 'kids', {strategy: 'setIfMissing', prefill: true, overridesDefault: true}),
+	// The one field with an author's default: the profile's value replaces the 1, and a visitor whose profile
+	// has no kids value keeps it.
+	mappedTo(withFrench(getInputNumberNode({name: 'kids', title: 'Number of children', minValue: 0, maxValue: 20, step: 1, defaultValue: 1}), [{name: 'jcr:title', value: 'Nombre d\'enfants'}]), 'kids', {strategy: 'setIfMissing', prefill: true}),
 	// The sourced select showcases the empty-option label: the field starts
 	// empty and its native required validation is exercisable on the site.
 	// The countries source holds ISO codes, which is what jCustomer's countryName expects.
