@@ -228,7 +228,10 @@ it no better than a `radio` does. The four views that render same-named radios m
 `fmdbext:switch` in its buttons mode, `fmdbext:rating`, `fmdbext:scale`); the script looks for
 `[role="radiogroup"]` and falls back to the field's own `[data-fmdb-node-name]` wrapper, which every shape
 has — a one-choice radio has no fieldset at all, and climbing to the nearest one would mark an author's
-fieldset of unrelated fields. A colour input has no role to carry it. Hidden sets `display: none` on the field's wrapper, the value still submitted. Both write
+fieldset of unrelated fields. That fallback is a **placement, not an announcement**: the wrapper carries no
+role, so assistive technology ignores `aria-readonly` there — what it buys is that the attribute does not
+land on an author's unrelated fieldset, which is the bug it was added for. A colour input has no role to
+carry it either. Hidden sets `display: none` on the field's wrapper, the value still submitted. Both write
 `data-fmdb-prefilled` (`readonly` or `hidden`) on the wrapper, the styling hook. A written choice counts as
 prefilled whether or not the DOM changed — a profile that merely confirms the author's default gets the
 same `then` as one that differs (review). The range slider is the island's own business: its named control
