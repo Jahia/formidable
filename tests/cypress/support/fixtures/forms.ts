@@ -12,6 +12,8 @@ interface CreateFormNodeOptions {
 	/** Properties of the 'actions' list node; only created when actions are given. */
 	actionListProperties?: NodeProperty[];
 	mixins?: string[];
+	/** Parent of the form node; the site's contents folder by default. */
+	parentPath?: string;
 	properties?: NodeProperty[];
 	pageProperties?: NodeProperty[];
 	publishLanguages?: string[];
@@ -91,7 +93,7 @@ export const createFormNode = (
 	options: CreateFormNodeOptions = {}
 ) => {
 	return addNode({
-		parentPathOrId: CONTENT_PATH,
+		parentPathOrId: options.parentPath ?? CONTENT_PATH,
 		name: formName,
 		primaryNodeType: 'fmdb:form',
 		mixins: options.mixins || [],
@@ -111,7 +113,7 @@ export const createPublishedLiveFormPage = (
 	pageTitle: string = formTitle,
 	options: CreateFormNodeOptions = {}
 ): Cypress.Chainable<LiveFormPageInfo> => {
-	const formPath = `${CONTENT_PATH}/${formName}`;
+	const formPath = `${options.parentPath ?? CONTENT_PATH}/${formName}`;
 	const pagePath = `${SITE_HOME_PATH}/${pageName}`;
 	const livePath = `home/${pageName}.html`;
 	const referencePath = `${pagePath}/pagecontent/${formName}-reference`;
