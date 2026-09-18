@@ -32,7 +32,7 @@ order (CSS before Plain, Complete form first), which is the order jContent's tre
 
 | Form | Content |
 |---|---|
-| `simple` | Minimal contact form (published in EN and FR, custom required messages on the name fields, a select revealing a conditional phone field); its fields map to the visitor profile when jExperience is there, see below |
+| `simple` | Minimal contact form (published in EN and FR, custom required messages on the name fields, a select revealing a conditional phone field); the only one showing the two optional buttons, **Reset** and **New form** (offered in the success message); its fields map to the visitor profile when jExperience is there, see below |
 | `newsletter` | Two small fields; only on the two-forms page |
 | `steps` | Three-step form with navigation, a fieldset inside step 2 and conditional logic driven by the delivery method |
 | `complete` | Every built-in field type, in three blocks: the visitor profile fields first (mapped and prefilled when jExperience is there, then the sensitive one), the other field types, and the choice fields completing the options matrix below |

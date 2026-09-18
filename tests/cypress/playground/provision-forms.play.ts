@@ -171,9 +171,10 @@ const LIST_TITLES = {
 /**
  * Creates and publishes one form in the playground folder, in the given look, with its page under
  * home — both titled in both site languages (the actions get localized default titles at creation,
- * so an en-only publication would leave their fr translation unpublished).
+ * so an en-only publication would leave their fr translation unpublished). formProperties adds what
+ * a given form wants on top (the buttons it shows, for one).
  */
-const provisionForm = (look: Look, base: string, title: string, frTitle: string, fields: JahiaNode[]) =>
+const provisionForm = (look: Look, base: string, title: string, frTitle: string, fields: JahiaNode[], formProperties: NodeProperty[] = []) =>
 	createPublishedLiveFormPage(
 		nameOf(look, base),
 		titleOf(look, title),
@@ -184,7 +185,7 @@ const provisionForm = (look: Look, base: string, title: string, frTitle: string,
 			parentPath: PLAYGROUND_FORMS_PATH,
 			actions: [saveToJcrAction()],
 			...LIST_TITLES,
-			properties: [{name: 'jcr:title', value: frTitleOf(look, frTitle), language: 'fr'}, ...cssOf(look)],
+			properties: [{name: 'jcr:title', value: frTitleOf(look, frTitle), language: 'fr'}, ...cssOf(look), ...formProperties],
 			pageProperties: [{name: 'jcr:title', value: frTitleOf(look, frTitle), language: 'fr'}],
 			publishLanguages: ['en', 'fr']
 		}
@@ -840,7 +841,14 @@ describe('Playground - provision manual-testing forms', () => {
 			title: 'Simple contact form',
 			frTitle: 'Formulaire de contact simple',
 			provision: (look, {title, frTitle}) => {
-				provisionForm(look, 'simple', title, frTitle, simpleFormNodes()).then(({formPath, livePath}) => {
+				// The form that shows the two optional buttons: Reset, which puts the form back to its
+				// defaults (and undoes a prefill with them), and New form, offered once a submission
+				// went through. The other forms keep Submit alone.
+				const buttons: NodeProperty[] = [
+					{name: 'showResetBtn', value: 'true', type: 'BOOLEAN'},
+					{name: 'showNewFormBtn', value: 'true', type: 'BOOLEAN'}
+				];
+				provisionForm(look, 'simple', title, frTitle, simpleFormNodes(), buttons).then(({formPath, livePath}) => {
 					// Results access: fmdb-results-reader on the form node, propagated to the
 					// results by the ACL sync once the form is (re)published.
 					grantRoles(formPath, ['fmdb-results-reader'], RESULTS_READER.name, 'USER');
