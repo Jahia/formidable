@@ -12,6 +12,12 @@ import {useMultiStep} from '~/hooks/useMultiStep';
 import {useCustomFormValidation, validateInputs} from '~/hooks/useCustomFormValidation';
 import {useFormSubmission} from '~/hooks/useFormSubmission';
 
+/**
+ * Dispatched on the form element once the island has mounted and taken the form over (noValidate set,
+ * listeners attached). Detail: {formId}. Until it fires, the form is the server's plain HTML.
+ */
+export const READY_EVENT = 'formidable:ready';
+
 // D10: a required sourced choice field whose source failed renders this marker
 // server-side; the form must not be submittable while it is present.
 const BLOCKING_SOURCE_ERROR_SELECTOR = '[data-fmdb-source-error="blocking"]';
@@ -58,8 +64,12 @@ export default function Form({
 			// be read from the DOM once mounted, hence the state initialization here.
 			// eslint-disable-next-line @eslint-react/hooks-extra/no-direct-set-state-in-use-effect
 			setHasBlockingSourceError(Boolean(formRef.current.querySelector(BLOCKING_SOURCE_ERROR_SELECTOR)));
+			// The island is in charge from here: a script that writes into the fields (the jExperience
+			// prefill) waits for this, so that no island resets what it wrote. The twin of
+			// formidable:submitted — bubbling, the form's UUID in the detail, nothing else.
+			formRef.current.dispatchEvent(new CustomEvent(READY_EVENT, {bubbles: true, detail: {formId}}));
 		}
-	}, []);
+	}, [formId]);
 
 	const {
 		currentStep,

@@ -94,6 +94,17 @@ class DefinitionsCndTest {
                 .contains("," + JxpProperty.SENSITIVE + "'"), "the choicelist depends on the flag");
     }
 
+    @Test
+    void thePrefillIsAMixinOfItsOwnAttachedToTheMarker() throws Exception {
+        // Verifies the shape jcontent turns into a switchable fieldset: a mixin that extends the marker, no
+        // supertype, holding the one option that shows only when the switch is on.
+        List<String> mixin = declarationOf(cnd(), JxpMixin.PREFILL);
+        assertEquals("[" + JxpMixin.PREFILL + "] mixin", mixin.get(0));
+        assertEquals("extends = " + FmdbMixin.PROFILE_MAPPABLE_FIELD, lineStartingWith(mixin, "extends"));
+        assertEquals("- " + JxpProperty.PREFILL_OVERRIDES_DEFAULT + " (boolean) = false autocreated indexed=no",
+                lineStartingWith(mixin, "- " + JxpProperty.PREFILL_OVERRIDES_DEFAULT + " "));
+    }
+
     /**
      * The module names its own model once, and both ways: every mixin and property the CND declares
      * has its constant in {@code JxpMixin} or {@code JxpProperty}, and every constant there is declared.

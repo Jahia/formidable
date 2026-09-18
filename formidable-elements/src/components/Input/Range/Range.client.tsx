@@ -1,10 +1,16 @@
 import {useEffect, useRef, useState, type KeyboardEvent} from 'react';
 import {useTranslation} from 'react-i18next';
 import './range.css';
+import {prefillValue} from './rangePrefill';
 
 // Keys that operate a range slider: releasing a focus-navigation key (e.g. Tab
 // landing on the slider) must not count as an answer.
 const SLIDER_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown']);
+
+// Dispatched on the hidden mirror by a script that prefills the form (the jExperience integration): the
+// mirror is controlled, so a value written into it would be reset at the next render — the island takes
+// the value from the event instead, under the rules of rangePrefill.ts.
+const PREFILL_EVENT = 'formidable:prefill';
 
 interface RangeInputProps {
 	name: string;
@@ -54,6 +60,8 @@ export default function RangeInput({
 	const [value, setValue] = useState<string>(initialValue);
 	const answered = value !== '';
 	const rangeRef = useRef<HTMLInputElement>(null);
+	const mirrorRef = useRef<HTMLInputElement>(null);
+	const answeredByVisitorRef = useRef(false);
 	const mountedRef = useRef(false);
 
 	// The thumb needs a position even while unanswered; the midpoint mirrors the
@@ -68,6 +76,7 @@ export default function RangeInput({
 	// completed interaction (pointer release, slider-operating key release) also
 	// counts as an answer.
 	const confirmCurrentPosition = () => {
+		answeredByVisitorRef.current = true;
 		if (!answered && rangeRef.current) {
 			setValue(rangeRef.current.value);
 		}
@@ -117,10 +126,33 @@ export default function RangeInput({
 			return;
 		}
 
-		const handleReset = () => setValue(initialValue);
+		const handleReset = () => {
+			answeredByVisitorRef.current = false;
+			setValue(initialValue);
+		};
 		formElement.addEventListener('reset', handleReset);
 		return () => formElement.removeEventListener('reset', handleReset);
 	}, [initialValue]);
+
+	useEffect(() => {
+		const mirror = mirrorRef.current;
+		if (!mirror) return;
+		const handlePrefill = (event: Event) => {
+			const detail = (event as CustomEvent<{value?: unknown; overridesDefault?: boolean}>).detail ?? {};
+			const accepted = prefillValue(detail, {
+				initialValue,
+				answeredByVisitor: answeredByVisitorRef.current,
+				minValue,
+				maxValue,
+				step: stepValue
+			});
+			if (accepted !== null) {
+				setValue(accepted);
+			}
+		};
+		mirror.addEventListener(PREFILL_EVENT, handlePrefill);
+		return () => mirror.removeEventListener(PREFILL_EVENT, handlePrefill);
+	}, [initialValue, minValue, maxValue, stepValue]);
 
 	return (
 		<>
@@ -142,7 +174,10 @@ export default function RangeInput({
 					autoFocus={autofocus}
 					disabled={disabled}
 					form={form}
-					onChange={event => setValue(event.target.value)}
+					onChange={event => {
+						answeredByVisitorRef.current = true;
+						setValue(event.target.value);
+					}}
 					onPointerUp={confirmCurrentPosition}
 					onKeyUp={confirmOnSliderKey}
 					{...validationAttributes}
@@ -152,7 +187,7 @@ export default function RangeInput({
 					{answered ? value : '–'}
 				</output>
 			</div>
-			<input type="hidden" name={name} value={value} form={form}/>
+			<input ref={mirrorRef} type="hidden" name={name} value={value} form={form}/>
 		</>
 	);
 }

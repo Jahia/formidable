@@ -11,7 +11,11 @@ import org.jahia.modules.formidable.jexperience.engine.util.JExperienceSite;
 import org.junit.jupiter.api.Test;
 
 import javax.jcr.RepositoryException;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -93,12 +97,19 @@ class FormJExperienceRenderFilterTest {
         private final JCRSessionWrapper ownSession;
         private final boolean readable;
         private boolean unchecked;
+        private Map<String, PrefillMappings.Entry> prefill = Map.of();
+        private List<String> prefillDependencies = List.of();
         private String openedWorkspace;
         private Locale openedLocale;
 
         private FilterUnderTest(JCRSessionWrapper ownSession, boolean readable) {
             this.ownSession = ownSession;
             this.readable = readable;
+        }
+
+        @Override
+        PrefillMappings.Prefill prefillOf(JCRSessionWrapper session, JCRNodeWrapper form) {
+            return new PrefillMappings.Prefill(prefill, prefillDependencies);
         }
 
         @Override
@@ -136,16 +147,16 @@ class FormJExperienceRenderFilterTest {
 
     @Test
     void writesTheConfigurationBlockAndTheScriptBeforeTheForm() throws Exception {
-        // Verifies the whole contribution: the three strings the page needs — the identifier the event is
-        // keyed on and the title and path the dashboards read — then the script, declared as a static asset
-        // so that core hoists it into the head and keeps one for the whole page. What the form maps is not
-        // in it: the send decision reads the tracker's watch list.
+        // Verifies the whole contribution: the identifier the event is keyed on, the title and path the
+        // dashboards read, the prefill pairs (none here) — then the script, declared as a static asset so
+        // that core hoists it into the head and keeps one for the whole page. What the form maps for
+        // sending is not in it: the send decision reads the tracker's watch list.
         JCRNodeWrapper form = form("Contact us");
         String out = filter(configured("mysite"), ownSessionOver(form), true)
-                .prepend("<form></form>", site(true), rendered(form, false), "");
+                .prepend("<form></form>", site(true), rendered(form, false), "", new HashSet<>());
 
         assertEquals("<script type=\"application/json\" data-formidable-jxp=\"" + FORM_UUID + "\">"
-                + "{\"formId\":\"" + FORM_UUID + "\",\"name\":\"Contact us\",\"path\":\"/sites/mysite/contents/contact\"}</script>\n"
+                + "{\"formId\":\"" + FORM_UUID + "\",\"name\":\"Contact us\",\"path\":\"/sites/mysite/contents/contact\",\"prefill\":{}}</script>\n"
                 + "<jahia:resource type=\"javascript\" path=\"" + FormJExperienceRenderFilter.scriptUrl("")
                 + "\" insert=\"false\" key=\"\" defer=\"true\" />\n"
                 + "<form></form>", out);
@@ -162,9 +173,9 @@ class FormJExperienceRenderFilterTest {
         JCRNodeWrapper second = form("Newsletter", "8f7e2a10-0000-4000-8000-000000000002", "/sites/mysite/contents/news");
 
         String firstOut = filter(configured("mysite"), ownSessionOver(first), true)
-                .prepend("<form></form>", site(true), rendered(first, false), "");
+                .prepend("<form></form>", site(true), rendered(first, false), "", new HashSet<>());
         String secondOut = filter(configured("mysite"), ownSessionOver(second), true)
-                .prepend("<form></form>", site(true), rendered(second, false), "");
+                .prepend("<form></form>", site(true), rendered(second, false), "", new HashSet<>());
 
         // read out of the outputs, not built from the method under test: an asset carrying anything of
         // the form — its identifier as a cache key, say — would be two declarations and two downloads
@@ -177,12 +188,33 @@ class FormJExperienceRenderFilterTest {
     }
 
     @Test
+    void theFieldsToPrefillTravelInTheBlockAsNamesOnly() throws Exception {
+        // Verifies that the block names which field reads which profile property, with the author's
+        // override choice, and carries no value: the fragment is cached for every visitor.
+        JCRNodeWrapper form = form("Contact us");
+        FilterUnderTest filter = filter(configured("mysite"), ownSessionOver(form), true);
+        filter.prefill = new LinkedHashMap<>();
+        filter.prefill.put("firstName", new PrefillMappings.Entry("firstName", false));
+        filter.prefill.put("email", new PrefillMappings.Entry("email", true));
+        filter.prefillDependencies = List.of("/sites/mysite/contents/contact/fields/firstName", "/sites/mysite/contents/contact/fields/message");
+        Set<String> dependencies = new HashSet<>();
+
+        String out = filter.prepend("<form></form>", site(true), rendered(form, false), "", dependencies);
+
+        assertTrue(out.contains("\"prefill\":{\"firstName\":{\"property\":\"firstName\",\"overridesDefault\":false},"
+                + "\"email\":{\"property\":\"email\",\"overridesDefault\":true}}}</script>"), out);
+        assertEquals(-1, out.indexOf("<script>"), "no inline script: the hoisted one pushes for the whole page");
+        // every mappable field, mentioned or not: mapping one later, or switching its prefill on, must refresh the cached block
+        assertEquals(Set.of("/sites/mysite/contents/contact/fields/firstName", "/sites/mysite/contents/contact/fields/message"), dependencies);
+    }
+
+    @Test
     void aTitleThatCouldCloseTheScriptBlockIsEscaped() throws Exception {
         // Verifies the two edges of the block: an empty mappings list (a form a goal may still watch) and a
         // title that could otherwise close the script block.
         JCRNodeWrapper form = form("</script><b>&");
         String out = filter(configured("mysite"), ownSessionOver(form), true)
-                .prepend("", site(true), rendered(form, false), "");
+                .prepend("", site(true), rendered(form, false), "", new HashSet<>());
 
         assertTrue(out.contains("\"name\":\"\\u003c/script\\u003e\\u003cb\\u003e\\u0026\""), out);
     }
@@ -196,7 +228,7 @@ class FormJExperienceRenderFilterTest {
         JCRNodeWrapper form = form("Contact us");
         FilterUnderTest filter = filter(configured("mysite"), ownSessionOver(form), true);
 
-        String out = filter.prepend("<form></form>", site(true), rendered(form, true), "");
+        String out = filter.prepend("<form></form>", site(true), rendered(form, true), "", new HashSet<>());
 
         assertTrue(out.contains("\"path\":\"/sites/mysite/contents/contact\""), out);
         assertEquals("live", filter.openedWorkspace);
@@ -213,13 +245,13 @@ class FormJExperienceRenderFilterTest {
         // failure while reading the form each leave the form's markup untouched.
         JCRNodeWrapper form = form("Contact");
         assertEquals("<form></form>", filter(mock(ContextServerService.class), ownSessionOver(form), true)
-                .prepend("<form></form>", site(true), rendered(form, false), ""));
+                .prepend("<form></form>", site(true), rendered(form, false), "", new HashSet<>()));
         assertEquals("<form></form>", filter(configured("mysite"), ownSessionOver(form), true)
-                .prepend("<form></form>", site(false), rendered(form, false), ""));
+                .prepend("<form></form>", site(false), rendered(form, false), "", new HashSet<>()));
         assertEquals("<form></form>", filter(configured("mysite"), ownSessionOver(form), true)
-                .prepend("<form></form>", null, rendered(form, false), ""));
+                .prepend("<form></form>", null, rendered(form, false), "", new HashSet<>()));
         assertEquals("<form></form>", filter(configured("mysite"), ownSessionOver(form), false)
-                .prepend("<form></form>", site(true), rendered(form, false), ""));
+                .prepend("<form></form>", site(true), rendered(form, false), "", new HashSet<>()));
     }
 
 
@@ -255,6 +287,21 @@ class FormJExperienceRenderFilterTest {
     }
 
     @Test
+    void theBlockIsStoredWithTheFormsFragment() {
+        // Verifies where the filter sits in the chain, against the two core filters that decide it. Below
+        // AggregateFilter (16.0) a filter also runs on the pass where the aggregation stands a placeholder in for
+        // the form: its block lands in the PARENT's cached fragment, whose dependencies are not the form's fields,
+        // and the dependencies it adds to the form's resource come after CacheFilter (16.5) stored them — on the
+        // instance, a form placed through a reference kept a stale block until the site cache was flushed. Just
+        // above 16.5, block and fields are stored with the form's own fragment, and a cached fragment costs nothing.
+        FilterUnderTest filter = new FilterUnderTest(null, true);
+        filter.activate();
+
+        assertTrue(filter.getPriority() > 16.5f, "inside the fragment cache: " + filter.getPriority());
+        assertTrue(filter.getPriority() < 99f, "before the script filter renders the view: " + filter.getPriority());
+    }
+
+    @Test
     void anUncheckedFailureCostsTheBlockAndNotThePage() throws Exception {
         // Verifies the unchecked half of prepend()'s catch. Nothing in the reading declares a checked
         // exception for a decorator, a query or getDisplayableName() failing at runtime, and an exception
@@ -263,6 +310,6 @@ class FormJExperienceRenderFilterTest {
         FilterUnderTest filter = filter(configured("mysite"), ownSessionOver(form), true);
         filter.unchecked = true;
 
-        assertEquals("<form></form>", filter.prepend("<form></form>", site(true), rendered(form, false), ""));
+        assertEquals("<form></form>", filter.prepend("<form></form>", site(true), rendered(form, false), "", new HashSet<>()));
     }
 }
