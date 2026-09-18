@@ -523,7 +523,10 @@ const simpleFormNodes = (): JahiaNode[] => [
 	mappedTo(withFrench(getInputEmailNode({name: 'email', title: 'Email', required: true}), [{name: 'jcr:title', value: 'Email'}]), 'email', {strategy: 'setIfMissing', prefill: true}),
 	sensitive(withFrench(getTextareaNode({name: 'message', title: 'Message'}), [{name: 'jcr:title', value: 'Message'}])),
 	contactChannelSelect(),
-	mappedTo(phoneNumberField(), 'phoneNumber', {strategy: 'setIfMissing', prefill: true})
+	mappedTo(phoneNumberField(), 'phoneNumber', {strategy: 'setIfMissing', prefill: true}),
+	// An optional single file, on the one form that offers Reset: the field a reset has to empty,
+	// and the only shape whose value a browser will not let a script put back.
+	withFrench(getInputFileNode({name: 'supportingDocument', title: 'Supporting document'}), [{name: 'jcr:title', value: 'Pièce jointe'}])
 ];
 
 const newsletterNodes = (): JahiaNode[] => [
