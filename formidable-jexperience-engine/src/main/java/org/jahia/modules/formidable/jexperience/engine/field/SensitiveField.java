@@ -2,9 +2,9 @@ package org.jahia.modules.formidable.jexperience.engine.field;
 
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.modules.formidable.jexperience.engine.model.JxpProperty;
+import org.jahia.modules.formidable.jexperience.engine.util.EditorContext;
 
 import javax.jcr.RepositoryException;
-import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 
@@ -57,10 +57,6 @@ public final class SensitiveField {
 
     /** The unsaved value as jcontent sends it: a boolean, a string, or a list holding one; empty when absent. */
     static Optional<Boolean> pending(Map<String, Object> context) {
-        Object value = context.get(JxpProperty.SENSITIVE);
-        if (value instanceof Collection<?> values) {
-            value = values.isEmpty() ? null : values.iterator().next();
-        }
-        return value == null ? Optional.empty() : Optional.of(Boolean.parseBoolean(String.valueOf(value)));
+        return EditorContext.pendingBoolean(context, JxpProperty.SENSITIVE);
     }
 }

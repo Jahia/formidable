@@ -29,8 +29,10 @@ jahiaComponent(
 
 		return (
 			<div className="fmdb-form-group">
+				{/* both hooks: fmdb-form-label is what a stylesheet gives every field label, fmdb-file-label
+				    what it adds for this one — a file label carrying only the second escaped the first */}
 				{label && (
-					<label htmlFor={inputId} className="fmdb-file-label">
+					<label htmlFor={inputId} className="fmdb-form-label fmdb-file-label">
 						{label}
 						{required && <span className="fmdb-required-indicator" aria-hidden="true">*</span>}
 					</label>

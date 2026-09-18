@@ -32,6 +32,52 @@ A softer look, for instance:
 }
 ```
 
+## Buttons
+
+Every button a form renders — submit, reset, the multi-step pair, a Button field, and the one the
+message offers after a submission ("new form", "try again"). The modules' rules are unscoped, since
+the message sits beside the form and not inside it: a stylesheet that scopes its own buttons under
+`.fmdb-form` leaves that one with the browser's default.
+
+| Variable | Default | Description |
+|---|---|---|
+| `--fmdb-btn-padding` | `0.5rem 1rem` | Padding of a button |
+| `--fmdb-btn-gap` | `0.5rem` | Gap between a button's label and anything beside it |
+| `--fmdb-btn-radius` | `0.375rem` | Corner radius |
+| `--fmdb-btn-border-width` | `1px` | Border width (the colour follows the variant) |
+| `--fmdb-btn-font-size` | `1rem` | Font size |
+| `--fmdb-btn-font-weight` | `500` | Font weight |
+| `--fmdb-btn-line-height` | `1.5` | Line height |
+| `--fmdb-btn-transition` | `background-color 0.2s, border-color 0.2s, color 0.2s` | Transition on hover and focus |
+| `--fmdb-btn-focus-outline-color` | `#2563eb` | Focus outline, on keyboard focus only |
+| `--fmdb-btn-focus-outline-width` | `2px` | Width of that outline |
+| `--fmdb-btn-focus-outline-offset` | `2px` | Its offset |
+| `--fmdb-btn-disabled-opacity` | `0.6` | Opacity of a disabled button (submitting, or blocked in edit mode) |
+| `--fmdb-btn-primary-bg` | `#2563eb` | Background of the primary variant — submit, next |
+| `--fmdb-btn-primary-color` | `#fff` | Its text |
+| `--fmdb-btn-primary-hover-bg` | `#1d4ed8` | Its background on hover |
+| `--fmdb-btn-secondary-bg` | `#fff` | Background of the secondary variant — reset, previous, new form |
+| `--fmdb-btn-secondary-color` | `#374151` | Its text |
+| `--fmdb-btn-secondary-border` | `#d1d5db` | Its border |
+| `--fmdb-btn-secondary-hover-bg` | `#f3f4f6` | Its background on hover |
+| `--fmdb-btn-danger-bg` | `#dc2626` | Background of the danger variant — a Button field the contributor set to it |
+| `--fmdb-btn-danger-color` | `#fff` | Its text |
+| `--fmdb-btn-danger-hover-bg` | `#b91c1c` | Its background on hover |
+| `--fmdb-form-actions-gap` | `0.75rem` | Gap between the form's buttons |
+| `--fmdb-form-actions-mt` | `1.5rem` | Space above the button row |
+| `--fmdb-new-form-btn-mt` | `0.75rem` | Space between the message and its button |
+| `--fmdb-new-form-btn-width` | `100%` | Width of that button — it fills the message as the submit button fills the form; `auto` makes it inline |
+
+A flatter, squarer look, for instance:
+
+```css
+.fmdb-form {
+	--fmdb-btn-radius: 0;
+	--fmdb-btn-primary-bg: #111827;
+	--fmdb-btn-primary-hover-bg: #000;
+}
+```
+
 ## Range slider
 
 | Variable | Default | Description |
@@ -242,6 +288,17 @@ jExperience and orange to jContent's warnings.
 | `--fmdb-spinner-border-width-large-mobile` | `3px` | Border width (large) |
 | `--fmdb-spinner-text-size-medium-mobile` | `0.8rem` | Font size (medium) |
 | `--fmdb-spinner-text-size-large-mobile` | `0.9rem` | Font size (large) |
+
+## Prefilled fields
+
+A field a prefill filled and the author made read-only carries `data-fmdb-prefilled="readonly"` on its
+wrapper (see [Class hooks](class-hooks.md#the-form-and-its-fields)): the field is toned down, and its
+select, radio, checkbox and colour controls — which have no native read-only — and their labels lose the pointer.
+
+| Variable | Default | Description |
+|---|---|---|
+| `--fmdb-prefilled-readonly-opacity` | `0.75` | Opacity of the read-only field |
+| `--fmdb-prefilled-readonly-pointer-events` | `none` | Pointer events of its select, radio, checkbox, colour controls and labels; `auto` gives them back |
 
 ## Extended inputs
 

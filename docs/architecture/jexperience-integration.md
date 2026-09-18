@@ -101,18 +101,20 @@ Nothing in Formidable depends on jExperience; the new module depends on both.
 | `fmdbmix:profileMappableField` | formidable-engine, CND | Marker mixin, no properties: "this field can take part in a profile mapping". Declared as a supertype by every mappable field type in the elements and extended-inputs modules, and by third-party fields that want the feature. |
 | `fmdbmix:jExperienceSensitiveField` | jexperience-engine, CND | The author's per-field "this value never leaves the site", held from the save and not from the next publication (the enricher reads both workspaces; see the decision log): one boolean, on a mixin that `extends` the marker like the mapping does and inherits `jmix:templateMixin`, so the Content Editor renders the checkbox without an enable switch. It has to be answerable before the mapping fieldset is switched on, and a switch of its own could contradict that one. |
 | `fmdbmix:jExperienceProfileMapping` | jexperience-engine, CND | Property mixin that `extends` the marker, so it reaches every field claiming it without naming a field type or depending on the extended inputs: profile property (choicelist), write strategy. Surfaced as a "jExperience" section in the field's editor form through a Content Editor form override. |
-| `fmdbmix:jExperiencePrefill` | jexperience-engine, CND | The author's "fill this field from the visitor profile when the page opens": a mixin that `extends` the marker, so that jcontent gives it a fieldset with a switch in the same section — its one option, whether the profile's value may replace the field's default value, shows only when the switch is on. A field is prefilled when it carries this mixin, is mapped, and is not sensitive. |
+| `jExperiencePrefill` + `jExperiencePrefillThen` | jexperience-engine, CND | Two properties of the mapping mixin, not a mixin of their own: the author's "fill this field from the visitor profile when the page opens", and what the page then does once the value is in the field — leave it editable, make it read-only, or hide it, the value still submitted. A field is prefilled when it is mapped to a property, has the switch on, and is not sensitive; the profile's value replaces a default value the author gave the field, and a field the profile has no value for keeps its default, untouched by the option. The option is required by the editor form only, and its choicelist chains `PrefillThenChoiceListInitializer`, which replaces the three answers with one message while the switch is off. |
 | `ProfilePropertiesChoiceListInitializer` | jexperience-engine | Lists profile properties compatible with the field's shape (`FieldShapes`, inferred from the value-kind mixins), filtered on flags and system tags (`ProfilePropertyFilter`), through the module's admin client. Property types change rarely: `ProfilePropertyCatalog` keeps them one minute per site (a property just created in jExperience shows at the next opening); past the minute a failed read reports the schema unavailable rather than serving a list that may no longer be true. An unreachable jCustomer, or a schema with no property of the field's kind (jCustomer ships no boolean property), gives one message entry with an empty value, pre-selected so the closed select reads it (jcontent's `defaultProperty`), never a blank or broken dropdown. When jCustomer answers, the list is the truth: a stored mapping it does not carry is not offered and the Content Editor resets it. When jCustomer cannot be asked, the stored mapping is the one entry of the list, described as left unchanged, so a save during the outage cannot wipe a mapping the author never touched. A message without a select would need a selector of the module's own — a UI bundle, left for a later phase. Nothing reusable exists today in jExperience; the generic half is written so it can be lifted there later. |
 | `MappingRuleSyncListener` | jexperience-engine | Live-workspace publication listener under `/sites`, **without a node-type filter**: it keeps two kinds of events by name — `j:lastPublished` added or changed (publication writes it on every published node; the nearest form above is resynchronised) and a node removed whose parent still exists (the head of a removal: the form above, or the removed node itself by its identifier). A typed listener would miss a form deleted by a published deletion and a field whose jExperience section was switched off. |
 | `MappingRuleSynchronizer` | jexperience-engine | Builds the rule from live in the site's default language, compares it with the stored one (`GET /cxs/rules/{id}`, 204 = absent), posts only a change, deletes when the form leaves live or maps nothing. Coalesces a publication's bursts of events (2 s); leaves alone a site with no jExperience configuration; keeps a pending list retried every minute while jCustomer cannot be asked, guarded so that no error can stop the retries. |
 | `MappingRule` | jexperience-engine | The rule as the JSON map jCustomer stores — id `formidable-form-mapping_<site>_<uuid>`, conditions, one `setPropertyAction` per mapped field with the value parameter of the property's type — and the "owned" projection the diff compares. |
 | `FormMappingReader` | jexperience-engine | Reads a published form's mapped fields and applies the dropdown's own rule at publication: a property gone from the schema or no longer fitting the field's shape is skipped and logged, never turned into an action. A node that is not a form maps nothing — Jahia republishes a folder by removing and re-adding it in live, and the listener then resolves the folder by its identifier — so a rule is written for a form only. |
-| `FormJExperienceRenderFilter` | jexperience-engine | Render filter on `fmdb:form` (same family as `CaptchaRenderFilter`). On a site whose pages carry the tracker — jExperience among the site's modules **and** settings for it, `JExperienceSite` — it writes next to the form: a JSON config block (`{formId, name, path, prefill}` — the mappings for sending are not in it, the accepted values reach the script through the submission's answer; `prefill` names, field by field, the profile property to read and whether it may replace the author's default) and a `<jahia:resource>` declaration of the module's client script, which core hoists into the `<head>` and keeps one for the whole page. Nothing inline and nothing per form: that one script reads every block of the page and asks the tracker for the union of the prefill properties in a single `digitalDataOverrides` entry. Its output carries no visitor data: the fragment stays cached — and the form's mappable fields are registered as dependencies of that fragment, so that mapping a field or switching its prefill on refreshes the block, which the form's own node, unchanged by either, would not. The filter sits just inside the fragment cache (priority 17; core's `CacheFilter` is 16.5): that is what makes the block part of the form's fragment and the fields part of its dependencies — see the decision log. |
-| `formidable-jxp.js` | jexperience-engine, static resource | The client half, one instance per page. At load, pushes the union of every block's `prefill` properties once into `digitalDataOverrides`, before the tracker reads it. Once the context is loaded and the island has taken the form over (`formidable:ready`), writes the profile's values into the mapped fields the visitor has not touched — a trusted `input` or `change` event marks a control touched; the live state is never compared with the default one, which the browser sets on its own — where the author wrote no default (read from the content attributes: `value`, `checked`, `selected`) or allowed the override, by their shape: a string, a number, the calendar day or minute in the visitor's zone for a date or a date-time, an option or a radio matched by value, a group or a multiple select by the values listed, a boolean; of a multi-valued property, the first non-empty scalar — an empty array or an object writes nothing. Then dispatches `input` and `change`, and `formidable:prefill` on a hidden control. Warns once when the page has no `digitalDataOverrides` or no tracker to register with. On `formidable:submitted`, decides with `shouldCollect()` and sends the `form` event through `wem.collectEvent`. |
+| `FormJExperienceRenderFilter` | jexperience-engine | Render filter on `fmdb:form` (same family as `CaptchaRenderFilter`). On a site whose pages carry the tracker — jExperience among the site's modules **and** settings for it, `JExperienceSite` — it writes next to the form: a JSON config block (`{formId, name, path, prefill}` — the mappings for sending are not in it, the accepted values reach the script through the submission's answer; `prefill` names, field by field, the profile property to read and, when the author asked for it, what follows the write — `then`, read-only or hidden) and a `<jahia:resource>` declaration of the module's client script, which core hoists into the `<head>` and keeps one for the whole page. Nothing inline and nothing per form: that one script reads every block of the page and asks the tracker for the union of the prefill properties in a single `digitalDataOverrides` entry. Its output carries no visitor data: the fragment stays cached — and the form's mappable fields are registered as dependencies of that fragment, so that mapping a field or switching its prefill on refreshes the block, which the form's own node, unchanged by either, would not. The filter sits just inside the fragment cache (priority 17; core's `CacheFilter` is 16.5): that is what makes the block part of the form's fragment and the fields part of its dependencies — see the decision log. |
+| `formidable-jxp.js` | jexperience-engine, static resource | The client half, one instance per page. At load, pushes the union of every block's `prefill` properties once into `digitalDataOverrides`, before the tracker reads it. Once the context is loaded and the island has taken the form over (`formidable:ready`), writes the profile's values into the mapped fields the visitor has not touched — a trusted `input` or `change` event marks a control touched; the live state is never compared with the default one, which the browser sets on its own — an author's default gives way to the profile's value, a field the profile has no value for is left as it is, never blanked, and a written field is then left editable, made read-only or hidden as the author asked (`data-fmdb-prefilled` on its wrapper) — by their shape: a string, a number, the calendar day or minute in the visitor's zone for a date or a date-time, an option or a radio matched by value, a group or a multiple select by the values listed, a boolean; of a multi-valued property, the first non-empty scalar — an empty array or an object writes nothing. Then dispatches `input` and `change`, and `formidable:prefill` on a hidden control. Warns once when the page has no `digitalDataOverrides` or no tracker to register with. On `formidable:submitted`, decides with `shouldCollect()` and sends the `form` event through `wem.collectEvent`. |
 | `SubmissionResponseEnricher` SPI | formidable-engine, `api` package | Called by the pipeline after all actions succeeded, with the form node, the site and the validated parameters; returns a JSON block to add to the 200. The jExperience module contributes `jexperience: {formId, fields}` — the accepted values of the form's fields, minus the ones marked sensitive — when the site's pages carry the tracker (`JExperienceSite`). Enrichers never fail the submission. |
 | `formidable:submitted` | formidable-elements, `Form.client.tsx` | DOM `CustomEvent` (bubbling) dispatched after a 200, carrying the form's UUID and the parsed response. The elements module knows nothing of jExperience: it only says "this was accepted, here is what the server answered". |
 | `formidable:ready` | formidable-elements, `Form.client.tsx` | DOM `CustomEvent` (bubbling) dispatched from the island's mount effect, together with `noValidate`, carrying the form's UUID: "the island is in charge from here". A script that writes into the fields waits for it, so that no island resets what it wrote. |
-| `formidable:prefill` | jexperience-engine → formidable-elements, `Range.client.tsx` | DOM `CustomEvent` (bubbling) the client script dispatches on a **hidden** control after writing it, with `{value, overridesDefault}`. The range slider's named control is a hidden mirror of the island's state, which a write cannot reach — React reconciles it back at the next render — so the island takes the value from the event, under the prefill's own rules spelt in `rangePrefill.ts` (visitor's answer kept, author's default kept unless the override is allowed, a number within the bounds snapped to the step). A plain hidden field has no island and keeps the written value. |
+| `formidable:reset` | formidable-elements, `Form.client.tsx` | DOM `CustomEvent` (bubbling) dispatched once a reset has been applied — the visitor's Reset button, or the one the island performs after an accepted submission. It waits for the end of the task, since the native `reset` event fires *before* the browser restores the defaults, and a listener that fills the form again must not be undone by the reset itself. |
+| `formidable:newForm` | formidable-elements, `Form.client.tsx` | DOM `CustomEvent` (bubbling) dispatched when the visitor asks for another form from the message that followed a submission. Same element, emptied. |
+| `formidable:prefill` | jexperience-engine → formidable-elements, `Range.client.tsx` | DOM `CustomEvent` (bubbling) the client script dispatches on a **hidden** control after writing it, with `{value, then}`. The range slider's named control is a hidden mirror of the island's state, which a write cannot reach — React reconciles it back at the next render — so the island takes the value from the event, under the prefill's own rules spelt in `rangePrefill.ts` (visitor's answer kept, author's default given way to, a number within the bounds snapped to the step). A plain hidden field has no island and keeps the written value. The island also applies what follows the write (`then`): the script knows what it wrote into the mirror, not what the slider accepted, and the mirror is barred from constraint validation — so `readOnly` disables the slider and marks the wrapper, `hidden` hides the wrapper, both only for a value the island took (`applyAfterPrefill`, unit-tested under jsdom). |
 
 The Java of `formidable-jexperience-engine` sits in packages named for their concern, one each, and none
 is exported (`Export-Package: !*`): "public" there means "read across the module's packages", nothing more.
@@ -183,7 +185,7 @@ form never orphans a rule.
 4  wem.js              ──►  jCustomer             /cxs/context.json — the request it makes anyway, now asking the properties
 5  jCustomer           ──►  wem.js                context: profile properties, trackedConditions      (response)
 6  formidable-jxp.js                              once wemLoaded AND formidable:ready: fills the mapped fields
-                                                  flagged prefill — empty ones, the author's defaults when allowed
+                                                  flagged prefill — the visitor's input kept, an author's default replaced
 ```
 
 Nothing personal is in the HTML: the page and the form fragment stay cached for everyone, and
@@ -203,14 +205,69 @@ islands rewrite their input on mount, and a rule that depends on which island a 
 breaks at the next island. A multi-valued property comes back as an array of strings; a single one as a
 string, dates as ISO date-times, booleans as booleans.
 
-**The guards read what the author wrote and what the visitor did, never the live state** (review of
-2026-09-17, measured on the rendered DOM). A single `<select>` has its first option selected by the browser
-while `defaultSelected` stays false; a colour input is born `#000000` over an empty attribute; a field the
+**The touched guard reads what the visitor did, never the live state** (review of 2026-09-17, measured
+on the rendered DOM). A single `<select>` has its first option selected by the browser while
+`defaultSelected` stays false; a colour input is born `#000000` over an empty attribute; a field the
 visitor typed in then cleared reads `value === defaultValue` again. So a control counts as touched when a
 trusted `input` or `change` event reached it — the browser's own, never one a script dispatched, this one
-included — and as defaulted when its content attribute says so. A date takes the calendar day of the
+included. What the author wrote as a default is no guard (2026-09-18): the profile's value replaces it,
+and a profile with nothing to say leaves it, never blanking a choice. A date takes the calendar day of the
 instant in the visitor's zone, not its UTC day. A hidden control is told as well as written
 (`formidable:prefill`), because the range slider's named control is a controlled mirror.
+
+**After the write, what the author asked** (`jExperiencePrefillThen`, 2026-09-18 — the two behaviours Forms'
+prefill offers as `makeReadOnlyAfterPrefill` and `hideAfterPrefill`, as one choice). Read-only sets the
+native attribute on a textual control; a select, a radio, a checkbox or a colour input has none (`readonly`
+applies to the textual types only), and `disabled` would take the value out of the submission, so they get
+a listener that puts the prefilled state back on every change and says the change again on what it put back
+— an island's validation, registered at hydration, runs before the restore and would otherwise keep the
+visitor's transient state — while the base stylesheet tones the field down and takes the pointer off those
+controls (`prefill.css`, two variables). `aria-readonly` goes where the role supports it: the checkbox and
+the select, and for radios the group — the `radiogroup`, since a bare `fieldset` is a `group`, which carries
+it no better than a `radio` does. The four views that render same-named radios mark it (`fmdb:radio`, and
+`fmdbext:switch` in its buttons mode, `fmdbext:rating`, `fmdbext:scale`); the script looks for
+`[role="radiogroup"]` and falls back to the field's own `[data-fmdb-node-name]` wrapper, which every shape
+has — a one-choice radio has no fieldset at all, and climbing to the nearest one would mark an author's
+fieldset of unrelated fields. That fallback is a **placement, not an announcement**: the wrapper carries no
+role, so assistive technology ignores `aria-readonly` there — what it buys is that the attribute does not
+land on an author's unrelated fieldset, which is the bug it was added for. A colour input has no role to
+carry it either. Hidden sets `display: none` on the field's wrapper, the value still submitted. Both write
+`data-fmdb-prefilled` (`readonly` or `hidden`) on the wrapper, the styling hook. A written choice counts as
+prefilled whether or not the DOM changed — a profile that merely confirms the author's default gets the
+same `then` as one that differs (review). The range slider is the island's own business: its named control
+is a hidden mirror the script writes without knowing what the slider accepts, so the script leaves a hidden
+control alone and the island applies `then` for a value it took (`applyAfterPrefill`). Neither touches a
+field the prefill left alone — the visitor has to be able to fill it — and a value the field's own validation
+rejects is never hidden, since the visitor could neither see the error nor fix it. The conditional logic keeps
+such a wrapper out of sight when a rule shows it again, while still enabling its controls and reading it as a
+source: it is not hidden *by the logic*.
+
+**The prefill runs again when the form goes back to what the page opened with.** A reset empties the
+fields and a "new form" hands the visitor the same empty element, so a form the profile fills would come
+back blank for a visitor it knows — and locked or hidden fields would stay locked over values that are
+gone. The island says both in the same vocabulary as the rest (`formidable:reset`, `formidable:newForm`,
+the form's UUID in the detail), and `api.prefillAgain` does three things for that form alone before
+running the ordinary prefill: it gives back everything the previous run did — the locks, the marks, the
+fields put out of sight — then forgets the mark that says the form was filled once, and what its controls
+remember of having been touched, since what the visitor typed went with the reset. Giving back first is
+what makes a replay safe: a second `lock()` over a field the first one locked would read the read-only
+attribute as the author's and never hand it back. The gates are the same, so a page with no tracker or no
+context does nothing, as before.
+
+**An error is not a new form.** The island empties the form after an accepted submission, and only that
+path says `formidable:newForm`; after a rejected one the form stays on screen with everything the visitor
+typed, and its "try again" button says nothing — the prefill would otherwise write the profile's values
+over the corrections they just made, since a replay forgets what the controls remember of being touched.
+
+Two things a refusal and a reset must undo (review, 2026-09-18). The script writes the slider's mirror before
+telling the island, and the mirror is what the form posts: when the island refuses the value — out of the
+slider's bounds, or over an answer the visitor already gave — nothing re-renders, so the island puts the
+mirror back itself (`restoreMirror`), or the form would carry a value the visitor never gave. And a form
+reset empties the fields, so nothing is prefilled any more: the wrapper comes back in sight and loses
+`data-fmdb-prefilled`, the lock is lifted, on both sides (`clearPrefillMarks` in the island; in the script
+the form's undo list, run on the native reset and again before any replay). Without it a required field
+hidden by the prefill would come back unanswered behind a `display: none` wrapper, blocking the submission
+over an error the visitor cannot see.
 
 ### Submitting: through the pipeline, then to the profile
 
@@ -340,7 +397,7 @@ carry jExperience's tracker; cacheable, identical for every visitor. **Shipped i
 
 The block carries three strings and the prefill pairs, no more: the identifier the event is keyed on,
 the title and path its target properties read, and for each field the author asked to prefill the
-profile property it reads and whether that value may replace the author's default. **What the form
+profile property it reads and, when the author asked for something after the write, `then` (`readOnly` or `hidden`). **What the form
 maps for sending is deliberately not in it** — the send decision reads the tracker's own watch list,
 which a mapped form is in through the rule published for it, so declaring the mappings again would be
 a second list to keep in step for nothing (HDU, 2026-09-15). The prefill pairs are the one thing the
@@ -364,8 +421,7 @@ from the context.
 ```html
 <script type="application/json" data-formidable-jxp="FORM-UUID">
   {"formId": "FORM-UUID", "name": "Contact form", "path": "/sites/mysite/contents/contact",
-   "prefill": {"firstName": {"property": "firstName", "overridesDefault": false},
-               "email": {"property": "email", "overridesDefault": true}}}
+   "prefill": {"firstName": {"property": "firstName"}, "email": {"property": "email", "then": "readOnly"}}}
 </script>
 ```
 
@@ -472,15 +528,11 @@ from the tracker — then completed by the client script:
  itemtype = content
  - jExperienceProfileProperty (string, choicelist[formidableJExperienceProfileProperties]) indexed=no
  - jExperienceSetStrategy (string, choicelist[resourceBundle]) = 'alwaysSet' autocreated indexed=no < 'alwaysSet', 'setIfMissing'
-
-// formidable-jexperience-engine — the prefill, a mixin of its own: jcontent gives a mixin that extends a type
-// a fieldset with a switch, and what it holds shows only when the switch is on — the one conditional display
-// the editor offers declaratively. Switching it on is "fill this field from the visitor profile when the
-// page opens"; the one option inside says whether the profile's value may replace the author's default.
-[fmdbmix:jExperiencePrefill] mixin
- extends = fmdbmix:profileMappableField
- itemtype = content
- - jExperiencePrefillOverridesDefault (boolean) = false autocreated indexed=no
+ // the prefill lives in the mapping: it needs a mapped property to do anything, and the editor cannot show
+ // one fieldset only when another is on. Its option's choicelist chains our initializer, which puts a message
+ // in the dropdown while the switch is off — dependentProperties asks the list again the moment it is ticked
+ - jExperiencePrefill (boolean) = false autocreated indexed=no
+ - jExperiencePrefillThen (string, choicelist[resourceBundle,formidableJExperiencePrefillThen,dependentProperties='jExperiencePrefill,jExperiencePrefillThen']) = 'editable' autocreated indexed=no < 'editable', 'readOnly', 'hidden'
 
 // formidable-jexperience-engine — the author's "this field is sensitive"; jmix:templateMixin is what
 // drops the fieldset's enable switch, and the mapping's choicelist names the property in its
@@ -592,10 +644,32 @@ formidable-jexperience-engine/src/main/resources/META-INF/jahia-content-editor-f
 }
 ```
 
-The prefill is a second fieldset of the same section (`fmdbmix_jExperiencePrefill.json`, rank 1.0): its
-switch is the author's "prefill this field", and the one option it holds — whether the profile's value may
-replace the field's default — shows only when the switch is on. Two checkboxes side by side read as one
-question asked twice (HDU, 2026-09-17); a fieldset that opens says which one depends on the other.
+The prefill is the last two fields of that same fieldset: the author's "prefill this field", and what the
+page does once the profile's value is in the field — leave it editable, make it read-only, hide it. The
+profile's value replaces a default the author gave the field and a missing value leaves it; the "replace the
+field's default value" option of the day before went with that decision (decision log, 2026-09-18).
+
+They sit inside the mapping because a prefill needs a mapped property to do anything at all, and the editor
+has no way to show one fieldset only when another is switched on: a mixin's own switch is the one conditional
+display it offers, a fieldset `condition` is resolved against the saved node when the form is built, and
+`extends` is matched against the primary node type, never against a mixin the node carries. Inside the
+mapping the dependency is structural instead — no mapping, no prefill, and switching the mapping off takes
+the prefill with it. What the editor still cannot do is grey out one field while the box beside it is
+unticked, so the option's choicelist does it in words: `PrefillThenChoiceListInitializer` replaces the three
+answers with one message ("switch the prefill on above…") while the switch is off, and the choicelist names
+the switch in its `dependentProperties`, so the editor asks the list again the moment the box is ticked, with
+no save in between. That entry carries the value the field already holds rather than an empty one — which is
+what lets the option stay required while saying nothing.
+
+That option is **required by the editor only**, and by the right file: `"mandatory": true` in
+`META-INF/jahia-content-editor-forms/**fieldsets**/fmdbmix_jExperienceProfileMapping.json`, nothing in the
+CND. The Content Editor keeps two static registries and merges only the fieldset one into a field's
+definition — a `forms/` file places the fields in sections and what it says about one of them is dropped,
+so the same flag there looks right and does nothing (measured: `mandatory: false` on the deployed instance,
+`true` once the override was a `fieldsets/` file keyed by `name`). The CND stays as it was deployed: a
+mandatory flag added to a type already registered is a MAJOR change to Jahia's `DefinitionsBundleChecker`,
+which cancels the deployment of the module. The options-source settings of `formidable-elements` carry
+theirs in a `fieldsets/` override for the same reason.
 
 - **Rank.** Sections order by rank, and the ranks Formidable already uses are 1.10 for Logic and
   Responses, 1.20 Buttons, 1.30 Multi-step, 1.40 Style, 1.50 Validation messages. 1.15 gives
@@ -804,6 +878,9 @@ minute, one rule (decisions of 2026-09-11).
 | 2026-09-17 | **Every mapped shape is prefilled**, not text-like fields only as the roadmap first said (HDU) | The matrix is small — a string, a number, a date sliced to what the input takes, an option or a radio matched by value, a group or a multiple select matched by the values listed, a boolean checking a lone checkbox or a switch — and the playground carries every one of them. No server-side default property is needed for a choice field: the client matches option values |
 | 2026-09-17 | **Nothing is injected per form; the hoisted script pushes the union once** (HDU, the lesson of #330) | jExperience creates `window.digitalDataOverrides` in the head, hands the array to the tracker at `wem.init()`, and reads it at `DOMContentLoaded`, after every deferred script — so the one script core hoists into the head sees every block of the page and pushes one entry; the tracker concatenates arrays, so jExperience's own `j:nodename` stays. The block carries data per form, which it already did |
 | 2026-09-17 | **Consents are not read**: the tracker's presence and `activateWem` are the only gates (HDU) | jExperience's consent handling is out of date; whoever decides whether the tracker starts — a consent tool, the bot filter — decides for this integration too. `profile.consents` is not consulted, for sending or for prefilling |
+| 2026-09-18 | **The profile wins over an author's default, and a missing value never blanks** (HDU): the `jExperiencePrefillOverridesDefault` option of the day before goes, the prefill fieldset keeps its switch alone | The 2026-09-17 rule — empty fields only, the default replaced only when the author ticks the override — read the contract the wrong way round. A default is what the author knows without knowing the visitor; the profile's value is what is known about this visitor: the fresher word wins whenever there is one, and there is nothing for the author to decide. What must never happen is the trap Forms' prefill fell into — a default blanked because the profile had nothing. The text, select and slider paths already wrote nothing then, but the choice path unchecked a default-checked option whenever the override was on and the profile named nothing the options carried; the rule is now "nothing named, nothing written" for every shape. A value the visitor typed before the context landed stays protected as before |
+| 2026-09-18 | **What follows the write is one choice, not two flags** — `jExperiencePrefillThen`: editable (default), read-only, hidden (HDU: "comme dans Forms") | Forms' prefill offers `hideAfterPrefill` and `makeReadOnlyAfterPrefill` as two booleans, and a hidden field makes read-only moot: one choicelist cannot say both. It applies only to a field that was written — the profile had a value, the visitor had not typed — so a visitor the profile knows nothing about keeps a field to fill. Read-only has no native form for a select, a radio or a checkbox, and `disabled` would drop the value from the submission: `aria-readonly` plus a restore on change, the stylesheet taking the pointer off. Hidden is inline `display: none` with `data-fmdb-prefilled` on the wrapper, which the conditional logic reads so that a rule showing the field again does not undo it, without treating it as logic-hidden (that would disable its controls). A value that fails the field's validation is not hidden: the visitor could neither see nor fix the error. Review (HDU, same day): the range mirror is barred from constraint validation and the script cannot see the island's verdict, so the island applies `then` itself; a choice the profile merely confirms is prefilled all the same (`fillChoices` reported a write only on a DOM change, the other shapes on any value); `readonly` does nothing on a colour input, which joins the restored shapes; `aria-readonly` is the radiogroup's, not the radio's; the restore says the change again, since an island's own change listener runs first and validated the transient state. Round 2 (same day): the island takes its refused value back out of the mirror, which is what the form posts; a form reset undoes the prefill on both sides, since nothing is prefilled once the fields are empty; the group role goes on the four views that render same-named radios, with the field's wrapper as the script's fallback; and the option is mandatory in the editor form, not in the CND — a mandatory flag added to a registered type cancels the module's deployment |
+| 2026-09-18 | **The prefill goes back inside the mapping** (HDU: the dependency between the two switches is invisible) — `jExperiencePrefill` + `jExperiencePrefillThen` as properties of `fmdbmix:jExperienceProfileMapping`, the mixin of 2026-09-17 removed | Two switches side by side said nothing of the fact that the second does nothing without the first; only the tooltip did. jcontent has no live conditional display to lean on: a mixin's own switch is the one it offers, a fieldset `condition` is evaluated against the saved node when the form is built (so it cannot follow a switch just flipped), and a mixin that `extends` another mixin never appears at all, since `getExtendMixins` matches the primary node type. Inside the mapping the dependency is structural: no mapping, no prefill, and switching the mapping off takes the prefill with it. The editor still cannot grey out one field while a box beside it is unticked, so the option's dropdown says it in words — `PrefillThenChoiceListInitializer` offers one message while the switch is off, carrying the value the field already holds so that a required dropdown changes nothing, and `dependentProperties` refills the list the moment the box is ticked. Nothing is migrated: no released version ever knew the mixin |
 | 2026-09-16 | **Two engine markers replace the last two type names the Java read**: `fmdbmix:formRoot` on `fmdb:form`, `fmdbmix:cardinalityFromChoices` on `fmdb:checkbox` | The rule this integration already followed for a field — read the mixin, never the concrete type — now holds for the form and for the checkbox's cardinality. It closes the two gaps the ownership document listed, and it is what lets a module of its own offer a form type, or a field that renders one input per choice, and be treated like the built-in ones. Neither marker carries a property, so adding it to a deployed type adds no constraint; the deployment of the release that introduces them is forced past the definitions check |
 
 ## Open questions
@@ -827,7 +904,7 @@ minute, one rule (decisions of 2026-09-11).
 | 1 | Module skeleton recalibrated on jExperience 4.2.1 with open OSGi ranges, added to the root pom. Marker mixin in the engine and on the field types, editor section (its copyable identifier field was removed 2026-09-15, see "The identifier"), ported choicelist initializer with cache, strategy and failure handling. FR bundle with escaped accents, prototype's harness file dropped | **Shipped 2026-09-11, review fixes 2026-09-14 (PR #324).** 55 JUnit tests in the module (shape inference on nodes and types, the checkbox's choice count asked for checkboxes only, property filter, catalog cache, failure paths and failure memory dated from the end of the call, initializer through the editor's context, the CND clauses the Java relies on; the identifier and listener tests went with the identifier on 2026-09-15) and 5 in the engine for `ChoiceOptionsResolver`; deployed on the test instance next to jExperience 4.2.1: the section lists 18 properties on a text field |
 | 2 | Mapping rule sync: rule builder on the form's UUID, publication listener, diff, delete on unpublish/removal, resync on availability | **Shipped 2026-09-14** (branch `feat/jexperience-phase2-rule-sync`). Golden JSON test of the rule, synchronizer tests (create, unchanged, update, delete, pending and retry, coalescing), listener and reader tests; on the local stack: publishing a mapped form creates the rule in jCustomer, republishing it unchanged writes nothing, unpublishing it or publishing its deletion deletes the rule, republishing recreates it, un-mapping a field by switching its section off and publishing that field alone deletes the rule too; a `form` event sent through the public `context.json` with the profile cookie — what the phase-3 script will do through the tracker — set the mapped profile property (`processedEvents: 1`). Cypress through the proxy waits for a jCustomer in CI |
 | 3 | Engine `SubmissionResponseEnricher` SPI and the elements' `formidable:submitted` event; render filter (config block, script); client script with `shouldCollect()` and the event | **Shipped 2026-09-15.** 360 engine and 105 module unit tests, the response guards mutation-proven. End to end on the local stack: the block renders with the form's own path, a submission answers `jexperience {formId, fields}`, and in the browser the tracker's initial scan and observer attach nothing (no `[WEM] Watching form` although the form is in `getFormNamesToWatch`), one `eventcollector` call per submission, the event stored with the bare UUID as `itemId` and the form's name and path as target properties, and a proof rule setting the mapped profile property. Prefill stays phase 4 |
-| 4 | Prefill of every mapped shape from the context's profile properties, empty fields only unless the author lets a default give way; `formidable:ready` on the island | **Shipped 2026-09-17 (PR #336)**: on the local instance, a visit with a known visitor's `context-profile-id` cookie fills the simple form's four fields — the phone behind its logic included — and, on the complete form, the date island (the visitor's calendar day), the gender radio, the country select and the kids number, whose author default of 1 gives way to the profile's value; a field the visitor typed in and cleared before the context landed stays empty; all of it once `wemLoaded` and `formidable:ready` are there, one `digitalDataOverrides` push for the page; a visitor jCustomer does not know gets empty fields; the HTML is the same for both. The `formidable:ready` contract is asserted in Cypress (spec 49), the range island's prefill rules in vitest |
+| 4 | Prefill of every mapped shape from the context's profile properties, the profile's value replacing an author's default (since 2026-09-18; empty fields only at first), and the author's choice of what follows the write — editable, read-only, hidden (2026-09-18); `formidable:ready` on the island | **Shipped 2026-09-17 (PR #336)**: on the local instance, a visit with a known visitor's `context-profile-id` cookie fills the simple form's four fields — the phone behind its logic included — and, on the complete form, the date island (the visitor's calendar day), the gender radio, the country select and the kids number, whose author default of 1 gives way to the profile's value; a field the visitor typed in and cleared before the context landed stays empty; all of it once `wemLoaded` and `formidable:ready` are there, one `digitalDataOverrides` push for the page; a visitor jCustomer does not know gets empty fields; the HTML is the same for both. The `formidable:ready` contract is asserted in Cypress (spec 49), the range island's prefill rules in vitest |
 | 5 | Phase 2 items from the open questions as decided: choice fields, extended inputs, consents | Per item |
 | 6 | Changelog entry, submission-flow doc updated with the response block, [formidable#153](https://github.com/Jahia/formidable/issues/153)'s jCustomer question answered | Review |
 

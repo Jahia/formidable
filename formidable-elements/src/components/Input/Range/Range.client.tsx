@@ -1,7 +1,7 @@
 import {useEffect, useRef, useState, type KeyboardEvent} from 'react';
 import {useTranslation} from 'react-i18next';
 import './range.css';
-import {prefillValue} from './rangePrefill';
+import {applyAfterPrefill, clearPrefillMarks, type PrefillDetail, prefillValue, restoreMirror} from './rangePrefill';
 
 // Keys that operate a range slider: releasing a focus-navigation key (e.g. Tab
 // landing on the slider) must not count as an answer.
@@ -63,6 +63,10 @@ export default function RangeInput({
 	const mirrorRef = useRef<HTMLInputElement>(null);
 	const answeredByVisitorRef = useRef(false);
 	const mountedRef = useRef(false);
+	// Set when a prefill wrote the slider and the author asked for read-only: the visible slider is disabled,
+	// the named mirror keeps the value for the submission. The island applies what follows the write itself
+	// (rangePrefill.ts): the script knows what it wrote into the mirror, not what the slider accepted.
+	const [lockedByPrefill, setLockedByPrefill] = useState(false);
 
 	// The thumb needs a position even while unanswered; the midpoint mirrors the
 	// browser default for a valueless range, snapped to the step grid so the
@@ -129,6 +133,11 @@ export default function RangeInput({
 		const handleReset = () => {
 			answeredByVisitorRef.current = false;
 			setValue(initialValue);
+			// Nothing is prefilled after a reset: give the slider back its hand and its wrapper back its
+			// place, or a required slider would stay unanswered behind a hidden wrapper, or locked on a
+			// value the visitor no longer has.
+			setLockedByPrefill(false);
+			clearPrefillMarks(mirrorRef.current);
 		};
 		formElement.addEventListener('reset', handleReset);
 		return () => formElement.removeEventListener('reset', handleReset);
@@ -138,9 +147,8 @@ export default function RangeInput({
 		const mirror = mirrorRef.current;
 		if (!mirror) return;
 		const handlePrefill = (event: Event) => {
-			const detail = (event as CustomEvent<{value?: unknown; overridesDefault?: boolean}>).detail ?? {};
+			const detail = (event as CustomEvent<PrefillDetail>).detail ?? {};
 			const accepted = prefillValue(detail, {
-				initialValue,
 				answeredByVisitor: answeredByVisitorRef.current,
 				minValue,
 				maxValue,
@@ -148,11 +156,20 @@ export default function RangeInput({
 			});
 			if (accepted !== null) {
 				setValue(accepted);
+				if (applyAfterPrefill(detail.then, mirror)) {
+					setLockedByPrefill(true);
+				}
 			}
+
+			// The script writes the profile's value into the mirror before telling the island, and the mirror
+			// is what the form posts and what the conditional logic reads: whatever the slider settled on has
+			// to be what it says — the value it took, since React skips the render when that already equals
+			// the state, or its own when it refused.
+			restoreMirror(mirror, accepted ?? value);
 		};
 		mirror.addEventListener(PREFILL_EVENT, handlePrefill);
 		return () => mirror.removeEventListener(PREFILL_EVENT, handlePrefill);
-	}, [initialValue, minValue, maxValue, stepValue]);
+	}, [minValue, maxValue, stepValue, value]);
 
 	return (
 		<>
@@ -172,7 +189,7 @@ export default function RangeInput({
 					value={displayValue}
 					title={title}
 					autoFocus={autofocus}
-					disabled={disabled}
+					disabled={disabled || lockedByPrefill}
 					form={form}
 					onChange={event => {
 						answeredByVisitorRef.current = true;

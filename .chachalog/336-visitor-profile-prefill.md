@@ -3,4 +3,4 @@
 formidable: minor
 ---
 
-Added prefill of mapped fields from the visitor profile when the page opens, replacing a default only when asked (#336)
+Added prefill of mapped fields from the visitor profile when the page opens, replacing the field's default (#336)

@@ -17,9 +17,11 @@ import org.jahia.modules.formidable.engine.api.FmdbProperty;
 import org.jahia.modules.formidable.jexperience.engine.model.JxpMixin;
 import org.jahia.modules.formidable.jexperience.engine.model.JxpProperty;
 import org.jahia.modules.formidable.jexperience.engine.choicelist.ProfilePropertiesChoiceListInitializer;
+import org.jahia.modules.formidable.jexperience.engine.choicelist.PrefillThenChoiceListInitializer;
 import org.jahia.modules.formidable.jexperience.engine.field.FieldShapes;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -36,6 +38,29 @@ class DefinitionsCndTest {
         try (InputStream in = DefinitionsCndTest.class.getResourceAsStream("/META-INF/definitions.cnd")) {
             assertNotNull(in, "META-INF/definitions.cnd is on the classpath");
             return List.of(new String(in.readAllBytes(), StandardCharsets.UTF_8).split("\n"));
+        }
+    }
+
+    /**
+     * The fieldset override of the mapping, where the option carries what the CND cannot. The Content
+     * Editor keeps two static registries and only this one is merged into a field's definition: what a
+     * {@code forms/} file says about a field is dropped, so a flag put there would look right and do
+     * nothing.
+     */
+    private static String fieldsetOverride() throws IOException {
+        try (InputStream in = DefinitionsCndTest.class.getResourceAsStream(
+                "/META-INF/jahia-content-editor-forms/fieldsets/fmdbmix_jExperienceProfileMapping.json")) {
+            assertNotNull(in, "the mapping fieldset override is on the classpath");
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    /** The form definition of the section, which places the fields; what it says about one is dropped. */
+    private static String editorForm() throws IOException {
+        try (InputStream in = DefinitionsCndTest.class.getResourceAsStream(
+                "/META-INF/jahia-content-editor-forms/forms/fmdbmix_jExperienceProfileMapping.json")) {
+            assertNotNull(in, "the mapping form definition is on the classpath");
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
     }
 
@@ -95,14 +120,34 @@ class DefinitionsCndTest {
     }
 
     @Test
-    void thePrefillIsAMixinOfItsOwnAttachedToTheMarker() throws Exception {
-        // Verifies the shape jcontent turns into a switchable fieldset: a mixin that extends the marker, no
-        // supertype, holding the one option that shows only when the switch is on.
-        List<String> mixin = declarationOf(cnd(), JxpMixin.PREFILL);
-        assertEquals("[" + JxpMixin.PREFILL + "] mixin", mixin.get(0));
-        assertEquals("extends = " + FmdbMixin.PROFILE_MAPPABLE_FIELD, lineStartingWith(mixin, "extends"));
-        assertEquals("- " + JxpProperty.PREFILL_OVERRIDES_DEFAULT + " (boolean) = false autocreated indexed=no",
-                lineStartingWith(mixin, "- " + JxpProperty.PREFILL_OVERRIDES_DEFAULT + " "));
+    void thePrefillLivesInsideTheMapping() throws Exception {
+        // The switch and its option are properties of the mapping, not a mixin of their own: a prefill needs
+        // the mapping and a property to do anything, and the editor cannot show one fieldset only when
+        // another is on. The option's choicelist chains the bundle with our initializer and depends on the
+        // switch, which is what puts a message in the dropdown while the prefill is off, with no save.
+        List<String> mixin = declarationOf(cnd(), JxpMixin.MAPPING);
+        assertEquals("- " + JxpProperty.PREFILL + " (boolean) = false autocreated indexed=no",
+                lineStartingWith(mixin, "- " + JxpProperty.PREFILL + " "));
+        assertEquals("- " + JxpProperty.PREFILL_THEN + " (string, choicelist[resourceBundle,"
+                        + PrefillThenChoiceListInitializer.KEY + ",dependentProperties='" + JxpProperty.PREFILL + ","
+                        + JxpProperty.PREFILL_THEN + "']) = 'editable' autocreated indexed=no < 'editable', 'readOnly', 'hidden'",
+                lineStartingWith(mixin, "- " + JxpProperty.PREFILL_THEN + " "));
+        assertTrue(cnd().stream().noneMatch(line -> line.strip().startsWith("[fmdbmix:jExperiencePrefill]")),
+                "the prefill mixin of the first design is gone");
+    }
+
+    @Test
+    void theOptionIsRequiredByTheEditorOnly() throws Exception {
+        // An author who switches the prefill on answers what follows it — while the CND stays as it was
+        // deployed: a mandatory flag ADDED to a registered type is a MAJOR change to Jahia's
+        // DefinitionsBundleChecker, which cancels the deployment of the module. The flag belongs to the
+        // fieldsets/ override, the one static registry the editor merges into a field's definition; the
+        // same flag in a forms/ file deserializes and is dropped.
+        assertTrue(fieldsetOverride().contains("\"name\": \"" + JxpProperty.PREFILL_THEN + "\", \"mandatory\": true"),
+                "the fieldset override makes the option mandatory: " + fieldsetOverride());
+        assertFalse(editorForm().contains("mandatory"), "nothing in the form definition, where it would be dropped");
+        assertTrue(declarationOf(cnd(), JxpMixin.MAPPING).stream().noneMatch(line -> line.contains("mandatory")),
+                "no mandatory in the CND of " + JxpMixin.MAPPING);
     }
 
     /**

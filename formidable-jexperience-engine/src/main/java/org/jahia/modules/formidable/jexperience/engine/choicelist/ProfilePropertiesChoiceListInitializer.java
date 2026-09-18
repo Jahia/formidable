@@ -152,7 +152,15 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
      * closed select instead of finding it in the list.
      */
     static List<ChoiceListValue> messageEntry(String message) {
-        ChoiceListValue entry = new ChoiceListValue(message, "");
+        return messageEntry(message, "");
+    }
+
+    /**
+     * The same, for a dropdown whose property is required by the editor: the entry carries the value the
+     * field already holds, so that picking the message writes what is stored rather than nothing.
+     */
+    static List<ChoiceListValue> messageEntry(String message, String value) {
+        ChoiceListValue entry = new ChoiceListValue(message, value);
         entry.addProperty(DEFAULT_PROPERTY, "true");
         return List.of(entry);
     }

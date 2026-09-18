@@ -57,8 +57,10 @@ jahiaComponent(
 			);
 		}
 
+		// radiogroup: what a fieldset of radios is, and the one role of the group that carries aria-readonly
+		// (the jExperience prefill sets it when the author locks the field)
 		return (
-			<fieldset className="fmdb-form-group fmdb-radio-group" aria-describedby={helpId}>
+			<fieldset className="fmdb-form-group fmdb-radio-group" role="radiogroup" aria-describedby={helpId}>
 				{label && (
 					<legend className="fmdb-group-legend">
 						{label}

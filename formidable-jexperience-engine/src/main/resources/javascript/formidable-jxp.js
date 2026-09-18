@@ -31,6 +31,11 @@
   const BLOCK_SELECTOR = 'script[type="application/json"][data-formidable-jxp]';
   const READY_EVENT = "formidable:ready";
   const SUBMITTED_EVENT = "formidable:submitted";
+  // The island says when the form goes back to the state the visitor found it in: a reset, or the new
+  // form it offers after a submission. Both empty it, so the prefill is due again — the page opens anew
+  // for it.
+  const RESET_EVENT = "formidable:reset";
+  const NEW_FORM_EVENT = "formidable:newForm";
 
   /** The configuration block the render filter wrote for the form, or null. */
   api.configOf = (formId) => {
@@ -203,15 +208,21 @@
     };
     form.addEventListener("input", mark, true);
     form.addEventListener("change", mark, true);
+    // A reset empties the form, so nothing is prefilled any more: one listener for the form, whatever
+    // the number of fields the prefill locked or hid, and the island's formidable:reset — which waits
+    // for the values to be back — is what tells the prefill to run again.
+    form.addEventListener("reset", () => undoPrefill(form));
   };
   api.configs().forEach((config) => watch(api.formOf(config.formId)));
 
   /**
-   * Fills the mapped fields of the form from the loaded context, one field at a time, and once: a control
-   * the visitor touched is left alone, and a default value the author gave the field gives way only when
-   * the author said so (`overridesDefault`). Nothing happens without a tracker, a profile and a hydrated
-   * form; a form is marked done once something was written into it, so the second of the two signals
-   * that open the gates does not write again.
+   * Fills the mapped fields of the form from the loaded context, one field at a time, and once. A control
+   * the visitor touched is left alone. A default value the author gave the field gives way: the profile is
+   * the fresher word about this visitor. A field the profile has no value for is left as it is, default
+   * included — the prefill never blanks. A field that was written is then left editable, made read-only or
+   * hidden, as the author asked (`then`). Nothing happens without a tracker, a profile and a hydrated form;
+   * a form is marked done once something was written into it, so the second of the two signals that open
+   * the gates does not write again.
    */
   api.prefill = (formId) => {
     const form = api.formOf(formId);
@@ -225,9 +236,14 @@
     }
     watch(form);
     const values = window.wem.getLoadedContext().profileProperties || {};
-    const written = Object.keys(pairs).filter((field) =>
-      fill(form, field, values[pairs[field].property], Boolean(pairs[field].overridesDefault)),
-    );
+    const written = Object.keys(pairs).filter((field) => {
+      const entry = pairs[field];
+      const done = fill(form, field, values[entry.property], entry.then);
+      if (done && entry.then) {
+        after(form, field, entry.then);
+      }
+      return done;
+    });
     if (written.length > 0) {
       form.dataset.fmdbPrefilled = "true";
     }
@@ -237,9 +253,10 @@
   /**
    * Writes one profile value into the controls named `field`, by their shape; true when something was
    * written. `input` then `change` are dispatched on what changed, so the conditional logic, the input
-   * mask and any validation see the value as if the visitor had typed it.
+   * mask and any validation see the value as if the visitor had typed it. `then` travels to the island a
+   * hidden control may belong to, which applies it itself.
    */
-  function fill(form, field, value, overridesDefault) {
+  function fill(form, field, value, then) {
     const controls = Array.prototype.slice.call(form.elements).filter((el) => el.name === field);
     if (controls.length === 0) {
       return false;
@@ -247,29 +264,16 @@
     const first = controls[0];
     const type = (first.type || "").toLowerCase();
     if (type === "checkbox" || type === "radio") {
-      return fillChoices(controls, value, overridesDefault);
+      return fillChoices(controls, value);
     }
     if (first.tagName === "SELECT") {
-      return fillSelect(first, value, overridesDefault);
+      return fillSelect(first, value);
     }
     if (type === "file" || type === "submit" || type === "button" || type === "reset") {
       return false;
     }
-    return fillText(first, value, overridesDefault);
+    return fillText(first, value, then);
   }
-
-  /**
-   * What the author wrote, read from the content attributes — never from the live state, which the
-   * browser sets on its own (see `touched`). A textarea's default is its content, which typing leaves.
-   */
-  const authored = {
-    text: (control) =>
-      control.tagName === "TEXTAREA"
-        ? control.defaultValue !== ""
-        : Boolean(control.getAttribute("value")),
-    choice: (controls) => controls.some((c) => c.hasAttribute("checked")),
-    select: (options) => options.some((o) => o.hasAttribute("selected") && o.value !== ""),
-  };
 
   /**
    * One writable value out of what the context holds: a multi-valued property is an array, an empty one
@@ -328,8 +332,8 @@
    * control may be the mirror of an island's state (the range slider is built that way): it is written
    * like any other, then told, and the island takes the value over — or lets its state reset it.
    */
-  function fillText(control, value, overridesDefault) {
-    if (touched.has(control) || (authored.text(control) && !overridesDefault)) {
+  function fillText(control, value, then) {
+    if (touched.has(control)) {
       return false;
     }
     const one = scalar(value);
@@ -346,38 +350,45 @@
     changed(control);
     if (control.type === "hidden") {
       control.dispatchEvent(
-        new CustomEvent(PREFILL_EVENT, { bubbles: true, detail: { value: text, overridesDefault } }),
+        new CustomEvent(PREFILL_EVENT, { bubbles: true, detail: { value: text, then: then } }),
       );
     }
     return true;
   }
 
-  /** A checkbox group, a single checkbox (a boolean or its own value), radios: check what the value names. */
-  function fillChoices(controls, value, overridesDefault) {
-    if (controls.some((c) => touched.has(c)) || (authored.choice(controls) && !overridesDefault)) {
+  /**
+   * A checkbox group, a single checkbox (a boolean or its own value), radios: check what the value names,
+   * and only that. A profile naming nothing the options carry — no value at all, or values the field does
+   * not offer — writes nothing, so an option the author checked by default stays checked: the prefill never
+   * blanks a choice. A lone checkbox is a boolean too: an explicit false unchecks it, an absent value leaves it.
+   * Reports a write whenever the profile named a value, as the other shapes do — a choice the profile merely
+   * confirms is prefilled all the same, and gets what the author asked to follow.
+   */
+  function fillChoices(controls, value) {
+    if (controls.some((c) => touched.has(c))) {
       return false;
     }
     const wanted = list(value);
     const single = controls.length === 1 && controls[0].type === "checkbox";
-    let written = false;
+    const asBoolean = single && (value === true || value === false || value === "true" || value === "false");
+    const matching = controls.filter((c) => wanted.indexOf(c.value) > -1);
+    if (matching.length === 0 && !asBoolean) {
+      return false;
+    }
     controls.forEach((control) => {
-      // a lone checkbox maps a boolean: true checks it; a group checks the values the profile lists
-      const check = single
-        ? value === true || value === "true" || wanted.indexOf(control.value) > -1
-        : wanted.indexOf(control.value) > -1;
+      const check = asBoolean ? value === true || value === "true" : matching.indexOf(control) > -1;
       if (control.checked !== check) {
         control.checked = check;
         changed(control);
-        written = true;
       }
     });
-    return written;
+    return true;
   }
 
   /** A select, single or multiple: select the options whose value the profile names; no match, nothing. */
-  function fillSelect(select, value, overridesDefault) {
+  function fillSelect(select, value) {
     const options = Array.prototype.slice.call(select.options);
-    if (touched.has(select) || (authored.select(options) && !overridesDefault)) {
+    if (touched.has(select)) {
       return false;
     }
     const wanted = list(value);
@@ -394,6 +405,148 @@
     }
     changed(select);
     return true;
+  }
+
+  /**
+   * What the author asked once the profile's value is in the field. `readOnly` keeps it in sight and takes
+   * the visitor's hand off it; `hidden` takes it out of sight, its value still submitted. Both write
+   * `data-fmdb-prefilled` on the field's wrapper — the styling hook, and what the conditional logic reads to
+   * keep a hidden one out of sight when a rule shows it again. Neither reaches a field the prefill left alone
+   * (the caller only asks after a write): the visitor has to be able to fill it. A value the field's own
+   * validation rejects is never hidden either — the visitor could neither see the error nor fix it. A field
+   * whose named control is an island's hidden mirror is the island's to handle (see below).
+   */
+  function after(form, field, then) {
+    const controls = Array.prototype.slice.call(form.elements).filter((el) => el.name === field);
+    // A hidden control mirrors an island's state (the range slider): the write into it says nothing of
+    // what the island accepted — a value out of its bounds, an answer the visitor already gave — and the
+    // mirror is barred from constraint validation. The island was told through the event and applies the
+    // choice itself, on its own verdict.
+    if (controls.length === 0 || controls.some((c) => (c.type || "").toLowerCase() === "hidden")) {
+      return;
+    }
+    const wrapper = controls[0].closest("[data-fmdb-node-name]");
+    if (then === "readOnly") {
+      const unlock = lock(controls);
+      if (wrapper) {
+        wrapper.dataset.fmdbPrefilled = "readonly";
+      }
+      onPrefill(form, () => {
+        unlock();
+        clearMarks(wrapper);
+      });
+    } else if (then === "hidden" && wrapper && controls.every((c) => c.checkValidity())) {
+      wrapper.dataset.fmdbPrefilled = "hidden";
+      wrapper.style.display = "none";
+      wrapper.setAttribute("aria-hidden", "true");
+      onPrefill(form, () => clearMarks(wrapper));
+    }
+  }
+
+  /**
+   * What each form's prefill has to give back, gathered as `after()` takes it: the locks, the marks, the
+   * fields put out of sight. One list per form, run — and emptied — whenever the form goes back to what
+   * the page opened with. A reset does that (a field kept out of sight would otherwise come back to its
+   * default value behind a `display: none` wrapper, a required one then blocking a submission over an
+   * error the visitor cannot see), and so does a prefill run again: without this the second `lock()` of a
+   * field would read the read-only attribute the first one set and keep it for good.
+   */
+  const undos = new WeakMap();
+
+  function onPrefill(form, undo) {
+    const list = undos.get(form) || [];
+    list.push(undo);
+    undos.set(form, list);
+  }
+
+  function undoPrefill(form) {
+    (undos.get(form) || []).forEach((undo) => undo());
+    undos.set(form, []);
+  }
+
+  /** The wrapper as it was before the prefill: in sight, and saying nothing to the styling or the logic. */
+  function clearMarks(wrapper) {
+    if (!wrapper) {
+      return;
+    }
+    delete wrapper.dataset.fmdbPrefilled;
+    wrapper.style.removeProperty("display");
+    wrapper.removeAttribute("aria-hidden");
+  }
+
+  /**
+   * Read-only, by shape. A textual control has the attribute. A select, a radio, a checkbox or a colour input
+   * has none (`readonly` applies to the textual types only), and `disabled` would take the value out of the
+   * submission: they put the prefilled state back whenever the visitor changes it, and say the change again
+   * on what they put back, so that a listener registered before this one — an island's validation, attached at
+   * hydration — reads the restored state and not the visitor's transient one (the base stylesheet takes the
+   * pointer off them too). `aria-readonly` goes where the role supports it: the checkbox and the select
+   * themselves, and for radios the group — a `radiogroup`, which the views that render same-named radios
+   * mark, with the field's own wrapper as the fallback; a colour input has no role to carry it. Returns
+   * what gives the visitor their hand back, for the reset.
+   */
+  function lock(controls) {
+    const first = controls[0];
+    const type = (first.type || "").toLowerCase();
+    if (first.tagName === "SELECT" || type === "checkbox" || type === "radio" || type === "color") {
+      const snapshot = (c) =>
+        c.tagName === "SELECT"
+          ? Array.prototype.slice.call(c.options).map((o) => o.selected)
+          : c.type === "color"
+            ? c.value
+            : c.checked;
+      const state = controls.map(snapshot);
+      const differs = (c, i) => JSON.stringify(snapshot(c)) !== JSON.stringify(state[i]);
+      const restore = () => {
+        controls.forEach((c, i) => {
+          if (!differs(c, i)) {
+            return; // also what stops the change said below from coming back here
+          }
+          if (c.tagName === "SELECT") {
+            Array.prototype.slice.call(c.options).forEach((o, j) => {
+              o.selected = state[i][j];
+            });
+          } else if (c.type === "color") {
+            setValue(c, state[i]);
+          } else {
+            c.checked = state[i];
+          }
+          changed(c);
+        });
+      };
+      const ariaHolders = [];
+      controls.forEach((c) => {
+        c.addEventListener("change", restore);
+        if (c.tagName === "SELECT" || type === "checkbox") {
+          c.setAttribute("aria-readonly", "true");
+          ariaHolders.push(c);
+        }
+      });
+      if (type === "radio") {
+        // Only a radiogroup carries aria-readonly: a bare fieldset is a `group`, which does not, and a
+        // one-choice radio has no fieldset at all — climbing to the nearest one would mark whatever
+        // encloses the field, an author's fieldset of unrelated fields. The field's own wrapper is the
+        // fallback: every shape has one, and it already carries data-fmdb-prefilled.
+        const group =
+          first.closest('[role="radiogroup"]') || first.closest("[data-fmdb-node-name]");
+        if (group) {
+          group.setAttribute("aria-readonly", "true");
+          ariaHolders.push(group);
+        }
+      }
+      return () => {
+        controls.forEach((c) => c.removeEventListener("change", restore));
+        ariaHolders.forEach((el) => el.removeAttribute("aria-readonly"));
+      };
+    }
+    // A hidden mirror never reaches here: after() leaves an island's field to the island. The undo puts
+    // the attribute back where it was, not to false: `readonly` is an author's property on a text or a
+    // number field, and a reset must not hand the visitor a field the author had closed.
+    const wasReadOnly = first.readOnly;
+    first.readOnly = true;
+    return () => {
+      first.readOnly = wasReadOnly;
+    };
   }
 
   /**
@@ -418,6 +571,36 @@
 
   /** Tries every form of the page; each one fills once, when its two gates are open. */
   const attemptAll = () => api.configs().forEach((config) => api.prefill(config.formId));
+
+  /**
+   * The form is back to what the page opened with, so the prefill is due again: the visitor reset it, or
+   * asked for another one after a submission. Everything the previous prefill did is given back first —
+   * the locks, the marks, the fields put out of sight — so that a second run starts from an untouched
+   * form and cannot read its own work as the author's (a `lock()` running over a locked field would
+   * remember `readonly` as the author's and never give it back). Then two memories go, for that form
+   * alone: the mark that says it was filled once, and what its controls remember of having been touched,
+   * since what the visitor typed went with the reset. The rest is the first prefill — the same gates, the
+   * same writes, the same `then`. Running it twice for one return changes nothing.
+   */
+  api.prefillAgain = (formId) => {
+    const form = api.formOf(formId);
+    if (!form) {
+      return false;
+    }
+    undoPrefill(form);
+    delete form.dataset.fmdbPrefilled;
+    Array.prototype.slice.call(form.elements).forEach((control) => touched.delete(control));
+    return api.prefill(formId);
+  };
+
+  [RESET_EVENT, NEW_FORM_EVENT].forEach((name) =>
+    document.addEventListener(name, (e) => {
+      const formId = e.detail && e.detail.formId;
+      if (formId) {
+        api.prefillAgain(formId);
+      }
+    }),
+  );
 
   // The island signals its readiness; the tracker does not fire a DOM event, so its own callback
   // registration is used, which runs the callback at once when the context is already loaded. The

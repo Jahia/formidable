@@ -15,7 +15,7 @@ client, under the same names. Where each one sits in the rendered tree is drawn 
 | `fmdb-content`, `fmdb-content-text` | A rich-text content block placed among the fields |
 | `fmdb-form-group` | The wrapper of one field (label + control + help); `fmdb-radio-group`, `fmdb-checkbox-group`, `fmdb-captcha` refine it |
 | `fmdb-form-element` | The wrapper of each element rendered inside a step or a fieldset (an element placed directly in the form has none) |
-| `fmdb-form-label`, `fmdb-file-label`, `fmdb-radio-label`, `fmdb-checkbox-label` | Field labels |
+| `fmdb-form-label`, `fmdb-file-label`, `fmdb-radio-label`, `fmdb-checkbox-label` | Field labels. A file field carries `fmdb-form-label fmdb-file-label`, so a rule written for every label reaches it too; the radio and checkbox ones label an option, not the field, whose label is the group legend |
 | `fmdb-group-legend` | Legend of a radio or checkbox group |
 | `fmdb-group-items`, `fmdb-group-item` | Options of a radio or checkbox group |
 | `fmdb-required-indicator` | The `*` of a required field |
@@ -23,7 +23,7 @@ client, under the same names. Where each one sits in the rendered tree is drawn 
 | `fmdb-options-source-error`, `fmdb-field-error` | A choice field whose options source is unavailable: its group carries the first, with `data-fmdb-source-error="blocking"` or `"optional"`, and the message paragraph the second |
 | `fmdb-fieldset`, `fmdb-fieldset-legend`, `fmdb-fieldset-elements` | A fieldset, its legend, and the wrapper of its fields |
 | `fmdb-step`, `fmdb-step-title`, `fmdb-step-intro`, `fmdb-steps-nav`, `fmdb-step-indicator`, `fmdb-step-number`, `fmdb-step-label` | Multi-step structure and navigation; an indicator holds its number badge and its label |
-| `fmdb-form-actions`, `fmdb-btn`, `fmdb-btn-primary`, `fmdb-btn-secondary`, `fmdb-btn-danger`, `fmdb-new-form-btn`, `fmdb-next-btn`, `fmdb-prev-btn` | Buttons, including the multi-step navigation pair; a Button field carries the variant the contributor chose (`primary`, `secondary`, `danger`) |
+| `fmdb-form-actions`, `fmdb-btn`, `fmdb-btn-primary`, `fmdb-btn-secondary`, `fmdb-btn-danger`, `fmdb-new-form-btn`, `fmdb-next-btn`, `fmdb-prev-btn` | Buttons, including the multi-step navigation pair; a Button field carries the variant the contributor chose (`primary`, `secondary`, `danger`). The modules style these hooks themselves (variables: `--fmdb-btn-*`). The message's button — new form, try again — is **outside** `<form>`, so a stylesheet scoping its buttons under `.fmdb-form` leaves that one raw |
 | `fmdb-form-help` | Help text under a field (present on nearly every field) |
 | `fmdb-range`, `fmdb-range-row`, `fmdb-range-output`, `fmdb-range-end-label` | Range slider structure (variables: `--fmdb-range-gap`, `--fmdb-range-output-min-width`, `--fmdb-range-end-label-size`) |
 | `fmdb-message`, `fmdb-message-content`, `fmdb-message-success`, `fmdb-message-error`, `fmdb-message-maintenance`, `fmdb-message-details`, `fmdb-message-error-details` | Submission feedback; the two `-details` classes sit on the `<small>` under an error, carrying the error code and the actions' progress |
@@ -37,6 +37,12 @@ client, under the same names. Where each one sits in the rendered tree is drawn 
 Every element wrapper also exposes `data-fmdb-node-name`, `data-fmdb-node-id` and
 `data-fmdb-node-type`, for rules that target one field by name:
 `.fmdb-form [data-fmdb-node-name="email"] { … }`.
+
+A field a prefill filled (the jExperience integration, from the visitor profile) and the author made
+read-only or hidden carries `data-fmdb-prefilled="readonly"` or `"hidden"` on that same wrapper: the
+core tones the read-only one down and takes the pointer off its select, radio, checkbox and colour controls
+(variables in [CSS variables](css-variables.md#prefilled-fields)), and hides the other inline, its value
+still submitted.
 
 Four other `data-fmdb-*` attributes are functional markers the client reads, not styling hooks,
 and they may change with the feature they serve: `data-fmdb-step` on each step wrapper (the

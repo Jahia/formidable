@@ -209,23 +209,31 @@ const withEnglish = (node: JahiaNode, enProperties: Array<{name: string; value?:
 // The mixins below are declared by formidable-jexperience-engine; the flag is read in the first test, before
 // any form is built, and the two helpers hand the node back untouched when the module is absent.
 const JXP_MAPPING_MIXIN = 'fmdbmix:jExperienceProfileMapping';
-const JXP_PREFILL_MIXIN = 'fmdbmix:jExperiencePrefill';
 const JXP_SENSITIVE_MIXIN = 'fmdbmix:jExperienceSensitiveField';
+// The tracker loads its context through jCustomer: a cold instance takes longer than the default command
+// timeout, so the context is polled up to this long — and never waited for, since a jCustomer that does
+// not answer is a case this script goes on through.
+const JXP_CONTEXT_TIMEOUT_MS = 30000;
+const CONTEXT_ATTEMPT_PAUSE_MS = 2000;
 let jExperienceAvailable = false;
 
 /**
  * Maps the field to a visitor profile property: the mapping mixin, the property and the write strategy; with
- * `prefill`, the prefill mixin too (its switch in the editor), and `overridesDefault` its one option.
+ * `prefill`, the switch inside that same mapping, and `then` its option — what the page does with the field
+ * once the profile's value is in it (editable when left out).
  */
-const mappedTo = (node: JahiaNode, profileProperty: string, options: {strategy?: 'alwaysSet' | 'setIfMissing'; prefill?: boolean; overridesDefault?: boolean} = {}): JahiaNode => {
+const mappedTo = (node: JahiaNode, profileProperty: string, options: {strategy?: 'alwaysSet' | 'setIfMissing'; prefill?: boolean; then?: 'readOnly' | 'hidden'} = {}): JahiaNode => {
 	if (!jExperienceAvailable) return node;
-	node.mixins = [...(node.mixins ?? []), JXP_MAPPING_MIXIN, ...(options.prefill ? [JXP_PREFILL_MIXIN] : [])];
+	node.mixins = [...(node.mixins ?? []), JXP_MAPPING_MIXIN];
 	node.properties.push(
 		{name: 'jExperienceProfileProperty', value: profileProperty},
 		{name: 'jExperienceSetStrategy', value: options.strategy ?? 'alwaysSet'}
 	);
 	if (options.prefill) {
-		node.properties.push({name: 'jExperiencePrefillOverridesDefault', value: String(options.overridesDefault ?? false), type: 'BOOLEAN'});
+		node.properties.push({name: 'jExperiencePrefill', value: 'true', type: 'BOOLEAN'});
+	}
+	if (options.prefill && options.then) {
+		node.properties.push({name: 'jExperiencePrefillThen', value: options.then});
 	}
 	return node;
 };
@@ -605,13 +613,18 @@ const completeFormNodes = ({tvCategoryUuid, audioCategoryUuid, agenciesRootUuid,
 		{name: 'jcr:title', value: 'Email de contact'},
 		{name: 'placeholder', value: 'Saisissez votre adresse e-mail'}
 	]), 'email', {strategy: 'setIfMissing', prefill: true}),
-	// A birth date cannot be after the submission day (the relative bound mode, showcased live).
-	mappedTo(withFrench(getInputDateNode({...INPUT_DATE_COMPLETE, defaultValue: undefined, max: undefined, maxBoundMode: 'today'}), [{name: 'jcr:title', value: 'Date de naissance'}]), 'birthDate', {prefill: true}),
+	// A birth date cannot be after the submission day (the relative bound mode, showcased live). Read-only once
+	// the profile's value is in: the visitor sees the date the profile knows and cannot change it — a date input,
+	// whose native read-only holds. Not the email: the simple form states it first, so the complete form's own
+	// visitors would never type theirs.
+	mappedTo(withFrench(getInputDateNode({...INPUT_DATE_COMPLETE, defaultValue: undefined, max: undefined, maxBoundMode: 'today'}), [{name: 'jcr:title', value: 'Date de naissance'}]), 'birthDate', {prefill: true, then: 'readOnly'}),
 	// The two shapes the profile mapping had no field for: a single choice to a string property,
 	// a number to an integer one.
-	mappedTo(withFrench(getRadioNode(GENDER_RADIO), [{name: 'jcr:title', value: 'Genre'}, FR_GENDER_OPTIONS]), 'gender', {strategy: 'setIfMissing', prefill: true}),
-	// The one field with an author's default AND the override ticked: the profile's value replaces the 1.
-	mappedTo(withFrench(getInputNumberNode({name: 'kids', title: 'Number of children', minValue: 0, maxValue: 20, step: 1, defaultValue: 1}), [{name: 'jcr:title', value: 'Nombre d\'enfants'}]), 'kids', {strategy: 'setIfMissing', prefill: true, overridesDefault: true}),
+	// Read-only too, on a radio group: no native attribute for it, the page puts the profile's choice back on every change.
+	mappedTo(withFrench(getRadioNode(GENDER_RADIO), [{name: 'jcr:title', value: 'Genre'}, FR_GENDER_OPTIONS]), 'gender', {strategy: 'setIfMissing', prefill: true, then: 'readOnly'}),
+	// The one field with an author's default: the profile's value replaces the 1, and a visitor whose profile
+	// has no kids value keeps it.
+	mappedTo(withFrench(getInputNumberNode({name: 'kids', title: 'Number of children', minValue: 0, maxValue: 20, step: 1, defaultValue: 1}), [{name: 'jcr:title', value: 'Nombre d\'enfants'}]), 'kids', {strategy: 'setIfMissing', prefill: true}),
 	// The sourced select showcases the empty-option label: the field starts
 	// empty and its native required validation is exercisable on the site.
 	// The countries source holds ISO codes, which is what jCustomer's countryName expects.
@@ -625,8 +638,9 @@ const completeFormNodes = ({tvCategoryUuid, audioCategoryUuid, agenciesRootUuid,
 			{name: 'optionsEmptyLabel', value: 'Sélectionnez un pays…'}
 		]
 	// Prefilled too: a select is the shape whose first option the browser selects by itself, the one a
-	// "did the visitor choose" guard reading the live state mistakes for a choice.
-	), 'countryName', {strategy: 'setIfMissing', prefill: true}),
+	// "did the visitor choose" guard reading the live state mistakes for a choice. And hidden once the profile
+	// knows the country: the field disappears, its value is still submitted.
+	), 'countryName', {strategy: 'setIfMissing', prefill: true, then: 'hidden'}),
 	// The group and the switch feed the two properties the playground adds to jCustomer (see above), and are
 	// prefilled from them: the multi-valued and the boolean shapes of the prefill.
 	mappedTo(withFrench(getCheckboxNode(CHECKBOX_GROUP_COMPLETE), [
@@ -983,15 +997,55 @@ describe('Playground - provision manual-testing forms', () => {
 
 			// Complete form: every field type, with the PDF and CSV fixtures as attachments.
 			// The third entry picks "Pickup", which reveals the conditional pickup location.
+			// Three of the profile fields ask for something once the profile's value is in (birth date and
+			// gender read-only, country hidden): from the second visitor on, the profile knows them, and the
+			// entry leaves them to the prefill as a visitor would have to. The prefill runs once the tracker
+			// has its context, and waiting for the script says nothing about that: formidable-jxp assigns
+			// window.formidableJxp synchronously at load. So poll the script's own predicate — not wemLoaded,
+			// which the tracker sets in its fallback mode too, where nothing is ever prefilled — bounded and
+			// logged rather than asserted: a jCustomer that does not answer is the case this script degrades
+			// through everywhere else, and the entries then fill every field by hand.
+			const contextLoaded = (attempt = 1): void => {
+				if (!jExperienceAvailable) {
+					return;
+				}
+
+				cy.window({log: false}).then(win => {
+					const jxp = (win as unknown as {formidableJxp?: {trackerReady: () => boolean}}).formidableJxp;
+					if (jxp?.trackerReady()) {
+						return;
+					}
+
+					if (attempt * CONTEXT_ATTEMPT_PAUSE_MS < JXP_CONTEXT_TIMEOUT_MS) {
+						// eslint-disable-next-line cypress/no-unnecessary-waiting -- a pause between two tries, not a wait for an element
+						cy.wait(CONTEXT_ATTEMPT_PAUSE_MS);
+						contextLoaded(attempt + 1);
+						return;
+					}
+
+					cy.log('no jExperience context (jCustomer unreachable?): the entries fill every field by hand');
+				});
+			};
+			const unlessPrefilled = (fieldName: string, fill: () => void) => {
+				cy.get(`form.fmdb-form [data-fmdb-node-name="${fieldName}"]`).then($wrapper => {
+					if ($wrapper.attr('data-fmdb-prefilled')) {
+						cy.log(`${fieldName}: left to the prefill (${$wrapper.attr('data-fmdb-prefilled')})`);
+					} else {
+						fill();
+					}
+				});
+			};
 			[
 				{code: 'AB-1234', email: 'fanny.girard@example.com', birth: '1988-04-12', color: '#ff5733', interests: ['Sports', 'Music'], delivery: 'Express', pickup: null, gender: 'Female', kids: '2', country: 'FR', newsletter: true, department: 'Engineering', summary: 'A new intranet for the engineering team, with a form for incident reports.', files: ['cypress/fixtures/files/document.pdf']},
 				{code: 'CD-5678', email: 'gabriel.lefevre@example.com', birth: '1975-11-30', color: '#3366cc', interests: ['Reading'], delivery: 'Standard', pickup: null, gender: 'Male', kids: '0', country: 'DE', newsletter: false, department: 'Sales', summary: 'Quarterly sales dashboard with an export of the leads collected on the site.', files: ['cypress/fixtures/files/sample.csv']},
 				{code: 'EF-9012', email: 'helene.petit@example.com', birth: '1992-07-08', color: '#2e8b57', interests: ['Sports'], delivery: 'Pickup', pickup: 'Paris - Rue de Rivoli', gender: 'Other', kids: '3', country: 'CH', newsletter: true, department: 'Support', summary: 'Support knowledge base migration, including the attached inventory and specification.', files: ['cypress/fixtures/files/document.pdf', 'cypress/fixtures/files/sample.csv']}
 			].forEach(({code, email, birth, color, interests, delivery, pickup, gender, kids, country, newsletter, department, summary, files}) => {
 				const form = visitLiveForm(livePageOf(look, 'complete'));
+				contextLoaded();
 				form.getTextInput(INPUT_TEXT_COMPLETE.name!).type(code);
+				// prefilled with the first visitor's address from the simple form (set if missing), typed over
 				form.getEmailInput(INPUT_EMAIL_COMPLETE.name!).type(email);
-				form.getDateInput(INPUT_DATE_COMPLETE.name!).setDate(birth);
+				unlessPrefilled(INPUT_DATE_COMPLETE.name!, () => form.getDateInput(INPUT_DATE_COMPLETE.name!).setDate(birth));
 				// The appointment cannot be before the submission day (relative "today" bound).
 				form.getDateTimeLocalInput(INPUT_DATETIME_LOCAL_COMPLETE.name!).setDateTime(nextWeekAtTen());
 				form.getColorInput(INPUT_COLOR_COMPLETE.name!).setColor(color);
@@ -1001,14 +1055,17 @@ describe('Playground - provision manual-testing forms', () => {
 					form.getTextInput('pickupLocation').type(pickup);
 				}
 
-				form.getRadioGroup('gender').select(gender);
+				unlessPrefilled('gender', () => form.getRadioGroup('gender').select(gender));
 				form.getNumberInput('kids').clear().type(kids);
+				// the switch's track covers its input, as spec 214 knows: force the change. Said either way: from
+				// the second visitor on the prefill arrives with the profile's opt-in already on.
 				if (newsletter) {
-					// the switch's track covers its input, as spec 214 knows: force the check
 					form.getCheckbox('newsletter').getInput().check({force: true});
+				} else {
+					form.getCheckbox('newsletter').getInput().uncheck({force: true});
 				}
 
-				form.getSelectInput('country').selectByValue(country);
+				unlessPrefilled('country', () => form.getSelectInput('country').selectByValue(country));
 				form.getSelectInput('department').select(department);
 				form.getTextarea(TEXTAREA_COMPLETE.name!).type(summary);
 				form.getFileInput(INPUT_FILE_MULTIPLE.name!).attachFile(files).shouldHaveSelectedFileCount(files.length);
