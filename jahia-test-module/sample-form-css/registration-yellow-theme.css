@@ -273,7 +273,10 @@
 	margin-top: 10px;
 }
 
-.fmdb-form .fmdb-btn {
+/* The message after a submission is rendered beside the form, not inside it, so its button — "new form",
+   "try again" — needs naming too, or it keeps the browser default while every other button is themed. */
+.fmdb-form .fmdb-btn,
+.fmdb-message .fmdb-btn {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -300,13 +303,15 @@
 	background: var(--reg-yellow-dark);
 }
 
-.fmdb-form .fmdb-btn-secondary {
+.fmdb-form .fmdb-btn-secondary,
+.fmdb-message .fmdb-btn-secondary {
 	background: #ffffff;
 	color: var(--reg-ink);
 	border: 1px solid var(--reg-grey);
 }
 
-.fmdb-form .fmdb-btn-secondary:hover:not(:disabled) {
+.fmdb-form .fmdb-btn-secondary:hover:not(:disabled),
+.fmdb-message .fmdb-btn-secondary:hover:not(:disabled) {
 	border-color: var(--reg-black);
 	background: #fafafa;
 }
@@ -314,7 +319,8 @@
 /* A button is disabled while the form submits, and the submit button also is in
    edit and preview. The hover states above are guarded rather than undone, so
    the button reads as unavailable instead of merely looking clickable. */
-.fmdb-form .fmdb-btn:disabled {
+.fmdb-form .fmdb-btn:disabled,
+.fmdb-message .fmdb-btn:disabled {
 	background: var(--reg-grey);
 	border-color: var(--reg-grey);
 	color: var(--reg-muted);

@@ -55,7 +55,7 @@ form.fmdb-form [data-fmdb-edit-mode="true"]             the form; a div [data-fm
 │  │     │     └─ div.fmdb-form-element […]             the fieldset's elements, same wrapper
 │  │     ├─ button.fmdb-btn.fmdb-btn-{primary|secondary|danger}   a Button field
 │  │     └─ div.fmdb-form-group                         a field; a fieldset with .fmdb-radio-group | .fmdb-checkbox-group for a group
-│  │        ├─ label.fmdb-form-label                    legend.fmdb-group-legend for a group; .fmdb-file-label for a file
+│  │        ├─ label.fmdb-form-label                    legend.fmdb-group-legend for a group; + .fmdb-file-label for a file
 │  │        │  └─ span.fmdb-required-indicator
 │  │        ├─ input|select|textarea.fmdb-form-control  .fmdb-invalid while the value is invalid
 │  │        │  ┆ div.fmdb-group-items › div.fmdb-group-item › input.fmdb-form-control + label.fmdb-radio-label|.fmdb-checkbox-label

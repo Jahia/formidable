@@ -1,6 +1,7 @@
 import {useEffect, useRef, useState} from 'react';
 import clsx from "clsx";
 import classes from './Form.client.module.css';
+import '~/design/buttons.css';
 import '~/design/validation.css';
 import '~/design/logic.css';
 import '~/design/prefill.css';
