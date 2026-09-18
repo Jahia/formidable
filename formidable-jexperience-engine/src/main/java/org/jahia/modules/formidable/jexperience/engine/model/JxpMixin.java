@@ -8,14 +8,8 @@ package org.jahia.modules.formidable.jexperience.engine.model;
  */
 public final class JxpMixin {
 
-    /** The mapping of a field to a visitor profile property, with its prefill switch and its write strategy. */
+    /** The mapping of a field to a visitor profile property, with its write strategy and its prefill. */
     public static final String MAPPING = "fmdbmix:jExperienceProfileMapping";
-
-    /**
-     * The author's "prefill this field from the visitor profile": a fieldset of its own, with the switch jcontent
-     * gives a mixin that extends a type, and one option: what the page does with the field once the value is in.
-     */
-    public static final String PREFILL = "fmdbmix:jExperiencePrefill";
 
     /** The author's "this field is sensitive": its value never leaves the site, and no mapping can be made on it. */
     public static final String SENSITIVE_FIELD = "fmdbmix:jExperienceSensitiveField";

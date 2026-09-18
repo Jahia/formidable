@@ -17,6 +17,7 @@ import org.jahia.modules.formidable.engine.api.FmdbProperty;
 import org.jahia.modules.formidable.jexperience.engine.model.JxpMixin;
 import org.jahia.modules.formidable.jexperience.engine.model.JxpProperty;
 import org.jahia.modules.formidable.jexperience.engine.choicelist.ProfilePropertiesChoiceListInitializer;
+import org.jahia.modules.formidable.jexperience.engine.choicelist.PrefillThenChoiceListInitializer;
 import org.jahia.modules.formidable.jexperience.engine.field.FieldShapes;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -39,11 +40,11 @@ class DefinitionsCndTest {
         }
     }
 
-    /** The editor form of the prefill fieldset, where the option carries what the CND cannot. */
+    /** The editor form of the mapping fieldset, where the option carries what the CND cannot. */
     private static String editorForm() throws IOException {
         try (InputStream in = DefinitionsCndTest.class.getResourceAsStream(
-                "/META-INF/jahia-content-editor-forms/forms/fmdbmix_jExperiencePrefill.json")) {
-            assertNotNull(in, "the prefill editor form is on the classpath");
+                "/META-INF/jahia-content-editor-forms/forms/fmdbmix_jExperienceProfileMapping.json")) {
+            assertNotNull(in, "the mapping editor form is on the classpath");
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
     }
@@ -104,17 +105,20 @@ class DefinitionsCndTest {
     }
 
     @Test
-    void thePrefillIsAMixinOfItsOwnAttachedToTheMarker() throws Exception {
-        // Verifies the shape jcontent turns into a switchable fieldset: a mixin that extends the marker, no
-        // supertype, holding the one option that shows only when the switch is on — what follows the write,
-        // editable by default. What the write itself does (the profile's value replaces a default, a missing
-        // value leaves the field alone) is the client script's rule, not a property.
-        List<String> mixin = declarationOf(cnd(), JxpMixin.PREFILL);
-        assertEquals("[" + JxpMixin.PREFILL + "] mixin", mixin.get(0));
-        assertEquals("extends = " + FmdbMixin.PROFILE_MAPPABLE_FIELD, lineStartingWith(mixin, "extends"));
-        assertEquals("- " + JxpProperty.PREFILL_THEN + " (string, choicelist[resourceBundle]) = 'editable' autocreated indexed=no < 'editable', 'readOnly', 'hidden'",
+    void thePrefillLivesInsideTheMapping() throws Exception {
+        // The switch and its option are properties of the mapping, not a mixin of their own: a prefill needs
+        // the mapping and a property to do anything, and the editor cannot show one fieldset only when
+        // another is on. The option's choicelist chains the bundle with our initializer and depends on the
+        // switch, which is what puts a message in the dropdown while the prefill is off, with no save.
+        List<String> mixin = declarationOf(cnd(), JxpMixin.MAPPING);
+        assertEquals("- " + JxpProperty.PREFILL + " (boolean) = false autocreated indexed=no",
+                lineStartingWith(mixin, "- " + JxpProperty.PREFILL + " "));
+        assertEquals("- " + JxpProperty.PREFILL_THEN + " (string, choicelist[resourceBundle,"
+                        + PrefillThenChoiceListInitializer.KEY + ",dependentProperties='" + JxpProperty.PREFILL
+                        + "']) = 'editable' autocreated indexed=no < 'editable', 'readOnly', 'hidden'",
                 lineStartingWith(mixin, "- " + JxpProperty.PREFILL_THEN + " "));
-        assertEquals(1, mixin.stream().map(String::strip).filter(line -> line.startsWith("- ")).count(), "one option beside the switch");
+        assertTrue(cnd().stream().noneMatch(line -> line.strip().startsWith("[fmdbmix:jExperiencePrefill]")),
+                "the prefill mixin of the first design is gone");
     }
 
     @Test
@@ -124,8 +128,8 @@ class DefinitionsCndTest {
         // MAJOR change to Jahia's DefinitionsBundleChecker, which cancels the deployment of the module.
         assertTrue(editorForm().contains("\"name\": \"" + JxpProperty.PREFILL_THEN + "\", \"mandatory\": true"),
                 "the editor form makes the option mandatory: " + editorForm());
-        assertTrue(declarationOf(cnd(), JxpMixin.PREFILL).stream().noneMatch(line -> line.contains("mandatory")),
-                "no mandatory in the CND of " + JxpMixin.PREFILL);
+        assertTrue(declarationOf(cnd(), JxpMixin.MAPPING).stream().noneMatch(line -> line.contains("mandatory")),
+                "no mandatory in the CND of " + JxpMixin.MAPPING);
     }
 
     /**

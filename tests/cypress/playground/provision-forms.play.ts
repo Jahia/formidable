@@ -209,7 +209,6 @@ const withEnglish = (node: JahiaNode, enProperties: Array<{name: string; value?:
 // The mixins below are declared by formidable-jexperience-engine; the flag is read in the first test, before
 // any form is built, and the two helpers hand the node back untouched when the module is absent.
 const JXP_MAPPING_MIXIN = 'fmdbmix:jExperienceProfileMapping';
-const JXP_PREFILL_MIXIN = 'fmdbmix:jExperiencePrefill';
 const JXP_SENSITIVE_MIXIN = 'fmdbmix:jExperienceSensitiveField';
 // The tracker loads its context through jCustomer: a cold instance takes longer than the default command
 // timeout, and the wait is for the script to be there, never for jCustomer to answer.
@@ -218,16 +217,19 @@ let jExperienceAvailable = false;
 
 /**
  * Maps the field to a visitor profile property: the mapping mixin, the property and the write strategy; with
- * `prefill`, the prefill mixin too (its switch in the editor), and `then` its one option — what the page does
- * with the field once the profile's value is in it (editable when left out).
+ * `prefill`, the switch inside that same mapping, and `then` its option — what the page does with the field
+ * once the profile's value is in it (editable when left out).
  */
 const mappedTo = (node: JahiaNode, profileProperty: string, options: {strategy?: 'alwaysSet' | 'setIfMissing'; prefill?: boolean; then?: 'readOnly' | 'hidden'} = {}): JahiaNode => {
 	if (!jExperienceAvailable) return node;
-	node.mixins = [...(node.mixins ?? []), JXP_MAPPING_MIXIN, ...(options.prefill ? [JXP_PREFILL_MIXIN] : [])];
+	node.mixins = [...(node.mixins ?? []), JXP_MAPPING_MIXIN];
 	node.properties.push(
 		{name: 'jExperienceProfileProperty', value: profileProperty},
 		{name: 'jExperienceSetStrategy', value: options.strategy ?? 'alwaysSet'}
 	);
+	if (options.prefill) {
+		node.properties.push({name: 'jExperiencePrefill', value: 'true', type: 'BOOLEAN'});
+	}
 	if (options.prefill && options.then) {
 		node.properties.push({name: 'jExperiencePrefillThen', value: options.then});
 	}

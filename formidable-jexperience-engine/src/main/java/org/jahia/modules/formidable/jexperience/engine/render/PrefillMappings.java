@@ -21,7 +21,7 @@ import java.util.Map;
 
 /**
  * The fields of a form the page prefills from the visitor profile, read in live from the JCR alone:
- * a field carrying the mapping mixin with a property, the prefill mixin, and not marked sensitive.
+ * a field carrying the mapping mixin with a property, its prefill switched on, and not marked sensitive.
  * Never jCustomer — a render is not the place for a network call, and a property the schema no longer
  * offers simply comes back absent from the tracker's context. One entry per field name: the profile
  * property it reads and, when the author asked for it, what follows the write ({@code readOnly} or
@@ -58,14 +58,13 @@ class PrefillMappings {
             dependencies.add(field.getPath());
             String leftOut = leftOut(field);
             if (leftOut == null) {
-                // absent on a field that took the prefill mixin before the option existed: nothing follows the write then
+                // absent on a field mapped before the option existed: nothing follows the write then
                 String then = field.hasProperty(JxpProperty.PREFILL_THEN) ? field.getPropertyAsString(JxpProperty.PREFILL_THEN) : null;
                 entries.put(field.getName(), new Entry(field.getPropertyAsString(JxpProperty.PROFILE_PROPERTY),
                         then == null || EDITABLE.equals(then) ? null : then));
-            } else if (field.isNodeType(JxpMixin.PREFILL)) {
-                // the one place an author's prefill switch is dropped: the editor cannot say it (the prefill
-                // fieldset extends the marker, not the mapping — jcontent offers extensions of the primary type
-                // only), so the log does, at a level an integrator turns on to ask
+            } else if (isPrefillOn(field)) {
+                // the one place an author's prefill switch is dropped — a field whose mapping names no property,
+                // or one marked sensitive after the fact — so the log says it, at a level an integrator turns on
                 log.debug("[PrefillMappings] {} is not prefilled: {}", field.getPath(), leftOut);
             }
         }
@@ -77,11 +76,11 @@ class PrefillMappings {
      * order an author meets them.
      */
     static String leftOut(JCRNodeWrapper field) throws RepositoryException {
-        if (!field.isNodeType(JxpMixin.PREFILL)) {
-            return "the prefill is not switched on";
-        }
         if (!field.isNodeType(JxpMixin.MAPPING)) {
-            return "the prefill is switched on but the field is not mapped";
+            return "the field is not mapped";
+        }
+        if (!isPrefillOn(field)) {
+            return "the prefill is not switched on";
         }
         if (!SensitiveField.isMapped(field)) {
             return "the field is mapped but names no profile property (none chosen, or the list no longer offers it)";
@@ -90,6 +89,11 @@ class PrefillMappings {
             return "the field is marked sensitive";
         }
         return null;
+    }
+
+    /** The author's switch, a property of the mapping: false, and absent, on a field mapped before it existed. */
+    static boolean isPrefillOn(JCRNodeWrapper field) throws RepositoryException {
+        return field.hasProperty(JxpProperty.PREFILL) && field.getProperty(JxpProperty.PREFILL).getBoolean();
     }
 
     /** Every field under the form that can be mapped, mapped or not — a seam for the tests, which have no query engine. */

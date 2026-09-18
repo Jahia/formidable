@@ -22,7 +22,7 @@ import static org.mockito.Mockito.when;
 /**
  * Which fields the block tells the page to prefill, what the block depends on, and how the pairs are
  * written. Reading is a query of the mappable fields under the form, replaced here by a fixed list; the
- * rule of inclusion is the point: mapped, the prefill mixin on, not sensitive — and every mappable
+ * rule of inclusion is the point: mapped, its prefill switched on, not sensitive — and every mappable
  * field, included or not, is a dependency.
  */
 class PrefillMappingsTest {
@@ -39,7 +39,7 @@ class PrefillMappingsTest {
         when(node.getName()).thenReturn(name);
         when(node.getPath()).thenReturn("/sites/mysite/contents/contact/fields/" + name);
         when(node.isNodeType(JxpMixin.MAPPING)).thenReturn(mapped);
-        when(node.isNodeType(JxpMixin.PREFILL)).thenReturn(prefill);
+        flag(node, JxpProperty.PREFILL, prefill);
         when(node.getPropertyAsString(JxpProperty.PROFILE_PROPERTY)).thenReturn(mapped ? property : null);
         flag(node, JxpProperty.SENSITIVE, sensitive);
         return node;
@@ -66,7 +66,7 @@ class PrefillMappingsTest {
     }
 
     @Test
-    void onlyAMappedFieldWithThePrefillMixinAndNotSensitiveIsListed() throws Exception {
+    void onlyAMappedFieldWithThePrefillOnAndNotSensitiveIsListed() throws Exception {
         PrefillMappings.Prefill prefill = over(List.of(
                 field("firstName", "firstName", true, true, false),
                 field("email", "email", true, true, false),
@@ -87,9 +87,9 @@ class PrefillMappingsTest {
     void theReasonAFieldIsLeftOutIsNamed() throws Exception {
         // Verifies the one trace an author's dropped prefill switch leaves: the debug line names which of
         // the four conditions failed, in the order the author meets them — nothing in the editor can say it,
-        // since jcontent offers a mixin that extends another only through the primary type.
+        // since a switch cannot warn that the mapping above it names no property.
         assertEquals("the prefill is not switched on", PrefillMappings.leftOut(field("phoneNumber", "phoneNumber", true, false, false)));
-        assertEquals("the prefill is switched on but the field is not mapped", PrefillMappings.leftOut(field("message", null, false, true, false)));
+        assertEquals("the field is not mapped", PrefillMappings.leftOut(field("message", null, false, true, false)));
         assertEquals("the field is mapped but names no profile property (none chosen, or the list no longer offers it)",
                 PrefillMappings.leftOut(field("switchedOn", "", true, true, false)));
         assertEquals("the field is marked sensitive", PrefillMappings.leftOut(field("secret", "nationality", true, true, true)));
@@ -110,7 +110,7 @@ class PrefillMappingsTest {
 
     @Test
     void whatFollowsTheWriteTravelsOnlyWhenTheAuthorAskedForSomething() throws Exception {
-        // Verifies the one option of the prefill fieldset as the block carries it: "editable" — the default the
+        // Verifies the one option of the mapping fieldset as the block carries it: "editable" — the default the
         // editor stores, and what a field saved before the option existed has nothing of — says nothing, the
         // two others travel as they are stored.
         PrefillMappings.Prefill prefill = over(List.of(
