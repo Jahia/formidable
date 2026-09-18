@@ -23,6 +23,20 @@
              is only read by the maven-bundle-plugin of the JAVA modules (packaging pom here,
              so it never ran) — a value kept in both places would only drift. -->
         <sonar.sources>src,package.json,pom.xml</sonar.sources>
+        <!-- S6842 "non-interactive elements should not be assigned interactive roles" is wrong on a
+             fieldset of radio buttons: ARIA in HTML lists radiogroup among the roles a fieldset may
+             take (https://www.w3.org/TR/html-aria/), and it is the only role aria-readonly is
+             supported on — which the jExperience prefill sets when the author locks the field. The
+             repo's own eslint agrees; Sonar's copy of the jsx-a11y rule does not know the allowance.
+             The three views that render same-named radios: the switch in its buttons mode, the
+             rating and the scale. -->
+        <sonar.issue.ignore.multicriteria>radiogroupSwitch,radiogroupRating,radiogroupScale</sonar.issue.ignore.multicriteria>
+        <sonar.issue.ignore.multicriteria.radiogroupSwitch.ruleKey>typescript:S6842</sonar.issue.ignore.multicriteria.radiogroupSwitch.ruleKey>
+        <sonar.issue.ignore.multicriteria.radiogroupSwitch.resourceKey>**/Input/Switch/default.server.tsx</sonar.issue.ignore.multicriteria.radiogroupSwitch.resourceKey>
+        <sonar.issue.ignore.multicriteria.radiogroupRating.ruleKey>typescript:S6842</sonar.issue.ignore.multicriteria.radiogroupRating.ruleKey>
+        <sonar.issue.ignore.multicriteria.radiogroupRating.resourceKey>**/Input/Rating/default.server.tsx</sonar.issue.ignore.multicriteria.radiogroupRating.resourceKey>
+        <sonar.issue.ignore.multicriteria.radiogroupScale.ruleKey>typescript:S6842</sonar.issue.ignore.multicriteria.radiogroupScale.ruleKey>
+        <sonar.issue.ignore.multicriteria.radiogroupScale.resourceKey>**/Input/Scale/ScaleField.tsx</sonar.issue.ignore.multicriteria.radiogroupScale.resourceKey>
     </properties>
     <repositories>
         <repository>

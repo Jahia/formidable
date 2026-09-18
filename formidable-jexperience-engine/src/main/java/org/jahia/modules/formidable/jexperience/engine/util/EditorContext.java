@@ -17,10 +17,15 @@ public final class EditorContext {
 
     /** The unsaved value of a boolean property, empty when the editor sent none (a first form build). */
     public static Optional<Boolean> pendingBoolean(Map<String, Object> context, String property) {
+        return pendingString(context, property).map(Boolean::parseBoolean);
+    }
+
+    /** The same for a string property; a blank value counts as none, as an unanswered dropdown sends one. */
+    public static Optional<String> pendingString(Map<String, Object> context, String property) {
         Object value = context.get(property);
         if (value instanceof Collection<?> values) {
             value = values.isEmpty() ? null : values.iterator().next();
         }
-        return value == null ? Optional.empty() : Optional.of(Boolean.parseBoolean(String.valueOf(value)));
+        return value == null || String.valueOf(value).isBlank() ? Optional.empty() : Optional.of(String.valueOf(value));
     }
 }

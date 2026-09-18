@@ -26,6 +26,16 @@
              so it never ran) — a value kept in both places would only drift. -->
         <jahia-module-signature>MCwCFFn2JaGmbMsOtS1uDORN1UI2byBnAhQ59M73aLjDwGQ7LTArc6RaBK74AA==</jahia-module-signature>
         <sonar.sources>src,package.json,pom.xml</sonar.sources>
+        <!-- S6842 "non-interactive elements should not be assigned interactive roles" is wrong on a
+             fieldset of radio buttons: ARIA in HTML lists radiogroup among the roles a fieldset may
+             take (https://www.w3.org/TR/html-aria/), and it is the only role aria-readonly is
+             supported on — which the jExperience prefill sets when the author locks the field. The
+             repo's own eslint agrees; Sonar's copy of the jsx-a11y rule does not know the allowance.
+             Silenced here rather than dismissed in the dashboard, so that it stays answered for the
+             next view that renders a group of radios. -->
+        <sonar.issue.ignore.multicriteria>radiogroupFieldset</sonar.issue.ignore.multicriteria>
+        <sonar.issue.ignore.multicriteria.radiogroupFieldset.ruleKey>typescript:S6842</sonar.issue.ignore.multicriteria.radiogroupFieldset.ruleKey>
+        <sonar.issue.ignore.multicriteria.radiogroupFieldset.resourceKey>**/Input/Radio/default.server.tsx</sonar.issue.ignore.multicriteria.radiogroupFieldset.resourceKey>
     </properties>
 
     <repositories>

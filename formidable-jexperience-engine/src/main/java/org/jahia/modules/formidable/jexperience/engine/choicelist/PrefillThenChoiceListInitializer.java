@@ -9,10 +9,10 @@ import org.jahia.services.content.nodetypes.initializers.ModuleChoiceListInitial
 import org.jahia.utils.i18n.Messages;
 import org.osgi.service.component.annotations.Component;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * The {@code formidableJExperiencePrefillThen} choicelist: what the page does with a field once the
@@ -64,12 +64,9 @@ public class PrefillThenChoiceListInitializer implements ModuleChoiceListInitial
      * the definition's default for a field that holds neither.
      */
     private static String storedThen(Map<String, Object> context) {
-        Object pending = context.get(JxpProperty.PREFILL_THEN);
-        if (pending instanceof Collection<?> values) {
-            pending = values.isEmpty() ? null : values.iterator().next();
-        }
-        if (pending != null && !String.valueOf(pending).isBlank()) {
-            return String.valueOf(pending);
+        Optional<String> pending = EditorContext.pendingString(context, JxpProperty.PREFILL_THEN);
+        if (pending.isPresent()) {
+            return pending.get();
         }
         if (context.get(ProfilePropertiesChoiceListInitializer.CONTEXT_NODE) instanceof JCRNodeWrapper field) {
             String then = field.getPropertyAsString(JxpProperty.PREFILL_THEN);

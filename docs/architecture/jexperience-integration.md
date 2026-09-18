@@ -246,19 +246,28 @@ source: it is not hidden *by the logic*.
 fields and a "new form" hands the visitor the same empty element, so a form the profile fills would come
 back blank for a visitor it knows — and locked or hidden fields would stay locked over values that are
 gone. The island says both in the same vocabulary as the rest (`formidable:reset`, `formidable:newForm`,
-the form's UUID in the detail), and `api.prefillAgain` forgets two things for that form alone before
-running the ordinary prefill: the mark that says it was filled once, and what its controls remember of
-having been touched — what the visitor typed went with the reset. The gates are the same, so a page with
-no tracker or no context does nothing, as before.
+the form's UUID in the detail), and `api.prefillAgain` does three things for that form alone before
+running the ordinary prefill: it gives back everything the previous run did — the locks, the marks, the
+fields put out of sight — then forgets the mark that says the form was filled once, and what its controls
+remember of having been touched, since what the visitor typed went with the reset. Giving back first is
+what makes a replay safe: a second `lock()` over a field the first one locked would read the read-only
+attribute as the author's and never hand it back. The gates are the same, so a page with no tracker or no
+context does nothing, as before.
+
+**An error is not a new form.** The island empties the form after an accepted submission, and only that
+path says `formidable:newForm`; after a rejected one the form stays on screen with everything the visitor
+typed, and its "try again" button says nothing — the prefill would otherwise write the profile's values
+over the corrections they just made, since a replay forgets what the controls remember of being touched.
 
 Two things a refusal and a reset must undo (review, 2026-09-18). The script writes the slider's mirror before
 telling the island, and the mirror is what the form posts: when the island refuses the value — out of the
 slider's bounds, or over an answer the visitor already gave — nothing re-renders, so the island puts the
 mirror back itself (`restoreMirror`), or the form would carry a value the visitor never gave. And a form
 reset empties the fields, so nothing is prefilled any more: the wrapper comes back in sight and loses
-`data-fmdb-prefilled`, the lock is lifted, on both sides (`clearPrefillMarks` in the island, a one-shot
-`reset` listener in the script). Without it a required field hidden by the prefill would come back
-unanswered behind a `display: none` wrapper, blocking the submission over an error the visitor cannot see.
+`data-fmdb-prefilled`, the lock is lifted, on both sides (`clearPrefillMarks` in the island; in the script
+the form's undo list, run on the native reset and again before any replay). Without it a required field
+hidden by the prefill would come back unanswered behind a `display: none` wrapper, blocking the submission
+over an error the visitor cannot see.
 
 ### Submitting: through the pipeline, then to the profile
 
