@@ -19,30 +19,60 @@ yarn playground
 
 Rebuilds the `FormidableSite4Tests` site with a ready-to-use, published set of
 live forms for manual UI and submission testing (this is provisioning, not a
-test — CI never runs it):
+test — CI never runs it). The forms sit in the content folder
+`/sites/FormidableSite4Tests/contents/forms/playground`, each on a page of its own under
+`/sites/FormidableSite4Tests/home` (`<form name>-page.html`), and every one of them comes in
+two looks, told apart by the prefix of its name and title. The nodes are created in title
+order (CSS before Plain, Complete form first), which is the order jContent's trees show them in:
 
-| Page under `/sites/FormidableSite4Tests/home` | Content |
+| Look | Prefix | What it shows |
+|---|---|---|
+| **CSS** | `css-` / "CSS - …" | The sample theme (`jahia-test-module/sample-form-css/registration-yellow-theme.css`) in the form's **Custom CSS** property — a business stylesheet on top of the modules' markup, the case the authoring UI must stay readable in |
+| **Plain** | `plain-` / "Plain - …" | No `css` property — the modules' own look, the markup and the class hooks as [the styling contract](../docs/styling/README.md) describes them |
+
+| Form | Content |
 |---|---|
-| `playground-simple-page.html` | Minimal contact form (published in EN and FR, custom required messages on the name fields); its fields map to the visitor profile when jExperience is there, see below |
-| `playground-steps-page.html` | Three-step form with navigation |
-| `playground-complete-page.html` | Every built-in field type, plus sourced choice fields (countries + `product/tv` sample categories), a gender radio and a number of children; mapped to the visitor profile when jExperience is there |
-| `playground-languages-page.html` | Choice field whose French labels are only half translated, to try the site's *Replace untranslated content with the default language content* setting both ways |
+| `simple` | Minimal contact form (published in EN and FR, custom required messages on the name fields, a select revealing a conditional phone field, an optional single file); the only one showing the two optional buttons, **Reset** and **New form** (offered in the success message); its fields map to the visitor profile when jExperience is there, see below |
+| `newsletter` | Two small fields; only on the two-forms page |
+| `steps` | Three-step form with navigation, a fieldset inside step 2 and conditional logic driven by the delivery method |
+| `complete` | Every built-in field type, in three blocks: the visitor profile fields first (mapped and prefilled when jExperience is there, then the sensitive one), the other field types, and the choice fields completing the options matrix below |
+| `languages` | Choice field whose French labels are only half translated, to try the site's *Replace untranslated content with the default language content* setting both ways |
+| `<look>-two-forms-page` | A page holding the simple form (referenced) next to the newsletter one: two results sets, two mappings, one tracking script |
+
+The complete form covers every options mode of a choice field, single and multiple:
+
+| Options mode | Single | Multiple |
+|---|---|---|
+| Manual (options typed by the author) | `gender`, `deliveryMethod` (radio), `department` (select) | interests (checkbox group) |
+| Options source (declared in the module configuration) | `country` (select, `countries`) | `viewing` (checkbox group, a static list: Streaming, Cable, Satellite, Antenna) |
+| Category (children of a picked category) | `tvCategory` (radio, `product/tv`: Plasma, OLED, LED) | `audioCategories` (checkbox group, `product/audio`: Headphones, Speakers, Soundbar) |
+| Content (nodes under a picked root) | `agency` (select, texts under `contents/agencies`) | `services` (multiple select, texts under `contents/services`) |
+
+Every field has an option set of its own, so no two of them read as one field repeated.
 
 All forms carry a save-to-JCR action, so submissions land in the results
 screens. The script also:
 
 - declares the `optionsSources` module configuration (`countries`, plus `tv`
-  backed by the static `fmdbSampleStaticList` initializer of
-  formidable-test-module-samples-java);
+  and `viewing` backed by the static `fmdbSampleStaticList` initializer of
+  formidable-test-module-samples-java — `tv` with a localized label, offered in
+  the editor and used by no field);
 - creates and publishes the sample categories
-  `/sites/systemsite/categories/product/tv/{plasma,oled,led}` used by the
-  category-mode field;
+  `/sites/systemsite/categories/product/tv/{plasma,oled,led}` and
+  `product/audio/{headphones,speakers,soundbar}` the category-mode fields point at;
 - provisions the results reader user **john-doe / John#1234** (server-level,
   kept across runs, site member as editor) with `fmdb-results-reader` granted
-  on the simple form only — to exercise the results access rights.
+  on the two simple forms only — to exercise the results access rights.
 
-Prerequisites: current `formidable-engine`, `formidable-elements` and
-`formidable-test-module-samples-java` deployed on the target instance.
+Prerequisites: current `formidable-engine`, `formidable-elements`,
+`formidable-extended-inputs` and `formidable-test-module-samples-java`
+deployed on the target instance.
+
+`yarn playground:maintenance` adds a form with no repository-writing
+action (`maintenance-free`, the contrast case for the read-only maintenance mode) to the
+same folder, which it creates and publishes if the main script has not run yet. Only the
+folder is its own: it needs a site `yarn playground` has already built, and its form renders
+live once that script has published the site's home in the page language.
 
 ### With jExperience
 
@@ -61,13 +91,13 @@ publication, submission event, profile update — is testable at once:
 | simple | `email` | `email` | set if missing, prefill on |
 | simple | `phoneNumber` (shown when a call is asked for, masked `+99 9 99 99 99 99`) | `phoneNumber` | set if missing, prefill on — a field the logic hides is prefilled all the same, and shows its value once revealed |
 | simple | `message` | — | marked **sensitive**: never leaves the site |
-| complete | `email` | `email` | set if missing |
+| complete | `email` | `email` | set if missing, prefill on |
 | complete | birth date | `birthDate` | always set, prefill on |
 | complete | `gender` (radio) | `gender` | set if missing, prefill on |
 | complete | `kids` (number, default 1) | `kids` | set if missing, prefill on with **Replace the field's default value** ticked — the one field where the profile replaces an author's default |
 | complete | `country` (sourced select, ISO codes) | `countryName` | set if missing, prefill on — the select is the shape a guard reading the live state mistakes for a visitor's choice |
-| complete | interests (checkbox group) | `formidableInterests` — multi-valued, playground card | always set |
-| complete | `newsletter` (switch) | `formidableOptIn` — boolean, playground card | set if missing |
+| complete | interests (checkbox group) | `formidableInterests` — multi-valued, playground card | always set, prefill on — the multi-valued shape |
+| complete | `newsletter` (switch) | `formidableOptIn` — boolean, playground card | set if missing, prefill on — the boolean shape |
 | complete | employee code | — | marked **sensitive** |
 
 jCustomer's default schema has no multi-valued and no boolean property, so the script creates the two

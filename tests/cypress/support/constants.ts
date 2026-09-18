@@ -15,6 +15,9 @@ export const FORMIDABLE_MODULE_IDS = [
  * Used as the parent path for creating form content nodes
  */
 export const CONTENT_PATH = `/sites/${FORMIDABLE_TEST_SITE.key}/contents`
+// Where the manual-testing playground puts its forms (cypress/playground/*.play.ts): a folder of their own, so
+// the contents root stays what the specs expect and the set is found at a glance in jContent.
+export const PLAYGROUND_FORMS_PATH = `${CONTENT_PATH}/forms/playground`
 export const SITE_HOME_PATH = `/sites/${FORMIDABLE_TEST_SITE.key}/home`
 
 /**
