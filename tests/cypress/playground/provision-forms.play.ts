@@ -22,11 +22,11 @@
  *   - newsletter  a second small form, shown only on the two-forms page below
  *   - steps       three-step form with navigation (step 2 holds a fieldset, the deepest
  *                 authoring level, and the delivery method drives a field and that fieldset)
- *   - complete    every built-in field type (same set as spec 20), plus a gender radio and a
- *                 number of children — the two shapes the visitor profile mapping needs — plus
- *                 sourced choice fields (countries + categories) and a content-mode select
- *                 (texts under contents/agencies, incl. an unpublished draft to showcase that
- *                 only published contents reach live)
+ *   - complete    every built-in field type (same set as spec 20), the visitor profile fields
+ *                 first (mapped, prefilled, then the sensitive one), and the whole options matrix
+ *                 — manual, options source, category and content, each single and multiple (the
+ *                 content ones point at texts under contents/agencies, incl. an unpublished draft
+ *                 to showcase that only published contents reach live)
  *   - languages   a choice field whose French labels are half translated, to try the site's
  *                 "replace untranslated content" setting both ways
  * And one page per look holding two forms, <look>-two-forms-page: the simple form (referenced)
@@ -56,7 +56,7 @@
  * It also declares the options sources in the OSGi config (countries + the
  * static screen-type list of the fmdbSampleStaticList initializer of
  * formidable-test-module-samples-java), creates the sample category tree
- * product/tv (plasma, oled, led) used by the category-mode field, and
+ * product/tv (plasma, oled, led) the category-mode fields point at, and
  * provisions the results reader user john-doe (password John#1234, kept on
  * the server across runs, site member as editor) with fmdb-results-reader
  * granted on the two simple forms only — to test the results access rights.
@@ -110,8 +110,8 @@ let themeCss = '';
 // The folder holding the forms (contents/forms/playground) and its parent, created and published with the site.
 const FORMS_FOLDER_PATH = `${CONTENT_PATH}/forms`;
 
-const CATEGORY_ROOT = '/sites/systemsite/categories';
 const AGENCIES_ROOT_PATH = `${CONTENT_PATH}/agencies`;
+const CATEGORY_ROOT = '/sites/systemsite/categories';
 
 const RESULTS_READER = {name: 'john-doe', password: 'John#1234'};
 
@@ -574,54 +574,32 @@ const multiStepNodes = (): JahiaNode[] => [
 	}), [{name: 'jcr:title', value: 'Confirmation'}, {name: 'label', value: 'Confirmation'}])
 ];
 
-// Every built-in field type, plus the sourced and the referenced choice fields (their roots given by uuid).
-const completeFormNodes = (tvCategoryUuid: string, agenciesRootUuid: string): JahiaNode[] => [
-	// placeholder and list are i18n as well: without a French value the
-	// field loses its example and its suggestion list in that language.
-	// An employee code is the kind of value that must never reach a visitor profile: the sensitive flag.
-	sensitive(withFrench(getInputTextNode({...INPUT_TEXT_COMPLETE, defaultValue: undefined, helpText: '<p>Two capital letters, a dash, four digits: <strong>AB-1234</strong>.</p>'}), [
-		{name: 'jcr:title', value: 'Code employé'},
-		{name: 'helpText', value: '<p>Deux lettres majuscules, un tiret, quatre chiffres : <strong>AB-1234</strong>.</p>'},
-		{name: 'placeholder', value: 'AB-1234'},
-		{name: 'list', values: ['AB-1234', 'CD-5678']}
-	])),
+/** The roots the complete form's category-mode and content-mode fields point at. */
+interface ChoiceRoots {
+	tvCategoryUuid: string;
+	agenciesRootUuid: string;
+}
+
+// Every built-in field type, in three blocks. The visitor profile first — the mapped fields, all prefilled,
+// then the sensitive one — so that what the jExperience integration touches is read in one place; the other
+// field types next; and last the choice fields that complete the options matrix — four sources (manual,
+// options source, category, content) each in a single and a multiple shape:
+//   manual         single: gender, deliveryMethod (radio), department (select)   multiple: interests (checkbox group)
+//   options source single: country (select)                                      multiple: tvTypes (checkbox group)
+//   category       single: tvCategory (radio)                                    multiple: tvCategories (checkbox group)
+//   content        single: agency (select)                                       multiple: agencies (multiple select)
+const completeFormNodes = ({tvCategoryUuid, agenciesRootUuid}: ChoiceRoots): JahiaNode[] => [
 	mappedTo(withFrench(getInputEmailNode({...INPUT_EMAIL_COMPLETE, defaultValue: undefined}), [
 		{name: 'jcr:title', value: 'Email de contact'},
 		{name: 'placeholder', value: 'Saisissez votre adresse e-mail'}
 	]), 'email', {strategy: 'setIfMissing', prefill: true}),
-	// A birth date cannot be after the submission day; the appointment
-	// cannot be before it — the relative bound modes showcased live.
+	// A birth date cannot be after the submission day (the relative bound mode, showcased live).
 	mappedTo(withFrench(getInputDateNode({...INPUT_DATE_COMPLETE, defaultValue: undefined, max: undefined, maxBoundMode: 'today'}), [{name: 'jcr:title', value: 'Date de naissance'}]), 'birthDate', {prefill: true}),
-	withFrench(getInputDatetimeLocalNode({...INPUT_DATETIME_LOCAL_COMPLETE, defaultValue: undefined, min: undefined, minBoundMode: 'today'}), [{name: 'jcr:title', value: 'Rendez-vous'}]),
-	withFrench(getInputColorNode(INPUT_COLOR_COMPLETE), [{name: 'jcr:title', value: 'Choisissez votre couleur préférée'}]),
-	// The group and the switch feed the two properties the playground adds to jCustomer (see above), and are
-	// prefilled from them: the multi-valued and the boolean shapes of the prefill.
-	mappedTo(withFrench(getCheckboxNode(CHECKBOX_GROUP_COMPLETE), [
-		{name: 'jcr:title', value: 'Centres d\'intérêt requis'},
-		frOptions([
-			{value: 'reading', label: 'Lecture'},
-			{value: 'sports', label: 'Sport', selected: true},
-			{value: 'music', label: 'Musique'}
-		])
-	]), 'formidableInterests', {prefill: true}),
-	mappedTo(withFrench(getSwitchNode({name: 'newsletter', title: 'Newsletter opt-in', onLabel: 'Yes', offLabel: 'No'}), [
-		{name: 'jcr:title', value: 'Lettre d\'information'},
-		{name: 'onLabel', value: 'Oui'},
-		{name: 'offLabel', value: 'Non'}
-	]), 'formidableOptIn', {strategy: 'setIfMissing', prefill: true}),
-	withFrench(getRadioNode(RADIO_GROUP), [{name: 'jcr:title', value: 'Mode de livraison'}, FR_DELIVERY_OPTIONS]),
-	pickupLocationField(),
 	// The two shapes the profile mapping had no field for: a single choice to a string property,
 	// a number to an integer one.
 	mappedTo(withFrench(getRadioNode(GENDER_RADIO), [{name: 'jcr:title', value: 'Genre'}, FR_GENDER_OPTIONS]), 'gender', {strategy: 'setIfMissing', prefill: true}),
 	// The one field with an author's default AND the override ticked: the profile's value replaces the 1.
 	mappedTo(withFrench(getInputNumberNode({name: 'kids', title: 'Number of children', minValue: 0, maxValue: 20, step: 1, defaultValue: 1}), [{name: 'jcr:title', value: 'Nombre d\'enfants'}]), 'kids', {strategy: 'setIfMissing', prefill: true, overridesDefault: true}),
-	departmentSelect(),
-	withFrench(getTextareaNode({...TEXTAREA_COMPLETE, defaultValue: undefined}), [
-		{name: 'jcr:title', value: 'Résumé du projet'},
-		{name: 'placeholder', value: 'Décrivez le projet'}
-	]),
-	withFrench(getInputFileNode(INPUT_FILE_MULTIPLE), [{name: 'jcr:title', value: 'Pièces jointes'}]),
 	// The sourced select showcases the empty-option label: the field starts
 	// empty and its native required validation is exercisable on the site.
 	// The countries source holds ISO codes, which is what jCustomer's countryName expects.
@@ -637,9 +615,48 @@ const completeFormNodes = (tvCategoryUuid: string, agenciesRootUuid: string): Ja
 	// Prefilled too: a select is the shape whose first option the browser selects by itself, the one a
 	// "did the visitor choose" guard reading the live state mistakes for a choice.
 	), 'countryName', {strategy: 'setIfMissing', prefill: true}),
-	withFrench(getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:radio', name: 'tvType', title: 'TV type (sourced: static screen-type list)', sourceKey: 'tv'}), [{name: 'jcr:title', value: 'Type de TV (source : liste statique de types d\'écrans)'}]),
-	withFrench(getCategoryChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'tvCategory', title: 'TV category (category mode, multiple select)', rootCategoryUuid: tvCategoryUuid, multiple: true}), [{name: 'jcr:title', value: 'Catégorie TV (mode catégorie, sélection multiple)'}]),
-	withFrench(getContentChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'agency', title: 'Agency (content mode: texts under contents/agencies)', rootNodeUuid: agenciesRootUuid, nodeType: 'jnt:text'}), [{name: 'jcr:title', value: 'Agence (mode contenu : textes sous contents/agencies)'}])
+	// The group and the switch feed the two properties the playground adds to jCustomer (see above), and are
+	// prefilled from them: the multi-valued and the boolean shapes of the prefill.
+	mappedTo(withFrench(getCheckboxNode(CHECKBOX_GROUP_COMPLETE), [
+		{name: 'jcr:title', value: 'Centres d\'intérêt requis'},
+		frOptions([
+			{value: 'reading', label: 'Lecture'},
+			{value: 'sports', label: 'Sport', selected: true},
+			{value: 'music', label: 'Musique'}
+		])
+	]), 'formidableInterests', {prefill: true}),
+	mappedTo(withFrench(getSwitchNode({name: 'newsletter', title: 'Newsletter opt-in', onLabel: 'Yes', offLabel: 'No'}), [
+		{name: 'jcr:title', value: 'Lettre d\'information'},
+		{name: 'onLabel', value: 'Oui'},
+		{name: 'offLabel', value: 'Non'}
+	]), 'formidableOptIn', {strategy: 'setIfMissing', prefill: true}),
+	// An employee code is the kind of value that must never reach a visitor profile: the sensitive flag.
+	// placeholder and list are i18n as well: without a French value the field loses its example and its
+	// suggestion list in that language.
+	sensitive(withFrench(getInputTextNode({...INPUT_TEXT_COMPLETE, defaultValue: undefined, helpText: '<p>Two capital letters, a dash, four digits: <strong>AB-1234</strong>.</p>'}), [
+		{name: 'jcr:title', value: 'Code employé'},
+		{name: 'helpText', value: '<p>Deux lettres majuscules, un tiret, quatre chiffres : <strong>AB-1234</strong>.</p>'},
+		{name: 'placeholder', value: 'AB-1234'},
+		{name: 'list', values: ['AB-1234', 'CD-5678']}
+	])),
+	// --- The rest of the field types, nothing of the visitor profile in them.
+	// The appointment cannot be before the submission day (the other relative bound mode).
+	withFrench(getInputDatetimeLocalNode({...INPUT_DATETIME_LOCAL_COMPLETE, defaultValue: undefined, min: undefined, minBoundMode: 'today'}), [{name: 'jcr:title', value: 'Rendez-vous'}]),
+	withFrench(getInputColorNode(INPUT_COLOR_COMPLETE), [{name: 'jcr:title', value: 'Choisissez votre couleur préférée'}]),
+	withFrench(getRadioNode(RADIO_GROUP), [{name: 'jcr:title', value: 'Mode de livraison'}, FR_DELIVERY_OPTIONS]),
+	pickupLocationField(),
+	departmentSelect(),
+	withFrench(getTextareaNode({...TEXTAREA_COMPLETE, defaultValue: undefined}), [
+		{name: 'jcr:title', value: 'Résumé du projet'},
+		{name: 'placeholder', value: 'Décrivez le projet'}
+	]),
+	withFrench(getInputFileNode(INPUT_FILE_MULTIPLE), [{name: 'jcr:title', value: 'Pièces jointes'}]),
+	// --- The rest of the options matrix (manual single and multiple, and the sourced single select, are above).
+	withFrench(getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:checkbox', name: 'tvTypes', title: 'Screen types you own (options source: static list, multiple)', sourceKey: 'tv'}), [{name: 'jcr:title', value: 'Types d\'écran possédés (source d\'options : liste statique, multiple)'}]),
+	withFrench(getCategoryChoiceFieldNode({primaryNodeType: 'fmdb:radio', name: 'tvCategory', title: 'TV category (category, single)', rootCategoryUuid: tvCategoryUuid}), [{name: 'jcr:title', value: 'Catégorie TV (catégorie, choix unique)'}]),
+	withFrench(getCategoryChoiceFieldNode({primaryNodeType: 'fmdb:checkbox', name: 'tvCategories', title: 'TV categories (category, multiple)', rootCategoryUuid: tvCategoryUuid}), [{name: 'jcr:title', value: 'Catégories TV (catégorie, choix multiple)'}]),
+	withFrench(getContentChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'agency', title: 'Agency (content: texts under contents/agencies, single)', rootNodeUuid: agenciesRootUuid, nodeType: 'jnt:text'}), [{name: 'jcr:title', value: 'Agence (contenu : textes sous contents/agencies, choix unique)'}]),
+	withFrench(getContentChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'agencies', title: 'Agencies to notify (content, multiple select)', rootNodeUuid: agenciesRootUuid, nodeType: 'jnt:text', multiple: true}), [{name: 'jcr:title', value: 'Agences à prévenir (contenu, sélection multiple)'}])
 ];
 
 const languagesFormNodes = (): JahiaNode[] => [
@@ -707,7 +724,7 @@ describe('Playground - provision manual-testing forms', () => {
 		setOptionsSourcesConfig(OPTIONS_SOURCES_CONFIG);
 	});
 
-	it('creates and publishes the sample category tree product/tv', () => {
+	it('creates and publishes the sample category tree product/tv (category-mode targets)', () => {
 		// Categories are global; creations are idempotent (existing nodes are kept).
 		addNode({parentPathOrId: CATEGORY_ROOT, ...getCategoryNode('product', 'Product', 'Produit')});
 		addNode({parentPathOrId: `${CATEGORY_ROOT}/product`, ...getCategoryNode('tv', 'TV', 'Téléviseur')});
@@ -734,16 +751,11 @@ describe('Playground - provision manual-testing forms', () => {
 		cy.log(`Results reader: ${RESULTS_READER.name} / ${RESULTS_READER.password} (access to the two simple forms' results only)`);
 	});
 
-	// The roots the complete form's choice fields point at, resolved once the categories and agencies exist.
-	interface ChoiceRoots {
-		tvCategoryUuid: string;
-		agenciesRootUuid: string;
-	}
-
 	/** One form (or page) of the set: its English title decides its place in the creation order. */
 	interface Entry {
 		title: string;
 		frTitle: string;
+		/** Provisions the entry in the look; the roots are what the complete form's category and content fields point at. */
 		provision: (look: Look, roots: ChoiceRoots) => void;
 	}
 
@@ -754,7 +766,7 @@ describe('Playground - provision manual-testing forms', () => {
 			title: 'Complete form',
 			frTitle: 'Formulaire complet',
 			provision: (look, roots) => {
-				provisionForm(look, 'complete', 'Complete form', 'Formulaire complet', completeFormNodes(roots.tvCategoryUuid, roots.agenciesRootUuid))
+				provisionForm(look, 'complete', 'Complete form', 'Formulaire complet', completeFormNodes(roots))
 					.then(({livePath}) => cy.log(`${look.label} complete form: /en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`));
 			}
 		},

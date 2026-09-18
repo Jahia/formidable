@@ -35,9 +35,18 @@ order (CSS before Plain, Complete form first), which is the order jContent's tre
 | `simple` | Minimal contact form (published in EN and FR, custom required messages on the name fields, a select revealing a conditional phone field); its fields map to the visitor profile when jExperience is there, see below |
 | `newsletter` | Two small fields; only on the two-forms page |
 | `steps` | Three-step form with navigation, a fieldset inside step 2 and conditional logic driven by the delivery method |
-| `complete` | Every built-in field type, plus sourced choice fields (countries + `product/tv` sample categories), a content-mode select, a gender radio and a number of children; mapped to the visitor profile when jExperience is there |
+| `complete` | Every built-in field type, in three blocks: the visitor profile fields first (mapped and prefilled when jExperience is there, then the sensitive one), the other field types, and the choice fields completing the options matrix below |
 | `languages` | Choice field whose French labels are only half translated, to try the site's *Replace untranslated content with the default language content* setting both ways |
 | `<look>-two-forms-page` | A page holding the simple form (referenced) next to the newsletter one: two results sets, two mappings, one tracking script |
+
+The complete form covers every options mode of a choice field, single and multiple:
+
+| Options mode | Single | Multiple |
+|---|---|---|
+| Manual (options typed by the author) | `gender`, `deliveryMethod` (radio), `department` (select) | interests (checkbox group) |
+| Options source (declared in the module configuration) | `country` (select, `countries`) | `tvTypes` (checkbox group, the static `tv` list) |
+| Category (children of a picked category) | `tvCategory` (radio, `product/tv`) | `tvCategories` (checkbox group, `product/tv`) |
+| Content (nodes under a picked root) | `agency` (select, texts under `contents/agencies`) | `agencies` (multiple select, same root) |
 
 All forms carry a save-to-JCR action, so submissions land in the results
 screens. The script also:
@@ -46,8 +55,8 @@ screens. The script also:
   backed by the static `fmdbSampleStaticList` initializer of
   formidable-test-module-samples-java);
 - creates and publishes the sample categories
-  `/sites/systemsite/categories/product/tv/{plasma,oled,led}` used by the
-  category-mode field;
+  `/sites/systemsite/categories/product/tv/{plasma,oled,led}` the
+  category-mode fields point at;
 - provisions the results reader user **john-doe / John#1234** (server-level,
   kept across runs, site member as editor) with `fmdb-results-reader` granted
   on the two simple forms only — to exercise the results access rights.
