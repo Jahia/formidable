@@ -18,8 +18,10 @@
         <!-- Jahia EE refuses an org.jahia.modules bundle without a valid Jahia-Signature. Computed with keymaker
              (java -jar keymaker-cli.jar pom -f pom.xml -s); the CI's update-signature job keeps it current. -->
         <jahia-module-signature>MCwCFFS8L/8Dgf0DjASs0Va+xTAHPSSYAhQ7IE66CiaGPqKwGXw2BTiZnQ335Q==</jahia-module-signature>
-        <!-- 4.2.1 is the compile-time API; the OSGi imports below stay open to any 4.x. The artifact lives in
-             Nexus' internal group (jahia-internal in .github/maven.settings.xml and in a developer's settings). -->
+        <!-- 4.2.1 is the compile-time API; the OSGi imports below stay open from 3.9 to any 4.x — the members
+             this module calls have the same signatures in both lines (docs/architecture/dependency-decisions.md).
+             The artifact lives in Nexus' internal group (jahia-internal in .github/maven.settings.xml and in a
+             developer's settings). -->
         <jexperience.version>4.2.1</jexperience.version>
     </properties>
     <!-- jExperience is not in Nexus' public group: this repository needs the credentials of the
@@ -143,13 +145,16 @@
                              compatibility promise (docs/architecture/dependency-decisions.md). The response SPI this
                              module implements belongs to the engine, which calls it, and is exported there. -->
                         <Export-Package>!*</Export-Package>
-                        <!-- jExperience exports its admin package at the module version (4.2.1) and re-exports the
-                             Unomi API at Unomi's major (3.0.0): [4,5) is "any jExperience 4.x", [3,4) "any Unomi 3.x",
-                             so a 4.x upgrade of jExperience resolves without a rebuild. -->
+                        <!-- jExperience exports its admin package at the module version and embeds the Unomi API of
+                             the jCustomer it pairs with: 3.9.0 exports admin 3.9.0 + Unomi API 2.5.0, 4.2.1 exports
+                             admin 4.2.1 + Unomi API 3.0.0. Every member this module calls has the same signature in
+                             both (ContextServerService's three calls, PropertyType's and Metadata's accessors, read
+                             with javap on the two jars), so [3.9,5) and [2.5,4) let the one bundle resolve on either
+                             line, and a 4.x upgrade of jExperience still resolves without a rebuild. -->
                         <Import-Package>
                             org.jahia.modules.formidable.engine.api;version="[0.5,1)",
-                            org.jahia.modules.jexperience.admin;version="[4,5)",
-                            org.apache.unomi.api;version="[3,4)",
+                            org.jahia.modules.jexperience.admin;version="[3.9,5)",
+                            org.apache.unomi.api;version="[2.5,4)",
                             org.jahia.services.content,
                             org.jahia.services.content.nodetypes,
                             org.jahia.services.content.nodetypes.initializers,

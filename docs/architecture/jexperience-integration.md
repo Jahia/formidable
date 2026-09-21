@@ -5,7 +5,9 @@
 > 2026-09-09 (server-side event and prefill), **revised 2026-09-10 after Romain's review: everything
 > the visitor triggers runs in the browser, through jExperience's tracker**. The implementation
 > lands on the `feat/jexperience-integration` branch and this document is updated as each phase ships.
-> Targets: Formidable 0.5.x, jExperience 4.x (the OSGi ranges stay open to 3.4+), jCustomer 3.x.
+> Targets: Formidable 0.5.x with jExperience 3.9 and jCustomer 2.5+, or jExperience 4.x and jCustomer 3.x — one
+> bundle, its OSGi ranges `[3.9,5)` on jExperience's admin package and `[2.5,4)` on the Unomi API (the measurement
+> behind them: [dependency decisions](dependency-decisions.md), "Notes"). Developed and proven on 4.2.1 + 3.0.0.
 
 ## Overview
 

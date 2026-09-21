@@ -85,9 +85,18 @@ This project uses two distinct dependency strategies in its Java modules:
 
 ### Notes
 
-- OSGi imports: `org.jahia.modules.jexperience.admin;version="[4,5)"` (jExperience exports it at the
-  module version) and `org.apache.unomi.api;version="[3,4)"` (re-exported by jExperience at Unomi's
-  major), so a jExperience 4.x upgrade resolves without a rebuild.
+- OSGi imports: `org.jahia.modules.jexperience.admin;version="[3.9,5)"` (jExperience exports it at the
+  module version: 3.9.0, 4.2.1) and `org.apache.unomi.api;version="[2.5,4)"` (jExperience embeds and
+  exports the Unomi API of the jCustomer it pairs with: 2.5.0 in 3.9.0, 3.0.0 in 4.2.1). The one bundle
+  resolves on the 3.9 line and on the 4.x line, and a 4.x upgrade resolves without a rebuild. The ranges
+  rest on a measurement, not on a hope: every member this module calls has the same JVM descriptor in
+  both jars — `ContextServerService.isAvailable`, `getContextServerStatus`, `executeGetRequest`,
+  `executePostRequest`, `executeDeleteRequest`, `PropertyType.getValueTypeId`, `isMultivalued`,
+  `isProtected`, `getItemId`, `getMetadata`, `Metadata.getId`, `getName`, `getSystemTags`, `isHidden`,
+  `isReadOnly` (javap on `jexperience-3.9.0.jar`'s `unomi-api-2.5.0.jar` and `jexperience-4.2.1.jar`'s
+  `unomi-api-3.0.0.jar`, 2026-09-21). The first version of the module, 2026-09-14, declared `[4,5)` and
+  `[3,4)` although its documentation announced the ranges open to the 3.x line: on a 3.9 the bundle did
+  not resolve.
 - `maven-dependency-plugin:analyze-only` with `failOnWarning`, as in the engine.
 - The mapping rules are built and compared as plain maps: no import of Unomi's rule, condition or action packages, no JSON library at runtime (jExperience's admin client serialises the maps). `org.json` is a test dependency, for the golden rule.
 - `jahia-depends`: `formidable-engine` (the marker mixin), `formidable-elements` (`fmdb:form`, the type the publication listener and the render
