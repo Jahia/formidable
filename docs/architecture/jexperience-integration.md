@@ -5,9 +5,11 @@
 > 2026-09-09 (server-side event and prefill), **revised 2026-09-10 after Romain's review: everything
 > the visitor triggers runs in the browser, through jExperience's tracker**. The implementation
 > lands on the `feat/jexperience-integration` branch and this document is updated as each phase ships.
-> Targets: Formidable 0.5.x with jExperience 3.9 and jCustomer 2.5+, or jExperience 4.x and jCustomer 3.x — one
-> bundle, its OSGi ranges `[3.9,5)` on jExperience's admin package and `[2.5,4)` on the Unomi API (the measurement
-> behind them: [dependency decisions](dependency-decisions.md), "Notes"). Developed and proven on 4.2.1 + 3.0.0.
+> Targets: Formidable 0.5.x with jExperience 3.4 or later and its jCustomer 2.x, or jExperience 4.x and jCustomer
+> 3.x — one bundle, its OSGi ranges `[3.4,5)` on jExperience's admin package and `[2.1,4)` on the Unomi API, held
+> by a CI gate that recompiles the module against the floor (the measurement and the gate:
+> [dependency decisions](dependency-decisions.md), "Notes"). Developed and proven on 4.2.1 + jCustomer 3.0.0,
+> exercised end to end on 3.9.0 + jCustomer 2.5.0.
 
 ## Overview
 
@@ -747,7 +749,7 @@ accepted, purged values) and the tracker decides **for whom** (its own cookies) 
 | Poison another visitor's profile through Formidable | The victim's profile cookie | No new path: Formidable never handles a profile id; the tracker binds the event to the cookies of the browser it runs in, as for every page view | Same as jExperience |
 | Prefill leaking to another visitor | A shared cache serving one visitor's HTML to another | Impossible by construction: no profile value is ever in the HTML; prefill happens in the browser from the tracker's own context response | Design |
 | Read the mapped profile properties of a visitor | Being that visitor's browser | The tracker only requests the properties named in the push (the mapped ones); a page without a mapped form requests nothing more than today | Named properties, never `*` |
-| A double event (tracker + island) on a form referenced by a rule | A goal or a mapping rule naming the form: its `formId` is the form's DOM `id` and `name` | Prevented: elements renders `data-form-id` and `data-wem-observed="true"` on every form, the two attributes wem.min.js 4.2.1 checks before attaching its listener (initial scan, observer); the island is the only sender | The four attributes asserted by `tests/cypress/e2e/validation/49-form-element-attributes.cy.ts`; the absence of a `[WEM] Watching form` line was verified by hand on the local stack, the tracker needing a jCustomer CI has not got |
+| A double event (tracker + island) on a form referenced by a rule | A goal or a mapping rule naming the form: its `formId` is the form's DOM `id` and `name` | Prevented: elements renders `data-form-id` and `data-wem-observed="true"` on every form, the two attributes wem.min.js checks before attaching its listener — `data-form-id` in the initial scan of every version from 3.4.0 to 4.2.1, `data-wem-observed` in the form observer that exists from 3.7.1 on (no observer before it); the island is the only sender | The four attributes asserted by `tests/cypress/e2e/validation/49-form-element-attributes.cy.ts`; the absence of a `[WEM] Watching form` line was verified by hand on the local stack, the tracker needing a jCustomer CI has not got |
 
 ---
 

@@ -86,6 +86,14 @@ jobs:
           nexus_username: ${{ secrets.NEXUS_USERNAME }}
           nexus_password: ${{ secrets.NEXUS_PASSWORD }}
           module_id: formidable
+      # The jExperience integration's Import-Package ranges promise jExperience 3.4+, and the module compiles against
+      # 4.2.1: recompiling it against jexperience.floor.version is what fails on a call that exists only on the 4.x line,
+      # which the ranges would otherwise let through to a NoSuchMethodError in a customer's log.
+      - name: Compile the jExperience integration against the floor of its OSGi ranges
+        env:
+          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+        run: mvn -s .github/maven.settings.xml -B -pl formidable-jexperience-engine -am -P jexperience-floor -DskipTests test-compile
 
   sonar-analysis:
     name: Sonar Analysis
