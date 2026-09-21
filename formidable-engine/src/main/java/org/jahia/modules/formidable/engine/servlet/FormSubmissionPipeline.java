@@ -2,11 +2,15 @@ package org.jahia.modules.formidable.engine.servlet;
 
 import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.jahia.modules.formidable.engine.api.AcceptedSubmission;
+import org.jahia.modules.formidable.engine.api.FieldActionRequest;
 import org.jahia.modules.formidable.engine.api.FormAction;
+import org.jahia.modules.formidable.engine.fieldactions.FieldActionDispatcher;
+import org.jahia.modules.formidable.engine.fieldactions.ResolvedFieldAction;
 import org.jahia.modules.formidable.engine.api.FormActionException;
 import org.jahia.modules.formidable.engine.actions.FormDataParser;
 import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
+import org.jahia.modules.formidable.engine.api.FmdbNodeName;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.modules.formidable.engine.logic.ConditionalLogicEvaluator;
 import org.jahia.modules.formidable.engine.logic.LogicStateDeclaration;
@@ -23,11 +27,13 @@ import org.slf4j.LoggerFactory;
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.EnumSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -53,13 +59,13 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WO
  *   9.  parseMultipart           — first and only read of the stream; unknown fields discarded inline
  *   10. validateLogicCoherence   — reject values for fields provably hidden by conditional logic
  *   11. validateRequired         — post-parse check for required fields (catches absent fields)
+ *   11b. runFieldActions         — the blocking field actions run again server-side (FMDB-015 with messages)
  *   12. dispatchActions          — execute fmdb:actionList nodes in order
  */
 class FormSubmissionPipeline {
 
     private static final Logger log = LoggerFactory.getLogger(FormSubmissionPipeline.class);
 
-    private static final String ACTIONS_NODE = "actions";
     private static final String CAPTCHA_TOKEN_HEADER = "X-Formidable-Captcha-Token";
 
     /**
@@ -110,6 +116,8 @@ class FormSubmissionPipeline {
     private final MultipartParserAdapter multipartParser;
     private final CurrentUserSessionProvider currentUserSessionProvider;
     private final ReadOnlyStatusProvider readOnlyStatusProvider;
+    /** Runs the field actions at step 11b; {@code null} when the runtime is not there, and no field action runs. */
+    private final FieldActionDispatcher fieldActionDispatcher;
 
     // State accumulated as the pipeline progresses
     private String formId;
@@ -120,10 +128,19 @@ class FormSubmissionPipeline {
     private FormDataParser.ParseResult parsed;
     private ConditionalLogicEvaluator logicEvaluator;
     private List<ResolvedAction> resolvedActions;
+    private HttpServletResponse response;
 
     FormSubmissionPipeline(FormidableConfigService config, List<FormAction> formActions,
                            FormidableOptionsSourceService optionsSourceService,
                            ReadOnlyStatusProvider readOnlyStatusProvider) {
+        this(config, formActions, optionsSourceService, readOnlyStatusProvider, null);
+    }
+
+    /** The runtime pipeline: the platform's repository, parser and sessions, and the field actions' dispatcher. */
+    FormSubmissionPipeline(FormidableConfigService config, List<FormAction> formActions,
+                           FormidableOptionsSourceService optionsSourceService,
+                           ReadOnlyStatusProvider readOnlyStatusProvider,
+                           FieldActionDispatcher fieldActionDispatcher) {
         this(
                 config,
                 formActions,
@@ -131,7 +148,8 @@ class FormSubmissionPipeline {
                 JCRTemplate::getInstance,
                 FormDataParser::parseAll,
                 locale -> JCRSessionFactory.getInstance().getCurrentUserSession(WORKSPACE_LIVE, locale),
-                readOnlyStatusProvider
+                readOnlyStatusProvider,
+                fieldActionDispatcher
         );
     }
 
@@ -142,6 +160,18 @@ class FormSubmissionPipeline {
                            MultipartParserAdapter multipartParser,
                            CurrentUserSessionProvider currentUserSessionProvider,
                            ReadOnlyStatusProvider readOnlyStatusProvider) {
+        this(config, formActions, fieldMetadataCollector, jcrTemplateProvider, multipartParser, currentUserSessionProvider,
+                readOnlyStatusProvider, null);
+    }
+
+    FormSubmissionPipeline(FormidableConfigService config,
+                           List<FormAction> formActions,
+                           FieldMetadataCollectorAdapter fieldMetadataCollector,
+                           JcrTemplateProvider jcrTemplateProvider,
+                           MultipartParserAdapter multipartParser,
+                           CurrentUserSessionProvider currentUserSessionProvider,
+                           ReadOnlyStatusProvider readOnlyStatusProvider,
+                           FieldActionDispatcher fieldActionDispatcher) {
         this.config = config;
         this.formActions = formActions;
         this.fieldMetadataCollector = fieldMetadataCollector;
@@ -149,6 +179,17 @@ class FormSubmissionPipeline {
         this.multipartParser = multipartParser;
         this.currentUserSessionProvider = currentUserSessionProvider;
         this.readOnlyStatusProvider = readOnlyStatusProvider;
+        this.fieldActionDispatcher = fieldActionDispatcher;
+    }
+
+    /**
+     * The response the field actions render against (a field action written as a view renders in the visitor's
+     * request and response). The servlet hands it over before {@link #run}; without it such an action is unavailable,
+     * which its contributor's setting then decides. A setter rather than a run argument: {@code run(req)} is the entry
+     * every fake pipeline of the tests overrides.
+     */
+    void useResponse(HttpServletResponse response) {
+        this.response = response;
     }
 
     void run(HttpServletRequest req) throws SubmissionException {
@@ -163,6 +204,7 @@ class FormSubmissionPipeline {
         parseMultipart(req);
         validateLogicCoherence(req);
         validateRequired();
+        runFieldActions(req, response);
         dispatchActions(req);
     }
 
@@ -440,6 +482,52 @@ class FormSubmissionPipeline {
                 "Required field '" + fieldName + "' is missing or empty.");
     }
 
+    /**
+     * Step 11b — the field actions whose refusal blocks, run again server-side. The pre-check the browser asked
+     * for while the form was filled is a courtesy; this is the authority, and a browser that skipped the pre-check
+     * meets the same actions here — the shared verdict cache making the honest browser's second run free. A field
+     * the logic hides or the visitor left unanswered is skipped, as the required check skips it; a multi-valued
+     * field is judged on its first non-blank value. The first blocking refusal ends the submission with FMDB-015
+     * and its message, which the response carries so that the browser anchors it on the field. Warning-level
+     * actions do not run here: they warned. (docs/architecture/field-actions.md)
+     */
+    private void runFieldActions(HttpServletRequest req, HttpServletResponse resp) throws SubmissionException {
+        if (fieldActionDispatcher == null || fieldMetadata.fieldActions().isEmpty()) {
+            return;
+        }
+        for (Map.Entry<String, List<ResolvedFieldAction>> entry : fieldMetadata.fieldActions().entrySet()) {
+            String fieldName = entry.getKey();
+            if (logicEvaluator.isHidden(fieldName)) {
+                log.debug("[FormSubmissionPipeline] Skipping the field actions of hidden field '{}'", fieldName);
+                continue;
+            }
+            String value = answeredValue(fieldName);
+            if (value == null) {
+                continue;
+            }
+            FieldActionDispatcher.Outcome outcome = fieldActionDispatcher.run(req, resp,
+                    new FieldActionRequest(formId, fieldName, value, locale),
+                    entry.getValue(),
+                    EnumSet.allOf(ResolvedFieldAction.Trigger.class),
+                    true,
+                    parsed.parameters());
+            if (outcome.blocked()) {
+                log.warn("[FormSubmissionPipeline] Field '{}' was refused by a field action.", fieldName);
+                throw new SubmissionException(ErrorCode.FMDB_015,
+                        "Field '" + fieldName + "' was refused by a field action.", outcome.messages());
+            }
+        }
+    }
+
+    /** The field's first non-blank submitted value, or null when the visitor left it unanswered. */
+    private String answeredValue(String fieldName) {
+        List<String> values = parsed.parameters().get(fieldName);
+        if (values == null) {
+            return null;
+        }
+        return values.stream().filter(value -> value != null && !value.isBlank()).findFirst().orElse(null);
+    }
+
     private void dispatchActions(HttpServletRequest req) throws SubmissionException {
         List<ResolvedAction> actions = actions();
         List<SubmittedFile> submittedFiles = toSubmittedFiles(parsed.files());
@@ -550,11 +638,11 @@ class FormSubmissionPipeline {
         try {
             jcrTemplateProvider.get().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale, systemSession -> {
                 JCRNodeWrapper systemFormNode = systemSession.getNodeByIdentifier(formId);
-                if (!systemFormNode.hasNode(ACTIONS_NODE)) {
+                if (!systemFormNode.hasNode(FmdbNodeName.ACTIONS)) {
                     return null;
                 }
 
-                JCRNodeWrapper actionList = systemFormNode.getNode(ACTIONS_NODE);
+                JCRNodeWrapper actionList = systemFormNode.getNode(FmdbNodeName.ACTIONS);
                 NodeIterator it = actionList.getNodes();
                 while (it.hasNext()) {
                     javax.jcr.Node child = it.nextNode();

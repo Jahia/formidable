@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -76,6 +77,38 @@ public class FormidableConfigService {
      */
     public record OptionsSource(String id, String label, String initializerKey, String param) {}
 
+    /**
+     * An external service a field action may call through the {@code FieldActionGateway}, from
+     * {@code fieldActionProviders=id|Label|https://base-url|Credential-Header-Name|credential}.
+     *
+     * @param id               stored in JCR on the field-action node
+     * @param label            shown in the provider picker of the editor
+     * @param baseUri          the HTTPS base the gateway appends a relative path to
+     * @param credentialHeader the header carrying the credential, empty when the provider needs none
+     * @param credential       the secret; never logged, never returned to a caller — {@link #toString()} hides it
+     */
+    public record FieldActionProvider(String id, String label, URI baseUri, String credentialHeader, String credential) {
+        @Override
+        public String toString() {
+            return "FieldActionProvider[id=" + id + ", baseUri=" + baseUri + ", credentialHeader=" + credentialHeader
+                    + ", credential=" + (credential == null || credential.isEmpty() ? "none" : "***") + "]";
+        }
+    }
+
+    /**
+     * Everything the field actions read from the configuration, in one piece: the providers and the HTTP client that
+     * reaches them, and the three guards of the pre-check endpoint (verdict cache, rate limit, value length).
+     */
+    public record FieldActionSettings(
+            Map<String, FieldActionProvider> providers,
+            Duration httpConnectTimeout,
+            Duration httpRequestTimeout,
+            HttpClient httpClient,
+            Duration verdictCacheTtl,
+            int rateLimitPerMinute,
+            int maxValueLength
+    ) {}
+
     private record ConfigSnapshot(
             String captchaSiteKey,
             String captchaSecretKey,
@@ -96,7 +129,8 @@ public class FormidableConfigService {
             Map<String, ForwardTarget> forwardTargets,
             Map<String, OptionsSource> optionsSources,
             Duration optionsSourcesCacheTtl,
-            int optionsQueryMaxResults
+            int optionsQueryMaxResults,
+            FieldActionSettings fieldActions
     ) {}
 
     private static final Logger log = LoggerFactory.getLogger(FormidableConfigService.class);
@@ -320,6 +354,8 @@ public class FormidableConfigService {
                 ? osgiConfig.optionsQueryMaxResults()
                 : FormidableConfig.DEFAULT_OPTIONS_QUERY_MAX_RESULTS;
 
+        FieldActionSettings fieldActions = readFieldActionSettings(osgiConfig);
+
         ConfigSnapshot snapshot = new ConfigSnapshot(
                 captchaSiteKey,
                 captchaSecretKey,
@@ -340,7 +376,8 @@ public class FormidableConfigService {
                 forwardTargets,
                 optionsSources,
                 optionsSourcesCacheTtl,
-                optionsQueryMaxResults
+                optionsQueryMaxResults,
+                fieldActions
         );
 
         this.config.set(snapshot);
@@ -361,6 +398,112 @@ public class FormidableConfigService {
         log.info("FormidableConfigService options sources: {} declared, cacheTtl={}s",
                 snapshot.optionsSources().size(),
                 snapshot.optionsSourcesCacheTtl().toSeconds());
+        log.info("FormidableConfigService field actions: {} provider(s), connectTimeout={}s, requestTimeout={}s, verdictCacheTtl={}s, preCheckRateLimit={}/min, maxValueLength={}",
+                fieldActions.providers().size(),
+                fieldActions.httpConnectTimeout().toSeconds(),
+                fieldActions.httpRequestTimeout().toSeconds(),
+                fieldActions.verdictCacheTtl().toSeconds(),
+                fieldActions.rateLimitPerMinute(),
+                fieldActions.maxValueLength());
+    }
+
+    /**
+     * Everything the field actions read, guarded like the rest: a non-positive TTL disables the verdict cache,
+     * a non-positive rate limit disables the pre-check endpoint, a non-positive length falls back to the default.
+     */
+    private static FieldActionSettings readFieldActionSettings(FormidableConfig osgiConfig) {
+        Duration connectTimeout = readTimeoutSeconds(
+                "fieldActionHttpConnectTimeoutSeconds",
+                osgiConfig.fieldActionHttpConnectTimeoutSeconds(),
+                FormidableConfig.DEFAULT_HTTP_CONNECT_TIMEOUT_SECONDS
+        );
+        Duration requestTimeout = readTimeoutSeconds(
+                "fieldActionHttpRequestTimeoutSeconds",
+                osgiConfig.fieldActionHttpRequestTimeoutSeconds(),
+                FormidableConfig.DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS
+        );
+        HttpClient httpClient = HttpClient.newBuilder()
+                .connectTimeout(connectTimeout)
+                .build();
+        Duration verdictCacheTtl = Duration.ofSeconds(Math.max(0L, osgiConfig.fieldActionVerdictCacheTtlSeconds()));
+        int rateLimitPerMinute = Math.max(0, osgiConfig.fieldActionRateLimitPerMinute());
+        int maxValueLength = osgiConfig.fieldActionMaxValueLength() > 0
+                ? osgiConfig.fieldActionMaxValueLength()
+                : FormidableConfig.DEFAULT_FIELD_ACTION_MAX_VALUE_LENGTH;
+        return new FieldActionSettings(
+                Collections.unmodifiableMap(parseFieldActionProviders(osgiConfig.fieldActionProviders())),
+                connectTimeout,
+                requestTimeout,
+                httpClient,
+                verdictCacheTtl,
+                rateLimitPerMinute,
+                maxValueLength
+        );
+    }
+
+    /**
+     * Parses {@code fieldActionProviders}: one {@code id|Label|https://base-url|Credential-Header-Name|credential}
+     * per line, the last two optional together. The base URL obeys the forward targets' rule — HTTPS, a host, no
+     * embedded credentials. A malformed entry is logged without its credential and skipped; the first occurrence
+     * of a duplicate id wins.
+     */
+    private static Map<String, FieldActionProvider> parseFieldActionProviders(String raw) {
+        Map<String, FieldActionProvider> result = new LinkedHashMap<>();
+        if (raw == null || raw.isBlank()) {
+            return result;
+        }
+        for (String entry : raw.split("[\n\r]+")) {
+            String trimmed = entry.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            parseFieldActionProviderEntry(trimmed).ifPresent(provider -> {
+                if (result.putIfAbsent(provider.id(), provider) != null) {
+                    log.warn("[FormidableConfigService] Duplicate fieldActionProviders id '{}', keeping first occurrence.", provider.id());
+                }
+            });
+        }
+        return result;
+    }
+
+    private static Optional<FieldActionProvider> parseFieldActionProviderEntry(String entry) {
+        String[] parts = entry.split("\\|", 5);
+        if (parts.length < 3) {
+            log.warn("[FormidableConfigService] Skipping malformed fieldActionProviders entry (expected id|Label|https://base-url|Header|credential): '{}'",
+                    redactProviderEntry(parts));
+            return Optional.empty();
+        }
+        String id = parts[0].trim();
+        String label = parts[1].trim();
+        String url = parts[2].trim();
+        String header = parts.length > 3 ? parts[3].trim() : "";
+        String credential = parts.length > 4 ? parts[4].trim() : "";
+        if (id.isEmpty() || url.isEmpty()) {
+            log.warn("[FormidableConfigService] Skipping fieldActionProviders entry with an empty id or base URL: '{}'", redactProviderEntry(parts));
+            return Optional.empty();
+        }
+        if (header.isEmpty() != credential.isEmpty()) {
+            log.warn("[FormidableConfigService] Skipping fieldActionProviders entry '{}': a credential needs its header name, and a header name its credential.", id);
+            return Optional.empty();
+        }
+        URI uri;
+        try {
+            uri = new URI(url);
+        } catch (URISyntaxException e) {
+            log.warn("[FormidableConfigService] Skipping fieldActionProviders entry '{}': malformed URI '{}'", id, url);
+            return Optional.empty();
+        }
+        String reason = getUnsupportedForwardTargetUriReason(uri, false);
+        if (reason != null) {
+            log.warn("[FormidableConfigService] Skipping fieldActionProviders entry '{}': {}", id, reason);
+            return Optional.empty();
+        }
+        return Optional.of(new FieldActionProvider(id, label.isEmpty() ? id : label, uri, header, credential));
+    }
+
+    /** An entry as a log line may show it: its first three parts, never a credential. */
+    private static String redactProviderEntry(String[] parts) {
+        return String.join("|", Arrays.copyOf(parts, Math.min(parts.length, 3)));
     }
 
     /**
@@ -674,6 +817,19 @@ public class FormidableConfigService {
     public Optional<ForwardTarget> resolveForwardTarget(String id) {
         ForwardTarget target = currentConfig().forwardTargets().get(id);
         return target != null ? Optional.of(target) : Optional.empty();
+    }
+
+    /** What the field actions read from the configuration — providers, HTTP client, the pre-check endpoint's guards. */
+    public FieldActionSettings getFieldActionSettings() {
+        return currentConfig().fieldActions();
+    }
+
+    /** The configured provider of that id, for the gateway and the editor's provider list. */
+    public Optional<FieldActionProvider> resolveFieldActionProvider(String id) {
+        if (id == null) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(currentConfig().fieldActions().providers().get(id));
     }
 
     private static String encode(String value) {

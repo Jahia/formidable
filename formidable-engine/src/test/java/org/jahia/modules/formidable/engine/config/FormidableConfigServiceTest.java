@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -479,6 +480,38 @@ class FormidableConfigServiceTest {
         assertEquals(LEGACY_TARGETS, written.getValue().get("forwardTargets"));
     }
 
+    @Test
+    void activateParsesFieldActionProvidersAndSkipsWhatItCannotTrust() {
+        // Verifies the provider registry: a full entry and a credential-less one are kept, the empty label falling
+        // back to the id; an entry with a header but no credential, an HTTP base, embedded credentials, a duplicate
+        // id and a two-part line are skipped without poisoning the rest — and a parsed provider never prints its
+        // secret, since a toString reaches the logs.
+        FormidableConfigService service = new FormidableConfigService();
+
+        service.activate(TestFormidableConfig.withFieldActionProviders(
+                """
+                email-check|Email verification|https://api.example.com/v1|X-Api-Key|s3cr3t
+                crm||https://crm.internal/api
+                half|Half|https://api.example.com|X-Api-Key
+                plain|Plain|http://api.example.com
+                creds|Creds|https://user:pw@api.example.com
+                email-check|Again|https://other.example.com
+                two|parts"""));
+
+        FormidableConfigService.FieldActionSettings settings = service.getFieldActionSettings();
+        assertEquals(List.of("email-check", "crm"), List.copyOf(settings.providers().keySet()));
+        FormidableConfigService.FieldActionProvider emailCheck = service.resolveFieldActionProvider("email-check").orElseThrow();
+        assertEquals("X-Api-Key", emailCheck.credentialHeader());
+        assertEquals("s3cr3t", emailCheck.credential());
+        assertFalse(emailCheck.toString().contains("s3cr3t"));
+        assertEquals("crm", service.resolveFieldActionProvider("crm").orElseThrow().label());
+        assertTrue(service.resolveFieldActionProvider("half").isEmpty());
+        assertTrue(service.resolveFieldActionProvider(null).isEmpty());
+        assertEquals(300L, settings.verdictCacheTtl().toSeconds());
+        assertEquals(30, settings.rateLimitPerMinute());
+        assertEquals(512, settings.maxValueLength());
+    }
+
     private static final class TestFormidableConfig implements FormidableConfig {
         private final String forwardTargets;
         private final boolean enableDevForwardTargets;
@@ -496,6 +529,13 @@ class FormidableConfigServiceTest {
         private final String captchaVerifyUrl;
         private String optionsSources = "";
         private long optionsSourcesCacheTtlSeconds = 300L;
+        private String fieldActionProviders = "";
+
+        private static TestFormidableConfig withFieldActionProviders(String fieldActionProviders) {
+            TestFormidableConfig config = new TestFormidableConfig("", false, "");
+            config.fieldActionProviders = fieldActionProviders;
+            return config;
+        }
 
         private static TestFormidableConfig withOptionsSources(String optionsSources, long cacheTtlSeconds) {
             TestFormidableConfig config = new TestFormidableConfig("", false, "");
@@ -693,6 +733,36 @@ class FormidableConfigServiceTest {
         @Override
         public int optionsQueryMaxResults() {
             return FormidableConfig.DEFAULT_OPTIONS_QUERY_MAX_RESULTS;
+        }
+
+        @Override
+        public String fieldActionProviders() {
+            return fieldActionProviders;
+        }
+
+        @Override
+        public long fieldActionHttpConnectTimeoutSeconds() {
+            return 5L;
+        }
+
+        @Override
+        public long fieldActionHttpRequestTimeoutSeconds() {
+            return 10L;
+        }
+
+        @Override
+        public long fieldActionVerdictCacheTtlSeconds() {
+            return 300L;
+        }
+
+        @Override
+        public int fieldActionRateLimitPerMinute() {
+            return 30;
+        }
+
+        @Override
+        public int fieldActionMaxValueLength() {
+            return 512;
         }
 
         @Override

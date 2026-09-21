@@ -184,7 +184,7 @@ submitActionUrl = /modules/formidable-engine/form-submit?fid={form uuid}&lang={l
 
 Submission is an OSGi HTTP-Whiteboard servlet — `FormSubmitServlet`, gated by the
 `formidable-submit` Security Filter scope (`origin: hosted`) — that delegates to
-`FormSubmissionPipeline`, a 12-step pipeline (see `docs/architecture/form-submission-flow.md`, the
+`FormSubmissionPipeline`, a 12-step pipeline plus step 11b, the field actions (see `docs/architecture/form-submission-flow.md`, the
 authoritative walkthrough). The pipeline resolves the form, validates everything
 (whitelist, types, constraints, logic coherence), THEN runs the form's `actions`
 children in order: for each action node, the OSGi `FormAction` service whose
@@ -199,6 +199,8 @@ response carries the exception's HTTP status and an opaque `errorCode`; on succe
 org.jahia.modules.formidable.engine
 ├── api/                                 ← the EXPORTED SPI (Export-Package)
 │   ├── FormAction.java                  ← strategy interface (getNodeType + execute)
+│   ├── FieldAction.java, FieldActionRequest.java, FieldActionResult.java, FieldActionGateway.java
+│   │                                    ← the field-action SPI: one field's value judged server-side (docs/architecture/field-actions.md)
 │   ├── FormActionException.java         ← exception carrying an httpStatus
 │   ├── SubmittedFile.java               ← a validated uploaded file
 │   ├── ChoiceOptionsResolver.java       ← how many choices a choice field offers
@@ -206,7 +208,9 @@ org.jahia.modules.formidable.engine
 │   └── SubmissionResponseEnricher.java  ← adds entries to the 200 of an accepted submission
 ├── servlet/
 │   ├── FormSubmitServlet.java           ← whiteboard entry point
-│   └── FormSubmissionPipeline.java      ← the 12 steps
+│   └── FormSubmissionPipeline.java      ← the 12 steps, plus 11b (runFieldActions)
+├── fieldactions/                        ← the field actions: FieldActionDispatcher, FieldActionServlet (/field-action),
+│                                           FieldActionRuntime, FieldActionCollector, FieldActionGatewayImpl, VerdictCache…
 └── actions/
     ├── FormDataParser.java, FieldValidator.java, FieldEscaper.java, …
     ├── email/   SendEmailNotificationFormAction, SendEmailContentFormAction

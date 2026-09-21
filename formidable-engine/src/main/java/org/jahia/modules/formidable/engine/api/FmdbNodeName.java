@@ -23,6 +23,9 @@ public final class FmdbNodeName {
     /** Under a submission, the folder holding the uploaded files. */
     public static final String FILES = "files";
 
+    /** The ordered list of actions: under a form ({@code fmdb:actionList}) and under a field ({@code fmdb:fieldActionList}), the same word. */
+    public static final String ACTIONS = "actions";
+
     private FmdbNodeName() {
     }
 }

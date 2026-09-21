@@ -20,3 +20,12 @@
 // from that module and left its own types unregistered — which is exactly what happened once.
 [fmdbsamplemix:enrichedResponse] mixin
  itemtype = content
+
+// A field action written in Java, the shape a module of its own copies (docs/architecture/field-actions.md,
+// "A field action in Java"): the type takes fmdbmix:fieldAction as a supertype, carries its own settings
+// — here the words that make a value unwelcome — and a FieldAction OSGi service bound to the type judges the
+// value. The visitor's message, the trigger, the severity and the outage rule reach the type through the
+// engine's fmdbmix:fieldActionFeedback, unasked. Exercised by the test suite against the pre-check endpoint
+// and the submission pipeline.
+[fmdbsample:blockedWordsAction] > jnt:content, fmdbmix:fieldAction, mix:title
+ - words (string) multiple indexed=no

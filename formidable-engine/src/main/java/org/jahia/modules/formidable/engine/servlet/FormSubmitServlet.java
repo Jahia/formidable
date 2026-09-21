@@ -2,12 +2,14 @@ package org.jahia.modules.formidable.engine.servlet;
 
 import org.jahia.modules.formidable.engine.api.AcceptedSubmission;
 import org.jahia.modules.formidable.engine.api.FormAction;
+import org.jahia.modules.formidable.engine.fieldactions.FieldActionRuntime;
 import org.jahia.modules.formidable.engine.api.SubmissionResponseEnricher;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService;
 import org.jahia.api.settings.SettingsBean;
 import org.jahia.services.securityfilter.PermissionService;
 import org.json.JSONException;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -60,11 +62,13 @@ public class FormSubmitServlet extends HttpServlet {
     private final AtomicReference<PermissionService> permissionService = new AtomicReference<>();
     private final AtomicReference<FormidableOptionsSourceService> optionsSourceService = new AtomicReference<>();
     private final AtomicReference<SettingsBean> settingsBean = new AtomicReference<>();
+    /** The field actions' shared runtime (Java actions, verdict cache): the pipeline's step 11b runs on its dispatcher. */
+    private final AtomicReference<FieldActionRuntime> fieldActionRuntime = new AtomicReference<>();
     private final List<FormAction> formActions = new CopyOnWriteArrayList<>();
     private final List<SubmissionResponseEnricher> responseEnrichers = new CopyOnWriteArrayList<>();
 
     /** The body keys the servlet writes itself; an enricher that names one is ignored for that key. */
-    static final Set<String> RESERVED_KEYS = Set.of("success", "errorCode", "actionsCompleted", "actionsTotal");
+    static final Set<String> RESERVED_KEYS = Set.of("success", "errorCode", "actionsCompleted", "actionsTotal", "messages");
 
     @Reference
     public void setConfig(FormidableConfigService service) {
@@ -84,6 +88,11 @@ public class FormSubmitServlet extends HttpServlet {
     @Reference
     public void setSettingsBean(SettingsBean settingsBean) {
         this.settingsBean.set(settingsBean);
+    }
+
+    @Reference
+    public void setFieldActionRuntime(FieldActionRuntime runtime) {
+        fieldActionRuntime.set(runtime);
     }
 
     @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC, unbind = "unbindFormAction")
@@ -123,6 +132,7 @@ public class FormSubmitServlet extends HttpServlet {
 
         try {
             FormSubmissionPipeline pipeline = createPipeline();
+            pipeline.useResponse(resp);
             pipeline.run(req);
             sendJsonSafely(resp, HttpServletResponse.SC_OK, null, null, enrich(pipeline));
         } catch (SubmissionException e) {
@@ -203,7 +213,9 @@ public class FormSubmitServlet extends HttpServlet {
     }
 
     FormSubmissionPipeline createPipeline() {
-        return new FormSubmissionPipeline(getConfigService(), formActions, optionsSourceService.get(), this::isPlatformReadOnly);
+        FieldActionRuntime runtime = fieldActionRuntime.get();
+        return new FormSubmissionPipeline(getConfigService(), formActions, optionsSourceService.get(), this::isPlatformReadOnly,
+                runtime == null ? null : runtime.dispatcher());
     }
 
     private boolean isPlatformReadOnly() {
@@ -276,6 +288,12 @@ public class FormSubmitServlet extends HttpServlet {
         if (ex != null && ex.hasActionProgress()) {
             body.put("actionsCompleted", ex.actionsCompleted);
             body.put("actionsTotal", ex.actionsTotal);
+        }
+        // a field action's refusal names the field and carries the contributor's words: the browser anchors them
+        if (ex != null && !ex.messages().isEmpty()) {
+            JSONArray messages = new JSONArray();
+            ex.messages().forEach(message -> messages.put(message.toJson()));
+            body.put("messages", messages);
         }
         resp.setStatus(status);
         resp.setContentType("application/json");

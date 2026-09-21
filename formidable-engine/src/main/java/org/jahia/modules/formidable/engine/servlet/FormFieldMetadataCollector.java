@@ -19,6 +19,8 @@ import java.util.*;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.engine.api.FmdbNodeName;
 import org.jahia.modules.formidable.engine.api.FmdbProperty;
+import org.jahia.modules.formidable.engine.fieldactions.FieldActionCollector;
+import org.jahia.modules.formidable.engine.fieldactions.ResolvedFieldAction;
 
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FIELDS_NODE;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WORKSPACE_LIVE;
@@ -36,12 +38,27 @@ class FormFieldMetadataCollector {
     private static final String[] RESOLVED_OPTIONS_MIXINS =
             {FmdbMixin.SOURCED_OPTIONS, FmdbMixin.CATEGORY_OPTIONS, FmdbMixin.CONTENT_OPTIONS};
 
+    /**
+     * What one walk of the published form yields, read once per submission.
+     *
+     * @param fieldActions the field actions declared under a field, by field name, in list order — only the
+     *                     fields that declare at least one (docs/architecture/field-actions.md)
+     */
     record Result(
             Map<String, FormDataParser.FieldInfo> fieldInfos,
             Map<String, List<ConditionalLogicRule>> fieldLogicRules,
             Map<String, String> logicIdToFieldName,
-            Map<String, Set<String>> fieldParentContainers
+            Map<String, Set<String>> fieldParentContainers,
+            Map<String, List<ResolvedFieldAction>> fieldActions
     ) {
+        /** A result without field actions — the shape every test wrote before the field actions existed. */
+        Result(Map<String, FormDataParser.FieldInfo> fieldInfos,
+               Map<String, List<ConditionalLogicRule>> fieldLogicRules,
+               Map<String, String> logicIdToFieldName,
+               Map<String, Set<String>> fieldParentContainers) {
+            this(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, Map.of());
+        }
+
         FormDataParser.FieldMetadata toParserMetadata() {
             return new FormDataParser.FieldMetadata(fieldInfos);
         }
@@ -103,13 +120,14 @@ class FormFieldMetadataCollector {
         var fieldLogicRules = new HashMap<String, List<ConditionalLogicRule>>();
         var logicIdToFieldName = new HashMap<String, String>();
         var fieldParentContainers = new HashMap<String, Set<String>>();
+        var fieldActions = new HashMap<String, List<ResolvedFieldAction>>();
 
-        var ctx = new CollectorContext(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, optionsResolver);
+        var ctx = new CollectorContext(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, fieldActions, optionsResolver);
 
         if (!formNode.hasNode(FIELDS_NODE)) {
             log.debug("[FormFieldMetadataCollector] No '{}' child on form node '{}'",
                     FIELDS_NODE, formNode.getPath());
-            return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers);
+            return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, fieldActions);
         }
 
         JCRNodeWrapper fieldList = formNode.getNode(FIELDS_NODE);
@@ -122,7 +140,7 @@ class FormFieldMetadataCollector {
         }
 
         log.debug("[FormFieldMetadataCollector] Allowed fields: {}", fieldInfos.keySet());
-        return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers);
+        return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, fieldActions);
     }
 
     // --- Internal ---
@@ -132,6 +150,7 @@ class FormFieldMetadataCollector {
             Map<String, List<ConditionalLogicRule>> fieldLogicRules,
             Map<String, String> logicIdToFieldName,
             Map<String, Set<String>> fieldParentContainers,
+            Map<String, List<ResolvedFieldAction>> fieldActions,
             SourcedOptionsResolver optionsResolver
     ) {}
 
@@ -223,6 +242,10 @@ class FormFieldMetadataCollector {
         }
 
         ctx.fieldInfos.put(name, buildFieldInfo(node, nodeType, ctx.optionsResolver));
+        List<ResolvedFieldAction> actions = FieldActionCollector.read(node);
+        if (!actions.isEmpty()) {
+            ctx.fieldActions.put(name, actions);
+        }
     }
 
     private static void resolveLogicsSrc(JCRNodeWrapper node, List<ConditionalLogicRule> rules, CollectorContext ctx)

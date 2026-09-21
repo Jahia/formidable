@@ -1,0 +1,22 @@
+{
+	"nodeType": "fmdbmix:fieldActionFeedback",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "content",
+			"fieldSets": [
+				{
+					"name": "fmdbmix:fieldActionFeedback",
+					"rank": 1.0,
+					"isAlwaysActivated": true,
+					"fields": [
+						{ "name": "rejectionMessage" },
+						{ "name": "trigger" },
+						{ "name": "severity" },
+						{ "name": "whenUnavailable" }
+					]
+				}
+			]
+		}
+	]
+}
