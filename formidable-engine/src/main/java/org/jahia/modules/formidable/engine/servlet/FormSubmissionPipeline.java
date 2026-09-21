@@ -116,8 +116,11 @@ class FormSubmissionPipeline {
     private final MultipartParserAdapter multipartParser;
     private final CurrentUserSessionProvider currentUserSessionProvider;
     private final ReadOnlyStatusProvider readOnlyStatusProvider;
-    /** Runs the field actions at step 11b; {@code null} when the runtime is not there, and no field action runs. */
-    private final FieldActionDispatcher fieldActionDispatcher;
+    /**
+     * Runs the field actions at step 11b; {@code null} when the runtime is not there, and no field action runs. Handed
+     * over by the servlet through {@link #useFieldActions} rather than a constructor argument, as the response is.
+     */
+    private FieldActionDispatcher fieldActionDispatcher;
 
     // State accumulated as the pipeline progresses
     private String formId;
@@ -133,14 +136,6 @@ class FormSubmissionPipeline {
     FormSubmissionPipeline(FormidableConfigService config, List<FormAction> formActions,
                            FormidableOptionsSourceService optionsSourceService,
                            ReadOnlyStatusProvider readOnlyStatusProvider) {
-        this(config, formActions, optionsSourceService, readOnlyStatusProvider, null);
-    }
-
-    /** The runtime pipeline: the platform's repository, parser and sessions, and the field actions' dispatcher. */
-    FormSubmissionPipeline(FormidableConfigService config, List<FormAction> formActions,
-                           FormidableOptionsSourceService optionsSourceService,
-                           ReadOnlyStatusProvider readOnlyStatusProvider,
-                           FieldActionDispatcher fieldActionDispatcher) {
         this(
                 config,
                 formActions,
@@ -148,8 +143,7 @@ class FormSubmissionPipeline {
                 JCRTemplate::getInstance,
                 FormDataParser::parseAll,
                 locale -> JCRSessionFactory.getInstance().getCurrentUserSession(WORKSPACE_LIVE, locale),
-                readOnlyStatusProvider,
-                fieldActionDispatcher
+                readOnlyStatusProvider
         );
     }
 
@@ -160,18 +154,6 @@ class FormSubmissionPipeline {
                            MultipartParserAdapter multipartParser,
                            CurrentUserSessionProvider currentUserSessionProvider,
                            ReadOnlyStatusProvider readOnlyStatusProvider) {
-        this(config, formActions, fieldMetadataCollector, jcrTemplateProvider, multipartParser, currentUserSessionProvider,
-                readOnlyStatusProvider, null);
-    }
-
-    FormSubmissionPipeline(FormidableConfigService config,
-                           List<FormAction> formActions,
-                           FieldMetadataCollectorAdapter fieldMetadataCollector,
-                           JcrTemplateProvider jcrTemplateProvider,
-                           MultipartParserAdapter multipartParser,
-                           CurrentUserSessionProvider currentUserSessionProvider,
-                           ReadOnlyStatusProvider readOnlyStatusProvider,
-                           FieldActionDispatcher fieldActionDispatcher) {
         this.config = config;
         this.formActions = formActions;
         this.fieldMetadataCollector = fieldMetadataCollector;
@@ -179,7 +161,11 @@ class FormSubmissionPipeline {
         this.multipartParser = multipartParser;
         this.currentUserSessionProvider = currentUserSessionProvider;
         this.readOnlyStatusProvider = readOnlyStatusProvider;
-        this.fieldActionDispatcher = fieldActionDispatcher;
+    }
+
+    /** The field actions' dispatcher, from the runtime the servlet references; without it step 11b runs nothing. */
+    void useFieldActions(FieldActionDispatcher dispatcher) {
+        this.fieldActionDispatcher = dispatcher;
     }
 
     /**
@@ -497,12 +483,9 @@ class FormSubmissionPipeline {
         }
         for (Map.Entry<String, List<ResolvedFieldAction>> entry : fieldMetadata.fieldActions().entrySet()) {
             String fieldName = entry.getKey();
-            if (logicEvaluator.isHidden(fieldName)) {
-                log.debug("[FormSubmissionPipeline] Skipping the field actions of hidden field '{}'", fieldName);
-                continue;
-            }
             String value = answeredValue(fieldName);
-            if (value == null) {
+            if (value == null || logicEvaluator.isHidden(fieldName)) {
+                log.debug("[FormSubmissionPipeline] Skipping the field actions of '{}': unanswered or hidden", fieldName);
                 continue;
             }
             FieldActionDispatcher.Outcome outcome = fieldActionDispatcher.run(req, resp,

@@ -81,7 +81,8 @@ class FormSubmissionPipelineFieldActionsTest {
                                                             Map<String, List<String>> parameters,
                                                             ConditionalLogicEvaluator evaluator) throws Exception {
         FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of(),
-                mock(FormidableOptionsSourceService.class), () -> false, dispatcher);
+                mock(FormidableOptionsSourceService.class), () -> false);
+        pipeline.useFieldActions(dispatcher);
         set(pipeline, "formId", "8f7e2a10-0000-4000-8000-000000000001");
         set(pipeline, "locale", Locale.ENGLISH);
         set(pipeline, "fieldMetadata", new FormFieldMetadataCollector.Result(Map.of(), Map.of(), Map.of(), Map.of(), fieldActions));

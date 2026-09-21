@@ -213,9 +213,12 @@ public class FormSubmitServlet extends HttpServlet {
     }
 
     FormSubmissionPipeline createPipeline() {
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(getConfigService(), formActions, optionsSourceService.get(), this::isPlatformReadOnly);
         FieldActionRuntime runtime = fieldActionRuntime.get();
-        return new FormSubmissionPipeline(getConfigService(), formActions, optionsSourceService.get(), this::isPlatformReadOnly,
-                runtime == null ? null : runtime.dispatcher());
+        if (runtime != null) {
+            pipeline.useFieldActions(runtime.dispatcher());
+        }
+        return pipeline;
     }
 
     private boolean isPlatformReadOnly() {

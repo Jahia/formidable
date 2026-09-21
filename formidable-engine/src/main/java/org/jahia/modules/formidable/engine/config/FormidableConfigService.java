@@ -136,6 +136,8 @@ public class FormidableConfigService {
     private static final Logger log = LoggerFactory.getLogger(FormidableConfigService.class);
 
     static final String PID = "org.jahia.modules.formidable";
+    /** How the multi-line configuration values are split: one entry per line, either line ending. */
+    private static final String LINE_BREAKS = "[\n\r]+";
 
     private final AtomicReference<ConfigSnapshot> config = new AtomicReference<>();
 
@@ -452,7 +454,7 @@ public class FormidableConfigService {
         if (raw == null || raw.isBlank()) {
             return result;
         }
-        for (String entry : raw.split("[\n\r]+")) {
+        for (String entry : raw.split(LINE_BREAKS)) {
             String trimmed = entry.trim();
             if (trimmed.isEmpty()) {
                 continue;
@@ -469,8 +471,10 @@ public class FormidableConfigService {
     private static Optional<FieldActionProvider> parseFieldActionProviderEntry(String entry) {
         String[] parts = entry.split("\\|", 5);
         if (parts.length < 3) {
-            log.warn("[FormidableConfigService] Skipping malformed fieldActionProviders entry (expected id|Label|https://base-url|Header|credential): '{}'",
-                    redactProviderEntry(parts));
+            if (log.isWarnEnabled()) {
+                log.warn("[FormidableConfigService] Skipping malformed fieldActionProviders entry (expected id|Label|https://base-url|Header|credential): '{}'",
+                        redactProviderEntry(parts));
+            }
             return Optional.empty();
         }
         String id = parts[0].trim();
@@ -479,7 +483,9 @@ public class FormidableConfigService {
         String header = parts.length > 3 ? parts[3].trim() : "";
         String credential = parts.length > 4 ? parts[4].trim() : "";
         if (id.isEmpty() || url.isEmpty()) {
-            log.warn("[FormidableConfigService] Skipping fieldActionProviders entry with an empty id or base URL: '{}'", redactProviderEntry(parts));
+            if (log.isWarnEnabled()) {
+                log.warn("[FormidableConfigService] Skipping fieldActionProviders entry with an empty id or base URL: '{}'", redactProviderEntry(parts));
+            }
             return Optional.empty();
         }
         if (header.isEmpty() != credential.isEmpty()) {
@@ -516,7 +522,7 @@ public class FormidableConfigService {
         if (raw == null || raw.isBlank()) {
             return result;
         }
-        for (String entry : raw.split("[\n\r]+")) {
+        for (String entry : raw.split(LINE_BREAKS)) {
             String trimmed = entry.trim();
             if (!trimmed.isEmpty()) {
                 parseOptionsSourceEntry(trimmed, result);
@@ -563,7 +569,7 @@ public class FormidableConfigService {
         if (raw == null || raw.isBlank()) {
             return result;
         }
-        String[] entries = raw.split("[\n\r]+");
+        String[] entries = raw.split(LINE_BREAKS);
         for (String entry : entries) {
             String trimmed = entry.trim();
             if (!trimmed.isEmpty()) {

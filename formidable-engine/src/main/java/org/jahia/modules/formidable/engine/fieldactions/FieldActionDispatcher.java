@@ -10,6 +10,7 @@ import org.jahia.modules.formidable.engine.fieldactions.ResolvedFieldAction.Trig
 import org.jahia.services.content.JCRCallback;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRTemplate;
+import org.jahia.services.render.RenderException;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -65,6 +66,8 @@ public final class FieldActionDispatcher {
     static final String DEFAULT_MESSAGE = "This value could not be verified.";
     /** The interpolation name of the candidate value itself, beside the other fields' names. */
     static final String VALUE_PLACEHOLDER = "value";
+    /** The key of the machine word a view may add beside its verdict. */
+    static final String DETAIL = "detail";
 
     private static final Logger log = LoggerFactory.getLogger(FieldActionDispatcher.class);
 
@@ -116,30 +119,39 @@ public final class FieldActionDispatcher {
             if (!triggers.contains(action.trigger()) || (blockingOnly && !action.blocking())) {
                 continue;
             }
-            FieldActionResult result = verdict(req, resp, request, action);
-            if (result.verdict() == FieldActionResult.Verdict.ACCEPT) {
-                continue;
-            }
-            if (result.verdict() == FieldActionResult.Verdict.UNAVAILABLE) {
-                if (action.whenUnavailable() == ResolvedFieldAction.Unavailable.ACCEPT) {
-                    log.info("[FieldActionDispatcher] Field action {} ({}) could not run on field '{}' of form {}: {} — the value is accepted, as the contributor set",
-                            action.id(), action.nodeType(), request.fieldName(), request.formId(), result.detail());
-                    continue;
+            if (refuses(action, verdict(req, resp, request, action), request)) {
+                messages.add(new FieldActionMessage(
+                        action.blocking() ? FieldActionMessage.Level.ERROR : FieldActionMessage.Level.WARNING,
+                        message(action, request, interpolation),
+                        request.fieldName(),
+                        action.id(),
+                        action.nodeType()));
+                if (action.blocking()) {
+                    return new Outcome(true, messages);
                 }
-                log.warn("[FieldActionDispatcher] Field action {} ({}) could not run on field '{}' of form {}: {} — the value is refused, as the contributor set",
-                        action.id(), action.nodeType(), request.fieldName(), request.formId(), result.detail());
-            }
-            messages.add(new FieldActionMessage(
-                    action.blocking() ? FieldActionMessage.Level.ERROR : FieldActionMessage.Level.WARNING,
-                    message(action, request, interpolation),
-                    request.fieldName(),
-                    action.id(),
-                    action.nodeType()));
-            if (action.blocking()) {
-                return new Outcome(true, messages);
             }
         }
         return new Outcome(false, messages);
+    }
+
+    /** Whether the answer is a refusal for the visitor: a reject is, an accept is not, an unavailable check is what the contributor set. */
+    private static boolean refuses(ResolvedFieldAction action, FieldActionResult result, FieldActionRequest request) {
+        return switch (result.verdict()) {
+            case ACCEPT -> false;
+            case REJECT -> true;
+            case UNAVAILABLE -> unavailableRefuses(action, result, request);
+        };
+    }
+
+    private static boolean unavailableRefuses(ResolvedFieldAction action, FieldActionResult result, FieldActionRequest request) {
+        if (action.whenUnavailable() == ResolvedFieldAction.Unavailable.ACCEPT) {
+            log.info("[FieldActionDispatcher] Field action {} ({}) could not run on field '{}' of form {}: {} — the value is accepted, as the contributor set",
+                    action.id(), action.nodeType(), request.fieldName(), request.formId(), result.detail());
+            return false;
+        }
+        log.warn("[FieldActionDispatcher] Field action {} ({}) could not run on field '{}' of form {}: {} — the value is refused, as the contributor set",
+                action.id(), action.nodeType(), request.fieldName(), request.formId(), result.detail());
+        return true;
     }
 
     /** The action's answer for this value, from the cache when it has one, executed and cached otherwise. */
@@ -170,7 +182,7 @@ public final class FieldActionDispatcher {
                 String output;
                 try {
                     output = viewRenderer.render(node, request, req, resp);
-                } catch (Exception e) {
+                } catch (RenderException | RuntimeException e) {
                     // a JCR callback may only throw RepositoryException: carry the render failure out to the catch below
                     throw new ViewFailure(e);
                 }
@@ -202,7 +214,7 @@ public final class FieldActionDispatcher {
         try {
             JSONObject json = new JSONObject(text.substring(start, end + 1));
             String verdict = json.optString("verdict", "").trim().toLowerCase(Locale.ROOT);
-            String detail = json.has("detail") && !json.isNull("detail") ? json.optString("detail") : null;
+            String detail = json.has(DETAIL) && !json.isNull(DETAIL) ? json.optString(DETAIL) : null;
             return switch (verdict) {
                 case "accept" -> FieldActionResult.accept();
                 case "reject" -> FieldActionResult.reject(detail);

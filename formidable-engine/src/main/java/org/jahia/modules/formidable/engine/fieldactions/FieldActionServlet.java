@@ -67,7 +67,7 @@ public class FieldActionServlet extends HttpServlet {
     static final int BODY_OVERHEAD_CHARS = 4096;
     static final int SC_TOO_MANY_REQUESTS = 429;
     /** A field's node name, as the submission keys it: a JCR local name, kept short. */
-    private static final Pattern FIELD_NAME = Pattern.compile("[A-Za-z0-9_][A-Za-z0-9_.:-]{0,127}");
+    private static final Pattern FIELD_NAME = Pattern.compile("\\w[\\w.:-]{0,127}");
 
     private static final Logger log = LoggerFactory.getLogger(FieldActionServlet.class);
 

@@ -93,13 +93,13 @@ public class FieldActionGatewayImpl implements FieldActionGateway {
             }
         }
         URI base = provider.baseUri();
-        String basePath = base.getRawPath() == null || base.getRawPath().isEmpty() ? "/" : base.getRawPath();
-        if (!basePath.endsWith("/")) {
-            basePath = basePath + "/";
+        String prefix = base.getRawPath() == null || base.getRawPath().isEmpty() ? "/" : base.getRawPath();
+        if (!prefix.endsWith("/")) {
+            prefix = prefix + "/";
         }
         URI resolved;
         try {
-            resolved = new URI(base.getScheme(), base.getRawAuthority(), basePath, null, null).resolve(trimmed);
+            resolved = new URI(base.getScheme(), base.getRawAuthority(), prefix, null, null).resolve(trimmed);
         } catch (URISyntaxException | IllegalArgumentException e) {
             throw new IllegalArgumentException("The path does not form a valid URL under the provider's base: '" + trimmed + "'", e);
         }

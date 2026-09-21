@@ -2,7 +2,9 @@ package org.jahia.modules.formidable.engine.fieldactions;
 
 import org.jahia.modules.formidable.engine.api.FieldActionRequest;
 import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.services.render.RenderException;
 
+import javax.jcr.RepositoryException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -19,8 +21,9 @@ interface ViewRenderer {
      * @param req        the visitor's request, the context the view renders in
      * @param resp       the visitor's response, which the render chain may touch
      * @return the view's output, or {@code null} when there is no request to render in
-     * @throws Exception whatever the render chain throws; the dispatcher reads it as "unavailable"
+     * @throws RenderException     when the render chain fails; the dispatcher reads it as "unavailable"
+     * @throws RepositoryException when the node cannot be read; the dispatcher reads it the same way
      */
     String render(JCRNodeWrapper actionNode, FieldActionRequest request, HttpServletRequest req, HttpServletResponse resp)
-            throws Exception;
+            throws RenderException, RepositoryException;
 }

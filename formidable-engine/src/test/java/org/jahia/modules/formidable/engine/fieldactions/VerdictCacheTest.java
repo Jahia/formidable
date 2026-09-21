@@ -31,7 +31,7 @@ class VerdictCacheTest {
 
     @Test
     void theValueIsKeyedTrimmedSoTheBrowserAndThePipelineMeet() {
-        // Verifies the normalisation: the browser may send the value with the blanks the pipeline later strips;
+        // Verifies the normalisation: the browser may send the value with the blanks the pipeline later strips.
         // both must land on the one entry, or the submit-time re-check would pay the provider again.
         cache.put("a1", " ada@example.com ", FieldActionResult.accept(), ttl);
 
