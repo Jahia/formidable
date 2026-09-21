@@ -22,7 +22,7 @@
              module calls has the same signature down the whole 3.x line (docs/architecture/dependency-decisions.md),
              and the jexperience-floor profile below recompiles against the floor so that a 4.x-only call cannot slip
              in. The 4.2.1 artifact lives in Nexus' internal group (jahia-internal in .github/maven.settings.xml and
-             in a developer's settings); the floor is on the public group the parent declares. -->
+             in a developer's settings); the floor's, in the enterprise group the profile declares. -->
         <jexperience.version>4.2.1</jexperience.version>
         <!-- The oldest jExperience the Import-Package ranges admit: what the jexperience-floor profile compiles against. -->
         <jexperience.floor.version>3.4.0</jexperience.floor.version>
@@ -217,6 +217,20 @@
             <properties>
                 <jexperience.version>${jexperience.floor.version}</jexperience.version>
             </properties>
+            <!-- The floor's jar is on Nexus' public group, but not the parent pom Maven reads its descriptor
+                 through (jexperience-parent): both are on the enterprise group, behind the same credentials the
+                 build already carries — server id jahia-enterprise in .github/maven.settings.xml and in a
+                 developer's settings. -->
+            <repositories>
+                <repository>
+                    <id>jahia-enterprise</id>
+                    <name>Jahia Enterprise Repository</name>
+                    <url>https://devtools.jahia.com/nexus/content/groups/enterprise</url>
+                    <snapshots>
+                        <enabled>false</enabled>
+                    </snapshots>
+                </repository>
+            </repositories>
         </profile>
     </profiles>
 </project>

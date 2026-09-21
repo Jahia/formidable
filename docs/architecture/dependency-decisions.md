@@ -107,7 +107,9 @@ This project uses two distinct dependency strategies in its Java modules:
   jExperience 3.9.0 + jCustomer 2.5.0 (PR #343): resolution, the 18 properties in the editor, the 4 rules,
   a profile written and read back, the tracker sending. The ranges are held by a gate, not by that one
   session: the `jexperience-floor` Maven profile recompiles the module and its tests against
-  `jexperience.floor.version` (3.4.0, on Nexus' public group), and the CI runs it on every change — a call
+  `jexperience.floor.version` (3.4.0, resolved from Nexus' enterprise group: the jar is on the public group
+  but the parent pom its descriptor needs is not, so the profile declares the enterprise repository behind
+  the credentials the build already carries), and the CI runs it on every change — a call
   to a member that exists only on the 4.x line (`ContextServerStatus.isNotInError()`) builds green against
   4.2.1 and fails there, verified with a throwaway probe. The first version of the module, 2026-09-14,
   declared `[4,5)` and `[3,4)` although its documentation announced the ranges open to 3.4+: on any 3.x
