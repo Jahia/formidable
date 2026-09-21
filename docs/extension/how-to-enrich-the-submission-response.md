@@ -110,7 +110,7 @@ carrying its own mixin, which the author adds. Its Cypress spec
 (`tests/cypress/e2e/security/47-response-enricher.cy.ts`) asserts both halves.
 
 `formidable-jexperience-engine`'s `SubmissionEventEnricher` is the other example: it returns
-`jexperience: {formId, fields}` — the form's UUID and the accepted values of its fields, minus the
-ones the author marked sensitive — for the client script that sends the form event through
+`jexperience: {formId, fields}` — the form's UUID and the accepted values of the fields the visitor
+answered, minus the ones the author marked sensitive — for the client script that sends the form event through
 jExperience's tracker; see [jExperience integration](../architecture/jexperience-integration.md),
 "Submitting".

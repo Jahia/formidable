@@ -41,14 +41,15 @@ import java.util.concurrent.atomic.AtomicReference;
  * accepted values of its fields — for the client script that sends the {@code form} event through
  * the tracker (docs/architecture/jexperience-integration.md, "Submitting").
  *
- * <p>Every value-bearing field is in it, as jExperience's own paths do (its Forms bridge sends the
+ * <p>Every answered field is in it, as jExperience's own paths do (its Forms bridge sends the
  * result data whole, its plain-form listener every named input), so that a mapping made in
  * jExperience's Form mappings screen receives a value whatever field it names. The two boundaries:
  * the {@code fmdbmix:profileMappableField} marker, which leaves out files, buttons and containers,
- * and {@link SensitiveField}, the author's per-field "this value never leaves the site". A value is
- * a string, or a list when the field holds several values (a checkbox group, a multiple select), the
- * shape the mapping rule expects: {@link FieldShapes} decides both. Nothing is added for a site
- * whose pages carry no tracker ({@link JExperienceSite#tracked}): there would be nobody to read it.</p>
+ * and {@link SensitiveField}, the author's per-field "this value never leaves the site". A field the
+ * visitor left unanswered is absent, not empty ({@link #answered}). A value is a string, or a list
+ * when the field holds several values (a checkbox group, a multiple select), the shape the mapping
+ * rule expects: {@link FieldShapes} decides both. Nothing is added for a site whose pages carry no
+ * tracker ({@link JExperienceSite#tracked}): there would be nobody to read it.</p>
  */
 @Component(service = SubmissionResponseEnricher.class, immediate = true)
 public class SubmissionEventEnricher implements SubmissionResponseEnricher {
@@ -113,20 +114,39 @@ public class SubmissionEventEnricher implements SubmissionResponseEnricher {
     }
 
     /**
-     * What the submission holds under a field's name, or nothing at all.
+     * What the visitor answered under a field's name, or nothing at all.
      *
      * <p>Nothing when the name is withheld: a sensitive field's <em>name</em> is what is held back, not
      * its node. Two fields of one form can carry the same name — unique among siblings only — and the
      * pipeline accumulates both their submitted values under it, so sending the name at all would send
-     * the sensitive one's value too. Nothing, too, when the name carries no value: a group with nothing
-     * ticked can reach the pipeline as an empty list, which has no first value to read.</p>
+     * the sensitive one's value too. Nothing, too, when the name carries no answer: a group with nothing
+     * ticked can reach the pipeline as an empty list, and a text left blank or a select left on its
+     * empty option as a list of one blank value ({@link #answered}).</p>
      */
     private static List<String> sendableValues(AcceptedSubmission submission, Fields sendable, String name) {
         if (sendable.withheldNames().contains(name)) {
             return List.of();
         }
-        List<String> values = submission.parameters().get(name);
-        return values == null ? List.of() : values;
+        return answered(submission.parameters().get(name));
+    }
+
+    /**
+     * The values that say something about the visitor: the non-blank ones, in their order.
+     *
+     * <p>A field left unanswered must be <strong>absent</strong> from the event, not empty. jCustomer
+     * writes whatever the event carries: an empty string is a value, so {@code alwaysSet} would erase
+     * the profile's value and {@code setIfMissing} would write the empty string and then keep it for
+     * good, every later answer refused as "already set"; an absent field resolves to nothing, and the
+     * action writes nothing under either strategy. Forms leaves an empty answer out of its result
+     * data, and the tracker's own listener leaves an empty input out of a plain form: this is that
+     * rule, applied to the values the pipeline accepted — which is also how the pipeline itself tells
+     * an answered field from an unanswered one for its required-field check.</p>
+     */
+    static List<String> answered(List<String> values) {
+        if (values == null) {
+            return List.of();
+        }
+        return values.stream().filter(value -> value != null && !value.isBlank()).toList();
     }
 
     /**

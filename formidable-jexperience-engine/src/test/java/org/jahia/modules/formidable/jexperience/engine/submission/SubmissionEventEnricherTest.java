@@ -20,6 +20,7 @@ import javax.jcr.ItemNotFoundException;
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.HashMap;
 import java.util.List;
@@ -338,6 +339,55 @@ class SubmissionEventEnricherTest {
 
         Map<String, Object> block = (Map<String, Object>) entries.get(SubmissionEventEnricher.KEY);
         assertEquals(Map.of("fullName", "Ada"), block.get("fields"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void aFieldLeftUnansweredIsAbsentFromTheBlockRatherThanEmpty() throws Exception {
+        // Verifies the blank case (issue #339): a text left blank and a select left on its empty option reach the
+        // pipeline as a list of one empty string, not as an empty list. Sent as "", jCustomer writes the empty
+        // string — alwaysSet erases the profile's value, setIfMissing writes "" and then keeps it for good. The
+        // field must be absent, as a group with nothing ticked is; blanks are not answers either.
+        Map<String, List<String>> parameters = new HashMap<>();
+        parameters.put("country", List.of(""));
+        parameters.put("nickname", List.of("   "));
+        parameters.put("fullName", List.of("Ada"));
+
+        Map<String, Object> entries = enricher(configured("mysite"), 3, List.of(
+                field("country", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.CHOICE_FIELD),
+                field("nickname", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD),
+                field("fullName", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD)))
+                .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH, parameters));
+
+        Map<String, Object> block = (Map<String, Object>) entries.get(SubmissionEventEnricher.KEY);
+        assertEquals(Map.of("fullName", "Ada"), block.get("fields"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void aMultiValuedFieldKeepsItsAnswersAndDropsItsBlanks() throws Exception {
+        // Verifies the list case: a multiple select can post an empty option beside real ones; the blanks go, the
+        // answers stay in their order, and a list of blanks alone leaves the field absent like a scalar would.
+        Map<String, List<String>> parameters = new HashMap<>();
+        parameters.put("topics", List.of("", "cdp", " ", "forms"));
+        parameters.put("services", List.of("", ""));
+
+        Map<String, Object> entries = enricher(configured("mysite"), 3, List.of(
+                multiple(field("topics", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.CHOICE_FIELD)),
+                multiple(field("services", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.CHOICE_FIELD))))
+                .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH, parameters));
+
+        Map<String, Object> block = (Map<String, Object>) entries.get(SubmissionEventEnricher.KEY);
+        assertEquals(Map.of("topics", List.of("cdp", "forms")), block.get("fields"));
+    }
+
+    @Test
+    void answeredKeepsTheNonBlankValuesInOrderAndReadsAMissingNameAsNothing() {
+        // Verifies the rule alone, the three outcomes: nothing for a missing name, nothing for blanks only, the
+        // non-blank values in their order otherwise — a null entry counted as a blank, never dereferenced.
+        assertEquals(List.of(), SubmissionEventEnricher.answered(null));
+        assertEquals(List.of(), SubmissionEventEnricher.answered(List.of("", "  ")));
+        assertEquals(List.of("b", "a"), SubmissionEventEnricher.answered(Arrays.asList(null, "b", "", "a")));
     }
 
     @Test
