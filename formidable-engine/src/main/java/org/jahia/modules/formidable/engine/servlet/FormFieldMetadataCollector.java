@@ -1,6 +1,6 @@
 package org.jahia.modules.formidable.engine.servlet;
 
-import org.jahia.modules.formidable.engine.actions.FormDataParser;
+import org.jahia.modules.formidable.engine.servlet.FormDataParser;
 import org.jahia.modules.formidable.engine.logic.ConditionalLogicRule;
 import org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService;
 import org.jahia.modules.formidable.engine.options.ManualOptionEntries;
@@ -19,8 +19,8 @@ import java.util.*;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.engine.api.FmdbNodeName;
 import org.jahia.modules.formidable.engine.api.FmdbProperty;
-import org.jahia.modules.formidable.engine.fieldactions.FieldActionCollector;
-import org.jahia.modules.formidable.engine.fieldactions.ResolvedFieldAction;
+import org.jahia.modules.formidable.engine.actions.field.FieldActionCollector;
+import org.jahia.modules.formidable.engine.actions.field.ResolvedFieldAction;
 
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.FIELDS_NODE;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WORKSPACE_LIVE;

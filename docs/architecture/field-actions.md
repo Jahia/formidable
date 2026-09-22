@@ -470,7 +470,7 @@ call per blocking action and non-blank value never pre-checked.
 ## Sources
 
 - `formidable-engine/…/api/FieldAction.java`, `FieldActionRequest.java`, `FieldActionResult.java`,
-  `FieldActionGateway.java`; `…/fieldactions/` (`FieldActionDispatcher`, `FieldActionCollector`,
+  `FieldActionGateway.java`; `…/actions/field/` (`FieldActionDispatcher`, `FieldActionCollector`,
   `FieldActionRuntime`, `FieldActionServlet`, `FieldActionGatewayImpl`, `RenderServiceViewRenderer`,
   `ResolvedFieldAction`, `VerdictCache`, `FieldActionsCache`, `RateLimiter`); `servlet/FormSubmissionPipeline.java` (step 11b),
   `servlet/FormFieldMetadataCollector.java` (`Result.fieldActions`), `servlet/FormSubmitServlet.java`

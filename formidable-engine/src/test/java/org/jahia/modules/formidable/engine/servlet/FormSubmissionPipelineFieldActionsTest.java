@@ -1,6 +1,6 @@
 package org.jahia.modules.formidable.engine.servlet;
 
-import org.jahia.modules.formidable.engine.actions.FormDataParser;
+import org.jahia.modules.formidable.engine.servlet.FormDataParser;
 import org.jahia.modules.formidable.engine.api.FieldAction;
 import org.jahia.modules.formidable.engine.api.FieldActionRequest;
 import org.jahia.modules.formidable.engine.api.FieldActionResult;
@@ -8,12 +8,12 @@ import org.jahia.modules.formidable.engine.api.FmdbProperty;
 import org.jahia.modules.formidable.engine.api.FormAction;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService.FieldActionSettings;
-import org.jahia.modules.formidable.engine.fieldactions.FieldActionDispatcher;
-import org.jahia.modules.formidable.engine.fieldactions.ResolvedFieldAction;
-import org.jahia.modules.formidable.engine.fieldactions.ResolvedFieldAction.Severity;
-import org.jahia.modules.formidable.engine.fieldactions.ResolvedFieldAction.Trigger;
-import org.jahia.modules.formidable.engine.fieldactions.ResolvedFieldAction.Unavailable;
-import org.jahia.modules.formidable.engine.fieldactions.VerdictCache;
+import org.jahia.modules.formidable.engine.actions.field.FieldActionDispatcher;
+import org.jahia.modules.formidable.engine.actions.field.ResolvedFieldAction;
+import org.jahia.modules.formidable.engine.actions.field.ResolvedFieldAction.Severity;
+import org.jahia.modules.formidable.engine.actions.field.ResolvedFieldAction.Trigger;
+import org.jahia.modules.formidable.engine.actions.field.ResolvedFieldAction.Unavailable;
+import org.jahia.modules.formidable.engine.actions.field.VerdictCache;
 import org.jahia.modules.formidable.engine.logic.ConditionalLogicEvaluator;
 import org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService;
 import org.jahia.services.content.JCRCallback;

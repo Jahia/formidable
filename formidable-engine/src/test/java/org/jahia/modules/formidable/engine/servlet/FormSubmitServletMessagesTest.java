@@ -3,7 +3,7 @@ package org.jahia.modules.formidable.engine.servlet;
 import org.jahia.modules.formidable.engine.api.AcceptedSubmission;
 import org.jahia.modules.formidable.engine.api.FormAction;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
-import org.jahia.modules.formidable.engine.fieldactions.FieldActionMessage;
+import org.jahia.modules.formidable.engine.actions.field.FieldActionMessage;
 import org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.json.JSONObject;

@@ -1,6 +1,6 @@
 package org.jahia.modules.formidable.engine.servlet;
 
-import org.jahia.modules.formidable.engine.fieldactions.FieldActionMessage;
+import org.jahia.modules.formidable.engine.actions.field.FieldActionMessage;
 
 import java.util.List;
 

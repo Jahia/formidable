@@ -206,16 +206,19 @@ org.jahia.modules.formidable.engine
 │   ├── ChoiceOptionsResolver.java       ← how many choices a choice field offers
 │   ├── AcceptedSubmission.java          ← what the pipeline accepted (form, site, locale, parameters)
 │   └── SubmissionResponseEnricher.java  ← adds entries to the 200 of an accepted submission
-├── servlet/
+├── servlet/                             ← the submission: its entry point, its pipeline, what reads the request
 │   ├── FormSubmitServlet.java           ← whiteboard entry point
-│   └── FormSubmissionPipeline.java      ← the 12 steps, plus 11b (runFieldActions)
-├── fieldactions/                        ← the field actions: FieldActionDispatcher, FieldActionServlet (/field-action),
-│                                           FieldActionRuntime, FieldActionCollector, FieldActionGatewayImpl, VerdictCache, FieldActionsCache…
-└── actions/
-    ├── FormDataParser.java, FieldValidator.java, FieldEscaper.java, …
-    ├── email/   SendEmailNotificationFormAction, SendEmailContentFormAction
-    ├── forward/ ForwardSubmissionFormAction
-    └── storage/ SaveToJcrFormAction
+│   ├── FormSubmissionPipeline.java      ← the 12 steps, plus 11b (runFieldActions)
+│   └── FormDataParser.java, FieldValidator.java, FormFieldMetadataCollector.java
+└── actions/                             ← one folder per kind, and what the two kinds share
+    ├── common/   ActionSummaryService (a type's label, tooltip and icon), FieldEscaper, TemplateInterpolator
+    ├── form/     ContentDispositionUtils
+    │   ├── email/   SendEmailNotificationFormAction, SendEmailContentFormAction
+    │   ├── forward/ ForwardSubmissionFormAction, HostnameResolutionService
+    │   └── storage/ SaveToJcrFormAction
+    └── field/    FieldActionDispatcher, FieldActionServlet (/field-action), FieldActionRuntime,
+                  FieldActionCollector, FieldActionGatewayImpl, VerdictCache, FieldActionsCache,
+                  RateLimiter, RenderServiceViewRenderer, ResolvedFieldAction…
 ```
 
 ### `FormAction` interface (the SPI third parties compile against)

@@ -10,10 +10,10 @@
 					"rank": 1.0,
 					"isAlwaysActivated": true,
 					"fields": [
-						{ "name": "rejectionMessage" },
-						{ "name": "trigger" },
-						{ "name": "severity" },
-						{ "name": "whenUnavailable" }
+						{ "name": "trigger", "rank": 1.0 },
+						{ "name": "severity", "rank": 2.0 },
+						{ "name": "whenUnavailable", "rank": 3.0 },
+						{ "name": "rejectionMessage", "rank": 4.0 }
 					]
 				}
 			]

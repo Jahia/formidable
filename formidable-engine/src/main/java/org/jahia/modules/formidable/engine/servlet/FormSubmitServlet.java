@@ -2,7 +2,7 @@ package org.jahia.modules.formidable.engine.servlet;
 
 import org.jahia.modules.formidable.engine.api.AcceptedSubmission;
 import org.jahia.modules.formidable.engine.api.FormAction;
-import org.jahia.modules.formidable.engine.fieldactions.FieldActionRuntime;
+import org.jahia.modules.formidable.engine.actions.field.FieldActionRuntime;
 import org.jahia.modules.formidable.engine.api.SubmissionResponseEnricher;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService;

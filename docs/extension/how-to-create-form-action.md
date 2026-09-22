@@ -252,9 +252,9 @@ Useful runtime symptom:
 
 Use these implementations as references:
 
-- `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/email/SendEmailNotificationFormAction.java`
-- `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/forward/ForwardSubmissionFormAction.java`
-- `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/storage/SaveToJcrFormAction.java`
+- `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/form/email/SendEmailNotificationFormAction.java`
+- `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/form/forward/ForwardSubmissionFormAction.java`
+- `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/form/storage/SaveToJcrFormAction.java`
 
 ## What the Page Builder shows about your action
 
