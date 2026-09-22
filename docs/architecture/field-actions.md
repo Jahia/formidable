@@ -160,9 +160,16 @@ names the concrete type: it reaches it through the markers.
 
 The `jcr:title` line is what fills the action's title with the type's own label when a contributor
 creates one, as every built-in form action does — without it the card and the content tree show a bare
-system name. The **icon** comes free: a type that names no icon of its own falls back to a supertype's,
-and the engine ships `icons/fmdbmix_fieldAction.png` for the marker, so a third-party type is drawn
-like the built-ins until it ships `icons/myco_crmLookupAction.png`.
+system name.
+
+**Ship an icon too**, at `src/main/resources/icons/myco_crmLookupAction.png`, 16×16. The platform's
+fallback does not help here, whatever it looks like: `JCRContentUtils.getIcon` walks `getSupertypes()`
+in order and takes the first one with a file, and `nt:base` — which ships one — comes long before
+`fmdbmix:fieldAction` in that list. Measured: a sample type carrying the marker and no icon resolved to
+`/modules/assets/icons/nt_base`, the generic sheet, and resolved to its own glyph the moment the file
+existed. The engine's `icons/fmdbmix_fieldAction.png` is therefore the marker's own drawing, not a
+fallback for the types that take it; the samples module ships the same drawing under its type's name,
+which is the shape to copy.
 
 The samples module ships one: `fmdbsample:blockedWordsAction` (a `words` list, a value containing one is
 refused), implemented by `BlockedWordsFieldAction` in Java — the shape to copy.
