@@ -119,13 +119,21 @@ orderable
  - jcr:title (string) = resourceBundle('fmdb_fieldActionList') autocreated i18n
  + * (fmdbmix:fieldAction) = fmdbmix:fieldAction version
 
-// The switch in the field's own Content Editor form — "this field has actions" — a dynamic
-// fieldset attached to every submit-capable field type through the engine marker, third-party
-// included. Turning it on adds the mixin on save, and adding a mixin autocreates the child nodes
-// it declares: the list appears under the field, as `actions` does under the form. Turning it
-// off removes the mixin, and removing a mixin deletes the child nodes it defines: the list and
-// every action in it go — the switch's label says so. fmdbmix:formElement itself is untouched.
-[fmdbmix:fieldActions] > jmix:dynamicFieldset mixin
+// The switch in the field's own Content Editor form — "this field has actions" — attached to every
+// submit-capable field type through the engine marker, third-party included. Turning it on adds the
+// mixin on save, and adding a mixin autocreates the child nodes it declares: the list appears under
+// the field, as `actions` does under the form. Turning it off removes the mixin, and removing a mixin
+// deletes the child nodes it defines: the list and every action in it go — the switch's label says so.
+// fmdbmix:formElement itself is untouched.
+//
+// NOT `> jmix:dynamicFieldset`, although the fieldset is dynamic: that supertype extends
+// jmix:templateMixin, and the Content Editor drops the enable switch of every jmix:templateMixin
+// (EditorFormServiceImpl: hasEnableSwitch = !isNodeType("jmix:templateMixin"), then a fieldset with
+// neither a switch nor a visible field is not rendered at all). This mixin carries no property — it
+// only autocreates the list — so with that supertype the editor showed nothing and the feature could
+// not be turned on. `extends` alone is what makes a fieldset dynamic there; the options fieldsets keep
+// jmix:dynamicFieldset because a choicelist activates them, not a switch.
+[fmdbmix:fieldActions] mixin
  extends = fmdbmix:formElement
  + actions (fmdb:fieldActionList) = fmdb:fieldActionList autocreated
 // Options-source contract for choice fields: the base mixin carries the mode

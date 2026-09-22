@@ -109,17 +109,16 @@ a marker with `extends`; concrete types live with the code that implements them.
  + * (fmdbmix:fieldAction) = fmdbmix:fieldAction version
 
 // The switch in the field's own Content Editor form — "this field has actions".
-[fmdbmix:fieldActions] > jmix:dynamicFieldset mixin
+[fmdbmix:fieldActions] mixin
  extends = fmdbmix:formElement
  + actions (fmdb:fieldActionList) = fmdb:fieldActionList autocreated
 ```
 
 Same shape as the form actions — one marker, one list, one property mixin — plus the switch, and the same
 precedents, line for line: `fmdb:actionList`'s `+ * (fmdbmix:formAction) = fmdbmix:formAction version` for
-the list; `fmdbmix:manualOptions > jmix:dynamicFieldset … extends = fmdbmix:optionsSource` for a dynamic
-fieldset the Content Editor toggles into a mixin; `fmdbmix:fixedMinDate … extends = fmdbmix:dateBounds` and
-`fmdbmix:jExperienceProfileMapping … extends = fmdbmix:profileMappableField` for a property mixin attached
-to a marker with `extends`. The child under the field is named `actions`, as it is under the form: the
+the list; `fmdbmix:fixedMinDate … extends = fmdbmix:dateBounds` and
+`fmdbmix:jExperienceProfileMapping … extends = fmdbmix:profileMappableField` for a mixin attached to a
+marker with `extends`, which is also what gives this one its switch. The child under the field is named `actions`, as it is under the form: the
 same word for the same object, the parent saying which.
 
 **The switch.** Turning the fieldset on adds `fmdbmix:fieldActions` to the field on save, and adding a
@@ -127,6 +126,16 @@ mixin autocreates the child nodes it declares (Jackrabbit's `AddMixinOperation` 
 node definitions): the list appears. Turning it off removes the mixin, and removing a mixin deletes the
 child nodes it defines: the list and every action in it go — the switch's label says so.
 `fmdbmix:formElement` itself is untouched.
+
+**Why the mixin does not take `jmix:dynamicFieldset`**, although the fieldset is dynamic. That supertype
+extends `jmix:templateMixin`, and the Content Editor gives no enable switch to a `jmix:templateMixin`:
+`hasEnableSwitch = !nodeType.isNodeType("jmix:templateMixin")`, and a fieldset with neither a switch nor
+one visible field is dropped from the form altogether (`EditorFormServiceImpl`, the two lines that close
+the fieldset loop). This mixin carries **no property** — it only autocreates the list — so with that
+supertype the editor rendered nothing at all and the feature could not be turned on by a contributor.
+What makes a fieldset dynamic there is `extends`, nothing else. The options fieldsets keep
+`jmix:dynamicFieldset` for the opposite reason: a choicelist activates them through the `addMixin` wiring
+of their overrides, so they must not offer a switch of their own.
 
 **The four settings** are the contributor's calls, per form, hence properties, not facts of the type:
 when the browser asks (`blur` for a cheap check, `submit` for a paid one — the pipeline runs the blocking
@@ -383,6 +392,7 @@ call per blocking action and non-blank value never pre-checked.
 | 2026-09-22 | **The endpoint reads the form as the pipeline does** — visitor session, `FMDB-004` for what the caller cannot read, `FMDB-009` for a guest on a members-only form (review of #344) | The first cut resolved the form in a system session, so any published form on the platform, members-only pages included, had its actions runnable by anyone holding the public fid; and no authentication check existed while the pipeline had one. The pipeline's posture, step for step, is the only defensible one |
 | 2026-09-22 | **The view's output is exactly one JSON object** — no tolerance for surrounding markup (review of #344) | The lenient reader took the widest span between braces: a view echoing the value let a `{` in the value make the output unparseable, hence unavailable, hence accepted by the CND default. Strict parsing fails on every value, deterministically, where the author sees it |
 | 2026-09-22 | **Every non-blank value is judged; the locale is in the cache key; the response names no action node** (review of #344) | The authority must cover what is stored: all values, not the first. A cached accept in one locale must not answer another, since the locale is part of the request. A node UUID and a vendor namespace in the response disclose the checks behind a form the caller may not read |
+| 2026-09-22 | **`fmdbmix:fieldActions` drops the `jmix:dynamicFieldset` supertype** (found on the local instance: the switch was nowhere in the Content Editor) | `jmix:dynamicFieldset` extends `jmix:templateMixin`, which the editor reads as "no enable switch"; with no property of its own the fieldset was then not rendered at all, so the feature had no way in. `extends = fmdbmix:formElement` alone makes it dynamic AND switchable. Measured on `forms.editForm`: `visible: false, hasEnableSwitch: false` before, both true after |
 | 2026-09-22 | **The walk of the form is cached per form and locale for sixty seconds**, not keyed off the form's `jcr:lastModified` (review of #344) | A change to an action or a field touches that node's `jcr:lastModified`, not the form root's: the core `LastModifiedListener` writes the first node up the hierarchy that carries `mix:lastModified`, which a `jnt:content` action node is itself (jahia-impl 8.2.4 sources, `updateLastModifiedProperties`), so the root's date would serve stale actions after a republish. A short TTL is exact within the minute and needs no invalidation; the pipeline walks fresh every time |
 
 ## Open questions
