@@ -35,7 +35,7 @@ public final class MappingRule {
     private static final String CONDITION = "condition";
     private static final String ACTIONS = "actions";
 
-    /** The parameter of {@code setPropertyAction} that carries the value, by profile-property type — the four jCustomer 3 offers. */
+    /** The parameter of {@code setPropertyAction} that carries the value, by profile-property type — the four jCustomer offers, 2.5 and 3 alike. */
     public enum ValueKind {
         STRING("setPropertyValue"),
         INTEGER("setPropertyValueInteger"),

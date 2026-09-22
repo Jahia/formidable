@@ -18,9 +18,14 @@
         <!-- Jahia EE refuses an org.jahia.modules bundle without a valid Jahia-Signature. Computed with keymaker
              (java -jar keymaker-cli.jar pom -f pom.xml -s); the CI's update-signature job keeps it current. -->
         <jahia-module-signature>MCwCFFS8L/8Dgf0DjASs0Va+xTAHPSSYAhQ7IE66CiaGPqKwGXw2BTiZnQ335Q==</jahia-module-signature>
-        <!-- 4.2.1 is the compile-time API; the OSGi imports below stay open to any 4.x. The artifact lives in
-             Nexus' internal group (jahia-internal in .github/maven.settings.xml and in a developer's settings). -->
+        <!-- 4.2.1 is the compile-time API; the OSGi imports below stay open from 3.4 to any 4.x — every member this
+             module calls has the same signature down the whole 3.x line (docs/architecture/dependency-decisions.md),
+             and the jexperience-floor profile below recompiles against the floor so that a 4.x-only call cannot slip
+             in. The 4.2.1 artifact lives in Nexus' internal group (jahia-internal in .github/maven.settings.xml and
+             in a developer's settings); the floor's, in the enterprise group the profile declares. -->
         <jexperience.version>4.2.1</jexperience.version>
+        <!-- The oldest jExperience the Import-Package ranges admit: what the jexperience-floor profile compiles against. -->
+        <jexperience.floor.version>3.4.0</jexperience.floor.version>
     </properties>
     <!-- jExperience is not in Nexus' public group: this repository needs the credentials of the
          matching <server id="jahia-internal"> of the builder's settings.xml (.github/maven.settings.xml has it). -->
@@ -143,13 +148,18 @@
                              compatibility promise (docs/architecture/dependency-decisions.md). The response SPI this
                              module implements belongs to the engine, which calls it, and is exported there. -->
                         <Export-Package>!*</Export-Package>
-                        <!-- jExperience exports its admin package at the module version (4.2.1) and re-exports the
-                             Unomi API at Unomi's major (3.0.0): [4,5) is "any jExperience 4.x", [3,4) "any Unomi 3.x",
-                             so a 4.x upgrade of jExperience resolves without a rebuild. -->
+                        <!-- jExperience exports its admin package at the module version and embeds the Unomi API of
+                             the jCustomer it pairs with: 3.4.0 exports admin 3.4.0 + Unomi API 2.1.0, 3.5 to 3.9
+                             embed 2.5.0, 4.2.1 exports admin 4.2.1 + Unomi API 3.0.0. Every member this module calls
+                             has the same JVM descriptor in all of them — ContextServerService's five members,
+                             PropertyType's, Item's, MetadataItem's and Metadata's accessors, read with javap on the
+                             jars — so [3.4,5) and [2.1,4) let the one bundle resolve on the 3.x line from 3.4 and on
+                             4.x, and a 4.x upgrade still resolves without a rebuild. The jexperience-floor profile
+                             below holds the floor; the CI compiles it on every change. -->
                         <Import-Package>
                             org.jahia.modules.formidable.engine.api;version="[0.5,1)",
-                            org.jahia.modules.jexperience.admin;version="[4,5)",
-                            org.apache.unomi.api;version="[3,4)",
+                            org.jahia.modules.jexperience.admin;version="[3.4,5)",
+                            org.apache.unomi.api;version="[2.1,4)",
                             org.jahia.services.content,
                             org.jahia.services.content.nodetypes,
                             org.jahia.services.content.nodetypes.initializers,
@@ -195,4 +205,32 @@
             </plugin>
         </plugins>
     </build>
+    <profiles>
+        <!-- The gate behind the Import-Package ranges. The module compiles against 4.2.1 alone, so a call to a member
+             that exists only on the 4.x line (ContextServerStatus.isNotInError(), the UnomiClusterInfo class…) would
+             build green, resolve on a 3.x — the version satisfies the range — and fail as a NoSuchMethodError in a
+             customer's log, as far from the build as a failure gets. This profile recompiles the module and its tests
+             against the floor of the ranges instead; the CI runs it on every change (on-code-change.yml, "Build
+             Module"). Locally: mvn -pl formidable-jexperience-engine -am -P jexperience-floor -DskipTests test-compile -->
+        <profile>
+            <id>jexperience-floor</id>
+            <properties>
+                <jexperience.version>${jexperience.floor.version}</jexperience.version>
+            </properties>
+            <!-- The floor's jar is on Nexus' public group, but not the parent pom Maven reads its descriptor
+                 through (jexperience-parent): both are on the enterprise group, behind the same credentials the
+                 build already carries — server id jahia-enterprise in .github/maven.settings.xml and in a
+                 developer's settings. -->
+            <repositories>
+                <repository>
+                    <id>jahia-enterprise</id>
+                    <name>Jahia Enterprise Repository</name>
+                    <url>https://devtools.jahia.com/nexus/content/groups/enterprise</url>
+                    <snapshots>
+                        <enabled>false</enabled>
+                    </snapshots>
+                </repository>
+            </repositories>
+        </profile>
+    </profiles>
 </project>

@@ -85,9 +85,35 @@ This project uses two distinct dependency strategies in its Java modules:
 
 ### Notes
 
-- OSGi imports: `org.jahia.modules.jexperience.admin;version="[4,5)"` (jExperience exports it at the
-  module version) and `org.apache.unomi.api;version="[3,4)"` (re-exported by jExperience at Unomi's
-  major), so a jExperience 4.x upgrade resolves without a rebuild.
+- OSGi imports: `org.jahia.modules.jexperience.admin;version="[3.4,5)"` (jExperience exports it at the
+  module version) and `org.apache.unomi.api;version="[2.1,4)"` (jExperience embeds and exports the Unomi
+  API of the jCustomer it pairs with: 2.1.0 in 3.4.0, 2.5.0 from 3.5 to 3.9, 3.0.0 in 4.2.1). The one
+  bundle resolves on the 3.x line from 3.4 and on the 4.x line, and a 4.x upgrade resolves without a
+  rebuild. The floor is where the measurement stops, not a hope: 3.4.0 is the oldest jar measured, and
+  every member this module calls has the same JVM descriptor in 3.4.0, 3.5.2, 3.6.3, 3.7.1, 3.8.0, 3.9.0
+  and 4.2.1 — `ContextServerService.isAvailable`, `getContextServerStatus`, `executeGetRequest`,
+  `executePostRequest`, `executeDeleteRequest`; `PropertyType.getValueTypeId`, `isMultivalued`,
+  `isProtected`; `Item.getItemId`; `MetadataItem.getMetadata`; `Metadata.getId`, `getName`,
+  `getSystemTags`, `isHidden`, `isReadOnly` (javap on the jars and the `unomi-api` each embeds,
+  2026-09-21). What the module needs beyond the API holds down the line too: every tracker function the
+  client script calls exists in 3.4.0's `wem.min.js` (`getFormNamesToWatch`, `buildFormEvent`,
+  `collectEvent`, `getLoadedContext`, `_registerCallback`, `digitalDataOverrides`,
+  `requiredProfileProperties`, `wemLoaded`, `disableTrackedConditionsListeners`, `activateWem`); the two
+  attributes that keep the tracker off a Formidable form are honoured everywhere — `data-form-id` by the
+  initial scan of every 3.x, `data-wem-observed` by the form observer that appears in 3.7.1 (no observer
+  before it, so nothing to keep off); the Form mappings screen of 3.4.0 writes the same rule shape; and
+  Unomi 2.1.0's `PropertyHelper.setProperty`, like 2.5.0's and 3.0.0's, returns on a null value before any
+  strategy — the guard the "unanswered field" contract relies on (#340). Exercised end to end on
+  jExperience 3.9.0 + jCustomer 2.5.0 (PR #343): resolution, the 18 properties in the editor, the 4 rules,
+  a profile written and read back, the tracker sending. The ranges are held by a gate, not by that one
+  session: the `jexperience-floor` Maven profile recompiles the module and its tests against
+  `jexperience.floor.version` (3.4.0, resolved from Nexus' enterprise group: the jar is on the public group
+  but the parent pom its descriptor needs is not, so the profile declares the enterprise repository behind
+  the credentials the build already carries), and the CI runs it on every change — a call
+  to a member that exists only on the 4.x line (`ContextServerStatus.isNotInError()`) builds green against
+  4.2.1 and fails there, verified with a throwaway probe. The first version of the module, 2026-09-14,
+  declared `[4,5)` and `[3,4)` although its documentation announced the ranges open to 3.4+: on any 3.x
+  the bundle did not resolve.
 - `maven-dependency-plugin:analyze-only` with `failOnWarning`, as in the engine.
 - The mapping rules are built and compared as plain maps: no import of Unomi's rule, condition or action packages, no JSON library at runtime (jExperience's admin client serialises the maps). `org.json` is a test dependency, for the golden rule.
 - `jahia-depends`: `formidable-engine` (the marker mixin), `formidable-elements` (`fmdb:form`, the type the publication listener and the render
