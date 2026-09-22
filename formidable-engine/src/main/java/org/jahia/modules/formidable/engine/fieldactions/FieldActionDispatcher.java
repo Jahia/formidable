@@ -219,12 +219,16 @@ public final class FieldActionDispatcher {
             JSONTokener tokener = new JSONTokener(text);
             Object value = tokener.nextValue();
             if (!(value instanceof JSONObject object) || tokener.nextClean() != 0) {
-                log.debug("[FieldActionDispatcher] The view's output was not exactly one JSON object: {}", abbreviate(text));
+                if (log.isDebugEnabled()) {
+                    log.debug("[FieldActionDispatcher] The view's output was not exactly one JSON object: {}", abbreviate(text));
+                }
                 return FieldActionResult.unavailable("the view's output is not exactly one JSON object (" + text.length() + " characters)");
             }
             json = object;
         } catch (JSONException e) {
-            log.debug("[FieldActionDispatcher] The view's output was not JSON: {}", abbreviate(text));
+            if (log.isDebugEnabled()) {
+                log.debug("[FieldActionDispatcher] The view's output was not JSON: {}", abbreviate(text));
+            }
             return FieldActionResult.unavailable("the view answered malformed JSON (" + text.length() + " characters)");
         }
         String verdict = json.optString("verdict", "").trim().toLowerCase(Locale.ROOT);

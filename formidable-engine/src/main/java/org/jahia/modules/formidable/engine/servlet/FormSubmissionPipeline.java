@@ -485,7 +485,10 @@ class FormSubmissionPipeline {
             return;
         }
         if (fieldActionDispatcher == null) {
-            log.warn("[FormSubmissionPipeline] The field actions of form {} did not run: no field-action runtime is bound. The submission goes on unchecked.", formId);
+            // The form's identifier is the caller's own parameter and never reaches a log line; the count says
+            // what was skipped without echoing anything the submitter wrote.
+            log.warn("[FormSubmissionPipeline] The field actions of {} field(s) did not run: no field-action runtime is bound. The submission goes on unchecked.",
+                    fieldMetadata.fieldActions().size());
             return;
         }
         for (Map.Entry<String, List<ResolvedFieldAction>> entry : fieldMetadata.fieldActions().entrySet()) {
