@@ -478,8 +478,8 @@ class FormSubmissionPipeline {
      * Step 11b — the field actions whose refusal blocks, run again server-side. The pre-check the browser asked
      * for while the form was filled is a courtesy; this is the authority, and a browser that skipped the pre-check
      * meets the same actions here — the shared verdict cache making the honest browser's second run free. A field
-     * the logic hides or the visitor left unanswered is skipped, as the required check skips it; every non-blank
-     * value of a multi-valued field is judged, in order, since every one of them is stored and sent on. The first
+     * the logic hides or the visitor left unanswered is skipped, as the required check skips it; a multi-valued
+     * field is judged answer by answer, repeats removed before anything counts or runs them. The first
      * blocking refusal ends the submission with FMDB-015 and its message, which the response carries so that the
      * browser anchors it on the field. Warning-level actions do not run here: they warned — so a field whose actions
      * all warn is not judged at all, and nothing it carries is counted against the bound below. Without a dispatcher —

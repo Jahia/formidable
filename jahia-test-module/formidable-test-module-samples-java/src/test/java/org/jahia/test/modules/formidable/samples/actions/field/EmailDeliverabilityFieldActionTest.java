@@ -74,7 +74,10 @@ class EmailDeliverabilityFieldActionTest {
             return List.of("MX");
         };
 
-        for (String value : List.of("", "   ", "ada", "@example.com", "ada@", "a@b@c.com", "ada@-bad-.com", "ada@nodot")) {
+        for (String value : List.of("", "   ", "ada", "@example.com", "ada@", "a@b@c.com", "ada@-bad-.com", "ada@nodot",
+                // a label past sixty-three characters, a character no label may carry, and two empty labels — the
+                // last of which the reading would throw on if its emptiness were checked after its first character
+                "ada@" + "a".repeat(64) + ".com", "ada@ex_ample.com", "ada@.com", "ada@a..b.com")) {
             assertEquals(FieldActionResult.Verdict.ACCEPT, judge(records, value).verdict(), value);
         }
         assertNull(asked.get(), "no value of that shape may reach the resolver");

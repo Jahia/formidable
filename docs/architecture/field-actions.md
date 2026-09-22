@@ -358,10 +358,15 @@ sharing a name, which the pipeline accumulates under one name).
 so nothing it carries costs anything, and nothing it carries is counted against the bound below.
 
 **The bound.** A field name can be submitted any number of times: the parser appends one entry per part and
-only the request size limits them, so one submission could ask for thousands of provider calls. What is
-counted is the **distinct** values of a field, because that is what a call costs — the verdict cache keys on
-the trimmed value, so a hundred repeats of one answer are one call and a hundred different ones are a
-hundred. Past `fieldActionMaxValuesPerField` the submission is refused with `FMDB-017`, and the response
+only the request size limits them, so one submission could ask for thousands of provider calls. What is counted
+is the list about to be judged: `answeredValues` removes the repeats of one answer before anything counts or
+runs them, so a hundred repeats are one call and a hundred different answers are a hundred.
+
+The verdict cache is **not** what makes that true, and a reader who believes it is will write the old loop
+again. It never stores an `UNAVAILABLE` — which is exactly what a provider being down answers — and stores
+nothing at all when `fieldActionVerdictCacheTtlSeconds` is zero. Counting one thing and running another is
+what let a body repeating a single value under the request size limit run hundreds of thousands of serial
+outbound calls. Past `fieldActionMaxValuesPerField` the submission is refused with `FMDB-017`, and the response
 carries a `messages` entry naming the field. **Nothing reads it yet**: the browser side is stage 2 of the
 roadmap, and until it ships the visitor sees the form's own error message with the code. The entry is what
 will let the page point at the field.

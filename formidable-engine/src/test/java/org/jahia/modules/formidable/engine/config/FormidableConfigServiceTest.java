@@ -51,6 +51,8 @@ class FormidableConfigServiceTest {
                 shipped.getProperty("fieldActionRateLimitPerMinute"));
         assertEquals(String.valueOf(FormidableConfig.DEFAULT_FIELD_ACTION_MAX_VALUE_LENGTH),
                 shipped.getProperty("fieldActionMaxValueLength"));
+        assertEquals(String.valueOf(FormidableConfig.DEFAULT_FIELD_ACTION_CACHE_TTL_SECONDS),
+                shipped.getProperty("fieldActionVerdictCacheTtlSeconds"));
     }
 
     @Test
