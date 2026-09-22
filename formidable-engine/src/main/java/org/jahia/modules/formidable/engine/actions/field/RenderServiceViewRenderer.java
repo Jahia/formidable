@@ -32,11 +32,32 @@ import javax.servlet.http.HttpServletResponse;
  */
 final class RenderServiceViewRenderer implements ViewRenderer {
 
+    /**
+     * The platform's render call itself, and the one seam the tests replace: without it nothing could assert that
+     * what comes back goes through {@link #body} — the step that removes the chain's own markers, and the one whose
+     * absence made every JavaScript-written field action answer UNAVAILABLE.
+     */
+    @FunctionalInterface
+    interface Fragment {
+        String of(JCRNodeWrapper actionNode, HttpServletRequest req, HttpServletResponse resp)
+                throws RenderException, RepositoryException;
+    }
+
     /** The view a field-action type registers to be written in JavaScript. */
     static final String VIEW = "hidden.execute";
     /** The request attribute carrying the {@link FieldActionRequest} as JSON while the view renders. */
     static final String REQUEST_ATTRIBUTE = "formidable.fieldAction";
     private static final String EXPIRATION_ATTRIBUTE = "expiration";
+
+    private final Fragment fragment;
+
+    RenderServiceViewRenderer() {
+        this(RenderServiceViewRenderer::renderThroughPlatform);
+    }
+
+    RenderServiceViewRenderer(Fragment fragment) {
+        this.fragment = fragment;
+    }
     /**
      * The comments Jahia's {@code URLFilter} wraps a fragment in, as the platform's own cleanup matches them:
      * {@code StaticAssetsFilter.CLEANUP_REGEXP = Pattern.compile("<!-- jahia:temp [^>]*-->")} (jahia-impl 8.2.4).
@@ -55,17 +76,28 @@ final class RenderServiceViewRenderer implements ViewRenderer {
         req.setAttribute(REQUEST_ATTRIBUTE, payload(request).toString());
         req.setAttribute(EXPIRATION_ATTRIBUTE, "0");
         try {
-            Resource resource = new Resource(actionNode, "html", VIEW, Resource.CONFIGURATION_MODULE);
-            RenderContext context = new RenderContext(req, resp, JCRSessionFactory.getInstance().getCurrentUser());
-            context.setSite(actionNode.getResolveSite());
-            context.setWorkspace(actionNode.getSession().getWorkspace().getName());
-            context.setMainResource(resource);
-            context.setServletPath("/cms/render");
-            return body(RenderService.getInstance().render(resource, context));
+            return body(fragment.of(actionNode, req, resp));
         } finally {
             restore(req, REQUEST_ATTRIBUTE, previousPayload);
             restore(req, EXPIRATION_ATTRIBUTE, previousExpiration);
         }
+    }
+
+    /**
+     * The platform's own render of the view, resource and context and all — resolved at each call, since the
+     * dispatcher is built before the render service is necessarily there. Everything here is platform glue, which
+     * is why it sits behind the seam rather than in {@link #render}: what a unit test has to hold is that whatever
+     * comes back goes through {@link #body}, and a {@code Resource} cannot be built without half the render stack.
+     */
+    private static String renderThroughPlatform(JCRNodeWrapper actionNode, HttpServletRequest req, HttpServletResponse resp)
+            throws RenderException, RepositoryException {
+        Resource resource = new Resource(actionNode, "html", VIEW, Resource.CONFIGURATION_MODULE);
+        RenderContext context = new RenderContext(req, resp, JCRSessionFactory.getInstance().getCurrentUser());
+        context.setSite(actionNode.getResolveSite());
+        context.setWorkspace(actionNode.getSession().getWorkspace().getName());
+        context.setMainResource(resource);
+        context.setServletPath("/cms/render");
+        return RenderService.getInstance().render(resource, context);
     }
 
     /** The view's body: what the render chain produced, without the platform's own temp markers. */

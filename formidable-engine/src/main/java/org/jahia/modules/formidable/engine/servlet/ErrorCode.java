@@ -25,6 +25,7 @@ public enum ErrorCode {
     FMDB_014(503),  // Platform is in read-only mode and the form has repository-writing actions
     FMDB_015(422),  // A field action refused the value of a field; the response names the field and carries the contributor's message
     FMDB_016(429),  // The field-action pre-check endpoint rate limit was hit for this client
+    FMDB_017(422),  // One field carrying blocking field actions holds more distinct values than fieldActionMaxValuesPerField; the response names the field
     FMDB_500(500);  // Unexpected internal error
 
     /** HTTP status code associated with this error. */

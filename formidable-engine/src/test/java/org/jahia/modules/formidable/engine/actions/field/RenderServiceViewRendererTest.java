@@ -2,11 +2,16 @@ package org.jahia.modules.formidable.engine.actions.field;
 
 import org.jahia.modules.formidable.engine.api.FieldActionRequest;
 import org.json.JSONObject;
+import org.jahia.services.content.JCRNodeWrapper;
 import org.junit.jupiter.api.Test;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
 
 /**
  * What the render chain hands back, and what the dispatcher is allowed to see of it.
@@ -38,6 +43,21 @@ class RenderServiceViewRendererTest {
         assertEquals("{\"verdict\":\"accept\"}", RenderServiceViewRenderer.body("  {\"verdict\":\"accept\"}\n"));
         assertEquals("", RenderServiceViewRenderer.body(START + END));
         assertEquals(null, RenderServiceViewRenderer.body(null));
+    }
+
+    @Test
+    void whatRenderReturnsHasGoneThroughTheStripping() throws Exception {
+        // Verifies the ROUTING, which the two tests above cannot see: they call body() directly, so dropping it from
+        // render() leaves them green while every JavaScript-written field action goes back to answering UNAVAILABLE.
+        // The render call itself is the seam; the node, the site and the session are the least a Resource needs.
+        String wrapped = START + "{\"verdict\":\"accept\"}" + END;
+
+        RenderServiceViewRenderer renderer = new RenderServiceViewRenderer((node, req, resp) -> wrapped);
+        String body = renderer.render(mock(JCRNodeWrapper.class),
+                new FieldActionRequest("f1", "email", "ada@example.com", Locale.ENGLISH),
+                mock(HttpServletRequest.class), mock(HttpServletResponse.class));
+
+        assertEquals("{\"verdict\":\"accept\"}", body);
     }
 
     @Test

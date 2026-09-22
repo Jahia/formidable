@@ -4,6 +4,7 @@ import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.jahia.modules.formidable.engine.api.AcceptedSubmission;
 import org.jahia.modules.formidable.engine.api.FieldActionRequest;
 import org.jahia.modules.formidable.engine.api.FormAction;
+import org.jahia.modules.formidable.engine.actions.field.FieldActionMessage;
 import org.jahia.modules.formidable.engine.actions.field.FieldActionDispatcher;
 import org.jahia.modules.formidable.engine.actions.field.ResolvedFieldAction;
 import org.jahia.modules.formidable.engine.api.FormActionException;
@@ -32,6 +33,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.EnumSet;
 import java.util.Locale;
@@ -65,6 +67,10 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WO
 class FormSubmissionPipeline {
 
     private static final Logger log = LoggerFactory.getLogger(FormSubmissionPipeline.class);
+
+    /** The engine bundle's text for a field carrying more values than the step may judge, and its last-resort English. */
+    static final String TOO_MANY_VALUES_KEY = "fmdb_fieldActions.tooManyValues";
+    static final String TOO_MANY_VALUES_TEXT = "Too many answers were sent for this field to be checked. Please select fewer.";
 
     private static final String CAPTCHA_TOKEN_HEADER = "X-Formidable-Captcha-Token";
 
@@ -475,10 +481,15 @@ class FormSubmissionPipeline {
      * the logic hides or the visitor left unanswered is skipped, as the required check skips it; every non-blank
      * value of a multi-valued field is judged, in order, since every one of them is stored and sent on. The first
      * blocking refusal ends the submission with FMDB-015 and its message, which the response carries so that the
-     * browser anchors it on the field. Warning-level actions do not run here: they warned. Without a dispatcher —
+     * browser anchors it on the field. Warning-level actions do not run here: they warned — so a field whose actions
+     * all warn is not judged at all, and nothing it carries is counted against the bound below. Without a dispatcher —
      * the field-action runtime not bound, a state the submit servlet's mandatory reference rules out in production —
      * the step warns that the checks did not run, which is not the same fact as a form without checks.
-     * (docs/architecture/field-actions.md)
+     *
+     * <p>The work is decided before any of it is done: what will be judged is collected first, the bound is checked
+     * over the whole submission, and only then does an action run. A field over the bound therefore costs no provider
+     * call anywhere — a check in the loop would have billed whichever field the map happened to yield first.
+     * (docs/architecture/field-actions.md)</p>
      */
     private void runFieldActions(HttpServletRequest req, HttpServletResponse resp) throws SubmissionException {
         if (fieldMetadata.fieldActions().isEmpty()) {
@@ -491,30 +502,15 @@ class FormSubmissionPipeline {
                     fieldMetadata.fieldActions().size());
             return;
         }
-        for (Map.Entry<String, List<ResolvedFieldAction>> entry : fieldMetadata.fieldActions().entrySet()) {
+        Map<String, List<String>> judged = fieldsToJudge();
+        verifyValueCount(judged);
+        for (Map.Entry<String, List<String>> entry : judged.entrySet()) {
             String fieldName = entry.getKey();
-            List<String> values = answeredValues(fieldName);
-            if (values.isEmpty() || logicEvaluator.isHidden(fieldName)) {
-                log.debug("[FormSubmissionPipeline] Skipping the field actions of '{}': unanswered or hidden", fieldName);
-                continue;
-            }
-            // Every value is judged, so every value may cost a provider call. Nothing else bounds them: the
-            // parser appends one entry per part of that name, and the request size alone allows thousands of
-            // distinct ones — distinct, so the verdict cache misses each and its bound evicts the visitors'
-            // legitimate entries. The cap refuses such a field outright rather than truncate it in silence:
-            // the submission is rejected, not half-checked.
-            int maxValues = config.getFieldActionSettings().maxValuesPerField();
-            if (values.size() > maxValues) {
-                log.warn("[FormSubmissionPipeline] Field '{}' carries {} values with field actions, over the {} allowed.",
-                        fieldName, values.size(), maxValues);
-                throw new SubmissionException(ErrorCode.FMDB_003,
-                        "Field '" + fieldName + "' carries " + values.size() + " values with field actions, over the "
-                                + maxValues + " allowed (fieldActionMaxValuesPerField).");
-            }
-            for (String value : values) {
+            List<ResolvedFieldAction> actions = fieldMetadata.fieldActions().get(fieldName);
+            for (String value : entry.getValue()) {
                 FieldActionDispatcher.Outcome outcome = fieldActionDispatcher.run(req, resp,
                         new FieldActionRequest(formId, fieldName, value, locale),
-                        entry.getValue(),
+                        actions,
                         EnumSet.allOf(ResolvedFieldAction.Trigger.class),
                         true);
                 if (outcome.blocked()) {
@@ -522,6 +518,55 @@ class FormSubmissionPipeline {
                     throw new SubmissionException(ErrorCode.FMDB_015,
                             "Field '" + fieldName + "' was refused by a field action.", outcome.messages());
                 }
+            }
+        }
+    }
+
+    /**
+     * The values this step will judge, by field, in the order the metadata gives them: a field whose actions all
+     * warn is left out — {@code blockingOnly} would skip every one of them anyway — and so is a field the logic
+     * hides or the visitor left unanswered, as the required check leaves it out.
+     */
+    private Map<String, List<String>> fieldsToJudge() {
+        Map<String, List<String>> judged = new LinkedHashMap<>();
+        for (Map.Entry<String, List<ResolvedFieldAction>> entry : fieldMetadata.fieldActions().entrySet()) {
+            String fieldName = entry.getKey();
+            if (entry.getValue().stream().noneMatch(ResolvedFieldAction::blocking)) {
+                log.debug("[FormSubmissionPipeline] Skipping the field actions of '{}': none of them blocks", fieldName);
+                continue;
+            }
+            List<String> values = answeredValues(fieldName);
+            if (values.isEmpty() || logicEvaluator.isHidden(fieldName)) {
+                log.debug("[FormSubmissionPipeline] Skipping the field actions of '{}': unanswered or hidden", fieldName);
+                continue;
+            }
+            judged.put(fieldName, values);
+        }
+        return judged;
+    }
+
+    /**
+     * The bound on the work one submission may ask for. A field name can be submitted any number of times — the
+     * parser appends one entry per part and only the request size limits them — and each value to judge may cost a
+     * provider call. What is counted is the DISTINCT values, because that is what a call costs: the verdict cache
+     * keys on the trimmed value, so a hundred repeats of one answer are one call, and a hundred different ones are
+     * a hundred. Over the bound the submission is refused whole, before anything runs, and the response names the
+     * field so the page can point at it rather than show a bare code.
+     */
+    private void verifyValueCount(Map<String, List<String>> judged) throws SubmissionException {
+        int maxValues = config.getFieldActionSettings().maxValuesPerField();
+        for (Map.Entry<String, List<String>> entry : judged.entrySet()) {
+            long distinct = entry.getValue().stream().map(String::trim).distinct().count();
+            if (distinct > maxValues) {
+                String fieldName = entry.getKey();
+                log.warn("[FormSubmissionPipeline] Field '{}' carries {} distinct values to judge, over the {} allowed.",
+                        fieldName, distinct, maxValues);
+                throw new SubmissionException(ErrorCode.FMDB_017,
+                        "Field '" + fieldName + "' carries " + distinct + " distinct values to judge, over the "
+                                + maxValues + " allowed (fieldActionMaxValuesPerField).",
+                        List.of(new FieldActionMessage(FieldActionMessage.Level.ERROR,
+                                FieldActionDispatcher.bundleText(TOO_MANY_VALUES_KEY, locale, TOO_MANY_VALUES_TEXT),
+                                fieldName, null, null)));
             }
         }
     }

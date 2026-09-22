@@ -14,6 +14,9 @@ import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRTemplate;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -275,6 +278,38 @@ class FieldActionDispatcherTest {
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    @Test
+    void whatTheVisitorTypedNeverReachesTheOperatorsLog() throws Exception {
+        // Verifies the guarantee, not the comment that states it: a failing action and an unavailable one both name
+        // themselves in the log, and neither carries the value — an exception message quotes it by construction
+        // (NumberFormatException: For input string: "…"), and a view's detail may too. Put either back on the INFO or
+        // the WARN line and this test fails. DEBUG is off in the tests, so what is captured is exactly what an
+        // operator sees at the default level.
+        String secret = "ada@example.com";
+        FieldActionRequest request = new FieldActionRequest("form-1", "email", secret, Locale.ENGLISH);
+        FieldActionDispatcher throwing = dispatcher(List.of(javaAction(() -> {
+            throw new IllegalStateException("cannot parse " + secret);
+        }, new AtomicInteger())), NO_VIEW, Duration.ZERO, session(Map.of("a1", "No")));
+        FieldActionDispatcher unavailable = dispatcher(List.of(javaAction(() -> FieldActionResult.unavailable("provider said " + secret), new AtomicInteger())),
+                NO_VIEW, Duration.ZERO, session(Map.of("a1", "No")));
+
+        PrintStream previous = System.err;
+        ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        System.setErr(new PrintStream(captured, true, StandardCharsets.UTF_8));
+        try {
+            throwing.run(null, null, request, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false);
+            unavailable.run(null, null, request, List.of(action("a1", Trigger.BLUR, Severity.BLOCK, Unavailable.REJECT)),
+                    EnumSet.allOf(Trigger.class), false);
+        } finally {
+            System.setErr(previous);
+        }
+
+        String logged = captured.toString(StandardCharsets.UTF_8);
+        assertFalse(logged.contains(secret), logged);
+        assertTrue(logged.contains("IllegalStateException"), "the operator still learns what failed: " + logged);
+        assertTrue(logged.contains("could not run on field 'email'"), logged);
     }
 
     @Test

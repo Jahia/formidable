@@ -172,7 +172,29 @@ fallback for the types that take it; the samples module ships the same drawing u
 which is the shape to copy.
 
 The samples module ships one: `fmdbsample:blockedWordsAction` (a `words` list, a value containing one is
-refused), implemented by `BlockedWordsFieldAction` in Java — the shape to copy.
+refused), implemented by `BlockedWordsFieldAction` in Java — the shape to copy. It is a sample: it is installed
+by the test provisioning manifest and reaches no product installation.
+
+### The one built-in — `fmdb:emailDeliverabilityAction`
+
+The engine ships exactly one concrete type, because exactly one check needs nothing to work: no provider, no
+credential, no account, no configuration. It asks the domain name system about the **domain** of the address —
+never the address, so the visitor's identity is not handed to a resolver — and it accepts as soon as a mail
+exchanger or an address record answers.
+
+**It refuses one thing only: a domain the resolver says does not exist.** That is the mistyped domain, which is
+the case worth catching and the one that can be proved. Anything else is an unavailable check, which the
+contributor's `whenUnavailable` decides. Two measurements are behind that rule, both made against the running
+instance rather than assumed:
+
+- asking for `MX`, `A` and `AAAA` **in one query** answers `DNS error` on resolvers that answer each of the
+  three separately, so the lookup asks one question at a time;
+- **Docker's embedded resolver returns nothing at all to a mail-exchanger question**, and most Jahia
+  installations run behind one. An empty answer therefore proves nothing, and a first cut that read it as
+  "this domain takes no mail" refused every address on such a host, `ada@jahia.com` included.
+
+What it does not do is prove the mailbox exists, or even that the domain accepts mail. The help text says so,
+and that is what a provider behind `FieldActionGateway` is for.
 
 ## Execution
 
@@ -324,12 +346,20 @@ actions (`FormFieldMetadataCollector.Result.fieldActions`, read in the same walk
 the repository is read once), whose submitted value is not blank and that the logic evaluator does not
 hold hidden, the dispatcher runs the **blocking** actions with every trigger — on **every non-blank value**
 of the field, in order, since every one of them is stored and sent on (a checkbox group, or two fields
-sharing a name, which the pipeline accumulates under one name), **up to `fieldActionMaxValuesPerField`**.
-A field name can be submitted any number of times — the parser appends one entry per part and only the
-request size bounds them — and each value may cost a provider call, with distinct values missing the verdict
-cache every time and evicting the entries of legitimate visitors. Past the cap the submission is refused
-whole, `FMDB-003`, before any action runs: a truncation would leave a submission half-checked and say
-nothing. The first refusal is
+sharing a name, which the pipeline accumulates under one name).
+
+**A field whose actions all warn is not judged here at all** — `blockingOnly` would skip every one of them —
+so nothing it carries costs anything, and nothing it carries is counted against the bound below.
+
+**The bound.** A field name can be submitted any number of times: the parser appends one entry per part and
+only the request size limits them, so one submission could ask for thousands of provider calls. What is
+counted is the **distinct** values of a field, because that is what a call costs — the verdict cache keys on
+the trimmed value, so a hundred repeats of one answer are one call and a hundred different ones are a
+hundred. Past `fieldActionMaxValuesPerField` the submission is refused with `FMDB-017`, and the response
+carries a `messages` entry naming the field, so the page points at it rather than showing a bare code.
+The check runs over **the whole submission before any action runs**: were it inside the loop, the provider of
+whichever field the metadata happened to yield first would already have been called, and billed, for another
+field to cancel the submission a moment later. The first refusal is
 `SubmissionException(FMDB_015, 422)` carrying the messages, which the servlet writes in a `messages`
 array next to `errorCode`, so the browser anchors them on the field exactly as the pre-check did.
 `messages` joins the servlet's reserved keys: an enricher cannot take it. Warning actions do not run here:
@@ -355,7 +385,7 @@ fieldActionHttpRequestTimeoutSeconds=10
 fieldActionVerdictCacheTtlSeconds=300      # 0 disables the cache
 fieldActionRateLimitPerMinute=30           # 0 disables the endpoint
 fieldActionMaxValueLength=512
-fieldActionMaxValuesPerField=20            # values of ONE field judged at submission
+fieldActionMaxValuesPerField=50            # DISTINCT values of ONE field judged at submission
 ```
 
 `FormidableConfigService` parses them (`FieldActionProvider`, whose `toString` masks the credential;
@@ -382,10 +412,14 @@ characters, and never puts the credential in a log line or in the object it retu
   repository stores a provider *id*.
 - **SSRF**: the gateway only ever calls the configured base URLs; the path is relative-only, on the same
   host and scheme.
-- **Abuse of a paid API**: rate limit per client on the pre-check, a cap on the values judged per field at
-  submission (`fieldActionMaxValuesPerField`, `FMDB-003` past it), verdict cache, blocking actions only in
-  the pipeline, `0` to switch the endpoint off. The submission path needs its own bound because it judges
-  every value of a field, and nothing else limits how many values one field name may carry.
+- **Abuse of a paid API**: rate limit per client on the pre-check, a cap on the distinct values judged per
+  field at submission (`fieldActionMaxValuesPerField`, `FMDB-017` past it, checked over the whole submission
+  before anything runs), verdict cache, blocking actions only in the pipeline, `0` to switch the endpoint
+  off. The submission path needs its own bound because it judges every value of a field, and nothing else
+  limits how many values one field name may carry.
+- **The visitor's value never reaches a log line above DEBUG**, whichever way it arrives: an action's
+  `detail`, a view's output, or the message of a throwable — `NumberFormatException: For input string: "…"`
+  carries it by construction, so the exception's type is logged and the throwable itself goes to DEBUG.
 - **Information disclosure**: the visitor gets the contributor's message and a verdict, never the provider's
   response, the action node's identifier or its node type; `detail` stays in the logs. The candidate value
   is never in a URL, nor in a log line at INFO — a view's output, which may echo it in breach of the
@@ -428,7 +462,7 @@ call per blocking action and non-blank value never pre-checked.
 | 2026-09-22 | **An action judges one value per call**, a multi-valued field one value at a time (HDU, asked whether the values should arrive as an array) | They already are an array where they are parsed; what carries one value is what an action receives. Three reasons to keep it: the pre-check has only one value to offer, since the browser asks while the visitor fills the form and not once it is complete; the verdict cache is keyed by value, which is what lets it be shared between the two entry points and between visitors, where a whole-set key would share nothing; and a third-party action stays "one value in, one verdict out", the same code serving a text field and a group of checkboxes. The cost is one provider call per value, which `fieldActionMaxValuesPerField` bounds |
 | 2026-09-22 | **The rendered view's body is stripped of the platform's `jahia:temp` markers** before the strict reader sees it (review of #344) | `URLFilter` wraps a `module`-configuration fragment and `StaticAssetsFilter`, which unwraps it, does not run there. The lenient reader survived it by accident; the strict one would have answered UNAVAILABLE for every JavaScript action, accepted by the CND default. The pattern is copied from `StaticAssetsFilter` rather than the class called: that class drags the rendering stack into the tests for one regular expression |
 | 2026-09-22 | **A rejection message interpolates `${value}` and nothing else** (review of #344) | The pre-check knows one field, the submission knows them all; interpolating the others would render the same message complete at submission and full of holes at blur. One contract for both, enforced by the code rather than by advice |
-| 2026-09-22 | **The values judged per field are capped** (`fieldActionMaxValuesPerField`, default 20; review of #344) | "Every value is judged" turned one submission into one provider call per value, and nothing bounds how many values a field name carries. Distinct values miss the verdict cache and evict everyone else's. The submission is refused whole rather than truncated |
+| 2026-09-22 | **The values judged per field are capped** (`fieldActionMaxValuesPerField`, default 50; reviews of #344) | "Every value is judged" turned one submission into one provider call per value, and nothing bounds how many values a field name carries. Distinct values miss the verdict cache and evict everyone else's. Three corrections followed in the same wave: the count is of **distinct** values, since that is what a provider call costs; the check covers **the whole submission before anything runs**, so no field is billed for another to cancel it; and a field whose actions only warn is neither judged nor counted, since `blockingOnly` skips it anyway. The default is above a plausible option count — an "interests" group with thirty boxes is an ordinary form — and the refusal has its own code with a message naming the field, rather than a bare size error the visitor cannot act on |
 | 2026-09-22 | **`fmdbmix:fieldActions` drops the `jmix:dynamicFieldset` supertype** (found on the local instance: the switch was nowhere in the Content Editor) | `jmix:dynamicFieldset` extends `jmix:templateMixin`, which the editor reads as "no enable switch"; with no property of its own the fieldset was then not rendered at all, so the feature had no way in. `extends = fmdbmix:formElement` alone makes it dynamic AND switchable. Measured on `forms.editForm`: `visible: false, hasEnableSwitch: false` before, both true after |
 | 2026-09-22 | **The walk of the form is cached per form and locale for sixty seconds**, not keyed off the form's `jcr:lastModified` (review of #344) | A change to an action or a field touches that node's `jcr:lastModified`, not the form root's: the core `LastModifiedListener` writes the first node up the hierarchy that carries `mix:lastModified`, which a `jnt:content` action node is itself (jahia-impl 8.2.4 sources, `updateLastModifiedProperties`), so the root's date would serve stale actions after a republish. A short TTL is exact within the minute and needs no invalidation; the pipeline walks fresh every time |
 
@@ -463,9 +497,11 @@ call per blocking action and non-blank value never pre-checked.
    `hidden.authoring` views, replicas of the actions zone, `AddContentButtons` offering every deployed
    type through `ActionSummaryService.describeType`), the form island wiring, the styling hooks
    `fmdb-form-warning` and `fmdb-field-action-pending` in `docs/styling/`.
-4. **Built-in and samples** — `fmdb:emailDeliverabilityAction` next to the email input, a Cypress spec on
-   the sample action against the endpoint and the pipeline, the extension how-to case "Adding a field
-   action type", the `.cfg` keys in `docs/administration/`.
+4. **Samples and the JavaScript path** — a sample action written as a `hidden.execute` view, which is the only
+   thing that will exercise the render chain end to end (the wrapping the strict reader trips on was found by
+   reading the platform, not by running it); a Cypress spec on the sample action against the endpoint and the
+   pipeline; the extension how-to case "Adding a field action type"; the `.cfg` keys in `docs/administration/`.
+   `fmdb:emailDeliverabilityAction` **shipped** with the engine.
 
 ## Sources
 

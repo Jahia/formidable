@@ -39,10 +39,11 @@ import java.util.function.Supplier;
  * <p>For each action the trigger and the severity filters decide whether it runs at all; then a Java
  * {@link FieldAction} registered for the node type is executed, and failing that the node's {@code hidden.execute}
  * view is rendered and its JSON verdict read. An {@code ACCEPT} moves on; a {@code REJECT} becomes one message for
- * the visitor — the contributor's {@code rejectionMessage} in the visitor's locale, {@code ${value}} and the other
- * fields interpolated with HTML escaping — and stops the run when the action blocks, since the first blocking
+ * the visitor — the contributor's {@code rejectionMessage} in the visitor's locale, {@code ${value}} and nothing
+ * else interpolated, with HTML escaping — and stops the run when the action blocks, since the first blocking
  * refusal wins; an {@code UNAVAILABLE} is what the contributor's {@code whenUnavailable} says it is. Whatever an
- * action or a view throws counts as unavailable and is logged: the visitor never sees a stack trace.</p>
+ * action or a view throws counts as unavailable and is logged: the visitor never sees a stack trace, and neither
+ * does the operator's log above DEBUG — a throwable's message quotes what was being judged often enough.</p>
  *
  * <p>Every node is read in {@code live} in a system session: the submitter has no reason to have read access to
  * the action nodes, and the message's language is the session's locale.</p>
@@ -196,9 +197,14 @@ public final class FieldActionDispatcher {
             });
             return result != null ? result : FieldActionResult.unavailable("no answer");
         } catch (Exception e) {
-            // one action's failure is that action's verdict, never the visitor's stack trace nor the next action's fate
-            log.warn("[FieldActionDispatcher] Field action {} ({}) failed on field '{}' of form {}",
-                    action.id(), action.nodeType(), request.fieldName(), request.formId(), e);
+            // One action's failure is that action's verdict, never the visitor's stack trace nor the next action's
+            // fate. The exception's TYPE names the failure for the operator; its message and its stack go to DEBUG,
+            // because a message like NumberFormatException: For input string: "…" carries the value by construction.
+            log.warn("[FieldActionDispatcher] Field action {} ({}) failed on field '{}' of form {}: {}",
+                    action.id(), action.nodeType(), request.fieldName(), request.formId(), e.getClass().getSimpleName());
+            if (log.isDebugEnabled()) {
+                log.debug("[FieldActionDispatcher] Field action {} failed", action.id(), e);
+            }
             return FieldActionResult.unavailable(e.getClass().getSimpleName() + ": " + e.getMessage());
         }
     }
@@ -277,14 +283,27 @@ public final class FieldActionDispatcher {
      * where the CND's default lives too — or the English literal when no bundle answers.
      */
     static String defaultMessage(Locale locale) {
+        return bundleText(DEFAULT_MESSAGE_KEY, locale, DEFAULT_MESSAGE);
+    }
+
+    /**
+     * A text of the engine's own bundle in the visitor's locale, for the rare message the engine writes rather than
+     * the contributor — the pipeline's "too many values for one field" among them. Public because that caller lives
+     * in the submission package, and the bundle, its name and its no-fallback rule belong here with the other one.
+     *
+     * @param key      the bundle key
+     * @param locale   the visitor's locale; English when null
+     * @param fallback what to show when no bundle answers — every message must reach the visitor in some language
+     */
+    public static String bundleText(String key, Locale locale, String fallback) {
         try {
             // no fallback to the server's own locale: an English visitor on a French server reads the base bundle, not the French one
             ResourceBundle bundle = ResourceBundle.getBundle(BUNDLE, locale == null ? Locale.ENGLISH : locale,
                     FieldActionDispatcher.class.getClassLoader(), ResourceBundle.Control.getNoFallbackControl(ResourceBundle.Control.FORMAT_PROPERTIES));
-            String text = bundle.containsKey(DEFAULT_MESSAGE_KEY) ? bundle.getString(DEFAULT_MESSAGE_KEY) : null;
-            return text == null || text.isBlank() ? DEFAULT_MESSAGE : text;
+            String text = bundle.containsKey(key) ? bundle.getString(key) : null;
+            return text == null || text.isBlank() ? fallback : text;
         } catch (MissingResourceException e) {
-            return DEFAULT_MESSAGE;
+            return fallback;
         }
     }
 

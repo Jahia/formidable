@@ -33,10 +33,12 @@ import java.nio.charset.StandardCharsets;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -56,9 +58,14 @@ class FormSubmissionPipelineFieldActionsTest {
 
     /** A dispatcher over one Java action for the type, counting its calls, its node carrying the given message. */
     private static FieldActionDispatcher dispatcher(FieldActionResult result, AtomicInteger calls) throws Exception {
+        return dispatcher(result, calls, "We do not know ${value}");
+    }
+
+    /** The same, with the contributor's text chosen by the test. */
+    private static FieldActionDispatcher dispatcher(FieldActionResult result, AtomicInteger calls, String message) throws Exception {
         JCRNodeWrapper node = mock(JCRNodeWrapper.class);
         JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
-        when(property.getString()).thenReturn("We do not know ${value}");
+        when(property.getString()).thenReturn(message);
         when(node.hasProperty(FmdbProperty.REJECTION_MESSAGE)).thenReturn(true);
         when(node.getProperty(FmdbProperty.REJECTION_MESSAGE)).thenReturn(property);
         JCRSessionWrapper session = mock(JCRSessionWrapper.class);
@@ -222,10 +229,10 @@ class FormSubmissionPipelineFieldActionsTest {
     }
 
     @Test
-    void aFieldCarryingMoreValuesThanTheCapIsRefusedBeforeAnyActionRuns() throws Exception {
-        // Verifies the bound on the fix of "every value is judged": one field name can be submitted any number of
-        // times, and each value may cost a provider call, so past the configured cap the submission is refused
-        // outright — FMDB-003, nothing run, nothing half-checked. Under the cap the same values go through.
+    void aFieldCarryingMoreDistinctValuesThanTheCapIsRefusedBeforeAnyActionRuns() throws Exception {
+        // Verifies the bound on the fix of "every value is judged": each DISTINCT value may cost a provider call —
+        // repeats are answered by the verdict cache — so past the configured cap the submission is refused whole,
+        // FMDB-017, with a message naming the field so the page can point at it. Under the cap the values go through.
         AtomicInteger calls = new AtomicInteger();
         FormSubmissionPipeline overTheCap = pipelineAtStep11b(dispatcher(FieldActionResult.accept(), calls),
                 Map.of("topics", List.of(action("a1", Severity.BLOCK))),
@@ -234,7 +241,13 @@ class FormSubmissionPipelineFieldActionsTest {
 
         SubmissionException error = assertThrows(SubmissionException.class, () -> runFieldActions(overTheCap));
 
-        assertEquals(ErrorCode.FMDB_003, error.errorCode);
+        assertEquals(ErrorCode.FMDB_017, error.errorCode);
+        assertEquals(422, error.httpStatus());
+        assertEquals(1, error.messages().size());
+        assertEquals("topics", error.messages().get(0).field());
+        // the engine bundle's own sentence, not the Java fallback: a missing key would show the latter
+        assertEquals("Too many answers were sent for this field to be checked. Please select fewer.",
+                error.messages().get(0).html());
         assertEquals(0, calls.get(), "the values are refused, not judged one by one until the cap");
 
         AtomicInteger allowed = new AtomicInteger();
@@ -243,6 +256,75 @@ class FormSubmissionPipelineFieldActionsTest {
                 Map.of("topics", List.of("one", "two")),
                 allVisible(), 2));
         assertEquals(2, allowed.get());
+    }
+
+    @Test
+    void repeatsOfOneAnswerCostNothingAgainstTheCap() throws Exception {
+        // Verifies what the cap counts: the same answer sent ten times is one verdict, since the cache keys on the
+        // trimmed value — counting the raw entries would refuse a submission that costs one provider call.
+        AtomicInteger calls = new AtomicInteger();
+
+        runFieldActions(pipelineAtStep11b(dispatcher(FieldActionResult.accept(), calls),
+                Map.of("topics", List.of(action("a1", Severity.BLOCK))),
+                Map.of("topics", List.of("same", "same", " same ", "same", "same")),
+                allVisible(), 2));
+
+        assertEquals(5, calls.get(), "the dispatcher is still asked once per value; the CAP is what counts distinct ones");
+    }
+
+    @Test
+    void aFieldWhoseActionsOnlyWarnIsNeitherJudgedNorCounted() throws Exception {
+        // Verifies that the bound follows the work: at submission only blocking actions run, so a field whose
+        // actions all warn costs nothing whatever the visitor ticked — and must not be refused for its size. A
+        // twenty-five-option group with one warn-level action is an ordinary form, not an attack.
+        AtomicInteger calls = new AtomicInteger();
+        List<String> twentyFive = IntStream.range(0, 25).mapToObj(i -> "option-" + i).toList();
+
+        runFieldActions(pipelineAtStep11b(dispatcher(FieldActionResult.reject("x"), calls),
+                Map.of("topics", List.of(action("w1", Severity.WARN))),
+                Map.of("topics", twentyFive),
+                allVisible(), 2));
+
+        assertEquals(0, calls.get());
+    }
+
+    @Test
+    void theWholeSubmissionIsBoundedBeforeAnyFieldIsJudged() throws Exception {
+        // Verifies the promise the comment, the design page and this test's name make: a field over the cap costs no
+        // provider call ANYWHERE, not even on the field the map happens to yield first. Two fields, one within the
+        // cap and one over it: nothing runs, whichever order the metadata is walked in.
+        AtomicInteger calls = new AtomicInteger();
+        Map<String, List<ResolvedFieldAction>> bothFields = new LinkedHashMap<>();
+        bothFields.put("email", List.of(action("a1", Severity.BLOCK)));
+        bothFields.put("topics", List.of(action("a2", Severity.BLOCK)));
+        Map<String, List<String>> submitted = new LinkedHashMap<>();
+        submitted.put("email", List.of("ada@example.com"));
+        submitted.put("topics", List.of("one", "two", "three"));
+
+        SubmissionException error = assertThrows(SubmissionException.class,
+                () -> runFieldActions(pipelineAtStep11b(dispatcher(FieldActionResult.accept(), calls),
+                        bothFields, submitted, allVisible(), 2)));
+
+        assertEquals(ErrorCode.FMDB_017, error.errorCode);
+        assertEquals(0, calls.get(), "the first field's provider must not be called and billed for the second to cancel it");
+    }
+
+    @Test
+    void thePipelineInterpolatesTheValueAndNothingElseIntoTheMessage() throws Exception {
+        // Verifies the contract through the CALLER, not the helper: the pipeline knows every submitted value, and a
+        // rejection message naming another field must still render it empty — the pre-check could never fill it, and
+        // one message rendered two ways is what this contract exists to prevent. Hand the pipeline the values back
+        // and this test fails.
+        AtomicInteger calls = new AtomicInteger();
+        FormSubmissionPipeline pipeline = pipelineAtStep11b(
+                dispatcher(FieldActionResult.reject("unknown"), calls, "No: ${value} for ${lastName}"),
+                Map.of("email", List.of(action("a1", Severity.BLOCK))),
+                Map.of("email", List.of("ada@example.com"), "lastName", List.of("Lovelace")),
+                allVisible());
+
+        SubmissionException error = assertThrows(SubmissionException.class, () -> runFieldActions(pipeline));
+
+        assertEquals("No: ada@example.com for ", error.messages().get(0).html());
     }
 
     @Test

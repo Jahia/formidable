@@ -37,7 +37,7 @@ Detailed reasons are written to server logs only and are never exposed to the ca
 |---|---|---|
 | `FMDB-001` | 415 | `Content-Type` is not `multipart/form-data` |
 | `FMDB-002` | 400 | Required URL parameter `fid` is missing, blank, or not a valid UUID — or the `lang` parameter is not a valid language tag |
-| `FMDB-003` | 413 | `Content-Length` exceeds `uploadMaxRequestSizeBytes` from `org.jahia.modules.formidable.cfg`; on the field-action pre-check, the body or the `value` exceeds `fieldActionMaxValueLength`; at submission, one field carrying field actions holds more values than `fieldActionMaxValuesPerField` |
+| `FMDB-003` | 413 | `Content-Length` exceeds `uploadMaxRequestSizeBytes` from `org.jahia.modules.formidable.cfg` — or, on the field-action pre-check, the body or the `value` exceeds `fieldActionMaxValueLength` |
 | `FMDB-004` | 400 | Form node not found in the `live` workspace (invalid `fid`, form not published, or a form the caller cannot read). On the field-action pre-check (404): no such form for this visitor, or no field of that name carrying field actions |
 | `FMDB-005` | 500 | CAPTCHA is required on the form but server-side verification is not fully configured (`captchaSiteKey` / `captchaSecretKey` / `captchaVerifyUrl` missing in `org.jahia.modules.formidable.cfg`) |
 | `FMDB-006` | 400 | CAPTCHA token (`X-Formidable-Captcha-Token` header) is absent, expired, or rejected by the provider |
@@ -50,6 +50,7 @@ Detailed reasons are written to server logs only and are never exposed to the ca
 | `FMDB-013` | 400 | Conditional-logic coherence violation — the submission carries a value for a field the server can prove was hidden (from submitted values, or from the provider state the browser itself declared in the `X-Formidable-Logic-State` header). An honest browser never produces this: a hidden field's controls are disabled and not submitted |
 | `FMDB-015` | 422 | A field action refused a value — the check of one field run server-side at submission (pipeline step 11b). The body carries a `messages` array naming the field, so the page anchors the contributor's message on it (see below) |
 | `FMDB-016` | 429 | The field-action pre-check endpoint (`/modules/formidable-engine/field-action`) refused the call: this client address exceeded `fieldActionRateLimitPerMinute` |
+| `FMDB-017` | 422 | One field carrying blocking field actions holds more **distinct** values than `fieldActionMaxValuesPerField`. Each distinct value may cost a provider call, so the submission is refused before any action runs. The body carries a `messages` array naming the field, as `FMDB-015` does |
 | `FMDB-014` | 503 | Platform is in read-only maintenance mode and the form has at least one action presumed to write to the repository (its node type does not carry `fmdbmix:readOnlyCompatibleAction`). Also returned when an action execution hits the repository's own read-only rejection. The client shows a maintenance message instead of a technical error |
 | `FMDB-500` | 500 | Unexpected internal, configuration, or provider/infrastructure verification error — check server logs (for example, invalid server-side validation metadata such as a malformed regex constraint, or a technical CAPTCHA verification failure) |
 
