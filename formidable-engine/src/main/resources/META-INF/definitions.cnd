@@ -105,7 +105,7 @@ orderable
 // form that must not pass unchecked). The engine reads all four, hence owns the mixin and its
 // Content Editor override. A node saved outside the editor may lack the mixin: the engine then
 // uses the defaults.
-[fmdbmix:fieldActionFeedback] mixin
+[fmdbmix:fieldActionFeedback] > jmix:templateMixin mixin
  extends = fmdbmix:fieldAction
  - rejectionMessage (string, richtext[ckeditor.toolbar='FormidableHelp',ckeditor.customConfig='$context/modules/formidable-engine/javascript/ckeditor/helpTextConfig.js']) = resourceBundle('fmdbmix_fieldActionFeedback.rejectionMessage.default') autocreated i18n indexed=no
  - trigger (string, choicelist[resourceBundle]) = 'blur' autocreated indexed=no < 'blur', 'submit'

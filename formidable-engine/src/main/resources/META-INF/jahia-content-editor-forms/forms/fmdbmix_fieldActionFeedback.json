@@ -3,11 +3,13 @@
 	"priority": 2.0,
 	"sections": [
 		{
-			"name": "content",
+			"name": "configuration",
+			"labelKey": "fmdb.section.configuration",
+			"rank": 1.05,
 			"fieldSets": [
 				{
 					"name": "fmdbmix:fieldActionFeedback",
-					"rank": 1.0,
+					"rank": 0.0,
 					"isAlwaysActivated": true,
 					"fields": [
 						{ "name": "trigger", "rank": 1.0 },
