@@ -22,7 +22,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -65,7 +64,7 @@ public final class FieldActionDispatcher {
     static final String BUNDLE = "resources.formidable-engine";
     static final String DEFAULT_MESSAGE_KEY = "fmdbmix_fieldActionFeedback.rejectionMessage.default";
     static final String DEFAULT_MESSAGE = "This value could not be verified.";
-    /** The interpolation name of the candidate value itself, beside the other fields' names. */
+    /** The one name a rejection message may interpolate: the value under judgement. */
     static final String VALUE_PLACEHOLDER = "value";
     /** The key of the machine word a view may add beside its verdict. */
     static final String DETAIL = "detail";
@@ -110,11 +109,9 @@ public final class FieldActionDispatcher {
      * @param actions       the field's actions, in list order
      * @param triggers      the triggers to run — a blur pre-check runs the blur actions, a submit runs them all
      * @param blockingOnly  the pipeline's rule: only an action whose refusal blocks runs again at submission
-     * @param interpolation the submitted values the message may interpolate, by field name; {@code ${value}} is added
      */
     public Outcome run(HttpServletRequest req, HttpServletResponse resp, FieldActionRequest request,
-                       List<ResolvedFieldAction> actions, Set<Trigger> triggers, boolean blockingOnly,
-                       Map<String, List<String>> interpolation) {
+                       List<ResolvedFieldAction> actions, Set<Trigger> triggers, boolean blockingOnly) {
         List<FieldActionMessage> messages = new ArrayList<>();
         for (ResolvedFieldAction action : actions) {
             if (!triggers.contains(action.trigger()) || (blockingOnly && !action.blocking())) {
@@ -123,7 +120,7 @@ public final class FieldActionDispatcher {
             if (refuses(action, verdict(req, resp, request, action), request)) {
                 messages.add(new FieldActionMessage(
                         action.blocking() ? FieldActionMessage.Level.ERROR : FieldActionMessage.Level.WARNING,
-                        message(action, request, interpolation),
+                        message(action, request),
                         request.fieldName(),
                         action.id(),
                         action.nodeType()));
@@ -145,13 +142,19 @@ public final class FieldActionDispatcher {
     }
 
     private static boolean unavailableRefuses(ResolvedFieldAction action, FieldActionResult result, FieldActionRequest request) {
+        // The detail is the action's or the view's own words: a provider's answer, an exception message, a
+        // fragment of the output — any of which may quote the value the visitor typed. It stays at DEBUG; the
+        // line an operator reads names the action, its type, the field and the form, which is enough to find it.
+        if (log.isDebugEnabled()) {
+            log.debug("[FieldActionDispatcher] Field action {} could not run: {}", action.id(), result.detail());
+        }
         if (action.whenUnavailable() == ResolvedFieldAction.Unavailable.ACCEPT) {
-            log.info("[FieldActionDispatcher] Field action {} ({}) could not run on field '{}' of form {}: {} — the value is accepted, as the contributor set",
-                    action.id(), action.nodeType(), request.fieldName(), request.formId(), result.detail());
+            log.info("[FieldActionDispatcher] Field action {} ({}) could not run on field '{}' of form {} — the value is accepted, as the contributor set",
+                    action.id(), action.nodeType(), request.fieldName(), request.formId());
             return false;
         }
-        log.warn("[FieldActionDispatcher] Field action {} ({}) could not run on field '{}' of form {}: {} — the value is refused, as the contributor set",
-                action.id(), action.nodeType(), request.fieldName(), request.formId(), result.detail());
+        log.warn("[FieldActionDispatcher] Field action {} ({}) could not run on field '{}' of form {} — the value is refused, as the contributor set",
+                action.id(), action.nodeType(), request.fieldName(), request.formId());
         return true;
     }
 
@@ -242,11 +245,17 @@ public final class FieldActionDispatcher {
     }
 
     /**
-     * The contributor's message for this action in the visitor's locale, {@code ${value}} and the other submitted
-     * values interpolated and HTML-escaped; the rich text itself is the contributor's and trusted, as the form's
-     * responses are. The bundle's default when the node carries none.
+     * The contributor's message for this action in the visitor's locale, with {@code ${value}} — the value under
+     * judgement — interpolated and HTML-escaped; the rich text itself is the contributor's and trusted, as the
+     * form's responses are. The bundle's default when the node carries none.
+     *
+     * <p><strong>{@code ${value}} is the only name a rejection message may use.</strong> The browser asks about one
+     * field at a time, so the other fields' values are not there at the pre-check; interpolating them at submission
+     * only would render the same message two different ways — complete once, full of holes the other time. One
+     * contract, one rendering: the editor's help text on {@code rejectionMessage} advertises {@code ${value}} and
+     * nothing else, and any other name resolves to the empty string, here as there.</p>
      */
-    private String message(ResolvedFieldAction action, FieldActionRequest request, Map<String, List<String>> interpolation) {
+    private String message(ResolvedFieldAction action, FieldActionRequest request) {
         String template = null;
         try {
             template = inLive(request.locale(), session -> {
@@ -259,8 +268,7 @@ public final class FieldActionDispatcher {
         if (template == null || template.isBlank()) {
             template = defaultMessage(request.locale());
         }
-        Map<String, List<String>> values = new LinkedHashMap<>(interpolation == null ? Map.of() : interpolation);
-        values.put(VALUE_PLACEHOLDER, List.of(request.value() == null ? "" : request.value()));
+        Map<String, List<String>> values = Map.of(VALUE_PLACEHOLDER, List.of(request.value() == null ? "" : request.value()));
         return TemplateInterpolator.interpolate(template, values, FieldEscaper::html);
     }
 

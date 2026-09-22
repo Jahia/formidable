@@ -34,7 +34,6 @@ class FieldActionDispatcherTest {
 
     private static final String TYPE = "myco:crmLookupAction";
     private static final FieldActionRequest REQUEST = new FieldActionRequest("form-1", "email", "<ada>@example.com", Locale.ENGLISH);
-    private static final Map<String, List<String>> SUBMITTED = Map.of("firstName", List.of("Ada"));
 
     /** A repository answering every system-session callback with the one session. */
     private static Supplier<JCRTemplate> repository(JCRSessionWrapper session) throws Exception {
@@ -102,7 +101,7 @@ class FieldActionDispatcherTest {
                 Duration.ofSeconds(300), session(Map.of("a1", "Refused: ${value}")));
 
         FieldActionDispatcher.Outcome outcome = dispatcher.run(null, null, REQUEST, List.of(blocking("a1")),
-                EnumSet.allOf(Trigger.class), false, SUBMITTED);
+                EnumSet.allOf(Trigger.class), false);
 
         assertFalse(outcome.blocked());
         assertTrue(outcome.messages().isEmpty());
@@ -112,8 +111,8 @@ class FieldActionDispatcherTest {
     @Test
     void aBlockingRefusalStopsTheRunWithTheContributorsMessageInterpolatedAndEscaped() throws Exception {
         // Verifies the refusal that matters: the first blocking action refuses, the run stops before the next one,
-        // and the one message is the contributor's text in which ${value} and the other fields are interpolated
-        // with HTML escaping — the rich text itself trusted, the values never.
+        // and the one message is the contributor's text in which ${value} is interpolated with HTML escaping — the
+        // rich text itself trusted, the value never.
         AtomicInteger first = new AtomicInteger();
         AtomicInteger second = new AtomicInteger();
         FieldAction refusing = javaAction(() -> FieldActionResult.reject("unknown"), first);
@@ -130,17 +129,17 @@ class FieldActionDispatcherTest {
             }
         };
         FieldActionDispatcher dispatcher = dispatcher(List.of(refusing, accepting), NO_VIEW, Duration.ofSeconds(300),
-                session(Map.of("a1", "<p>Unknown address <b>${value}</b>, ${firstName}</p>", "a2", "never")));
+                session(Map.of("a1", "<p>Unknown address <b>${value}</b></p>", "a2", "never")));
         ResolvedFieldAction other = new ResolvedFieldAction("a2", "myco:other", Trigger.BLUR, Severity.BLOCK, Unavailable.ACCEPT);
 
         FieldActionDispatcher.Outcome outcome = dispatcher.run(null, null, REQUEST, List.of(blocking("a1"), other),
-                EnumSet.allOf(Trigger.class), false, SUBMITTED);
+                EnumSet.allOf(Trigger.class), false);
 
         assertTrue(outcome.blocked());
         assertEquals(1, outcome.messages().size());
         FieldActionMessage message = outcome.messages().get(0);
         assertEquals(FieldActionMessage.Level.ERROR, message.level());
-        assertEquals("<p>Unknown address <b>&lt;ada&gt;@example.com</b>, Ada</p>", message.html());
+        assertEquals("<p>Unknown address <b>&lt;ada&gt;@example.com</b></p>", message.html());
         assertEquals("email", message.field());
         assertEquals("a1", message.actionId());
         assertEquals(TYPE, message.actionType());
@@ -156,7 +155,7 @@ class FieldActionDispatcherTest {
 
         FieldActionDispatcher.Outcome outcome = dispatcher.run(null, null, REQUEST,
                 List.of(action("w1", Trigger.BLUR, Severity.WARN, Unavailable.ACCEPT), action("w2", Trigger.BLUR, Severity.WARN, Unavailable.ACCEPT)),
-                EnumSet.allOf(Trigger.class), false, SUBMITTED);
+                EnumSet.allOf(Trigger.class), false);
 
         assertFalse(outcome.blocked());
         assertEquals(2, outcome.messages().size());
@@ -176,15 +175,15 @@ class FieldActionDispatcherTest {
         }, calls)), NO_VIEW, Duration.ZERO, session(Map.of("a1", "Refused")));
 
         assertFalse(unavailable.run(null, null, REQUEST, List.of(action("a1", Trigger.BLUR, Severity.BLOCK, Unavailable.ACCEPT)),
-                EnumSet.allOf(Trigger.class), false, Map.of()).blocked());
+                EnumSet.allOf(Trigger.class), false).blocked());
         FieldActionDispatcher.Outcome refused = unavailable.run(null, null, REQUEST,
-                List.of(action("a1", Trigger.BLUR, Severity.BLOCK, Unavailable.REJECT)), EnumSet.allOf(Trigger.class), false, Map.of());
+                List.of(action("a1", Trigger.BLUR, Severity.BLOCK, Unavailable.REJECT)), EnumSet.allOf(Trigger.class), false);
         assertTrue(refused.blocked());
         assertEquals("Refused", refused.messages().get(0).html());
         assertFalse(throwing.run(null, null, REQUEST, List.of(action("a1", Trigger.BLUR, Severity.BLOCK, Unavailable.ACCEPT)),
-                EnumSet.allOf(Trigger.class), false, Map.of()).blocked());
+                EnumSet.allOf(Trigger.class), false).blocked());
         assertTrue(throwing.run(null, null, REQUEST, List.of(action("a1", Trigger.BLUR, Severity.BLOCK, Unavailable.REJECT)),
-                EnumSet.allOf(Trigger.class), false, Map.of()).blocked());
+                EnumSet.allOf(Trigger.class), false).blocked());
     }
 
     @Test
@@ -196,9 +195,9 @@ class FieldActionDispatcherTest {
                 Duration.ZERO, session(Map.of("s1", "m", "w1", "m")));
 
         FieldActionDispatcher.Outcome blur = dispatcher.run(null, null, REQUEST,
-                List.of(action("s1", Trigger.SUBMIT, Severity.BLOCK, Unavailable.ACCEPT)), EnumSet.of(Trigger.BLUR), false, Map.of());
+                List.of(action("s1", Trigger.SUBMIT, Severity.BLOCK, Unavailable.ACCEPT)), EnumSet.of(Trigger.BLUR), false);
         FieldActionDispatcher.Outcome pipeline = dispatcher.run(null, null, REQUEST,
-                List.of(action("w1", Trigger.BLUR, Severity.WARN, Unavailable.ACCEPT)), EnumSet.allOf(Trigger.class), true, Map.of());
+                List.of(action("w1", Trigger.BLUR, Severity.WARN, Unavailable.ACCEPT)), EnumSet.allOf(Trigger.class), true);
 
         assertFalse(blur.blocked());
         assertFalse(pipeline.blocked());
@@ -217,10 +216,10 @@ class FieldActionDispatcherTest {
         FieldActionDispatcher withoutCache = dispatcher(List.of(javaAction(FieldActionResult::accept, uncached)), NO_VIEW,
                 Duration.ZERO, session(Map.of("a1", "m")));
 
-        withCache.run(null, null, REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false, Map.of());
-        withCache.run(null, null, REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), true, Map.of());
-        withoutCache.run(null, null, REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false, Map.of());
-        withoutCache.run(null, null, REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), true, Map.of());
+        withCache.run(null, null, REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false);
+        withCache.run(null, null, REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), true);
+        withoutCache.run(null, null, REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false);
+        withoutCache.run(null, null, REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), true);
 
         assertEquals(1, cached.get());
         assertEquals(2, uncached.get());
@@ -239,13 +238,13 @@ class FieldActionDispatcherTest {
         }, Duration.ZERO, session(Map.of("v1", "No")));
         FieldActionDispatcher noRequest = dispatcher(List.of(), (node, request, req, resp) -> null, Duration.ZERO, session(Map.of("v1", "No")));
 
-        assertTrue(rejecting.run(null, null, REQUEST, List.of(blocking("v1")), EnumSet.allOf(Trigger.class), false, Map.of()).blocked());
-        assertFalse(garbage.run(null, null, REQUEST, List.of(blocking("v1")), EnumSet.allOf(Trigger.class), false, Map.of()).blocked());
+        assertTrue(rejecting.run(null, null, REQUEST, List.of(blocking("v1")), EnumSet.allOf(Trigger.class), false).blocked());
+        assertFalse(garbage.run(null, null, REQUEST, List.of(blocking("v1")), EnumSet.allOf(Trigger.class), false).blocked());
         assertTrue(garbage.run(null, null, REQUEST, List.of(action("v1", Trigger.BLUR, Severity.BLOCK, Unavailable.REJECT)),
-                EnumSet.allOf(Trigger.class), false, Map.of()).blocked());
-        assertFalse(failing.run(null, null, REQUEST, List.of(blocking("v1")), EnumSet.allOf(Trigger.class), false, Map.of()).blocked());
+                EnumSet.allOf(Trigger.class), false).blocked());
+        assertFalse(failing.run(null, null, REQUEST, List.of(blocking("v1")), EnumSet.allOf(Trigger.class), false).blocked());
         assertTrue(noRequest.run(null, null, REQUEST, List.of(action("v1", Trigger.BLUR, Severity.BLOCK, Unavailable.REJECT)),
-                EnumSet.allOf(Trigger.class), false, Map.of()).blocked());
+                EnumSet.allOf(Trigger.class), false).blocked());
     }
 
     @Test
@@ -254,9 +253,28 @@ class FieldActionDispatcherTest {
         FieldActionDispatcher dispatcher = dispatcher(List.of(javaAction(() -> FieldActionResult.reject("x"), new AtomicInteger())), NO_VIEW,
                 Duration.ZERO, session(Collections.singletonMap("a1", null)));
 
-        FieldActionDispatcher.Outcome outcome = dispatcher.run(null, null, REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false, Map.of());
+        FieldActionDispatcher.Outcome outcome = dispatcher.run(null, null, REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false);
 
         assertEquals(FieldActionDispatcher.DEFAULT_MESSAGE, outcome.messages().get(0).html());
+    }
+
+    @Test
+    void aMessageInterpolatesTheValueAndNothingElseSoBothEntryPointsReadTheSame() {
+        // Verifies the one interpolation contract: ${value} is filled, any other name resolves to nothing — the same
+        // string whether the browser asked about this one field or the pipeline judged a whole submission. Naming
+        // another field would otherwise render complete at submission and full of holes at the pre-check, where the
+        // browser sends one field and the others simply are not there.
+        try {
+            FieldActionDispatcher dispatcher = dispatcher(List.of(javaAction(() -> FieldActionResult.reject("x"), new AtomicInteger())),
+                    NO_VIEW, Duration.ZERO, session(Map.of("a1", "No: ${value} for ${firstName}")));
+
+            FieldActionDispatcher.Outcome outcome = dispatcher.run(null, null, REQUEST, List.of(blocking("a1")),
+                    EnumSet.allOf(Trigger.class), false);
+
+            assertEquals("No: &lt;ada&gt;@example.com for ", outcome.messages().get(0).html());
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     @Test
@@ -302,9 +320,9 @@ class FieldActionDispatcherTest {
                 Duration.ofSeconds(300), session(Map.of("a1", "m")));
         FieldActionRequest inFrench = new FieldActionRequest(REQUEST.formId(), REQUEST.fieldName(), REQUEST.value(), Locale.FRENCH);
 
-        dispatcher.run(null, null, REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false, Map.of());
-        dispatcher.run(null, null, inFrench, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false, Map.of());
-        dispatcher.run(null, null, REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), true, Map.of());
+        dispatcher.run(null, null, REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false);
+        dispatcher.run(null, null, inFrench, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false);
+        dispatcher.run(null, null, REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), true);
 
         assertEquals(2, calls.get());
     }

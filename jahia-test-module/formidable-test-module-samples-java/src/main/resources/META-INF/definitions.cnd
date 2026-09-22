@@ -28,4 +28,5 @@
 // engine's fmdbmix:fieldActionFeedback, unasked. Exercised by the test suite against the pre-check endpoint
 // and the submission pipeline.
 [fmdbsample:blockedWordsAction] > jnt:content, fmdbmix:fieldAction, mix:title
+ - jcr:title (string) = resourceBundle('fmdbsample_blockedWordsAction') autocreated i18n
  - words (string) multiple indexed=no

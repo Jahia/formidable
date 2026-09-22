@@ -766,6 +766,11 @@ class FormidableConfigServiceTest {
         }
 
         @Override
+        public int fieldActionMaxValuesPerField() {
+            return 20;
+        }
+
+        @Override
         public Class<? extends java.lang.annotation.Annotation> annotationType() {
             return FormidableConfig.class;
         }

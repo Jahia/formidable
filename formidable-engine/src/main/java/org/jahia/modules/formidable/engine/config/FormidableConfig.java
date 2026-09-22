@@ -24,6 +24,7 @@ public @interface FormidableConfig {
     long DEFAULT_FIELD_ACTION_CACHE_TTL_SECONDS = 300L;
     int DEFAULT_FIELD_ACTION_RATE_LIMIT_PER_MINUTE = 30;
     int DEFAULT_FIELD_ACTION_MAX_VALUE_LENGTH = 512;
+    int DEFAULT_FIELD_ACTION_MAX_VALUES_PER_FIELD = 20;
 
     // --- CAPTCHA ---
 
@@ -210,6 +211,13 @@ public @interface FormidableConfig {
             type = AttributeType.INTEGER
     )
     int fieldActionMaxValueLength() default DEFAULT_FIELD_ACTION_MAX_VALUE_LENGTH;
+
+    @AttributeDefinition(
+            name = "Field action values judged per field",
+            description = "How many values of one field the submission pipeline judges with that field's actions. "
+                    + "A field name may be submitted many times over; each value may cost a provider call, so a "
+                    + "submission carrying more than this for one field is refused (FMDB-003) rather than run.")
+    int fieldActionMaxValuesPerField() default DEFAULT_FIELD_ACTION_MAX_VALUES_PER_FIELD;
 
     // --- CHOICE FIELD OPTIONS SOURCES ---
 

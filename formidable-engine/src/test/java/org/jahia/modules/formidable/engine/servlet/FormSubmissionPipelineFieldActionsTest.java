@@ -7,6 +7,7 @@ import org.jahia.modules.formidable.engine.api.FieldActionResult;
 import org.jahia.modules.formidable.engine.api.FmdbProperty;
 import org.jahia.modules.formidable.engine.api.FormAction;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.modules.formidable.engine.config.FormidableConfigService.FieldActionSettings;
 import org.jahia.modules.formidable.engine.fieldactions.FieldActionDispatcher;
 import org.jahia.modules.formidable.engine.fieldactions.ResolvedFieldAction;
 import org.jahia.modules.formidable.engine.fieldactions.ResolvedFieldAction.Severity;
@@ -24,7 +25,11 @@ import org.junit.jupiter.api.Test;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import java.lang.reflect.Field;
+import java.net.http.HttpClient;
+import java.nio.charset.StandardCharsets;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.time.Duration;
@@ -36,6 +41,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -75,12 +81,28 @@ class FormSubmissionPipelineFieldActionsTest {
         return new FieldActionDispatcher(() -> List.of(action), new VerdictCache(), () -> Duration.ZERO, () -> template);
     }
 
+    /** The field-action settings the pipeline reads at step 11b; only the cap matters here. */
+    private static FormidableConfigService configWithCap(int maxValuesPerField) {
+        FormidableConfigService config = mock(FormidableConfigService.class);
+        when(config.getFieldActionSettings()).thenReturn(new FieldActionSettings(Map.of(), Duration.ofSeconds(5),
+                Duration.ofSeconds(10), HttpClient.newHttpClient(), Duration.ZERO, 30, 512, maxValuesPerField));
+        return config;
+    }
+
     /** A pipeline past step 11, with the given field actions, submitted values and logic verdicts. */
     private static FormSubmissionPipeline pipelineAtStep11b(FieldActionDispatcher dispatcher,
                                                             Map<String, List<ResolvedFieldAction>> fieldActions,
                                                             Map<String, List<String>> parameters,
                                                             ConditionalLogicEvaluator evaluator) throws Exception {
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of(),
+        return pipelineAtStep11b(dispatcher, fieldActions, parameters, evaluator, 20);
+    }
+
+    private static FormSubmissionPipeline pipelineAtStep11b(FieldActionDispatcher dispatcher,
+                                                            Map<String, List<ResolvedFieldAction>> fieldActions,
+                                                            Map<String, List<String>> parameters,
+                                                            ConditionalLogicEvaluator evaluator,
+                                                            int maxValuesPerField) throws Exception {
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(configWithCap(maxValuesPerField), List.<FormAction>of(),
                 mock(FormidableOptionsSourceService.class), () -> false);
         pipeline.useFieldActions(dispatcher);
         set(pipeline, "formId", "8f7e2a10-0000-4000-8000-000000000001");
@@ -171,6 +193,56 @@ class FormSubmissionPipelineFieldActionsTest {
                 Map.of("email", List.of(action("w1", Severity.WARN))), Map.of("email", List.of("ada@example.com")), allVisible()));
 
         assertEquals(0, calls.get());
+    }
+
+    @Test
+    void withoutADispatcherTheStepWarnsThatTheChecksDidNotRun() throws Exception {
+        // Verifies the warning itself, not just the absence of a crash: an unbound runtime lets a submission through
+        // with its checks unrun, and the only trace an operator has is this line. Asserted through the test-scope
+        // slf4j backend, which writes to System.err — delete the log.warn and this test fails, which is the point.
+        FormSubmissionPipeline noDispatcher = new FormSubmissionPipeline(configWithCap(20), List.<FormAction>of(),
+                mock(FormidableOptionsSourceService.class), () -> false);
+        set(noDispatcher, "formId", "8f7e2a10-0000-4000-8000-000000000001");
+        set(noDispatcher, "fieldMetadata", new FormFieldMetadataCollector.Result(Map.of(), Map.of(), Map.of(), Map.of(),
+                Map.of("email", List.of(action("a1", Severity.BLOCK)))));
+        set(noDispatcher, "parsed", new FormDataParser.ParseResult(Map.of("email", List.of("x")), List.of()));
+
+        PrintStream previous = System.err;
+        ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        System.setErr(new PrintStream(captured, true, StandardCharsets.UTF_8));
+        try {
+            runFieldActions(noDispatcher);
+        } finally {
+            System.setErr(previous);
+        }
+
+        String logged = captured.toString(StandardCharsets.UTF_8);
+        assertTrue(logged.contains("did not run: no field-action runtime is bound"), logged);
+        assertTrue(logged.contains("WARN"), logged);
+    }
+
+    @Test
+    void aFieldCarryingMoreValuesThanTheCapIsRefusedBeforeAnyActionRuns() throws Exception {
+        // Verifies the bound on the fix of "every value is judged": one field name can be submitted any number of
+        // times, and each value may cost a provider call, so past the configured cap the submission is refused
+        // outright — FMDB-003, nothing run, nothing half-checked. Under the cap the same values go through.
+        AtomicInteger calls = new AtomicInteger();
+        FormSubmissionPipeline overTheCap = pipelineAtStep11b(dispatcher(FieldActionResult.accept(), calls),
+                Map.of("topics", List.of(action("a1", Severity.BLOCK))),
+                Map.of("topics", List.of("one", "two", "three")),
+                allVisible(), 2);
+
+        SubmissionException error = assertThrows(SubmissionException.class, () -> runFieldActions(overTheCap));
+
+        assertEquals(ErrorCode.FMDB_003, error.errorCode);
+        assertEquals(0, calls.get(), "the values are refused, not judged one by one until the cap");
+
+        AtomicInteger allowed = new AtomicInteger();
+        runFieldActions(pipelineAtStep11b(dispatcher(FieldActionResult.accept(), allowed),
+                Map.of("topics", List.of(action("a1", Severity.BLOCK))),
+                Map.of("topics", List.of("one", "two")),
+                allVisible(), 2));
+        assertEquals(2, allowed.get());
     }
 
     @Test

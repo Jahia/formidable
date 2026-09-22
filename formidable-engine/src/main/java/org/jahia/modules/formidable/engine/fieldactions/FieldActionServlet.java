@@ -204,7 +204,7 @@ public class FieldActionServlet extends HttpServlet {
             Set<Trigger> triggers = "submit".equalsIgnoreCase(body.optString("trigger", ""))
                     ? EnumSet.allOf(Trigger.class)
                     : EnumSet.of(Trigger.BLUR);
-            outcome = shared.dispatcher().run(req, resp, new FieldActionRequest(formId, field, value, locale), actions, triggers, false, Map.of());
+            outcome = shared.dispatcher().run(req, resp, new FieldActionRequest(formId, field, value, locale), actions, triggers, false);
         }
         sendJsonSafely(resp, HttpServletResponse.SC_OK, verdict(outcome));
     }

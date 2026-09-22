@@ -498,13 +498,25 @@ class FormSubmissionPipeline {
                 log.debug("[FormSubmissionPipeline] Skipping the field actions of '{}': unanswered or hidden", fieldName);
                 continue;
             }
+            // Every value is judged, so every value may cost a provider call. Nothing else bounds them: the
+            // parser appends one entry per part of that name, and the request size alone allows thousands of
+            // distinct ones — distinct, so the verdict cache misses each and its bound evicts the visitors'
+            // legitimate entries. The cap refuses such a field outright rather than truncate it in silence:
+            // the submission is rejected, not half-checked.
+            int maxValues = config.getFieldActionSettings().maxValuesPerField();
+            if (values.size() > maxValues) {
+                log.warn("[FormSubmissionPipeline] Field '{}' carries {} values with field actions, over the {} allowed.",
+                        fieldName, values.size(), maxValues);
+                throw new SubmissionException(ErrorCode.FMDB_003,
+                        "Field '" + fieldName + "' carries " + values.size() + " values with field actions, over the "
+                                + maxValues + " allowed (fieldActionMaxValuesPerField).");
+            }
             for (String value : values) {
                 FieldActionDispatcher.Outcome outcome = fieldActionDispatcher.run(req, resp,
                         new FieldActionRequest(formId, fieldName, value, locale),
                         entry.getValue(),
                         EnumSet.allOf(ResolvedFieldAction.Trigger.class),
-                        true,
-                        parsed.parameters());
+                        true);
                 if (outcome.blocked()) {
                     log.warn("[FormSubmissionPipeline] Field '{}' was refused by a field action.", fieldName);
                     throw new SubmissionException(ErrorCode.FMDB_015,

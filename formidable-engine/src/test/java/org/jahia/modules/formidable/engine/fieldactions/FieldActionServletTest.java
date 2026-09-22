@@ -3,6 +3,7 @@ package org.jahia.modules.formidable.engine.fieldactions;
 import org.jahia.modules.formidable.engine.api.FieldAction;
 import org.jahia.modules.formidable.engine.api.FieldActionRequest;
 import org.jahia.modules.formidable.engine.api.FieldActionResult;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.engine.api.FmdbProperty;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService.FieldActionSettings;
@@ -51,25 +52,72 @@ class FieldActionServletTest {
     private record Answer(int status, JSONObject body) {
     }
 
-    /** How the test answers the servlet's two repository reads: the form as the visitor sees it, the walk of its fields. */
-    private record Repository(FieldActionServlet.ResolvedForm form, Map<String, List<ResolvedFieldAction>> actions, AtomicInteger walks) {
+/**
+     * What the test's repository holds, and how it was consulted. The servlet's own {@code resolveForm} runs against
+     * it: only the two seams are faked — the visitor's live session and the walk — so a change of which session reads
+     * the form is a change this test sees.
+     *
+     * @param node        the node the VISITOR's session resolves for the fid, null when their session does not find it
+     * @param actions     what the walk of the form finds, by field name
+     * @param visitorReads how many times the visitor's session was opened
+     * @param walks       how many times the form's subtree was walked
+     */
+    private record Repository(JCRNodeWrapper node, Map<String, List<ResolvedFieldAction>> actions,
+                              AtomicInteger visitorReads, AtomicInteger walks) {
+
+        private static JCRNodeWrapper formNode(boolean authenticatedOnly) {
+            try {
+                JCRNodeWrapper node = mock(JCRNodeWrapper.class);
+                when(node.isNodeType(FmdbMixin.FORM_ROOT)).thenReturn(true);
+                when(node.isNodeType(FmdbMixin.AUTHENTICATED_ONLY_FORM)).thenReturn(authenticatedOnly);
+                return node;
+            } catch (RepositoryException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+
         static Repository publicForm(Map<String, List<ResolvedFieldAction>> actions) {
-            return new Repository(new FieldActionServlet.ResolvedForm(false), actions, new AtomicInteger());
+            return new Repository(formNode(false), actions, new AtomicInteger(), new AtomicInteger());
         }
 
         static Repository membersOnlyForm(Map<String, List<ResolvedFieldAction>> actions) {
-            return new Repository(new FieldActionServlet.ResolvedForm(true), actions, new AtomicInteger());
+            return new Repository(formNode(true), actions, new AtomicInteger(), new AtomicInteger());
         }
 
-        /** A form the visitor's session does not resolve: unreadable, unpublished or not a form at all. */
+        /** A fid the visitor's session does not resolve: unreadable content, unpublished, or another site's. */
         static Repository unreadable() {
-            return new Repository(null, Map.of(), new AtomicInteger());
+            return new Repository(null, Map.of(), new AtomicInteger(), new AtomicInteger());
+        }
+
+        /** A fid that resolves for the visitor but is not a form: the endpoint must not confirm what it is. */
+        static Repository notAForm() {
+            try {
+                JCRNodeWrapper node = mock(JCRNodeWrapper.class);
+                when(node.isNodeType(FmdbMixin.FORM_ROOT)).thenReturn(false);
+                return new Repository(node, Map.of(), new AtomicInteger(), new AtomicInteger());
+            } catch (RepositoryException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+
+        /** The visitor's live session, as the servlet asks for it. */
+        FieldActionServlet.VisitorSessions sessions() {
+            return locale -> {
+                visitorReads.incrementAndGet();
+                JCRSessionWrapper session = mock(JCRSessionWrapper.class);
+                if (node == null) {
+                    when(session.getNodeByIdentifier(any())).thenThrow(new ItemNotFoundException("not readable"));
+                } else {
+                    when(session.getNodeByIdentifier(any())).thenReturn(node);
+                }
+                return session;
+            };
         }
     }
 
     private static FieldActionSettings settings(int rateLimitPerMinute, int maxValueLength) {
         return new FieldActionSettings(Map.of(), Duration.ofSeconds(5), Duration.ofSeconds(10), HttpClient.newHttpClient(),
-                Duration.ofSeconds(300), rateLimitPerMinute, maxValueLength);
+                Duration.ofSeconds(300), rateLimitPerMinute, maxValueLength, 20);
     }
 
     /** A dispatcher over one Java action for the type, counting its calls, whose node carries the given message. */
@@ -108,20 +156,16 @@ class FieldActionServletTest {
         return runtime;
     }
 
-    /** The servlet with its gate, the caller's identity and its two repository reads answered by the test. */
+    /**
+     * The servlet with its gate, the caller's identity and its two seams answered by the test. {@code resolveForm}
+     * is NOT overridden: the real method runs, so the session it reads the form in is part of what is asserted.
+     * The system-session repository is left null on purpose — reading the form through it would fail loudly.
+     */
     private static FieldActionServlet servlet(FieldActionRuntime runtime, boolean allowed, boolean guest, Repository repository) {
-        FieldActionServlet servlet = new FieldActionServlet(locale -> null, () -> guest, () -> null) {
+        FieldActionServlet servlet = new FieldActionServlet(repository.sessions(), () -> guest, () -> null) {
             @Override
             boolean isRequestAllowed() {
                 return allowed;
-            }
-
-            @Override
-            ResolvedForm resolveForm(String formId, Locale locale) throws RepositoryException {
-                if (repository.form() == null) {
-                    throw new ItemNotFoundException(formId);
-                }
-                return repository.form();
             }
 
             @Override
@@ -249,7 +293,39 @@ class FieldActionServletTest {
 
         assertEquals(404, answer.status());
         assertEquals("FMDB-004", answer.body().getString("errorCode"));
+        assertEquals(1, unreadable.visitorReads().get(), "the form is read in the visitor's session, not a system one");
         assertEquals(0, unreadable.walks().get());
+        assertEquals(0, calls.get());
+    }
+
+    @Test
+    void theFormIsReadInTheVisitorsSessionAndNowhereElse() throws Exception {
+        // Verifies the session the form is resolved in, which is the whole of finding 2 and what no other test here
+        // can see: the servlet is built with a system-session repository of null and a visitor session that counts
+        // its openings. A pre-check that reads the form through the system session — what this branch used to do —
+        // opens the visitor's session zero times and fails on the null repository instead of answering 200.
+        Repository repository = Repository.publicForm(emailActions(Trigger.BLUR));
+        FieldActionServlet servlet = servlet(runtime(settings(30, 512), dispatcher(FieldActionResult.accept(), new AtomicInteger())), true, true, repository);
+
+        assertEquals(200, post(servlet, request(FORM_ID, body("email", "a@b.c", null), "10.0.0.1")).status());
+
+        assertEquals(1, repository.visitorReads().get());
+    }
+
+    @Test
+    void anIdentifierThatIsNotAFormAnswersLikeOneThatDoesNotExist() throws Exception {
+        // Verifies the guard inside the real resolveForm: a UUID the visitor can read but that points at something
+        // else — a page, a folder, another module's content — answers FMDB-004, the same as a missing form, so the
+        // endpoint never confirms what an identifier points at. Its fields are never walked.
+        Repository notAForm = Repository.notAForm();
+        AtomicInteger calls = new AtomicInteger();
+        FieldActionServlet servlet = servlet(runtime(settings(30, 512), dispatcher(FieldActionResult.reject("x"), calls)), true, true, notAForm);
+
+        Answer answer = post(servlet, request(FORM_ID, body("email", "a@b.c", null), "10.0.0.1"));
+
+        assertEquals(404, answer.status());
+        assertEquals("FMDB-004", answer.body().getString("errorCode"));
+        assertEquals(0, notAForm.walks().get());
         assertEquals(0, calls.get());
     }
 

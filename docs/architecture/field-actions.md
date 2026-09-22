@@ -154,8 +154,15 @@ names the concrete type: it reaches it through the markers.
 // or a hidden.execute view bound to it judges the value. The four feedback settings arrive through
 // `extends`, unasked.
 [myco:crmLookupAction] > jnt:content, fmdbmix:fieldAction, mix:title
+ - jcr:title (string) = resourceBundle('myco_crmLookupAction') autocreated i18n
  - providerId (string, choicelist[formidableFieldActionProviders]) mandatory indexed=no
 ```
+
+The `jcr:title` line is what fills the action's title with the type's own label when a contributor
+creates one, as every built-in form action does — without it the card and the content tree show a bare
+system name. The **icon** comes free: a type that names no icon of its own falls back to a supertype's,
+and the engine ships `icons/fmdbmix_fieldAction.png` for the marker, so a third-party type is drawn
+like the built-ins until it ships `icons/myco_crmLookupAction.png`.
 
 The samples module ships one: `fmdbsample:blockedWordsAction` (a `words` list, a value containing one is
 refused), implemented by `BlockedWordsFieldAction` in Java — the shape to copy.
@@ -208,7 +215,12 @@ jahiaComponent(
   locale}` the engine sets before rendering; absent on a direct hit of the view through the render servlet,
   which is why the view answers nothing then. The value never travels in a URL.
 - **Output**: the view's body is one JSON object `{"verdict": "accept" | "reject" | "unavailable",
-  "detail"?: string}` **and nothing else** — the output, trimmed, must be exactly that object. Nothing
+  "detail"?: string}` **and nothing else** — the output, trimmed, must be exactly that object, once the
+  platform's own wrapping is off it. Jahia's `URLFilter` applies on a `module` configuration and wraps every
+  fragment in `<!-- jahia:temp value="URLParserStart…" -->` markers; `StaticAssetsFilter`, which removes them
+  again, does not run on that configuration, so `RenderServiceViewRenderer` strips them with the platform's
+  own pattern before the reader sees the body. Without that step the strict reader would answer UNAVAILABLE
+  for **every** JavaScript-written action, which the CND default then accepts. Nothing
   before it, nothing after it: not a comment, not a debug line, never the candidate value. A reader that
   took the widest span between braces would let a view echoing the value hand the parser a string the
   visitor partly controls, and one `{` in the value would then retire the check, silently, onto the
@@ -233,11 +245,17 @@ the blur actions, a submit runs them all) and the pipeline's `blockingOnly` rule
 its say at the pre-check) decide whether an action runs; a Java `FieldAction` registered for the node
 type is executed, failing that the view is rendered and its verdict parsed. `ACCEPT` moves on. `REJECT`
 becomes one `FieldActionMessage` — level `error` when the action blocks, `warning` otherwise; the
-contributor's `rejectionMessage` in the visitor's locale, `${value}` and the other submitted values
-interpolated through `TemplateInterpolator` with `FieldEscaper.html`, the rich text itself trusted as the
-form's responses are; the field name, and — for the logs and the tests only, never in a response — the
-action's id and type. It ends the run when the action blocks, since the first blocking refusal wins.
-`UNAVAILABLE` is what the contributor's `whenUnavailable` says.
+contributor's `rejectionMessage` in the visitor's locale, `${value}` interpolated through
+`TemplateInterpolator` with `FieldEscaper.html`, the rich text itself trusted as the form's responses are;
+the field name, and — for the logs and the tests only, never in a response — the action's id and type. It
+ends the run when the action blocks, since the first blocking refusal wins. `UNAVAILABLE` is what the
+contributor's `whenUnavailable` says, and **its `detail` reaches DEBUG only**: that string is the action's
+or the view's own words — a provider's answer, an exception message — and may quote what the visitor typed.
+
+**`${value}` is the only name a rejection message may use**, and it is the only one the editor's help text
+offers. The browser asks about one field at a time, so the other fields' values are not there at the
+pre-check: interpolating them at submission only would render one message two ways, complete once and full
+of holes the other time. Both entry points pass the same thing, and any other name resolves to nothing.
 
 The **verdict cache** (`VerdictCache`) keeps `ACCEPT` and `REJECT` per action id, **locale** and trimmed
 value for `fieldActionVerdictCacheTtlSeconds`, bounded at ten thousand entries; `UNAVAILABLE` is a
@@ -299,7 +317,12 @@ actions (`FormFieldMetadataCollector.Result.fieldActions`, read in the same walk
 the repository is read once), whose submitted value is not blank and that the logic evaluator does not
 hold hidden, the dispatcher runs the **blocking** actions with every trigger — on **every non-blank value**
 of the field, in order, since every one of them is stored and sent on (a checkbox group, or two fields
-sharing a name, which the pipeline accumulates under one name). The first refusal is
+sharing a name, which the pipeline accumulates under one name), **up to `fieldActionMaxValuesPerField`**.
+A field name can be submitted any number of times — the parser appends one entry per part and only the
+request size bounds them — and each value may cost a provider call, with distinct values missing the verdict
+cache every time and evicting the entries of legitimate visitors. Past the cap the submission is refused
+whole, `FMDB-003`, before any action runs: a truncation would leave a submission half-checked and say
+nothing. The first refusal is
 `SubmissionException(FMDB_015, 422)` carrying the messages, which the servlet writes in a `messages`
 array next to `errorCode`, so the browser anchors them on the field exactly as the pre-check did.
 `messages` joins the servlet's reserved keys: an enricher cannot take it. Warning actions do not run here:
@@ -325,6 +348,7 @@ fieldActionHttpRequestTimeoutSeconds=10
 fieldActionVerdictCacheTtlSeconds=300      # 0 disables the cache
 fieldActionRateLimitPerMinute=30           # 0 disables the endpoint
 fieldActionMaxValueLength=512
+fieldActionMaxValuesPerField=20            # values of ONE field judged at submission
 ```
 
 `FormidableConfigService` parses them (`FieldActionProvider`, whose `toString` masks the credential;
@@ -351,8 +375,10 @@ characters, and never puts the credential in a log line or in the object it retu
   repository stores a provider *id*.
 - **SSRF**: the gateway only ever calls the configured base URLs; the path is relative-only, on the same
   host and scheme.
-- **Abuse of a paid API**: rate limit per client, verdict cache, blocking actions only in the pipeline,
-  `0` to switch the endpoint off.
+- **Abuse of a paid API**: rate limit per client on the pre-check, a cap on the values judged per field at
+  submission (`fieldActionMaxValuesPerField`, `FMDB-003` past it), verdict cache, blocking actions only in
+  the pipeline, `0` to switch the endpoint off. The submission path needs its own bound because it judges
+  every value of a field, and nothing else limits how many values one field name may carry.
 - **Information disclosure**: the visitor gets the contributor's message and a verdict, never the provider's
   response, the action node's identifier or its node type; `detail` stays in the logs. The candidate value
   is never in a URL, nor in a log line at INFO — a view's output, which may echo it in breach of the
@@ -392,6 +418,9 @@ call per blocking action and non-blank value never pre-checked.
 | 2026-09-22 | **The endpoint reads the form as the pipeline does** — visitor session, `FMDB-004` for what the caller cannot read, `FMDB-009` for a guest on a members-only form (review of #344) | The first cut resolved the form in a system session, so any published form on the platform, members-only pages included, had its actions runnable by anyone holding the public fid; and no authentication check existed while the pipeline had one. The pipeline's posture, step for step, is the only defensible one |
 | 2026-09-22 | **The view's output is exactly one JSON object** — no tolerance for surrounding markup (review of #344) | The lenient reader took the widest span between braces: a view echoing the value let a `{` in the value make the output unparseable, hence unavailable, hence accepted by the CND default. Strict parsing fails on every value, deterministically, where the author sees it |
 | 2026-09-22 | **Every non-blank value is judged; the locale is in the cache key; the response names no action node** (review of #344) | The authority must cover what is stored: all values, not the first. A cached accept in one locale must not answer another, since the locale is part of the request. A node UUID and a vendor namespace in the response disclose the checks behind a form the caller may not read |
+| 2026-09-22 | **The rendered view's body is stripped of the platform's `jahia:temp` markers** before the strict reader sees it (review of #344) | `URLFilter` wraps a `module`-configuration fragment and `StaticAssetsFilter`, which unwraps it, does not run there. The lenient reader survived it by accident; the strict one would have answered UNAVAILABLE for every JavaScript action, accepted by the CND default. The pattern is copied from `StaticAssetsFilter` rather than the class called: that class drags the rendering stack into the tests for one regular expression |
+| 2026-09-22 | **A rejection message interpolates `${value}` and nothing else** (review of #344) | The pre-check knows one field, the submission knows them all; interpolating the others would render the same message complete at submission and full of holes at blur. One contract for both, enforced by the code rather than by advice |
+| 2026-09-22 | **The values judged per field are capped** (`fieldActionMaxValuesPerField`, default 20; review of #344) | "Every value is judged" turned one submission into one provider call per value, and nothing bounds how many values a field name carries. Distinct values miss the verdict cache and evict everyone else's. The submission is refused whole rather than truncated |
 | 2026-09-22 | **`fmdbmix:fieldActions` drops the `jmix:dynamicFieldset` supertype** (found on the local instance: the switch was nowhere in the Content Editor) | `jmix:dynamicFieldset` extends `jmix:templateMixin`, which the editor reads as "no enable switch"; with no property of its own the fieldset was then not rendered at all, so the feature had no way in. `extends = fmdbmix:formElement` alone makes it dynamic AND switchable. Measured on `forms.editForm`: `visible: false, hasEnableSwitch: false` before, both true after |
 | 2026-09-22 | **The walk of the form is cached per form and locale for sixty seconds**, not keyed off the form's `jcr:lastModified` (review of #344) | A change to an action or a field touches that node's `jcr:lastModified`, not the form root's: the core `LastModifiedListener` writes the first node up the hierarchy that carries `mix:lastModified`, which a `jnt:content` action node is itself (jahia-impl 8.2.4 sources, `updateLastModifiedProperties`), so the root's date would serve stale actions after a republish. A short TTL is exact within the minute and needs no invalidation; the pipeline walks fresh every time |
 

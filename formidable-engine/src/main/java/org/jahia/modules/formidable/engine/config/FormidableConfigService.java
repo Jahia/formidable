@@ -106,7 +106,8 @@ public class FormidableConfigService {
             HttpClient httpClient,
             Duration verdictCacheTtl,
             int rateLimitPerMinute,
-            int maxValueLength
+            int maxValueLength,
+            int maxValuesPerField
     ) {}
 
     private record ConfigSnapshot(
@@ -429,6 +430,9 @@ public class FormidableConfigService {
                 .build();
         Duration verdictCacheTtl = Duration.ofSeconds(Math.max(0L, osgiConfig.fieldActionVerdictCacheTtlSeconds()));
         int rateLimitPerMinute = Math.max(0, osgiConfig.fieldActionRateLimitPerMinute());
+        int maxValuesPerField = osgiConfig.fieldActionMaxValuesPerField() > 0
+                ? osgiConfig.fieldActionMaxValuesPerField()
+                : FormidableConfig.DEFAULT_FIELD_ACTION_MAX_VALUES_PER_FIELD;
         int maxValueLength = osgiConfig.fieldActionMaxValueLength() > 0
                 ? osgiConfig.fieldActionMaxValueLength()
                 : FormidableConfig.DEFAULT_FIELD_ACTION_MAX_VALUE_LENGTH;
@@ -439,7 +443,8 @@ public class FormidableConfigService {
                 httpClient,
                 verdictCacheTtl,
                 rateLimitPerMinute,
-                maxValueLength
+                maxValueLength,
+                maxValuesPerField
         );
     }
 

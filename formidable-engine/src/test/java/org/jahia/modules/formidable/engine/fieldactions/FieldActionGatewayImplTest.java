@@ -47,7 +47,7 @@ class FieldActionGatewayImplTest {
         // Verifies the id lookup: a node naming a provider the administrator never declared gets an
         // IllegalArgumentException, which the dispatcher reads as unavailable — no request leaves.
         FieldActionSettings settings = new FieldActionSettings(Map.of(), Duration.ofSeconds(5), Duration.ofSeconds(10),
-                HttpClient.newHttpClient(), Duration.ZERO, 30, 512);
+                HttpClient.newHttpClient(), Duration.ZERO, 30, 512, 20);
         FieldActionGatewayImpl gateway = new FieldActionGatewayImpl(() -> settings);
 
         assertThrows(IllegalArgumentException.class, () -> gateway.post("nobody", "x", "{}"));

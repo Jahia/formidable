@@ -10,6 +10,7 @@ import org.jahia.services.render.Resource;
 import org.json.JSONObject;
 
 import javax.jcr.RepositoryException;
+import java.util.regex.Pattern;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -21,6 +22,13 @@ import javax.servlet.http.HttpServletResponse;
  * how the engine talks to the JavaScript views — and the view answers a small JSON body. Both the view's own
  * {@code cache.expiration=0} and the {@code expiration} attribute set here keep a verdict about one value out of
  * the fragment cache, where it would answer every visitor with the first one's result.
+ *
+ * <p>What the chain adds around that body is removed here: the platform's {@code URLFilter} wraps every fragment
+ * it handles in {@code <!-- jahia:temp value="URLParserStart…" -->} markers, and the filter that normally takes
+ * them out again ({@code StaticAssetsFilter}) does not run on a {@code module} configuration. The dispatcher's
+ * reader requires the whole body to be one JSON object, so those two comments alone would make every
+ * JavaScript-written field action unavailable. They are stripped here with the pattern the platform strips them
+ * with elsewhere; anything else around the object stays, and is the view's contract violation to fix.</p>
  */
 final class RenderServiceViewRenderer implements ViewRenderer {
 
@@ -29,6 +37,12 @@ final class RenderServiceViewRenderer implements ViewRenderer {
     /** The request attribute carrying the {@link FieldActionRequest} as JSON while the view renders. */
     static final String REQUEST_ATTRIBUTE = "formidable.fieldAction";
     private static final String EXPIRATION_ATTRIBUTE = "expiration";
+    /**
+     * The comments Jahia's {@code URLFilter} wraps a fragment in, as the platform's own cleanup matches them:
+     * {@code StaticAssetsFilter.CLEANUP_REGEXP = Pattern.compile("<!-- jahia:temp [^>]*-->")} (jahia-impl 8.2.4).
+     * Copied rather than called: that filter pulls half the rendering stack in with it, for one regular expression.
+     */
+    private static final Pattern TEMP_TAG = Pattern.compile("<!-- jahia:temp [^>]*-->");
 
     @Override
     public String render(JCRNodeWrapper actionNode, FieldActionRequest request, HttpServletRequest req, HttpServletResponse resp)
@@ -47,11 +61,16 @@ final class RenderServiceViewRenderer implements ViewRenderer {
             context.setWorkspace(actionNode.getSession().getWorkspace().getName());
             context.setMainResource(resource);
             context.setServletPath("/cms/render");
-            return RenderService.getInstance().render(resource, context);
+            return body(RenderService.getInstance().render(resource, context));
         } finally {
             restore(req, REQUEST_ATTRIBUTE, previousPayload);
             restore(req, EXPIRATION_ATTRIBUTE, previousExpiration);
         }
+    }
+
+    /** The view's body: what the render chain produced, without the platform's own temp markers. */
+    static String body(String rendered) {
+        return rendered == null ? null : TEMP_TAG.matcher(rendered).replaceAll("").trim();
     }
 
     static JSONObject payload(FieldActionRequest request) {
