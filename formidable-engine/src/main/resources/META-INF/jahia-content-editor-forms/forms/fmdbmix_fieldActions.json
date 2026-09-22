@@ -1,0 +1,22 @@
+{
+	"nodeType": "fmdbmix:fieldActions",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "fieldActions",
+			"labelKey": "fmdb.section.fieldActions",
+			"rank": 1.20,
+			"fieldSets": [
+				{
+					"name": "fmdbmix:fieldActions",
+					"rank": 0.0,
+					"fields": [
+						{
+							"name": "actions"
+						}
+					]
+				}
+			]
+		}
+	]
+}
