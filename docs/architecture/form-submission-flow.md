@@ -59,6 +59,11 @@ Browser
                                           conditional-logic-field-resolution.md)
          Step 11  validateRequired        post-parse: check required fields absent from the
                                           submitted body (e.g. unchecked checkbox/radio)
+         Step 11b runFieldActions         the BLOCKING field actions of the answered, visible fields run
+                                          again server-side, on every non-blank value, in list order, on
+                                          the shared verdict cache;
+                                          the first refusal → FMDB-015 with messages[] anchored on the
+                                          field (see field-actions.md)
          Step 12  dispatchActions         execute fmdb:actionList nodes in order
                    ├─ fmdb:save2jcrAction:
                    │    - stores the submission under the site's formidable-results
@@ -87,7 +92,7 @@ Once every action succeeded, the servlet asks the `SubmissionResponseEnricher` O
 `AcceptedSubmission` — the live form node, its site key, the locale and a snapshot of the validated
 parameters (declared, non-file fields) — and answers a map of top-level keys. An enricher never
 fails a submission: an exception is logged and its entries left out; the keys the servlet writes
-(`success`, `errorCode`, `actionsCompleted`, `actionsTotal`) cannot be overwritten; a rejected
+(`success`, `errorCode`, `actionsCompleted`, `actionsTotal`, `messages`) cannot be overwritten; a rejected
 submission is never enriched. The jExperience module contributes its `jexperience` block this way.
 See [How to enrich the submission response](../extension/how-to-enrich-the-submission-response.md).
 
@@ -292,6 +297,20 @@ by escaping for the target context, not by mutating input during parsing.
 - `VALIDATION` -> `FMDB-010`
 - `TECHNICAL` -> `FMDB-007`
 - `CONFIGURATION` -> `FMDB-500`
+
+---
+
+## Field actions (step 11b)
+
+A field may carry actions of its own — checks of its value against something the browser cannot know,
+an external provider or a business rule ([Field actions](field-actions.md)). The browser asks for them
+while the form is being filled (`/modules/formidable-engine/field-action`); the pipeline runs the
+**blocking** ones again here, after `validateRequired` and before any form action, on every non-blank
+value of the fields the visitor answered and the logic shows. The dispatcher is the same as the endpoint's,
+the verdict cache too,
+so the honest browser's second run costs no second provider call. The first refusal ends the submission
+with `FMDB-015` and a `messages` array the browser anchors on the field; `messages` is a key of the
+servlet, reserved from the response enrichers like `success` and `errorCode`.
 
 ---
 
@@ -542,12 +561,12 @@ the same-origin `formidable-submit` Security Filter is the CSRF control for this
 | `src/hooks/useFormSubmission.ts` | `handleSubmit` — removes the CAPTCHA widget field from `FormData`, sets `X-Formidable-Captcha-Token`, POSTs via XHR |
 | `src/components/Form/default.server.tsx` | Builds `submitActionUrl` with `fid` and `lang` query params |
 | `formidable-engine/.../servlet/FormSubmitServlet.java` | OSGi entry point — checks `formidable-submit` permission, then delegates to `FormSubmissionPipeline` |
-| `formidable-engine/.../servlet/FormSubmissionPipeline.java` | 12-step pipeline — all submission logic |
+| `formidable-engine/.../servlet/FormSubmissionPipeline.java` | The pipeline, steps 1 to 12 plus 11b (field actions) — all submission logic |
 | `formidable-engine/.../servlet/ErrorCode.java` | Error code enum — see `docs/administration/error-codes.md` |
-| `formidable-engine/.../actions/FormDataParser.java` | Secure multipart parser: whitelist, input validation, Tika, allowlist, size + count limits |
-| `formidable-engine/.../actions/FieldEscaper.java` | Output escaping utility: `html`, `headerSafe`, `plainText` |
-| `formidable-engine/.../actions/forward/ForwardSubmissionFormAction.java` | Resolves `targetId` via `FormidableConfigService`; forwards declared fields only |
-| `formidable-engine/.../actions/email/SendEmailNotificationFormAction.java` | Sends notification email; headers normalized with `headerSafe()`; HTML body escapes values with `html()` |
-| `formidable-engine/.../actions/email/SendEmailContentFormAction.java` | Sends the submitted form content by email; can optionally attach validated uploaded files, capped by action-level and global upload limits |
+| `formidable-engine/.../servlet/FormDataParser.java` | Secure multipart parser: whitelist, input validation, Tika, allowlist, size + count limits |
+| `formidable-engine/.../actions/common/FieldEscaper.java` | Output escaping utility: `html`, `headerSafe`, `plainText` |
+| `formidable-engine/.../actions/form/forward/ForwardSubmissionFormAction.java` | Resolves `targetId` via `FormidableConfigService`; forwards declared fields only |
+| `formidable-engine/.../actions/form/email/SendEmailNotificationFormAction.java` | Sends notification email; headers normalized with `headerSafe()`; HTML body escapes values with `html()` |
+| `formidable-engine/.../actions/form/email/SendEmailContentFormAction.java` | Sends the submitted form content by email; can optionally attach validated uploaded files, capped by action-level and global upload limits |
 | `formidable-engine/.../api/FormAction.java` | Interface implemented by each action type |
 | `formidable-engine/.../config/FormidableConfigService.java` | Reads unified cfg; resolves forward targets by ID; verifies CAPTCHA

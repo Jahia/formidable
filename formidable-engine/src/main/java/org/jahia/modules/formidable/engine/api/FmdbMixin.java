@@ -21,6 +21,10 @@ public final class FmdbMixin {
     // Actions
     public static final String FORM_ACTION = "fmdbmix:formAction";
     public static final String READ_ONLY_COMPATIBLE_ACTION = "fmdbmix:readOnlyCompatibleAction";
+    // Field actions: the marker a field-action type takes, the settings attached to it, the switch on a field
+    public static final String FIELD_ACTION = "fmdbmix:fieldAction";
+    public static final String FIELD_ACTION_FEEDBACK = "fmdbmix:fieldActionFeedback";
+    public static final String FIELD_ACTIONS = "fmdbmix:fieldActions";
 
     // Form tree: the root, what carries logic, what contains, what submits
     public static final String FORM_ROOT = "fmdbmix:formRoot";

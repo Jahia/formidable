@@ -139,5 +139,5 @@ formidable-results/ (fmdb:resultsFolder, jmix:accessControlled)
 | `formidable-engine/.../permissions/FormResultsRoleInitializer.java` | Creates the `fmdb-results-reader` role under `/roles/reader/` at module activation |
 | `formidable-engine/.../permissions/FormResultsAclSyncService.java` | Idempotent ACL sync (reads source ACEs, writes target ACEs, enforces `j:inherit = false`) |
 | `formidable-engine/.../permissions/FormPublicationAclSyncListener.java` | Live workspace listener for form publication and ACE changes |
-| `formidable-engine/.../actions/storage/SaveToJcrFormAction.java` | Calls ACL sync when creating a new `formResults` node, sets `j:inherit = false` |
+| `formidable-engine/.../actions/form/storage/SaveToJcrFormAction.java` | Calls ACL sync when creating a new `formResults` node, sets `j:inherit = false` |
 | `formidable-engine/src/main/resources/META-INF/definitions.cnd` | `fmdb:formResults` declared with `jmix:accessControlled` |

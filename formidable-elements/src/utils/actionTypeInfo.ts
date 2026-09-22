@@ -16,7 +16,7 @@ export interface ActionTypeInfo {
 	iconUrl?: string;
 }
 
-const ACTION_SUMMARY_SERVICE = "org.jahia.modules.formidable.engine.actions.ActionSummaryService";
+const ACTION_SUMMARY_SERVICE = "org.jahia.modules.formidable.engine.actions.common.ActionSummaryService";
 
 // The engine's service, reached over OSGi; its records come back with accessor methods.
 interface ActionSummaryServiceLike {

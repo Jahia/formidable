@@ -38,6 +38,18 @@ public final class FmdbProperty {
     /** On a results node, the weakreference to the form whose submissions it holds. */
     public static final String PARENT_FORM = "parentForm";
 
+    /** A field action's message to the visitor when it refuses the value ({@code fmdbmix:fieldActionFeedback}, i18n, {@code ${value}} interpolated). */
+    public static final String REJECTION_MESSAGE = "rejectionMessage";
+
+    /** When a field action runs from the browser: {@code blur} or {@code submit} ({@code fmdbmix:fieldActionFeedback}). */
+    public static final String TRIGGER = "trigger";
+
+    /** What a field action's refusal does: {@code block} the submission or {@code warn} ({@code fmdbmix:fieldActionFeedback}). */
+    public static final String SEVERITY = "severity";
+
+    /** What an unanswered field action means: {@code accept} or {@code reject} the value ({@code fmdbmix:fieldActionFeedback}). */
+    public static final String WHEN_UNAVAILABLE = "whenUnavailable";
+
     private FmdbProperty() {
     }
 }

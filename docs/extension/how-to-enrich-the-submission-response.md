@@ -82,8 +82,8 @@ Files never reach an enricher: they belong to the actions.
 
 ## Step 4: Respect the rules of the body
 
-- **Keys are top-level.** Name yours after your module. `success`, `errorCode`, `actionsCompleted`
-  and `actionsTotal` belong to the servlet: an enricher writing one of them is logged and that key
+- **Keys are top-level.** Name yours after your module. `success`, `errorCode`, `actionsCompleted`,
+  `actionsTotal` and `messages` belong to the servlet: an enricher writing one of them is logged and that key
   ignored, the rest of its entries kept. A key **another enricher already wrote** is refused the same
   way, the first writer keeping it — which is what makes naming the key after your module a
   requirement rather than a convention: a collision costs the second module its block, silently

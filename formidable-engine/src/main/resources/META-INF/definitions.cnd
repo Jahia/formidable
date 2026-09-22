@@ -86,6 +86,47 @@ orderable
 // maintenance windows. Worst case an unaffected form is over-blocked; a submission is
 // never lost to a mid-pipeline repository rejection.
 [fmdbmix:readOnlyCompatibleAction] mixin
+
+// --- Field actions (docs/architecture/field-actions.md) ---
+
+// Marker: what the node IS. A field action the engine runs against ONE field's candidate value,
+// at the visitor's request while the form is being filled and again when the submission is
+// parsed, before any form action runs. Concrete field-action types take it as a supertype,
+// whatever module declares them, exactly as action types take fmdbmix:formAction. A field
+// action answers a verdict; it never writes.
+[fmdbmix:fieldAction] mixin
+
+// What the contributor sets on every field action, whatever its type — attached through the
+// marker with `extends`, the way the options fieldsets extend fmdbmix:optionsSource, so a
+// third-party type gets it with nothing to opt into: the message the visitor reads when the
+// value is refused (${value} interpolation, escaped server-side), when to ask (blur for a cheap
+// check, submit for a paid one), whether a refusal blocks the submission or only warns, and what
+// an unanswered check means (accept — a provider outage never blocks visitors — or reject, for a
+// form that must not pass unchecked). The engine reads all four, hence owns the mixin and its
+// Content Editor override. A node saved outside the editor may lack the mixin: the engine then
+// uses the defaults.
+[fmdbmix:fieldActionFeedback] > jmix:templateMixin mixin
+ extends = fmdbmix:fieldAction
+ - rejectionMessage (string, richtext[ckeditor.toolbar='FormidableHelp',ckeditor.customConfig='$context/modules/formidable-engine/javascript/ckeditor/helpTextConfig.js']) = resourceBundle('fmdbmix_fieldActionFeedback.rejectionMessage.default') autocreated i18n indexed=no
+ - trigger (string, choicelist[resourceBundle]) = 'blur' autocreated indexed=no < 'blur', 'submit'
+ - severity (string, choicelist[resourceBundle]) = 'block' autocreated indexed=no < 'block', 'warn'
+ - whenUnavailable (string, choicelist[resourceBundle]) = 'accept' autocreated indexed=no < 'accept', 'reject'
+
+// The per-field list, fmdb:actionList in miniature. Orderable: the first blocking refusal wins,
+// so the contributor puts the cheap check before the paid one.
+[fmdb:fieldActionList] > jnt:content, jmix:list, mix:title, jmix:systemNameReadonly
+ orderable
+ - jcr:title (string) = resourceBundle('fmdb_fieldActionList') autocreated i18n
+ + * (fmdbmix:fieldAction) = fmdbmix:fieldAction version
+
+// The switch in the field's own editor, offered on every submit-capable field type through the marker,
+// third-party included. On, it adds the mixin, which autocreates the list; off, it removes both.
+// No `> jmix:dynamicFieldset`: that supertype extends jmix:templateMixin, which the Content Editor
+// renders without an enable switch, and a fieldset with no switch and no property of its own is not
+// rendered at all. `extends` alone makes it dynamic. See docs/architecture/field-actions.md.
+[fmdbmix:fieldActions] mixin
+ extends = fmdbmix:formElement
+ + actions (fmdb:fieldActionList) = fmdb:fieldActionList autocreated
 // Options-source contract for choice fields: the base mixin carries the mode
 // switch, and each jmix:dynamicFieldset mixin carries the properties of one mode.
 // The Content Editor activates the fieldset matching the chosen mode through the
