@@ -362,12 +362,15 @@ only the request size limits them, so one submission could ask for thousands of 
 counted is the **distinct** values of a field, because that is what a call costs — the verdict cache keys on
 the trimmed value, so a hundred repeats of one answer are one call and a hundred different ones are a
 hundred. Past `fieldActionMaxValuesPerField` the submission is refused with `FMDB-017`, and the response
-carries a `messages` entry naming the field, so the page points at it rather than showing a bare code.
+carries a `messages` entry naming the field. **Nothing reads it yet**: the browser side is stage 2 of the
+roadmap, and until it ships the visitor sees the form's own error message with the code. The entry is what
+will let the page point at the field.
 The check runs over **the whole submission before any action runs**: were it inside the loop, the provider of
 whichever field the metadata happened to yield first would already have been called, and billed, for another
 field to cancel the submission a moment later. The first refusal is
 `SubmissionException(FMDB_015, 422)` carrying the messages, which the servlet writes in a `messages`
-array next to `errorCode`, so the browser anchors them on the field exactly as the pre-check did.
+array next to `errorCode`, which the browser will anchor on the field exactly as it will the pre-check's
+(stage 2; today the response carries the entry and no client reads it).
 `messages` joins the servlet's reserved keys: an enricher cannot take it. Warning actions do not run here:
 they warned.
 
@@ -521,7 +524,8 @@ call per blocking action and non-blank value never pre-checked.
   (`FieldActionProvider`, `FieldActionSettings`); `choicelist/FormidableFieldActionProvidersInitializer.java`;
   `META-INF/definitions.cnd`, `META-INF/configurations/org.jahia.modules.formidable.cfg`,
   `org.jahia.bundles.api.authorization-formidable-engine.yml`, `org.jahia.modules.jahiacsrfguard-formidable.cfg`.
-- `jahia-test-module/formidable-test-module-samples-java/…/actions/BlockedWordsFieldAction.java` and its CND.
+- `jahia-test-module/formidable-test-module-samples-java/…/actions/field/BlockedWordsFieldAction.java` and
+  `…/actions/field/EmailDeliverabilityFieldAction.java`, their CND, their labels and their icons.
 - [Form submission flow](form-submission-flow.md), [CND module ownership](cnd-module-ownership.md),
   [Custom validation](custom-validation.md), the extension guide's action case, issue #341.
 - Platform: `RenderService.render(Resource, RenderContext)`, `AggregateCacheFilter` (expiration lookup

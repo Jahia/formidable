@@ -9,13 +9,16 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.net.http.HttpClient;
+import java.io.InputStream;
 import java.time.Duration;
 import java.util.Dictionary;
 import java.util.Hashtable;
+import java.util.Properties;
 import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -30,6 +33,25 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class FormidableConfigServiceTest {
+
+    @Test
+    void theShippedConfigurationFileAgreesWithTheAnnotationsDefaults() throws Exception {
+        // Verifies the one thing two copies of a default cannot verify about each other: the .cfg an administrator
+        // reads and edits ships the same numbers as the annotation the code falls back on. They agree today, and a
+        // drift would be silent — the file would promise one bound and the engine apply another.
+        Properties shipped = new Properties();
+        try (InputStream in = FormidableConfig.class.getResourceAsStream("/META-INF/configurations/org.jahia.modules.formidable.cfg")) {
+            assertNotNull(in, "the module ships its configuration file");
+            shipped.load(in);
+        }
+
+        assertEquals(String.valueOf(FormidableConfig.DEFAULT_FIELD_ACTION_MAX_VALUES_PER_FIELD),
+                shipped.getProperty("fieldActionMaxValuesPerField"));
+        assertEquals(String.valueOf(FormidableConfig.DEFAULT_FIELD_ACTION_RATE_LIMIT_PER_MINUTE),
+                shipped.getProperty("fieldActionRateLimitPerMinute"));
+        assertEquals(String.valueOf(FormidableConfig.DEFAULT_FIELD_ACTION_MAX_VALUE_LENGTH),
+                shipped.getProperty("fieldActionMaxValueLength"));
+    }
 
     @Test
     void activateAcceptsValidHttpsForwardTarget() {

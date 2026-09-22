@@ -558,22 +558,21 @@ class FormSubmissionPipeline {
 
     /**
      * The bound on the work one submission may ask for. A field name can be submitted any number of times — the
-     * parser appends one entry per part and only the request size limits them — and each value to judge may cost a
-     * provider call. What is counted is the DISTINCT values, because that is what a call costs: the verdict cache
-     * keys on the trimmed value, so a hundred repeats of one answer are one call, and a hundred different ones are
-     * a hundred. Over the bound the submission is refused whole, before anything runs, and the response names the
-     * field so the page can point at it rather than show a bare code.
+     * parser appends one entry per part and only the request size limits them — and each answer to judge may cost a
+     * provider call. What is counted is the list about to be judged, repeats already removed, so the bound and the
+     * work can never be counted differently. Over it the submission is refused whole, before anything runs, and the
+     * response names the field, for the page that will show it — no client reads that entry yet.
      */
     private void verifyValueCount(Map<String, List<String>> judged) throws SubmissionException {
         int maxValues = config.getFieldActionSettings().maxValuesPerField();
         for (Map.Entry<String, List<String>> entry : judged.entrySet()) {
-            long distinct = entry.getValue().stream().map(String::trim).distinct().count();
-            if (distinct > maxValues) {
+            int answers = entry.getValue().size();
+            if (answers > maxValues) {
                 String fieldName = entry.getKey();
-                log.warn("[FormSubmissionPipeline] Field '{}' carries {} distinct values to judge, over the {} allowed.",
-                        fieldName, distinct, maxValues);
+                log.warn("[FormSubmissionPipeline] Field '{}' carries {} answers to judge, over the {} allowed.",
+                        fieldName, answers, maxValues);
                 throw new SubmissionException(ErrorCode.FMDB_017,
-                        "Field '" + fieldName + "' carries " + distinct + " distinct values to judge, over the "
+                        "Field '" + fieldName + "' carries " + answers + " answers to judge, over the "
                                 + maxValues + " allowed (fieldActionMaxValuesPerField).",
                         List.of(new FieldActionMessage(FieldActionMessage.Level.ERROR,
                                 FieldActionDispatcher.bundleText(TOO_MANY_VALUES_KEY, locale, TOO_MANY_VALUES_TEXT),
@@ -582,13 +581,25 @@ class FormSubmissionPipeline {
         }
     }
 
-    /** The field's non-blank submitted values in order — every one of them is judged; empty when the visitor left it unanswered. */
+    /**
+     * The values of the field this step judges: the non-blank ones, in order, with the repeats of one answer kept
+     * once. A repeat is work with no result — the verdict cache keys on the trimmed value, so a second run would
+     * answer the same — and this is the list the bound counts, so what is counted and what is done are one thing.
+     * Answers that differ only by their edges are one answer here, and the value handed to an action is the one
+     * the browser sent, not a trimmed copy of it.
+     */
     private List<String> answeredValues(String fieldName) {
         List<String> values = parsed.parameters().get(fieldName);
         if (values == null) {
             return List.of();
         }
-        return values.stream().filter(value -> value != null && !value.isBlank()).toList();
+        Map<String, String> firstOfEachAnswer = new LinkedHashMap<>();
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                firstOfEachAnswer.putIfAbsent(value.trim(), value);
+            }
+        }
+        return List.copyOf(firstOfEachAnswer.values());
     }
 
     private void dispatchActions(HttpServletRequest req) throws SubmissionException {

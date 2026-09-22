@@ -563,10 +563,10 @@ the same-origin `formidable-submit` Security Filter is the CSRF control for this
 | `formidable-engine/.../servlet/FormSubmitServlet.java` | OSGi entry point — checks `formidable-submit` permission, then delegates to `FormSubmissionPipeline` |
 | `formidable-engine/.../servlet/FormSubmissionPipeline.java` | The pipeline, steps 1 to 12 plus 11b (field actions) — all submission logic |
 | `formidable-engine/.../servlet/ErrorCode.java` | Error code enum — see `docs/administration/error-codes.md` |
-| `formidable-engine/.../actions/FormDataParser.java` | Secure multipart parser: whitelist, input validation, Tika, allowlist, size + count limits |
-| `formidable-engine/.../actions/FieldEscaper.java` | Output escaping utility: `html`, `headerSafe`, `plainText` |
-| `formidable-engine/.../actions/forward/ForwardSubmissionFormAction.java` | Resolves `targetId` via `FormidableConfigService`; forwards declared fields only |
-| `formidable-engine/.../actions/email/SendEmailNotificationFormAction.java` | Sends notification email; headers normalized with `headerSafe()`; HTML body escapes values with `html()` |
-| `formidable-engine/.../actions/email/SendEmailContentFormAction.java` | Sends the submitted form content by email; can optionally attach validated uploaded files, capped by action-level and global upload limits |
+| `formidable-engine/.../servlet/FormDataParser.java` | Secure multipart parser: whitelist, input validation, Tika, allowlist, size + count limits |
+| `formidable-engine/.../actions/common/FieldEscaper.java` | Output escaping utility: `html`, `headerSafe`, `plainText` |
+| `formidable-engine/.../actions/form/forward/ForwardSubmissionFormAction.java` | Resolves `targetId` via `FormidableConfigService`; forwards declared fields only |
+| `formidable-engine/.../actions/form/email/SendEmailNotificationFormAction.java` | Sends notification email; headers normalized with `headerSafe()`; HTML body escapes values with `html()` |
+| `formidable-engine/.../actions/form/email/SendEmailContentFormAction.java` | Sends the submitted form content by email; can optionally attach validated uploaded files, capped by action-level and global upload limits |
 | `formidable-engine/.../api/FormAction.java` | Interface implemented by each action type |
 | `formidable-engine/.../config/FormidableConfigService.java` | Reads unified cfg; resolves forward targets by ID; verifies CAPTCHA

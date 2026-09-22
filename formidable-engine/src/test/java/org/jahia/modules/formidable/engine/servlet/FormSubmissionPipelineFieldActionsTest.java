@@ -33,11 +33,13 @@ import java.nio.charset.StandardCharsets;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -61,8 +63,8 @@ class FormSubmissionPipelineFieldActionsTest {
         return dispatcher(result, calls, "We do not know ${value}");
     }
 
-    /** The same, with the contributor's text chosen by the test. */
-    private static FieldActionDispatcher dispatcher(FieldActionResult result, AtomicInteger calls, String message) throws Exception {
+    /** A repository whose every action node carries the given contributor message. */
+    private static Supplier<JCRTemplate> repository(String message) throws Exception {
         JCRNodeWrapper node = mock(JCRNodeWrapper.class);
         JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
         when(property.getString()).thenReturn(message);
@@ -73,6 +75,11 @@ class FormSubmissionPipelineFieldActionsTest {
         JCRTemplate template = mock(JCRTemplate.class);
         when(template.doExecuteWithSystemSessionAsUser(any(), any(), any(), any()))
                 .thenAnswer(call -> ((JCRCallback<?>) call.getArgument(3)).doInJCR(session));
+        return () -> template;
+    }
+
+    /** The same, with the contributor's text chosen by the test. */
+    private static FieldActionDispatcher dispatcher(FieldActionResult result, AtomicInteger calls, String message) throws Exception {
         FieldAction action = new FieldAction() {
             @Override
             public String getNodeType() {
@@ -85,7 +92,7 @@ class FormSubmissionPipelineFieldActionsTest {
                 return result;
             }
         };
-        return new FieldActionDispatcher(() -> List.of(action), new VerdictCache(), () -> Duration.ZERO, () -> template);
+        return new FieldActionDispatcher(() -> List.of(action), new VerdictCache(), () -> Duration.ZERO, repository(message));
     }
 
     /** The field-action settings the pipeline reads at step 11b; only the cap matters here. */
@@ -245,9 +252,7 @@ class FormSubmissionPipelineFieldActionsTest {
         assertEquals(422, error.httpStatus());
         assertEquals(1, error.messages().size());
         assertEquals("topics", error.messages().get(0).field());
-        // the engine bundle's own sentence, not the Java fallback: a missing key would show the latter
-        assertEquals("Too many answers were sent for this field to be checked. Please select fewer.",
-                error.messages().get(0).html());
+        assertFalse(error.messages().get(0).html().isBlank());
         assertEquals(0, calls.get(), "the values are refused, not judged one by one until the cap");
 
         AtomicInteger allowed = new AtomicInteger();
@@ -259,9 +264,11 @@ class FormSubmissionPipelineFieldActionsTest {
     }
 
     @Test
-    void repeatsOfOneAnswerCostNothingAgainstTheCap() throws Exception {
-        // Verifies what the cap counts: the same answer sent ten times is one verdict, since the cache keys on the
-        // trimmed value — counting the raw entries would refuse a submission that costs one provider call.
+    void oneAnswerSentManyTimesIsJudgedOnceAndCountedOnce() throws Exception {
+        // Verifies that the bound and the work are the same list. Counting the answers while running the raw values
+        // left a gap: with the verdict cache off, or against an action answering unavailable — which is never cached,
+        // and is what a provider being down produces — five repeats were five outbound calls while the count said
+        // one. The cache is off here (TTL zero), so the single call is the loop's doing, not the cache's.
         AtomicInteger calls = new AtomicInteger();
 
         runFieldActions(pipelineAtStep11b(dispatcher(FieldActionResult.accept(), calls),
@@ -269,7 +276,66 @@ class FormSubmissionPipelineFieldActionsTest {
                 Map.of("topics", List.of("same", "same", " same ", "same", "same")),
                 allVisible(), 2));
 
-        assertEquals(5, calls.get(), "the dispatcher is still asked once per value; the CAP is what counts distinct ones");
+        assertEquals(1, calls.get(), "one answer, one verdict, whatever the cache is doing");
+    }
+
+    @Test
+    void theRefusalIsWrittenInTheVisitorsLanguage() throws Exception {
+        // Verifies the bundle lookup, which only a non-English locale can show: the English text and the Java
+        // fallback are the same sentence, so asserting that one would pass with the key missing from the bundle.
+        AtomicInteger calls = new AtomicInteger();
+        FormSubmissionPipeline pipeline = pipelineAtStep11b(dispatcher(FieldActionResult.accept(), calls),
+                Map.of("topics", List.of(action("a1", Severity.BLOCK))),
+                Map.of("topics", List.of("one", "two", "three")),
+                allVisible(), 2);
+        set(pipeline, "locale", Locale.FRENCH);
+
+        SubmissionException error = assertThrows(SubmissionException.class, () -> runFieldActions(pipeline));
+
+        assertEquals("Trop de réponses ont été envoyées pour que ce champ soit vérifié. Veuillez en sélectionner moins.",
+                error.messages().get(0).html());
+    }
+
+    @Test
+    void anUncacheableVerdictIsNotAWayRoundTheBound() throws Exception {
+        // Verifies the hole this closes, at its size: an action that answers UNAVAILABLE is never cached, so before
+        // the fix a body repeating one value sailed under the bound and ran one outbound call per repeat. Sixty
+        // repeats against a cap of fifty: one call, no refusal.
+        AtomicInteger calls = new AtomicInteger();
+        List<String> sixtyRepeats = IntStream.range(0, 60).mapToObj(i -> "same").toList();
+
+        runFieldActions(pipelineAtStep11b(dispatcher(FieldActionResult.unavailable("provider down"), calls),
+                Map.of("topics", List.of(action("a1", Severity.BLOCK))),
+                Map.of("topics", sixtyRepeats),
+                allVisible(), 50));
+
+        assertEquals(1, calls.get());
+    }
+
+    @Test
+    void anActionIsHandedTheValueAsTheBrowserSentIt() throws Exception {
+        // Verifies what de-duplicating must not cost: answers are grouped by their trimmed form, but what an action
+        // judges is the value the browser sent — the pre-check hands it the same, and FieldActionRequest says so.
+        List<String> seen = new ArrayList<>();
+        FieldActionDispatcher recording = new FieldActionDispatcher(() -> List.of(new FieldAction() {
+            @Override
+            public String getNodeType() {
+                return TYPE;
+            }
+
+            @Override
+            public FieldActionResult execute(JCRNodeWrapper actionNode, FieldActionRequest request) {
+                seen.add(request.value());
+                return FieldActionResult.accept();
+            }
+        }), new VerdictCache(), () -> Duration.ZERO, repository("No"));
+
+        runFieldActions(pipelineAtStep11b(recording,
+                Map.of("topics", List.of(action("a1", Severity.BLOCK))),
+                Map.of("topics", List.of("  spaced  ", "spaced")),
+                allVisible()));
+
+        assertEquals(List.of("  spaced  "), seen);
     }
 
     @Test
