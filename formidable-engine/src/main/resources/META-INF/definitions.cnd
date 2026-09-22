@@ -127,15 +127,6 @@ orderable
 [fmdbmix:fieldActions] mixin
  extends = fmdbmix:formElement
  + actions (fmdb:fieldActionList) = fmdb:fieldActionList autocreated
-
-// The built-in field action: can the address's domain receive mail at all? It asks the domain name system for the
-// domain's mail exchangers, and failing those for its addresses — a domain with no MX but an A record still receives
-// mail (RFC 5321's implicit exchanger). A domain that does not exist, or that announces no way to receive mail, is
-// refused. It carries no setting of its own: the contributor's four reach it through fmdbmix:fieldActionFeedback,
-// and it needs no provider, no credential and no configuration — which is what makes it the one worth shipping.
-// It does NOT prove the mailbox exists; only a provider or a delivery can, and the help text says so.
-[fmdb:emailDeliverabilityAction] > jnt:content, fmdbmix:fieldAction, mix:title
- - jcr:title (string) = resourceBundle('fmdb_emailDeliverabilityAction') autocreated i18n
 // Options-source contract for choice fields: the base mixin carries the mode
 // switch, and each jmix:dynamicFieldset mixin carries the properties of one mode.
 // The Content Editor activates the fieldset matching the chosen mode through the

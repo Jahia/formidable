@@ -1,4 +1,4 @@
-package org.jahia.modules.formidable.engine.actions.field.builtin;
+package org.jahia.test.modules.formidable.samples.actions.field;
 
 import org.jahia.modules.formidable.engine.api.FieldAction;
 import org.jahia.modules.formidable.engine.api.FieldActionRequest;
@@ -43,7 +43,7 @@ import java.util.regex.Pattern;
 @Component(service = FieldAction.class)
 public class EmailDeliverabilityFieldAction implements FieldAction {
 
-    public static final String NODE_TYPE = "fmdb:emailDeliverabilityAction";
+    public static final String NODE_TYPE = "fmdbsample:emailDeliverabilityAction";
 
     /** What the longest legal domain name measures, so an absurd value is refused before any query. */
     static final int MAX_DOMAIN_LENGTH = 253;

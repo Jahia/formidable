@@ -175,12 +175,15 @@ The samples module ships one: `fmdbsample:blockedWordsAction` (a `words` list, a
 refused), implemented by `BlockedWordsFieldAction` in Java — the shape to copy. It is a sample: it is installed
 by the test provisioning manifest and reaches no product installation.
 
-### The one built-in — `fmdb:emailDeliverabilityAction`
+### The samples' second one — `fmdbsample:emailDeliverabilityAction`
 
-The engine ships exactly one concrete type, because exactly one check needs nothing to work: no provider, no
-credential, no account, no configuration. It asks the domain name system about the **domain** of the address —
-never the address, so the visitor's identity is not handed to a resolver — and it accepts as soon as a mail
-exchanger or an address record answers.
+**The engine ships no concrete field-action type at all.** It provides the mechanism — the markers, the list, the
+dispatcher, the endpoint, the gateway — and a project decides which checks its forms deserve. What the samples
+module ships is the shape to copy, and the second sample is the check a real project is most likely to want: does
+the domain of the address exist? It asks the domain name system about the **domain** — never the address, so the
+visitor's identity is not handed to a resolver — and it accepts as soon as a mail exchanger or an address record
+answers. It needs no provider, no credential, no account and no configuration, which is what makes it a good
+sample: it runs out of the box, in the playground and in the test suite.
 
 **It refuses one thing only: a domain the resolver says does not exist.** That is the mistyped domain, which is
 the case worth catching and the one that can be proved. Anything else is an unavailable check, which the
@@ -195,6 +198,9 @@ instance rather than assumed:
 
 What it does not do is prove the mailbox exists, or even that the domain accepts mail. The help text says so,
 and that is what a provider behind `FieldActionGateway` is for.
+
+It carries one unit test in the samples module, which is the other half of what a module copying it inherits:
+the seam is the lookup itself, so its rules are tested without a test of the network.
 
 ## Execution
 
@@ -459,6 +465,7 @@ call per blocking action and non-blank value never pre-checked.
 | 2026-09-22 | **The endpoint reads the form as the pipeline does** — visitor session, `FMDB-004` for what the caller cannot read, `FMDB-009` for a guest on a members-only form (review of #344) | The first cut resolved the form in a system session, so any published form on the platform, members-only pages included, had its actions runnable by anyone holding the public fid; and no authentication check existed while the pipeline had one. The pipeline's posture, step for step, is the only defensible one |
 | 2026-09-22 | **The view's output is exactly one JSON object** — no tolerance for surrounding markup (review of #344) | The lenient reader took the widest span between braces: a view echoing the value let a `{` in the value make the output unparseable, hence unavailable, hence accepted by the CND default. Strict parsing fails on every value, deterministically, where the author sees it |
 | 2026-09-22 | **Every non-blank value is judged; the locale is in the cache key; the response names no action node** (review of #344) | The authority must cover what is stored: all values, not the first. A cached accept in one locale must not answer another, since the locale is part of the request. A node UUID and a vendor namespace in the response disclose the checks behind a form the caller may not read |
+| 2026-09-22 | **The engine ships no concrete field-action type** (HDU: « je préfère l'avoir en sample et ne pas fournir d'action field par défaut ») | The email domain check was written as a built-in of the engine and moved to the samples module before it shipped. The engine owns the mechanism; which checks a form deserves is a project's decision, and a built-in would have made one for every installation. The samples module is where a third party reads the shape to copy, and it is installed by the test provisioning manifest only |
 | 2026-09-22 | **An action judges one value per call**, a multi-valued field one value at a time (HDU, asked whether the values should arrive as an array) | They already are an array where they are parsed; what carries one value is what an action receives. Three reasons to keep it: the pre-check has only one value to offer, since the browser asks while the visitor fills the form and not once it is complete; the verdict cache is keyed by value, which is what lets it be shared between the two entry points and between visitors, where a whole-set key would share nothing; and a third-party action stays "one value in, one verdict out", the same code serving a text field and a group of checkboxes. The cost is one provider call per value, which `fieldActionMaxValuesPerField` bounds |
 | 2026-09-22 | **The rendered view's body is stripped of the platform's `jahia:temp` markers** before the strict reader sees it (review of #344) | `URLFilter` wraps a `module`-configuration fragment and `StaticAssetsFilter`, which unwraps it, does not run there. The lenient reader survived it by accident; the strict one would have answered UNAVAILABLE for every JavaScript action, accepted by the CND default. The pattern is copied from `StaticAssetsFilter` rather than the class called: that class drags the rendering stack into the tests for one regular expression |
 | 2026-09-22 | **A rejection message interpolates `${value}` and nothing else** (review of #344) | The pre-check knows one field, the submission knows them all; interpolating the others would render the same message complete at submission and full of holes at blur. One contract for both, enforced by the code rather than by advice |
@@ -499,9 +506,9 @@ call per blocking action and non-blank value never pre-checked.
    `fmdb-form-warning` and `fmdb-field-action-pending` in `docs/styling/`.
 4. **Samples and the JavaScript path** — a sample action written as a `hidden.execute` view, which is the only
    thing that will exercise the render chain end to end (the wrapping the strict reader trips on was found by
-   reading the platform, not by running it); a Cypress spec on the sample action against the endpoint and the
+   reading the platform, not by running it); a Cypress spec on the sample actions against the endpoint and the
    pipeline; the extension how-to case "Adding a field action type"; the `.cfg` keys in `docs/administration/`.
-   `fmdb:emailDeliverabilityAction` **shipped** with the engine.
+   The two Java samples — blocked words and the email domain check — **shipped**.
 
 ## Sources
 

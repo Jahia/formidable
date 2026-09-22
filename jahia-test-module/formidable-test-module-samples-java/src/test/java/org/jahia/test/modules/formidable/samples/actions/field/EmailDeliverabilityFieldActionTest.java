@@ -1,4 +1,4 @@
-package org.jahia.modules.formidable.engine.actions.field.builtin;
+package org.jahia.test.modules.formidable.samples.actions.field;
 
 import org.jahia.modules.formidable.engine.api.FieldActionRequest;
 import org.jahia.modules.formidable.engine.api.FieldActionResult;
