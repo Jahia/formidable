@@ -119,20 +119,11 @@ orderable
  - jcr:title (string) = resourceBundle('fmdb_fieldActionList') autocreated i18n
  + * (fmdbmix:fieldAction) = fmdbmix:fieldAction version
 
-// The switch in the field's own Content Editor form — "this field has actions" — attached to every
-// submit-capable field type through the engine marker, third-party included. Turning it on adds the
-// mixin on save, and adding a mixin autocreates the child nodes it declares: the list appears under
-// the field, as `actions` does under the form. Turning it off removes the mixin, and removing a mixin
-// deletes the child nodes it defines: the list and every action in it go — the switch's label says so.
-// fmdbmix:formElement itself is untouched.
-//
-// NOT `> jmix:dynamicFieldset`, although the fieldset is dynamic: that supertype extends
-// jmix:templateMixin, and the Content Editor drops the enable switch of every jmix:templateMixin
-// (EditorFormServiceImpl: hasEnableSwitch = !isNodeType("jmix:templateMixin"), then a fieldset with
-// neither a switch nor a visible field is not rendered at all). This mixin carries no property — it
-// only autocreates the list — so with that supertype the editor showed nothing and the feature could
-// not be turned on. `extends` alone is what makes a fieldset dynamic there; the options fieldsets keep
-// jmix:dynamicFieldset because a choicelist activates them, not a switch.
+// The switch in the field's own editor, offered on every submit-capable field type through the marker,
+// third-party included. On, it adds the mixin, which autocreates the list; off, it removes both.
+// No `> jmix:dynamicFieldset`: that supertype extends jmix:templateMixin, which the Content Editor
+// renders without an enable switch, and a fieldset with no switch and no property of its own is not
+// rendered at all. `extends` alone makes it dynamic. See docs/architecture/field-actions.md.
 [fmdbmix:fieldActions] mixin
  extends = fmdbmix:formElement
  + actions (fmdb:fieldActionList) = fmdb:fieldActionList autocreated
