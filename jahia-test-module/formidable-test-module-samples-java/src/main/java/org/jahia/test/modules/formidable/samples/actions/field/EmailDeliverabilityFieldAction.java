@@ -16,7 +16,6 @@ import javax.naming.directory.InitialDirContext;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Locale;
-import java.util.regex.Pattern;
 
 /**
  * The built-in field action: <strong>does the address's domain exist at all?</strong> It asks the domain name
@@ -47,8 +46,8 @@ public class EmailDeliverabilityFieldAction implements FieldAction {
 
     /** What the longest legal domain name measures, so an absurd value is refused before any query. */
     static final int MAX_DOMAIN_LENGTH = 253;
-    /** A domain worth asking about: labels of letters, digits and hyphens, at least two of them. */
-    private static final Pattern DOMAIN = Pattern.compile("[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+");
+    /** What one label of a domain name may measure. */
+    private static final int MAX_LABEL_LENGTH = 63;
     /** Asked one at a time, in this order: a single query for several types answers "DNS error" on resolvers that answer each separately. */
     private static final String[] MAIL_RECORDS = {"MX", "A", "AAAA"};
 
@@ -114,7 +113,36 @@ public class EmailDeliverabilityFieldAction implements FieldAction {
         if (domain.endsWith(".")) {
             domain = domain.substring(0, domain.length() - 1);
         }
-        return domain.length() <= MAX_DOMAIN_LENGTH && DOMAIN.matcher(domain).matches() ? domain : null;
+        return domain.length() <= MAX_DOMAIN_LENGTH && isDomainName(domain) ? domain : null;
+    }
+
+    /**
+     * Whether this reads as a domain name: at least two labels, each one to sixty-three characters of letters,
+     * digits and hyphens, none of them starting or ending with a hyphen. Read rather than matched — a regular
+     * expression for the same thing nests its quantifiers, and a long value would make it back-track.
+     */
+    private static boolean isDomainName(String domain) {
+        if (domain.indexOf('.') < 0) {
+            return false;
+        }
+        for (String label : domain.split("\\.", -1)) {
+            if (label.isEmpty() || label.length() > MAX_LABEL_LENGTH
+                    || label.charAt(0) == '-' || label.charAt(label.length() - 1) == '-'
+                    || !isLabel(label)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isLabel(String label) {
+        for (int i = 0; i < label.length(); i++) {
+            char c = label.charAt(i);
+            if ((c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '-') {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -122,6 +150,7 @@ public class EmailDeliverabilityFieldAction implements FieldAction {
      * failing those its addresses. The timeouts are short and the retries few on purpose — the submission waits
      * for this.
      */
+    @SuppressWarnings("java:S1149") // InitialDirContext takes a Hashtable: the JDK's API, not a choice
     private static List<String> lookup(String domain) throws NamingException {
         Hashtable<String, String> environment = new Hashtable<>();
         environment.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.dns.DnsContextFactory");
@@ -131,10 +160,10 @@ public class EmailDeliverabilityFieldAction implements FieldAction {
         try {
             // One question per query. Asking for MX, A and AAAA together answers "DNS error" against resolvers
             // that answer each of the three separately — measured before this line existed.
-            for (String record : MAIL_RECORDS) {
-                Attribute attribute = context.getAttributes(domain, new String[]{record}).get(record);
+            for (String kind : MAIL_RECORDS) {
+                Attribute attribute = context.getAttributes(domain, new String[]{kind}).get(kind);
                 if (attribute != null && attribute.size() > 0) {
-                    return List.of(record);
+                    return List.of(kind);
                 }
             }
             return List.of();

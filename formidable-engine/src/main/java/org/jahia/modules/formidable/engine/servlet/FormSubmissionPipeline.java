@@ -531,18 +531,29 @@ class FormSubmissionPipeline {
         Map<String, List<String>> judged = new LinkedHashMap<>();
         for (Map.Entry<String, List<ResolvedFieldAction>> entry : fieldMetadata.fieldActions().entrySet()) {
             String fieldName = entry.getKey();
-            if (entry.getValue().stream().noneMatch(ResolvedFieldAction::blocking)) {
-                log.debug("[FormSubmissionPipeline] Skipping the field actions of '{}': none of them blocks", fieldName);
-                continue;
+            List<String> values = valuesToJudge(fieldName, entry.getValue());
+            if (!values.isEmpty()) {
+                judged.put(fieldName, values);
             }
-            List<String> values = answeredValues(fieldName);
-            if (values.isEmpty() || logicEvaluator.isHidden(fieldName)) {
-                log.debug("[FormSubmissionPipeline] Skipping the field actions of '{}': unanswered or hidden", fieldName);
-                continue;
-            }
-            judged.put(fieldName, values);
         }
         return judged;
+    }
+
+    /**
+     * The values of one field this step will judge: none when no action of the field blocks — {@code blockingOnly}
+     * would skip every one of them anyway — and none when the logic hides the field or the visitor left it blank.
+     */
+    private List<String> valuesToJudge(String fieldName, List<ResolvedFieldAction> actions) {
+        if (actions.stream().noneMatch(ResolvedFieldAction::blocking)) {
+            log.debug("[FormSubmissionPipeline] Skipping the field actions of '{}': none of them blocks", fieldName);
+            return List.of();
+        }
+        List<String> values = answeredValues(fieldName);
+        if (values.isEmpty() || logicEvaluator.isHidden(fieldName)) {
+            log.debug("[FormSubmissionPipeline] Skipping the field actions of '{}': unanswered or hidden", fieldName);
+            return List.of();
+        }
+        return values;
     }
 
     /**

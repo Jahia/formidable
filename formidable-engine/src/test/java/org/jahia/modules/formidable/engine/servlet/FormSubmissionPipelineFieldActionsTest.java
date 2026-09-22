@@ -289,7 +289,7 @@ class FormSubmissionPipelineFieldActionsTest {
     }
 
     @Test
-    void theWholeSubmissionIsBoundedBeforeAnyFieldIsJudged() throws Exception {
+    void theWholeSubmissionIsBoundedBeforeAnyFieldIsJudged() {
         // Verifies the promise the comment, the design page and this test's name make: a field over the cap costs no
         // provider call ANYWHERE, not even on the field the map happens to yield first. Two fields, one within the
         // cap and one over it: nothing runs, whichever order the metadata is walked in.
