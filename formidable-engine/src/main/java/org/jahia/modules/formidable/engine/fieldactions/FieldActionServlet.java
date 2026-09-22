@@ -6,8 +6,11 @@ import org.jahia.modules.formidable.engine.config.FormidableConfigService.FieldA
 import org.jahia.modules.formidable.engine.fieldactions.ResolvedFieldAction.Trigger;
 import org.jahia.modules.formidable.engine.servlet.ErrorCode;
 import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.services.content.JCRSessionFactory;
+import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRTemplate;
 import org.jahia.services.securityfilter.PermissionService;
+import org.jahia.services.usermanager.JahiaUserManagerService;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -34,6 +37,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
@@ -45,12 +49,16 @@ import java.util.regex.Pattern;
  * again at submission, the shared verdict cache making that second run free for a value already asked about.
  *
  * <p>Gated as the submission is — the {@value #API} security-filter scope, auto-applied to hosted origins, checked
- * before anything is read — and then guarded on its own, since it is an open door to a possibly paid service for
- * anyone on the site: the value's length is capped, the calls per client and minute are limited, and the form is
- * resolved in {@code live} by its UUID with the field found <em>by name under it</em>, never a node id the browser
- * chose. Error codes follow the submission's: {@code FMDB-011} refused by the filter, {@code FMDB-002} bad routing
- * or body, {@code FMDB-003} too long, {@code FMDB-004} no such form or field, {@code FMDB-016} rate limit; a 404
- * without a code when the endpoint is switched off ({@code fieldActionRateLimitPerMinute=0}).</p>
+ * before anything is read; the form resolved in {@code live} <em>in the visitor's own session</em>, as the pipeline's
+ * step 4 does, so a form the caller cannot read is not found; a members-only form refused to a guest, as step 6
+ * does — and then guarded on its own, since it is an open door to a possibly paid service for anyone on the site:
+ * the value's length is capped, the calls per client and minute are limited, and the field is found <em>by name
+ * under the form</em>, never a node id the browser chose. The walk that finds the fields runs in a system session,
+ * as the pipeline's does, and is kept per form and locale for a short while ({@link FieldActionsCache}). Error codes
+ * follow the submission's: {@code FMDB-011} refused by the filter, {@code FMDB-002} bad routing or body,
+ * {@code FMDB-003} too long, {@code FMDB-004} no such form or field, {@code FMDB-009} a guest on a members-only
+ * form, {@code FMDB-016} rate limit; a 404 without a code when the endpoint is switched off
+ * ({@code fieldActionRateLimitPerMinute=0}).</p>
  */
 @Component(
     service = { HttpServlet.class, Servlet.class },
@@ -71,15 +79,31 @@ public class FieldActionServlet extends HttpServlet {
 
     private static final Logger log = LoggerFactory.getLogger(FieldActionServlet.class);
 
+    /** The visitor's own session in {@code live} — the pipeline's read of the form, and a seam for the tests. */
+    @FunctionalInterface
+    interface VisitorSessions {
+        JCRSessionWrapper live(Locale locale) throws RepositoryException;
+    }
+
+    /** What the endpoint learnt about the form in the visitor's session before it read any field. */
+    record ResolvedForm(boolean authenticatedOnly) {
+    }
+
     private final AtomicReference<FieldActionRuntime> runtime = new AtomicReference<>();
     private final AtomicReference<PermissionService> permissionService = new AtomicReference<>();
+    private final transient VisitorSessions visitorSessions;
+    private final transient BooleanSupplier guest;
     private final transient Supplier<JCRTemplate> jcrTemplate;
 
     public FieldActionServlet() {
-        this(JCRTemplate::getInstance);
+        this(locale -> JCRSessionFactory.getInstance().getCurrentUserSession(WORKSPACE_LIVE, locale),
+                () -> JahiaUserManagerService.isGuest(JCRSessionFactory.getInstance().getCurrentUser()),
+                JCRTemplate::getInstance);
     }
 
-    FieldActionServlet(Supplier<JCRTemplate> jcrTemplate) {
+    FieldActionServlet(VisitorSessions visitorSessions, BooleanSupplier guest, Supplier<JCRTemplate> jcrTemplate) {
+        this.visitorSessions = visitorSessions;
+        this.guest = guest;
         this.jcrTemplate = jcrTemplate;
     }
 
@@ -98,15 +122,26 @@ public class FieldActionServlet extends HttpServlet {
         log.info("FieldActionServlet activated");
     }
 
-    /** The field actions of the form, by field name — read in live in a system session; a seam for the tests. */
+    /**
+     * The form as the visitor sees it in {@code live}: not found when the visitor cannot read it, refused with the
+     * same code when the identifier is not a form's — so the response does not disclose what the UUID points at.
+     * A seam for the tests.
+     */
+    ResolvedForm resolveForm(String formId, Locale locale) throws RepositoryException {
+        JCRNodeWrapper form = visitorSessions.live(locale).getNodeByIdentifier(formId);
+        if (!form.isNodeType(FmdbMixin.FORM_ROOT)) {
+            throw new ItemNotFoundException("Not a form: " + formId);
+        }
+        return new ResolvedForm(form.isNodeType(FmdbMixin.AUTHENTICATED_ONLY_FORM));
+    }
+
+    /**
+     * The field actions of the form, by field name — the walk of the published form, in a system session as the
+     * pipeline's metadata collector runs it, once the visitor's session has read the form. A seam for the tests.
+     */
     Map<String, List<ResolvedFieldAction>> fieldActionsOf(String formId, Locale locale) throws RepositoryException {
-        return jcrTemplate.get().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale, session -> {
-            JCRNodeWrapper form = session.getNodeByIdentifier(formId);
-            if (!form.isNodeType(FmdbMixin.FORM_ROOT)) {
-                throw new ItemNotFoundException("Not a form: " + formId);
-            }
-            return FieldActionCollector.collect(form);
-        });
+        return jcrTemplate.get().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale,
+                session -> FieldActionCollector.collect(session.getNodeByIdentifier(formId)));
     }
 
     @Override
@@ -151,7 +186,12 @@ public class FieldActionServlet extends HttpServlet {
         if (!shared.rateLimiter().allow(req.getRemoteAddr(), settings.rateLimitPerMinute())) {
             throw new Refusal(SC_TOO_MANY_REQUESTS, ErrorCode.FMDB_016, "rate limit hit for " + req.getRemoteAddr());
         }
-        List<ResolvedFieldAction> actions = fieldActionsOf(formId, locale).get(field);
+        ResolvedForm form = resolveForm(formId, locale);
+        if (form.authenticatedOnly() && guest.getAsBoolean()) {
+            throw new Refusal(HttpServletResponse.SC_UNAUTHORIZED, ErrorCode.FMDB_009,
+                    "form " + formId + " is for authenticated visitors only, the caller is a guest");
+        }
+        List<ResolvedFieldAction> actions = shared.formActions().get(formId, locale, () -> fieldActionsOf(formId, locale)).get(field);
         if (actions == null) {
             throw new Refusal(HttpServletResponse.SC_NOT_FOUND, ErrorCode.FMDB_004,
                     "form " + formId + " has no field '" + field + "' with field actions");

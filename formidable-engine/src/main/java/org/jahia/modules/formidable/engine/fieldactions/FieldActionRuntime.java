@@ -15,8 +15,8 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * What the two entry points of the field actions share: the Java actions registered as OSGi services, the one
  * {@link VerdictCache} — so that the verdict the pre-check endpoint gave on a value is the one the submission
- * pipeline finds, and the provider is called once — the {@link RateLimiter} of the endpoint, and the
- * {@link FieldActionDispatcher} built on them. The submit servlet and the field-action servlet both reference it.
+ * pipeline finds, and the provider is called once — the {@link RateLimiter} of the endpoint, the
+ * {@link FieldActionsCache} of the forms' declared actions, and the {@link FieldActionDispatcher} built on them. The submit servlet and the field-action servlet both reference it.
  */
 @Component(service = FieldActionRuntime.class, immediate = true)
 public class FieldActionRuntime {
@@ -26,6 +26,7 @@ public class FieldActionRuntime {
     private final VerdictCache cache = new VerdictCache();
     private final RateLimiter rateLimiter = new RateLimiter();
     private final AtomicReference<FieldActionDispatcher> dispatcher = new AtomicReference<>();
+    private final FieldActionsCache formActions = new FieldActionsCache();
 
     @Reference
     public void setConfig(FormidableConfigService service) {
@@ -59,6 +60,11 @@ public class FieldActionRuntime {
 
     RateLimiter rateLimiter() {
         return rateLimiter;
+    }
+
+    /** The field actions of the published forms, by form and locale, kept for the endpoint between two walks. */
+    FieldActionsCache formActions() {
+        return formActions;
     }
 
     /** The field-action settings of the current configuration. */

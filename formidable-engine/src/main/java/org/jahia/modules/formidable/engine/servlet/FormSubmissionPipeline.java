@@ -472,43 +472,52 @@ class FormSubmissionPipeline {
      * Step 11b — the field actions whose refusal blocks, run again server-side. The pre-check the browser asked
      * for while the form was filled is a courtesy; this is the authority, and a browser that skipped the pre-check
      * meets the same actions here — the shared verdict cache making the honest browser's second run free. A field
-     * the logic hides or the visitor left unanswered is skipped, as the required check skips it; a multi-valued
-     * field is judged on its first non-blank value. The first blocking refusal ends the submission with FMDB-015
-     * and its message, which the response carries so that the browser anchors it on the field. Warning-level
-     * actions do not run here: they warned. (docs/architecture/field-actions.md)
+     * the logic hides or the visitor left unanswered is skipped, as the required check skips it; every non-blank
+     * value of a multi-valued field is judged, in order, since every one of them is stored and sent on. The first
+     * blocking refusal ends the submission with FMDB-015 and its message, which the response carries so that the
+     * browser anchors it on the field. Warning-level actions do not run here: they warned. Without a dispatcher —
+     * the field-action runtime not bound, a state the submit servlet's mandatory reference rules out in production —
+     * the step warns that the checks did not run, which is not the same fact as a form without checks.
+     * (docs/architecture/field-actions.md)
      */
     private void runFieldActions(HttpServletRequest req, HttpServletResponse resp) throws SubmissionException {
-        if (fieldActionDispatcher == null || fieldMetadata.fieldActions().isEmpty()) {
+        if (fieldMetadata.fieldActions().isEmpty()) {
+            return;
+        }
+        if (fieldActionDispatcher == null) {
+            log.warn("[FormSubmissionPipeline] The field actions of form {} did not run: no field-action runtime is bound. The submission goes on unchecked.", formId);
             return;
         }
         for (Map.Entry<String, List<ResolvedFieldAction>> entry : fieldMetadata.fieldActions().entrySet()) {
             String fieldName = entry.getKey();
-            String value = answeredValue(fieldName);
-            if (value == null || logicEvaluator.isHidden(fieldName)) {
+            List<String> values = answeredValues(fieldName);
+            if (values.isEmpty() || logicEvaluator.isHidden(fieldName)) {
                 log.debug("[FormSubmissionPipeline] Skipping the field actions of '{}': unanswered or hidden", fieldName);
                 continue;
             }
-            FieldActionDispatcher.Outcome outcome = fieldActionDispatcher.run(req, resp,
-                    new FieldActionRequest(formId, fieldName, value, locale),
-                    entry.getValue(),
-                    EnumSet.allOf(ResolvedFieldAction.Trigger.class),
-                    true,
-                    parsed.parameters());
-            if (outcome.blocked()) {
-                log.warn("[FormSubmissionPipeline] Field '{}' was refused by a field action.", fieldName);
-                throw new SubmissionException(ErrorCode.FMDB_015,
-                        "Field '" + fieldName + "' was refused by a field action.", outcome.messages());
+            for (String value : values) {
+                FieldActionDispatcher.Outcome outcome = fieldActionDispatcher.run(req, resp,
+                        new FieldActionRequest(formId, fieldName, value, locale),
+                        entry.getValue(),
+                        EnumSet.allOf(ResolvedFieldAction.Trigger.class),
+                        true,
+                        parsed.parameters());
+                if (outcome.blocked()) {
+                    log.warn("[FormSubmissionPipeline] Field '{}' was refused by a field action.", fieldName);
+                    throw new SubmissionException(ErrorCode.FMDB_015,
+                            "Field '" + fieldName + "' was refused by a field action.", outcome.messages());
+                }
             }
         }
     }
 
-    /** The field's first non-blank submitted value, or null when the visitor left it unanswered. */
-    private String answeredValue(String fieldName) {
+    /** The field's non-blank submitted values in order — every one of them is judged; empty when the visitor left it unanswered. */
+    private List<String> answeredValues(String fieldName) {
         List<String> values = parsed.parameters().get(fieldName);
         if (values == null) {
-            return null;
+            return List.of();
         }
-        return values.stream().filter(value -> value != null && !value.isBlank()).findFirst().orElse(null);
+        return values.stream().filter(value -> value != null && !value.isBlank()).toList();
     }
 
     private void dispatchActions(HttpServletRequest req) throws SubmissionException {

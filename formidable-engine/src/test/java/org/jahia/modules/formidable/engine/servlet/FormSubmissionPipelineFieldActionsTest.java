@@ -176,7 +176,8 @@ class FormSubmissionPipelineFieldActionsTest {
     @Test
     void withoutADispatcherOrWithoutFieldActionsTheStepIsANoOp() throws Exception {
         // Verifies the two idle cases: a pipeline built without the field-action runtime (the tests' 4-arg
-        // constructor, an instance without the component), and a form whose fields declare no action.
+        // constructor, an instance without the component — the step then warns that the checks did not run), and a
+        // form whose fields declare no action.
         FormSubmissionPipeline noDispatcher = new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of(),
                 mock(FormidableOptionsSourceService.class), () -> false);
         set(noDispatcher, "fieldMetadata", new FormFieldMetadataCollector.Result(Map.of(), Map.of(), Map.of(), Map.of(),
@@ -188,5 +189,42 @@ class FormSubmissionPipelineFieldActionsTest {
         runFieldActions(pipelineAtStep11b(dispatcher(FieldActionResult.reject("x"), calls), Map.of(),
                 Map.of("email", List.of("ada@example.com")), allVisible()));
         assertEquals(0, calls.get());
+    }
+
+    @Test
+    void everyNonBlankValueOfAMultiValuedFieldIsJudgedAndTheRefusedOneFailsTheSubmission() throws Exception {
+        // Verifies the authority over the whole answer: a checkbox group, or two fields sharing a name, submits several
+        // values and every one of them is stored and sent on — so every non-blank one is judged, in order, and a
+        // refusal of the second one is FMDB-015 as the first one's would be. The blank one in between is not judged.
+        AtomicInteger calls = new AtomicInteger();
+        FieldAction refusingSpam = new FieldAction() {
+            @Override
+            public String getNodeType() {
+                return TYPE;
+            }
+
+            @Override
+            public FieldActionResult execute(JCRNodeWrapper actionNode, FieldActionRequest request) {
+                calls.incrementAndGet();
+                return "spam".equals(request.value()) ? FieldActionResult.reject("blocked word") : FieldActionResult.accept();
+            }
+        };
+        JCRNodeWrapper node = mock(JCRNodeWrapper.class);
+        JCRSessionWrapper session = mock(JCRSessionWrapper.class);
+        when(session.getNodeByIdentifier(any())).thenReturn(node);
+        JCRTemplate template = mock(JCRTemplate.class);
+        when(template.doExecuteWithSystemSessionAsUser(any(), any(), any(), any()))
+                .thenAnswer(call -> ((JCRCallback<?>) call.getArgument(3)).doInJCR(session));
+        FieldActionDispatcher dispatcher = new FieldActionDispatcher(() -> List.of(refusingSpam), new VerdictCache(), () -> Duration.ZERO, () -> template);
+        FormSubmissionPipeline pipeline = pipelineAtStep11b(dispatcher,
+                Map.of("topics", List.of(action("a1", Severity.BLOCK))),
+                Map.of("topics", List.of("sports", "  ", "spam", "music")),
+                allVisible());
+
+        SubmissionException error = assertThrows(SubmissionException.class, () -> runFieldActions(pipeline));
+
+        assertEquals(ErrorCode.FMDB_015, error.errorCode);
+        assertEquals("topics", error.messages().get(0).field());
+        assertEquals(2, calls.get(), "sports accepted, the blank skipped, spam refused, music never reached");
     }
 }

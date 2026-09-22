@@ -19,13 +19,13 @@ When a field action refuses a value (`FMDB-015`), the response carries what the 
 
 ```json
 { "success": false, "errorCode": "FMDB-015",
-  "messages": [ { "level": "error", "html": "We do not know this address", "field": "email", "actionId": "…", "actionType": "myco:crmLookupAction" } ] }
+  "messages": [ { "level": "error", "html": "We do not know this address", "field": "email" } ] }
 ```
 
 - `level` — `error` for a refusal that blocks; the pre-check endpoint also answers `warning` for an action set to warn only
 - `html` — the contributor's message, interpolated and escaped server-side, ready to render
 - `field` — the node name of the refused field, what the page anchors the message on
-- `actionId`, `actionType` — the field-action node and its type, for the logs
+- nothing else: the action node behind the message and its type stay in the server logs
 
 The same array is the `messages` of the pre-check endpoint's answer, next to its `verdict` (`accept`, `advice`, `reject`).
 
@@ -38,12 +38,12 @@ Detailed reasons are written to server logs only and are never exposed to the ca
 | `FMDB-001` | 415 | `Content-Type` is not `multipart/form-data` |
 | `FMDB-002` | 400 | Required URL parameter `fid` is missing, blank, or not a valid UUID — or the `lang` parameter is not a valid language tag |
 | `FMDB-003` | 413 | `Content-Length` exceeds `uploadMaxRequestSizeBytes` from `org.jahia.modules.formidable.cfg` — or, on the field-action pre-check, the body or the `value` exceeds `fieldActionMaxValueLength` |
-| `FMDB-004` | 400 | Form node not found in the `live` workspace (invalid `fid`, or form not published). On the field-action pre-check (404): no such form, or no field of that name carrying field actions |
+| `FMDB-004` | 400 | Form node not found in the `live` workspace (invalid `fid`, form not published, or a form the caller cannot read). On the field-action pre-check (404): no such form for this visitor, or no field of that name carrying field actions |
 | `FMDB-005` | 500 | CAPTCHA is required on the form but server-side verification is not fully configured (`captchaSiteKey` / `captchaSecretKey` / `captchaVerifyUrl` missing in `org.jahia.modules.formidable.cfg`) |
 | `FMDB-006` | 400 | CAPTCHA token (`X-Formidable-Captcha-Token` header) is absent, expired, or rejected by the provider |
 | `FMDB-007` | 400 | Multipart parsing failed for a technical reason — possible causes: per-file size limit, total request size limit, file count limit, or low-level stream parsing/read failure |
 | `FMDB-008` | the status the action chose (400/500 from the helpers, 403/502 from the forward action…), 422 when the failure carried none | An action in the pipeline failed (e.g. forward target returned non-2xx, email could not be sent) |
-| `FMDB-009` | 401 | Authentication required — the form carries `fmdbmix:authenticatedOnlyForm` and the current user is Guest |
+| `FMDB-009` | 401 | Authentication required — the form carries `fmdbmix:authenticatedOnlyForm` and the current user is Guest. The field-action pre-check answers it too, for the same forms |
 | `FMDB-010` | 400 | Submitted data failed validation — possible causes: choice value not in the allowed set, invalid text format (email, date, datetime-local, color), field constraint violation, or uploaded file MIME type rejected by the field/global allowlist |
 | `FMDB-011` | 403 | Submission denied by the Jahia Security Filter check (for example, cross-origin request with no matching hosted `Origin` / `Referer`) |
 | `FMDB-012` | 500 | Action list resolution failed — the pipeline could not read the configured `actions` node from the repository |

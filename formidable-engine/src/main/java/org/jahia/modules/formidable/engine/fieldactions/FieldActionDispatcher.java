@@ -13,6 +13,7 @@ import org.jahia.services.content.JCRTemplate;
 import org.jahia.services.render.RenderException;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.json.JSONTokener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -158,12 +159,12 @@ public final class FieldActionDispatcher {
     private FieldActionResult verdict(HttpServletRequest req, HttpServletResponse resp, FieldActionRequest request,
                                       ResolvedFieldAction action) {
         Duration ttl = cacheTtl.get();
-        Optional<FieldActionResult> cached = cache.get(action.id(), request.value(), ttl);
+        Optional<FieldActionResult> cached = cache.get(action.id(), request.locale(), request.value(), ttl);
         if (cached.isPresent()) {
             return cached.get();
         }
         FieldActionResult result = execute(req, resp, request, action);
-        cache.put(action.id(), request.value(), result, ttl);
+        cache.put(action.id(), request.locale(), request.value(), result, ttl);
         return result;
     }
 
@@ -201,29 +202,39 @@ public final class FieldActionDispatcher {
 
     /**
      * The verdict a {@code hidden.execute} view wrote: one JSON object, {@code {"verdict": "accept" | "reject" |
-     * "unavailable", "detail"?: "…"}}, possibly wrapped in whitespace or markup the render chain added around it.
-     * Anything else is unavailable, with what was read in the detail for the logs.
+     * "unavailable", "detail"?: "…"}}, and nothing else — the output, trimmed, must be exactly that object. Nothing
+     * before it, nothing after it: not a comment, not a debug line, never the candidate value. A lenient reader that
+     * took the widest span between braces would let a view echoing the value hand the parser a string the visitor
+     * partly controls, and a value with one {@code {} in it would then retire the check, silently, onto the
+     * {@code whenUnavailable} default. Anything but the one object is unavailable; the output itself goes to the
+     * logs at DEBUG only, since a view in breach of the contract may have put the value in it.
      */
     static FieldActionResult parse(String output) {
         String text = output == null ? "" : output.trim();
-        int start = text.indexOf('{');
-        int end = text.lastIndexOf('}');
-        if (start < 0 || end <= start) {
-            return FieldActionResult.unavailable("the view answered no JSON object: " + abbreviate(text));
+        if (text.isEmpty()) {
+            return FieldActionResult.unavailable("the view answered nothing");
         }
+        JSONObject json;
         try {
-            JSONObject json = new JSONObject(text.substring(start, end + 1));
-            String verdict = json.optString("verdict", "").trim().toLowerCase(Locale.ROOT);
-            String detail = json.has(DETAIL) && !json.isNull(DETAIL) ? json.optString(DETAIL) : null;
-            return switch (verdict) {
-                case "accept" -> FieldActionResult.accept();
-                case "reject" -> FieldActionResult.reject(detail);
-                case "unavailable" -> FieldActionResult.unavailable(detail);
-                default -> FieldActionResult.unavailable("the view answered the verdict '" + verdict + "'");
-            };
+            JSONTokener tokener = new JSONTokener(text);
+            Object value = tokener.nextValue();
+            if (!(value instanceof JSONObject object) || tokener.nextClean() != 0) {
+                log.debug("[FieldActionDispatcher] The view's output was not exactly one JSON object: {}", abbreviate(text));
+                return FieldActionResult.unavailable("the view's output is not exactly one JSON object (" + text.length() + " characters)");
+            }
+            json = object;
         } catch (JSONException e) {
-            return FieldActionResult.unavailable("the view answered malformed JSON: " + abbreviate(text));
+            log.debug("[FieldActionDispatcher] The view's output was not JSON: {}", abbreviate(text));
+            return FieldActionResult.unavailable("the view answered malformed JSON (" + text.length() + " characters)");
         }
+        String verdict = json.optString("verdict", "").trim().toLowerCase(Locale.ROOT);
+        String detail = json.has(DETAIL) && !json.isNull(DETAIL) ? json.optString(DETAIL) : null;
+        return switch (verdict) {
+            case "accept" -> FieldActionResult.accept();
+            case "reject" -> FieldActionResult.reject(detail);
+            case "unavailable" -> FieldActionResult.unavailable(detail);
+            default -> FieldActionResult.unavailable("the view answered the verdict '" + verdict + "'");
+        };
     }
 
     /**

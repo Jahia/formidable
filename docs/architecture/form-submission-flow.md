@@ -60,7 +60,8 @@ Browser
          Step 11  validateRequired        post-parse: check required fields absent from the
                                           submitted body (e.g. unchecked checkbox/radio)
          Step 11b runFieldActions         the BLOCKING field actions of the answered, visible fields run
-                                          again server-side, in list order, on the shared verdict cache;
+                                          again server-side, on every non-blank value, in list order, on
+                                          the shared verdict cache;
                                           the first refusal → FMDB-015 with messages[] anchored on the
                                           field (see field-actions.md)
          Step 12  dispatchActions         execute fmdb:actionList nodes in order
@@ -304,8 +305,9 @@ by escaping for the target context, not by mutating input during parsing.
 A field may carry actions of its own — checks of its value against something the browser cannot know,
 an external provider or a business rule ([Field actions](field-actions.md)). The browser asks for them
 while the form is being filled (`/modules/formidable-engine/field-action`); the pipeline runs the
-**blocking** ones again here, after `validateRequired` and before any form action, on the fields the
-visitor answered and the logic shows. The dispatcher is the same as the endpoint's, the verdict cache too,
+**blocking** ones again here, after `validateRequired` and before any form action, on every non-blank
+value of the fields the visitor answered and the logic shows. The dispatcher is the same as the endpoint's,
+the verdict cache too,
 so the honest browser's second run costs no second provider call. The first refusal ends the submission
 with `FMDB-015` and a `messages` array the browser anchors on the field; `messages` is a key of the
 servlet, reserved from the response enrichers like `success` and `errorCode`.

@@ -229,9 +229,9 @@ class FieldActionDispatcherTest {
     @Test
     void aViewAnswersWhenNoJavaActionIsRegisteredForTheType() throws Exception {
         // Verifies the JavaScript path: with no Java service for the type the node's view is rendered and its JSON
-        // verdict read — wrapped in whatever the render chain adds; an unreadable answer or a failing render is an
-        // unavailable check, decided by the contributor's setting; a missing request context is one too.
-        FieldActionDispatcher rejecting = dispatcher(List.of(), (node, request, req, resp) -> "<!-- cache --> {\"verdict\":\"reject\",\"detail\":\"undeliverable\"} ",
+        // verdict read — surrounding whitespace and nothing else tolerated; an unreadable answer or a failing render is
+        // an unavailable check, decided by the contributor's setting; a missing request context is one too.
+        FieldActionDispatcher rejecting = dispatcher(List.of(), (node, request, req, resp) -> "\n  {\"verdict\":\"reject\",\"detail\":\"undeliverable\"} \n",
                 Duration.ZERO, session(Map.of("v1", "No: ${value}")));
         FieldActionDispatcher garbage = dispatcher(List.of(), (node, request, req, resp) -> "<div>oops</div>", Duration.ZERO, session(Map.of("v1", "No")));
         FieldActionDispatcher failing = dispatcher(List.of(), (node, request, req, resp) -> {
@@ -262,7 +262,7 @@ class FieldActionDispatcherTest {
     @Test
     void parseReadsTheThreeVerdictsAndRefusesTheRest() {
         // Verifies the view contract's reader: the three verdicts with or without a detail, and everything else —
-        // no object, malformed JSON, an unknown verdict — as unavailable, the text kept for the logs.
+        // no object, malformed JSON, an unknown verdict — as unavailable, the output itself kept out of the detail.
         assertEquals(FieldActionResult.Verdict.ACCEPT, FieldActionDispatcher.parse("{\"verdict\":\"accept\"}").verdict());
         FieldActionResult reject = FieldActionDispatcher.parse("\n{\"verdict\":\"REJECT\",\"detail\":\"unknown\"}\n");
         assertEquals(FieldActionResult.Verdict.REJECT, reject.verdict());
@@ -272,5 +272,40 @@ class FieldActionDispatcherTest {
         assertEquals(FieldActionResult.Verdict.UNAVAILABLE, FieldActionDispatcher.parse("{not json}").verdict());
         assertEquals(FieldActionResult.Verdict.UNAVAILABLE, FieldActionDispatcher.parse("{\"verdict\":\"maybe\"}").verdict());
         assertTrue(FieldActionDispatcher.parse("{\"verdict\":\"maybe\"}").detail().contains("maybe"));
+    }
+
+    @Test
+    void parseTakesTheWholeOutputAsTheObjectSoAnEchoedValueCannotRetireTheCheck() {
+        // Verifies the strict contract: anything around the object — a comment the view wrote, a debug line, the
+        // candidate value echoed before or after — makes the whole output unreadable, deterministically, rather than
+        // letting a value with a brace in it turn the check unavailable on its own. The detail does not repeat the
+        // output, which may hold the value.
+        String echoedBefore = "value: {spam} {\"verdict\":\"reject\"}";
+        String echoedAfter = "{\"verdict\":\"reject\"} value: {spam}";
+        String commented = "<!-- cache --> {\"verdict\":\"reject\"}";
+        String array = "[{\"verdict\":\"reject\"}]";
+
+        for (String output : List.of(echoedBefore, echoedAfter, commented, array)) {
+            FieldActionResult result = FieldActionDispatcher.parse(output);
+            assertEquals(FieldActionResult.Verdict.UNAVAILABLE, result.verdict(), output);
+            assertFalse(result.detail().contains("spam"), output);
+        }
+        assertEquals(FieldActionResult.Verdict.REJECT, FieldActionDispatcher.parse("  {\"verdict\":\"reject\"}\n").verdict());
+    }
+
+    @Test
+    void theCacheKeysTheLocaleSoAnAcceptInOneLanguageDoesNotServeAnother() throws Exception {
+        // Verifies the locale in the key: the same action and value asked in two locales run twice — a localized
+        // check may answer differently — while the same locale asked twice runs once.
+        AtomicInteger calls = new AtomicInteger();
+        FieldActionDispatcher dispatcher = dispatcher(List.of(javaAction(FieldActionResult::accept, calls)), NO_VIEW,
+                Duration.ofSeconds(300), session(Map.of("a1", "m")));
+        FieldActionRequest inFrench = new FieldActionRequest(REQUEST.formId(), REQUEST.fieldName(), REQUEST.value(), Locale.FRENCH);
+
+        dispatcher.run(null, null, REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false, Map.of());
+        dispatcher.run(null, null, inFrench, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false, Map.of());
+        dispatcher.run(null, null, REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), true, Map.of());
+
+        assertEquals(2, calls.get());
     }
 }

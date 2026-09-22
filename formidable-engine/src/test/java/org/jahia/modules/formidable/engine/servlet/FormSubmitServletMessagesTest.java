@@ -78,7 +78,8 @@ class FormSubmitServletMessagesTest {
     @Test
     void aFieldActionsRefusalCarriesItsMessagesNextToTheCode() throws Exception {
         // Verifies the response of step 11b: FMDB-015 with its 422, no action progress — no form action ran — and
-        // the messages array the browser anchors on the field, exactly as the dispatcher wrote them.
+        // the messages array the browser anchors on the field: level, html, field, and nothing that names the action
+        // node or its type behind a form the caller may not read.
         Answer answer = post(servlet(new SubmissionException(ErrorCode.FMDB_015, "refused", List.of(MESSAGE))));
 
         assertEquals(422, answer.status());
@@ -88,8 +89,8 @@ class FormSubmitServletMessagesTest {
         assertEquals("error", message.getString("level"));
         assertEquals("email", message.getString("field"));
         assertEquals("Unknown address &lt;x&gt;", message.getString("html"));
-        assertEquals("a1", message.getString("actionId"));
-        assertEquals("myco:crmLookupAction", message.getString("actionType"));
+        assertFalse(message.has("actionId"));
+        assertFalse(message.has("actionType"));
     }
 
     @Test

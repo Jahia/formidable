@@ -43,16 +43,17 @@ refusal there is a stored, emailed, then refused submission.
  ───────                        ─────────────────────────────────                     ─────────────────
  blur / submit ──POST──▶ FieldActionServlet  /modules/formidable-engine/field-action
    {field, value, trigger}   │ security-filter scope formidable-field-action (origin: hosted)
-                             │ fid → form in live, field found BY NAME under it (FieldActionCollector)
-                             │ value length cap · rate limit per client · verdict cache
+                             │ value length cap · rate limit per client
+                             │ fid → form read in the VISITOR's live session (readable? a form? members-only → FMDB-009)
+                             │ field found BY NAME under it (FieldActionCollector, walk cached per form and locale)
                              ▼
                         FieldActionDispatcher ── for each action of the field, in list order ──┐
                              │  1. a Java FieldAction registered for the node type?  ──────────┼─▶ execute(node, request)
                              │  2. else render the node's `hidden.execute` view      ──────────┼─▶ hidden.execute.server.tsx
                              │     (RenderService, expiration=0, request attribute)           │      server.osgi.getService(FieldActionGateway)
-                             │  verdict cache (action id + trimmed value, TTL)       ◀────────┘      credential from .cfg, never in JS or JCR
+                             │  verdict cache (action id + locale + trimmed value)  ◀────────┘      credential from .cfg, never in JS or JCR
                              ▼
- ◀──── JSON {verdict: accept | advice | reject, messages: [{level, html, field, actionId, actionType}]}
+ ◀──── JSON {verdict: accept | advice | reject, messages: [{level, html, field}]}
 
  submit ──POST──▶ FormSubmitServlet → pipeline step 11b runFieldActions → the same dispatcher, the same cache
                                                      → FMDB-015 + messages[] on a blocking refusal
@@ -198,10 +199,14 @@ jahiaComponent(
   locale}` the engine sets before rendering; absent on a direct hit of the view through the render servlet,
   which is why the view answers nothing then. The value never travels in a URL.
 - **Output**: the view's body is one JSON object `{"verdict": "accept" | "reject" | "unavailable",
-  "detail"?: string}` — whitespace or markup the render chain adds around it is tolerated; anything else is
-  read as unavailable, the text kept for the logs. The **visitor-facing text is not the view's business**:
-  the engine reads the contributor's `rejectionMessage` on the node in the visitor's locale, interpolates
-  and escapes it.
+  "detail"?: string}` **and nothing else** — the output, trimmed, must be exactly that object. Nothing
+  before it, nothing after it: not a comment, not a debug line, never the candidate value. A reader that
+  took the widest span between braces would let a view echoing the value hand the parser a string the
+  visitor partly controls, and one `{` in the value would then retire the check, silently, onto the
+  `whenUnavailable` default; the strict reader fails on every value instead, deterministically, so the
+  author sees it at the first test. Anything but the one object is read as unavailable; the output itself
+  reaches the logs at DEBUG only. The **visitor-facing text is not the view's business**: the engine reads
+  the contributor's `rejectionMessage` on the node in the visitor's locale, interpolates and escapes it.
 - **Caching**: the view declares `cache.expiration=0` and the engine sets the `expiration` request
   attribute to `0` before rendering, which has priority over the view (`AggregateCacheFilter`); the cache
   layer stores nothing whose expiration is not `> 0`. Belt and braces, because a cached verdict keyed on
@@ -221,20 +226,24 @@ type is executed, failing that the view is rendered and its verdict parsed. `ACC
 becomes one `FieldActionMessage` — level `error` when the action blocks, `warning` otherwise; the
 contributor's `rejectionMessage` in the visitor's locale, `${value}` and the other submitted values
 interpolated through `TemplateInterpolator` with `FieldEscaper.html`, the rich text itself trusted as the
-form's responses are; the field name, the action's id and type — and ends the run when the action blocks,
-since the first blocking refusal wins. `UNAVAILABLE` is what the contributor's `whenUnavailable` says.
+form's responses are; the field name, and — for the logs and the tests only, never in a response — the
+action's id and type. It ends the run when the action blocks, since the first blocking refusal wins.
+`UNAVAILABLE` is what the contributor's `whenUnavailable` says.
 
-The **verdict cache** (`VerdictCache`) keeps `ACCEPT` and `REJECT` per action id and trimmed value for
-`fieldActionVerdictCacheTtlSeconds`, bounded at ten thousand entries; `UNAVAILABLE` is a moment's truth
-and is not kept. `FieldActionRuntime`, one OSGi component, holds the registered Java actions, the cache,
-the endpoint's rate limiter and the dispatcher built on them, and both servlets reference it — so the
-verdict the pre-check gave is the one the pipeline finds.
+The **verdict cache** (`VerdictCache`) keeps `ACCEPT` and `REJECT` per action id, **locale** and trimmed
+value for `fieldActionVerdictCacheTtlSeconds`, bounded at ten thousand entries; `UNAVAILABLE` is a
+moment's truth and is not kept. The locale is in the key because it is in the request an action judges: an
+accept obtained with `?lang=<a locale where the check passes>` must not serve the submission in another.
+`FieldActionRuntime`, one OSGi component, holds the registered Java actions, the verdict cache, the
+endpoint's rate limiter, the cache of the forms' declared actions (below) and the dispatcher built on them,
+and both servlets reference it — so the verdict the pre-check gave is the one the pipeline finds.
 
 ### The endpoint — `POST /modules/formidable-engine/field-action?fid=<form UUID>&lang=<lang>`
 
-Body `{"field": "<field node name>", "value": "<candidate>", "trigger": "blur" | "submit"}`, answer
-`{"verdict": "accept" | "advice" | "reject", "messages": [{"level": "error" | "warning", "html": "…",
-"field": "…", "actionId": "…", "actionType": "…"}]}` — `advice` when only warnings came back. Registered as
+Body `{"field": "<field node name>", "value": "<candidate>", "trigger": "blur" | "submit"}` — one value
+per call; a multi-valued control asks once per value — answer `{"verdict": "accept" | "advice" | "reject",
+"messages": [{"level": "error" | "warning", "html": "…", "field": "…"}]}` — `advice` when only warnings
+came back; a message never names the action node or its type. Registered as
 `FormSubmitServlet` is (HTTP whiteboard, `alias=/formidable-engine/field-action`), gated as it is: its own
 security-filter scope `formidable-field-action` (`auto_apply: origin: hosted`), one more pattern in the
 CSRFGuard whitelist, `PermissionService.hasPermission({api: "formidable-field-action"})` before anything
@@ -249,23 +258,49 @@ is read. Then, in order:
 4. Rate limit per client address (`fieldActionRateLimitPerMinute`, default 30) — `FMDB-016`, 429. The
    endpoint is an open door to a possibly paid service for anyone on the site; the limit and the cache are
    what make it affordable.
-5. The form resolved in `live` by its UUID, in a system session, and the field found **by node name under
-   it** (`FieldActionCollector.collect`) — never `getNodeByIdentifier` on a client-supplied id, so the
-   endpoint cannot be pointed at an arbitrary node. No such form, not a form, or no such field with
-   actions: `FMDB-004`.
-6. A blank value is accepted without running anything — an unanswered field says nothing to check, and
+5. The form resolved in `live` by its UUID **in the visitor's own session**, exactly as the pipeline's
+   step 4 does: a form the caller cannot read — unpublished, on a page they may not see, on another site
+   they have no access to — is not found, and so is an identifier that is not a form's, with the same
+   code so the answer discloses nothing about what the UUID points at. The form's UUID is public (the
+   rendered form carries it in its submit URL); what the visitor may read is not. `FMDB-004`.
+6. A guest on a form carrying `fmdbmix:authenticatedOnlyForm` is refused, as the pipeline's step 6 refuses
+   their submission — `FMDB-009`, 401. Without it, the public fid of a members-only form would let a
+   logged-out caller run every action of the form.
+7. The field found **by node name under the form** (`FieldActionCollector.collect`) — never
+   `getNodeByIdentifier` on a client-supplied field id. The walk of the form's subtree runs in a system
+   session, as the pipeline's metadata collector runs it, and is kept per form and locale for sixty seconds
+   (`FieldActionsCache`, bounded at a thousand forms): thirty pre-checks a minute on one form cost one walk,
+   and a contributor's change reaches the pre-check within the minute — the pipeline, the authority, walks
+   the form on every submission. No such field with actions: `FMDB-004`.
+8. A blank value is accepted without running anything — an unanswered field says nothing to check, and
    the pipeline skips it too. Otherwise the dispatcher runs the field's actions for the declared trigger.
+
+A form carrying `fmdbmix:captchaProtectedForm` is **not** captcha-gated at the pre-check: a captcha token
+is single-use and is spent by the submission, which the pipeline verifies at its step 7 before step 11b
+runs anything again. The pre-check of such a form is bounded by the rate limit, the value cap and the
+verdict cache only, which is what "an open door to a possibly paid service" means: the administrator who
+finds that bound too loose for a given provider switches the pre-check off (`fieldActionRateLimitPerMinute=0`)
+and the field actions run at submission only, behind the captcha. A per-action "submission only" setting
+is listed under "Open questions".
 
 ### The pipeline — step 11b `runFieldActions`
 
 Between `validateRequired` (11) and `dispatchActions` (12): for every field whose metadata carries
 actions (`FormFieldMetadataCollector.Result.fieldActions`, read in the same walk as the constraints, so
 the repository is read once), whose submitted value is not blank and that the logic evaluator does not
-hold hidden, the dispatcher runs the **blocking** actions with every trigger — a multi-valued field is
-judged on its first non-blank value. The first refusal is `SubmissionException(FMDB_015, 422)` carrying
-the messages, which the servlet writes in a `messages` array next to `errorCode`, so the browser anchors
-them on the field exactly as the pre-check did. `messages` joins the servlet's reserved keys: an enricher
-cannot take it. Warning actions do not run here: they warned.
+hold hidden, the dispatcher runs the **blocking** actions with every trigger — on **every non-blank value**
+of the field, in order, since every one of them is stored and sent on (a checkbox group, or two fields
+sharing a name, which the pipeline accumulates under one name). The first refusal is
+`SubmissionException(FMDB_015, 422)` carrying the messages, which the servlet writes in a `messages`
+array next to `errorCode`, so the browser anchors them on the field exactly as the pre-check did.
+`messages` joins the servlet's reserved keys: an enricher cannot take it. Warning actions do not run here:
+they warned.
+
+The step runs on the dispatcher the submit servlet hands over from `FieldActionRuntime`, a mandatory
+static reference: OSGi does not activate the servlet until the runtime is bound, so a submission never
+meets a half-started engine. Should the dispatcher be missing all the same, the step logs a warning that
+the form's field actions **did not run** — a different fact from "this form has no checks", which is
+silent — and the submission goes on.
 
 ## Providers, configuration and secrets — the `FieldActionGateway`
 
@@ -295,9 +330,14 @@ characters, and never puts the credential in a log line or in the object it retu
 ## Security and trust
 
 - **The endpoint is the only entry**, with the submission's posture: `origin: hosted` scope, CSRFGuard
-  whitelist, guest-readable published content only. A `hidden.execute` view is renderable through the
-  platform's render servlet by anyone who can read the node — which is why the view answers nothing without
-  the engine's request attribute, which no URL can set.
+  whitelist, the form read in the visitor's own `live` session (what the caller cannot read is not found),
+  a guest refused on a members-only form (`FMDB-009`). Only the walk of a form the visitor has read, and
+  the action nodes themselves, are read in a system session — the submitter has no reason to have read
+  access to the action nodes. A `hidden.execute` view is renderable through the platform's render servlet
+  by anyone who can read the node — which is why the view answers nothing without the engine's request
+  attribute, which no URL can set.
+- **The captcha is not re-checked at the pre-check** (a token is single-use); the pre-check of a
+  captcha-protected form is bounded by the rate limit, the cap and the cache, or switched off.
 - **The credential never leaves the engine**: `.cfg` → gateway; the JavaScript sees a provider *id*; the
   repository stores a provider *id*.
 - **SSRF**: the gateway only ever calls the configured base URLs; the path is relative-only, on the same
@@ -305,16 +345,25 @@ characters, and never puts the credential in a log line or in the object it retu
 - **Abuse of a paid API**: rate limit per client, verdict cache, blocking actions only in the pipeline,
   `0` to switch the endpoint off.
 - **Information disclosure**: the visitor gets the contributor's message and a verdict, never the provider's
-  response; `detail` stays in the logs. The candidate value is never in a URL, nor in a log line at INFO.
-- **The pipeline is the authority.** The pre-check is a courtesy; the submit-time re-check is what protects
-  the data — a browser that skips the pre-check meets the same actions.
+  response, the action node's identifier or its node type; `detail` stays in the logs. The candidate value
+  is never in a URL, nor in a log line at INFO — a view's output, which may echo it in breach of the
+  contract, is logged at DEBUG only.
+- **The view's output is the verdict object and nothing else**: a lenient reader would let an echoed value
+  retire the check onto the `whenUnavailable` default; the strict one fails deterministically.
+- **The verdict cache is keyed on the locale** as well as the action and the value: a pre-check in a locale
+  where the check passes cannot seed the accept the submission finds in another.
+- **The pipeline is the authority, over every non-blank value of every answered, visible field.** The
+  pre-check is a courtesy; the submit-time re-check is what protects the data — a browser that skips the
+  pre-check meets the same actions. Without a dispatcher the step says so in the logs rather than pass in
+  silence.
 
 ## Performance
 
-A blur-time call costs one servlet hit, one walk of the published form in a system session, one action
-run — a provider call at most. The verdict cache makes submit free for values already checked; the rate
-limit bounds a hostile client. The pipeline re-check adds one provider call per blocking action whose
-value was never pre-checked.
+A blur-time call costs one servlet hit, one read of the form in the visitor's session, one action run — a
+provider call at most; the walk of the published form that finds the fields runs once a minute per form
+and locale (`FieldActionsCache`), not once a call. The verdict cache makes submit free for values already
+checked in the same locale; the rate limit bounds a hostile client. The pipeline re-check adds one provider
+call per blocking action and non-blank value never pre-checked.
 
 ## Decision log
 
@@ -331,6 +380,10 @@ value was never pre-checked.
 | 2026-09-21 | **Field actions stand alone; `messages[]` is a servlet key** written by the pipeline for both outcomes, the enricher SPI unchanged | The draft made the "action outcomes" design (per-action visitor messages, gating actions) a prerequisite, its `messages` array being the substrate. The refusal needs only the array: the field actions add it, minimal, and action outcomes will write into it. The response-enrichment SPI shipped meanwhile covers accepted submissions only and runs after the actions — a rejection's messages are the pipeline's, not an enrichment's, so `messages` is reserved like `success` and `errorCode` |
 | 2026-09-21 | **No dependency on the TypeScript form-actions registry** (#164) | Its SDK (javascript-modules#686) was closed unmerged on 2026-07-22; no registry entry point exists or is scheduled. The view is the entry point, not a workaround |
 | 2026-09-21 | **The bundle's default message never falls back to the server's locale** | `ResourceBundle` would serve a French server's `_fr` bundle to an English visitor when no `_en` file exists; the lookup uses the no-fallback control so the base bundle answers. Found by the unit test on a French machine |
+| 2026-09-22 | **The endpoint reads the form as the pipeline does** — visitor session, `FMDB-004` for what the caller cannot read, `FMDB-009` for a guest on a members-only form (review of #344) | The first cut resolved the form in a system session, so any published form on the platform, members-only pages included, had its actions runnable by anyone holding the public fid; and no authentication check existed while the pipeline had one. The pipeline's posture, step for step, is the only defensible one |
+| 2026-09-22 | **The view's output is exactly one JSON object** — no tolerance for surrounding markup (review of #344) | The lenient reader took the widest span between braces: a view echoing the value let a `{` in the value make the output unparseable, hence unavailable, hence accepted by the CND default. Strict parsing fails on every value, deterministically, where the author sees it |
+| 2026-09-22 | **Every non-blank value is judged; the locale is in the cache key; the response names no action node** (review of #344) | The authority must cover what is stored: all values, not the first. A cached accept in one locale must not answer another, since the locale is part of the request. A node UUID and a vendor namespace in the response disclose the checks behind a form the caller may not read |
+| 2026-09-22 | **The walk of the form is cached per form and locale for sixty seconds**, not keyed off the form's `jcr:lastModified` (review of #344) | A change to an action or a field touches that node's `jcr:lastModified`, not the form root's: the core `LastModifiedListener` writes the first node up the hierarchy that carries `mix:lastModified`, which a `jnt:content` action node is itself (jahia-impl 8.2.4 sources, `updateLastModifiedProperties`), so the root's date would serve stale actions after a republish. A short TTL is exact within the minute and needs no invalidation; the pipeline walks fresh every time |
 
 ## Open questions
 
@@ -340,6 +393,11 @@ value was never pre-checked.
   (today: yes, the browser decides what it asks about; the pipeline skips hidden fields).
 - A `warn` refusal from a `submit`-triggered action: shown once and the submission proceeds, or a confirm
   step? v1: shown, proceeds.
+- A captcha-protected form's pre-check is an uncaptcha'd oracle onto the provider, bounded by the rate limit
+  only. A per-action "at submission only" setting (no pre-check, the pipeline alone runs it, behind the
+  captcha) would let a contributor close it for one paid check without switching the endpoint off for the
+  whole platform. Not built: the trigger `submit` still pre-checks, on purpose, so the visitor sees the
+  refusal before the page reloads.
 
 ## Roadmap
 
@@ -362,7 +420,7 @@ value was never pre-checked.
 - `formidable-engine/…/api/FieldAction.java`, `FieldActionRequest.java`, `FieldActionResult.java`,
   `FieldActionGateway.java`; `…/fieldactions/` (`FieldActionDispatcher`, `FieldActionCollector`,
   `FieldActionRuntime`, `FieldActionServlet`, `FieldActionGatewayImpl`, `RenderServiceViewRenderer`,
-  `ResolvedFieldAction`, `VerdictCache`, `RateLimiter`); `servlet/FormSubmissionPipeline.java` (step 11b),
+  `ResolvedFieldAction`, `VerdictCache`, `FieldActionsCache`, `RateLimiter`); `servlet/FormSubmissionPipeline.java` (step 11b),
   `servlet/FormFieldMetadataCollector.java` (`Result.fieldActions`), `servlet/FormSubmitServlet.java`
   (`messages`, `RESERVED_KEYS`); `config/FormidableConfig.java`, `config/FormidableConfigService.java`
   (`FieldActionProvider`, `FieldActionSettings`); `choicelist/FormidableFieldActionProvidersInitializer.java`;

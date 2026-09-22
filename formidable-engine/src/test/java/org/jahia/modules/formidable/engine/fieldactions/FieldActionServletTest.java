@@ -18,6 +18,8 @@ import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import javax.jcr.ItemNotFoundException;
+import javax.jcr.RepositoryException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
@@ -47,6 +49,22 @@ class FieldActionServletTest {
 
     /** The answer the servlet wrote: status and JSON body. */
     private record Answer(int status, JSONObject body) {
+    }
+
+    /** How the test answers the servlet's two repository reads: the form as the visitor sees it, the walk of its fields. */
+    private record Repository(FieldActionServlet.ResolvedForm form, Map<String, List<ResolvedFieldAction>> actions, AtomicInteger walks) {
+        static Repository publicForm(Map<String, List<ResolvedFieldAction>> actions) {
+            return new Repository(new FieldActionServlet.ResolvedForm(false), actions, new AtomicInteger());
+        }
+
+        static Repository membersOnlyForm(Map<String, List<ResolvedFieldAction>> actions) {
+            return new Repository(new FieldActionServlet.ResolvedForm(true), actions, new AtomicInteger());
+        }
+
+        /** A form the visitor's session does not resolve: unreadable, unpublished or not a form at all. */
+        static Repository unreadable() {
+            return new Repository(null, Map.of(), new AtomicInteger());
+        }
     }
 
     private static FieldActionSettings settings(int rateLimitPerMinute, int maxValueLength) {
@@ -90,21 +108,34 @@ class FieldActionServletTest {
         return runtime;
     }
 
-    /** The servlet with its gate and its repository read answered by the test. */
-    private static FieldActionServlet servlet(FieldActionRuntime runtime, boolean allowed, Map<String, List<ResolvedFieldAction>> actions) {
-        FieldActionServlet servlet = new FieldActionServlet(() -> null) {
+    /** The servlet with its gate, the caller's identity and its two repository reads answered by the test. */
+    private static FieldActionServlet servlet(FieldActionRuntime runtime, boolean allowed, boolean guest, Repository repository) {
+        FieldActionServlet servlet = new FieldActionServlet(locale -> null, () -> guest, () -> null) {
             @Override
             boolean isRequestAllowed() {
                 return allowed;
             }
 
             @Override
+            ResolvedForm resolveForm(String formId, Locale locale) throws RepositoryException {
+                if (repository.form() == null) {
+                    throw new ItemNotFoundException(formId);
+                }
+                return repository.form();
+            }
+
+            @Override
             Map<String, List<ResolvedFieldAction>> fieldActionsOf(String formId, Locale locale) {
-                return actions;
+                repository.walks().incrementAndGet();
+                return repository.actions();
             }
         };
         servlet.setRuntime(runtime);
         return servlet;
+    }
+
+    private static FieldActionServlet servlet(FieldActionRuntime runtime, boolean allowed, Map<String, List<ResolvedFieldAction>> actions) {
+        return servlet(runtime, allowed, true, Repository.publicForm(actions));
     }
 
     private static HttpServletRequest request(String fid, String body, String remoteAddress) throws Exception {
@@ -206,6 +237,54 @@ class FieldActionServletTest {
     }
 
     @Test
+    void aFormTheVisitorCannotReadIsNotFound() throws Exception {
+        // Verifies the form read in the visitor's own session, as the pipeline's step 4 does: a form the caller cannot
+        // read — unpublished, on a page they may not see, or not a form at all — is FMDB-004, its fields never walked,
+        // no action run. The fid is public, the form behind it is not.
+        AtomicInteger calls = new AtomicInteger();
+        Repository unreadable = Repository.unreadable();
+        FieldActionServlet servlet = servlet(runtime(settings(30, 512), dispatcher(FieldActionResult.reject("x"), calls)), true, true, unreadable);
+
+        Answer answer = post(servlet, request(FORM_ID, body("email", "a@b.c", null), "10.0.0.1"));
+
+        assertEquals(404, answer.status());
+        assertEquals("FMDB-004", answer.body().getString("errorCode"));
+        assertEquals(0, unreadable.walks().get());
+        assertEquals(0, calls.get());
+    }
+
+    @Test
+    void aGuestIsRefusedOnAMembersOnlyFormAsTheSubmissionRefusesThem() throws Exception {
+        // Verifies the pipeline's step 6 at the pre-check: a guest posting the public fid of an authenticated-only
+        // form gets FMDB-009, no action runs for them; the same call from a logged-in visitor goes through.
+        AtomicInteger calls = new AtomicInteger();
+        FieldActionRuntime runtime = runtime(settings(30, 512), dispatcher(FieldActionResult.accept(), calls));
+        FieldActionServlet asGuest = servlet(runtime, true, true, Repository.membersOnlyForm(emailActions(Trigger.BLUR)));
+        FieldActionServlet asMember = servlet(runtime, true, false, Repository.membersOnlyForm(emailActions(Trigger.BLUR)));
+
+        Answer refused = post(asGuest, request(FORM_ID, body("email", "a@b.c", null), "10.0.0.1"));
+        assertEquals(401, refused.status());
+        assertEquals("FMDB-009", refused.body().getString("errorCode"));
+        assertEquals(0, calls.get());
+
+        assertEquals(200, post(asMember, request(FORM_ID, body("email", "a@b.c", null), "10.0.0.2")).status());
+        assertEquals(1, calls.get());
+    }
+
+    @Test
+    void theWalkOfTheFormIsSharedBetweenCallsOnTheSameFormAndLocale() throws Exception {
+        // Verifies the runtime's cache at the servlet's seat: two pre-checks on one form walk its subtree once; the
+        // visitor's read of the form itself is not cached — it ran twice, once per call.
+        Repository repository = Repository.publicForm(emailActions(Trigger.BLUR));
+        FieldActionServlet servlet = servlet(runtime(settings(30, 512), dispatcher(FieldActionResult.accept(), new AtomicInteger())), true, true, repository);
+
+        post(servlet, request(FORM_ID, body("email", "a@b.c", null), "10.0.0.1"));
+        post(servlet, request(FORM_ID, body("email", "b@b.c", null), "10.0.0.1"));
+
+        assertEquals(1, repository.walks().get());
+    }
+
+    @Test
     void aFieldWithoutActionsIsNotFound() throws Exception {
         // Verifies the field lookup: the browser names a field the form has no actions for — FMDB-004, as a missing form.
         FieldActionServlet servlet = servlet(runtime(settings(30, 512), dispatcher(FieldActionResult.accept(), new AtomicInteger())), true, emailActions(Trigger.BLUR));
@@ -230,9 +309,10 @@ class FieldActionServletTest {
     }
 
     @Test
-    void aRefusalAnswersRejectWithTheMessageAnchoredOnTheField() throws Exception {
+    void aRefusalAnswersRejectWithTheMessageAnchoredOnTheFieldAndNothingAboutTheAction() throws Exception {
         // Verifies the nominal refusal: verdict reject, one error message naming the field, the contributor's text
-        // with the value interpolated and escaped — the shape a refused submission carries too.
+        // with the value interpolated and escaped — the shape a refused submission carries too — and neither the
+        // action node's id nor its type, which a caller must not learn from a form they may not read.
         FieldActionServlet servlet = servlet(runtime(settings(30, 512), dispatcher(FieldActionResult.reject("unknown"), new AtomicInteger())), true, emailActions(Trigger.BLUR));
 
         Answer answer = post(servlet, request(FORM_ID, body("email", "<x>@b.c", null), "10.0.0.1"));
@@ -243,7 +323,8 @@ class FieldActionServletTest {
         assertEquals("error", message.getString("level"));
         assertEquals("email", message.getString("field"));
         assertEquals("Unknown: &lt;x&gt;@b.c", message.getString("html"));
-        assertEquals(TYPE, message.getString("actionType"));
+        assertFalse(message.has("actionId"));
+        assertFalse(message.has("actionType"));
     }
 
     @Test
