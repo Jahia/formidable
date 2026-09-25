@@ -172,6 +172,25 @@ public @interface FormidableConfig {
     String fieldActionProviders() default "";
 
     @AttributeDefinition(
+            name = "Enable development field action providers",
+            description = "Allows use of devFieldActionProviders. Disabled by default. " +
+                    "When enabled, only plain HTTP providers on localhost or host.docker.internal are accepted.",
+            type = AttributeType.BOOLEAN
+    )
+    boolean enableDevFieldActionProviders() default false;
+
+    @AttributeDefinition(
+            name = "Development field action providers",
+            description = "Newline-separated list of development-only field action providers, in the form of " +
+                    "fieldActionProviders with a plain HTTP base URL on localhost or host.docker.internal: " +
+                    "id|Label|http://localhost:8080/...|Credential-Header-Name|credential. " +
+                    "Ignored unless 'Enable development field action providers' is true. A double of a provider " +
+                    "is declared here, such as the samples module's Experian stub.",
+            type = AttributeType.PASSWORD
+    )
+    String devFieldActionProviders() default "";
+
+    @AttributeDefinition(
             name = "Field action HTTP connect timeout (seconds)",
             description = "Maximum time allowed to establish the connection to a field action provider. Default: 5 seconds.",
             type = AttributeType.LONG

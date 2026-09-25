@@ -401,8 +401,9 @@ public class FormidableConfigService {
         log.info("FormidableConfigService options sources: {} declared, cacheTtl={}s",
                 snapshot.optionsSources().size(),
                 snapshot.optionsSourcesCacheTtl().toSeconds());
-        log.info("FormidableConfigService field actions: {} provider(s), connectTimeout={}s, requestTimeout={}s, verdictCacheTtl={}s, preCheckRateLimit={}/min, maxValueLength={}",
+        log.info("FormidableConfigService field actions: {} provider(s), devProvidersEnabled={}, connectTimeout={}s, requestTimeout={}s, verdictCacheTtl={}s, preCheckRateLimit={}/min, maxValueLength={}",
                 fieldActions.providers().size(),
+                osgiConfig.enableDevFieldActionProviders(),
                 fieldActions.httpConnectTimeout().toSeconds(),
                 fieldActions.httpRequestTimeout().toSeconds(),
                 fieldActions.verdictCacheTtl().toSeconds(),
@@ -436,8 +437,19 @@ public class FormidableConfigService {
         int maxValueLength = osgiConfig.fieldActionMaxValueLength() > 0
                 ? osgiConfig.fieldActionMaxValueLength()
                 : FormidableConfig.DEFAULT_FIELD_ACTION_MAX_VALUE_LENGTH;
+        Map<String, FieldActionProvider> providers = parseFieldActionProviders(osgiConfig.fieldActionProviders(), false);
+        if (osgiConfig.enableDevFieldActionProviders()) {
+            // A development provider never shadows a standard one: the first occurrence of an id wins, as within one list.
+            parseFieldActionProviders(osgiConfig.devFieldActionProviders(), true).forEach((id, provider) -> {
+                if (providers.putIfAbsent(id, provider) != null) {
+                    log.warn("[FormidableConfigService] Duplicate field action provider id '{}' across fieldActionProviders and devFieldActionProviders, keeping the standard provider.", id);
+                }
+            });
+        } else if (osgiConfig.devFieldActionProviders() != null && !osgiConfig.devFieldActionProviders().isBlank()) {
+            log.info("[FormidableConfigService] Ignoring devFieldActionProviders because enableDevFieldActionProviders=false.");
+        }
         return new FieldActionSettings(
-                Collections.unmodifiableMap(parseFieldActionProviders(osgiConfig.fieldActionProviders())),
+                Collections.unmodifiableMap(providers),
                 connectTimeout,
                 requestTimeout,
                 httpClient,
@@ -451,10 +463,11 @@ public class FormidableConfigService {
     /**
      * Parses {@code fieldActionProviders}: one {@code id|Label|https://base-url|Credential-Header-Name|credential}
      * per line, the last two optional together. The base URL obeys the forward targets' rule — HTTPS, a host, no
-     * embedded credentials. A malformed entry is logged without its credential and skipped; the first occurrence
-     * of a duplicate id wins.
+     * embedded credentials; a development list ({@code devFieldActionProviders}) obeys their development rule
+     * instead, plain HTTP on localhost or host.docker.internal. A malformed entry is logged without its credential
+     * and skipped; the first occurrence of a duplicate id wins.
      */
-    private static Map<String, FieldActionProvider> parseFieldActionProviders(String raw) {
+    private static Map<String, FieldActionProvider> parseFieldActionProviders(String raw, boolean development) {
         Map<String, FieldActionProvider> result = new LinkedHashMap<>();
         if (raw == null || raw.isBlank()) {
             return result;
@@ -464,7 +477,7 @@ public class FormidableConfigService {
             if (trimmed.isEmpty()) {
                 continue;
             }
-            parseFieldActionProviderEntry(trimmed).ifPresent(provider -> {
+            parseFieldActionProviderEntry(trimmed, development).ifPresent(provider -> {
                 if (result.putIfAbsent(provider.id(), provider) != null) {
                     log.warn("[FormidableConfigService] Duplicate fieldActionProviders id '{}', keeping first occurrence.", provider.id());
                 }
@@ -473,7 +486,7 @@ public class FormidableConfigService {
         return result;
     }
 
-    private static Optional<FieldActionProvider> parseFieldActionProviderEntry(String entry) {
+    private static Optional<FieldActionProvider> parseFieldActionProviderEntry(String entry, boolean development) {
         String[] parts = entry.split("\\|", 5);
         if (parts.length < 3) {
             if (log.isWarnEnabled()) {
@@ -504,9 +517,9 @@ public class FormidableConfigService {
             log.warn("[FormidableConfigService] Skipping fieldActionProviders entry '{}': malformed URI '{}'", id, url);
             return Optional.empty();
         }
-        String reason = getUnsupportedForwardTargetUriReason(uri, false);
+        String reason = getUnsupportedForwardTargetUriReason(uri, development);
         if (reason != null) {
-            log.warn("[FormidableConfigService] Skipping fieldActionProviders entry '{}': {}", id, reason);
+            log.warn("[FormidableConfigService] Skipping {} entry '{}': {}", development ? "devFieldActionProviders" : "fieldActionProviders", id, reason);
             return Optional.empty();
         }
         return Optional.of(new FieldActionProvider(id, label.isEmpty() ? id : label, uri, header, credential));
