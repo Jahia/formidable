@@ -21,11 +21,11 @@ It is the form action's twin, one level down:
 | Runs | after the submission is accepted, once | before it is accepted — at blur or submit from the browser, and in the pipeline |
 | Side effects | expected (store, email, forward) | forbidden — a field action only answers |
 | Declared by | a node type taking `fmdbmix:formAction` | a node type taking `fmdbmix:fieldAction` |
-| Implemented in | Java (`FormAction` OSGi service) | Java (`FieldAction` OSGi service) or **JavaScript** (a `hidden.execute` server view) |
+| Implemented in | Java (`FormAction` OSGi service) | Java (`FieldAction` OSGi service) |
 | Contributor UI | the actions zone under the form, Content Editor for each action | a switch in the field's editor form, a zone under the field, Content Editor for each action |
 
 Everything a third-party module needs to add its own field-action type is what it needs today to add an
-action type — a CND, a view or a service, resource bundles.
+action type — a CND, a service, resource bundles.
 
 ## The problem it solves
 
@@ -48,10 +48,9 @@ refusal there is a stored, emailed, then refused submission.
                              │ field found BY NAME under it (FieldActionCollector, walk cached per form and locale)
                              ▼
                         FieldActionDispatcher ── for each action of the field, in list order ──┐
-                             │  1. a Java FieldAction registered for the node type?  ──────────┼─▶ execute(node, request)
-                             │  2. else render the node's `hidden.execute` view      ──────────┼─▶ hidden.execute.server.tsx
-                             │     (RenderService, expiration=0, request attribute)           │      server.osgi.getService(FieldActionGateway)
-                             │  verdict cache (action id + locale + trimmed value)  ◀────────┘      credential from .cfg, never in JS or JCR
+                             │  the Java FieldAction registered for the node type  ───────────┼─▶ execute(node, request)
+                             │  (none deployed for the type: an unavailable check)          │      a provider? → FieldActionGateway
+                             │  verdict cache (action id + locale + trimmed value)  ◀────────┘      credential from .cfg, never in JCR
                              ▼
  ◀──── JSON {verdict: accept | advice | reject, messages: [{level, html, field}]}
 
@@ -68,17 +67,13 @@ shared verdict cache makes the honest browser's second run free. Three reasons h
 provider's credential never leaves the server; a value the browser was told was fine is checked again
 where the data is accepted; and a JavaScript module cannot expose an endpoint of its own.
 
-**Why a view is the JavaScript entry point.** A Jahia JavaScript module cannot expose an HTTP endpoint,
-and the JavaScript modules engine exports none of its packages (its manifest lists 166 exported packages,
-none under `org.jahia.modules.javascript`, measured on `javascript-modules-engine 1.3.0-SNAPSHOT`), so a
-Java module cannot link against `GraalVMEngine` to call a registered function. What Java *can* do with a
-JavaScript module is what the platform does: render one of its views through `RenderService.render`. A
-view named `hidden.execute` registered on the field-action type is therefore the contract: the engine
-renders it with the candidate value in a request attribute, the view answers a small JSON body. Request
-attributes are already how the engine talks to the JavaScript views (`CaptchaRenderFilter`), and
-`server.osgi.getService(<class name>)` already how the views call back into Java. The registry-based SDK
-that would have offered a direct call (javascript-modules#686) was closed unmerged; should one ship, the
-dispatcher gains a second lookup and the view stays valid.
+**JavaScript is the visitor's page, not the action's code.** The JavaScript of the field actions is the
+browser side — `useFieldActions`, the zone under the field — never the check itself, which is a Java
+`FieldAction` a module registers. A server-side JavaScript path (a `hidden.execute` view rendered by the
+engine and read as a JSON verdict) was built with the engine and withdrawn on 2026-09-25, before any release
+(decision log): it answered a question nobody had asked, and it sidestepped the one still open with #164 —
+form actions written in TypeScript — which waits for a server-extension SDK of the JavaScript modules. When
+that SDK ships, form actions and field actions written in JavaScript will go through the same registry.
 
 ## JCR definitions
 
@@ -165,8 +160,8 @@ The concrete type is declared next to its code, like a field type next to its vi
 names the concrete type: it reaches it through the markers.
 
 ```cnd
-// A module of its own: the type takes the marker, carries its own settings, and either a Java service
-// or a hidden.execute view bound to it judges the value. The four feedback settings arrive through
+// A module of its own: the type takes the marker, carries its own settings, and a Java service
+// bound to it judges the value. The four feedback settings arrive through
 // `extends`, unasked. A type calling a provider takes fmdbmix:providerFieldAction too: the id of one
 // of the providers the administrator declared, with its label and its choicelist, from the engine.
 [myco:crmLookupAction] > jnt:content, fmdbmix:fieldAction, fmdbmix:providerFieldAction, mix:title
@@ -190,7 +185,7 @@ The samples module ships one: `fmdbsample:blockedWordsAction` (a `words` list, a
 refused), implemented by `BlockedWordsFieldAction` in Java — the shape to copy. It is a sample: it is installed
 by the test provisioning manifest and reaches no product installation.
 
-### The samples' second one — `fmdbsample:emailDeliverabilityAction`
+### The samples' second one — `fmdbsample:emailDomainAction`
 
 **The engine ships no concrete field-action type at all.** It provides the mechanism — the markers, the list, the
 dispatcher, the endpoint, the gateway — and a project decides which checks its forms deserve. What the samples
@@ -318,171 +313,6 @@ email specialisation: only a value that reads as an address (`EmailAddress.domai
 address)`, the one method left to write. The samples' Experian and ZeroBounce checks are that method each. The
 action node is read in `live` in a system session; an exception escaping `execute` counts as unavailable
 and is logged.
-
-### A field action in JavaScript — the `hidden.execute` view
-
-```tsx
-jahiaComponent(
-  { componentType: "view", nodeType: "myco:crmLookupAction", name: "hidden.execute",
-    properties: { "cache.expiration": "0" } },                              // never cached: a verdict is about one value
-  ({ providerId }, { renderContext }) => {
-    const request = readFieldActionRequest(renderContext);   // null on a direct URL hit: the view is not an endpoint
-    if (!request) return null;
-    const gateway = server.osgi.getService("org.jahia.modules.formidable.engine.api.FieldActionGateway");
-    const response = gateway.post(providerId, "customers/lookup", JSON.stringify({ number: request.value }));
-    if (response.status() !== 200) return fieldActionResult.unavailable(`provider ${response.status()}`);
-    return JSON.parse(response.body()).known ? fieldActionResult.accept() : fieldActionResult.reject("unknown");
-  },
-);
-```
-
-- **Input**: the request attribute `formidable.fieldAction`, a JSON object `{formId, fieldName, value,
-  locale}` the engine sets before rendering; absent on a direct hit of the view through the render servlet,
-  which is why the view answers nothing then. The value never travels in a URL.
-- **Output**: the view's body is one JSON object `{"verdict": "accept" | "reject" | "unavailable",
-  "detail"?: string}` **and nothing else** — the output, trimmed, must be exactly that object, once the
-  platform's own wrapping is off it. Jahia's `URLFilter` applies on a `module` configuration and wraps every
-  fragment in `<!-- jahia:temp value="URLParserStart…" -->` markers; `StaticAssetsFilter`, which removes them
-  again, does not run on that configuration, so `RenderServiceViewRenderer` strips them with the platform's
-  own pattern before the reader sees the body. Without that step the strict reader would answer UNAVAILABLE
-  for **every** JavaScript-written action, which the CND default then accepts. Nothing
-  before it, nothing after it: not a comment, not a debug line, never the candidate value. A reader that
-  took the widest span between braces would let a view echoing the value hand the parser a string the
-  visitor partly controls, and one `{` in the value would then retire the check, silently, onto the
-  `whenUnavailable` default; the strict reader fails on every value instead, deterministically, so the
-  author sees it at the first test. Anything but the one object is read as unavailable; the output itself
-  reaches the logs at DEBUG only. The **visitor-facing text is not the view's business**: the engine reads
-  the contributor's `rejectionMessage` on the node in the visitor's locale, interpolates and escapes it.
-- **Caching**: the view declares `cache.expiration=0` and the engine sets the `expiration` request
-  attribute to `0` before rendering, which has priority over the view (`AggregateCacheFilter`); the cache
-  layer stores nothing whose expiration is not `> 0`. Belt and braces, because a cached verdict keyed on
-  the node would answer every visitor with the first one's result.
-- **Side effects**: none. The engine renders the view in the visitor's request, the node read in `live`.
-
-`@jahia/formidable-library` carries `readFieldActionRequest(renderContext)` and `fieldActionResult` for this
-contract; the raw attribute and the JSON object above are the contract itself. **The output has to reach the
-engine unescaped.** The JavaScript modules engine renders a view with `renderToString`, which escapes the
-text a component returns: a view answering the JSON as a plain string arrives as
-`{&quot;verdict&quot;:&quot;accept&quot;}` — malformed, hence `UNAVAILABLE`, hence accepted by the CND
-default, silently. `fieldActionResult` therefore hands the JSON over in the engine's `jsm-raw-html` element,
-which `renderToString` does not escape and whose tags the engine strips — an element its source calls an
-internal detail, so `RenderServiceViewRenderer.body` strips the tags too, should the engine stop; and the
-reader (`FieldActionDispatcher.parse`) decodes the entities of a body **only once the raw body has failed to
-read**: a view written without the helpers is read too, and a raw body whose detail carries entity text (a
-provider's HTML relayed) is never turned into structure. The samples module ships one such view,
-`fmdbsample:minimumWordsAction` (formidable-test-module-samples-tsx), which spec 73 drives through the
-endpoint and the pipeline — the only thing exercising this render chain end to end.
-
-### The dispatcher
-
-`FieldActionDispatcher` runs a field's actions in list order. The trigger filter (a blur pre-check runs
-the blur actions, a submit runs them all) and the pipeline's `blockingOnly` rule (a warning action had
-its say at the pre-check) decide whether an action runs; a Java `FieldAction` registered for the node
-type is executed, failing that the view is rendered and its verdict parsed. `ACCEPT` moves on. `REJECT`
-becomes one `FieldActionMessage` — level `error` when the action blocks, `warning` otherwise; the
-contributor's `rejectionMessage` in the visitor's locale, `${value}` interpolated through
-`TemplateInterpolator` with `FieldEscaper.html`, the rich text itself trusted as the form's responses are;
-the field name, and — for the logs and the tests only, never in a response — the action's id and type. It
-ends the run when the action blocks, since the first blocking refusal wins. `UNAVAILABLE` is what the
-contributor's `whenUnavailable` says, and **its `detail` reaches DEBUG only**: that string is the action's
-or the view's own words — a provider's answer, an exception message — and may quote what the visitor typed.
-
-**`${value}` is the only name a rejection message may use**, and it is the only one the editor's help text
-offers. The browser asks about one field at a time, so the other fields' values are not there at the
-pre-check: interpolating them at submission only would render one message two ways, complete once and full
-of holes the other time. Both entry points pass the same thing, and any other name resolves to nothing.
-
-The **verdict cache** (`VerdictCache`) keeps `ACCEPT` and `REJECT` per action id, **locale** and trimmed
-value for `fieldActionVerdictCacheTtlSeconds`, bounded at ten thousand entries; `UNAVAILABLE` is a
-moment's truth and is not kept. The locale is in the key because it is in the request an action judges: an
-accept obtained with `?lang=<a locale where the check passes>` must not serve the submission in another.
-`FieldActionRuntime`, one OSGi component, holds the registered Java actions, the verdict cache, the
-endpoint's rate limiter, the cache of the forms' declared actions (below) and the dispatcher built on them,
-and both servlets reference it — so the verdict the pre-check gave is the one the pipeline finds.
-
-### The endpoint — `POST /modules/formidable-engine/field-action?fid=<form UUID>&lang=<lang>`
-
-Body `{"field": "<field node name>", "value": "<candidate>", "trigger": "blur" | "submit"}` — one value
-per call; a multi-valued control asks once per value — answer `{"verdict": "accept" | "advice" | "reject",
-"messages": [{"level": "error" | "warning", "html": "…", "field": "…"}]}` — `advice` when only warnings
-came back; a message never names the action node or its type. Registered as
-`FormSubmitServlet` is (HTTP whiteboard, `alias=/formidable-engine/field-action`), gated as it is: its own
-security-filter scope `formidable-field-action` (`auto_apply: origin: hosted`), one more pattern in the
-CSRFGuard whitelist, `PermissionService.hasPermission({api: "formidable-field-action"})` before anything
-is read. Then, in order:
-
-1. `fieldActionRateLimitPerMinute = 0` switches the endpoint off — a 404 without a code; the field actions
-   then run at submission only.
-2. `fid` UUID-validated, `lang` a valid language tag — `FMDB-002` as the pipeline answers.
-3. The body read up to the value cap plus what the syntax may add, refused unread beyond — `FMDB-003`; a
-   body that is not a JSON object, or a `field` that is not a node name, `FMDB-002`; a `value` longer than
-   `fieldActionMaxValueLength`, `FMDB-003`.
-4. Rate limit per client address (`fieldActionRateLimitPerMinute`, default 30) — `FMDB-016`, 429. The
-   endpoint is an open door to a possibly paid service for anyone on the site; the limit and the cache are
-   what make it affordable.
-5. The form resolved in `live` by its UUID **in the visitor's own session**, exactly as the pipeline's
-   step 4 does: a form the caller cannot read — unpublished, on a page they may not see, on another site
-   they have no access to — is not found, and so is an identifier that is not a form's, with the same
-   code so the answer discloses nothing about what the UUID points at. The form's UUID is public (the
-   rendered form carries it in its submit URL); what the visitor may read is not. `FMDB-004`.
-6. A guest on a form carrying `fmdbmix:authenticatedOnlyForm` is refused, as the pipeline's step 6 refuses
-   their submission — `FMDB-009`, 401. Without it, the public fid of a members-only form would let a
-   logged-out caller run every action of the form.
-7. The field found **by node name under the form** (`FieldActionCollector.collect`) — never
-   `getNodeByIdentifier` on a client-supplied field id. The walk of the form's subtree runs in a system
-   session, as the pipeline's metadata collector runs it, and is kept per form and locale for sixty seconds
-   (`FieldActionsCache`, bounded at a thousand forms): thirty pre-checks a minute on one form cost one walk,
-   and a contributor's change reaches the pre-check within the minute — the pipeline, the authority, walks
-   the form on every submission. No such field with actions: `FMDB-004`.
-8. A blank value is accepted without running anything — an unanswered field says nothing to check, and
-   the pipeline skips it too. Otherwise the dispatcher runs the field's actions for the declared trigger.
-
-A form carrying `fmdbmix:captchaProtectedForm` is **not** captcha-gated at the pre-check: a captcha token
-is single-use and is spent by the submission, which the pipeline verifies at its step 7 before step 11b
-runs anything again. The pre-check of such a form is bounded by the rate limit, the value cap and the
-verdict cache only, which is what "an open door to a possibly paid service" means: the administrator who
-finds that bound too loose for a given provider switches the pre-check off (`fieldActionRateLimitPerMinute=0`)
-and the field actions run at submission only, behind the captcha. A per-action "submission only" setting
-is listed under "Open questions".
-
-### The pipeline — step 11b `runFieldActions`
-
-Between `validateRequired` (11) and `dispatchActions` (12): for every field whose metadata carries
-actions (`FormFieldMetadataCollector.Result.fieldActions`, read in the same walk as the constraints, so
-the repository is read once), whose submitted value is not blank and that the logic evaluator does not
-hold hidden, the dispatcher runs the **blocking** actions with every trigger — on **every non-blank value**
-of the field, in order, since every one of them is stored and sent on (a checkbox group, or two fields
-sharing a name, which the pipeline accumulates under one name).
-
-**A field whose actions all warn is not judged here at all** — `blockingOnly` would skip every one of them —
-so nothing it carries costs anything, and nothing it carries is counted against the bound below.
-
-**The bound.** A field name can be submitted any number of times: the parser appends one entry per part and
-only the request size limits them, so one submission could ask for thousands of provider calls. What is counted
-is the list about to be judged: `answeredValues` removes the repeats of one answer before anything counts or
-runs them, so a hundred repeats are one call and a hundred different answers are a hundred.
-
-The verdict cache is **not** what makes that true, and a reader who believes it is will write the old loop
-again. It never stores an `UNAVAILABLE` — which is exactly what a provider being down answers — and stores
-nothing at all when `fieldActionVerdictCacheTtlSeconds` is zero. Counting one thing and running another is
-what let a body repeating a single value under the request size limit run hundreds of thousands of serial
-outbound calls. Past `fieldActionMaxValuesPerField` the submission is refused with `FMDB-017`, and the response
-carries a `messages` entry naming the field, which the page anchors under it, beneath the form's own error
-message with the code ("The browser", below).
-The check runs over **the whole submission before any action runs**: were it inside the loop, the provider of
-whichever field the metadata happened to yield first would already have been called, and billed, for another
-field to cancel the submission a moment later. The first refusal is
-`SubmissionException(FMDB_015, 422)` carrying the messages, which the servlet writes in a `messages`
-array next to `errorCode`, which the browser anchors on the field exactly as it anchors the pre-check's
-("The browser", below).
-`messages` joins the servlet's reserved keys: an enricher cannot take it. Warning actions do not run here:
-they warned.
-
-The step runs on the dispatcher the submit servlet hands over from `FieldActionRuntime`, a mandatory
-static reference: OSGi does not activate the servlet until the runtime is bound, so a submission never
-meets a half-started engine. Should the dispatcher be missing all the same, the step logs a warning that
-the form's field actions **did not run** — a different fact from "this form has no checks", which is
-silent — and the submission goes on.
 
 ## The browser — `useFieldActions`
 
@@ -622,9 +452,7 @@ characters, and never puts the credential in a log line or in the object it retu
   whitelist, the form read in the visitor's own `live` session (what the caller cannot read is not found),
   a guest refused on a members-only form (`FMDB-009`). Only the walk of a form the visitor has read, and
   the action nodes themselves, are read in a system session — the submitter has no reason to have read
-  access to the action nodes. A `hidden.execute` view is renderable through the platform's render servlet
-  by anyone who can read the node — which is why the view answers nothing without the engine's request
-  attribute, which no URL can set.
+  access to the action nodes.
 - **The captcha is not re-checked at the pre-check** (a token is single-use); the pre-check of a
   captcha-protected form is bounded by the rate limit, the cap and the cache, or switched off.
 - **The credential never leaves the engine**: `.cfg` → gateway; the JavaScript sees a provider *id*; the
@@ -637,7 +465,7 @@ characters, and never puts the credential in a log line or in the object it retu
   off. The submission path needs its own bound because it judges every value of a field, and nothing else
   limits how many values one field name may carry.
 - **The visitor's value never reaches a log line above DEBUG**, whichever way it arrives: an action's
-  `detail`, a view's output, or the message of a throwable — `NumberFormatException: For input string: "…"`
+  `detail` or the message of a throwable — `NumberFormatException: For input string: "…"`
   carries it by construction, so the exception's type is logged and the throwable itself goes to DEBUG.
 - **Information disclosure**: the visitor gets the contributor's message and a verdict, never the provider's
   response, the action node's identifier or its node type; `detail` stays in the logs. The candidate value
@@ -691,6 +519,7 @@ call per blocking action and non-blank value never pre-checked.
 | 2026-09-22 | **The warning hook is `fmdb-validation-warning`**, not the `fmdb-form-warning` of issue #341 (HDU) | The twin of `fmdb-validation-error`: the pair sits in one row of the styling documentation, and a stylesheet that finds one finds the other |
 | 2026-09-25 | **The provider-backed sample is written against a real provider, Experian, as an example implementation**, with a double of the provider in the samples module and a development provider list in the configuration (HDU: a customer asks for the Experian API; « précise dans la doc que c'est un exemple d'implémentation ») | A sample against an invented provider proves the gateway against nothing; against a named one, the contract is the provider's own documentation and a project copies the class as is. The double is a servlet because a static file refuses a POST (405, measured) and the test suite has no network; it lives in the samples module, next to the class it doubles. A provider over plain HTTP was refused by the HTTPS rule, rightly — the forward targets had solved the same need with a development list behind a switch, so the providers get the same pair, `enableDevFieldActionProviders` and `devFieldActionProviders`, rather than a relaxation of the rule |
 | 2026-09-25 | **Every provider-backed check stays a sample; what they share moves into the engine** (HDU: « met tout en module sample, une implémentation ZeroBounce et une autre pour l'autre, mutualise au mieux et mets ce qui est commun dans le moteur ») — `fmdbmix:providerFieldAction`, `ProviderFieldAction`, `EmailVerificationFieldAction`, `EmailAddress`, the `query` placement of a credential | A second provider showed what a first one cannot: the node read, the "not an address" rule, the outage rule and the JSON reading were the same forty lines twice, and the domain check carried a third copy of the address parsing. The engine ships the shape and no concrete check, which keeps the 2026-09-22 decision; a sample is a type and one method. ZeroBounce reads its key off the URL, which no header could carry: a sixth part on the provider line rather than a credential the action would have to see. And the providers' "do not mail" bands are read for a form — a role address receives mail — rather than for a mailing list |
+| 2026-09-25 | **The JavaScript way of writing a field action is withdrawn** (HDU: « quand je pensais au rendu js je pensais au useFieldAction… pas à l'implémentation back en js ») — the dispatcher runs Java services only; the library's `readFieldActionRequest` and `fieldActionResult`, the samples' `minimumWordsAction` and spec 73's JavaScript check go with it | Built on a misreading of the brief — « le code de l'action écrit en JS » meant the visitor's page — it answered a question nobody had asked, sidestepped the one left open with #164 (form actions in TypeScript, waiting for a server-extension SDK of the JavaScript modules), and tied the engine to `jsm-raw-html`, an internal of that engine. Withdrawn before any release; the rows above stay as the record of what was measured on the way |
 | 2026-09-22 | **A refusal at submission (`FMDB-015`) shows the contributor's message under the field and nothing else** (HDU) | A field action's refusal is a validation failure, so it reads like one: the message anchored on the field, the focus moved, the form kept with what the visitor typed — no global error box, no error code on screen. Every other rejection keeps today's global message; `FMDB-017` keeps it under the anchored message, since its cause is not one value to correct |
 | 2026-09-25 | **No spinner while the field actions settle before the submission**; a second click meanwhile is ignored | The spinner hides the form (the accepted submission replaces it), and the messages the settle may produce land on that very form: a refused value would have flashed the form away and back. The pending state on the fields checked is the feedback, and a guard in the submission hook keeps a second click from starting a second settle |
 | 2026-09-25 | **The pre-check leaves alone a field conditional logic holds hidden** (`isAskable`) | The pipeline skips hidden fields, so asking about one would spend a provider call on a value that is never judged, and show a message under a field the visitor cannot see. Was an open question of the engine PR |
@@ -708,9 +537,6 @@ call per blocking action and non-blank value never pre-checked.
 
 - Credentials as `${env:…}` references in `.cfg`: depends on the platform's configuration interpolation
   being enabled; to be verified, otherwise the file holds the literal.
-- The library's `fieldActionResult` relies on the JavaScript modules engine's `jsm-raw-html` element, which
-  its source calls an internal detail. The engine strips the tags itself as a belt, but the question stands
-  for the JavaScript modules team: may a view rely on it, or is there a supported way to return raw text?
 - A `warn` refusal from a `submit`-triggered action: shown once and the submission proceeds, or a confirm
   step? v1: shown, proceeds.
 - **A rule about the whole set of a multi-valued field has no home**: "at most three topics", "these two
@@ -729,43 +555,48 @@ call per blocking action and non-blank value never pre-checked.
 1. **Engine** — CND, `FieldAction` and `FieldActionGateway` API, configuration keys and provider list,
    dispatcher, endpoint, pipeline step 11b, `FMDB-015`/`FMDB-016`, `messages[]`, unit tests; the samples
    module's `fmdbsample:blockedWordsAction`. **Shipped 2026-09-21** (this page's pull request).
-2. **Library** — `readFieldActionRequest` and `fieldActionResult`, the contract of a `hidden.execute` view.
-   **Shipped 2026-09-25** (the browser pull request). The `fieldActionAttributes` helper of the draft was
-   dropped: the marker lives on the element wrapper (decision log, 2026-09-22).
+2. **Library** — nothing, in the end: the helpers of a `hidden.execute` view shipped on 2026-09-25 and were
+   withdrawn the same day with the JavaScript path (decision log).
 3. **Elements** — the marker and the zone on the element wrapper, `useFieldActions` (blur/submit → endpoint →
    `setCustomValidity` + the field-error rendering, `settleFieldActions(form)` before the XHR, `FMDB-015`
    anchored), the `FieldActionList` and `FieldAction` `hidden.authoring` views, the styling hooks
    `fmdb-validation-warning` and `fmdb-field-action-pending` in `docs/styling/`, the Cypress specs 72 and 73,
    a field action in the playground. **Shipped 2026-09-25** (the browser pull request).
-4. **Samples and the JavaScript path** — the two Java samples, blocked words and the email domain check, **shipped**
-   with the engine; the JavaScript one, `fmdbsample:minimumWordsAction` (a `hidden.execute` view on the library's
-   helpers, in formidable-test-module-samples-tsx), **shipped 2026-09-25** with the browser pull request, driven by
-   spec 73 through the endpoint and the pipeline — it found the escaping the strict reader tripped on. The third,
-   `fmdbsample:experianEmailAction` and the fourth, `fmdbsample:zeroBounceEmailAction` — the mailbox check against
-   two providers, example implementations on the engine's `EmailVerificationFieldAction`, with their doubles in the
-   samples module and the development provider list they need — **shipped 2026-09-25** (the samples pull request),
-   driven by spec 74: the first thing exercising the gateway end to end. Left: the
-   extension how-to case "Adding a field action type" and the `.cfg` keys in `docs/administration/`.
+4. **Samples** — four, all Java: blocked words and the email domain check, **shipped** with the engine; Experian
+   and ZeroBounce on the engine's `EmailVerificationFieldAction`, with their doubles and the development provider
+   list they need, **shipped 2026-09-25** (the samples pull request), driven by spec 74 — the first thing exercising
+   the gateway end to end. The JavaScript sample of the browser pull request went with the JavaScript path.
 
 ## Sources
 
-- `formidable-engine/…/api/FieldAction.java`, `FieldActionRequest.java`, `FieldActionResult.java`,
-  `FieldActionGateway.java`; `…/actions/field/` (`FieldActionDispatcher`, `FieldActionCollector`,
-  `FieldActionRuntime`, `FieldActionServlet`, `FieldActionGatewayImpl`, `RenderServiceViewRenderer`,
-  `ResolvedFieldAction`, `VerdictCache`, `FieldActionsCache`, `RateLimiter`); `servlet/FormSubmissionPipeline.java` (step 11b),
-  `servlet/FormFieldMetadataCollector.java` (`Result.fieldActions`), `servlet/FormSubmitServlet.java`
-  (`messages`, `RESERVED_KEYS`); `config/FormidableConfig.java`, `config/FormidableConfigService.java`
-  (`FieldActionProvider`, `FieldActionSettings`); `choicelist/FormidableFieldActionProvidersInitializer.java`;
-  `META-INF/definitions.cnd`, `META-INF/configurations/org.jahia.modules.formidable.cfg`,
+- Engine, the contract a module compiles against: [`FieldAction`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/FieldAction.java), [`FieldActionRequest`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/FieldActionRequest.java),
+  [`FieldActionResult`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/FieldActionResult.java), [`FieldActionGateway`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/FieldActionGateway.java),
+  [`ProviderFieldAction`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/ProviderFieldAction.java), [`EmailVerificationFieldAction`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/EmailVerificationFieldAction.java),
+  [`EmailAddress`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/EmailAddress.java).
+- Engine, the mechanism: [`FieldActionServlet`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/field/FieldActionServlet.java) (the pre-check endpoint),
+  [`FieldActionDispatcher`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/field/FieldActionDispatcher.java) (the run of a field's actions, Java service or unavailable),
+  [`FieldActionRuntime`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/field/FieldActionRuntime.java) (the registered services, the shared cache),
+  [`FieldActionCollector`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/field/FieldActionCollector.java) (the walk of a form), [`ResolvedFieldAction`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/field/ResolvedFieldAction.java),
+  [`VerdictCache`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/field/VerdictCache.java), [`FieldActionsCache`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/field/FieldActionsCache.java), [`RateLimiter`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/field/RateLimiter.java),
+  [`FieldActionGatewayImpl`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/field/FieldActionGatewayImpl.java) (the calls to a provider);
+  [`FormSubmissionPipeline`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/servlet/FormSubmissionPipeline.java) (step 11b, `runFieldActions`), [`FormFieldMetadataCollector`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/servlet/FormFieldMetadataCollector.java)
+  (`Result.fieldActions`), [`FormSubmitServlet`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/servlet/FormSubmitServlet.java) (`messages`, `RESERVED_KEYS`);
+  [`FormidableConfig`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/config/FormidableConfig.java) and [`FormidableConfigService`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/config/FormidableConfigService.java) (`FieldActionProvider`, `FieldActionSettings`),
+  [`FormidableFieldActionProvidersInitializer`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/choicelist/FormidableFieldActionProvidersInitializer.java);
+  [`definitions.cnd`](../../formidable-engine/src/main/resources/META-INF/definitions.cnd), [`org.jahia.modules.formidable.cfg`](../../formidable-engine/src/main/resources/META-INF/configurations/org.jahia.modules.formidable.cfg),
   `org.jahia.bundles.api.authorization-formidable-engine.yml`, `org.jahia.modules.jahiacsrfguard-formidable.cfg`.
-- `jahia-test-module/formidable-test-module-samples-java/…/actions/field/BlockedWordsFieldAction.java`,
-  `…/actions/field/EmailDeliverabilityFieldAction.java`, `…/actions/field/ExperianEmailFieldAction.java`,
-  `…/actions/field/ZeroBounceEmailFieldAction.java` and their doubles `…/actions/field/ProviderStubServlet.java`,
-  `…/actions/field/ExperianStubServlet.java`, `…/actions/field/ZeroBounceStubServlet.java`, their CND, their labels
-  and their icons; the engine's `api/ProviderFieldAction.java`, `api/EmailVerificationFieldAction.java`,
-  `api/EmailAddress.java`.
+- Samples, the shape to copy: [`BlockedWordsFieldAction`](../../jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/BlockedWordsFieldAction.java), [`EmailDomainFieldAction`](../../jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/EmailDomainFieldAction.java),
+  [`ExperianEmailFieldAction`](../../jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/ExperianEmailFieldAction.java), [`ZeroBounceEmailFieldAction`](../../jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/ZeroBounceEmailFieldAction.java) and their doubles
+  [`ProviderStubServlet`](../../jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/ProviderStubServlet.java), [`ExperianStubServlet`](../../jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/ExperianStubServlet.java), [`ZeroBounceStubServlet`](../../jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/ZeroBounceStubServlet.java);
+  their [CND](../../jahia-test-module/formidable-test-module-samples-java/src/main/resources/META-INF/definitions.cnd), labels and icons.
+- Browser: [`useFieldActions`](../../formidable-elements/src/hooks/useFieldActions.ts), [`fieldActionMessages`](../../formidable-elements/src/utils/fieldActionMessages.ts),
+  [`LogicAwareRender`](../../formidable-elements/src/components/FormContainer/LogicAwareRender.tsx) (the marker and the zone), the `hidden.authoring` views of
+  [`FieldActionList`](../../formidable-elements/src/components/FieldActionList/hidden.authoring.server.tsx) and [`FieldAction`](../../formidable-elements/src/components/FieldAction/hidden.authoring.server.tsx).
+- Tests: [spec 72](../../tests/cypress/e2e/actions/72-field-actions-zone-in-edit-mode.cy.ts) (the zone), [spec 73](../../tests/cypress/e2e/actions/73-field-actions-live.cy.ts) (the visitor's page),
+  [spec 74](../../tests/cypress/e2e/actions/74-field-actions-behind-a-provider.cy.ts) (the providers through their doubles), [spec 223](../../tests/cypress/e2e/fields/223-field-actions-switch-per-field-type.cy.ts) (the switch per field type).
 - [Form submission flow](form-submission-flow.md), [CND module ownership](cnd-module-ownership.md),
-  [Custom validation](custom-validation.md), the extension guide's action case, issue #341.
+  [Custom validation](custom-validation.md), [Field actions: providers and limits](../administration/field-actions.md),
+  the extension guide's [field action case](../extension/how-to-extend-views-and-elements-from-third-party-module.md#case-5-add-a-field-action-type), issue #341.
 - Platform: `RenderService.render(Resource, RenderContext)`, `AggregateCacheFilter` (expiration lookup
   order: request attribute, node, view), `CacheFilter` (caches only `expiration > 0`),
   `javascript-modules-engine 1.3.0-SNAPSHOT` manifest (no own package exported).

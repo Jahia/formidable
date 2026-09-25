@@ -196,7 +196,7 @@ class FormSubmissionPipeline {
         parseMultipart(req);
         validateLogicCoherence(req);
         validateRequired();
-        runFieldActions(req, response);
+        runFieldActions();
         dispatchActions(req);
     }
 
@@ -491,7 +491,7 @@ class FormSubmissionPipeline {
      * call anywhere — a check in the loop would have billed whichever field the map happened to yield first.
      * (docs/architecture/field-actions.md)</p>
      */
-    private void runFieldActions(HttpServletRequest req, HttpServletResponse resp) throws SubmissionException {
+    private void runFieldActions() throws SubmissionException {
         if (fieldMetadata.fieldActions().isEmpty()) {
             return;
         }
@@ -508,7 +508,7 @@ class FormSubmissionPipeline {
             String fieldName = entry.getKey();
             List<ResolvedFieldAction> actions = fieldMetadata.fieldActions().get(fieldName);
             for (String value : entry.getValue()) {
-                FieldActionDispatcher.Outcome outcome = fieldActionDispatcher.run(req, resp,
+                FieldActionDispatcher.Outcome outcome = fieldActionDispatcher.run(
                         new FieldActionRequest(formId, fieldName, value, locale),
                         actions,
                         EnumSet.allOf(ResolvedFieldAction.Trigger.class),

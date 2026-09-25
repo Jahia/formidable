@@ -13,7 +13,7 @@ import java.util.Locale;
  * itself never goes back to the repository for a setting.
  *
  * @param id              the action node's UUID
- * @param nodeType        its primary type: what binds it to a Java {@code FieldAction} or to a {@code hidden.execute} view
+ * @param nodeType        its primary type: what binds it to the Java {@code FieldAction} a module registers
  * @param trigger         when the browser asks: on leaving the field, or at submission only
  * @param severity        what a refusal does: block the submission, or warn and let it through
  * @param whenUnavailable what an unanswered check means: the value is accepted, or refused

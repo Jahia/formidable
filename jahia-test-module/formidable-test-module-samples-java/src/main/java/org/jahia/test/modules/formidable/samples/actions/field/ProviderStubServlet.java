@@ -30,14 +30,18 @@ public abstract class ProviderStubServlet extends HttpServlet {
     /** The alias the double is registered under, the base URL of its provider line. */
     protected abstract String alias();
 
-    /** A POST on the operation under the alias; a double that does not serve POST answers 405. */
+    /** A POST on the operation under the alias; a double that does not serve POST answers 405, naming what it refused. */
     protected void post(HttpServletRequest req, HttpServletResponse resp, String operation) throws IOException {
-        resp.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        methodNotAllowed(req, resp, operation);
     }
 
-    /** A GET on the operation under the alias; a double that does not serve GET answers 405. */
+    /** A GET on the operation under the alias; a double that does not serve GET answers 405, naming what it refused. */
     protected void get(HttpServletRequest req, HttpServletResponse resp, String operation) throws IOException {
-        resp.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        methodNotAllowed(req, resp, operation);
+    }
+
+    private static void methodNotAllowed(HttpServletRequest req, HttpServletResponse resp, String operation) throws IOException {
+        resp.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "No " + req.getMethod() + " on " + operation);
     }
 
     @Override

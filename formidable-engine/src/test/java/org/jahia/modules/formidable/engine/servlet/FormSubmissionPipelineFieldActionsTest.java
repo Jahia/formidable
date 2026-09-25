@@ -23,8 +23,6 @@ import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRTemplate;
 import org.junit.jupiter.api.Test;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.lang.reflect.Field;
@@ -134,15 +132,12 @@ class FormSubmissionPipelineFieldActionsTest {
     }
 
     private static void runFieldActions(FormSubmissionPipeline pipeline) throws Exception {
-        Method method = FormSubmissionPipeline.class.getDeclaredMethod("runFieldActions", HttpServletRequest.class, HttpServletResponse.class);
+        Method method = FormSubmissionPipeline.class.getDeclaredMethod("runFieldActions");
         method.setAccessible(true);
         try {
-            method.invoke(pipeline, mock(HttpServletRequest.class), mock(HttpServletResponse.class));
+            method.invoke(pipeline);
         } catch (InvocationTargetException e) {
-            if (e.getCause() instanceof Exception cause) {
-                throw cause;
-            }
-            throw e;
+            throw (Exception) e.getCause();
         }
     }
 

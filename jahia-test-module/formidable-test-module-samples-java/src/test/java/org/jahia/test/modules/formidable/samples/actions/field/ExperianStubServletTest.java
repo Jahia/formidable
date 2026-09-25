@@ -13,6 +13,8 @@ import java.io.StringWriter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -93,7 +95,7 @@ class ExperianStubServletTest {
 
         HttpServletResponse response = mock(HttpServletResponse.class);
         new ExperianStubServlet().doGet(mock(HttpServletRequest.class), response);
-        verify(response).sendError(405);
+        verify(response).sendError(eq(405), anyString());
     }
 
     @Test

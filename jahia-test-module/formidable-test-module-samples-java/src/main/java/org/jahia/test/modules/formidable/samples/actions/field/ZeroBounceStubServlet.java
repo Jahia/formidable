@@ -42,13 +42,16 @@ public class ZeroBounceStubServlet extends ProviderStubServlet {
     static final String VALIDATE_OPERATION = "/v2/validate";
     /** What the provider answers to a wrong key or an account without credits — with a 200. */
     static final String REFUSED_KEY = "Invalid API Key or your account ran out of credits";
+    /** The provider's error field, and the status it means for a mailing list, spelled once. */
+    private static final String ERROR = "error";
+    private static final String DO_NOT_MAIL = "do_not_mail";
     private static final Set<String> ROLES = Set.of("info", "contact", "sales", "support");
     private static final Map<String, String[]> STATUS_BY_DOMAIN = Map.of(
             "invalid.test", new String[] {"invalid", "mailbox_not_found"},
             "spamtrap.test", new String[] {"spamtrap", ""},
             "abuse.test", new String[] {"abuse", ""},
-            "disposable.test", new String[] {"do_not_mail", "disposable"},
-            "toxic.test", new String[] {"do_not_mail", "toxic"},
+            "disposable.test", new String[] {DO_NOT_MAIL, "disposable"},
+            "toxic.test", new String[] {DO_NOT_MAIL, "toxic"},
             "catchall.test", new String[] {"catch-all", ""},
             "unknown.test", new String[] {"unknown", "timeout_exceeded"});
 
@@ -60,16 +63,16 @@ public class ZeroBounceStubServlet extends ProviderStubServlet {
     @Override
     protected void get(HttpServletRequest req, HttpServletResponse resp, String operation) throws IOException {
         if (!VALIDATE_OPERATION.equals(operation)) {
-            answer(resp, HttpServletResponse.SC_NOT_FOUND, new JSONObject().put("error", "No such operation"));
+            answer(resp, HttpServletResponse.SC_NOT_FOUND, new JSONObject().put(ERROR, "No such operation"));
             return;
         }
         if (!TOKEN.equals(req.getParameter(KEY_PARAMETER))) {
-            answer(resp, HttpServletResponse.SC_OK, new JSONObject().put("error", REFUSED_KEY));
+            answer(resp, HttpServletResponse.SC_OK, new JSONObject().put(ERROR, REFUSED_KEY));
             return;
         }
         String email = req.getParameter("email");
         if (email == null || email.isBlank()) {
-            answer(resp, HttpServletResponse.SC_BAD_REQUEST, new JSONObject().put("error", "The email is missing"));
+            answer(resp, HttpServletResponse.SC_BAD_REQUEST, new JSONObject().put(ERROR, "The email is missing"));
             return;
         }
         String[] status = statusFor(email.trim());
@@ -89,7 +92,7 @@ public class ZeroBounceStubServlet extends ProviderStubServlet {
         }
         String local = email.substring(0, email.lastIndexOf('@')).toLowerCase(Locale.ROOT);
         if (ROLES.contains(local)) {
-            return new String[] {"do_not_mail", "role_based"};
+            return new String[] {DO_NOT_MAIL, "role_based"};
         }
         return STATUS_BY_DOMAIN.getOrDefault(domain, new String[] {"valid", ""});
     }

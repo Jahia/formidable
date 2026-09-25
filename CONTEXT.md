@@ -224,7 +224,7 @@ org.jahia.modules.formidable.engine
     │   └── storage/ SaveToJcrFormAction
     └── field/    FieldActionDispatcher, FieldActionServlet (/field-action), FieldActionRuntime,
                   FieldActionCollector, FieldActionGatewayImpl, VerdictCache, FieldActionsCache,
-                  RateLimiter, RenderServiceViewRenderer, ResolvedFieldAction…
+                  RateLimiter, ResolvedFieldAction…
 ```
 
 ### `FormAction` interface (the SPI third parties compile against)

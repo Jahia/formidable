@@ -146,6 +146,9 @@ public class FormidableConfigService {
     static final String PID = "org.jahia.modules.formidable";
     /** How the multi-line configuration values are split: one entry per line, either line ending. */
     private static final String LINE_BREAKS = "[\n\r]+";
+    /** Where a provider's credential goes, as the sixth part of its line says: a request header (the default) or a query parameter. */
+    private static final String CREDENTIAL_IN_HEADER = "header";
+    private static final String CREDENTIAL_IN_QUERY = "query";
 
     private final AtomicReference<ConfigSnapshot> config = new AtomicReference<>();
 
@@ -509,15 +512,6 @@ public class FormidableConfigService {
         String url = parts[2].trim();
         String header = parts.length > 3 ? parts[3].trim() : "";
         String credential = parts.length > 4 ? parts[4].trim() : "";
-        String placement = parts.length > 5 ? parts[5].trim().toLowerCase(Locale.ROOT) : "header";
-        if (!"header".equals(placement) && !"query".equals(placement)) {
-            log.warn("[FormidableConfigService] Skipping fieldActionProviders entry '{}': the credential goes in the 'header' or in the 'query', not '{}'.", id, placement);
-            return Optional.empty();
-        }
-        if ("query".equals(placement) && credential.isEmpty()) {
-            log.warn("[FormidableConfigService] Skipping fieldActionProviders entry '{}': a credential in the query needs its parameter name and its value.", id);
-            return Optional.empty();
-        }
         if (id.isEmpty() || url.isEmpty()) {
             if (log.isWarnEnabled()) {
                 log.warn("[FormidableConfigService] Skipping fieldActionProviders entry with an empty id or base URL: '{}'", redactProviderEntry(parts));
@@ -528,6 +522,34 @@ public class FormidableConfigService {
             log.warn("[FormidableConfigService] Skipping fieldActionProviders entry '{}': a credential needs its header name, and a header name its credential.", id);
             return Optional.empty();
         }
+        Optional<Boolean> credentialInQuery = credentialPlacement(id, parts.length > 5 ? parts[5] : CREDENTIAL_IN_HEADER, credential);
+        Optional<URI> baseUri = providerBaseUri(id, url, development);
+        if (credentialInQuery.isEmpty() || baseUri.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new FieldActionProvider(id, label.isEmpty() ? id : label, baseUri.get(), header, credential, credentialInQuery.get()));
+    }
+
+    /**
+     * Where the credential goes, as the sixth part says — the header by default, or the query; empty, with a
+     * warning, when the part says something else or names a query credential without a value to send.
+     */
+    private static Optional<Boolean> credentialPlacement(String id, String placement, String credential) {
+        String where = placement.trim().toLowerCase(Locale.ROOT);
+        if (!CREDENTIAL_IN_HEADER.equals(where) && !CREDENTIAL_IN_QUERY.equals(where)) {
+            log.warn("[FormidableConfigService] Skipping fieldActionProviders entry '{}': the credential goes in the '{}' or in the '{}', not '{}'.",
+                    id, CREDENTIAL_IN_HEADER, CREDENTIAL_IN_QUERY, where);
+            return Optional.empty();
+        }
+        if (CREDENTIAL_IN_QUERY.equals(where) && credential.isEmpty()) {
+            log.warn("[FormidableConfigService] Skipping fieldActionProviders entry '{}': a credential in the query needs its parameter name and its value.", id);
+            return Optional.empty();
+        }
+        return Optional.of(CREDENTIAL_IN_QUERY.equals(where));
+    }
+
+    /** The base URI of a provider line under the forward targets' rule; empty, with a warning, when malformed or refused. */
+    private static Optional<URI> providerBaseUri(String id, String url, boolean development) {
         URI uri;
         try {
             uri = new URI(url);
@@ -540,7 +562,7 @@ public class FormidableConfigService {
             log.warn("[FormidableConfigService] Skipping {} entry '{}': {}", development ? "devFieldActionProviders" : "fieldActionProviders", id, reason);
             return Optional.empty();
         }
-        return Optional.of(new FieldActionProvider(id, label.isEmpty() ? id : label, uri, header, credential, "query".equals(placement)));
+        return Optional.of(uri);
     }
 
     /** An entry as a log line may show it: its first three parts, never a credential. */

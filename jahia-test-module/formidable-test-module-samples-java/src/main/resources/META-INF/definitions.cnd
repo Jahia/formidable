@@ -35,8 +35,8 @@
 // address exist? It asks the domain name system, needs no provider and no configuration, and refuses one thing only
 // — a domain the resolver denies, which is the mistyped domain. Shipped as a sample rather than by the engine: the
 // engine provides the mechanism, a project decides which checks its forms deserve.
-[fmdbsample:emailDeliverabilityAction] > jnt:content, fmdbmix:fieldAction, mix:title
- - jcr:title (string) = resourceBundle('fmdbsample_emailDeliverabilityAction') autocreated i18n
+[fmdbsample:emailDomainAction] > jnt:content, fmdbmix:fieldAction, mix:title
+ - jcr:title (string) = resourceBundle('fmdbsample_emailDomainAction') autocreated i18n
 
 // A third field action of the samples, and an example implementation rather than a supported connector: the
 // mailbox check a project wants once the domain check is not enough, written out in full against one provider,

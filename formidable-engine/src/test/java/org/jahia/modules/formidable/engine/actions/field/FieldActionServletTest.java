@@ -144,7 +144,7 @@ class FieldActionServletTest {
                 return result;
             }
         };
-        return new FieldActionDispatcher(() -> List.of(action), (n, r, req, resp) -> null, new VerdictCache(), () -> Duration.ZERO, () -> template);
+        return new FieldActionDispatcher(() -> List.of(action), new VerdictCache(), () -> Duration.ZERO, () -> template);
     }
 
     private static FieldActionRuntime runtime(FieldActionSettings settings, FieldActionDispatcher dispatcher) {
