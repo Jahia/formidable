@@ -167,10 +167,10 @@ names the concrete type: it reaches it through the markers.
 ```cnd
 // A module of its own: the type takes the marker, carries its own settings, and either a Java service
 // or a hidden.execute view bound to it judges the value. The four feedback settings arrive through
-// `extends`, unasked.
-[myco:crmLookupAction] > jnt:content, fmdbmix:fieldAction, mix:title
+// `extends`, unasked. A type calling a provider takes fmdbmix:providerFieldAction too: the id of one
+// of the providers the administrator declared, with its label and its choicelist, from the engine.
+[myco:crmLookupAction] > jnt:content, fmdbmix:fieldAction, fmdbmix:providerFieldAction, mix:title
  - jcr:title (string) = resourceBundle('myco_crmLookupAction') autocreated i18n
- - providerId (string, choicelist[formidableFieldActionProviders]) mandatory indexed=no
 ```
 
 The `jcr:title` line is what fills the action's title with the type's own label when a contributor
@@ -217,47 +217,71 @@ and that is what a provider behind `FieldActionGateway` is for.
 It carries one unit test in the samples module, which is the other half of what a module copying it inherits:
 the seam is the lookup itself, so its rules are tested without a test of the network.
 
-### The samples' third one — `fmdbsample:experianEmailAction`, an example implementation
+### Email verification behind a provider — the Experian and ZeroBounce samples
 
 **Does the mailbox exist?** is the question a project asks once the domain check is not enough, and only a
-provider that probes mailboxes can answer it. The third sample is that integration written out in full against
-one such provider, Experian Email Validation v2 — **an example implementation, not a supported connector**: it
-ships in the samples module, which reaches no product installation, and a project copies it into a module of its
-own, with an Experian account. `ExperianEmailFieldAction` posts the address to the provider the contributor picked
-on the node (`providerId`, from the `formidableFieldActionProviders` choicelist) — `POST email/validate/v2` under
-the provider's base URL, a body of `{"email": …}` and nothing else — and reads the provider's `result.confidence`:
+provider that probes mailboxes can answer it. The samples answer it twice, against two providers — Experian
+Email Validation v2 and ZeroBounce v2 — on one engine base, `EmailVerificationFieldAction`: each sample is a
+type, `fmdbsample:experianEmailAction` and `fmdbsample:zeroBounceEmailAction`, both taking
+`fmdbmix:providerFieldAction`, and one method, the call and the provider's own vocabulary turned into the
+three verdicts. **Example implementations, not supported connectors**: the samples module reaches no product
+installation, and a project copies the one it needs into a module of its own, with an account at that
+provider. What the two agree on is what a form wants to know — does the address receive mail, and is it not
+a trap or a throwaway — rather than what a mailing list wants, which is the providers' own recommendation.
+
+**Experian** (`ExperianEmailFieldAction`): `POST email/validate/v2` under the provider's base URL, the address
+in a JSON body, the token in the `Auth-Token` header the gateway injects; the answer's `result.confidence`:
 
 | Experian answers | The action answers |
 |---|---|
 | `verified` — the mailbox exists, is reachable and receives mail | accept |
 | `undeliverable`, `unreachable`, `illegitimate`, `disposable` — the band Experian documents as "reject" | reject: the contributor's message under the field |
-| `unknown`, a timeout on the domain, an accept-all domain, a relay denied, a blank confidence — Experian could not conclude | unavailable: the contributor's `whenUnavailable` decides, the action never concludes in the provider's place |
-| 401 (token refused), 403 (no credits left), 408 (the provider's own timeout), 429, 5xx, no answer at all, an answer that is not the documented JSON | unavailable, never a refusal: an outage or a mistyped token does not turn visitors away on its own |
+| `unknown`, a timeout on the domain, an accept-all domain, a relay denied, a blank confidence — Experian could not conclude | unavailable: the contributor's `whenUnavailable` decides |
+| 401 (token refused), 403 (no credits left), 408 (the provider's own timeout), 429, 5xx, an answer that is not the documented JSON | unavailable, never a refusal |
 
-**What it needs.** One provider line in the engine's configuration —
-`fieldActionProviders=experian|Experian Email Validation|https://api.experianaperture.io|Auth-Token|<token>` —
-where the token stays: the class never sees it, the gateway injects the header. Outbound HTTPS from the Jahia
-server to `api.experianaperture.io`. And an account: Experian's documentation offers a fourteen-day trial with
-two thousand validations, in Australia, Canada, New Zealand and the United States only.
+**ZeroBounce** (`ZeroBounceEmailFieldAction`): `GET v2/validate?email=…&ip_address=` under the base URL — the
+provider reads its key off the URL, so its line ends in `|query` and the gateway appends `api_key` — and the
+answer's `status` and `sub_status`:
 
-**What to weigh before switching it on.** The **address leaves the platform**, where the domain check sends the
-domain only — a project owes its visitors a word about it, and the sample's help text says so. **Every answer is
-chargeable**: a value that is not an address is accepted without a call, the trigger `submit` keeps it to one call
-per submission attempt, the verdict cache makes the pipeline's re-check free — and the rate limit is the only bound
-on a pre-check that a captcha does not cover. The gateway's timeouts (five seconds to connect, ten in all) sit under
-Experian's own default of fifteen, so a slow lookup is an unavailable check, not a wait.
+| ZeroBounce answers | The action answers |
+|---|---|
+| `valid` | accept |
+| `invalid`, `spamtrap`, `abuse` | reject |
+| `do_not_mail` for a role or group address (`role_based`, `role_based_catch_all`) — it receives mail, whatever a mailing list should do with it | accept |
+| `do_not_mail` for any other reason — `disposable`, `toxic`, `global_suppression`, `possible_trap`, a forwarding domain | reject |
+| `catch-all`, `unknown`, a status the sample has never heard of | unavailable: `whenUnavailable` decides |
+| a 200 carrying `error` — a refused key, an account out of credits, which is how the provider says it — or a status that is not 200, or not its JSON | unavailable, never a refusal |
 
-**Its double, `ExperianStubServlet`.** The samples module also registers, at
-`/modules/formidable-samples/experian-stub`, a servlet that answers as the provider does — the same operation, the
-same `Auth-Token` header (any other token is a 401), the same JSON — with the confidence decided by the domain of
-the address: `@undeliverable.test`, `@unreachable.test`, `@illegitimate.test`, `@disposable.test` and
-`@unknown.test` answer that confidence, `@acceptall.test` the accept-all one, `@timeout.test` a 408; every other
-address is verified. A provider over plain HTTP is a development setting, declared under `devFieldActionProviders`
-behind `enableDevFieldActionProviders=true` — the mirror of the forward targets' `devForwardTargets`:
-`experian-stub|Experian (stub)|http://localhost:8080/modules/formidable-samples/experian-stub|Auth-Token|stub-token`.
-Spec 74 drives the sample through it, which makes it the one thing exercising `FieldActionGateway` end to end — the
-provider line, the injected header, the path under the base URL, the reading of the answer — and what a developer
-points a local instance at to try the sample without an account.
+**What they need.** One provider line each in the engine's configuration —
+`fieldActionProviders=experian|Experian Email Validation|https://api.experianaperture.io|Auth-Token|<token>` and
+`zerobounce|ZeroBounce|https://api.zerobounce.net|api_key|<key>|query` — where the credential stays: the classes
+never see it. Outbound HTTPS from the Jahia server to the provider. And an account: Experian's documentation
+offers a fourteen-day trial with two thousand validations, in Australia, Canada, New Zealand and the United
+States only; ZeroBounce a free tier of a hundred validations a month, and sandbox addresses
+(`valid@example.com`, `invalid@example.com`, `disposable@example.com`…) that answer without spending a credit.
+
+**What to weigh before switching one on.** The **address leaves the platform**, where the domain check sends
+the domain only — a project owes its visitors a word about it, and the samples' help texts say so; with
+ZeroBounce it travels on the URL, as the provider documents its GET. **Every answer is chargeable**: a value that
+is not an address is accepted without a call, the trigger `submit` keeps it to one call per submission attempt,
+the verdict cache makes the pipeline's re-check free — and the rate limit is the only bound on a pre-check that a
+captcha does not cover. The gateway's timeouts (five seconds to connect, ten in all) sit under the providers' own
+defaults, so a slow lookup is an unavailable check, not a wait.
+
+**Their doubles, `ExperianStubServlet` and `ZeroBounceStubServlet`.** The samples module also registers, at
+`/modules/formidable-samples/experian-stub` and `/modules/formidable-samples/zerobounce-stub`, two servlets on
+one base (`ProviderStubServlet`) that answer as the providers do — the same operation, the same credential (a
+wrong one refused the way each provider refuses it: a 401, a 200 carrying `error`), the same JSON — with the
+verdict decided by the address instead of a mailbox lookup: `@undeliverable.test`, `@unknown.test`,
+`@timeout.test` for Experian, `@invalid.test`, `@disposable.test`, `@catchall.test`, `info@` for ZeroBounce,
+every other address verified or valid. A provider over plain HTTP is a development setting, declared under
+`devFieldActionProviders` behind `enableDevFieldActionProviders=true` — the mirror of the forward targets'
+`devForwardTargets`:
+`experian-stub|Experian (stub)|http://localhost:8080/modules/formidable-samples/experian-stub|Auth-Token|stub-token`
+and `zerobounce-stub|ZeroBounce (stub)|http://localhost:8080/modules/formidable-samples/zerobounce-stub|api_key|stub-token|query`.
+Spec 74 drives both samples through them, which makes it the one thing exercising `FieldActionGateway` end to
+end — the provider lines, the credential injected as a header or on the URL, the path under the base URL, the
+reading of the answer — and what a developer points a local instance at to try a sample without an account.
 
 ## Execution
 
@@ -265,23 +289,33 @@ points a local instance at to try the sample without an account.
 
 ```java
 @Component(service = FieldAction.class)
-public class CrmLookupAction implements FieldAction {
+public class CrmLookupAction extends ProviderFieldAction {          // the engine reads the provider id off the node
+    @Reference private FieldActionGateway gateway;
+
     @Override public String getNodeType() { return "myco:crmLookupAction"; }
+    @Override protected FieldActionGateway gateway() { return gateway; }
 
     @Override
-    public FieldActionResult execute(JCRNodeWrapper actionNode, FieldActionRequest request) {
-        String providerId = actionNode.getProperty("providerId").getString();
-        FieldActionGateway.Response response = gateway.post(providerId, "customers/lookup",
-                "{\"number\":" + JSONObject.quote(request.value()) + "}");            // IOException → the engine reads it as unavailable
+    protected FieldActionResult ask(String providerId, FieldActionRequest request) throws IOException {   // an IOException is an unavailable check
+        FieldActionGateway.Response response = gateway().post(providerId, "customers/lookup",
+                "{\"number\":" + JSONObject.quote(request.value()) + "}");
         if (response.status() != 200) return FieldActionResult.unavailable("provider " + response.status());
-        return new JSONObject(response.body()).optBoolean("known") ? FieldActionResult.accept() : FieldActionResult.reject("unknown");
+        return json(response).map(body -> body.optBoolean("known") ? FieldActionResult.accept() : FieldActionResult.reject("unknown"))
+                .orElse(FieldActionResult.unavailable("not the provider's JSON"));
     }
 }
 ```
 
 `org.jahia.modules.formidable.engine.api` exports the contract: `FieldAction` (`getNodeType()`,
 `execute(actionNode, request)`), `FieldActionRequest` (form UUID, field name, value, locale),
-`FieldActionResult` (`accept()`, `reject(detail)`, `unavailable(detail)`) and `FieldActionGateway`. The
+`FieldActionResult` (`accept()`, `reject(detail)`, `unavailable(detail)`) and `FieldActionGateway` — and,
+for an action behind a provider, the shape every one shares: `ProviderFieldAction` reads the provider id off
+the node (`fmdbmix:providerFieldAction`), accepts without a call a value the action does not judge
+(`concerns`, a blank value by default), hands the id and the request to `ask`, and turns every way the call
+can fail — no answer, an id the configuration no longer declares, a node naming none — into an unavailable
+check; `json(response)` reads an answer as one object or not at all. `EmailVerificationFieldAction` is the
+email specialisation: only a value that reads as an address (`EmailAddress.domainOf`) reaches `verify(providerId,
+address)`, the one method left to write. The samples' Experian and ZeroBounce checks are that method each. The
 action node is read in `live` in a system session; an exception escaping `execute` counts as unavailable
 and is logged.
 
@@ -557,7 +591,7 @@ declared, providers are declared in `org.jahia.modules.formidable.cfg`:
 ```
 # --- FIELD ACTIONS ---
 # Each entry: id|Label|https://base-url|Credential-Header-Name|credential (the last two together, or neither)
-fieldActionProviders=
+fieldActionProviders=                      # id|Label|https://base-url|Credential-name|credential[|header|query]
 enableDevFieldActionProviders=false        # plain HTTP on localhost or host.docker.internal: a provider's double
 devFieldActionProviders=
 fieldActionHttpConnectTimeoutSeconds=5
@@ -569,7 +603,9 @@ fieldActionMaxValuesPerField=50            # DISTINCT values of ONE field judged
 ```
 
 `FormidableConfigService` parses them (`FieldActionProvider`, whose `toString` masks the credential;
-`FieldActionSettings`, everything the field actions read, in one piece), the HTTPS-only rule of the
+`FieldActionSettings`, everything the field actions read, in one piece; an optional sixth part says where the
+credential goes, `header` by default or `query` for a provider that reads its key off the URL, appended to the
+target as a parameter of that name and then sent in no header), the HTTPS-only rule of the
 forward targets applied to the base URL — and their development rule, plain HTTP on localhost or
 host.docker.internal, to `devFieldActionProviders` behind `enableDevFieldActionProviders`, where a provider's
 double is declared (the samples' Experian stub); a development id never shadows a standard one, and the list is
@@ -654,6 +690,7 @@ call per blocking action and non-blank value never pre-checked.
 | 2026-09-22 | **The marker and the zone live on the element wrapper**, not in the field views and not in a library helper (HDU, PR 2 handoff) | `LogicAwareRender` already wraps every element of every container with the node name, id, type and the logic state; adding `data-fmdb-field-action` and the zone there touches one file, no field view, and covers a field from any module without it calling anything — fields only ever render inside a Formidable container. The draft's `fieldActionAttributes(currentNode)` library export is dropped: a helper every view would have had to remember to spread |
 | 2026-09-22 | **The warning hook is `fmdb-validation-warning`**, not the `fmdb-form-warning` of issue #341 (HDU) | The twin of `fmdb-validation-error`: the pair sits in one row of the styling documentation, and a stylesheet that finds one finds the other |
 | 2026-09-25 | **The provider-backed sample is written against a real provider, Experian, as an example implementation**, with a double of the provider in the samples module and a development provider list in the configuration (HDU: a customer asks for the Experian API; « précise dans la doc que c'est un exemple d'implémentation ») | A sample against an invented provider proves the gateway against nothing; against a named one, the contract is the provider's own documentation and a project copies the class as is. The double is a servlet because a static file refuses a POST (405, measured) and the test suite has no network; it lives in the samples module, next to the class it doubles. A provider over plain HTTP was refused by the HTTPS rule, rightly — the forward targets had solved the same need with a development list behind a switch, so the providers get the same pair, `enableDevFieldActionProviders` and `devFieldActionProviders`, rather than a relaxation of the rule |
+| 2026-09-25 | **Every provider-backed check stays a sample; what they share moves into the engine** (HDU: « met tout en module sample, une implémentation ZeroBounce et une autre pour l'autre, mutualise au mieux et mets ce qui est commun dans le moteur ») — `fmdbmix:providerFieldAction`, `ProviderFieldAction`, `EmailVerificationFieldAction`, `EmailAddress`, the `query` placement of a credential | A second provider showed what a first one cannot: the node read, the "not an address" rule, the outage rule and the JSON reading were the same forty lines twice, and the domain check carried a third copy of the address parsing. The engine ships the shape and no concrete check, which keeps the 2026-09-22 decision; a sample is a type and one method. ZeroBounce reads its key off the URL, which no header could carry: a sixth part on the provider line rather than a credential the action would have to see. And the providers' "do not mail" bands are read for a form — a role address receives mail — rather than for a mailing list |
 | 2026-09-22 | **A refusal at submission (`FMDB-015`) shows the contributor's message under the field and nothing else** (HDU) | A field action's refusal is a validation failure, so it reads like one: the message anchored on the field, the focus moved, the form kept with what the visitor typed — no global error box, no error code on screen. Every other rejection keeps today's global message; `FMDB-017` keeps it under the anchored message, since its cause is not one value to correct |
 | 2026-09-25 | **No spinner while the field actions settle before the submission**; a second click meanwhile is ignored | The spinner hides the form (the accepted submission replaces it), and the messages the settle may produce land on that very form: a refused value would have flashed the form away and back. The pending state on the fields checked is the feedback, and a guard in the submission hook keeps a second click from starting a second settle |
 | 2026-09-25 | **The pre-check leaves alone a field conditional logic holds hidden** (`isAskable`) | The pipeline skips hidden fields, so asking about one would spend a provider call on a value that is never judged, and show a message under a field the visitor cannot see. Was an open question of the engine PR |
@@ -704,10 +741,10 @@ call per blocking action and non-blank value never pre-checked.
    with the engine; the JavaScript one, `fmdbsample:minimumWordsAction` (a `hidden.execute` view on the library's
    helpers, in formidable-test-module-samples-tsx), **shipped 2026-09-25** with the browser pull request, driven by
    spec 73 through the endpoint and the pipeline — it found the escaping the strict reader tripped on. The third,
-   `fmdbsample:experianEmailAction` — the mailbox check against Experian, an example implementation, with the
-   provider's double `ExperianStubServlet` in the samples module and the development provider list it needs —
-   **shipped 2026-09-25** (the samples pull request), driven by spec 74: the first thing exercising the gateway end
-   to end. Left: the
+   `fmdbsample:experianEmailAction` and the fourth, `fmdbsample:zeroBounceEmailAction` — the mailbox check against
+   two providers, example implementations on the engine's `EmailVerificationFieldAction`, with their doubles in the
+   samples module and the development provider list they need — **shipped 2026-09-25** (the samples pull request),
+   driven by spec 74: the first thing exercising the gateway end to end. Left: the
    extension how-to case "Adding a field action type" and the `.cfg` keys in `docs/administration/`.
 
 ## Sources
@@ -722,8 +759,11 @@ call per blocking action and non-blank value never pre-checked.
   `META-INF/definitions.cnd`, `META-INF/configurations/org.jahia.modules.formidable.cfg`,
   `org.jahia.bundles.api.authorization-formidable-engine.yml`, `org.jahia.modules.jahiacsrfguard-formidable.cfg`.
 - `jahia-test-module/formidable-test-module-samples-java/…/actions/field/BlockedWordsFieldAction.java`,
-  `…/actions/field/EmailDeliverabilityFieldAction.java`, `…/actions/field/ExperianEmailFieldAction.java` and its
-  double `…/actions/field/ExperianStubServlet.java`, their CND, their labels and their icons.
+  `…/actions/field/EmailDeliverabilityFieldAction.java`, `…/actions/field/ExperianEmailFieldAction.java`,
+  `…/actions/field/ZeroBounceEmailFieldAction.java` and their doubles `…/actions/field/ProviderStubServlet.java`,
+  `…/actions/field/ExperianStubServlet.java`, `…/actions/field/ZeroBounceStubServlet.java`, their CND, their labels
+  and their icons; the engine's `api/ProviderFieldAction.java`, `api/EmailVerificationFieldAction.java`,
+  `api/EmailAddress.java`.
 - [Form submission flow](form-submission-flow.md), [CND module ownership](cnd-module-ownership.md),
   [Custom validation](custom-validation.md), the extension guide's action case, issue #341.
 - Platform: `RenderService.render(Resource, RenderContext)`, `AggregateCacheFilter` (expiration lookup
