@@ -10,10 +10,7 @@
 // - `validationDataAttributes`: the `data-fmdb-msg-*` attributes the validation
 //   client reads its custom messages from;
 // - `maskToPattern`, `applyMask`, `useMask`: what an input mask stands for — the
-//   HTML `pattern`, the formatted default value, the formatting while typing;
-// - `readFieldActionRequest`, `fieldActionResult`: the contract of a `hidden.execute`
-//   view, the JavaScript way to write a field action — the request attribute the
-//   engine sets and the exact verdict strings its strict reader accepts.
+//   HTML `pattern`, the formatted default value, the formatting while typing.
 //
 // Admission criterion — this package is not a grab bag: only code a field view
 // must reproduce byte for byte to stay compatible with Formidable's client
@@ -36,10 +33,3 @@ export {
 } from "./validationProps.js";
 export {applyMask, maskToPattern} from "./mask.js";
 export {useMask, type UseMaskOptions} from "./useMask.js";
-export {
-	FIELD_ACTION_REQUEST_ATTRIBUTE,
-	fieldActionResult,
-	readFieldActionRequest,
-	type FieldActionRenderContext,
-	type FieldActionRequest
-} from "./fieldActions.js";

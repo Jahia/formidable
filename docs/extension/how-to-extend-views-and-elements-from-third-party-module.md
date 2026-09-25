@@ -375,6 +375,69 @@ which is not a rule to build on; **priority is the only deterministic lever**, o
 the type. The sample registers its view on `fmdb:inputText` for readability — the setting is
 honoured by the type that has the help text — and relies on the priority alone.
 
+## Case 5: add a field action type
+
+A field action is a check of one field's value the engine runs server-side while the visitor fills the form
+and again at submission ([Field actions](../architecture/field-actions.md)). Your module ships a type and a
+Java service; the engine does the rest — the switch in the field's editor, the list, the pre-check endpoint,
+the second run at submission, the message under the field, the verdict cache, the calls to a provider.
+
+**The type**, next to your code. It takes the engine's marker; it takes `fmdbmix:providerFieldAction` too when
+the check calls a service the administrator declares (the provider id, its label and its choicelist come from
+the engine). The four contributor settings — the message, when to check, whether a refusal blocks, what an
+unanswered check means — reach it through `extends`, unasked.
+
+```cnd
+[myco:mailboxAction] > jnt:content, fmdbmix:fieldAction, fmdbmix:providerFieldAction, mix:title
+ - jcr:title (string) = resourceBundle('myco_mailboxAction') autocreated i18n
+```
+
+Ship its label and tooltip (`myco_mailboxAction`, `myco_mailboxAction.ui.tooltip`) and a 16×16 icon at
+`src/main/resources/icons/myco_mailboxAction.png`: the platform's icon fallback stops at `nt:base` before it
+reaches the marker.
+
+**The service.** For a check of an email address behind a provider, extend the engine's
+[`EmailVerificationFieldAction`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/EmailVerificationFieldAction.java) and write one method: the call
+through the gateway and the provider's vocabulary turned into the three verdicts. The engine reads the provider
+id off the node, accepts without a call a value that is not an address, and turns every way the call can fail
+into an unavailable check. The samples' [`ZeroBounceEmailFieldAction`](../../jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/ZeroBounceEmailFieldAction.java)
+and [`ExperianEmailFieldAction`](../../jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/ExperianEmailFieldAction.java) are that method each; for a check of
+something else behind a provider, extend [`ProviderFieldAction`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/ProviderFieldAction.java)
+(`ask` instead of `verify`, `concerns` to say which values you judge); for a check that calls nothing,
+implement [`FieldAction`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/FieldAction.java) directly, as [`BlockedWordsFieldAction`](../../jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/BlockedWordsFieldAction.java) does.
+
+```java
+@Component(service = FieldAction.class)
+public class MailboxFieldAction extends EmailVerificationFieldAction {
+    @Reference private FieldActionGateway gateway;
+
+    @Override public String getNodeType() { return "myco:mailboxAction"; }
+    @Override protected FieldActionGateway gateway() { return gateway; }
+
+    @Override
+    protected FieldActionResult verify(String providerId, String address) throws IOException {
+        FieldActionGateway.Response response = gateway().get(providerId, "verify?email=" + URLEncoder.encode(address, UTF_8));
+        if (response.status() != 200) return FieldActionResult.unavailable("provider " + response.status());
+        return json(response).map(body -> body.optBoolean("deliverable") ? FieldActionResult.accept() : FieldActionResult.reject("undeliverable"))
+                .orElse(FieldActionResult.unavailable("not the provider's JSON"));
+    }
+}
+```
+
+Three rules the samples follow: `reject` only what the provider says cannot receive mail or is a trap; anything
+the provider could not conclude is `unavailable`, for the contributor's setting to decide, never a refusal; the
+`detail` is a word for the logs, the visitor reads the contributor's message.
+
+**The provider** is the administrator's: one line in the engine's configuration, `id|Label|https://base-url|Credential-name|credential[|query]`
+([Field actions: providers and limits](../administration/field-actions.md)). Your code names the id the
+contributor picked and a path under the base URL; the credential is injected by the gateway, as a header or on
+the URL, and never reaches your class, a log line or the repository.
+
+**Tests.** A unit test hands the class a fake gateway answering what the provider documents and drives `judge`,
+the seam the engine base offers (the samples' tests are the shape). For a Cypress spec, a double of the
+provider — a small servlet your module registers, as the samples' [`ZeroBounceStubServlet`](../../jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/ZeroBounceStubServlet.java)
+does on their [`ProviderStubServlet`](../../jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/ProviderStubServlet.java) — declared as a development provider.
+
 ## HTML conventions for custom fields
 
 External form fields should follow the same conventions as built-in fields:

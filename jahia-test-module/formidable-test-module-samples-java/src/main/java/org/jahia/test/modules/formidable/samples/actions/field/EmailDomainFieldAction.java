@@ -1,5 +1,6 @@
 package org.jahia.test.modules.formidable.samples.actions.field;
 
+import org.jahia.modules.formidable.engine.api.EmailAddress;
 import org.jahia.modules.formidable.engine.api.FieldAction;
 import org.jahia.modules.formidable.engine.api.FieldActionRequest;
 import org.jahia.modules.formidable.engine.api.FieldActionResult;
@@ -15,10 +16,9 @@ import javax.naming.directory.Attribute;
 import javax.naming.directory.InitialDirContext;
 import java.util.Hashtable;
 import java.util.List;
-import java.util.Locale;
 
 /**
- * The built-in field action: <strong>does the address's domain exist at all?</strong> It asks the domain name
+ * The sample that needs nothing: <strong>does the address's domain exist at all?</strong> It asks the domain name
  * system for the domain's mail exchangers, then for its addresses — a domain without an MX record but with an A
  * record still receives mail, which is what RFC 5321 calls the implicit exchanger.
  *
@@ -28,10 +28,10 @@ import java.util.Locale;
  * answer is an unavailable check, which the contributor's {@code whenUnavailable} decides, and never a refusal.
  * What the action catches is the case that matters and is provable: the mistyped domain.</p>
  *
- * <p>It is the built-in because it needs nothing: no provider, no credential, no account, no configuration. It is
- * also honest about its limit, and the contributor's help text says so: <strong>it does not prove the mailbox
- * exists</strong>. Only a paid provider or an actual delivery can, which is what {@code FieldActionGateway} and the
- * {@code fieldActionProviders} configuration are there for.</p>
+ * <p>It needs no provider, no credential, no account, no configuration, and it is honest about its limit — the
+ * contributor's help text says so: <strong>it does not prove the mailbox exists</strong>. Only a provider can, which
+ * is what the Experian and ZeroBounce samples, {@code FieldActionGateway} and the {@code fieldActionProviders}
+ * configuration are there for.</p>
  *
  * <p>What leaves the server is the <em>domain</em>, never the address: the local part is dropped before the query,
  * so the visitor's identity is not handed to a resolver. A value that is not an address at all is accepted without
@@ -40,18 +40,14 @@ import java.util.Locale;
  * and the queries carry their own short timeout: this runs on the request thread, at submission.</p>
  */
 @Component(service = FieldAction.class)
-public class EmailDeliverabilityFieldAction implements FieldAction {
+public class EmailDomainFieldAction implements FieldAction {
 
-    public static final String NODE_TYPE = "fmdbsample:emailDeliverabilityAction";
+    public static final String NODE_TYPE = "fmdbsample:emailDomainAction";
 
-    /** What the longest legal domain name measures, so an absurd value is refused before any query. */
-    static final int MAX_DOMAIN_LENGTH = 253;
-    /** What one label of a domain name may measure. */
-    private static final int MAX_LABEL_LENGTH = 63;
     /** Asked one at a time, in this order: a single query for several types answers "DNS error" on resolvers that answer each separately. */
     private static final String[] MAIL_RECORDS = {"MX", "A", "AAAA"};
 
-    private static final Logger log = LoggerFactory.getLogger(EmailDeliverabilityFieldAction.class);
+    private static final Logger log = LoggerFactory.getLogger(EmailDomainFieldAction.class);
 
     /**
      * The question this action asks the domain name system, and the one seam its tests replace: the records that
@@ -66,11 +62,11 @@ public class EmailDeliverabilityFieldAction implements FieldAction {
 
     private final transient MailRecords records;
 
-    public EmailDeliverabilityFieldAction() {
-        this(EmailDeliverabilityFieldAction::lookup);
+    public EmailDomainFieldAction() {
+        this(EmailDomainFieldAction::lookup);
     }
 
-    EmailDeliverabilityFieldAction(MailRecords records) {
+    EmailDomainFieldAction(MailRecords records) {
         this.records = records;
     }
 
@@ -81,7 +77,7 @@ public class EmailDeliverabilityFieldAction implements FieldAction {
 
     @Override
     public FieldActionResult execute(JCRNodeWrapper actionNode, FieldActionRequest request) {
-        String domain = domainOf(request.value());
+        String domain = EmailAddress.domainOf(request.value());
         if (domain == null) {
             // Not an address, or not one this action can read: the field's own validation judges the shape.
             return FieldActionResult.accept();
@@ -97,42 +93,6 @@ public class EmailDeliverabilityFieldAction implements FieldAction {
                     request.fieldName(), e.getClass().getSimpleName());
             return FieldActionResult.unavailable("the resolver did not answer: " + e.getClass().getSimpleName());
         }
-    }
-
-    /** The domain of an address, lower-cased and without its trailing dot; null when the value is not one address. */
-    static String domainOf(String value) {
-        if (value == null) {
-            return null;
-        }
-        String trimmed = value.trim();
-        int at = trimmed.lastIndexOf('@');
-        if (at < 1 || at == trimmed.length() - 1 || trimmed.indexOf('@') != at) {
-            return null;
-        }
-        String domain = trimmed.substring(at + 1).toLowerCase(Locale.ROOT);
-        if (domain.endsWith(".")) {
-            domain = domain.substring(0, domain.length() - 1);
-        }
-        return domain.length() <= MAX_DOMAIN_LENGTH && isDomainName(domain) ? domain : null;
-    }
-
-    /**
-     * Whether this reads as a domain name: at least two labels, each one to sixty-three characters of letters,
-     * digits and hyphens, none of them starting or ending with a hyphen. Read rather than matched — a regular
-     * expression for the same thing nests its quantifiers, and a long value would make it back-track.
-     */
-    private static boolean isDomainName(String domain) {
-        if (domain.indexOf('.') < 0) {
-            return false;
-        }
-        for (String label : domain.split("\\.", -1)) {
-            if (label.isEmpty() || label.length() > MAX_LABEL_LENGTH
-                    || label.charAt(0) == '-' || label.charAt(label.length() - 1) == '-'
-                    || !isLabel(label)) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private static boolean isLabel(String label) {

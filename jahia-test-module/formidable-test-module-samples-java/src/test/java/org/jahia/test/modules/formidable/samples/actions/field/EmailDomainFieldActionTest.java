@@ -17,14 +17,14 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  * The built-in check of an address's domain: what it asks the domain name system, and what it makes of the answer.
  * The one seam is the lookup itself — a test that queried real DNS would be a test of the network.
  */
-class EmailDeliverabilityFieldActionTest {
+class EmailDomainFieldActionTest {
 
     private static FieldActionRequest of(String value) {
         return new FieldActionRequest("form-1", "email", value, Locale.ENGLISH);
     }
 
-    private static FieldActionResult judge(EmailDeliverabilityFieldAction.MailRecords records, String value) {
-        return new EmailDeliverabilityFieldAction(records).execute(null, of(value));
+    private static FieldActionResult judge(EmailDomainFieldAction.MailRecords records, String value) {
+        return new EmailDomainFieldAction(records).execute(null, of(value));
     }
 
     @Test
@@ -69,7 +69,7 @@ class EmailDeliverabilityFieldActionTest {
         // it cannot read a single domain from passes untouched, and no query leaves the server — which also keeps
         // a crafted value from steering the resolver.
         AtomicReference<String> asked = new AtomicReference<>();
-        EmailDeliverabilityFieldAction.MailRecords records = domain -> {
+        EmailDomainFieldAction.MailRecords records = domain -> {
             asked.set(domain);
             return List.of("MX");
         };

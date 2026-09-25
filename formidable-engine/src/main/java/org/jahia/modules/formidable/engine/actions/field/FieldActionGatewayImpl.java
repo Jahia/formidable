@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -107,13 +108,29 @@ public class FieldActionGatewayImpl implements FieldActionGateway {
                 || !resolved.getScheme().equalsIgnoreCase(base.getScheme())) {
             throw new IllegalArgumentException("The path leaves the provider's host: '" + trimmed + "'");
         }
-        return resolved;
+        return provider.credentialInQuery() ? withCredentialParameter(resolved, provider) : resolved;
+    }
+
+    /**
+     * The target with the credential as a query parameter, for a provider that reads its key off the URL: appended
+     * after the path's own query, before a fragment, both encoded. The URI holds a secret from here on and is never
+     * logged; an exception raised before this point has none to leak.
+     */
+    private static URI withCredentialParameter(URI resolved, FieldActionProvider provider) {
+        String parameter = URLEncoder.encode(provider.credentialHeader(), StandardCharsets.UTF_8)
+                + "=" + URLEncoder.encode(provider.credential(), StandardCharsets.UTF_8);
+        String text = resolved.toString();
+        int hash = text.indexOf('#');
+        String head = hash < 0 ? text : text.substring(0, hash);
+        String tail = hash < 0 ? "" : text.substring(hash);
+        String joiner = resolved.getRawQuery() == null || resolved.getRawQuery().isEmpty() ? "?" : "&";
+        return URI.create(head + joiner + parameter + tail);
     }
 
     private Response send(FieldActionProvider provider, HttpRequest.Builder request) throws IOException {
         FieldActionSettings current = settings.get();
         request.timeout(current.httpRequestTimeout()).header("Accept", "application/json");
-        if (provider.credentialHeader() != null && !provider.credentialHeader().isEmpty()) {
+        if (!provider.credentialInQuery() && provider.credentialHeader() != null && !provider.credentialHeader().isEmpty()) {
             request.header(provider.credentialHeader(), provider.credential());
         }
         HttpClient client = current.httpClient();

@@ -31,6 +31,7 @@ import java.util.Collection;
 import java.util.Dictionary;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -87,10 +88,16 @@ public class FormidableConfigService {
      * @param credentialHeader the header carrying the credential, empty when the provider needs none
      * @param credential       the secret; never logged, never returned to a caller — {@link #toString()} hides it
      */
-    public record FieldActionProvider(String id, String label, URI baseUri, String credentialHeader, String credential) {
+    public record FieldActionProvider(String id, String label, URI baseUri, String credentialHeader, String credential, boolean credentialInQuery) {
+        /** A provider whose credential travels as a request header, the default. */
+        public FieldActionProvider(String id, String label, URI baseUri, String credentialHeader, String credential) {
+            this(id, label, baseUri, credentialHeader, credential, false);
+        }
+
         @Override
         public String toString() {
             return "FieldActionProvider[id=" + id + ", baseUri=" + baseUri + ", credentialHeader=" + credentialHeader
+                    + ", credentialIn=" + (credentialInQuery ? "query" : "header")
                     + ", credential=" + (credential == null || credential.isEmpty() ? "none" : "***") + "]";
         }
     }
@@ -139,6 +146,9 @@ public class FormidableConfigService {
     static final String PID = "org.jahia.modules.formidable";
     /** How the multi-line configuration values are split: one entry per line, either line ending. */
     private static final String LINE_BREAKS = "[\n\r]+";
+    /** Where a provider's credential goes, as the sixth part of its line says: a request header (the default) or a query parameter. */
+    private static final String CREDENTIAL_IN_HEADER = "header";
+    private static final String CREDENTIAL_IN_QUERY = "query";
 
     private final AtomicReference<ConfigSnapshot> config = new AtomicReference<>();
 
@@ -401,8 +411,9 @@ public class FormidableConfigService {
         log.info("FormidableConfigService options sources: {} declared, cacheTtl={}s",
                 snapshot.optionsSources().size(),
                 snapshot.optionsSourcesCacheTtl().toSeconds());
-        log.info("FormidableConfigService field actions: {} provider(s), connectTimeout={}s, requestTimeout={}s, verdictCacheTtl={}s, preCheckRateLimit={}/min, maxValueLength={}",
+        log.info("FormidableConfigService field actions: {} provider(s), devProvidersEnabled={}, connectTimeout={}s, requestTimeout={}s, verdictCacheTtl={}s, preCheckRateLimit={}/min, maxValueLength={}",
                 fieldActions.providers().size(),
+                osgiConfig.enableDevFieldActionProviders(),
                 fieldActions.httpConnectTimeout().toSeconds(),
                 fieldActions.httpRequestTimeout().toSeconds(),
                 fieldActions.verdictCacheTtl().toSeconds(),
@@ -436,8 +447,19 @@ public class FormidableConfigService {
         int maxValueLength = osgiConfig.fieldActionMaxValueLength() > 0
                 ? osgiConfig.fieldActionMaxValueLength()
                 : FormidableConfig.DEFAULT_FIELD_ACTION_MAX_VALUE_LENGTH;
+        Map<String, FieldActionProvider> providers = parseFieldActionProviders(osgiConfig.fieldActionProviders(), false);
+        if (osgiConfig.enableDevFieldActionProviders()) {
+            // A development provider never shadows a standard one: the first occurrence of an id wins, as within one list.
+            parseFieldActionProviders(osgiConfig.devFieldActionProviders(), true).forEach((id, provider) -> {
+                if (providers.putIfAbsent(id, provider) != null) {
+                    log.warn("[FormidableConfigService] Duplicate field action provider id '{}' across fieldActionProviders and devFieldActionProviders, keeping the standard provider.", id);
+                }
+            });
+        } else if (osgiConfig.devFieldActionProviders() != null && !osgiConfig.devFieldActionProviders().isBlank()) {
+            log.info("[FormidableConfigService] Ignoring devFieldActionProviders because enableDevFieldActionProviders=false.");
+        }
         return new FieldActionSettings(
-                Collections.unmodifiableMap(parseFieldActionProviders(osgiConfig.fieldActionProviders())),
+                Collections.unmodifiableMap(providers),
                 connectTimeout,
                 requestTimeout,
                 httpClient,
@@ -450,11 +472,14 @@ public class FormidableConfigService {
 
     /**
      * Parses {@code fieldActionProviders}: one {@code id|Label|https://base-url|Credential-Header-Name|credential}
-     * per line, the last two optional together. The base URL obeys the forward targets' rule — HTTPS, a host, no
-     * embedded credentials. A malformed entry is logged without its credential and skipped; the first occurrence
-     * of a duplicate id wins.
+     * per line, the last two optional together, with an optional sixth part saying where the credential goes —
+     * {@code header}, the default, or {@code query}, a parameter of that name, for a provider that reads its key
+     * off the URL. The base URL obeys the forward targets' rule — HTTPS, a host, no
+     * embedded credentials; a development list ({@code devFieldActionProviders}) obeys their development rule
+     * instead, plain HTTP on localhost or host.docker.internal. A malformed entry is logged without its credential
+     * and skipped; the first occurrence of a duplicate id wins.
      */
-    private static Map<String, FieldActionProvider> parseFieldActionProviders(String raw) {
+    private static Map<String, FieldActionProvider> parseFieldActionProviders(String raw, boolean development) {
         Map<String, FieldActionProvider> result = new LinkedHashMap<>();
         if (raw == null || raw.isBlank()) {
             return result;
@@ -464,7 +489,7 @@ public class FormidableConfigService {
             if (trimmed.isEmpty()) {
                 continue;
             }
-            parseFieldActionProviderEntry(trimmed).ifPresent(provider -> {
+            parseFieldActionProviderEntry(trimmed, development).ifPresent(provider -> {
                 if (result.putIfAbsent(provider.id(), provider) != null) {
                     log.warn("[FormidableConfigService] Duplicate fieldActionProviders id '{}', keeping first occurrence.", provider.id());
                 }
@@ -473,11 +498,11 @@ public class FormidableConfigService {
         return result;
     }
 
-    private static Optional<FieldActionProvider> parseFieldActionProviderEntry(String entry) {
-        String[] parts = entry.split("\\|", 5);
+    private static Optional<FieldActionProvider> parseFieldActionProviderEntry(String entry, boolean development) {
+        String[] parts = entry.split("\\|", 6);
         if (parts.length < 3) {
             if (log.isWarnEnabled()) {
-                log.warn("[FormidableConfigService] Skipping malformed fieldActionProviders entry (expected id|Label|https://base-url|Header|credential): '{}'",
+                log.warn("[FormidableConfigService] Skipping malformed fieldActionProviders entry (expected id|Label|https://base-url|Header|credential[|header|query]): '{}'",
                         redactProviderEntry(parts));
             }
             return Optional.empty();
@@ -497,6 +522,34 @@ public class FormidableConfigService {
             log.warn("[FormidableConfigService] Skipping fieldActionProviders entry '{}': a credential needs its header name, and a header name its credential.", id);
             return Optional.empty();
         }
+        Optional<Boolean> credentialInQuery = credentialPlacement(id, parts.length > 5 ? parts[5] : CREDENTIAL_IN_HEADER, credential);
+        Optional<URI> baseUri = providerBaseUri(id, url, development);
+        if (credentialInQuery.isEmpty() || baseUri.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new FieldActionProvider(id, label.isEmpty() ? id : label, baseUri.get(), header, credential, credentialInQuery.get()));
+    }
+
+    /**
+     * Where the credential goes, as the sixth part says — the header by default, or the query; empty, with a
+     * warning, when the part says something else or names a query credential without a value to send.
+     */
+    private static Optional<Boolean> credentialPlacement(String id, String placement, String credential) {
+        String where = placement.trim().toLowerCase(Locale.ROOT);
+        if (!CREDENTIAL_IN_HEADER.equals(where) && !CREDENTIAL_IN_QUERY.equals(where)) {
+            log.warn("[FormidableConfigService] Skipping fieldActionProviders entry '{}': the credential goes in the '{}' or in the '{}', not '{}'.",
+                    id, CREDENTIAL_IN_HEADER, CREDENTIAL_IN_QUERY, where);
+            return Optional.empty();
+        }
+        if (CREDENTIAL_IN_QUERY.equals(where) && credential.isEmpty()) {
+            log.warn("[FormidableConfigService] Skipping fieldActionProviders entry '{}': a credential in the query needs its parameter name and its value.", id);
+            return Optional.empty();
+        }
+        return Optional.of(CREDENTIAL_IN_QUERY.equals(where));
+    }
+
+    /** The base URI of a provider line under the forward targets' rule; empty, with a warning, when malformed or refused. */
+    private static Optional<URI> providerBaseUri(String id, String url, boolean development) {
         URI uri;
         try {
             uri = new URI(url);
@@ -504,12 +557,12 @@ public class FormidableConfigService {
             log.warn("[FormidableConfigService] Skipping fieldActionProviders entry '{}': malformed URI '{}'", id, url);
             return Optional.empty();
         }
-        String reason = getUnsupportedForwardTargetUriReason(uri, false);
+        String reason = getUnsupportedForwardTargetUriReason(uri, development);
         if (reason != null) {
-            log.warn("[FormidableConfigService] Skipping fieldActionProviders entry '{}': {}", id, reason);
+            log.warn("[FormidableConfigService] Skipping {} entry '{}': {}", development ? "devFieldActionProviders" : "fieldActionProviders", id, reason);
             return Optional.empty();
         }
-        return Optional.of(new FieldActionProvider(id, label.isEmpty() ? id : label, uri, header, credential));
+        return Optional.of(uri);
     }
 
     /** An entry as a log line may show it: its first three parts, never a credential. */

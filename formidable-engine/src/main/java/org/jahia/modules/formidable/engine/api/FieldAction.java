@@ -11,9 +11,8 @@ import org.jahia.services.content.JCRNodeWrapper;
  * <p>The engine runs it twice from one node: at the visitor's request while the form is being filled
  * (the {@code field-action} endpoint, on blur or at submit as the contributor set), and again in the
  * submission pipeline before any form action, for the actions whose refusal blocks. The same code, the
- * same verdict cache. A field action written in JavaScript is a server view named {@code hidden.execute}
- * on the same node type instead; the engine looks a Java service up first and renders the view when none
- * is registered.</p>
+ * same verdict cache. A type no deployed module implements is an unavailable check, which the contributor's
+ * setting decides.</p>
  *
  * <p>A field action <strong>answers</strong>: it returns a {@link FieldActionResult} and writes nothing.
  * The words the visitor reads are not its business either — the contributor writes them on the node

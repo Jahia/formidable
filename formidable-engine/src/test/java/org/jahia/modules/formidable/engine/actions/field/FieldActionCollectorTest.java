@@ -58,7 +58,7 @@ class FieldActionCollectorTest {
         // that is not a field action (a stray text, a folder) is left out rather than failing the field.
         JCRNodeWrapper stray = node("note", "jnt:text", List.of());
         JCRNodeWrapper field = fieldWithActions("email",
-                action("deliverability", "fmdb:emailDeliverabilityAction"), stray, action("crm", "myco:crmLookupAction"));
+                action("deliverability", "fmdbsample:emailDomainAction"), stray, action("crm", "myco:crmLookupAction"));
 
         List<ResolvedFieldAction> actions = FieldActionCollector.read(field);
 

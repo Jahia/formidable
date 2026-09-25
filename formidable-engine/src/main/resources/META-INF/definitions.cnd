@@ -123,6 +123,13 @@ orderable
  - severity (string, choicelist[resourceBundle]) = 'block' autocreated indexed=no < 'block', 'warn'
  - whenUnavailable (string, choicelist[resourceBundle]) = 'accept' autocreated indexed=no < 'accept', 'reject'
 
+// What a field action behind a provider carries: the id of one of the services the administrator declared
+// under fieldActionProviders — the base URL, the credential and its place staying in the engine's
+// configuration. A type takes it beside fmdbmix:fieldAction; the engine reads the id for it
+// (ProviderFieldAction) and the choicelist offers the declared providers by label.
+[fmdbmix:providerFieldAction] mixin
+ - providerId (string, choicelist[formidableFieldActionProviders]) mandatory indexed=no
+
 // The per-field list, fmdb:actionList in miniature. Orderable: the first blocking refusal wins,
 // so the contributor puts the cheap check before the paid one.
 [fmdb:fieldActionList] > jnt:content, jmix:list, mix:title, jmix:systemNameReadonly
