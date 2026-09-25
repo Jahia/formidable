@@ -215,6 +215,32 @@ export const clearFieldWarning = (
 	input.ownerDocument.getElementById(warningId)?.remove();
 };
 
+// The twin of the two messages, for the time a check runs: a field action asked about the value.
+const CHECKING_CLASS = 'fmdb-field-action-checking';
+
+const buildCheckingId = (input: FormInputElement): string => buildMessageId(input, CHECKING_CLASS);
+
+/**
+ * The line under a field while a field action is asked about its value: a turning glyph and the
+ * label, `role="status"` so assistive technology hears what the form is waiting for. Drawn where a
+ * message would be, and gone with the answer (`clearFieldChecking`).
+ */
+export const showFieldChecking = (input: FormInputElement, label: string): void => {
+	clearFieldChecking(input);
+	const checkingEl = document.createElement('span');
+	checkingEl.id = buildCheckingId(input);
+	checkingEl.className = CHECKING_CLASS;
+	checkingEl.setAttribute('role', 'status');
+	// Lucide-inspired loader glyph (no icon library): an open circle the stylesheet turns
+	checkingEl.innerHTML = '<svg class="fmdb-field-action-checking-glyph" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
+	checkingEl.appendChild(document.createTextNode(label));
+	anchorMessage(input, checkingEl);
+};
+
+export const clearFieldChecking = (input: FormInputElement): void => {
+	input.ownerDocument.getElementById(buildCheckingId(input))?.remove();
+};
+
 export const clearAllFieldErrors = (form: HTMLFormElement): void => {
 	form.querySelectorAll(`.${ERROR_CLASS}`).forEach(el => el.remove());
 	form.querySelectorAll(`.${INVALID_CLASS}`).forEach(el => {

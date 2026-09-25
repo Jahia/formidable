@@ -31,6 +31,7 @@ client, under the same names. Where each one sits in the rendered tree is drawn 
 | `fmdb-validation-error`, `fmdb-invalid` | Inline validation (see [Custom validation](../architecture/custom-validation.md)); a field action's refusal lands in the same element |
 | `fmdb-validation-warning` | The message of a field action set to warn only, under the field: the twin of `fmdb-validation-error` — same place, same `aria-describedby` — with no invalid state (see [Field actions](../architecture/field-actions.md)) |
 | `fmdb-field-action-pending` | The wrapper of a field while a field action is asked about its value, with `aria-busy="true"`; the core fades the controls a little meanwhile |
+| `fmdb-field-action-checking`, `fmdb-field-action-checking-glyph` | The line under a field while a field action is asked about its value — a turning glyph and "Checking…", `role="status"` — drawn where a message would be and gone with the answer; small and muted by default (variables in [CSS variables](css-variables.md#validation)) |
 | `fmdb-logic-target` | Wrapper of an element driven by conditional logic (see below) |
 | `fmdb-spinner` | The submission overlay |
 | `fmdb-form-fields` | The field list — in edit mode only, where the authoring spacing below pads it |

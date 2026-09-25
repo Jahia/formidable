@@ -31,6 +31,15 @@ described in [Custom validation](../architecture/custom-validation.md) and
 | `--fmdb-validation-warning-line-height` | `1.25` | Line height of a warning |
 | `--fmdb-field-action-pending-opacity` | `0.6` | Opacity of the controls of a field while a field action is asked about its value |
 | `--fmdb-field-action-pending-transition` | `150ms ease-in-out` | Transition of that opacity |
+| `--fmdb-field-action-checking-font-size` | `0.75rem` | Font size of the "Checking…" line under a field being checked (small by default: a status, not a message) |
+| `--fmdb-field-action-checking-color` | `#626977` | Its colour |
+| `--fmdb-field-action-checking-font-style` | `normal` | Its font style |
+| `--fmdb-field-action-checking-line-height` | `1.25` | Its line height |
+| `--fmdb-field-action-checking-mt` | `0.25rem` | Margin above it |
+| `--fmdb-field-action-checking-padding` | `0` | Its padding |
+| `--fmdb-field-action-checking-gap` | `0.375em` | Space between the glyph and the text |
+| `--fmdb-field-action-checking-glyph-size` | `1em` | Size of the turning glyph (follows the font size) |
+| `--fmdb-field-action-checking-turn` | `1s` | Duration of one turn of the glyph (none under `prefers-reduced-motion`) |
 
 A softer look, for instance:
 

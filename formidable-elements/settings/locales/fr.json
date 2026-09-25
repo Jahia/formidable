@@ -29,7 +29,8 @@
 		"editModeSubmitDisabled": "L'envoi du formulaire est désactivé en mode édition/prévisualisation.",
 		"maintenanceUnavailable": "Ce formulaire est temporairement indisponible pendant la maintenance de la plateforme. Veuillez réessayer plus tard.",
 		"errorCode": "Code d'erreur",
-		"actionsProgress": "{{completed}}/{{total}} actions terminées"
+		"actionsProgress": "{{completed}}/{{total}} actions terminées",
+		"checking": "Vérification…"
 	},
 	"fmdb_formReference": {
 		"noFormSelected": "Aucun formulaire sélectionné"

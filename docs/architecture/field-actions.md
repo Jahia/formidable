@@ -453,26 +453,45 @@ visitor left the field again meanwhile) is dropped.
 never sent to a provider — `settleFieldActions(form)` asks about every field carrying the marker that
 logic does not hold hidden, blur and submit alike, with `trigger: "submit"`, in parallel: the
 blur-checked values again (free: the engine's verdict cache, keyed on action, locale and value, answers
-them) and the submit-only ones for the first time. Any refusal: the messages shown, the first refused
-control focused, no request. Otherwise the submission goes, warnings shown; a check that could not be
-asked blocks nothing. No spinner meanwhile — the pending state on the fields is the feedback, and a
-spinner would hide the form the messages land on — and a second click is ignored until the answer.
+them) and the submit-only ones for the first time; a check still in flight is superseded, so the answer
+is awaited, never raced. Any refusal: the messages shown, the refused control brought on screen and
+focused, no request. Otherwise the submission goes, warnings shown; a check that could not be asked
+blocks nothing. No spinner meanwhile — a spinner would hide the form the messages land on — but the
+field being asked about says so (below), and a second click is ignored until the answer.
+
+**While a check runs**, at blur or before a submission or the next step, the field says what the form is
+waiting for: its wrapper carries `fmdb-field-action-pending` and `aria-busy="true"`, and under the field a
+line `span.fmdb-field-action-checking` (`role="status"`: a turning glyph and "Checking…", small and muted
+by default, every value a variable) is drawn where a message would be and removed with the answer. A
+visitor who clicks Submit while a slow check runs sees which field holds the form.
+
+**In a multi-step form** — the strategy for the asynchronous checks, decided 2026-09-25. Leaving a step
+(Next) validates its constraints, then settles the step's own fields with the submit trigger: a
+blur-checked value is asked again (free), a value still being checked is awaited rather than raced, and
+an action set to run "at submission" runs now, when the visitor leaves the field's step — the editor's
+label says so — which costs exactly what one run at submission does in the normal flow and spares the
+visitor being sent back from the last step to the first. A refusal keeps the visitor on the step, the
+message under the field, the field focused; Next ignores a second click while it settles. Submit
+settles the whole form, as above. And whichever way a refusal reaches a control that is not on screen —
+the settle, the pipeline's `FMDB-015` — the island brings its step on screen first and focuses it on the
+next run, once the step's display has changed (`stepIndexOf`, an effect of the island's state).
 
 **A refusal at submission** (`FMDB-015`, or `FMDB-017` for too many answers on one field): the response's
 `messages` are anchored exactly as the pre-check's — the error under its field, the focus moved, the
 form kept with what the visitor typed. The focus is an effect of the island, run once the loading state
-has cleared: the spinner hides the form (`display: none`) while the request runs, and a hidden control
-cannot take the focus — a call made from the request's own code, deferred or not, could not be timed
-against React's commit (measured: the deferred call landed on the still-hidden form). For `FMDB-015` that is all the page says: a field action's refusal
+has cleared and the step holding the control is on screen: the spinner hides the form (`display: none`)
+while the request runs, a step other than the current one is hidden too, and a hidden control cannot
+take the focus — a call made from the request's own code, deferred or not, could not be timed against
+React's commit (measured: the deferred call landed on the still-hidden form). The submission hook hands
+the control over through its `onRefused` callback; the island owns the reveal. For `FMDB-015` that is all the page says: a field action's refusal
 is a validation failure and reads like one, no global error box, no code on screen. `FMDB-017` keeps the
 form's global error under the anchored message. A message whose field is not in the form falls back to
 the global error: a refusal the visitor cannot see is worse than a generic one.
 
 **Reset** clears every verdict — the browser restores the values, not a `customValidity`, nor what was
 drawn. **Edit mode**: the hook is off (`enabled = !isEditMode && !!fieldActionUrl`); the Page Builder form
-never calls the endpoint. **Multi-step**: the step navigation stays synchronous — the blur checks already
-ran field by field; the settle runs once, before the final submission. **Hydration**: the listeners
-attach on mount; a field left before that is simply not pre-checked, and the pipeline judges it.
+never calls the endpoint. **Hydration**: the listeners attach on mount; a field left before that is
+simply not pre-checked, and the pipeline judges it.
 
 **The zone** under the field while authoring is rendered by the same wrapper as soon as the switch is on,
 inside the field's Page Builder box, by two views on the same chrome as the form-actions zone
@@ -591,6 +610,8 @@ call per blocking action and non-blank value never pre-checked.
 | 2026-09-25 | **The library helpers hand the verdict over in the engine's raw-html element, and the engine decodes entities anyway** (review of #346) | `renderToString` escapes the text a component returns: every JavaScript field action answered as a plain string reached the reader as `&quot;`-quoted JSON, UNAVAILABLE, accepted by the CND default — and nothing had run that chain end to end. The element is what the engine emits verbatim; the decoding keeps a view written without the helpers readable; the samples' JavaScript action and spec 73 hold both |
 | 2026-09-25 | **The field actions lift only the validity they set** (review of #346) | `setCustomValidity("")` over a validity another client set — a required checkbox group's "select at least one" — let an empty group through the browser. What the hook wrote is remembered per control and cleared only while it is still there; the constraint client's own errors are cleared only once the control is valid, as it does itself |
 | 2026-09-25 | **A field's anchor control is the one the visitor sees; the named ones carry the value** (review of #346) | A range field's named control is a hidden mirror of the slider: the focus, the ARIA and the message go to the slider, the validity to both. For every other field the two coincide |
+| 2026-09-25 | **Next settles the step; \"at submission\" means \"when the visitor leaves the field's step\" in a multi-step form; a refusal anywhere brings its step on screen** (HDU, review of #346, option (b) of the two offered) | Three ordinary paths left a refused field invisible in a hidden step: a blur answer landing after a synchronous Next, a submit-triggered action of an early step asked only at the final settle, the pipeline's FMDB-015 on a hidden control. The strict reading of \"at submission\" — asked at the final Submit only — would have bounced the visitor from the last step to the first; asked at Next it costs the same in the normal flow. Rule kept from `anchorFieldMessages`: a refusal the visitor cannot see is worse than a generic one |
+| 2026-09-25 | **A field being checked says so under it** — `span.fmdb-field-action-checking`, glyph and \"Checking…\", `role=\"status\"`, small and muted by default, every value a variable (HDU) | Submit and Next now wait for the checks; the 60% fade of the controls said nothing about which field the form was waiting for, and a spinner over the form would hide the field the answer lands on |
 | 2026-09-25 | **A refusal at submission is focused by the island once the loading state has cleared, and the message of an earlier attempt goes as the next one leaves** (review of #346) | The spinner hides the form while the request runs, so a call made from the request code focused a hidden control; and a stale "An error occurred" stayed above an anchored refusal, which the page promised to show alone |
 
 ## Open questions

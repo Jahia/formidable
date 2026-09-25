@@ -81,6 +81,7 @@ function formWith(html: string, options: {enabled?: boolean; url?: string; withC
 		formRef: {current: form},
 		fieldActionUrl: 'url' in options ? options.url : URL,
 		enabled: options.enabled ?? true,
+		labels: {checking: 'Checking…'},
 	});
 	return {form, settleFieldActions};
 }
@@ -118,6 +119,37 @@ describe('useFieldActions', () => {
 		expect(requests[0].withCredentials).toBe(true);
 		expect(requests[0].sent).toEqual({field: 'firstName', value: 'spam', trigger: 'blur'});
 		expect(wrapperOf(form, 'firstName').getAttribute('aria-busy')).toBe('true');
+	});
+
+	it('says under the field what the form waits for while a check runs, and no longer once it is answered', async () => {
+		const {form} = formWith(textField('firstName'));
+		const input = form.querySelector('input')!;
+		input.value = 'spam';
+		input.dispatchEvent(bubbling('focusout'));
+
+		const checking = form.querySelector('.fmdb-form-group > .fmdb-field-action-checking')!;
+		expect(checking.getAttribute('role')).toBe('status');
+		expect(checking.textContent).toBe('Checking…');
+		expect(checking.querySelector('svg.fmdb-field-action-checking-glyph')).not.toBeNull();
+		expect(form.querySelectorAll('.fmdb-field-action-checking')).toHaveLength(1);
+
+		requests[0].answer(200, accept);
+		await settled();
+
+		expect(form.querySelector('.fmdb-field-action-checking')).toBeNull();
+	});
+
+	it('settles the fields of one root only — a step before the visitor leaves it', async () => {
+		const {form, settleFieldActions} = formWith(`<div data-fmdb-step>${textField('first')}</div><div data-fmdb-step>${textField('second')}</div>`);
+		form.querySelectorAll('input').forEach(input => {
+			input.value = 'x';
+		});
+
+		const outcome = settleFieldActions(form.querySelector<HTMLElement>('[data-fmdb-step]')!);
+		expect(requests.map(request => (request.sent as {field: string}).field)).toEqual(['first']);
+		requests[0].answer(200, accept);
+
+		expect(await outcome).toBeNull();
 	});
 
 	it('leaves a submit-only field alone until the submission, and never asks a field without the marker', () => {
@@ -274,8 +306,7 @@ describe('useFieldActions', () => {
 		requests[0].answer(200, accept);
 		requests[1].answer(200, reject('email', 'Unknown domain'));
 
-		expect(await outcome).toBe(false);
-		expect(document.activeElement).toBe(email);
+		expect(await outcome).toBe(email);
 		expect(email.validity.customError).toBe(true);
 	});
 
@@ -292,7 +323,7 @@ describe('useFieldActions', () => {
 		requests[0].answer(200, accept);
 		requests[1].answer(200, reject('topics', 'not spam'));
 
-		expect(await outcome).toBe(false);
+		expect(await outcome).toBe(form.querySelector('input'));
 	});
 
 	it('settles true with a warning shown, and true when a check could not be asked: the pipeline judges', async () => {
@@ -305,7 +336,7 @@ describe('useFieldActions', () => {
 		requests[0].answer(200, advice('firstName', 'Unusual'));
 		requests[1].answer(429, {errorCode: 'FMDB-016'});
 
-		expect(await outcome).toBe(true);
+		expect(await outcome).toBeNull();
 		expect(form.querySelector('.fmdb-validation-warning')!.textContent).toBe('Unusual');
 		expect(email.validity.valid).toBe(true);
 		expect(form.querySelector('.fmdb-validation-error')).toBeNull();
@@ -323,7 +354,7 @@ describe('useFieldActions', () => {
 		requests[1].answer(200, '<html>proxy error</html>');
 		requests[2].answer(200, {verdict: 'maybe', messages: [{level: 'error', html: 'no', field: 'c'}]});
 
-		expect(await outcome).toBe(true);
+		expect(await outcome).toBeNull();
 		expect(form.querySelector('.fmdb-validation-error')).toBeNull();
 		expect(Array.from(form.querySelectorAll('input')).every(input => input.validity.valid)).toBe(true);
 		expect(form.querySelector('[aria-busy]')).toBeNull();
@@ -351,7 +382,7 @@ describe('useFieldActions', () => {
 		input.value = 'spam';
 		input.dispatchEvent(bubbling('focusout'));
 
-		expect(await settleFieldActions(form)).toBe(true);
+		expect(await settleFieldActions(form)).toBeNull();
 		expect(requests).toHaveLength(0);
 	});
 
@@ -361,7 +392,7 @@ describe('useFieldActions', () => {
 		input.value = 'spam';
 		input.dispatchEvent(bubbling('focusout'));
 
-		expect(await settleFieldActions(form)).toBe(true);
+		expect(await settleFieldActions(form)).toBeNull();
 		expect(requests).toHaveLength(0);
 	});
 
@@ -412,8 +443,7 @@ describe('useFieldActions', () => {
 		expect((requests[0].sent as {value: string}).value).toBe('90');
 		requests[0].answer(200, reject('budget', 'Too much'));
 
-		expect(await outcome).toBe(false);
-		expect(document.activeElement).toBe(slider);
+		expect(await outcome).toBe(slider);
 		expect(slider.getAttribute('aria-invalid')).toBe('true');
 		expect(slider.validity.customError).toBe(true);
 		expect(form.querySelector('.fmdb-validation-error')!.textContent).toBe('Too much');

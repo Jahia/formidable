@@ -119,6 +119,12 @@ interface UseFormSubmissionOptions {
 	isLastStep: boolean;
 	setCurrentStep: (step: number) => void;
 	labels: SubmissionLabels;
+	/**
+	 * Told the control a rejection named, so the island can bring it on screen — the step holding it, once
+	 * the spinner has gone — and focus it. The spinner hides the form (display:none) while the request runs,
+	 * and a hidden control cannot take the focus, so the focus is the island's, as an effect of its state.
+	 */
+	onRefused?: (control: HTMLElement) => void;
 }
 
 /**
@@ -136,8 +142,6 @@ interface UseFormSubmissionReturn {
 	isCaptchaValid: boolean;
 	setIsCaptchaValid: (valid: boolean) => void;
 	captchaRef: RefObject<CaptchaHandle | null>;
-	/** The control a rejection named, to focus once the form shows again; null until then and after the next submission. */
-	refusedControl: HTMLElement | null;
 	/** Resolves once the submission is over — sent and answered, or stopped by the pre-validation. */
 	handleSubmit: (event: FormEvent<HTMLFormElement>, preValidate?: PreValidate) => Promise<void>;
 	showForm: () => void;
@@ -154,15 +158,12 @@ export function useFormSubmission({
 	isLastStep,
 	setCurrentStep,
 	labels,
+	onRefused,
 }: UseFormSubmissionOptions): UseFormSubmissionReturn {
 	const [message, setMessage] = useState<string | null>(null);
 	const [messageType, setMessageType] = useState<'success' | 'error' | 'maintenance' | null>(null);
 	const [isLoading, setIsLoading] = useState(false);
 	const [isCaptchaValid, setIsCaptchaValid] = useState(false);
-	// The control a rejection named, for the island to focus once the form is back on screen: the
-	// spinner hides the form (display:none) while the request runs, and a hidden control cannot take
-	// the focus — so the focus is an effect of the loading state clearing, not a call made here.
-	const [refusedControl, setRefusedControl] = useState<HTMLElement | null>(null);
 	const captchaRef = useRef<CaptchaHandle>(null);
 	// A submission in progress, from the pre-validation to the answer: a second click meanwhile is
 	// ignored. The spinner does that once it shows; the field actions settle before it does.
@@ -182,7 +183,6 @@ export function useFormSubmission({
 			if (preValidate && !(await preValidate())) return;
 
 			setIsLoading(true);
-			setRefusedControl(null);
 			const spinnerShownAt = Date.now();
 
 			if (captcha && !captchaRef.current?.getToken()) {
@@ -290,7 +290,7 @@ export function useFormSubmission({
 		// a refusal the visitor cannot see is worse than a generic one.
 		const refused = messages.length > 0 ? anchorFieldMessages(form, messages) : null;
 		if (refused) {
-			setRefusedControl(refused);
+			onRefused?.(refused);
 			if (errorCode === FIELD_ACTION_REFUSED_CODE) {
 				captchaRef.current?.reset();
 				return;
@@ -335,7 +335,6 @@ export function useFormSubmission({
 		isCaptchaValid,
 		setIsCaptchaValid,
 		captchaRef,
-		refusedControl,
 		handleSubmit,
 		showForm,
 	};

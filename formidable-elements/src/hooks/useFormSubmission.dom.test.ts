@@ -84,10 +84,12 @@ const eventOn = (form: HTMLFormElement) => ({preventDefault: () => undefined, cu
 
 /**
  * Submits a form and hands back the hook's state setters. The hook's `useState` calls come in a fixed
- * order — message, message type, loading, captcha, refused control — so the setters are read by rank.
+ * order — message, message type, loading, captcha — so the setters are read by rank; `onRefused` is the
+ * island's callback, mocked.
  */
 function submitForm(html: string, preValidate?: () => boolean | Promise<boolean>) {
 	react.setters.length = 0;
+	const onRefused = vi.fn();
 	const {handleSubmit} = SubmittingForm({
 		formId: 'form-under-test',
 		locale: 'en',
@@ -95,18 +97,19 @@ function submitForm(html: string, preValidate?: () => boolean | Promise<boolean>
 		isLastStep: true,
 		setCurrentStep: () => undefined,
 		labels,
+		onRefused,
 	});
 	document.body.innerHTML = `<form>${html}</form>`;
 	const form = document.querySelector('form')!;
 	const done = handleSubmit({preventDefault: () => undefined, currentTarget: form} as unknown as FormEvent<HTMLFormElement>, preValidate);
-	const [setMessage, setMessageType, setIsLoading, , setRefusedControl] = react.setters;
+	const [setMessage, setMessageType, setIsLoading] = react.setters;
 	return {
 		form,
 		done,
 		setMessage,
 		setMessageType,
 		setIsLoading,
-		setRefusedControl,
+		onRefused,
 		successShown: () => setMessageType.mock.calls.some(([type]) => type === 'success'),
 	};
 }
@@ -188,8 +191,8 @@ describe('useFormSubmission: a rejection that names a field', () => {
 		document.body.replaceChildren();
 	});
 
-	it('anchors a field action refusal under its field, hands the control over to focus, shows no global message', async () => {
-		const {form, done, setMessage, setMessageType, setIsLoading, setRefusedControl} = submitForm(EMAIL_FIELD);
+	it('anchors a field action refusal under its field, hands the control over to the island, shows no global message', async () => {
+		const {form, done, setMessage, setMessageType, setIsLoading, onRefused} = submitForm(EMAIL_FIELD);
 		await settled();
 		requests[0].answer(422, refusal('FMDB-015', 'email', 'We do <b>not</b> know this domain'));
 		await done;
@@ -197,8 +200,8 @@ describe('useFormSubmission: a rejection that names a field', () => {
 		const input = form.querySelector('input')!;
 		expect(form.querySelector('.fmdb-form-group > .fmdb-validation-error')!.innerHTML).toBe('We do <b>not</b> know this domain');
 		expect(input.validity.customError).toBe(true);
-		// the island focuses it once the form shows again (the spinner hides it): handed over as state, cleared at the start
-		expect(setRefusedControl.mock.calls).toEqual([[null], [input]]);
+		// the island brings it on screen and focuses it once the form shows again (the spinner hides it)
+		expect(onRefused).toHaveBeenCalledExactlyOnceWith(input);
 		// the message of an earlier attempt is cleared as the request leaves; nothing is written after the refusal
 		expect(setMessageType.mock.calls).toEqual([[null]]);
 		expect(setMessage.mock.calls).toEqual([[null]]);

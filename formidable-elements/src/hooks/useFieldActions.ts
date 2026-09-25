@@ -1,5 +1,5 @@
 import {type RefObject, useEffect, useRef} from 'react';
-import {clearAllFieldWarnings, clearFieldError} from '~/utils/validationUtils';
+import {clearAllFieldWarnings, clearFieldChecking, clearFieldError, showFieldChecking} from '~/utils/validationUtils';
 import {
 	clearFieldActionValidity,
 	type FieldControls,
@@ -39,17 +39,23 @@ interface UseFieldActionsOptions {
 	fieldActionUrl?: string;
 	/** Off in edit mode: the rules describe the visitor experience, so they never run while the form is authored. */
 	enabled: boolean;
+	labels: {
+		/** Under a field while a check runs: what the form is waiting for. */
+		checking: string;
+	};
 }
 
 interface UseFieldActionsReturn {
 	/**
-	 * Asks the engine about every field with actions before the submission is sent — the blur-checked
-	 * ones again (the engine's verdict cache makes that free) and the submit-only ones for the first time.
-	 * Resolves false with the messages shown and the first refused control focused, true otherwise:
-	 * warnings are shown and the submission proceeds, and a check that could not be asked blocks nothing,
-	 * the pipeline being the authority.
+	 * Asks the engine about every field with actions under `root` — the form before the submission is
+	 * sent, a step before the visitor leaves it — with the submit trigger: the blur-checked ones again
+	 * (the engine's verdict cache makes that free) and the submit-only ones for the first time; a check
+	 * still in flight is superseded, so the answer is awaited, not raced. Resolves with the control of the
+	 * first refused field, its message shown, for the island to bring on screen and focus; null otherwise:
+	 * warnings are shown and the visitor goes on, and a check that could not be asked blocks nothing, the
+	 * pipeline being the authority.
 	 */
-	settleFieldActions: (form: HTMLFormElement) => Promise<boolean>;
+	settleFieldActions: (root: HTMLElement) => Promise<FormControl | null>;
 }
 
 const isFormControl = (target: EventTarget | null): target is FormControl =>
@@ -59,7 +65,7 @@ const NEVER_ASKED_TYPES = new Set(['file', 'button', 'submit', 'reset', 'image']
 
 const wrapperOf = (control: Element): HTMLElement | null => control.closest<HTMLElement>(`[${FIELD_ACTION_MARKER}]`);
 
-const wrappersOf = (form: HTMLFormElement): HTMLElement[] => Array.from(form.querySelectorAll<HTMLElement>(`[${FIELD_ACTION_MARKER}]`));
+const wrappersOf = (root: HTMLElement): HTMLElement[] => Array.from(root.querySelectorAll<HTMLElement>(`[${FIELD_ACTION_MARKER}]`));
 
 /** A field conditional logic holds hidden is not asked about: the pipeline skips it too. */
 const isAskable = (wrapper: HTMLElement): boolean => wrapper.dataset.fmdbLogicHidden !== 'true';
@@ -106,16 +112,24 @@ const asksOn = (control: FormControl, eventType: string): boolean => {
 	return choice ? eventType === 'change' : eventType === 'focusout';
 };
 
-const setPending = (wrapper: HTMLElement, pending: boolean): void => {
+/**
+ * The field while a check runs, and once it is over: the class and aria-busy on the wrapper, and under
+ * the field the line saying what the form waits for — the visitor sees which field it is, at blur and
+ * before a submission or the next step.
+ */
+const setPending = (wrapper: HTMLElement, controls: FieldControls, pending: boolean, checkingLabel: string): void => {
 	wrapper.classList.toggle(PENDING_CLASS, pending);
+	const anchor = anchorOf(controls);
 	if (pending) {
 		wrapper.setAttribute('aria-busy', 'true');
+		if (anchor) showFieldChecking(anchor, checkingLabel);
 	} else {
 		wrapper.removeAttribute('aria-busy');
+		if (anchor) clearFieldChecking(anchor);
 	}
 };
 
-export function useFieldActions({formRef, fieldActionUrl, enabled}: UseFieldActionsOptions): UseFieldActionsReturn {
+export function useFieldActions({formRef, fieldActionUrl, enabled, labels}: UseFieldActionsOptions): UseFieldActionsReturn {
 	// Per field, the number of the latest check: an answer to an older one is dropped, so a visitor
 	// who leaves a field twice quickly never sees the first value's verdict shown for the second.
 	const sequencesRef = useRef(new Map<string, number>());
@@ -173,17 +187,17 @@ export function useFieldActions({formRef, fieldActionUrl, enabled}: UseFieldActi
 		const values = valuesOf(controls.named);
 		if (values.length === 0) {
 			// an unanswered field says nothing to check: whatever it showed is gone, a check in flight included
-			setPending(wrapper, false);
+			setPending(wrapper, controls, false, labels.checking);
 			showFieldMessages(controls, []);
 			return {rejected: false, messages: []};
 		}
-		setPending(wrapper, true);
+		setPending(wrapper, controls, true, labels.checking);
 		const answers = await Promise.all(values.map(value => ask({field, value, trigger})));
 		if (sequencesRef.current.get(field) !== sequence) {
 			// a later check owns the field now, its pending state included
 			return null;
 		}
-		setPending(wrapper, false);
+		setPending(wrapper, controls, false, labels.checking);
 		if (answers.every(answer => answer === null)) {
 			// could not ask: nothing shown, nothing blocked
 			return null;
@@ -228,9 +242,9 @@ export function useFieldActions({formRef, fieldActionUrl, enabled}: UseFieldActi
 		const onReset = () => {
 			sequencesRef.current.forEach((sequence, field) => sequencesRef.current.set(field, sequence + 1));
 			for (const wrapper of wrappersOf(form)) {
-				setPending(wrapper, false);
 				const controls = controlsOfWrapper(wrapper);
 				if (!controls) continue;
+				setPending(wrapper, controls, false, labels.checking);
 				clearFieldActionValidity(controls);
 				const anchor = anchorOf(controls);
 				if (anchor) clearFieldError(anchor);
@@ -251,15 +265,13 @@ export function useFieldActions({formRef, fieldActionUrl, enabled}: UseFieldActi
 		};
 	}, [formRef, enabled, fieldActionUrl]);
 
-	const settleFieldActions = async (form: HTMLFormElement): Promise<boolean> => {
-		if (!enabled || !fieldActionUrl) return true;
-		const wrappers = wrappersOf(form).filter(isAskable);
+	const settleFieldActions = async (root: HTMLElement): Promise<FormControl | null> => {
+		if (!enabled || !fieldActionUrl) return null;
+		const wrappers = wrappersOf(root).filter(isAskable);
 		const verdicts = await Promise.all(wrappers.map(wrapper => check(wrapper, 'submit')));
 		const refused = wrappers.find((_, index) => verdicts[index]?.rejected);
-		if (!refused) return true;
-		const controls = controlsOfWrapper(refused);
-		if (controls) anchorOf(controls)?.focus();
-		return false;
+		const controls = refused && controlsOfWrapper(refused);
+		return controls ? anchorOf(controls) ?? null : null;
 	};
 
 	return {settleFieldActions};

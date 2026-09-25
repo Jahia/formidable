@@ -20,8 +20,14 @@ interface UseMultiStepReturn {
 	isFirstVisibleStep: boolean;
 	isLastStep: boolean;
 	isMultiStep: boolean;
-	handleNext: (validate: () => boolean) => void;
+	/**
+	 * Moves to the next visible step once `validate` says the current one holds — the constraints, then
+	 * the field actions of the step, which is why it may take a moment: a second click meanwhile is ignored.
+	 */
+	handleNext: (validate: () => boolean | Promise<boolean>) => Promise<void>;
 	handlePrevious: () => void;
+	/** The index of the step holding an element, or null outside every step (a single-step form, the buttons). */
+	stepIndexOf: (element: Element) => number | null;
 }
 
 export function useMultiStep({formRef, stepIds, disabled = false}: UseMultiStepOptions): UseMultiStepReturn {
@@ -141,10 +147,25 @@ export function useMultiStep({formRef, stepIds, disabled = false}: UseMultiStepO
 		}
 	}, [currentStep, formRef, computeVisibleSteps]);
 
-	const handleNext = (validate: () => boolean) => {
-		if (!validate()) return;
-		const nextIndex = visibleStepIndices[currentVisibleIndex + 1];
-		if (nextIndex !== undefined) setCurrentStep(nextIndex);
+	// A Next in progress — its validation may wait for the field actions of the step — ignores the next click.
+	const nextInFlightRef = useRef(false);
+	const handleNext = async (validate: () => boolean | Promise<boolean>) => {
+		if (nextInFlightRef.current) return;
+		nextInFlightRef.current = true;
+		try {
+			if (!(await validate())) return;
+			const nextIndex = visibleStepIndices[currentVisibleIndex + 1];
+			if (nextIndex !== undefined) setCurrentStep(nextIndex);
+		} finally {
+			nextInFlightRef.current = false;
+		}
+	};
+
+	const stepIndexOf = (element: Element): number | null => {
+		const step = element.closest<HTMLElement>('[data-fmdb-step]');
+		if (!step) return null;
+		const index = stepElsRef.current.indexOf(step);
+		return index === -1 ? null : index;
 	};
 
 	const handlePrevious = () => {
@@ -162,6 +183,7 @@ export function useMultiStep({formRef, stepIds, disabled = false}: UseMultiStepO
 		isMultiStep,
 		handleNext,
 		handlePrevious,
+		stepIndexOf,
 	};
 }
 
