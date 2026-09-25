@@ -72,6 +72,9 @@ jobs:
       # or it silently lacks what attaches to the first one, the field-actions switch to begin with (#345).
       - name: Check the field markers
         run: node scripts/check-field-markers.mjs
+      # A Java resource bundle is read as ISO-8859-1: a raw accent or dash shows as mojibake; \uXXXX or nothing.
+      - name: Check the Java resource bundles are ASCII
+        run: node scripts/check-properties-ascii.mjs
 
   build:
     name: Build Module

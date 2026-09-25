@@ -8,9 +8,12 @@ selectors. The defaults below are the modules' own; the elements they apply to a
 
 ## Validation
 
-Inline validation messages (`fmdb-validation-error`, injected under an invalid control) and the
-invalid state of the control itself (`fmdb-invalid`) — the feature is described in
-[Custom validation](../architecture/custom-validation.md).
+Inline validation messages (`fmdb-validation-error`, injected under an invalid control), the
+invalid state of the control itself (`fmdb-invalid`), the warning a field action set to warn only
+injects at the same place (`fmdb-validation-warning`) and the pending state of a field while a
+field action is asked about its value (`fmdb-field-action-pending` on its wrapper) — the features are
+described in [Custom validation](../architecture/custom-validation.md) and
+[Field actions](../architecture/field-actions.md).
 
 | Variable | Default | Description |
 |---|---|---|
@@ -21,6 +24,22 @@ invalid state of the control itself (`fmdb-invalid`) — the feature is describe
 | `--fmdb-validation-error-line-height` | `1.25` | Line height of the message |
 | `--fmdb-invalid-border-color` | `#dc2626` | Border of an invalid control |
 | `--fmdb-invalid-outline-color` | `#dc2626` | Focus outline of an invalid control |
+| `--fmdb-validation-warning-color` | `#b45309` | Text colour of a warning |
+| `--fmdb-validation-warning-font-size` | `0.875rem` | Font size of a warning |
+| `--fmdb-validation-warning-mt` | `0.25rem` | Margin above a warning |
+| `--fmdb-validation-warning-padding` | `0` | Padding of a warning |
+| `--fmdb-validation-warning-line-height` | `1.25` | Line height of a warning |
+| `--fmdb-field-action-pending-opacity` | `0.6` | Opacity of the controls of a field while a field action is asked about its value |
+| `--fmdb-field-action-pending-transition` | `150ms ease-in-out` | Transition of that opacity |
+| `--fmdb-field-action-checking-font-size` | `0.75rem` | Font size of the "Checking…" line under a field being checked (small by default: a status, not a message) |
+| `--fmdb-field-action-checking-color` | `#626977` | Its colour |
+| `--fmdb-field-action-checking-font-style` | `normal` | Its font style |
+| `--fmdb-field-action-checking-line-height` | `1.25` | Its line height |
+| `--fmdb-field-action-checking-mt` | `0.25rem` | Margin above it |
+| `--fmdb-field-action-checking-padding` | `0` | Its padding |
+| `--fmdb-field-action-checking-gap` | `0.375em` | Space between the glyph and the text |
+| `--fmdb-field-action-checking-glyph-size` | `1em` | Size of the turning glyph (follows the font size) |
+| `--fmdb-field-action-checking-turn` | `1s` | Duration of one turn of the glyph (none under `prefers-reduced-motion`) |
 
 A softer look, for instance:
 
@@ -203,7 +222,7 @@ To remove the spacing, set the four variables to `0` on `.fmdb-form`.
 ## Form actions zone
 
 The zone the form renders under its buttons in edit mode (its structure is in
-[Class hooks](class-hooks.md#form-actions-zone-edit-mode)) is authoring chrome, drawn light grey
+[Class hooks](class-hooks.md#actions-zones-edit-mode)) is authoring chrome, drawn light grey
 and dashed; these variables are the intended surface for a site that wants it to look otherwise.
 
 | Variable | Default | Description |
@@ -223,6 +242,9 @@ and dashed; these variables are the intended surface for a site that wants it to
 | `--fmdb-zone-actions-warning-bg` | `#fff7ed` | Background of the "no action" warning |
 | `--fmdb-zone-actions-warning-border` | `#f59e0b` | Left border of the warning |
 | `--fmdb-zone-actions-warning-color` | `#9a3412` | Text colour of the warning |
+| `--fmdb-zone-actions-badge-bg` | `#e9ebef` | Background of a badge on a field-action card (its text uses `--fmdb-zone-actions-muted`) |
+| `--fmdb-zone-field-actions-margin` | `0.5rem 0 0 1.25rem` | Margin of a field's zone, inset under the field |
+| `--fmdb-zone-field-actions-padding` | `0.5rem 0.625rem` | Inner spacing of a field's zone (the form's zone keeps `--fmdb-zone-actions-padding`) |
 
 The Page Builder box colours are a jContent UI extension registered by the engine
 (`pageBuilderBoxConfig`), not CSS, so a template set cannot override them; purple is left to

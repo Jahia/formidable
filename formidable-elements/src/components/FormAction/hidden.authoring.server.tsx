@@ -1,4 +1,5 @@
 import {jahiaComponent} from "@jahia/javascript-modules-library";
+import AuthoringActionCard from "~/design/AuthoringActionCard";
 import {actionKeyDetail, describeActionType} from "~/utils/actionTypeInfo";
 
 interface FormActionProps {
@@ -32,27 +33,15 @@ jahiaComponent(
 			return null;
 		}
 		const type = describeActionType(currentNode, renderContext);
-		const detail = actionKeyDetail(currentNode, renderContext);
 
 		return (
-			<div className="fmdb-authoring-action" data-fmdb-action-type={type.name}>
-				{/* Decorative: the title carries the meaning, so the alt is empty; no icon (the engine
-				    unreachable) draws nothing rather than a broken image. */}
-				{type.iconUrl && (
-					<img className="fmdb-authoring-action-icon" src={type.iconUrl} alt="" width={16} height={16}/>
-				)}
-				<div className="fmdb-authoring-action-body">
-					<div className="fmdb-authoring-action-line">
-						<span className="fmdb-authoring-action-title">{title || type.label}</span>
-						{detail && <span className="fmdb-authoring-action-detail">{detail}</span>}
-					</div>
-					{type.description && (
-						<div className="fmdb-authoring-action-description" title={type.description}>
-							{type.description}
-						</div>
-					)}
-				</div>
-			</div>
+			<AuthoringActionCard
+				typeName={type.name}
+				iconUrl={type.iconUrl}
+				title={title || type.label}
+				detail={actionKeyDetail(currentNode, renderContext)}
+				description={type.description}
+			/>
 		);
 	},
 );

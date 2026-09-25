@@ -32,6 +32,8 @@ export interface FormProps extends Omit<FormServerProps, 'destination'> {
 	captcha?: {siteKey: string; widgetVar: string; tokenField: string; widgetTimeoutSeconds?: number};
 	destinationUrl?: string;
 	submitActionUrl?: string;
+	/** The engine's field-action pre-check endpoint for this form and language; the island asks it about a field with actions. */
+	fieldActionUrl?: string;
 	isSubmitDisabled?: boolean;
 	isEditMode?: boolean;
 	children: ReactNode;

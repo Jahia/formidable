@@ -46,6 +46,34 @@ class RenderServiceViewRendererTest {
     }
 
     @Test
+    void theRequestAttributeIsSpelledInTheLibraryAsTheEngineSetsIt() throws Exception {
+        // The one literal the engine and the npm library share: the library publishes it, the engine sets it, and
+        // neither can import the other. Read from the repository, so a rename on either side fails here.
+        String library = java.nio.file.Files.readString(java.nio.file.Path.of("..", "packages", "formidable", "src", "fieldActions.ts"));
+
+        org.junit.jupiter.api.Assertions.assertTrue(
+                library.contains("FIELD_ACTION_REQUEST_ATTRIBUTE = \"" + RenderServiceViewRenderer.REQUEST_ATTRIBUTE + "\";"),
+                "the library's FIELD_ACTION_REQUEST_ATTRIBUTE must be " + RenderServiceViewRenderer.REQUEST_ATTRIBUTE);
+    }
+
+    @Test
+    void theRawHtmlTagsAreStrippedAndTheEntitiesLeftToTheReader() {
+        // Verifies the two sides of the library's raw-html element. The tags: the JavaScript modules engine strips
+        // them today and calls the element internal — stripped here too, so a verdict still reads if it stops. The
+        // entities: a plain-string view arrives React-escaped, and undoing that here would also turn entity text
+        // inside a raw body's detail into structure; the reader decodes only once the raw body has failed.
+        String wrapped = START + "<jsm-raw-html>{\"verdict\":\"reject\",\"detail\":\"provider said &quot;no&quot;\"}</jsm-raw-html>" + END;
+
+        String body = RenderServiceViewRenderer.body(wrapped);
+
+        assertEquals("{\"verdict\":\"reject\",\"detail\":\"provider said &quot;no&quot;\"}", body);
+        assertEquals(FieldActionResultVerdict.REJECT, verdictOf(body));
+        String escaped = START + "{&quot;verdict&quot;:&quot;accept&quot;}" + END;
+        assertEquals("{&quot;verdict&quot;:&quot;accept&quot;}", RenderServiceViewRenderer.body(escaped));
+        assertEquals(FieldActionResultVerdict.ACCEPT, verdictOf(RenderServiceViewRenderer.body(escaped)));
+    }
+
+    @Test
     void whatRenderReturnsHasGoneThroughTheStripping() throws Exception {
         // Verifies the ROUTING, which the two tests above cannot see: they call body() directly, so dropping it from
         // render() leaves them green while every JavaScript-written field action goes back to answering UNAVAILABLE.

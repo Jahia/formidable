@@ -12,6 +12,7 @@ import Captcha from './Captcha.client';
 import {useTranslation} from "react-i18next";
 import {useMultiStep} from '~/hooks/useMultiStep';
 import {useCustomFormValidation, validateInputs} from '~/hooks/useCustomFormValidation';
+import {useFieldActions} from '~/hooks/useFieldActions';
 import {useFormSubmission} from '~/hooks/useFormSubmission';
 
 /**
@@ -44,6 +45,7 @@ export default function Form({
 	errorMessage,
 	maintenanceMessage,
 	submitActionUrl,
+	fieldActionUrl,
 	isSubmitDisabled = false,
 	isEditMode = false,
 	showResetBtn = false,
@@ -112,9 +114,23 @@ export default function Form({
 		isMultiStep,
 		handleNext,
 		handlePrevious,
+		stepIndexOf,
 	} = useMultiStep({formRef, stepIds, disabled: isEditMode});
 
+	// A refused control to bring on screen: the step holding it, then the focus — once the spinner has
+	// gone, since a hidden control cannot take the focus. A fresh object each time, so the same control
+	// refused twice is revealed twice.
+	const [reveal, setReveal] = useState<{control: HTMLElement} | null>(null);
+
 	useCustomFormValidation({formRef});
+	// The field actions (docs/architecture/field-actions.md): asked as the visitor leaves a field that
+	// carries some, and settled before the submission below. Off while authoring, like the logic.
+	const {settleFieldActions} = useFieldActions({
+		formRef,
+		fieldActionUrl,
+		enabled: !isEditMode && !!fieldActionUrl,
+		labels: {checking: t('checking')},
+	});
 
 	const {
 		message,
@@ -141,7 +157,25 @@ export default function Form({
 			actionsProgress: (completed, total) => t('actionsProgress', {completed, total}),
 			maintenanceUnavailable: maintenanceText,
 		},
+		onRefused: control => setReveal({control}),
 	});
+
+	// A refused control — the settle before a submission or the next step, or the pipeline's FMDB-015 —
+	// is brought on screen and focused once the form is back on screen: the spinner hides it
+	// (display:none) while a request runs, and a step other than the current one is hidden too, so the
+	// step is shown first and the focus follows on the next run, once the step's display has changed.
+	// An effect of the island's state, which no call inside a request could time.
+	useEffect(() => {
+		if (!reveal || isLoading) return;
+		const step = stepIndexOf(reveal.control);
+		if (step !== null && step !== currentStep) {
+			setCurrentStep(step);
+			return;
+		}
+		reveal.control.focus();
+		// eslint-disable-next-line @eslint-react/hooks-extra/no-direct-set-state-in-use-effect -- the reveal is consumed once the focus has landed
+		setReveal(null);
+	}, [reveal, isLoading, currentStep, stepIndexOf, setCurrentStep]);
 
 	// Another form, after an accepted submission: the island emptied it on the 2xx, so a script that
 	// filled it at page load — the jExperience prefill — is told to do its work again. Only this path
@@ -157,13 +191,29 @@ export default function Form({
 	const submitBlockedTitle = isSubmitDisabled ? t('editModeSubmitDisabled') : undefined;
 	const showCaptcha = !!captcha && (!isMultiStep || isLastStep);
 
-	const validateCurrentStep = (): boolean => {
+	// Leaving a step: its constraints, then its field actions — the blur-checked values again (free, the
+	// engine's cache) and the ones set to run at submission, asked now, when the visitor leaves their step.
+	// A refusal keeps the visitor on the step, the message under the field, the field focused.
+	const validateCurrentStep = async (): Promise<boolean> => {
 		const form = formRef.current;
 		if (!form) return true;
 		const stepEls = form.querySelectorAll<HTMLElement>('[data-fmdb-step]');
 		const current = stepEls[currentStep];
 		if (!current) return true;
-		return validateInputs(current);
+		if (!validateInputs(current)) return false;
+		const refused = await settleFieldActions(current);
+		if (refused) setReveal({control: refused});
+		return !refused;
+	};
+
+	// Sending: the whole form's constraints, then every field action of the form with the submit
+	// trigger — asked only when every constraint holds, so a refused value is never sent to a provider
+	// for nothing. A refusal is brought on screen, whatever step holds it.
+	const validateForm = async (form: HTMLFormElement): Promise<boolean> => {
+		if (!validateInputs(form)) return false;
+		const refused = await settleFieldActions(form);
+		if (refused) setReveal({control: refused});
+		return !refused;
 	};
 
 	const hasMessage = message && messageType;
@@ -241,7 +291,12 @@ export default function Form({
 				// Read back from the DOM by the visibility pass: the rules describe the
 				// visitor experience, so they must not run while the form is authored.
 				data-fmdb-edit-mode={isEditMode ? "true" : undefined}
-				onSubmit={e => handleSubmit(e, () => validateInputs(e.currentTarget))}
+				// The form is read before anything awaits: React nulls the synthetic event's currentTarget
+				// once the handler returns.
+				onSubmit={e => {
+					const form = e.currentTarget;
+					void handleSubmit(e, () => validateForm(form));
+				}}
 			>
 				{intro && (
 					<header className="fmdb-form-intro" dangerouslySetInnerHTML={{__html: introHtml}}/>
@@ -297,7 +352,7 @@ export default function Form({
 							<button
 								type="button"
 								className="fmdb-btn fmdb-btn-primary fmdb-next-btn"
-								onClick={() => handleNext(validateCurrentStep)}
+								onClick={() => void handleNext(validateCurrentStep)}
 								disabled={isLoading}
 							>
 								{nextBtnLabel || t('nextBtn')}

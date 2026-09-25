@@ -2,6 +2,8 @@
 <jmix = 'http://www.jahia.org/jahia/mix/1.0'>
 <fmdb = 'http://www.jahia.org/jahia/fmdb/nt/1.0'>
 <fmdbsamplemix = 'http://www.jahia.org/jahia/fmdb/sample/mix/1.0'>
+<fmdbmix = 'http://www.jahia.org/jahia/fmdb/mix/1.0'>
+<fmdbsample = 'http://www.jahia.org/jahia/fmdbsample/nt/1.0'>
 
 // Adds contributor-defined CSS class names to a content type.
 // Demonstrates how a third-party module can extend a Formidable content type
@@ -24,3 +26,13 @@
  extends = fmdb:inputText, fmdb:inputEmail, fmdb:textarea, fmdb:inputNumber, fmdb:inputRange, fmdb:inputDate, fmdb:inputDatetimeLocal, fmdb:inputColor, fmdb:inputFile, fmdb:checkbox, fmdb:radio, fmdb:select
  itemtype = content
  - helpTextPosition (string, choicelist[resourceBundle]) = 'up' autocreated indexed=no < 'up', 'down', 'both'
+
+// A field action written in JavaScript — the shape a module of that kind copies
+// (docs/architecture/field-actions.md, "A field action in JavaScript"): the type takes the engine's
+// marker, and its hidden.execute view (src/components/FieldAction/MinimumWords) judges the value with
+// the helpers of @jahia/formidable-library. The four feedback settings — the visitor's message, the
+// trigger, the severity, the outage rule — reach it through the engine's fmdbmix:fieldActionFeedback,
+// unasked. Refuses a value with fewer words than the contributor asked for.
+[fmdbsample:minimumWordsAction] > jnt:content, fmdbmix:fieldAction, mix:title
+ - jcr:title (string) = resourceBundle('fmdbsample_minimumWordsAction') autocreated i18n
+ - minimumWords (long) = 3 autocreated indexed=no

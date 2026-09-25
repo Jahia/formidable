@@ -14,3 +14,55 @@
 	outline-color: var(--fmdb-invalid-outline-color, #dc2626);
 }
 
+
+/* The twin of the error: a field action set to warn only advises under the field and blocks nothing.
+   Same anchoring, same rhythm, an amber that reads as a caution next to the red of an error. */
+.fmdb-validation-warning {
+	color: var(--fmdb-validation-warning-color, #b45309);
+	font-size: var(--fmdb-validation-warning-font-size, 0.875rem);
+	margin-top: var(--fmdb-validation-warning-mt, 0.25rem);
+	padding: var(--fmdb-validation-warning-padding, 0);
+	line-height: var(--fmdb-validation-warning-line-height, 1.25);
+}
+
+/* A field action in flight: the wrapper of the field carries the class (and aria-busy) from the
+   request to the answer. The controls fade a little — enough to say "checking", not enough to read
+   as disabled — and come back with the verdict. */
+.fmdb-field-action-pending :is(input, select, textarea) {
+	opacity: var(--fmdb-field-action-pending-opacity, 0.6);
+	transition: opacity var(--fmdb-field-action-pending-transition, 150ms ease-in-out);
+}
+
+/* A field action asked about the value: the line under the field while the engine answers — a
+   turning glyph and "Checking…" — so the visitor knows which field the form is waiting for, at
+   blur and before a submission or the next step. Gone with the answer. Small and muted by
+   default: it is a status, not a message; every value is a variable (docs/styling/css-variables.md). */
+.fmdb-field-action-checking {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--fmdb-field-action-checking-gap, 0.375em);
+	margin-top: var(--fmdb-field-action-checking-mt, 0.25rem);
+	padding: var(--fmdb-field-action-checking-padding, 0);
+	color: var(--fmdb-field-action-checking-color, #626977);
+	font-size: var(--fmdb-field-action-checking-font-size, 0.75rem);
+	font-style: var(--fmdb-field-action-checking-font-style, normal);
+	line-height: var(--fmdb-field-action-checking-line-height, 1.25);
+}
+
+/* The glyph follows the font size (em), so a stylesheet that resizes the line resizes it too. */
+.fmdb-field-action-checking-glyph {
+	flex: none;
+	width: var(--fmdb-field-action-checking-glyph-size, 1em);
+	height: var(--fmdb-field-action-checking-glyph-size, 1em);
+	animation: fmdb-field-action-checking-turn var(--fmdb-field-action-checking-turn, 1s) linear infinite;
+}
+
+@keyframes fmdb-field-action-checking-turn {
+	to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.fmdb-field-action-checking-glyph {
+		animation: none;
+	}
+}

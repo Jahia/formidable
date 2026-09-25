@@ -70,6 +70,7 @@ import {
 	CHECKBOX_GROUP_COMPLETE,
 	CHECKBOX_SINGLE_COMPLETE,
 	FORMIDABLE_TEST_SITE,
+	getBlockedWordsFieldActionNode,
 	getCategoryChoiceFieldNode,
 	getCategoryNode,
 	getCheckboxNode,
@@ -98,6 +99,7 @@ import {
 	RADIO_GROUP,
 	SELECT_SINGLE,
 	setOptionsSourcesConfig,
+	withFieldActions,
 	TEXTAREA_COMPLETE
 } from '../support/fixtures';
 import {createFormNode, createPublishedLiveFormPage, visitLiveForm} from '../support/fixtures/forms';
@@ -526,7 +528,16 @@ const lastNameField = (): JahiaNode => {
 const simpleFormNodes = (): JahiaNode[] => [
 	// The visitor profile mapping, on the fields jCustomer knows by default. A required field always sets
 	// its property, an optional one only completes a missing value; the free-text message stays out of the profile.
-	mappedTo(withFrench(firstNameField(), [{name: 'jcr:title', value: 'Prénom'}]), 'firstName', {prefill: true}),
+	// A field action on the first name (the samples' blocked-words check): the one field of the set the
+	// visitor's page asks the engine about — as the field is left, and again before the submission.
+	withFieldActions(mappedTo(withFrench(firstNameField(), [{name: 'jcr:title', value: 'Prénom'}]), 'firstName', {prefill: true}), [
+		getBlockedWordsFieldActionNode({
+			name: 'noSpam',
+			title: 'No spam',
+			words: ['spam', 'viagra'],
+			rejectionMessage: '<b>${value}</b> is not welcome here.'
+		})
+	]),
 	mappedTo(withFrench(lastNameField(), [{name: 'jcr:title', value: 'Nom'}]), 'lastName', {prefill: true}),
 	mappedTo(withFrench(getInputEmailNode({name: 'email', title: 'Email', required: true}), [{name: 'jcr:title', value: 'Email'}]), 'email', {strategy: 'setIfMissing', prefill: true}),
 	sensitive(withFrench(getTextareaNode({name: 'message', title: 'Message'}), [{name: 'jcr:title', value: 'Message'}])),

@@ -100,9 +100,22 @@ final class RenderServiceViewRenderer implements ViewRenderer {
         return RenderService.getInstance().render(resource, context);
     }
 
-    /** The view's body: what the render chain produced, without the platform's own temp markers. */
+    /**
+     * The tags of the JavaScript modules engine's raw-html element, which the library's {@code fieldActionResult}
+     * wraps the verdict in so that {@code renderToString} does not escape it. The engine strips them itself today
+     * ({@code init-react.tsx}) and calls the element an internal detail; should it stop, the tags would reach this
+     * side as markup around the object — so they are stripped here too, and the reader stays exact either way.
+     */
+    private static final Pattern RAW_HTML_TAG = Pattern.compile("</?jsm-raw-html>");
+
+    /**
+     * The view's body: what the render chain produced, without the platform's own temp markers and without the
+     * raw-html tags, trimmed. The entities React writes into a plain-string view's output are the reader's business
+     * ({@link FieldActionDispatcher#parse}), decoded only once the raw body has failed to read: undoing them here
+     * would turn entity text inside a raw body's detail into structure.
+     */
     static String body(String rendered) {
-        return rendered == null ? null : TEMP_TAG.matcher(rendered).replaceAll("").trim();
+        return rendered == null ? null : RAW_HTML_TAG.matcher(TEMP_TAG.matcher(rendered).replaceAll("")).replaceAll("").trim();
     }
 
     static JSONObject payload(FieldActionRequest request) {

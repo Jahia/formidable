@@ -20,8 +20,14 @@ interface UseMultiStepReturn {
 	isFirstVisibleStep: boolean;
 	isLastStep: boolean;
 	isMultiStep: boolean;
-	handleNext: (validate: () => boolean) => void;
+	/**
+	 * Moves to the next visible step once `validate` says the current one holds — the constraints, then
+	 * the field actions of the step, which is why it may take a moment: a second click meanwhile is ignored.
+	 */
+	handleNext: (validate: () => boolean | Promise<boolean>) => Promise<void>;
 	handlePrevious: () => void;
+	/** The index of the step holding an element, or null outside every step (a single-step form, the buttons). */
+	stepIndexOf: (element: Element) => number | null;
 }
 
 export function useMultiStep({formRef, stepIds, disabled = false}: UseMultiStepOptions): UseMultiStepReturn {
@@ -40,6 +46,22 @@ export function useMultiStep({formRef, stepIds, disabled = false}: UseMultiStepO
 	const currentVisibleIndex = visibleStepIndices.indexOf(currentStep);
 	const isLastStep = currentVisibleIndex === visibleStepIndices.length - 1;
 	const isFirstVisibleStep = currentVisibleIndex === 0;
+
+	// The step on screen and the visible steps, as refs: a Next that waited for the field actions must move
+	// from the step the visitor is on once the answer lands, not from the one the click saw — Previous may
+	// have been clicked meanwhile, or logic may have revealed a step.
+	const currentStepRef = useRef(0);
+	const visibleStepIndicesRef = useRef(visibleStepIndices);
+	useEffect(() => {
+		currentStepRef.current = currentStep;
+	}, [currentStep]);
+	useEffect(() => {
+		visibleStepIndicesRef.current = visibleStepIndices;
+	}, [visibleStepIndices]);
+	const goToStep = useCallback((step: number) => {
+		currentStepRef.current = step;
+		setCurrentStep(step);
+	}, []);
 
 	const stepElsRef = useRef<HTMLElement[]>([]);
 	useEffect(() => {
@@ -141,20 +163,40 @@ export function useMultiStep({formRef, stepIds, disabled = false}: UseMultiStepO
 		}
 	}, [currentStep, formRef, computeVisibleSteps]);
 
-	const handleNext = (validate: () => boolean) => {
-		if (!validate()) return;
-		const nextIndex = visibleStepIndices[currentVisibleIndex + 1];
-		if (nextIndex !== undefined) setCurrentStep(nextIndex);
+	// A Next in progress — its validation may wait for the field actions of the step — ignores the next click.
+	const nextInFlightRef = useRef(false);
+	const handleNext = async (validate: () => boolean | Promise<boolean>) => {
+		if (nextInFlightRef.current) return;
+		nextInFlightRef.current = true;
+		const from = currentStepRef.current;
+		try {
+			if (!(await validate())) return;
+			// the visitor moved meanwhile (Previous), or logic moved them: the click's move is stale
+			if (currentStepRef.current !== from) return;
+			const visible = visibleStepIndicesRef.current;
+			const nextIndex = visible[visible.indexOf(from) + 1];
+			if (nextIndex !== undefined) goToStep(nextIndex);
+		} finally {
+			nextInFlightRef.current = false;
+		}
+	};
+
+	const stepIndexOf = (element: Element): number | null => {
+		const step = element.closest<HTMLElement>('[data-fmdb-step]');
+		if (!step) return null;
+		const index = stepElsRef.current.indexOf(step);
+		return index === -1 ? null : index;
 	};
 
 	const handlePrevious = () => {
-		const prevIndex = visibleStepIndices[currentVisibleIndex - 1];
-		if (prevIndex !== undefined) setCurrentStep(prevIndex);
+		const visible = visibleStepIndicesRef.current;
+		const prevIndex = visible[visible.indexOf(currentStepRef.current) - 1];
+		if (prevIndex !== undefined) goToStep(prevIndex);
 	};
 
 	return {
 		currentStep,
-		setCurrentStep,
+		setCurrentStep: goToStep,
 		visibleStepIndices,
 		currentVisibleIndex,
 		isFirstVisibleStep,
@@ -162,6 +204,7 @@ export function useMultiStep({formRef, stepIds, disabled = false}: UseMultiStepO
 		isMultiStep,
 		handleNext,
 		handlePrevious,
+		stepIndexOf,
 	};
 }
 

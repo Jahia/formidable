@@ -44,6 +44,10 @@ default.server.tsx        ← jahiaComponent() for fmdb:form, reads JCR props
 |---|---|
 | `src/components/Form/default.server.tsx` | Computes `submitActionUrl`, `captcha`, `stepLabels`; passes everything to the Island |
 | `src/components/Form/Form.client.tsx` | XHR submission (Jahia's CSRFGuard integrates with XMLHttpRequest, not fetch), multi-step, CAPTCHA guard |
+| `src/hooks/useFieldActions.ts` | The field actions asked about a field's value as the visitor leaves it, and settled before the submission (`docs/architecture/field-actions.md`) |
+| `src/utils/fieldActionMessages.ts` | The engine's `messages` array shown under the fields: the pre-check's answer and a refused submission (`FMDB-015`) alike |
+| `src/components/FormContainer/LogicAwareRender.tsx` | The element wrapper: node name/id/type, the conditional-logic state, the field-actions marker `data-fmdb-field-action`, and the field's actions zone in edit mode |
+| `src/components/FieldActionList/hidden.authoring.server.tsx`, `src/components/FieldAction/hidden.authoring.server.tsx` | The zone under a field while authoring and its cards; the chrome is `src/design/AuthoringActionsZone.tsx` and `AuthoringActionCard.tsx`, shared with the form's zone (`ActionList/`, `FormAction/`) — the field cards add the settings badges |
 | `src/components/Form/Captcha.client.tsx` | Renders the captcha widget via the provider's native API |
 | `src/components/Form/types.ts` | `FormServerProps`, `FormProps`, `CaptchaProvider` |
 | `src/components/Form/definition.cnd` | Mixins `fmdbmix:responses`, `fmdbmix:buttons`, `fmdbmix:multiStep`, `fmdbmix:style`, `fmdbmix:captcha`, `fmdbmix:requireAuthentication`, the `fmdb:actionList`/`fmdb:fieldList` lists and the `fmdb:form` type |

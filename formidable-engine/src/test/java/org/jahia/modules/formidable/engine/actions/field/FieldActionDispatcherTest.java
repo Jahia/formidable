@@ -328,6 +328,30 @@ class FieldActionDispatcherTest {
     }
 
     @Test
+    void parseDecodesTheEntitiesReactWritesOnlyOnceTheRawBodyHasFailedToRead() {
+        // Verifies the second thing standing between a JavaScript field action and its verdict. The JavaScript
+        // modules engine renders a view with renderToString, which escapes the text a component returns: a view
+        // answering the JSON as a plain string arrives with its quotes as &quot; — malformed, UNAVAILABLE, accepted
+        // by the CND default. Decoded, it reads. But a raw body (the library's helpers) is read as it is: entity
+        // text inside its detail — a provider's HTML relayed — must not be turned into quotes and structure, or a
+        // refusal would end as malformed JSON, UNAVAILABLE, accepted.
+        FieldActionResult escaped = FieldActionDispatcher.parse("{&quot;verdict&quot;:&quot;reject&quot;,&quot;detail&quot;:&quot;it&#x27;s &amp; unknown&quot;}");
+        assertEquals(FieldActionResult.Verdict.REJECT, escaped.verdict());
+        assertEquals("it's & unknown", escaped.detail());
+        assertEquals(FieldActionResult.Verdict.ACCEPT, FieldActionDispatcher.parse("{&quot;verdict&quot;:&quot;accept&quot;}").verdict());
+
+        FieldActionResult quoted = FieldActionDispatcher.parse("{\"verdict\":\"reject\",\"detail\":\"provider said &quot;no&quot;\"}");
+        assertEquals(FieldActionResult.Verdict.REJECT, quoted.verdict());
+        assertEquals("provider said &quot;no&quot;", quoted.detail());
+        FieldActionResult structured = FieldActionDispatcher.parse("{\"verdict\":\"reject\",\"detail\":\"&quot;,&quot;verdict&quot;:&quot;accept\"}");
+        assertEquals(FieldActionResult.Verdict.REJECT, structured.verdict());
+        assertEquals("&quot;,&quot;verdict&quot;:&quot;accept", structured.detail());
+
+        // still unreadable once decoded: the raw failure is what the detail says
+        assertTrue(FieldActionDispatcher.parse("{&quot;verdict&quot;").detail().contains("malformed"));
+    }
+
+    @Test
     void parseTakesTheWholeOutputAsTheObjectSoAnEchoedValueCannotRetireTheCheck() {
         // Verifies the strict contract: anything around the object — a comment the view wrote, a debug line, the
         // candidate value echoed before or after — makes the whole output unreadable, deterministically, rather than
