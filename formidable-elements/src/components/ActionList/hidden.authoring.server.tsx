@@ -1,6 +1,6 @@
-import {AddContentButtons, jahiaComponent, Render} from "@jahia/javascript-modules-library";
+import {jahiaComponent} from "@jahia/javascript-modules-library";
 import {useTranslation} from "react-i18next";
-import AlertIcon from "~/design/AlertIcon";
+import AuthoringActionsZone from "~/design/AuthoringActionsZone";
 import {nodeTypeIconUrl} from "~/utils/actionTypeInfo";
 
 /**
@@ -11,7 +11,7 @@ import {nodeTypeIconUrl} from "~/utils/actionTypeInfo";
  * form that has none (its submissions are neither stored nor sent), and carries the
  * list's own create button — its module declares the accepted type to jContent, the
  * fmdbmix:formAction mixin: one "New Form Action" button, then the type chooser.
- * Authoring chrome, deliberately not styled like the form: it is not the visitor's form.
+ * The chrome itself is AuthoringActionsZone, shared with the field zone.
  */
 jahiaComponent(
 	{
@@ -27,38 +27,15 @@ jahiaComponent(
 		}
 		const actionNodes = Array.from(currentNode.getNodes()).filter((node) => node.isNodeType("fmdbmix:formAction"));
 		const count = actionNodes.length;
-		const iconUrl = nodeTypeIconUrl(currentNode, renderContext);
 
 		return (
-			<aside className="fmdb-authoring-actions" aria-label={t("heading", {count})}>
-				<div className="fmdb-authoring-actions-header">
-					<span className="fmdb-authoring-actions-title">
-						{iconUrl && <img className="fmdb-authoring-actions-glyph" src={iconUrl} alt="" width={16} height={16}/>}
-						{t("heading", {count})}
-					</span>
-					<span className="fmdb-authoring-actions-hint">{count > 0 ? t("inOrder") : t("notLive")}</span>
-				</div>
-
-				{count === 0 && (
-					<p className="fmdb-authoring-actions-empty">
-						<AlertIcon/>
-						{t("empty")}
-					</p>
-				)}
-
-				{/* An ordered list: the execution order is the meaning, so assistive technology gets it too. */}
-				{count > 0 && (
-					<ol className="fmdb-authoring-actions-list">
-						{actionNodes.map((actionNode) => (
-							<li key={actionNode.getIdentifier()} className="fmdb-authoring-actions-item">
-								<Render node={actionNode} view="hidden.authoring"/>
-							</li>
-						))}
-					</ol>
-				)}
-
-				<AddContentButtons/>
-			</aside>
+			<AuthoringActionsZone
+				heading={t("heading", {count})}
+				hint={count > 0 ? t("inOrder") : t("notLive")}
+				empty={t("empty")}
+				iconUrl={nodeTypeIconUrl(currentNode, renderContext)}
+				actionNodes={actionNodes}
+			/>
 		);
 	},
 );

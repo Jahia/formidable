@@ -57,6 +57,48 @@ function parseJsonBody(text: string): unknown {
 	}
 }
 
+/** What a rejected submission's body says: the code, the actions' progress, the messages naming fields. */
+interface Rejection {
+	errorCode?: string;
+	actionsProgress?: {completed: number; total: number};
+	messages: FieldMessage[];
+}
+
+/** The rejection a non-2xx body carries; a body that is not JSON says nothing. */
+function readRejection(responseText: string): Rejection {
+	try {
+		const body = JSON.parse(responseText);
+		return {
+			errorCode: typeof body.errorCode === 'string' ? body.errorCode : undefined,
+			actionsProgress: typeof body.actionsCompleted === 'number' && typeof body.actionsTotal === 'number'
+				? {completed: body.actionsCompleted, total: body.actionsTotal}
+				: undefined,
+			messages: parseFieldMessages(body),
+		};
+	} catch {
+		return {messages: []};
+	}
+}
+
+/**
+ * Posts the form. XHR is kept here because Jahia's CSRFGuard integrates with XMLHttpRequest rather
+ * than fetch. Direct authenticated submissions to this servlet path are still protected server-side
+ * and are not made valid purely by switching from fetch to XHR.
+ */
+function post(targetUrl: string, formData: FormData, headers: Record<string, string>): Promise<XMLHttpRequest> {
+	return new Promise((resolve, reject) => {
+		const xhr = new XMLHttpRequest();
+		xhr.open('POST', targetUrl, true);
+		for (const [name, value] of Object.entries(headers)) {
+			xhr.setRequestHeader(name, value);
+		}
+		xhr.withCredentials = true;
+		xhr.onload = () => resolve(xhr);
+		xhr.onerror = () => reject(new Error('Submission failed'));
+		xhr.send(formData);
+	});
+}
+
 interface UseFormSubmissionOptions {
 	/**
 	 * The form node's UUID, from the server — never read back from the DOM. `HTMLFormElement` is
@@ -96,7 +138,8 @@ interface UseFormSubmissionReturn {
 	captchaRef: RefObject<CaptchaHandle | null>;
 	/** The control a rejection named, to focus once the form shows again; null until then and after the next submission. */
 	refusedControl: HTMLElement | null;
-	handleSubmit: (event: FormEvent<HTMLFormElement>, preValidate?: PreValidate) => void;
+	/** Resolves once the submission is over — sent and answered, or stopped by the pre-validation. */
+	handleSubmit: (event: FormEvent<HTMLFormElement>, preValidate?: PreValidate) => Promise<void>;
 	showForm: () => void;
 }
 
@@ -155,10 +198,28 @@ export function useFormSubmission({
 		}
 	};
 
+	/** The headers of the request: the captcha token, the declared logic state, the submitter's time zone — each when there is one. */
+	const requestHeaders = (form: HTMLFormElement): Record<string, string> => {
+		const headers: Record<string, string> = {};
+		const captchaToken = captcha ? captchaRef.current?.getToken()?.trim() : undefined;
+		if (captchaToken) {
+			headers['X-Formidable-Captcha-Token'] = captchaToken;
+		}
+		// Read once, at the moment of submit: one declared state backs every provider
+		// rule, which is what lets the server evaluate them coherently.
+		const logicStateHeader = buildLogicStateHeader(form);
+		if (logicStateHeader) {
+			headers[FORM_LOGIC_STATE_HEADER] = logicStateHeader;
+		}
+		const timeZone = submitterTimeZone();
+		if (timeZone) {
+			headers[TIME_ZONE_HEADER] = timeZone;
+		}
+		return headers;
+	};
+
 	const send = async (form: HTMLFormElement, spinnerShownAt: number) => {
-		let serverErrorCode: string | undefined;
-		let serverActionsProgress: {completed: number; total: number} | undefined;
-		let serverMessages: FieldMessage[] = [];
+		let rejection: Rejection = {messages: []};
 
 		try {
 			// Visibility was last applied on an input event, but the visitor may have
@@ -167,54 +228,16 @@ export function useFormSubmission({
 			// filled yesterday would be measured hidden against today and rejected.
 			applyConditionalLogicVisibility(form);
 			const formData = new FormData(form);
-
 			if (captcha) {
 				formData.delete(captcha.tokenField);
 			}
-
 			const interpolatedSubmissionMessage = interpolateMessage(submissionMessage, formData, locale, fieldKindFromForm(form));
-
-			const rawCaptchaToken = captcha ? captchaRef.current?.getToken() : undefined;
-			const captchaToken = rawCaptchaToken?.trim() || undefined;
-			// Read once, at the moment of submit: one declared state backs every provider
-			// rule, which is what lets the server evaluate them coherently.
-			const logicStateHeader = buildLogicStateHeader(form);
 			// getAttribute, not form.action: a control named "action" shadows the property (see formId above)
 			const targetUrl = submitActionUrl ?? form.getAttribute('action') ?? globalThis.location.href;
 
-			// XHR is kept here because Jahia's CSRFGuard integrates with XMLHttpRequest rather than fetch.
-			// Direct authenticated submissions to this servlet path are still protected server-side and
-			// are not made valid purely by switching from fetch to XHR.
-			const response = await new Promise<XMLHttpRequest>((resolve, reject) => {
-				const xhr = new XMLHttpRequest();
-				xhr.open('POST', targetUrl, true);
-				if (captchaToken) {
-					xhr.setRequestHeader('X-Formidable-Captcha-Token', captchaToken);
-				}
-
-				if (logicStateHeader) {
-					xhr.setRequestHeader(FORM_LOGIC_STATE_HEADER, logicStateHeader);
-				}
-
-				const timeZone = submitterTimeZone();
-				if (timeZone) {
-					xhr.setRequestHeader(TIME_ZONE_HEADER, timeZone);
-				}
-				xhr.withCredentials = true;
-				xhr.onload = () => resolve(xhr);
-				xhr.onerror = () => reject(new Error('Submission failed'));
-				xhr.send(formData);
-			});
-
+			const response = await post(targetUrl, formData, requestHeaders(form));
 			if (response.status < 200 || response.status >= 300) {
-				try {
-					const body = JSON.parse(response.responseText);
-					if (typeof body.errorCode === 'string') serverErrorCode = body.errorCode;
-					if (typeof body.actionsCompleted === 'number' && typeof body.actionsTotal === 'number') {
-						serverActionsProgress = {completed: body.actionsCompleted, total: body.actionsTotal};
-					}
-					serverMessages = parseFieldMessages(body);
-				} catch { /* ignore non-JSON bodies */ }
+				rejection = readRejection(response.responseText);
 				throw new Error('Submission failed');
 			}
 
@@ -238,49 +261,58 @@ export function useFormSubmission({
 			HTMLFormElement.prototype.reset.call(form);
 			if (isMultiStep) setCurrentStep(0);
 		} catch (error) {
-			if (serverErrorCode === MAINTENANCE_ERROR_CODE) {
-				// Its own message type, not 'error': an error keeps the form on screen
-				// so the visitor can retry, but this rejection means the platform is
-				// read-only — there is nothing to retry, so the form hides, mirroring
-				// the server render, which emits the message alone.
-				setMessage(labels.maintenanceUnavailable);
-				setMessageType('maintenance');
-				captchaRef.current?.reset();
-				return;
-			}
-			// A rejection naming fields (a field action's refusal, or too many answers on one field)
-			// is shown where the visitor can act on it: under the field, focused. The refusal of a
-			// field action is then all there is to say — no global box; the other codes keep theirs
-			// under the anchored message. A message that found no field falls through to the box:
-			// a refusal the visitor cannot see is worse than a generic one.
-			const refused = serverMessages.length > 0 ? anchorFieldMessages(form, serverMessages) : null;
-			if (refused) {
-				setRefusedControl(refused);
-				if (serverErrorCode === FIELD_ACTION_REFUSED_CODE) {
-					captchaRef.current?.reset();
-					return;
-				}
-			}
-			const formData = new FormData(form);
-			const interpolatedErrorMessage = interpolateMessage(errorMessage, formData, locale, fieldKindFromForm(form));
-			const base = interpolatedErrorMessage || 'An error occurred while submitting the form.';
-			const details: string[] = [];
-			if (serverErrorCode) {
-				details.push(`${labels.errorCode}: ${serverErrorCode}`);
-			}
-			if (serverActionsProgress) {
-				details.push(labels.actionsProgress(serverActionsProgress.completed, serverActionsProgress.total));
-			}
-			const full = details.length > 0
-				? `${base}<br><small class="fmdb-message-details fmdb-message-error-details">${details.join(' — ')}</small>`
-				: base;
-			setMessage(full);
-			setMessageType('error');
-			captchaRef.current?.reset();
-			console.error("formidable submit error:", error);
+			showRejection(form, rejection, error);
 		} finally {
 			setIsLoading(false);
 		}
+	};
+
+	/** What the visitor sees of a rejection — or of a request that never got an answer. */
+	const showRejection = (form: HTMLFormElement, {errorCode, actionsProgress, messages}: Rejection, error: unknown) => {
+		if (errorCode === MAINTENANCE_ERROR_CODE) {
+			// Its own message type, not 'error': an error keeps the form on screen
+			// so the visitor can retry, but this rejection means the platform is
+			// read-only — there is nothing to retry, so the form hides, mirroring
+			// the server render, which emits the message alone.
+			setMessage(labels.maintenanceUnavailable);
+			setMessageType('maintenance');
+			captchaRef.current?.reset();
+			return;
+		}
+		// A rejection naming fields (a field action's refusal, or too many answers on one field)
+		// is shown where the visitor can act on it: under the field, focused. The refusal of a
+		// field action is then all there is to say — no global box; the other codes keep theirs
+		// under the anchored message. A message that found no field falls through to the box:
+		// a refusal the visitor cannot see is worse than a generic one.
+		const refused = messages.length > 0 ? anchorFieldMessages(form, messages) : null;
+		if (refused) {
+			setRefusedControl(refused);
+			if (errorCode === FIELD_ACTION_REFUSED_CODE) {
+				captchaRef.current?.reset();
+				return;
+			}
+		}
+		setMessage(globalErrorMessage(form, errorCode, actionsProgress));
+		setMessageType('error');
+		captchaRef.current?.reset();
+		console.error("formidable submit error:", error);
+	};
+
+	/** The form's own error message, interpolated, with the code and the actions' progress under it when the server said so. */
+	const globalErrorMessage = (form: HTMLFormElement, errorCode?: string, actionsProgress?: Rejection['actionsProgress']): string => {
+		const formData = new FormData(form);
+		const interpolatedErrorMessage = interpolateMessage(errorMessage, formData, locale, fieldKindFromForm(form));
+		const base = interpolatedErrorMessage || 'An error occurred while submitting the form.';
+		const details: string[] = [];
+		if (errorCode) {
+			details.push(`${labels.errorCode}: ${errorCode}`);
+		}
+		if (actionsProgress) {
+			details.push(labels.actionsProgress(actionsProgress.completed, actionsProgress.total));
+		}
+		return details.length > 0
+			? `${base}<br><small class="fmdb-message-details fmdb-message-error-details">${details.join(' — ')}</small>`
+			: base;
 	};
 
 	const showForm = () => {

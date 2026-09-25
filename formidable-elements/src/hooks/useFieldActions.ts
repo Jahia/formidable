@@ -201,7 +201,7 @@ export function useFieldActions({formRef, fieldActionUrl, enabled}: UseFieldActi
 			const field = wrapper?.dataset.fmdbNodeName;
 			if (!wrapper || !field) return;
 			const controls = namedControlsIn(wrapper, field);
-			controls.forEach(named => named.setCustomValidity(''));
+			for (const named of controls) named.setCustomValidity('');
 			if (controls[0]) clearFieldError(controls[0]);
 		};
 
@@ -210,13 +210,13 @@ export function useFieldActions({formRef, fieldActionUrl, enabled}: UseFieldActi
 		// same event — this hook does not rely on it).
 		const onReset = () => {
 			sequencesRef.current.clear();
-			form.querySelectorAll<HTMLElement>(`[${FIELD_ACTION_MARKER}]`).forEach(wrapper => {
+			for (const wrapper of Array.from(form.querySelectorAll<HTMLElement>(`[${FIELD_ACTION_MARKER}]`))) {
 				setPending(wrapper, false);
 				const field = wrapper.dataset.fmdbNodeName;
 				const controls = field ? namedControlsIn(wrapper, field) : [];
-				controls.forEach(control => control.setCustomValidity(''));
+				for (const control of controls) control.setCustomValidity('');
 				if (controls[0]) clearFieldError(controls[0]);
-			});
+			}
 			clearAllFieldWarnings(form);
 		};
 

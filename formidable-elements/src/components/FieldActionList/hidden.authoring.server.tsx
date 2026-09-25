@@ -1,6 +1,6 @@
-import {AddContentButtons, jahiaComponent, Render} from "@jahia/javascript-modules-library";
+import {jahiaComponent} from "@jahia/javascript-modules-library";
 import {useTranslation} from "react-i18next";
-import AlertIcon from "~/design/AlertIcon";
+import AuthoringActionsZone from "~/design/AuthoringActionsZone";
 import {nodeTypeIconUrl} from "~/utils/actionTypeInfo";
 
 /**
@@ -10,8 +10,7 @@ import {nodeTypeIconUrl} from "~/utils/actionTypeInfo";
  * the first blocking refusal wins, so dragging a card reorders the checks), a call-out when the
  * switch is on but nothing checks the field yet, and the list's own create button — its module
  * declares the accepted type to jContent, the fmdbmix:fieldAction mixin: one button, then the
- * type chooser listing every deployed field-action type. Authoring chrome, deliberately not
- * styled like the form. Nothing of it exists in live or preview.
+ * type chooser listing every deployed field-action type. Nothing of it exists in live or preview.
  */
 jahiaComponent(
 	{
@@ -27,37 +26,16 @@ jahiaComponent(
 		}
 		const actionNodes = Array.from(currentNode.getNodes()).filter((node) => node.isNodeType("fmdbmix:fieldAction"));
 		const count = actionNodes.length;
-		const iconUrl = nodeTypeIconUrl(currentNode, renderContext);
 
 		return (
-			<aside className="fmdb-authoring-actions fmdb-authoring-field-actions" aria-label={t("heading", {count})}>
-				<div className="fmdb-authoring-actions-header">
-					<span className="fmdb-authoring-actions-title">
-						{iconUrl && <img className="fmdb-authoring-actions-glyph" src={iconUrl} alt="" width={16} height={16}/>}
-						{t("heading", {count})}
-					</span>
-					<span className="fmdb-authoring-actions-hint">{count > 0 ? t("inOrder") : t("notLive")}</span>
-				</div>
-
-				{count === 0 && (
-					<p className="fmdb-authoring-actions-empty">
-						<AlertIcon/>
-						{t("empty")}
-					</p>
-				)}
-
-				{count > 0 && (
-					<ol className="fmdb-authoring-actions-list">
-						{actionNodes.map((actionNode) => (
-							<li key={actionNode.getIdentifier()} className="fmdb-authoring-actions-item">
-								<Render node={actionNode} view="hidden.authoring"/>
-							</li>
-						))}
-					</ol>
-				)}
-
-				<AddContentButtons/>
-			</aside>
+			<AuthoringActionsZone
+				className="fmdb-authoring-field-actions"
+				heading={t("heading", {count})}
+				hint={count > 0 ? t("inOrder") : t("notLive")}
+				empty={t("empty")}
+				iconUrl={nodeTypeIconUrl(currentNode, renderContext)}
+				actionNodes={actionNodes}
+			/>
 		);
 	},
 );

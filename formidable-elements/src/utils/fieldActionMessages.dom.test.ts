@@ -2,12 +2,7 @@
 import {beforeEach, describe, expect, it} from 'vitest';
 import {anchorFieldMessages, parseFieldMessages, plainText, showFieldMessages} from './fieldActionMessages';
 
-// jsdom does not ship the CSS namespace; the code only needs escape().
-if (typeof CSS === 'undefined') {
-	(globalThis as {CSS?: {escape: (value: string) => string}}).CSS = {
-		escape: value => value.replace(/[^a-zA-Z0-9_-]/g, character => `\\${character}`)
-	};
-}
+import '~/utils/testSupport/cssEscape';
 
 const formOf = (html: string): HTMLFormElement => {
 	document.body.innerHTML = `<form>${html}</form>`;

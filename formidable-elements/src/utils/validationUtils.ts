@@ -109,7 +109,7 @@ const anchorMessage = (input: FormInputElement, element: HTMLElement): void => {
 	if (formGroup) {
 		formGroup.appendChild(element);
 	} else {
-		input.insertAdjacentElement('afterend', element);
+		input.after(element);
 	}
 };
 

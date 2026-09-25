@@ -28,7 +28,7 @@ export const parseFieldMessages = (body: unknown): FieldMessage[] => {
 
 /** The message as `setCustomValidity` wants it: the contributor's rich text without its markup. */
 export const plainText = (html: string): string =>
-	new DOMParser().parseFromString(html, 'text/html').body.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+	new DOMParser().parseFromString(html, 'text/html').body.textContent?.replaceAll(/\s+/g, ' ').trim() ?? '';
 
 /** The controls a message about `field` anchors on: the form's controls of that name, whatever their type. */
 export const controlsOf = (form: HTMLFormElement, field: string): FormControl[] => {

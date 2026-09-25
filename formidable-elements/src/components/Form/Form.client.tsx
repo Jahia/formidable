@@ -261,7 +261,7 @@ export default function Form({
 				// every constraint holds, so a refused value is never sent to a provider for nothing.
 				onSubmit={e => {
 					const form = e.currentTarget;
-					handleSubmit(e, async () => validateInputs(form) && await settleFieldActions(form));
+					void handleSubmit(e, async () => validateInputs(form) && await settleFieldActions(form));
 				}}
 			>
 				{intro && (
