@@ -47,16 +47,8 @@
 	},
 	"fmdb_fieldActionList": {
 		"heading": "Checks of this field · {{count}}",
-		"inOrder": "Run in this order; the first refusal wins. Not shown to visitors.",
+		"inOrder": "Run in this order. Not shown to visitors.",
 		"notLive": "Not shown to visitors.",
 		"empty": "No check yet: the switch is on but nothing checks this field."
-	},
-	"fmdb_fieldAction": {
-		"trigger_blur": "When the visitor leaves the field",
-		"trigger_submit": "At submission",
-		"severity_block": "Blocks the submission",
-		"severity_warn": "Warns only",
-		"unavailable_accept": "Accepted if the check cannot run",
-		"unavailable_reject": "Refused if the check cannot run"
 	}
 }

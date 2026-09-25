@@ -242,7 +242,6 @@ and dashed; these variables are the intended surface for a site that wants it to
 | `--fmdb-zone-actions-warning-bg` | `#fff7ed` | Background of the "no action" warning |
 | `--fmdb-zone-actions-warning-border` | `#f59e0b` | Left border of the warning |
 | `--fmdb-zone-actions-warning-color` | `#9a3412` | Text colour of the warning |
-| `--fmdb-zone-actions-badge-bg` | `#e9ebef` | Background of a badge on a field-action card (its text uses `--fmdb-zone-actions-muted`) |
 | `--fmdb-zone-field-actions-margin` | `0.5rem 0 0 1.25rem` | Margin of a field's zone, inset under the field |
 | `--fmdb-zone-field-actions-padding` | `0.5rem 0.625rem` | Inner spacing of a field's zone (the form's zone keeps `--fmdb-zone-actions-padding`) |
 

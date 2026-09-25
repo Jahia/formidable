@@ -130,14 +130,13 @@ A field carrying actions gets the same zone one level down, under the field, in 
 element wrapper renders the field's action list as `aside.fmdb-authoring-actions.fmdb-authoring-field-actions`
 inside the field's own Page Builder box (so it moves with the field), inset and tighter than the
 form's. Same header, cards, call-out (the switch is on but nothing checks the field yet) and create
-button (the accepted type is `fmdbmix:fieldAction`), and each card adds a line of badges reading the
-action's settings. Nothing of it exists in live, preview or the `cm` view. See
+button (the accepted type is `fmdbmix:fieldAction`), same cards — an action's settings are read in its
+editor, for a field action as for a form action. Nothing of it exists in live, preview or the `cm` view. See
 [Field actions](../architecture/field-actions.md).
 
 | Class | Element |
 |---|---|
 | `fmdb-authoring-field-actions` | The field's zone, next to `fmdb-authoring-actions` on the same `aside` — the hook that tells the two zones apart |
-| `fmdb-authoring-action-badges`, `fmdb-authoring-action-badge` | The badges line of a card and each badge; a badge carries `data-fmdb-setting` with the setting it reads (`trigger`, `severity`, `whenUnavailable`) |
 
 ## Extended inputs
 

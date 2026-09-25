@@ -53,14 +53,12 @@ describe('Actions - 72 Field actions zone in the Page Builder', () => {
 			cy.get('[data-fmdb-node-name="email"]').should('have.attr', 'data-fmdb-field-action', 'blur');
 			cy.get('[data-fmdb-node-name="email"] .fmdb-authoring-field-actions').should('have.length', 1).within(() => {
 				cy.get('.fmdb-authoring-action').should('have.length', 2);
-				// Execution order, and the settings read from the node — the defaults for the first action.
+				// Execution order; the card is the form action's — the settings are read in the editor, not on the card.
 				cy.get('.fmdb-authoring-action').eq(0)
 					.should('have.attr', 'data-fmdb-action-type', 'fmdbsample:blockedWordsAction')
 					.within(() => {
 						cy.get('.fmdb-authoring-action-title').should('have.text', 'No spam');
-						cy.get('.fmdb-authoring-action-badge[data-fmdb-setting="trigger"]').should('have.text', 'When the visitor leaves the field');
-						cy.get('.fmdb-authoring-action-badge[data-fmdb-setting="severity"]').should('have.text', 'Blocks the submission');
-						cy.get('.fmdb-authoring-action-badge[data-fmdb-setting="whenUnavailable"]').should('have.text', 'Accepted if the check cannot run');
+						cy.get('.fmdb-authoring-action-badge').should('not.exist');
 						// Third-party contract: the type's label, tooltip and icon come from ITS module.
 						cy.get('.fmdb-authoring-action-description').should('not.be.empty');
 						cy.get('.fmdb-authoring-action-icon').should('have.attr', 'src')
@@ -68,9 +66,6 @@ describe('Actions - 72 Field actions zone in the Page Builder', () => {
 					});
 				cy.get('.fmdb-authoring-action').eq(1).within(() => {
 					cy.get('.fmdb-authoring-action-title').should('have.text', 'Risky domain');
-					cy.get('.fmdb-authoring-action-badge[data-fmdb-setting="trigger"]').should('have.text', 'At submission');
-					cy.get('.fmdb-authoring-action-badge[data-fmdb-setting="severity"]').should('have.text', 'Warns only');
-					cy.get('.fmdb-authoring-action-badge[data-fmdb-setting="whenUnavailable"]').should('have.text', 'Refused if the check cannot run');
 				});
 				cy.get('.fmdb-authoring-actions-empty').should('not.exist');
 			});
