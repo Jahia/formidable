@@ -20,8 +20,10 @@ const react = vi.hoisted(() => ({
 	dirty: false,
 	/** Every value the current step — the hook's first state — was set to, in order. */
 	moves: [] as number[],
-	changed: (deps: unknown[] | undefined, previous: unknown[] | undefined): boolean =>
-		!deps || !previous || deps.length !== previous.length || deps.some((dep, i) => !Object.is(dep, previous[i])),
+	changed: (deps: unknown[] | undefined, previous: unknown[] | undefined): boolean => {
+		if (deps === undefined || previous === undefined) return true;
+		return deps.length !== previous.length || deps.some((dep, i) => !Object.is(dep, previous[i]));
+	},
 }));
 vi.mock('react', () => ({
 	useState: <T,>(initial: T | (() => T)) => {
@@ -39,7 +41,8 @@ vi.mock('react', () => ({
 	},
 	useRef: <T,>(initial: T) => {
 		const slot = react.cursor.ref++;
-		return (react.refs[slot] ??= {current: initial});
+		react.refs[slot] ??= {current: initial};
+		return react.refs[slot];
 	},
 	useEffect: (effect: () => void | (() => void), deps?: unknown[]) => {
 		const slot = react.cursor.effect++;
