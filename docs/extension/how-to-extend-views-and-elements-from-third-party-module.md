@@ -437,7 +437,7 @@ Examples:
 
 This lets the submission pipeline react to semantics instead of hard-coding your concrete node type name.
 
-One more marker is not a value kind: `fmdbmix:profileMappableField` says the field can be mapped to a
+Two more markers are not value kinds. `fmdbmix:profileMappableField` says the field can be mapped to a
 jCustomer profile property. Declare it on every field whose value a profile could hold (never on a file
 field): when `formidable-jexperience-engine` is deployed, the field gets the **jExperience** section of
 the editor, with the profile properties matching its value kind and cardinality
@@ -445,6 +445,12 @@ the editor, with the profile properties matching its value kind and cardinality
 convention of the built-in select and email inputs: declare one to be offered multivalued profile
 properties while it is on; without it your field is single-valued (the checkbox type is the one exception,
 read by name: its cardinality follows its number of choices, as the view renders it).
+
+The other one, `fmdbmix:submittableField`, says the field submits a value. Declare it on the same fields
+(never on a file field, a button or a container): it is what offers the **Enable field actions** switch in
+the field's editor, and every future setting meant for "every field with a value" will attach to it the
+same way (`docs/architecture/field-actions.md`). The submission itself does not depend on it — a field
+without the marker is still submitted; it only lacks those switches.
 
 ## Make your field a conditional-logic source
 

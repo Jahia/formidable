@@ -79,6 +79,17 @@ orderable
 [fmdbmix:captchaProtectedForm] mixin
 [fmdbmix:authenticatedOnlyForm] mixin
 [fmdbmix:nonSubmittable] mixin
+// The positive marker of a field that submits a value: text, choice, number, date, colour, boolean,
+// hidden — the built-in ones, the extended inputs, and a third-party field that declares it as a
+// supertype exactly as it declares fmdbmix:profileMappableField. Not a file field (what it submits is
+// a file, read from its multipart part, not a value a check judges), nor the button or the fieldset,
+// which carry fmdbmix:formElement for their title and their logic and are fmdbmix:nonSubmittable.
+// A mixin meant for "every field with a value" attaches here with `extends` (fmdbmix:fieldActions
+// does): `extends` names one supertype and cannot say "formElement minus nonSubmittable", and
+// fmdbmix:formElement alone reached the fieldset and the button with a switch whose actions could
+// never run. The pipeline keeps testing formElement && !nonSubmittable, so a field type that has not
+// adopted this marker yet is still submitted; it only lacks what attaches here.
+[fmdbmix:submittableField] mixin
 // Declares that an action type never writes to the repository and can therefore run
 // while the platform is in read-only mode. The polarity is deliberately inverted for
 // safety: an action type WITHOUT this mixin — including any third-party action that
@@ -119,13 +130,15 @@ orderable
  - jcr:title (string) = resourceBundle('fmdb_fieldActionList') autocreated i18n
  + * (fmdbmix:fieldAction) = fmdbmix:fieldAction version
 
-// The switch in the field's own editor, offered on every submit-capable field type through the marker,
-// third-party included. On, it adds the mixin, which autocreates the list; off, it removes both.
-// No `> jmix:dynamicFieldset`: that supertype extends jmix:templateMixin, which the Content Editor
-// renders without an enable switch, and a fieldset with no switch and no property of its own is not
-// rendered at all. `extends` alone makes it dynamic. See docs/architecture/field-actions.md.
+// The switch in the field's own editor, offered on every field type taking fmdbmix:submittableField —
+// the fields with a value, third-party included — and on nothing else: a fieldset, a button or a file
+// field would show a switch whose actions never run. On, it adds the mixin, which autocreates the
+// list; off, it removes both. No `> jmix:dynamicFieldset`: that supertype extends jmix:templateMixin,
+// which the Content Editor renders without an enable switch, and a fieldset with no switch and no
+// property of its own is not rendered at all. `extends` alone makes it dynamic. See
+// docs/architecture/field-actions.md.
 [fmdbmix:fieldActions] mixin
- extends = fmdbmix:formElement
+ extends = fmdbmix:submittableField
  + actions (fmdb:fieldActionList) = fmdb:fieldActionList autocreated
 // Options-source contract for choice fields: the base mixin carries the mode
 // switch, and each jmix:dynamicFieldset mixin carries the properties of one mode.
