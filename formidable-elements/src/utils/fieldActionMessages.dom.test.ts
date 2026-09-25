@@ -174,6 +174,13 @@ describe('showFieldMessages', () => {
 		input.setCustomValidity('Select at least one');
 		clearFieldActionValidity(controlsOf(form));
 		expect(input.validationMessage).toBe('Select at least one');
+
+		// a disabled control the field actions never marked — their refusal lifted above, another client's message on
+		// it since: "no message to compare" lifts only what the field actions wrote, not everything on a disabled control
+		input.disabled = true;
+		clearFieldActionValidity(controlsOf(form));
+		input.disabled = false;
+		expect(input.validationMessage).toBe('Select at least one');
 	});
 
 	it('marks the slider of a range field and describes it, the hidden mirror carrying the validity too', () => {

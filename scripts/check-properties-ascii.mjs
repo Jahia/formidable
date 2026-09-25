@@ -1,20 +1,23 @@
 // Every resource bundle of a Java module holds ASCII only. Usage: node check-properties-ascii.mjs [repoRoot]
 //
-// Java reads a `*.properties` bundle as ISO-8859-1 (PropertyResourceBundle): a non-ASCII byte written raw — an
-// accent, a dash — shows on screen as mojibake (`â€”`, `Ã‰`). A character outside ASCII is written as `\uXXXX`.
-// The bundles of the JavaScript modules (`settings/resources/`, read as UTF-8 by their loader) are out of scope:
-// there the accents are written raw, on purpose. See CLAUDE.md, "Fichiers .properties".
+// Java reads a `*.properties` file as ISO-8859-1 — PropertyResourceBundle and Properties.load alike — so a
+// non-ASCII byte written raw (an accent, a dash) shows on screen as mojibake (`â€”`, `Ã‰`); a character outside
+// ASCII is written as `\uXXXX`. In scope: every `*.properties` under the `src/main/resources/` of a Java module,
+// in Jahia's `resources/` folder or at a package path alike. Out of scope: the bundles of the JavaScript modules
+// (`settings/resources/`), read as UTF-8 by their loader — there the accents are written raw, on purpose.
 import {readdirSync, readFileSync, statSync} from 'node:fs';
-import {join, relative, resolve} from 'node:path';
+import {join, relative, resolve, sep} from 'node:path';
 
 const root = resolve(process.argv[2] ?? '.');
 const SKIPPED_DIRS = new Set(['node_modules', 'target', 'dist', '.git']);
+// Bounded by separators on both sides: a sibling `resourcesX/` is not a Java resources folder.
+const JAVA_RESOURCES = `${sep}src${sep}main${sep}resources${sep}`;
 
 const bundles = dir => readdirSync(dir).flatMap(name => {
     if (SKIPPED_DIRS.has(name)) return [];
     const path = join(dir, name);
     if (statSync(path).isDirectory()) return bundles(path);
-    return name.endsWith('.properties') && path.includes(`${join('src', 'main', 'resources', 'resources')}`) ? [path] : [];
+    return name.endsWith('.properties') && path.includes(JAVA_RESOURCES) ? [path] : [];
 });
 
 const errors = [];
