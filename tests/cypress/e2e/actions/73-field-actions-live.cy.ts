@@ -223,16 +223,30 @@ describe('Actions - 73 Field actions as the visitor fills the form', () => {
 			cy.wait('@check').its('response.body.verdict').should('equal', 'accept');
 			form.shouldHaveCurrentStep('Details');
 
-			// The pipeline is the authority: the pre-check stubbed to accept, a blocked code typed on step 1, the
-			// submission from step 2 is refused — and the island brings step 1 back, the message under the field, focused.
-			cy.intercept('POST', `**${FIELD_ACTION_PATH}*`, {statusCode: 200, body: {verdict: 'accept', messages: []}}).as('stubbedCheck');
+			// A blocked code let through the step (the pre-check stubbed to accept for that Next only): the settle
+			// before sending refuses it from step 2 — no request leaves — and the island brings step 1 back, the
+			// message under the field, focused.
+			cy.intercept({method: 'POST', url: `**${FIELD_ACTION_PATH}*`, times: 1}, {statusCode: 200, body: {verdict: 'accept', messages: []}}).as('stubbedOnce');
 			form.previousStep();
 			form.shouldHaveCurrentStep('Identity');
 			form.getTextInput('code').get().clear().type('spam');
 			form.nextStep();
-			cy.wait('@stubbedCheck');
+			cy.wait('@stubbedOnce');
 			form.shouldHaveCurrentStep('Details');
 			form.getTextInput('note').get().type('hello');
+			form.submit();
+			cy.wait('@check').its('response.body.verdict').should('equal', 'reject');
+			cy.get('@submit.all').should('have.length', 0);
+			form.shouldHaveCurrentStep('Identity');
+			cy.get('[data-fmdb-node-name="code"] .fmdb-validation-error').should('be.visible').and('contain.html', '<b>spam</b> is not a code.');
+			cy.focused().should('have.attr', 'name', 'code');
+
+			// The pipeline is the authority: every pre-check stubbed to accept, the submission from step 2 is refused
+			// with FMDB-015 — and the island brings step 1 back the same way.
+			cy.intercept('POST', `**${FIELD_ACTION_PATH}*`, {statusCode: 200, body: {verdict: 'accept', messages: []}}).as('stubbedCheck');
+			form.nextStep();
+			cy.wait('@stubbedCheck');
+			form.shouldHaveCurrentStep('Details');
 			form.submit();
 			cy.wait('@submit').its('response.body.errorCode').should('equal', 'FMDB-015');
 			form.shouldHaveCurrentStep('Identity');

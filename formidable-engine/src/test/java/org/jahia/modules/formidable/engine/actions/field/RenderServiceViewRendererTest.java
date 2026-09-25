@@ -57,19 +57,20 @@ class RenderServiceViewRendererTest {
     }
 
     @Test
-    void aBodyReactEscapedIsDecodedBeforeTheStrictReaderSeesIt() {
-        // Verifies the second thing standing between a JavaScript field action and its verdict: the JavaScript
-        // modules engine renders a view with renderToString, which escapes the text a component returns, so a view
-        // answering the JSON as a plain string arrives with its quotes as &quot; — malformed JSON, UNAVAILABLE,
-        // accepted by the CND default. The library's helpers avoid it (raw-html element); this is for the view that
-        // does not use them, and a body without entities loses nothing to it.
-        String escaped = START + "{&quot;verdict&quot;:&quot;reject&quot;,&quot;detail&quot;:&quot;it&#x27;s &amp; unknown&quot;}" + END;
+    void theRawHtmlTagsAreStrippedAndTheEntitiesLeftToTheReader() {
+        // Verifies the two sides of the library's raw-html element. The tags: the JavaScript modules engine strips
+        // them today and calls the element internal — stripped here too, so a verdict still reads if it stops. The
+        // entities: a plain-string view arrives React-escaped, and undoing that here would also turn entity text
+        // inside a raw body's detail into structure; the reader decodes only once the raw body has failed.
+        String wrapped = START + "<jsm-raw-html>{\"verdict\":\"reject\",\"detail\":\"provider said &quot;no&quot;\"}</jsm-raw-html>" + END;
 
-        String body = RenderServiceViewRenderer.body(escaped);
+        String body = RenderServiceViewRenderer.body(wrapped);
 
-        assertEquals("{\"verdict\":\"reject\",\"detail\":\"it's & unknown\"}", body);
+        assertEquals("{\"verdict\":\"reject\",\"detail\":\"provider said &quot;no&quot;\"}", body);
         assertEquals(FieldActionResultVerdict.REJECT, verdictOf(body));
-        assertEquals("{\"verdict\":\"accept\"}", RenderServiceViewRenderer.body("{\"verdict\":\"accept\"}"));
+        String escaped = START + "{&quot;verdict&quot;:&quot;accept&quot;}" + END;
+        assertEquals("{&quot;verdict&quot;:&quot;accept&quot;}", RenderServiceViewRenderer.body(escaped));
+        assertEquals(FieldActionResultVerdict.ACCEPT, verdictOf(RenderServiceViewRenderer.body(escaped)));
     }
 
     @Test

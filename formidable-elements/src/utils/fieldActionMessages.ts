@@ -75,11 +75,16 @@ const written = new WeakMap<FormControl, string>();
 const markedControls = ({named, anchor}: FieldControls): FormControl[] =>
 	anchor && !named.includes(anchor) ? [...named, anchor] : named;
 
-/** Lifts the validity the field actions set on the field's controls, and nothing another client set. */
+/**
+ * Lifts the validity the field actions set on the field's controls, and nothing another client set over
+ * it. A control barred from constraint validation — disabled, which is how logic hides a field —
+ * reports no validation message at all, so what it holds cannot be compared: it is lifted, since the
+ * refusal would otherwise outlive the field's return and block every submission.
+ */
 export const clearFieldActionValidity = (controls: FieldControls): void => {
 	for (const control of markedControls(controls)) {
 		const ours = written.get(control);
-		if (ours !== undefined && control.validationMessage === ours) {
+		if (ours !== undefined && (!control.willValidate || control.validationMessage === ours)) {
 			control.setCustomValidity('');
 		}
 		written.delete(control);

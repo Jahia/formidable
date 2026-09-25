@@ -11,6 +11,7 @@ import org.jahia.services.content.JCRCallback;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRTemplate;
 import org.jahia.services.render.RenderException;
+import org.apache.commons.text.StringEscapeUtils;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.JSONTokener;
@@ -223,22 +224,20 @@ public final class FieldActionDispatcher {
         if (text.isEmpty()) {
             return FieldActionResult.unavailable("the view answered nothing");
         }
-        JSONObject json;
-        try {
-            JSONTokener tokener = new JSONTokener(text);
-            Object value = tokener.nextValue();
-            if (!(value instanceof JSONObject object) || tokener.nextClean() != 0) {
-                if (log.isDebugEnabled()) {
-                    log.debug("[FieldActionDispatcher] The view's output was not exactly one JSON object: {}", abbreviate(text));
-                }
-                return FieldActionResult.unavailable("the view's output is not exactly one JSON object (" + text.length() + " characters)");
-            }
-            json = object;
-        } catch (JSONException e) {
+        Reading raw = read(text);
+        JSONObject json = raw.object();
+        if (json == null) {
+            // The JavaScript modules engine renders a view with renderToString, which escapes the text a component
+            // returns: a view answering the JSON as a plain string arrives with its quotes as &quot;. Decoded only
+            // once the raw body has failed to read — a raw body (the library's helpers) whose detail carries entity
+            // text is read as it is, never turned into structure.
+            json = read(StringEscapeUtils.unescapeHtml4(text)).object();
+        }
+        if (json == null) {
             if (log.isDebugEnabled()) {
-                log.debug("[FieldActionDispatcher] The view's output was not JSON: {}", abbreviate(text));
+                log.debug("[FieldActionDispatcher] The view's output was not readable: {}", abbreviate(text));
             }
-            return FieldActionResult.unavailable("the view answered malformed JSON (" + text.length() + " characters)");
+            return FieldActionResult.unavailable(raw.failure());
         }
         String verdict = json.optString("verdict", "").trim().toLowerCase(Locale.ROOT);
         String detail = json.has(DETAIL) && !json.isNull(DETAIL) ? json.optString(DETAIL) : null;
@@ -304,6 +303,23 @@ public final class FieldActionDispatcher {
             return text == null || text.isBlank() ? fallback : text;
         } catch (MissingResourceException e) {
             return fallback;
+        }
+    }
+
+    /** One reading of a body: the object when it is exactly one, else why not — for the detail. */
+    private record Reading(JSONObject object, String failure) {
+    }
+
+    private static Reading read(String text) {
+        try {
+            JSONTokener tokener = new JSONTokener(text);
+            Object value = tokener.nextValue();
+            if (!(value instanceof JSONObject object) || tokener.nextClean() != 0) {
+                return new Reading(null, "the view's output is not exactly one JSON object (" + text.length() + " characters)");
+            }
+            return new Reading(object, null);
+        } catch (JSONException e) {
+            return new Reading(null, "the view answered malformed JSON (" + text.length() + " characters)");
         }
     }
 

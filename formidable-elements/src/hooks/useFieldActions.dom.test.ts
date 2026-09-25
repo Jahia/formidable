@@ -360,6 +360,18 @@ describe('useFieldActions', () => {
 		expect(form.querySelector('[aria-busy]')).toBeNull();
 	});
 
+	it('reads a network failure at the settle as unanswered: nothing blocked', async () => {
+		const {form, settleFieldActions} = formWith(textField('firstName'));
+		form.querySelector('input')!.value = 'spam';
+
+		const outcome = settleFieldActions(form);
+		requests[0].fail();
+
+		expect(await outcome).toBeNull();
+		expect(form.querySelector('.fmdb-validation-error')).toBeNull();
+		expect(form.querySelector('[aria-busy]')).toBeNull();
+	});
+
 	it('shows nothing and blocks nothing on an error status or a network failure at blur', async () => {
 		const {form} = formWith(textField('firstName'));
 		const input = form.querySelector('input')!;

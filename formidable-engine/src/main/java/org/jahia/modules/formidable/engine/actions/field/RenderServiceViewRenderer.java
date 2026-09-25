@@ -1,6 +1,5 @@
 package org.jahia.modules.formidable.engine.actions.field;
 
-import org.apache.commons.text.StringEscapeUtils;
 import org.jahia.modules.formidable.engine.api.FieldActionRequest;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionFactory;
@@ -102,15 +101,21 @@ final class RenderServiceViewRenderer implements ViewRenderer {
     }
 
     /**
-     * The view's body: what the render chain produced, without the platform's own temp markers, and with the
-     * entities React writes undone. The JavaScript modules engine renders a view with {@code renderToString}, which
-     * escapes the text a component returns — a view answering the JSON as a plain string reaches this side as
-     * {@code {&quot;verdict&quot;:&quot;accept&quot;}}, unreadable, hence UNAVAILABLE, hence accepted by the CND default.
-     * The library's {@code fieldActionResult} hands the JSON over in the engine's raw-html element, which is not
-     * escaped; the decoding here is for the view that does not use it. A raw body holds no entity, so it loses nothing.
+     * The tags of the JavaScript modules engine's raw-html element, which the library's {@code fieldActionResult}
+     * wraps the verdict in so that {@code renderToString} does not escape it. The engine strips them itself today
+     * ({@code init-react.tsx}) and calls the element an internal detail; should it stop, the tags would reach this
+     * side as markup around the object — so they are stripped here too, and the reader stays exact either way.
+     */
+    private static final Pattern RAW_HTML_TAG = Pattern.compile("</?jsm-raw-html>");
+
+    /**
+     * The view's body: what the render chain produced, without the platform's own temp markers and without the
+     * raw-html tags, trimmed. The entities React writes into a plain-string view's output are the reader's business
+     * ({@link FieldActionDispatcher#parse}), decoded only once the raw body has failed to read: undoing them here
+     * would turn entity text inside a raw body's detail into structure.
      */
     static String body(String rendered) {
-        return rendered == null ? null : StringEscapeUtils.unescapeHtml4(TEMP_TAG.matcher(rendered).replaceAll("")).trim();
+        return rendered == null ? null : RAW_HTML_TAG.matcher(TEMP_TAG.matcher(rendered).replaceAll("")).replaceAll("").trim();
     }
 
     static JSONObject payload(FieldActionRequest request) {

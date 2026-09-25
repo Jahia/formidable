@@ -157,6 +157,25 @@ describe('showFieldMessages', () => {
 		expect(boxes.every(box => box.validity.valid)).toBe(true);
 	});
 
+	it('lifts its refusal from a disabled control, which reports no message to compare, and keeps what another client wrote over it', () => {
+		const form = formOf('<div class="fmdb-form-group"><input name="email"/></div>');
+		const input = form.querySelector('input')!;
+		showFieldMessages(controlsOf(form), [error('email', 'no')]);
+
+		// logic hides the field: its controls are disabled, and a disabled control has no validationMessage
+		input.disabled = true;
+		expect(input.validationMessage).toBe('');
+		clearFieldActionValidity(controlsOf(form));
+		input.disabled = false;
+		expect(input.validity.valid).toBe(true);
+
+		// another client wrote over the refusal: not the field actions' to lift
+		showFieldMessages(controlsOf(form), [error('email', 'no')]);
+		input.setCustomValidity('Select at least one');
+		clearFieldActionValidity(controlsOf(form));
+		expect(input.validationMessage).toBe('Select at least one');
+	});
+
 	it('marks the slider of a range field and describes it, the hidden mirror carrying the validity too', () => {
 		const form = formOf(`<div class="fmdb-form-group" data-fmdb-node-name="budget">
 			<input type="range" id="budget-slider"/><input type="hidden" name="budget" value="50"/>
