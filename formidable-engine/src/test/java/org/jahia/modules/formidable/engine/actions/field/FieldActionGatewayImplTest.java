@@ -55,11 +55,31 @@ class FieldActionGatewayImplTest {
     }
 
     @Test
+    void aCredentialInTheQueryIsAppendedToTheTargetAndKeptOutOfTheHeaders() {
+        // Verifies the second place a credential may go, for a provider that reads its key off the URL: appended after
+        // the path's own query, before a fragment, encoded — and the header carries nothing then, which send() honours
+        // through the same flag.
+        FieldActionProvider zerobounce = new FieldActionProvider("zb", "ZeroBounce", URI.create("https://api.zerobounce.net"), "api_key", "s3c r&t", true);
+
+        assertEquals(URI.create("https://api.zerobounce.net/v2/validate?api_key=s3c+r%26t"),
+                FieldActionGatewayImpl.target(zerobounce, "v2/validate"));
+        assertEquals(URI.create("https://api.zerobounce.net/v2/validate?email=ada%40example.com&api_key=s3c+r%26t"),
+                FieldActionGatewayImpl.target(zerobounce, "v2/validate?email=ada%40example.com"));
+        assertEquals(URI.create("https://api.zerobounce.net/v2/validate?api_key=s3c+r%26t#top"),
+                FieldActionGatewayImpl.target(zerobounce, "v2/validate#top"));
+        assertEquals(URI.create("https://api.example.com/v1/email/validate"),
+                FieldActionGatewayImpl.target(provider("https://api.example.com/v1"), "email/validate"));
+    }
+
+    @Test
     void aProviderNeverPrintsItsCredential() {
         // Verifies the toString the logs may reach: the id and the base, the header's name, and a mask for the secret.
         String printed = provider("https://api.example.com/v1").toString();
 
         assertFalse(printed.contains("s3cr3t"), printed);
         assertTrue(printed.contains("X-Api-Key") && printed.contains("api.example.com"), printed);
+        String query = new FieldActionProvider("zb", "ZeroBounce", URI.create("https://api.zerobounce.net"), "api_key", "s3cr3t", true).toString();
+        assertFalse(query.contains("s3cr3t"), query);
+        assertTrue(query.contains("credentialIn=query"), query);
     }
 }

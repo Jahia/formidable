@@ -31,6 +31,7 @@ import java.util.Collection;
 import java.util.Dictionary;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -87,10 +88,16 @@ public class FormidableConfigService {
      * @param credentialHeader the header carrying the credential, empty when the provider needs none
      * @param credential       the secret; never logged, never returned to a caller — {@link #toString()} hides it
      */
-    public record FieldActionProvider(String id, String label, URI baseUri, String credentialHeader, String credential) {
+    public record FieldActionProvider(String id, String label, URI baseUri, String credentialHeader, String credential, boolean credentialInQuery) {
+        /** A provider whose credential travels as a request header, the default. */
+        public FieldActionProvider(String id, String label, URI baseUri, String credentialHeader, String credential) {
+            this(id, label, baseUri, credentialHeader, credential, false);
+        }
+
         @Override
         public String toString() {
             return "FieldActionProvider[id=" + id + ", baseUri=" + baseUri + ", credentialHeader=" + credentialHeader
+                    + ", credentialIn=" + (credentialInQuery ? "query" : "header")
                     + ", credential=" + (credential == null || credential.isEmpty() ? "none" : "***") + "]";
         }
     }
@@ -462,7 +469,9 @@ public class FormidableConfigService {
 
     /**
      * Parses {@code fieldActionProviders}: one {@code id|Label|https://base-url|Credential-Header-Name|credential}
-     * per line, the last two optional together. The base URL obeys the forward targets' rule — HTTPS, a host, no
+     * per line, the last two optional together, with an optional sixth part saying where the credential goes —
+     * {@code header}, the default, or {@code query}, a parameter of that name, for a provider that reads its key
+     * off the URL. The base URL obeys the forward targets' rule — HTTPS, a host, no
      * embedded credentials; a development list ({@code devFieldActionProviders}) obeys their development rule
      * instead, plain HTTP on localhost or host.docker.internal. A malformed entry is logged without its credential
      * and skipped; the first occurrence of a duplicate id wins.
@@ -487,10 +496,10 @@ public class FormidableConfigService {
     }
 
     private static Optional<FieldActionProvider> parseFieldActionProviderEntry(String entry, boolean development) {
-        String[] parts = entry.split("\\|", 5);
+        String[] parts = entry.split("\\|", 6);
         if (parts.length < 3) {
             if (log.isWarnEnabled()) {
-                log.warn("[FormidableConfigService] Skipping malformed fieldActionProviders entry (expected id|Label|https://base-url|Header|credential): '{}'",
+                log.warn("[FormidableConfigService] Skipping malformed fieldActionProviders entry (expected id|Label|https://base-url|Header|credential[|header|query]): '{}'",
                         redactProviderEntry(parts));
             }
             return Optional.empty();
@@ -500,6 +509,15 @@ public class FormidableConfigService {
         String url = parts[2].trim();
         String header = parts.length > 3 ? parts[3].trim() : "";
         String credential = parts.length > 4 ? parts[4].trim() : "";
+        String placement = parts.length > 5 ? parts[5].trim().toLowerCase(Locale.ROOT) : "header";
+        if (!"header".equals(placement) && !"query".equals(placement)) {
+            log.warn("[FormidableConfigService] Skipping fieldActionProviders entry '{}': the credential goes in the 'header' or in the 'query', not '{}'.", id, placement);
+            return Optional.empty();
+        }
+        if ("query".equals(placement) && credential.isEmpty()) {
+            log.warn("[FormidableConfigService] Skipping fieldActionProviders entry '{}': a credential in the query needs its parameter name and its value.", id);
+            return Optional.empty();
+        }
         if (id.isEmpty() || url.isEmpty()) {
             if (log.isWarnEnabled()) {
                 log.warn("[FormidableConfigService] Skipping fieldActionProviders entry with an empty id or base URL: '{}'", redactProviderEntry(parts));
@@ -522,7 +540,7 @@ public class FormidableConfigService {
             log.warn("[FormidableConfigService] Skipping {} entry '{}': {}", development ? "devFieldActionProviders" : "fieldActionProviders", id, reason);
             return Optional.empty();
         }
-        return Optional.of(new FieldActionProvider(id, label.isEmpty() ? id : label, uri, header, credential));
+        return Optional.of(new FieldActionProvider(id, label.isEmpty() ? id : label, uri, header, credential, "query".equals(placement)));
     }
 
     /** An entry as a log line may show it: its first three parts, never a credential. */

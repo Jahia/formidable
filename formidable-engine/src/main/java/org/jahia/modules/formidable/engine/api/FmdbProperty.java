@@ -50,6 +50,9 @@ public final class FmdbProperty {
     /** What an unanswered field action means: {@code accept} or {@code reject} the value ({@code fmdbmix:fieldActionFeedback}). */
     public static final String WHEN_UNAVAILABLE = "whenUnavailable";
 
+    /** The id of the provider a field action calls, one of {@code fieldActionProviders} ({@code fmdbmix:providerFieldAction}). */
+    public static final String PROVIDER_ID = "providerId";
+
     private FmdbProperty() {
     }
 }

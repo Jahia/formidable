@@ -57,6 +57,27 @@ class FormidableConfigServiceTest {
     }
 
     @Test
+    void activateReadsWhereTheCredentialGoesAndSkipsAnEntryThatSaysSomethingElse() {
+        // Verifies the sixth part of a provider line: query puts the key on the URL (ZeroBounce), header is the
+        // default spelled out, anything else is a typo the administrator must see rather than a header sent by
+        // accident — and a query credential without a value has no parameter to build.
+        FormidableConfigService service = new FormidableConfigService();
+
+        service.activate(TestFormidableConfig.withFieldActionProviders(
+                """
+                zb|ZeroBounce|https://api.zerobounce.net|api_key|s3cr3t|query
+                exp|Experian|https://api.experianaperture.io|Auth-Token|t0k3n|header
+                odd|Odd|https://api.example.com|X-Key|k|cookie
+                bare|Bare|https://api.example.com|||query"""));
+
+        assertEquals(List.of("zb", "exp"), List.copyOf(service.getFieldActionSettings().providers().keySet()));
+        assertTrue(service.resolveFieldActionProvider("zb").orElseThrow().credentialInQuery());
+        assertFalse(service.resolveFieldActionProvider("exp").orElseThrow().credentialInQuery());
+        assertTrue(service.resolveFieldActionProvider("odd").isEmpty());
+        assertTrue(service.resolveFieldActionProvider("bare").isEmpty());
+    }
+
+    @Test
     void activateExposesADevelopmentFieldActionProviderBehindItsSwitchAndKeepsTheStandardRuleOtherwise() {
         // Verifies the development list of the providers, the mirror of the forward targets': a provider over plain
         // HTTP on localhost — the samples' double of Experian — is accepted behind the switch only, a remote HTTP one
