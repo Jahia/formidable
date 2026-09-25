@@ -37,3 +37,13 @@
 // engine provides the mechanism, a project decides which checks its forms deserve.
 [fmdbsample:emailDeliverabilityAction] > jnt:content, fmdbmix:fieldAction, mix:title
  - jcr:title (string) = resourceBundle('fmdbsample_emailDeliverabilityAction') autocreated i18n
+
+// A third field action of the samples, and an example implementation rather than a supported connector: the
+// mailbox check a project wants once the domain check is not enough, written out in full against one provider,
+// Experian Email Validation v2. The address is posted to the provider the contributor picks — one of the ids the
+// administrator declared under fieldActionProviders, the token staying in that file — and the provider's
+// confidence becomes the verdict (docs/architecture/field-actions.md, "The samples' third one"). Exercised by the
+// test suite against the samples' own double of the provider, ExperianStubServlet.
+[fmdbsample:experianEmailAction] > jnt:content, fmdbmix:fieldAction, mix:title
+ - jcr:title (string) = resourceBundle('fmdbsample_experianEmailAction') autocreated i18n
+ - providerId (string, choicelist[formidableFieldActionProviders]) mandatory indexed=no

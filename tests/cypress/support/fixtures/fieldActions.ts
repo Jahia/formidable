@@ -85,3 +85,22 @@ export function withFieldActions(field: JahiaNode, actions: JahiaNode[] = []): J
 		]
 	};
 }
+
+export interface ExperianEmailFieldActionData extends FieldActionFeedbackData {
+	/** The id of a provider the administrator declared (fieldActionProviders, or devFieldActionProviders behind its switch). */
+	providerId: string;
+}
+
+/**
+ * The samples module's example implementation against a provider (fmdbsample:experianEmailAction,
+ * formidable-test-module-samples-java): the address is posted to Experian Email Validation — or to the samples'
+ * own double of it, ExperianStubServlet, declared as a development provider — and the confidence is the verdict.
+ */
+export function getExperianEmailFieldActionNode(data: ExperianEmailFieldActionData): JahiaNode {
+	return {
+		name: data.name || 'experianEmail',
+		primaryNodeType: 'fmdbsample:experianEmailAction',
+		mixins: ['fmdbmix:fieldActionFeedback'],
+		properties: [{name: 'providerId', value: data.providerId}, ...feedbackProperties(data)]
+	};
+}
