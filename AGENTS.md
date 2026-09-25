@@ -117,9 +117,9 @@ Built-in actions: `SaveToJcrFormAction`, `SendEmailNotificationFormAction`, `Sen
 
 1. Create `formidable-elements/src/components/Input/MyField/definition.cnd`:
    ```cnd
-   [fmdb:myField] > jnt:content, fmdbmix:element, fmdbmix:profileMappableField
+   [fmdb:myField] > jnt:content, fmdbmix:element, fmdbmix:submittableField, fmdbmix:profileMappableField
    ```
-   `fmdbmix:profileMappableField` (engine marker) lets an author map the field to a jCustomer profile property when the jExperience module is deployed — declare it on every field whose value a profile could hold (never on a file field). Add the value-kind mixin (`fmdbmix:textField`, `fmdbmix:numberField`…) that matches what the field submits.
+   `fmdbmix:submittableField` (engine marker) says the field submits a value: it is what offers the field-actions switch in the field's editor — declare it on every field with a value (never on a file field, a button or a container). `fmdbmix:profileMappableField` (engine marker) lets an author map the field to a jCustomer profile property when the jExperience module is deployed — declare it on every field whose value a profile could hold (never on a file field). Add the value-kind mixin (`fmdbmix:textField`, `fmdbmix:numberField`…) that matches what the field submits.
 2. Create `default.server.tsx` with `jahiaComponent({ componentType: "view", nodeType: "fmdb:myField", name: "default" }, ...)`
 3. HTML `name` = `currentNode.getName()`; HTML `id` = `input-${currentNode.getIdentifier()}`
 

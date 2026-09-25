@@ -33,6 +33,10 @@ public final class FmdbMixin {
     public static final String FORM_STEP = "fmdbmix:formStep";
     public static final String FORM_ELEMENT = "fmdbmix:formElement";
     public static final String NON_SUBMITTABLE = "fmdbmix:nonSubmittable";
+    // The positive marker of a field with a value (never a file field, a button or a fieldset): what a mixin
+    // meant for every such field attaches to with `extends` — the field-actions switch does. The pipeline
+    // itself keeps testing FORM_ELEMENT && !NON_SUBMITTABLE, so a field type without it is still submitted.
+    public static final String SUBMITTABLE_FIELD = "fmdbmix:submittableField";
 
     // Form-level semantics the engine enforces at submission
     public static final String CAPTCHA_PROTECTED_FORM = "fmdbmix:captchaProtectedForm";

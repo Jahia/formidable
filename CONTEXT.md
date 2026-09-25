@@ -86,7 +86,7 @@ Action engine types: `formidable-engine/src/main/resources/META-INF/definitions.
 
 ### Rules for a new field type
 
-1. Declare `[fmdb:myField] > jnt:content, fmdbmix:element, fmdbmix:profileMappableField` in its `definition.cnd` — the marker lets the field be mapped to a jCustomer profile property (jExperience module); leave it out of a file field. Add the value-kind mixin matching what the field submits
+1. Declare `[fmdb:myField] > jnt:content, fmdbmix:element, fmdbmix:submittableField, fmdbmix:profileMappableField` in its `definition.cnd` — the first marker says the field submits a value and offers the field-actions switch, the second lets the field be mapped to a jCustomer profile property (jExperience module); leave both out of a file field. Add the value-kind mixin matching what the field submits
 2. Create `default.server.tsx` with `jahiaComponent({ componentType: "view", nodeType: "fmdb:myField", name: "default" }, ...)`
 3. HTML `name` = `currentNode.getName()`; HTML `id` = `input-${currentNode.getIdentifier()}`
 
@@ -102,6 +102,8 @@ fmdbmix:formElement (engine)   > mix:title, fmdbmix:formLogicElement, orderable
                                    today (reserved elements-side extension point)
 fmdbmix:formContent (elements) ← non-field content embeddable in a form
 fmdbmix:formStep (engine)      > fmdbmix:formContainer — step marker
+fmdbmix:submittableField (engine) ← marker: the field submits a value (not a file, a button, a fieldset);
+                                   fmdbmix:fieldActions (engine, the field-actions switch) extends it
 fmdbmix:profileMappableField (engine) ← marker: the field can be mapped to a jCustomer profile property;
                                    fmdbmix:jExperienceProfileMapping (formidable-jexperience-engine) extends it
 fmdbmix:component (elements)   ← makes a type visible/droppable in the editor
