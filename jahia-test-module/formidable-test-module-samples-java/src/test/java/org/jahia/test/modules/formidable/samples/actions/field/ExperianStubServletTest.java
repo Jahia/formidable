@@ -68,28 +68,28 @@ class ExperianStubServletTest {
     void theDocumentedOperationWithTheTokenAnswersTheConfidenceTheDomainSays() throws IOException {
         // Verifies the nominal answers, in the provider's JSON: verified for an ordinary domain, and the confidence
         // a domain of the .test zone is named after — the addresses the Cypress spec types.
-        Call verified = post(ExperianStubServlet.TOKEN, "ada@example.com");
+        Call verified = post(ProviderStubServlet.TOKEN, "ada@example.com");
         assertEquals(200, verified.status);
         assertEquals("verified", confidenceOf(verified));
         assertEquals("ada@example.com", verified.body.getJSONObject("result").getString("email"));
 
-        assertEquals("undeliverable", confidenceOf(post(ExperianStubServlet.TOKEN, "ada@undeliverable.test")));
-        assertEquals("disposable", confidenceOf(post(ExperianStubServlet.TOKEN, "ada@disposable.test")));
-        assertEquals("unknown", confidenceOf(post(ExperianStubServlet.TOKEN, "ada@unknown.test")));
-        assertEquals("acceptAll", confidenceOf(post(ExperianStubServlet.TOKEN, "ada@acceptall.test")));
-        assertEquals("undeliverable", confidenceOf(post(ExperianStubServlet.TOKEN, "not-an-address")));
+        assertEquals("undeliverable", confidenceOf(post(ProviderStubServlet.TOKEN, "ada@undeliverable.test")));
+        assertEquals("disposable", confidenceOf(post(ProviderStubServlet.TOKEN, "ada@disposable.test")));
+        assertEquals("unknown", confidenceOf(post(ProviderStubServlet.TOKEN, "ada@unknown.test")));
+        assertEquals("acceptAll", confidenceOf(post(ProviderStubServlet.TOKEN, "ada@acceptall.test")));
+        assertEquals("undeliverable", confidenceOf(post(ProviderStubServlet.TOKEN, "not-an-address")));
     }
 
     @Test
     void anythingElseIsRefusedAsTheProviderWould() throws IOException {
         // Verifies what the stub holds the caller to: the operation's path, the token the gateway must inject, a
         // body with the address — and the provider's own timeout on a domain that does not respond.
-        assertEquals(404, post("/email/validate/v1", null, ExperianStubServlet.TOKEN, "{\"email\":\"ada@example.com\"}").status);
+        assertEquals(404, post("/email/validate/v1", null, ProviderStubServlet.TOKEN, "{\"email\":\"ada@example.com\"}").status);
         assertEquals(401, post(OPERATION, null, "another-token", "{\"email\":\"ada@example.com\"}").status);
         assertEquals(401, post(OPERATION, null, null, "{\"email\":\"ada@example.com\"}").status);
-        assertEquals(400, post(OPERATION, null, ExperianStubServlet.TOKEN, "{\"address\":\"ada@example.com\"}").status);
-        assertEquals(400, post(OPERATION, null, ExperianStubServlet.TOKEN, "not json").status);
-        assertEquals(408, post(ExperianStubServlet.TOKEN, "ada@timeout.test").status);
+        assertEquals(400, post(OPERATION, null, ProviderStubServlet.TOKEN, "{\"address\":\"ada@example.com\"}").status);
+        assertEquals(400, post(OPERATION, null, ProviderStubServlet.TOKEN, "not json").status);
+        assertEquals(408, post(ProviderStubServlet.TOKEN, "ada@timeout.test").status);
 
         HttpServletResponse response = mock(HttpServletResponse.class);
         new ExperianStubServlet().doGet(mock(HttpServletRequest.class), response);
@@ -100,9 +100,9 @@ class ExperianStubServletTest {
     void theOperationIsReadPastTheAliasWhenTheContainerGivesNoPathInfo() throws IOException {
         // Verifies the fallback for a container that dispatches on the alias without a path info: the operation is
         // what follows the alias in the request URI, and nothing else of the URI matters.
-        Call call = post(null, "/modules" + ExperianStubServlet.ALIAS + OPERATION, ExperianStubServlet.TOKEN, "{\"email\":\"ada@example.com\"}");
+        Call call = post(null, "/modules" + ExperianStubServlet.ALIAS + OPERATION, ProviderStubServlet.TOKEN, "{\"email\":\"ada@example.com\"}");
         assertEquals(200, call.status);
         assertEquals("verified", confidenceOf(call));
-        assertNull(post(null, "/modules" + ExperianStubServlet.ALIAS, ExperianStubServlet.TOKEN, "{}").body.optJSONObject("result"));
+        assertNull(post(null, "/modules" + ExperianStubServlet.ALIAS, ProviderStubServlet.TOKEN, "{}").body.optJSONObject("result"));
     }
 }

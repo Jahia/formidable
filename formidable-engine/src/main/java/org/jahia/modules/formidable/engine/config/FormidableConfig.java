@@ -163,7 +163,9 @@ public @interface FormidableConfig {
     @AttributeDefinition(
             name = "Field action providers",
             description = "Newline-separated list of the external services a field action may call through the " +
-                    "FieldActionGateway. Each entry has the form: id|Label|https://base-url|Credential-Header-Name|credential. " +
+                    "FieldActionGateway. Each entry has the form: id|Label|https://base-url|Credential-Header-Name|credential " +
+                    "with an optional sixth part, header (the default) or query: where the credential goes, a request header " +
+                    "of that name or a query parameter of that name. " +
                     "The id is stored in JCR on the field-action node; the base URL, the header name and the credential " +
                     "stay here and never reach a contributor, a JavaScript action or a log line. " +
                     "Leave empty when no field action calls an external service (fail-safe default).",

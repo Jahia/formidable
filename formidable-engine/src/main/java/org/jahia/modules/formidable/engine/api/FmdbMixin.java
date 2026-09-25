@@ -25,6 +25,8 @@ public final class FmdbMixin {
     public static final String FIELD_ACTION = "fmdbmix:fieldAction";
     public static final String FIELD_ACTION_FEEDBACK = "fmdbmix:fieldActionFeedback";
     public static final String FIELD_ACTIONS = "fmdbmix:fieldActions";
+    /** A field action behind a provider: the type carries the id of a declared provider (ProviderFieldAction reads it). */
+    public static final String PROVIDER_FIELD_ACTION = "fmdbmix:providerFieldAction";
 
     // Form tree: the root, what carries logic, what contains, what submits
     public static final String FORM_ROOT = "fmdbmix:formRoot";

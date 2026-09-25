@@ -86,7 +86,8 @@ export function withFieldActions(field: JahiaNode, actions: JahiaNode[] = []): J
 	};
 }
 
-export interface ExperianEmailFieldActionData extends FieldActionFeedbackData {
+/** A field action behind a provider: the id of one the administrator declared, or one of the samples' doubles behind the development switch. */
+export interface ProviderFieldActionData extends FieldActionFeedbackData {
 	/** The id of a provider the administrator declared (fieldActionProviders, or devFieldActionProviders behind its switch). */
 	providerId: string;
 }
@@ -96,10 +97,24 @@ export interface ExperianEmailFieldActionData extends FieldActionFeedbackData {
  * formidable-test-module-samples-java): the address is posted to Experian Email Validation — or to the samples'
  * own double of it, ExperianStubServlet, declared as a development provider — and the confidence is the verdict.
  */
-export function getExperianEmailFieldActionNode(data: ExperianEmailFieldActionData): JahiaNode {
+export function getExperianEmailFieldActionNode(data: ProviderFieldActionData): JahiaNode {
 	return {
 		name: data.name || 'experianEmail',
 		primaryNodeType: 'fmdbsample:experianEmailAction',
+		mixins: ['fmdbmix:fieldActionFeedback'],
+		properties: [{name: 'providerId', value: data.providerId}, ...feedbackProperties(data)]
+	};
+}
+
+/**
+ * The samples module's second example against a provider (fmdbsample:zeroBounceEmailAction): the same engine base as
+ * the Experian one, ZeroBounce's vocabulary — or the samples' double of it, ZeroBounceStubServlet, declared as a
+ * development provider whose key goes on the URL.
+ */
+export function getZeroBounceEmailFieldActionNode(data: ProviderFieldActionData): JahiaNode {
+	return {
+		name: data.name || 'zeroBounceEmail',
+		primaryNodeType: 'fmdbsample:zeroBounceEmailAction',
 		mixins: ['fmdbmix:fieldActionFeedback'],
 		properties: [{name: 'providerId', value: data.providerId}, ...feedbackProperties(data)]
 	};

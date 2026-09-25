@@ -40,10 +40,16 @@
 
 // A third field action of the samples, and an example implementation rather than a supported connector: the
 // mailbox check a project wants once the domain check is not enough, written out in full against one provider,
-// Experian Email Validation v2. The address is posted to the provider the contributor picks — one of the ids the
-// administrator declared under fieldActionProviders, the token staying in that file — and the provider's
-// confidence becomes the verdict (docs/architecture/field-actions.md, "The samples' third one"). Exercised by the
-// test suite against the samples' own double of the provider, ExperianStubServlet.
-[fmdbsample:experianEmailAction] > jnt:content, fmdbmix:fieldAction, mix:title
+// Experian Email Validation v2, on the engine's EmailVerificationFieldAction. The provider the contributor picks
+// comes with fmdbmix:providerFieldAction — one of the ids the administrator declared under fieldActionProviders, the
+// token staying in that file — and the provider's confidence becomes the verdict (docs/architecture/field-actions.md,
+// "Email verification behind a provider"). Exercised by the test suite against the samples' own double of the
+// provider, ExperianStubServlet.
+[fmdbsample:experianEmailAction] > jnt:content, fmdbmix:fieldAction, fmdbmix:providerFieldAction, mix:title
  - jcr:title (string) = resourceBundle('fmdbsample_experianEmailAction') autocreated i18n
- - providerId (string, choicelist[formidableFieldActionProviders]) mandatory indexed=no
+
+// The same check against another provider, ZeroBounce, on the same engine base — the shape to copy for a third:
+// the type, the mapping of the provider's vocabulary, nothing else. ZeroBounce reads its key off the URL, which
+// the provider line's query placement is for. Exercised against ZeroBounceStubServlet.
+[fmdbsample:zeroBounceEmailAction] > jnt:content, fmdbmix:fieldAction, fmdbmix:providerFieldAction, mix:title
+ - jcr:title (string) = resourceBundle('fmdbsample_zeroBounceEmailAction') autocreated i18n
