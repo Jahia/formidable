@@ -86,10 +86,11 @@ one JSON object; two helpers spell that contract:
 - `readFieldActionRequest(renderContext)` — the `{formId, fieldName, value, locale}` the engine set,
   or `null` when the engine is not the caller (a direct hit of the view): the view must then return
   `null`, it is not an endpoint;
-- `fieldActionResult.accept()`, `.reject(detail?)`, `.unavailable(detail?)` — the exact strings the
-  engine accepts. The view returns one of them and nothing else: no markup around it, never the
-  candidate value. `detail` reaches the server logs only; the visitor reads the contributor's
-  rejection message, which the engine renders.
+- `fieldActionResult.accept()`, `.reject(detail?)`, `.unavailable(detail?)` — the verdict, as the element
+  the engine reads verbatim. The view returns one of them and nothing else: no markup around it, never
+  the candidate value. Not a plain string: React escapes the text a component returns, and the engine
+  would read `&quot;`-quoted JSON. `detail` reaches the server logs only; the visitor reads the
+  contributor's rejection message, which the engine renders.
 
 ```tsx
 // crmLookup/hidden.execute.server.tsx

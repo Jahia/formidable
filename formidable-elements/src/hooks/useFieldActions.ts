@@ -1,6 +1,14 @@
 import {type RefObject, useEffect, useRef} from 'react';
 import {clearAllFieldWarnings, clearFieldError} from '~/utils/validationUtils';
-import {type FieldMessage, type FormControl, parseFieldMessages, showFieldMessages} from '~/utils/fieldActionMessages';
+import {
+	clearFieldActionValidity,
+	type FieldControls,
+	type FieldMessage,
+	fieldControlsIn,
+	type FormControl,
+	parseFieldMessages,
+	showFieldMessages,
+} from '~/utils/fieldActionMessages';
 
 /**
  * The marker the element wrapper carries when the field has actions: `blur` when the engine is to be
@@ -51,12 +59,18 @@ const NEVER_ASKED_TYPES = new Set(['file', 'button', 'submit', 'reset', 'image']
 
 const wrapperOf = (control: Element): HTMLElement | null => control.closest<HTMLElement>(`[${FIELD_ACTION_MARKER}]`);
 
+const wrappersOf = (form: HTMLFormElement): HTMLElement[] => Array.from(form.querySelectorAll<HTMLElement>(`[${FIELD_ACTION_MARKER}]`));
+
 /** A field conditional logic holds hidden is not asked about: the pipeline skips it too. */
 const isAskable = (wrapper: HTMLElement): boolean => wrapper.dataset.fmdbLogicHidden !== 'true';
 
-/** The controls that carry the field's value — the named ones of the wrapper, whatever their type. */
-const namedControlsIn = (wrapper: HTMLElement, field: string): FormControl[] =>
-	Array.from(wrapper.querySelectorAll<FormControl>('input, select, textarea')).filter(control => control.name === field);
+/** The field's controls — the named ones for the value, the anchor for the visitor — or null on a wrapper without a name. */
+const controlsOfWrapper = (wrapper: HTMLElement): FieldControls | null => {
+	const field = wrapper.dataset.fmdbNodeName;
+	return field ? fieldControlsIn(wrapper, field) : null;
+};
+
+const anchorOf = (controls: FieldControls): FormControl | undefined => controls.anchor ?? controls.named[0];
 
 /**
  * The values the field would submit right now, blank ones dropped: one per selected option or checked
@@ -152,13 +166,14 @@ export function useFieldActions({formRef, fieldActionUrl, enabled}: UseFieldActi
 	 */
 	const check = async (wrapper: HTMLElement, trigger: 'blur' | 'submit'): Promise<FieldVerdict | null> => {
 		const field = wrapper.dataset.fmdbNodeName;
-		if (!field) return null;
-		const controls = namedControlsIn(wrapper, field);
+		const controls = controlsOfWrapper(wrapper);
+		if (!field || !controls) return null;
 		const sequence = (sequencesRef.current.get(field) ?? 0) + 1;
 		sequencesRef.current.set(field, sequence);
-		const values = valuesOf(controls);
+		const values = valuesOf(controls.named);
 		if (values.length === 0) {
-			// an unanswered field says nothing to check: whatever it showed is gone
+			// an unanswered field says nothing to check: whatever it showed is gone, a check in flight included
+			setPending(wrapper, false);
 			showFieldMessages(controls, []);
 			return {rejected: false, messages: []};
 		}
@@ -191,57 +206,59 @@ export function useFieldActions({formRef, fieldActionUrl, enabled}: UseFieldActi
 			void check(wrapper, 'blur');
 		};
 
-		// Capture phase, so it runs before useCustomFormValidation's own input handler, which only
-		// clears an error once the control is valid again — and a refusal keeps it invalid until here.
-		// The next leave re-checks; a warning stays until the next answer.
+		// Typing lifts a refusal — the field actions' own validity, nothing another client set — and the
+		// error it drew once the control is valid again, as the constraint client does for its own; a
+		// constraint still failing keeps its message. The next leave re-checks; a warning stays until the
+		// next answer.
 		const onInput = (event: Event) => {
 			const control = event.target;
 			if (!isFormControl(control)) return;
 			const wrapper = wrapperOf(control);
-			const field = wrapper?.dataset.fmdbNodeName;
-			if (!wrapper || !field) return;
-			const controls = namedControlsIn(wrapper, field);
-			for (const named of controls) named.setCustomValidity('');
-			if (controls[0]) clearFieldError(controls[0]);
+			const controls = wrapper && controlsOfWrapper(wrapper);
+			if (!controls) return;
+			clearFieldActionValidity(controls);
+			const anchor = anchorOf(controls);
+			if (anchor?.validity.valid) clearFieldError(anchor);
 		};
 
 		// The browser's reset restores the values but not a customValidity, nor what was drawn: every
 		// verdict goes, the fields' own errors included (useCustomFormValidation clears them too, on the
-		// same event — this hook does not rely on it).
+		// same event — this hook does not rely on it). A check still in flight is superseded, not
+		// forgotten: its answer must not land on the value typed after the reset.
 		const onReset = () => {
-			sequencesRef.current.clear();
-			for (const wrapper of Array.from(form.querySelectorAll<HTMLElement>(`[${FIELD_ACTION_MARKER}]`))) {
+			sequencesRef.current.forEach((sequence, field) => sequencesRef.current.set(field, sequence + 1));
+			for (const wrapper of wrappersOf(form)) {
 				setPending(wrapper, false);
-				const field = wrapper.dataset.fmdbNodeName;
-				const controls = field ? namedControlsIn(wrapper, field) : [];
-				for (const control of controls) control.setCustomValidity('');
-				if (controls[0]) clearFieldError(controls[0]);
+				const controls = controlsOfWrapper(wrapper);
+				if (!controls) continue;
+				clearFieldActionValidity(controls);
+				const anchor = anchorOf(controls);
+				if (anchor) clearFieldError(anchor);
 			}
 			clearAllFieldWarnings(form);
 		};
 
 		form.addEventListener('focusout', onLeave);
 		form.addEventListener('change', onLeave);
-		form.addEventListener('input', onInput, true);
+		form.addEventListener('input', onInput);
 		form.addEventListener('reset', onReset);
 
 		return () => {
 			form.removeEventListener('focusout', onLeave);
 			form.removeEventListener('change', onLeave);
-			form.removeEventListener('input', onInput, true);
+			form.removeEventListener('input', onInput);
 			form.removeEventListener('reset', onReset);
 		};
 	}, [formRef, enabled, fieldActionUrl]);
 
 	const settleFieldActions = async (form: HTMLFormElement): Promise<boolean> => {
 		if (!enabled || !fieldActionUrl) return true;
-		const wrappers = Array.from(form.querySelectorAll<HTMLElement>(`[${FIELD_ACTION_MARKER}]`)).filter(isAskable);
+		const wrappers = wrappersOf(form).filter(isAskable);
 		const verdicts = await Promise.all(wrappers.map(wrapper => check(wrapper, 'submit')));
 		const refused = wrappers.find((_, index) => verdicts[index]?.rejected);
 		if (!refused) return true;
-		const field = refused.dataset.fmdbNodeName;
-		const [first] = field ? namedControlsIn(refused, field) : [];
-		first?.focus();
+		const controls = controlsOfWrapper(refused);
+		if (controls) anchorOf(controls)?.focus();
 		return false;
 	};
 

@@ -4,8 +4,12 @@ This module shows how a JavaScript module of your own extends Formidable **witho
 Formidable**: it ships its own definitions, editor overrides and views, depends on
 `formidable-elements` at run time, and builds on
 [`@jahia/formidable-library`](../../packages/formidable/README.md) for the rendering contract, exactly as
-a module of your own does. It is deployed on our test instances; nothing in it is meant for
-production as is, everything in it is meant to be copied.
+a module of your own does. It also ships a field action written in JavaScript
+(`fmdbsample:minimumWordsAction`, a `hidden.execute` view the engine renders, built on the library's
+`readFieldActionRequest` and `fieldActionResult` — see
+[Field actions](../../docs/architecture/field-actions.md)), which is why it depends on `formidable-engine`
+too. It is deployed on our test instances; nothing in it is meant for production as is, everything in it
+is meant to be copied.
 
 ## Copying this module: what to change
 

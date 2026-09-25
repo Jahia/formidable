@@ -1,3 +1,5 @@
+import {createElement} from "react";
+import {renderToStaticMarkup, renderToString} from "react-dom/server";
 import {describe, expect, it} from "vitest";
 import {FIELD_ACTION_REQUEST_ATTRIBUTE, fieldActionResult, readFieldActionRequest} from "./fieldActions.js";
 
@@ -9,6 +11,14 @@ const contextWith = (attribute: unknown) => ({
 		getAttribute: (name: string) => (name === FIELD_ACTION_REQUEST_ATTRIBUTE ? attribute : null)
 	})
 });
+
+/**
+ * What the JavaScript modules engine does with a rendered view before the Java side sees it
+ * (`javascript-modules-engine/src/server/init-react.tsx`): `renderToString`, then the `jsm-raw-html`
+ * tags stripped. The strict reader of the engine then wants exactly one JSON object.
+ */
+const asTheEngineEmitsIt = (element: Parameters<typeof renderToString>[0]) =>
+	renderToString(element).replaceAll(/<\/?jsm-raw-html>/g, "");
 
 describe("readFieldActionRequest", () => {
 	it("reads the request the engine set", () => {
@@ -40,23 +50,24 @@ describe("readFieldActionRequest", () => {
 });
 
 describe("fieldActionResult", () => {
-	it("is exactly one JSON object with a lower-case verdict, nothing around it", () => {
-		for (const text of [fieldActionResult.accept(), fieldActionResult.reject(), fieldActionResult.unavailable()]) {
-			expect(text.trim()).toBe(text);
-			expect(text.startsWith("{") && text.endsWith("}")).toBe(true);
-		}
-		expect(JSON.parse(fieldActionResult.accept())).toEqual({verdict: "accept"});
-		expect(JSON.parse(fieldActionResult.reject())).toEqual({verdict: "reject"});
-		expect(JSON.parse(fieldActionResult.unavailable())).toEqual({verdict: "unavailable"});
+	it("reaches the engine as exactly one JSON object with a lower-case verdict: React escapes nothing of it", () => {
+		expect(asTheEngineEmitsIt(fieldActionResult.accept())).toBe('{"verdict":"accept"}');
+		expect(asTheEngineEmitsIt(fieldActionResult.reject())).toBe('{"verdict":"reject"}');
+		expect(asTheEngineEmitsIt(fieldActionResult.unavailable())).toBe('{"verdict":"unavailable"}');
 	});
 
-	it("carries the detail only when one is given", () => {
-		expect(JSON.parse(fieldActionResult.reject("unknown customer"))).toEqual({verdict: "reject", detail: "unknown customer"});
-		expect(JSON.parse(fieldActionResult.unavailable("provider 503"))).toEqual({verdict: "unavailable", detail: "provider 503"});
-		expect(Object.keys(JSON.parse(fieldActionResult.reject("")))).toEqual(["verdict"]);
+	it("carries the detail only when one is given, quotes and apostrophes intact", () => {
+		expect(JSON.parse(asTheEngineEmitsIt(fieldActionResult.reject("it's \"unknown\""))))
+			.toEqual({verdict: "reject", detail: "it's \"unknown\""});
+		expect(JSON.parse(asTheEngineEmitsIt(fieldActionResult.unavailable("provider 503"))))
+			.toEqual({verdict: "unavailable", detail: "provider 503"});
+		expect(Object.keys(JSON.parse(asTheEngineEmitsIt(fieldActionResult.reject(""))))).toEqual(["verdict"]);
+		expect(Object.keys(JSON.parse(asTheEngineEmitsIt(fieldActionResult.accept())))).toEqual(["verdict"]);
 	});
 
-	it("never carries a detail on an accept: there is nothing to log", () => {
-		expect(Object.keys(JSON.parse(fieldActionResult.accept()))).toEqual(["verdict"]);
+	it("is the raw-html element the engine strips, and a plain string would not have been: React escapes text", () => {
+		expect(renderToStaticMarkup(fieldActionResult.accept())).toBe('<jsm-raw-html>{"verdict":"accept"}</jsm-raw-html>');
+		// the trap the helpers exist for: a view written as a plain string, the way the first draft of the README had it
+		expect(renderToStaticMarkup(createElement(() => '{"verdict":"accept"}'))).toBe("{&quot;verdict&quot;:&quot;accept&quot;}");
 	});
 });

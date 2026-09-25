@@ -165,6 +165,14 @@ export const showFieldError = (
 	anchorMessage(input, errorEl);
 };
 
+/** Whether an error element is drawn under the control — by this client or by the field actions, which use the same id. */
+export const hasFieldError = (input: FormInputElement): boolean =>
+	input.ownerDocument.getElementById(buildErrorId(input)) !== null;
+
+/** Invalid through `setCustomValidity` alone: no constraint of the control's own fails. */
+export const isCustomErrorOnly = (input: FormInputElement): boolean =>
+	input.validity.customError && VALIDITY_FLAGS.every(flag => !input.validity[flag]);
+
 export const clearFieldError = (
 	input: FormInputElement,
 ): void => {

@@ -72,6 +72,16 @@ function SubmittingForm(options: Parameters<typeof useFormSubmission>[0]) {
 	return useFormSubmission(options);
 }
 
+/** The hook mounted on a fresh form with the given fields, its setters by rank, for a test that submits more than once. */
+function hookOn(html: string) {
+	react.setters.length = 0;
+	const hook = SubmittingForm({formId: 'form-under-test', locale: 'en', isMultiStep: false, isLastStep: true, setCurrentStep: () => undefined, labels});
+	document.body.innerHTML = `<form>${html}</form>`;
+	return {handleSubmit: hook.handleSubmit, setters: react.setters.slice()};
+}
+
+const eventOn = (form: HTMLFormElement) => ({preventDefault: () => undefined, currentTarget: form} as unknown as FormEvent<HTMLFormElement>);
+
 /**
  * Submits a form and hands back the hook's state setters. The hook's `useState` calls come in a fixed
  * order — message, message type, loading, captcha, refused control — so the setters are read by rank.
@@ -189,8 +199,9 @@ describe('useFormSubmission: a rejection that names a field', () => {
 		expect(input.validity.customError).toBe(true);
 		// the island focuses it once the form shows again (the spinner hides it): handed over as state, cleared at the start
 		expect(setRefusedControl.mock.calls).toEqual([[null], [input]]);
-		expect(setMessageType).not.toHaveBeenCalled();
-		expect(setMessage).not.toHaveBeenCalled();
+		// the message of an earlier attempt is cleared as the request leaves; nothing is written after the refusal
+		expect(setMessageType.mock.calls).toEqual([[null]]);
+		expect(setMessage.mock.calls).toEqual([[null]]);
 		expect(setIsLoading).toHaveBeenLastCalledWith(false);
 	});
 
@@ -229,6 +240,44 @@ describe('useFormSubmission: a rejection that names a field', () => {
 
 		expect(requests).toHaveLength(0);
 		expect(setIsLoading).not.toHaveBeenCalled();
+	});
+
+	it('forgets the message of a failed attempt when the next one leaves: a refusal reads alone', async () => {
+		const {handleSubmit, setters} = hookOn(EMAIL_FIELD);
+		const [setMessage, setMessageType] = setters;
+		const form = document.querySelector('form')!;
+		const first = handleSubmit(eventOn(form));
+		await settled();
+		requests[0].answer(503, '{}');
+		await first;
+		expect(setMessageType).toHaveBeenLastCalledWith('error');
+
+		const second = handleSubmit(eventOn(form));
+		await settled();
+		expect(requests).toHaveLength(2);
+		requests[1].answer(422, refusal('FMDB-015', 'email', 'no'));
+		await second;
+
+		expect(setMessage).toHaveBeenLastCalledWith(null);
+		expect(setMessageType).toHaveBeenLastCalledWith(null);
+		expect(form.querySelector('.fmdb-validation-error')!.textContent).toBe('no');
+	});
+
+	it('ignores a second click while a submission is in progress, and takes the next one once it is over', async () => {
+		const {handleSubmit} = hookOn(EMAIL_FIELD);
+		const form = document.querySelector('form')!;
+		const first = handleSubmit(eventOn(form));
+		const twin = handleSubmit(eventOn(form));
+		await settled();
+		expect(requests).toHaveLength(1);
+		requests[0].answer(503, '{}');
+		await Promise.all([first, twin]);
+
+		const next = handleSubmit(eventOn(form));
+		await settled();
+		expect(requests).toHaveLength(2);
+		requests[1].answer(503, '{}');
+		await next;
 	});
 
 	it('sends once the asynchronous pre-validation accepts, the spinner shown from then', async () => {

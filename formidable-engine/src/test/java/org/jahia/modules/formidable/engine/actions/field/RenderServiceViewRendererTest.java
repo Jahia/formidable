@@ -46,6 +46,33 @@ class RenderServiceViewRendererTest {
     }
 
     @Test
+    void theRequestAttributeIsSpelledInTheLibraryAsTheEngineSetsIt() throws Exception {
+        // The one literal the engine and the npm library share: the library publishes it, the engine sets it, and
+        // neither can import the other. Read from the repository, so a rename on either side fails here.
+        String library = java.nio.file.Files.readString(java.nio.file.Path.of("..", "packages", "formidable", "src", "fieldActions.ts"));
+
+        org.junit.jupiter.api.Assertions.assertTrue(
+                library.contains("FIELD_ACTION_REQUEST_ATTRIBUTE = \"" + RenderServiceViewRenderer.REQUEST_ATTRIBUTE + "\";"),
+                "the library's FIELD_ACTION_REQUEST_ATTRIBUTE must be " + RenderServiceViewRenderer.REQUEST_ATTRIBUTE);
+    }
+
+    @Test
+    void aBodyReactEscapedIsDecodedBeforeTheStrictReaderSeesIt() {
+        // Verifies the second thing standing between a JavaScript field action and its verdict: the JavaScript
+        // modules engine renders a view with renderToString, which escapes the text a component returns, so a view
+        // answering the JSON as a plain string arrives with its quotes as &quot; — malformed JSON, UNAVAILABLE,
+        // accepted by the CND default. The library's helpers avoid it (raw-html element); this is for the view that
+        // does not use them, and a body without entities loses nothing to it.
+        String escaped = START + "{&quot;verdict&quot;:&quot;reject&quot;,&quot;detail&quot;:&quot;it&#x27;s &amp; unknown&quot;}" + END;
+
+        String body = RenderServiceViewRenderer.body(escaped);
+
+        assertEquals("{\"verdict\":\"reject\",\"detail\":\"it's & unknown\"}", body);
+        assertEquals(FieldActionResultVerdict.REJECT, verdictOf(body));
+        assertEquals("{\"verdict\":\"accept\"}", RenderServiceViewRenderer.body("{\"verdict\":\"accept\"}"));
+    }
+
+    @Test
     void whatRenderReturnsHasGoneThroughTheStripping() throws Exception {
         // Verifies the ROUTING, which the two tests above cannot see: they call body() directly, so dropping it from
         // render() leaves them green while every JavaScript-written field action goes back to answering UNAVAILABLE.

@@ -25,7 +25,7 @@ export interface AuthoringActionsZoneProps {
  * is the meaning and assistive technology gets it too — and the list's own create button, whose module
  * declares the accepted type to jContent. Authoring chrome, deliberately not styled like the form.
  */
-export default function AuthoringActionsZone({className, heading, hint, empty, iconUrl, actionNodes}: AuthoringActionsZoneProps) {
+export default function AuthoringActionsZone({className, heading, hint, empty, iconUrl, actionNodes}: Readonly<AuthoringActionsZoneProps>) {
 	const count = actionNodes.length;
 
 	return (

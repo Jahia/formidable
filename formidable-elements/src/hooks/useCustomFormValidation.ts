@@ -1,5 +1,5 @@
 import {type RefObject, useEffect} from 'react';
-import {resolveValidationMessage, showFieldError, clearFieldError, clearAllFieldErrors} from '~/utils/validationUtils';
+import {clearAllFieldErrors, clearFieldError, hasFieldError, isCustomErrorOnly, resolveValidationMessage, showFieldError} from '~/utils/validationUtils';
 
 type FormInputElement = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 
@@ -69,7 +69,12 @@ export function validateInputs(container: HTMLElement): boolean {
 
 	inputs.forEach(input => {
 		if (!input.validity.valid) {
-			showFieldError(input, resolveValidationMessage(input));
+			// An error another client drew under a control it holds invalid through customValidity alone — a
+			// field action's refusal, the contributor's HTML — stays: redrawing it from validationMessage
+			// would turn it into its plain text at the moment the visitor most needs it.
+			if (!(isCustomErrorOnly(input) && hasFieldError(input))) {
+				showFieldError(input, resolveValidationMessage(input));
+			}
 			if (!firstInvalid) firstInvalid = input;
 			allValid = false;
 		} else {

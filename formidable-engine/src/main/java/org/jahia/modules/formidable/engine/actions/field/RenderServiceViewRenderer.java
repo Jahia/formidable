@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.engine.actions.field;
 
+import org.apache.commons.text.StringEscapeUtils;
 import org.jahia.modules.formidable.engine.api.FieldActionRequest;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionFactory;
@@ -100,9 +101,16 @@ final class RenderServiceViewRenderer implements ViewRenderer {
         return RenderService.getInstance().render(resource, context);
     }
 
-    /** The view's body: what the render chain produced, without the platform's own temp markers. */
+    /**
+     * The view's body: what the render chain produced, without the platform's own temp markers, and with the
+     * entities React writes undone. The JavaScript modules engine renders a view with {@code renderToString}, which
+     * escapes the text a component returns — a view answering the JSON as a plain string reaches this side as
+     * {@code {&quot;verdict&quot;:&quot;accept&quot;}}, unreadable, hence UNAVAILABLE, hence accepted by the CND default.
+     * The library's {@code fieldActionResult} hands the JSON over in the engine's raw-html element, which is not
+     * escaped; the decoding here is for the view that does not use it. A raw body holds no entity, so it loses nothing.
+     */
     static String body(String rendered) {
-        return rendered == null ? null : TEMP_TAG.matcher(rendered).replaceAll("").trim();
+        return rendered == null ? null : StringEscapeUtils.unescapeHtml4(TEMP_TAG.matcher(rendered).replaceAll("")).trim();
     }
 
     static JSONObject payload(FieldActionRequest request) {

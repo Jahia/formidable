@@ -25,7 +25,7 @@ export interface AuthoringActionCardProps {
  * settings to show, and under it, smaller, the type description. Rendered by the `hidden.authoring`
  * views on the two action mixins, so every action type, third-party included, gets the card.
  */
-export default function AuthoringActionCard({typeName, iconUrl, title, detail, description, badges = []}: AuthoringActionCardProps) {
+export default function AuthoringActionCard({typeName, iconUrl, title, detail, description, badges = []}: Readonly<AuthoringActionCardProps>) {
 	return (
 		<div className="fmdb-authoring-action" data-fmdb-action-type={typeName}>
 			{/* Decorative: the title carries the meaning, so the alt is empty. */}

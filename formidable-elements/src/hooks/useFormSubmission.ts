@@ -220,6 +220,10 @@ export function useFormSubmission({
 
 	const send = async (form: HTMLFormElement, spinnerShownAt: number) => {
 		let rejection: Rejection = {messages: []};
+		// A message of an earlier attempt goes as the next one leaves: a refusal anchored under a field
+		// must not read next to a stale "An error occurred" above the form.
+		setMessage(null);
+		setMessageType(null);
 
 		try {
 			// Visibility was last applied on an input event, but the visitor may have

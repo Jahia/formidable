@@ -1,5 +1,8 @@
 // @vitest-environment jsdom
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import '~/utils/testSupport/cssEscape';
+import {showFieldError} from '~/utils/validationUtils';
+import {useCustomFormValidation} from './useCustomFormValidation';
 import {useFieldActions} from './useFieldActions';
 
 /**
@@ -13,8 +16,6 @@ vi.mock('react', () => ({
 		effect();
 	},
 }));
-
-import '~/utils/testSupport/cssEscape';
 
 /** A request the hook sent, answered by the test. */
 class FakeXhr {
@@ -44,12 +45,16 @@ class FakeXhr {
 
 	answer(status: number, body: unknown) {
 		this.status = status;
-		this.responseText = JSON.stringify(body);
+		this.responseText = typeof body === 'string' ? body : JSON.stringify(body);
 		this.onload?.();
 	}
 
 	fail() {
 		this.onerror?.();
+	}
+
+	expire() {
+		this.ontimeout?.();
 	}
 }
 
@@ -66,9 +71,12 @@ const settled = () => new Promise(resolve => setTimeout(resolve, 0));
 const bubbling = (type: string) => new Event(type, {bubbles: true});
 
 /** A form as the server renders it — the wrappers with their markers — with the hook attached. */
-function formWith(html: string, options: {enabled?: boolean; url?: string} = {}) {
+function formWith(html: string, options: {enabled?: boolean; url?: string; withConstraintClient?: boolean} = {}) {
 	document.body.innerHTML = `<form>${html}</form>`;
 	const form = document.querySelector('form')!;
+	if (options.withConstraintClient) {
+		useCustomFormValidation({formRef: {current: form}});
+	}
 	const {settleFieldActions} = useFieldActions({
 		formRef: {current: form},
 		fieldActionUrl: 'url' in options ? options.url : URL,
@@ -81,6 +89,8 @@ const textField = (name: string, trigger = 'blur', extra = '') => `
 	<div data-fmdb-node-name="${name}" data-fmdb-field-action="${trigger}" ${extra}>
 		<div class="fmdb-form-group"><input type="text" name="${name}"/></div>
 	</div>`;
+
+const wrapperOf = (form: HTMLFormElement, name: string) => form.querySelector<HTMLElement>(`[data-fmdb-node-name="${name}"]`)!;
 
 describe('useFieldActions', () => {
 	beforeEach(() => {
@@ -107,7 +117,7 @@ describe('useFieldActions', () => {
 		expect(requests[0].headers['Content-Type']).toBe('application/json');
 		expect(requests[0].withCredentials).toBe(true);
 		expect(requests[0].sent).toEqual({field: 'firstName', value: 'spam', trigger: 'blur'});
-		expect(form.querySelector('[data-fmdb-node-name="firstName"]')!.getAttribute('aria-busy')).toBe('true');
+		expect(wrapperOf(form, 'firstName').getAttribute('aria-busy')).toBe('true');
 	});
 
 	it('leaves a submit-only field alone until the submission, and never asks a field without the marker', () => {
@@ -132,7 +142,7 @@ describe('useFieldActions', () => {
 		expect(input.validity.customError).toBe(true);
 		expect(input.validationMessage).toBe('The word spam is refused');
 		expect(form.querySelector('.fmdb-form-group > .fmdb-validation-error')!.innerHTML).toBe('The word <b>spam</b> is refused');
-		expect(form.querySelector('[data-fmdb-node-name="firstName"]')!.hasAttribute('aria-busy')).toBe(false);
+		expect(wrapperOf(form, 'firstName').hasAttribute('aria-busy')).toBe(false);
 		expect(form.querySelector('.fmdb-field-action-pending')).toBeNull();
 	});
 
@@ -169,10 +179,10 @@ describe('useFieldActions', () => {
 
 		expect(input.validity.valid).toBe(true);
 		expect(form.querySelector('.fmdb-validation-error')).toBeNull();
-		expect(form.querySelector('[data-fmdb-node-name="firstName"]')!.hasAttribute('aria-busy')).toBe(false);
+		expect(wrapperOf(form, 'firstName').hasAttribute('aria-busy')).toBe(false);
 	});
 
-	it('asks nothing about a blank value, and clears what the field showed', async () => {
+	it('asks nothing about a blank value, clears what the field showed, and ends a pending check in flight', async () => {
 		const {form} = formWith(textField('firstName'));
 		const input = form.querySelector('input')!;
 		input.value = 'spam';
@@ -187,6 +197,17 @@ describe('useFieldActions', () => {
 		expect(requests).toHaveLength(1);
 		expect(input.validity.valid).toBe(true);
 		expect(form.querySelector('.fmdb-validation-error')).toBeNull();
+
+		// a check still in flight when the field is emptied: its answer is dropped and it leaves no pending state behind
+		input.value = 'spam';
+		input.dispatchEvent(bubbling('focusout'));
+		input.value = '';
+		input.dispatchEvent(bubbling('focusout'));
+		requests[1].answer(200, reject('firstName', 'no'));
+		await settled();
+
+		expect(wrapperOf(form, 'firstName').getAttribute('aria-busy')).toBeNull();
+		expect(input.validity.valid).toBe(true);
 	});
 
 	it('asks once per checked value of a group, on change, and refuses the field if any is refused', async () => {
@@ -211,6 +232,34 @@ describe('useFieldActions', () => {
 		expect(form.querySelectorAll('.fmdb-validation-error')).toHaveLength(1);
 	});
 
+	it('leaves a required group its own "select at least one": the field actions lift their validity only', async () => {
+		// Checkbox.client sets the group's message on every change and at mount; here by hand.
+		const {form} = formWith(`
+			<div data-fmdb-node-name="topics" data-fmdb-field-action="blur">
+				<div class="fmdb-form-group">
+					<input type="checkbox" name="topics" value="sports"/>
+					<input type="checkbox" name="topics" value="music"/>
+				</div>
+			</div>`);
+		const boxes = Array.from(form.querySelectorAll('input'));
+		boxes.forEach(box => box.setCustomValidity('Select at least one'));
+
+		// checked then unchecked: a check runs on the first change, none on the second (no value)
+		boxes[0].checked = true;
+		boxes[0].dispatchEvent(bubbling('change'));
+		requests[0].answer(200, accept);
+		await settled();
+		boxes[0].checked = false;
+		boxes.forEach(box => box.setCustomValidity('Select at least one'));
+		boxes[0].dispatchEvent(bubbling('change'));
+		await settled();
+
+		expect(boxes.every(box => box.validationMessage === 'Select at least one')).toBe(true);
+
+		form.dispatchEvent(new Event('reset'));
+		expect(boxes.every(box => box.validationMessage === 'Select at least one')).toBe(true);
+	});
+
 	it('settles before the submission: every field asked with the submit trigger, false and the focus on a refusal', async () => {
 		const {form, settleFieldActions} = formWith(`${textField('firstName')}${textField('email', 'submit')}`);
 		const [firstName, email] = Array.from(form.querySelectorAll('input'));
@@ -230,6 +279,22 @@ describe('useFieldActions', () => {
 		expect(email.validity.customError).toBe(true);
 	});
 
+	it('refuses a multi-valued field at the settle when one of its values is refused, the others accepted', async () => {
+		const {form, settleFieldActions} = formWith(`
+			<div data-fmdb-node-name="topics" data-fmdb-field-action="submit">
+				<div class="fmdb-form-group">
+					<input type="checkbox" name="topics" value="sports" checked/>
+					<input type="checkbox" name="topics" value="spam" checked/>
+				</div>
+			</div>`);
+
+		const outcome = settleFieldActions(form);
+		requests[0].answer(200, accept);
+		requests[1].answer(200, reject('topics', 'not spam'));
+
+		expect(await outcome).toBe(false);
+	});
+
 	it('settles true with a warning shown, and true when a check could not be asked: the pipeline judges', async () => {
 		const {form, settleFieldActions} = formWith(`${textField('firstName')}${textField('email')}`);
 		const [firstName, email] = Array.from(form.querySelectorAll('input'));
@@ -247,6 +312,23 @@ describe('useFieldActions', () => {
 		expect(console.warn).toHaveBeenCalledTimes(1);
 	});
 
+	it('reads a timeout, a body that is not an answer and an unknown verdict as unanswered: nothing blocked', async () => {
+		const {form, settleFieldActions} = formWith(`${textField('a')}${textField('b')}${textField('c')}`);
+		form.querySelectorAll('input').forEach(input => {
+			input.value = 'x';
+		});
+
+		const outcome = settleFieldActions(form);
+		requests[0].expire();
+		requests[1].answer(200, '<html>proxy error</html>');
+		requests[2].answer(200, {verdict: 'maybe', messages: [{level: 'error', html: 'no', field: 'c'}]});
+
+		expect(await outcome).toBe(true);
+		expect(form.querySelector('.fmdb-validation-error')).toBeNull();
+		expect(Array.from(form.querySelectorAll('input')).every(input => input.validity.valid)).toBe(true);
+		expect(form.querySelector('[aria-busy]')).toBeNull();
+	});
+
 	it('shows nothing and blocks nothing on an error status or a network failure at blur', async () => {
 		const {form} = formWith(textField('firstName'));
 		const input = form.querySelector('input')!;
@@ -260,7 +342,7 @@ describe('useFieldActions', () => {
 
 		expect(input.validity.valid).toBe(true);
 		expect(form.querySelector('.fmdb-validation-error')).toBeNull();
-		expect(form.querySelector('[data-fmdb-node-name="firstName"]')!.hasAttribute('aria-busy')).toBe(false);
+		expect(wrapperOf(form, 'firstName').hasAttribute('aria-busy')).toBe(false);
 	});
 
 	it('does nothing while disabled — edit mode — and settles true without a request', async () => {
@@ -284,7 +366,7 @@ describe('useFieldActions', () => {
 	});
 
 	it('lifts a refusal as the visitor types, so the browser lets the corrected value through; a warning stays', async () => {
-		const {form} = formWith(textField('firstName'));
+		const {form} = formWith(textField('firstName'), {withConstraintClient: true});
 		const input = form.querySelector('input')!;
 		input.value = 'spam';
 		input.dispatchEvent(bubbling('focusout'));
@@ -300,6 +382,41 @@ describe('useFieldActions', () => {
 		expect(input.validity.valid).toBe(true);
 		expect(form.querySelector('.fmdb-validation-error')).toBeNull();
 		expect(form.querySelector('.fmdb-validation-warning')!.textContent).toBe('careful');
+	});
+
+	it('keeps a constraint error while typing: only its own validity is lifted', () => {
+		const {form} = formWith(`
+			<div data-fmdb-node-name="email" data-fmdb-field-action="blur">
+				<div class="fmdb-form-group"><input type="email" name="email" value="not-an-email"/></div>
+			</div>`);
+		const input = form.querySelector('input')!;
+		showFieldError(input, 'Not an email');
+
+		input.dispatchEvent(bubbling('input'));
+
+		expect(input.validity.typeMismatch).toBe(true);
+		expect(form.querySelector('.fmdb-validation-error')!.textContent).toBe('Not an email');
+	});
+
+	it('marks and focuses the slider of a range field, whose named control is a hidden mirror', async () => {
+		const {form, settleFieldActions} = formWith(`
+			<div data-fmdb-node-name="budget" data-fmdb-field-action="blur">
+				<div class="fmdb-form-group">
+					<input type="range" id="budget-slider" min="0" max="100" value="90"/>
+					<input type="hidden" name="budget" value="90"/>
+				</div>
+			</div>`);
+		const slider = form.querySelector<HTMLInputElement>('#budget-slider')!;
+
+		const outcome = settleFieldActions(form);
+		expect((requests[0].sent as {value: string}).value).toBe('90');
+		requests[0].answer(200, reject('budget', 'Too much'));
+
+		expect(await outcome).toBe(false);
+		expect(document.activeElement).toBe(slider);
+		expect(slider.getAttribute('aria-invalid')).toBe('true');
+		expect(slider.validity.customError).toBe(true);
+		expect(form.querySelector('.fmdb-validation-error')!.textContent).toBe('Too much');
 	});
 
 	it('clears the verdicts on reset: the browser restores the values but not a customValidity', async () => {
@@ -318,5 +435,24 @@ describe('useFieldActions', () => {
 		expect(input.validity.valid).toBe(true);
 		expect(form.querySelector('.fmdb-validation-warning')).toBeNull();
 		expect(input.hasAttribute('aria-describedby')).toBe(false);
+	});
+
+	it('drops the answer of a check started before a reset: a slow refusal never lands on the value typed after it', async () => {
+		const {form} = formWith(textField('firstName'));
+		const input = form.querySelector('input')!;
+		input.value = 'spam';
+		input.dispatchEvent(bubbling('focusout'));
+
+		form.dispatchEvent(new Event('reset'));
+		input.value = 'Ada';
+		input.dispatchEvent(bubbling('focusout'));
+		requests[1].answer(200, accept);
+		await settled();
+		requests[0].answer(200, reject('firstName', 'no'));
+		await settled();
+
+		expect(input.value).toBe('Ada');
+		expect(input.validity.valid).toBe(true);
+		expect(form.querySelector('.fmdb-validation-error')).toBeNull();
 	});
 });

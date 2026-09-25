@@ -52,7 +52,8 @@ form.fmdb-form [data-fmdb-edit-mode="true"]             the form; a div [data-fm
 │  │  ├─ h2.fmdb-step-title
 │  │  ├─ div.fmdb-step-intro
 │  │  └─ div.fmdb-form-element [data-fmdb-node-name] [data-fmdb-node-id] [data-fmdb-node-type]
-│  │     │                                              one per element; .fmdb-logic-target when a rule drives it
+│  │     │                                              one per element; .fmdb-logic-target when a rule drives it;
+│  │     │                                              [data-fmdb-field-action] and .fmdb-field-action-pending while a check runs, for a field with actions
 │  │     ├─ div.fmdb-content.fmdb-content-text          a rich-text block among the fields
 │  │     ├─ fieldset.fmdb-fieldset
 │  │     │  ├─ legend.fmdb-fieldset-legend
@@ -68,7 +69,9 @@ form.fmdb-form [data-fmdb-edit-mode="true"]             the form; a div [data-fm
 │  │        │  ┆ div.fmdb-range-row › input.fmdb-form-control.fmdb-range + output.fmdb-range-output   (range)
 │  │        │  ┆ the extended inputs: their own fmdbext-* structure inside the group
 │  │        ├─ div.fmdb-form-help
-│  │        └─ div.fmdb-validation-error                injected by the client under an invalid control
+│  │        ├─ div.fmdb-validation-error                injected by the client under an invalid control
+│  │        └─ div.fmdb-validation-warning              injected by the client under a field a field action warns about
+│  │     └─ aside.fmdb-authoring-actions.fmdb-authoring-field-actions   edit mode only: the field actions zone, inside the field's wrapper
 │  └─ div [data-fmdb-node-*] …                          an element placed directly in the form: same wrapper, no fmdb-form-element
 ├─ div.fmdb-form-group.fmdb-captcha                     a protected form, on its last step
 └─ div.fmdb-form-actions

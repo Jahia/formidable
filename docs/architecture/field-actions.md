@@ -1,7 +1,3 @@
-| 2026-09-22 | **The marker and the zone live on the element wrapper**, not in the field views and not in a library helper (HDU, PR 2 handoff) | `LogicAwareRender` already wraps every element of every container with the node name, id, type and the logic state; adding `data-fmdb-field-action` and the zone there touches one file, no field view, and covers a field from any module without it calling anything — fields only ever render inside a Formidable container. The draft's `fieldActionAttributes(currentNode)` library export is dropped: a helper every view would have had to remember to spread |
-| 2026-09-22 | **The warning hook is `fmdb-validation-warning`**, not the `fmdb-form-warning` of issue #341 (HDU) | The twin of `fmdb-validation-error`: the pair sits in one row of the styling documentation, and a stylesheet that finds one finds the other |
-| 2026-09-22 | **A refusal at submission (`FMDB-015`) shows the contributor's message under the field and nothing else** (HDU) | A field action's refusal is a validation failure, so it reads like one: the message anchored on the field, the focus moved, the form kept with what the visitor typed — no global error box, no error code on screen. Every other rejection keeps today's global message; `FMDB-017` keeps it under the anchored message, since its cause is not one value to correct |
-| 2026-09-25 | **No spinner while the field actions settle before the submission**; a second click meanwhile is ignored | The spinner hides the form (the accepted submission replaces it), and the messages the settle may produce land on that very form: a refused value would have flashed the form away and back. The pending state on the fields checked is the feedback, and a guard in the submission hook keeps a second click from starting a second settle |
 # Field actions
 
 > Decided with the developer on 2026-09-21 (issue #341), from the draft of 2026-09-11. The engine half is
@@ -254,13 +250,12 @@ jahiaComponent(
   { componentType: "view", nodeType: "myco:crmLookupAction", name: "hidden.execute",
     properties: { "cache.expiration": "0" } },                              // never cached: a verdict is about one value
   ({ providerId }, { renderContext }) => {
-    const raw = renderContext.getRequest().getAttribute("formidable.fieldAction");   // null on a direct URL hit: the view is not an endpoint
-    if (!raw) return null;
-    const request = JSON.parse(raw) as { formId: string; fieldName: string; value: string; locale: string };
+    const request = readFieldActionRequest(renderContext);   // null on a direct URL hit: the view is not an endpoint
+    if (!request) return null;
     const gateway = server.osgi.getService("org.jahia.modules.formidable.engine.api.FieldActionGateway");
     const response = gateway.post(providerId, "customers/lookup", JSON.stringify({ number: request.value }));
-    if (response.status() !== 200) return `{"verdict":"unavailable","detail":"provider ${response.status()}"}`;
-    return JSON.parse(response.body()).known ? `{"verdict":"accept"}` : `{"verdict":"reject","detail":"unknown"}`;
+    if (response.status() !== 200) return fieldActionResult.unavailable(`provider ${response.status()}`);
+    return JSON.parse(response.body()).known ? fieldActionResult.accept() : fieldActionResult.reject("unknown");
   },
 );
 ```
@@ -288,9 +283,17 @@ jahiaComponent(
   the node would answer every visitor with the first one's result.
 - **Side effects**: none. The engine renders the view in the visitor's request, the node read in `live`.
 
-`@jahia/formidable-library` will carry `readFieldActionRequest(renderContext)` and `fieldActionResult`
-helpers for this contract (roadmap, step 2); the raw attribute and the JSON string above are the contract
-itself.
+`@jahia/formidable-library` carries `readFieldActionRequest(renderContext)` and `fieldActionResult` for this
+contract; the raw attribute and the JSON object above are the contract itself. **The output has to reach the
+engine unescaped.** The JavaScript modules engine renders a view with `renderToString`, which escapes the
+text a component returns: a view answering the JSON as a plain string arrives as
+`{&quot;verdict&quot;:&quot;accept&quot;}` — malformed, hence `UNAVAILABLE`, hence accepted by the CND
+default, silently. `fieldActionResult` therefore hands the JSON over in the engine's `jsm-raw-html` element,
+which `renderToString` does not escape and whose tags the engine strips; and the engine's reader decodes the
+entities of a body all the same (`StringEscapeUtils.unescapeHtml4` in `RenderServiceViewRenderer.body`), so a
+view written without the helpers is read too. The samples module ships one such view,
+`fmdbsample:minimumWordsAction` (formidable-test-module-samples-tsx), which spec 73 drives through the
+endpoint and the pipeline — the only thing exercising this render chain end to end.
 
 ### The dispatcher
 
@@ -386,15 +389,14 @@ again. It never stores an `UNAVAILABLE` — which is exactly what a provider bei
 nothing at all when `fieldActionVerdictCacheTtlSeconds` is zero. Counting one thing and running another is
 what let a body repeating a single value under the request size limit run hundreds of thousands of serial
 outbound calls. Past `fieldActionMaxValuesPerField` the submission is refused with `FMDB-017`, and the response
-carries a `messages` entry naming the field. **Nothing reads it yet**: the browser side is stage 2 of the
-roadmap, and until it ships the visitor sees the form's own error message with the code. The entry is what
-will let the page point at the field.
+carries a `messages` entry naming the field, which the page anchors under it, beneath the form's own error
+message with the code ("The browser", below).
 The check runs over **the whole submission before any action runs**: were it inside the loop, the provider of
 whichever field the metadata happened to yield first would already have been called, and billed, for another
 field to cancel the submission a moment later. The first refusal is
 `SubmissionException(FMDB_015, 422)` carrying the messages, which the servlet writes in a `messages`
-array next to `errorCode`, which the browser will anchor on the field exactly as it will the pre-check's
-(stage 2; today the response carries the entry and no client reads it).
+array next to `errorCode`, which the browser anchors on the field exactly as it anchors the pre-check's
+("The browser", below).
 `messages` joins the servlet's reserved keys: an enricher cannot take it. Warning actions do not run here:
 they warned.
 
@@ -473,7 +475,8 @@ ran field by field; the settle runs once, before the final submission. **Hydrati
 attach on mount; a field left before that is simply not pre-checked, and the pipeline judges it.
 
 **The zone** under the field while authoring is rendered by the same wrapper as soon as the switch is on,
-inside the field's Page Builder box, by two views replicating the form-actions zone.
+inside the field's Page Builder box, by two views on the same chrome as the form-actions zone
+(`design/AuthoringActionsZone`, `design/AuthoringActionCard`).
 `FieldActionList/hidden.authoring` draws the header (the list's icon and count), the ordered cards, the
 call-out of a list still empty, and the create button — the list's module declares `fmdbmix:fieldAction`
 to jContent, so one button, then the chooser listing every deployed field-action type.
@@ -580,13 +583,20 @@ call per blocking action and non-blank value never pre-checked.
 | 2026-09-22 | **The walk of the form is cached per form and locale for sixty seconds**, not keyed off the form's `jcr:lastModified` (review of #344) | A change to an action or a field touches that node's `jcr:lastModified`, not the form root's: the core `LastModifiedListener` writes the first node up the hierarchy that carries `mix:lastModified`, which a `jnt:content` action node is itself (jahia-impl 8.2.4 sources, `updateLastModifiedProperties`), so the root's date would serve stale actions after a republish. A short TTL is exact within the minute and needs no invalidation; the pipeline walks fresh every time |
 | 2026-09-25 | **The switch stays a dynamic-fieldset switch at the end of the `content` section** (HDU) — no `enabled` boolean, no FIELD ACTIONS section | The alternative, the `fmdbmix:jExperienceSensitiveField` shape (a `jmix:templateMixin` with an `enabled` boolean, always shown, placeable in a section of its own) would have changed what "off" means — the list kept, the checks paused — and needed a listener to create the list lazily. "On, the list exists; off, the list is deleted" is simpler and is what the label says |
 | 2026-09-25 | **`fmdbmix:fieldActions` extends a new positive marker, `fmdbmix:submittableField`**, not `fmdbmix:formElement` (HDU: « pourquoi fieldset porte le switch ? ») | `fmdbmix:formElement` reaches the fieldset (title + logic) and the button (through `fmdbmix:element`), both non-submittable: a switch whose actions never run. The engine had only the negative marker, and `extends` cannot say "formElement minus nonSubmittable". The positive marker is the `profileMappableField` pattern — the same sixteen field types declare it, a third-party field opts in from its own CND — and the pipeline keeps its `!nonSubmittable` test so no existing field type stops being submitted. A supertype added to a type is seen by existing nodes without a migration |
+| 2026-09-22 | **The marker and the zone live on the element wrapper**, not in the field views and not in a library helper (HDU, PR 2 handoff) | `LogicAwareRender` already wraps every element of every container with the node name, id, type and the logic state; adding `data-fmdb-field-action` and the zone there touches one file, no field view, and covers a field from any module without it calling anything — fields only ever render inside a Formidable container. The draft's `fieldActionAttributes(currentNode)` library export is dropped: a helper every view would have had to remember to spread |
+| 2026-09-22 | **The warning hook is `fmdb-validation-warning`**, not the `fmdb-form-warning` of issue #341 (HDU) | The twin of `fmdb-validation-error`: the pair sits in one row of the styling documentation, and a stylesheet that finds one finds the other |
+| 2026-09-22 | **A refusal at submission (`FMDB-015`) shows the contributor's message under the field and nothing else** (HDU) | A field action's refusal is a validation failure, so it reads like one: the message anchored on the field, the focus moved, the form kept with what the visitor typed — no global error box, no error code on screen. Every other rejection keeps today's global message; `FMDB-017` keeps it under the anchored message, since its cause is not one value to correct |
+| 2026-09-25 | **No spinner while the field actions settle before the submission**; a second click meanwhile is ignored | The spinner hides the form (the accepted submission replaces it), and the messages the settle may produce land on that very form: a refused value would have flashed the form away and back. The pending state on the fields checked is the feedback, and a guard in the submission hook keeps a second click from starting a second settle |
+| 2026-09-25 | **The pre-check leaves alone a field conditional logic holds hidden** (`isAskable`) | The pipeline skips hidden fields, so asking about one would spend a provider call on a value that is never judged, and show a message under a field the visitor cannot see. Was an open question of the engine PR |
+| 2026-09-25 | **The library helpers hand the verdict over in the engine's raw-html element, and the engine decodes entities anyway** (review of #346) | `renderToString` escapes the text a component returns: every JavaScript field action answered as a plain string reached the reader as `&quot;`-quoted JSON, UNAVAILABLE, accepted by the CND default — and nothing had run that chain end to end. The element is what the engine emits verbatim; the decoding keeps a view written without the helpers readable; the samples' JavaScript action and spec 73 hold both |
+| 2026-09-25 | **The field actions lift only the validity they set** (review of #346) | `setCustomValidity("")` over a validity another client set — a required checkbox group's "select at least one" — let an empty group through the browser. What the hook wrote is remembered per control and cleared only while it is still there; the constraint client's own errors are cleared only once the control is valid, as it does itself |
+| 2026-09-25 | **A field's anchor control is the one the visitor sees; the named ones carry the value** (review of #346) | A range field's named control is a hidden mirror of the slider: the focus, the ARIA and the message go to the slider, the validity to both. For every other field the two coincide |
+| 2026-09-25 | **A refusal at submission is focused by the island once the loading state has cleared, and the message of an earlier attempt goes as the next one leaves** (review of #346) | The spinner hides the form while the request runs, so a call made from the request code focused a hidden control; and a stale "An error occurred" stayed above an anchored refusal, which the page promised to show alone |
 
 ## Open questions
 
 - Credentials as `${env:…}` references in `.cfg`: depends on the platform's configuration interpolation
   being enabled; to be verified, otherwise the file holds the literal.
-- Whether the pre-check should also run for a field hidden by conditional logic at the moment of the call
-  (today: yes, the browser decides what it asks about; the pipeline skips hidden fields).
 - A `warn` refusal from a `submit`-triggered action: shown once and the submission proceeds, or a confirm
   step? v1: shown, proceeds.
 - **A rule about the whole set of a multi-valued field has no home**: "at most three topics", "these two
@@ -613,11 +623,11 @@ call per blocking action and non-blank value never pre-checked.
    anchored), the `FieldActionList` and `FieldAction` `hidden.authoring` views, the styling hooks
    `fmdb-validation-warning` and `fmdb-field-action-pending` in `docs/styling/`, the Cypress specs 72 and 73,
    a field action in the playground. **Shipped 2026-09-25** (the browser pull request).
-4. **Samples and the JavaScript path** — a sample action written as a `hidden.execute` view, which is the only
-   thing that will exercise the render chain end to end (the wrapping the strict reader trips on was found by
-   reading the platform, not by running it); a Cypress spec on the sample actions against the endpoint and the
-   pipeline; the extension how-to case "Adding a field action type"; the `.cfg` keys in `docs/administration/`.
-   The two Java samples — blocked words and the email domain check — **shipped**.
+4. **Samples and the JavaScript path** — the two Java samples, blocked words and the email domain check, **shipped**
+   with the engine; the JavaScript one, `fmdbsample:minimumWordsAction` (a `hidden.execute` view on the library's
+   helpers, in formidable-test-module-samples-tsx), **shipped 2026-09-25** with the browser pull request, driven by
+   spec 73 through the endpoint and the pipeline — it found the escaping the strict reader tripped on. Left: the
+   extension how-to case "Adding a field action type" and the `.cfg` keys in `docs/administration/`.
 
 ## Sources
 
