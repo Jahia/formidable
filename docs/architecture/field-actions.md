@@ -135,7 +135,12 @@ logic rules, the button through `fmdbmix:element` — both `fmdbmix:nonSubmittab
 whose actions could never run, since the pipeline judges `formElement && !nonSubmittable` and `extends`
 cannot name a subtraction. The pipeline keeps its own test: a field type that has not adopted the marker is
 still submitted, it only lacks the switch. A file field is left out on purpose — what it submits is a file,
-not a value a check judges — so the switch never invites an action that would never run.
+not a value a check judges — so the switch never invites an action that would never run. Two things hold the
+split: `scripts/check-field-markers.mjs`, run by CI, refuses a type extending `fmdbmix:element` or
+`fmdbmix:formElement` that declares none or several of `submittableField`, `nonSubmittable`, `fileField` —
+so the next built-in field type cannot forget its marker in silence; and the Cypress spec 223 reads the
+editor form of a text, a rating, a file, a button, a fieldset and a step, and finds the switch on the first
+two only, wherever they sit.
 
 **Why the mixin does not take `jmix:dynamicFieldset`**, although the fieldset is dynamic. That supertype
 extends `jmix:templateMixin`, and the Content Editor gives no enable switch to a `jmix:templateMixin`:

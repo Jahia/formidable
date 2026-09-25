@@ -68,6 +68,10 @@ jobs:
       # main source copies a name, and no source imports a holder statically (docs/architecture/cnd-module-ownership.md).
       - name: Check the node type names
         run: node scripts/check-nodetype-names.mjs
+      # A field type declares exactly one of the three markers saying what it submits — a value, nothing, a file —
+      # or it silently lacks what attaches to the first one, the field-actions switch to begin with (#345).
+      - name: Check the field markers
+        run: node scripts/check-field-markers.mjs
 
   build:
     name: Build Module
