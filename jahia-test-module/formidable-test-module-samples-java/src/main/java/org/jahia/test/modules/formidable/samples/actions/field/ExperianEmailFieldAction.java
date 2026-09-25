@@ -54,7 +54,7 @@ public class ExperianEmailFieldAction implements FieldAction {
     public static final String NODE_TYPE = "fmdbsample:experianEmailAction";
     static final String PROVIDER_ID = "providerId";
     /** The v2 validation operation, under the provider's base URL {@code https://api.experianaperture.io}. */
-    static final String VALIDATE_PATH = "email/validate/v2";
+    static final String VALIDATE_OPERATION = "email/validate/v2";
     /** The one confidence that says the mailbox exists. */
     static final String VERIFIED = "verified";
     /** The confidences Experian documents as "reject". */
@@ -63,7 +63,7 @@ public class ExperianEmailFieldAction implements FieldAction {
     private static final Logger log = LoggerFactory.getLogger(ExperianEmailFieldAction.class);
 
     @Reference
-    private transient FieldActionGateway gateway;
+    private FieldActionGateway gateway;
 
     public ExperianEmailFieldAction() {
     }
@@ -96,7 +96,7 @@ public class ExperianEmailFieldAction implements FieldAction {
         }
         FieldActionGateway.Response response;
         try {
-            response = gateway.post(providerId, VALIDATE_PATH, new JSONObject().put("email", request.value().trim()).toString());
+            response = gateway.post(providerId, VALIDATE_OPERATION, new JSONObject().put("email", request.value().trim()).toString());
         } catch (IOException | IllegalArgumentException e) {
             // Unreachable, timed out, or a provider id the configuration no longer declares: not a verdict.
             log.info("Formidable could not ask the email provider '{}' about field '{}': {}", providerId, request.fieldName(), e.getMessage());

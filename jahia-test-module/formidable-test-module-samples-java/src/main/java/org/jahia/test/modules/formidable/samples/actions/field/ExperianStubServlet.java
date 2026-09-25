@@ -4,6 +4,8 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.osgi.service.component.annotations.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.servlet.Servlet;
 import javax.servlet.http.HttpServlet;
@@ -41,13 +43,14 @@ import java.util.Map;
 public class ExperianStubServlet extends HttpServlet {
 
     private static final long serialVersionUID = 1L;
+    private static final Logger log = LoggerFactory.getLogger(ExperianStubServlet.class);
 
     public static final String ALIAS = "/formidable-samples/experian-stub";
     /** The token the stub accepts: the credential of the provider line that points at it. */
     public static final String TOKEN = "stub-token";
     static final String TOKEN_HEADER = "Auth-Token";
     /** The operation, as the sample action appends it to the base URL. */
-    static final String VALIDATE_PATH = "/email/validate/v2";
+    static final String VALIDATE_OPERATION = "/email/validate/v2";
     static final int MAX_BODY_CHARS = 4096;
     private static final int REQUEST_TIMEOUT = 408;
     /** The confidence each domain of the {@code .test} zone answers; any other domain is verified. */
@@ -60,8 +63,27 @@ public class ExperianStubServlet extends HttpServlet {
             "acceptall.test", "acceptAll");
 
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        if (!VALIDATE_PATH.equals(operationOf(req))) {
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) {
+        try {
+            validate(req, resp);
+        } catch (IOException e) {
+            // A servlet lets no exception out: the caller reads a broken answer, the log says why.
+            log.warn("[ExperianStubServlet] Could not read the request or write the answer: {}", e.getMessage());
+        }
+    }
+
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) {
+        try {
+            resp.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        } catch (IOException e) {
+            log.warn("[ExperianStubServlet] Could not write the answer: {}", e.getMessage());
+        }
+    }
+
+    /** The provider's one operation, answered as its documentation says. */
+    private void validate(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        if (!VALIDATE_OPERATION.equals(operationOf(req))) {
             answer(resp, HttpServletResponse.SC_NOT_FOUND, error("No such operation"));
             return;
         }
@@ -80,11 +102,6 @@ public class ExperianStubServlet extends HttpServlet {
             return;
         }
         answer(resp, HttpServletResponse.SC_OK, result(email, confidenceFor(domain)));
-    }
-
-    @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        resp.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
     }
 
     /** The path under the alias: the servlet's path info, or the request URI past the alias when the container gives none. */
