@@ -3,4 +3,4 @@
 formidable: minor
 ---
 
-Added an example field action that verifies an email address with Experian, and a local stand-in to try it (#347)
+Added two example field actions verifying an email address with Experian or ZeroBounce, on shared engine pieces (#347)
