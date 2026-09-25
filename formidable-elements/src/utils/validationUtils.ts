@@ -34,11 +34,13 @@ const FLAG_TO_DATA_ATTR: Record<ValidityFlag, string> = {
 };
 
 const ERROR_CLASS = 'fmdb-validation-error';
+// The twin of the error: a message that advises without blocking (a field action set to warn only).
+const WARNING_CLASS = 'fmdb-validation-warning';
 const INVALID_CLASS = 'fmdb-invalid';
 
-const getGroupedInputs = (
-	input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-): Array<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement> => {
+type FormInputElement = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+
+const getGroupedInputs = (input: FormInputElement): FormInputElement[] => {
 	if (!(input instanceof HTMLInputElement)) return [input];
 	if ((input.type !== 'radio' && input.type !== 'checkbox') || !input.name || !input.form) return [input];
 
@@ -62,19 +64,23 @@ const sanitizeIdPart = (value: string): string => {
 	return sanitized || 'field';
 };
 
-const buildErrorId = (input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): string => {
+/** The id of the message element of one kind under one field: stable, so it can be found again and referenced by aria-describedby. */
+const buildMessageId = (input: FormInputElement, prefix: string): string => {
 	if (input instanceof HTMLInputElement && (input.type === 'radio' || input.type === 'checkbox') && input.name) {
 		const formId = formIdOf(input.form);
 		const formPrefix = formId ? `${sanitizeIdPart(formId)}-` : '';
-		return `fmdb-validation-error-${formPrefix}${sanitizeIdPart(input.type)}-${sanitizeIdPart(input.name)}`;
+		return `${prefix}-${formPrefix}${sanitizeIdPart(input.type)}-${sanitizeIdPart(input.name)}`;
 	}
 
 	const base = input.id || input.name || 'field';
-	return `fmdb-validation-error-${sanitizeIdPart(base)}`;
+	return `${prefix}-${sanitizeIdPart(base)}`;
 };
 
+const buildErrorId = (input: FormInputElement): string => buildMessageId(input, ERROR_CLASS);
+const buildWarningId = (input: FormInputElement): string => buildMessageId(input, WARNING_CLASS);
+
 const updateDescribedBy = (
-	input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
+	input: FormInputElement,
 	errorId: string,
 	add: boolean
 ): void => {
@@ -92,13 +98,23 @@ const updateDescribedBy = (
 	}
 };
 
-const clearFieldAria = (input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): void => {
+const clearFieldAria = (input: FormInputElement): void => {
 	input.removeAttribute('aria-invalid');
 	updateDescribedBy(input, buildErrorId(input), false);
 };
 
+/** Under the field's group when it has one (label + control + help), right after the control otherwise. */
+const anchorMessage = (input: FormInputElement, element: HTMLElement): void => {
+	const formGroup = input.closest('.fmdb-form-group');
+	if (formGroup) {
+		formGroup.appendChild(element);
+	} else {
+		input.insertAdjacentElement('afterend', element);
+	}
+};
+
 export const resolveValidationMessage = (
-	input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
+	input: FormInputElement,
 ): string => {
 	const v = input.validity;
 
@@ -114,9 +130,19 @@ export const resolveValidationMessage = (
 	return input.validationMessage;
 };
 
+export interface ShowFieldErrorOptions {
+	/**
+	 * The message is HTML to render, not text: the contributor's rejection message of a field action,
+	 * interpolated and escaped server-side — trusted as every contributor rich text of the module is.
+	 * A constraint message stays text.
+	 */
+	html?: boolean;
+}
+
 export const showFieldError = (
-	input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
+	input: FormInputElement,
 	message: string,
+	options: ShowFieldErrorOptions = {},
 ): void => {
 	clearFieldError(input);
 	const groupedInputs = getGroupedInputs(input);
@@ -129,19 +155,18 @@ export const showFieldError = (
 	errorEl.id = buildErrorId(input);
 	errorEl.className = ERROR_CLASS;
 	errorEl.setAttribute('role', 'status');
-	errorEl.textContent = message;
+	if (options.html) {
+		errorEl.innerHTML = message;
+	} else {
+		errorEl.textContent = message;
+	}
 	groupedInputs.forEach(groupedInput => updateDescribedBy(groupedInput, errorEl.id, true));
 
-	const formGroup = input.closest('.fmdb-form-group');
-	if (formGroup) {
-		formGroup.appendChild(errorEl);
-	} else {
-		input.insertAdjacentElement('afterend', errorEl);
-	}
+	anchorMessage(input, errorEl);
 };
 
 export const clearFieldError = (
-	input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
+	input: FormInputElement,
 ): void => {
 	const groupedInputs = getGroupedInputs(input);
 	groupedInputs.forEach(groupedInput => {
@@ -153,11 +178,46 @@ export const clearFieldError = (
 	input.ownerDocument.getElementById(errorId)?.remove();
 };
 
+/**
+ * A warning under the field: the message of a field action set to warn only, HTML rendered as the
+ * error's is, anchored where the error would be and read by assistive technology through the
+ * control's aria-describedby — but the control stays valid: no fmdb-invalid, no aria-invalid,
+ * nothing blocks the submission.
+ */
+export const showFieldWarning = (
+	input: FormInputElement,
+	html: string,
+): void => {
+	clearFieldWarning(input);
+	const warningEl = document.createElement('div');
+	warningEl.id = buildWarningId(input);
+	warningEl.className = WARNING_CLASS;
+	warningEl.setAttribute('role', 'status');
+	warningEl.innerHTML = html;
+	getGroupedInputs(input).forEach(groupedInput => updateDescribedBy(groupedInput, warningEl.id, true));
+
+	anchorMessage(input, warningEl);
+};
+
+export const clearFieldWarning = (
+	input: FormInputElement,
+): void => {
+	const warningId = buildWarningId(input);
+	getGroupedInputs(input).forEach(groupedInput => updateDescribedBy(groupedInput, warningId, false));
+	input.ownerDocument.getElementById(warningId)?.remove();
+};
+
 export const clearAllFieldErrors = (form: HTMLFormElement): void => {
 	form.querySelectorAll(`.${ERROR_CLASS}`).forEach(el => el.remove());
 	form.querySelectorAll(`.${INVALID_CLASS}`).forEach(el => {
 		el.classList.remove(INVALID_CLASS);
 	});
-	form.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input, select, textarea')
+	form.querySelectorAll<FormInputElement>('input, select, textarea')
 		.forEach(input => clearFieldAria(input));
+};
+
+export const clearAllFieldWarnings = (form: HTMLFormElement): void => {
+	form.querySelectorAll<FormInputElement>('input, select, textarea')
+		.forEach(input => updateDescribedBy(input, buildWarningId(input), false));
+	form.querySelectorAll(`.${WARNING_CLASS}`).forEach(el => el.remove());
 };

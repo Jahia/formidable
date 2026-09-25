@@ -43,5 +43,19 @@
 		"inOrder": "Exécutées dans cet ordre. Invisibles pour les visiteurs.",
 		"notLive": "Invisible pour les visiteurs.",
 		"empty": "Aucune action : les soumissions ne seront ni enregistrées ni transmises."
+	},
+	"fmdb_fieldActionList": {
+		"heading": "Vérifications de ce champ · {{count}}",
+		"inOrder": "Exécutées dans cet ordre ; le premier refus l'emporte. Invisibles pour les visiteurs.",
+		"notLive": "Invisible pour les visiteurs.",
+		"empty": "Aucune vérification : l'interrupteur est activé mais rien ne vérifie ce champ."
+	},
+	"fmdb_fieldAction": {
+		"trigger_blur": "Quand le visiteur quitte le champ",
+		"trigger_submit": "À l'envoi",
+		"severity_block": "Bloque l'envoi",
+		"severity_warn": "Avertit seulement",
+		"unavailable_accept": "Acceptée si la vérification est impossible",
+		"unavailable_reject": "Refusée si la vérification est impossible"
 	}
 }

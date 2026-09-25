@@ -3,6 +3,7 @@ import {fieldKindFromForm, interpolateMessage} from '~/utils/messageUtils';
 import {applyConditionalLogicVisibility, buildLogicStateHeader} from '~/utils/conditionalLogic';
 import {FORM_LOGIC_STATE_HEADER} from '~/utils/logicProviders';
 import {submitterTimeZone, TIME_ZONE_HEADER} from '~/utils/timeZone';
+import {anchorFieldMessages, type FieldMessage, parseFieldMessages} from '~/utils/fieldActionMessages';
 import {type CaptchaHandle} from '~/components/Form/Captcha.client';
 
 interface SubmissionLabels {
@@ -16,6 +17,10 @@ interface SubmissionLabels {
 // Covers the window where the mode is switched between render and submit: the visitor gets
 // the same maintenance message as the render-time state, not a technical error.
 const MAINTENANCE_ERROR_CODE = 'FMDB-014';
+// A field action refused a value at submission (pipeline step 11b): a validation failure, read
+// under the field like one — the contributor's message anchored there, the focus moved, no global
+// error box, no code on screen. The pre-check is a courtesy; this is the authority saying the same.
+const FIELD_ACTION_REFUSED_CODE = 'FMDB-015';
 /** Dispatched on the form element after a 2xx, before the form is reset. Detail: {formId, response}. */
 export const SUBMITTED_EVENT = 'formidable:submitted';
 
@@ -74,6 +79,14 @@ interface UseFormSubmissionOptions {
 	labels: SubmissionLabels;
 }
 
+/**
+ * What runs before the request is sent, and stops it on false: the constraint validation, then the
+ * field actions asked about their values — the latter asynchronous, hence the promise. Nothing is
+ * shown by the hook meanwhile: the constraint errors and the field messages are drawn under the
+ * fields by the callers, and the form stays as it is until the answer.
+ */
+type PreValidate = () => boolean | Promise<boolean>;
+
 interface UseFormSubmissionReturn {
 	message: string | null;
 	messageType: 'success' | 'error' | 'maintenance' | null;
@@ -81,7 +94,9 @@ interface UseFormSubmissionReturn {
 	isCaptchaValid: boolean;
 	setIsCaptchaValid: (valid: boolean) => void;
 	captchaRef: RefObject<CaptchaHandle | null>;
-	handleSubmit: (event: FormEvent<HTMLFormElement>, preValidate?: () => boolean) => void;
+	/** The control a rejection named, to focus once the form shows again; null until then and after the next submission. */
+	refusedControl: HTMLElement | null;
+	handleSubmit: (event: FormEvent<HTMLFormElement>, preValidate?: PreValidate) => void;
 	showForm: () => void;
 }
 
@@ -101,28 +116,49 @@ export function useFormSubmission({
 	const [messageType, setMessageType] = useState<'success' | 'error' | 'maintenance' | null>(null);
 	const [isLoading, setIsLoading] = useState(false);
 	const [isCaptchaValid, setIsCaptchaValid] = useState(false);
+	// The control a rejection named, for the island to focus once the form is back on screen: the
+	// spinner hides the form (display:none) while the request runs, and a hidden control cannot take
+	// the focus — so the focus is an effect of the loading state clearing, not a call made here.
+	const [refusedControl, setRefusedControl] = useState<HTMLElement | null>(null);
 	const captchaRef = useRef<CaptchaHandle>(null);
+	// A submission in progress, from the pre-validation to the answer: a second click meanwhile is
+	// ignored. The spinner does that once it shows; the field actions settle before it does.
+	const inFlightRef = useRef(false);
 
-	const handleSubmit = async (event: FormEvent<HTMLFormElement>, preValidate?: () => boolean) => {
+	const handleSubmit = async (event: FormEvent<HTMLFormElement>, preValidate?: PreValidate) => {
 		event.preventDefault();
 
 		if (isMultiStep && !isLastStep) return;
+		if (inFlightRef.current) return;
+		inFlightRef.current = true;
 
-		if (preValidate && !preValidate()) return;
-
-		setIsLoading(true);
-		const spinnerShownAt = Date.now();
-
-		if (captcha && !captchaRef.current?.getToken()) {
-			setMessage(labels.captchaRequired);
-			setMessageType('error');
-			setIsLoading(false);
-			return;
-		}
-
+		// Read before anything awaits: React nulls the synthetic event's currentTarget once the handler returns.
 		const form = event.currentTarget;
+
+		try {
+			if (preValidate && !(await preValidate())) return;
+
+			setIsLoading(true);
+			setRefusedControl(null);
+			const spinnerShownAt = Date.now();
+
+			if (captcha && !captchaRef.current?.getToken()) {
+				setMessage(labels.captchaRequired);
+				setMessageType('error');
+				setIsLoading(false);
+				return;
+			}
+
+			await send(form, spinnerShownAt);
+		} finally {
+			inFlightRef.current = false;
+		}
+	};
+
+	const send = async (form: HTMLFormElement, spinnerShownAt: number) => {
 		let serverErrorCode: string | undefined;
 		let serverActionsProgress: {completed: number; total: number} | undefined;
+		let serverMessages: FieldMessage[] = [];
 
 		try {
 			// Visibility was last applied on an input event, but the visitor may have
@@ -177,6 +213,7 @@ export function useFormSubmission({
 					if (typeof body.actionsCompleted === 'number' && typeof body.actionsTotal === 'number') {
 						serverActionsProgress = {completed: body.actionsCompleted, total: body.actionsTotal};
 					}
+					serverMessages = parseFieldMessages(body);
 				} catch { /* ignore non-JSON bodies */ }
 				throw new Error('Submission failed');
 			}
@@ -210,6 +247,19 @@ export function useFormSubmission({
 				setMessageType('maintenance');
 				captchaRef.current?.reset();
 				return;
+			}
+			// A rejection naming fields (a field action's refusal, or too many answers on one field)
+			// is shown where the visitor can act on it: under the field, focused. The refusal of a
+			// field action is then all there is to say — no global box; the other codes keep theirs
+			// under the anchored message. A message that found no field falls through to the box:
+			// a refusal the visitor cannot see is worse than a generic one.
+			const refused = serverMessages.length > 0 ? anchorFieldMessages(form, serverMessages) : null;
+			if (refused) {
+				setRefusedControl(refused);
+				if (serverErrorCode === FIELD_ACTION_REFUSED_CODE) {
+					captchaRef.current?.reset();
+					return;
+				}
 			}
 			const formData = new FormData(form);
 			const interpolatedErrorMessage = interpolateMessage(errorMessage, formData, locale, fieldKindFromForm(form));
@@ -249,6 +299,7 @@ export function useFormSubmission({
 		isCaptchaValid,
 		setIsCaptchaValid,
 		captchaRef,
+		refusedControl,
 		handleSubmit,
 		showForm,
 	};

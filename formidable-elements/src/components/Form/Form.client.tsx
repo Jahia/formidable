@@ -12,6 +12,7 @@ import Captcha from './Captcha.client';
 import {useTranslation} from "react-i18next";
 import {useMultiStep} from '~/hooks/useMultiStep';
 import {useCustomFormValidation, validateInputs} from '~/hooks/useCustomFormValidation';
+import {useFieldActions} from '~/hooks/useFieldActions';
 import {useFormSubmission} from '~/hooks/useFormSubmission';
 
 /**
@@ -44,6 +45,7 @@ export default function Form({
 	errorMessage,
 	maintenanceMessage,
 	submitActionUrl,
+	fieldActionUrl,
 	isSubmitDisabled = false,
 	isEditMode = false,
 	showResetBtn = false,
@@ -115,6 +117,9 @@ export default function Form({
 	} = useMultiStep({formRef, stepIds, disabled: isEditMode});
 
 	useCustomFormValidation({formRef});
+	// The field actions (docs/architecture/field-actions.md): asked as the visitor leaves a field that
+	// carries some, and settled before the submission below. Off while authoring, like the logic.
+	const {settleFieldActions} = useFieldActions({formRef, fieldActionUrl, enabled: !isEditMode && !!fieldActionUrl});
 
 	const {
 		message,
@@ -123,6 +128,7 @@ export default function Form({
 		isCaptchaValid,
 		setIsCaptchaValid,
 		captchaRef,
+		refusedControl,
 		handleSubmit,
 		showForm,
 	} = useFormSubmission({
@@ -142,6 +148,15 @@ export default function Form({
 			maintenanceUnavailable: maintenanceText,
 		},
 	});
+
+	// A refusal at submission (a field action's, FMDB-015) focuses its field once the form is back on
+	// screen: the spinner hid it (display:none) while the request ran, and a hidden control cannot take
+	// the focus — an effect of the loading state clearing, which no call inside the request could time.
+	useEffect(() => {
+		if (!isLoading && refusedControl) {
+			refusedControl.focus();
+		}
+	}, [isLoading, refusedControl]);
 
 	// Another form, after an accepted submission: the island emptied it on the 2xx, so a script that
 	// filled it at page load — the jExperience prefill — is told to do its work again. Only this path
@@ -241,7 +256,13 @@ export default function Form({
 				// Read back from the DOM by the visibility pass: the rules describe the
 				// visitor experience, so they must not run while the form is authored.
 				data-fmdb-edit-mode={isEditMode ? "true" : undefined}
-				onSubmit={e => handleSubmit(e, () => validateInputs(e.currentTarget))}
+				// The form is read before anything awaits: React nulls the synthetic event's currentTarget
+				// once the handler returns. Constraints first, then the field actions — asked only when
+				// every constraint holds, so a refused value is never sent to a provider for nothing.
+				onSubmit={e => {
+					const form = e.currentTarget;
+					handleSubmit(e, async () => validateInputs(form) && await settleFieldActions(form));
+				}}
 			>
 				{intro && (
 					<header className="fmdb-form-intro" dangerouslySetInnerHTML={{__html: introHtml}}/>

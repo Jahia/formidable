@@ -397,6 +397,14 @@ Two more contracts matter for help texts and inline validation errors:
 - custom validation messages are emitted as `data-fmdb-msg-*` attributes on the control
   (see `docs/architecture/custom-validation.md` for the full attribute table).
 
+The field actions (`docs/architecture/field-actions.md`) cost a custom field nothing: the switch is
+offered by the `fmdbmix:submittableField` marker, and the marker the visitor's page reads and the
+authoring zone both live on the element wrapper every container renders around your field — not in
+your view. The one thing the page needs from your markup is the convention above: the controls that
+carry the value are named `currentNode.getName()`; their type does not matter (one request per
+selected option or checked box). A control that is not the field's value (a slider mirrored by a hidden
+input, a search box beside a select) simply carries another name.
+
 Both contracts, and the input-mask behaviour of the text input, are published on npm as
 [`@jahia/formidable-library`](https://www.npmjs.com/package/@jahia/formidable-library) — the
 package the modules of this repository themselves are built on. Depend on it rather than copying

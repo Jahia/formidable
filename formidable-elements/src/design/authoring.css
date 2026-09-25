@@ -205,3 +205,31 @@
 	font-size: 11px;
 	color: var(--fmdb-zone-actions-muted, #626977);
 }
+
+/* Field actions zone (edit mode only): the form's zone one level down, under the field it checks.
+   Rendered by the element wrapper inside the field's own box, so it moves with the field; inset
+   and tighter than the form's zone, so the two read as parent and child. Same chrome, same
+   variables, plus the badges that read an action's settings — when it runs, what a refusal does,
+   what an unanswered check means. */
+.fmdb-authoring-field-actions {
+	margin: var(--fmdb-zone-field-actions-margin, 0.5rem 0 0 1.25rem);
+	padding: var(--fmdb-zone-field-actions-padding, 0.5rem 0.625rem);
+}
+
+.fmdb-authoring-action-badges {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem;
+	margin: 0.125rem 0;
+}
+
+.fmdb-authoring-action-badge {
+	display: inline-block;
+	padding: 0 0.375rem;
+	border-radius: 3px;
+	background: var(--fmdb-zone-actions-badge-bg, #e9ebef);
+	color: var(--fmdb-zone-actions-muted, #626977);
+	font-size: 11px;
+	line-height: 1.5;
+	white-space: nowrap;
+}

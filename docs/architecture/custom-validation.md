@@ -206,10 +206,27 @@ Only non-empty messages are rendered as attributes. Empty strings are converted 
 
 ---
 
+## Field-action messages
+
+A field action ([Field actions](field-actions.md)) is judged server-side, and its verdict reaches the
+visitor through the same elements as a constraint: a refusal is shown by `showFieldError` with the
+contributor's message as HTML (rendered and escaped by the engine, trusted as every contributor rich
+text is) and blocks through the control's `customValidity`, so `validateInputs` and the browser refuse
+the submission until the value changes; a warning goes in `div.fmdb-validation-warning`, the twin of the
+error — same anchoring, same `aria-describedby`, no invalid state. `utils/fieldActionMessages.ts` reads
+the engine's `messages` array and anchors it (`showFieldMessages`, `anchorFieldMessages`), for the
+pre-check answered as the visitor leaves the field (`hooks/useFieldActions.ts`) and for a refused
+submission (`FMDB-015`, anchored by `useFormSubmission` with no global error message). The `input`
+listener of `useFieldActions` runs in the capture phase, before this hook's, and lifts the
+`customValidity` a refusal set — the constraint validation only clears a control once it is valid.
+
+---
+
 ## Styling
 
-The classes (`fmdb-validation-error` on the injected message, `fmdb-invalid` on the control) and
-the `--fmdb-validation-error-*` / `--fmdb-invalid-*` variables are part of the styling contract:
+The classes (`fmdb-validation-error` on the injected message, `fmdb-invalid` on the control,
+`fmdb-validation-warning` on a field action's warning) and the `--fmdb-validation-error-*` /
+`--fmdb-validation-warning-*` / `--fmdb-invalid-*` variables are part of the styling contract:
 see [Class hooks](../styling/class-hooks.md) and [CSS variables](../styling/css-variables.md#validation).
 
 ---
@@ -251,9 +268,11 @@ Current implementation detail:
 
 | File | Role |
 |---|---|
-| `src/utils/validationUtils.ts` | `resolveValidationMessage`, `showFieldError`, `clearFieldError`, `clearAllFieldErrors` |
+| `src/utils/validationUtils.ts` | `resolveValidationMessage`, `showFieldError` (text, or HTML for a field action's message), `clearFieldError`, `clearAllFieldErrors`; `showFieldWarning`, `clearFieldWarning`, `clearAllFieldWarnings` |
 | `packages/formidable/src/validationProps.ts` | `validationDataAttributes` — server-side helper to convert mixin props to data attributes (UI-contract package, published as `@jahia/formidable-library`, #178, #308) |
 | `src/hooks/useCustomFormValidation.ts` | `useCustomFormValidation` hook + `validateInputs` function |
+| `src/hooks/useFieldActions.ts` | The field actions asked as the visitor leaves a field and settled before the submission (see [Field actions](field-actions.md)) |
+| `src/utils/fieldActionMessages.ts` | `parseFieldMessages`, `showFieldMessages`, `anchorFieldMessages` — the engine's `messages` array shown under the fields |
 | `src/design/validation.css` | CSS classes and custom properties |
 | `settings/definitions.cnd` | `fmdbmix:validationMessages`, `fmdbmix:textValidationMessages`, `fmdbmix:rangeValidationMessages` |
 | `settings/jahia-content-editor-forms/forms/fmdbmix_validationMessages.json` | Content Editor form for base mixin |

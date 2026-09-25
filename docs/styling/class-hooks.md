@@ -28,7 +28,9 @@ client, under the same names. Where each one sits in the rendered tree is drawn 
 | `fmdb-range`, `fmdb-range-row`, `fmdb-range-output`, `fmdb-range-end-label` | Range slider structure (variables: `--fmdb-range-gap`, `--fmdb-range-output-min-width`, `--fmdb-range-end-label-size`) |
 | `fmdb-message`, `fmdb-message-content`, `fmdb-message-success`, `fmdb-message-error`, `fmdb-message-maintenance`, `fmdb-message-details`, `fmdb-message-error-details` | Submission feedback; the two `-details` classes sit on the `<small>` under an error, carrying the error code and the actions' progress |
 | `fmdb-file-*` (`-input-container`, `-list`, `-item`, `-info`, `-name`, `-size`, `-remove`, `-selection-note`), `fmdb-selected-files`, `fmdb-selected-files-title` | File field and its selected files: `fmdb-selected-files` wraps the list under its heading, `fmdb-file-info` holds a file's name and size |
-| `fmdb-validation-error`, `fmdb-invalid` | Inline validation (see [Custom validation](../architecture/custom-validation.md)) |
+| `fmdb-validation-error`, `fmdb-invalid` | Inline validation (see [Custom validation](../architecture/custom-validation.md)); a field action's refusal lands in the same element |
+| `fmdb-validation-warning` | The message of a field action set to warn only, under the field: the twin of `fmdb-validation-error` — same place, same `aria-describedby` — with no invalid state (see [Field actions](../architecture/field-actions.md)) |
+| `fmdb-field-action-pending` | The wrapper of a field while a field action is asked about its value, with `aria-busy="true"`; the core fades the controls a little meanwhile |
 | `fmdb-logic-target` | Wrapper of an element driven by conditional logic (see below) |
 | `fmdb-spinner` | The submission overlay |
 | `fmdb-form-fields` | The field list — in edit mode only, where the authoring spacing below pads it |
@@ -44,12 +46,14 @@ core tones the read-only one down and takes the pointer off its select, radio, c
 (variables in [CSS variables](css-variables.md#prefilled-fields)), and hides the other inline, its value
 still submitted.
 
-Four other `data-fmdb-*` attributes are functional markers the client reads, not styling hooks,
+Five other `data-fmdb-*` attributes are functional markers the client reads, not styling hooks,
 and they may change with the feature they serve: `data-fmdb-step` on each step wrapper (the
 class `fmdb-step` is the hook), `data-fmdb-msg-*` on the controls (the contributor's validation
 messages, see [Custom validation](../architecture/custom-validation.md)), `data-fmdb-logics` and
 `data-fmdb-logic-value` (conditional logic, see
-[How to extend views and elements](../extension/how-to-extend-views-and-elements-from-third-party-module.md)).
+[How to extend views and elements](../extension/how-to-extend-views-and-elements-from-third-party-module.md)),
+and `data-fmdb-field-action` on the wrapper of a field with actions (`blur` or `submit`, when the
+page asks the engine about the value — see [Field actions](../architecture/field-actions.md)).
 
 ## Surfaces: live, edit mode, inspection previews
 
@@ -83,7 +87,7 @@ lifts the element's form group on a light grey card with a soft shadow, shrunk t
 content, so contributors spot conditional fields. The card is drawn by variables, and can be
 turned off or replaced: see [CSS variables](css-variables.md#conditional-logic).
 
-## Form actions zone (edit mode)
+## Actions zones (edit mode)
 
 Actions run after the submission and have no place in the visitor's form, so on a page they
 were invisible while authoring. In edit mode the form renders its action list as a zone of its
@@ -118,6 +122,21 @@ Its structure, for the rare rule that must reach inside it — the
 | `fmdb-authoring-action-icon`, `fmdb-authoring-action-body` | The type icon and the text column beside it |
 | `fmdb-authoring-action-line`, `fmdb-authoring-action-title`, `fmdb-authoring-action-detail` | The first line: the action's title (or its type label) and its key parameter |
 | `fmdb-authoring-action-description` | The second line: the type's description |
+
+### The field actions zone
+
+A field carrying actions gets the same zone one level down, under the field, in edit mode only: the
+element wrapper renders the field's action list as `aside.fmdb-authoring-actions.fmdb-authoring-field-actions`
+inside the field's own Page Builder box (so it moves with the field), inset and tighter than the
+form's. Same header, cards, call-out (the switch is on but nothing checks the field yet) and create
+button (the accepted type is `fmdbmix:fieldAction`), and each card adds a line of badges reading the
+action's settings. Nothing of it exists in live, preview or the `cm` view. See
+[Field actions](../architecture/field-actions.md).
+
+| Class | Element |
+|---|---|
+| `fmdb-authoring-field-actions` | The field's zone, next to `fmdb-authoring-actions` on the same `aside` — the hook that tells the two zones apart |
+| `fmdb-authoring-action-badges`, `fmdb-authoring-action-badge` | The badges line of a card and each badge; a badge carries `data-fmdb-setting` with the setting it reads (`trigger`, `severity`, `whenUnavailable`) |
 
 ## Extended inputs
 

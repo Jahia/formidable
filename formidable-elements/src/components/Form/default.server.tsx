@@ -124,6 +124,10 @@ jahiaComponent(
 		const isSubmitDisabled = isEditMode || renderContext.isPreviewMode();
 		// /modules/… is a mapping inside the Jahia webapp: under a context path the bare path 404s
 		const submitActionUrl = `${renderContext.getRequest().getContextPath()}/modules/formidable-engine/form-submit?fid=${currentNode.getIdentifier()}&lang=${currentNode.getLanguage()}`;
+		// The field-action pre-check, same shape: the island asks it about a field carrying actions as the
+		// visitor leaves the field or before the submission (docs/architecture/field-actions.md). The
+		// language is always sent — the engine renders the contributor's message in it.
+		const fieldActionUrl = `${renderContext.getRequest().getContextPath()}/modules/formidable-engine/field-action?fid=${currentNode.getIdentifier()}&lang=${currentNode.getLanguage()}`;
 
 		// Maintenance state: only for forms whose actions write to the repository, and only
 		// in live (contributors keep seeing the real form in edit/preview). Render-time
@@ -174,6 +178,7 @@ jahiaComponent(
 				errorMessage: resolveUrlPlaceholders(errorMessage, renderContext),
 				maintenanceMessage: resolveUrlPlaceholders(maintenanceMessage, renderContext),
 				submitActionUrl,
+				fieldActionUrl,
 				isSubmitDisabled,
 				isEditMode,
 				showResetBtn,

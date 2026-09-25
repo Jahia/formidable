@@ -33,6 +33,8 @@ export const JCONTENT_SELECTORS = {
  * direct submissions, so a rename is one edit.
  */
 export const DIRECT_SUBMIT_PATH = '/modules/formidable-engine/form-submit'
+/** The field-action pre-check the form island asks as the visitor leaves a field carrying actions, or before the submission. */
+export const FIELD_ACTION_PATH = '/modules/formidable-engine/field-action'
 export const LOGIC_STATE_HEADER = 'X-Formidable-Logic-State'
 
 /**

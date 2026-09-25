@@ -2,6 +2,7 @@ export * from './types';
 export * from './site';
 export * from './forms';
 export * from './actions';
+export * from './fieldActions';
 export * from './choiceOptions';
 export * from './logics';
 export * from './inputButton';

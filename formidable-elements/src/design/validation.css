@@ -14,3 +14,21 @@
 	outline-color: var(--fmdb-invalid-outline-color, #dc2626);
 }
 
+
+/* The twin of the error: a field action set to warn only advises under the field and blocks nothing.
+   Same anchoring, same rhythm, an amber that reads as a caution next to the red of an error. */
+.fmdb-validation-warning {
+	color: var(--fmdb-validation-warning-color, #b45309);
+	font-size: var(--fmdb-validation-warning-font-size, 0.875rem);
+	margin-top: var(--fmdb-validation-warning-mt, 0.25rem);
+	padding: var(--fmdb-validation-warning-padding, 0);
+	line-height: var(--fmdb-validation-warning-line-height, 1.25);
+}
+
+/* A field action in flight: the wrapper of the field carries the class (and aria-busy) from the
+   request to the answer. The controls fade a little — enough to say "checking", not enough to read
+   as disabled — and come back with the verdict. */
+.fmdb-field-action-pending :is(input, select, textarea) {
+	opacity: var(--fmdb-field-action-pending-opacity, 0.6);
+	transition: opacity var(--fmdb-field-action-pending-transition, 150ms ease-in-out);
+}

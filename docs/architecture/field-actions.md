@@ -1,3 +1,7 @@
+| 2026-09-22 | **The marker and the zone live on the element wrapper**, not in the field views and not in a library helper (HDU, PR 2 handoff) | `LogicAwareRender` already wraps every element of every container with the node name, id, type and the logic state; adding `data-fmdb-field-action` and the zone there touches one file, no field view, and covers a field from any module without it calling anything — fields only ever render inside a Formidable container. The draft's `fieldActionAttributes(currentNode)` library export is dropped: a helper every view would have had to remember to spread |
+| 2026-09-22 | **The warning hook is `fmdb-validation-warning`**, not the `fmdb-form-warning` of issue #341 (HDU) | The twin of `fmdb-validation-error`: the pair sits in one row of the styling documentation, and a stylesheet that finds one finds the other |
+| 2026-09-22 | **A refusal at submission (`FMDB-015`) shows the contributor's message under the field and nothing else** (HDU) | A field action's refusal is a validation failure, so it reads like one: the message anchored on the field, the focus moved, the form kept with what the visitor typed — no global error box, no error code on screen. Every other rejection keeps today's global message; `FMDB-017` keeps it under the anchored message, since its cause is not one value to correct |
+| 2026-09-25 | **No spinner while the field actions settle before the submission**; a second click meanwhile is ignored | The spinner hides the form (the accepted submission replaces it), and the messages the settle may produce land on that very form: a refused value would have flashed the form away and back. The pending state on the fields checked is the feedback, and a guard in the submission hook keeps a second click from starting a second settle |
 # Field actions
 
 > Decided with the developer on 2026-09-21 (issue #341), from the draft of 2026-09-11. The engine half is
@@ -400,6 +404,85 @@ meets a half-started engine. Should the dispatcher be missing all the same, the 
 the form's field actions **did not run** — a different fact from "this form has no checks", which is
 silent — and the submission goes on.
 
+## The browser — `useFieldActions`
+
+The page never runs a field action; it asks. Everything it needs is on the element wrapper that
+`LogicAwareRender` renders around every element of every container — a field from any module included,
+since fields only ever render inside a Formidable container — and in one island prop. No field view
+knows about the feature, and the library exports nothing for the markup (the `fieldActionAttributes`
+helper of the draft is gone, see the decision log).
+
+**The marker.** The wrapper carries `data-fmdb-field-action="blur"` when any action of the field's list
+runs as the visitor leaves the field (the CND default when the property is absent), `"submit"` when every
+one waits for the submission, and nothing when the field has no action — no switch, no list, an empty
+one — so the client never asks about a field with nothing to run. It is computed server-side
+(`fieldActionsOf`, `formidable-elements/src/utils/fieldActions.server.ts`) and rendered on every
+surface; the hook is off in edit mode, as the conditional logic is. The field's controls are the
+wrapper's named controls (`name` equal to `data-fmdb-node-name`), whatever their type.
+
+**The endpoint** reaches the island as `fieldActionUrl`, computed by the form's server view next to
+`submitActionUrl`: the context path, the form's UUID and — always — the language, since the engine renders
+the contributor's message in it.
+
+**As the visitor leaves a field** checked at blur (`focusout` for a text-like control, `change` for a
+select, a radio or a box: one of the two, never both), the hook reads the values the field would submit
+— one per selected option or checked box, blank ones dropped, a repeat asked once — and posts one request
+per value, `{field, value, trigger: "blur"}`, JSON, with credentials (an `XMLHttpRequest`, as the
+submission: CSRFGuard integrates with it). While a request is in flight the wrapper carries
+`fmdb-field-action-pending` and `aria-busy="true"`. The answers of one field are merged — any `reject`
+refuses, else any message advises, else the field is accepted — and an answer to a superseded check (the
+visitor left the field again meanwhile) is dropped.
+
+- **Refused**: the contributor's message, HTML rendered and escaped by the engine, under the field in the
+  constraint messages' own element (`div.fmdb-validation-error`, `role="status"`, referenced by the
+  controls' `aria-describedby`), the controls marked `fmdb-invalid` / `aria-invalid`, and every control's
+  `customValidity` set to the message's text — so the browser's own constraint validation refuses the
+  submission until the value changes: typing lifts it (an `input` listener in the capture phase, before
+  the constraint client's, which only clears a valid control), and the next leave asks again.
+- **Advised** (a warn-only action): the message in `div.fmdb-validation-warning`, the twin of the error —
+  same anchoring, same `aria-describedby`, no invalid state; it stays until the next answer.
+- **Accepted**: the field's messages gone, its validity cleared.
+- **Unanswered** — a network error, a timeout (ten seconds), any status but a 2xx: 401 members only, 404
+  unknown field or endpoint off, 429 rate-limited, 5xx — nothing is shown and nothing blocked, one console
+  warning per status. The pre-check is a courtesy; the pipeline judges the value at submission whatever
+  the browser saw.
+
+**Before the submission is sent** — after the constraints hold, so a value the browser already refuses is
+never sent to a provider — `settleFieldActions(form)` asks about every field carrying the marker that
+logic does not hold hidden, blur and submit alike, with `trigger: "submit"`, in parallel: the
+blur-checked values again (free: the engine's verdict cache, keyed on action, locale and value, answers
+them) and the submit-only ones for the first time. Any refusal: the messages shown, the first refused
+control focused, no request. Otherwise the submission goes, warnings shown; a check that could not be
+asked blocks nothing. No spinner meanwhile — the pending state on the fields is the feedback, and a
+spinner would hide the form the messages land on — and a second click is ignored until the answer.
+
+**A refusal at submission** (`FMDB-015`, or `FMDB-017` for too many answers on one field): the response's
+`messages` are anchored exactly as the pre-check's — the error under its field, the focus moved, the
+form kept with what the visitor typed. The focus is an effect of the island, run once the loading state
+has cleared: the spinner hides the form (`display: none`) while the request runs, and a hidden control
+cannot take the focus — a call made from the request's own code, deferred or not, could not be timed
+against React's commit (measured: the deferred call landed on the still-hidden form). For `FMDB-015` that is all the page says: a field action's refusal
+is a validation failure and reads like one, no global error box, no code on screen. `FMDB-017` keeps the
+form's global error under the anchored message. A message whose field is not in the form falls back to
+the global error: a refusal the visitor cannot see is worse than a generic one.
+
+**Reset** clears every verdict — the browser restores the values, not a `customValidity`, nor what was
+drawn. **Edit mode**: the hook is off (`enabled = !isEditMode && !!fieldActionUrl`); the Page Builder form
+never calls the endpoint. **Multi-step**: the step navigation stays synchronous — the blur checks already
+ran field by field; the settle runs once, before the final submission. **Hydration**: the listeners
+attach on mount; a field left before that is simply not pre-checked, and the pipeline judges it.
+
+**The zone** under the field while authoring is rendered by the same wrapper as soon as the switch is on,
+inside the field's Page Builder box, by two views replicating the form-actions zone.
+`FieldActionList/hidden.authoring` draws the header (the list's icon and count), the ordered cards, the
+call-out of a list still empty, and the create button — the list's module declares `fmdbmix:fieldAction`
+to jContent, so one button, then the chooser listing every deployed field-action type.
+`FieldAction/hidden.authoring`, on the mixin at priority -1 so a module's own card wins, draws the type's
+label, tooltip and icon from its module through `ActionSummaryService`, the title, the key parameter, and
+three badges reading `trigger`, `severity` and `whenUnavailable` (the CND defaults for a node saved
+without them); a type shipping no icon is drawn with the marker's glyph rather than the platform's generic
+sheet. Both answer nothing outside edit mode. The hooks and variables are in `docs/styling/`.
+
 ## Providers, configuration and secrets — the `FieldActionGateway`
 
 A provider's credential goes neither in the JavaScript nor in the repository. As forward targets are
@@ -522,13 +605,14 @@ call per blocking action and non-blank value never pre-checked.
 1. **Engine** — CND, `FieldAction` and `FieldActionGateway` API, configuration keys and provider list,
    dispatcher, endpoint, pipeline step 11b, `FMDB-015`/`FMDB-016`, `messages[]`, unit tests; the samples
    module's `fmdbsample:blockedWordsAction`. **Shipped 2026-09-21** (this page's pull request).
-2. **Library** — `readFieldActionRequest`, `fieldActionResult`, `fieldActionAttributes` (spreads
-   `data-fmdb-field-action="blur" | "submit"` on the control), `useFieldActions` (blur/submit → endpoint →
-   `setCustomValidity` + the field-error rendering, `settleFieldActions(form)` before the XHR).
-3. **Elements** — the zone under the field in edit mode (`FieldActionList` and `FieldAction`
-   `hidden.authoring` views, replicas of the actions zone, `AddContentButtons` offering every deployed
-   type through `ActionSummaryService.describeType`), the form island wiring, the styling hooks
-   `fmdb-form-warning` and `fmdb-field-action-pending` in `docs/styling/`.
+2. **Library** — `readFieldActionRequest` and `fieldActionResult`, the contract of a `hidden.execute` view.
+   **Shipped 2026-09-25** (the browser pull request). The `fieldActionAttributes` helper of the draft was
+   dropped: the marker lives on the element wrapper (decision log, 2026-09-22).
+3. **Elements** — the marker and the zone on the element wrapper, `useFieldActions` (blur/submit → endpoint →
+   `setCustomValidity` + the field-error rendering, `settleFieldActions(form)` before the XHR, `FMDB-015`
+   anchored), the `FieldActionList` and `FieldAction` `hidden.authoring` views, the styling hooks
+   `fmdb-validation-warning` and `fmdb-field-action-pending` in `docs/styling/`, the Cypress specs 72 and 73,
+   a field action in the playground. **Shipped 2026-09-25** (the browser pull request).
 4. **Samples and the JavaScript path** — a sample action written as a `hidden.execute` view, which is the only
    thing that will exercise the render chain end to end (the wrapping the strict reader trips on was found by
    reading the platform, not by running it); a Cypress spec on the sample actions against the endpoint and the

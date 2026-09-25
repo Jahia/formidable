@@ -76,7 +76,40 @@ export default function MaskedInput({ mask, defaultValue, inputAttributes }) {
 }
 ```
 
-These three, with the help text and validation exports above, are the whole public API: the mask
+### Field actions (server views)
+
+A field action written in JavaScript is a `hidden.execute` server view on the action's node type
+([Field actions](https://github.com/Jahia/formidable/blob/main/docs/architecture/field-actions.md)).
+The engine renders it with the candidate value in a request attribute and reads its whole output as
+one JSON object; two helpers spell that contract:
+
+- `readFieldActionRequest(renderContext)` — the `{formId, fieldName, value, locale}` the engine set,
+  or `null` when the engine is not the caller (a direct hit of the view): the view must then return
+  `null`, it is not an endpoint;
+- `fieldActionResult.accept()`, `.reject(detail?)`, `.unavailable(detail?)` — the exact strings the
+  engine accepts. The view returns one of them and nothing else: no markup around it, never the
+  candidate value. `detail` reaches the server logs only; the visitor reads the contributor's
+  rejection message, which the engine renders.
+
+```tsx
+// crmLookup/hidden.execute.server.tsx
+import { fieldActionResult, readFieldActionRequest } from "@jahia/formidable-library";
+
+jahiaComponent(
+  { componentType: "view", nodeType: "myco:crmLookupAction", name: "hidden.execute",
+    properties: { "cache.expiration": "0" } },
+  ({ providerId }, { renderContext }) => {
+    const request = readFieldActionRequest(renderContext);
+    if (!request) return null;
+    const gateway = server.osgi.getService("org.jahia.modules.formidable.engine.api.FieldActionGateway");
+    const response = gateway.post(providerId, "customers/lookup", JSON.stringify({ number: request.value }));
+    if (response.status() !== 200) return fieldActionResult.unavailable(`provider ${response.status()}`);
+    return JSON.parse(response.body()).known ? fieldActionResult.accept() : fieldActionResult.reject("unknown");
+  },
+);
+```
+
+These, with the help text, validation and mask exports above, are the whole public API: the mask
 tokens and the caret arithmetic the hook is built on stay inside the package.
 
 ## Documentation

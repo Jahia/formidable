@@ -4,33 +4,33 @@ import AlertIcon from "~/design/AlertIcon";
 import {nodeTypeIconUrl} from "~/utils/actionTypeInfo";
 
 /**
- * The form's actions, as a zone of the Page Builder (edit mode only — the form's default
- * view renders it inside the form, under the buttons). Actions run after the submission
- * and are otherwise invisible on a page: the zone lists them in their execution order
- * (the list is orderable, so the Page Builder's drag reorders the pipeline), calls out a
- * form that has none (its submissions are neither stored nor sent), and carries the
- * list's own create button — its module declares the accepted type to jContent, the
- * fmdbmix:formAction mixin: one "New Form Action" button, then the type chooser.
- * Authoring chrome, deliberately not styled like the form: it is not the visitor's form.
+ * A field's actions, as a zone of the Page Builder under the field (edit mode only — the element
+ * wrapper renders it inside the field's own box, so it moves with the field). The form's actions
+ * zone one level down: the checks of this field in their execution order (the list is orderable,
+ * the first blocking refusal wins, so dragging a card reorders the checks), a call-out when the
+ * switch is on but nothing checks the field yet, and the list's own create button — its module
+ * declares the accepted type to jContent, the fmdbmix:fieldAction mixin: one button, then the
+ * type chooser listing every deployed field-action type. Authoring chrome, deliberately not
+ * styled like the form. Nothing of it exists in live or preview.
  */
 jahiaComponent(
 	{
 		componentType: "view",
-		nodeType: "fmdb:actionList",
+		nodeType: "fmdb:fieldActionList",
 		name: "hidden.authoring",
 	},
 	(_props, {currentNode, renderContext}) => {
-		const {t} = useTranslation("formidable-elements", {keyPrefix: "fmdb_actionList"});
+		const {t} = useTranslation("formidable-elements", {keyPrefix: "fmdb_fieldActionList"});
 		// Authoring-only, whatever asks for the view: a live or preview request of it gets nothing.
 		if (!renderContext.isEditMode()) {
 			return null;
 		}
-		const actionNodes = Array.from(currentNode.getNodes()).filter((node) => node.isNodeType("fmdbmix:formAction"));
+		const actionNodes = Array.from(currentNode.getNodes()).filter((node) => node.isNodeType("fmdbmix:fieldAction"));
 		const count = actionNodes.length;
 		const iconUrl = nodeTypeIconUrl(currentNode, renderContext);
 
 		return (
-			<aside className="fmdb-authoring-actions" aria-label={t("heading", {count})}>
+			<aside className="fmdb-authoring-actions fmdb-authoring-field-actions" aria-label={t("heading", {count})}>
 				<div className="fmdb-authoring-actions-header">
 					<span className="fmdb-authoring-actions-title">
 						{iconUrl && <img className="fmdb-authoring-actions-glyph" src={iconUrl} alt="" width={16} height={16}/>}
@@ -46,7 +46,6 @@ jahiaComponent(
 					</p>
 				)}
 
-				{/* An ordered list: the execution order is the meaning, so assistive technology gets it too. */}
 				{count > 0 && (
 					<ol className="fmdb-authoring-actions-list">
 						{actionNodes.map((actionNode) => (
