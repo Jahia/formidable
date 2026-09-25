@@ -87,26 +87,31 @@ describe('Actions - 73 Field actions as the visitor fills the form', () => {
 			undefined,
 			{actions: [getSaveToJcrActionNode()]}
 		).then(({livePath, formName}) => {
-			cy.intercept('POST', `**${FIELD_ACTION_PATH}*`).as('check');
+			// The engine's first answer is held back a moment, so that the field is seen being checked. One intercept
+			// for the checks and the delay: a second one calling continue() on the same request would stop it from
+			// reaching this one, whose alias would then never count it.
+			let held = false;
+			cy.intercept('POST', `**${FIELD_ACTION_PATH}*`, request => request.continue(response => {
+				if (!held) {
+					held = true;
+					response.setDelay(1500);
+				}
+			})).as('check');
 			cy.intercept('POST', `**${DIRECT_SUBMIT_PATH}*`).as('submit');
 
 			const form = visitLiveForm(livePath);
 			form.waitUntilHydrated();
 
 			// A blocked word, the field left: one request about that value — the field says it is being checked
-			// while the engine answers (the first answer is held back a moment) — then the message under the field.
-			cy.intercept({method: 'POST', url: `**${FIELD_ACTION_PATH}*`, times: 1}, request => request.continue(response => {
-				response.setDelay(1500);
-			})).as('slowCheck');
+			// while the engine answers — then the message under the field.
 			form.getTextInput('firstName').get().type('spam').blur();
 			cy.get('[data-fmdb-node-name="firstName"]').should('have.attr', 'aria-busy', 'true')
 				.find('.fmdb-field-action-checking').should('be.visible').and('have.attr', 'role', 'status').and('contain.text', 'Checking');
-			cy.wait('@slowCheck');
-			cy.get('[data-fmdb-node-name="firstName"] .fmdb-field-action-checking').should('not.exist');
 			cy.wait('@check').then(({request, response}) => {
 				expect(request.body).to.deep.equal({field: 'firstName', value: 'spam', trigger: 'blur'});
 				expect(response?.body.verdict).to.equal('reject');
 			});
+			cy.get('[data-fmdb-node-name="firstName"] .fmdb-field-action-checking').should('not.exist');
 			cy.get('[data-fmdb-node-name="firstName"] .fmdb-validation-error')
 				.should('be.visible')
 				.and('contain.html', '<b>spam</b> is not welcome here.');
@@ -242,15 +247,17 @@ describe('Actions - 73 Field actions as the visitor fills the form', () => {
 			cy.focused().should('have.attr', 'name', 'code');
 
 			// The pipeline is the authority: every pre-check stubbed to accept, the submission from step 2 is refused
-			// with FMDB-015 — and the island brings step 1 back the same way.
+			// with FMDB-015 — and the island brings step 1 back the same way. A new blocked value first: the refused
+			// one, unchanged, is not even asked about — its refusal fails the step's constraints and Next stays put.
 			cy.intercept('POST', `**${FIELD_ACTION_PATH}*`, {statusCode: 200, body: {verdict: 'accept', messages: []}}).as('stubbedCheck');
+			form.getTextInput('code').get().clear().type('more spam');
 			form.nextStep();
 			cy.wait('@stubbedCheck');
 			form.shouldHaveCurrentStep('Details');
 			form.submit();
 			cy.wait('@submit').its('response.body.errorCode').should('equal', 'FMDB-015');
 			form.shouldHaveCurrentStep('Identity');
-			cy.get('[data-fmdb-node-name="code"] .fmdb-validation-error').should('be.visible').and('contain.html', '<b>spam</b> is not a code.');
+			cy.get('[data-fmdb-node-name="code"] .fmdb-validation-error').should('be.visible').and('contain.html', '<b>more spam</b> is not a code.');
 			cy.focused().should('have.attr', 'name', 'code');
 			form.getErrorMessage().should('not.exist');
 		});
