@@ -23,11 +23,6 @@ export interface BlockedWordsFieldActionData extends FieldActionFeedbackData {
 	words: string[];
 }
 
-export interface MinimumWordsFieldActionData extends FieldActionFeedbackData {
-	/** A value with fewer words is refused; the CND default is 3. */
-	minimumWords?: number;
-}
-
 /** The properties of fmdbmix:fieldActionFeedback the data sets; the rest keeps the CND defaults. */
 const feedbackProperties = (data: FieldActionFeedbackData): NodeProperty[] => {
 	const properties: NodeProperty[] = [];
@@ -50,23 +45,6 @@ export function getBlockedWordsFieldActionNode(data: BlockedWordsFieldActionData
 		primaryNodeType: 'fmdbsample:blockedWordsAction',
 		mixins: ['fmdbmix:fieldActionFeedback'],
 		properties: [{name: 'words', values: data.words}, ...feedbackProperties(data)]
-	};
-}
-
-/**
- * The samples module's field action written in JavaScript (fmdbsample:minimumWordsAction,
- * formidable-test-module-samples-tsx): a `hidden.execute` view the engine renders, refusing a value
- * with fewer words than asked for. The site must have that module enabled (`enableModule`).
- */
-export function getMinimumWordsFieldActionNode(data: MinimumWordsFieldActionData = {}): JahiaNode {
-	return {
-		name: data.name || 'minimumWords',
-		primaryNodeType: 'fmdbsample:minimumWordsAction',
-		mixins: ['fmdbmix:fieldActionFeedback'],
-		properties: [
-			...(data.minimumWords === undefined ? [] : [{name: 'minimumWords', value: String(data.minimumWords), type: 'LONG' as const}]),
-			...feedbackProperties(data)
-		]
 	};
 }
 

@@ -12,6 +12,8 @@ import java.io.StringWriter;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -80,6 +82,6 @@ class ZeroBounceStubServletTest {
 
         HttpServletResponse response = mock(HttpServletResponse.class);
         new ZeroBounceStubServlet().doPost(mock(HttpServletRequest.class), response);
-        verify(response).sendError(405);
+        verify(response).sendError(eq(405), anyString());
     }
 }

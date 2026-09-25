@@ -1,13 +1,10 @@
-import {enableModule} from '@jahia/cypress';
 import {DIRECT_SUBMIT_PATH, FIELD_ACTION_PATH} from '../../support/constants';
 import {
 	createPublishedLiveFormPage,
-	FORMIDABLE_TEST_SITE,
 	getBlockedWordsFieldActionNode,
 	getInputEmailNode,
 	getInputTextNode,
 	getLatestLiveFormSubmission,
-	getMinimumWordsFieldActionNode,
 	getSaveToJcrActionNode,
 	getStepNode,
 	getTextareaNode,
@@ -15,9 +12,6 @@ import {
 	withFieldActions
 } from '../../support/fixtures';
 import {useFormidableSite} from '../support/useFormidableSite';
-
-/** The sample module whose field action is written in JavaScript — a hidden.execute view the engine renders. */
-const SAMPLE_MODULE = 'formidable-test-module-samples-tsx';
 
 const setRateLimit = (perMinute: string): Cypress.Chainable => cy.runProvisioningScript({
 	script: {
@@ -35,17 +29,9 @@ const setRateLimit = (perMinute: string): Cypress.Chainable => cy.runProvisionin
  * refusal stops the request. The pre-check is a courtesy and the pipeline the authority: a browser
  * that skips it (the check stubbed, or refused by the rate limit) meets the same actions at
  * submission, whose refusal is anchored under the field with no global error, and nothing is stored.
- * One of the checks is written in JavaScript (the samples' minimum-words action, a hidden.execute view the
- * engine renders through the library's helpers): the only thing exercising that render chain end to end.
  */
 describe('Actions - 73 Field actions as the visitor fills the form', () => {
 	useFormidableSite();
-
-	before(() => {
-		// The site created by useFormidableSite knows the core modules only: the JavaScript sample action
-		// is offered on a site once its module is enabled there.
-		enableModule(SAMPLE_MODULE, FORMIDABLE_TEST_SITE.key);
-	});
 
 	after(() => {
 		// The configuration is instance-global: back to the shipped default.
@@ -73,13 +59,6 @@ describe('Actions - 73 Field actions as the visitor fills the form', () => {
 						words: ['maybe'],
 						severity: 'warn',
 						rejectionMessage: 'Are you sure about <i>${value}</i>?'
-					})
-				]),
-				withFieldActions(getTextareaNode({name: 'story', title: 'Your story'}), [
-					getMinimumWordsFieldActionNode({
-						name: 'threeWords',
-						minimumWords: 3,
-						rejectionMessage: 'Tell us a little more: at least three words.'
 					})
 				])
 			],
@@ -141,26 +120,16 @@ describe('Actions - 73 Field actions as the visitor fills the form', () => {
 			cy.get('[data-fmdb-node-name="comment"] .fmdb-validation-error').should('not.exist');
 			form.getTextarea('comment').get().should('not.have.class', 'fmdb-invalid');
 
-			// The JavaScript check, rendered by the engine as a view: refused under three words, accepted from three.
-			form.getTextarea('story').get().type('too short').blur();
-			cy.wait('@check').its('response.body.verdict').should('equal', 'reject');
-			cy.get('[data-fmdb-node-name="story"] .fmdb-validation-error')
-				.should('be.visible')
-				.and('contain.text', 'Tell us a little more: at least three words.');
-			form.getTextarea('story').get().clear().type('a bit more than that').blur();
-			cy.wait('@check').its('response.body.verdict').should('equal', 'accept');
-			cy.get('[data-fmdb-node-name="story"] .fmdb-validation-error').should('not.exist');
-
-			// The email field waits for the submission: leaving it asked nothing (five checks so far).
-			cy.get('@check.all').should('have.length', 5);
+			// The email field waits for the submission: leaving it asked nothing (three checks so far).
+			cy.get('@check.all').should('have.length', 3);
 
 			// Before the request leaves, every field with actions is asked with the submit trigger — the
 			// blur-checked ones again, the submit-only one for the first time — then the submission goes.
 			form.submit();
-			cy.wait(['@check', '@check', '@check', '@check']).then(interceptions => {
+			cy.wait(['@check', '@check', '@check']).then(interceptions => {
 				const asked = interceptions.map(({request}) => request.body);
-				expect(asked.map(body => body.trigger)).to.deep.equal(['submit', 'submit', 'submit', 'submit']);
-				expect(asked.map(body => body.field).sort()).to.deep.equal(['comment', 'email', 'firstName', 'story']);
+				expect(asked.map(body => body.trigger)).to.deep.equal(['submit', 'submit', 'submit']);
+				expect(asked.map(body => body.field).sort()).to.deep.equal(['comment', 'email', 'firstName']);
 			});
 			cy.wait('@submit').its('response.statusCode').should('equal', 200);
 			form.getSuccessMessage().should('be.visible');

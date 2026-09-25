@@ -10,17 +10,11 @@ import org.jahia.modules.formidable.engine.actions.field.ResolvedFieldAction.Tri
 import org.jahia.services.content.JCRCallback;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRTemplate;
-import org.jahia.services.render.RenderException;
-import org.apache.commons.text.StringEscapeUtils;
-import org.json.JSONException;
-import org.json.JSONObject;
 import org.json.JSONTokener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.jcr.RepositoryException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,13 +31,13 @@ import java.util.function.Supplier;
  * asks for and for the pipeline's step 11b, with the same verdict cache, so that a value the browser was told was
  * fine costs no second provider call at submission.
  *
- * <p>For each action the trigger and the severity filters decide whether it runs at all; then a Java
- * {@link FieldAction} registered for the node type is executed, and failing that the node's {@code hidden.execute}
- * view is rendered and its JSON verdict read. An {@code ACCEPT} moves on; a {@code REJECT} becomes one message for
+ * <p>For each action the trigger and the severity filters decide whether it runs at all; then the Java
+ * {@link FieldAction} registered for the node type is executed — a type no deployed module implements is an
+ * unavailable check. An {@code ACCEPT} moves on; a {@code REJECT} becomes one message for
  * the visitor — the contributor's {@code rejectionMessage} in the visitor's locale, {@code ${value}} and nothing
  * else interpolated, with HTML escaping — and stops the run when the action blocks, since the first blocking
  * refusal wins; an {@code UNAVAILABLE} is what the contributor's {@code whenUnavailable} says it is. Whatever an
- * action or a view throws counts as unavailable and is logged: the visitor never sees a stack trace, and neither
+ * action throws counts as unavailable and is logged: the visitor never sees a stack trace, and neither
  * does the operator's log above DEBUG — a throwable's message quotes what was being judged often enough.</p>
  *
  * <p>Every node is read in {@code live} in a system session: the submitter has no reason to have read access to
@@ -68,33 +62,24 @@ public final class FieldActionDispatcher {
     static final String DEFAULT_MESSAGE = "This value could not be verified.";
     /** The one name a rejection message may interpolate: the value under judgement. */
     static final String VALUE_PLACEHOLDER = "value";
-    /** The key of the machine word a view may add beside its verdict. */
-    static final String DETAIL = "detail";
 
     private static final Logger log = LoggerFactory.getLogger(FieldActionDispatcher.class);
 
     private final Supplier<List<FieldAction>> javaActions;
-    private final ViewRenderer viewRenderer;
     private final VerdictCache cache;
     private final Supplier<Duration> cacheTtl;
     /** The repository access, for a system session in {@code live} — a seam for the tests, which have no repository. */
     private final Supplier<JCRTemplate> jcrTemplate;
 
-    /** The runtime dispatcher: the registered Java actions, the render service for the views, a system session in live. */
+    /** The runtime dispatcher: the registered Java actions, a system session in live. */
     public FieldActionDispatcher(Supplier<List<FieldAction>> javaActions, VerdictCache cache, Supplier<Duration> cacheTtl) {
-        this(javaActions, new RenderServiceViewRenderer(), cache, cacheTtl, JCRTemplate::getInstance);
+        this(javaActions, cache, cacheTtl, JCRTemplate::getInstance);
     }
 
-    /** The runtime dispatcher over another repository access — the pipeline tests hand over a fake one. */
+    /** The runtime dispatcher over another repository access — the tests hand over a fake one. */
     public FieldActionDispatcher(Supplier<List<FieldAction>> javaActions, VerdictCache cache, Supplier<Duration> cacheTtl,
                                  Supplier<JCRTemplate> jcrTemplate) {
-        this(javaActions, new RenderServiceViewRenderer(), cache, cacheTtl, jcrTemplate);
-    }
-
-    FieldActionDispatcher(Supplier<List<FieldAction>> javaActions, ViewRenderer viewRenderer, VerdictCache cache,
-                          Supplier<Duration> cacheTtl, Supplier<JCRTemplate> jcrTemplate) {
         this.javaActions = javaActions;
-        this.viewRenderer = viewRenderer;
         this.cache = cache;
         this.cacheTtl = cacheTtl;
         this.jcrTemplate = jcrTemplate;
@@ -105,21 +90,18 @@ public final class FieldActionDispatcher {
     }
 
     /**
-     * @param req           the visitor's request, the context a JavaScript action renders in; may be {@code null}
-     * @param resp          the visitor's response; may be {@code null}
      * @param request       the value under judgement
      * @param actions       the field's actions, in list order
      * @param triggers      the triggers to run — a blur pre-check runs the blur actions, a submit runs them all
      * @param blockingOnly  the pipeline's rule: only an action whose refusal blocks runs again at submission
      */
-    public Outcome run(HttpServletRequest req, HttpServletResponse resp, FieldActionRequest request,
-                       List<ResolvedFieldAction> actions, Set<Trigger> triggers, boolean blockingOnly) {
+    public Outcome run(FieldActionRequest request, List<ResolvedFieldAction> actions, Set<Trigger> triggers, boolean blockingOnly) {
         List<FieldActionMessage> messages = new ArrayList<>();
         for (ResolvedFieldAction action : actions) {
             if (!triggers.contains(action.trigger()) || (blockingOnly && !action.blocking())) {
                 continue;
             }
-            if (refuses(action, verdict(req, resp, request, action), request)) {
+            if (refuses(action, verdict(request, action), request)) {
                 messages.add(new FieldActionMessage(
                         action.blocking() ? FieldActionMessage.Level.ERROR : FieldActionMessage.Level.WARNING,
                         message(action, request),
@@ -161,42 +143,31 @@ public final class FieldActionDispatcher {
     }
 
     /** The action's answer for this value, from the cache when it has one, executed and cached otherwise. */
-    private FieldActionResult verdict(HttpServletRequest req, HttpServletResponse resp, FieldActionRequest request,
-                                      ResolvedFieldAction action) {
+    private FieldActionResult verdict(FieldActionRequest request, ResolvedFieldAction action) {
         Duration ttl = cacheTtl.get();
         Optional<FieldActionResult> cached = cache.get(action.id(), request.locale(), request.value(), ttl);
         if (cached.isPresent()) {
             return cached.get();
         }
-        FieldActionResult result = execute(req, resp, request, action);
+        FieldActionResult result = execute(request, action);
         cache.put(action.id(), request.locale(), request.value(), result, ttl);
         return result;
     }
 
-    private FieldActionResult execute(HttpServletRequest req, HttpServletResponse resp, FieldActionRequest request,
-                                      ResolvedFieldAction action) {
+    private FieldActionResult execute(FieldActionRequest request, ResolvedFieldAction action) {
         Optional<FieldAction> javaAction = javaActions.get().stream()
                 .filter(candidate -> action.nodeType().equals(candidate.getNodeType()))
                 .findFirst();
+        if (javaAction.isEmpty()) {
+            // The type's module is not deployed, or declares no service: the contributor's outage rule decides.
+            return FieldActionResult.unavailable("no Java field action is registered for " + action.nodeType());
+        }
         try {
             FieldActionResult result = inLive(request.locale(), session -> {
                 JCRNodeWrapper node = session.getNodeByIdentifier(action.id());
-                if (javaAction.isPresent()) {
-                    FieldActionResult answer = javaAction.get().execute(node, request);
-                    return answer != null ? answer : FieldActionResult.unavailable("the Java action answered null");
-                }
-                String output;
-                try {
-                    output = viewRenderer.render(node, request, req, resp);
-                } catch (RenderException | RuntimeException e) {
-                    // a JCR callback may only throw RepositoryException: carry the render failure out to the catch below
-                    throw new ViewFailure(e);
-                }
-                return output == null
-                        ? FieldActionResult.unavailable("no request to render the view in")
-                        : parse(output);
+                return javaAction.get().execute(node, request);
             });
-            return result != null ? result : FieldActionResult.unavailable("no answer");
+            return result != null ? result : FieldActionResult.unavailable("the Java action answered null");
         } catch (Exception e) {
             // One action's failure is that action's verdict, never the visitor's stack trace nor the next action's
             // fate. The exception's TYPE names the failure for the operator; its message and its stack go to DEBUG,
@@ -208,45 +179,6 @@ public final class FieldActionDispatcher {
             }
             return FieldActionResult.unavailable(e.getClass().getSimpleName() + ": " + e.getMessage());
         }
-    }
-
-    /**
-     * The verdict a {@code hidden.execute} view wrote: one JSON object, {@code {"verdict": "accept" | "reject" |
-     * "unavailable", "detail"?: "…"}}, and nothing else — the output, trimmed, must be exactly that object. Nothing
-     * before it, nothing after it: not a comment, not a debug line, never the candidate value. A lenient reader that
-     * took the widest span between braces would let a view echoing the value hand the parser a string the visitor
-     * partly controls, and a value with one {@code {} in it would then retire the check, silently, onto the
-     * {@code whenUnavailable} default. Anything but the one object is unavailable; the output itself goes to the
-     * logs at DEBUG only, since a view in breach of the contract may have put the value in it.
-     */
-    static FieldActionResult parse(String output) {
-        String text = output == null ? "" : output.trim();
-        if (text.isEmpty()) {
-            return FieldActionResult.unavailable("the view answered nothing");
-        }
-        Reading raw = read(text);
-        JSONObject json = raw.object();
-        if (json == null) {
-            // The JavaScript modules engine renders a view with renderToString, which escapes the text a component
-            // returns: a view answering the JSON as a plain string arrives with its quotes as &quot;. Decoded only
-            // once the raw body has failed to read — a raw body (the library's helpers) whose detail carries entity
-            // text is read as it is, never turned into structure.
-            json = read(StringEscapeUtils.unescapeHtml4(text)).object();
-        }
-        if (json == null) {
-            if (log.isDebugEnabled()) {
-                log.debug("[FieldActionDispatcher] The view's output was not readable: {}", abbreviate(text));
-            }
-            return FieldActionResult.unavailable(raw.failure());
-        }
-        String verdict = json.optString("verdict", "").trim().toLowerCase(Locale.ROOT);
-        String detail = json.has(DETAIL) && !json.isNull(DETAIL) ? json.optString(DETAIL) : null;
-        return switch (verdict) {
-            case "accept" -> FieldActionResult.accept();
-            case "reject" -> FieldActionResult.reject(detail);
-            case "unavailable" -> FieldActionResult.unavailable(detail);
-            default -> FieldActionResult.unavailable("the view answered the verdict '" + verdict + "'");
-        };
     }
 
     /**
@@ -306,33 +238,4 @@ public final class FieldActionDispatcher {
         }
     }
 
-    /** One reading of a body: the object when it is exactly one, else why not — for the detail. */
-    private record Reading(JSONObject object, String failure) {
-    }
-
-    private static Reading read(String text) {
-        try {
-            JSONTokener tokener = new JSONTokener(text);
-            Object value = tokener.nextValue();
-            if (!(value instanceof JSONObject object) || tokener.nextClean() != 0) {
-                return new Reading(null, "the view's output is not exactly one JSON object (" + text.length() + " characters)");
-            }
-            return new Reading(object, null);
-        } catch (JSONException e) {
-            return new Reading(null, "the view answered malformed JSON (" + text.length() + " characters)");
-        }
-    }
-
-    private static String abbreviate(String text) {
-        return text.length() <= 120 ? text : text.substring(0, 120) + "…";
-    }
-
-    /** A view's failure carried out of a JCR callback, which may only throw RepositoryException. */
-    private static final class ViewFailure extends RuntimeException {
-        private static final long serialVersionUID = 1L;
-
-        ViewFailure(Exception cause) {
-            super(cause.getMessage(), cause);
-        }
-    }
 }

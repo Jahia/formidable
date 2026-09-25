@@ -18,7 +18,7 @@ import java.util.Hashtable;
 import java.util.List;
 
 /**
- * The built-in field action: <strong>does the address's domain exist at all?</strong> It asks the domain name
+ * The sample that needs nothing: <strong>does the address's domain exist at all?</strong> It asks the domain name
  * system for the domain's mail exchangers, then for its addresses — a domain without an MX record but with an A
  * record still receives mail, which is what RFC 5321 calls the implicit exchanger.
  *
@@ -28,10 +28,10 @@ import java.util.List;
  * answer is an unavailable check, which the contributor's {@code whenUnavailable} decides, and never a refusal.
  * What the action catches is the case that matters and is provable: the mistyped domain.</p>
  *
- * <p>It is the built-in because it needs nothing: no provider, no credential, no account, no configuration. It is
- * also honest about its limit, and the contributor's help text says so: <strong>it does not prove the mailbox
- * exists</strong>. Only a paid provider or an actual delivery can, which is what {@code FieldActionGateway} and the
- * {@code fieldActionProviders} configuration are there for.</p>
+ * <p>It needs no provider, no credential, no account, no configuration, and it is honest about its limit — the
+ * contributor's help text says so: <strong>it does not prove the mailbox exists</strong>. Only a provider can, which
+ * is what the Experian and ZeroBounce samples, {@code FieldActionGateway} and the {@code fieldActionProviders}
+ * configuration are there for.</p>
  *
  * <p>What leaves the server is the <em>domain</em>, never the address: the local part is dropped before the query,
  * so the visitor's identity is not handed to a resolver. A value that is not an address at all is accepted without
@@ -40,14 +40,14 @@ import java.util.List;
  * and the queries carry their own short timeout: this runs on the request thread, at submission.</p>
  */
 @Component(service = FieldAction.class)
-public class EmailDeliverabilityFieldAction implements FieldAction {
+public class EmailDomainFieldAction implements FieldAction {
 
-    public static final String NODE_TYPE = "fmdbsample:emailDeliverabilityAction";
+    public static final String NODE_TYPE = "fmdbsample:emailDomainAction";
 
     /** Asked one at a time, in this order: a single query for several types answers "DNS error" on resolvers that answer each separately. */
     private static final String[] MAIL_RECORDS = {"MX", "A", "AAAA"};
 
-    private static final Logger log = LoggerFactory.getLogger(EmailDeliverabilityFieldAction.class);
+    private static final Logger log = LoggerFactory.getLogger(EmailDomainFieldAction.class);
 
     /**
      * The question this action asks the domain name system, and the one seam its tests replace: the records that
@@ -62,11 +62,11 @@ public class EmailDeliverabilityFieldAction implements FieldAction {
 
     private final transient MailRecords records;
 
-    public EmailDeliverabilityFieldAction() {
-        this(EmailDeliverabilityFieldAction::lookup);
+    public EmailDomainFieldAction() {
+        this(EmailDomainFieldAction::lookup);
     }
 
-    EmailDeliverabilityFieldAction(MailRecords records) {
+    EmailDomainFieldAction(MailRecords records) {
         this.records = records;
     }
 

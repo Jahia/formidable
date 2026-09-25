@@ -87,23 +87,18 @@ class FieldActionDispatcherTest {
         };
     }
 
-    private static FieldActionDispatcher dispatcher(List<FieldAction> actions, ViewRenderer renderer, Duration ttl,
-                                                    JCRSessionWrapper session) throws Exception {
-        return new FieldActionDispatcher(() -> actions, renderer, new VerdictCache(), () -> ttl, repository(session));
+    private static FieldActionDispatcher dispatcher(List<FieldAction> actions, Duration ttl, JCRSessionWrapper session) throws Exception {
+        return new FieldActionDispatcher(() -> actions, new VerdictCache(), () -> ttl, repository(session));
     }
-
-    private static final ViewRenderer NO_VIEW = (node, request, req, resp) -> {
-        throw new IllegalStateException("no view expected");
-    };
 
     @Test
     void anAcceptLeavesNothingBehind() throws Exception {
         // Verifies the nominal pass: an accepting action neither blocks nor writes a message.
         AtomicInteger calls = new AtomicInteger();
-        FieldActionDispatcher dispatcher = dispatcher(List.of(javaAction(FieldActionResult::accept, calls)), NO_VIEW,
+        FieldActionDispatcher dispatcher = dispatcher(List.of(javaAction(FieldActionResult::accept, calls)),
                 Duration.ofSeconds(300), session(Map.of("a1", "Refused: ${value}")));
 
-        FieldActionDispatcher.Outcome outcome = dispatcher.run(null, null, REQUEST, List.of(blocking("a1")),
+        FieldActionDispatcher.Outcome outcome = dispatcher.run(REQUEST, List.of(blocking("a1")),
                 EnumSet.allOf(Trigger.class), false);
 
         assertFalse(outcome.blocked());
@@ -131,11 +126,11 @@ class FieldActionDispatcherTest {
                 return FieldActionResult.accept();
             }
         };
-        FieldActionDispatcher dispatcher = dispatcher(List.of(refusing, accepting), NO_VIEW, Duration.ofSeconds(300),
+        FieldActionDispatcher dispatcher = dispatcher(List.of(refusing, accepting), Duration.ofSeconds(300),
                 session(Map.of("a1", "<p>Unknown address <b>${value}</b></p>", "a2", "never")));
         ResolvedFieldAction other = new ResolvedFieldAction("a2", "myco:other", Trigger.BLUR, Severity.BLOCK, Unavailable.ACCEPT);
 
-        FieldActionDispatcher.Outcome outcome = dispatcher.run(null, null, REQUEST, List.of(blocking("a1"), other),
+        FieldActionDispatcher.Outcome outcome = dispatcher.run(REQUEST, List.of(blocking("a1"), other),
                 EnumSet.allOf(Trigger.class), false);
 
         assertTrue(outcome.blocked());
@@ -153,10 +148,10 @@ class FieldActionDispatcherTest {
     void aWarningRefusalAddsAWarningAndGoesOn() throws Exception {
         // Verifies the warn severity: the message is a warning, the run continues to the next action, nothing blocks.
         AtomicInteger calls = new AtomicInteger();
-        FieldActionDispatcher dispatcher = dispatcher(List.of(javaAction(() -> FieldActionResult.reject("risky"), calls)), NO_VIEW,
+        FieldActionDispatcher dispatcher = dispatcher(List.of(javaAction(() -> FieldActionResult.reject("risky"), calls)),
                 Duration.ofSeconds(300), session(Map.of("w1", "Check ${value}", "w2", "Check again")));
 
-        FieldActionDispatcher.Outcome outcome = dispatcher.run(null, null, REQUEST,
+        FieldActionDispatcher.Outcome outcome = dispatcher.run(REQUEST,
                 List.of(action("w1", Trigger.BLUR, Severity.WARN, Unavailable.ACCEPT), action("w2", Trigger.BLUR, Severity.WARN, Unavailable.ACCEPT)),
                 EnumSet.allOf(Trigger.class), false);
 
@@ -171,21 +166,20 @@ class FieldActionDispatcherTest {
         // Verifies the outage setting, both ways: accept lets the value through silently, reject refuses it with the
         // message — and an action that throws is an unavailable check, never the visitor's stack trace.
         AtomicInteger calls = new AtomicInteger();
-        FieldActionDispatcher unavailable = dispatcher(List.of(javaAction(() -> FieldActionResult.unavailable("provider 503"), calls)),
-                NO_VIEW, Duration.ZERO, session(Map.of("a1", "Refused")));
+        FieldActionDispatcher unavailable = dispatcher(List.of(javaAction(() -> FieldActionResult.unavailable("provider 503"), calls)), Duration.ZERO, session(Map.of("a1", "Refused")));
         FieldActionDispatcher throwing = dispatcher(List.of(javaAction(() -> {
             throw new IllegalStateException("boom");
-        }, calls)), NO_VIEW, Duration.ZERO, session(Map.of("a1", "Refused")));
+        }, calls)), Duration.ZERO, session(Map.of("a1", "Refused")));
 
-        assertFalse(unavailable.run(null, null, REQUEST, List.of(action("a1", Trigger.BLUR, Severity.BLOCK, Unavailable.ACCEPT)),
+        assertFalse(unavailable.run(REQUEST, List.of(action("a1", Trigger.BLUR, Severity.BLOCK, Unavailable.ACCEPT)),
                 EnumSet.allOf(Trigger.class), false).blocked());
-        FieldActionDispatcher.Outcome refused = unavailable.run(null, null, REQUEST,
+        FieldActionDispatcher.Outcome refused = unavailable.run(REQUEST,
                 List.of(action("a1", Trigger.BLUR, Severity.BLOCK, Unavailable.REJECT)), EnumSet.allOf(Trigger.class), false);
         assertTrue(refused.blocked());
         assertEquals("Refused", refused.messages().get(0).html());
-        assertFalse(throwing.run(null, null, REQUEST, List.of(action("a1", Trigger.BLUR, Severity.BLOCK, Unavailable.ACCEPT)),
+        assertFalse(throwing.run(REQUEST, List.of(action("a1", Trigger.BLUR, Severity.BLOCK, Unavailable.ACCEPT)),
                 EnumSet.allOf(Trigger.class), false).blocked());
-        assertTrue(throwing.run(null, null, REQUEST, List.of(action("a1", Trigger.BLUR, Severity.BLOCK, Unavailable.REJECT)),
+        assertTrue(throwing.run(REQUEST, List.of(action("a1", Trigger.BLUR, Severity.BLOCK, Unavailable.REJECT)),
                 EnumSet.allOf(Trigger.class), false).blocked());
     }
 
@@ -194,12 +188,12 @@ class FieldActionDispatcherTest {
         // Verifies the two filters: a submit-triggered action does not run on a blur pre-check, and under the
         // pipeline's blockingOnly rule a warning action does not run at all — they warned.
         AtomicInteger calls = new AtomicInteger();
-        FieldActionDispatcher dispatcher = dispatcher(List.of(javaAction(() -> FieldActionResult.reject("x"), calls)), NO_VIEW,
+        FieldActionDispatcher dispatcher = dispatcher(List.of(javaAction(() -> FieldActionResult.reject("x"), calls)),
                 Duration.ZERO, session(Map.of("s1", "m", "w1", "m")));
 
-        FieldActionDispatcher.Outcome blur = dispatcher.run(null, null, REQUEST,
+        FieldActionDispatcher.Outcome blur = dispatcher.run(REQUEST,
                 List.of(action("s1", Trigger.SUBMIT, Severity.BLOCK, Unavailable.ACCEPT)), EnumSet.of(Trigger.BLUR), false);
-        FieldActionDispatcher.Outcome pipeline = dispatcher.run(null, null, REQUEST,
+        FieldActionDispatcher.Outcome pipeline = dispatcher.run(REQUEST,
                 List.of(action("w1", Trigger.BLUR, Severity.WARN, Unavailable.ACCEPT)), EnumSet.allOf(Trigger.class), true);
 
         assertFalse(blur.blocked());
@@ -213,50 +207,39 @@ class FieldActionDispatcherTest {
         // Verifies the one-provider-call promise: the pre-check's verdict serves the submission's run, and an
         // administrator's TTL of 0 switches that off — two runs, two calls.
         AtomicInteger cached = new AtomicInteger();
-        FieldActionDispatcher withCache = dispatcher(List.of(javaAction(FieldActionResult::accept, cached)), NO_VIEW,
+        FieldActionDispatcher withCache = dispatcher(List.of(javaAction(FieldActionResult::accept, cached)),
                 Duration.ofSeconds(300), session(Map.of("a1", "m")));
         AtomicInteger uncached = new AtomicInteger();
-        FieldActionDispatcher withoutCache = dispatcher(List.of(javaAction(FieldActionResult::accept, uncached)), NO_VIEW,
+        FieldActionDispatcher withoutCache = dispatcher(List.of(javaAction(FieldActionResult::accept, uncached)),
                 Duration.ZERO, session(Map.of("a1", "m")));
 
-        withCache.run(null, null, REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false);
-        withCache.run(null, null, REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), true);
-        withoutCache.run(null, null, REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false);
-        withoutCache.run(null, null, REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), true);
+        withCache.run(REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false);
+        withCache.run(REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), true);
+        withoutCache.run(REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false);
+        withoutCache.run(REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), true);
 
         assertEquals(1, cached.get());
         assertEquals(2, uncached.get());
     }
 
     @Test
-    void aViewAnswersWhenNoJavaActionIsRegisteredForTheType() throws Exception {
-        // Verifies the JavaScript path: with no Java service for the type the node's view is rendered and its JSON
-        // verdict read — surrounding whitespace and nothing else tolerated; an unreadable answer or a failing render is
-        // an unavailable check, decided by the contributor's setting; a missing request context is one too.
-        FieldActionDispatcher rejecting = dispatcher(List.of(), (node, request, req, resp) -> "\n  {\"verdict\":\"reject\",\"detail\":\"undeliverable\"} \n",
-                Duration.ZERO, session(Map.of("v1", "No: ${value}")));
-        FieldActionDispatcher garbage = dispatcher(List.of(), (node, request, req, resp) -> "<div>oops</div>", Duration.ZERO, session(Map.of("v1", "No")));
-        FieldActionDispatcher failing = dispatcher(List.of(), (node, request, req, resp) -> {
-            throw new IllegalStateException("render chain down");
-        }, Duration.ZERO, session(Map.of("v1", "No")));
-        FieldActionDispatcher noRequest = dispatcher(List.of(), (node, request, req, resp) -> null, Duration.ZERO, session(Map.of("v1", "No")));
+    void aTypeNoDeployedModuleImplementsIsAnUnavailableCheck() throws Exception {
+        // Verifies what a node whose module is gone — or whose type declares no Java service — does to the visitor:
+        // nothing by itself. The check could not run, and the contributor's setting decides, as for a provider outage.
+        FieldActionDispatcher dispatcher = dispatcher(List.of(), Duration.ZERO, session(Map.of("v1", "No")));
 
-        assertTrue(rejecting.run(null, null, REQUEST, List.of(blocking("v1")), EnumSet.allOf(Trigger.class), false).blocked());
-        assertFalse(garbage.run(null, null, REQUEST, List.of(blocking("v1")), EnumSet.allOf(Trigger.class), false).blocked());
-        assertTrue(garbage.run(null, null, REQUEST, List.of(action("v1", Trigger.BLUR, Severity.BLOCK, Unavailable.REJECT)),
-                EnumSet.allOf(Trigger.class), false).blocked());
-        assertFalse(failing.run(null, null, REQUEST, List.of(blocking("v1")), EnumSet.allOf(Trigger.class), false).blocked());
-        assertTrue(noRequest.run(null, null, REQUEST, List.of(action("v1", Trigger.BLUR, Severity.BLOCK, Unavailable.REJECT)),
+        assertFalse(dispatcher.run(REQUEST, List.of(blocking("v1")), EnumSet.allOf(Trigger.class), false).blocked());
+        assertTrue(dispatcher.run(REQUEST, List.of(action("v1", Trigger.BLUR, Severity.BLOCK, Unavailable.REJECT)),
                 EnumSet.allOf(Trigger.class), false).blocked());
     }
 
     @Test
     void theBundlesDefaultServesWhenTheNodeCarriesNoMessage() throws Exception {
         // Verifies the fallback: a node saved without the feedback property still gives the visitor a sentence.
-        FieldActionDispatcher dispatcher = dispatcher(List.of(javaAction(() -> FieldActionResult.reject("x"), new AtomicInteger())), NO_VIEW,
+        FieldActionDispatcher dispatcher = dispatcher(List.of(javaAction(() -> FieldActionResult.reject("x"), new AtomicInteger())),
                 Duration.ZERO, session(Collections.singletonMap("a1", null)));
 
-        FieldActionDispatcher.Outcome outcome = dispatcher.run(null, null, REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false);
+        FieldActionDispatcher.Outcome outcome = dispatcher.run(REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false);
 
         assertEquals(FieldActionDispatcher.DEFAULT_MESSAGE, outcome.messages().get(0).html());
     }
@@ -268,10 +251,9 @@ class FieldActionDispatcherTest {
         // another field would otherwise render complete at submission and full of holes at the pre-check, where the
         // browser sends one field and the others simply are not there.
         try {
-            FieldActionDispatcher dispatcher = dispatcher(List.of(javaAction(() -> FieldActionResult.reject("x"), new AtomicInteger())),
-                    NO_VIEW, Duration.ZERO, session(Map.of("a1", "No: ${value} for ${firstName}")));
+            FieldActionDispatcher dispatcher = dispatcher(List.of(javaAction(() -> FieldActionResult.reject("x"), new AtomicInteger())), Duration.ZERO, session(Map.of("a1", "No: ${value} for ${firstName}")));
 
-            FieldActionDispatcher.Outcome outcome = dispatcher.run(null, null, REQUEST, List.of(blocking("a1")),
+            FieldActionDispatcher.Outcome outcome = dispatcher.run(REQUEST, List.of(blocking("a1")),
                     EnumSet.allOf(Trigger.class), false);
 
             assertEquals("No: &lt;ada&gt;@example.com for ", outcome.messages().get(0).html());
@@ -284,23 +266,22 @@ class FieldActionDispatcherTest {
     void whatTheVisitorTypedNeverReachesTheOperatorsLog() throws Exception {
         // Verifies the guarantee, not the comment that states it: a failing action and an unavailable one both name
         // themselves in the log, and neither carries the value — an exception message quotes it by construction
-        // (NumberFormatException: For input string: "…"), and a view's detail may too. Put either back on the INFO or
+        // (NumberFormatException: For input string: "…"), and an action's detail may too. Put either back on the INFO or
         // the WARN line and this test fails. DEBUG is off in the tests, so what is captured is exactly what an
         // operator sees at the default level.
         String secret = "ada@example.com";
         FieldActionRequest request = new FieldActionRequest("form-1", "email", secret, Locale.ENGLISH);
         FieldActionDispatcher throwing = dispatcher(List.of(javaAction(() -> {
             throw new IllegalStateException("cannot parse " + secret);
-        }, new AtomicInteger())), NO_VIEW, Duration.ZERO, session(Map.of("a1", "No")));
-        FieldActionDispatcher unavailable = dispatcher(List.of(javaAction(() -> FieldActionResult.unavailable("provider said " + secret), new AtomicInteger())),
-                NO_VIEW, Duration.ZERO, session(Map.of("a1", "No")));
+        }, new AtomicInteger())), Duration.ZERO, session(Map.of("a1", "No")));
+        FieldActionDispatcher unavailable = dispatcher(List.of(javaAction(() -> FieldActionResult.unavailable("provider said " + secret), new AtomicInteger())), Duration.ZERO, session(Map.of("a1", "No")));
 
         PrintStream previous = System.err;
         ByteArrayOutputStream captured = new ByteArrayOutputStream();
         System.setErr(new PrintStream(captured, true, StandardCharsets.UTF_8));
         try {
-            throwing.run(null, null, request, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false);
-            unavailable.run(null, null, request, List.of(action("a1", Trigger.BLUR, Severity.BLOCK, Unavailable.REJECT)),
+            throwing.run(request, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false);
+            unavailable.run(request, List.of(action("a1", Trigger.BLUR, Severity.BLOCK, Unavailable.REJECT)),
                     EnumSet.allOf(Trigger.class), false);
         } finally {
             System.setErr(previous);
@@ -313,75 +294,17 @@ class FieldActionDispatcherTest {
     }
 
     @Test
-    void parseReadsTheThreeVerdictsAndRefusesTheRest() {
-        // Verifies the view contract's reader: the three verdicts with or without a detail, and everything else —
-        // no object, malformed JSON, an unknown verdict — as unavailable, the output itself kept out of the detail.
-        assertEquals(FieldActionResult.Verdict.ACCEPT, FieldActionDispatcher.parse("{\"verdict\":\"accept\"}").verdict());
-        FieldActionResult reject = FieldActionDispatcher.parse("\n{\"verdict\":\"REJECT\",\"detail\":\"unknown\"}\n");
-        assertEquals(FieldActionResult.Verdict.REJECT, reject.verdict());
-        assertEquals("unknown", reject.detail());
-        assertEquals(FieldActionResult.Verdict.UNAVAILABLE, FieldActionDispatcher.parse("{\"verdict\":\"unavailable\"}").verdict());
-        assertEquals(FieldActionResult.Verdict.UNAVAILABLE, FieldActionDispatcher.parse("").verdict());
-        assertEquals(FieldActionResult.Verdict.UNAVAILABLE, FieldActionDispatcher.parse("{not json}").verdict());
-        assertEquals(FieldActionResult.Verdict.UNAVAILABLE, FieldActionDispatcher.parse("{\"verdict\":\"maybe\"}").verdict());
-        assertTrue(FieldActionDispatcher.parse("{\"verdict\":\"maybe\"}").detail().contains("maybe"));
-    }
-
-    @Test
-    void parseDecodesTheEntitiesReactWritesOnlyOnceTheRawBodyHasFailedToRead() {
-        // Verifies the second thing standing between a JavaScript field action and its verdict. The JavaScript
-        // modules engine renders a view with renderToString, which escapes the text a component returns: a view
-        // answering the JSON as a plain string arrives with its quotes as &quot; — malformed, UNAVAILABLE, accepted
-        // by the CND default. Decoded, it reads. But a raw body (the library's helpers) is read as it is: entity
-        // text inside its detail — a provider's HTML relayed — must not be turned into quotes and structure, or a
-        // refusal would end as malformed JSON, UNAVAILABLE, accepted.
-        FieldActionResult escaped = FieldActionDispatcher.parse("{&quot;verdict&quot;:&quot;reject&quot;,&quot;detail&quot;:&quot;it&#x27;s &amp; unknown&quot;}");
-        assertEquals(FieldActionResult.Verdict.REJECT, escaped.verdict());
-        assertEquals("it's & unknown", escaped.detail());
-        assertEquals(FieldActionResult.Verdict.ACCEPT, FieldActionDispatcher.parse("{&quot;verdict&quot;:&quot;accept&quot;}").verdict());
-
-        FieldActionResult quoted = FieldActionDispatcher.parse("{\"verdict\":\"reject\",\"detail\":\"provider said &quot;no&quot;\"}");
-        assertEquals(FieldActionResult.Verdict.REJECT, quoted.verdict());
-        assertEquals("provider said &quot;no&quot;", quoted.detail());
-        FieldActionResult structured = FieldActionDispatcher.parse("{\"verdict\":\"reject\",\"detail\":\"&quot;,&quot;verdict&quot;:&quot;accept\"}");
-        assertEquals(FieldActionResult.Verdict.REJECT, structured.verdict());
-        assertEquals("&quot;,&quot;verdict&quot;:&quot;accept", structured.detail());
-
-        // still unreadable once decoded: the raw failure is what the detail says
-        assertTrue(FieldActionDispatcher.parse("{&quot;verdict&quot;").detail().contains("malformed"));
-    }
-
-    @Test
-    void parseTakesTheWholeOutputAsTheObjectSoAnEchoedValueCannotRetireTheCheck() {
-        // Verifies the strict contract: anything around the object — a comment the view wrote, a debug line, the
-        // candidate value echoed before or after — makes the whole output unreadable, deterministically, rather than
-        // letting a value with a brace in it turn the check unavailable on its own. The detail does not repeat the
-        // output, which may hold the value.
-        String echoedBefore = "value: {spam} {\"verdict\":\"reject\"}";
-        String echoedAfter = "{\"verdict\":\"reject\"} value: {spam}";
-        String commented = "<!-- cache --> {\"verdict\":\"reject\"}";
-        String array = "[{\"verdict\":\"reject\"}]";
-
-        for (String output : List.of(echoedBefore, echoedAfter, commented, array)) {
-            FieldActionResult result = FieldActionDispatcher.parse(output);
-            assertEquals(FieldActionResult.Verdict.UNAVAILABLE, result.verdict(), output);
-            assertFalse(result.detail().contains("spam"), output);
-        }
-        assertEquals(FieldActionResult.Verdict.REJECT, FieldActionDispatcher.parse("  {\"verdict\":\"reject\"}\n").verdict());
-    }
-
-    @Test
     void theCacheKeysTheLocaleSoAnAcceptInOneLanguageDoesNotServeAnother() throws Exception {
         // Verifies the locale in the key: the same action and value asked in two locales run twice — a localized
         // check may answer differently — while the same locale asked twice runs once.
         AtomicInteger calls = new AtomicInteger();
-        FieldActionDispatcher dispatcher = dispatcher(List.of(javaAction(FieldActionResult::accept, calls)), NO_VIEW,
+        FieldActionDispatcher dispatcher = dispatcher(List.of(javaAction(FieldActionResult::accept, calls)),
                 Duration.ofSeconds(300), session(Map.of("a1", "m")));
         FieldActionRequest inFrench = new FieldActionRequest(REQUEST.formId(), REQUEST.fieldName(), REQUEST.value(), Locale.FRENCH);
 
-        dispatcher.run(null, null, REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false);
-        dispatcher.run(null, null, inFrench, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false);
-        dispatcher.run(null, null, REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), true);
+        dispatcher.run(REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false);
+        dispatcher.run(inFrench, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), false);
+        dispatcher.run(REQUEST, List.of(blocking("a1")), EnumSet.allOf(Trigger.class), true);
 
         assertEquals(2, calls.get());
     }
