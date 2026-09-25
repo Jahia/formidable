@@ -502,10 +502,10 @@ inside the field's Page Builder box, by two views on the same chrome as the form
 call-out of a list still empty, and the create button — the list's module declares `fmdbmix:fieldAction`
 to jContent, so one button, then the chooser listing every deployed field-action type.
 `FieldAction/hidden.authoring`, on the mixin at priority -1 so a module's own card wins, draws the type's
-label, tooltip and icon from its module through `ActionSummaryService`, the title, the key parameter, and
-three badges reading `trigger`, `severity` and `whenUnavailable` (the CND defaults for a node saved
-without them); a type shipping no icon is drawn with the marker's glyph rather than the platform's generic
-sheet. Both answer nothing outside edit mode. The hooks and variables are in `docs/styling/`.
+label, tooltip and icon from its module through `ActionSummaryService`, the title and the key parameter —
+the form action's card, exactly: the settings (`trigger`, `severity`, `whenUnavailable`) are read in the
+action's editor, not on the card; a type shipping no icon is drawn with the marker's glyph rather than the
+platform's generic sheet. Both answer nothing outside edit mode. The hooks and variables are in `docs/styling/`.
 
 ## Providers, configuration and secrets — the `FieldActionGateway`
 
