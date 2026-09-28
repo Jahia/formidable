@@ -2,6 +2,7 @@ import {Island, jahiaComponent} from "@jahia/javascript-modules-library";
 import FileInput from "./File.client";
 import {type BaseValidationMessageProps, validationDataAttributes} from "@jahia/formidable-library";
 import {HelpText, helpTextId} from "@jahia/formidable-library";
+import {acceptExtensionsOf} from "~/utils/fileTypes.server";
 
 interface InputFileProps extends BaseValidationMessageProps {
 	"jcr:title"?: string;
@@ -44,6 +45,7 @@ jahiaComponent(
 						inputId,
 						inputName,
 						accept,
+						acceptExtensions: acceptExtensionsOf(accept),
 						multiple,
 						required,
 						describedBy: helpId,
