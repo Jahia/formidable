@@ -69,9 +69,9 @@ class ThemeLifecycleTest {
 
     @Test
     void theSettingsToCarryStayInForceWhileTheWriteKeepsFailingAndTheNextAttemptIsScheduled() throws Exception {
-        // Verifies the review's regression: a failing write must not leave the theme on its file's defaults — the
-        // legacy target stays in force — and the next attempts run by themselves, without a configuration change;
-        // once the last one fails, the file rules as it stands.
+        // Verifies the review's regression: a failing write must not leave the theme on its file's defaults, the
+        // legacy target stays in force, and the next attempts run by themselves, without a configuration change.
+        // Once the last one fails, the file rules as it stands.
         Configuration theme = mock(Configuration.class);
         doThrow(new IOException("disk full")).when(theme).update(any());
         ConfigurationAdmin admin = adminWithLegacyTargets(theme);
