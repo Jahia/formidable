@@ -60,12 +60,11 @@ interface UseFieldActionsReturn {
 	settleFieldActions: (root: HTMLElement) => Promise<FormControl | null>;
 	/**
 	 * The controls carrying a refusal the field actions drew, on screen — whichever path drew it, the
-	 * pre-check or a refused submission. The island keeps Submit disabled while any stands, and Next
-	 * while the current step holds one: a click would only meet the refusal again.
+	 * pre-check or a refused submission — and that the browser validates: a field logic holds hidden
+	 * counts for nothing. The island keeps Submit disabled while any stands, and Next while the current
+	 * step holds one: a click would only meet the refusal again.
 	 */
 	refusedControls: FormControl[];
-	/** A check in flight, at blur or at a settle: Submit and Next wait for the answer rather than ignore the click. */
-	isSettling: boolean;
 }
 
 const isFormControl = (target: EventTarget | null): target is FormControl =>
@@ -146,17 +145,6 @@ export function useFieldActions({formRef, fieldActionUrl, enabled, labels}: UseF
 	// One console line per status: the pre-check is a courtesy, its failure is not the visitor's business.
 	const warnedRef = useRef(new Set<number>());
 	const [refusedControls, setRefusedControls] = useState<FormControl[]>([]);
-	const [isSettling, setIsSettling] = useState(false);
-	// Checks in flight, whichever field: the buttons follow the count crossing zero, not each answer.
-	const inFlightRef = useRef(0);
-	const beginCheck = () => {
-		inFlightRef.current += 1;
-		if (inFlightRef.current === 1) setIsSettling(true);
-	};
-	const endCheck = () => {
-		inFlightRef.current -= 1;
-		if (inFlightRef.current === 0) setIsSettling(false);
-	};
 
 	/**
 	 * One value to the engine, null when it could not answer — a network error, a timeout, any status
@@ -214,13 +202,7 @@ export function useFieldActions({formRef, fieldActionUrl, enabled, labels}: UseF
 			return {rejected: false, messages: []};
 		}
 		setPending(wrapper, controls, true, labels.checking);
-		beginCheck();
-		let answers: (Answer | null)[];
-		try {
-			answers = await Promise.all(values.map(value => ask({field, value, trigger})));
-		} finally {
-			endCheck();
-		}
+		const answers = await Promise.all(values.map(value => ask({field, value, trigger})));
 		if (sequencesRef.current.get(field) !== sequence) {
 			// a later check owns the field now, its pending state included
 			return null;
@@ -283,12 +265,18 @@ export function useFieldActions({formRef, fieldActionUrl, enabled, labels}: UseF
 		// Every write and lift of a refusal announces itself on the form, whichever code did it — this
 		// hook, the refused submission's anchoring, a reset: the buttons read the refusals from the DOM then.
 		const onValidity = () => setRefusedControls(fieldActionRefusalsIn(form));
+		// Conditional logic disables and enables controls on the same input and change events, announcing
+		// nothing: a refusal on a field logic just hid must stop counting (the pipeline skips the field), and
+		// one on a field logic just showed again must count. Read after the event's other listeners ran.
+		const afterLogic = () => queueMicrotask(() => setRefusedControls(fieldActionRefusalsIn(form)));
 
 		form.addEventListener('focusout', onLeave);
 		form.addEventListener('change', onLeave);
 		form.addEventListener('input', onInput);
 		form.addEventListener('reset', onReset);
 		form.addEventListener(FIELD_ACTION_VALIDITY_EVENT, onValidity);
+		form.addEventListener('input', afterLogic);
+		form.addEventListener('change', afterLogic);
 
 		return () => {
 			form.removeEventListener('focusout', onLeave);
@@ -296,6 +284,8 @@ export function useFieldActions({formRef, fieldActionUrl, enabled, labels}: UseF
 			form.removeEventListener('input', onInput);
 			form.removeEventListener('reset', onReset);
 			form.removeEventListener(FIELD_ACTION_VALIDITY_EVENT, onValidity);
+			form.removeEventListener('input', afterLogic);
+			form.removeEventListener('change', afterLogic);
 		};
 	}, [formRef, enabled, fieldActionUrl]);
 
@@ -308,5 +298,5 @@ export function useFieldActions({formRef, fieldActionUrl, enabled, labels}: UseF
 		return controls ? anchorOf(controls) ?? null : null;
 	};
 
-	return {settleFieldActions, refusedControls, isSettling};
+	return {settleFieldActions, refusedControls};
 }

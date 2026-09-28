@@ -90,9 +90,9 @@ function formWith(html: string, options: {enabled?: boolean; url?: string; withC
 		enabled: options.enabled ?? true,
 		labels: {checking: 'Checking…'},
 	});
-	// The hook's useState calls come in a fixed order: the refused controls, then the settling flag.
-	const [setRefusedControls, setIsSettling] = react.setters;
-	return {form, settleFieldActions, setRefusedControls, setIsSettling};
+	// The hook's one useState: the refused controls.
+	const [setRefusedControls] = react.setters;
+	return {form, settleFieldActions, setRefusedControls};
 }
 
 /** The names of the controls the hook last told the island are refused. */
@@ -225,32 +225,33 @@ describe('useFieldActions', () => {
 		expect(lastRefused(setRefusedControls)).toEqual([]);
 	});
 
-	it('tells the island while any check is in flight, and no longer once the last one is answered or dropped', async () => {
-		// Verifies the settling flag the buttons read: on while a check runs, whichever field, off when the count
-		// of checks in flight is back to zero — an answer, a failure, a timeout or a superseded check alike.
-		const {form, settleFieldActions, setIsSettling} = formWith(textField('firstName') + textField('email', 'submit'));
-		const [firstName, email] = Array.from(form.querySelectorAll('input'));
-		email.value = 'ada@example.com';
+	it('re-reads the refusals once conditional logic has hidden or shown a field on the same event', async () => {
+		// Verifies the reading after the logic pass: logic disables the controls of a field it hides — on the very
+		// input or change event, announcing nothing — so a refusal there must stop counting (the pipeline skips
+		// the field), and count again once the field is shown. The "logic" here is a listener registered after
+		// the hook's, as the island's is; the microtask is what lets the hook see the DOM after it.
+		const {form, setRefusedControls} = formWith(textField('firstName') + textField('contact'));
+		const [firstName, contact] = Array.from(form.querySelectorAll('input'));
+		form.addEventListener('change', () => {
+			firstName.disabled = contact.value === 'no';
+		});
 		firstName.value = 'spam';
 		firstName.dispatchEvent(bubbling('focusout'));
-		expect(setIsSettling.mock.calls).toEqual([[true]]);
-
-		firstName.value = 'spam again';
-		firstName.dispatchEvent(bubbling('focusout'));
-		expect(setIsSettling.mock.calls).toEqual([[true]]);
-		requests[0].answer(200, accept);
+		requests[0].answer(200, reject('firstName', 'no'));
 		await settled();
-		expect(setIsSettling.mock.calls).toEqual([[true]]);
-		requests[1].expire();
-		await settled();
-		expect(setIsSettling.mock.calls).toEqual([[true], [false]]);
+		expect(lastRefused(setRefusedControls)).toEqual(['firstName']);
 
-		const settle = settleFieldActions(form);
-		expect(setIsSettling.mock.calls).toEqual([[true], [false], [true]]);
-		requests[2].answer(200, accept);
-		requests[3].fail();
-		await settle;
-		expect(setIsSettling.mock.calls).toEqual([[true], [false], [true], [false]]);
+		contact.value = 'no';
+		contact.dispatchEvent(bubbling('change'));
+		await settled();
+		expect(firstName.disabled).toBe(true);
+		expect(lastRefused(setRefusedControls)).toEqual([]);
+
+		contact.value = 'yes';
+		contact.dispatchEvent(bubbling('change'));
+		await settled();
+		expect(firstName.disabled).toBe(false);
+		expect(lastRefused(setRefusedControls)).toEqual(['firstName']);
 	});
 
 	it('clears a refusal on the next accept, and shows a warning without blocking', async () => {

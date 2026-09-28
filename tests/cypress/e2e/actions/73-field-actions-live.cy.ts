@@ -86,8 +86,9 @@ describe('Actions - 73 Field actions as the visitor fills the form', () => {
 			form.getTextInput('firstName').get().type('spam').blur();
 			cy.get('[data-fmdb-node-name="firstName"]').should('have.attr', 'aria-busy', 'true')
 				.find('.fmdb-field-action-checking').should('be.visible').and('have.attr', 'role', 'status').and('contain.text', 'Checking');
-			// Submit waits for the answer rather than ignore a click.
-			form.getSubmitButton().get().should('be.disabled');
+			// Submit stays active while the check runs: the click that leaves a field is what starts its check,
+			// and the settle before sending awaits the answer — a second click meanwhile is ignored.
+			form.getSubmitButton().get().should('not.be.disabled');
 			cy.wait('@check').then(({request, response}) => {
 				expect(request.body).to.deep.equal({field: 'firstName', value: 'spam', trigger: 'blur'});
 				expect(response?.body.verdict).to.equal('reject');
@@ -192,9 +193,12 @@ describe('Actions - 73 Field actions as the visitor fills the form', () => {
 			form.shouldHaveCurrentStep('Identity');
 			cy.get('[data-fmdb-node-name="code"] .fmdb-validation-error').should('be.visible').and('contain.html', '<b>spam</b> is not a code.');
 			cy.focused().should('have.attr', 'name', 'code');
+			// Next follows the rule for its step: disabled while the step holds a refusal.
+			form.getNextButton().get().should('be.disabled');
 
 			// Corrected: the step settles, the visitor moves on.
 			form.getTextInput('code').get().clear().type('AB-12');
+			form.getNextButton().get().should('not.be.disabled');
 			form.nextStep();
 			cy.wait('@check').its('response.body.verdict').should('equal', 'accept');
 			form.shouldHaveCurrentStep('Details');
