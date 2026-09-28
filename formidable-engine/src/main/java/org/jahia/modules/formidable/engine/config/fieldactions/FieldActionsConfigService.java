@@ -82,7 +82,7 @@ public class FieldActionsConfigService {
 
     private static final Logger log = LoggerFactory.getLogger(FieldActionsConfigService.class);
 
-    private final ThemeLifecycle<FieldActionSettings> lifecycle = new ThemeLifecycle<>(PID, FieldActionsConfig.class);
+    private final ThemeLifecycle<FieldActionsConfig, FieldActionSettings> lifecycle = new ThemeLifecycle<>(PID, FieldActionsConfig.class, FieldActionsConfigService::read);
 
     @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, unbind = "unsetConfigurationAdmin")
     public void setConfigurationAdmin(ConfigurationAdmin admin) {
@@ -96,12 +96,12 @@ public class FieldActionsConfigService {
     @Activate
     @Modified
     public void configure(FieldActionsConfig config, Map<String, Object> properties) {
-        lifecycle.configure(properties, read(config));
+        lifecycle.configure(properties, config);
     }
 
     /** Reads the configuration into the settings the getters serve, no file behind it; public for the tests. */
     public void activate(FieldActionsConfig config) {
-        lifecycle.configure(null, read(config));
+        lifecycle.configure(null, config);
     }
 
     /**

@@ -39,7 +39,7 @@ Detailed reasons are written to server logs only and are never exposed to the ca
 | `FMDB-002` | 400 | Required URL parameter `fid` is missing, blank, or not a valid UUID — or the `lang` parameter is not a valid language tag |
 | `FMDB-003` | 413 | `Content-Length` exceeds `uploadMaxRequestSizeBytes` from `org.jahia.modules.formidable.uploads.cfg` — or, on the field-action pre-check, the body or the `value` exceeds `fieldActionMaxValueLength` |
 | `FMDB-004` | 400 | Form node not found in the `live` workspace (invalid `fid`, form not published, or a form the caller cannot read). On the field-action pre-check (404): no such form for this visitor, or no field of that name carrying field actions |
-| `FMDB-005` | 500 | CAPTCHA is required on the form but server-side verification is not fully configured (`captchaSiteKey` / `captchaSecretKey` / `captchaVerifyUrl` missing in `org.jahia.modules.formidable.cfg`) |
+| `FMDB-005` | 500 | CAPTCHA is required on the form but server-side verification is not fully configured (`captchaSiteKey` / `captchaSecretKey` / `captchaVerifyUrl` missing in `org.jahia.modules.formidable.captcha.cfg`) |
 | `FMDB-006` | 400 | CAPTCHA token (`X-Formidable-Captcha-Token` header) is absent, expired, or rejected by the provider |
 | `FMDB-007` | 400 | Multipart parsing failed for a technical reason — possible causes: per-file size limit, total request size limit, file count limit, or low-level stream parsing/read failure |
 | `FMDB-008` | the status the action chose (400/500 from the helpers, 403/502 from the forward action…), 422 when the failure carried none | An action in the pipeline failed (e.g. forward target returned non-2xx, email could not be sent) |

@@ -45,7 +45,7 @@ public class ChoiceOptionsConfigService {
 
     private static final Logger log = LoggerFactory.getLogger(ChoiceOptionsConfigService.class);
 
-    private final ThemeLifecycle<Snapshot> lifecycle = new ThemeLifecycle<>(PID, ChoiceOptionsConfig.class);
+    private final ThemeLifecycle<ChoiceOptionsConfig, Snapshot> lifecycle = new ThemeLifecycle<>(PID, ChoiceOptionsConfig.class, ChoiceOptionsConfigService::read);
 
     @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, unbind = "unsetConfigurationAdmin")
     public void setConfigurationAdmin(ConfigurationAdmin admin) {
@@ -59,12 +59,12 @@ public class ChoiceOptionsConfigService {
     @Activate
     @Modified
     public void configure(ChoiceOptionsConfig config, Map<String, Object> properties) {
-        lifecycle.configure(properties, read(config));
+        lifecycle.configure(properties, config);
     }
 
     /** Reads the configuration into the snapshot the getters serve, no file behind it; public for the tests. */
     public void activate(ChoiceOptionsConfig config) {
-        lifecycle.configure(null, read(config));
+        lifecycle.configure(null, config);
     }
 
     private static Snapshot read(ChoiceOptionsConfig config) {

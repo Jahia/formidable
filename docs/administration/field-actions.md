@@ -3,7 +3,7 @@
 A field action checks one field's value server-side, while the visitor fills the form and again at submission
 ([Field actions](../architecture/field-actions.md)). What an administrator sets is where the checks may call
 out, and how much the pre-check endpoint may be asked. Everything is in `org.jahia.modules.formidable.fieldActions.cfg`, one of the five [configuration files](configuration.md)
-(or the Felix Web Console); no JCR node is needed. A change reaches the checks immediately.
+(or the provisioning API); no JCR node is needed. A change reaches the checks immediately.
 
 ## Configuration
 

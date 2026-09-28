@@ -39,15 +39,20 @@ version with the themes:
 2. As soon as a theme's configuration comes from its file, the theme reads the old configuration through
    ConfigAdmin and copies every setting of the theme it holds at a value other than the default — as long as
    the theme's file still holds the default for it. A value already set in the new file wins, with a warning
-   naming the setting. The values are written into the theme's file with a marker (`formidable.migratedFrom`),
-   so the migration never runs again for that theme; the log shows
+   naming the setting. The values are written into the theme's file with a marker (`formidable.migratedFrom`);
+   a theme with nothing to carry — a new installation, or an old configuration at its defaults for that theme —
+   gets the marker too. The migration therefore runs once per theme, whatever it finds: an old configuration that
+   appears later (a provisioning script still writing `org.jahia.modules.formidable`) is never read. The log shows
    `[org.jahia.modules.formidable.<theme>] Carried over from org.jahia.modules.formidable into the theme's file: [...]`,
-   or `Nothing of org.jahia.modules.formidable to carry over` when the old configuration held only defaults.
-3. The old file, when there is one, gets a first line saying it is no longer read. It is never deleted — the
-   administrator wrote it — and can be removed by hand once the five files are checked.
-4. A write that fails (a persistence directory full or read-only) is retried on the next callback, three times,
-   after which the theme's file rules as it stands and the log says `Gave up carrying the settings of
-   org.jahia.modules.formidable over … re-enter the settings of this theme in it`.
+   or `Nothing of org.jahia.modules.formidable to carry over`.
+3. The old file, when there is one, gets a first line saying it is no longer read, whether or not anything was
+   carried from it. It is never deleted — the administrator wrote it — and can be removed by hand once the five
+   files are checked.
+4. A write that fails (a persistence directory full or read-only) is tried three times in all, thirty seconds
+   apart. Meanwhile the settings to carry stay in force — a CAPTCHA key or a forward target of the old file keeps
+   working, the new file's defaults do not take over. After the third failure the theme's file rules as it stands
+   and the log says `Gave up carrying the settings of org.jahia.modules.formidable over … re-enter the settings of
+   this theme in it`. A restart starts the three attempts over.
 
 **How to check**: open the five files after the upgrade. A setting that was not at its default before the
 upgrade is there, in its theme's file, on a line without a comment; the marker line
@@ -55,5 +60,5 @@ upgrade is there, in its theme's file, on a line without a comment; the marker l
 setting the old configuration held that is not in its theme's file was either at its default (then it was
 not copied) or lost to a write that kept failing (then the log says so): re-enter it.
 
-**In a cluster**, every node migrates its own files; ConfigAdmin propagates the result as it propagates
-any configuration change.
+**In a cluster**, each node reads its own `karaf/etc`: the migration runs on every node at its first start, from
+that node's old configuration. Keep the five files the same on every node, as for any file of `karaf/etc`.

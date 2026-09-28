@@ -531,7 +531,7 @@ A provider's credential goes neither in the JavaScript nor in the repository. As
 declared, providers are declared in `org.jahia.modules.formidable.fieldActions.cfg` ([Configuration files](../administration/configuration.md)):
 
 ```
-# --- FIELD ACTIONS ---
+# org.jahia.modules.formidable.fieldActions.cfg
 # Each entry: id|Label|https://base-url|Credential-Header-Name|credential (the last two together, or neither)
 fieldActionProviders=                      # id|Label|https://base-url|Credential-name|credential[|header|query]
 enableDevFieldActionProviders=false        # plain HTTP on localhost or host.docker.internal: a provider's double

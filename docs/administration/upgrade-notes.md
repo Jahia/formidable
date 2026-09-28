@@ -7,7 +7,7 @@ are in-place module installs; only the transitions listed here need attention.
 
 | From | To | How |
 |---|---|---|
-| 0.4.x | 0.5.0 | In-place module install. The 0.5.0 wave of startup migrations renames the prefixed properties at the first start (see below). Verified on a real 0.4.0 instance (2026-09-10) |
+| 0.4.x | 0.5.0 | In-place module install. At the first start the configuration moves to five files, one per theme, the settings carried over, and the 0.5.0 wave of startup migrations renames the prefixed properties (see below). Verified on a real 0.4.0 instance (2026-09-10) |
 | 0.3.x | 0.4.0 | The reinstall procedure below (formidable-elements changed identity), then the 0.4.0 wave of startup migrations runs at the first start. Verified on a real 0.3.0 instance (2026-09-02) |
 | 0.3.x | 0.5.0 directly | The same reinstall procedure, with the 0.5.0 artifacts: 0.5.0 still ships the 0.4.0 wave of startup migrations, so both waves run when formidable-elements deploys (step 3). Verified on a real 0.3.0 instance (2026-09-10): the engine upload is refused by the definitions check as in step 1 (bypass it), the engine-first start logs the expected `Could not migrate node` errors, the elements deploy migrates every field in both workspaces, published forms render and accept submissions, republication works |
 

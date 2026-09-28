@@ -67,7 +67,7 @@ public class CaptchaConfigService {
 
     private static final Logger log = LoggerFactory.getLogger(CaptchaConfigService.class);
 
-    private final ThemeLifecycle<Snapshot> lifecycle = new ThemeLifecycle<>(PID, CaptchaConfig.class);
+    private final ThemeLifecycle<CaptchaConfig, Snapshot> lifecycle = new ThemeLifecycle<>(PID, CaptchaConfig.class, CaptchaConfigService::read);
 
     @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, unbind = "unsetConfigurationAdmin")
     public void setConfigurationAdmin(ConfigurationAdmin admin) {
@@ -81,12 +81,12 @@ public class CaptchaConfigService {
     @Activate
     @Modified
     public void configure(CaptchaConfig config, Map<String, Object> properties) {
-        lifecycle.configure(properties, read(config));
+        lifecycle.configure(properties, config);
     }
 
     /** Reads the configuration into the snapshot the getters serve, no file behind it; public for the tests. */
     public void activate(CaptchaConfig config) {
-        lifecycle.configure(null, read(config));
+        lifecycle.configure(null, config);
     }
 
     private static Snapshot read(CaptchaConfig config) {

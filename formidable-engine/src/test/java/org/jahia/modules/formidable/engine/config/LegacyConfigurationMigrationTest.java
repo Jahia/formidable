@@ -93,16 +93,24 @@ class LegacyConfigurationMigrationTest {
     }
 
     @Test
-    void doesNothingOnAFreshInstallAndNeverLooksAgain() throws Exception {
-        // Verifies the fresh install: no legacy configuration in ConfigAdmin, nothing to carry, and the question
-        // is not asked again on the next callback.
-        LegacyConfigurationMigration migration = new LegacyConfigurationMigration(PID, FormActionsConfig.class);
+    void aFreshInstallIsMarkedOnceSoALegacyConfigurationCreatedLaterIsNeverRead() throws Exception {
+        // Verifies "once" means once: no legacy configuration in ConfigAdmin, nothing to carry — the theme's file still
+        // gets the marker, so that a single-PID configuration created later (a provisioning script nobody updated)
+        // is not carried at the next restart, which a new object would otherwise do.
         ConfigurationAdmin admin = adminWithLegacy(null);
+        Configuration theme = themeConfiguration(admin, themeFromFile());
 
-        assertEquals(Outcome.NOTHING, migration.run(admin, themeFromFile()));
-        assertEquals(Outcome.NOT_DUE, migration.run(admin, themeFromFile()));
-        verify(admin, times(1)).listConfigurations(any());
-        verify(admin, never()).getConfiguration(any(), any());
+        assertEquals(Outcome.NOTHING, new LegacyConfigurationMigration(PID, FormActionsConfig.class).run(admin, themeFromFile()));
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Dictionary<String, Object>> written = ArgumentCaptor.forClass(Dictionary.class);
+        verify(theme).update(written.capture());
+        assertEquals(LegacyConfigurationMigration.LEGACY_PID, written.getValue().get(LegacyConfigurationMigration.MARKER));
+
+        Map<String, Object> marked = themeFromFile();
+        marked.put(LegacyConfigurationMigration.MARKER, LegacyConfigurationMigration.LEGACY_PID);
+        ConfigurationAdmin later = adminWithLegacy(legacy(Map.of("forwardTargets", LEGACY_TARGETS)));
+        assertEquals(Outcome.NOT_DUE, new LegacyConfigurationMigration(PID, FormActionsConfig.class).run(later, marked), "after a restart");
+        verify(later, never()).listConfigurations(any());
     }
 
     @Test
@@ -157,7 +165,11 @@ class LegacyConfigurationMigrationTest {
         Configuration theme = themeConfiguration(admin, edited);
 
         assertEquals(Outcome.NOTHING, new LegacyConfigurationMigration(PID, FormActionsConfig.class).run(admin, edited));
-        verify(theme, never()).update(any());
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Dictionary<String, Object>> written = ArgumentCaptor.forClass(Dictionary.class);
+        verify(theme).update(written.capture());
+        assertEquals("other|Other|https://other.example.com/forms", written.getValue().get("forwardTargets"), "the file's value is kept, only the marker is added");
+        assertEquals(LegacyConfigurationMigration.LEGACY_PID, written.getValue().get(LegacyConfigurationMigration.MARKER));
     }
 
     @Test

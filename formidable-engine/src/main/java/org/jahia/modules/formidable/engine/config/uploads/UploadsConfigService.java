@@ -30,7 +30,7 @@ public class UploadsConfigService {
 
     private static final Logger log = LoggerFactory.getLogger(UploadsConfigService.class);
 
-    private final ThemeLifecycle<Snapshot> lifecycle = new ThemeLifecycle<>(PID, UploadsConfig.class);
+    private final ThemeLifecycle<UploadsConfig, Snapshot> lifecycle = new ThemeLifecycle<>(PID, UploadsConfig.class, UploadsConfigService::read);
 
     @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, unbind = "unsetConfigurationAdmin")
     public void setConfigurationAdmin(ConfigurationAdmin admin) {
@@ -44,12 +44,12 @@ public class UploadsConfigService {
     @Activate
     @Modified
     public void configure(UploadsConfig config, Map<String, Object> properties) {
-        lifecycle.configure(properties, read(config));
+        lifecycle.configure(properties, config);
     }
 
     /** Reads the configuration into the snapshot the getters serve, no file behind it; public for the tests. */
     public void activate(UploadsConfig config) {
-        lifecycle.configure(null, read(config));
+        lifecycle.configure(null, config);
     }
 
     private static Snapshot read(UploadsConfig config) {

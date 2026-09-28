@@ -48,7 +48,7 @@ public class FormActionsConfigService {
 
     private static final Logger log = LoggerFactory.getLogger(FormActionsConfigService.class);
 
-    private final ThemeLifecycle<Snapshot> lifecycle = new ThemeLifecycle<>(PID, FormActionsConfig.class);
+    private final ThemeLifecycle<FormActionsConfig, Snapshot> lifecycle = new ThemeLifecycle<>(PID, FormActionsConfig.class, FormActionsConfigService::read);
 
     @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, unbind = "unsetConfigurationAdmin")
     public void setConfigurationAdmin(ConfigurationAdmin admin) {
@@ -62,12 +62,12 @@ public class FormActionsConfigService {
     @Activate
     @Modified
     public void configure(FormActionsConfig config, Map<String, Object> properties) {
-        lifecycle.configure(properties, read(config));
+        lifecycle.configure(properties, config);
     }
 
     /** Reads the configuration into the snapshot the getters serve, no file behind it; public for the tests. */
     public void activate(FormActionsConfig config) {
-        lifecycle.configure(null, read(config));
+        lifecycle.configure(null, config);
     }
 
     private static Snapshot read(FormActionsConfig config) {

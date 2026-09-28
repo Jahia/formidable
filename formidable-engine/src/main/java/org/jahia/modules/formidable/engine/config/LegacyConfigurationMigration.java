@@ -39,8 +39,12 @@ import java.util.TreeMap;
  * property that keeps the migration from running again for that theme; fileinstall persists the update
  * into the theme's file and the service's next callback brings the merged configuration. The legacy file,
  * when there is one, gets a first line saying it is no longer read — it is never deleted: the administrator
- * wrote it. A write that fails is retried on the next callback, up to {@value #MAX_ATTEMPTS} times, after
- * which the theme's file rules as it stands and an error names what to re-enter.
+ * wrote it. A theme with nothing to carry — no legacy configuration, or one at its defaults for this theme —
+ * gets the marker too, and the legacy file its notice: the migration runs once, whatever it finds, and a legacy
+ * configuration that appears later is not read. A write that fails is tried {@value #MAX_ATTEMPTS} times in all,
+ * the next ones scheduled by {@link ThemeLifecycle}; meanwhile the settings to carry stay in force in the theme's
+ * snapshot ({@link #pending()}), so a failing write never leaves the theme on its file's defaults. After the last
+ * attempt the theme's file rules as it stands and an error names what to re-enter.
  */
 public final class LegacyConfigurationMigration {
 
@@ -49,7 +53,7 @@ public final class LegacyConfigurationMigration {
     static final String FILEINSTALL_FILENAME = "felix.fileinstall.filename";
     /** Written into a theme's configuration with the carried values: the migration then never runs again for it. */
     static final String MARKER = "formidable.migratedFrom";
-    /** How many writes may fail before the theme's file is declared authoritative as it stands. */
+    /** How many times in all a write is tried before the theme's file is declared authoritative as it stands. */
     static final int MAX_ATTEMPTS = 3;
     static final String LEGACY_FILE_NOTICE_PREFIX = "# Superseded";
 
@@ -62,6 +66,8 @@ public final class LegacyConfigurationMigration {
     /** The theme's settings and their defaults as text, derived from its definition the way the metatype does. */
     private final Map<String, String> defaults;
     private int failedAttempts;
+    /** The settings to carry while their write keeps failing: in force in the theme's snapshot meanwhile. */
+    private Map<String, Object> pending = Map.of();
     private boolean done;
 
     LegacyConfigurationMigration(String pid, Class<? extends Annotation> definition) {
@@ -85,36 +91,36 @@ public final class LegacyConfigurationMigration {
             log.debug("[{}] The migration of {} waits for ConfigurationAdmin", pid, LEGACY_PID);
             return Outcome.NOT_DUE;
         }
+        Map<String, Object> carried = Map.of();
         try {
             Dictionary<String, Object> legacy = legacyProperties(admin);
-            if (legacy == null) {
-                done = true;
-                return Outcome.NOTHING;
-            }
-            Map<String, Object> carried = carried(legacy, properties);
-            if (carried.isEmpty()) {
-                done = true;
-                log.info("[{}] Nothing of {} to carry over: every setting of this theme is at its default there", pid, LEGACY_PID);
-                return Outcome.NOTHING;
-            }
+            carried = legacy == null ? Map.of() : carried(legacy, properties);
             Configuration configuration = admin.getConfiguration(pid, "?");
             // The dictionary returned is the caller's private copy (Configuration#getProperties): edited in place,
             // then written back. Null means the configuration holds nothing yet: nothing to carry the settings into.
             Dictionary<String, Object> updated = configuration.getProperties();
             if (updated == null) {
                 log.warn("[{}] The configuration holds no properties yet; the migration of {} waits", pid, carried.keySet());
-                return retry();
+                return retry(carried);
             }
             carried.forEach(updated::put);
             updated.put(MARKER, LEGACY_PID);
             configuration.update(updated);
             done = true;
+            pending = Map.of();
+            if (legacy != null) {
+                noteLegacyFile(legacy.get(FILEINSTALL_FILENAME));
+            }
+            if (carried.isEmpty()) {
+                log.info("[{}] Nothing of {} to carry over{}; marked as migrated", pid, LEGACY_PID,
+                        legacy == null ? " (none on this instance)" : ": every setting of this theme is at its default there");
+                return Outcome.NOTHING;
+            }
             log.warn("[{}] Carried over from {} into the theme's file: {}", pid, LEGACY_PID, carried.keySet());
-            noteLegacyFile(legacy.get(FILEINSTALL_FILENAME));
             return Outcome.WRITTEN;
         } catch (IOException | InvalidSyntaxException e) {
             log.error("[{}] Could not carry the settings of {} over into the theme's file", pid, LEGACY_PID, e);
-            return retry();
+            return retry(carried);
         }
     }
 
@@ -151,13 +157,24 @@ public final class LegacyConfigurationMigration {
         return carried;
     }
 
-    private Outcome retry() {
+    /**
+     * The settings to carry while their write keeps failing — what the theme keeps in force meanwhile; empty once
+     * written, given up, or when nothing is to carry.
+     */
+    synchronized Map<String, Object> pending() {
+        return pending;
+    }
+
+    private Outcome retry(Map<String, Object> carried) {
         failedAttempts++;
         if (failedAttempts < MAX_ATTEMPTS) {
-            log.warn("[{}] The migration of {} will be retried ({} of {} attempts made)", pid, LEGACY_PID, failedAttempts, MAX_ATTEMPTS);
+            pending = Map.copyOf(carried);
+            log.warn("[{}] The migration of {} will be tried again shortly ({} of {} attempts made); its settings stay in force meanwhile",
+                    pid, LEGACY_PID, failedAttempts, MAX_ATTEMPTS);
             return Outcome.RETRY;
         }
         done = true;
+        pending = Map.of();
         log.error("[{}] Gave up carrying the settings of {} over after {} attempts; the theme's file is in force as it stands — "
                 + "re-enter the settings of this theme in it", pid, LEGACY_PID, MAX_ATTEMPTS);
         return Outcome.GIVEN_UP;
