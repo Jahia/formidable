@@ -46,9 +46,9 @@
 		"empty": "Aucune action : les soumissions ne seront ni enregistrées ni transmises."
 	},
 	"fmdb_fieldActionList": {
-		"heading": "Vérifications de ce champ · {{count}}",
+		"heading": "Actions du champ · {{count}}",
 		"inOrder": "Exécutées dans cet ordre. Invisibles pour les visiteurs.",
 		"notLive": "Invisible pour les visiteurs.",
-		"empty": "Aucune vérification : l'interrupteur est activé mais rien ne vérifie ce champ."
+		"empty": "Aucune action du champ : ajoutez-en une ci-dessous pour vérifier ce que les visiteurs saisissent dans ce champ."
 	}
 }

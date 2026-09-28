@@ -129,7 +129,7 @@ Its structure, for the rare rule that must reach inside it — the
 A field carrying actions gets the same zone one level down, under the field, in edit mode only: the
 element wrapper renders the field's action list as `aside.fmdb-authoring-actions.fmdb-authoring-field-actions`
 inside the field's own Page Builder box (so it moves with the field), inset and tighter than the
-form's. Same header, cards, call-out (the switch is on but nothing checks the field yet) and create
+form's. Same header, cards, call-out (no field action yet: add one below) and create
 button (the accepted type is `fmdbmix:fieldAction`), same cards — an action's settings are read in its
 editor, for a field action as for a form action. Nothing of it exists in live, preview or the `cm` view. See
 [Field actions](../architecture/field-actions.md).
