@@ -60,7 +60,7 @@ public class EmailDomainFieldAction implements FieldAction {
         List<String> of(String domain) throws NamingException;
     }
 
-    private final transient MailRecords records;
+    private final MailRecords records;
 
     public EmailDomainFieldAction() {
         this(EmailDomainFieldAction::lookup);
@@ -93,16 +93,6 @@ public class EmailDomainFieldAction implements FieldAction {
                     request.fieldName(), e.getClass().getSimpleName());
             return FieldActionResult.unavailable("the resolver did not answer: " + e.getClass().getSimpleName());
         }
-    }
-
-    private static boolean isLabel(String label) {
-        for (int i = 0; i < label.length(); i++) {
-            char c = label.charAt(i);
-            if ((c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '-') {
-                return false;
-            }
-        }
-        return true;
     }
 
     /**

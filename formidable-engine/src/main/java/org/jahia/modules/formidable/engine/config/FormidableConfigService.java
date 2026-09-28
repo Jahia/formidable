@@ -97,7 +97,7 @@ public class FormidableConfigService {
         @Override
         public String toString() {
             return "FieldActionProvider[id=" + id + ", baseUri=" + baseUri + ", credentialHeader=" + credentialHeader
-                    + ", credentialIn=" + (credentialInQuery ? "query" : "header")
+                    + ", credentialIn=" + (credentialInQuery ? CREDENTIAL_IN_QUERY : CREDENTIAL_IN_HEADER)
                     + ", credential=" + (credential == null || credential.isEmpty() ? "none" : "***") + "]";
         }
     }
