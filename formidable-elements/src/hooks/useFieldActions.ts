@@ -1,9 +1,11 @@
-import {type RefObject, useEffect, useRef} from 'react';
+import {type RefObject, useEffect, useRef, useState} from 'react';
 import {clearAllFieldWarnings, clearFieldChecking, clearFieldError, showFieldChecking} from '~/utils/validationUtils';
 import {
 	clearFieldActionValidity,
+	FIELD_ACTION_VALIDITY_EVENT,
 	type FieldControls,
 	type FieldMessage,
+	fieldActionRefusalsIn,
 	fieldControlsIn,
 	type FormControl,
 	parseFieldMessages,
@@ -56,6 +58,13 @@ interface UseFieldActionsReturn {
 	 * pipeline being the authority.
 	 */
 	settleFieldActions: (root: HTMLElement) => Promise<FormControl | null>;
+	/**
+	 * The controls carrying a refusal the field actions drew, on screen — whichever path drew it, the
+	 * pre-check or a refused submission — and that the browser validates: a field logic holds hidden
+	 * counts for nothing. The island keeps Submit disabled while any stands, and Next while the current
+	 * step holds one: a click would only meet the refusal again.
+	 */
+	refusedControls: FormControl[];
 }
 
 const isFormControl = (target: EventTarget | null): target is FormControl =>
@@ -135,6 +144,7 @@ export function useFieldActions({formRef, fieldActionUrl, enabled, labels}: UseF
 	const sequencesRef = useRef(new Map<string, number>());
 	// One console line per status: the pre-check is a courtesy, its failure is not the visitor's business.
 	const warnedRef = useRef(new Set<number>());
+	const [refusedControls, setRefusedControls] = useState<FormControl[]>([]);
 
 	/**
 	 * One value to the engine, null when it could not answer — a network error, a timeout, any status
@@ -252,16 +262,30 @@ export function useFieldActions({formRef, fieldActionUrl, enabled, labels}: UseF
 			clearAllFieldWarnings(form);
 		};
 
+		// Every write and lift of a refusal announces itself on the form, whichever code did it — this
+		// hook, the refused submission's anchoring, a reset: the buttons read the refusals from the DOM then.
+		const onValidity = () => setRefusedControls(fieldActionRefusalsIn(form));
+		// Conditional logic disables and enables controls on the same input and change events, announcing
+		// nothing: a refusal on a field logic just hid must stop counting (the pipeline skips the field), and
+		// one on a field logic just showed again must count. Read after the event's other listeners ran.
+		const afterLogic = () => queueMicrotask(() => setRefusedControls(fieldActionRefusalsIn(form)));
+
 		form.addEventListener('focusout', onLeave);
 		form.addEventListener('change', onLeave);
 		form.addEventListener('input', onInput);
 		form.addEventListener('reset', onReset);
+		form.addEventListener(FIELD_ACTION_VALIDITY_EVENT, onValidity);
+		form.addEventListener('input', afterLogic);
+		form.addEventListener('change', afterLogic);
 
 		return () => {
 			form.removeEventListener('focusout', onLeave);
 			form.removeEventListener('change', onLeave);
 			form.removeEventListener('input', onInput);
 			form.removeEventListener('reset', onReset);
+			form.removeEventListener(FIELD_ACTION_VALIDITY_EVENT, onValidity);
+			form.removeEventListener('input', afterLogic);
+			form.removeEventListener('change', afterLogic);
 		};
 	}, [formRef, enabled, fieldActionUrl]);
 
@@ -274,5 +298,5 @@ export function useFieldActions({formRef, fieldActionUrl, enabled, labels}: UseF
 		return controls ? anchorOf(controls) ?? null : null;
 	};
 
-	return {settleFieldActions};
+	return {settleFieldActions, refusedControls};
 }

@@ -477,7 +477,38 @@ them) and the submit-only ones for the first time; a check still in flight is su
 is awaited, never raced. Any refusal: the messages shown, the refused control brought on screen and
 focused, no request. Otherwise the submission goes, warnings shown; a check that could not be asked
 blocks nothing. No spinner meanwhile — a spinner would hide the form the messages land on — but the
-field being asked about says so (below), and a second click is ignored until the answer.
+field being asked about says so (below), and a second click is ignored until the answer. Submit stays
+active while a check runs, on purpose: the click that leaves the last field is what starts that field's
+blur check, and a button disabled by it would drop the very click that meant to send — the settle awaits
+the check in flight instead.
+
+**When Submit is disabled** — the island's `isSubmitBlocked` (`Form.client.tsx`), decided with the
+developer on 2026-09-28 after the first manual review: two refusals shown under their fields and a
+Submit that looked ready to click. The field actions add one condition to the four the island had; the
+browser's own validation stays as it was, since the captcha, not the constraint validation, is the
+precedent of a button blocked by an unmet condition.
+
+| State of the form | Submit |
+|---|---|
+| a submission in flight (the request left) | disabled — Reset, Previous and Next too |
+| edit mode (Page Builder, Content Editor) | disabled, with a title saying why |
+| an options source in a blocking error | disabled |
+| a captcha to solve, on the last step | disabled until solved |
+| **a field action's blocking refusal shown** under a field — the pre-check's, or a refused submission's (`FMDB-015`) | **disabled** until the visitor types in the field, a later check accepts, or a reset |
+| a check in flight ("Checking…" under the field), at blur or at a settle | active — the click waits for the answer: the settle awaits the check in flight, and a second click meanwhile is ignored |
+| a field action's warning shown | active — the submission goes |
+| a native constraint failing — required empty, pattern, email | active — the click draws the message and focuses the field, nothing leaves |
+| the form valid, nothing pending | active |
+
+Next follows the same table for the current step: disabled while the step it shows holds a refusal; a
+refusal on another step leaves it alone. The island learns of a refusal from the
+`formidable:fieldActionValidity` event `fieldActionMessages` dispatches on the control at every write
+and lift, and reads the refusals from the DOM then (`fieldActionRefusalsIn`: the controls whose
+`customValidity` is still the field actions' own, on a control the browser validates — a field logic
+holds hidden counts for nothing, as the pipeline skips it). Conditional logic disables and enables
+controls on the same `input` and `change` events, announcing nothing, so the hook reads the refusals
+once more after those events' other listeners ran (a microtask): a refusal on a field logic just hid
+stops counting, one on a field logic just showed again counts.
 
 **While a check runs**, at blur or before a submission or the next step, the field says what the form is
 waiting for: its wrapper carries `fmdb-field-action-pending` and `aria-busy="true"`, and under the field a
@@ -491,8 +522,8 @@ blur-checked value is asked again (free), a value still being checked is awaited
 an action set to run "at submission" runs now, when the visitor leaves the field's step — the editor's
 label says so — which costs exactly what one run at submission does in the normal flow and spares the
 visitor being sent back from the last step to the first. A refusal keeps the visitor on the step, the
-message under the field, the field focused; Next ignores a second click while it settles. Submit
-settles the whole form, as above. And whichever way a refusal reaches a control that is not on screen —
+message under the field, the field focused; Next ignores a second click while it settles, and is disabled
+while the step holds a refusal. Submit settles the whole form, as above. And whichever way a refusal reaches a control that is not on screen —
 the settle, the pipeline's `FMDB-015` — the island brings its step on screen first and focuses it on the
 next run, once the step's display has changed (`stepIndexOf`, an effect of the island's state).
 
@@ -514,8 +545,16 @@ never calls the endpoint. **Hydration**: the listeners attach on mount; a field 
 simply not pre-checked, and the pipeline judges it.
 
 **The zone** under the field while authoring is rendered by the same wrapper as soon as the switch is on,
-inside the field's Page Builder box, by two views on the same chrome as the form-actions zone
-(`design/AuthoringActionsZone`, `design/AuthoringActionCard`).
+next to the field's Page Builder module inside the wrapper, by two views on the same chrome as the
+form-actions zone (`design/AuthoringActionsZone`, `design/AuthoringActionCard`). **jContent is told the
+zone belongs to the field**: it takes a module's parent from its `data-jahia-parent` attribute when the
+module carries one, and from the closest module up the DOM otherwise — the fields container's, for a
+module that sits next to the field's — and would then count the zone among the fields, with an insertion
+point above it and another below, and a zone that drags among them (seen on 2026-09-28). The engine
+emits no such attribute and draws the module ids at render time, so the wrapper cannot write it
+server-side: in edit mode it emits, right after the zone, a three-line script that runs as the page is
+parsed — before jContent reads the boxes — stamps the field's module id on the zone's module, and removes
+itself. Spec 72 asserts the attribute and the absence of the script.
 `FieldActionList/hidden.authoring` draws the header (the list's icon and count), the ordered cards, the
 call-out of a list still empty, and the create button — the list's module declares `fmdbmix:fieldAction`
 to jContent, so one button, then the chooser listing every deployed field-action type.
@@ -628,6 +667,7 @@ call per blocking action and non-blank value never pre-checked.
 | 2026-09-22 | **The walk of the form is cached per form and locale for sixty seconds**, not keyed off the form's `jcr:lastModified` (review of #344) | A change to an action or a field touches that node's `jcr:lastModified`, not the form root's: the core `LastModifiedListener` writes the first node up the hierarchy that carries `mix:lastModified`, which a `jnt:content` action node is itself (jahia-impl 8.2.4 sources, `updateLastModifiedProperties`), so the root's date would serve stale actions after a republish. A short TTL is exact within the minute and needs no invalidation; the pipeline walks fresh every time |
 | 2026-09-25 | **The switch stays a dynamic-fieldset switch at the end of the `content` section** (HDU) — no `enabled` boolean, no FIELD ACTIONS section | The alternative, the `fmdbmix:jExperienceSensitiveField` shape (a `jmix:templateMixin` with an `enabled` boolean, always shown, placeable in a section of its own) would have changed what "off" means — the list kept, the checks paused — and needed a listener to create the list lazily. "On, the list exists; off, the list is deleted" is simpler and is what the label says |
 | 2026-09-25 | **`fmdbmix:fieldActions` extends a new positive marker, `fmdbmix:submittableField`**, not `fmdbmix:formElement` (HDU: « pourquoi fieldset porte le switch ? ») | `fmdbmix:formElement` reaches the fieldset (title + logic) and the button (through `fmdbmix:element`), both non-submittable: a switch whose actions never run. The engine had only the negative marker, and `extends` cannot say "formElement minus nonSubmittable". The positive marker is the `profileMappableField` pattern — the same sixteen field types declare it, a third-party field opts in from its own CND — and the pipeline keeps its `!nonSubmittable` test so no existing field type stops being submitted. A supertype added to a type is seen by existing nodes without a migration |
+| 2026-09-28 | **The zone's module is attached to the field's with `data-jahia-parent`, stamped by a script the wrapper emits in edit mode** (HDU, manual review: insertion points between the field and its zone) | jContent infers a module's parent from the DOM unless the module says otherwise, and the zone sits next to the field's module, not inside it — inside is where only the field's own view could put it, which the 2026-09-22 decision rules out. The ids are drawn at render time, hence a script rather than an attribute; `Boxes.jsx` reads `data-jahia-parent` first, so the zone is the field's child from the first paint, out of the fields' insertion points and drag list |
 | 2026-09-22 | **The marker and the zone live on the element wrapper**, not in the field views and not in a library helper (HDU, PR 2 handoff) | `LogicAwareRender` already wraps every element of every container with the node name, id, type and the logic state; adding `data-fmdb-field-action` and the zone there touches one file, no field view, and covers a field from any module without it calling anything — fields only ever render inside a Formidable container. The draft's `fieldActionAttributes(currentNode)` library export is dropped: a helper every view would have had to remember to spread |
 | 2026-09-22 | **The warning hook is `fmdb-validation-warning`**, not the `fmdb-form-warning` of issue #341 (HDU) | The twin of `fmdb-validation-error`: the pair sits in one row of the styling documentation, and a stylesheet that finds one finds the other |
 | 2026-09-25 | **The provider-backed sample is written against a real provider, Experian, as an example implementation**, with a double of the provider in the samples module and a development provider list in the configuration (HDU: a customer asks for the Experian API; « précise dans la doc que c'est un exemple d'implémentation ») | A sample against an invented provider proves the gateway against nothing; against a named one, the contract is the provider's own documentation and a project copies the class as is. The double is a servlet because a static file refuses a POST (405, measured) and the test suite has no network; it lives in the samples module, next to the class it doubles. A provider over plain HTTP was refused by the HTTPS rule, rightly — the forward targets had solved the same need with a development list behind a switch, so the providers get the same pair, `enableDevFieldActionProviders` and `devFieldActionProviders`, rather than a relaxation of the rule |
@@ -635,6 +675,7 @@ call per blocking action and non-blank value never pre-checked.
 | 2026-09-25 | **The JavaScript way of writing a field action is withdrawn** (HDU: « quand je pensais au rendu js je pensais au useFieldAction… pas à l'implémentation back en js ») — the dispatcher runs Java services only; the library's `readFieldActionRequest` and `fieldActionResult`, the samples' `minimumWordsAction` and spec 73's JavaScript check go with it | Built on a misreading of the brief — « le code de l'action écrit en JS » meant the visitor's page — it answered a question nobody had asked, sidestepped the one left open with #164 (form actions in TypeScript, waiting for a server-extension SDK of the JavaScript modules), and tied the engine to `jsm-raw-html`, an internal of that engine. Withdrawn before any release; the rows above stay as the record of what was measured on the way |
 | 2026-09-22 | **A refusal at submission (`FMDB-015`) shows the contributor's message under the field and nothing else** (HDU) | A field action's refusal is a validation failure, so it reads like one: the message anchored on the field, the focus moved, the form kept with what the visitor typed — no global error box, no error code on screen. Every other rejection keeps today's global message; `FMDB-017` keeps it under the anchored message, since its cause is not one value to correct |
 | 2026-09-25 | **No spinner while the field actions settle before the submission**; a second click meanwhile is ignored | The spinner hides the form (the accepted submission replaces it), and the messages the settle may produce land on that very form: a refused value would have flashed the form away and back. The pending state on the fields checked is the feedback, and a guard in the submission hook keeps a second click from starting a second settle |
+| 2026-09-28 | **Submit is disabled while a field action's blocking refusal is shown**; Next likewise for its step — and not while a check runs (HDU, manual review: two refusals on screen and a Submit that looked clickable; then the review of #349) | A refusal drawn under a field is a state the visitor must act on, and a button that only meets it again on click says the opposite. The browser's own validation keeps the button active — the click is what draws its messages — and the captcha is the precedent for a button blocked by an unmet condition. The first cut also disabled the button while a check ran, and dropped the most ordinary click of all: the one on Submit that leaves the last field, whose `focusout` starts the blur check, which React flushes before `mouseup` — the click on a now-disabled button is never dispatched. The settle awaits the check instead, as decided on 2026-09-25. The island reads the refusals from the DOM on the validity event the messages utility dispatches, so a refused submission's anchoring counts as the pre-check's does, and once more after the `input`/`change` events conditional logic toggles controls on, so a refusal on a hidden field stops counting |
 | 2026-09-25 | **The pre-check leaves alone a field conditional logic holds hidden** (`isAskable`) | The pipeline skips hidden fields, so asking about one would spend a provider call on a value that is never judged, and show a message under a field the visitor cannot see. Was an open question of the engine PR |
 | 2026-09-25 | **The library helpers handed the verdict over in the engine's raw-html element; the reader decoded entities only once the raw body had failed to read** (review of #346, two rounds — withdrawn with the JavaScript path, the row above) | `renderToString` escapes the text a component returns: every JavaScript field action answered as a plain string reached the reader as `&quot;`-quoted JSON, UNAVAILABLE, accepted by the CND default — and nothing had run that chain end to end. The element was what the engine emitted verbatim. The first cut decoded every body: a raw body whose `detail` held entity text (`provider said &quot;no&quot;`) then read as malformed — or as a second `verdict` — and a refusal ended accepted; decoding after a failed raw read kept both paths exact. The samples' JavaScript action and spec 73 held the chain until the withdrawal |
 | 2026-09-25 | **`jsm-raw-html` was the engine's internal element; the engine stripped its tags itself as a belt** (review of #346 — withdrawn with the JavaScript path, the row above) | The JavaScript modules engine's source says the element should not be used in userland, and the published library then depended on it: had it been renamed or dropped, the tags would have reached the reader as markup and every JavaScript action would have gone UNAVAILABLE, accepted, silently. `RenderServiceViewRenderer.body` stripped the tags too, so the verdict read either way; the library test pinned that strip. Whether the element might be relied on was a question for the JavaScript modules team, moot since the withdrawal |

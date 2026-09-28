@@ -7,13 +7,19 @@ import {useFieldActions} from './useFieldActions';
 
 /**
  * The hook driven as a function against a real DOM and a fake `XMLHttpRequest`, React's three seams
- * mocked — `useRef` a holder, `useEffect` run at once — since rendering it would need react-dom,
- * which this module does not depend on. `vi.mock` is hoisted above the imports.
+ * mocked — `useRef` a holder, `useEffect` run at once, `useState` a recorded setter — since rendering
+ * it would need react-dom, which this module does not depend on. `vi.mock` is hoisted above the imports.
  */
+const react = vi.hoisted(() => ({setters: [] as Array<ReturnType<typeof vi.fn>>}));
 vi.mock('react', () => ({
 	useRef: <T,>(initial: T) => ({current: initial}),
 	useEffect: (effect: () => void | (() => void)) => {
 		effect();
+	},
+	useState: <T,>(initial: T) => {
+		const set = vi.fn();
+		react.setters.push(set);
+		return [initial, set];
 	},
 }));
 
@@ -77,14 +83,21 @@ function formWith(html: string, options: {enabled?: boolean; url?: string; withC
 	if (options.withConstraintClient) {
 		useCustomFormValidation({formRef: {current: form}});
 	}
+	react.setters.length = 0;
 	const {settleFieldActions} = useFieldActions({
 		formRef: {current: form},
 		fieldActionUrl: 'url' in options ? options.url : URL,
 		enabled: options.enabled ?? true,
 		labels: {checking: 'Checking…'},
 	});
-	return {form, settleFieldActions};
+	// The hook's one useState: the refused controls.
+	const [setRefusedControls] = react.setters;
+	return {form, settleFieldActions, setRefusedControls};
 }
+
+/** The names of the controls the hook last told the island are refused. */
+const lastRefused = (setRefusedControls: ReturnType<typeof vi.fn>): string[] =>
+	(setRefusedControls.mock.lastCall?.[0] as HTMLInputElement[]).map(control => control.name);
 
 const textField = (name: string, trigger = 'blur', extra = '') => `
 	<div data-fmdb-node-name="${name}" data-fmdb-field-action="${trigger}" ${extra}>
@@ -176,6 +189,69 @@ describe('useFieldActions', () => {
 		expect(form.querySelector('.fmdb-form-group > .fmdb-validation-error')!.innerHTML).toBe('The word <b>spam</b> is refused');
 		expect(wrapperOf(form, 'firstName').hasAttribute('aria-busy')).toBe(false);
 		expect(form.querySelector('.fmdb-field-action-pending')).toBeNull();
+	});
+
+	it('tells the island which controls are refused, at each write and lift: a refusal, the visitor typing, an accept, a reset', async () => {
+		// Verifies the state the buttons read — Submit while any refusal stands, Next for the current step — through
+		// every path that changes it: the pre-check's refusal, typing (lifted), a later accept, and a reset.
+		const {form, setRefusedControls} = formWith(textField('firstName') + textField('email'));
+		const [firstName, email] = Array.from(form.querySelectorAll('input'));
+		firstName.value = 'spam';
+		firstName.dispatchEvent(bubbling('focusout'));
+		requests[0].answer(200, reject('firstName', 'no'));
+		await settled();
+		expect(lastRefused(setRefusedControls)).toEqual(['firstName']);
+
+		email.value = 'ada@example.com';
+		email.dispatchEvent(bubbling('focusout'));
+		requests[1].answer(200, reject('email', 'no'));
+		await settled();
+		expect(lastRefused(setRefusedControls)).toEqual(['firstName', 'email']);
+
+		firstName.value = 'spa';
+		firstName.dispatchEvent(bubbling('input'));
+		expect(lastRefused(setRefusedControls)).toEqual(['email']);
+
+		email.dispatchEvent(bubbling('focusout'));
+		requests[2].answer(200, accept);
+		await settled();
+		expect(lastRefused(setRefusedControls)).toEqual([]);
+
+		firstName.dispatchEvent(bubbling('focusout'));
+		requests[3].answer(200, reject('firstName', 'no'));
+		await settled();
+		expect(lastRefused(setRefusedControls)).toEqual(['firstName']);
+		form.dispatchEvent(bubbling('reset'));
+		expect(lastRefused(setRefusedControls)).toEqual([]);
+	});
+
+	it('re-reads the refusals once conditional logic has hidden or shown a field on the same event', async () => {
+		// Verifies the reading after the logic pass: logic disables the controls of a field it hides — on the very
+		// input or change event, announcing nothing — so a refusal there must stop counting (the pipeline skips
+		// the field), and count again once the field is shown. The "logic" here is a listener registered after
+		// the hook's, as the island's is; the microtask is what lets the hook see the DOM after it.
+		const {form, setRefusedControls} = formWith(textField('firstName') + textField('contact'));
+		const [firstName, contact] = Array.from(form.querySelectorAll('input'));
+		form.addEventListener('change', () => {
+			firstName.disabled = contact.value === 'no';
+		});
+		firstName.value = 'spam';
+		firstName.dispatchEvent(bubbling('focusout'));
+		requests[0].answer(200, reject('firstName', 'no'));
+		await settled();
+		expect(lastRefused(setRefusedControls)).toEqual(['firstName']);
+
+		contact.value = 'no';
+		contact.dispatchEvent(bubbling('change'));
+		await settled();
+		expect(firstName.disabled).toBe(true);
+		expect(lastRefused(setRefusedControls)).toEqual([]);
+
+		contact.value = 'yes';
+		contact.dispatchEvent(bubbling('change'));
+		await settled();
+		expect(firstName.disabled).toBe(false);
+		expect(lastRefused(setRefusedControls)).toEqual(['firstName']);
 	});
 
 	it('clears a refusal on the next accept, and shows a warning without blocking', async () => {

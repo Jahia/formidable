@@ -71,6 +71,28 @@ export const plainText = (html: string): string =>
  */
 const written = new WeakMap<FormControl, string>();
 
+/**
+ * Dispatched on a field's control, bubbling, whenever the field actions write a refusal into its
+ * controls or lift one — the pre-check's answer, a refused submission, the visitor typing, a reset:
+ * the island keeps Submit disabled while a refusal is shown, and this is how it learns of one.
+ */
+export const FIELD_ACTION_VALIDITY_EVENT = 'formidable:fieldActionValidity';
+
+const announce = (control: FormControl | undefined): void => {
+	control?.dispatchEvent(new CustomEvent(FIELD_ACTION_VALIDITY_EVENT, {bubbles: true}));
+};
+
+/**
+ * The controls under `root` carrying a refusal of the field actions right now: their own validity,
+ * still in place, on a control the browser validates. A control barred from constraint validation —
+ * disabled, which is how logic hides a field — counts for nothing, as the pipeline skips the field.
+ */
+export const fieldActionRefusalsIn = (root: ParentNode): FormControl[] =>
+	controlsIn(root).filter(control => {
+		const ours = written.get(control);
+		return ours !== undefined && control.willValidate && control.validationMessage === ours;
+	});
+
 /** The named controls and the anchor, once each: what a refusal marks invalid. */
 const markedControls = ({named, anchor}: FieldControls): FormControl[] =>
 	anchor && !named.includes(anchor) ? [...named, anchor] : named;
@@ -82,13 +104,18 @@ const markedControls = ({named, anchor}: FieldControls): FormControl[] =>
  * refusal would otherwise outlive the field's return and block every submission.
  */
 export const clearFieldActionValidity = (controls: FieldControls): void => {
+	let held = false;
 	for (const control of markedControls(controls)) {
 		const ours = written.get(control);
-		if (ours !== undefined && (!control.willValidate || control.validationMessage === ours)) {
-			control.setCustomValidity('');
+		if (ours !== undefined) {
+			held = true;
+			if (!control.willValidate || control.validationMessage === ours) {
+				control.setCustomValidity('');
+			}
 		}
 		written.delete(control);
 	}
+	if (held) announce(markedControls(controls)[0]);
 };
 
 /**
@@ -114,6 +141,7 @@ export const showFieldMessages = (controls: FieldControls, messages: FieldMessag
 			written.set(control, validity);
 		}
 		showFieldError(anchor, error.html, {html: true});
+		announce(anchor);
 	}
 	if (warning) showFieldWarning(anchor, warning.html);
 };

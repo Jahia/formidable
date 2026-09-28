@@ -125,7 +125,7 @@ export default function Form({
 	useCustomFormValidation({formRef});
 	// The field actions (docs/architecture/field-actions.md): asked as the visitor leaves a field that
 	// carries some, and settled before the submission below. Off while authoring, like the logic.
-	const {settleFieldActions} = useFieldActions({
+	const {settleFieldActions, refusedControls} = useFieldActions({
 		formRef,
 		fieldActionUrl,
 		enabled: !isEditMode && !!fieldActionUrl,
@@ -186,8 +186,14 @@ export default function Form({
 		formRef.current?.dispatchEvent(new CustomEvent(NEW_FORM_EVENT, {bubbles: true, detail: {formId}}));
 	};
 
-	const isSubmitBlocked = isLoading || isSubmitDisabled || hasBlockingSourceError
+	// A field action's refusal on screen: Submit waits, and Next when the current step holds the refusal — a
+	// click would only meet it again. Not while a check runs: the click that leaves the last field is what
+	// starts its blur check, and a button disabled by it would drop that very click; the settle awaits the
+	// check instead, and a second click meanwhile is ignored (docs/architecture/field-actions.md, "The browser").
+	const hasBlockingRefusal = refusedControls.length > 0;
+	const isSubmitBlocked = isLoading || isSubmitDisabled || hasBlockingSourceError || hasBlockingRefusal
 		|| (!!captcha && (!isMultiStep || isLastStep) && !isCaptchaValid);
+	const isNextBlocked = isLoading || refusedControls.some(control => stepIndexOf(control) === currentStep);
 	const submitBlockedTitle = isSubmitDisabled ? t('editModeSubmitDisabled') : undefined;
 	const showCaptcha = !!captcha && (!isMultiStep || isLastStep);
 
@@ -353,7 +359,7 @@ export default function Form({
 								type="button"
 								className="fmdb-btn fmdb-btn-primary fmdb-next-btn"
 								onClick={() => void handleNext(validateCurrentStep)}
-								disabled={isLoading}
+								disabled={isNextBlocked}
 							>
 								{nextBtnLabel || t('nextBtn')}
 							</button>
