@@ -1,7 +1,10 @@
 package org.jahia.modules.formidable.engine.choicelist;
 
 import org.jahia.modules.formidable.engine.config.uploads.UploadsConfigService;
+import org.jahia.data.templates.JahiaTemplatesPackage;
 import org.jahia.modules.formidable.engine.files.FileTypeService;
+import org.jahia.utils.i18n.Messages;
+import org.jahia.utils.i18n.ResourceBundles;
 import org.jahia.services.content.nodetypes.ExtendedPropertyDefinition;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListValue;
 import org.jahia.services.content.nodetypes.initializers.ModuleChoiceListInitializer;
@@ -11,15 +14,17 @@ import org.osgi.service.component.annotations.Reference;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.ResourceBundle;
 
 /**
  * Populates the accept choice list for fmdb:inputFile from the
  * uploadAllowedMimeTypes configuration in org.jahia.modules.formidable.uploads.cfg.
  *
- * Each type is labelled from Apache Tika's registry ({@link FileTypeService#label}: "PDF (.pdf)"), so a type the
- * administrator adds needs no bundle entry. Jahia's resourceBundle initializer, chained after this one in the
- * CND, still replaces that label with the module's own wording where its bundle has one:
- * fmdb_inputFile.accept.{mime/type}.
+ * Each type is labelled with the wording of the resource bundle of the module declaring the property, where it
+ * has one — {@code fmdb_inputFile.accept.<mime/type>}, looked up as Jahia's own resourceBundle initializer does —
+ * and otherwise from Apache Tika's registry ({@link FileTypeService#label}: "PDF (.pdf)"), so a type the
+ * administrator adds needs no bundle entry. Jahia's resourceBundle initializer is not chained after this one: it
+ * builds its key from the current label, which is no longer the type.
  *
  * Registered as: choicelist[formidableMimeTypes] in the CND.
  */
@@ -46,8 +51,20 @@ public class FormidableMimeTypesInitializer implements ModuleChoiceListInitializ
             List<ChoiceListValue> values, Locale locale, Map<String, Object> context) {
         return configService.getUploadAllowedMimeTypes().stream()
                 .sorted()
-                .map(mime -> new ChoiceListValue(fileTypes.label(mime), mime))
+                .map(mime -> new ChoiceListValue(label(epd, mime, locale), mime))
                 .toList();
+    }
+
+    /** The bundle's wording of the type, else the label Tika gives it. */
+    private String label(ExtendedPropertyDefinition epd, String mime, Locale locale) {
+        String fallback = fileTypes.label(mime);
+        try {
+            JahiaTemplatesPackage module = epd.getDeclaringNodeType().getTemplatePackage();
+            ResourceBundle bundle = ResourceBundles.get(module, locale);
+            return Messages.get(bundle, epd.getResourceBundleKey() + "." + mime, fallback);
+        } catch (RuntimeException e) {
+            return fallback;
+        }
     }
 
     @Override

@@ -340,6 +340,22 @@ All file parts pass through `FormDataParser` which enforces the following contro
 | 6 | MIME type detection | Apache Tika filename-aware detection via `Tika.detect(byte[], String)` (ignores client-supplied `Content-Type`, but uses the original filename extension to disambiguate ambiguous formats) |
 | 7 | MIME type allowlist | Field-level `accept` property (multiple choicelist) takes priority; falls back to global cfg allowlist. Rejections at this step are treated as validation failures (`FMDB-010`), not technical parse failures |
 
+**One table of file types: Apache Tika's.** The same registry that detects a file's real type (step 6)
+describes every type the field and the editor show — no table of the module maps a type to its extensions or
+its name. `FileTypeService` (engine, `files/`, reached by the file field's view by its class name) gives, for
+each token of a field's `accept`, the extensions shown to the visitor (a type's preferred one, `.docx`; a
+wildcard's allowed types'; an extension as it is) and the ones a file is recognised by when the browser gives
+no type (all of the type's: `.jpg`, `.jpeg`, `.jpe`…); the island receives both from the server and uses them
+for the formats it lists, the `accept` attribute and its own check before sending. In the editor, the
+`formidableMimeTypes` choicelist labels each allowed type with the wording of the declaring module's bundle
+where it has one (`fmdb_inputFile.accept.<mime/type>`, translated) and otherwise with a label computed from
+Tika — the type's acronym or preferred extension in capitals, then the extension: "PDF (.pdf)", "WEBP (.webp)".
+A type an administrator adds to `uploadAllowedMimeTypes` therefore needs no code and no bundle entry. Tika's own
+descriptions are not used: six of the seventeen default types have none (`image/webp`, `text/plain`,
+`text/csv`, `video/mp4`, `video/webm`, `video/x-matroska`) and the others read as a specification
+("OpenDocument v1.0: Text document"). The choicelist no longer chains Jahia's `resourceBundle` initializer,
+which builds its key from the current label rather than the value.
+
 Limits and the global allowlist are configured in `org.jahia.modules.formidable.uploads.cfg` (`UploadsConfigService`),
 one of the five theme files the module ships, every setting at its default: how the files are deployed, edited
 and carried over from the single file of earlier builds is in [Configuration files](../administration/configuration.md).
