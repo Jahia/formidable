@@ -20,7 +20,7 @@ interface FileTypeServiceLike {
 }
 
 const asStrings = (values: ArrayLike<string> | null | undefined): string[] =>
-	Array.from(values ?? [], value => String(value));
+	Array.from(values ?? [], String);
 
 /**
  * The extensions of each token. Without the engine's service — not deployed, or failing — every token maps to

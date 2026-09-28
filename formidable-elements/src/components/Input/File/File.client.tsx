@@ -76,7 +76,7 @@ export default function FileInput(
 		required,
 		describedBy,
 		validationAttributes
-	}: FileInputProps
+	}: Readonly<FileInputProps>
 ) {
 	const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
 	const [selectionNotice, setSelectionNotice] = useState<string | null>(null);
