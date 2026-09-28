@@ -1,6 +1,6 @@
 package org.jahia.modules.formidable.engine.choicelist;
 
-import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.modules.formidable.engine.config.uploads.UploadsConfigService;
 import org.jahia.services.content.nodetypes.ExtendedPropertyDefinition;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListValue;
 import org.jahia.services.content.nodetypes.initializers.ModuleChoiceListInitializer;
@@ -13,7 +13,7 @@ import java.util.Map;
 
 /**
  * Populates the accept choice list for fmdb:inputFile from the
- * uploadAllowedMimeTypes configuration in org.jahia.modules.formidable.cfg.
+ * uploadAllowedMimeTypes configuration in org.jahia.modules.formidable.uploads.cfg.
  *
  * Labels are resolved by Jahia's resourceBundle choicelist initializer from the
  * resource bundle of the module declaring the property definition.
@@ -27,10 +27,10 @@ public class FormidableMimeTypesInitializer implements ModuleChoiceListInitializ
 
     private static final String KEY = "formidableMimeTypes";
 
-    private FormidableConfigService configService;
+    private UploadsConfigService configService;
 
     @Reference
-    public void setConfigService(FormidableConfigService service) {
+    public void setConfigService(UploadsConfigService service) {
         this.configService = service;
     }
 

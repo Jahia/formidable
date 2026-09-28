@@ -1,6 +1,6 @@
 package org.jahia.modules.formidable.engine.choicelist;
 
-import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.modules.formidable.engine.config.formactions.FormActionsConfigService;
 import org.jahia.services.content.nodetypes.ExtendedPropertyDefinition;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListValue;
 import org.jahia.services.content.nodetypes.initializers.ModuleChoiceListInitializer;
@@ -16,7 +16,7 @@ import java.util.Map;
 
 /**
  * Populates the targetId choice list for fmdb:forwardAction from the
- * configured forward target registries in org.jahia.modules.formidable.cfg.
+ * configured forward target registries in org.jahia.modules.formidable.formActions.cfg.
  *
  * Each entry exposes the target id as the stored JCR value and the
  * operator-defined label as the display name shown in the CMS editor.
@@ -29,17 +29,17 @@ public class FormidableForwardTargetsInitializer implements ModuleChoiceListInit
     private static final String KEY = "formidableForwardTargets";
     private static final Logger log = LoggerFactory.getLogger(FormidableForwardTargetsInitializer.class);
 
-    private FormidableConfigService configService;
+    private FormActionsConfigService configService;
 
     @Reference
-    public void setConfigService(FormidableConfigService service) {
+    public void setConfigService(FormActionsConfigService service) {
         this.configService = service;
     }
 
     @Override
     public List<ChoiceListValue> getChoiceListValues(ExtendedPropertyDefinition epd, String param,
             List<ChoiceListValue> values, Locale locale, Map<String, Object> context) {
-        Collection<FormidableConfigService.ForwardTarget> targets = configService.getForwardTargets();
+        Collection<FormActionsConfigService.ForwardTarget> targets = configService.getForwardTargets();
         if (targets.isEmpty()) {
             log.warn("[FormidableForwardTargetsInitializer] No forward targets are configured. "
                     + "The choicelist '{}' for property '{}' will be empty.", KEY, epd.getName());

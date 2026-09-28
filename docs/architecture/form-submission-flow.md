@@ -77,7 +77,7 @@ Browser
                    └─ fmdb:forwardAction:
                         - reads targetId from JCR node
                         - resolves URI via configService.resolveForwardTarget(targetId)
-                          (targets defined in org.jahia.modules.formidable.cfg only)
+                          (targets defined in org.jahia.modules.formidable.formActions.cfg only)
                         - reconstructs multipart/form-data body with pre-parsed files
                         - POSTs to resolved URI
 
@@ -340,32 +340,9 @@ All file parts pass through `FormDataParser` which enforces the following contro
 | 6 | MIME type detection | Apache Tika filename-aware detection via `Tika.detect(byte[], String)` (ignores client-supplied `Content-Type`, but uses the original filename extension to disambiguate ambiguous formats) |
 | 7 | MIME type allowlist | Field-level `accept` property (multiple choicelist) takes priority; falls back to global cfg allowlist. Rejections at this step are treated as validation failures (`FMDB-010`), not technical parse failures |
 
-Limits and the global allowlist are configured in `org.jahia.modules.formidable.cfg` via `FormidableConfig`.
-The module ships that file (`META-INF/configurations/org.jahia.modules.formidable.cfg`, every
-setting at its default): Jahia copies it to `digital-factory-data/karaf/etc` the first time the
-module starts without it, and never overwrites the copy afterwards (its first line is the
-`# default configuration` marker the extender looks for), so edits made in the file or through the
-provisioning API (`editConfiguration`) are kept. Avoid the Felix Web Console for this PID: it
-rewrites the file in a typed syntax (`L"5"`, quoted strings) that a `.cfg` file does not read back.
-Upgrading an installation configured before the file existed (0.4 and earlier) through the
-Felix console or directly in ConfigAdmin — not through the provisioning API, which writes the
-`karaf/etc` file itself, so that configuration came from a file from the start and keeps it: that
-first copy would reset the configuration to the defaults, so the engine spots the switch (the
-configuration gains its `felix.fileinstall.filename`) and writes the previous settings back into
-the file, as strings. Until that write comes back through the file, the settings in force stay
-the previous ones (no window on the defaults); the write is kept pending while it fails
-(ConfigurationAdmin bound later, a failed update) — three attempts, after which the file's values
-are declared in force and an error names the settings to re-enter, rather than keeping every
-later edit of the file from applying; a retry leaves alone any setting edited before it (an edit
-landing in the very instant of the write would be overwritten — the configuration's change
-counter tells, and a warning says so), and the logs name the settings, never their values.
-Limit: fileinstall loads the copied file one to two seconds after the module is resolved; the
-previous settings are only seen when the engine's components activate before that — usual on a
-running server, not guaranteed, and never after an upgrade done while Jahia was stopped. A miss
-looks exactly like a fresh install to the engine, so a first activation that already comes from a
-file created or changed moments before is reported with a warning pointing at it. Check the engine's log for
-"carried over into the file" after such an upgrade, and see
-[docs/administration/upgrade-notes.md](../administration/upgrade-notes.md) for who is affected and how to check.
+Limits and the global allowlist are configured in `org.jahia.modules.formidable.uploads.cfg` (`UploadsConfigService`),
+one of the five theme files the module ships, every setting at its default: how the files are deployed, edited
+and carried over from the single file of earlier builds is in [Configuration files](../administration/configuration.md).
 
 ### Why the parser uses `Tika.detect(byte[], String)`
 
@@ -461,7 +438,7 @@ heap pressure remains bounded under large-file workloads.
 | `fmdbmix:captcha` mixin present on the form | Wrapper resolves to `fmdbmix:captchaProtectedForm`; token verified at step 7 before any file data is read |
 | `fmdbmix:captcha` mixin absent | No CAPTCHA semantic on the form; pipeline continues |
 
-CAPTCHA configuration is read from `org.jahia.modules.formidable.cfg` — not stored in JCR:
+CAPTCHA configuration is read from `org.jahia.modules.formidable.captcha.cfg` — not stored in JCR:
 `captchaSiteKey`, `captchaSecretKey`, `captchaScriptUrl`, `captchaVerifyUrl`, the two
 provider-specific names `captchaWidgetVar` (the global object the provider script exposes) and
 `captchaTokenField` (the hidden field the widget injects), and the timeouts
@@ -498,7 +475,7 @@ appear in the list.
 
 The target URL is never stored in JCR. The contributor picks a `targetId` from a choicelist
 populated by `FormidableForwardTargetsInitializer`. The available targets are defined by an
-administrator in `org.jahia.modules.formidable.cfg`:
+administrator in `org.jahia.modules.formidable.formActions.cfg`:
 
 ```
 forwardTargets=salesforce-prod|Salesforce Prod|https://api.salesforce.com/services/\n\
@@ -519,7 +496,7 @@ docker-api|Docker API|http://host.docker.internal:8080/hook
 
 `devForwardTargets` only accepts plain HTTP on `localhost` and `host.docker.internal`.
 
-`FormidableConfigService.resolveForwardTarget(targetId)` returns an `Optional`, empty for an
+`FormActionsConfigService.resolveForwardTarget(targetId)` returns an `Optional`, empty for an
 unknown ID — the forward action then fails the submission as a configuration error. This
 design prevents SSRF: contributors can only reach pre-approved endpoints.
 
@@ -565,8 +542,8 @@ the same-origin `formidable-submit` Security Filter is the CSRF control for this
 | `formidable-engine/.../servlet/ErrorCode.java` | Error code enum — see `docs/administration/error-codes.md` |
 | `formidable-engine/.../servlet/FormDataParser.java` | Secure multipart parser: whitelist, input validation, Tika, allowlist, size + count limits |
 | `formidable-engine/.../actions/common/FieldEscaper.java` | Output escaping utility: `html`, `headerSafe`, `plainText` |
-| `formidable-engine/.../actions/form/forward/ForwardSubmissionFormAction.java` | Resolves `targetId` via `FormidableConfigService`; forwards declared fields only |
+| `formidable-engine/.../actions/form/forward/ForwardSubmissionFormAction.java` | Resolves `targetId` via `FormActionsConfigService`; forwards declared fields only |
 | `formidable-engine/.../actions/form/email/SendEmailNotificationFormAction.java` | Sends notification email; headers normalized with `headerSafe()`; HTML body escapes values with `html()` |
 | `formidable-engine/.../actions/form/email/SendEmailContentFormAction.java` | Sends the submitted form content by email; can optionally attach validated uploaded files, capped by action-level and global upload limits |
 | `formidable-engine/.../api/FormAction.java` | Interface implemented by each action type |
-| `formidable-engine/.../config/FormidableConfigService.java` | Reads unified cfg; resolves forward targets by ID; verifies CAPTCHA
+| `formidable-engine/.../config/formactions/FormActionsConfigService.java` | Reads the form actions theme; resolves forward targets by ID; verifies CAPTCHA

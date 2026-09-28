@@ -1,6 +1,6 @@
 package org.jahia.modules.formidable.engine.captcha;
 
-import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.modules.formidable.engine.config.captcha.CaptchaConfigService;
 import org.jahia.services.render.RenderContext;
 import org.jahia.services.render.Resource;
 import org.jahia.services.render.filter.AbstractFilter;
@@ -39,10 +39,10 @@ public class CaptchaRenderFilter extends AbstractFilter {
     static final String ATTR_TOKEN_FIELD    = "formidable.captcha.tokenField";
     static final String ATTR_WIDGET_TIMEOUT = "formidable.captcha.widgetTimeoutSeconds";
 
-    private FormidableConfigService config;
+    private CaptchaConfigService config;
 
     @Reference
-    public void setConfig(FormidableConfigService config) {
+    public void setConfig(CaptchaConfigService config) {
         this.config = config;
     }
 
@@ -61,7 +61,7 @@ public class CaptchaRenderFilter extends AbstractFilter {
 
             if (!config.isCaptchaWidgetConfigured()) {
                 log.warn("[Formidable] {} is applied on form '{}' but CAPTCHA is not configured " +
-                        "(captchaSiteKey, captchaScriptUrl, captchaWidgetVar or captchaTokenField missing in org.jahia.modules.formidable.cfg). The widget will not be rendered.",
+                        "(captchaSiteKey, captchaScriptUrl, captchaWidgetVar or captchaTokenField missing in org.jahia.modules.formidable.captcha.cfg). The widget will not be rendered.",
                         FmdbMixin.CAPTCHA_PROTECTED_FORM, resource.getNodePath());
                 return null;
             }

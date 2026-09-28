@@ -6,8 +6,10 @@ import org.jahia.modules.formidable.engine.api.FieldActionRequest;
 import org.jahia.modules.formidable.engine.api.FieldActionResult;
 import org.jahia.modules.formidable.engine.api.FmdbProperty;
 import org.jahia.modules.formidable.engine.api.FormAction;
-import org.jahia.modules.formidable.engine.config.FormidableConfigService;
-import org.jahia.modules.formidable.engine.config.FormidableConfigService.FieldActionSettings;
+import org.jahia.modules.formidable.engine.config.captcha.CaptchaConfigService;
+import org.jahia.modules.formidable.engine.config.fieldactions.FieldActionsConfigService;
+import org.jahia.modules.formidable.engine.config.uploads.UploadsConfigService;
+import org.jahia.modules.formidable.engine.config.fieldactions.FieldActionsConfigService.FieldActionSettings;
 import org.jahia.modules.formidable.engine.actions.field.FieldActionDispatcher;
 import org.jahia.modules.formidable.engine.actions.field.ResolvedFieldAction;
 import org.jahia.modules.formidable.engine.actions.field.ResolvedFieldAction.Severity;
@@ -94,8 +96,8 @@ class FormSubmissionPipelineFieldActionsTest {
     }
 
     /** The field-action settings the pipeline reads at step 11b; only the cap matters here. */
-    private static FormidableConfigService configWithCap(int maxValuesPerField) {
-        FormidableConfigService config = mock(FormidableConfigService.class);
+    private static FieldActionsConfigService configWithCap(int maxValuesPerField) {
+        FieldActionsConfigService config = mock(FieldActionsConfigService.class);
         when(config.getFieldActionSettings()).thenReturn(new FieldActionSettings(Map.of(), Duration.ofSeconds(5),
                 Duration.ofSeconds(10), HttpClient.newHttpClient(), Duration.ZERO, 30, 512, maxValuesPerField));
         return config;
@@ -114,7 +116,8 @@ class FormSubmissionPipelineFieldActionsTest {
                                                             Map<String, List<String>> parameters,
                                                             ConditionalLogicEvaluator evaluator,
                                                             int maxValuesPerField) throws Exception {
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(configWithCap(maxValuesPerField), List.<FormAction>of(),
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(UploadsConfigService.class), mock(CaptchaConfigService.class),
+                configWithCap(maxValuesPerField), List.<FormAction>of(),
                 mock(FormidableOptionsSourceService.class), () -> false);
         pipeline.useFieldActions(dispatcher);
         set(pipeline, "formId", "8f7e2a10-0000-4000-8000-000000000001");
@@ -209,7 +212,8 @@ class FormSubmissionPipelineFieldActionsTest {
         // Verifies the warning itself, not just the absence of a crash: an unbound runtime lets a submission through
         // with its checks unrun, and the only trace an operator has is this line. Asserted through the test-scope
         // slf4j backend, which writes to System.err — delete the log.warn and this test fails, which is the point.
-        FormSubmissionPipeline noDispatcher = new FormSubmissionPipeline(configWithCap(20), List.<FormAction>of(),
+        FormSubmissionPipeline noDispatcher = new FormSubmissionPipeline(mock(UploadsConfigService.class), mock(CaptchaConfigService.class),
+                configWithCap(20), List.<FormAction>of(),
                 mock(FormidableOptionsSourceService.class), () -> false);
         set(noDispatcher, "formId", "8f7e2a10-0000-4000-8000-000000000001");
         set(noDispatcher, "fieldMetadata", new FormFieldMetadataCollector.Result(Map.of(), Map.of(), Map.of(), Map.of(),
@@ -393,7 +397,8 @@ class FormSubmissionPipelineFieldActionsTest {
         // Verifies the two idle cases: a pipeline built without the field-action runtime (the tests' 4-arg
         // constructor, an instance without the component — the step then warns that the checks did not run), and a
         // form whose fields declare no action.
-        FormSubmissionPipeline noDispatcher = new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of(),
+        FormSubmissionPipeline noDispatcher = new FormSubmissionPipeline(mock(UploadsConfigService.class), mock(CaptchaConfigService.class),
+                mock(FieldActionsConfigService.class), List.<FormAction>of(),
                 mock(FormidableOptionsSourceService.class), () -> false);
         set(noDispatcher, "fieldMetadata", new FormFieldMetadataCollector.Result(Map.of(), Map.of(), Map.of(), Map.of(),
                 Map.of("email", List.of(action("a1", Severity.BLOCK)))));

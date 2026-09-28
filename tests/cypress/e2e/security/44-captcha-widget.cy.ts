@@ -13,7 +13,7 @@ import {
 const TEST_SITE_KEY = '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI';
 const TEST_SECRET_KEY = '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe';
 
-const CONFIG_PID = 'org.jahia.modules.formidable';
+const CONFIG_PID = 'org.jahia.modules.formidable.captcha';
 
 const CAPTCHA_TEST_CONFIG: Record<string, string> = {
 	captchaSiteKey: TEST_SITE_KEY,

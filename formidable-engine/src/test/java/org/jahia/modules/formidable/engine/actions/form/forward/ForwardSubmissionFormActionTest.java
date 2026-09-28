@@ -1,7 +1,7 @@
 package org.jahia.modules.formidable.engine.actions.form.forward;
 
 import org.jahia.modules.formidable.engine.api.FormActionException;
-import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.modules.formidable.engine.config.formactions.FormActionsConfigService;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.junit.jupiter.api.Test;
@@ -82,13 +82,13 @@ class ForwardSubmissionFormActionTest {
     void executeFailsWith502WhenUpstreamTimesOut() throws Exception {
         // Scenario 8.3: the forward target accepts the connection but does not respond
         // within the configured request timeout. The action must surface a bounded failure.
-        FormidableConfigService configService = mock(FormidableConfigService.class);
+        FormActionsConfigService configService = mock(FormActionsConfigService.class);
         HostnameResolutionService resolver = mock(HostnameResolutionService.class);
         HttpClient httpClient = mock(HttpClient.class);
 
         URI targetUri = URI.create("https://api.example.com/forms/intake");
         when(configService.resolveForwardTarget("crm"))
-                .thenReturn(Optional.of(new FormidableConfigService.ForwardTarget("crm", "CRM", targetUri, false)));
+                .thenReturn(Optional.of(new FormActionsConfigService.ForwardTarget("crm", "CRM", targetUri, false)));
         when(configService.getForwardHttpRequestTimeout()).thenReturn(Duration.ofSeconds(5));
         when(configService.getForwardHttpClient()).thenReturn(httpClient);
         when(resolver.resolveAll("api.example.com"))
@@ -115,13 +115,13 @@ class ForwardSubmissionFormActionTest {
     void executeFailsWith502WhenUpstreamIsUnreachable() throws Exception {
         // Scenario 8.4: the forward target host/port is unreachable.
         // The connection failure must surface as a bounded 502 error.
-        FormidableConfigService configService = mock(FormidableConfigService.class);
+        FormActionsConfigService configService = mock(FormActionsConfigService.class);
         HostnameResolutionService resolver = mock(HostnameResolutionService.class);
         HttpClient httpClient = mock(HttpClient.class);
 
         URI targetUri = URI.create("https://api.example.com/forms/intake");
         when(configService.resolveForwardTarget("crm"))
-                .thenReturn(Optional.of(new FormidableConfigService.ForwardTarget("crm", "CRM", targetUri, false)));
+                .thenReturn(Optional.of(new FormActionsConfigService.ForwardTarget("crm", "CRM", targetUri, false)));
         when(configService.getForwardHttpRequestTimeout()).thenReturn(Duration.ofSeconds(5));
         when(configService.getForwardHttpClient()).thenReturn(httpClient);
         when(resolver.resolveAll("api.example.com"))
@@ -147,7 +147,7 @@ class ForwardSubmissionFormActionTest {
     @Test
     void executeFailsWith502WhenUpstreamReturnsNonSuccessStatus() throws Exception {
         // Verifies that non-2xx responses from the forward target are surfaced as 502.
-        FormidableConfigService configService = mock(FormidableConfigService.class);
+        FormActionsConfigService configService = mock(FormActionsConfigService.class);
         HostnameResolutionService resolver = mock(HostnameResolutionService.class);
         HttpClient httpClient = mock(HttpClient.class);
         @SuppressWarnings("unchecked")
@@ -155,7 +155,7 @@ class ForwardSubmissionFormActionTest {
 
         URI targetUri = URI.create("https://api.example.com/forms/intake");
         when(configService.resolveForwardTarget("crm"))
-                .thenReturn(Optional.of(new FormidableConfigService.ForwardTarget("crm", "CRM", targetUri, false)));
+                .thenReturn(Optional.of(new FormActionsConfigService.ForwardTarget("crm", "CRM", targetUri, false)));
         when(configService.getForwardHttpRequestTimeout()).thenReturn(Duration.ofSeconds(5));
         when(configService.getForwardHttpClient()).thenReturn(httpClient);
         when(resolver.resolveAll("api.example.com"))

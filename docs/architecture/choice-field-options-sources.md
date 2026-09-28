@@ -146,7 +146,7 @@ above instead.
 
 ## Declaring sources (administrator)
 
-Sources are declared in `org.jahia.modules.formidable.cfg`, one per line:
+Sources are declared in `org.jahia.modules.formidable.choiceOptions.cfg` ([Configuration files](../administration/configuration.md)), one per line:
 
 ```properties
 optionsSources=countries|Countries|country\n\

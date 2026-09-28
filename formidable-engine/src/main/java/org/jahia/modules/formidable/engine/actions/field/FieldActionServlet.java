@@ -2,7 +2,7 @@ package org.jahia.modules.formidable.engine.actions.field;
 
 import org.jahia.modules.formidable.engine.api.FieldActionRequest;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
-import org.jahia.modules.formidable.engine.config.FormidableConfigService.FieldActionSettings;
+import org.jahia.modules.formidable.engine.config.fieldactions.FieldActionsConfigService.FieldActionSettings;
 import org.jahia.modules.formidable.engine.actions.field.ResolvedFieldAction.Trigger;
 import org.jahia.modules.formidable.engine.servlet.ErrorCode;
 import org.jahia.services.content.JCRNodeWrapper;

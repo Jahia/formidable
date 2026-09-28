@@ -340,7 +340,7 @@ undeclared user-controlled multipart fields.
 
 ### Scenario
 
-Forward targets are configured server-side in `org.jahia.modules.formidable.cfg`.
+Forward targets are configured server-side in `org.jahia.modules.formidable.formActions.cfg`.
 Contributors only store a stable `targetId` in JCR; they do not control the
 final URL.
 

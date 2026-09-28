@@ -4,7 +4,7 @@ import java.io.IOException;
 
 /**
  * The one way a field action reaches an external service: a provider declared by the administrator in
- * {@code org.jahia.modules.formidable.cfg}
+ * {@code org.jahia.modules.formidable.fieldActions.cfg}
  * ({@code fieldActionProviders=id|Label|https://base-url|Credential-name|credential[|header|query]}), addressed by
  * its id. The base URL, the credential's name and the credential stay in the engine; the field-action node stores the
  * provider <em>id</em>, and a Java action — {@link ProviderFieldAction} reads that id off the node — calls this service.

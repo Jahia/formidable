@@ -5,7 +5,7 @@ import org.jahia.modules.formidable.engine.api.FormAction;
 import org.jahia.modules.formidable.engine.api.FormActionException;
 import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.jahia.modules.formidable.engine.api.FmdbNodeType;
-import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.modules.formidable.engine.config.formactions.FormActionsConfigService;
 import org.jahia.modules.formidable.engine.util.JcrProps;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
@@ -36,7 +36,7 @@ import java.util.concurrent.TimeoutException;
  *
  * The target URL is never stored in JCR. The JCR node only holds a stable {@code targetId}
  * that is resolved to a URI via operator configuration (forwardTargets and, optionally,
- * devForwardTargets in org.jahia.modules.formidable.cfg). This is the primary defence
+ * devForwardTargets in org.jahia.modules.formidable.formActions.cfg). This is the primary defence
  * against contributors redirecting submissions to arbitrary hosts.
  *
  * Defence in depth: at execution time, the resolved hostname is checked once and the
@@ -51,11 +51,11 @@ public class ForwardSubmissionFormAction implements FormAction {
 
     private static final Logger log = LoggerFactory.getLogger(ForwardSubmissionFormAction.class);
 
-    private FormidableConfigService configService;
+    private FormActionsConfigService configService;
     private HostnameResolutionService hostnameResolutionService;
 
     @Reference
-    public void setConfigService(FormidableConfigService service) {
+    public void setConfigService(FormActionsConfigService service) {
         this.configService = service;
     }
 
@@ -84,7 +84,7 @@ public class ForwardSubmissionFormAction implements FormAction {
             return;
         }
 
-        FormidableConfigService.ForwardTarget target = configService.resolveForwardTarget(targetId).orElseThrow(() -> {
+        FormActionsConfigService.ForwardTarget target = configService.resolveForwardTarget(targetId).orElseThrow(() -> {
             log.warn("[ForwardSubmissionFormAction] targetId '{}' on node '{}' does not match any configured forward target.",
                     targetId, actionNode.getPath());
             return new FormActionException("Forward target '" + targetId + "' is not configured.", 403);

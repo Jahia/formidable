@@ -15,7 +15,7 @@ import {useFormidableSite} from '../support/useFormidableSite';
 
 const setRateLimit = (perMinute: string): Cypress.Chainable => cy.runProvisioningScript({
 	script: {
-		fileContent: JSON.stringify([{editConfiguration: 'org.jahia.modules.formidable', properties: {fieldActionRateLimitPerMinute: perMinute}}]),
+		fileContent: JSON.stringify([{editConfiguration: 'org.jahia.modules.formidable.fieldActions', properties: {fieldActionRateLimitPerMinute: perMinute}}]),
 		type: 'application/json'
 	}
 });

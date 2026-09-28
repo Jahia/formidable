@@ -20,44 +20,42 @@ property), and 0.6 drops the migration together with the prefixed definitions it
 proof an administrator can look for is the engine log line
 `Renamed the prefixed mixin properties of N field(s)` (see "How to check" below).
 
-## 0.4.x → 0.5.0: the configuration file is deployed with the module
+## 0.4.x → 0.5.0: the configuration moves to five files, one per theme
 
-**Automatic on most installations — check your settings if the module was configured through
-the Felix console.**
+**Automatic on every installation — check the five files after the upgrade.**
 
 ### What changes
 
-The module now ships its configuration file. At the first start of 0.5.0, Jahia copies it to
-`karaf/etc/org.jahia.modules.formidable.cfg` — unless a file with that name exists — and
-fileinstall loads it. Every setting is in it, commented, at its default. From now on the file is
-the one place the module is configured from: edit it, or use the provisioning API; fileinstall
-applies a change without a restart. The Felix console is no longer a good tool for it: it
-rewrites the whole file in a typed syntax the file format does not read back.
+Until 0.5 the module read one PID, `org.jahia.modules.formidable`, which a 0.4 installation configured either
+through the provisioning API (which wrote `karaf/etc/org.jahia.modules.formidable.cfg`) or through the Felix
+console (ConfigAdmin alone, no file). From 0.5.0 the module ships five configuration files, one per theme —
+`org.jahia.modules.formidable.captcha.cfg`, `….uploads.cfg`, `….choiceOptions.cfg`, `….formActions.cfg`,
+`….fieldActions.cfg` — every setting in them, commented, at its default, with the setting names unchanged.
+Jahia copies each file to `karaf/etc/` at the first start and never overwrites the copy; from then on the
+files are the one place the module is configured from: edit them, or use the provisioning API with the
+theme's PID. The old PID is no longer read. See [Configuration files](configuration.md) for the themes and
+their settings.
 
 ### Who is affected
 
-- **Configured through the provisioning API** (`editConfiguration`) before 0.5: not affected.
-  The API wrote `karaf/etc/org.jahia.modules.formidable.cfg` itself, so the deployed file is not
-  copied over it and your values stay. You do not get the commented file; the defaults it
-  documents are in the module's documentation.
-- **Configured through the Felix console** (or directly in ConfigAdmin) before 0.5: those
-  settings lived in no file, and the deployed file replaces them with its defaults. On a running
-  server the module detects the switch and writes the settings back into the file — the log
-  shows `carried over into the file:` with their names. The detection is a race the module can
-  lose: fileinstall loads the copied file a second or two after Jahia copies it, and when the
-  module starts after that, the first configuration it sees already comes from the file, exactly
-  like a fresh install. That is the usual case after an upgrade done while Jahia was stopped, and
-  possible on a running server. A warning at startup then points at the file, created or changed moments before.
+- **Configured before 0.5**, through the file, the provisioning API or the Felix console: the settings held
+  at a value other than the default are carried into their theme's file at the first start, whichever way
+  they were made — the module reads the old configuration through ConfigAdmin as soon as a theme's file is
+  in place, and writes what it finds (the log shows `Carried over from org.jahia.modules.formidable into the
+  theme's file:` with the setting names; `Nothing of org.jahia.modules.formidable to carry over` for a theme
+  whose settings were all at their default). The old file, when there is one, gets a first line saying it is
+  no longer read; it is never deleted.
+- **Provisioning scripts** that `editConfiguration` the old PID must name the theme's PID instead: a script
+  still writing `org.jahia.modules.formidable` changes a configuration nothing reads.
 - **Never configured**: nothing to do.
 
 ### How to check
 
-Open `karaf/etc/org.jahia.modules.formidable.cfg` after the upgrade. If your instance had CAPTCHA
-keys, forward targets, option sources or upload limits and the file shows them at their
-defaults, re-enter them in the file (or through the provisioning API). The log has the trace
-either way: `carried over into the file:` when the module did it, `Gave up carrying … over` when
-it tried and could not (the file's values are then in force), the startup warning when the file
-was loaded before the module started.
+Open the five files in `karaf/etc/` after the upgrade. A setting that was not at its default before the
+upgrade is in its theme's file, and the file carries the marker line
+`formidable.migratedFrom=org.jahia.modules.formidable` the migration wrote. A setting missing from its file was
+either at its default before (not copied) or lost to a write that kept failing — the log then says
+`Gave up carrying the settings of org.jahia.modules.formidable over`, and the setting is to be re-entered.
 
 ## 0.4.x → 0.5.0: the mixin properties lose their `fmdb:` prefix, migrated at startup
 

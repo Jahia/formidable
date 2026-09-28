@@ -4,7 +4,7 @@ The captcha integration covers both the front-end widget (rendering + token coll
 
 ## Configuration
 
-CAPTCHA is configured globally via `org.jahia.modules.formidable.cfg` (or Felix Web Console). No JCR node is needed.
+CAPTCHA is configured globally in `org.jahia.modules.formidable.captcha.cfg`, one of the five [configuration files](configuration.md) (or through the provisioning API with the PID `org.jahia.modules.formidable.captcha`). No JCR node is needed.
 
 | Property | Description |
 |---|---|
@@ -38,8 +38,8 @@ during maintenance, for instance — is refused without the token ever being ver
 
 1. Checks that the form carries `fmdbmix:captchaProtectedForm`
 2. Reads the `X-Formidable-Captcha-Token` request header
-3. Calls `FormidableConfigService.verifyCaptcha(token, remoteAddr)`
-4. `FormidableConfigService` reads `captchaSecretKey` and `captchaVerifyUrl` from OSGi config
+3. Calls `CaptchaConfigService.verifyCaptcha(token, remoteAddr)`
+4. `CaptchaConfigService` reads `captchaSecretKey` and `captchaVerifyUrl` from its configuration file
 5. It POSTs to `captchaVerifyUrl` with `secret` + `response` + optional `remoteip`
 6. If the provider rejects the submitted token, the pipeline stops with `FMDB-006` / HTTP 400
 7. If server-side verification cannot complete because of a technical failure

@@ -4,7 +4,9 @@ import org.jahia.modules.formidable.engine.api.AcceptedSubmission;
 import org.jahia.modules.formidable.engine.api.FormAction;
 import org.jahia.modules.formidable.engine.actions.field.FieldActionRuntime;
 import org.jahia.modules.formidable.engine.api.SubmissionResponseEnricher;
-import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.modules.formidable.engine.config.captcha.CaptchaConfigService;
+import org.jahia.modules.formidable.engine.config.fieldactions.FieldActionsConfigService;
+import org.jahia.modules.formidable.engine.config.uploads.UploadsConfigService;
 import org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService;
 import org.jahia.api.settings.SettingsBean;
 import org.jahia.services.securityfilter.PermissionService;
@@ -58,7 +60,9 @@ public class FormSubmitServlet extends HttpServlet {
 
     private static final Logger log = LoggerFactory.getLogger(FormSubmitServlet.class);
 
-    private final AtomicReference<FormidableConfigService> config = new AtomicReference<>();
+    private final AtomicReference<UploadsConfigService> uploadsConfig = new AtomicReference<>();
+    private final AtomicReference<CaptchaConfigService> captchaConfig = new AtomicReference<>();
+    private final AtomicReference<FieldActionsConfigService> fieldActionsConfig = new AtomicReference<>();
     private final AtomicReference<PermissionService> permissionService = new AtomicReference<>();
     private final AtomicReference<FormidableOptionsSourceService> optionsSourceService = new AtomicReference<>();
     private final AtomicReference<SettingsBean> settingsBean = new AtomicReference<>();
@@ -71,8 +75,18 @@ public class FormSubmitServlet extends HttpServlet {
     static final Set<String> RESERVED_KEYS = Set.of("success", "errorCode", "actionsCompleted", "actionsTotal", "messages");
 
     @Reference
-    public void setConfig(FormidableConfigService service) {
-        config.set(service);
+    public void setUploadsConfig(UploadsConfigService service) {
+        uploadsConfig.set(service);
+    }
+
+    @Reference
+    public void setCaptchaConfig(CaptchaConfigService service) {
+        captchaConfig.set(service);
+    }
+
+    @Reference
+    public void setFieldActionsConfig(FieldActionsConfigService service) {
+        fieldActionsConfig.set(service);
     }
 
     @Reference
@@ -213,7 +227,9 @@ public class FormSubmitServlet extends HttpServlet {
     }
 
     FormSubmissionPipeline createPipeline() {
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(getConfigService(), formActions, optionsSourceService.get(), this::isPlatformReadOnly);
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
+                require(uploadsConfig, "UploadsConfigService"), require(captchaConfig, "CaptchaConfigService"),
+                require(fieldActionsConfig, "FieldActionsConfigService"), formActions, optionsSourceService.get(), this::isPlatformReadOnly);
         FieldActionRuntime runtime = fieldActionRuntime.get();
         if (runtime != null) {
             pipeline.useFieldActions(runtime.dispatcher());
@@ -232,10 +248,11 @@ public class FormSubmitServlet extends HttpServlet {
         return getPermissionService().hasPermission(query);
     }
 
-    private FormidableConfigService getConfigService() {
-        FormidableConfigService service = config.get();
+    /** A mandatory reference, named when it is missing: a wiring mistake, not a submission's fault. */
+    private static <T> T require(AtomicReference<T> reference, String name) {
+        T service = reference.get();
         if (service == null) {
-            throw new IllegalStateException("FormidableConfigService is not available.");
+            throw new IllegalStateException(name + " is not available.");
         }
         return service;
     }

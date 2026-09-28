@@ -1,6 +1,6 @@
 package org.jahia.modules.formidable.engine.servlet;
 
-import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.modules.formidable.engine.config.uploads.UploadsConfigService;
 import org.junit.jupiter.api.Test;
 
 import javax.servlet.ReadListener;
@@ -75,8 +75,8 @@ class FormDataParserAllowlistTest {
         return req;
     }
 
-    private static FormidableConfigService permissiveConfig() {
-        FormidableConfigService config = mock(FormidableConfigService.class);
+    private static UploadsConfigService permissiveConfig() {
+        UploadsConfigService config = mock(UploadsConfigService.class);
         when(config.getUploadMaxFileSizeBytes()).thenReturn(1024L * 1024);
         when(config.getUploadMaxRequestSizeBytes()).thenReturn(1024L * 1024);
         when(config.getUploadMaxFileCount()).thenReturn(10);

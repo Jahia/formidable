@@ -1,7 +1,7 @@
 package org.jahia.modules.formidable.engine.options;
 
-import org.jahia.modules.formidable.engine.config.FormidableConfigService;
-import org.jahia.modules.formidable.engine.config.FormidableConfigService.OptionsSource;
+import org.jahia.modules.formidable.engine.config.choiceoptions.ChoiceOptionsConfigService;
+import org.jahia.modules.formidable.engine.config.choiceoptions.ChoiceOptionsConfigService.OptionsSource;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRPropertyWrapper;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListInitializer;
@@ -31,8 +31,8 @@ class FormidableOptionsSourceServiceTest {
 
     private static final OptionsSource COUNTRIES = new OptionsSource("countries", "Countries", "country", "");
 
-    private static FormidableConfigService configWith(OptionsSource source, Duration ttl) {
-        FormidableConfigService config = mock(FormidableConfigService.class);
+    private static ChoiceOptionsConfigService configWith(OptionsSource source, Duration ttl) {
+        ChoiceOptionsConfigService config = mock(ChoiceOptionsConfigService.class);
         when(config.resolveOptionsSource(anyString())).thenReturn(Optional.empty());
         if (source != null) {
             when(config.resolveOptionsSource(source.id())).thenReturn(Optional.of(source));
@@ -118,7 +118,7 @@ class FormidableOptionsSourceServiceTest {
     @Test
     void resolveBypassesCacheWhenSourceDefinitionChanges() {
         // Verifies config-change freshness: a redefined source does not serve stale options.
-        FormidableConfigService config = mock(FormidableConfigService.class);
+        ChoiceOptionsConfigService config = mock(ChoiceOptionsConfigService.class);
         when(config.getOptionsSourcesCacheTtl()).thenReturn(Duration.ofMinutes(10));
         when(config.resolveOptionsSource("countries")).thenReturn(Optional.of(COUNTRIES));
 
@@ -433,7 +433,7 @@ class FormidableOptionsSourceServiceTest {
     private static FormidableOptionsSourceService serviceWithQueryCap(int cap,
             java.util.List<JCRNodeWrapper> queryResults) {
         FormidableOptionsSourceService service = new FormidableOptionsSourceService();
-        FormidableConfigService config = mock(FormidableConfigService.class);
+        ChoiceOptionsConfigService config = mock(ChoiceOptionsConfigService.class);
         when(config.getOptionsQueryMaxResults()).thenReturn(cap);
         service.setConfig(config);
         service.setContentQueryRunner((session, sql2, limit) -> nodeIterator(queryResults));
