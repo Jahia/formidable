@@ -7,7 +7,6 @@ import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * How every configuration theme reads its values: the lines of a multi-line setting, a timeout or a bound
@@ -47,7 +46,7 @@ public final class ConfigurationValues {
         return Arrays.stream(raw.split(","))
                 .map(String::trim)
                 .filter(token -> !token.isEmpty())
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /** A timeout in seconds, or the default with a warning when the configured value is zero or less. */

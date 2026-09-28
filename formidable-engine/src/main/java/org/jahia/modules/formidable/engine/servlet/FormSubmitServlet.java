@@ -227,9 +227,9 @@ public class FormSubmitServlet extends HttpServlet {
     }
 
     FormSubmissionPipeline createPipeline() {
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
-                require(uploadsConfig, "UploadsConfigService"), require(captchaConfig, "CaptchaConfigService"),
-                require(fieldActionsConfig, "FieldActionsConfigService"), formActions, optionsSourceService.get(), this::isPlatformReadOnly);
+        FormSubmissionPipeline.Themes themes = new FormSubmissionPipeline.Themes(require(uploadsConfig, "UploadsConfigService"),
+                require(captchaConfig, "CaptchaConfigService"), require(fieldActionsConfig, "FieldActionsConfigService"));
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(themes, formActions, optionsSourceService.get(), this::isPlatformReadOnly);
         FieldActionRuntime runtime = fieldActionRuntime.get();
         if (runtime != null) {
             pipeline.useFieldActions(runtime.dispatcher());

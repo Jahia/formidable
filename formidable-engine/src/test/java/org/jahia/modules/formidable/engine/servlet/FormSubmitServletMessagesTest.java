@@ -44,7 +44,7 @@ class FormSubmitServletMessagesTest {
 
             @Override
             FormSubmissionPipeline createPipeline() {
-                return new FormSubmissionPipeline(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class), List.<FormAction>of(),
+                return new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(),
                         mock(FormidableOptionsSourceService.class), () -> false) {
                     @Override
                     void run(HttpServletRequest req) throws SubmissionException {

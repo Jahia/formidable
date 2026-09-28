@@ -86,24 +86,30 @@ public class ChoiceOptionsConfigService {
     private static Map<String, OptionsSource> parseSources(String raw) {
         Map<String, OptionsSource> result = new LinkedHashMap<>();
         for (String line : ConfigurationValues.lines(raw)) {
-            String[] parts = line.split("\\|", 4);
-            if (parts.length < 3) {
-                log.warn("[ChoiceOptionsConfigService] Skipping malformed optionsSources entry (expected id|Label|initializerKey[|param]): '{}'", line);
-                continue;
-            }
-            String id = parts[0].trim();
-            String label = parts[1].trim();
-            String initializerKey = parts[2].trim();
-            String param = parts.length == 4 ? parts[3].trim() : "";
-            if (id.isEmpty() || label.isEmpty() || initializerKey.isEmpty()) {
-                log.warn("[ChoiceOptionsConfigService] Skipping optionsSources entry with a blank id, label or initializerKey: '{}'", line);
-                continue;
-            }
-            if (result.putIfAbsent(id, new OptionsSource(id, label, initializerKey, param)) != null) {
-                log.warn("[ChoiceOptionsConfigService] Duplicate optionsSources id '{}', keeping first occurrence.", id);
-            }
+            parseSource(line).ifPresent(source -> {
+                if (result.putIfAbsent(source.id(), source) != null) {
+                    log.warn("[ChoiceOptionsConfigService] Duplicate optionsSources id '{}', keeping first occurrence.", source.id());
+                }
+            });
         }
         return result;
+    }
+
+    private static Optional<OptionsSource> parseSource(String line) {
+        String[] parts = line.split("\\|", 4);
+        if (parts.length < 3) {
+            log.warn("[ChoiceOptionsConfigService] Skipping malformed optionsSources entry (expected id|Label|initializerKey[|param]): '{}'", line);
+            return Optional.empty();
+        }
+        String id = parts[0].trim();
+        String label = parts[1].trim();
+        String initializerKey = parts[2].trim();
+        String param = parts.length == 4 ? parts[3].trim() : "";
+        if (id.isEmpty() || label.isEmpty() || initializerKey.isEmpty()) {
+            log.warn("[ChoiceOptionsConfigService] Skipping optionsSources entry with a blank id, label or initializerKey: '{}'", line);
+            return Optional.empty();
+        }
+        return Optional.of(new OptionsSource(id, label, initializerKey, param));
     }
 
     /** Every configured source, in declaration order. */

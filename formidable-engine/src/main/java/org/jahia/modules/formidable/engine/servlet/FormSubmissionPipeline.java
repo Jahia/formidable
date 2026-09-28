@@ -117,7 +117,9 @@ class FormSubmissionPipeline {
         boolean isReadOnly();
     }
 
-    // The three configuration themes a submission reads: the upload bounds, the CAPTCHA, the field actions' cap.
+    /** The three configuration themes a submission reads: the upload bounds, the CAPTCHA, the field actions' cap. */
+    record Themes(UploadsConfigService uploads, CaptchaConfigService captcha, FieldActionsConfigService fieldActions) {}
+
     private final UploadsConfigService uploads;
     private final CaptchaConfigService captcha;
     private final FieldActionsConfigService fieldActionsConfig;
@@ -144,14 +146,11 @@ class FormSubmissionPipeline {
     private List<ResolvedAction> resolvedActions;
     private HttpServletResponse response;
 
-    FormSubmissionPipeline(UploadsConfigService uploads, CaptchaConfigService captcha, FieldActionsConfigService fieldActionsConfig,
-                           List<FormAction> formActions,
+    FormSubmissionPipeline(Themes themes, List<FormAction> formActions,
                            FormidableOptionsSourceService optionsSourceService,
                            ReadOnlyStatusProvider readOnlyStatusProvider) {
         this(
-                uploads,
-                captcha,
-                fieldActionsConfig,
+                themes,
                 formActions,
                 (formId, locale) -> FormFieldMetadataCollector.collect(formId, locale, optionsSourceService),
                 JCRTemplate::getInstance,
@@ -161,18 +160,16 @@ class FormSubmissionPipeline {
         );
     }
 
-    FormSubmissionPipeline(UploadsConfigService uploads,
-                           CaptchaConfigService captcha,
-                           FieldActionsConfigService fieldActionsConfig,
+    FormSubmissionPipeline(Themes themes,
                            List<FormAction> formActions,
                            FieldMetadataCollectorAdapter fieldMetadataCollector,
                            JcrTemplateProvider jcrTemplateProvider,
                            MultipartParserAdapter multipartParser,
                            CurrentUserSessionProvider currentUserSessionProvider,
                            ReadOnlyStatusProvider readOnlyStatusProvider) {
-        this.uploads = uploads;
-        this.captcha = captcha;
-        this.fieldActionsConfig = fieldActionsConfig;
+        this.uploads = themes.uploads();
+        this.captcha = themes.captcha();
+        this.fieldActionsConfig = themes.fieldActions();
         this.formActions = formActions;
         this.fieldMetadataCollector = fieldMetadataCollector;
         this.jcrTemplateProvider = jcrTemplateProvider;

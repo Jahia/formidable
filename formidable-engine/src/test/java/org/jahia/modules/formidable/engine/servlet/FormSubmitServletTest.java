@@ -277,7 +277,7 @@ class FormSubmitServletTest {
 
         @Override
         FormSubmissionPipeline createPipeline() {
-            return new FormSubmissionPipeline(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false) {
+            return new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false) {
                 @Override
                 void run(HttpServletRequest req) {
                     // accepted as is
@@ -317,7 +317,7 @@ class FormSubmitServletTest {
         @Override
         FormSubmissionPipeline createPipeline() {
             pipelineInvoked = true;
-            return new FormSubmissionPipeline(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false) {
+            return new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false) {
                 @Override
                 void run(HttpServletRequest req) throws SubmissionException {
                     if (submissionFailure != null) {
@@ -358,7 +358,7 @@ class FormSubmitServletTest {
 
             @Override
             FormSubmissionPipeline createPipeline() {
-                return new FormSubmissionPipeline(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false) {
+                return new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false) {
                     @Override
                     void run(HttpServletRequest req) {
                         // accepted

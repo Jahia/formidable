@@ -49,7 +49,7 @@ class FormSubmissionPipelineTest {
         when(req.getContentType()).thenReturn("application/json");
 
         SubmissionException error = assertThrows(SubmissionException.class,
-                () -> invokeVerifyMultipart(new FormSubmissionPipeline(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false), req));
+                () -> invokeVerifyMultipart(new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false), req));
 
         // Expected outcome: FMDB-001 is returned for non-multipart submissions.
         assertEquals(ErrorCode.FMDB_001, error.errorCode);
@@ -63,7 +63,7 @@ class FormSubmissionPipelineTest {
         when(req.getParameter("fid")).thenReturn(null);
 
         SubmissionException error = assertThrows(SubmissionException.class,
-                () -> invokeReadRoutingParams(new FormSubmissionPipeline(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false), req));
+                () -> invokeReadRoutingParams(new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false), req));
 
         // Expected outcome: FMDB-002 is returned for a missing fid.
         assertEquals(ErrorCode.FMDB_002, error.errorCode);
@@ -76,7 +76,7 @@ class FormSubmissionPipelineTest {
         when(req.getParameter("fid")).thenReturn("not-a-uuid");
 
         SubmissionException error = assertThrows(SubmissionException.class,
-                () -> invokeReadRoutingParams(new FormSubmissionPipeline(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false), req));
+                () -> invokeReadRoutingParams(new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false), req));
 
         // Expected outcome: FMDB-002 is returned for a malformed fid.
         assertEquals(ErrorCode.FMDB_002, error.errorCode);
@@ -86,7 +86,7 @@ class FormSubmissionPipelineTest {
     void readRoutingParamsDefaultsLocaleToEnglishWhenLangIsMissing() throws Exception {
         // Verifies locale fallback: if the caller omits lang,
         // the pipeline must keep the documented English default.
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
         HttpServletRequest req = mock(HttpServletRequest.class);
         when(req.getParameter("fid")).thenReturn(UUID.randomUUID().toString());
         when(req.getParameter("lang")).thenReturn(null);
@@ -101,7 +101,7 @@ class FormSubmissionPipelineTest {
     void readRoutingParamsRejectsAMalformedLanguageTag() {
         // forLanguageTag never throws: garbage becomes the empty ROOT locale, which would
         // silently drift through every locale-aware step. It must be rejected instead.
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
         HttpServletRequest req = mock(HttpServletRequest.class);
         when(req.getParameter("fid")).thenReturn(UUID.randomUUID().toString());
         when(req.getParameter("lang")).thenReturn("!!!");
@@ -119,7 +119,7 @@ class FormSubmissionPipelineTest {
         // the configured limit, the servlet should fail before body parsing starts.
         UploadsConfigService config = mock(UploadsConfigService.class);
         when(config.getUploadMaxRequestSizeBytes()).thenReturn(10L);
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(config, mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(config, mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
         HttpServletRequest req = mock(HttpServletRequest.class);
         when(req.getContentLengthLong()).thenReturn(11L);
 
@@ -136,7 +136,7 @@ class FormSubmissionPipelineTest {
         // when Content-Length is unavailable and returns -1.
         UploadsConfigService config = mock(UploadsConfigService.class);
         when(config.getUploadMaxRequestSizeBytes()).thenReturn(10L);
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(config, mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(config, mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
         HttpServletRequest req = mock(HttpServletRequest.class);
         when(req.getContentLengthLong()).thenReturn(-1L);
 
@@ -151,11 +151,7 @@ class FormSubmissionPipelineTest {
         org.jahia.services.content.JCRSessionWrapper session = mock(org.jahia.services.content.JCRSessionWrapper.class);
         when(session.getNodeByIdentifier("test-form-id")).thenThrow(new RepositoryException("missing"));
 
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
-                mock(UploadsConfigService.class),
-                mock(CaptchaConfigService.class),
-                mock(FieldActionsConfigService.class),
-                List.<FormAction>of(),
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(),
                 (formId, locale) -> FormFieldMetadataCollector.collect(formId, locale, mock(FormidableOptionsSourceService.class)),
                 JCRTemplate::getInstance,
                 FormDataParser::parseAll,
@@ -182,11 +178,7 @@ class FormSubmissionPipelineTest {
         when(session.getNodeByIdentifier("some-page-id")).thenReturn(pageNode);
         when(pageNode.isNodeType(FmdbMixin.FORM_ROOT)).thenReturn(false);
 
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
-                mock(UploadsConfigService.class),
-                mock(CaptchaConfigService.class),
-                mock(FieldActionsConfigService.class),
-                List.<FormAction>of(),
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(),
                 (formId, locale) -> FormFieldMetadataCollector.collect(formId, locale, mock(FormidableOptionsSourceService.class)),
                 JCRTemplate::getInstance,
                 FormDataParser::parseAll,
@@ -232,7 +224,7 @@ class FormSubmissionPipelineTest {
     void verifyAuthenticationUsesEngineOwnedSemanticMixin() throws Exception {
         // Verifies the ownership split: the pipeline must read fmdbmix:authenticatedOnlyForm
         // instead of the elements-owned wrapper mixin applied by authors.
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
         JCRNodeWrapper formNode = mock(JCRNodeWrapper.class);
         when(formNode.isNodeType("fmdbmix:authenticatedOnlyForm")).thenReturn(false);
         setField(pipeline, "formNode", formNode);
@@ -270,7 +262,7 @@ class FormSubmissionPipelineTest {
         // Verifies the ownership split: the pipeline must read fmdbmix:captchaProtectedForm
         // instead of the elements-owned wrapper mixin applied by authors.
         CaptchaConfigService config = mock(CaptchaConfigService.class);
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(UploadsConfigService.class), config, mock(FieldActionsConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), config, mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
         JCRNodeWrapper formNode = mock(JCRNodeWrapper.class);
         HttpServletRequest req = mock(HttpServletRequest.class);
         when(formNode.isNodeType("fmdbmix:captchaProtectedForm")).thenReturn(false);
@@ -455,11 +447,7 @@ class FormSubmissionPipelineTest {
         when(req.getParameter("lang")).thenReturn("en");
         when(req.getContentLengthLong()).thenReturn(-1L);
 
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
-                mock(UploadsConfigService.class),
-                config,
-                mock(FieldActionsConfigService.class),
-                List.<FormAction>of(),
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), config, mock(FieldActionsConfigService.class)), List.<FormAction>of(),
                 (ignoredFormId, ignoredLocale) -> emptyFieldMetadata(),
                 JCRTemplate::getInstance,
                 (request, cfg, metadata) -> new FormDataParser.ParseResult(java.util.Map.of(), List.of()),
@@ -552,11 +540,7 @@ class FormSubmissionPipelineTest {
         // Verifies the action-list gate: if the system session cannot read the configured actions,
         // the submission must fail instead of silently continuing with an empty pipeline.
         JCRTemplate template = mock(JCRTemplate.class);
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
-                mock(UploadsConfigService.class),
-                mock(CaptchaConfigService.class),
-                mock(FieldActionsConfigService.class),
-                List.<FormAction>of(),
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(),
                 (formId, locale) -> FormFieldMetadataCollector.collect(formId, locale, mock(FormidableOptionsSourceService.class)),
                 () -> template,
                 FormDataParser::parseAll,
@@ -583,11 +567,7 @@ class FormSubmissionPipelineTest {
     void collectFormFieldInfoRejectsSubmissionWhenMetadataCollectionFails() throws Exception {
         // Verifies the metadata gate: if JCR field metadata cannot be collected reliably,
         // the submission must fail instead of parsing against partial metadata.
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
-                mock(UploadsConfigService.class),
-                mock(CaptchaConfigService.class),
-                mock(FieldActionsConfigService.class),
-                List.<FormAction>of(),
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(),
                 (formId, locale) -> { throw new RepositoryException("boom"); },
                 JCRTemplate::getInstance,
                 FormDataParser::parseAll,
@@ -607,11 +587,7 @@ class FormSubmissionPipelineTest {
     @Test
     void parseMultipartMapsValidationFailuresToFMDB010() throws Exception {
         // Verifies the parser error mapping for user-data validation failures.
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
-                mock(UploadsConfigService.class),
-                mock(CaptchaConfigService.class),
-                mock(FieldActionsConfigService.class),
-                List.<FormAction>of(),
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(),
                 (formId, locale) -> FormFieldMetadataCollector.collect(formId, locale, mock(FormidableOptionsSourceService.class)),
                 JCRTemplate::getInstance,
                 (req, config, metadata) -> {
@@ -632,11 +608,7 @@ class FormSubmissionPipelineTest {
     @Test
     void parseMultipartMapsTechnicalFailuresToFMDB007() throws Exception {
         // Verifies the parser error mapping for low-level multipart or stream failures.
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
-                mock(UploadsConfigService.class),
-                mock(CaptchaConfigService.class),
-                mock(FieldActionsConfigService.class),
-                List.<FormAction>of(),
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(),
                 (formId, locale) -> FormFieldMetadataCollector.collect(formId, locale, mock(FormidableOptionsSourceService.class)),
                 JCRTemplate::getInstance,
                 (req, config, metadata) -> {
@@ -657,11 +629,7 @@ class FormSubmissionPipelineTest {
     @Test
     void parseMultipartMapsConfigurationFailuresToFMDB500() throws Exception {
         // Verifies the parser error mapping for invalid server-side metadata or configuration.
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
-                mock(UploadsConfigService.class),
-                mock(CaptchaConfigService.class),
-                mock(FieldActionsConfigService.class),
-                List.<FormAction>of(),
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(),
                 (formId, locale) -> FormFieldMetadataCollector.collect(formId, locale, mock(FormidableOptionsSourceService.class)),
                 JCRTemplate::getInstance,
                 (req, config, metadata) -> {
@@ -701,11 +669,7 @@ class FormSubmissionPipelineTest {
         when(req.getContentLengthLong()).thenReturn(-1L);
         when(guestUser.getName()).thenReturn("guest");
 
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
-                mock(UploadsConfigService.class),
-                config,
-                mock(FieldActionsConfigService.class),
-                List.<FormAction>of(),
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), config, mock(FieldActionsConfigService.class)), List.<FormAction>of(),
                 (ignoredFormId, ignoredLocale) -> emptyFieldMetadata(),
                 JCRTemplate::getInstance,
                 (request, cfg, metadata) -> new FormDataParser.ParseResult(java.util.Map.of(), List.of()),
@@ -748,11 +712,7 @@ class FormSubmissionPipelineTest {
         when(req.getRemoteAddr()).thenReturn("203.0.113.10");
         when(config.verifyCaptcha(null, "203.0.113.10")).thenReturn(false);
 
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
-                mock(UploadsConfigService.class),
-                config,
-                mock(FieldActionsConfigService.class),
-                List.<FormAction>of(),
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), config, mock(FieldActionsConfigService.class)), List.<FormAction>of(),
                 (ignoredFormId, ignoredLocale) -> emptyFieldMetadata(),
                 JCRTemplate::getInstance,
                 (request, cfg, metadata) -> new FormDataParser.ParseResult(java.util.Map.of(), List.of()),
@@ -770,11 +730,7 @@ class FormSubmissionPipelineTest {
     }
 
     private static FormSubmissionPipeline newPipelineWithReadOnlyStatus(boolean readOnly) throws Exception {
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(
-                mock(UploadsConfigService.class),
-                mock(CaptchaConfigService.class),
-                mock(FieldActionsConfigService.class),
-                List.<FormAction>of(),
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(),
                 (formId, locale) -> emptyFieldMetadata(),
                 JCRTemplate::getInstance,
                 FormDataParser::parseAll,
@@ -801,7 +757,7 @@ class FormSubmissionPipelineTest {
     }
 
     private static FormSubmissionPipeline newPipelineWithFormNode(boolean requiresAuthentication) throws Exception {
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
         JCRNodeWrapper formNode = mock(JCRNodeWrapper.class);
         when(formNode.isNodeType("fmdbmix:authenticatedOnlyForm")).thenReturn(requiresAuthentication);
         setField(pipeline, "formNode", formNode);
@@ -811,7 +767,7 @@ class FormSubmissionPipelineTest {
 
     private static FormSubmissionPipeline newPipelineWithCaptchaFormNode(CaptchaConfigService config,
                                                                          boolean requiresCaptcha) throws Exception {
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(UploadsConfigService.class), config, mock(FieldActionsConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), config, mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
         JCRNodeWrapper formNode = mock(JCRNodeWrapper.class);
         when(formNode.isNodeType("fmdbmix:captchaProtectedForm")).thenReturn(requiresCaptcha);
         setField(pipeline, "formNode", formNode);
@@ -820,7 +776,7 @@ class FormSubmissionPipelineTest {
     }
 
     private static FormSubmissionPipeline newPipelineWithBrokenCaptchaFormNode(CaptchaConfigService config) throws Exception {
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(UploadsConfigService.class), config, mock(FieldActionsConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), config, mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
         JCRNodeWrapper formNode = mock(JCRNodeWrapper.class);
         when(formNode.isNodeType("fmdbmix:captchaProtectedForm")).thenThrow(new RepositoryException("boom"));
         setField(pipeline, "formNode", formNode);
@@ -829,7 +785,7 @@ class FormSubmissionPipelineTest {
     }
 
     private static FormSubmissionPipeline newPipelineWithBrokenFormNode() throws Exception {
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
         JCRNodeWrapper formNode = mock(JCRNodeWrapper.class);
         when(formNode.isNodeType("fmdbmix:authenticatedOnlyForm")).thenThrow(new RepositoryException("boom"));
         setField(pipeline, "formNode", formNode);
@@ -968,7 +924,7 @@ class FormSubmissionPipelineTest {
         // The gate field says "closed", so the server can prove the gated field was
         // hidden — an honest browser never submits a value for it (disabled controls
         // are not submitted). A value there is tampering or a non-browser client.
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
         setField(pipeline, "fieldMetadata", gatedFieldMetadata(fieldGateRule(), false));
         setField(pipeline, "parsed", new FormDataParser.ParseResult(
                 java.util.Map.of("gate", List.of("closed"), GATED_FIELD, List.of("smuggled")), List.of()));
@@ -983,7 +939,7 @@ class FormSubmissionPipelineTest {
     void coherenceKeepsTheFailsafeUntouchedWithoutADeclaration() throws Exception {
         // Provider-gated field, no declaration: the verdict is a fail-safe, not a
         // measurement — a submitted value must be kept, exactly as before this check.
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
         setField(pipeline, "fieldMetadata", gatedFieldMetadata(cookieGateRule(), false));
         setField(pipeline, "parsed", new FormDataParser.ParseResult(
                 java.util.Map.of(GATED_FIELD, List.of("legitimate value")), List.of()));
@@ -995,7 +951,7 @@ class FormSubmissionPipelineTest {
     void coherenceRejectsValueContradictingTheDeclaredProviderState() throws Exception {
         // The browser itself declared the cookie absent, which hides the field. A value
         // submitted for it contradicts the submission's own declaration.
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
         setField(pipeline, "fieldMetadata", gatedFieldMetadata(cookieGateRule(), false));
         setField(pipeline, "parsed", new FormDataParser.ParseResult(
                 java.util.Map.of(GATED_FIELD, List.of("smuggled")), List.of()));
@@ -1013,7 +969,7 @@ class FormSubmissionPipelineTest {
         // (fail-safe → hidden → required skipped). With a declaration that satisfies the
         // rule the field is visible again, so the missing value is FMDB-010 as for any
         // visible required field.
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
         setField(pipeline, "fieldMetadata", gatedFieldMetadata(cookieGateRule(), true));
         setField(pipeline, "parsed", new FormDataParser.ParseResult(java.util.Map.of(), List.of()));
 
@@ -1028,7 +984,7 @@ class FormSubmissionPipelineTest {
     @Test
     void requiredStaysSkippedForProviderGatedFieldsWithoutADeclaration() throws Exception {
         // The no-declaration path must reproduce the historical behaviour exactly.
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
         setField(pipeline, "fieldMetadata", gatedFieldMetadata(cookieGateRule(), true));
         setField(pipeline, "parsed", new FormDataParser.ParseResult(java.util.Map.of(), List.of()));
 
@@ -1082,7 +1038,7 @@ class FormSubmissionPipelineTest {
     void acceptedDescribesTheFormItsSiteAndASnapshotOfTheParameters() throws Exception {
         // Verifies what the response enrichers receive: the live form node, its site key, the locale
         // and a copy of the validated parameters — and nothing before a run accepted a submission.
-        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
         assertThrows(IllegalStateException.class, pipeline::accepted);
 
         JCRNodeWrapper formNode = mock(JCRNodeWrapper.class);
