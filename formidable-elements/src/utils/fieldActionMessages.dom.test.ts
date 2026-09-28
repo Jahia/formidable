@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import {beforeEach, describe, expect, it} from 'vitest';
 import '~/utils/testSupport/cssEscape';
-import {anchorFieldMessages, clearFieldActionValidity, fieldControlsIn, fieldControlsOf, parseFieldMessages, plainText, showFieldMessages} from './fieldActionMessages';
+import {anchorFieldMessages, clearFieldActionValidity, FIELD_ACTION_VALIDITY_EVENT, fieldActionRefusalsIn, fieldControlsIn, fieldControlsOf, parseFieldMessages, plainText, showFieldMessages} from './fieldActionMessages';
 
 const formOf = (html: string): HTMLFormElement => {
 	document.body.innerHTML = `<form>${html}</form>`;
@@ -197,6 +197,40 @@ describe('showFieldMessages', () => {
 		expect(slider.getAttribute('aria-invalid')).toBe('true');
 		expect(slider.getAttribute('aria-describedby')).toBe(form.querySelector('.fmdb-validation-error')!.id);
 		expect(mirror.hasAttribute('aria-invalid')).toBe(false);
+	});
+});
+
+describe('fieldActionRefusalsIn', () => {
+	it('lists the controls carrying a refusal of the field actions, and announces every write and lift on the form', () => {
+		// Verifies what the island's buttons read: a refusal counts, a warning does not, a lift removes it — and each
+		// write and lift dispatches the validity event on the form, whichever code did it.
+		const form = formOf('<div data-fmdb-node-name="email"><input name="email"></div><div data-fmdb-node-name="name"><input name="name"></div>');
+		const announced: string[] = [];
+		form.addEventListener(FIELD_ACTION_VALIDITY_EVENT, event => announced.push((event.target as HTMLInputElement).name));
+
+		showFieldMessages(controlsOf(form), [error('email', 'no')]);
+		expect(fieldActionRefusalsIn(form).map(control => control.name)).toEqual(['email']);
+		showFieldMessages(controlsOf(form, 'name'), [warning('name', 'hmm')]);
+		expect(fieldActionRefusalsIn(form).map(control => control.name)).toEqual(['email']);
+		clearFieldActionValidity(controlsOf(form));
+		expect(fieldActionRefusalsIn(form)).toEqual([]);
+		expect(announced).toEqual(['email', 'email']);
+	});
+
+	it('counts neither a control the browser does not validate nor one another client wrote over', () => {
+		// Verifies the two exclusions: a disabled control — how logic hides a field — holds a refusal the pipeline
+		// will skip, and a validity another client replaced is no longer the field actions' refusal.
+		const form = formOf('<div data-fmdb-node-name="email"><input name="email"></div>');
+		const controls = controlsOf(form);
+		showFieldMessages(controls, [error('email', 'no')]);
+		const input = controls.anchor as HTMLInputElement;
+
+		input.disabled = true;
+		expect(fieldActionRefusalsIn(form)).toEqual([]);
+		input.disabled = false;
+		expect(fieldActionRefusalsIn(form).map(control => control.name)).toEqual(['email']);
+		input.setCustomValidity('select at least one');
+		expect(fieldActionRefusalsIn(form)).toEqual([]);
 	});
 });
 

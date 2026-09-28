@@ -71,7 +71,7 @@ the message sits beside the form and not inside it: a stylesheet that scopes its
 | `--fmdb-btn-focus-outline-color` | `#2563eb` | Focus outline, on keyboard focus only |
 | `--fmdb-btn-focus-outline-width` | `2px` | Width of that outline |
 | `--fmdb-btn-focus-outline-offset` | `2px` | Its offset |
-| `--fmdb-btn-disabled-opacity` | `0.6` | Opacity of a disabled button (submitting, or blocked in edit mode) |
+| `--fmdb-btn-disabled-opacity` | `0.6` | Opacity of a disabled button (submitting, blocked in edit mode, a captcha to solve, a field action's refusal shown or a check running) |
 | `--fmdb-btn-primary-bg` | `#2563eb` | Background of the primary variant — submit, next |
 | `--fmdb-btn-primary-color` | `#fff` | Its text |
 | `--fmdb-btn-primary-hover-bg` | `#1d4ed8` | Its background on hover |

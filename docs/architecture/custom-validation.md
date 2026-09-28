@@ -217,8 +217,11 @@ error — same anchoring, same `aria-describedby`, no invalid state. `utils/fiel
 the engine's `messages` array and anchors it (`showFieldMessages`, `anchorFieldMessages`), for the
 pre-check answered as the visitor leaves the field (`hooks/useFieldActions.ts`) and for a refused
 submission (`FMDB-015`, anchored by `useFormSubmission` with no global error message). The `input`
-listener of `useFieldActions` runs in the capture phase, before this hook's, and lifts the
-`customValidity` a refusal set — the constraint validation only clears a control once it is valid.
+listener of `useFieldActions` lifts the `customValidity` a refusal set and clears the error it drew once
+the control is valid; this hook's own listener, registered first, only ever clears a control once it is
+valid, so the order of the two does not matter. Every write and lift of a refusal dispatches
+`formidable:fieldActionValidity` on the control, and the island disables Submit while a refusal is on
+screen (`docs/architecture/field-actions.md`, "When Submit is disabled").
 
 ---
 

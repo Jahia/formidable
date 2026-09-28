@@ -79,13 +79,14 @@ describe('Actions - 74 Field actions behind a provider: the Experian and ZeroBou
 				expect(response?.body.verdict).to.equal('reject');
 			});
 			cy.get('[data-fmdb-node-name="email"] .fmdb-validation-error').should('be.visible').and('contain.html', 'We cannot deliver to <b>ada@undeliverable.test</b>.');
-			form.submit();
+			form.getSubmitButton().get().should('be.disabled');
 			cy.get('@submit.all').should('have.length', 0);
 
 			// The provider says verified: the message goes; the field is asked once more before the request leaves, and it goes through.
 			form.getEmailInput('email').get().clear().type('ada@example.test').blur();
 			cy.wait('@check').its('response.body.verdict').should('equal', 'accept');
 			cy.get('[data-fmdb-node-name="email"] .fmdb-validation-error').should('not.exist');
+			form.getSubmitButton().get().should('not.be.disabled');
 			form.submit();
 			cy.wait('@check').its('request.body.trigger').should('equal', 'submit');
 			cy.wait('@submit').its('response.statusCode').should('equal', 200);

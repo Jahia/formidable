@@ -7,13 +7,19 @@ import {useFieldActions} from './useFieldActions';
 
 /**
  * The hook driven as a function against a real DOM and a fake `XMLHttpRequest`, React's three seams
- * mocked — `useRef` a holder, `useEffect` run at once — since rendering it would need react-dom,
- * which this module does not depend on. `vi.mock` is hoisted above the imports.
+ * mocked — `useRef` a holder, `useEffect` run at once, `useState` a recorded setter — since rendering
+ * it would need react-dom, which this module does not depend on. `vi.mock` is hoisted above the imports.
  */
+const react = vi.hoisted(() => ({setters: [] as Array<ReturnType<typeof vi.fn>>}));
 vi.mock('react', () => ({
 	useRef: <T,>(initial: T) => ({current: initial}),
 	useEffect: (effect: () => void | (() => void)) => {
 		effect();
+	},
+	useState: <T,>(initial: T) => {
+		const set = vi.fn();
+		react.setters.push(set);
+		return [initial, set];
 	},
 }));
 
@@ -77,14 +83,21 @@ function formWith(html: string, options: {enabled?: boolean; url?: string; withC
 	if (options.withConstraintClient) {
 		useCustomFormValidation({formRef: {current: form}});
 	}
+	react.setters.length = 0;
 	const {settleFieldActions} = useFieldActions({
 		formRef: {current: form},
 		fieldActionUrl: 'url' in options ? options.url : URL,
 		enabled: options.enabled ?? true,
 		labels: {checking: 'Checking…'},
 	});
-	return {form, settleFieldActions};
+	// The hook's useState calls come in a fixed order: the refused controls, then the settling flag.
+	const [setRefusedControls, setIsSettling] = react.setters;
+	return {form, settleFieldActions, setRefusedControls, setIsSettling};
 }
+
+/** The names of the controls the hook last told the island are refused. */
+const lastRefused = (setRefusedControls: ReturnType<typeof vi.fn>): string[] =>
+	(setRefusedControls.mock.lastCall?.[0] as HTMLInputElement[]).map(control => control.name);
 
 const textField = (name: string, trigger = 'blur', extra = '') => `
 	<div data-fmdb-node-name="${name}" data-fmdb-field-action="${trigger}" ${extra}>
@@ -176,6 +189,68 @@ describe('useFieldActions', () => {
 		expect(form.querySelector('.fmdb-form-group > .fmdb-validation-error')!.innerHTML).toBe('The word <b>spam</b> is refused');
 		expect(wrapperOf(form, 'firstName').hasAttribute('aria-busy')).toBe(false);
 		expect(form.querySelector('.fmdb-field-action-pending')).toBeNull();
+	});
+
+	it('tells the island which controls are refused, at each write and lift: a refusal, the visitor typing, an accept, a reset', async () => {
+		// Verifies the state the buttons read — Submit while any refusal stands, Next for the current step — through
+		// every path that changes it: the pre-check's refusal, typing (lifted), a later accept, and a reset.
+		const {form, setRefusedControls} = formWith(textField('firstName') + textField('email'));
+		const [firstName, email] = Array.from(form.querySelectorAll('input'));
+		firstName.value = 'spam';
+		firstName.dispatchEvent(bubbling('focusout'));
+		requests[0].answer(200, reject('firstName', 'no'));
+		await settled();
+		expect(lastRefused(setRefusedControls)).toEqual(['firstName']);
+
+		email.value = 'ada@example.com';
+		email.dispatchEvent(bubbling('focusout'));
+		requests[1].answer(200, reject('email', 'no'));
+		await settled();
+		expect(lastRefused(setRefusedControls)).toEqual(['firstName', 'email']);
+
+		firstName.value = 'spa';
+		firstName.dispatchEvent(bubbling('input'));
+		expect(lastRefused(setRefusedControls)).toEqual(['email']);
+
+		email.dispatchEvent(bubbling('focusout'));
+		requests[2].answer(200, accept);
+		await settled();
+		expect(lastRefused(setRefusedControls)).toEqual([]);
+
+		firstName.dispatchEvent(bubbling('focusout'));
+		requests[3].answer(200, reject('firstName', 'no'));
+		await settled();
+		expect(lastRefused(setRefusedControls)).toEqual(['firstName']);
+		form.dispatchEvent(bubbling('reset'));
+		expect(lastRefused(setRefusedControls)).toEqual([]);
+	});
+
+	it('tells the island while any check is in flight, and no longer once the last one is answered or dropped', async () => {
+		// Verifies the settling flag the buttons read: on while a check runs, whichever field, off when the count
+		// of checks in flight is back to zero — an answer, a failure, a timeout or a superseded check alike.
+		const {form, settleFieldActions, setIsSettling} = formWith(textField('firstName') + textField('email', 'submit'));
+		const [firstName, email] = Array.from(form.querySelectorAll('input'));
+		email.value = 'ada@example.com';
+		firstName.value = 'spam';
+		firstName.dispatchEvent(bubbling('focusout'));
+		expect(setIsSettling.mock.calls).toEqual([[true]]);
+
+		firstName.value = 'spam again';
+		firstName.dispatchEvent(bubbling('focusout'));
+		expect(setIsSettling.mock.calls).toEqual([[true]]);
+		requests[0].answer(200, accept);
+		await settled();
+		expect(setIsSettling.mock.calls).toEqual([[true]]);
+		requests[1].expire();
+		await settled();
+		expect(setIsSettling.mock.calls).toEqual([[true], [false]]);
+
+		const settle = settleFieldActions(form);
+		expect(setIsSettling.mock.calls).toEqual([[true], [false], [true]]);
+		requests[2].answer(200, accept);
+		requests[3].fail();
+		await settle;
+		expect(setIsSettling.mock.calls).toEqual([[true], [false], [true], [false]]);
 	});
 
 	it('clears a refusal on the next accept, and shows a warning without blocking', async () => {

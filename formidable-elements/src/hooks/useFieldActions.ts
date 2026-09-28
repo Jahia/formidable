@@ -1,9 +1,11 @@
-import {type RefObject, useEffect, useRef} from 'react';
+import {type RefObject, useEffect, useRef, useState} from 'react';
 import {clearAllFieldWarnings, clearFieldChecking, clearFieldError, showFieldChecking} from '~/utils/validationUtils';
 import {
 	clearFieldActionValidity,
+	FIELD_ACTION_VALIDITY_EVENT,
 	type FieldControls,
 	type FieldMessage,
+	fieldActionRefusalsIn,
 	fieldControlsIn,
 	type FormControl,
 	parseFieldMessages,
@@ -56,6 +58,14 @@ interface UseFieldActionsReturn {
 	 * pipeline being the authority.
 	 */
 	settleFieldActions: (root: HTMLElement) => Promise<FormControl | null>;
+	/**
+	 * The controls carrying a refusal the field actions drew, on screen — whichever path drew it, the
+	 * pre-check or a refused submission. The island keeps Submit disabled while any stands, and Next
+	 * while the current step holds one: a click would only meet the refusal again.
+	 */
+	refusedControls: FormControl[];
+	/** A check in flight, at blur or at a settle: Submit and Next wait for the answer rather than ignore the click. */
+	isSettling: boolean;
 }
 
 const isFormControl = (target: EventTarget | null): target is FormControl =>
@@ -135,6 +145,18 @@ export function useFieldActions({formRef, fieldActionUrl, enabled, labels}: UseF
 	const sequencesRef = useRef(new Map<string, number>());
 	// One console line per status: the pre-check is a courtesy, its failure is not the visitor's business.
 	const warnedRef = useRef(new Set<number>());
+	const [refusedControls, setRefusedControls] = useState<FormControl[]>([]);
+	const [isSettling, setIsSettling] = useState(false);
+	// Checks in flight, whichever field: the buttons follow the count crossing zero, not each answer.
+	const inFlightRef = useRef(0);
+	const beginCheck = () => {
+		inFlightRef.current += 1;
+		if (inFlightRef.current === 1) setIsSettling(true);
+	};
+	const endCheck = () => {
+		inFlightRef.current -= 1;
+		if (inFlightRef.current === 0) setIsSettling(false);
+	};
 
 	/**
 	 * One value to the engine, null when it could not answer — a network error, a timeout, any status
@@ -192,7 +214,13 @@ export function useFieldActions({formRef, fieldActionUrl, enabled, labels}: UseF
 			return {rejected: false, messages: []};
 		}
 		setPending(wrapper, controls, true, labels.checking);
-		const answers = await Promise.all(values.map(value => ask({field, value, trigger})));
+		beginCheck();
+		let answers: (Answer | null)[];
+		try {
+			answers = await Promise.all(values.map(value => ask({field, value, trigger})));
+		} finally {
+			endCheck();
+		}
 		if (sequencesRef.current.get(field) !== sequence) {
 			// a later check owns the field now, its pending state included
 			return null;
@@ -252,16 +280,22 @@ export function useFieldActions({formRef, fieldActionUrl, enabled, labels}: UseF
 			clearAllFieldWarnings(form);
 		};
 
+		// Every write and lift of a refusal announces itself on the form, whichever code did it — this
+		// hook, the refused submission's anchoring, a reset: the buttons read the refusals from the DOM then.
+		const onValidity = () => setRefusedControls(fieldActionRefusalsIn(form));
+
 		form.addEventListener('focusout', onLeave);
 		form.addEventListener('change', onLeave);
 		form.addEventListener('input', onInput);
 		form.addEventListener('reset', onReset);
+		form.addEventListener(FIELD_ACTION_VALIDITY_EVENT, onValidity);
 
 		return () => {
 			form.removeEventListener('focusout', onLeave);
 			form.removeEventListener('change', onLeave);
 			form.removeEventListener('input', onInput);
 			form.removeEventListener('reset', onReset);
+			form.removeEventListener(FIELD_ACTION_VALIDITY_EVENT, onValidity);
 		};
 	}, [formRef, enabled, fieldActionUrl]);
 
@@ -274,5 +308,5 @@ export function useFieldActions({formRef, fieldActionUrl, enabled, labels}: UseF
 		return controls ? anchorOf(controls) ?? null : null;
 	};
 
-	return {settleFieldActions};
+	return {settleFieldActions, refusedControls, isSettling};
 }
