@@ -35,6 +35,10 @@ export const JCONTENT_SELECTORS = {
 export const DIRECT_SUBMIT_PATH = '/modules/formidable-engine/form-submit'
 /** The field-action pre-check the form island asks as the visitor leaves a field carrying actions, or before the submission. */
 export const FIELD_ACTION_PATH = '/modules/formidable-engine/field-action'
+/** The samples module's double of Experian Email Validation, a provider over plain HTTP on the instance itself. */
+export const EXPERIAN_STUB_PATH = '/modules/formidable-samples/experian-stub'
+/** The samples module's double of ZeroBounce, a provider that reads its key off the URL. */
+export const ZEROBOUNCE_STUB_PATH = '/modules/formidable-samples/zerobounce-stub'
 export const LOGIC_STATE_HEADER = 'X-Formidable-Logic-State'
 
 /**

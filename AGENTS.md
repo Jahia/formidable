@@ -18,7 +18,7 @@ Yarn 4 workspaces + Maven multi-module. Toolchain: Java 17 (Temurin), Node LTS, 
 | `formidable-extended-inputs/` | Optional field types (consent, switch, rating, scale) | Vite, TypeScript |
 | `formidable-jexperience-engine/` | jExperience integration: the profile mapping of fields (editor section fed by jCustomer's profile properties), the mapping rule kept in sync with publication, the submission event sent by the browser through jExperience's tracker; later the prefill — see `docs/architecture/jexperience-integration.md` | Maven bundle, depends on `formidable-engine` and `jexperience` |
 | `packages/formidable/` | The npm package `@jahia/formidable-library`: the rendering contract (help text, validation attributes, input mask) every view is built on. Consumed as `workspace:*` inside the monorepo (a plain version range would still resolve to the workspace), published to npm by the release workflow | TypeScript (tsc, nodenext), vitest |
-| `jahia-test-module/` | Test modules for Cypress: a JSP template set (Java), a tsx template set, and the two third-party extension examples: `formidable-test-module-samples-tsx` (definitions, editor overrides, views — copyable, its README says what to change) and `formidable-test-module-samples-java` (an external `FormAction`, a choicelist initializer, content-integrity checks) | Maven, Vite |
+| `jahia-test-module/` | Test modules for Cypress: a JSP template set (Java), a tsx template set, and the two third-party extension examples: `formidable-test-module-samples-tsx` (definitions, editor overrides, views — copyable, its README says what to change) and `formidable-test-module-samples-java` (an external `FormAction`, four field actions — blocked words, email domain, Experian, ZeroBounce — with the two providers' doubles registered as servlets, a choicelist initializer, content-integrity checks) | Maven, Vite |
 | `tests/` | Cypress E2E suite (not a Maven module) | Cypress 14, `@jahia/cypress` |
 
 ### Key Documentation
@@ -102,6 +102,9 @@ The public API — custom actions, the submission response, the names of the con
 - `FormAction.java` — strategy interface (`getNodeType()` + `execute()`)
 - `FormActionException.java` — exception with HTTP status (`badRequest()`, `serverError()`)
 - `SubmittedFile.java` — file upload abstraction
+- `FieldAction.java` + `FieldActionRequest.java` + `FieldActionResult.java` — one field's value judged server-side, at the pre-check and at submission (`getNodeType()` + `execute()`)
+- `FieldActionGateway.java` — the one way a field action reaches a provider the administrator declared
+- `ProviderFieldAction.java` + `EmailVerificationFieldAction.java` + `EmailAddress.java` — the shape of an action behind a provider, its email specialisation, the address parsing
 - `ChoiceOptionsResolver.java` — how many choices a choice field offers, counted as the views render it
 - `SubmissionResponseEnricher.java` + `AcceptedSubmission.java` — entries a module of its own adds to the JSON body of an accepted submission
 - `FmdbNodeType.java` — the primary types the engine's CND declares (logic storage, built-in actions, submission storage)
