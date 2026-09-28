@@ -3,4 +3,4 @@
 formidable: minor
 ---
 
-Improved file fields: every allowed type, even one added to the configuration, shows its extensions and a clear name.
+Improved file fields: every allowed type, even one added to the configuration, shows its extensions and a clear name (#351)
