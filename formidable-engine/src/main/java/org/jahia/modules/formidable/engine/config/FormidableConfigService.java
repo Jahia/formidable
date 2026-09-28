@@ -537,8 +537,9 @@ public class FormidableConfigService {
     private static Optional<Boolean> credentialPlacement(String id, String placement, String credential) {
         String where = placement.trim().toLowerCase(Locale.ROOT);
         if (!CREDENTIAL_IN_HEADER.equals(where) && !CREDENTIAL_IN_QUERY.equals(where)) {
-            log.warn("[FormidableConfigService] Skipping fieldActionProviders entry '{}': the credential goes in the '{}' or in the '{}', not '{}'.",
-                    id, CREDENTIAL_IN_HEADER, CREDENTIAL_IN_QUERY, where);
+            // The part is not echoed: past the fifth '|' it may be the tail of a credential that carries one.
+            log.warn("[FormidableConfigService] Skipping fieldActionProviders entry '{}': the sixth part must be '{}' or '{}'.",
+                    id, CREDENTIAL_IN_HEADER, CREDENTIAL_IN_QUERY);
             return Optional.empty();
         }
         if (CREDENTIAL_IN_QUERY.equals(where) && credential.isEmpty()) {

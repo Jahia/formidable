@@ -10,7 +10,6 @@ import org.jahia.modules.formidable.engine.actions.field.ResolvedFieldAction.Tri
 import org.jahia.services.content.JCRCallback;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRTemplate;
-import org.json.JSONTokener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

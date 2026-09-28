@@ -29,6 +29,18 @@ const setDevelopmentProviders = (providers: string, enabled = true): Cypress.Cha
 	}
 });
 
+/** The pre-check asked from the test itself, as the page asks it: same origin, one field, one value. */
+const askDirectly = (formId: string, field: string, value: string): Cypress.Chainable<Cypress.Response<{verdict?: string}>> => {
+	const origin = (Cypress.config('baseUrl') as string | null) ?? 'http://localhost:8080';
+	return cy.request({
+		method: 'POST',
+		url: `${FIELD_ACTION_PATH}?fid=${formId}&lang=en`,
+		headers: {'Content-Type': 'application/json', Origin: origin, Referer: `${origin}/`},
+		body: {field, value, trigger: 'blur'},
+		failOnStatusCode: false
+	});
+};
+
 /**
  * Field actions behind a provider, end to end: the samples' example implementations against Experian Email
  * Validation and ZeroBounce (docs/architecture/field-actions.md, "Email verification behind a provider"), driven
@@ -108,7 +120,7 @@ describe('Actions - 74 Field actions behind a provider: the Experian and ZeroBou
 			withFieldActions(getInputEmailNode({name: 'strict', title: 'Strict'}), [
 				getExperianEmailFieldActionNode({name: 'mailbox', providerId: 'experian-stub', whenUnavailable: 'reject', rejectionMessage: 'We could not check <b>${value}</b>.'})
 			])
-		], undefined, undefined, {actions: [getSaveToJcrActionNode()]}).then(({livePath}) => {
+		], undefined, undefined, {actions: [getSaveToJcrActionNode()]}).then(({livePath, formId}) => {
 			cy.intercept('POST', `**${FIELD_ACTION_PATH}*`).as('check');
 
 			const form = visitLiveForm(livePath);
@@ -125,6 +137,11 @@ describe('Actions - 74 Field actions behind a provider: the Experian and ZeroBou
 			// A token the provider refuses (401) is the same outage — and proves the header the gateway sent is the
 			// configuration's: the same double, which verifies any ordinary address, now cannot be asked.
 			setDevelopmentProviders(WRONG_TOKEN_PROVIDERS);
+			// editConfiguration reaches the gateway asynchronously (spec 46 says why): poll the strict field with a fresh
+			// address each time — an accept is cached per value — until the refused token is what answers.
+			cy.waitUntil(() => askDirectly(formId, 'strict', `poll-${Date.now()}@example.test`)
+				.then(response => response.body?.verdict === 'reject'),
+			{timeout: 15000, interval: 1000, errorMsg: 'the wrong token never reached the gateway'});
 			form.getEmailInput('lenient').get().clear().type('bob@example.test').blur();
 			cy.wait('@check').its('response.body.verdict').should('equal', 'accept');
 			form.getEmailInput('strict').get().clear().type('bob@example.test').blur();

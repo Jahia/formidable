@@ -3,8 +3,8 @@ package org.jahia.modules.formidable.engine.api;
 import java.util.Locale;
 
 /**
- * What a {@link FieldAction} judges: one candidate value and where it comes from. The same shape reaches
- * a Java action and, as JSON in the {@code formidable.fieldAction} request attribute, a JavaScript one.
+ * What a {@link FieldAction} judges: one candidate value and where it comes from. One shape for the pre-check the
+ * browser asks while the visitor types and for the submission the pipeline judges.
  *
  * @param formId    the form's UUID, its identity everywhere in Formidable
  * @param fieldName the field's node name — the key of the submitted parameters, never a node id

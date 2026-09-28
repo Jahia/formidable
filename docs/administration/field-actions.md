@@ -9,7 +9,7 @@ out, and how much the pre-check endpoint may be asked. Everything is in `org.jah
 
 | Property | Description |
 |---|---|
-| `fieldActionProviders` | The external services a field action may call, one per line: `id|Label|https://base-url|Credential-name|credential`, with an optional sixth part saying where the credential goes — `header` (the default, a request header of that name) or `query` (a query parameter of that name, for a provider that reads its key off the URL). The id is what a contributor picks on the action; the URL and the credential never leave this file. HTTPS only. Empty by default: no check calls out |
+| `fieldActionProviders` | The external services a field action may call, one per line: `id|Label|https://base-url|Credential-name|credential` — the credential's name and value together, or neither — with an optional sixth part saying where the credential goes — `header` (the default, a request header of that name) or `query` (a query parameter of that name, for a provider that reads its key off the URL). The id is what a contributor picks on the action; the URL and the credential never leave this file. HTTPS only. Empty by default: no check calls out |
 | `enableDevFieldActionProviders` | `true` accepts the list below. `false` by default; never in production |
 | `devFieldActionProviders` | Development-only providers, in the same form, over plain HTTP on `localhost` or `host.docker.internal` — a double of a provider, such as the samples module's. Ignored unless the switch above is on. A development id never shadows a standard one |
 | `fieldActionHttpConnectTimeoutSeconds` | Time to establish the connection to a provider. Default 5 |

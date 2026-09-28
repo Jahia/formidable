@@ -1,8 +1,9 @@
 # Field actions
 
-> Decided with the developer on 2026-09-21 (issue #341), from the draft of 2026-09-11. The engine half is
-> shipped by the pull request that adds this page; the library helpers, the editor zone and the built-in
-> email check follow (see "Roadmap").
+> Decided with the developer on 2026-09-21 (issue #341), from the draft of 2026-09-11. Shipped in four pull
+> requests: the engine (#344), the submittable-field marker (#345), the visitor's page and the editor zone
+> (#346), the shape of an action behind a provider and the email samples (#347). No built-in check ships:
+> every check is a sample (see "Roadmap").
 
 ## Overview
 
@@ -314,6 +315,117 @@ address)`, the one method left to write. The samples' Experian and ZeroBounce ch
 action node is read in `live` in a system session; an exception escaping `execute` counts as unavailable
 and is logged.
 
+### The dispatcher
+
+`FieldActionDispatcher` runs a field's actions in list order. The trigger filter (a blur pre-check runs
+the blur actions, a submit runs them all) and the pipeline's `blockingOnly` rule (a warning action had
+its say at the pre-check) decide whether an action runs; the Java `FieldAction` registered for the node
+type is executed — none registered, the check is unavailable. `ACCEPT` moves on. `REJECT`
+becomes one `FieldActionMessage` — level `error` when the action blocks, `warning` otherwise; the
+contributor's `rejectionMessage` in the visitor's locale, `${value}` interpolated through
+`TemplateInterpolator` with `FieldEscaper.html`, the rich text itself trusted as the form's responses are;
+the field name, and — for the logs and the tests only, never in a response — the action's id and type. It
+ends the run when the action blocks, since the first blocking refusal wins. `UNAVAILABLE` is what the
+contributor's `whenUnavailable` says, and **its `detail` reaches DEBUG only**: that string is the action's
+own words — a provider's answer, an exception message — and may quote what the visitor typed.
+
+**`${value}` is the only name a rejection message may use**, and it is the only one the editor's help text
+offers. The browser asks about one field at a time, so the other fields' values are not there at the
+pre-check: interpolating them at submission only would render one message two ways, complete once and full
+of holes the other time. Both entry points pass the same thing, and any other name resolves to nothing.
+
+The **verdict cache** (`VerdictCache`) keeps `ACCEPT` and `REJECT` per action id, **locale** and trimmed
+value for `fieldActionVerdictCacheTtlSeconds`, bounded at ten thousand entries; `UNAVAILABLE` is a
+moment's truth and is not kept. The locale is in the key because it is in the request an action judges: an
+accept obtained with `?lang=<a locale where the check passes>` must not serve the submission in another.
+`FieldActionRuntime`, one OSGi component, holds the registered Java actions, the verdict cache, the
+endpoint's rate limiter, the cache of the forms' declared actions (below) and the dispatcher built on them,
+and both servlets reference it — so the verdict the pre-check gave is the one the pipeline finds.
+
+### The endpoint — `POST /modules/formidable-engine/field-action?fid=<form UUID>&lang=<lang>`
+
+Body `{"field": "<field node name>", "value": "<candidate>", "trigger": "blur" | "submit"}` — one value
+per call; a multi-valued control asks once per value — answer `{"verdict": "accept" | "advice" | "reject",
+"messages": [{"level": "error" | "warning", "html": "…", "field": "…"}]}` — `advice` when only warnings
+came back; a message never names the action node or its type. Registered as
+`FormSubmitServlet` is (HTTP whiteboard, `alias=/formidable-engine/field-action`), gated as it is: its own
+security-filter scope `formidable-field-action` (`auto_apply: origin: hosted`), one more pattern in the
+CSRFGuard whitelist, `PermissionService.hasPermission({api: "formidable-field-action"})` before anything
+is read. Then, in order:
+
+1. `fieldActionRateLimitPerMinute = 0` switches the endpoint off — a 404 without a code; the field actions
+   then run at submission only.
+2. `fid` UUID-validated, `lang` a valid language tag — `FMDB-002` as the pipeline answers.
+3. The body read up to the value cap plus what the syntax may add, refused unread beyond — `FMDB-003`; a
+   body that is not a JSON object, or a `field` that is not a node name, `FMDB-002`; a `value` longer than
+   `fieldActionMaxValueLength`, `FMDB-003`.
+4. Rate limit per client address (`fieldActionRateLimitPerMinute`, default 30) — `FMDB-016`, 429. The
+   endpoint is an open door to a possibly paid service for anyone on the site; the limit and the cache are
+   what make it affordable.
+5. The form resolved in `live` by its UUID **in the visitor's own session**, exactly as the pipeline's
+   step 4 does: a form the caller cannot read — unpublished, on a page they may not see, on another site
+   they have no access to — is not found, and so is an identifier that is not a form's, with the same
+   code so the answer discloses nothing about what the UUID points at. The form's UUID is public (the
+   rendered form carries it in its submit URL); what the visitor may read is not. `FMDB-004`.
+6. A guest on a form carrying `fmdbmix:authenticatedOnlyForm` is refused, as the pipeline's step 6 refuses
+   their submission — `FMDB-009`, 401. Without it, the public fid of a members-only form would let a
+   logged-out caller run every action of the form.
+7. The field found **by node name under the form** (`FieldActionCollector.collect`) — never
+   `getNodeByIdentifier` on a client-supplied field id. The walk of the form's subtree runs in a system
+   session, as the pipeline's metadata collector runs it, and is kept per form and locale for sixty seconds
+   (`FieldActionsCache`, bounded at a thousand forms): thirty pre-checks a minute on one form cost one walk,
+   and a contributor's change reaches the pre-check within the minute — the pipeline, the authority, walks
+   the form on every submission. No such field with actions: `FMDB-004`.
+8. A blank value is accepted without running anything — an unanswered field says nothing to check, and
+   the pipeline skips it too. Otherwise the dispatcher runs the field's actions for the declared trigger.
+
+A form carrying `fmdbmix:captchaProtectedForm` is **not** captcha-gated at the pre-check: a captcha token
+is single-use and is spent by the submission, which the pipeline verifies at its step 7 before step 11b
+runs anything again. The pre-check of such a form is bounded by the rate limit, the value cap and the
+verdict cache only, which is what "an open door to a possibly paid service" means: the administrator who
+finds that bound too loose for a given provider switches the pre-check off (`fieldActionRateLimitPerMinute=0`)
+and the field actions run at submission only, behind the captcha. A per-action "submission only" setting
+is listed under "Open questions".
+
+### The pipeline — step 11b `runFieldActions`
+
+Between `validateRequired` (11) and `dispatchActions` (12): for every field whose metadata carries
+actions (`FormFieldMetadataCollector.Result.fieldActions`, read in the same walk as the constraints, so
+the repository is read once), whose submitted value is not blank and that the logic evaluator does not
+hold hidden, the dispatcher runs the **blocking** actions with every trigger — on **every non-blank value**
+of the field, in order, since every one of them is stored and sent on (a checkbox group, or two fields
+sharing a name, which the pipeline accumulates under one name).
+
+**A field whose actions all warn is not judged here at all** — `blockingOnly` would skip every one of them —
+so nothing it carries costs anything, and nothing it carries is counted against the bound below.
+
+**The bound.** A field name can be submitted any number of times: the parser appends one entry per part and
+only the request size limits them, so one submission could ask for thousands of provider calls. What is counted
+is the list about to be judged: `answeredValues` removes the repeats of one answer before anything counts or
+runs them, so a hundred repeats are one call and a hundred different answers are a hundred.
+
+The verdict cache is **not** what makes that true, and a reader who believes it is will write the old loop
+again. It never stores an `UNAVAILABLE` — which is exactly what a provider being down answers — and stores
+nothing at all when `fieldActionVerdictCacheTtlSeconds` is zero. Counting one thing and running another is
+what let a body repeating a single value under the request size limit run hundreds of thousands of serial
+outbound calls. Past `fieldActionMaxValuesPerField` the submission is refused with `FMDB-017`, and the response
+carries a `messages` entry naming the field, which the page anchors under it, beneath the form's own error
+message with the code ("The browser", below).
+The check runs over **the whole submission before any action runs**: were it inside the loop, the provider of
+whichever field the metadata happened to yield first would already have been called, and billed, for another
+field to cancel the submission a moment later. The first refusal is
+`SubmissionException(FMDB_015, 422)` carrying the messages, which the servlet writes in a `messages`
+array next to `errorCode`, which the browser anchors on the field exactly as it anchors the pre-check's
+("The browser", below).
+`messages` joins the servlet's reserved keys: an enricher cannot take it. Warning actions do not run here:
+they warned.
+
+The step runs on the dispatcher the submit servlet hands over from `FieldActionRuntime`, a mandatory
+static reference: OSGi does not activate the servlet until the runtime is bound, so a submission never
+meets a half-started engine. Should the dispatcher be missing all the same, the step logs a warning that
+the form's field actions **did not run** — a different fact from "this form has no checks", which is
+silent — and the submission goes on.
+
 ## The browser — `useFieldActions`
 
 The page never runs a field action; it asks. Everything it needs is on the element wrapper that
@@ -455,8 +567,8 @@ characters, and never puts the credential in a log line or in the object it retu
   access to the action nodes.
 - **The captcha is not re-checked at the pre-check** (a token is single-use); the pre-check of a
   captcha-protected form is bounded by the rate limit, the cap and the cache, or switched off.
-- **The credential never leaves the engine**: `.cfg` → gateway; the JavaScript sees a provider *id*; the
-  repository stores a provider *id*.
+- **The credential never leaves the engine**: `.cfg` → gateway; the repository stores a provider *id*, and an
+  action sees that id and a `Response`, never the line.
 - **SSRF**: the gateway only ever calls the configured base URLs; the path is relative-only, on the same
   host and scheme.
 - **Abuse of a paid API**: rate limit per client on the pre-check, a cap on the distinct values judged per
@@ -469,10 +581,11 @@ characters, and never puts the credential in a log line or in the object it retu
   carries it by construction, so the exception's type is logged and the throwable itself goes to DEBUG.
 - **Information disclosure**: the visitor gets the contributor's message and a verdict, never the provider's
   response, the action node's identifier or its node type; `detail` stays in the logs. The candidate value
-  is never in a URL, nor in a log line at INFO — a view's output, which may echo it in breach of the
+  is never in a URL, nor in a log line at INFO — an action's `detail`, which may echo it in breach of the
   contract, is logged at DEBUG only.
-- **The view's output is the verdict object and nothing else**: a lenient reader would let an echoed value
-  retire the check onto the `whenUnavailable` default; the strict one fails deterministically.
+- ~~**The view's output is the verdict object and nothing else**: a lenient reader would let an echoed value
+  retire the check onto the `whenUnavailable` default; the strict one fails deterministically.~~ Withdrawn with
+  the JavaScript path (decision log, 2026-09-25): the dispatcher runs Java services only.
 - **The verdict cache is keyed on the locale** as well as the action and the value: a pre-check in a locale
   where the check passes cannot seed the accept the submission finds in another.
 - **The pipeline is the authority, over every non-blank value of every answered, visible field.** The
@@ -523,8 +636,8 @@ call per blocking action and non-blank value never pre-checked.
 | 2026-09-22 | **A refusal at submission (`FMDB-015`) shows the contributor's message under the field and nothing else** (HDU) | A field action's refusal is a validation failure, so it reads like one: the message anchored on the field, the focus moved, the form kept with what the visitor typed — no global error box, no error code on screen. Every other rejection keeps today's global message; `FMDB-017` keeps it under the anchored message, since its cause is not one value to correct |
 | 2026-09-25 | **No spinner while the field actions settle before the submission**; a second click meanwhile is ignored | The spinner hides the form (the accepted submission replaces it), and the messages the settle may produce land on that very form: a refused value would have flashed the form away and back. The pending state on the fields checked is the feedback, and a guard in the submission hook keeps a second click from starting a second settle |
 | 2026-09-25 | **The pre-check leaves alone a field conditional logic holds hidden** (`isAskable`) | The pipeline skips hidden fields, so asking about one would spend a provider call on a value that is never judged, and show a message under a field the visitor cannot see. Was an open question of the engine PR |
-| 2026-09-25 | **The library helpers hand the verdict over in the engine's raw-html element; the reader decodes entities only once the raw body has failed to read** (review of #346, two rounds) | `renderToString` escapes the text a component returns: every JavaScript field action answered as a plain string reached the reader as `&quot;`-quoted JSON, UNAVAILABLE, accepted by the CND default — and nothing had run that chain end to end. The element is what the engine emits verbatim. The first cut decoded every body: a raw body whose `detail` held entity text (`provider said &quot;no&quot;`) then read as malformed — or as a second `verdict` — and a refusal ended accepted; decoding after a failed raw read keeps both paths exact. The samples' JavaScript action and spec 73 hold the chain |
-| 2026-09-25 | **`jsm-raw-html` is the engine's internal element; the engine strips its tags itself as a belt** (review of #346) | The JavaScript modules engine's source says the element should not be used in userland, and the published library now depends on it: should it be renamed or dropped, the tags would reach the reader as markup and every JavaScript action would go UNAVAILABLE, accepted, silently. `RenderServiceViewRenderer.body` strips the tags too, so the verdict reads either way; the library test pins today's strip. Whether the element may be relied on, or a supported way to return raw text exists, is a question for the JavaScript modules team — open below |
+| 2026-09-25 | **The library helpers handed the verdict over in the engine's raw-html element; the reader decoded entities only once the raw body had failed to read** (review of #346, two rounds — withdrawn with the JavaScript path, the row above) | `renderToString` escapes the text a component returns: every JavaScript field action answered as a plain string reached the reader as `&quot;`-quoted JSON, UNAVAILABLE, accepted by the CND default — and nothing had run that chain end to end. The element was what the engine emitted verbatim. The first cut decoded every body: a raw body whose `detail` held entity text (`provider said &quot;no&quot;`) then read as malformed — or as a second `verdict` — and a refusal ended accepted; decoding after a failed raw read kept both paths exact. The samples' JavaScript action and spec 73 held the chain until the withdrawal |
+| 2026-09-25 | **`jsm-raw-html` was the engine's internal element; the engine stripped its tags itself as a belt** (review of #346 — withdrawn with the JavaScript path, the row above) | The JavaScript modules engine's source says the element should not be used in userland, and the published library then depended on it: had it been renamed or dropped, the tags would have reached the reader as markup and every JavaScript action would have gone UNAVAILABLE, accepted, silently. `RenderServiceViewRenderer.body` stripped the tags too, so the verdict read either way; the library test pinned that strip. Whether the element might be relied on was a question for the JavaScript modules team, moot since the withdrawal |
 | 2026-09-25 | **Next moves from the step the visitor is on once the answer lands, not from the one the click saw** (review of #346) | The validation now waits on a provider; Previous stays enabled meanwhile. Read from the click's render, the move jumped a step when the visitor had gone back, or when logic had revealed one. The current step and the visible steps are refs updated with the state, and a move whose step is gone is dropped |
 | 2026-09-25 | **The field actions lift their validity from a control barred from constraint validation without comparing** (review of #346) | A disabled control — how logic hides a field — reports no validation message, so the ownership check could not see its own text and dropped the entry while the refusal stayed: nothing could lift it once the field showed again. Barred, it is lifted; validating, only when the text is still the hook's |
 | 2026-09-25 | **The field actions lift only the validity they set** (review of #346) | `setCustomValidity("")` over a validity another client set — a required checkbox group's "select at least one" — let an empty group through the browser. What the hook wrote is remembered per control and cleared only while it is still there; the constraint client's own errors are cleared only once the control is valid, as it does itself |
@@ -597,6 +710,4 @@ call per blocking action and non-blank value never pre-checked.
 - [Form submission flow](form-submission-flow.md), [CND module ownership](cnd-module-ownership.md),
   [Custom validation](custom-validation.md), [Field actions: providers and limits](../administration/field-actions.md),
   the extension guide's [field action case](../extension/how-to-extend-views-and-elements-from-third-party-module.md#case-5-add-a-field-action-type), issue #341.
-- Platform: `RenderService.render(Resource, RenderContext)`, `AggregateCacheFilter` (expiration lookup
-  order: request attribute, node, view), `CacheFilter` (caches only `expiration > 0`),
-  `javascript-modules-engine 1.3.0-SNAPSHOT` manifest (no own package exported).
+- ~~Platform: `RenderService.render(Resource, RenderContext)`, `AggregateCacheFilter` (expiration lookup order: request attribute, node, view), `CacheFilter` (caches only `expiration > 0`), `javascript-modules-engine 1.3.0-SNAPSHOT` manifest (no own package exported)~~ — the evidence of the withdrawn JavaScript path (decision log, 2026-09-25).

@@ -4,15 +4,15 @@ import java.io.IOException;
 
 /**
  * The one way a field action reaches an external service: a provider declared by the administrator in
- * {@code org.jahia.modules.formidable.cfg} ({@code fieldActionProviders=id|Label|https://base-url|Header|credential}),
- * addressed by its id. The base URL, the credential header and the credential stay in the engine; the field-action
- * node stores the provider <em>id</em>, a Java action calls this service, a JavaScript one reaches it with
- * {@code server.osgi.getService("org.jahia.modules.formidable.engine.api.FieldActionGateway")}.
+ * {@code org.jahia.modules.formidable.cfg}
+ * ({@code fieldActionProviders=id|Label|https://base-url|Credential-name|credential[|header|query]}), addressed by
+ * its id. The base URL, the credential's name and the credential stay in the engine; the field-action node stores the
+ * provider <em>id</em>, and a Java action — {@link ProviderFieldAction} reads that id off the node — calls this service.
  *
  * <p>The gateway appends a <strong>relative</strong> path to the provider's base URL — a path that is absolute,
- * carries a scheme or climbs with {@code ..} is refused, so a validator cannot be pointed at another host — injects
- * the credential header, applies the configured timeouts, caps the response body, and never writes the credential
- * in a log line or in the object it returns.</p>
+ * carries a scheme or climbs with {@code ..} is refused, so a validator cannot be pointed at another host — sends
+ * the credential as the request header or the query parameter the provider line names, applies the configured
+ * timeouts, caps the response body, and never writes the credential in a log line or in the object it returns.</p>
  *
  * @see FieldAction
  */

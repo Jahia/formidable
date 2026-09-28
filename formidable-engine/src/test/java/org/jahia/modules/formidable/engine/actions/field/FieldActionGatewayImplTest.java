@@ -1,18 +1,26 @@
 package org.jahia.modules.formidable.engine.actions.field;
 
+import org.jahia.modules.formidable.engine.api.FieldActionGateway;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService.FieldActionProvider;
 import org.jahia.modules.formidable.engine.config.FormidableConfigService.FieldActionSettings;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 
 class FieldActionGatewayImplTest {
 
@@ -69,6 +77,40 @@ class FieldActionGatewayImplTest {
                 FieldActionGatewayImpl.target(zerobounce, "v2/validate#top"));
         assertEquals(URI.create("https://api.example.com/v1/email/validate"),
                 FieldActionGatewayImpl.target(provider("https://api.example.com/v1"), "email/validate"));
+    }
+
+    @Test
+    void theRequestThatLeavesCarriesTheCredentialWhereTheLineSaysAndTheBodyComesBackCut() throws Exception {
+        // Verifies send(), the one place the credential is handled: a query-placed credential rides the URL and no
+        // header of that name is sent, a header-placed one is a header and the URL stays bare, Accept is JSON on
+        // both — and a body past the cap comes back cut, the status kept. Drop the flag in send() or the cap, and
+        // this test fails; the target alone proves neither.
+        HttpClient client = mock(HttpClient.class);
+        ArgumentCaptor<HttpRequest> sent = ArgumentCaptor.forClass(HttpRequest.class);
+        @SuppressWarnings("unchecked")
+        HttpResponse<String> answer = mock(HttpResponse.class);
+        doReturn(200).when(answer).statusCode();
+        doReturn("x".repeat(FieldActionGatewayImpl.MAX_BODY_CHARS + 1)).when(answer).body();
+        doReturn(answer).when(client).send(sent.capture(), any());
+        FieldActionProvider zerobounce = new FieldActionProvider("zb", "ZeroBounce", URI.create("https://api.zerobounce.net"), "api_key", "s3cr3t", true);
+        FieldActionSettings settings = new FieldActionSettings(Map.of("zb", zerobounce, "crm", provider("https://api.example.com/v1")),
+                Duration.ofSeconds(5), Duration.ofSeconds(10), client, Duration.ZERO, 30, 512, 20);
+        FieldActionGatewayImpl gateway = new FieldActionGatewayImpl(() -> settings);
+
+        FieldActionGateway.Response response = gateway.get("zb", "v2/validate?email=ada%40example.com");
+        HttpRequest onTheUrl = sent.getValue();
+        assertEquals("https://api.zerobounce.net/v2/validate?email=ada%40example.com&api_key=s3cr3t", onTheUrl.uri().toString());
+        assertEquals(Optional.empty(), onTheUrl.headers().firstValue("api_key"), onTheUrl.headers().map().toString());
+        assertEquals(Optional.of("application/json"), onTheUrl.headers().firstValue("Accept"));
+        assertEquals(200, response.status());
+        assertEquals(FieldActionGatewayImpl.MAX_BODY_CHARS, response.body().length());
+
+        gateway.post("crm", "email/validate", "{}");
+        HttpRequest inTheHeader = sent.getValue();
+        assertEquals("https://api.example.com/v1/email/validate", inTheHeader.uri().toString());
+        assertEquals(Optional.of("s3cr3t"), inTheHeader.headers().firstValue("X-Api-Key"));
+        assertEquals(Optional.of("application/json"), inTheHeader.headers().firstValue("Content-Type"));
+        assertEquals(Optional.of("application/json"), inTheHeader.headers().firstValue("Accept"));
     }
 
     @Test

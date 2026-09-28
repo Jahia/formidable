@@ -5,7 +5,10 @@ import org.mockito.ArgumentCaptor;
 import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.net.http.HttpClient;
@@ -75,6 +78,27 @@ class FormidableConfigServiceTest {
         assertFalse(service.resolveFieldActionProvider("exp").orElseThrow().credentialInQuery());
         assertTrue(service.resolveFieldActionProvider("odd").isEmpty());
         assertTrue(service.resolveFieldActionProvider("bare").isEmpty());
+    }
+
+    @Test
+    void aRefusedProviderLineIsLoggedWithItsIdAndNeverItsCredential() {
+        // Verifies the administration page's promise on the one refusal that reads past the fifth '|': a credential
+        // carrying one is split there, its tail lands in the sixth part, and the warning must name the two accepted
+        // values rather than echo what it found. Put the part back on the WARN line and this test fails.
+        FormidableConfigService service = new FormidableConfigService();
+        PrintStream previous = System.err;
+        ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        System.setErr(new PrintStream(captured, true, StandardCharsets.UTF_8));
+        try {
+            service.activate(TestFormidableConfig.withFieldActionProviders("x|X|https://api.example.com|K|se|cret"));
+        } finally {
+            System.setErr(previous);
+        }
+
+        String logged = captured.toString(StandardCharsets.UTF_8);
+        assertTrue(service.getFieldActionSettings().providers().isEmpty());
+        assertTrue(logged.contains("entry 'x'"), "the operator still learns which line was refused: " + logged);
+        assertFalse(logged.contains("cret"), logged);
     }
 
     @Test

@@ -207,6 +207,8 @@ org.jahia.modules.formidable.engine
 │   ├── FormAction.java                  ← strategy interface (getNodeType + execute)
 │   ├── FieldAction.java, FieldActionRequest.java, FieldActionResult.java, FieldActionGateway.java
 │   │                                    ← the field-action SPI: one field's value judged server-side (docs/architecture/field-actions.md)
+│   ├── ProviderFieldAction.java, EmailVerificationFieldAction.java, EmailAddress.java
+│   │                                    ← the shape of an action behind a provider, its email specialisation, the address parsing — the samples' checks are one method each
 │   ├── FormActionException.java         ← exception carrying an httpStatus
 │   ├── SubmittedFile.java               ← a validated uploaded file
 │   ├── ChoiceOptionsResolver.java       ← how many choices a choice field offers

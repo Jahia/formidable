@@ -164,12 +164,14 @@ class FieldActionDispatcherTest {
     @Test
     void anUnavailableCheckIsWhatTheContributorSaidItIs() throws Exception {
         // Verifies the outage setting, both ways: accept lets the value through silently, reject refuses it with the
-        // message — and an action that throws is an unavailable check, never the visitor's stack trace.
+        // message — and an action that throws, or answers null, is an unavailable check, never the visitor's stack
+        // trace and never an accept by default.
         AtomicInteger calls = new AtomicInteger();
         FieldActionDispatcher unavailable = dispatcher(List.of(javaAction(() -> FieldActionResult.unavailable("provider 503"), calls)), Duration.ZERO, session(Map.of("a1", "Refused")));
         FieldActionDispatcher throwing = dispatcher(List.of(javaAction(() -> {
             throw new IllegalStateException("boom");
         }, calls)), Duration.ZERO, session(Map.of("a1", "Refused")));
+        FieldActionDispatcher silent = dispatcher(List.of(javaAction(() -> null, calls)), Duration.ZERO, session(Map.of("a1", "Refused")));
 
         assertFalse(unavailable.run(REQUEST, List.of(action("a1", Trigger.BLUR, Severity.BLOCK, Unavailable.ACCEPT)),
                 EnumSet.allOf(Trigger.class), false).blocked());
@@ -180,6 +182,10 @@ class FieldActionDispatcherTest {
         assertFalse(throwing.run(REQUEST, List.of(action("a1", Trigger.BLUR, Severity.BLOCK, Unavailable.ACCEPT)),
                 EnumSet.allOf(Trigger.class), false).blocked());
         assertTrue(throwing.run(REQUEST, List.of(action("a1", Trigger.BLUR, Severity.BLOCK, Unavailable.REJECT)),
+                EnumSet.allOf(Trigger.class), false).blocked());
+        assertFalse(silent.run(REQUEST, List.of(action("a1", Trigger.BLUR, Severity.BLOCK, Unavailable.ACCEPT)),
+                EnumSet.allOf(Trigger.class), false).blocked());
+        assertTrue(silent.run(REQUEST, List.of(action("a1", Trigger.BLUR, Severity.BLOCK, Unavailable.REJECT)),
                 EnumSet.allOf(Trigger.class), false).blocked());
     }
 
