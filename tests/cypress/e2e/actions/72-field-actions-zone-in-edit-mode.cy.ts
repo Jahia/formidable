@@ -92,6 +92,16 @@ describe('Actions - 72 Field actions zone in the Page Builder', () => {
 				.find('[jahiatype="module"][type="placeholder"]')
 				.should('have.length', 1);
 
+			// jContent takes a module's parent from data-jahia-parent, and from the closest module in the DOM
+			// otherwise — the fields container's here, which would put insertion points around the zone and let
+			// it drag among the fields: the wrapper stamps the field's own module on it as the page is parsed,
+			// through a script that leaves no trace.
+			cy.get('[jahiatype="module"][path$="/fields/email"]').invoke('attr', 'id').then(fieldModuleId => {
+				expect(fieldModuleId, 'the field module id').to.match(/^module/);
+				cy.get('[jahiatype="module"][path$="/fields/email/actions"]').should('have.attr', 'data-jahia-parent', fieldModuleId);
+			});
+			cy.get('[data-fmdb-node-name="email"] script').should('not.exist');
+
 			// The authoring views guard themselves: asked for directly in live or in preview, they
 			// render — successfully — nothing of the zone (fragment URLs, as spec 71 checks them).
 			[

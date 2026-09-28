@@ -53,6 +53,20 @@ const resolveFieldActions = (node: LogicAwareRenderNode): FieldActionsOfNode => 
 	}
 };
 
+/**
+ * Attaches the zone's Page Builder module to the field's. jContent takes a module's parent from its
+ * `data-jahia-parent` attribute when it carries one, and from the closest module up the DOM otherwise;
+ * the engine emits no such attribute, and the zone's module sits next to the field's inside this wrapper,
+ * so the closest module is the fields container's — jContent would count the zone among the fields:
+ * insertion points around it, and a zone that drags among them. The module ids are drawn at render
+ * time, so the attribute cannot be written server-side: this script, run as the page is parsed and
+ * before jContent reads the boxes, stamps the field's module id on the zone's and removes itself.
+ * Edit mode only, like the zone (docs/architecture/field-actions.md, "The zone").
+ */
+const ATTACH_ZONE_TO_FIELD_SCRIPT = "(function(s){var z=s.previousElementSibling,f=z&&z.previousElementSibling;"
+	+ "if(z&&f&&z.getAttribute('jahiatype')==='module'&&f.getAttribute('jahiatype')==='module'){z.setAttribute('data-jahia-parent',f.id);}"
+	+ "s.parentNode.removeChild(s);})(document.currentScript);";
+
 const LogicAwareRender = ({node, view, parameters, className, showLogicHidden}: LogicAwareRenderProps) => {
 	const {renderContext} = useServerContext();
 	const {logics: rawLogics} = getNodeProps<{logics?: string[]}>(node, ["logics"]);
@@ -97,11 +111,15 @@ const LogicAwareRender = ({node, view, parameters, className, showLogicHidden}: 
 				? <Render node={node} view={view} parameters={parameters}/>
 				: <Render node={node} parameters={parameters}/>}
 			{/* The checks of this field, as a zone under it while authoring — inside the wrapper so
-			    it moves with the field's Page Builder box. Rendered as soon as the switch is on, empty
-			    list included (that is where the create button lives); the views also answer nothing
-			    outside edit mode, so nothing of it reaches live or preview. */}
+			    it moves with the field's Page Builder box, and attached to the field's module by the
+			    script (above) so jContent never counts it among the fields. Rendered as soon as the
+			    switch is on, empty list included (that is where the create button lives); the views
+			    also answer nothing outside edit mode, so nothing of it reaches live or preview. */}
 			{isEditMode && fieldActions.hasList && (
-				<Render node={node.getNode("actions")} view="hidden.authoring"/>
+				<>
+					<Render node={node.getNode("actions")} view="hidden.authoring"/>
+					<script dangerouslySetInnerHTML={{__html: ATTACH_ZONE_TO_FIELD_SCRIPT}}/>
+				</>
 			)}
 		</div>
 	);
