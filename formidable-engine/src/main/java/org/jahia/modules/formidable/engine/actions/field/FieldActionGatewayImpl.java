@@ -1,9 +1,9 @@
 package org.jahia.modules.formidable.engine.actions.field;
 
 import org.jahia.modules.formidable.engine.api.FieldActionGateway;
-import org.jahia.modules.formidable.engine.config.FormidableConfigService;
-import org.jahia.modules.formidable.engine.config.FormidableConfigService.FieldActionProvider;
-import org.jahia.modules.formidable.engine.config.FormidableConfigService.FieldActionSettings;
+import org.jahia.modules.formidable.engine.config.fieldactions.FieldActionsConfigService;
+import org.jahia.modules.formidable.engine.config.fieldactions.FieldActionsConfigService.FieldActionProvider;
+import org.jahia.modules.formidable.engine.config.fieldactions.FieldActionsConfigService.FieldActionSettings;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
@@ -46,7 +46,7 @@ public class FieldActionGatewayImpl implements FieldActionGateway {
     }
 
     @Reference
-    public void setConfigService(FormidableConfigService configService) {
+    public void setConfigService(FieldActionsConfigService configService) {
         this.settings = configService::getFieldActionSettings;
     }
 

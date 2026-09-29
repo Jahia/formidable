@@ -2,7 +2,9 @@ package org.jahia.modules.formidable.engine.servlet;
 
 import org.jahia.modules.formidable.engine.api.AcceptedSubmission;
 import org.jahia.modules.formidable.engine.api.FormAction;
-import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.modules.formidable.engine.config.captcha.CaptchaConfigService;
+import org.jahia.modules.formidable.engine.config.fieldactions.FieldActionsConfigService;
+import org.jahia.modules.formidable.engine.config.uploads.UploadsConfigService;
 import org.jahia.modules.formidable.engine.actions.field.FieldActionMessage;
 import org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService;
 import org.jahia.services.content.JCRNodeWrapper;
@@ -42,7 +44,7 @@ class FormSubmitServletMessagesTest {
 
             @Override
             FormSubmissionPipeline createPipeline() {
-                return new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of(),
+                return new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(),
                         mock(FormidableOptionsSourceService.class), () -> false) {
                     @Override
                     void run(HttpServletRequest req) throws SubmissionException {
@@ -58,7 +60,9 @@ class FormSubmitServletMessagesTest {
                 };
             }
         };
-        servlet.setConfig(mock(FormidableConfigService.class));
+        servlet.setUploadsConfig(mock(UploadsConfigService.class));
+        servlet.setCaptchaConfig(mock(CaptchaConfigService.class));
+        servlet.setFieldActionsConfig(mock(FieldActionsConfigService.class));
         return servlet;
     }
 

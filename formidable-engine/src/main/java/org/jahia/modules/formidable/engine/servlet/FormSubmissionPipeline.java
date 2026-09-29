@@ -12,7 +12,9 @@ import org.jahia.modules.formidable.engine.servlet.FormDataParser;
 import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.engine.api.FmdbNodeName;
-import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.modules.formidable.engine.config.captcha.CaptchaConfigService;
+import org.jahia.modules.formidable.engine.config.fieldactions.FieldActionsConfigService;
+import org.jahia.modules.formidable.engine.config.uploads.UploadsConfigService;
 import org.jahia.modules.formidable.engine.logic.ConditionalLogicEvaluator;
 import org.jahia.modules.formidable.engine.logic.LogicStateDeclaration;
 import org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService;
@@ -100,7 +102,7 @@ class FormSubmissionPipeline {
     @FunctionalInterface
     interface MultipartParserAdapter {
         FormDataParser.ParseResult parse(HttpServletRequest req,
-                                         FormidableConfigService config,
+                                         UploadsConfigService uploads,
                                          FormDataParser.FieldMetadata fieldMetadata)
                 throws FormDataParser.ParseException;
     }
@@ -115,7 +117,12 @@ class FormSubmissionPipeline {
         boolean isReadOnly();
     }
 
-    private final FormidableConfigService config;
+    /** The three configuration themes a submission reads: the upload bounds, the CAPTCHA, the field actions' cap. */
+    record Themes(UploadsConfigService uploads, CaptchaConfigService captcha, FieldActionsConfigService fieldActions) {}
+
+    private final UploadsConfigService uploads;
+    private final CaptchaConfigService captcha;
+    private final FieldActionsConfigService fieldActionsConfig;
     private final List<FormAction> formActions;
     private final FieldMetadataCollectorAdapter fieldMetadataCollector;
     private final JcrTemplateProvider jcrTemplateProvider;
@@ -139,11 +146,11 @@ class FormSubmissionPipeline {
     private List<ResolvedAction> resolvedActions;
     private HttpServletResponse response;
 
-    FormSubmissionPipeline(FormidableConfigService config, List<FormAction> formActions,
+    FormSubmissionPipeline(Themes themes, List<FormAction> formActions,
                            FormidableOptionsSourceService optionsSourceService,
                            ReadOnlyStatusProvider readOnlyStatusProvider) {
         this(
-                config,
+                themes,
                 formActions,
                 (formId, locale) -> FormFieldMetadataCollector.collect(formId, locale, optionsSourceService),
                 JCRTemplate::getInstance,
@@ -153,14 +160,16 @@ class FormSubmissionPipeline {
         );
     }
 
-    FormSubmissionPipeline(FormidableConfigService config,
+    FormSubmissionPipeline(Themes themes,
                            List<FormAction> formActions,
                            FieldMetadataCollectorAdapter fieldMetadataCollector,
                            JcrTemplateProvider jcrTemplateProvider,
                            MultipartParserAdapter multipartParser,
                            CurrentUserSessionProvider currentUserSessionProvider,
                            ReadOnlyStatusProvider readOnlyStatusProvider) {
-        this.config = config;
+        this.uploads = themes.uploads();
+        this.captcha = themes.captcha();
+        this.fieldActionsConfig = themes.fieldActions();
         this.formActions = formActions;
         this.fieldMetadataCollector = fieldMetadataCollector;
         this.jcrTemplateProvider = jcrTemplateProvider;
@@ -250,9 +259,9 @@ class FormSubmissionPipeline {
         // Early-reject optimization only: chunked requests legitimately report -1 here.
         // The definitive request-size enforcement still happens later in FormDataParser
         // via ServletFileUpload.setSizeMax(...) when the multipart stream is consumed.
-        if (contentLength > config.getUploadMaxRequestSizeBytes()) {
+        if (contentLength > uploads.getUploadMaxRequestSizeBytes()) {
             throw new SubmissionException(ErrorCode.FMDB_003,
-                    "Content-Length " + contentLength + " exceeds limit " + config.getUploadMaxRequestSizeBytes());
+                    "Content-Length " + contentLength + " exceeds limit " + uploads.getUploadMaxRequestSizeBytes());
         }
     }
 
@@ -321,7 +330,7 @@ class FormSubmissionPipeline {
         }
         if (!hasCaptcha) return;
 
-        if (!config.isCaptchaVerificationConfigured()) {
+        if (!captcha.isCaptchaVerificationConfigured()) {
             log.warn("[FormSubmissionPipeline] CAPTCHA mixin present on '{}' but server-side verification is not fully configured — blocking.",
                     formNode.getPath());
             throw new SubmissionException(ErrorCode.FMDB_005,
@@ -329,11 +338,11 @@ class FormSubmissionPipeline {
         }
         String token = req.getHeader(CAPTCHA_TOKEN_HEADER);
         try {
-            if (!config.verifyCaptcha(token, req.getRemoteAddr())) {
+            if (!captcha.verifyCaptcha(token, req.getRemoteAddr())) {
                 throw new SubmissionException(ErrorCode.FMDB_006,
                         "CAPTCHA token invalid or absent (form: " + formId + ")");
             }
-        } catch (FormidableConfigService.CaptchaVerificationException e) {
+        } catch (CaptchaConfigService.CaptchaVerificationException e) {
             throw new SubmissionException(
                     ErrorCode.FMDB_500,
                     "CAPTCHA verification failed for technical reasons (form: " + formId + ")",
@@ -354,7 +363,7 @@ class FormSubmissionPipeline {
 
     private void parseMultipart(HttpServletRequest req) throws SubmissionException {
         try {
-            parsed = multipartParser.parse(req, config, fieldMetadata.toParserMetadata());
+            parsed = multipartParser.parse(req, uploads, fieldMetadata.toParserMetadata());
         } catch (FormDataParser.ParseException e) {
             ErrorCode code = switch (e.failureType()) {
                 case VALIDATION -> ErrorCode.FMDB_010;
@@ -564,7 +573,7 @@ class FormSubmissionPipeline {
      * response names the field, for the page that will show it — no client reads that entry yet.
      */
     private void verifyValueCount(Map<String, List<String>> judged) throws SubmissionException {
-        int maxValues = config.getFieldActionSettings().maxValuesPerField();
+        int maxValues = fieldActionsConfig.getFieldActionSettings().maxValuesPerField();
         for (Map.Entry<String, List<String>> entry : judged.entrySet()) {
             int answers = entry.getValue().size();
             if (answers > maxValues) {

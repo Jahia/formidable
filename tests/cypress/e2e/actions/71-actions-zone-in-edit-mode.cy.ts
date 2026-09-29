@@ -15,7 +15,7 @@ const FORWARD_TARGET = {id: 'crm01', label: 'Salesforce Marketing', url: 'https:
 
 const setForwardTargets = (lines: string): Cypress.Chainable => cy.runProvisioningScript({
 	script: {
-		fileContent: JSON.stringify([{editConfiguration: 'org.jahia.modules.formidable', properties: {forwardTargets: lines}}]),
+		fileContent: JSON.stringify([{editConfiguration: 'org.jahia.modules.formidable.formActions', properties: {forwardTargets: lines}}]),
 		type: 'application/json'
 	}
 });

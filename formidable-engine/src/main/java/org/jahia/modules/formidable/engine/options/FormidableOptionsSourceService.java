@@ -1,7 +1,7 @@
 package org.jahia.modules.formidable.engine.options;
 
-import org.jahia.modules.formidable.engine.config.FormidableConfigService;
-import org.jahia.modules.formidable.engine.config.FormidableConfigService.OptionsSource;
+import org.jahia.modules.formidable.engine.config.choiceoptions.ChoiceOptionsConfigService;
+import org.jahia.modules.formidable.engine.config.choiceoptions.ChoiceOptionsConfigService.OptionsSource;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListInitializer;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListInitializerService;
@@ -29,7 +29,7 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.CO
  * Resolves the option list of a sourced choice field at display time.
  *
  * The service bridges the admin-declared options sources (curated Jahia choicelist
- * initializers, see {@code optionsSources} in org.jahia.modules.formidable.cfg) to a
+ * initializers, see {@code optionsSources} in org.jahia.modules.formidable.choiceOptions.cfg) to a
  * primitive-friendly contract usable from the GraalVM JS server views through
  * {@code server.osgi.getService}: a source key and a BCP-47 language tag in, an array
  * of JSON-encoded {@code {"value","label","selected"}} strings out — the exact storage
@@ -76,7 +76,7 @@ public class FormidableOptionsSourceService {
 
     private final ConcurrentHashMap<String, CacheEntry> cache = new ConcurrentHashMap<>();
 
-    private FormidableConfigService config;
+    private ChoiceOptionsConfigService config;
 
     // Seams for unit tests: production values bridge to the Jahia platform services.
     private Clock clock = Clock.systemUTC();
@@ -84,7 +84,7 @@ public class FormidableOptionsSourceService {
             key -> ChoiceListInitializerService.getInstance().getInitializers().get(key);
 
     @Reference
-    public void setConfig(FormidableConfigService config) {
+    public void setConfig(ChoiceOptionsConfigService config) {
         this.config = config;
     }
 
@@ -420,7 +420,7 @@ public class FormidableOptionsSourceService {
         OptionsSource source = config.resolveOptionsSource(sourceKey == null ? "" : sourceKey)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Unknown options source '" + sourceKey + "': it is not declared in optionsSources "
-                                + "(org.jahia.modules.formidable.cfg)"));
+                                + "(org.jahia.modules.formidable.choiceOptions.cfg)"));
 
         String cacheKey = source.id() + '|' + languageTag;
         CacheEntry cached = cache.get(cacheKey);

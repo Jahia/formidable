@@ -6,7 +6,7 @@ import org.jahia.modules.formidable.engine.api.FormAction;
 import org.jahia.modules.formidable.engine.api.FormActionException;
 import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.jahia.modules.formidable.engine.api.FmdbNodeType;
-import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.modules.formidable.engine.config.uploads.UploadsConfigService;
 import org.jahia.modules.formidable.engine.util.JcrProps;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
@@ -47,7 +47,7 @@ public class SendEmailContentFormAction implements FormAction {
     private static final String DEFAULT_SUBJECT = "Form submission";
 
     private MailService mailService;
-    private FormidableConfigService configService;
+    private UploadsConfigService configService;
 
     @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, unbind = "unbindMailService")
     protected void bindMailService(MailService service) {
@@ -61,7 +61,7 @@ public class SendEmailContentFormAction implements FormAction {
     }
 
     @Reference
-    protected void setConfigService(FormidableConfigService service) {
+    protected void setConfigService(UploadsConfigService service) {
         this.configService = service;
     }
 

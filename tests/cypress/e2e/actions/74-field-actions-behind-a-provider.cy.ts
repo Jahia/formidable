@@ -22,7 +22,7 @@ const WRONG_TOKEN_PROVIDERS = [`experian-stub|Experian (stub)|http://localhost:8
 const setDevelopmentProviders = (providers: string, enabled = true): Cypress.Chainable => cy.runProvisioningScript({
 	script: {
 		fileContent: JSON.stringify([{
-			editConfiguration: 'org.jahia.modules.formidable',
+			editConfiguration: 'org.jahia.modules.formidable.fieldActions',
 			properties: {enableDevFieldActionProviders: String(enabled), devFieldActionProviders: providers}
 		}]),
 		type: 'application/json'

@@ -1,8 +1,8 @@
 package org.jahia.modules.formidable.engine.actions.field;
 
 import org.jahia.modules.formidable.engine.api.FieldAction;
-import org.jahia.modules.formidable.engine.config.FormidableConfigService;
-import org.jahia.modules.formidable.engine.config.FormidableConfigService.FieldActionSettings;
+import org.jahia.modules.formidable.engine.config.fieldactions.FieldActionsConfigService;
+import org.jahia.modules.formidable.engine.config.fieldactions.FieldActionsConfigService.FieldActionSettings;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @Component(service = FieldActionRuntime.class, immediate = true)
 public class FieldActionRuntime {
 
-    private final AtomicReference<FormidableConfigService> config = new AtomicReference<>();
+    private final AtomicReference<FieldActionsConfigService> config = new AtomicReference<>();
     private final List<FieldAction> fieldActions = new CopyOnWriteArrayList<>();
     private final VerdictCache cache = new VerdictCache();
     private final RateLimiter rateLimiter = new RateLimiter();
@@ -29,7 +29,7 @@ public class FieldActionRuntime {
     private final FieldActionsCache formActions = new FieldActionsCache();
 
     @Reference
-    public void setConfig(FormidableConfigService service) {
+    public void setConfig(FieldActionsConfigService service) {
         config.set(service);
     }
 
@@ -69,9 +69,9 @@ public class FieldActionRuntime {
 
     /** The field-action settings of the current configuration. */
     public FieldActionSettings settings() {
-        FormidableConfigService service = config.get();
+        FieldActionsConfigService service = config.get();
         if (service == null) {
-            throw new IllegalStateException("FormidableConfigService is not available.");
+            throw new IllegalStateException("FieldActionsConfigService is not available.");
         }
         return service.getFieldActionSettings();
     }

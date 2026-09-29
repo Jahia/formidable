@@ -140,7 +140,7 @@ marker mixin on the form plus server-side OSGi configuration (see the captcha se
 
 There is no captcha node type. The pieces are:
 
-- **Server config** (admin): `org.jahia.modules.formidable.cfg` carries
+- **Server config** (admin): `org.jahia.modules.formidable.captcha.cfg` carries
   `captchaSiteKey`, `captchaScriptUrl`, `captchaSecretKey`, `captchaWidgetVar`,
   `captchaTokenField` and `captchaVerifyUrl` (plus the two HTTP timeouts) — all six are
   needed; without `captchaVerifyUrl` verification counts as not configured and every
@@ -155,7 +155,7 @@ There is no captcha node type. The pieces are:
 - **Submit**: the client reads the token from the widget, DELETES the provider's native
   hidden field from `FormData`, and sends the token in the `X-Formidable-Captcha-Token`
   header. Server-side, pipeline step 7 (`verifyCaptcha`) reads that header and
-  `FormidableConfigService.verifyCaptcha` calls the provider's `siteverify` endpoint —
+  `CaptchaConfigService.verifyCaptcha` calls the provider's `siteverify` endpoint —
   before any byte of the body is read.
 
 There is no provider derivation: everything provider-specific (verify URL, widget
@@ -218,6 +218,15 @@ org.jahia.modules.formidable.engine
 │   ├── FormSubmitServlet.java           ← whiteboard entry point
 │   ├── FormSubmissionPipeline.java      ← the 12 steps, plus 11b (runFieldActions)
 │   └── FormDataParser.java, FieldValidator.java, FormFieldMetadataCollector.java
+├── config/                              ← the five configuration themes, one PID and one shipped .cfg each (docs/administration/configuration.md)
+│   ├── ThemeLifecycle.java              ← what the themes share: the snapshot in force, the one-time migration handshake
+│   ├── LegacyConfigurationMigration.java ← carries the pre-0.5 single PID into a theme's file once its own file is in place
+│   ├── common/   ConfigurationValues (lines, bounds, HTTP client), EndpointRule (HTTPS, or HTTP on a local host in a dev list)
+│   ├── captcha/  CaptchaConfig + CaptchaConfigService (keys, endpoints, verifyCaptcha)
+│   ├── uploads/  UploadsConfig + UploadsConfigService (size and count bounds, MIME allowlist)
+│   ├── choiceoptions/ ChoiceOptionsConfig + ChoiceOptionsConfigService (options sources, cache, query cap)
+│   ├── formactions/   FormActionsConfig + FormActionsConfigService (forward targets, HTTP client)
+│   └── fieldactions/  FieldActionsConfig + FieldActionsConfigService (providers, endpoint guards)
 └── actions/                             ← one folder per kind, and what the two kinds share
     ├── common/   ActionSummaryService (a type's label, tooltip and icon), FieldEscaper, TemplateInterpolator
     ├── form/     ContentDispositionUtils
@@ -407,7 +416,7 @@ Full behavioral specification: `tests/scenarios/logics.md` (11 sections, from ba
 
 | Role | Action |
 |---|---|
-| **Admin** | Configures the server side: `org.jahia.modules.formidable.cfg` (captcha keys, upload limits, forward targets) |
+| **Admin** | Configures the server side: the five files `org.jahia.modules.formidable.<theme>.cfg` — captcha, uploads, choiceOptions, formActions, fieldActions (`docs/administration/configuration.md`) |
 | **Contributor** | Creates a `fmdb:form` and fills its autocreated `actions` list (every form has one) |
 
 ---

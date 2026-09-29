@@ -1,8 +1,8 @@
 package org.jahia.modules.formidable.engine.actions.field;
 
 import org.jahia.modules.formidable.engine.api.FieldActionGateway;
-import org.jahia.modules.formidable.engine.config.FormidableConfigService.FieldActionProvider;
-import org.jahia.modules.formidable.engine.config.FormidableConfigService.FieldActionSettings;
+import org.jahia.modules.formidable.engine.config.fieldactions.FieldActionsConfigService.FieldActionProvider;
+import org.jahia.modules.formidable.engine.config.fieldactions.FieldActionsConfigService.FieldActionSettings;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 

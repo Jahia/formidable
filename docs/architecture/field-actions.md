@@ -567,10 +567,10 @@ platform's generic sheet. Both answer nothing outside edit mode. The hooks and v
 ## Providers, configuration and secrets — the `FieldActionGateway`
 
 A provider's credential goes neither in the JavaScript nor in the repository. As forward targets are
-declared, providers are declared in `org.jahia.modules.formidable.cfg`:
+declared, providers are declared in `org.jahia.modules.formidable.fieldActions.cfg` ([Configuration files](../administration/configuration.md)):
 
 ```
-# --- FIELD ACTIONS ---
+# org.jahia.modules.formidable.fieldActions.cfg
 # Each entry: id|Label|https://base-url|Credential-Header-Name|credential (the last two together, or neither)
 fieldActionProviders=                      # id|Label|https://base-url|Credential-name|credential[|header|query]
 enableDevFieldActionProviders=false        # plain HTTP on localhost or host.docker.internal: a provider's double
@@ -583,7 +583,7 @@ fieldActionMaxValueLength=512
 fieldActionMaxValuesPerField=50            # DISTINCT values of ONE field judged at submission
 ```
 
-`FormidableConfigService` parses them (`FieldActionProvider`, whose `toString` masks the credential;
+`FieldActionsConfigService` parses them (`FieldActionProvider`, whose `toString` masks the credential;
 `FieldActionSettings`, everything the field actions read, in one piece; an optional sixth part says where the
 credential goes, `header` by default or `query` for a provider that reads its key off the URL, appended to the
 target as a parameter of that name and then sent in no header), the HTTPS-only rule of the
@@ -735,9 +735,9 @@ call per blocking action and non-blank value never pre-checked.
   [`FieldActionGatewayImpl`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/field/FieldActionGatewayImpl.java) (the calls to a provider);
   [`FormSubmissionPipeline`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/servlet/FormSubmissionPipeline.java) (step 11b, `runFieldActions`), [`FormFieldMetadataCollector`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/servlet/FormFieldMetadataCollector.java)
   (`Result.fieldActions`), [`FormSubmitServlet`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/servlet/FormSubmitServlet.java) (`messages`, `RESERVED_KEYS`);
-  [`FormidableConfig`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/config/FormidableConfig.java) and [`FormidableConfigService`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/config/FormidableConfigService.java) (`FieldActionProvider`, `FieldActionSettings`),
+  [`FieldActionsConfig`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/config/fieldactions/FieldActionsConfig.java) and [`FieldActionsConfigService`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/config/fieldactions/FieldActionsConfigService.java) (`FieldActionProvider`, `FieldActionSettings`),
   [`FormidableFieldActionProvidersInitializer`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/choicelist/FormidableFieldActionProvidersInitializer.java);
-  [`definitions.cnd`](../../formidable-engine/src/main/resources/META-INF/definitions.cnd), [`org.jahia.modules.formidable.cfg`](../../formidable-engine/src/main/resources/META-INF/configurations/org.jahia.modules.formidable.cfg),
+  [`definitions.cnd`](../../formidable-engine/src/main/resources/META-INF/definitions.cnd), [`org.jahia.modules.formidable.fieldActions.cfg`](../../formidable-engine/src/main/resources/META-INF/configurations/org.jahia.modules.formidable.fieldActions.cfg),
   `org.jahia.bundles.api.authorization-formidable-engine.yml`, `org.jahia.modules.jahiacsrfguard-formidable.cfg`.
 - Samples, the shape to copy: [`BlockedWordsFieldAction`](../../jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/BlockedWordsFieldAction.java), [`EmailDomainFieldAction`](../../jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/EmailDomainFieldAction.java),
   [`ExperianEmailFieldAction`](../../jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/ExperianEmailFieldAction.java), [`ZeroBounceEmailFieldAction`](../../jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/ZeroBounceEmailFieldAction.java) and their doubles

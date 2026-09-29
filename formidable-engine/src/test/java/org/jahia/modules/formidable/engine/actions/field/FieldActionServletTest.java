@@ -5,8 +5,8 @@ import org.jahia.modules.formidable.engine.api.FieldActionRequest;
 import org.jahia.modules.formidable.engine.api.FieldActionResult;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.engine.api.FmdbProperty;
-import org.jahia.modules.formidable.engine.config.FormidableConfigService;
-import org.jahia.modules.formidable.engine.config.FormidableConfigService.FieldActionSettings;
+import org.jahia.modules.formidable.engine.config.fieldactions.FieldActionsConfigService;
+import org.jahia.modules.formidable.engine.config.fieldactions.FieldActionsConfigService.FieldActionSettings;
 import org.jahia.modules.formidable.engine.actions.field.ResolvedFieldAction.Severity;
 import org.jahia.modules.formidable.engine.actions.field.ResolvedFieldAction.Trigger;
 import org.jahia.modules.formidable.engine.actions.field.ResolvedFieldAction.Unavailable;
@@ -148,7 +148,7 @@ class FieldActionServletTest {
     }
 
     private static FieldActionRuntime runtime(FieldActionSettings settings, FieldActionDispatcher dispatcher) {
-        FormidableConfigService config = mock(FormidableConfigService.class);
+        FieldActionsConfigService config = mock(FieldActionsConfigService.class);
         when(config.getFieldActionSettings()).thenReturn(settings);
         FieldActionRuntime runtime = new FieldActionRuntime();
         runtime.setConfig(config);

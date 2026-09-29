@@ -6,7 +6,7 @@ import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.apache.commons.fileupload.util.Streams;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.tika.Tika;
-import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.modules.formidable.engine.config.uploads.UploadsConfigService;
 import org.jahia.services.content.JCRContentUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -280,7 +280,7 @@ public class FormDataParser {
      */
     public static ParseResult parseAll(
             HttpServletRequest req,
-            FormidableConfigService config,
+            UploadsConfigService config,
             FieldMetadata fieldMetadata
     ) throws ParseException {
 
@@ -345,7 +345,7 @@ public class FormDataParser {
      * allowlist included — and land in the file store of a form that declares no file
      * field at all.
      */
-    private static void parsePart(FileItemStream item, FieldMetadata fieldMetadata, FormidableConfigService config,
+    private static void parsePart(FileItemStream item, FieldMetadata fieldMetadata, UploadsConfigService config,
             Map<String, List<String>> parameters, List<FormFile> files) throws ParseException, java.io.IOException {
         if (!fieldMetadata.allowedNames().contains(item.getFieldName())) {
             log.debug("[FormDataParser] Skipping undeclared field: {}", item.getFieldName());
@@ -382,7 +382,7 @@ public class FormDataParser {
     private static FormFile parseFilePart(
             FileItemStream item,
             Set<String> fieldAllowedTypes,
-            FormidableConfigService config
+            UploadsConfigService config
     ) throws ParseException {
         String fieldName     = item.getFieldName();
         String sanitizedName = sanitizeFilename(item.getName());

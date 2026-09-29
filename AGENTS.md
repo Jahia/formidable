@@ -30,6 +30,7 @@ Architecture decisions and internal flows are documented in `docs/`:
 - `cnd-module-ownership.md` — where JCR types belong (`formidable-elements` vs `formidable-engine`)
 - `error-codes.md` — server-side error codes (FMDB-xxx)
 - `captcha-server-side-validation.md` — provider verification and token handling
+- `configuration.md` — the five configuration files, one per theme, and how the single file of earlier builds is carried over
 
 ## Global Instructions
 

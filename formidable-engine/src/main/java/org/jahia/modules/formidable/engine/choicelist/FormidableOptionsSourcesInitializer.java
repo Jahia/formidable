@@ -1,6 +1,6 @@
 package org.jahia.modules.formidable.engine.choicelist;
 
-import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.modules.formidable.engine.config.choiceoptions.ChoiceOptionsConfigService;
 import org.jahia.services.content.nodetypes.ExtendedPropertyDefinition;
 import org.jahia.services.content.nodetypes.initializers.ChoiceListValue;
 import org.jahia.services.content.nodetypes.initializers.ModuleChoiceListInitializer;
@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
 
 /**
  * Populates the optionsSourceKey choice list for sourced choice fields from the
- * options sources declared in org.jahia.modules.formidable.cfg.
+ * options sources declared in org.jahia.modules.formidable.choiceOptions.cfg.
  *
  * Only the curated allowlist is exposed — never the raw platform-wide initializer list,
  * most of which is context-dependent and meaningless as a form options source.
@@ -43,17 +43,17 @@ public class FormidableOptionsSourcesInitializer implements ModuleChoiceListInit
     // colon (e.g. 'Type: TV') is never mistaken for a resource key.
     private static final Pattern LABEL_KEY_PATTERN = Pattern.compile("^([A-Za-z0-9_-]+):([A-Za-z0-9_.-]+)$");
 
-    private FormidableConfigService configService;
+    private ChoiceOptionsConfigService configService;
 
     @Reference
-    public void setConfigService(FormidableConfigService service) {
+    public void setConfigService(ChoiceOptionsConfigService service) {
         this.configService = service;
     }
 
     @Override
     public List<ChoiceListValue> getChoiceListValues(ExtendedPropertyDefinition epd, String param,
             List<ChoiceListValue> values, Locale locale, Map<String, Object> context) {
-        Collection<FormidableConfigService.OptionsSource> sources = configService.getOptionsSources();
+        Collection<ChoiceOptionsConfigService.OptionsSource> sources = configService.getOptionsSources();
         if (sources.isEmpty()) {
             // Empty is the documented fail-safe default, and this runs on every editor
             // form build: not a warning.

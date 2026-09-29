@@ -180,12 +180,13 @@
             <artifactId>mockito-core</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- Mocking ConfigurationAdmin in the tests needs org.osgi.framework (thrown types) on the classpath -->
+        <!-- org.osgi.framework: the configuration migration lists the legacy PID through ConfigurationAdmin (a filter,
+             hence InvalidSyntaxException), and the tests mock ConfigurationAdmin; the container provides it at runtime -->
         <dependency>
             <groupId>org.osgi</groupId>
             <artifactId>osgi.core</artifactId>
             <version>${osgi.version}</version>
-            <scope>test</scope>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 

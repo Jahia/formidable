@@ -2,7 +2,9 @@ package org.jahia.modules.formidable.engine.servlet;
 
 import org.jahia.modules.formidable.engine.api.AcceptedSubmission;
 import org.jahia.modules.formidable.engine.api.FormAction;
-import org.jahia.modules.formidable.engine.config.FormidableConfigService;
+import org.jahia.modules.formidable.engine.config.captcha.CaptchaConfigService;
+import org.jahia.modules.formidable.engine.config.fieldactions.FieldActionsConfigService;
+import org.jahia.modules.formidable.engine.config.uploads.UploadsConfigService;
 import org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.json.JSONObject;
@@ -39,7 +41,9 @@ class FormSubmitServletTest {
         when(response.getWriter()).thenReturn(new PrintWriter(body));
 
         TestableFormSubmitServlet servlet = new TestableFormSubmitServlet(false);
-        servlet.setConfig(mock(FormidableConfigService.class));
+        servlet.setUploadsConfig(mock(UploadsConfigService.class));
+        servlet.setCaptchaConfig(mock(CaptchaConfigService.class));
+        servlet.setFieldActionsConfig(mock(FieldActionsConfigService.class));
 
         servlet.doPost(request, response);
 
@@ -63,7 +67,9 @@ class FormSubmitServletTest {
         when(response.getWriter()).thenReturn(new PrintWriter(body));
 
         TestableFormSubmitServlet servlet = new TestableFormSubmitServlet(true);
-        servlet.setConfig(mock(FormidableConfigService.class));
+        servlet.setUploadsConfig(mock(UploadsConfigService.class));
+        servlet.setCaptchaConfig(mock(CaptchaConfigService.class));
+        servlet.setFieldActionsConfig(mock(FieldActionsConfigService.class));
 
         servlet.doPost(request, response);
 
@@ -89,7 +95,9 @@ class FormSubmitServletTest {
                 new SubmissionException(ErrorCode.FMDB_009, "auth required"),
                 null
         );
-        servlet.setConfig(mock(FormidableConfigService.class));
+        servlet.setUploadsConfig(mock(UploadsConfigService.class));
+        servlet.setCaptchaConfig(mock(CaptchaConfigService.class));
+        servlet.setFieldActionsConfig(mock(FieldActionsConfigService.class));
 
         servlet.doPost(request, response);
 
@@ -114,7 +122,9 @@ class FormSubmitServletTest {
                 new SubmissionException(ErrorCode.FMDB_008, "action failed", 1, 3),
                 null
         );
-        servlet.setConfig(mock(FormidableConfigService.class));
+        servlet.setUploadsConfig(mock(UploadsConfigService.class));
+        servlet.setCaptchaConfig(mock(CaptchaConfigService.class));
+        servlet.setFieldActionsConfig(mock(FieldActionsConfigService.class));
 
         servlet.doPost(request, response);
 
@@ -142,7 +152,9 @@ class FormSubmitServletTest {
                 null,
                 new IllegalStateException("boom")
         );
-        servlet.setConfig(mock(FormidableConfigService.class));
+        servlet.setUploadsConfig(mock(UploadsConfigService.class));
+        servlet.setCaptchaConfig(mock(CaptchaConfigService.class));
+        servlet.setFieldActionsConfig(mock(FieldActionsConfigService.class));
 
         servlet.doPost(request, response);
 
@@ -165,7 +177,9 @@ class FormSubmitServletTest {
         when(response.getWriter()).thenReturn(new PrintWriter(body));
         AcceptedSubmission accepted = new AcceptedSubmission(mock(JCRNodeWrapper.class), "mysite", Locale.ENGLISH, Map.of("firstName", List.of("Ada")));
         EnrichingFormSubmitServlet servlet = new EnrichingFormSubmitServlet(accepted);
-        servlet.setConfig(mock(FormidableConfigService.class));
+        servlet.setUploadsConfig(mock(UploadsConfigService.class));
+        servlet.setCaptchaConfig(mock(CaptchaConfigService.class));
+        servlet.setFieldActionsConfig(mock(FieldActionsConfigService.class));
         servlet.bindResponseEnricher(submission -> Map.of("jexperience", Map.of("formId", "f-1", "fields", submission.parameters())));
 
         servlet.doPost(request, response);
@@ -189,7 +203,9 @@ class FormSubmitServletTest {
         when(response.getWriter()).thenReturn(new PrintWriter(body));
         AcceptedSubmission accepted = new AcceptedSubmission(mock(JCRNodeWrapper.class), "mysite", Locale.ENGLISH, Map.of());
         EnrichingFormSubmitServlet servlet = new EnrichingFormSubmitServlet(accepted);
-        servlet.setConfig(mock(FormidableConfigService.class));
+        servlet.setUploadsConfig(mock(UploadsConfigService.class));
+        servlet.setCaptchaConfig(mock(CaptchaConfigService.class));
+        servlet.setFieldActionsConfig(mock(FieldActionsConfigService.class));
         servlet.bindResponseEnricher(submission -> {
             throw new IllegalStateException("boom");
         });
@@ -229,7 +245,9 @@ class FormSubmitServletTest {
         StringWriter body = new StringWriter();
         when(response.getWriter()).thenReturn(new PrintWriter(body));
         TestableFormSubmitServlet servlet = new TestableFormSubmitServlet(true, new SubmissionException(ErrorCode.FMDB_010, "missing"), null);
-        servlet.setConfig(mock(FormidableConfigService.class));
+        servlet.setUploadsConfig(mock(UploadsConfigService.class));
+        servlet.setCaptchaConfig(mock(CaptchaConfigService.class));
+        servlet.setFieldActionsConfig(mock(FieldActionsConfigService.class));
         AtomicBoolean called = new AtomicBoolean();
         servlet.bindResponseEnricher(submission -> {
             called.set(true);
@@ -259,7 +277,7 @@ class FormSubmitServletTest {
 
         @Override
         FormSubmissionPipeline createPipeline() {
-            return new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false) {
+            return new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false) {
                 @Override
                 void run(HttpServletRequest req) {
                     // accepted as is
@@ -299,7 +317,7 @@ class FormSubmitServletTest {
         @Override
         FormSubmissionPipeline createPipeline() {
             pipelineInvoked = true;
-            return new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false) {
+            return new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false) {
                 @Override
                 void run(HttpServletRequest req) throws SubmissionException {
                     if (submissionFailure != null) {
@@ -340,7 +358,7 @@ class FormSubmitServletTest {
 
             @Override
             FormSubmissionPipeline createPipeline() {
-                return new FormSubmissionPipeline(mock(FormidableConfigService.class), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false) {
+                return new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false) {
                     @Override
                     void run(HttpServletRequest req) {
                         // accepted
@@ -353,7 +371,9 @@ class FormSubmitServletTest {
                 };
             }
         };
-        servlet.setConfig(mock(FormidableConfigService.class));
+        servlet.setUploadsConfig(mock(UploadsConfigService.class));
+        servlet.setCaptchaConfig(mock(CaptchaConfigService.class));
+        servlet.setFieldActionsConfig(mock(FieldActionsConfigService.class));
         servlet.bindResponseEnricher(submission -> Map.of("never", "asked"));
 
         servlet.doPost(request, response);
@@ -377,7 +397,9 @@ class FormSubmitServletTest {
         when(response.getWriter()).thenReturn(new PrintWriter(body));
         AcceptedSubmission accepted = new AcceptedSubmission(mock(JCRNodeWrapper.class), "mysite", Locale.ENGLISH, Map.of());
         EnrichingFormSubmitServlet servlet = new EnrichingFormSubmitServlet(accepted);
-        servlet.setConfig(mock(FormidableConfigService.class));
+        servlet.setUploadsConfig(mock(UploadsConfigService.class));
+        servlet.setCaptchaConfig(mock(CaptchaConfigService.class));
+        servlet.setFieldActionsConfig(mock(FieldActionsConfigService.class));
         servlet.bindResponseEnricher(submission -> Map.of("analytics", Map.of("visits", 3)));
         servlet.bindResponseEnricher(submission -> Map.of("analytics", Map.of("score", Double.NaN)));
 

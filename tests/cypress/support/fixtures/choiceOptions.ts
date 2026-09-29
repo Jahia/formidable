@@ -107,7 +107,7 @@ export function setOptionsSourcesConfig(lines: string[]): Cypress.Chainable {
 	return cy.runProvisioningScript({
 		script: {
 			fileContent: JSON.stringify([{
-				editConfiguration: 'org.jahia.modules.formidable',
+				editConfiguration: 'org.jahia.modules.formidable.choiceOptions',
 				properties: {optionsSources: lines.join('\n')}
 			}]),
 			type: 'application/json'
@@ -127,7 +127,7 @@ export function setOptionsQueryMaxResults(max: number): Cypress.Chainable {
 	return cy.runProvisioningScript({
 		script: {
 			fileContent: JSON.stringify([{
-				editConfiguration: 'org.jahia.modules.formidable',
+				editConfiguration: 'org.jahia.modules.formidable.choiceOptions',
 				properties: {optionsQueryMaxResults: String(max)}
 			}]),
 			type: 'application/json'
