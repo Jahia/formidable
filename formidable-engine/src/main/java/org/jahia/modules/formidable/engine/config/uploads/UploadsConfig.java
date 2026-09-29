@@ -5,12 +5,12 @@ import org.osgi.service.metatype.annotations.AttributeType;
 import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
 /**
- * The uploads theme: the size and count limits of a multipart submission, and the MIME types a file field
- * accepts when it declares none. Deployed as {@code karaf/etc/org.jahia.modules.formidable.uploads.cfg}.
+ * The uploads theme: the size and count limits of a multipart submission, and the file types a file field
+ * may accept. Deployed as {@code karaf/etc/org.jahia.modules.formidable.uploads.cfg}.
  */
 @ObjectClassDefinition(
         name = "Formidable — Uploads",
-        description = "The limits of a submission carrying files, and the MIME types accepted by default."
+        description = "The limits of a submission carrying files, and the file types a file field may accept."
 )
 public @interface UploadsConfig {
 
@@ -41,23 +41,13 @@ public @interface UploadsConfig {
     int uploadMaxFileCount() default DEFAULT_UPLOAD_MAX_FILE_COUNT;
 
     @AttributeDefinition(
-            name = "Allowed MIME types (fallback)",
-            description = "Global MIME type allowlist applied as fallback when no 'accept' property is defined " +
-                    "on the fmdb:inputFile field. Comma-separated list of MIME types or wildcards (for example image/*). " +
-                    "Supported allowlist values: image/jpeg, image/png, image/gif, image/webp, application/pdf, " +
-                    "application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document, " +
-                    "application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, " +
-                    "application/vnd.oasis.opendocument.text, application/vnd.oasis.opendocument.spreadsheet, " +
-                    "text/plain, text/csv, video/mp4, video/webm, video/ogg, video/x-matroska. " +
-                    "Validation uses Tika filename-aware detection (detect(byte[], String)) so ambiguous formats " +
-                    "such as CSV, Matroska, WebM, and similar container or text-based files are resolved from " +
-                    "both content and original filename extension.",
+            name = "Allowed file types",
+            description = "The file types a file field may accept, comma-separated: an extension (pdf, docx), a MIME " +
+                    "type (application/pdf) or a wildcard (image/*). An extension stands for the MIME type Apache " +
+                    "Tika gives it; give the MIME type when an extension is shared (ogg is read as audio/vorbis). A field " +
+                    "without accepted types accepts all of them, a field with some keeps those still listed here. " +
+                    "Empty: no file is accepted. Every uploaded file's real type is detected and checked.",
             type = AttributeType.STRING
     )
-    String uploadAllowedMimeTypes() default "image/jpeg,image/png,image/gif,image/webp,application/pdf," +
-            "application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document," +
-            "application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet," +
-            "application/vnd.oasis.opendocument.text,application/vnd.oasis.opendocument.spreadsheet," +
-            "text/plain,text/csv," +
-            "video/mp4,video/webm,video/ogg,video/x-matroska";
+    String uploadAllowedTypes() default "jpg,png,gif,webp,pdf,doc,docx,xls,xlsx,odt,ods,txt,csv,mp4,webm,ogv,mkv";
 }

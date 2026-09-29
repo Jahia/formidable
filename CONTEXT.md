@@ -218,12 +218,14 @@ org.jahia.modules.formidable.engine
 │   ├── FormSubmitServlet.java           ← whiteboard entry point
 │   ├── FormSubmissionPipeline.java      ← the 12 steps, plus 11b (runFieldActions)
 │   └── FormDataParser.java, FieldValidator.java, FormFieldMetadataCollector.java
+├── files/                              ← file types, from Apache Tika's registry only (docs/architecture/form-submission-flow.md)
+│   └── AllowedTypes (what a file field accepts, for its view and the parser), FileTypeService (extensions, labels)
 ├── config/                              ← the five configuration themes, one PID and one shipped .cfg each (docs/administration/configuration.md)
 │   ├── ThemeLifecycle.java              ← what the themes share: the snapshot in force, the one-time migration handshake
 │   ├── LegacyConfigurationMigration.java ← carries the pre-0.5 single PID into a theme's file once its own file is in place
 │   ├── common/   ConfigurationValues (lines, bounds, HTTP client), EndpointRule (HTTPS, or HTTP on a local host in a dev list)
 │   ├── captcha/  CaptchaConfig + CaptchaConfigService (keys, endpoints, verifyCaptcha)
-│   ├── uploads/  UploadsConfig + UploadsConfigService (size and count bounds, MIME allowlist)
+│   ├── uploads/  UploadsConfig + UploadsConfigService (size and count bounds, allowed file types read as MIME types)
 │   ├── choiceoptions/ ChoiceOptionsConfig + ChoiceOptionsConfigService (options sources, cache, query cap)
 │   ├── formactions/   FormActionsConfig + FormActionsConfigService (forward targets, HTTP client)
 │   └── fieldactions/  FieldActionsConfig + FieldActionsConfigService (providers, endpoint guards)

@@ -13,13 +13,15 @@ typed syntax (`L"5"`, quoted strings) a `.cfg` file does not read back.
 | Theme | PID and file (`karaf/etc/<PID>.cfg`) | Settings | Read by |
 |---|---|---|---|
 | CAPTCHA | `org.jahia.modules.formidable.captcha` | `captchaSiteKey`, `captchaSecretKey`, `captchaScriptUrl`, `captchaWidgetVar`, `captchaTokenField`, `captchaVerifyUrl`, `captchaHttpConnectTimeoutSeconds`, `captchaHttpRequestTimeoutSeconds` | the widget in the page, the verification at submission — [CAPTCHA server-side validation](captcha-server-side-validation.md) |
-| Uploads | `org.jahia.modules.formidable.uploads` | `uploadMaxFileSizeBytes`, `uploadMaxRequestSizeBytes`, `uploadMaxFileCount`, `uploadAllowedMimeTypes` | the multipart parser, the early size guard, the e-mail action's attachment bound, the `accept` choicelist |
+| Uploads | `org.jahia.modules.formidable.uploads` | `uploadMaxFileSizeBytes`, `uploadMaxRequestSizeBytes`, `uploadMaxFileCount`, `uploadAllowedTypes` | the multipart parser, the early size guard, the e-mail action's attachment bound, the file field and its `accept` choicelist — [Allowed file types](#allowed-file-types) |
 | Choice options | `org.jahia.modules.formidable.choiceOptions` | `optionsSources`, `optionsSourcesCacheTtlSeconds`, `optionsQueryMaxResults` | the options sources a choice field may pick — [Choice field options sources](../architecture/choice-field-options-sources.md#declaring-sources-administrator) |
 | Form actions | `org.jahia.modules.formidable.formActions` | `forwardTargets`, `enableDevForwardTargets`, `devForwardTargets`, `forwardHttpConnectTimeoutSeconds`, `forwardHttpRequestTimeoutSeconds` | the forward action and its target picker |
 | Field actions | `org.jahia.modules.formidable.fieldActions` | `fieldActionProviders`, `enableDevFieldActionProviders`, `devFieldActionProviders`, `fieldActionHttpConnectTimeoutSeconds`, `fieldActionHttpRequestTimeoutSeconds`, `fieldActionVerdictCacheTtlSeconds`, `fieldActionRateLimitPerMinute`, `fieldActionMaxValueLength`, `fieldActionMaxValuesPerField` | the field actions' providers and the pre-check endpoint — [Field actions: providers and limits](field-actions.md) |
 
-The setting names are the ones of the single file of earlier builds, unchanged: a line copied from an old
-file into its theme's file is read as it was. The PIDs are dotted on purpose — `org.jahia.modules.formidable-captcha`
+The setting names are the ones of the single file of earlier builds but one: `uploadAllowedMimeTypes` is now
+`uploadAllowedTypes`, since it takes extensions too. Any other line copied from an old file into its theme's
+file is read as it was; the migration below reads the renamed setting under its former name, and does not carry
+a list still at the former default — the new default holds the same seventeen types, written as extensions. The PIDs are dotted on purpose — `org.jahia.modules.formidable-captcha`
 would declare an instance of a factory configuration, which none of these is — so the five files sort
 together in `karaf/etc/` and in the Felix console.
 
@@ -27,6 +29,37 @@ Each file is logged when it is read (`CaptchaConfigService configured: …`, `Up
 and so on), with what was accepted; a refused line — a target without HTTPS, a provider line whose sixth part is
 neither `header` nor `query` — is logged with its id and the reason, never a credential. A zero or negative
 timeout or bound is refused and the default applies, with a warning naming the setting.
+
+## Allowed file types
+
+`uploadAllowedTypes` lists the file types a file field may accept, comma-separated. Each entry is an
+extension (`pdf`, `.docx`), a MIME type (`application/pdf`) or a wildcard (`image/*`). An extension stands for
+the MIME type Apache Tika gives it: the engine resolves every entry once, when it reads the file, and logs the
+extensions it resolved (`uploadAllowedTypes: extensions read as [pdf = application/pdf, …]`); an entry that is
+neither a MIME type nor an extension Tika knows is ignored, with a warning. From then on everything compares MIME
+types, including the check of every uploaded file, whose real type Tika detects from its content and name: `txt`
+allows `text/plain`, the type Tika gives any plain-text file whatever its extension (`.cnd`, `.pom`).
+
+An extension shared by several types stands for one of them only — `ogg` is read as `audio/vorbis`, an Ogg video
+is `ogv` (`video/ogg`). Give the MIME type when the extension is ambiguous. Tika's registry of the version the
+module embeds says which type each extension stands for:
+[tika-mimetypes.xml of Tika 3.3.2](https://github.com/apache/tika/blob/3.3.2/tika-core/src/main/resources/org/apache/tika/mime/tika-mimetypes.xml)
+(search for `*.ogg`). The default list, `jpg,png,gif,webp,pdf,doc,docx,xls,xlsx,odt,ods,txt,csv,mp4,webm,ogv,mkv`,
+holds no ambiguous extension.
+
+The list is the whole of what a file field may accept:
+
+- a field whose **Accept** setting is empty accepts every listed type;
+- a field whose **Accept** setting names types keeps those still listed — a type removed from the list is no
+  longer offered to the visitor nor accepted by the server, and a warning names the field and the type each time
+  the field is rendered or submitted; the content keeps the value, and the field honours it again if the type is
+  listed again;
+- an empty list accepts no file at all: every file field refuses every file.
+
+The **Accept** setting offers the listed types, each with the module's translated wording where the module ships
+one (the seventeen default types), else with a label made from the type — its acronym or extension, then the
+extension: "ZIP (.zip)". An administrator cannot give a type of their own a translated label; a developer adds
+the key `fmdb_inputFile.accept.<mime/type>` to the module's resource bundle.
 
 ## Upgrading from the single file
 

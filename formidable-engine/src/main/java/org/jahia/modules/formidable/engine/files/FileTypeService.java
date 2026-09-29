@@ -4,9 +4,13 @@ import org.apache.tika.mime.MimeType;
 import org.apache.tika.mime.MimeTypeException;
 import org.apache.tika.mime.MimeTypes;
 import org.jahia.modules.formidable.engine.config.uploads.UploadsConfigService;
+import org.jahia.services.content.JCRNodeWrapper;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 
+import javax.jcr.RepositoryException;
+import javax.jcr.Value;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -27,6 +31,7 @@ import java.util.function.Supplier;
 public class FileTypeService {
 
     private static final MimeTypes REGISTRY = MimeTypes.getDefaultMimeTypes();
+    private static final String ACCEPT = "accept";
 
     private Supplier<Set<String>> allowedTypes = Set::of;
 
@@ -40,13 +45,33 @@ public class FileTypeService {
 
     @Reference
     public void setConfigService(UploadsConfigService config) {
-        this.allowedTypes = config::getUploadAllowedMimeTypes;
+        this.allowedTypes = config::getUploadAllowedTypes;
     }
 
     /**
-     * The extensions shown to a visitor for a token: a MIME type's preferred one ({@code .docx}); for a wildcard, the
-     * preferred one of each allowed type it covers ({@code image/*} → {@code .gif, .jpg, .png, .webp}); an extension
-     * as it is. Empty for a type Tika does not know.
+     * What a file field accepts, as MIME types and wildcards: its own {@code accept} values restricted to the allowed
+     * types, or all of them when it declares none ({@link AllowedTypes#forField}). Empty: the field accepts no file.
+     * The field's view hands its node over: no array crosses from JavaScript.
+     */
+    public String[] allowedFor(JCRNodeWrapper field) throws RepositoryException {
+        List<String> accept = new ArrayList<>();
+        if (field.hasProperty(ACCEPT)) {
+            for (Value value : field.getProperty(ACCEPT).getValues()) {
+                accept.add(value.getString());
+            }
+        }
+        return allowedFor(accept, field.getPath());
+    }
+
+    /** What a field accepts from its accept values; the field is named in the warning for a value no longer allowed. */
+    String[] allowedFor(List<String> accept, String field) {
+        return AllowedTypes.forField(accept, allowedTypes.get(), field).toArray(String[]::new);
+    }
+
+    /**
+     * The extensions shown to a visitor for a token: a MIME type's own one ({@link #shownExtension}, {@code .docx});
+     * for a wildcard, the one of each allowed type it covers ({@code image/*} → {@code .gif, .jpg, .png, .webp}); an
+     * extension as it is. Empty for a type Tika does not know.
      */
     public String[] shownExtensions(String token) {
         return extensions(token, true);
@@ -62,15 +87,15 @@ public class FileTypeService {
 
     /**
      * The default label of a MIME type in the editor: its acronym, else its preferred extension in capitals, else its
-     * subtype, followed by the preferred extension — "PDF (.pdf)", "DOCX (.docx)", "WEBP (.webp)". A module's
+     * type itself, followed by the extension shown — "PDF (.pdf)", "DOCX (.docx)", "MP3 (.mp3)", "image/*". A module's
      * resource bundle may still word it better, and translate it.
      */
     public String label(String mimeType) {
         String type = normalized(mimeType);
         Optional<MimeType> known = known(type);
-        String extension = known.map(MimeType::getExtension).orElse("");
+        String extension = known.map(FileTypeService::shownExtension).orElse("");
         String name = known.map(MimeType::getAcronym).filter(acronym -> !acronym.isBlank())
-                .orElse(extension.isEmpty() ? subtypeOf(type) : extension.substring(1).toUpperCase(Locale.ROOT));
+                .orElse(extension.isEmpty() ? type : extension.substring(1).toUpperCase(Locale.ROOT));
         return extension.isEmpty() ? name : name + " (" + extension + ")";
     }
 
@@ -90,8 +115,8 @@ public class FileTypeService {
         for (String each : types) {
             known(each).ifPresent(mime -> {
                 if (preferredOnly) {
-                    if (!mime.getExtension().isEmpty()) {
-                        extensions.add(mime.getExtension());
+                    if (!shownExtension(mime).isEmpty()) {
+                        extensions.add(shownExtension(mime));
                     }
                 } else {
                     mime.getExtensions().forEach(extension -> extensions.add(extension.toLowerCase(Locale.ROOT)));
@@ -99,6 +124,33 @@ public class FileTypeService {
             });
         }
         return extensions.toArray(String[]::new);
+    }
+
+    /**
+     * The extension a type is shown with: Tika's preferred one, unless it is no abbreviation of the type's acronym and
+     * the acronym is an extension of the type too — {@code audio/mpeg} prefers {@code .mpga}, known as MP3, which is
+     * {@code .mp3}; {@code image/jpeg} keeps {@code .jpg}, an abbreviation of JPEG. Seven types of Tika 3.3.2's registry
+     * have an acronym among their extensions other than the preferred one.
+     */
+    static String shownExtension(MimeType mime) {
+        String preferred = mime.getExtension();
+        String acronym = mime.getAcronym() == null ? "" : mime.getAcronym().toLowerCase(Locale.ROOT);
+        if (acronym.isEmpty() || !mime.getExtensions().contains("." + acronym) || abbreviates(preferred, acronym)) {
+            return preferred;
+        }
+        return "." + acronym;
+    }
+
+    /** Whether an extension's letters all appear, in order, in the acronym: {@code .jpg} in JPEG, {@code .mid} in MIDI. */
+    private static boolean abbreviates(String extension, String acronym) {
+        int next = 0;
+        for (char letter : extension.substring(Math.min(1, extension.length())).toCharArray()) {
+            next = acronym.indexOf(letter, next) + 1;
+            if (next == 0) {
+                return false;
+            }
+        }
+        return !extension.isEmpty();
     }
 
     private static Optional<MimeType> known(String type) {
@@ -112,10 +164,5 @@ public class FileTypeService {
 
     private static String normalized(String token) {
         return token == null ? "" : token.trim().toLowerCase(Locale.ROOT);
-    }
-
-    private static String subtypeOf(String type) {
-        int slash = type.indexOf('/');
-        return slash < 0 ? type : type.substring(slash + 1).toUpperCase(Locale.ROOT);
     }
 }

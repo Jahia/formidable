@@ -30,7 +30,8 @@ Until 0.5 the module read one PID, `org.jahia.modules.formidable`, which a 0.4 i
 through the provisioning API (which wrote `karaf/etc/org.jahia.modules.formidable.cfg`) or through the Felix
 console (ConfigAdmin alone, no file). From 0.5.0 the module ships five configuration files, one per theme —
 `org.jahia.modules.formidable.captcha.cfg`, `….uploads.cfg`, `….choiceOptions.cfg`, `….formActions.cfg`,
-`….fieldActions.cfg` — every setting in them, commented, at its default, with the setting names unchanged.
+`….fieldActions.cfg` — every setting in them, commented, at its default, with the setting names unchanged but
+one: `uploadAllowedMimeTypes` becomes `uploadAllowedTypes`, which also takes extensions (`pdf`, `docx`).
 Jahia copies each file to `karaf/etc/` at the first start and never overwrites the copy; from then on the
 files are the one place the module is configured from: edit them, or use the provisioning API with the
 theme's PID. The old PID is no longer read. See [Configuration files](configuration.md) for the themes and
@@ -46,7 +47,13 @@ their settings.
   whose settings were all at their default). The old file, when there is one, gets a first line saying it is
   no longer read; it is never deleted.
 - **Provisioning scripts** that `editConfiguration` the old PID must name the theme's PID instead: a script
-  still writing `org.jahia.modules.formidable` changes a configuration nothing reads.
+  still writing `org.jahia.modules.formidable` changes a configuration nothing reads. A script setting
+  `uploadAllowedMimeTypes` must name `uploadAllowedTypes`; the carry-over reads the former name.
+- **File fields**: a field whose **Accept** setting names a type the allowed list no longer holds stops accepting
+  it, with a warning naming the field (it used to keep accepting it); an empty list now refuses every file (it
+  used to let every file through). A field whose **Accept** setting is empty was already limited to the list on
+  the server; the visitor's file picker now offers that list too. See
+  [Allowed file types](configuration.md#allowed-file-types).
 - **Never configured**: nothing to do.
 
 ### How to check

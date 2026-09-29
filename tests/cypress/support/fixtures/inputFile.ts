@@ -28,3 +28,22 @@ export function getInputFileNode(data: InputFileData = INPUT_FILE_SIMPLE): Jahia
 		properties
 	};
 }
+
+/** The documented default of the uploadAllowedTypes configuration. */
+export const UPLOAD_ALLOWED_TYPES_DEFAULT = 'jpg,png,gif,webp,pdf,doc,docx,xls,xlsx,odt,ods,txt,csv,mp4,webm,ogv,mkv';
+
+/**
+ * Sets the file types every file field may accept. The configuration is
+ * instance-global: specs that change it must restore UPLOAD_ALLOWED_TYPES_DEFAULT afterwards.
+ */
+export function setUploadAllowedTypes(types: string): Cypress.Chainable {
+	return cy.runProvisioningScript({
+		script: {
+			fileContent: JSON.stringify([{
+				editConfiguration: 'org.jahia.modules.formidable.uploads',
+				properties: {uploadAllowedTypes: types}
+			}]),
+			type: 'application/json'
+		}
+	});
+}

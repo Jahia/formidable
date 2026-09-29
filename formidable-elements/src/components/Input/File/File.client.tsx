@@ -1,56 +1,23 @@
 import {type ChangeEvent, useEffect, useRef, useState} from 'react';
 import {formatFileSize} from '~/utils/fileUtils';
 import {useTranslation} from "react-i18next";
-import type {AcceptExtensions} from '~/utils/fileTypes.server';
+import type {FileTypes} from '~/utils/fileTypes.server';
+import {accepts, buildAcceptAttr, getDisplayFormats, isRestricted} from './fileAccept';
 
 interface FileInputProps {
 	inputId: string;
 	inputName: string;
-	accept?: string[];
-	/** The extensions of each accept token, from the engine (Apache Tika's registry): no table of types here. */
-	acceptExtensions?: AcceptExtensions;
+	/** What the field accepts, from the engine: the types the server lets through and their extensions (Tika's). */
+	fileTypes?: FileTypes;
 	multiple?: boolean;
 	required?: boolean;
 	describedBy?: string;
 	validationAttributes?: Record<string, string | undefined>;
 }
 
-const normalizeAccept = (accept?: string[]): string[] =>
-	(accept ?? []).map(token => token.trim()).filter(Boolean);
-
-/** What the visitor is told the field accepts: each token's shown extensions, or the token itself when the engine knows none. */
-const getDisplayFormats = (acceptTokens: string[], extensions: AcceptExtensions): string[] =>
-	Array.from(new Set(acceptTokens.flatMap(token => {
-		if (token.startsWith(".")) {
-			return [token.toLowerCase()];
-		}
-		const shown = extensions.shown[token] ?? [];
-		return shown.length > 0 ? shown : [token];
-	})));
-
 const extensionFromName = (fileName: string): string => {
 	const dotIndex = fileName.lastIndexOf(".");
 	return dotIndex >= 0 ? fileName.slice(dotIndex).toLowerCase() : fileName;
-};
-
-/**
- * Whether a file answers a token: by the type the browser gives, else by its name's extension against the token's
- * recognised extensions; a token the engine knows no extension of lets the file through — the server checks the
- * real type of every file anyway.
- */
-const matchesAcceptToken = (file: File, token: string, extensions: AcceptExtensions): boolean => {
-	const loweredToken = token.toLowerCase();
-	const loweredName = file.name.toLowerCase();
-	const loweredType = file.type.toLowerCase();
-
-	if (loweredToken.startsWith(".")) {
-		return loweredName.endsWith(loweredToken);
-	}
-	if (loweredType && (loweredToken.endsWith("/*") ? loweredType.startsWith(loweredToken.slice(0, -1)) : loweredType === loweredToken)) {
-		return true;
-	}
-	const recognised = extensions.recognised[token] ?? [];
-	return recognised.length === 0 || recognised.some(extension => loweredName.endsWith(extension));
 };
 
 const deduplicateFiles = (files: File[]): File[] => {
@@ -70,8 +37,7 @@ export default function FileInput(
 	{
 		inputId,
 		inputName,
-		accept,
-		acceptExtensions = {shown: {}, recognised: {}},
+		fileTypes = {shown: {}, recognised: {}},
 		multiple,
 		required,
 		describedBy,
@@ -82,8 +48,7 @@ export default function FileInput(
 	const [selectionNotice, setSelectionNotice] = useState<string | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const {t} = useTranslation('formidable-elements', {keyPrefix: 'fmdb_inputFile'});
-	const acceptTokens = normalizeAccept(accept);
-	const allowedTypesLabel = getDisplayFormats(acceptTokens, acceptExtensions)
+	const allowedTypesLabel = getDisplayFormats(fileTypes)
 		.map(format => `"${format}"`)
 		.join(", ");
 
@@ -130,7 +95,7 @@ export default function FileInput(
 
 		const previousFiles = multiple && selectedFiles ? Array.from(selectedFiles) : [];
 
-		if (acceptTokens.length === 0) {
+		if (!isRestricted(fileTypes)) {
 			const merged = deduplicateFiles([...previousFiles, ...newFiles]);
 			syncInputFiles(merged);
 			input.setCustomValidity("");
@@ -138,7 +103,7 @@ export default function FileInput(
 			return;
 		}
 
-		const validFiles = newFiles.filter(file => acceptTokens.some(token => matchesAcceptToken(file, token, acceptExtensions)));
+		const validFiles = newFiles.filter(file => accepts(file, fileTypes));
 		const invalidFiles = newFiles.filter(file => !validFiles.includes(file));
 
 		if (invalidFiles.length === 0) {
@@ -152,7 +117,8 @@ export default function FileInput(
 		const invalidFormats = Array.from(new Set(invalidFiles.map(file => extensionFromName(file.name))))
 			.map(format => `"${format}"`)
 			.join(", ");
-		const blockingMessage = t(invalidFiles.length > 1 ? "multipleInvalidFiles" : "singleInvalidFile", {
+		// no type left: the field accepts no file, and there is no list of formats to give
+		const blockingMessage = allowedTypesLabel === "" ? t("noAcceptedType") : t(invalidFiles.length > 1 ? "multipleInvalidFiles" : "singleInvalidFile", {
 			invalidFormats,
 			allowedTypes: allowedTypesLabel,
 			interpolation: {escapeValue: false},
@@ -193,21 +159,7 @@ export default function FileInput(
 		setSelectedFiles(dt.files.length > 0 ? dt.files : null);
 	};
 
-	const buildAcceptAttr = (tokens: string[]): string => {
-		const entries = new Set<string>(tokens);
-		for (const token of tokens) {
-			const lower = token.toLowerCase();
-			if (!lower.startsWith(".")) {
-				for (const ext of acceptExtensions.shown[token] ?? []) {
-					entries.add(ext);
-				}
-			}
-		}
-
-		return Array.from(entries).join(",");
-	};
-
-	const acceptAttr = buildAcceptAttr(acceptTokens);
+	const acceptAttr = buildAcceptAttr(fileTypes);
 
 	return (
 		<div className="fmdb-file-input-container">

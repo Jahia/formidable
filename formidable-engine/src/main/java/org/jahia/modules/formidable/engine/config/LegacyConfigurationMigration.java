@@ -57,6 +57,20 @@ public final class LegacyConfigurationMigration {
     static final int MAX_ATTEMPTS = 3;
     static final String LEGACY_FILE_NOTICE_PREFIX = "# Superseded";
 
+    /**
+     * A setting the legacy configuration knew by another name, and its default there: a legacy value still at that
+     * default is not carried either — the theme's default says the same thing, written another way.
+     */
+    record Former(String id, String defaultText) {}
+
+    /** The settings renamed since the single PID, by their id in the theme. */
+    static final Map<String, Former> RENAMED = Map.of(
+            "uploadAllowedTypes", new Former("uploadAllowedMimeTypes", "image/jpeg,image/png,image/gif,image/webp,application/pdf,"
+                    + "application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,"
+                    + "application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,"
+                    + "application/vnd.oasis.opendocument.text,application/vnd.oasis.opendocument.spreadsheet,"
+                    + "text/plain,text/csv,video/mp4,video/webm,video/ogg,video/x-matroska"));
+
     private static final Logger log = LoggerFactory.getLogger(LegacyConfigurationMigration.class);
 
     /** What one run did. {@code RETRY} is the only outcome that leaves the migration pending. */
@@ -133,14 +147,17 @@ public final class LegacyConfigurationMigration {
     /**
      * The settings to write: held by the legacy configuration at a value other than the default, still at the
      * default in the theme's configuration. A setting the administrator already changed in the theme's file is
-     * kept as the file says, and named in a warning when the two disagree.
+     * kept as the file says, and named in a warning when the two disagree. A renamed setting is read under its
+     * former name ({@link #RENAMED}).
      */
     private Map<String, Object> carried(Dictionary<String, Object> legacy, Map<String, Object> properties) {
         Map<String, Object> carried = new LinkedHashMap<>();
         List<String> kept = new ArrayList<>();
         defaults.forEach((setting, defaultText) -> {
-            Object legacyValue = legacy.get(setting);
-            if (legacyValue == null || asText(legacyValue).equals(defaultText)) {
+            Former former = RENAMED.get(setting);
+            Object legacyValue = legacy.get(former == null ? setting : former.id());
+            if (legacyValue == null || asText(legacyValue).equals(defaultText)
+                    || former != null && asText(legacyValue).equals(former.defaultText())) {
                 return;
             }
             Object current = properties.get(setting);
