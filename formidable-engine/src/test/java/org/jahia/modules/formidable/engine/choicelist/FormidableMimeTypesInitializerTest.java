@@ -40,18 +40,25 @@ class FormidableMimeTypesInitializerTest {
     }
 
     @Test
+    void theKeyIsThePropertysThenTheTypeNeverALabel() {
+        // Verifies the composition Jahia's own resourceBundle initializer got wrong once, keying on the label: the
+        // property's key, a dot, the type as it is.
+        assertEquals("fmdb_inputFile.accept.image/png", FormidableMimeTypesInitializer.key(KEY, "image/png"));
+    }
+
+    @Test
     void theBundlesWordingWinsWhereItHasTheKeyElseTheFallback() {
-        // Verifies the lookup Jahia's own resourceBundle initializer broke once, keying on the label instead of the
-        // type: the bundle's wording under <key>.<mime>, else Tika's label — also when there is no bundle at all.
-        assertEquals("Document PDF", FormidableMimeTypesInitializer.label(bundle(), KEY + ".application/pdf", "PDF (.pdf)"));
-        assertEquals("ZIP (.zip)", FormidableMimeTypesInitializer.label(bundle(), KEY + ".application/zip", "ZIP (.zip)"));
+        // Verifies the lookup: the bundle's wording under the type's key, else Tika's label — also when there is no
+        // bundle at all.
+        assertEquals("Document PDF", FormidableMimeTypesInitializer.label(bundle(), FormidableMimeTypesInitializer.key(KEY, "application/pdf"), "PDF (.pdf)"));
+        assertEquals("ZIP (.zip)", FormidableMimeTypesInitializer.label(bundle(), FormidableMimeTypesInitializer.key(KEY, "application/zip"), "ZIP (.zip)"));
         assertEquals("PDF (.pdf)", FormidableMimeTypesInitializer.label(null, KEY + ".application/pdf", "PDF (.pdf)"));
     }
 
     @Test
-    void everyAllowedTypeIsOfferedSortedAndLabelledByTikaWithoutAModule() {
-        // Verifies the values the editor gets: every allowed type as its MIME type, sorted, and a property declared
-        // by no module (no bundle to read) still labelled — by Tika.
+    void everyAllowedTypeIsOfferedSortedAndLabelledByTikaWhenNoBundleCanBeRead() {
+        // Verifies the values the editor gets: every allowed type as its MIME type, sorted, and still labelled — by
+        // Tika — when no bundle can be read.
         UploadsConfigService config = mock(UploadsConfigService.class);
         when(config.getUploadAllowedTypes()).thenReturn(new LinkedHashSet<>(List.of("image/png", "application/pdf")));
         FileTypeService fileTypes = new FileTypeService();
@@ -60,7 +67,7 @@ class FormidableMimeTypesInitializerTest {
         initializer.setConfigService(config);
         initializer.setFileTypes(fileTypes);
 
-        // No definition — Jahia's definition classes cannot be mocked here — reads as no module to take a bundle from.
+        // No definition — Jahia's definition classes cannot be mocked here —: the lookup fails, the Tika label stands.
         List<ChoiceListValue> values = initializer.getChoiceListValues(null, null, List.of(), Locale.ENGLISH, Map.of());
 
         assertEquals(List.of("application/pdf", "image/png"), values.stream().map(FormidableMimeTypesInitializerTest::valueOf).toList());

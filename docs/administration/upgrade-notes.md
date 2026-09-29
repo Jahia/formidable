@@ -51,8 +51,12 @@ their settings.
   `uploadAllowedMimeTypes` must name `uploadAllowedTypes`; the carry-over reads the former name.
 - **File fields**: a field whose **Accept** setting names a type the allowed list no longer holds stops accepting
   it, with a warning naming the field (it used to keep accepting it); an empty list now refuses every file (it
-  used to let every file through). A field whose **Accept** setting is empty was already limited to the list on
-  the server; the visitor's file picker now offers that list too. See
+  used to let every file through). **An installation that emptied `uploadAllowedMimeTypes` to accept any file**
+  gets that empty list carried into `uploadAllowedTypes` and, after the upgrade, refuses every file: to keep
+  accepting any file, set `uploadAllowedTypes=application/*,audio/*,image/*,text/*,video/*` (`*/*` is not
+  accepted); the engine logs `uploadAllowedTypes allows no file type` at start when the list is empty. A field
+  whose **Accept** setting is empty was already limited to the list on the server; the visitor's file picker now
+  offers that list too. Pages already rendered keep the former list until the site's cache is flushed. See
   [Allowed file types](configuration.md#allowed-file-types).
 - **Never configured**: nothing to do.
 

@@ -117,8 +117,9 @@ export default function FileInput(
 		const invalidFormats = Array.from(new Set(invalidFiles.map(file => extensionFromName(file.name))))
 			.map(format => `"${format}"`)
 			.join(", ");
+		const invalidKey = invalidFiles.length > 1 ? "multipleInvalidFiles" : "singleInvalidFile";
 		// no type left: the field accepts no file, and there is no list of formats to give
-		const blockingMessage = allowedTypesLabel === "" ? t("noAcceptedType") : t(invalidFiles.length > 1 ? "multipleInvalidFiles" : "singleInvalidFile", {
+		const blockingMessage = allowedTypesLabel === "" ? t("noAcceptedType") : t(invalidKey, {
 			invalidFormats,
 			allowedTypes: allowedTypesLabel,
 			interpolation: {escapeValue: false},

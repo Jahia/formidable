@@ -34,8 +34,9 @@ timeout or bound is refused and the default applies, with a warning naming the s
 
 `uploadAllowedTypes` lists the file types a file field may accept, comma-separated. Each entry is an
 extension (`pdf`, `.docx`), a MIME type (`application/pdf`) or a wildcard (`image/*`). An extension stands for
-the MIME type Apache Tika gives it: the engine resolves every entry once, when it reads the file, and logs the
-extensions it resolved (`uploadAllowedTypes: extensions read as [pdf = application/pdf, …]`); an entry that is
+the MIME type Apache Tika gives it, and a MIME alias stands for its canonical type (`audio/x-wav` is
+`audio/vnd.wave`, the type Tika detects a WAV file as): the engine resolves every entry once, when it reads the
+file, and logs what it resolved (`uploadAllowedTypes: read as [pdf = application/pdf, …]`); an entry that is
 neither a MIME type nor an extension Tika knows is ignored, with a warning. From then on everything compares MIME
 types, including the check of every uploaded file, whose real type Tika detects from its content and name: `txt`
 allows `text/plain`, the type Tika gives any plain-text file whatever its extension (`.cnd`, `.pom`).
@@ -52,9 +53,18 @@ The list is the whole of what a file field may accept:
 - a field whose **Accept** setting is empty accepts every listed type;
 - a field whose **Accept** setting names types keeps those still listed — a type removed from the list is no
   longer offered to the visitor nor accepted by the server, and a warning names the field and the type each time
-  the field is rendered or submitted; the content keeps the value, and the field honours it again if the type is
+  the field is rendered afresh — not when the page is served from the cache —
+  (`Field '<path>' accepts '<type>', which the uploads configuration does not allow: ignored`);
+  the content keeps the value, and the field honours it again if the type is
   listed again;
-- an empty list accepts no file at all: every file field refuses every file.
+- an empty list accepts no file at all: every file field refuses every file, and the engine says so when it reads
+  the file. To accept any file, list the top-level wildcards, `application/*,audio/*,image/*,text/*,video/*`;
+  `*/*` is not accepted.
+
+The server applies a change at once. Pages already rendered keep offering the former list — in the file picker, the
+formats they list and their own check before sending — until the site's cache is flushed (jContent, or the
+`flushSiteCache` GraphQL mutation): a type removed is then refused only when the form is sent, a type added is
+refused by the page before anything is sent.
 
 The **Accept** setting offers the listed types, each with the module's translated wording where the module ships
 one (the seventeen default types), else with a label made from the type — its acronym or extension, then the

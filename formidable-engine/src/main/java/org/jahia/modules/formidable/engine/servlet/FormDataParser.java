@@ -414,18 +414,29 @@ public class FormDataParser {
         // detection is too generic, such as CSV, Matroska/WebM containers, and other formats
         // whose final MIME type benefits from the original extension hint.
         String detectedMime = TIKA.detect(data, sanitizedName);
-        Set<String> allowed = AllowedTypes.forField(fieldAllowedTypes, config.getUploadAllowedTypes(), fieldName);
+        checkAllowedType(detectedMime, fieldAllowedTypes, config.getUploadAllowedTypes(), sanitizedName);
+
+        log.debug("[FormDataParser] Accepted uploaded file part (size={} bytes)", data.length);
+        return new FormFile(fieldName, sanitizedName, detectedMime, data);
+    }
+
+    /**
+     * Step 7: the detected type must be one the field accepts — its accept values within the configuration's allowed
+     * types, or all of them when it declares none; none at all refuses the file ({@link AllowedTypes#forField}). No
+     * field is named in a warning: the name here comes from the request; the field's view warns, naming its node.
+     * Package-level for the tests: a file part cannot be parsed without Jahia's JCRContentUtils initialised.
+     */
+    static void checkAllowedType(String detectedMime, Set<String> fieldAllowedTypes, Set<String> configuredTypes,
+                                 String fileName) throws ParseException {
+        Set<String> allowed = AllowedTypes.forField(fieldAllowedTypes, configuredTypes, null);
         if (!AllowedTypes.permits(detectedMime, allowed)) {
             log.warn("[FormDataParser] Rejected uploaded file: detected MIME type is not among the field's allowed types{}",
                     allowed.isEmpty() ? " (none: the field accepts no file)" : "");
             throw new ParseException(
-                    "File '" + sanitizedName + "': type '" + detectedMime + "' is not allowed.",
+                    "File '" + fileName + "': type '" + detectedMime + "' is not allowed.",
                     ParseException.FailureType.VALIDATION
             );
         }
-
-        log.debug("[FormDataParser] Accepted uploaded file part (size={} bytes)", data.length);
-        return new FormFile(fieldName, sanitizedName, detectedMime, data);
     }
 
     /**

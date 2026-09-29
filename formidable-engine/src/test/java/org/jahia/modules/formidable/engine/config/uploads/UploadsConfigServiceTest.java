@@ -4,7 +4,9 @@ import org.apache.tika.Tika;
 import org.jahia.modules.formidable.engine.config.TestConfigs;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
@@ -60,16 +62,37 @@ class UploadsConfigServiceTest {
     }
 
     @Test
-    void theShippedFileLinksTheRegistryOfTheEmbeddedTika() throws Exception {
-        // Verifies that the link the administrator follows to see what an extension stands for is the registry of the
-        // Tika this module runs: a Tika upgrade without the link's fails here.
+    void theShippedFileAndTheConsoleLinkTheRegistryOfTheEmbeddedTika() throws Exception {
+        // Verifies that the link the administrator follows to see what an extension stands for — in the console's
+        // description, built on TIKA_REGISTRY, and in the shipped file — is the registry of the Tika this module runs:
+        // a Tika upgrade without the link's fails here.
         String version = new Tika().toString().replace("Apache Tika ", "").trim();
+        assertEquals("https://github.com/apache/tika/blob/" + version + "/tika-core/src/main/resources/org/apache/tika/mime/tika-mimetypes.xml",
+                UploadsConfig.TIKA_REGISTRY);
         try (InputStream file = getClass().getResourceAsStream("/META-INF/configurations/" + UploadsConfigService.PID + ".cfg")) {
             assertNotNull(file);
             String content = new String(file.readAllBytes(), StandardCharsets.UTF_8);
-            assertTrue(content.contains("https://github.com/apache/tika/blob/" + version + "/tika-core/src/main/resources/org/apache/tika/mime/tika-mimetypes.xml"),
-                    "the shipped file links Tika " + version);
+            assertTrue(content.contains(UploadsConfig.TIKA_REGISTRY), "the shipped file links Tika " + version);
         }
+    }
+
+    @Test
+    void theFormerNameOnTheThemesPidIsNamedInAWarning() {
+        // Verifies that a provisioning script moved to the new PID but still writing uploadAllowedMimeTypes is told:
+        // the value is not read — the default stays in force — and the log says which setting to write instead.
+        PrintStream previous = System.err;
+        ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        System.setErr(new PrintStream(captured, true, StandardCharsets.UTF_8));
+        UploadsConfigService service = new UploadsConfigService();
+        try {
+            service.configure(TestConfigs.of(UploadsConfig.class, Map.of()), Map.of("uploadAllowedMimeTypes", "application/pdf"));
+        } finally {
+            System.setErr(previous);
+        }
+
+        String logged = captured.toString(StandardCharsets.UTF_8);
+        assertTrue(logged.contains("uploadAllowedMimeTypes is no longer read: the setting is uploadAllowedTypes"), logged);
+        assertEquals(17, service.getUploadAllowedTypes().size());
     }
 
     @Test

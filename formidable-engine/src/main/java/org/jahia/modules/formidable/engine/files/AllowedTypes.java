@@ -1,6 +1,9 @@
 package org.jahia.modules.formidable.engine.files;
 
 import org.apache.tika.Tika;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.mime.MediaTypeRegistry;
+import org.apache.tika.mime.MimeTypes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,6 +28,7 @@ public final class AllowedTypes {
 
     private static final Logger log = LoggerFactory.getLogger(AllowedTypes.class);
     private static final Tika TIKA = new Tika();
+    private static final MediaTypeRegistry REGISTRY = MimeTypes.getDefaultMimeTypes().getMediaTypeRegistry();
     /** What Tika answers for a name it knows nothing of. */
     private static final String UNKNOWN = "application/octet-stream";
     private static final Pattern MIME_TYPE = Pattern.compile("[a-z0-9][a-z0-9!#$&^_.+-]*/(\\*|[a-z0-9][a-z0-9!#$&^_.+-]*)");
@@ -34,13 +38,17 @@ public final class AllowedTypes {
     }
 
     /**
-     * A token as the MIME type or wildcard it stands for, lower-cased; empty for a blank token, a malformed one or an
-     * extension Tika does not know.
+     * A token as the MIME type or wildcard it stands for, lower-cased — an alias as its canonical type, the one Tika
+     * detects a file as —; empty for a blank token, a malformed one or an extension Tika does not know.
      */
     public static Optional<String> resolve(String token) {
         String value = token == null ? "" : token.trim().toLowerCase(Locale.ROOT);
         if (value.contains("/")) {
-            return MIME_TYPE.matcher(value).matches() ? Optional.of(value) : Optional.empty();
+            if (!MIME_TYPE.matcher(value).matches()) {
+                return Optional.empty();
+            }
+            // An alias as the type Tika detects: audio/x-wav is audio/vnd.wave, text/xml is application/xml.
+            return Optional.of(value.endsWith("/*") ? value : REGISTRY.normalize(MediaType.parse(value)).toString());
         }
         String extension = value.startsWith(".") ? value.substring(1) : value;
         if (!EXTENSION.matcher(extension).matches()) {
@@ -53,12 +61,13 @@ public final class AllowedTypes {
     /**
      * What a field accepts: its own tokens restricted to the allowed types, or every allowed type when it declares
      * none. A wildcard the list does not allow as such keeps the allowed types it covers. A token the list no longer
-     * allows is dropped with a warning naming the field — the contributor's choice stays in the content, it is only
-     * no longer honoured.
+     * allows is dropped — the contributor's choice stays in the content, it is only no longer honoured — with a
+     * warning naming the field when one is given: the field's view names its node on every render; the parser gives
+     * none, the field name it knows coming from the request.
      *
      * @param accept  the field's tokens, as stored
      * @param allowed the administrator's types, already resolved
-     * @param field   the field, for the warning
+     * @param field   the field's node path, for the warning; null for no warning
      */
     public static Set<String> forField(Collection<String> accept, Set<String> allowed, String field) {
         Set<String> result = new LinkedHashSet<>();
@@ -66,22 +75,14 @@ public final class AllowedTypes {
             result.addAll(allowed);
             return Collections.unmodifiableSet(result);
         }
-        for (String token : accept) {
-            if (token == null || token.isBlank()) {
-                continue;
-            }
-            Optional<String> resolved = resolve(token);
-            if (resolved.isEmpty()) {
-                log.warn("[AllowedTypes] Field '{}' accepts '{}', which is not a file type: ignored", field, token);
-                continue;
-            }
-            Set<String> kept = kept(resolved.get(), allowed);
-            if (kept.isEmpty()) {
-                log.warn("[AllowedTypes] Field '{}' accepts '{}', which the uploads configuration no longer allows: ignored",
+        accept.stream().filter(token -> token != null && !token.isBlank()).forEach(token -> {
+            Set<String> kept = resolve(token).map(type -> kept(type, allowed)).orElse(Set.of());
+            if (kept.isEmpty() && field != null) {
+                log.warn("[AllowedTypes] Field '{}' accepts '{}', which the uploads configuration does not allow: ignored",
                         field, token);
             }
             result.addAll(kept);
-        }
+        });
         return Collections.unmodifiableSet(result);
     }
 

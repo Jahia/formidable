@@ -63,10 +63,18 @@ public class FormidableMimeTypesInitializer implements ModuleChoiceListInitializ
         try {
             JahiaTemplatesPackage module = epd.getDeclaringNodeType().getTemplatePackage();
             ResourceBundle bundle = module == null ? null : ResourceBundles.get(module, locale);
-            return label(bundle, epd.getResourceBundleKey() + "." + mime, fallback);
+            return label(bundle, key(epd.getResourceBundleKey(), mime), fallback);
         } catch (RuntimeException e) {
             return fallback;
         }
+    }
+
+    /**
+     * The key of a type's wording: the property's key, then the type as it is — {@code fmdb_inputFile.accept.image/png}.
+     * Keyed on the type, never on a label: Jahia's resourceBundle initializer keys on the label, and broke once here.
+     */
+    static String key(String resourceBundleKey, String mime) {
+        return resourceBundleKey + "." + mime;
     }
 
     /** The bundle's wording under the key, else the fallback — also without a bundle. */

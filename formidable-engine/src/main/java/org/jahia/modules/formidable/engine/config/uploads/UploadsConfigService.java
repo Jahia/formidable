@@ -33,6 +33,8 @@ import java.util.Set;
 public class UploadsConfigService {
 
     public static final String PID = "org.jahia.modules.formidable.uploads";
+    /** The name uploadAllowedTypes had until 0.5, carried from the single PID; still written by an old script. */
+    static final String FORMER_ALLOWED_TYPES = "uploadAllowedMimeTypes";
 
     private record Snapshot(long maxFileSizeBytes, long maxRequestSizeBytes, int maxFileCount, Set<String> allowedTypes) {}
 
@@ -52,6 +54,10 @@ public class UploadsConfigService {
     @Activate
     @Modified
     public void configure(UploadsConfig config, Map<String, Object> properties) {
+        if (properties != null && properties.containsKey(FORMER_ALLOWED_TYPES)) {
+            log.warn("{} is no longer read: the setting is uploadAllowedTypes (extensions, MIME types or wildcards)",
+                    FORMER_ALLOWED_TYPES);
+        }
         lifecycle.configure(properties, config);
     }
 
@@ -84,8 +90,8 @@ public class UploadsConfigService {
     public Set<String> getUploadAllowedTypes() { return lifecycle.current().allowedTypes(); }
 
     /**
-     * The configured tokens as MIME types: an extension is resolved by Tika — the resolutions logged once, so the
-     * administrator sees what an extension stands for —, a token that is no file type is dropped with a warning.
+     * The configured tokens as MIME types: an extension or an alias is resolved by Tika — the resolutions logged once,
+     * so the administrator sees what an entry stands for —, a token that is no file type is dropped with a warning.
      */
     private static Set<String> allowedTypes(String configured) {
         Set<String> types = new LinkedHashSet<>();
@@ -102,10 +108,11 @@ public class UploadsConfigService {
             types.add(type.get());
         }
         if (!resolutions.isEmpty()) {
-            log.info("uploadAllowedTypes: extensions read as {}", resolutions);
+            log.info("uploadAllowedTypes: read as {}", resolutions);
         }
         if (types.isEmpty()) {
-            log.warn("uploadAllowedTypes allows no file type: every file field refuses every file");
+            log.warn("uploadAllowedTypes allows no file type: every file field refuses every file. To accept any file, "
+                    + "list the top-level wildcards: application/*,audio/*,image/*,text/*,video/*");
         }
         return Collections.unmodifiableSet(types);
     }

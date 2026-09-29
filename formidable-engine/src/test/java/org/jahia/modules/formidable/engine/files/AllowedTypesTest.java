@@ -31,6 +31,17 @@ class AllowedTypesTest {
     }
 
     @Test
+    void anAliasResolvesToTheTypeTikaDetects() {
+        // Verifies that a MIME alias lets through the files it names: Tika detects a real WAV as audio/vnd.wave, so
+        // audio/x-wav kept as written would match none while the editor and the island, which resolve aliases, offer it.
+        assertEquals(Optional.of("audio/vnd.wave"), AllowedTypes.resolve("audio/x-wav"));
+        assertEquals(Optional.of("application/xml"), AllowedTypes.resolve("text/xml"));
+        assertEquals(Optional.of("application/zip"), AllowedTypes.resolve("application/x-zip-compressed"));
+        assertEquals(Optional.of("application/x-custom"), AllowedTypes.resolve("application/x-custom"));
+        assertTrue(AllowedTypes.forField(List.of("application/x-pdf"), Set.of("application/pdf"), "cv").contains("application/pdf"));
+    }
+
+    @Test
     void aTokenThatIsNoFileTypeResolvesToNothing() {
         // Verifies what is dropped rather than read as some type: blank, malformed, an extension Tika does not know
         // (Tika answers application/octet-stream for it, which must not become an allowed type).
