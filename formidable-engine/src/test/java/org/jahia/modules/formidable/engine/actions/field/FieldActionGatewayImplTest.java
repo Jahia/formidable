@@ -185,4 +185,29 @@ class FieldActionGatewayImplTest {
         assertFalse(query.contains("s3cr3t"), query);
         assertTrue(query.contains("credentialIn=query"), query);
     }
+
+    @Test
+    void anEndpointRefusalIsLoggedOnceWithItsReason() {
+        // Verifies the administrator learns why a check does not run: the gateway's own refusal — the switch off, here
+        // — is logged at WARN with its reason, once, however many values are checked; the base class logs only the
+        // exception's type.
+        FieldActionSettings off = new FieldActionSettings(false, Duration.ofSeconds(5), Duration.ofSeconds(10),
+                mock(HttpClient.class), Duration.ZERO, 30, 512, 20);
+        FieldActionGatewayImpl gateway = new FieldActionGatewayImpl(() -> off);
+        Endpoint stub = new Endpoint("Experian", URI.create("http://localhost:8080/stub"), "", "", false, true);
+        java.io.PrintStream previous = System.err;
+        java.io.ByteArrayOutputStream captured = new java.io.ByteArrayOutputStream();
+        System.setErr(new java.io.PrintStream(captured, true, java.nio.charset.StandardCharsets.UTF_8));
+        try {
+            for (int attempt = 0; attempt < 3; attempt++) {
+                assertThrows(IllegalArgumentException.class, () -> gateway.get(stub, "x"));
+            }
+        } finally {
+            System.setErr(previous);
+        }
+
+        String logged = captured.toString(java.nio.charset.StandardCharsets.UTF_8);
+        String reason = "Experian is a development endpoint, and they are switched off";
+        assertEquals(1, logged.split(java.util.regex.Pattern.quote(reason), -1).length - 1, logged);
+    }
 }

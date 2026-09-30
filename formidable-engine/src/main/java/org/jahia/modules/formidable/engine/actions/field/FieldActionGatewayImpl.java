@@ -17,6 +17,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
@@ -38,6 +40,8 @@ public class FieldActionGatewayImpl implements FieldActionGateway {
     private static final Logger log = LoggerFactory.getLogger(FieldActionGatewayImpl.class);
 
     private Supplier<FieldActionSettings> settings;
+    /** The endpoint refusals already logged, by service and reason: said once, not once per value checked. */
+    private final Set<String> refusalsLogged = ConcurrentHashMap.newKeySet();
 
     public FieldActionGatewayImpl() {
     }
@@ -69,19 +73,30 @@ public class FieldActionGatewayImpl implements FieldActionGateway {
      * development endpoint only while the administrator's switch allows them: an action's own file saying
      * {@code development=true} is not enough.
      */
-    private static Endpoint checked(Endpoint endpoint, FieldActionSettings current) {
+    private Endpoint checked(Endpoint endpoint, FieldActionSettings current) {
         if (endpoint == null || endpoint.baseUri() == null) {
             throw new IllegalArgumentException("No endpoint is given");
         }
         if (endpoint.development() && (current == null || !current.developmentEndpoints())) {
-            throw new IllegalArgumentException(endpoint.name() + " is a development endpoint, and they are switched off "
+            throw refused(endpoint.name() + " is a development endpoint, and they are switched off "
                     + "(enableDevFieldActionEndpoints in org.jahia.modules.formidable.fieldActions.cfg)");
         }
         String reason = EndpointRule.unsupportedReason(endpoint.baseUri(), endpoint.development());
         if (reason != null) {
-            throw new IllegalArgumentException("The URL of " + endpoint.name() + " is refused: " + reason);
+            throw refused("The URL of " + endpoint.name() + " is refused: " + reason);
         }
         return endpoint;
+    }
+
+    /**
+     * The refusal of an endpoint, logged the first time with its reason — the gateway's own words, no secret and no
+     * value in them —: the caller only logs an exception's type, the right thing for one the JDK raised.
+     */
+    private IllegalArgumentException refused(String reason) {
+        if (refusalsLogged.add(reason)) {
+            log.warn("[FieldActionGateway] {}: the field action's check cannot run", reason);
+        }
+        return new IllegalArgumentException(reason);
     }
 
     /**
