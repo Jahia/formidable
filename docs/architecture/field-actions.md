@@ -750,5 +750,5 @@ call per blocking action and non-blank value never pre-checked.
   [spec 74](../../tests/cypress/e2e/actions/74-field-actions-behind-a-provider.cy.ts) (the providers through their doubles), [spec 223](../../tests/cypress/e2e/fields/223-field-actions-switch-per-field-type.cy.ts) (the switch per field type).
 - [Form submission flow](form-submission-flow.md), [CND module ownership](cnd-module-ownership.md),
   [Custom validation](custom-validation.md), [Field actions: providers and limits](../administration/field-actions.md),
-  the extension guide's [field action case](../extension/how-to-extend-views-and-elements-from-third-party-module.md#case-5-add-a-field-action-type), issue #341.
+  [How to create a field action](../extension/how-to-create-field-action.md), issue #341.
 - ~~Platform: `RenderService.render(Resource, RenderContext)`, `AggregateCacheFilter` (expiration lookup order: request attribute, node, view), `CacheFilter` (caches only `expiration > 0`), `javascript-modules-engine 1.3.0-SNAPSHOT` manifest (no own package exported)~~ — the evidence of the withdrawn JavaScript path (decision log, 2026-09-25).
