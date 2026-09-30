@@ -39,8 +39,17 @@ An extension stands for the MIME type Apache Tika gives it, and a MIME alias sta
 `audio/vnd.wave`, the type Tika detects a WAV file as): the engine resolves every entry once, when it reads the
 file, and logs what it resolved (`uploadAllowedTypes: read as [pdf = application/pdf, …]`); an entry that is
 neither a MIME type nor an extension Tika knows is ignored, with a warning. From then on everything compares MIME
-types, including the check of every uploaded file, whose real type Tika detects from its content and name: `txt`
+types, including the check of every uploaded file, whose type Tika detects from its content and name: `txt`
 allows `text/plain`, the type Tika gives any plain-text file whatever its extension (`.cnd`, `.pom`).
+
+What that detection proves depends on the format. For a format Tika recognises by its content — PDF, the image
+formats, the video and audio containers, XML documents, plain text — the content decides and a name cannot pass
+one off as another. For a format built on a container, the engine (which embeds `tika-core` alone, with no
+container detector) checks the **family** by content — a zip, an OLE2 compound file — and takes the **kind** from
+the name: any zip named `.docx`, `.xlsx` or `.odt` is read as that document, a jar named `.zip` as a zip, an
+old binary file named `.doc` or `.xls` as that document. Listing `docx` therefore lets through any zip a visitor
+names `.docx`. Checking the kind by content would need Tika's container detectors (`tika-parsers`), a heavier
+dependency the module does not take.
 
 An extension shared by several types stands for one of them only — `ogg` is read as `audio/vorbis`, an Ogg video
 is `ogv` (`video/ogg`). Give the MIME type when the extension is ambiguous. Tika's registry of the version the
@@ -54,8 +63,7 @@ named `.ogv` is detected as `video/theora`, an Opus track named `.oga` as `audio
 these kinds of `video/ogg` and `audio/ogg`, so an audio or video file is also accepted when its detected type is a
 kind of the type its name stands for, and that type is listed as such — `ogv` or `video/ogg`, not only
 `video/*`. Every other type is matched exactly: elsewhere the registry's "kind of" means "readable as" — an XHTML
-page is a kind of `application/xml`, a jar or a macro-enabled workbook a kind of `application/zip` — and listing
-`xml` or `zip` must not let those through.
+page, detected by its content, is a kind of `application/xml` — and listing `xml` must not let it through.
 
 The list is the whole of what a file field may accept:
 

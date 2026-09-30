@@ -115,8 +115,9 @@ class AllowedTypesTest {
 
     @Test
     void theHierarchyNeverWidensTheList() {
-        // Verifies the limits: audio and video only — an XHTML page named .xml, a jar or a macro-enabled workbook named
-        // .zip are kinds of what their name stands for in Tika's registry, and stay refused —; the name's type must be
+        // Verifies the limits: audio and video only — an XHTML page named .xml is a kind of what its name stands for in
+        // Tika's registry, and stays refused, as would a jar or a macro-enabled workbook named .zip, were a container
+        // detector ever to report them —; the name's type must be
         // listed itself, share the detected type's top-level type, and the content must be a kind of it (an MP4 named
         // .ogv); a type the field no longer accepts stays refused.
         assertFalse(AllowedTypes.permitsFile("application/xhtml+xml", "page.xml", Set.of("application/xml")));

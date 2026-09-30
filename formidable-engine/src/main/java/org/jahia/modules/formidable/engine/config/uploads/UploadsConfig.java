@@ -49,7 +49,8 @@ public @interface UploadsConfig {
                     "MIME type Apache Tika gives it; give the MIME type when an extension is shared (ogg is read as " +
                     "audio/vorbis). A field without accepted types accepts all of them, a field with some keeps those " +
                     "still listed here. " +
-                    "Empty: no file is accepted. Every uploaded file's real type is detected and checked. Which type " +
+                    "Empty: no file is accepted. Every uploaded file's type is detected (for a zip or OLE2 container: the " +
+                    "family by content, the kind by name) and checked. Which type " +
                     "an extension stands for: " + UploadsConfig.TIKA_REGISTRY,
             type = AttributeType.STRING
     )

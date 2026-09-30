@@ -35,6 +35,14 @@ describe('matchesAcceptToken', () => {
 		expect(matchesAcceptToken(file('photo.heic', 'image/heic'), 'image/*', anyFileImages)).toBe(true);
 		expect(matchesAcceptToken(file('photo.heic'), 'image/*', anyFileImages)).toBe(true);
 	});
+
+	it('takes a recognised extension over a browser type that contradicts it', () => {
+		// Windows with Excel installed types a .csv application/vnd.ms-excel; the server detects text/csv.
+		const texts: FileTypes = {tokens: ['text/*'], shown: {'text/*': ['.csv', '.txt']}, recognised: {'text/*': ['.csv', '.txt']}};
+
+		expect(matchesAcceptToken(file('data.csv', 'application/vnd.ms-excel'), 'text/*', texts)).toBe(true);
+		expect(matchesAcceptToken(file('cv.pdf', 'application/pdf'), 'text/*', texts)).toBe(false);
+	});
 });
 
 describe('accepts', () => {
