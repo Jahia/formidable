@@ -15,10 +15,11 @@ import java.util.Set;
 
 /**
  * A double of ZeroBounce's email validation v2, beside the Experian one: the same operation ({@code GET v2/validate}
- * under the base URL), the key read off the URL ({@code api_key}, which the gateway appends for a provider line
- * ending in {@code |query}), the same JSON — with the status decided by the address instead of a mailbox lookup.
- * The development provider line:
- * {@code devFieldActionProviders=zerobounce-stub|ZeroBounce (stub)|http://localhost:8080/modules/formidable-samples/zerobounce-stub|api_key|stub-token|query}.
+ * under the base URL), the key read off the URL ({@code api_key}, which the gateway appends for an endpoint whose
+ * credential goes in the query), the same JSON — with the status decided by the address instead of a mailbox lookup.
+ * The samples' configuration of {@link ZeroBounceEmailFieldAction} points at it:
+ * {@code url=http://localhost:8080/modules/formidable-samples/zerobounce-stub}, {@code credential=stub-token},
+ * {@code development=true}.
  *
  * <p>Another key is answered as the provider answers it, a 200 carrying {@code error}. The status follows the
  * address: {@code @invalid.test} is invalid, {@code @spamtrap.test} and {@code @abuse.test} say so,

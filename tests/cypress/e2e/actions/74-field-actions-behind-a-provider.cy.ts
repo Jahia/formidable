@@ -11,19 +11,16 @@ import {
 } from '../../support/fixtures';
 import {useFormidableSite} from '../support/useFormidableSite';
 
-/** The samples module's double of Experian, declared as a development provider: plain HTTP on the instance itself. */
-const EXPERIAN_STUB = `experian-stub|Experian (stub)|http://localhost:8080${EXPERIAN_STUB_PATH}|Auth-Token|stub-token`;
-/** The double of ZeroBounce, whose key goes on the URL: the provider line's query placement. */
-const ZEROBOUNCE_STUB = `zerobounce-stub|ZeroBounce (stub)|http://localhost:8080${ZEROBOUNCE_STUB_PATH}|api_key|stub-token|query`;
-const STUB_PROVIDERS = [EXPERIAN_STUB, ZEROBOUNCE_STUB].join('\n');
-/** The Experian double behind a token it does not accept: what a mistyped credential does. */
-const WRONG_TOKEN_PROVIDERS = [`experian-stub|Experian (stub)|http://localhost:8080${EXPERIAN_STUB_PATH}|Auth-Token|another-token`, ZEROBOUNCE_STUB].join('\n');
+/** Each sample's own configuration: where it calls, its credential, and that the URL is a double on this instance. */
+const EXPERIAN_PID = 'org.jahia.test.modules.formidable.samples.experian';
+const ZEROBOUNCE_PID = 'org.jahia.test.modules.formidable.samples.zerobounce';
 
-const setDevelopmentProviders = (providers: string, enabled = true): Cypress.Chainable => cy.runProvisioningScript({
+/** Points a sample at its double, as the samples module ships it — or with a token the double does not accept. */
+const configureSample = (pid: string, stubPath: string, credential = 'stub-token'): Cypress.Chainable => cy.runProvisioningScript({
 	script: {
 		fileContent: JSON.stringify([{
-			editConfiguration: 'org.jahia.modules.formidable.fieldActions',
-			properties: {enableDevFieldActionProviders: String(enabled), devFieldActionProviders: providers}
+			editConfiguration: pid,
+			properties: {url: `http://localhost:8080${stubPath}`, credential, development: 'true'}
 		}]),
 		type: 'application/json'
 	}
@@ -45,25 +42,28 @@ const askDirectly = (formId: string, field: string, value: string): Cypress.Chai
  * Field actions behind a provider, end to end: the samples' example implementations against Experian Email
  * Validation and ZeroBounce (docs/architecture/field-actions.md, "Email verification behind a provider"), driven
  * through the samples' own doubles of the providers — the same operation, credential and JSON, the verdict decided
- * by the address. The one thing exercising the FieldActionGateway for real: the provider lines of the configuration,
- * the credential injected as a header or on the URL, the path under the base URL and the reading of the answer.
+ * by the address. The one thing exercising the FieldActionGateway for real: each sample's own configuration read
+ * into an endpoint, the credential injected as a header or on the URL, the path under the base URL and the reading of
+ * the answer.
  */
 describe('Actions - 74 Field actions behind a provider: the Experian and ZeroBounce samples against their doubles', () => {
 	useFormidableSite();
 
 	before(() => {
-		// A provider over plain HTTP is a development setting: the list behind its switch, as for the forward targets.
-		setDevelopmentProviders(STUB_PROVIDERS);
+		// The samples ship these values; set them anyway, so that an instance whose files were edited runs the same.
+		configureSample(EXPERIAN_PID, EXPERIAN_STUB_PATH);
+		configureSample(ZEROBOUNCE_PID, ZEROBOUNCE_STUB_PATH);
 	});
 
 	after(() => {
-		setDevelopmentProviders('', false);
+		// Restored whatever happened: the file exists, so Jahia never copies the shipped one back.
+		configureSample(EXPERIAN_PID, EXPERIAN_STUB_PATH);
 	});
 
 	it('posts the address to the provider and turns its confidence into the verdict, at blur and at submission', () => {
 		createPublishedLiveFormPage('experian-live-form', 'Experian Live Form', [
 			withFieldActions(getInputEmailNode({name: 'email', title: 'Email'}), [
-				getExperianEmailFieldActionNode({name: 'mailbox', providerId: 'experian-stub', rejectionMessage: 'We cannot deliver to <b>${value}</b>.'})
+				getExperianEmailFieldActionNode({name: 'mailbox', rejectionMessage: 'We cannot deliver to <b>${value}</b>.'})
 			])
 		], undefined, undefined, {actions: [getSaveToJcrActionNode()]}).then(({livePath, formName}) => {
 			cy.intercept('POST', `**${FIELD_ACTION_PATH}*`).as('check');
@@ -116,10 +116,10 @@ describe('Actions - 74 Field actions behind a provider: the Experian and ZeroBou
 	it('an answer the provider cannot conclude, or a token it refuses, is a check that could not run: the contributor decides', () => {
 		createPublishedLiveFormPage('experian-unavailable-form', 'Experian Unavailable Form', [
 			withFieldActions(getInputEmailNode({name: 'lenient', title: 'Lenient'}), [
-				getExperianEmailFieldActionNode({name: 'mailbox', providerId: 'experian-stub'})
+				getExperianEmailFieldActionNode({name: 'mailbox'})
 			]),
 			withFieldActions(getInputEmailNode({name: 'strict', title: 'Strict'}), [
-				getExperianEmailFieldActionNode({name: 'mailbox', providerId: 'experian-stub', whenUnavailable: 'reject', rejectionMessage: 'We could not check <b>${value}</b>.'})
+				getExperianEmailFieldActionNode({name: 'mailbox', whenUnavailable: 'reject', rejectionMessage: 'We could not check <b>${value}</b>.'})
 			])
 		], undefined, undefined, {actions: [getSaveToJcrActionNode()]}).then(({livePath, formId}) => {
 			cy.intercept('POST', `**${FIELD_ACTION_PATH}*`).as('check');
@@ -137,7 +137,7 @@ describe('Actions - 74 Field actions behind a provider: the Experian and ZeroBou
 
 			// A token the provider refuses (401) is the same outage — and proves the header the gateway sent is the
 			// configuration's: the same double, which verifies any ordinary address, now cannot be asked.
-			setDevelopmentProviders(WRONG_TOKEN_PROVIDERS);
+			configureSample(EXPERIAN_PID, EXPERIAN_STUB_PATH, 'another-token');
 			// editConfiguration reaches the gateway asynchronously (spec 46 says why): poll the strict field with a fresh
 			// address each time — an accept is cached per value — until the refused token is what answers.
 			cy.waitUntil(() => askDirectly(formId, 'strict', `poll-${Date.now()}@example.test`)
@@ -148,14 +148,13 @@ describe('Actions - 74 Field actions behind a provider: the Experian and ZeroBou
 			form.getEmailInput('strict').get().clear().type('bob@example.test').blur();
 			cy.wait('@check').its('response.body.verdict').should('equal', 'reject');
 			cy.get('[data-fmdb-node-name="strict"] .fmdb-validation-error').should('be.visible').and('contain.html', '<b>bob@example.test</b>');
-			setDevelopmentProviders(STUB_PROVIDERS);
 		});
 	});
 
 	it('the ZeroBounce example, on the same engine base: the key on the URL, the status read for what a form wants to know', () => {
 		createPublishedLiveFormPage('zerobounce-live-form', 'ZeroBounce Live Form', [
 			withFieldActions(getInputEmailNode({name: 'email', title: 'Email'}), [
-				getZeroBounceEmailFieldActionNode({name: 'mailbox', providerId: 'zerobounce-stub', rejectionMessage: 'Not a mailbox we can reach: <b>${value}</b>.'})
+				getZeroBounceEmailFieldActionNode({name: 'mailbox', rejectionMessage: 'Not a mailbox we can reach: <b>${value}</b>.'})
 			])
 		], undefined, undefined, {actions: [getSaveToJcrActionNode()]}).then(({livePath}) => {
 			cy.intercept('POST', `**${FIELD_ACTION_PATH}*`).as('check');

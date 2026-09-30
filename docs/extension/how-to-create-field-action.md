@@ -11,7 +11,7 @@ Relevant runtime files:
 - `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/FieldActionRequest.java`, `FieldActionResult.java`
 - `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/ProviderFieldAction.java`, `EmailVerificationFieldAction.java`, `FieldActionGateway.java` — for a check that calls an external service
 - `formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/field/FieldActionDispatcher.java`
-- `formidable-engine/src/main/resources/META-INF/definitions.cnd` — `fmdbmix:fieldAction`, `fmdbmix:fieldActionFeedback`, `fmdbmix:providerFieldAction`
+- `formidable-engine/src/main/resources/META-INF/definitions.cnd` — `fmdbmix:fieldAction`, `fmdbmix:fieldActionFeedback`
 
 The design, and why it is shaped this way, is in [Field actions](../architecture/field-actions.md).
 
@@ -71,8 +71,8 @@ Rules:
   refusal blocks or only warns, what an unanswered check means — come with the marker through
   `fmdbmix:fieldActionFeedback`: do not redeclare them
 - your own properties are what the contributor configures on the check: a threshold, a list of words, a country
-- for a check that calls an external service the administrator declares, add `fmdbmix:providerFieldAction`: it
-  brings the `providerId` property and its picker (Step 5)
+- a check that calls an external service takes nothing more: the service is the module's own, read from the
+  module's configuration, and the contributor has none to pick (Step 5)
 
 Ship the type's label and tooltip in your resource bundle (`myco_blockedWordsAction`,
 `myco_blockedWordsAction.ui.tooltip`) and a 16×16 icon at `src/main/resources/icons/myco_blockedWordsAction.png`:
@@ -148,34 +148,72 @@ the submission, so it may rely on nothing only one of them has.
 
 ## Step 5: Call an external service through the gateway
 
-A check that asks an external service — a mailbox check, a CRM lookup — never holds a URL or a credential. The
-administrator declares the service as a *provider*, with its base URL and its credential, in the engine's
-configuration ([Field actions: providers and limits](../administration/field-actions.md)); the contributor picks
-one on the action; your code names the provider id and a path under the base URL, and the engine's
-`FieldActionGateway` sends the call with the credential injected, as a header or on the URL. The credential
-never reaches your class, a log line or the repository.
+A check that asks an external service — a mailbox check, a CRM lookup — knows its service: your module ships its
+configuration, and the engine's `FieldActionGateway` makes the call. Three pieces:
 
-Take `fmdbmix:providerFieldAction` on the type (Step 1) and extend one of the engine's bases rather than
-implementing `FieldAction` directly:
+1. **The module's configuration file**, `src/main/resources/META-INF/configurations/<your PID>.cfg`, its first line
+   `# default configuration` so that Jahia copies it to `karaf/etc` once and never overwrites the administrator's
+   edits. It holds the service's URL, its credential (empty in the shipped file: the administrator sets it) and,
+   for a double of the service on a developer's machine, `development=true`:
 
-- [`ProviderFieldAction`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/ProviderFieldAction.java)
-  reads the provider id off the node, skips a blank value (`concerns`, which you may narrow), and turns every way
-  the call can fail — unreachable, timed out, an id the configuration no longer declares — into an unavailable
-  check. You write `ask(providerId, request)` and `gateway()`;
-- [`EmailVerificationFieldAction`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/EmailVerificationFieldAction.java)
-  narrows it to email addresses — a value that is not one is accepted without a call. You write
-  `verify(providerId, address)`:
+   ```properties
+   # default configuration - deployed once, then kept as edited.
+   url=https://api.example.com/v1
+   credential=
+   development=false
+   ```
+
+2. **The configuration read into an endpoint**, with `@Designate` and `@Activate`/`@Modified` on your component,
+   through `endpointOf` — it checks the URL (HTTPS, or plain HTTP on localhost or host.docker.internal with
+   `development=true`) and the credential, and logs once, naming the service, never the credential, when the
+   configuration describes nothing usable yet: the check is then unavailable, never a refusal. The credential's
+   name and where it goes — a header or a query parameter — are the service's contract, written in your code.
+
+3. **The call**, through one of the engine's bases rather than `FieldAction` directly:
+   - [`ProviderFieldAction`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/ProviderFieldAction.java)
+     asks your `endpoint()`, skips a blank value (`concerns`, which you may narrow), and turns every way the call
+     can fail — not configured, unreachable, timed out, a URL the endpoint rule refuses — into an unavailable check.
+     You write `endpoint()`, `ask(endpoint, request)` and `gateway()`;
+   - [`EmailVerificationFieldAction`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/EmailVerificationFieldAction.java)
+     narrows it to email addresses — a value that is not one is accepted without a call. You write
+     `verify(endpoint, address)`.
+
+The gateway appends your relative path to the endpoint's base URL, injects the credential, applies the engine's
+timeouts, caps the answer and never logs the credential ([Field actions: services and limits](../administration/field-actions.md)).
 
 ```java
-@Component(service = FieldAction.class)
+@Component(service = FieldAction.class, configurationPid = MailboxFieldAction.PID)
+@Designate(ocd = MailboxFieldAction.Config.class)
 public class MailboxFieldAction extends EmailVerificationFieldAction {
+
+    static final String PID = "com.myco.mailbox";
+
+    @ObjectClassDefinition(name = "My company — mailbox check")
+    public @interface Config {
+        String url() default "https://api.example.com/v1";
+        @AttributeDefinition(type = AttributeType.PASSWORD) String credential() default "";
+        boolean development() default false;
+    }
 
     @Reference
     private FieldActionGateway gateway;
+    private final AtomicReference<Optional<FieldActionGateway.Endpoint>> service = new AtomicReference<>(Optional.empty());
+
+    @Activate
+    @Modified
+    public void configure(Config config) {
+        service.set(endpointOf("Mailbox service", config.url(), "X-Api-Key", config.credential(),
+                FieldActionGateway.Endpoint.CREDENTIAL_IN_HEADER, config.development()));
+    }
 
     @Override
     public String getNodeType() {
         return "myco:mailboxAction";
+    }
+
+    @Override
+    protected Optional<FieldActionGateway.Endpoint> endpoint() {
+        return service.get();
     }
 
     @Override
@@ -184,14 +222,14 @@ public class MailboxFieldAction extends EmailVerificationFieldAction {
     }
 
     @Override
-    protected FieldActionResult verify(String providerId, String address) throws IOException {
-        FieldActionGateway.Response response = gateway().get(providerId, "verify?email=" + URLEncoder.encode(address, UTF_8));
+    protected FieldActionResult verify(FieldActionGateway.Endpoint endpoint, String address) throws IOException {
+        FieldActionGateway.Response response = gateway().get(endpoint, "verify?email=" + URLEncoder.encode(address, UTF_8));
         if (response.status() != 200) {
-            return FieldActionResult.unavailable("provider " + response.status());
+            return FieldActionResult.unavailable("service " + response.status());
         }
         return json(response)
                 .map(body -> body.optBoolean("deliverable") ? FieldActionResult.accept() : FieldActionResult.reject("undeliverable"))
-                .orElse(FieldActionResult.unavailable("not the provider's JSON"));
+                .orElse(FieldActionResult.unavailable("not the service's JSON"));
     }
 }
 ```
@@ -231,7 +269,7 @@ the check from the field's authoring zone in the Page Builder: the chooser lists
 
 A field action is trusted server-side code reached from an endpoint anonymous visitors can call.
 
-- keep every URL and credential in the administrator's provider configuration, never in content or code
+- keep every URL and credential in your module's configuration file, set by the administrator, never in content or code
 - a value is untrusted input: bound what you do with it, and never interpolate it into a path without encoding it
   (the gateway refuses an absolute path, a scheme, `..` or a control character, not a badly encoded query)
 - every call may be paid: prefer the `submit` trigger for a costly check, and remember the rate limit, the value
@@ -246,21 +284,23 @@ If your check never refuses anything, check:
 2. the node type extends `fmdbmix:fieldAction`
 3. `getNodeType()` exactly matches the primary node type
 4. the form is published: the dispatcher reads the action in `live`
-5. for a provider check, the provider id on the node is one the configuration declares, and the provider answers
+5. for a check calling a service, its module's configuration has a credential and a URL the endpoint rule accepts
+   (the log says so once when it does not), and the service answers
 
 Useful runtime symptom: the engine logs `Field action <id> (<type>) could not run on field '<field>' … the value is
-accepted, as the contributor set` when the check was unavailable — no matching service, an exception, a provider
-that did not answer.
+accepted, as the contributor set` when the check was unavailable — no matching service, an exception, a service
+not configured or that did not answer.
 
 ## Testing it
 
-- **Unit**: drive `execute` with a mocked node, or — for a provider check — `judge(providerId, request)`, the seam
-  `ProviderFieldAction` offers, with a fake gateway answering what the provider documents. The samples' tests
-  (`ExperianEmailFieldActionTest`, `ZeroBounceEmailFieldActionTest`) are the shape.
-- **End to end**: register a double of the provider in your module — a small servlet answering as the provider
+- **Unit**: drive `execute` with a mocked node, or — for a check calling a service — `judge(request)`, the seam
+  `ProviderFieldAction` offers, with an endpoint and a fake gateway answering what the service documents. The
+  samples' tests (`ExperianEmailFieldActionTest`, `ZeroBounceEmailFieldActionTest`) are the shape.
+- **End to end**: register a double of the service in your module — a small servlet answering as the service
   does, as the samples' [`ZeroBounceStubServlet`](../../jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/ZeroBounceStubServlet.java)
   does on their [`ProviderStubServlet`](../../jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/ProviderStubServlet.java)
-  — and declare it as a development provider. Spec 74 of this repository drives the two provider samples that way.
+  — and point your configuration at it with `development=true`. Spec 74 of this repository drives the two samples
+  that way.
 
 ## Related examples in this repository
 

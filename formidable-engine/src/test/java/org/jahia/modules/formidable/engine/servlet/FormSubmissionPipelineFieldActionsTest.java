@@ -98,7 +98,7 @@ class FormSubmissionPipelineFieldActionsTest {
     /** The field-action settings the pipeline reads at step 11b; only the cap matters here. */
     private static FieldActionsConfigService configWithCap(int maxValuesPerField) {
         FieldActionsConfigService config = mock(FieldActionsConfigService.class);
-        when(config.getFieldActionSettings()).thenReturn(new FieldActionSettings(Map.of(), Duration.ofSeconds(5),
+        when(config.getFieldActionSettings()).thenReturn(new FieldActionSettings(Duration.ofSeconds(5),
                 Duration.ofSeconds(10), HttpClient.newHttpClient(), Duration.ZERO, 30, 512, maxValuesPerField));
         return config;
     }

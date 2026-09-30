@@ -105,7 +105,7 @@ The public API — custom actions, the submission response, the names of the con
 - `FormActionException.java` — exception with HTTP status (`badRequest()`, `serverError()`)
 - `SubmittedFile.java` — file upload abstraction
 - `FieldAction.java` + `FieldActionRequest.java` + `FieldActionResult.java` — one field's value judged server-side, at the pre-check and at submission (`getNodeType()` + `execute()`)
-- `FieldActionGateway.java` — the one way a field action reaches a provider the administrator declared
+- `FieldActionGateway.java` — the one way a field action reaches its service, handed an `Endpoint` read from its module's own configuration
 - `ProviderFieldAction.java` + `EmailVerificationFieldAction.java` + `EmailAddress.java` — the shape of an action behind a provider, its email specialisation, the address parsing
 - `ChoiceOptionsResolver.java` — how many choices a choice field offers, counted as the views render it
 - `SubmissionResponseEnricher.java` + `AcceptedSubmission.java` — entries a module of its own adds to the JSON body of an accepted submission

@@ -1,26 +1,29 @@
 package org.jahia.modules.formidable.engine.api;
 
-import org.jahia.services.content.JCRNodeWrapper;
-import org.jahia.services.content.JCRPropertyWrapper;
 import org.junit.jupiter.api.Test;
 
-import javax.jcr.RepositoryException;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 /**
- * The shape every provider-backed check inherits: the node read, the values it declines to judge, and the failures
- * that are the check not running rather than a verdict.
+ * The shape every check behind an external service inherits: the endpoint from the action's own configuration, the
+ * values it declines to judge, and the failures that are the check not running rather than a verdict.
  */
 class ProviderFieldActionTest {
+
+    private static final FieldActionGateway.Endpoint CRM =
+            new FieldActionGateway.Endpoint("CRM", URI.create("https://crm.example.com/api"), "X-Api-Key", "s3cr3t", false, false);
 
     /** A gateway that answers what the test decided, or throws, and remembers what it was asked. */
     private static final class Gateway implements FieldActionGateway {
@@ -34,8 +37,8 @@ class ProviderFieldActionTest {
         }
 
         @Override
-        public Response post(String providerId, String path, String jsonBody) throws IOException {
-            asked.add(providerId + " " + path);
+        public Response post(Endpoint endpoint, String path, String jsonBody) throws IOException {
+            asked.add(endpoint.name() + " " + path);
             if (failure != null) {
                 throw failure;
             }
@@ -46,17 +49,19 @@ class ProviderFieldActionTest {
         }
 
         @Override
-        public Response get(String providerId, String path) throws IOException {
-            return post(providerId, path, null);
+        public Response get(Endpoint endpoint, String path) throws IOException {
+            return post(endpoint, path, null);
         }
     }
 
-    /** The least an action writes: the call and the reading of the answer. */
+    /** The least an action writes: where the service is, the call and the reading of the answer. */
     private static final class Lookup extends ProviderFieldAction {
         private final Gateway gateway;
+        private final FieldActionGateway.Endpoint endpoint;
 
-        Lookup(Gateway gateway) {
+        Lookup(Gateway gateway, FieldActionGateway.Endpoint endpoint) {
             this.gateway = gateway;
+            this.endpoint = endpoint;
         }
 
         @Override
@@ -65,8 +70,13 @@ class ProviderFieldActionTest {
         }
 
         @Override
-        protected FieldActionResult ask(String providerId, FieldActionRequest request) throws IOException {
-            return json(gateway().post(providerId, "lookup", "{}"))
+        protected Optional<FieldActionGateway.Endpoint> endpoint() {
+            return Optional.ofNullable(endpoint);
+        }
+
+        @Override
+        protected FieldActionResult ask(FieldActionGateway.Endpoint service, FieldActionRequest request) throws IOException {
+            return json(gateway().post(service, "lookup", "{}"))
                     .map(body -> body.optBoolean("ok") ? FieldActionResult.accept() : FieldActionResult.reject("no"))
                     .orElse(FieldActionResult.unavailable("not json"));
         }
@@ -81,67 +91,78 @@ class ProviderFieldActionTest {
         return new FieldActionRequest("form-1", "code", value, Locale.ENGLISH);
     }
 
-    private static JCRNodeWrapper nodeNaming(String providerId) throws RepositoryException {
-        JCRNodeWrapper node = mock(JCRNodeWrapper.class);
-        JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
-        when(node.hasProperty("providerId")).thenReturn(providerId != null);
-        when(node.getProperty("providerId")).thenReturn(property);
-        when(property.getString()).thenReturn(providerId);
-        return node;
+    @Test
+    void theActionsOwnEndpointIsAskedAndTheAnswerJudged() {
+        // Verifies the nominal path end to end: the endpoint the action's configuration describes reaches the gateway,
+        // the answer reaches the action's own reading — no node is read, the contributor has no service to pick.
+        Gateway gateway = new Gateway(null, null);
+
+        assertEquals(FieldActionResult.Verdict.ACCEPT, new Lookup(gateway, CRM).execute(null, of("42")).verdict());
+
+        assertEquals(List.of("CRM lookup"), gateway.asked);
     }
 
     @Test
-    void theProviderIsReadOffTheNodeAndTheAnswerJudged() throws RepositoryException {
-        // Verifies the nominal path end to end: the id the contributor picked reaches the gateway, the answer reaches
-        // the action's own reading — and nothing else stands between a module's ask() and the visitor.
+    void aServiceThatIsNotConfiguredIsAnUnavailableCheckWithoutACall() {
+        // Verifies the configuration side: an action whose module has no usable endpoint yet (no credential, a refused
+        // URL) cannot ask anyone — an unavailable check, which the contributor's setting decides — and nothing leaves.
         Gateway gateway = new Gateway(null, null);
 
-        assertEquals(FieldActionResult.Verdict.ACCEPT, new Lookup(gateway).execute(nodeNaming("crm"), of("42")).verdict());
+        FieldActionResult result = new Lookup(gateway, null).judge(of("42"));
 
-        assertEquals(List.of("crm lookup"), gateway.asked);
-    }
-
-    @Test
-    void aNodeNamingNoProviderIsAnUnavailableCheckWithoutACall() throws RepositoryException {
-        // Verifies the node side: no node, no property, a blank one, a node that cannot be read — the action cannot know
-        // whom to ask, which is the contributor's setting to fix, and the gateway is not asked to guess.
-        Gateway gateway = new Gateway(null, null);
-        Lookup lookup = new Lookup(gateway);
-        JCRNodeWrapper unreadable = mock(JCRNodeWrapper.class);
-        when(unreadable.hasProperty("providerId")).thenThrow(new RepositoryException("gone"));
-
-        assertEquals(FieldActionResult.Verdict.UNAVAILABLE, lookup.execute(null, of("42")).verdict());
-        assertEquals(FieldActionResult.Verdict.UNAVAILABLE, lookup.execute(nodeNaming(null), of("42")).verdict());
-        assertEquals(FieldActionResult.Verdict.UNAVAILABLE, lookup.execute(nodeNaming("  "), of("42")).verdict());
-        assertEquals(FieldActionResult.Verdict.UNAVAILABLE, lookup.execute(unreadable, of("42")).verdict());
-        assertNull(ProviderFieldAction.providerIdOf(unreadable));
-
+        assertEquals(FieldActionResult.Verdict.UNAVAILABLE, result.verdict());
         assertEquals(List.of(), gateway.asked);
     }
 
     @Test
     void aValueTheActionDoesNotJudgeIsAcceptedWithoutACall() {
         // Verifies the default of concerns(): a blank value is the required-field validation's business, and every
-        // answer of a provider has a price — so nothing leaves.
+        // answer of a service has a price — so nothing leaves.
         Gateway gateway = new Gateway(null, null);
 
-        assertEquals(FieldActionResult.Verdict.ACCEPT, new Lookup(gateway).judge("crm", of("")).verdict());
-        assertEquals(FieldActionResult.Verdict.ACCEPT, new Lookup(gateway).judge("crm", of("   ")).verdict());
-        assertEquals(FieldActionResult.Verdict.ACCEPT, new Lookup(gateway).judge(null, of(null)).verdict());
+        assertEquals(FieldActionResult.Verdict.ACCEPT, new Lookup(gateway, CRM).judge(of("")).verdict());
+        assertEquals(FieldActionResult.Verdict.ACCEPT, new Lookup(gateway, CRM).judge(of("   ")).verdict());
+        assertEquals(FieldActionResult.Verdict.ACCEPT, new Lookup(gateway, null).judge(of(null)).verdict());
 
         assertEquals(List.of(), gateway.asked);
     }
 
     @Test
-    void aProviderThatDoesNotAnswerOrIsNotDeclaredIsAnUnavailableCheckNeverARefusal() {
-        // Verifies the outage rule at the base, once for every module: the network failing, and an id the configuration
-        // no longer declares (the gateway's IllegalArgumentException) — neither is a verdict on the value.
-        FieldActionResult down = new Lookup(new Gateway(new IOException("connection refused"), null)).judge("crm", of("42"));
-        FieldActionResult gone = new Lookup(new Gateway(null, new IllegalArgumentException("No field action provider is configured under the id 'crm'"))).judge("crm", of("42"));
+    void aServiceThatDoesNotAnswerOrIsRefusedIsAnUnavailableCheckNeverARefusal() {
+        // Verifies the outage rule at the base, once for every module: the network failing, and a URL the endpoint
+        // rule refuses (the gateway's IllegalArgumentException) — neither is a verdict on the value.
+        FieldActionResult down = new Lookup(new Gateway(new IOException("connection refused"), null), CRM).judge(of("42"));
+        FieldActionResult refused = new Lookup(new Gateway(null, new IllegalArgumentException("The URL of CRM is refused")), CRM).judge(of("42"));
 
         assertEquals(FieldActionResult.Verdict.UNAVAILABLE, down.verdict());
         assertTrue(down.detail().contains("IOException"), down.detail());
-        assertEquals(FieldActionResult.Verdict.UNAVAILABLE, gone.verdict());
+        assertEquals(FieldActionResult.Verdict.UNAVAILABLE, refused.verdict());
+    }
+
+    @Test
+    void aConfigurationGivesAnEndpointOnlyWithACredentialAndAUsableUrlAndSaysWhyNot() {
+        // Verifies endpointOf, what a module calls when its configuration is read: no credential yet, a refused URL —
+        // empty, with a line naming the service, never the credential; a complete configuration, the endpoint.
+        PrintStream previous = System.err;
+        ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        System.setErr(new PrintStream(captured, true, StandardCharsets.UTF_8));
+        Optional<FieldActionGateway.Endpoint> noCredential;
+        Optional<FieldActionGateway.Endpoint> plainHttp;
+        try {
+            noCredential = ProviderFieldAction.endpointOf("Experian", "https://api.experianaperture.io", "Auth-Token", " ", "header", false);
+            plainHttp = ProviderFieldAction.endpointOf("Experian", "http://api.experianaperture.io", "Auth-Token", "t0k3n", "header", false);
+        } finally {
+            System.setErr(previous);
+        }
+
+        assertTrue(noCredential.isEmpty());
+        assertTrue(plainHttp.isEmpty());
+        String logged = captured.toString(StandardCharsets.UTF_8);
+        assertTrue(logged.contains("No credential is configured for Experian"), logged);
+        assertTrue(logged.contains("the URL of Experian is refused"), logged);
+        assertFalse(logged.contains("t0k3n"), logged);
+        assertEquals("t0k3n", ProviderFieldAction.endpointOf("Experian", "https://api.experianaperture.io", "Auth-Token",
+                "t0k3n", "header", false).orElseThrow().credential());
     }
 
     @Test

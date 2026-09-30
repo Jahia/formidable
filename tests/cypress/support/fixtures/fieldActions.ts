@@ -64,36 +64,30 @@ export function withFieldActions(field: JahiaNode, actions: JahiaNode[] = []): J
 	};
 }
 
-/** A field action behind a provider: the id of one the administrator declared, or one of the samples' doubles behind the development switch. */
-export interface ProviderFieldActionData extends FieldActionFeedbackData {
-	/** The id of a provider the administrator declared (fieldActionProviders, or devFieldActionProviders behind its switch). */
-	providerId: string;
-}
-
 /**
- * The samples module's example implementation against a provider (fmdbsample:experianEmailAction,
- * formidable-test-module-samples-java): the address is posted to Experian Email Validation — or to the samples'
- * own double of it, ExperianStubServlet, declared as a development provider — and the confidence is the verdict.
+ * The samples module's example implementation against a service (fmdbsample:experianEmailAction,
+ * formidable-test-module-samples-java): the address is posted to where the action's own configuration says — the
+ * samples' double of Experian, ExperianStubServlet — and the confidence is the verdict. No service to pick.
  */
-export function getExperianEmailFieldActionNode(data: ProviderFieldActionData): JahiaNode {
+export function getExperianEmailFieldActionNode(data: FieldActionFeedbackData): JahiaNode {
 	return {
 		name: data.name || 'experianEmail',
 		primaryNodeType: 'fmdbsample:experianEmailAction',
 		mixins: ['fmdbmix:fieldActionFeedback'],
-		properties: [{name: 'providerId', value: data.providerId}, ...feedbackProperties(data)]
+		properties: feedbackProperties(data)
 	};
 }
 
 /**
- * The samples module's second example against a provider (fmdbsample:zeroBounceEmailAction): the same engine base as
- * the Experian one, ZeroBounce's vocabulary — or the samples' double of it, ZeroBounceStubServlet, declared as a
- * development provider whose key goes on the URL.
+ * The samples module's second example against a service (fmdbsample:zeroBounceEmailAction): the same engine base as
+ * the Experian one, ZeroBounce's vocabulary, its own configuration — the samples' double of it, ZeroBounceStubServlet,
+ * the key on the URL.
  */
-export function getZeroBounceEmailFieldActionNode(data: ProviderFieldActionData): JahiaNode {
+export function getZeroBounceEmailFieldActionNode(data: FieldActionFeedbackData): JahiaNode {
 	return {
 		name: data.name || 'zeroBounceEmail',
 		primaryNodeType: 'fmdbsample:zeroBounceEmailAction',
 		mixins: ['fmdbmix:fieldActionFeedback'],
-		properties: [{name: 'providerId', value: data.providerId}, ...feedbackProperties(data)]
+		properties: feedbackProperties(data)
 	};
 }

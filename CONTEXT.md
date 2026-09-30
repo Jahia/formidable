@@ -226,7 +226,7 @@ org.jahia.modules.formidable.engine
 │   ├── uploads/  UploadsConfig + UploadsConfigService (size and count bounds, MIME allowlist)
 │   ├── choiceoptions/ ChoiceOptionsConfig + ChoiceOptionsConfigService (options sources, cache, query cap)
 │   ├── formactions/   FormActionsConfig + FormActionsConfigService (forward targets, HTTP client)
-│   └── fieldactions/  FieldActionsConfig + FieldActionsConfigService (providers, endpoint guards)
+│   └── fieldactions/  FieldActionsConfig + FieldActionsConfigService (HTTP client and timeouts, endpoint guards)
 └── actions/                             ← one folder per kind, and what the two kinds share
     ├── common/   ActionSummaryService (a type's label, tooltip and icon), FieldEscaper, TemplateInterpolator
     ├── form/     ContentDispositionUtils

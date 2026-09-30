@@ -16,9 +16,9 @@ import java.util.Map;
 /**
  * A double of Experian Email Validation v2, for the test suite and for a local try-out without an account: the
  * same operation ({@code POST email/validate/v2} under the base URL), the same {@code Auth-Token} header, the same
- * JSON in and out — with the confidence decided by the domain of the address instead of a mailbox lookup. One
- * development provider line points the engine at it:
- * {@code devFieldActionProviders=experian-stub|Experian (stub)|http://localhost:8080/modules/formidable-samples/experian-stub|Auth-Token|stub-token}.
+ * JSON in and out — with the confidence decided by the domain of the address instead of a mailbox lookup. The
+ * samples' configuration of {@link ExperianEmailFieldAction} points at it: {@code url=http://localhost:8080/modules/formidable-samples/experian-stub},
+ * {@code credential=stub-token}, {@code development=true}.
  *
  * <p>What it checks is what {@link ExperianEmailFieldAction} and the gateway must get right: the operation's path
  * under the base URL, the token header the gateway injects — any other token is refused with a 401, as Experian

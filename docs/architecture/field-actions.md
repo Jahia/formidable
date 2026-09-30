@@ -2,7 +2,8 @@
 
 > Decided with the developer on 2026-09-21 (issue #341), from the draft of 2026-09-11. Shipped in four pull
 > requests: the engine (#344), the submittable-field marker (#345), the visitor's page and the editor zone
-> (#346), the shape of an action behind a provider and the email samples (#347). No built-in check ships:
+> (#346), the shape of an action behind a provider and the email samples (#347), each reading its service from
+> its own module's configuration since the rework of 2026-09-30. No built-in check ships:
 > every check is a sample (see "Roadmap").
 
 ## Overview
@@ -163,9 +164,9 @@ names the concrete type: it reaches it through the markers.
 ```cnd
 // A module of its own: the type takes the marker, carries its own settings, and a Java service
 // bound to it judges the value. The four feedback settings arrive through
-// `extends`, unasked. A type calling a provider takes fmdbmix:providerFieldAction too: the id of one
-// of the providers the administrator declared, with its label and its choicelist, from the engine.
-[myco:crmLookupAction] > jnt:content, fmdbmix:fieldAction, fmdbmix:providerFieldAction, mix:title
+// `extends`, unasked. A type calling a service takes nothing more: the service is its module's own,
+// read from that module's configuration — the contributor has no service to pick.
+[myco:crmLookupAction] > jnt:content, fmdbmix:fieldAction, mix:title
  - jcr:title (string) = resourceBundle('myco_crmLookupAction') autocreated i18n
 ```
 
@@ -218,15 +219,15 @@ the seam is the lookup itself, so its rules are tested without a test of the net
 **Does the mailbox exist?** is the question a project asks once the domain check is not enough, and only a
 provider that probes mailboxes can answer it. The samples answer it twice, against two providers — Experian
 Email Validation v2 and ZeroBounce v2 — on one engine base, `EmailVerificationFieldAction`: each sample is a
-type, `fmdbsample:experianEmailAction` and `fmdbsample:zeroBounceEmailAction`, both taking
-`fmdbmix:providerFieldAction`, and one method, the call and the provider's own vocabulary turned into the
-three verdicts. **Example implementations, not supported connectors**: the samples module reaches no product
+type, `fmdbsample:experianEmailAction` and `fmdbsample:zeroBounceEmailAction`, with no provider to pick —
+each knows its service and reads it from its own configuration —, and one method, the call and the provider's
+own vocabulary turned into the three verdicts. **Example implementations, not supported connectors**: the samples module reaches no product
 installation, and a project copies the one it needs into a module of its own, with an account at that
 provider. What the two agree on is what a form wants to know — does the address receive mail, and is it not
 a trap or a throwaway — rather than what a mailing list wants, which is the providers' own recommendation.
 
 **Experian** (`ExperianEmailFieldAction`): `POST email/validate/v2` under the provider's base URL, the address
-in a JSON body, the token in the `Auth-Token` header the gateway injects; the answer's `result.confidence`:
+in a JSON body, the token in the `Auth-Token` header the gateway injects from the endpoint; the answer's `result.confidence`:
 
 | Experian answers | The action answers |
 |---|---|
@@ -248,10 +249,12 @@ answer's `status` and `sub_status`:
 | `catch-all`, `unknown`, a status the sample has never heard of | unavailable: `whenUnavailable` decides |
 | a 200 carrying `error` — a refused key, an account out of credits, which is how the provider says it — or a status that is not 200, or not its JSON | unavailable, never a refusal |
 
-**What they need.** One provider line each in the engine's configuration —
-`fieldActionProviders=experian|Experian Email Validation|https://api.experianaperture.io|Auth-Token|<token>` and
-`zerobounce|ZeroBounce|https://api.zerobounce.net|api_key|<key>|query` — where the credential stays: the classes
-never see it. Outbound HTTPS from the Jahia server to the provider. And an account: Experian's documentation
+**What they need.** Their own configuration file each, which the samples module ships —
+`org.jahia.test.modules.formidable.samples.experian.cfg` and `…samples.zerobounce.cfg`, `url`, `credential`,
+`development` ([Field actions: services and limits](../administration/field-actions.md#the-service-a-check-calls)).
+Each class reads its file into a `FieldActionGateway.Endpoint` (`ProviderFieldAction.endpointOf`) and hands it to
+the gateway, which injects the credential as the header or the query parameter the service's contract names —
+`Auth-Token`, `api_key` — and never logs it. Outbound HTTPS from the Jahia server to the provider. And an account: Experian's documentation
 offers a fourteen-day trial with two thousand validations, in Australia, Canada, New Zealand and the United
 States only; ZeroBounce a free tier of a hundred validations a month, and sandbox addresses
 (`valid@example.com`, `invalid@example.com`, `disposable@example.com`…) that answer without spending a credit.
@@ -270,13 +273,12 @@ one base (`ProviderStubServlet`) that answer as the providers do — the same op
 wrong one refused the way each provider refuses it: a 401, a 200 carrying `error`), the same JSON — with the
 verdict decided by the address instead of a mailbox lookup: `@undeliverable.test`, `@unknown.test`,
 `@timeout.test` for Experian, `@invalid.test`, `@disposable.test`, `@catchall.test`, `info@` for ZeroBounce,
-every other address verified or valid. A provider over plain HTTP is a development setting, declared under
-`devFieldActionProviders` behind `enableDevFieldActionProviders=true` — the mirror of the forward targets'
-`devForwardTargets`:
-`experian-stub|Experian (stub)|http://localhost:8080/modules/formidable-samples/experian-stub|Auth-Token|stub-token`
-and `zerobounce-stub|ZeroBounce (stub)|http://localhost:8080/modules/formidable-samples/zerobounce-stub|api_key|stub-token|query`.
+every other address verified or valid. A service over plain HTTP is a development setting of the check's own
+file, `development=true`, under the endpoint rule of the forward targets' development entries — HTTP on localhost
+or host.docker.internal only —, and the samples' two files ship pointing at their doubles that way
+(`url=http://localhost:8080/modules/formidable-samples/experian-stub`, `credential=stub-token`).
 Spec 74 drives both samples through them, which makes it the one thing exercising `FieldActionGateway` end to
-end — the provider lines, the credential injected as a header or on the URL, the path under the base URL, the
+end — each check's configuration read into an endpoint, the credential injected as a header or on the URL, the path under the base URL, the
 reading of the answer — and what a developer points a local instance at to try a sample without an account.
 
 ## Execution
@@ -285,15 +287,26 @@ reading of the answer — and what a developer points a local instance at to try
 
 ```java
 @Component(service = FieldAction.class)
-public class CrmLookupAction extends ProviderFieldAction {          // the engine reads the provider id off the node
+@Component(service = FieldAction.class, configurationPid = "com.myco.crmlookup")   // the module's own .cfg
+@Designate(ocd = CrmLookupAction.Config.class)
+public class CrmLookupAction extends ProviderFieldAction {
+    @ObjectClassDefinition public @interface Config { String url(); String credential() default ""; boolean development() default false; }
+
     @Reference private FieldActionGateway gateway;
+    private volatile Optional<FieldActionGateway.Endpoint> crm = Optional.empty();
+
+    @Activate @Modified
+    void configure(Config config) {                                   // no credential or a refused URL: empty, logged once
+        crm = endpointOf("CRM", config.url(), "X-Api-Key", config.credential(), "header", config.development());
+    }
 
     @Override public String getNodeType() { return "myco:crmLookupAction"; }
+    @Override protected Optional<FieldActionGateway.Endpoint> endpoint() { return crm; }   // empty: an unavailable check
     @Override protected FieldActionGateway gateway() { return gateway; }
 
     @Override
-    protected FieldActionResult ask(String providerId, FieldActionRequest request) throws IOException {   // an IOException is an unavailable check
-        FieldActionGateway.Response response = gateway().post(providerId, "customers/lookup",
+    protected FieldActionResult ask(FieldActionGateway.Endpoint endpoint, FieldActionRequest request) throws IOException {   // an IOException is an unavailable check
+        FieldActionGateway.Response response = gateway().post(endpoint, "customers/lookup",
                 "{\"number\":" + JSONObject.quote(request.value()) + "}");
         if (response.status() != 200) return FieldActionResult.unavailable("provider " + response.status());
         return json(response).map(body -> body.optBoolean("known") ? FieldActionResult.accept() : FieldActionResult.reject("unknown"))
@@ -304,14 +317,14 @@ public class CrmLookupAction extends ProviderFieldAction {          // the engin
 
 `org.jahia.modules.formidable.engine.api` exports the contract: `FieldAction` (`getNodeType()`,
 `execute(actionNode, request)`), `FieldActionRequest` (form UUID, field name, value, locale),
-`FieldActionResult` (`accept()`, `reject(detail)`, `unavailable(detail)`) and `FieldActionGateway` — and,
-for an action behind a provider, the shape every one shares: `ProviderFieldAction` reads the provider id off
-the node (`fmdbmix:providerFieldAction`), accepts without a call a value the action does not judge
-(`concerns`, a blank value by default), hands the id and the request to `ask`, and turns every way the call
-can fail — no answer, an id the configuration no longer declares, a node naming none — into an unavailable
-check; `json(response)` reads an answer as one object or not at all. `EmailVerificationFieldAction` is the
-email specialisation: only a value that reads as an address (`EmailAddress.domainOf`) reaches `verify(providerId,
-address)`, the one method left to write. The samples' Experian and ZeroBounce checks are that method each. The
+`FieldActionResult` (`accept()`, `reject(detail)`, `unavailable(detail)`) and `FieldActionGateway` with its
+`Endpoint` — and, for an action behind a service, the shape every one shares: `ProviderFieldAction` asks the
+module for its endpoint (`endpoint()`, which `endpointOf` builds from the module's configuration), accepts
+without a call a value the action does not judge (`concerns`, a blank value by default), hands the endpoint and
+the request to `ask`, and turns every way the call can fail — no answer, a service not configured, a URL the
+endpoint rule refuses — into an unavailable check; `json(response)` reads an answer as one object or not at all.
+`EmailVerificationFieldAction` is the email specialisation: only a value that reads as an address
+(`EmailAddress.domainOf`) reaches `verify(endpoint, address)`, the one method left to write. The samples' Experian and ZeroBounce checks are that method each. The
 action node is read in `live` in a system session; an exception escaping `execute` counts as unavailable
 and is logged.
 
@@ -564,17 +577,16 @@ the form action's card, exactly: the settings (`trigger`, `severity`, `whenUnava
 action's editor, not on the card; a type shipping no icon is drawn with the marker's glyph rather than the
 platform's generic sheet. Both answer nothing outside edit mode. The hooks and variables are in `docs/styling/`.
 
-## Providers, configuration and secrets — the `FieldActionGateway`
+## Services, configuration and secrets — the `FieldActionGateway`
 
-A provider's credential goes neither in the JavaScript nor in the repository. As forward targets are
-declared, providers are declared in `org.jahia.modules.formidable.fieldActions.cfg` ([Configuration files](../administration/configuration.md)):
+A service's credential goes neither in the JavaScript nor in the repository, and not in the content either: the
+module that ships a check ships its configuration file, `META-INF/configurations/<its PID>.cfg`, copied to
+`karaf/etc` at the module's first start, where the administrator sets the URL and the credential (the samples:
+`url`, `credential`, `development`). The engine's own file holds what every call shares
+([Configuration files](../administration/configuration.md)):
 
 ```
 # org.jahia.modules.formidable.fieldActions.cfg
-# Each entry: id|Label|https://base-url|Credential-Header-Name|credential (the last two together, or neither)
-fieldActionProviders=                      # id|Label|https://base-url|Credential-name|credential[|header|query]
-enableDevFieldActionProviders=false        # plain HTTP on localhost or host.docker.internal: a provider's double
-devFieldActionProviders=
 fieldActionHttpConnectTimeoutSeconds=5
 fieldActionHttpRequestTimeoutSeconds=10
 fieldActionVerdictCacheTtlSeconds=300      # 0 disables the cache
@@ -583,19 +595,17 @@ fieldActionMaxValueLength=512
 fieldActionMaxValuesPerField=50            # DISTINCT values of ONE field judged at submission
 ```
 
-`FieldActionsConfigService` parses them (`FieldActionProvider`, whose `toString` masks the credential;
-`FieldActionSettings`, everything the field actions read, in one piece; an optional sixth part says where the
-credential goes, `header` by default or `query` for a provider that reads its key off the URL, appended to the
-target as a parameter of that name and then sent in no header), the HTTPS-only rule of the
-forward targets applied to the base URL — and their development rule, plain HTTP on localhost or
-host.docker.internal, to `devFieldActionProviders` behind `enableDevFieldActionProviders`, where a provider's
-double is declared (the samples' Experian stub); a development id never shadows a standard one, and the list is
-ignored whole without the switch. `FormidableFieldActionProvidersInitializer` feeds the
-`formidableFieldActionProviders` choicelist (label shown, id stored). `FieldActionGatewayImpl` is the
-exported service: it resolves the provider, refuses a path that is absolute, carries a scheme, climbs with
-`..` or holds a control character, appends it to the base URL (a base without a trailing slash keeps its
-last segment), injects the credential header, applies the timeouts, caps the response body at a million
-characters, and never puts the credential in a log line or in the object it returns.
+`FieldActionsConfigService` reads it into `FieldActionSettings`, everything the field actions read, in one
+piece. A module turns its own configuration into a `FieldActionGateway.Endpoint` with `Endpoint.of` — the base URL,
+the credential's name and value together or neither, where the credential goes (`header` by default, or `query`
+for a service that reads its key off the URL, appended to the target as a parameter of that name and then sent in
+no header), and whether the URL is a development double — under the endpoint rule of the forward targets: HTTPS
+with a host and no embedded credentials, or plain HTTP on localhost or host.docker.internal for a development
+endpoint; `toString` masks the credential. `FieldActionGatewayImpl` is the exported service: it checks the
+endpoint's URL again on every call, refuses a path that is absolute, carries a scheme, climbs with `..` or holds a
+control character, appends it to the base URL (a base without a trailing slash keeps its last segment), injects
+the credential, applies the timeouts, caps the response body at a million characters, and never puts the
+credential in a log line or in the object it returns.
 
 ## Security and trust
 
@@ -672,6 +682,7 @@ call per blocking action and non-blank value never pre-checked.
 | 2026-09-22 | **The warning hook is `fmdb-validation-warning`**, not the `fmdb-form-warning` of issue #341 (HDU) | The twin of `fmdb-validation-error`: the pair sits in one row of the styling documentation, and a stylesheet that finds one finds the other |
 | 2026-09-25 | **The provider-backed sample is written against a real provider, Experian, as an example implementation**, with a double of the provider in the samples module and a development provider list in the configuration (HDU: a customer asks for the Experian API; « précise dans la doc que c'est un exemple d'implémentation ») | A sample against an invented provider proves the gateway against nothing; against a named one, the contract is the provider's own documentation and a project copies the class as is. The double is a servlet because a static file refuses a POST (405, measured) and the test suite has no network; it lives in the samples module, next to the class it doubles. A provider over plain HTTP was refused by the HTTPS rule, rightly — the forward targets had solved the same need with a development list behind a switch, so the providers get the same pair, `enableDevFieldActionProviders` and `devFieldActionProviders`, rather than a relaxation of the rule |
 | 2026-09-25 | **Every provider-backed check stays a sample; what they share moves into the engine** (HDU: « met tout en module sample, une implémentation ZeroBounce et une autre pour l'autre, mutualise au mieux et mets ce qui est commun dans le moteur ») — `fmdbmix:providerFieldAction`, `ProviderFieldAction`, `EmailVerificationFieldAction`, `EmailAddress`, the `query` placement of a credential | A second provider showed what a first one cannot: the node read, the "not an address" rule, the outage rule and the JSON reading were the same forty lines twice, and the domain check carried a third copy of the address parsing. The engine ships the shape and no concrete check, which keeps the 2026-09-22 decision; a sample is a type and one method. ZeroBounce reads its key off the URL, which no header could carry: a sixth part on the provider line rather than a credential the action would have to see. And the providers' "do not mail" bands are read for a form — a role address receives mail — rather than for a mailing list |
+| 2026-09-30 | **A check behind a service reads the service from its own module's configuration**; the engine's list of providers, its development switch and the contributor's provider picker (`fmdbmix:providerFieldAction`, deprecated, removed in 0.6) go; the gateway stays, handed an `Endpoint` (HDU, on the editor of « Email mailbox check (Experian) »: an Experian check has no provider to pick) | The picker offered every declared service to every check — a CRM next to a mailbox check —, and the fixes (a category to filter it, an api setting to choose the code, adapters as services) kept growing around a choice nobody needed: a check knows its service. A module's own `.cfg` is Jahia's standard, as the engine's CAPTCHA is. The gateway keeps what no module should rewrite: the endpoint rule on every call, the relative path under the base, the credential injected and never logged, the timeouts, the body cap |
 | 2026-09-25 | **The JavaScript way of writing a field action is withdrawn** (HDU: « quand je pensais au rendu js je pensais au useFieldAction… pas à l'implémentation back en js ») — the dispatcher runs Java services only; the library's `readFieldActionRequest` and `fieldActionResult`, the samples' `minimumWordsAction` and spec 73's JavaScript check go with it | Built on a misreading of the brief — « le code de l'action écrit en JS » meant the visitor's page — it answered a question nobody had asked, sidestepped the one left open with #164 (form actions in TypeScript, waiting for a server-extension SDK of the JavaScript modules), and tied the engine to `jsm-raw-html`, an internal of that engine. Withdrawn before any release; the rows above stay as the record of what was measured on the way |
 | 2026-09-22 | **A refusal at submission (`FMDB-015`) shows the contributor's message under the field and nothing else** (HDU) | A field action's refusal is a validation failure, so it reads like one: the message anchored on the field, the focus moved, the form kept with what the visitor typed — no global error box, no error code on screen. Every other rejection keeps today's global message; `FMDB-017` keeps it under the anchored message, since its cause is not one value to correct |
 | 2026-09-25 | **No spinner while the field actions settle before the submission**; a second click meanwhile is ignored | The spinner hides the form (the accepted submission replaces it), and the messages the settle may produce land on that very form: a refused value would have flashed the form away and back. The pending state on the fields checked is the feedback, and a guard in the submission hook keeps a second click from starting a second settle |
@@ -732,11 +743,10 @@ call per blocking action and non-blank value never pre-checked.
   [`FieldActionRuntime`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/field/FieldActionRuntime.java) (the registered services, the shared cache),
   [`FieldActionCollector`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/field/FieldActionCollector.java) (the walk of a form), [`ResolvedFieldAction`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/field/ResolvedFieldAction.java),
   [`VerdictCache`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/field/VerdictCache.java), [`FieldActionsCache`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/field/FieldActionsCache.java), [`RateLimiter`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/field/RateLimiter.java),
-  [`FieldActionGatewayImpl`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/field/FieldActionGatewayImpl.java) (the calls to a provider);
+  [`FieldActionGatewayImpl`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/actions/field/FieldActionGatewayImpl.java) (the calls to a service);
   [`FormSubmissionPipeline`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/servlet/FormSubmissionPipeline.java) (step 11b, `runFieldActions`), [`FormFieldMetadataCollector`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/servlet/FormFieldMetadataCollector.java)
   (`Result.fieldActions`), [`FormSubmitServlet`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/servlet/FormSubmitServlet.java) (`messages`, `RESERVED_KEYS`);
-  [`FieldActionsConfig`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/config/fieldactions/FieldActionsConfig.java) and [`FieldActionsConfigService`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/config/fieldactions/FieldActionsConfigService.java) (`FieldActionProvider`, `FieldActionSettings`),
-  [`FormidableFieldActionProvidersInitializer`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/choicelist/FormidableFieldActionProvidersInitializer.java);
+  [`FieldActionsConfig`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/config/fieldactions/FieldActionsConfig.java) and [`FieldActionsConfigService`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/config/fieldactions/FieldActionsConfigService.java) (`FieldActionSettings`),
   [`definitions.cnd`](../../formidable-engine/src/main/resources/META-INF/definitions.cnd), [`org.jahia.modules.formidable.fieldActions.cfg`](../../formidable-engine/src/main/resources/META-INF/configurations/org.jahia.modules.formidable.fieldActions.cfg),
   `org.jahia.bundles.api.authorization-formidable-engine.yml`, `org.jahia.modules.jahiacsrfguard-formidable.cfg`.
 - Samples, the shape to copy: [`BlockedWordsFieldAction`](../../jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/BlockedWordsFieldAction.java), [`EmailDomainFieldAction`](../../jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/EmailDomainFieldAction.java),
@@ -749,6 +759,6 @@ call per blocking action and non-blank value never pre-checked.
 - Tests: [spec 72](../../tests/cypress/e2e/actions/72-field-actions-zone-in-edit-mode.cy.ts) (the zone), [spec 73](../../tests/cypress/e2e/actions/73-field-actions-live.cy.ts) (the visitor's page),
   [spec 74](../../tests/cypress/e2e/actions/74-field-actions-behind-a-provider.cy.ts) (the providers through their doubles), [spec 223](../../tests/cypress/e2e/fields/223-field-actions-switch-per-field-type.cy.ts) (the switch per field type).
 - [Form submission flow](form-submission-flow.md), [CND module ownership](cnd-module-ownership.md),
-  [Custom validation](custom-validation.md), [Field actions: providers and limits](../administration/field-actions.md),
+  [Custom validation](custom-validation.md), [Field actions: services and limits](../administration/field-actions.md),
   [How to create a field action](../extension/how-to-create-field-action.md), issue #341.
 - ~~Platform: `RenderService.render(Resource, RenderContext)`, `AggregateCacheFilter` (expiration lookup order: request attribute, node, view), `CacheFilter` (caches only `expiration > 0`), `javascript-modules-engine 1.3.0-SNAPSHOT` manifest (no own package exported)~~ — the evidence of the withdrawn JavaScript path (decision log, 2026-09-25).
