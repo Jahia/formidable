@@ -58,6 +58,34 @@ describe('Form fields - 224 File types allowed by the administrator', () => {
 		});
 	});
 
+	it('lets any file through, in the page and on the server, when the administrator allows */*', () => {
+		// An e-mail message is none of the five usual top-level types: */* must still take it. The field declaring no
+		// type restricts nothing in the page (no accept list) and the server stores the file.
+		createPublishedLiveFormPage(
+			'file-any-type-form',
+			'File Any Type Form',
+			[getInputFileNode(INPUT_FILE_SIMPLE)],
+			'file-any-type-form-page',
+			'File Any Type Form',
+			{actions: [{name: 'storeSubmission', primaryNodeType: 'fmdb:save2jcrAction', properties: []}]}
+		).then(({livePath}) => {
+			const liveUrl = `/en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`;
+
+			setUploadAllowedTypes('*/*');
+			cy.waitUntil(
+				() => flushSiteCache()
+					.then(() => cy.request(liveUrl))
+					.then(response => acceptOf(response.body, INPUT_FILE_SIMPLE.name!) === ''),
+				{timeout: 30000, interval: 2000, errorMsg: '*/* never reached the rendering'}
+			);
+
+			const form = visitLiveForm(livePath);
+			form.getFileInput(INPUT_FILE_SIMPLE.name!).attachFileAndWaitForCount('cypress/fixtures/files/note.eml', 1);
+			form.submit();
+			form.waitForSubmit().shouldHaveSubmissionMessage('Form submitted successfully!');
+		});
+	});
+
 	it('refuses every file when the administrator allows no type', () => {
 		createPublishedLiveFormPage(
 			'file-no-allowed-type-form',

@@ -26,6 +26,15 @@ describe('matchesAcceptToken', () => {
 	it('lets a file through for a type Tika knows no extension of: the server checks its real type', () => {
 		expect(matchesAcceptToken(file('anything.xyz'), 'application/x-custom', types)).toBe(true);
 	});
+
+	it('refuses a file whose browser type a wildcard contradicts, even when the wildcard lists no extension', () => {
+		// Under "any file" a field narrowed to image/* gets no extension for it: the browser's type still decides.
+		const anyFileImages: FileTypes = {tokens: ['image/*'], shown: {'image/*': []}, recognised: {'image/*': []}};
+
+		expect(matchesAcceptToken(file('cv.pdf', 'application/pdf'), 'image/*', anyFileImages)).toBe(false);
+		expect(matchesAcceptToken(file('photo.heic', 'image/heic'), 'image/*', anyFileImages)).toBe(true);
+		expect(matchesAcceptToken(file('photo.heic'), 'image/*', anyFileImages)).toBe(true);
+	});
 });
 
 describe('accepts', () => {

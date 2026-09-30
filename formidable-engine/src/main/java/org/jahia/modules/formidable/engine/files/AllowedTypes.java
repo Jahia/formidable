@@ -34,8 +34,8 @@ public final class AllowedTypes {
     private static final String UNKNOWN = "application/octet-stream";
     /** The one token that lets any file through: the administrator's "any file", which holds whatever Tika adds. */
     public static final String ANY_FILE = "*/*";
-    /** The roots of Tika's hierarchy: every text type descends from the first, every type from the second. */
-    private static final Set<String> ROOTS = Set.of("text/plain", UNKNOWN);
+    /** The top-level types whose kinds are codecs inside a container, the one case a file's name cannot tell. */
+    private static final Set<String> MEDIA = Set.of("audio", "video");
     private static final Pattern MIME_TYPE = Pattern.compile("[a-z0-9][a-z0-9!#$&^_.+-]*/(\\*|[a-z0-9][a-z0-9!#$&^_.+-]*)");
     private static final Pattern EXTENSION = Pattern.compile("[a-z0-9][a-z0-9_+-]*");
 
@@ -138,15 +138,14 @@ public final class AllowedTypes {
     }
 
     /**
-     * Whether the allowed types let an uploaded file through: its detected type is permitted ({@link #permits}), or it
-     * is what Tika's registry calls a specialization of the type the file's name stands for, when that type is listed
-     * as is. The content names the codec where the name names the container: an Ogg video, {@code .ogv}, is detected
-     * {@code video/theora}, which Tika declares a kind of {@code video/ogg}; an Opus track in {@code .oga} is
-     * {@code audio/opus}, a kind of {@code audio/ogg}. Three limits keep the hierarchy from widening the list, since
-     * "a kind of" there means "readable as": the name's type must be listed itself, not through a wildcard; the two
-     * types must share their top-level type — an SVG named {@code .xml} is {@code image/svg+xml}, a kind of
-     * {@code application/xml}, and stays refused; and the name's type must not be a root of the hierarchy, so that
-     * allowing {@code txt} never lets an HTML page named {@code .txt} through.
+     * Whether the allowed types let an uploaded file through: its detected type is permitted ({@link #permits}), or —
+     * for audio and video only — it is what Tika's registry calls a specialization of the type the file's name stands
+     * for, when that type is listed as is. The content names the codec where the name names the container: an Ogg
+     * video, {@code .ogv}, is detected {@code video/theora}, which Tika declares a kind of {@code video/ogg}; an Opus
+     * track in {@code .oga} is {@code audio/opus}, a kind of {@code audio/ogg}. Anywhere else "a kind of" means
+     * "readable as" and would widen the list — an XHTML page is a kind of {@code application/xml}, a jar or a
+     * macro-enabled document a kind of {@code application/zip} —, so every other type is matched exactly. The name's
+     * type must be listed itself, not through a wildcard, and share the detected type's top-level type.
      *
      * @param detected the type Tika detected from the file's content and name
      * @param fileName the file's name, whose extension says what the visitor meant to send
@@ -159,11 +158,16 @@ public final class AllowedTypes {
             return false;
         }
         String named = TIKA.detect(fileName);
-        if (named == null || ROOTS.contains(named) || !allowed.contains(named) || !sameTopLevel(detected, named)) {
+        if (named == null || !isMedia(named) || !allowed.contains(named) || !sameTopLevel(detected, named)) {
             return false;
         }
         MediaType type = MediaType.parse(detected);
         return type != null && REGISTRY.isSpecializationOf(type, MediaType.parse(named));
+    }
+
+    private static boolean isMedia(String type) {
+        int slash = type.indexOf('/');
+        return slash > 0 && MEDIA.contains(type.substring(0, slash));
     }
 
     private static boolean sameTopLevel(String one, String other) {

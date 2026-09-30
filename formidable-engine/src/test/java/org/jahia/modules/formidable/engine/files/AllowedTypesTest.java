@@ -109,16 +109,19 @@ class AllowedTypesTest {
         // track named .oga as audio/opus, kinds of the video/ogg and audio/ogg the list holds.
         assertTrue(AllowedTypes.permitsFile("video/theora", "clip.ogv", Set.of("video/ogg")));
         assertTrue(AllowedTypes.permitsFile("audio/opus", "track.oga", Set.of("audio/ogg")));
-        assertTrue(AllowedTypes.permitsFile("application/java-archive", "bundle.zip", Set.of("application/zip")));
         assertTrue(AllowedTypes.permitsFile("image/png", "photo.bin", Set.of("image/*")));
         assertTrue(AllowedTypes.permitsFile("video/theora", "clip.ogv", Set.of("video/*")));
     }
 
     @Test
     void theHierarchyNeverWidensTheList() {
-        // Verifies the limits: the name's type must be listed itself (a .jar is refused where zip is allowed), share the
-        // detected type's top-level type (an SVG named .xml), not be a root (HTML named .txt), and the content must be
-        // a kind of it (an MP4 named .ogv); a type the field no longer accepts stays refused.
+        // Verifies the limits: audio and video only — an XHTML page named .xml, a jar or a macro-enabled workbook named
+        // .zip are kinds of what their name stands for in Tika's registry, and stay refused —; the name's type must be
+        // listed itself, share the detected type's top-level type, and the content must be a kind of it (an MP4 named
+        // .ogv); a type the field no longer accepts stays refused.
+        assertFalse(AllowedTypes.permitsFile("application/xhtml+xml", "page.xml", Set.of("application/xml")));
+        assertFalse(AllowedTypes.permitsFile("application/java-archive", "bundle.zip", Set.of("application/zip")));
+        assertFalse(AllowedTypes.permitsFile("application/vnd.ms-excel.sheet.macroenabled.12", "book.zip", Set.of("application/zip")));
         assertFalse(AllowedTypes.permitsFile("application/java-archive", "bundle.jar", Set.of("application/zip")));
         assertFalse(AllowedTypes.permitsFile("image/svg+xml", "drawing.xml", Set.of("application/xml")));
         assertFalse(AllowedTypes.permitsFile("text/html", "page.txt", Set.of("text/plain")));
@@ -172,5 +175,20 @@ class AllowedTypesTest {
         String logged = captured.toString(StandardCharsets.UTF_8);
         assertTrue(logged.contains("accepts 'no such thing', which is not a file type"), logged);
         assertTrue(logged.contains("accepts 'application/zip', which the uploads configuration does not allow"), logged);
+    }
+
+    @Test
+    void anOggVideoIsDetectedAsItsCodecAndStillAccepted() {
+        // Verifies the case the rule exists for, on real bytes rather than type names: Tika reads the first page of an
+        // Ogg Theora stream as video/theora even with the .ogv name, which the listed video/ogg must let through.
+        byte[] ogg = new byte[64];
+        System.arraycopy("OggS".getBytes(StandardCharsets.US_ASCII), 0, ogg, 0, 4);
+        ogg[28] = (byte) 0x80;
+        System.arraycopy("theora".getBytes(StandardCharsets.US_ASCII), 0, ogg, 29, 6);
+        String detected = new org.apache.tika.Tika().detect(ogg, "clip.ogv");
+
+        assertEquals("video/theora", detected);
+        assertFalse(AllowedTypes.permits(detected, Set.of("video/ogg")));
+        assertTrue(AllowedTypes.permitsFile(detected, "clip.ogv", Set.of("video/ogg")));
     }
 }

@@ -286,4 +286,21 @@ class LegacyConfigurationMigrationTest {
         assertTrue(LegacyConfigurationMigration.defaultsOf(UploadsConfig.class).keySet().containsAll(LegacyConfigurationMigration.RENAMED.keySet()),
                 "every renamed setting names a setting of a theme");
     }
+
+    @Test
+    void anEmptyListOfEarlierBuildsIsCarriedAsAnyFile() throws Exception {
+        // Verifies the upgrade keeps what an empty list meant: until 0.5 it let every file through (a field's own
+        // types still applied), where an empty uploadAllowedTypes refuses every file. It is carried as */*, which says
+        // the same — a field without types accepts anything, a field with types keeps its own.
+        ConfigurationAdmin admin = adminWithLegacy(legacy(Map.of("uploadAllowedMimeTypes", "")));
+        Configuration theme = mock(Configuration.class);
+        when(admin.getConfiguration(UploadsConfigService.PID, "?")).thenReturn(theme);
+        when(theme.getProperties()).thenAnswer(invocation -> new Hashtable<>(uploadsFromFile()));
+
+        assertEquals(Outcome.WRITTEN, new LegacyConfigurationMigration(UploadsConfigService.PID, UploadsConfig.class).run(admin, uploadsFromFile()));
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Dictionary<String, Object>> written = ArgumentCaptor.forClass(Dictionary.class);
+        verify(theme).update(written.capture());
+        assertEquals("*/*", written.getValue().get("uploadAllowedTypes"));
+    }
 }
