@@ -50,7 +50,7 @@ const FIXTURE_FILES = [
 	},
 	{
 		fileName: 'cats.mkv',
-		mimeTypes: ['video/x-matroska', 'application/x-matroska'],
+		mimeTypes: ['video/x-matroska'],
 		path: 'cypress/fixtures/files/cats.mkv'
 	},
 	{

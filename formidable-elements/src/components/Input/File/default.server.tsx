@@ -2,11 +2,11 @@ import {Island, jahiaComponent} from "@jahia/javascript-modules-library";
 import FileInput from "./File.client";
 import {type BaseValidationMessageProps, validationDataAttributes} from "@jahia/formidable-library";
 import {HelpText, helpTextId} from "@jahia/formidable-library";
+import {fileTypesOf} from "~/utils/fileTypes.server";
 
 interface InputFileProps extends BaseValidationMessageProps {
 	"jcr:title"?: string;
 	helpText?: string;
-	accept?: string[];
 	multiple?: boolean;
 	required?: boolean;
 }
@@ -18,7 +18,7 @@ jahiaComponent(
 		name: "default"
 	},
 	(
-		{"jcr:title": label, helpText, accept, multiple, required, ...validationMsgs}: InputFileProps,
+		{"jcr:title": label, helpText, multiple, required, ...validationMsgs}: InputFileProps,
 		{currentNode}
 	) => {
 		// Generate unique id and name
@@ -43,7 +43,8 @@ jahiaComponent(
 					props={{
 						inputId,
 						inputName,
-						accept,
+						// what the server lets through: the field's types restricted to the allowed ones, or all of them
+						fileTypes: fileTypesOf(currentNode),
 						multiple,
 						required,
 						describedBy: helpId,

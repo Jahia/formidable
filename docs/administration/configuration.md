@@ -13,13 +13,16 @@ typed syntax (`L"5"`, quoted strings) a `.cfg` file does not read back.
 | Theme | PID and file (`karaf/etc/<PID>.cfg`) | Settings | Read by |
 |---|---|---|---|
 | CAPTCHA | `org.jahia.modules.formidable.captcha` | `captchaSiteKey`, `captchaSecretKey`, `captchaScriptUrl`, `captchaWidgetVar`, `captchaTokenField`, `captchaVerifyUrl`, `captchaHttpConnectTimeoutSeconds`, `captchaHttpRequestTimeoutSeconds` | the widget in the page, the verification at submission — [CAPTCHA server-side validation](captcha-server-side-validation.md) |
-| Uploads | `org.jahia.modules.formidable.uploads` | `uploadMaxFileSizeBytes`, `uploadMaxRequestSizeBytes`, `uploadMaxFileCount`, `uploadAllowedMimeTypes` | the multipart parser, the early size guard, the e-mail action's attachment bound, the `accept` choicelist |
+| Uploads | `org.jahia.modules.formidable.uploads` | `uploadMaxFileSizeBytes`, `uploadMaxRequestSizeBytes`, `uploadMaxFileCount`, `uploadAllowedTypes` | the multipart parser, the early size guard, the e-mail action's attachment bound, the file field and its `accept` choicelist — [Allowed file types](#allowed-file-types) |
 | Choice options | `org.jahia.modules.formidable.choiceOptions` | `optionsSources`, `optionsSourcesCacheTtlSeconds`, `optionsQueryMaxResults` | the options sources a choice field may pick — [Choice field options sources](../architecture/choice-field-options-sources.md#declaring-sources-administrator) |
 | Form actions | `org.jahia.modules.formidable.formActions` | `forwardTargets`, `enableDevForwardTargets`, `devForwardTargets`, `forwardHttpConnectTimeoutSeconds`, `forwardHttpRequestTimeoutSeconds` | the forward action and its target picker |
 | Field actions | `org.jahia.modules.formidable.fieldActions` | `fieldActionProviders`, `enableDevFieldActionProviders`, `devFieldActionProviders`, `fieldActionHttpConnectTimeoutSeconds`, `fieldActionHttpRequestTimeoutSeconds`, `fieldActionVerdictCacheTtlSeconds`, `fieldActionRateLimitPerMinute`, `fieldActionMaxValueLength`, `fieldActionMaxValuesPerField` | the field actions' providers and the pre-check endpoint — [Field actions: providers and limits](field-actions.md) |
 
-The setting names are the ones of the single file of earlier builds, unchanged: a line copied from an old
-file into its theme's file is read as it was. The PIDs are dotted on purpose — `org.jahia.modules.formidable-captcha`
+The setting names are the ones of the single file of earlier builds but one: `uploadAllowedMimeTypes` is now
+`uploadAllowedTypes`, since it takes extensions too. Any other line copied from an old file into its theme's
+file is read as it was; the migration below reads the renamed setting under its former name, does not carry a
+list still at the former default — the new default holds the same seventeen types, written as extensions — and
+carries an empty list, which meant any file until 0.5, as `*/*`. The PIDs are dotted on purpose — `org.jahia.modules.formidable-captcha`
 would declare an instance of a factory configuration, which none of these is — so the five files sort
 together in `karaf/etc/` and in the Felix console.
 
@@ -27,6 +30,79 @@ Each file is logged when it is read (`CaptchaConfigService configured: …`, `Up
 and so on), with what was accepted; a refused line — a target without HTTPS, a provider line whose sixth part is
 neither `header` nor `query` — is logged with its id and the reason, never a credential. A zero or negative
 timeout or bound is refused and the default applies, with a warning naming the setting.
+
+## Allowed file types
+
+`uploadAllowedTypes` lists the file types a file field may accept, comma-separated. Each entry is an
+extension (`pdf`, `.docx`), a MIME type (`application/pdf`), a wildcard (`image/*`), or `*/*` for any file.
+An extension stands for the MIME type Apache Tika gives it, and a MIME alias stands for its canonical type (`audio/x-wav` is
+`audio/vnd.wave`, the type Tika detects a WAV file as): the engine resolves every entry once, when it reads the
+file, and logs what it resolved (`uploadAllowedTypes: read as [pdf = application/pdf, …]`); an entry that is
+neither a MIME type nor an extension Tika knows is ignored, with a warning. From then on everything compares MIME
+types, including the check of every uploaded file, whose type Tika detects from its content and name: `txt`
+allows `text/plain`, the type Tika gives any plain-text file whatever its extension (`.cnd`, `.pom`).
+
+What that detection proves depends on the format. For a format Tika recognises by its content — PDF, the image
+formats, the video and audio containers, XML documents, plain text — the content decides and a name cannot pass
+one off as another. For a format built on a container, the engine (which embeds `tika-core` alone, with no
+container detector) checks the **family** by content — a zip, an OLE2 compound file — and takes the **kind** from
+the name: any zip named `.docx`, `.xlsx` or `.odt` is read as that document, a jar named `.zip` as a zip, an
+old binary file named `.doc` or `.xls` as that document. Listing `docx` therefore lets through any zip a visitor
+names `.docx`. Checking the kind by content would need Tika's container detectors (`tika-parsers`), a heavier
+dependency the module does not take.
+
+An extension shared by several types stands for one of them only — `ogg` is read as `audio/vorbis`, an Ogg video
+is `ogv` (`video/ogg`). Give the MIME type when the extension is ambiguous. Tika's registry of the version the
+module embeds says which type each extension stands for:
+[tika-mimetypes.xml of Tika 3.3.2](https://github.com/apache/tika/blob/3.3.2/tika-core/src/main/resources/org/apache/tika/mime/tika-mimetypes.xml)
+(search for `*.ogg`). The default list, `jpg,png,gif,webp,pdf,doc,docx,xls,xlsx,odt,ods,txt,csv,mp4,webm,ogv,mkv`,
+holds no ambiguous extension.
+
+For audio and video, Tika detects what is inside the container, which the file's name does not say: an Ogg video
+named `.ogv` is detected as `video/theora`, an Opus track named `.oga` as `audio/opus`. Tika's registry declares
+these kinds of `video/ogg` and `audio/ogg`, so an audio or video file is also accepted when its detected type is a
+kind of the type its name stands for, and that type is listed as such — `ogv` or `video/ogg`, not only
+`video/*`. Every other type is matched exactly: elsewhere the registry's "kind of" means "readable as" — an XHTML
+page, detected by its content, is a kind of `application/xml` — and listing `xml` must not let it through.
+
+The list is the whole of what a file field may accept:
+
+- a field whose **Accept** setting is empty accepts every listed type;
+- a field whose **Accept** setting names types keeps those still listed — a type removed from the list is no
+  longer offered to the visitor nor accepted by the server, and a warning names the field and the type each time
+  the field is rendered afresh — not when the page is served from the cache —
+  (`Field '<path>' accepts '<type>', which the uploads configuration does not allow: ignored`, or `which is not a
+  file type` for a stored value that names none). Until the field is edited again, the content keeps the value and
+  the field honours it again if the type is listed again; once a contributor saves the field in the Content
+  Editor, the setting holds only the types still listed — the editor offers no other — and the removed type is
+  gone for good;
+- **removing a type therefore changes what fields accept, and can widen it.** A field that accepted only removed
+  types accepts no file until it is edited, then — its **Accept** setting emptied by the save — every listed type,
+  or any file under `*/*`. Replacing the list by `*/*` alone removes every specific type in that sense: a field
+  restricted to PDFs keeps its restriction only if `pdf` stays listed next to `*/*`. Before removing a type, look for the file fields that name it (the warning above lists
+  them as their pages render) and decide what each should accept instead;
+- `*/*` accepts any file, whatever type Tika detects — it holds the types a future Tika adds, where a list of
+  wildcards would not: a field without types then restricts nothing, in the visitor's picker nor on the server,
+  and a field with types keeps its own. Any file includes HTML pages and SVG images: the results screens never
+  open them as a page, but a file's own address opened in a browser displays it on the Jahia origin — list the types
+  your forms need rather than `*/*` when you can;
+- an empty list accepts no file at all: every file field refuses every file, and the engine says so when it reads
+  the file, giving `*/*` as the way to accept any file.
+
+The server applies a change at once. Pages already rendered keep offering the former list — in the file picker, the
+formats they list and their own check before sending — until the site's cache is flushed (jContent, or the
+`flushSiteCache` GraphQL mutation): a type removed is then refused only when the form is sent, a type added is
+refused by the page before anything is sent.
+
+The **Accept** setting offers the listed types, each with the module's translated wording where the module ships
+one (the seventeen default types, and the top-level wildcards: "Any image (image/*)"), else with a label made from
+the type — its acronym or extension, then the extension: "ZIP (.zip)". `*/*` is never offered — a field without
+types already accepts any file —: in its place the setting offers a wildcard for each top-level type of Tika's
+registry (`application/*`, `audio/*`, `chemical/*`, `image/*`, `message/*`, `model/*`, `multipart/*`, `text/*`,
+`video/*`, `x-conference/*` in Tika 3.3.2), beside the other listed types. Those wildcards narrow a field coarsely
+only — `application/*` takes a PDF as well as an archive or an executable —: to let contributors restrict a field
+to PDFs or to Word documents, list those types next to `*/*` (`*/*,pdf,docx`), and the setting offers them too. An administrator cannot give a type of their own a translated label; a developer adds
+the key `fmdb_inputFile.accept.<mime/type>` to the module's resource bundle.
 
 ## Upgrading from the single file
 

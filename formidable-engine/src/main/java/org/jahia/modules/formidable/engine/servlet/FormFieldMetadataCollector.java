@@ -386,7 +386,6 @@ class FormFieldMetadataCollector {
                     }
                 })
                 .filter(s -> !s.isBlank())
-                .map(FormDataParser::resolveAcceptToken)
                 .collect(java.util.stream.Collectors.toSet());
 
         return accepted.isEmpty() ? Set.of() : accepted;

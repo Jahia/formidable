@@ -1,99 +1,23 @@
 import {type ChangeEvent, useEffect, useRef, useState} from 'react';
 import {formatFileSize} from '~/utils/fileUtils';
 import {useTranslation} from "react-i18next";
+import type {FileTypes} from '~/utils/fileTypes.server';
+import {accepts, buildAcceptAttr, getDisplayFormats, isRestricted} from './fileAccept';
 
 interface FileInputProps {
 	inputId: string;
 	inputName: string;
-	accept?: string[];
+	/** What the field accepts, from the engine: the types the server lets through and their extensions (Tika's). */
+	fileTypes?: FileTypes;
 	multiple?: boolean;
 	required?: boolean;
 	describedBy?: string;
 	validationAttributes?: Record<string, string | undefined>;
 }
 
-const normalizeAccept = (accept?: string[]): string[] =>
-	(accept ?? []).map(token => token.trim()).filter(Boolean);
-
-const MIME_EXTENSION_MAP: Record<string, string[]> = {
-	"application/msword": [".doc"],
-	"application/pdf": [".pdf"],
-	"application/vnd.ms-excel": [".xls"],
-	"application/vnd.oasis.opendocument.spreadsheet": [".ods"],
-	"application/vnd.oasis.opendocument.text": [".odt"],
-	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
-	"application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
-	"image/gif": [".gif"],
-	"image/jpeg": [".jpg", ".jpeg"],
-	"image/png": [".png"],
-	"image/webp": [".webp"],
-	"text/csv": [".csv"],
-	"video/mp4": [".mp4"],
-	"video/ogg": [".ogv", ".ogg"],
-	"video/webm": [".webm"],
-	"video/x-matroska": [".mkv"],
-};
-
-const getKnownExtensionsForMime = (mimeType: string): string[] =>
-	MIME_EXTENSION_MAP[mimeType] ?? [];
-
-const getKnownExtensionsForWildcard = (wildcardMimeType: string): string[] => {
-	const prefix = wildcardMimeType.slice(0, -1);
-	return Array.from(
-		new Set(
-			Object.entries(MIME_EXTENSION_MAP)
-				.filter(([mimeType]) => mimeType.startsWith(prefix))
-				.flatMap(([, extensions]) => extensions)
-		)
-	);
-};
-
-const getDisplayFormats = (acceptTokens: string[]): string[] =>
-	Array.from(new Set(acceptTokens.flatMap(token => {
-		const loweredToken = token.toLowerCase();
-		if (loweredToken.startsWith(".")) {
-			return [loweredToken];
-		}
-
-		if (loweredToken.endsWith("/*")) {
-			const wildcardExtensions = getKnownExtensionsForWildcard(loweredToken);
-			return wildcardExtensions.length > 0 ? wildcardExtensions : [token];
-		}
-
-		const mimeExtensions = getKnownExtensionsForMime(loweredToken);
-		return mimeExtensions.length > 0 ? mimeExtensions : [token];
-	})));
-
 const extensionFromName = (fileName: string): string => {
 	const dotIndex = fileName.lastIndexOf(".");
 	return dotIndex >= 0 ? fileName.slice(dotIndex).toLowerCase() : fileName;
-};
-
-const matchesAcceptToken = (file: File, token: string): boolean => {
-	const loweredToken = token.toLowerCase();
-	const loweredName = file.name.toLowerCase();
-	const loweredType = file.type.toLowerCase();
-
-	if (loweredToken.startsWith(".")) {
-		return loweredName.endsWith(loweredToken);
-	}
-
-	if (loweredToken.endsWith("/*")) {
-		const prefix = loweredToken.slice(0, -1);
-		if (loweredType && loweredType.startsWith(prefix)) {
-			return true;
-		}
-
-		const wildcardExtensions = getKnownExtensionsForWildcard(loweredToken);
-		return wildcardExtensions.length === 0 || wildcardExtensions.some(extension => loweredName.endsWith(extension));
-	}
-
-	if (loweredType && loweredType === loweredToken) {
-		return true;
-	}
-
-	const knownExtensions = getKnownExtensionsForMime(loweredToken);
-	return knownExtensions.length === 0 || knownExtensions.some(extension => loweredName.endsWith(extension));
 };
 
 const deduplicateFiles = (files: File[]): File[] => {
@@ -113,19 +37,18 @@ export default function FileInput(
 	{
 		inputId,
 		inputName,
-		accept,
+		fileTypes = {shown: {}, recognised: {}},
 		multiple,
 		required,
 		describedBy,
 		validationAttributes
-	}: FileInputProps
+	}: Readonly<FileInputProps>
 ) {
 	const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
 	const [selectionNotice, setSelectionNotice] = useState<string | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const {t} = useTranslation('formidable-elements', {keyPrefix: 'fmdb_inputFile'});
-	const acceptTokens = normalizeAccept(accept);
-	const allowedTypesLabel = getDisplayFormats(acceptTokens)
+	const allowedTypesLabel = getDisplayFormats(fileTypes)
 		.map(format => `"${format}"`)
 		.join(", ");
 
@@ -172,7 +95,7 @@ export default function FileInput(
 
 		const previousFiles = multiple && selectedFiles ? Array.from(selectedFiles) : [];
 
-		if (acceptTokens.length === 0) {
+		if (!isRestricted(fileTypes)) {
 			const merged = deduplicateFiles([...previousFiles, ...newFiles]);
 			syncInputFiles(merged);
 			input.setCustomValidity("");
@@ -180,7 +103,7 @@ export default function FileInput(
 			return;
 		}
 
-		const validFiles = newFiles.filter(file => acceptTokens.some(token => matchesAcceptToken(file, token)));
+		const validFiles = newFiles.filter(file => accepts(file, fileTypes));
 		const invalidFiles = newFiles.filter(file => !validFiles.includes(file));
 
 		if (invalidFiles.length === 0) {
@@ -194,7 +117,9 @@ export default function FileInput(
 		const invalidFormats = Array.from(new Set(invalidFiles.map(file => extensionFromName(file.name))))
 			.map(format => `"${format}"`)
 			.join(", ");
-		const blockingMessage = t(invalidFiles.length > 1 ? "multipleInvalidFiles" : "singleInvalidFile", {
+		const invalidKey = invalidFiles.length > 1 ? "multipleInvalidFiles" : "singleInvalidFile";
+		// no type left: the field accepts no file, and there is no list of formats to give
+		const blockingMessage = allowedTypesLabel === "" ? t("noAcceptedType") : t(invalidKey, {
 			invalidFormats,
 			allowedTypes: allowedTypesLabel,
 			interpolation: {escapeValue: false},
@@ -235,21 +160,7 @@ export default function FileInput(
 		setSelectedFiles(dt.files.length > 0 ? dt.files : null);
 	};
 
-	const buildAcceptAttr = (tokens: string[]): string => {
-		const entries = new Set<string>(tokens);
-		for (const token of tokens) {
-			const lower = token.toLowerCase();
-			if (!lower.startsWith(".")) {
-				for (const ext of getKnownExtensionsForMime(lower)) {
-					entries.add(ext);
-				}
-			}
-		}
-
-		return Array.from(entries).join(",");
-	};
-
-	const acceptAttr = buildAcceptAttr(acceptTokens);
+	const acceptAttr = buildAcceptAttr(fileTypes);
 
 	return (
 		<div className="fmdb-file-input-container">

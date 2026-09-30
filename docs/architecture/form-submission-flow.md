@@ -53,7 +53,7 @@ Browser
                         ├─ size limits (per-file + total)
                         ├─ file count limit (config.getUploadMaxFileCount())
                         ├─ Tika magic-byte MIME detection
-                        └─ MIME allowlist (field accept or global cfg)
+                        └─ allowed types (field accept within the cfg list, or the cfg list)
          Step 10  validateLogicCoherence  reject values submitted for fields provably hidden
                                           by conditional logic (see
                                           conditional-logic-field-resolution.md)
@@ -338,9 +338,38 @@ All file parts pass through `FormDataParser` which enforces the following contro
 | 4 | File part count limit (CVE-2023-24998) | `upload.setFileCountMax(config.getUploadMaxFileCount())` — requires commons-fileupload ≥ 1.5 |
 | 5 | Filename sanitisation | Filename normalized with Jahia's standard JCR node-name escaping rules; blank results fall back to `upload` |
 | 6 | MIME type detection | Apache Tika filename-aware detection via `Tika.detect(byte[], String)` (ignores client-supplied `Content-Type`, but uses the original filename extension to disambiguate ambiguous formats) |
-| 7 | MIME type allowlist | Field-level `accept` property (multiple choicelist) takes priority; falls back to global cfg allowlist. Rejections at this step are treated as validation failures (`FMDB-010`), not technical parse failures |
+| 7 | Allowed types | `AllowedTypes.forField`: the field's `accept` values restricted to the configuration's `uploadAllowedTypes` (a value no longer listed is dropped; the warning naming it comes from the field's view, which names the node — the parser logs no request-supplied name; `FormDataParser.checkAllowedType`), or the whole list when the field declares none; an empty result refuses every file. A type passes when listed, covered by a wildcard of its top-level type or by `*/*` (`AllowedTypes.permits`), or — for audio and video only — when it is a kind, in Tika's registry, of the type the file's name stands for and that type is listed as such (`AllowedTypes.permitsFile`): an Ogg video named `.ogv`, detected `video/theora`, passes where `video/ogg` is listed. Every other type is matched exactly, since there "a kind of" means "readable as": an XHTML page named `.xml` (detected by its content, a kind of `application/xml`) never passes. For a container format the detection (`tika-core` alone, no container detector) checks the family by content — zip, OLE2 — and takes the kind from the name: any zip named `.docx` is read as a docx (see [Allowed file types](../administration/configuration.md#allowed-file-types)). Rejections at this step are treated as validation failures (`FMDB-010`), not technical parse failures |
 
-Limits and the global allowlist are configured in `org.jahia.modules.formidable.uploads.cfg` (`UploadsConfigService`),
+**One table of file types: Apache Tika's.** The same registry that detects a file's real type (step 6)
+describes every type the field and the editor show — no table of the module maps a type to its extensions or
+its name. The configuration's `uploadAllowedTypes` is read once into MIME types (an extension such as `docx`
+resolved by Tika, an alias such as `audio/x-wav` normalised to the type Tika detects, `audio/vnd.wave`,
+`UploadsConfigService`), and `AllowedTypes` (engine, `files/`) is the one reading of what a
+field accepts, shared by the parser (step 7) and the field's view, so the visitor is never offered a type the
+server refuses. `FileTypeService` (engine, `files/`, reached by the file field's view by its class name) takes the
+field's node — the view hands `currentNode` over, no JavaScript array crosses into Java — and returns the types
+the field accepts; for each, the extensions shown to the visitor and the ones a file is recognised by when the
+browser gives no type (all of the type's: `.jpg`, `.jpeg`, `.jpe`…). The shown extension is Tika's preferred one
+unless it is no abbreviation of the type's acronym while the acronym is an extension of the type too: `audio/mpeg`
+prefers `.mpga`, known as MP3, shown `.mp3`; `image/jpeg` keeps `.jpg` (seven types of Tika 3.3.2's registry are
+examined; MP3 and MOBI change). The island lists the shown extensions, builds the `accept` attribute from the types and every
+recognised extension — so the picker offers `.mov` for `video/quicktime`, whose preferred extension is `.qt` — and
+checks each file before sending: no type left means no file, and a message says the field accepts none. The
+view's fragment is cached on the node alone: after a change of the list, a page already rendered keeps the former
+one until the site's cache is flushed — the server applies the new list at once. Without
+the engine's service the field restricts nothing on the client; the server checks anyway. In the editor, the
+`formidableMimeTypes` choicelist labels each allowed type with the wording of the declaring module's bundle
+where it has one (`fmdb_inputFile.accept.<mime/type>`, translated) and otherwise with a label computed from
+Tika — the type's acronym or shown extension in capitals, then the extension: "PDF (.pdf)", "WEBP (.webp)"; a
+wildcard or a type Tika does not know is labelled by the type itself (`image/*`), so two of them never share a
+label. A type an administrator adds to `uploadAllowedTypes` therefore needs no code and no bundle entry, and its
+label is the same in every language. Tika's own descriptions are not used: six of the seventeen default types
+have none (`image/webp`, `text/plain`, `text/csv`, `video/mp4`, `video/webm`, `video/x-matroska`) and the others
+read as a specification ("OpenDocument v1.0: Text document"). The choicelist no longer chains Jahia's
+`resourceBundle` initializer, which builds its key from the current label rather than the value.
+
+Limits and the allowed types are configured in `org.jahia.modules.formidable.uploads.cfg` (`UploadsConfigService`,
+[Allowed file types](../administration/configuration.md#allowed-file-types)),
 one of the five theme files the module ships, every setting at its default: how the files are deployed, edited
 and carried over from the single file of earlier builds is in [Configuration files](../administration/configuration.md).
 

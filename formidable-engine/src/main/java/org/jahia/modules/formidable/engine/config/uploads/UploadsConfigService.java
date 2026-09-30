@@ -2,6 +2,7 @@ package org.jahia.modules.formidable.engine.config.uploads;
 
 import org.jahia.modules.formidable.engine.config.ThemeLifecycle;
 import org.jahia.modules.formidable.engine.config.common.ConfigurationValues;
+import org.jahia.modules.formidable.engine.files.AllowedTypes;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -13,20 +14,29 @@ import org.osgi.service.metatype.annotations.Designate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
  * The uploads theme read from {@code org.jahia.modules.formidable.uploads.cfg}: the bounds the multipart parser
- * and the pipeline's size guard apply, and the MIME types a file field accepts when it declares none.
+ * and the pipeline's size guard apply, and the file types a file field may accept — each resolved to its MIME type
+ * here, once, so that everything downstream compares MIME types ({@link AllowedTypes}).
  */
 @Component(service = UploadsConfigService.class, configurationPid = UploadsConfigService.PID, immediate = true)
 @Designate(ocd = UploadsConfig.class)
 public class UploadsConfigService {
 
     public static final String PID = "org.jahia.modules.formidable.uploads";
+    /** The name uploadAllowedTypes had until 0.5, carried from the single PID; still written by an old script. */
+    static final String FORMER_ALLOWED_TYPES = "uploadAllowedMimeTypes";
 
-    private record Snapshot(long maxFileSizeBytes, long maxRequestSizeBytes, int maxFileCount, Set<String> allowedMimeTypes) {}
+    private record Snapshot(long maxFileSizeBytes, long maxRequestSizeBytes, int maxFileCount, Set<String> allowedTypes) {}
 
     private static final Logger log = LoggerFactory.getLogger(UploadsConfigService.class);
 
@@ -44,6 +54,10 @@ public class UploadsConfigService {
     @Activate
     @Modified
     public void configure(UploadsConfig config, Map<String, Object> properties) {
+        if (properties != null && properties.containsKey(FORMER_ALLOWED_TYPES)) {
+            log.warn("{} is no longer read: the setting is uploadAllowedTypes (extensions, MIME types or wildcards)",
+                    FORMER_ALLOWED_TYPES);
+        }
         lifecycle.configure(properties, config);
     }
 
@@ -59,18 +73,47 @@ public class UploadsConfigService {
                 ConfigurationValues.positiveLong("uploadMaxFileSizeBytes", config.uploadMaxFileSizeBytes(), UploadsConfig.DEFAULT_UPLOAD_MAX_FILE_SIZE_BYTES),
                 ConfigurationValues.positiveLong("uploadMaxRequestSizeBytes", config.uploadMaxRequestSizeBytes(), UploadsConfig.DEFAULT_UPLOAD_MAX_REQUEST_SIZE_BYTES),
                 (int) ConfigurationValues.positiveLong("uploadMaxFileCount", config.uploadMaxFileCount(), UploadsConfig.DEFAULT_UPLOAD_MAX_FILE_COUNT),
-                Set.copyOf(ConfigurationValues.commaSeparated(config.uploadAllowedMimeTypes()))
+                allowedTypes(config.uploadAllowedTypes())
         );
         log.info("UploadsConfigService configured: maxFileSize={}MB, maxRequest={}MB, maxFileCount={}, allowedTypes={}",
                 snapshot.maxFileSizeBytes() / 1_048_576,
                 snapshot.maxRequestSizeBytes() / 1_048_576,
                 snapshot.maxFileCount(),
-                snapshot.allowedMimeTypes().size());
+                snapshot.allowedTypes().size());
         return snapshot;
     }
 
     public long getUploadMaxFileSizeBytes()    { return lifecycle.current().maxFileSizeBytes(); }
     public long getUploadMaxRequestSizeBytes() { return lifecycle.current().maxRequestSizeBytes(); }
     public int  getUploadMaxFileCount()        { return lifecycle.current().maxFileCount(); }
-    public Set<String> getUploadAllowedMimeTypes() { return lifecycle.current().allowedMimeTypes(); }
+    /** The MIME types and wildcards a file field may accept; empty means no file is accepted. */
+    public Set<String> getUploadAllowedTypes() { return lifecycle.current().allowedTypes(); }
+
+    /**
+     * The configured tokens as MIME types: an extension or an alias is resolved by Tika — the resolutions logged once,
+     * so the administrator sees what an entry stands for —, a token that is no file type is dropped with a warning.
+     */
+    private static Set<String> allowedTypes(String configured) {
+        Set<String> types = new LinkedHashSet<>();
+        List<String> resolutions = new ArrayList<>();
+        for (String token : ConfigurationValues.commaSeparated(configured)) {
+            Optional<String> type = AllowedTypes.resolve(token);
+            if (type.isEmpty()) {
+                log.warn("uploadAllowedTypes: '{}' is neither a MIME type nor an extension Apache Tika knows; ignored", token);
+                continue;
+            }
+            if (!type.get().equals(token.trim().toLowerCase(Locale.ROOT))) {
+                resolutions.add(token.trim() + " = " + type.get());
+            }
+            types.add(type.get());
+        }
+        if (!resolutions.isEmpty()) {
+            log.info("uploadAllowedTypes: read as {}", resolutions);
+        }
+        if (types.isEmpty()) {
+            log.warn("uploadAllowedTypes allows no file type: every file field refuses every file. To accept any file, "
+                    + "set {}", AllowedTypes.ANY_FILE);
+        }
+        return Collections.unmodifiableSet(types);
+    }
 }

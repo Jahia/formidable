@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.engine.config;
 
+import org.jahia.modules.formidable.engine.files.AllowedTypes;
 import org.osgi.framework.InvalidSyntaxException;
 import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
@@ -56,6 +57,23 @@ public final class LegacyConfigurationMigration {
     /** How many times in all a write is tried before the theme's file is declared authoritative as it stands. */
     static final int MAX_ATTEMPTS = 3;
     static final String LEGACY_FILE_NOTICE_PREFIX = "# Superseded";
+
+    /**
+     * A setting the legacy configuration knew by another name, and its default there: a legacy value still at that
+     * default is not carried either — the theme's default says the same thing, written another way. When an empty
+     * value meant something the theme's setting says otherwise, {@code emptyMeans} is that value in the theme's words.
+     */
+    record Former(String id, String defaultText, String emptyMeans) {}
+
+    /** The settings renamed since the single PID, by their id in the theme. */
+    static final Map<String, Former> RENAMED = Map.of(
+            "uploadAllowedTypes", new Former("uploadAllowedMimeTypes", "image/jpeg,image/png,image/gif,image/webp,application/pdf,"
+                    + "application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,"
+                    + "application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,"
+                    + "application/vnd.oasis.opendocument.text,application/vnd.oasis.opendocument.spreadsheet,"
+                    + "text/plain,text/csv,video/mp4,video/webm,video/ogg,video/x-matroska",
+                    // Empty meant "any file" until 0.5, where it refuses every file: carried as the token that says it.
+                    AllowedTypes.ANY_FILE));
 
     private static final Logger log = LoggerFactory.getLogger(LegacyConfigurationMigration.class);
 
@@ -133,21 +151,26 @@ public final class LegacyConfigurationMigration {
     /**
      * The settings to write: held by the legacy configuration at a value other than the default, still at the
      * default in the theme's configuration. A setting the administrator already changed in the theme's file is
-     * kept as the file says, and named in a warning when the two disagree.
+     * kept as the file says, and named in a warning when the two disagree. A renamed setting is read under its
+     * former name ({@link #RENAMED}).
      */
     private Map<String, Object> carried(Dictionary<String, Object> legacy, Map<String, Object> properties) {
         Map<String, Object> carried = new LinkedHashMap<>();
         List<String> kept = new ArrayList<>();
         defaults.forEach((setting, defaultText) -> {
-            Object legacyValue = legacy.get(setting);
-            if (legacyValue == null || asText(legacyValue).equals(defaultText)) {
+            Former former = RENAMED.get(setting);
+            Object legacyValue = legacy.get(former == null ? setting : former.id());
+            if (legacyValue == null || asText(legacyValue).equals(defaultText)
+                    || former != null && asText(legacyValue).equals(former.defaultText())) {
                 return;
             }
+            Object value = former != null && former.emptyMeans() != null && asText(legacyValue).isBlank()
+                    ? former.emptyMeans() : legacyValue;
             Object current = properties.get(setting);
             String currentText = current == null ? defaultText : asText(current);
             if (currentText.equals(defaultText)) {
-                carried.put(setting, asStrings(legacyValue));
-            } else if (!currentText.equals(asText(legacyValue))) {
+                carried.put(setting, asStrings(value));
+            } else if (!currentText.equals(asText(value))) {
                 kept.add(setting);
             }
         });

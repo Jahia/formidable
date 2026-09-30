@@ -3,6 +3,8 @@ package org.jahia.modules.formidable.engine.config;
 import org.jahia.modules.formidable.engine.config.LegacyConfigurationMigration.Outcome;
 import org.jahia.modules.formidable.engine.config.formactions.FormActionsConfig;
 import org.jahia.modules.formidable.engine.config.formactions.FormActionsConfigService;
+import org.jahia.modules.formidable.engine.config.uploads.UploadsConfig;
+import org.jahia.modules.formidable.engine.config.uploads.UploadsConfigService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.osgi.service.cm.Configuration;
@@ -243,5 +245,62 @@ class LegacyConfigurationMigrationTest {
         assertArrayEquals(new String[] {"1", "2"}, (String[]) LegacyConfigurationMigration.asStrings(new Object[] {1L, 2L}));
         assertEquals("7", LegacyConfigurationMigration.asStrings(7L));
         assertFalse(LegacyConfigurationMigration.asText(7L).isEmpty());
+    }
+
+    /** The uploads theme as its file hands it over, every setting at its default, and its configuration in ConfigAdmin. */
+    private static Map<String, Object> uploadsFromFile() {
+        Map<String, Object> properties = new HashMap<>();
+        properties.put(LegacyConfigurationMigration.FILEINSTALL_FILENAME, "file:/karaf/etc/" + UploadsConfigService.PID + ".cfg");
+        LegacyConfigurationMigration.defaultsOf(UploadsConfig.class).forEach(properties::put);
+        return properties;
+    }
+
+    @Test
+    void aRenamedSettingIsReadUnderItsFormerName() throws Exception {
+        // Verifies the rename of uploadAllowedMimeTypes: the value a 0.4 configuration holds under the former name
+        // lands under the new one — the new name read in the legacy configuration would find nothing.
+        ConfigurationAdmin admin = adminWithLegacy(legacy(Map.of("uploadAllowedMimeTypes", "application/pdf,image/png")));
+        Configuration theme = mock(Configuration.class);
+        when(admin.getConfiguration(UploadsConfigService.PID, "?")).thenReturn(theme);
+        when(theme.getProperties()).thenAnswer(invocation -> new Hashtable<>(uploadsFromFile()));
+
+        assertEquals(Outcome.WRITTEN, new LegacyConfigurationMigration(UploadsConfigService.PID, UploadsConfig.class).run(admin, uploadsFromFile()));
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Dictionary<String, Object>> written = ArgumentCaptor.forClass(Dictionary.class);
+        verify(theme).update(written.capture());
+        assertEquals("application/pdf,image/png", written.getValue().get("uploadAllowedTypes"));
+        assertNull(written.getValue().get("uploadAllowedMimeTypes"));
+    }
+
+    @Test
+    void aRenamedSettingAtItsFormerDefaultIsNotCarried() throws Exception {
+        // Verifies that 0.4's default list, the same types the new default writes as extensions, does not replace the
+        // new default in the theme's file: nothing to carry.
+        String formerDefault = LegacyConfigurationMigration.RENAMED.get("uploadAllowedTypes").defaultText();
+        ConfigurationAdmin admin = adminWithLegacy(legacy(Map.of("uploadAllowedMimeTypes", formerDefault)));
+        Configuration theme = mock(Configuration.class);
+        when(admin.getConfiguration(UploadsConfigService.PID, "?")).thenReturn(theme);
+        when(theme.getProperties()).thenAnswer(invocation -> new Hashtable<>(uploadsFromFile()));
+
+        assertEquals(Outcome.NOTHING, new LegacyConfigurationMigration(UploadsConfigService.PID, UploadsConfig.class).run(admin, uploadsFromFile()));
+        assertTrue(LegacyConfigurationMigration.defaultsOf(UploadsConfig.class).keySet().containsAll(LegacyConfigurationMigration.RENAMED.keySet()),
+                "every renamed setting names a setting of a theme");
+    }
+
+    @Test
+    void anEmptyListOfEarlierBuildsIsCarriedAsAnyFile() throws Exception {
+        // Verifies the upgrade keeps what an empty list meant: until 0.5 it let every file through (a field's own
+        // types still applied), where an empty uploadAllowedTypes refuses every file. It is carried as */*, which says
+        // the same — a field without types accepts anything, a field with types keeps its own.
+        ConfigurationAdmin admin = adminWithLegacy(legacy(Map.of("uploadAllowedMimeTypes", "")));
+        Configuration theme = mock(Configuration.class);
+        when(admin.getConfiguration(UploadsConfigService.PID, "?")).thenReturn(theme);
+        when(theme.getProperties()).thenAnswer(invocation -> new Hashtable<>(uploadsFromFile()));
+
+        assertEquals(Outcome.WRITTEN, new LegacyConfigurationMigration(UploadsConfigService.PID, UploadsConfig.class).run(admin, uploadsFromFile()));
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Dictionary<String, Object>> written = ArgumentCaptor.forClass(Dictionary.class);
+        verify(theme).update(written.capture());
+        assertEquals("*/*", written.getValue().get("uploadAllowedTypes"));
     }
 }

@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -161,5 +162,49 @@ class FormDataParserAllowlistTest {
                 ));
         assertEquals(
                 FormDataParser.ParseException.FailureType.VALIDATION, error.failureType());
+    }
+
+
+    // The allowed-type step (7) on its own: a file part cannot be parsed here, JCRContentUtils — which sanitises its
+    // name — needs a Jahia runtime to initialise.
+    private static void check(String detected, Set<String> accept, Set<String> configured) throws FormDataParser.ParseException {
+        FormDataParser.checkAllowedType(detected, accept, configured, "upload");
+    }
+
+    @Test
+    void anEmptyListRefusesEveryFile() {
+        // Verifies the decision taken with the product owner: no allowed type refuses every file, with or without
+        // types on the field — an empty list used to let every file through.
+        for (Set<String> accept : List.of(Set.<String>of(), Set.of("application/pdf"))) {
+            FormDataParser.ParseException error = assertThrows(FormDataParser.ParseException.class,
+                    () -> check("application/pdf", accept, Set.of()));
+            assertEquals(FormDataParser.ParseException.FailureType.VALIDATION, error.failureType());
+        }
+    }
+
+    @Test
+    void aFieldsTypeTheListNoLongerAllowsIsRefused() {
+        // Verifies that the field's accept stays within the list: a Word file the field still names, but the list
+        // dropped, is refused — the field's accept used to win over the list.
+        FormDataParser.ParseException error = assertThrows(FormDataParser.ParseException.class,
+                () -> check("application/msword", Set.of("application/pdf", "application/msword"), Set.of("application/pdf")));
+        assertEquals(FormDataParser.ParseException.FailureType.VALIDATION, error.failureType());
+    }
+
+    @Test
+    void aFieldWithoutTypesTakesTheListAndAFieldTypeTheListAllowsPasses() {
+        assertDoesNotThrow(() -> check("application/pdf", Set.of(), Set.of("application/pdf")));
+        assertDoesNotThrow(() -> check("application/pdf", Set.of("pdf"), Set.of("application/pdf", "image/png")));
+        assertThrows(FormDataParser.ParseException.class, () -> check("application/pdf", Set.of(), Set.of("image/png")));
+    }
+
+    @Test
+    void anOggVideoNamedOgvIsAcceptedWhereVideoOggIsAllowed() {
+        // Verifies the parser reads the file's name as well: Tika detects an Ogg video's codec, video/theora, a kind of
+        // the video/ogg its .ogv name stands for; an MP4 carrying the same name stays refused.
+        assertDoesNotThrow(() -> FormDataParser.checkAllowedType("video/theora", Set.of(), Set.of("video/ogg"), "clip.ogv"));
+        FormDataParser.ParseException error = assertThrows(FormDataParser.ParseException.class,
+                () -> FormDataParser.checkAllowedType("video/mp4", Set.of(), Set.of("video/ogg"), "clip.ogv"));
+        assertEquals(FormDataParser.ParseException.FailureType.VALIDATION, error.failureType());
     }
 }

@@ -7,6 +7,7 @@ import org.apache.commons.fileupload.util.Streams;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.tika.Tika;
 import org.jahia.modules.formidable.engine.config.uploads.UploadsConfigService;
+import org.jahia.modules.formidable.engine.files.AllowedTypes;
 import org.jahia.services.content.JCRContentUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +33,8 @@ import java.util.Set;
  *   4. Text field validation — choice match, format (email/date/color), constraints (required/min/max/length/pattern)
  *   5. Filename sanitization (path components removed; JCR-reserved characters normalized)
  *   6. MIME type detection via Apache Tika, filename-aware (content still wins over the extension hint)
- *   7. MIME type allowlist check — per-field 'accept' takes priority over global cfg fallback
+ *   7. File type check — the field's 'accept' restricted to the configuration's allowed types, or all of them
+ *      when the field declares none; no type at all refuses every file ({@link AllowedTypes})
  *
  * Plain-text fields are validated on input and preserved as submitted. XSS protection is
  * enforced by escaping at each output sink (see {@link FieldEscaper}), never by mutating input.
@@ -91,7 +93,8 @@ public class FormDataParser {
      * @param choicesUnresolvable true when the field's options source could not deliver at
      *                            collection time: a non-empty submitted value cannot be
      *                            verified and must be rejected (D11)
-     * @param acceptTypes         pre-resolved MIME type allowlist for file fields
+     * @param acceptTypes         the file field's accept tokens as stored, read at parse time against the
+     *                            configuration's allowed types ({@link AllowedTypes#forField})
      * @param constraints         server-side constraints collected from JCR
      */
     public record FieldInfo(
@@ -411,21 +414,31 @@ public class FormDataParser {
         // detection is too generic, such as CSV, Matroska/WebM containers, and other formats
         // whose final MIME type benefits from the original extension hint.
         String detectedMime = TIKA.detect(data, sanitizedName);
-        // Field-level allowlist (pre-resolved at collection time); falls back to global config
-        Set<String> allowed = (fieldAllowedTypes != null && !fieldAllowedTypes.isEmpty())
-                ? fieldAllowedTypes
-                : config.getUploadAllowedMimeTypes();
-
-        if (!allowed.isEmpty() && !isMimeAllowed(detectedMime, allowed)) {
-            log.warn("[FormDataParser] Rejected uploaded file: detected MIME type is not in the configured allowlist");
-            throw new ParseException(
-                    "File '" + sanitizedName + "': type '" + detectedMime + "' is not allowed.",
-                    ParseException.FailureType.VALIDATION
-            );
-        }
+        checkAllowedType(detectedMime, fieldAllowedTypes, config.getUploadAllowedTypes(), sanitizedName);
 
         log.debug("[FormDataParser] Accepted uploaded file part (size={} bytes)", data.length);
         return new FormFile(fieldName, sanitizedName, detectedMime, data);
+    }
+
+    /**
+     * Step 7: the detected type must be one the field accepts — its accept values within the configuration's allowed
+     * types, or all of them when it declares none; none at all refuses the file ({@link AllowedTypes#forField}) — or,
+     * for audio and video, a kind of the listed type the file's name stands for, as an Ogg video's codec is of
+     * {@code video/ogg} ({@link AllowedTypes#permitsFile}). No field is named in a warning: the name here comes from
+     * the request; the field's view warns, naming its node.
+     * Package-level for the tests: a file part cannot be parsed without Jahia's JCRContentUtils initialised.
+     */
+    static void checkAllowedType(String detectedMime, Set<String> fieldAllowedTypes, Set<String> configuredTypes,
+                                 String fileName) throws ParseException {
+        Set<String> allowed = AllowedTypes.forField(fieldAllowedTypes, configuredTypes, null);
+        if (!AllowedTypes.permitsFile(detectedMime, fileName, allowed)) {
+            log.warn("[FormDataParser] Rejected uploaded file: detected MIME type is not among the field's allowed types{}",
+                    allowed.isEmpty() ? " (none: the field accepts no file)" : "");
+            throw new ParseException(
+                    "File '" + fileName + "': type '" + detectedMime + "' is not allowed.",
+                    ParseException.FailureType.VALIDATION
+            );
+        }
     }
 
     /**
@@ -436,29 +449,6 @@ public class FormDataParser {
         if (raw == null || raw.isBlank()) return "upload";
         String safe = JCRContentUtils.escapeLocalNodeName(FilenameUtils.getName(raw));
         return (safe == null || safe.isBlank()) ? "upload" : safe;
-    }
-
-
-    /**
-     * Resolves a single accept token to a MIME type.
-     * Extensions like ".pdf" are normalised via Tika; MIME types are returned as-is.
-     */
-    public static String resolveAcceptToken(String token) {
-        if (token.startsWith(".")) {
-            String detected = TIKA.detect("file" + token);
-            return detected != null ? detected : token;
-        }
-        return token;
-    }
-
-    /**
-     * Checks whether the detected MIME type is permitted by the allowlist.
-     * Supports wildcards (e.g. "image/*").
-     */
-    static boolean isMimeAllowed(String detectedMime, Set<String> allowed) {
-        if (allowed.contains(detectedMime)) return true;
-        String prefix = detectedMime.contains("/") ? detectedMime.substring(0, detectedMime.indexOf('/')) : "";
-        return !prefix.isEmpty() && allowed.contains(prefix + "/*");
     }
 
 }

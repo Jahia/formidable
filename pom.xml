@@ -59,6 +59,7 @@
     </modules>
 
     <properties>
+        <!-- UploadsConfig.TIKA_REGISTRY and the shipped uploads.cfg link Tika's registry of this version (UploadsConfigServiceTest holds it) -->
         <tika.version>3.3.2</tika.version>
         <jahia.server.version>8.2.2.0</jahia.server.version>
         <javax.jcr.version>2.0</javax.jcr.version>
