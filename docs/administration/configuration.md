@@ -64,8 +64,15 @@ The list is the whole of what a file field may accept:
   longer offered to the visitor nor accepted by the server, and a warning names the field and the type each time
   the field is rendered afresh — not when the page is served from the cache —
   (`Field '<path>' accepts '<type>', which the uploads configuration does not allow: ignored`, or `which is not a
-  file type` for a stored value that names none); the content keeps the value, and the field honours it again if
-  the type is listed again;
+  file type` for a stored value that names none). Until the field is edited again, the content keeps the value and
+  the field honours it again if the type is listed again; once a contributor saves the field in the Content
+  Editor, the setting holds only the types still listed — the editor offers no other — and the removed type is
+  gone for good;
+- **removing a type therefore changes what fields accept, and can widen it.** A field that accepted only removed
+  types accepts no file until it is edited, then — its **Accept** setting emptied by the save — every listed type,
+  or any file under `*/*`. Replacing the list by `*/*` alone removes every specific type in that sense: a field
+  restricted to PDFs keeps its restriction only if `pdf` stays listed next to `*/*`. Before removing a type, look for the file fields that name it (the warning above lists
+  them as their pages render) and decide what each should accept instead;
 - `*/*` accepts any file, whatever type Tika detects — it holds the types a future Tika adds, where a list of
   wildcards would not: a field without types then restricts nothing, in the visitor's picker nor on the server,
   and a field with types keeps its own. Any file includes HTML pages and SVG images: the results screens never
