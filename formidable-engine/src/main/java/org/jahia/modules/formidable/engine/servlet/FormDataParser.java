@@ -422,14 +422,16 @@ public class FormDataParser {
 
     /**
      * Step 7: the detected type must be one the field accepts — its accept values within the configuration's allowed
-     * types, or all of them when it declares none; none at all refuses the file ({@link AllowedTypes#forField}). No
+     * types, or all of them when it declares none; none at all refuses the file ({@link AllowedTypes#forField}) — or a
+     * kind of the listed type the file's name stands for, as an Ogg video's codec is of {@code video/ogg}
+     * ({@link AllowedTypes#permitsFile}). No
      * field is named in a warning: the name here comes from the request; the field's view warns, naming its node.
      * Package-level for the tests: a file part cannot be parsed without Jahia's JCRContentUtils initialised.
      */
     static void checkAllowedType(String detectedMime, Set<String> fieldAllowedTypes, Set<String> configuredTypes,
                                  String fileName) throws ParseException {
         Set<String> allowed = AllowedTypes.forField(fieldAllowedTypes, configuredTypes, null);
-        if (!AllowedTypes.permits(detectedMime, allowed)) {
+        if (!AllowedTypes.permitsFile(detectedMime, fileName, allowed)) {
             log.warn("[FormDataParser] Rejected uploaded file: detected MIME type is not among the field's allowed types{}",
                     allowed.isEmpty() ? " (none: the field accepts no file)" : "");
             throw new ParseException(

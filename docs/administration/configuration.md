@@ -48,6 +48,15 @@ module embeds says which type each extension stands for:
 (search for `*.ogg`). The default list, `jpg,png,gif,webp,pdf,doc,docx,xls,xlsx,odt,ods,txt,csv,mp4,webm,ogv,mkv`,
 holds no ambiguous extension.
 
+Tika detects what is inside a container, which the file's name does not say: an Ogg video named `.ogv` is
+detected as `video/theora`, an Opus track named `.oga` as `audio/opus`. Tika's registry declares these kinds of
+`video/ogg` and `audio/ogg`, so a file is also accepted when its detected type is a kind of the type its name
+stands for, and that type is listed as such — `ogv` or `video/ogg`, not only `video/*`. The registry's "kind
+of" means "readable as", so three limits keep it from widening the list: the name's type must be listed itself;
+both types must share their top-level type (an SVG named `.xml` is an image, and stays refused where `xml` is
+listed); and the name's type must not be `text/plain` or `application/octet-stream`, of which every text or
+every file is a kind (an HTML page named `.txt` stays refused where `txt` is listed).
+
 The list is the whole of what a file field may accept:
 
 - a field whose **Accept** setting is empty accepts every listed type;

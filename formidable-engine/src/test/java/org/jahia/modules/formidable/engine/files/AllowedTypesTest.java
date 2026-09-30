@@ -98,4 +98,29 @@ class AllowedTypesTest {
         assertFalse(AllowedTypes.permits("image/*", Set.of("image/png")));
         assertFalse(AllowedTypes.permits(null, Set.of("image/*")));
     }
+
+    @Test
+    void aFileWhoseContentSpecializesTheTypeItsNameStandsForIsPermitted() {
+        // Verifies the codec inside a listed container: Tika detects an Ogg video named .ogv as video/theora and an Opus
+        // track named .oga as audio/opus, kinds of the video/ogg and audio/ogg the list holds.
+        assertTrue(AllowedTypes.permitsFile("video/theora", "clip.ogv", Set.of("video/ogg")));
+        assertTrue(AllowedTypes.permitsFile("audio/opus", "track.oga", Set.of("audio/ogg")));
+        assertTrue(AllowedTypes.permitsFile("application/java-archive", "bundle.zip", Set.of("application/zip")));
+        assertTrue(AllowedTypes.permitsFile("image/png", "photo.bin", Set.of("image/*")));
+        assertTrue(AllowedTypes.permitsFile("video/theora", "clip.ogv", Set.of("video/*")));
+    }
+
+    @Test
+    void theHierarchyNeverWidensTheList() {
+        // Verifies the limits: the name's type must be listed itself (a .jar is refused where zip is allowed), share the
+        // detected type's top-level type (an SVG named .xml), not be a root (HTML named .txt), and the content must be
+        // a kind of it (an MP4 named .ogv); a type the field no longer accepts stays refused.
+        assertFalse(AllowedTypes.permitsFile("application/java-archive", "bundle.jar", Set.of("application/zip")));
+        assertFalse(AllowedTypes.permitsFile("image/svg+xml", "drawing.xml", Set.of("application/xml")));
+        assertFalse(AllowedTypes.permitsFile("text/html", "page.txt", Set.of("text/plain")));
+        assertFalse(AllowedTypes.permitsFile("video/mp4", "clip.ogv", Set.of("video/ogg")));
+        assertFalse(AllowedTypes.permitsFile("video/theora", "clip.ogv", Set.of("application/pdf")));
+        assertFalse(AllowedTypes.permitsFile("video/theora", null, Set.of("video/ogg")));
+        assertFalse(AllowedTypes.permitsFile(null, "clip.ogv", Set.of("video/ogg")));
+    }
 }

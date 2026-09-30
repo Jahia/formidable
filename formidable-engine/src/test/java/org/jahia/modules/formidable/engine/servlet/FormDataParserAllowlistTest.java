@@ -197,4 +197,14 @@ class FormDataParserAllowlistTest {
         assertDoesNotThrow(() -> check("application/pdf", Set.of("pdf"), Set.of("application/pdf", "image/png")));
         assertThrows(FormDataParser.ParseException.class, () -> check("application/pdf", Set.of(), Set.of("image/png")));
     }
+
+    @Test
+    void anOggVideoNamedOgvIsAcceptedWhereVideoOggIsAllowed() {
+        // Verifies the parser reads the file's name as well: Tika detects an Ogg video's codec, video/theora, a kind of
+        // the video/ogg its .ogv name stands for; an MP4 carrying the same name stays refused.
+        assertDoesNotThrow(() -> FormDataParser.checkAllowedType("video/theora", Set.of(), Set.of("video/ogg"), "clip.ogv"));
+        FormDataParser.ParseException error = assertThrows(FormDataParser.ParseException.class,
+                () -> FormDataParser.checkAllowedType("video/mp4", Set.of(), Set.of("video/ogg"), "clip.ogv"));
+        assertEquals(FormDataParser.ParseException.FailureType.VALIDATION, error.failureType());
+    }
 }
