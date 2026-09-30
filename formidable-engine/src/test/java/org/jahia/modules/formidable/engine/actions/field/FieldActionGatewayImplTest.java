@@ -116,6 +116,11 @@ class FieldActionGatewayImplTest {
                 () -> Endpoint.of("svc", "https://api.example.com/v1?key=t0k3n", "", "", "", false));
         assertTrue(query.getMessage().contains("query"), query.getMessage());
         assertThrows(IllegalArgumentException.class, () -> Endpoint.of("svc", "https://api.example.com/v1#top", "", "", "", false));
+        // A malformed URL is not quoted, nor its parse error kept: a key pasted into it would reach the log.
+        IllegalArgumentException malformed = assertThrows(IllegalArgumentException.class,
+                () -> Endpoint.of("svc", "https://api example.com/?key=s3cr3t", "", "", "", false));
+        assertFalse(malformed.getMessage().contains("s3cr3t"), malformed.getMessage());
+        assertEquals(null, malformed.getCause());
     }
 
     @Test

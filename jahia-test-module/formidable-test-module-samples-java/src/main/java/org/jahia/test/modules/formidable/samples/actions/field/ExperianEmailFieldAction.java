@@ -87,7 +87,11 @@ public class ExperianEmailFieldAction extends EmailVerificationFieldAction {
 
     @Override
     protected FieldActionResult verify(FieldActionGateway.Endpoint experian, String address) throws IOException {
-        FieldActionGateway.Response response = gateway().post(experian, VALIDATE_OPERATION, new JSONObject().put("email", address).toString());
+        return verdictOf(gateway().post(experian, VALIDATE_OPERATION, new JSONObject().put("email", address).toString()));
+    }
+
+    /** Experian's answer turned into the verdict: the status first, then the confidence of a v2 answer. */
+    static FieldActionResult verdictOf(FieldActionGateway.Response response) {
         if (response.status() != 200) {
             // 401 a refused token, 403 no credits left, 408 the service's own timeout, 429 its rate limit, 5xx an outage
             return FieldActionResult.unavailable("the service answered " + response.status());

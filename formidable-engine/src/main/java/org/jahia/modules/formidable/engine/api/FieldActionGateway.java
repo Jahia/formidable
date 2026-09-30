@@ -82,7 +82,8 @@ public interface FieldActionGateway {
             try {
                 base = new URI(url.trim());
             } catch (URISyntaxException e) {
-                throw new IllegalArgumentException("the URL of " + name + " is malformed: '" + url.trim() + "'", e);
+                // Neither the URL nor the exception, which quotes it: an administrator may have put a key in it.
+                throw new IllegalArgumentException("the URL of " + name + " is malformed at character " + e.getIndex());
             }
             String reason = EndpointRule.unsupportedReason(base, development);
             if (reason != null) {

@@ -89,8 +89,11 @@ public class ZeroBounceEmailFieldAction extends EmailVerificationFieldAction {
 
     @Override
     protected FieldActionResult verify(FieldActionGateway.Endpoint zeroBounce, String address) throws IOException {
-        FieldActionGateway.Response response = gateway().get(zeroBounce,
-                VALIDATE_OPERATION + "?email=" + URLEncoder.encode(address, StandardCharsets.UTF_8) + "&ip_address=");
+        return verdictOf(gateway().get(zeroBounce, VALIDATE_OPERATION + "?email=" + URLEncoder.encode(address, StandardCharsets.UTF_8) + "&ip_address="));
+    }
+
+    /** ZeroBounce's answer turned into the verdict: the status, the error a 200 may carry, then status and sub-status. */
+    static FieldActionResult verdictOf(FieldActionGateway.Response response) {
         if (response.status() != 200) {
             return FieldActionResult.unavailable("the service answered " + response.status());
         }
