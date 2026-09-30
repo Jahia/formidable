@@ -45,7 +45,7 @@ public @interface UploadsConfig {
     @AttributeDefinition(
             name = "Allowed file types",
             description = "The file types a file field may accept, comma-separated: an extension (pdf, docx), a MIME " +
-                    "type (application/pdf) or a wildcard (image/*). An extension stands for the MIME type Apache " +
+                    "type (application/pdf), a wildcard (image/*) or */* for any file. An extension stands for the MIME type Apache " +
                     "Tika gives it; give the MIME type when an extension is shared (ogg is read as audio/vorbis). A field " +
                     "without accepted types accepts all of them, a field with some keeps those still listed here. " +
                     "Empty: no file is accepted. Every uploaded file's real type is detected and checked. Which type " +

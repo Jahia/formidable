@@ -67,8 +67,8 @@ class UploadsConfigServiceTest {
         // description, built on TIKA_REGISTRY, and in the shipped file — is the registry of the Tika this module runs:
         // a Tika upgrade without the link's fails here.
         String version = new Tika().toString().replace("Apache Tika ", "").trim();
-        assertEquals("https://github.com/apache/tika/blob/" + version + "/tika-core/src/main/resources/org/apache/tika/mime/tika-mimetypes.xml",
-                UploadsConfig.TIKA_REGISTRY);
+        assertEquals(UploadsConfig.TIKA_REGISTRY,
+                "https://github.com/apache/tika/blob/" + version + "/tika-core/src/main/resources/org/apache/tika/mime/tika-mimetypes.xml");
         try (InputStream file = getClass().getResourceAsStream("/META-INF/configurations/" + UploadsConfigService.PID + ".cfg")) {
             assertNotNull(file);
             String content = new String(file.readAllBytes(), StandardCharsets.UTF_8);

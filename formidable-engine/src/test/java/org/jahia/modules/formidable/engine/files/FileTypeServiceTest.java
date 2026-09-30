@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -82,5 +83,15 @@ class FileTypeServiceTest {
 
         assertArrayEquals(new String[] {"application/pdf"}, types.allowedFor(withAccept));
         assertArrayEquals(new String[] {"image/png", "image/jpeg", "application/pdf", "video/mp4"}, types.allowedFor(withoutAccept));
+    }
+
+    @Test
+    void anyFileGivesNoExtensionToShowAndFailsNothing() {
+        // Verifies what the file field's view asks when the list holds */*: the token itself and a wildcard it covers
+        // answer no extension — the island then restricts nothing, or shows the wildcard as it is — and nothing throws.
+        FileTypeService service = new FileTypeService(() -> Set.of("*/*"));
+        assertEquals(0, service.shownExtensions("*/*").length);
+        assertEquals(0, service.recognisedExtensions("*/*").length);
+        assertEquals(0, service.shownExtensions("image/*").length);
     }
 }

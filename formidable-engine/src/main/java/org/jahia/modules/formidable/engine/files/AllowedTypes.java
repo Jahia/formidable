@@ -13,6 +13,7 @@ import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 /**
@@ -31,6 +32,8 @@ public final class AllowedTypes {
     private static final MediaTypeRegistry REGISTRY = MimeTypes.getDefaultMimeTypes().getMediaTypeRegistry();
     /** What Tika answers for a name it knows nothing of. */
     private static final String UNKNOWN = "application/octet-stream";
+    /** The one token that lets any file through: the administrator's "any file", which holds whatever Tika adds. */
+    public static final String ANY_FILE = "*/*";
     /** The roots of Tika's hierarchy: every text type descends from the first, every type from the second. */
     private static final Set<String> ROOTS = Set.of("text/plain", UNKNOWN);
     private static final Pattern MIME_TYPE = Pattern.compile("[a-z0-9][a-z0-9!#$&^_.+-]*/(\\*|[a-z0-9][a-z0-9!#$&^_.+-]*)");
@@ -45,6 +48,9 @@ public final class AllowedTypes {
      */
     public static Optional<String> resolve(String token) {
         String value = token == null ? "" : token.trim().toLowerCase(Locale.ROOT);
+        if (ANY_FILE.equals(value)) {
+            return Optional.of(ANY_FILE);
+        }
         if (value.contains("/")) {
             if (!MIME_TYPE.matcher(value).matches()) {
                 return Optional.empty();
@@ -78,10 +84,11 @@ public final class AllowedTypes {
             return Collections.unmodifiableSet(result);
         }
         accept.stream().filter(token -> token != null && !token.isBlank()).forEach(token -> {
-            Set<String> kept = resolve(token).map(type -> kept(type, allowed)).orElse(Set.of());
+            Optional<String> type = resolve(token);
+            Set<String> kept = type.map(resolved -> kept(resolved, allowed)).orElse(Set.of());
             if (kept.isEmpty() && field != null) {
-                log.warn("[AllowedTypes] Field '{}' accepts '{}', which the uploads configuration does not allow: ignored",
-                        field, token);
+                log.warn("[AllowedTypes] Field '{}' accepts '{}', {}: ignored", field, token,
+                        type.isEmpty() ? "which is not a file type" : "which the uploads configuration does not allow");
             }
             result.addAll(kept);
         });
@@ -103,15 +110,31 @@ public final class AllowedTypes {
     }
 
     /**
-     * Whether the allowed types let a MIME type through: listed as is, or covered by a wildcard of its top-level
-     * type. No allowed type lets nothing through. A wildcard is let through only by itself.
+     * Whether the allowed types let a MIME type through: listed as is, covered by a wildcard of its top-level type, or
+     * by {@value #ANY_FILE}. No allowed type lets nothing through. A wildcard is let through only by itself or
+     * {@value #ANY_FILE}.
      */
     public static boolean permits(String type, Set<String> allowed) {
         if (type == null) {
             return false;
         }
         int slash = type.indexOf('/');
-        return allowed.contains(type) || slash > 0 && allowed.contains(type.substring(0, slash) + "/*");
+        return allowed.contains(ANY_FILE) || allowed.contains(type)
+                || slash > 0 && allowed.contains(type.substring(0, slash) + "/*");
+    }
+
+    /**
+     * What a contributor may pick for a file field: the allowed types, and — where they hold {@value #ANY_FILE},
+     * which is never offered, a field without types already accepting anything — a wildcard for each top-level type
+     * of Tika's registry (application, audio, image, text, video… ten in Tika 3.3.2), so that a field can still be
+     * narrowed. Sorted.
+     */
+    public static Set<String> choices(Set<String> allowed) {
+        Set<String> choices = new TreeSet<>(allowed);
+        if (choices.remove(ANY_FILE)) {
+            REGISTRY.getTypes().forEach(type -> choices.add(type.getType() + "/*"));
+        }
+        return Collections.unmodifiableSet(choices);
     }
 
     /**

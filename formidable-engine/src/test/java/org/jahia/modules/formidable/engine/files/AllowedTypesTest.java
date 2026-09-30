@@ -2,7 +2,11 @@ package org.jahia.modules.formidable.engine.files;
 
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -122,5 +126,51 @@ class AllowedTypesTest {
         assertFalse(AllowedTypes.permitsFile("video/theora", "clip.ogv", Set.of("application/pdf")));
         assertFalse(AllowedTypes.permitsFile("video/theora", null, Set.of("video/ogg")));
         assertFalse(AllowedTypes.permitsFile(null, "clip.ogv", Set.of("video/ogg")));
+    }
+
+    @Test
+    void anyFileLetsEveryTypeThroughWhileAFieldMayStillNarrowIt() {
+        // Verifies */*, the administrator's "any file": read as itself, it lets any detected type through — an e-mail
+        // message and a 3D model, top-level types past the usual five —, a field without types keeps it (the view then
+        // restricts nothing), a field with types keeps its own.
+        assertEquals(Optional.of("*/*"), AllowedTypes.resolve(" */* "));
+        assertTrue(AllowedTypes.permits("message/rfc822", Set.of("*/*")));
+        assertTrue(AllowedTypes.permits("model/x.stl-binary", Set.of("*/*")));
+        assertTrue(AllowedTypes.permitsFile("message/rfc822", "note.eml", Set.of("*/*")));
+        assertEquals(Set.of("*/*"), AllowedTypes.forField(List.of(), Set.of("*/*"), "cv"));
+        assertEquals(List.of("application/pdf", "image/*"),
+                List.copyOf(AllowedTypes.forField(List.of("pdf", "image/*"), Set.of("*/*"), "cv")));
+        assertFalse(AllowedTypes.permits("message/rfc822", Set.of("application/*", "text/*")));
+    }
+
+    @Test
+    void theEditorOffersTheTopLevelWildcardsInPlaceOfAnyFile() {
+        // Verifies the Accept setting's choices: */* itself is never offered — a field without types already accepts
+        // anything —, each top-level type of Tika's registry is, beside the other allowed types; a list without */*
+        // is offered as it is, sorted.
+        Set<String> wildcards = Set.of("application/*", "audio/*", "chemical/*", "image/*", "message/*", "model/*",
+                "multipart/*", "text/*", "video/*", "x-conference/*");
+        assertEquals(wildcards, AllowedTypes.choices(Set.of("*/*")));
+        Set<String> withPdf = new HashSet<>(wildcards);
+        withPdf.add("application/pdf");
+        assertEquals(withPdf, AllowedTypes.choices(allowed("*/*", "application/pdf", "image/*")));
+        assertEquals(List.of("application/pdf", "image/png"), List.copyOf(AllowedTypes.choices(allowed("image/png", "application/pdf"))));
+    }
+
+    @Test
+    void theWarningSaysWhetherATokenIsNoFileTypeOrOneNoLongerAllowed() {
+        // Verifies the field's warning tells the two cases apart: a stored token that is no file type at all, and a
+        // type the administrator's list no longer allows — an administrator looks for the second in the list only.
+        PrintStream previous = System.err;
+        ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        System.setErr(new PrintStream(captured, true, StandardCharsets.UTF_8));
+        try {
+            AllowedTypes.forField(List.of("no such thing", "application/zip"), Set.of("application/pdf"), "/form/cv");
+        } finally {
+            System.setErr(previous);
+        }
+        String logged = captured.toString(StandardCharsets.UTF_8);
+        assertTrue(logged.contains("accepts 'no such thing', which is not a file type"), logged);
+        assertTrue(logged.contains("accepts 'application/zip', which the uploads configuration does not allow"), logged);
     }
 }

@@ -33,7 +33,7 @@ timeout or bound is refused and the default applies, with a warning naming the s
 ## Allowed file types
 
 `uploadAllowedTypes` lists the file types a file field may accept, comma-separated. Each entry is an
-extension (`pdf`, `.docx`), a MIME type (`application/pdf`) or a wildcard (`image/*`). An extension stands for
+extension (`pdf`, `.docx`), a MIME type (`application/pdf`), a wildcard (`image/*`), or `*/*` for any file. An extension stands for
 the MIME type Apache Tika gives it, and a MIME alias stands for its canonical type (`audio/x-wav` is
 `audio/vnd.wave`, the type Tika detects a WAV file as): the engine resolves every entry once, when it reads the
 file, and logs what it resolved (`uploadAllowedTypes: read as [pdf = application/pdf, …]`); an entry that is
@@ -63,12 +63,14 @@ The list is the whole of what a file field may accept:
 - a field whose **Accept** setting names types keeps those still listed — a type removed from the list is no
   longer offered to the visitor nor accepted by the server, and a warning names the field and the type each time
   the field is rendered afresh — not when the page is served from the cache —
-  (`Field '<path>' accepts '<type>', which the uploads configuration does not allow: ignored`);
-  the content keeps the value, and the field honours it again if the type is
-  listed again;
+  (`Field '<path>' accepts '<type>', which the uploads configuration does not allow: ignored`, or `which is not a
+  file type` for a stored value that names none); the content keeps the value, and the field honours it again if
+  the type is listed again;
+- `*/*` accepts any file, whatever type Tika detects — it holds the types a future Tika adds, where a list of
+  wildcards would not: a field without types then restricts nothing, in the visitor's picker nor on the server,
+  and a field with types keeps its own;
 - an empty list accepts no file at all: every file field refuses every file, and the engine says so when it reads
-  the file. To accept any file, list the top-level wildcards, `application/*,audio/*,image/*,text/*,video/*`;
-  `*/*` is not accepted.
+  the file, giving `*/*` as the way to accept any file.
 
 The server applies a change at once. Pages already rendered keep offering the former list — in the file picker, the
 formats they list and their own check before sending — until the site's cache is flushed (jContent, or the
@@ -76,8 +78,12 @@ formats they list and their own check before sending — until the site's cache 
 refused by the page before anything is sent.
 
 The **Accept** setting offers the listed types, each with the module's translated wording where the module ships
-one (the seventeen default types), else with a label made from the type — its acronym or extension, then the
-extension: "ZIP (.zip)". An administrator cannot give a type of their own a translated label; a developer adds
+one (the seventeen default types, and the top-level wildcards: "Any image (image/*)"), else with a label made from
+the type — its acronym or extension, then the extension: "ZIP (.zip)". `*/*` is never offered — a field without
+types already accepts any file —: in its place the setting offers a wildcard for each top-level type of Tika's
+registry (`application/*`, `audio/*`, `chemical/*`, `image/*`, `message/*`, `model/*`, `multipart/*`, `text/*`,
+`video/*`, `x-conference/*` in Tika 3.3.2), beside the other listed types, so that a contributor can still narrow a
+field. An administrator cannot give a type of their own a translated label; a developer adds
 the key `fmdb_inputFile.accept.<mime/type>` to the module's resource bundle.
 
 ## Upgrading from the single file

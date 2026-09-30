@@ -2,6 +2,7 @@ package org.jahia.modules.formidable.engine.choicelist;
 
 import org.jahia.modules.formidable.engine.config.uploads.UploadsConfigService;
 import org.jahia.data.templates.JahiaTemplatesPackage;
+import org.jahia.modules.formidable.engine.files.AllowedTypes;
 import org.jahia.modules.formidable.engine.files.FileTypeService;
 import org.jahia.utils.i18n.ResourceBundles;
 import org.jahia.services.content.nodetypes.ExtendedPropertyDefinition;
@@ -17,7 +18,8 @@ import java.util.ResourceBundle;
 
 /**
  * Populates the accept choice list for fmdb:inputFile from the
- * uploadAllowedTypes configuration in org.jahia.modules.formidable.uploads.cfg, each type as its MIME type.
+ * uploadAllowedTypes configuration in org.jahia.modules.formidable.uploads.cfg, each type as its MIME type — "any
+ * file" offered as the top-level wildcards ({@link AllowedTypes#choices}).
  *
  * Each type is labelled with the wording of the resource bundle of the module declaring the property, where it
  * has one — {@code fmdb_inputFile.accept.<mime/type>}, looked up as Jahia's own resourceBundle initializer does —
@@ -48,8 +50,7 @@ public class FormidableMimeTypesInitializer implements ModuleChoiceListInitializ
     @Override
     public List<ChoiceListValue> getChoiceListValues(ExtendedPropertyDefinition epd, String param,
             List<ChoiceListValue> values, Locale locale, Map<String, Object> context) {
-        return configService.getUploadAllowedTypes().stream()
-                .sorted()
+        return AllowedTypes.choices(configService.getUploadAllowedTypes()).stream()
                 .map(mime -> new ChoiceListValue(label(epd, mime, locale), mime))
                 .toList();
     }

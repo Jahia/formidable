@@ -39,6 +39,15 @@ describe('accepts', () => {
 		expect(accepts(file('cv.pdf', 'application/pdf'), none)).toBe(false);
 	});
 
+	it('restricts nothing when the field types hold any file, however many others they list', () => {
+		const anyFile: FileTypes = {tokens: ['*/*', 'application/pdf'], shown: {'*/*': [], 'application/pdf': ['.pdf']}, recognised: {'*/*': [], 'application/pdf': ['.pdf']}};
+
+		expect(isRestricted(anyFile)).toBe(false);
+		expect(accepts(file('note.eml', 'message/rfc822'), anyFile)).toBe(true);
+		expect(getDisplayFormats(anyFile)).toEqual([]);
+		expect(buildAcceptAttr(anyFile)).toBe('');
+	});
+
 	it('takes a file one of the field types answers', () => {
 		expect(accepts(file('cv.pdf'), types)).toBe(true);
 		expect(accepts(file('run.exe', 'application/x-msdownload'), types)).toBe(false);

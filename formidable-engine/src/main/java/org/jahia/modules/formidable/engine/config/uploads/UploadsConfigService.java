@@ -112,7 +112,7 @@ public class UploadsConfigService {
         }
         if (types.isEmpty()) {
             log.warn("uploadAllowedTypes allows no file type: every file field refuses every file. To accept any file, "
-                    + "list the top-level wildcards: application/*,audio/*,image/*,text/*,video/*");
+                    + "set {}", AllowedTypes.ANY_FILE);
         }
         return Collections.unmodifiableSet(types);
     }
