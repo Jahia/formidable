@@ -26,6 +26,7 @@ Yarn 4 workspaces + Maven multi-module. Toolchain: Java 17 (Temurin), Node LTS, 
 Architecture decisions and internal flows are documented in `docs/`:
 - `form-submission-flow.md` — request lifecycle, pipeline steps, server-side safeguards
 - `how-to-create-form-action.md` — step-by-step guide for a custom `FormAction` OSGi service
+- `how-to-create-field-action.md` — step-by-step guide for a custom `FieldAction` OSGi service (a check of one field's value)
 - `how-to-extend-views-and-elements-from-third-party-module.md` — rendering contract for external views and custom elements
 - `cnd-module-ownership.md` — where JCR types belong (`formidable-elements` vs `formidable-engine`)
 - `error-codes.md` — server-side error codes (FMDB-xxx)
