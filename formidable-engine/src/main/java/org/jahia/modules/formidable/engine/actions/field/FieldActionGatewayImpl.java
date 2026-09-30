@@ -53,7 +53,7 @@ public class FieldActionGatewayImpl implements FieldActionGateway {
 
     @Override
     public Response post(Endpoint endpoint, String path, String jsonBody) throws IOException {
-        HttpRequest.Builder request = HttpRequest.newBuilder(target(checked(endpoint), path))
+        HttpRequest.Builder request = HttpRequest.newBuilder(target(checked(endpoint, settings.get()), path))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody == null ? "" : jsonBody, StandardCharsets.UTF_8));
         return send(endpoint, request);
@@ -61,13 +61,21 @@ public class FieldActionGatewayImpl implements FieldActionGateway {
 
     @Override
     public Response get(Endpoint endpoint, String path) throws IOException {
-        return send(endpoint, HttpRequest.newBuilder(target(checked(endpoint), path)).GET());
+        return send(endpoint, HttpRequest.newBuilder(target(checked(endpoint, settings.get()), path)).GET());
     }
 
-    /** The endpoint, its URL under the endpoint rule: a record built without {@link Endpoint#of} is checked here. */
-    private static Endpoint checked(Endpoint endpoint) {
+    /**
+     * The endpoint, its URL under the endpoint rule — a record built without {@link Endpoint#of} is checked here —, a
+     * development endpoint only while the administrator's switch allows them: an action's own file saying
+     * {@code development=true} is not enough.
+     */
+    private static Endpoint checked(Endpoint endpoint, FieldActionSettings current) {
         if (endpoint == null || endpoint.baseUri() == null) {
             throw new IllegalArgumentException("No endpoint is given");
+        }
+        if (endpoint.development() && (current == null || !current.developmentEndpoints())) {
+            throw new IllegalArgumentException(endpoint.name() + " is a development endpoint, and they are switched off "
+                    + "(enableDevFieldActionEndpoints in org.jahia.modules.formidable.fieldActions.cfg)");
         }
         String reason = EndpointRule.unsupportedReason(endpoint.baseUri(), endpoint.development());
         if (reason != null) {

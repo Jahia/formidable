@@ -153,27 +153,36 @@ configuration, and the engine's `FieldActionGateway` makes the call. Three piece
 
 1. **The module's configuration file**, `src/main/resources/META-INF/configurations/<your PID>.cfg`, its first line
    `# default configuration` so that Jahia copies it to `karaf/etc` once and never overwrites the administrator's
-   edits. It holds the service's URL, its credential (empty in the shipped file: the administrator sets it) and,
-   for a double of the service on a developer's machine, `development=true`:
+   edits. It holds the service's URL, its credential — the private property `.credential`, empty in the shipped
+   file: the administrator sets it — and, for a double of the service on a developer's machine, `development=true`,
+   honoured only while the administrator switches `enableDevFieldActionEndpoints` on in
+   `org.jahia.modules.formidable.fieldActions.cfg`:
 
    ```properties
    # default configuration - deployed once, then kept as edited.
    url=https://api.example.com/v1
-   credential=
+   .credential=
    development=false
    ```
 
+   The leading dot matters: Declarative Services publishes a component's configuration with the service it
+   registers — readable by anyone listing services — except the names starting with a dot. The annotation method is
+   `_credential()`, which DS reads as `.credential`. Declare the configuration's `@ObjectClassDefinition` in your
+   own bundle: bnd generates the metatype only from a definition it finds there.
+
 2. **The configuration read into an endpoint**, with `@Designate` and `@Activate`/`@Modified` on your component,
-   through `endpointOf` — it checks the URL (HTTPS, or plain HTTP on localhost or host.docker.internal with
-   `development=true`) and the credential, and logs once, naming the service, never the credential, when the
+   through the base's `configure(name, url, credential, development, credentialName, credentialIn)` — it checks the
+   URL (HTTPS without a query, or plain HTTP on localhost or host.docker.internal with `development=true`) and the
+   credential, and logs once, naming the service, never the credential, when the
    configuration describes nothing usable yet: the check is then unavailable, never a refusal. The credential's
    name and where it goes — a header or a query parameter — are the service's contract, written in your code.
 
 3. **The call**, through one of the engine's bases rather than `FieldAction` directly:
    - [`ProviderFieldAction`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/ProviderFieldAction.java)
-     asks your `endpoint()`, skips a blank value (`concerns`, which you may narrow), and turns every way the call
-     can fail — not configured, unreachable, timed out, a URL the endpoint rule refuses — into an unavailable check.
-     You write `endpoint()`, `ask(endpoint, request)` and `gateway()`;
+     serves the endpoint `configure` read, skips a blank value (`concerns`, which you may narrow), and turns every way
+     the call can fail — not configured, unreachable, timed out, a URL the endpoint rule refuses, a development
+     endpoint while the administrator's switch is off — into an unavailable check. You write `ask(endpoint, request)`
+     and `gateway()`;
    - [`EmailVerificationFieldAction`](../../formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api/EmailVerificationFieldAction.java)
      narrows it to email addresses — a value that is not one is accepted without a call. You write
      `verify(endpoint, address)`.
@@ -191,29 +200,24 @@ public class MailboxFieldAction extends EmailVerificationFieldAction {
     @ObjectClassDefinition(name = "My company — mailbox check")
     public @interface Config {
         String url() default "https://api.example.com/v1";
-        @AttributeDefinition(type = AttributeType.PASSWORD) String credential() default "";
+        /** The file's .credential: a private property, never published with the service. */
+        @AttributeDefinition(type = AttributeType.PASSWORD) String _credential() default "";
         boolean development() default false;
     }
 
     @Reference
     private FieldActionGateway gateway;
-    private final AtomicReference<Optional<FieldActionGateway.Endpoint>> service = new AtomicReference<>(Optional.empty());
 
     @Activate
     @Modified
-    public void configure(Config config) {
-        service.set(endpointOf("Mailbox service", config.url(), "X-Api-Key", config.credential(),
-                FieldActionGateway.Endpoint.CREDENTIAL_IN_HEADER, config.development()));
+    public void activate(Config config) {
+        configure("Mailbox service", config.url(), config._credential(), config.development(),
+                "X-Api-Key", FieldActionGateway.Endpoint.CREDENTIAL_IN_HEADER);
     }
 
     @Override
     public String getNodeType() {
         return "myco:mailboxAction";
-    }
-
-    @Override
-    protected Optional<FieldActionGateway.Endpoint> endpoint() {
-        return service.get();
     }
 
     @Override
@@ -299,7 +303,7 @@ not configured or that did not answer.
 - **End to end**: register a double of the service in your module — a small servlet answering as the service
   does, as the samples' [`ZeroBounceStubServlet`](../../jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/ZeroBounceStubServlet.java)
   does on their [`ProviderStubServlet`](../../jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/ProviderStubServlet.java)
-  — and point your configuration at it with `development=true`. Spec 74 of this repository drives the two samples
+  — and point your configuration at it with `development=true`, the engine's `enableDevFieldActionEndpoints` on. Spec 74 of this repository drives the two samples
   that way.
 
 ## Related examples in this repository

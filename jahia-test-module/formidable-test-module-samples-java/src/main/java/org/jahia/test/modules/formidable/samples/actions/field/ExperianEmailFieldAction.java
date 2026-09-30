@@ -9,16 +9,11 @@ import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Modified;
 import org.osgi.service.component.annotations.Reference;
-import org.osgi.service.metatype.annotations.AttributeDefinition;
-import org.osgi.service.metatype.annotations.AttributeType;
 import org.osgi.service.metatype.annotations.Designate;
-import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
 import java.io.IOException;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * An example implementation of a mailbox check against an external service — Experian Email Validation v2 — on the
@@ -40,7 +35,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p><strong>An example, not a supported connector.</strong> The samples module ships it and reaches no product
  * installation; a project copies it into a module of its own, with an Experian account, and gives the module's
  * configuration file its PID and the account's token: {@code url=https://api.experianaperture.io},
- * {@code credential=<token>}. The samples' own file points at their double of the service instead
+ * {@code .credential=<token>}. The samples' own file points at their double of the service instead
  * ({@link ExperianStubServlet}). The token goes to the gateway in the endpoint, which injects the header and never
  * logs it. What leaves the server is the <em>address</em>, which is what the service judges — a project owes its
  * visitors a word about it.</p>
@@ -48,7 +43,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * @see <a href="https://docs.experianaperture.io/email-validation/experian-email-validation-v2">Experian Email Validation v2</a>
  */
 @Component(service = FieldAction.class, configurationPid = ExperianEmailFieldAction.PID)
-@Designate(ocd = ExperianEmailFieldAction.Config.class)
+@Designate(ocd = SampleEndpointConfig.class)
 public class ExperianEmailFieldAction extends EmailVerificationFieldAction {
 
     public static final String NODE_TYPE = "fmdbsample:experianEmailAction";
@@ -63,46 +58,21 @@ public class ExperianEmailFieldAction extends EmailVerificationFieldAction {
     /** The confidences Experian documents as "reject". */
     static final Set<String> REFUSED = Set.of("undeliverable", "unreachable", "illegitimate", "disposable");
 
-    /** Where the check calls: the base URL and the account's token, from {@value #PID}. */
-    @ObjectClassDefinition(name = "Formidable samples — Experian email check",
-            description = "Where the samples' Experian mailbox check calls, and the account's token.")
-    public @interface Config {
-
-        @AttributeDefinition(name = "URL", description = "The base URL of Experian Email Validation: https://api.experianaperture.io.")
-        String url() default "https://api.experianaperture.io";
-
-        @AttributeDefinition(name = "Token", description = "The Experian account's token. Empty: the check is unavailable.",
-                type = AttributeType.PASSWORD)
-        String credential() default "";
-
-        @AttributeDefinition(name = "Development double", description = "The URL is a double of the service on this "
-                + "machine, over plain HTTP on localhost or host.docker.internal (the samples' stub). Never in production.")
-        boolean development() default false;
-    }
-
     @Reference
     private FieldActionGateway gateway;
-
-    private final AtomicReference<Optional<FieldActionGateway.Endpoint>> endpoint = new AtomicReference<>(Optional.empty());
 
     public ExperianEmailFieldAction() {
     }
 
     ExperianEmailFieldAction(FieldActionGateway gateway, FieldActionGateway.Endpoint endpoint) {
         this.gateway = gateway;
-        this.endpoint.set(Optional.ofNullable(endpoint));
+        useEndpoint(endpoint);
     }
 
     @Activate
     @Modified
-    public void configure(Config config) {
-        endpoint.set(endpointOf("Experian", config.url(), TOKEN_HEADER, config.credential(),
-                FieldActionGateway.Endpoint.CREDENTIAL_IN_HEADER, config.development()));
-    }
-
-    @Override
-    protected Optional<FieldActionGateway.Endpoint> endpoint() {
-        return endpoint.get();
+    public void activate(SampleEndpointConfig config) {
+        configure("Experian", config.url(), config._credential(), config.development(), TOKEN_HEADER, FieldActionGateway.Endpoint.CREDENTIAL_IN_HEADER);
     }
 
     @Override

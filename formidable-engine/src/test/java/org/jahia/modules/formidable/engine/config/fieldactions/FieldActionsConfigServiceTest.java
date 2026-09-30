@@ -28,8 +28,9 @@ class FieldActionsConfigServiceTest {
 
     @Test
     void theProviderSettingsOfEarlierBuildsAreNamedAndIgnored() {
-        // Verifies the one trace of the provider lists: a file still holding them gets a warning naming them — the
-        // service of a field action is in its own module's configuration now — and nothing else changes.
+        // Verifies the one trace of the provider lists: a file still holding them gets a warning naming those that held
+        // something — the service of a field action is in its own module's configuration now —, the shipped empty and
+        // false values say nothing, and nothing else changes.
         PrintStream previous = System.err;
         ByteArrayOutputStream captured = new ByteArrayOutputStream();
         System.setErr(new PrintStream(captured, true, StandardCharsets.UTF_8));
@@ -37,13 +38,18 @@ class FieldActionsConfigServiceTest {
         try {
             service.configure(TestConfigs.of(FieldActionsConfig.class), Map.of(
                     "fieldActionProviders", "zb|ZeroBounce|https://api.zerobounce.net|api_key|s3cr3t|query",
-                    "enableDevFieldActionProviders", "true"));
+                    "enableDevFieldActionProviders", "true",
+                    "devFieldActionProviders", ""));
+            // The file the lists shipped with holds them empty, and false: nothing to say.
+            new FieldActionsConfigService().configure(TestConfigs.of(FieldActionsConfig.class), Map.of(
+                    "fieldActionProviders", "", "enableDevFieldActionProviders", "false", "devFieldActionProviders", " "));
         } finally {
             System.setErr(previous);
         }
 
         String logged = captured.toString(StandardCharsets.UTF_8);
         assertTrue(logged.contains("[fieldActionProviders, enableDevFieldActionProviders] no longer read"), logged);
+        assertFalse(logged.contains("devFieldActionProviders]"), "a setting that was never set is not named: " + logged);
         assertFalse(logged.contains("s3cr3t"), logged);
         assertEquals(FieldActionsConfig.DEFAULT_FIELD_ACTION_MAX_VALUE_LENGTH, service.getFieldActionSettings().maxValueLength());
     }

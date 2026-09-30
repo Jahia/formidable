@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -29,6 +30,7 @@ class ExperianEmailFieldActionTest {
     /** A gateway answering what the test decided, and remembering what it was asked. */
     private static final class Gateway implements FieldActionGateway {
         final List<String> services = new ArrayList<>();
+        final List<Endpoint> endpoints = new ArrayList<>();
         final List<String> paths = new ArrayList<>();
         final List<String> bodies = new ArrayList<>();
         private final Answer answer;
@@ -40,6 +42,7 @@ class ExperianEmailFieldActionTest {
         @Override
         public Response post(Endpoint endpoint, String path, String jsonBody) throws IOException {
             services.add(endpoint.name() + " " + endpoint.credentialName() + "=" + endpoint.credential());
+            endpoints.add(endpoint);
             paths.add(path);
             bodies.add(jsonBody);
             return answer.get();
@@ -151,21 +154,41 @@ class ExperianEmailFieldActionTest {
         assertEquals(FieldActionResult.Verdict.UNAVAILABLE, action.execute(null, of("ada@example.com")).verdict());
         assertEquals(List.of(), gateway.paths);
 
-        action.configure(config("https://api.experianaperture.io", "t0k3n", false));
+        action.activate(config("https://api.experianaperture.io", "t0k3n", false));
         assertEquals(FieldActionResult.Verdict.ACCEPT, action.judge(of("ada@example.com")).verdict());
         assertEquals(List.of("Experian Auth-Token=t0k3n"), gateway.services);
 
-        action.configure(config("https://api.experianaperture.io", "", false));
+        action.activate(config("https://api.experianaperture.io", "", false));
         assertEquals(FieldActionResult.Verdict.UNAVAILABLE, action.judge(of("ada@example.com")).verdict());
     }
 
     /** A configuration as DS hands it: the three settings, the rest of the annotation's methods never called. */
-    private static ExperianEmailFieldAction.Config config(String url, String credential, boolean development) {
-        return new ExperianEmailFieldAction.Config() {
-            @Override public Class<? extends java.lang.annotation.Annotation> annotationType() { return ExperianEmailFieldAction.Config.class; }
+    static SampleEndpointConfig config(String url, String credential, boolean development) {
+        return new SampleEndpointConfig() {
+            @Override public Class<? extends java.lang.annotation.Annotation> annotationType() { return SampleEndpointConfig.class; }
             @Override public String url() { return url; }
-            @Override public String credential() { return credential; }
+            @Override public String _credential() { return credential; }
             @Override public boolean development() { return development; }
         };
+    }
+
+    @Test
+    void theConfigurationBecomesTheEndpointWithTheTokenInExperiansHeader() {
+        // Verifies the path a copying project relies on, field by field: the administrator's URL — not a default —,
+        // the token in the Auth-Token header, never on the URL where access logs keep it, and the development flag.
+        Gateway gateway = confident("verified");
+        ExperianEmailFieldAction action = new ExperianEmailFieldAction(gateway, null);
+
+        action.activate(config("https://eu.experianaperture.io/v2", "t0k3n", false));
+        action.judge(of("ada@example.com"));
+        FieldActionGateway.Endpoint endpoint = gateway.endpoints.get(0);
+        assertEquals(java.net.URI.create("https://eu.experianaperture.io/v2"), endpoint.baseUri());
+        assertEquals("Auth-Token", endpoint.credentialName());
+        assertFalse(endpoint.credentialInQuery());
+        assertFalse(endpoint.development());
+
+        action.activate(config("http://localhost:8080/stub", "stub-token", true));
+        action.judge(of("bob@example.com"));
+        assertTrue(gateway.endpoints.get(1).development());
     }
 }

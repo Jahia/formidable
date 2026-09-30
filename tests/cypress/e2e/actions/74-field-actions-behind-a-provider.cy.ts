@@ -20,7 +20,19 @@ const configureSample = (pid: string, stubPath: string, credential = 'stub-token
 	script: {
 		fileContent: JSON.stringify([{
 			editConfiguration: pid,
-			properties: {url: `http://localhost:8080${stubPath}`, credential, development: 'true'}
+			// The credential is the private property .credential: never published with the service.
+			properties: {url: `http://localhost:8080${stubPath}`, '.credential': credential, development: 'true'}
+		}]),
+		type: 'application/json'
+	}
+});
+
+/** The administrator's gate on development endpoints, as for the forward targets: off by default. */
+const setDevelopmentEndpoints = (enabled: boolean): Cypress.Chainable => cy.runProvisioningScript({
+	script: {
+		fileContent: JSON.stringify([{
+			editConfiguration: 'org.jahia.modules.formidable.fieldActions',
+			properties: {enableDevFieldActionEndpoints: String(enabled)}
 		}]),
 		type: 'application/json'
 	}
@@ -50,6 +62,8 @@ describe('Actions - 74 Field actions behind a provider: the Experian and ZeroBou
 	useFormidableSite();
 
 	before(() => {
+		// The doubles are plain HTTP on this instance: development endpoints, behind the administrator's switch.
+		setDevelopmentEndpoints(true);
 		// The samples ship these values; set them anyway, so that an instance whose files were edited runs the same.
 		configureSample(EXPERIAN_PID, EXPERIAN_STUB_PATH);
 		configureSample(ZEROBOUNCE_PID, ZEROBOUNCE_STUB_PATH);
@@ -58,6 +72,7 @@ describe('Actions - 74 Field actions behind a provider: the Experian and ZeroBou
 	after(() => {
 		// Restored whatever happened: the file exists, so Jahia never copies the shipped one back.
 		configureSample(EXPERIAN_PID, EXPERIAN_STUB_PATH);
+		setDevelopmentEndpoints(false);
 	});
 
 	it('posts the address to the provider and turns its confidence into the verdict, at blur and at submission', () => {

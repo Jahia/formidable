@@ -55,15 +55,39 @@ class FieldActionGatewayImplTest {
         // development, a development endpoint on another host, credentials in the URL — an IllegalArgumentException,
         // which the base class reads as unavailable, and no request leaves (the client is never touched).
         HttpClient client = mock(HttpClient.class);
-        FieldActionSettings settings = new FieldActionSettings(Duration.ofSeconds(5), Duration.ofSeconds(10),
+        FieldActionSettings settings = new FieldActionSettings(false, Duration.ofSeconds(5), Duration.ofSeconds(10),
                 client, Duration.ZERO, 30, 512, 20);
         FieldActionGatewayImpl gateway = new FieldActionGatewayImpl(() -> settings);
 
+        Endpoint plain = new Endpoint("plain", URI.create("http://api.example.com"), "", "", false, false);
+        Endpoint devElsewhere = new Endpoint("dev", URI.create("http://api.example.com"), "", "", false, true);
+        Endpoint withCredentials = new Endpoint("creds", URI.create("https://u:p@api.example.com"), "", "", false, false);
+        Endpoint devLocal = new Endpoint("stub", URI.create("http://localhost:8080/stub"), "", "", false, true);
+
         assertThrows(IllegalArgumentException.class, () -> gateway.get(null, "x"));
-        assertThrows(IllegalArgumentException.class, () -> gateway.post(new Endpoint("plain", URI.create("http://api.example.com"), "", "", false, false), "x", "{}"));
-        assertThrows(IllegalArgumentException.class, () -> gateway.get(new Endpoint("dev", URI.create("http://api.example.com"), "", "", false, true), "x"));
-        assertThrows(IllegalArgumentException.class, () -> gateway.get(new Endpoint("creds", URI.create("https://u:p@api.example.com"), "", "", false, false), "x"));
+        assertThrows(IllegalArgumentException.class, () -> gateway.post(plain, "x", "{}"));
+        assertThrows(IllegalArgumentException.class, () -> gateway.get(devElsewhere, "x"));
+        assertThrows(IllegalArgumentException.class, () -> gateway.get(withCredentials, "x"));
+        // A double on this machine, its own file saying development=true: refused while the administrator's switch is off.
+        assertThrows(IllegalArgumentException.class, () -> gateway.get(devLocal, "x"));
         org.mockito.Mockito.verifyNoInteractions(client);
+    }
+
+    @Test
+    void aDevelopmentEndpointIsCalledOnlyWhileTheAdministratorsSwitchIsOn() throws Exception {
+        // Verifies the gate the forward targets have too: the action's own development=true is not enough, the
+        // engine's enableDevFieldActionEndpoints must be on for the call to leave.
+        HttpClient client = mock(HttpClient.class);
+        @SuppressWarnings("unchecked")
+        HttpResponse<String> answer = mock(HttpResponse.class);
+        doReturn(200).when(answer).statusCode();
+        doReturn("{}").when(answer).body();
+        doReturn(answer).when(client).send(any(), any());
+        FieldActionSettings on = new FieldActionSettings(true, Duration.ofSeconds(5), Duration.ofSeconds(10), client,
+                Duration.ZERO, 30, 512, 20);
+        Endpoint stub = new Endpoint("stub", URI.create("http://localhost:8080/stub"), "", "", false, true);
+
+        assertEquals(200, new FieldActionGatewayImpl(() -> on).get(stub, "x").status());
     }
 
     @Test
@@ -87,6 +111,11 @@ class FieldActionGatewayImplTest {
             assertFalse(refused.getMessage().contains("t0k3n"), refused.getMessage());
         }
         assertThrows(IllegalArgumentException.class, () -> Endpoint.of("dev", "http://api.example.com", "", "", "", true));
+        // A key put in the URL would be dropped by the gateway on every call: refused where it is configured.
+        IllegalArgumentException query = assertThrows(IllegalArgumentException.class,
+                () -> Endpoint.of("svc", "https://api.example.com/v1?key=t0k3n", "", "", "", false));
+        assertTrue(query.getMessage().contains("query"), query.getMessage());
+        assertThrows(IllegalArgumentException.class, () -> Endpoint.of("svc", "https://api.example.com/v1#top", "", "", "", false));
     }
 
     @Test
@@ -120,7 +149,7 @@ class FieldActionGatewayImplTest {
         doReturn("x".repeat(FieldActionGatewayImpl.MAX_BODY_CHARS + 1)).when(answer).body();
         doReturn(answer).when(client).send(sent.capture(), any());
         Endpoint zerobounce = new Endpoint("zb", URI.create("https://api.zerobounce.net"), "api_key", "s3cr3t", true, false);
-        FieldActionSettings settings = new FieldActionSettings(Duration.ofSeconds(5), Duration.ofSeconds(10), client,
+        FieldActionSettings settings = new FieldActionSettings(false, Duration.ofSeconds(5), Duration.ofSeconds(10), client,
                 Duration.ZERO, 30, 512, 20);
         FieldActionGatewayImpl gateway = new FieldActionGatewayImpl(() -> settings);
 

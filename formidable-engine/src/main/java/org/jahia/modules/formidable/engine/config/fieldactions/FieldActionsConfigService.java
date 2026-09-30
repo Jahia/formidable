@@ -36,6 +36,7 @@ public class FieldActionsConfigService {
      * field).
      */
     public record FieldActionSettings(
+            boolean developmentEndpoints,
             Duration httpConnectTimeout,
             Duration httpRequestTimeout,
             HttpClient httpClient,
@@ -65,7 +66,8 @@ public class FieldActionsConfigService {
     @Modified
     public void configure(FieldActionsConfig config, Map<String, Object> properties) {
         if (properties != null) {
-            List<String> former = FORMER_PROVIDER_SETTINGS.stream().filter(properties::containsKey).toList();
+            // Only a setting that held something: the file shipped with the lists held them empty, and false.
+            List<String> former = FORMER_PROVIDER_SETTINGS.stream().filter(key -> meaningful(properties.get(key))).toList();
             if (!former.isEmpty()) {
                 log.warn("[FieldActionsConfigService] {} no longer read: a field action calling a service reads it from the "
                         + "configuration of the module that ships the action", former);
@@ -89,6 +91,7 @@ public class FieldActionsConfigService {
         Duration requestTimeout = ConfigurationValues.timeoutSeconds("fieldActionHttpRequestTimeoutSeconds",
                 config.fieldActionHttpRequestTimeoutSeconds(), ConfigurationValues.DEFAULT_HTTP_REQUEST_TIMEOUT_SECONDS);
         FieldActionSettings settings = new FieldActionSettings(
+                config.enableDevFieldActionEndpoints(),
                 connectTimeout,
                 requestTimeout,
                 ConfigurationValues.httpClient(connectTimeout),
@@ -97,7 +100,8 @@ public class FieldActionsConfigService {
                 ConfigurationValues.positiveOrDefault(config.fieldActionMaxValueLength(), FieldActionsConfig.DEFAULT_FIELD_ACTION_MAX_VALUE_LENGTH),
                 ConfigurationValues.positiveOrDefault(config.fieldActionMaxValuesPerField(), FieldActionsConfig.DEFAULT_FIELD_ACTION_MAX_VALUES_PER_FIELD)
         );
-        log.info("FieldActionsConfigService configured: connectTimeout={}s, requestTimeout={}s, verdictCacheTtl={}s, preCheckRateLimit={}/min, maxValueLength={}, maxValuesPerField={}",
+        log.info("FieldActionsConfigService configured: developmentEndpoints={}, connectTimeout={}s, requestTimeout={}s, verdictCacheTtl={}s, preCheckRateLimit={}/min, maxValueLength={}, maxValuesPerField={}",
+                settings.developmentEndpoints(),
                 connectTimeout.toSeconds(),
                 requestTimeout.toSeconds(),
                 settings.verdictCacheTtl().toSeconds(),
@@ -105,6 +109,11 @@ public class FieldActionsConfigService {
                 settings.maxValueLength(),
                 settings.maxValuesPerField());
         return settings;
+    }
+
+    private static boolean meaningful(Object value) {
+        String text = value == null ? "" : String.valueOf(value).trim();
+        return !text.isEmpty() && !"false".equalsIgnoreCase(text);
     }
 
     /** What the field actions read from the configuration — HTTP client, the pre-check endpoint's guards. */

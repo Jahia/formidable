@@ -116,7 +116,7 @@ class FieldActionServletTest {
     }
 
     private static FieldActionSettings settings(int rateLimitPerMinute, int maxValueLength) {
-        return new FieldActionSettings(Duration.ofSeconds(5), Duration.ofSeconds(10), HttpClient.newHttpClient(),
+        return new FieldActionSettings(false, Duration.ofSeconds(5), Duration.ofSeconds(10), HttpClient.newHttpClient(),
                 Duration.ofSeconds(300), rateLimitPerMinute, maxValueLength, 20);
     }
 

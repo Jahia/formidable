@@ -23,6 +23,15 @@ public @interface FieldActionsConfig {
     int DEFAULT_FIELD_ACTION_MAX_VALUES_PER_FIELD = 50;
 
     @AttributeDefinition(
+            name = "Enable development field action endpoints",
+            description = "Lets a field action call a double of its service on this machine — plain HTTP on localhost or " +
+                    "host.docker.internal — when the action's own configuration marks its URL development=true, such as " +
+                    "the samples module's stubs. Off by default; never in production.",
+            type = AttributeType.BOOLEAN
+    )
+    boolean enableDevFieldActionEndpoints() default false;
+
+    @AttributeDefinition(
             name = "Field action HTTP connect timeout (seconds)",
             description = "Maximum time allowed to establish the connection to the service a field action calls. Default: 5 seconds.",
             type = AttributeType.LONG

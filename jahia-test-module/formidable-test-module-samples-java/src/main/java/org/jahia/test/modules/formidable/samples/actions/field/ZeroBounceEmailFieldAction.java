@@ -9,18 +9,13 @@ import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Modified;
 import org.osgi.service.component.annotations.Reference;
-import org.osgi.service.metatype.annotations.AttributeDefinition;
-import org.osgi.service.metatype.annotations.AttributeType;
 import org.osgi.service.metatype.annotations.Designate;
-import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * The second example implementation of a mailbox check against an external service — ZeroBounce's email validation
@@ -48,7 +43,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * @see <a href="https://www.zerobounce.net/docs/email-validation-api-quickstart/v2-validate-emails">ZeroBounce API v2, validate</a>
  */
 @Component(service = FieldAction.class, configurationPid = ZeroBounceEmailFieldAction.PID)
-@Designate(ocd = ZeroBounceEmailFieldAction.Config.class)
+@Designate(ocd = SampleEndpointConfig.class)
 public class ZeroBounceEmailFieldAction extends EmailVerificationFieldAction {
 
     public static final String NODE_TYPE = "fmdbsample:zeroBounceEmailAction";
@@ -65,46 +60,21 @@ public class ZeroBounceEmailFieldAction extends EmailVerificationFieldAction {
     /** The do_not_mail reasons that still name a mailbox receiving mail: a role, a group. */
     static final Set<String> RECEIVING_ANYWAY = Set.of("role_based", "role_based_catch_all");
 
-    /** Where the check calls: the base URL and the account's key, from {@value #PID}. */
-    @ObjectClassDefinition(name = "Formidable samples — ZeroBounce email check",
-            description = "Where the samples' ZeroBounce mailbox check calls, and the account's key.")
-    public @interface Config {
-
-        @AttributeDefinition(name = "URL", description = "The base URL of the ZeroBounce API: https://api.zerobounce.net.")
-        String url() default "https://api.zerobounce.net";
-
-        @AttributeDefinition(name = "API key", description = "The ZeroBounce account's key. Empty: the check is unavailable.",
-                type = AttributeType.PASSWORD)
-        String credential() default "";
-
-        @AttributeDefinition(name = "Development double", description = "The URL is a double of the service on this "
-                + "machine, over plain HTTP on localhost or host.docker.internal (the samples' stub). Never in production.")
-        boolean development() default false;
-    }
-
     @Reference
     private FieldActionGateway gateway;
-
-    private final AtomicReference<Optional<FieldActionGateway.Endpoint>> endpoint = new AtomicReference<>(Optional.empty());
 
     public ZeroBounceEmailFieldAction() {
     }
 
     ZeroBounceEmailFieldAction(FieldActionGateway gateway, FieldActionGateway.Endpoint endpoint) {
         this.gateway = gateway;
-        this.endpoint.set(Optional.ofNullable(endpoint));
+        useEndpoint(endpoint);
     }
 
     @Activate
     @Modified
-    public void configure(Config config) {
-        endpoint.set(endpointOf("ZeroBounce", config.url(), KEY_PARAMETER, config.credential(),
-                FieldActionGateway.Endpoint.CREDENTIAL_IN_QUERY, config.development()));
-    }
-
-    @Override
-    protected Optional<FieldActionGateway.Endpoint> endpoint() {
-        return endpoint.get();
+    public void activate(SampleEndpointConfig config) {
+        configure("ZeroBounce", config.url(), config._credential(), config.development(), KEY_PARAMETER, FieldActionGateway.Endpoint.CREDENTIAL_IN_QUERY);
     }
 
     @Override

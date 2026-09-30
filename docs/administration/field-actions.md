@@ -16,15 +16,15 @@ knows its service. The module's documentation names the file and its settings; t
 
 | Setting | Description |
 |---|---|
-| `url` | The service's base URL. HTTPS only — plain HTTP on `localhost` or `host.docker.internal` only with `development=true` |
-| `credential` | The secret the service gave you. Never logged, never shown to a contributor. Empty: the check does not run — an unavailable check, which the contributor's **If the check cannot run** setting decides — and the log says so once |
-| `development` | `true` for a double of the service on this machine, such as the samples module's. `false` by default; never in production |
+| `url` | The service's base URL, without a query string (a key the service reads off the URL is the credential). HTTPS only — plain HTTP on `localhost` or `host.docker.internal` only with `development=true` |
+| `.credential` | The secret the service gave you — the key starts with a dot, which keeps it off the list of OSGi services where the other settings are visible. Never logged, never shown to a contributor. Empty: the check does not run — an unavailable check, which the contributor's **If the check cannot run** setting decides — and the log says so once |
+| `development` | `true` for a double of the service on this machine, such as the samples module's — called only while `enableDevFieldActionEndpoints` is on (below). `false` by default; never in production |
 
 For the samples' Experian check, `karaf/etc/org.jahia.test.modules.formidable.samples.experian.cfg`:
 
 ```properties
 url=https://api.experianaperture.io
-credential=<your Experian token>
+.credential=<your Experian token>
 development=false
 ```
 
@@ -36,6 +36,7 @@ development, a malformed one — is logged once with the service's name and the 
 
 | Property | Description |
 |---|---|
+| `enableDevFieldActionEndpoints` | `true` lets a check whose own file says `development=true` call its double over plain HTTP on `localhost` or `host.docker.internal`, as `enableDevForwardTargets` does for the forward targets. `false` by default; never in production |
 | `fieldActionHttpConnectTimeoutSeconds` | Time to establish the connection to the service. Default 5 |
 | `fieldActionHttpRequestTimeoutSeconds` | Total time for one call. A slower service is an unavailable check, which the contributor's **If the check cannot run** setting decides. Default 10 |
 | `fieldActionVerdictCacheTtlSeconds` | How long a verdict on one value is kept, per action, language and value, so that the check run while the visitor typed costs no second call at submission. `0` disables the cache. Default 300 |
@@ -44,8 +45,7 @@ development, a malformed one — is logged once with the service's name and the 
 | `fieldActionMaxValuesPerField` | Distinct answers of one field the submission judges — each may cost a call — before refusing the submission (`FMDB-017`). Default 50 |
 
 Earlier 0.5 snapshot builds listed the services in this file (`fieldActionProviders`, `enableDevFieldActionProviders`,
-`devFieldActionProviders`); those settings are no longer read, and a warning names them while the file still holds
-them.
+`devFieldActionProviders`); those settings are no longer read, and a warning names those that still hold a value.
 
 ## What runs behind the endpoint
 
@@ -63,12 +63,14 @@ registers a double of each service it has a check for, at `/modules/formidable-s
 `/modules/formidable-samples/zerobounce-stub`: the same operation, the same credential (`stub-token`), the
 same JSON, the verdict decided by the address (`ada@undeliverable.test`, `ada@invalid.test`,
 `info@example.test`…, see the design page). Its two configuration files point the checks at those doubles
-(`url=http://localhost:8080/modules/formidable-samples/…-stub`, `credential=stub-token`, `development=true`).
+(`url=http://localhost:8080/modules/formidable-samples/…-stub`, `.credential=stub-token`, `development=true`);
+switch `enableDevFieldActionEndpoints=true` on in `org.jahia.modules.formidable.fieldActions.cfg` for them to be
+called.
 
 On an email field of a published form, switch **Enable field actions** on, add **Email mailbox check
 (ZeroBounce)**, and type the addresses above on the live page.
 
-With a real account, set the real URL, your credential and `development=false` in the check's file. ZeroBounce's
+With a real account, set the real URL, your `.credential` and `development=false` in the check's file. ZeroBounce's
 sandbox addresses (`valid@example.com`, `invalid@example.com`, `disposable@example.com`, `role_based@example.com`,
 `catch_all@example.com`, `unknown@example.com`) answer without spending a credit; Experian offers a trial in
 Australia, Canada, New Zealand and the United States.

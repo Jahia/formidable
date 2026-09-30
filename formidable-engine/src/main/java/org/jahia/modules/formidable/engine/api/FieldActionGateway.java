@@ -53,7 +53,8 @@ public interface FieldActionGateway {
         public static final String CREDENTIAL_IN_QUERY = "query";
 
         /**
-         * An endpoint from a module's configuration values, checked: a base URL that parses and obeys the rule above,
+         * An endpoint from a module's configuration values, checked: a base URL that parses, obeys the rule above and
+         * carries no query nor fragment,
          * a credential's name and value together or neither, a placement that is {@value #CREDENTIAL_IN_HEADER} or
          * {@value #CREDENTIAL_IN_QUERY}, a query credential with its value.
          *
@@ -86,6 +87,11 @@ public interface FieldActionGateway {
             String reason = EndpointRule.unsupportedReason(base, development);
             if (reason != null) {
                 throw new IllegalArgumentException("the URL of " + name + " is refused: " + reason);
+            }
+            if (base.getRawQuery() != null || base.getRawFragment() != null) {
+                // The gateway rebuilds the target from the base's path: a query here would be dropped on every call.
+                throw new IllegalArgumentException("the URL of " + name + " carries a query or a fragment, which would be "
+                        + "dropped: a key the service reads off the URL is the credential, sent in the query");
             }
             return new Endpoint(name, base, header, secret, CREDENTIAL_IN_QUERY.equals(where), development);
         }

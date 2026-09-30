@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * The shape of a field action behind an external service — what every check calling one has in common, so that a
@@ -24,6 +25,9 @@ import java.util.Optional;
 public abstract class ProviderFieldAction implements FieldAction {
 
     private static final Logger log = LoggerFactory.getLogger(ProviderFieldAction.class);
+
+    /** The endpoint the module's configuration describes, as {@link #configure} last read it. */
+    private final AtomicReference<Optional<FieldActionGateway.Endpoint>> configured = new AtomicReference<>(Optional.empty());
 
     @Override
     public final FieldActionResult execute(JCRNodeWrapper actionNode, FieldActionRequest request) {
@@ -59,11 +63,35 @@ public abstract class ProviderFieldAction implements FieldAction {
     }
 
     /**
-     * Where the service is, from the module's own configuration ({@link FieldActionGateway.Endpoint#of}); empty when
+     * Where the service is: by default what {@link #configure} last read from the module's configuration; empty when
      * the configuration describes none usable — the check is then unavailable, the configuration's own warning says
-     * why.
+     * why. A module holding its endpoint otherwise overrides it.
      */
-    protected abstract Optional<FieldActionGateway.Endpoint> endpoint();
+    protected Optional<FieldActionGateway.Endpoint> endpoint() {
+        return configured.get();
+    }
+
+    /**
+     * Reads the module's configuration into the endpoint {@link #endpoint()} serves — call it from the component's
+     * {@code @Activate}/{@code @Modified} with the values of its own configuration. Keep the credential a private
+     * property ({@code .credential}, method {@code _credential()}): Declarative Services publishes a component's
+     * configuration with the service it registers, except the names starting with a dot.
+     *
+     * @param name           what the service is called in log lines ({@code "Experian"})
+     * @param credentialName the header or query parameter the service reads its credential from — the service's own
+     *                       contract, not a setting: {@code Auth-Token}, {@code api_key}
+     * @param credentialIn   {@link FieldActionGateway.Endpoint#CREDENTIAL_IN_HEADER} or
+     *                       {@link FieldActionGateway.Endpoint#CREDENTIAL_IN_QUERY}
+     */
+    protected final void configure(String name, String url, String credential, boolean development,
+                                   String credentialName, String credentialIn) {
+        configured.set(endpointOf(name, url, credentialName, credential, credentialIn, development));
+    }
+
+    /** Sets the endpoint directly — the tests' seam, and a module building its endpoint another way. */
+    protected final void useEndpoint(FieldActionGateway.Endpoint endpoint) {
+        configured.set(Optional.ofNullable(endpoint));
+    }
 
     /**
      * The service's verdict on the value: the call through {@link #gateway()} and the reading of the answer. An
@@ -75,8 +103,8 @@ public abstract class ProviderFieldAction implements FieldAction {
      * The endpoint a module's configuration describes, for {@link #endpoint()}: empty, with a log line naming the
      * service, when the configuration has no credential yet — the check is unavailable until an administrator sets
      * one — or describes no usable endpoint ({@link FieldActionGateway.Endpoint#of} says why, never the credential).
-     * Called where the configuration is read ({@code @Activate}/{@code @Modified}), so each problem is logged once per
-     * change, not per value.
+     * Called where the configuration is read ({@code @Activate}/{@code @Modified}, through {@link #configure}), so each
+     * problem is logged once per change, not per value.
      *
      * @param credentialName the header or query parameter the service reads its credential from — the service's own
      *                       contract, not a setting: {@code Auth-Token}, {@code api_key}

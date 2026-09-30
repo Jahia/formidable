@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -21,6 +22,7 @@ class ZeroBounceEmailFieldActionTest {
     /** A gateway answering what the test decided, and remembering what it was asked. */
     private static final class Gateway implements FieldActionGateway {
         final List<String> paths = new ArrayList<>();
+        final List<Endpoint> endpoints = new ArrayList<>();
         private final int status;
         private final String body;
 
@@ -36,6 +38,7 @@ class ZeroBounceEmailFieldActionTest {
 
         @Override
         public Response get(Endpoint endpoint, String path) {
+            endpoints.add(endpoint);
             paths.add(endpoint.name() + " " + (endpoint.credentialInQuery() ? "query:" : "header:") + endpoint.credentialName() + " " + path);
             return new Response(status, body);
         }
@@ -121,5 +124,22 @@ class ZeroBounceEmailFieldActionTest {
         assertEquals(FieldActionResult.Verdict.ACCEPT, action.judge(of("hello")).verdict());
         assertEquals(FieldActionResult.Verdict.ACCEPT, action.judge(of("")).verdict());
         assertEquals(List.of(), gateway.paths);
+    }
+
+    @Test
+    void theConfigurationBecomesTheEndpointWithTheKeyInTheQuery() {
+        // Verifies the path a copying project relies on, field by field: the administrator's URL — not a default —,
+        // the key as ZeroBounce reads it, the api_key query parameter, and the development flag.
+        Gateway gateway = new Gateway(200, "{\"status\":\"valid\"}");
+        ZeroBounceEmailFieldAction action = new ZeroBounceEmailFieldAction(gateway, null);
+
+        action.activate(ExperianEmailFieldActionTest.config("https://bulkapi.zerobounce.net", "k3y", false));
+        action.judge(of("ada@example.com"));
+        FieldActionGateway.Endpoint endpoint = gateway.endpoints.get(0);
+        assertEquals(java.net.URI.create("https://bulkapi.zerobounce.net"), endpoint.baseUri());
+        assertEquals("api_key", endpoint.credentialName());
+        assertEquals("k3y", endpoint.credential());
+        assertTrue(endpoint.credentialInQuery());
+        assertFalse(endpoint.development());
     }
 }
