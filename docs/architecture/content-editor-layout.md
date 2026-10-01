@@ -22,7 +22,7 @@ How a third-party module joins the layout with a setting of its own is in the
 Content                 Title · System name · Required                  the field's own fieldset (<main>)
                         Field actions                                   the switch (docs/architecture/field-actions.md)
                         [storage mixin: hidden, always activated]       the type's former "advanced settings"
-Content list & ordering the editor's own block, shown once the switch created the actions list — folded
+(Content list & ordering: the editor's own block, shown once the switch created the actions list — hidden)
 Field settings  1.05    1 Help & presentation                           help text, title attribute
                         2 Value & input                                 placeholder, default value, mask, pattern,
                                                                         autocomplete, spell check, suggested values…
@@ -65,9 +65,13 @@ through its dependency on it.
 node with children makes the editor show its own **Content list & ordering** block, which jContent places
 **right after Content whatever its rank** (`FormBuilder.jsx` takes the `listOrdering` section out of the
 rank order and reinserts it in second position) and opens by default (`nt_base.json`, `"expanded": true`).
-Its position cannot be changed from a module; its initial state can: the engine's override on
-`fmdbmix:fieldActions` declares the section with `"expanded": false`, so a field opens with the block folded
-— one node, nothing to order. Hiding it altogether (`"hide": true` on the section) is the other flag at hand.
+Its position cannot be changed from a module; whether it shows can: the engine's override on
+`fmdbmix:fieldActions` declares the section with `"hide": true`, so the block never shows on a field — one
+node, nothing to order; the actions are managed in the Page Builder zone under the field. **The scope is the
+mixin's**: the override reaches exactly the elements that can carry field actions — the field types with a
+value, switch on or off — and nothing else. A form, a step, a fieldset or a button keeps its Content list &
+ordering block, their children (steps, fields) being worth ordering. Folding the block instead
+(`"expanded": false` on the section) was the first cut and is the other flag at hand.
 
 **Hidden for good.** Three HTML attributes of the text input and three of the textarea have no effect, or
 an effect nothing reads, in a Formidable form, and are no longer offered: `form` (associates an input placed
@@ -181,7 +185,7 @@ What follows from the three rules, and shaped the overrides:
 | `fmdb_<type>.json` | the type's module (elements, extended-inputs) | the type's own properties: `<main>` keeps `required`, the rest in Field settings |
 | `fmdbmix_advanced<Type>Settings.json` | the type's module | the mixin's properties in the shared fieldsets, the hidden ones in its hidden storage fieldset |
 | `fmdbmix_validationMessages.json`, `…textValidationMessages.json`, `…rangeValidationMessages.json` | elements | the messages in the Validation messages fieldset, ranks 1, 2–5, 6–9 |
-| `fmdbmix_fieldActions.json` | engine | nothing of the switch, which stays where the editor generates it, at the end of Content; it folds the editor's Content list & ordering block (`listOrdering`, `"expanded": false`) |
+| `fmdbmix_fieldActions.json` | engine | nothing of the switch, which stays where the editor generates it, at the end of Content; it hides the editor's Content list & ordering block on the elements that can carry field actions, and on them only (`listOrdering`, `"hide": true`) |
 | `fmdbsamplemix_helpTextPosition.json` | the sample module | a third-party setting in Help & presentation, rank 1.5 |
 
 A module adding a setting to a built-in field declares the section and the fieldset with the same name,
@@ -201,7 +205,7 @@ families still to move — is not checked, so the check tightens as the layout s
 
 The layout itself is asserted by the Cypress spec `fields/225` for the text family (through
 `forms.editForm`, on a field carrying its storage mixin and on one without it: Content, the switch after
-the type's fieldset, the folded children block, the five fieldsets), `fields/222` for the sample's setting
+the type's fieldset, no children block, the five fieldsets), `fields/222` for the sample's setting
 and `fields/223` for the switch.
 
 ## Decision log
@@ -215,6 +219,6 @@ and `fields/223` for the switch.
 | 2026-10-01 | **`form`, `dirname`, `size`, `cols` hidden** (HDU) | No effect, or an effect nothing reads, in a Formidable form; listed in the hidden fieldset so the CI check knows they are meant to be |
 | 2026-10-01 | **"Field actions", not "Checks"** (HDU) | The product term the Page Builder zone, the documentation and the configuration manager use; the switch names where the contributor goes next |
 | 2026-10-01 | **The Field actions switch stays at the end of Content**, not in Field settings (HDU, on seeing it: « un peu perdu au milieu des autres sections ») | A capability, not a setting, one line; a lone switch between two titled groups reads as lost; and the children block its list creates is drawn right under Content by the editor whatever we do, so cause and effect stay together. The 2026-09-25 decision of field-actions.md stands |
-| 2026-10-01 | **The Content list & ordering block is folded for fields, not moved** (HDU asked for it after jExperience and closed) | Its position is hard-coded second by jContent's FormBuilder, out of reach of a module; its initial state is a flag the engine's override sets. Hiding it was weighed as the cleaner option for a one-node list and left as the next flag to flip |
+| 2026-10-01 | **The Content list & ordering block is hidden for fields, not moved** (HDU asked for it after jExperience and closed, then « Hide CONTENT LIST ») | Its position is hard-coded second by jContent's FormBuilder, out of reach of a module; whether it shows is a flag the engine's override sets. Folded was the first cut; hidden is cleaner for a one-node list whose node is managed in the Page Builder |
 | 2026-10-01 | **Pattern stays visible next to the mask, both tooltips say the pattern is derived** (HDU: « pattern est déduit de mask non ? c'est bien précisé quelque part ? ») | It is derived in the view and nothing said so; a pattern alone still validates by regex, and a typed one replaces the derived one |
 | 2026-10-01 | **The layout is checked by CI, "hidden" is spelled out** | Rule 2 above makes a forgotten property fail in silence; listing the hidden ones in the hidden fieldset is what lets the check tell a choice from an omission |

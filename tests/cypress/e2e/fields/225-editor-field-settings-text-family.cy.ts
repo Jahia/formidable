@@ -9,7 +9,6 @@ const EDIT_FORM = gql`
 			editForm(uiLocale: "en", locale: "en", uuidOrPath: $path) {
 				sections {
 					name
-					expanded
 					fieldSets {
 						name
 						visible
@@ -35,7 +34,6 @@ interface FieldSet {
 
 interface Section {
 	name: string;
-	expanded?: boolean;
 	fieldSets: FieldSet[];
 }
 
@@ -95,7 +93,7 @@ const LAYOUTS: Record<string, {settings: [string, string[]][]; hidden?: {fieldSe
  * activated; the attributes a form never needs (form, dirname, size, cols) stay in that hidden fieldset.
  * The validation messages join the section; the field actions switch stays at the end of Content, a
  * capability of the field rather than a setting, next to the children block its list makes the editor
- * show — a block the engine folds, one node being nothing to order. Read through the editor form
+ * show — a block the engine hides, one node being nothing to order. Read through the editor form
  * the Content Editor builds, on a field carrying the storage mixin and on one without it: the layout is
  * the same, which is the point of the hidden always-activated fieldset.
  */
@@ -156,9 +154,9 @@ describe('Form fields - 225 The field editor layout of the text family', () => {
 		expect(actions?.hasEnableSwitch, `field actions enable switch on ${name}`).to.be.true;
 		expect(settings?.fieldSets.map(fieldSet => fieldSet.name), `no switch in Field settings on ${name}`).not.to.include(FIELD_ACTIONS_SWITCH);
 
-		// The Validation messages section is gone; the editor's children block starts folded.
+		// The Validation messages section is gone, and so is the editor's children block.
 		expect(sections.map(section => section.name), `sections of ${name}`).not.to.include('validationMessages');
-		expect(sections.find(section => section.name === LIST_ORDERING_SECTION)?.expanded, `children block folded on ${name}`).to.be.false;
+		expect(sections.map(section => section.name), `children block hidden on ${name}`).not.to.include(LIST_ORDERING_SECTION);
 	});
 
 	it('lays out a text input the same way with and without its storage mixin', () => {
