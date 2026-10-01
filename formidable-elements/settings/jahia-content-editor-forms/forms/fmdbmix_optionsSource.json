@@ -1,0 +1,17 @@
+{
+	"nodeType": "fmdbmix:optionsSource",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "content",
+			"fieldSets": [
+				{
+					"name": "<main>",
+					"fields": [
+						{ "name": "optionsMode", "rank": 1.5 }
+					]
+				}
+			]
+		}
+	]
+}

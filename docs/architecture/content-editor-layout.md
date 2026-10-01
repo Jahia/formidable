@@ -94,7 +94,7 @@ input, the mask first.
 | ------ | ----- | ------ |
 | Text | `fmdb:inputText`, `fmdb:inputEmail`, `fmdb:textarea` | **done** (2026-10-01): Content = title, system name, required; the "advanced settings" mixins dissolved into the fieldsets as supertypes of their types (no switch, no mixin to add on save; `AdvancedSettingsMixinMigration` drops the redundant one from older fields)|
 | Numbers and dates | `fmdb:inputNumber`, `fmdb:inputRange`, `fmdb:inputDate`, `fmdb:inputDatetimeLocal` | **done** (2026-10-01): the number and slider "advanced settings" mixins are supertypes of their types like the text ones (2026-10-02); the slider keeps `minValue` and `maxValue` in Content; the number's bounds go to Constraints; the date bound modes go to Constraints with their dynamic fieldsets right after (3.1–3.4); `step` in Value & input; the number and slider "advanced settings" mixins dissolved (hidden storage keeps `form`) |
-| Choices and files | `fmdb:select`, `fmdb:radio`, `fmdb:checkbox`, `fmdb:inputFile`, `fmdb:inputColor`, `fmdb:inputHidden` | to do — the options mode and its dynamic fieldsets stay in Content next to the options |
+| Choices and files | `fmdb:select`, `fmdb:radio`, `fmdb:checkbox`, `fmdb:inputFile`, `fmdb:inputColor`, `fmdb:inputHidden` | **done** (2026-10-01): the options origin and its dynamic fieldsets stay in Content, after Required; the select keeps `multiple` there, the file field keeps `accept` and `multiple`; the empty-option label goes to Help & presentation, the select's `size` to Value & input, `disabled` / `autofocus` to Behaviour; the hidden input has nothing to move and no section |
 | Extended inputs | `fmdbext:consent`, `fmdbext:rating`, `fmdbext:scale`, `fmdbext:switch` | to do |
 
 Until a family moves, its types keep their properties in Content and show the Field settings section with
@@ -116,6 +116,21 @@ the fields move, the generated copy in Content empties and falls). They have no 
 extends `jmix:templateMixin`), so the editor shows one only once its mode is chosen — as before, in another
 section. The `fieldsets/` overrides that make the relative offsets mandatory keep working: they merge at
 priority 1, before the `forms/` overrides move the fields, and the moved field keeps what they set.
+
+### Choices and files
+
+A choice field *is* its options: the options origin (`optionsMode`, on the engine's `fmdbmix:optionsSource`
+contract) and the dynamic fieldset of the chosen origin (manual list, categories, site content, a third-party
+source) stay in **Content**, right after Required, as before. One content-only override on the mixin
+(`fmdbmix_optionsSource.json`, `<main>` at rank 1.5) ranks the origin for the select, the radio and the checkbox
+at once — the type files used to carry that rank, and a type file lists only the type's own properties now,
+which is what the CI check expects of a file declaring the section. Being content-only, that override is not
+checked: it moves nothing. The select keeps `multiple` beside the origin (rank 1.8) and gives its empty-option
+label to Help & presentation, its number of visible rows to Value & input, `disabled` / `autofocus` to
+Behaviour. The file field is defined by what it accepts and how many: `accept` and `multiple` stay in Content
+with Required; only its help text moves. The colour input keeps Required and gives its default colour to Value &
+input. The hidden input has one property, its value, and no help text or messages: nothing moves, no Field
+settings section, no override.
 
 ## The section ranks
 
@@ -213,6 +228,7 @@ What follows from the three rules, and shaped the overrides:
 | `fmdb_<type>.json` | the type's module (elements, extended-inputs) | the type's own properties: `<main>` keeps `required`, the rest in Field settings |
 | `fmdbmix_advanced<Type>Settings.json` | the type's module | the properties of the type's advanced-settings supertype in the shared fieldsets (its `hidden` ones are no fields) |
 | `fmdbmix_dateBounds.json`, `fmdbmix_datetimeBounds.json`, `fmdbmix_<fixed|relative><Min|Max><Date|Datetime>.json` | elements — the mixins are the engine's, their editor overrides live next to the date types that use them, as their `fieldsets/` overrides already did | the bound modes in Constraints, each dynamic bound fieldset at its rank 3.1–3.4 |
+| `fmdbmix_optionsSource.json` | elements (same reason) | content-only: the options origin at rank 1.5 of `<main>` on every choice field; the dynamic options fieldsets stay where the editor generates them |
 | `fmdbmix_validationMessages.json`, `…textValidationMessages.json`, `…rangeValidationMessages.json` | elements | the messages in the Validation messages fieldset, ranks 1, 2–5, 6–9 |
 | `fmdbmix_fieldActions.json` | engine | nothing of the switch, which stays where the editor generates it, at the end of Content; it hides the editor's Content list & ordering block on the elements that can carry field actions, and on them only (`listOrdering`, `"hide": true`) |
 | `fmdbsamplemix_helpTextPosition.json` | the sample module | a third-party setting in Help & presentation, rank 1.5 |
@@ -252,6 +268,7 @@ the sample's setting and `fields/223` for the switch.
 | 2026-10-01 | **The Content list & ordering block is hidden for fields, not moved** (HDU asked for it after jExperience and closed, then « Hide CONTENT LIST ») | Its position is hard-coded second by jContent's FormBuilder, out of reach of a module; whether it shows is a flag the engine's override sets. Folded was the first cut; hidden is cleaner for a one-node list whose node is managed in the Page Builder |
 | 2026-10-01 | **Pattern stays visible next to the mask, both tooltips say the pattern is derived** (HDU: « pattern est déduit de mask non ? c'est bien précisé quelque part ? ») | It is derived in the view and nothing said so; a pattern alone still validates by regex, and a typed one replaces the derived one |
 | 2026-10-01 | **The layout is checked by CI, "hidden" is spelled out** | Rule 2 above makes a forgotten property fail in silence; listing the hidden ones in the hidden fieldset is what lets the check tell a choice from an omission |
+| 2026-10-01 | **Choices and files: the options origin and its fieldsets stay in Content, the file field keeps what it accepts and how many, the hidden input is left alone** (the arbitrated schema) | A choice field is its options and a file field is its accepted types; a setting that defines the field is not a setting a contributor rarely touches. The hidden input has nothing but its value |
 | 2026-10-01 | **Numbers and dates: the slider keeps its minimum and maximum in Content; the date bound modes and their dynamic fieldsets move to Constraints** (the arbitrated schema: « curseur : Libellé · Obligatoire · Min · Max » ; « bornes → Contraintes ») | A slider is drawn by its bounds, a date is constrained by them; the dynamic bound fieldsets follow the mode that selects them, moved from their own overrides so the `fieldsets/` flags (mandatory offsets) travel with the fields |
 | 2026-10-02 | **The "advanced settings" mixins become supertypes of their field types; the hidden always-activated storage fieldset is gone** (HDU review of #359: the editor added the mixin on every save, which a translator's role cannot do, and the always-activated fieldset showed no CND default; HDU: « fait l'alternative propre : déplacer ces propriétés sur les types primaires et retirer les mixins ») | Moving the properties onto the type under their names bricks every field saved before: Jackrabbit builds no effective node type for a node whose primary type and mixin declare the same property ("ambiguous property definition"), every write fails, the removal of the mixin included — verified on 8080; a type removed from the CND stays registered anyway. A supertype gives the same editor (no switch, the properties as the type's own, defaults shown) and keeps those fields writable; `AdvancedSettingsMixinMigration` drops the redundant mixin |
 | 2026-10-02 | **`size` and `cols` stay hidden with `form` and `dirname`** (HDU: « j'avais confondu cols avec rows ») | Presentational, superseded by any stylesheet sizing the controls; `rows` is the one with an effect of its own, and it stays |

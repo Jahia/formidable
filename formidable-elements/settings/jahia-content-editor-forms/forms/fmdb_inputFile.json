@@ -1,5 +1,5 @@
 {
-	"nodeType": "fmdb:checkbox",
+	"nodeType": "fmdb:inputFile",
 	"priority": 2.0,
 	"sections": [
 		{
@@ -8,7 +8,9 @@
 				{
 					"name": "<main>",
 					"fields": [
-						{ "name": "required", "rank": 1.2 }
+						{ "name": "required", "rank": 1.2 },
+						{ "name": "accept" },
+						{ "name": "multiple" }
 					]
 				}
 			]

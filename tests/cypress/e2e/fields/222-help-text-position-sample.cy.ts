@@ -189,12 +189,11 @@ describe('Form fields - 222 Help text position (third-party sample)', () => {
 			withHelpTextPosition(getSelectNode(SELECT_FIELD), 'down')
 		]).then(({formPath}) => {
 			// One form override, on the mixin, serves every type it extends: it places the setting in the
-			// Help & presentation fieldset of the Field settings section, which the reorganised field editors
-			// (text, email, textarea so far) share — right under Help text there. A type whose editor is not
-			// reorganised yet keeps its help text in Content, and the setting opens the new section alone.
+			// Help & presentation fieldset of the Field settings section, which the field editors share —
+			// right under Help text there, whichever type's override moved the help text into that fieldset.
 			[
 				{name: FIELDS.up.name, type: 'fmdb:inputText', helpTextMoved: true},
-				{name: SELECT_FIELD.name, type: 'fmdb:select', helpTextMoved: false}
+				{name: SELECT_FIELD.name, type: 'fmdb:select', helpTextMoved: true}
 			].forEach(({name, type, helpTextMoved}) => {
 				cy.apollo({
 					query: EDIT_FORM,

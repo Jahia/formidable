@@ -8,7 +8,22 @@
 				{
 					"name": "<main>",
 					"fields": [
-						{ "name": "optionsMode", "rank": 1.5 }
+						{ "name": "required", "rank": 1.2 }
+					]
+				}
+			]
+		},
+		{
+			"name": "fieldSettings",
+			"labelKey": "fmdb.section.fieldSettings",
+			"rank": 1.05,
+			"fieldSets": [
+				{
+					"name": "helpAndPresentation",
+					"labelKey": "fmdb.fieldset.helpAndPresentation",
+					"rank": 1.0,
+					"fields": [
+						{ "name": "helpText", "rank": 1.0 }
 					]
 				}
 			]
