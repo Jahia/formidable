@@ -289,12 +289,13 @@ Two things remain true whatever the order:
 
 ### Leftover: the engine's former csrf-guard file
 
-Up to 0.3 the engine shipped its csrf-guard whitelist as `org.jahia.modules.jahiacsrfguard-formidable-engine.cfg`;
-0.4 ships `org.jahia.modules.jahiacsrfguard-formidable.cfg` instead. The upgrade does not remove the old file, so an
-instance that started on 0.2 or 0.3 keeps both in `karaf/etc/`. Harmless: the old file only whitelists the
-submission endpoint the new one whitelists too, and the csrf-guard filter skips a request any of its configurations
-whitelists — verified with an authenticated submission on an upgraded instance. The old file is yours to remove;
-an instance installed on 0.4 or later has nothing to find.
+Up to 0.3 the engine shipped a csrf-guard file, `org.jahia.modules.jahiacsrfguard-formidable-engine.cfg`, that put
+the submission endpoint under the token check (`urlPatterns`); 0.4 ships
+`org.jahia.modules.jahiacsrfguard-formidable.cfg`, which whitelists it instead. The upgrade does not remove the old
+file, so an instance that started on 0.2 or 0.3 keeps both in `karaf/etc/`. Harmless: the csrf-guard filter skips a
+request any of its configurations whitelists, so the new file's whitelist wins — verified with an authenticated
+submission on an upgraded instance. The old file is yours to remove; an instance installed on 0.4 or later has
+nothing to find.
 
 ## 0.3.0 (and earlier) → 0.4.0: choice-field options are migrated at startup
 
