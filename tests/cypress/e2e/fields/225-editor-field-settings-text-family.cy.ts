@@ -9,6 +9,7 @@ const EDIT_FORM = gql`
 			editForm(uiLocale: "en", locale: "en", uuidOrPath: $path) {
 				sections {
 					name
+					expanded
 					fieldSets {
 						name
 						visible
@@ -34,6 +35,7 @@ interface FieldSet {
 
 interface Section {
 	name: string;
+	expanded?: boolean;
 	fieldSets: FieldSet[];
 }
 
@@ -44,6 +46,8 @@ interface EditFormResponse {
 
 /** What Content keeps on every reorganised field type: the title, the system name, the required switch. */
 const CONTENT_FIELDS = ['jcr:title', 'ce:systemName', 'required'];
+/** The editor's own block listing a node's children, which the field actions list makes appear. */
+const LIST_ORDERING_SECTION = 'listOrdering';
 const SETTINGS_SECTION = 'fieldSettings';
 const FIELD_ACTIONS_SWITCH = 'fmdbmix:fieldActions';
 const VALIDATION_MESSAGES = ['msgValueMissing', 'msgTypeMismatch', 'msgPatternMismatch', 'msgTooShort', 'msgTooLong'];
@@ -60,7 +64,6 @@ const LAYOUTS: Record<string, {settings: [string, string[]][]; hidden?: {fieldSe
 			['valueAndInput', ['placeholder', 'defaultValue', 'mask', 'pattern', 'autocomplete', 'spellcheck', 'list']],
 			['constraints', ['minLength', 'maxLength']],
 			['behaviour', ['readonly', 'disabled', 'autofocus']],
-			[FIELD_ACTIONS_SWITCH, []],
 			['validationMessages', VALIDATION_MESSAGES]
 		]
 	},
@@ -69,7 +72,6 @@ const LAYOUTS: Record<string, {settings: [string, string[]][]; hidden?: {fieldSe
 			['helpAndPresentation', ['helpText']],
 			['valueAndInput', ['placeholder', 'defaultValue', 'multiple', 'pattern', 'autocomplete', 'list']],
 			['constraints', ['minLength', 'maxLength']],
-			[FIELD_ACTIONS_SWITCH, []],
 			['validationMessages', VALIDATION_MESSAGES]
 		]
 	},
@@ -80,7 +82,6 @@ const LAYOUTS: Record<string, {settings: [string, string[]][]; hidden?: {fieldSe
 			['valueAndInput', ['placeholder', 'defaultValue', 'autocomplete', 'spellcheck', 'wrap', 'rows', 'resize']],
 			['constraints', ['minLength', 'maxLength']],
 			['behaviour', ['readonly', 'disabled', 'autofocus']],
-			[FIELD_ACTIONS_SWITCH, []],
 			['validationMessages', VALIDATION_MESSAGES]
 		]
 	}
@@ -92,7 +93,9 @@ const LAYOUTS: Record<string, {settings: [string, string[]][]; hidden?: {fieldSe
  * settings section, in fieldsets shared by the three types. The properties the type declares behind its
  * "advanced settings" mixin are spread over those fieldsets and the mixin is kept as hidden storage, always
  * activated; the attributes a form never needs (form, dirname, size, cols) stay in that hidden fieldset.
- * The field actions switch and the validation messages join the section. Read through the editor form
+ * The validation messages join the section; the field actions switch stays at the end of Content, a
+ * capability of the field rather than a setting, next to the children block its list makes the editor
+ * show — a block the engine folds, one node being nothing to order. Read through the editor form
  * the Content Editor builds, on a field carrying the storage mixin and on one without it: the layout is
  * the same, which is the point of the hidden always-activated fieldset.
  */
@@ -144,11 +147,18 @@ describe('Form fields - 225 The field editor layout of the text family', () => {
 			expect(fieldSet?.visible, `${fieldSetName} visible on ${name}`).to.be.true;
 		});
 
-		// The field actions switch moved with its enable switch; the Validation messages section is gone.
-		const actions = settings?.fieldSets.find(fieldSet => fieldSet.name === FIELD_ACTIONS_SWITCH);
+		// The field actions switch stays in Content, after the type's own fieldset, with its enable switch.
+		const contentNames = content?.fieldSets.filter(fieldSet => fieldSet.visible).map(fieldSet => fieldSet.name) ?? [];
+		expect(contentNames.indexOf(FIELD_ACTIONS_SWITCH), `field actions switch after the ${type} fieldset on ${name}`)
+			.to.be.greaterThan(contentNames.indexOf(type));
+		const actions = content?.fieldSets.find(fieldSet => fieldSet.name === FIELD_ACTIONS_SWITCH);
 		expect(actions?.dynamic, `field actions switch dynamic on ${name}`).to.be.true;
 		expect(actions?.hasEnableSwitch, `field actions enable switch on ${name}`).to.be.true;
+		expect(settings?.fieldSets.map(fieldSet => fieldSet.name), `no switch in Field settings on ${name}`).not.to.include(FIELD_ACTIONS_SWITCH);
+
+		// The Validation messages section is gone; the editor's children block starts folded.
 		expect(sections.map(section => section.name), `sections of ${name}`).not.to.include('validationMessages');
+		expect(sections.find(section => section.name === LIST_ORDERING_SECTION)?.expanded, `children block folded on ${name}`).to.be.false;
 	});
 
 	it('lays out a text input the same way with and without its storage mixin', () => {

@@ -477,8 +477,8 @@ properties while it is on; without it your field is single-valued (the checkbox 
 read by name: its cardinality follows its number of choices, as the view renders it).
 
 The other one, `fmdbmix:submittableField`, says the field submits a value. Declare it on the same fields
-(never on a file field, a button or a container): it is what offers the **Field actions** switch in the
-Field settings section of the field's editor, and every future setting meant for "every field with a value" will attach to it the
+(never on a file field, a button or a container): it is what offers the **Field actions** switch at the
+end of the Content section of the field's editor, and every future setting meant for "every field with a value" will attach to it the
 same way (`docs/architecture/field-actions.md`). The submission itself does not depend on it — a field
 without the marker is still submitted; it only lacks those switches.
 

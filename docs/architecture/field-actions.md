@@ -105,9 +105,9 @@ a marker with `extends`; concrete types live with the code that implements them.
  - jcr:title (string) = resourceBundle('fmdb_fieldActionList') autocreated i18n
  + * (fmdbmix:fieldAction) = fmdbmix:fieldAction version
 
-// The switch in the field's own Content Editor form — "this field has actions" — placed in the Field
-// settings section by the engine's form override. Offered on every field type taking
-// fmdbmix:submittableField (the fields with a value) and on nothing else.
+// The switch at the end of the Content section of the field's own Content Editor form — "this field
+// has actions". Offered on every field type taking fmdbmix:submittableField (the fields with a value)
+// and on nothing else.
 [fmdbmix:fieldActions] mixin
  extends = fmdbmix:submittableField
  + actions (fmdb:fieldActionList) = fmdb:fieldActionList autocreated
@@ -125,13 +125,13 @@ mixin autocreates the child nodes it declares (Jackrabbit's `AddMixinOperation` 
 node definitions): the list appears. Turning it off removes the mixin, and removing a mixin deletes the
 child nodes it defines: the list and every action in it go — the switch's label says so.
 
-**Where it sits.** In the **Field settings** section of the field's editor, with the other settings a
-contributor rarely touches, under the name **Field actions** (`META-INF/jahia-content-editor-forms/forms/
-fmdbmix_fieldActions.json`, `docs/architecture/content-editor-layout.md`). Moving a switch fieldset out of
-Content takes one flag the other overrides do not need: the override declares the fieldset in the new
-section, which leaves the editor with two fieldsets of that name, and the editor keeps a dynamic fieldset
-that is not unique only if it holds a visible field — this one holds none. `alwaysPresent` keeps the moved
-copy; the generated one in Content, empty and no longer unique, is dropped.
+**Where it sits.** At the end of the **Content** section of the field's editor, under the name **Field
+actions**, where the editor generates it — a capability of the field, like Required, not one of the settings
+the Field settings section gathers (`docs/architecture/content-editor-layout.md`). Switching it on
+autocreates the list, and a node with children makes the editor show its own **Content list & ordering**
+block right under Content, open: the engine's override on the mixin
+(`META-INF/jahia-content-editor-forms/forms/fmdbmix_fieldActions.json`) declares that section folded, one
+node being nothing to order. Its position is the editor's, not ours.
 
 **Which fields offer it.** The mixin extends `fmdbmix:submittableField`, the engine's positive marker of a
 field with a value, declared as a supertype by every built-in and extended field type but the file input,
@@ -698,7 +698,7 @@ call per blocking action and non-blank value never pre-checked.
 | 2026-09-22 | **`fmdbmix:fieldActions` drops the `jmix:dynamicFieldset` supertype** (found on the local instance: the switch was nowhere in the Content Editor) | `jmix:dynamicFieldset` extends `jmix:templateMixin`, which the editor reads as "no enable switch"; with no property of its own the fieldset was then not rendered at all, so the feature had no way in. `extends = fmdbmix:formElement` alone makes it dynamic AND switchable. Measured on `forms.editForm`: `visible: false, hasEnableSwitch: false` before, both true after |
 | 2026-09-22 | **The walk of the form is cached per form and locale for sixty seconds**, not keyed off the form's `jcr:lastModified` (review of #344) | A change to an action or a field touches that node's `jcr:lastModified`, not the form root's: the core `LastModifiedListener` writes the first node up the hierarchy that carries `mix:lastModified`, which a `jnt:content` action node is itself (jahia-impl 8.2.4 sources, `updateLastModifiedProperties`), so the root's date would serve stale actions after a republish. A short TTL is exact within the minute and needs no invalidation; the pipeline walks fresh every time |
 | 2026-09-25 | **The switch stays a dynamic-fieldset switch at the end of the `content` section** (HDU) — no `enabled` boolean, no FIELD ACTIONS section | The alternative, the `fmdbmix:jExperienceSensitiveField` shape (a `jmix:templateMixin` with an `enabled` boolean, always shown, placeable in a section of its own) would have changed what "off" means — the list kept, the checks paused — and needed a listener to create the list lazily. "On, the list exists; off, the list is deleted" is simpler and is what the label says |
-| 2026-10-01 | **The switch moves to the Field settings section, as "Field actions"** (HDU, the editor reorganisation: Content keeps title, system name and required; every other setting in one section) — superseding the row above on *where*, not on *what*: still a dynamic-fieldset switch, no `enabled` boolean | The section gathers what a contributor rarely touches, so a switch for the checks belongs there with the validation messages and the advanced attributes. "Checks" was weighed and declined (HDU): "Field actions" is the product term the Page Builder zone, the documentation and the configuration manager already use, and the switch has to name the zone the contributor goes to next. Moving a field-less switch fieldset needs `alwaysPresent` on the moved copy (`docs/architecture/content-editor-layout.md`) |
+| 2026-10-01 | **The switch stays at the end of Content, renamed "Field actions"**, while the other settings of a field move to the Field settings section (HDU, the editor reorganisation: it was tried in that section and found « un peu perdu au milieu des autres sections ») | A capability, not a setting, and the children block its list creates is drawn right under Content by the editor whatever a module declares. "Checks" was weighed and declined (HDU): "Field actions" is the product term the Page Builder zone, the documentation and the configuration manager already use, and the switch has to name the zone the contributor goes to next. The children block is folded by the engine's override (`docs/architecture/content-editor-layout.md`) |
 | 2026-09-25 | **`fmdbmix:fieldActions` extends a new positive marker, `fmdbmix:submittableField`**, not `fmdbmix:formElement` (HDU: « pourquoi fieldset porte le switch ? ») | `fmdbmix:formElement` reaches the fieldset (title + logic) and the button (through `fmdbmix:element`), both non-submittable: a switch whose actions never run. The engine had only the negative marker, and `extends` cannot say "formElement minus nonSubmittable". The positive marker is the `profileMappableField` pattern — the same sixteen field types declare it, a third-party field opts in from its own CND — and the pipeline keeps its `!nonSubmittable` test so no existing field type stops being submitted. A supertype added to a type is seen by existing nodes without a migration |
 | 2026-09-28 | **The zone's module is attached to the field's with `data-jahia-parent`, stamped by a script the wrapper emits in edit mode** (HDU, manual review: insertion points between the field and its zone) | jContent infers a module's parent from the DOM unless the module says otherwise, and the zone sits next to the field's module, not inside it — inside is where only the field's own view could put it, which the 2026-09-22 decision rules out. The ids are drawn at render time, hence a script rather than an attribute; `Boxes.jsx` reads `data-jahia-parent` first, so the zone is the field's child from the first paint, out of the fields' insertion points and drag list |
 | 2026-09-22 | **The marker and the zone live on the element wrapper**, not in the field views and not in a library helper (HDU, PR 2 handoff) | `LogicAwareRender` already wraps every element of every container with the node name, id, type and the logic state; adding `data-fmdb-field-action` and the zone there touches one file, no field view, and covers a field from any module without it calling anything — fields only ever render inside a Formidable container. The draft's `fieldActionAttributes(currentNode)` library export is dropped: a helper every view would have had to remember to spread |

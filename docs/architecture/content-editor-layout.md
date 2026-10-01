@@ -20,14 +20,15 @@ How a third-party module joins the layout with a setting of its own is in the
 
 ```
 Content                 Title · System name · Required                  the field's own fieldset (<main>)
+                        Field actions                                   the switch (docs/architecture/field-actions.md)
                         [storage mixin: hidden, always activated]       the type's former "advanced settings"
+Content list & ordering the editor's own block, shown once the switch created the actions list — folded
 Field settings  1.05    1 Help & presentation                           help text, title attribute
                         2 Value & input                                 placeholder, default value, mask, pattern,
                                                                         autocomplete, spell check, suggested values…
                         3 Constraints                                   minimum / maximum length…
                         4 Behaviour                                     read-only, disabled, autofocus
-                        5 Field actions                                 the switch (docs/architecture/field-actions.md)
-                        6 Validation messages                           the messages replacing the browser's
+                        5 Validation messages                           the messages replacing the browser's
 Logic           1.10    unchanged
 jExperience     1.15    unchanged (formidable-jexperience-engine)
 Metadata, Layout, List ordering, Visibility: the platform's own sections, unchanged
@@ -38,11 +39,14 @@ inside it). There is no third level: the "sub-sections" of the design are titled
 with no `labelKey` renders its fields without a title.
 
 **What Content keeps** is the same for every type: the title (the label of the field), the system name
-(the platform puts it there) and **Required**. A property that *defines* the field keeps its place there
+(the platform puts it there), **Required**, and the **Field actions** switch at the end — a capability of
+the field rather than a setting (it opens a zone under the field in the Page Builder), kept there because a
+lone switch between two titled groups of settings reads as lost, and because the editor shows the list it
+creates right under Content anyway (below). A property that *defines* the field keeps its place there
 too — the options and their mode on a choice field, the minimum and maximum of a slider, the declaration
 of a consent field — which is decided type by type as each family moves (table below).
 
-**Field settings** gathers the rest, in six fieldsets whose names, label keys and ranks are the same in
+**Field settings** gathers the rest, in five fieldsets whose names, label keys and ranks are the same in
 every override, so that a type's own file, its mixins' files and a third-party module's file all land in
 the same groups:
 
@@ -52,12 +56,18 @@ the same groups:
 | 2    | Value & input         | `valueAndInput`       | `fmdb.fieldset.valueAndInput`       | by frequency of use: `placeholder` (1), `defaultValue` (2), `mask` (3), `pattern` (4), `autocomplete` (5), `spellcheck` (6), `wrap` (7), `list` (7), `rows` (8), `resize` (9) |
 | 3    | Constraints           | `constraints`         | `fmdb.fieldset.constraints`         | `minLength`, `maxLength` |
 | 4    | Behaviour             | `behaviour`           | `fmdb.fieldset.behaviour`           | `readonly`, `disabled`, `autofocus` |
-| 5    | Field actions         | `fmdbmix:fieldActions` | the mixin's label (engine)          | the switch; no property |
-| 6    | Validation messages   | `validationMessages`  | `fmdb.fieldset.validationMessages`  | `msgValueMissing` (1), the text messages (2–5), the range messages (6–9) |
+| 5    | Validation messages   | `validationMessages`  | `fmdb.fieldset.validationMessages`  | `msgValueMissing` (1), the text messages (2–5), the range messages (6–9) |
 
-The label keys live in the bundle of `formidable-elements`, except the section's key,
-`fmdb.section.fieldSettings`, which the engine's bundle carries too: the engine declares the section for
-the field actions switch and must resolve it without the elements module.
+The label keys live in the bundle of `formidable-elements`; a module joining the layout resolves them
+through its dependency on it.
+
+**The children block.** Switching Field actions on autocreates the `actions` list under the field, and a
+node with children makes the editor show its own **Content list & ordering** block, which jContent places
+**right after Content whatever its rank** (`FormBuilder.jsx` takes the `listOrdering` section out of the
+rank order and reinserts it in second position) and opens by default (`nt_base.json`, `"expanded": true`).
+Its position cannot be changed from a module; its initial state can: the engine's override on
+`fmdbmix:fieldActions` declares the section with `"expanded": false`, so a field opens with the block folded
+— one node, nothing to order. Hiding it altogether (`"hide": true` on the section) is the other flag at hand.
 
 **Hidden for good.** Three HTML attributes of the text input and three of the textarea have no effect, or
 an effect nothing reads, in a Formidable form, and are no longer offered: `form` (associates an input placed
@@ -81,8 +91,7 @@ input, the mask first.
 | Extended inputs | `fmdbext:consent`, `fmdbext:rating`, `fmdbext:scale`, `fmdbext:switch` | to do |
 
 Until a family moves, its types keep their properties in Content and show the Field settings section with
-what applies to every field already: the validation messages and, on a field with a value, the Field
-actions switch.
+what applies to every field already: the validation messages.
 
 ## The section ranks
 
@@ -93,7 +102,7 @@ cannot depend on which file is read first):
 
 | Rank | Section             | Declared by                                                                 | Scope                 |
 | ---- | ------------------- | --------------------------------------------------------------------------- | --------------------- |
-| 1.05 | Field settings      | the field types and their mixins (elements), `fmdbmix:fieldActions` (engine), the validation-message mixins (elements), `fmdbsamplemix:helpTextPosition` (sample) | fields |
+| 1.05 | Field settings      | the field types and their mixins (elements), the validation-message mixins (elements), `fmdbsamplemix:helpTextPosition` (sample) | fields |
 | 1.10 | Logic               | `fmdbmix:formLogicElement` (engine)                                         | fields and containers |
 | 1.10 | Responses           | `fmdbmix:responses` (elements)                                              | form                  |
 | 1.15 | jExperience         | `fmdbmix:jExperienceProfileMapping` (jexperience-engine)                    | fields                |
@@ -103,8 +112,12 @@ cannot depend on which file is read first):
 | 1.05 | Configuration       | `fmdbmix:fieldActionFeedback` (engine)                                      | a field action, not a field: no clash |
 
 1.50, the former Validation messages section, is free: its three overrides now feed the Validation
-messages fieldset of Field settings. The platform's own sections (`content`, `metadata`, `layout`,
-`listOrdering`, `visibility`, `seo`…) have their ranks in jContent; `content` comes first.
+messages fieldset of Field settings. The platform's own sections have their ranks in jContent's
+`nt_base.json`: `content` 1.0, `classification` 2.0, `metadata` 3.0, `layout` 4.0, `options` 5.0, `seo` 6.0,
+`listOrdering` 7.0, `visibility` 8.0 — which is why Formidable's sections sit between 1.0 and 2.0. Two of
+them ignore their rank in the editor: `listOrdering` is always drawn second, right after Content (above),
+and `visibility` is drawn apart, as the advanced options. A module can set a core section's `expanded`
+or `hide` flag by naming it; it cannot move those two.
 
 **Adding a section.** Pick a rank between the neighbours it should sit among, declare it with a `labelKey`
 resolvable from your module's bundle (or the site's template set) and list it here. A section that names
@@ -143,8 +156,8 @@ What follows from the three rules, and shaped the overrides:
 - **A switch fieldset moves only with all its fields**: listing every field empties the generated copy in
   Content, which is dropped (dynamic, not unique, empty), while the moved copy is kept (it holds the
   fields). A switch **without a property** — `fmdbmix:fieldActions` autocreates a child and declares no
-  property — needs `"alwaysPresent": true` on the moved copy; without it both copies are dropped and the
-  switch disappears, which pass 2 of the spike proved.
+  property — would need `"alwaysPresent": true` on the moved copy; without it both copies are dropped and
+  the switch disappears, which the spike proved before the switch was left in Content.
 - **Dissolving an "advanced settings" mixin** into the shared fieldsets keeps the mixin as **storage**:
   its properties still belong to it, so the node must carry it for the values to be saved. The override
   declares the mixin's fieldset in `content` (merging with the generated one, not duplicating it) with
@@ -168,7 +181,7 @@ What follows from the three rules, and shaped the overrides:
 | `fmdb_<type>.json` | the type's module (elements, extended-inputs) | the type's own properties: `<main>` keeps `required`, the rest in Field settings |
 | `fmdbmix_advanced<Type>Settings.json` | the type's module | the mixin's properties in the shared fieldsets, the hidden ones in its hidden storage fieldset |
 | `fmdbmix_validationMessages.json`, `…textValidationMessages.json`, `…rangeValidationMessages.json` | elements | the messages in the Validation messages fieldset, ranks 1, 2–5, 6–9 |
-| `fmdbmix_fieldActions.json` | engine | the switch, rank 5, `alwaysPresent` — the engine offers it to any field type with a value, third-party included |
+| `fmdbmix_fieldActions.json` | engine | nothing of the switch, which stays where the editor generates it, at the end of Content; it folds the editor's Content list & ordering block (`listOrdering`, `"expanded": false`) |
 | `fmdbsamplemix_helpTextPosition.json` | the sample module | a third-party setting in Help & presentation, rank 1.5 |
 
 A module adding a setting to a built-in field declares the section and the fieldset with the same name,
@@ -187,8 +200,9 @@ are not its own and are not expected. An override that does not declare the sect
 families still to move — is not checked, so the check tightens as the layout spreads.
 
 The layout itself is asserted by the Cypress spec `fields/225` for the text family (through
-`forms.editForm`, on a field carrying its storage mixin and on one without it), `fields/222` for the
-sample's setting and `fields/223` for the switch.
+`forms.editForm`, on a field carrying its storage mixin and on one without it: Content, the switch after
+the type's fieldset, the folded children block, the five fieldsets), `fields/222` for the sample's setting
+and `fields/223` for the switch.
 
 ## Decision log
 
@@ -200,5 +214,7 @@ sample's setting and `fields/223` for the switch.
 | 2026-10-01 | **The "advanced settings" mixins are dissolved into the fieldsets, kept as hidden storage** (HDU: « est-ce que la mixin advance a encore un sens ? ») | A switch to hide settings inside a section that already gathers the rarely used ones is a door inside a door; the storage mixin keeps the CND untouched |
 | 2026-10-01 | **`form`, `dirname`, `size`, `cols` hidden** (HDU) | No effect, or an effect nothing reads, in a Formidable form; listed in the hidden fieldset so the CI check knows they are meant to be |
 | 2026-10-01 | **"Field actions", not "Checks"** (HDU) | The product term the Page Builder zone, the documentation and the configuration manager use; the switch names where the contributor goes next |
+| 2026-10-01 | **The Field actions switch stays at the end of Content**, not in Field settings (HDU, on seeing it: « un peu perdu au milieu des autres sections ») | A capability, not a setting, one line; a lone switch between two titled groups reads as lost; and the children block its list creates is drawn right under Content by the editor whatever we do, so cause and effect stay together. The 2026-09-25 decision of field-actions.md stands |
+| 2026-10-01 | **The Content list & ordering block is folded for fields, not moved** (HDU asked for it after jExperience and closed) | Its position is hard-coded second by jContent's FormBuilder, out of reach of a module; its initial state is a flag the engine's override sets. Hiding it was weighed as the cleaner option for a one-node list and left as the next flag to flip |
 | 2026-10-01 | **Pattern stays visible next to the mask, both tooltips say the pattern is derived** (HDU: « pattern est déduit de mask non ? c'est bien précisé quelque part ? ») | It is derived in the view and nothing said so; a pattern alone still validates by regex, and a typed one replaces the derived one |
 | 2026-10-01 | **The layout is checked by CI, "hidden" is spelled out** | Rule 2 above makes a forgotten property fail in silence; listing the hidden ones in the hidden fieldset is what lets the check tell a choice from an omission |

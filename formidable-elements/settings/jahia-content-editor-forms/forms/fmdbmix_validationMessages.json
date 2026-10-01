@@ -10,7 +10,7 @@
 				{
 					"name": "validationMessages",
 					"labelKey": "fmdb.fieldset.validationMessages",
-					"rank": 6.0,
+					"rank": 5.0,
 					"fields": [
 						{ "name": "msgValueMissing", "rank": 1.0 }
 					]
