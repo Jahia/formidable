@@ -124,8 +124,10 @@ a convention for the reader — the `id` setting is what counts — and two file
 with a warning naming the configuration kept and the one ignored. `label` is what the editor's picker shows, the
 id when it is empty. Remove a file to remove the entry — except a file a module ships (below): Jahia copies it
 back at the module's next start whenever it is missing, so empty its `id` instead, and the entry counts for
-nothing. Keep its first line, `# default configuration`: it tells Jahia the file is yours to edit, and a shipped
-file without it is written back from the module at every start. A forward target:
+nothing. Whether Jahia leaves your copy alone is decided by the module's file, not yours: a shipped file that
+carries a `# default configuration` line is copied only while missing, so your edits stay, the emptied `id`
+included; a shipped file without that line is written back at every start of the module, and only the module
+can retire it. A forward target:
 
 ```properties
 # karaf/etc/org.jahia.modules.formidable.formActions.target-crm-prod.cfg
