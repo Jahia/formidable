@@ -1,6 +1,6 @@
 {
 	"nodeType": "fmdb:inputDatetimeLocal",
-	"priority": 2,
+	"priority": 2.0,
 	"sections": [
 		{
 			"name": "content",
@@ -8,14 +8,31 @@
 				{
 					"name": "<main>",
 					"fields": [
-						{
-							"name": "minBoundMode",
-							"rank": 1.5
-						},
-						{
-							"name": "maxBoundMode",
-							"rank": 1.6
-						}
+						{ "name": "required" }
+					]
+				}
+			]
+		},
+		{
+			"name": "fieldSettings",
+			"labelKey": "fmdb.section.fieldSettings",
+			"rank": 1.05,
+			"fieldSets": [
+				{
+					"name": "helpAndPresentation",
+					"labelKey": "fmdb.fieldset.helpAndPresentation",
+					"rank": 1.0,
+					"fields": [
+						{ "name": "helpText", "rank": 1.0 }
+					]
+				},
+				{
+					"name": "valueAndInput",
+					"labelKey": "fmdb.fieldset.valueAndInput",
+					"rank": 2.0,
+					"fields": [
+						{ "name": "defaultValue", "rank": 2.0 },
+						{ "name": "step", "rank": 3.0 }
 					]
 				}
 			]

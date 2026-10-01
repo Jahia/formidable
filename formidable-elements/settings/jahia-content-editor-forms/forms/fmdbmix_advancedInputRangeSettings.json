@@ -1,14 +1,16 @@
 {
-	"nodeType": "fmdb:inputDate",
+	"nodeType": "fmdbmix:advancedInputRangeSettings",
 	"priority": 2.0,
 	"sections": [
 		{
 			"name": "content",
 			"fieldSets": [
 				{
-					"name": "<main>",
+					"name": "fmdbmix:advancedInputRangeSettings",
+					"isAlwaysActivated": true,
+					"hide": true,
 					"fields": [
-						{ "name": "required" }
+						{ "name": "form" }
 					]
 				}
 			]
@@ -23,16 +25,16 @@
 					"labelKey": "fmdb.fieldset.helpAndPresentation",
 					"rank": 1.0,
 					"fields": [
-						{ "name": "helpText", "rank": 1.0 }
+						{ "name": "title", "rank": 2.0 }
 					]
 				},
 				{
-					"name": "valueAndInput",
-					"labelKey": "fmdb.fieldset.valueAndInput",
-					"rank": 2.0,
+					"name": "behaviour",
+					"labelKey": "fmdb.fieldset.behaviour",
+					"rank": 4.0,
 					"fields": [
-						{ "name": "defaultValue", "rank": 2.0 },
-						{ "name": "step", "rank": 3.0 }
+						{ "name": "disabled", "rank": 2.0 },
+						{ "name": "autofocus", "rank": 3.0 }
 					]
 				}
 			]

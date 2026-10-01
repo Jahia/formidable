@@ -1,0 +1,20 @@
+{
+	"nodeType": "fmdbmix:fixedMinDatetime",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "fieldSettings",
+			"labelKey": "fmdb.section.fieldSettings",
+			"rank": 1.05,
+			"fieldSets": [
+				{
+					"name": "fmdbmix:fixedMinDatetime",
+					"rank": 3.1,
+					"fields": [
+						{ "name": "min", "rank": 1.0 }
+					]
+				}
+			]
+		}
+	]
+}

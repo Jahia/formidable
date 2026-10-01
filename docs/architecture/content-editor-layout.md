@@ -22,10 +22,12 @@ How a third-party module joins the layout with a setting of its own is in the
 Content                 Title · System name · Required                  the field's own fieldset (<main>)
                         Field actions                                   the switch (docs/architecture/field-actions.md)
 (Content list & ordering: the editor's own block, shown once the switch created the actions list — hidden)
-Field settings  1.05    1 Help & presentation                           help text, title attribute
+Field settings  1.05    1 Help & presentation                           help text, title attribute, slider end labels
                         2 Value & input                                 placeholder, default value, mask, pattern,
-                                                                        autocomplete, spell check, suggested values…
-                        3 Constraints                                   minimum / maximum length…
+                                                                        autocomplete, spell check, step, suggested values…
+                        3 Constraints                                   lengths, numeric bounds, date bound modes…
+                        3.1–3.4   the date bound fieldsets              fixed / relative minimum and maximum, shown
+                                                                        when their mode is chosen
                         4 Behaviour                                     read-only, disabled, autofocus
                         5 Validation messages                           the messages replacing the browser's
 Logic           1.10    unchanged
@@ -42,8 +44,9 @@ with no `labelKey` renders its fields without a title.
 the field rather than a setting (it opens a zone under the field in the Page Builder), kept there because a
 lone switch between two titled groups of settings reads as lost, and because the editor shows the list it
 creates right under Content anyway (below). A property that *defines* the field keeps its place there
-too — the options and their mode on a choice field, the minimum and maximum of a slider, the declaration
-of a consent field — which is decided type by type as each family moves (table below).
+too — the options and their mode on a choice field, the minimum and maximum of a slider (`fmdb:inputRange`
+keeps `minValue` and `maxValue` in Content: they draw the control), the declaration of a consent field —
+which is decided type by type as each family moves (table below).
 
 **Field settings** gathers the rest, in five fieldsets whose names, label keys and ranks are the same in
 every override, so that a type's own file, its mixins' files and a third-party module's file all land in
@@ -51,9 +54,10 @@ the same groups:
 
 | Rank | Fieldset              | Name                  | Label key                           | Holds |
 | ---- | --------------------- | --------------------- | ----------------------------------- | ----- |
-| 1    | Help & presentation   | `helpAndPresentation` | `fmdb.fieldset.helpAndPresentation` | `helpText` (rank 1), the HTML `title` attribute (2), a third-party setting about the help text (the sample puts `helpTextPosition` at 1.5) |
-| 2    | Value & input         | `valueAndInput`       | `fmdb.fieldset.valueAndInput`       | by frequency of use: `placeholder` (1), `defaultValue` (2), `mask` (3), `pattern` (4), `autocomplete` (5), `spellcheck` (6), `wrap` (7), `list` (7), `rows` (8), `resize` (9) |
-| 3    | Constraints           | `constraints`         | `fmdb.fieldset.constraints`         | `minLength`, `maxLength` |
+| 1    | Help & presentation   | `helpAndPresentation` | `fmdb.fieldset.helpAndPresentation` | `helpText` (rank 1), the slider's `minLabel` / `maxLabel` (1.5, 1.6), the HTML `title` attribute (2), a third-party setting about the help text (the sample puts `helpTextPosition` at 1.5) |
+| 2    | Value & input         | `valueAndInput`       | `fmdb.fieldset.valueAndInput`       | by frequency of use: `placeholder` (1), `defaultValue` (2), `mask` or `step` (3), `pattern` (4), `autocomplete` (5), `spellcheck` (6), `wrap` (7), `list` (7), `rows` (8), `resize` (9) |
+| 3    | Constraints           | `constraints`         | `fmdb.fieldset.constraints`         | `minLength`, `maxLength`; `minValue`, `maxValue` (number); `minBoundMode`, `maxBoundMode` (date, datetime) |
+| 3.1–3.4 | the date bound fieldsets | `fmdbmix:fixedMin<Kind>`, `fmdbmix:relativeMin<Kind>`, `fmdbmix:fixedMax<Kind>`, `fmdbmix:relativeMax<Kind>` | the mixins' labels (engine) | the fixed date or the relative offset of each bound; dynamic fieldsets without a switch, shown when the mode above selects them |
 | 4    | Behaviour             | `behaviour`           | `fmdb.fieldset.behaviour`           | `readonly`, `disabled`, `autofocus` |
 | 5    | Validation messages   | `validationMessages`  | `fmdb.fieldset.validationMessages`  | `msgValueMissing` (1), the text messages (2–5), the range messages (6–9) |
 
@@ -89,12 +93,29 @@ input, the mask first.
 | Family | Types | Status |
 | ------ | ----- | ------ |
 | Text | `fmdb:inputText`, `fmdb:inputEmail`, `fmdb:textarea` | **done** (2026-10-01): Content = title, system name, required; the "advanced settings" mixins dissolved into the fieldsets as supertypes of their types (no switch, no mixin to add on save; `AdvancedSettingsMixinMigration` drops the redundant one from older fields)|
-| Numbers and dates | `fmdb:inputNumber`, `fmdb:inputRange`, `fmdb:inputDate`, `fmdb:inputDatetimeLocal` | to do — the bound modes and their dynamic fieldsets go to Constraints; a slider keeps its min and max in Content |
+| Numbers and dates | `fmdb:inputNumber`, `fmdb:inputRange`, `fmdb:inputDate`, `fmdb:inputDatetimeLocal` | **done** (2026-10-01): the slider keeps `minValue` and `maxValue` in Content; the number's bounds go to Constraints; the date bound modes go to Constraints with their dynamic fieldsets right after (3.1–3.4); `step` in Value & input; the number and slider "advanced settings" mixins dissolved (hidden storage keeps `form`) |
 | Choices and files | `fmdb:select`, `fmdb:radio`, `fmdb:checkbox`, `fmdb:inputFile`, `fmdb:inputColor`, `fmdb:inputHidden` | to do — the options mode and its dynamic fieldsets stay in Content next to the options |
 | Extended inputs | `fmdbext:consent`, `fmdbext:rating`, `fmdbext:scale`, `fmdbext:switch` | to do |
 
 Until a family moves, its types keep their properties in Content and show the Field settings section with
 what applies to every field already: the validation messages.
+
+### Numbers and dates
+
+The slider (`fmdb:inputRange`) is the one type so far keeping settings beside Required in Content: `minValue`
+and `maxValue` draw the control, a slider without them is not a slider. Its end labels (`minLabel`,
+`maxLabel`) are presentation, next to the help text. The number input keeps nothing but Required: its
+`minValue` / `maxValue` are constraints.
+
+The date and datetime bounds are **modes** (`minBoundMode`, `maxBoundMode` on the `fmdbmix:dateBounds` /
+`fmdbmix:datetimeBounds` contracts of the engine: none, a fixed date, today, a relative offset), each mode
+adding a `jmix:dynamicFieldset` mixin that carries its value (`docs/architecture/custom-validation.md`). The
+modes sit in Constraints; the four dynamic fieldsets of each contract follow at ranks 3.1 to 3.4, each moved
+by its own override listing its fields (rule 2 below applies to a dynamic fieldset exactly as to a switch:
+the fields move, the generated copy in Content empties and falls). They have no switch (`jmix:dynamicFieldset`
+extends `jmix:templateMixin`), so the editor shows one only once its mode is chosen — as before, in another
+section. The `fieldsets/` overrides that make the relative offsets mandatory keep working: they merge at
+priority 1, before the `forms/` overrides move the fields, and the moved field keeps what they set.
 
 ## The section ranks
 
@@ -191,6 +212,7 @@ What follows from the three rules, and shaped the overrides:
 | ----- | ------ | ------ |
 | `fmdb_<type>.json` | the type's module (elements, extended-inputs) | the type's own properties: `<main>` keeps `required`, the rest in Field settings |
 | `fmdbmix_advanced<Type>Settings.json` | the type's module | the properties of the type's advanced-settings supertype in the shared fieldsets (its `hidden` ones are no fields) |
+| `fmdbmix_dateBounds.json`, `fmdbmix_datetimeBounds.json`, `fmdbmix_<fixed|relative><Min|Max><Date|Datetime>.json` | elements — the mixins are the engine's, their editor overrides live next to the date types that use them, as their `fieldsets/` overrides already did | the bound modes in Constraints, each dynamic bound fieldset at its rank 3.1–3.4 |
 | `fmdbmix_validationMessages.json`, `…textValidationMessages.json`, `…rangeValidationMessages.json` | elements | the messages in the Validation messages fieldset, ranks 1, 2–5, 6–9 |
 | `fmdbmix_fieldActions.json` | engine | nothing of the switch, which stays where the editor generates it, at the end of Content; it hides the editor's Content list & ordering block on the elements that can carry field actions, and on them only (`listOrdering`, `"hide": true`) |
 | `fmdbsamplemix_helpTextPosition.json` | the sample module | a third-party setting in Help & presentation, rank 1.5 |
@@ -230,5 +252,6 @@ the sample's setting and `fields/223` for the switch.
 | 2026-10-01 | **The Content list & ordering block is hidden for fields, not moved** (HDU asked for it after jExperience and closed, then « Hide CONTENT LIST ») | Its position is hard-coded second by jContent's FormBuilder, out of reach of a module; whether it shows is a flag the engine's override sets. Folded was the first cut; hidden is cleaner for a one-node list whose node is managed in the Page Builder |
 | 2026-10-01 | **Pattern stays visible next to the mask, both tooltips say the pattern is derived** (HDU: « pattern est déduit de mask non ? c'est bien précisé quelque part ? ») | It is derived in the view and nothing said so; a pattern alone still validates by regex, and a typed one replaces the derived one |
 | 2026-10-01 | **The layout is checked by CI, "hidden" is spelled out** | Rule 2 above makes a forgotten property fail in silence; listing the hidden ones in the hidden fieldset is what lets the check tell a choice from an omission |
+| 2026-10-01 | **Numbers and dates: the slider keeps its minimum and maximum in Content; the date bound modes and their dynamic fieldsets move to Constraints** (the arbitrated schema: « curseur : Libellé · Obligatoire · Min · Max » ; « bornes → Contraintes ») | A slider is drawn by its bounds, a date is constrained by them; the dynamic bound fieldsets follow the mode that selects them, moved from their own overrides so the `fieldsets/` flags (mandatory offsets) travel with the fields |
 | 2026-10-02 | **The "advanced settings" mixins become supertypes of their field types; the hidden always-activated storage fieldset is gone** (HDU review of #359: the editor added the mixin on every save, which a translator's role cannot do, and the always-activated fieldset showed no CND default; HDU: « fait l'alternative propre : déplacer ces propriétés sur les types primaires et retirer les mixins ») | Moving the properties onto the type under their names bricks every field saved before: Jackrabbit builds no effective node type for a node whose primary type and mixin declare the same property ("ambiguous property definition"), every write fails, the removal of the mixin included — verified on 8080; a type removed from the CND stays registered anyway. A supertype gives the same editor (no switch, the properties as the type's own, defaults shown) and keeps those fields writable; `AdvancedSettingsMixinMigration` drops the redundant mixin |
 | 2026-10-02 | **`size` and `cols` stay hidden with `form` and `dirname`** (HDU: « j'avais confondu cols avec rows ») | Presentational, superseded by any stylesheet sizing the controls; `rows` is the one with an effect of its own, and it stays |
