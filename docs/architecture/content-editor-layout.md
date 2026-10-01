@@ -107,13 +107,13 @@ cannot depend on which file is read first):
 | Rank | Section             | Declared by                                                                 | Scope                 |
 | ---- | ------------------- | --------------------------------------------------------------------------- | --------------------- |
 | 1.05 | Field settings      | the field types and their mixins (elements), the validation-message mixins (elements), `fmdbsamplemix:helpTextPosition` (sample) | fields |
+| 1.06 | Configuration       | `fmdbmix:fieldActionFeedback` (engine)                                      | a field action, not a field |
 | 1.10 | Logic               | `fmdbmix:formLogicElement` (engine)                                         | fields and containers |
-| 1.10 | Responses           | `fmdbmix:responses` (elements)                                              | form                  |
-| 1.15 | jExperience         | `fmdbmix:jExperienceProfileMapping` (jexperience-engine)                    | fields                |
+| 1.12 | Responses           | `fmdbmix:responses` (elements)                                              | form                  |
+| 1.15 | jExperience         | `fmdbmix:jExperienceProfileMapping`, `fmdbmix:jExperienceSensitiveField` (jexperience-engine) | fields |
 | 1.20 | Buttons             | `fmdbmix:buttons` (elements)                                                | form                  |
 | 1.30 | Multi-step          | `fmdbmix:multistep` (elements)                                              | form                  |
-| 1.40 | Style               | `fmdbmix:style` (elements)                                                  | form                  |
-| 1.05 | Configuration       | `fmdbmix:fieldActionFeedback` (engine)                                      | a field action, not a field: no clash |
+| 1.40 | Style               | `fmdbmix:style` (elements, joined by the sample's `fmdbsamplemix:customStyle`) | form              |
 
 1.50, the former Validation messages section, is free: its three overrides now feed the Validation
 messages fieldset of Field settings. The platform's own sections have their ranks in jContent's
@@ -123,10 +123,13 @@ them ignore their rank in the editor: `listOrdering` is always drawn second, rig
 and `visibility` is drawn apart, as the advanced options. A module can set a core section's `expanded`
 or `hide` flag by naming it; it cannot move those two.
 
-**Adding a section.** Pick a rank between the neighbours it should sit among, declare it with a `labelKey`
-resolvable from your module's bundle (or the site's template set) and list it here. A section that names
-an existing one by `name` joins it instead — which is how a third-party module adds a fieldset to Field
-settings (the sample does).
+**Adding a section.** One rank per section across the product, whatever its scope: a new section takes a
+rank **no other section uses**, even one it would never meet on the same node — a module picking 1.05 for a
+field-level section of its own would tie with Field settings, and two sections of equal rank sort by name.
+Pick a free value between the neighbours it should sit among, declare it with a `labelKey` resolvable from
+your module's bundle (or the site's template set) and list it here. A module that wants to *join* an
+existing section repeats its name and its rank instead — which is how a third-party module adds a fieldset
+to Field settings (the sample does), or the sample's custom style its fieldset to Style.
 
 ## The rules of the editor the overrides rely on
 

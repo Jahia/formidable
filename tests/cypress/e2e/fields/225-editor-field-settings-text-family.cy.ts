@@ -1,6 +1,6 @@
 import gql from 'graphql-tag';
 import {CONTENT_PATH} from '../../support/constants';
-import {createFormNode, getInputEmailNode, getInputTextNode, getTextareaNode} from '../../support/fixtures';
+import {createFormNode, getFieldsetNode, getInputEmailNode, getInputTextNode, getTextareaNode} from '../../support/fixtures';
 import {useFormidableSite} from './support';
 
 const EDIT_FORM = gql`
@@ -13,6 +13,7 @@ const EDIT_FORM = gql`
 						name
 						visible
 						dynamic
+						activated
 						hasEnableSwitch
 						fields {
 							name
@@ -28,6 +29,7 @@ interface FieldSet {
 	name: string;
 	visible?: boolean;
 	dynamic?: boolean;
+	activated?: boolean;
 	hasEnableSwitch?: boolean;
 	fields: {name: string}[];
 }
@@ -111,7 +113,9 @@ describe('Form fields - 225 The field editor layout of the text family', () => {
 			getInputEmailNode({name: 'email', title: 'Email'}),
 			// wrap puts the storage mixin on the node.
 			getTextareaNode({name: 'wrappedTextarea', title: 'Wrapped textarea', wrap: 'hard'}),
-			getTextareaNode({name: 'plainTextarea', title: 'Plain textarea'})
+			getTextareaNode({name: 'plainTextarea', title: 'Plain textarea'}),
+			// A container: its children are worth ordering, the editor's block must stay on it.
+			getFieldsetNode({name: 'group', title: 'Group', children: [getInputTextNode({name: 'inGroup', title: 'In group'})]})
 		]);
 	});
 
@@ -128,10 +132,12 @@ describe('Form fields - 225 The field editor layout of the text family', () => {
 		expect(main?.fields.map(field => field.name), `Content fields of ${name}`).to.deep.equal(CONTENT_FIELDS);
 
 		if (layout.hidden) {
-			// The storage mixin: hidden, always activated, keeping only what no form needs.
+			// The storage mixin: hidden, always activated — on a node carrying it and on one that does not,
+			// which is what lets a moved field be saved on either — keeping only what no form needs.
 			const storage = content?.fieldSets.find(fieldSet => fieldSet.name === layout.hidden?.fieldSet);
 			expect(storage, `storage fieldset of ${name}`).not.to.be.undefined;
 			expect(storage?.visible, `storage fieldset hidden on ${name}`).to.be.false;
+			expect(storage?.activated, `storage fieldset activated on ${name}`).to.be.true;
 			expect(storage?.fields.map(field => field.name), `hidden fields of ${name}`).to.deep.equal(layout.hidden.fields);
 		}
 
@@ -154,7 +160,7 @@ describe('Form fields - 225 The field editor layout of the text family', () => {
 		expect(actions?.hasEnableSwitch, `field actions enable switch on ${name}`).to.be.true;
 		expect(settings?.fieldSets.map(fieldSet => fieldSet.name), `no switch in Field settings on ${name}`).not.to.include(FIELD_ACTIONS_SWITCH);
 
-		// The Validation messages section is gone, and so is the editor's children block.
+		// The Validation messages section is gone, and so is the editor's children block — on fields.
 		expect(sections.map(section => section.name), `sections of ${name}`).not.to.include('validationMessages');
 		expect(sections.map(section => section.name), `children block hidden on ${name}`).not.to.include(LIST_ORDERING_SECTION);
 	});
@@ -171,5 +177,11 @@ describe('Form fields - 225 The field editor layout of the text family', () => {
 	it('lays out a textarea the same way with and without its storage mixin', () => {
 		assertLayout('wrappedTextarea', 'fmdb:textarea');
 		assertLayout('plainTextarea', 'fmdb:textarea');
+	});
+
+	it('keeps the editor\'s children block on a container: the hide is the field actions mixin\'s, not the form\'s', () => {
+		editFormOf('group').then(sections => {
+			expect(sections.map(section => section.name), 'sections of the fieldset container').to.include(LIST_ORDERING_SECTION);
+		});
 	});
 });

@@ -5,7 +5,7 @@
 		{
 			"name": "configuration",
 			"labelKey": "fmdb.section.configuration",
-			"rank": 1.05,
+			"rank": 1.06,
 			"fieldSets": [
 				{
 					"name": "fmdbmix:fieldActionFeedback",
