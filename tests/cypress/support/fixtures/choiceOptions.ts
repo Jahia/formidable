@@ -98,20 +98,23 @@ export function getCategoryNode(name: string, titleEn: string, titleFr: string):
 	};
 }
 
+/** The factory of the options source files: org.jahia.modules.formidable.choiceOptions.source-<id>.cfg, one per source. */
+export const OPTIONS_SOURCE_FACTORY_PID = 'org.jahia.modules.formidable.choiceOptions.source';
+
 /**
- * Declares the options sources in the module OSGi configuration. The
- * configuration is instance-global: specs that change it mid-test must
- * restore their own declaration afterwards.
+ * Declares the options sources — exactly these, the others removed — as one configuration file each, through
+ * Jahia's configuration service (fixtures/groovy/replaceFactoryConfigurations.groovy). Each line reads as the
+ * former optionsSources setting did: id|Label|initializerKey or id|Label|initializerKey|param. The configuration
+ * is instance-global: specs that change it mid-test must restore their own declaration afterwards.
  */
 export function setOptionsSourcesConfig(lines: string[]): Cypress.Chainable {
-	return cy.runProvisioningScript({
-		script: {
-			fileContent: JSON.stringify([{
-				editConfiguration: 'org.jahia.modules.formidable.choiceOptions',
-				properties: {optionsSources: lines.join('\n')}
-			}]),
-			type: 'application/json'
-		}
+	const entries = lines.map(line => {
+		const [id, label, initializerKey, param = ''] = line.split('|');
+		return {id, label, initializerKey, param};
+	});
+	return cy.executeGroovy('groovy/replaceFactoryConfigurations.groovy', {
+		__FACTORY_PID__: OPTIONS_SOURCE_FACTORY_PID,
+		__ENTRIES__: JSON.stringify(entries)
 	});
 }
 

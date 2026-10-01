@@ -146,22 +146,34 @@ above instead.
 
 ## Declaring sources (administrator)
 
-Sources are declared in `org.jahia.modules.formidable.choiceOptions.cfg` ([Configuration files](../administration/configuration.md)), one per line:
+Each source is a file of its own in `karaf/etc/`, next to `org.jahia.modules.formidable.choiceOptions.cfg`
+— `org.jahia.modules.formidable.choiceOptions.source-<id>.cfg`, one configuration of the factory
+`org.jahia.modules.formidable.choiceOptions.source` ([Configuration files](../administration/configuration.md#the-lists-one-file-per-entry)):
 
 ```properties
-optionsSources=countries|Countries|country\n\
-  tv|TV screens|fmdbSampleStaticList|plasma,oled,led
-optionsSourcesCacheTtlSeconds=300
+# karaf/etc/org.jahia.modules.formidable.choiceOptions.source-countries.cfg
+id=countries
+label=Countries
+initializerKey=country
+
+# karaf/etc/org.jahia.modules.formidable.choiceOptions.source-tv.cfg
+id=tv
+label=TV screens
+initializerKey=fmdbSampleStaticList
+param=plasma,oled,led
 ```
 
-Each entry has the form `id|Label|initializerKey` or `id|Label|initializerKey|param`:
-
-| Segment | Role |
+| Setting | Role |
 |---|---|
-| `id` | Stable identifier stored in JCR (`optionsSourceKey`) |
-| `Label` | Shown to contributors in the source picker |
+| `id` | Required. Stable identifier stored in JCR (`optionsSourceKey`) |
+| `label` | Shown to contributors in the source picker; the id when empty |
 | `initializerKey` | Key of the Jahia choicelist initializer to evaluate (e.g. `country`) |
 | `param` | Optional parameter string handed to the initializer |
+
+The samples module ships `source-country.cfg` (`id=country`, the `country` initializer), copied to
+`karaf/etc/` the first time it starts without it. Until 0.5 the sources were lines of one setting,
+`optionsSources=id|Label|initializerKey[|param]`; those lines become one file each at the first start
+([Configuration files](../administration/configuration.md#upgrading-from-the-single-file)).
 
 The label is either a literal, or a resource-bundle key of the form
 `<module>:<resource.key>` (for example
@@ -176,8 +188,8 @@ mistaken for a key — the key form is strictly `module:key` without spaces.
 
 Only declared sources are exposed to contributors — never the raw platform-wide
 initializer list, most of which is context-dependent and meaningless as a form
-options source. An empty `optionsSources` disables sourced options entirely
-(fail-safe default).
+options source. No source file, no sourced options (the engine ships none: fail-safe
+default).
 
 In the Content Editor, the source is picked with a standard Jahia choicelist
 fed by the `formidableOptionsSources` initializer — no custom selector involved.

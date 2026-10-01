@@ -44,7 +44,7 @@ The complete form covers every options mode of a choice field, single and multip
 | Options mode | Single | Multiple |
 |---|---|---|
 | Manual (options typed by the author) | `gender`, `deliveryMethod` (radio), `department` (select) | interests (checkbox group) |
-| Options source (declared in the module configuration) | `country` (select, `countries`) | `viewing` (checkbox group, a static list: Streaming, Cable, Satellite, Antenna) |
+| Options source (declared in the module configuration) | `country` (select, `country`) | `viewing` (checkbox group, a static list: Streaming, Cable, Satellite, Antenna) |
 | Category (children of a picked category) | `tvCategory` (radio, `product/tv`: Plasma, OLED, LED) | `audioCategories` (checkbox group, `product/audio`: Headphones, Speakers, Soundbar) |
 | Content (nodes under a picked root) | `agency` (select, texts under `contents/agencies`) | `services` (multiple select, texts under `contents/services`) |
 
@@ -53,10 +53,11 @@ Every field has an option set of its own, so no two of them read as one field re
 All forms carry a save-to-JCR action, so submissions land in the results
 screens. The script also:
 
-- declares the `optionsSources` module configuration (`countries`, plus `tv`
-  and `viewing` backed by the static `fmdbSampleStaticList` initializer of
-  formidable-test-module-samples-java — `tv` with a localized label, offered in
-  the editor and used by no field);
+- makes sure of the options sources, one configuration file each, touching no
+  other: `country`, installed from the very file formidable-test-module-samples-java
+  ships (restored if missing), plus `tv` and `viewing` backed by that module's
+  static `fmdbSampleStaticList` initializer (`tv` with a localized label, offered
+  in the editor and used by no field);
 - creates and publishes the sample categories
   `/sites/systemsite/categories/product/tv/{plasma,oled,led}` and
   `product/audio/{headphones,speakers,soundbar}` the category-mode fields point at;

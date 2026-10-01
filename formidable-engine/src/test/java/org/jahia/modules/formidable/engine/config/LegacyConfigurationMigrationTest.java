@@ -36,15 +36,13 @@ import static org.mockito.Mockito.when;
 class LegacyConfigurationMigrationTest {
 
     private static final String PID = FormActionsConfigService.PID;
-    private static final String LEGACY_TARGETS = "crm01|CRM|https://crm.example.com/forms";
+    private static final String LEGACY_TIMEOUT = "30";
 
     /** The theme's own properties, as fileinstall hands them over from the copied file: every setting at its default. */
     private static Map<String, Object> themeFromFile() {
         Map<String, Object> properties = new HashMap<>();
         properties.put(LegacyConfigurationMigration.FILEINSTALL_FILENAME, "file:/karaf/etc/" + PID + ".cfg");
-        properties.put("forwardTargets", "");
         properties.put("enableDevForwardTargets", "false");
-        properties.put("devForwardTargets", "");
         properties.put("forwardHttpConnectTimeoutSeconds", "5");
         properties.put("forwardHttpRequestTimeoutSeconds", "10");
         return properties;
@@ -82,10 +80,10 @@ class LegacyConfigurationMigrationTest {
         // written before fileinstall loads the copied file) is left alone, a marked one is done for good, and a
         // missing ConfigurationAdmin waits — none of them reads or writes anything.
         LegacyConfigurationMigration migration = new LegacyConfigurationMigration(PID, FormActionsConfig.class);
-        ConfigurationAdmin admin = adminWithLegacy(legacy(Map.of("forwardTargets", LEGACY_TARGETS)));
+        ConfigurationAdmin admin = adminWithLegacy(legacy(Map.of("forwardHttpRequestTimeoutSeconds", LEGACY_TIMEOUT)));
 
         assertEquals(Outcome.NOT_DUE, migration.run(admin, null));
-        assertEquals(Outcome.NOT_DUE, migration.run(admin, Map.of("forwardTargets", "")));
+        assertEquals(Outcome.NOT_DUE, migration.run(admin, Map.of("forwardHttpRequestTimeoutSeconds", "10")));
         Map<String, Object> marked = themeFromFile();
         marked.put(LegacyConfigurationMigration.MARKER, LegacyConfigurationMigration.LEGACY_PID);
         assertEquals(Outcome.NOT_DUE, migration.run(admin, marked));
@@ -110,7 +108,7 @@ class LegacyConfigurationMigrationTest {
 
         Map<String, Object> marked = themeFromFile();
         marked.put(LegacyConfigurationMigration.MARKER, LegacyConfigurationMigration.LEGACY_PID);
-        ConfigurationAdmin later = adminWithLegacy(legacy(Map.of("forwardTargets", LEGACY_TARGETS)));
+        ConfigurationAdmin later = adminWithLegacy(legacy(Map.of("forwardHttpRequestTimeoutSeconds", LEGACY_TIMEOUT)));
         assertEquals(Outcome.NOT_DUE, new LegacyConfigurationMigration(PID, FormActionsConfig.class).run(later, marked), "after a restart");
         verify(later, never()).listConfigurations(any());
     }
@@ -123,9 +121,9 @@ class LegacyConfigurationMigrationTest {
         // line, once; and the migration is done for good.
         Path legacyFile = Files.createTempFile("org.jahia.modules.formidable", ".cfg");
         try {
-            Files.writeString(legacyFile, "forwardTargets=" + LEGACY_TARGETS + "\n", StandardCharsets.UTF_8);
+            Files.writeString(legacyFile, "forwardHttpRequestTimeoutSeconds=" + LEGACY_TIMEOUT + "\n", StandardCharsets.UTF_8);
             Map<String, Object> settings = new HashMap<>();
-            settings.put("forwardTargets", LEGACY_TARGETS);
+            settings.put("forwardHttpRequestTimeoutSeconds", LEGACY_TIMEOUT);
             settings.put("forwardHttpConnectTimeoutSeconds", 7L);
             settings.put("enableDevForwardTargets", "false");
             settings.put("uploadMaxFileCount", 3L);
@@ -139,14 +137,14 @@ class LegacyConfigurationMigrationTest {
             @SuppressWarnings("unchecked")
             ArgumentCaptor<Dictionary<String, Object>> written = ArgumentCaptor.forClass(Dictionary.class);
             verify(theme).update(written.capture());
-            assertEquals(LEGACY_TARGETS, written.getValue().get("forwardTargets"));
+            assertEquals(LEGACY_TIMEOUT, written.getValue().get("forwardHttpRequestTimeoutSeconds"));
             assertEquals("7", written.getValue().get("forwardHttpConnectTimeoutSeconds"));
             assertEquals("false", written.getValue().get("enableDevForwardTargets"), "the file's own value, untouched");
             assertNull(written.getValue().get("uploadMaxFileCount"), "another theme's setting never travels here");
             assertEquals(LegacyConfigurationMigration.LEGACY_PID, written.getValue().get(LegacyConfigurationMigration.MARKER));
             String noted = Files.readString(legacyFile, StandardCharsets.UTF_8);
             assertTrue(noted.startsWith(LegacyConfigurationMigration.LEGACY_FILE_NOTICE_PREFIX), noted);
-            assertTrue(noted.endsWith("forwardTargets=" + LEGACY_TARGETS + "\n"), "the administrator's content is kept");
+            assertTrue(noted.endsWith("forwardHttpRequestTimeoutSeconds=" + LEGACY_TIMEOUT + "\n"), "the administrator's content is kept");
 
             assertEquals(Outcome.NOT_DUE, migration.run(admin, themeFromFile()));
             new LegacyConfigurationMigration(PID, FormActionsConfig.class).run(admin, themeFromFile());
@@ -162,15 +160,15 @@ class LegacyConfigurationMigrationTest {
         // Verifies the conflict rule: a setting already changed in the theme's file is kept as the file says, and
         // when nothing else differs there is nothing to write — the theme's file rules from now on.
         Map<String, Object> edited = themeFromFile();
-        edited.put("forwardTargets", "other|Other|https://other.example.com/forms");
-        ConfigurationAdmin admin = adminWithLegacy(legacy(Map.of("forwardTargets", LEGACY_TARGETS)));
+        edited.put("forwardHttpRequestTimeoutSeconds", "45");
+        ConfigurationAdmin admin = adminWithLegacy(legacy(Map.of("forwardHttpRequestTimeoutSeconds", LEGACY_TIMEOUT)));
         Configuration theme = themeConfiguration(admin, edited);
 
         assertEquals(Outcome.NOTHING, new LegacyConfigurationMigration(PID, FormActionsConfig.class).run(admin, edited));
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Dictionary<String, Object>> written = ArgumentCaptor.forClass(Dictionary.class);
         verify(theme).update(written.capture());
-        assertEquals("other|Other|https://other.example.com/forms", written.getValue().get("forwardTargets"), "the file's value is kept, only the marker is added");
+        assertEquals("45", written.getValue().get("forwardHttpRequestTimeoutSeconds"), "the file's value is kept, only the marker is added");
         assertEquals(LegacyConfigurationMigration.LEGACY_PID, written.getValue().get(LegacyConfigurationMigration.MARKER));
     }
 
@@ -178,7 +176,7 @@ class LegacyConfigurationMigrationTest {
     void retriesAWriteThatFailedThenGivesUpAndLetsTheThemesFileRule() throws Exception {
         // Verifies the retry: a failed write, or a configuration holding no properties yet, is tried again on the
         // next callback, three times, after which the migration is over and the theme's file rules as it stands.
-        ConfigurationAdmin admin = adminWithLegacy(legacy(Map.of("forwardTargets", LEGACY_TARGETS)));
+        ConfigurationAdmin admin = adminWithLegacy(legacy(Map.of("forwardHttpRequestTimeoutSeconds", LEGACY_TIMEOUT)));
         Configuration theme = themeConfiguration(admin, themeFromFile());
         doThrow(new IOException("disk full")).when(theme).update(any());
         LegacyConfigurationMigration migration = new LegacyConfigurationMigration(PID, FormActionsConfig.class);
@@ -189,13 +187,13 @@ class LegacyConfigurationMigrationTest {
         assertEquals(Outcome.NOT_DUE, migration.run(admin, themeFromFile()));
         verify(theme, times(3)).update(any());
 
-        Configuration empty = themeConfiguration(adminWithLegacy(legacy(Map.of("forwardTargets", LEGACY_TARGETS))), null);
+        Configuration empty = themeConfiguration(adminWithLegacy(legacy(Map.of("forwardHttpRequestTimeoutSeconds", LEGACY_TIMEOUT))), null);
         assertEquals(Outcome.RETRY, new LegacyConfigurationMigration(PID, FormActionsConfig.class)
                 .run(adminWithLegacyAndTheme(empty), themeFromFile()));
     }
 
     private static ConfigurationAdmin adminWithLegacyAndTheme(Configuration theme) throws Exception {
-        ConfigurationAdmin admin = adminWithLegacy(legacy(Map.of("forwardTargets", LEGACY_TARGETS)));
+        ConfigurationAdmin admin = adminWithLegacy(legacy(Map.of("forwardHttpRequestTimeoutSeconds", LEGACY_TIMEOUT)));
         when(admin.getConfiguration(PID, "?")).thenReturn(theme);
         return admin;
     }
@@ -203,7 +201,7 @@ class LegacyConfigurationMigrationTest {
     @Test
     void aWriteThatSucceedsAfterAFailureEndsTheMigration() throws Exception {
         // Verifies that a failure does not consume the migration: the retry writes, and the marker goes with it.
-        ConfigurationAdmin admin = adminWithLegacy(legacy(Map.of("forwardTargets", LEGACY_TARGETS)));
+        ConfigurationAdmin admin = adminWithLegacy(legacy(Map.of("forwardHttpRequestTimeoutSeconds", LEGACY_TIMEOUT)));
         Configuration theme = themeConfiguration(admin, themeFromFile());
         doThrow(new IOException("disk full")).doNothing().when(theme).update(any());
         LegacyConfigurationMigration migration = new LegacyConfigurationMigration(PID, FormActionsConfig.class);
@@ -221,9 +219,7 @@ class LegacyConfigurationMigrationTest {
         Map<String, String> defaults = LegacyConfigurationMigration.defaultsOf(FormActionsConfig.class);
 
         assertEquals(Map.of(
-                "forwardTargets", "",
                 "enableDevForwardTargets", "false",
-                "devForwardTargets", "",
                 "forwardHttpConnectTimeoutSeconds", "5",
                 "forwardHttpRequestTimeoutSeconds", "10"), defaults);
     }

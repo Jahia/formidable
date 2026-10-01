@@ -54,9 +54,11 @@
  * select carries an empty-option label in both languages to showcase the
  * native required validation on the site.
  *
- * It also declares the options sources in the OSGi config (countries + two
- * static lists of the fmdbSampleStaticList initializer of
- * formidable-test-module-samples-java, the screen types and how you watch),
+ * It also makes sure of the options sources, one configuration file each: country,
+ * the source formidable-test-module-samples-java ships, installed from that
+ * module's own file (restored if missing, rewritten as it ships otherwise), and
+ * two static lists of that module's fmdbSampleStaticList initializer, the screen
+ * types and how you watch, added beside it — no other source file is touched,
  * creates the sample category trees product/tv and product/audio the
  * category-mode fields point at and the contents/agencies and
  * contents/services folders the content-mode ones read, and
@@ -98,7 +100,7 @@ import {
 	INPUT_TEXT_COMPLETE,
 	RADIO_GROUP,
 	SELECT_SINGLE,
-	setOptionsSourcesConfig,
+	OPTIONS_SOURCE_FACTORY_PID,
 	withFieldActions,
 	TEXTAREA_COMPLETE
 } from '../support/fixtures';
@@ -638,14 +640,14 @@ const completeFormNodes = ({tvCategoryUuid, audioCategoryUuid, agenciesRootUuid,
 	mappedTo(withFrench(getInputNumberNode({name: 'kids', title: 'Number of children', minValue: 0, maxValue: 20, step: 1, defaultValue: 1}), [{name: 'jcr:title', value: 'Nombre d\'enfants'}]), 'kids', {strategy: 'setIfMissing', prefill: true}),
 	// The sourced select showcases the empty-option label: the field starts
 	// empty and its native required validation is exercisable on the site.
-	// The countries source holds ISO codes, which is what jCustomer's countryName expects.
+	// The country source holds ISO codes, which is what jCustomer's countryName expects.
 	mappedTo(withFrench(
 		withEnglish(
-			getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'country', title: 'Country (sourced: countries)', sourceKey: 'countries'}),
+			getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'country', title: 'Country (sourced: country)', sourceKey: 'country'}),
 			[{name: 'optionsEmptyLabel', value: 'Select a country…'}]
 		),
 		[
-			{name: 'jcr:title', value: 'Pays (source : countries)'},
+			{name: 'jcr:title', value: 'Pays (source : country)'},
 			{name: 'optionsEmptyLabel', value: 'Sélectionnez un pays…'}
 		]
 	// Prefilled too: a select is the shape whose first option the browser selects by itself, the one a
@@ -716,15 +718,18 @@ const languagesFormNodes = (): JahiaNode[] => [
 	)
 ];
 
-const OPTIONS_SOURCES_CONFIG = [
-	// Literal label
-	'countries|Countries|country',
+/** The countries source the samples module ships: the playground installs that very file, never a copy of it. */
+const SAMPLES_COUNTRY_SOURCE = `${OPTIONS_SOURCE_FACTORY_PID}-country.cfg`;
+const SAMPLES_CONFIGURATIONS = '../jahia-test-module/formidable-test-module-samples-java/src/main/resources/META-INF/configurations';
+
+/** The sources the playground adds beside it, one file each, written through the provisioning API. */
+const OPTIONS_SOURCES = [
 	// Localized label: resolved against the module's resource bundle in the editor UI language (offered in the
 	// editor's dropdown, used by no field of the set: its values are the TV categories' words, see below)
-	'tv|formidable-test-module-samples-java:sample.optionsSource.tv|fmdbSampleStaticList|plasma,oled,led',
+	{id: 'tv', label: 'formidable-test-module-samples-java:sample.optionsSource.tv', initializerKey: 'fmdbSampleStaticList', param: 'plasma,oled,led'},
 	// A static list whose values have no label in the sample bundle: the raw value is the label, which is why
 	// they are capitalised here
-	'viewing|How you watch|fmdbSampleStaticList|Streaming,Cable,Satellite,Antenna'
+	{id: 'viewing', label: 'How you watch', initializerKey: 'fmdbSampleStaticList', param: 'Streaming,Cable,Satellite,Antenna'}
 ];
 
 describe('Playground - provision manual-testing forms', () => {
@@ -762,7 +767,23 @@ describe('Playground - provision manual-testing forms', () => {
 	});
 
 	it('declares the options sources in the module configuration', () => {
-		setOptionsSourcesConfig(OPTIONS_SOURCES_CONFIG);
+		// installConfiguration stores the attached file as it is — its first line included — under the factory and
+		// id its name carries, so the samples' source is restored exactly as the module ships it.
+		cy.readFile(`${SAMPLES_CONFIGURATIONS}/${SAMPLES_COUNTRY_SOURCE}`).then((content: string) => {
+			cy.runProvisioningScript({
+				script: {fileContent: JSON.stringify([{installConfiguration: SAMPLES_COUNTRY_SOURCE}]), type: 'application/json'},
+				files: [{fileName: SAMPLES_COUNTRY_SOURCE, fileContent: content, type: 'text/plain'}]
+			});
+		});
+		cy.runProvisioningScript({
+			script: {
+				fileContent: JSON.stringify(OPTIONS_SOURCES.map(source => ({
+					editConfiguration: `${OPTIONS_SOURCE_FACTORY_PID}-${source.id}`,
+					properties: source
+				}))),
+				type: 'application/json'
+			}
+		});
 	});
 
 	it('creates and publishes the sample category trees product/tv and product/audio (category-mode targets)', () => {

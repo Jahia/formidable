@@ -59,9 +59,30 @@ their settings.
   [Allowed file types](configuration.md#allowed-file-types).
 - **Never configured**: nothing to do.
 
+Two lists — the options sources (`optionsSources`) and the forward targets (`forwardTargets`,
+`devForwardTargets`) — are no longer settings of a theme's file: each entry is a file of its own next to it,
+`org.jahia.modules.formidable.choiceOptions.source-<id>.cfg` and `….formActions.target-<id>.cfg`, an entry of
+`devForwardTargets` becoming a file with `development=true`. The
+lines found at the first start, in the old configuration or in a theme's file, become one file each; the log
+lists the ids (`The forward target lines became one file each, …: [...]`) and the theme's file loses the settings
+and gets the marker `formidable.linesConverted=true`. A **provisioning script** that sets one of these lists must
+write one entry per id instead — `editConfiguration` with `org.jahia.modules.formidable.formActions.target-<id>`
+and the entry's settings (`id`, `label`, `url`…) — see
+[Configuration files](configuration.md#the-lists-one-file-per-entry): a list set on a theme's PID after the
+conversion is not read.
+
+**An id is now letters, digits, dashes and underscores only**, since it names the entry's file; earlier builds
+accepted any non-blank id. To check: look in the lists for an id holding a dot, a space or another character —
+the log also says it at the first start, `The … lines [...] of <PID> have an id that is not letters, digits,
+dashes and underscores`. Such lines are not converted: they stay where they were (the theme's file, or
+`org.jahia.modules.formidable`, which nothing reads any more), and the forms storing that id — a choice field's
+source, a forward action's target — find nothing behind it. For each: declare the
+entry as a file with a valid id, edit the forms that store the former id to pick the new one, then remove the
+lines.
+
 ### How to check
 
-Open the five files in `karaf/etc/` after the upgrade. A setting that was not at its default before the
+Open the five files in `karaf/etc/` after the upgrade, and the entry files next to them. A setting that was not at its default before the
 upgrade is in its theme's file, and the file carries the marker line
 `formidable.migratedFrom=org.jahia.modules.formidable` the migration wrote. A setting missing from its file was
 either at its default before (not copied) or lost to a write that kept failing — the log then says

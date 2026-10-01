@@ -35,8 +35,8 @@ import java.util.concurrent.TimeoutException;
  * Text parameters and validated uploaded files are forwarded as-is.
  *
  * The target URL is never stored in JCR. The JCR node only holds a stable {@code targetId}
- * that is resolved to a URI via operator configuration (forwardTargets and, optionally,
- * devForwardTargets in org.jahia.modules.formidable.formActions.cfg). This is the primary defence
+ * that is resolved to a URI via operator configuration (one file per target,
+ * karaf/etc/org.jahia.modules.formidable.formActions.target-<id>.cfg). This is the primary defence
  * against contributors redirecting submissions to arbitrary hosts.
  *
  * Defence in depth: at execution time, the resolved hostname is checked once and the

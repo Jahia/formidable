@@ -340,15 +340,17 @@ undeclared user-controlled multipart fields.
 
 ### Scenario
 
-Forward targets are configured server-side in `org.jahia.modules.formidable.formActions.cfg`.
+Forward targets are configured server-side, one file per target:
+`karaf/etc/org.jahia.modules.formidable.formActions.target-<id>.cfg`.
 Contributors only store a stable `targetId` in JCR; they do not control the
 final URL.
 
 ### 7.1 Standard HTTPS target is accepted
 
 **Precondition:**
-1. Configure `forwardTargets=crm|CRM|https://api.example.com/forms/intake`.
-2. Restart or reload the module configuration.
+1. Write `org.jahia.modules.formidable.formActions.target-crm.cfg` with `id=crm`, `label=CRM`,
+   `url=https://api.example.com/forms/intake`.
+2. fileinstall loads it; no restart needed.
 
 **Expected:**
 - The `CRM` entry is selectable
@@ -357,8 +359,9 @@ final URL.
 ### 7.2 Target with embedded credentials is rejected
 
 **Precondition:**
-1. Configure `forwardTargets=bad-creds|Bad creds|https://user:pass@api.example.com/forms/intake`.
-2. Restart or reload the module configuration.
+1. Write `org.jahia.modules.formidable.formActions.target-bad-creds.cfg` with `id=bad-creds`,
+   `label=Bad creds`, `url=https://user:pass@api.example.com/forms/intake`.
+2. fileinstall loads it; no restart needed.
 
 **Expected:**
 - The `Bad creds` entry is absent
@@ -367,10 +370,10 @@ final URL.
 ### 7.3 Development targets stay constrained to explicit local hosts
 
 **Precondition:**
-1. Enable `enableDevForwardTargets=true`.
-2. Configure:
-   - `devForwardTargets=local-ok|Local OK|http://localhost:8081/ingest`
-   - `devForwardTargets=bad-host|Bad host|http://example.com/ingest`
+1. Enable `enableDevForwardTargets=true` in `org.jahia.modules.formidable.formActions.cfg`.
+2. Write two target files, both with `development=true`:
+   - `target-local-ok.cfg`: `id=local-ok`, `label=Local OK`, `url=http://localhost:8081/ingest`
+   - `target-bad-host.cfg`: `id=bad-host`, `label=Bad host`, `url=http://example.com/ingest`
 
 **Expected:**
 - `Local OK` is present
