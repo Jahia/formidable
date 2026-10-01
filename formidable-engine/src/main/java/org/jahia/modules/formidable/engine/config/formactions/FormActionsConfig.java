@@ -6,8 +6,9 @@ import org.osgi.service.metatype.annotations.AttributeType;
 import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
 /**
- * The form actions theme: the targets a forward action may send a submission to, their development list, and
- * the timeouts of that call. Deployed as {@code karaf/etc/org.jahia.modules.formidable.formActions.cfg}.
+ * The form actions configuration: the switch of the development targets, and the timeouts of the forward call.
+ * Deployed as {@code karaf/etc/org.jahia.modules.formidable.formActions.cfg}; the targets themselves are one file
+ * each, {@code org.jahia.modules.formidable.formActions.target-<id>.cfg} ({@link ForwardTargetConfig}).
  */
 @ObjectClassDefinition(
         name = "Formidable — Form actions",
@@ -15,33 +16,15 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 )
 public @interface FormActionsConfig {
 
-    @AttributeDefinition(
-            name = "Forward action targets",
-            description = "Newline-separated list of allowed forward targets for fmdb:forwardAction. " +
-                    "Each entry has the form: id|Label|https://target-url. " +
-                    "Commas inside labels or URLs are preserved. " +
-                    "The id is stored in JCR; the URL is resolved server-side and never exposed to contributors. " +
-                    "Leave empty to disable all forward actions (fail-safe default).",
-            type = AttributeType.STRING
-    )
-    String forwardTargets() default "";
 
     @AttributeDefinition(
             name = "Enable development forward targets",
-            description = "Allows use of devForwardTargets. Disabled by default. " +
-                    "When enabled, only plain HTTP targets on localhost or host.docker.internal are accepted.",
+            description = "Honours the forward target files marked as development targets (plain HTTP on localhost or " +
+                    "host.docker.internal). Disabled by default; never in production.",
             type = AttributeType.BOOLEAN
     )
     boolean enableDevForwardTargets() default false;
 
-    @AttributeDefinition(
-            name = "Development forward action targets",
-            description = "Newline-separated list of development-only forward targets for fmdb:forwardAction. " +
-                    "Each entry has the form: id|Label|http://localhost/... or id|Label|http://host.docker.internal/... " +
-                    "Ignored unless 'Enable development forward targets' is true.",
-            type = AttributeType.STRING
-    )
-    String devForwardTargets() default "";
 
     @AttributeDefinition(
             name = "Forward action HTTP connect timeout (seconds)",

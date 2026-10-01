@@ -13,11 +13,13 @@ import {useFormidableSite} from '../support/useFormidableSite';
 /** A forward target of the module configuration, the choicelist the forward action's targetId is fed from. */
 const FORWARD_TARGET = {id: 'crm01', label: 'Salesforce Marketing', url: 'https://crm.example.com/hook'};
 
-const setForwardTargets = (lines: string): Cypress.Chainable => cy.runProvisioningScript({
-	script: {
-		fileContent: JSON.stringify([{editConfiguration: 'org.jahia.modules.formidable.formActions', properties: {forwardTargets: lines}}]),
-		type: 'application/json'
-	}
+/** Declares exactly these forward targets, one configuration file each (id|label|url per line; an empty string: none). */
+const setForwardTargets = (lines: string): Cypress.Chainable => cy.executeGroovy('groovy/replaceFactoryConfigurations.groovy', {
+	__FACTORY_PID__: 'org.jahia.modules.formidable.formActions.target',
+	__ENTRIES__: JSON.stringify(lines.split('\n').filter(line => line.trim()).map(line => {
+		const [id, label, url] = line.split('|');
+		return {id, label, url};
+	}))
 });
 
 /**

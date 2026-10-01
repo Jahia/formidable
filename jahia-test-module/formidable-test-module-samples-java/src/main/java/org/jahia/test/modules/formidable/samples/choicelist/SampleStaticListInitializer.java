@@ -20,8 +20,11 @@ import java.util.Map;
  * The initializer parameter is the comma-separated list of values to serve. Each value
  * is labeled through the sample.staticList.&lt;value&gt; key of this module's resource
  * bundle in the requested locale, falling back to the raw value when no label is
- * declared. Example declaration:
- *   optionsSources=tv|TV screens|fmdbSampleStaticList|plasma,oled,led
+ * declared. Example declaration, karaf/etc/org.jahia.modules.formidable.choiceOptions.source-tv.cfg:
+ *   id=tv
+ *   label=TV screens
+ *   initializerKey=fmdbSampleStaticList
+ *   param=plasma,oled,led
  */
 @Component(service = ModuleChoiceListInitializer.class)
 public class SampleStaticListInitializer implements ModuleChoiceListInitializer {

@@ -220,14 +220,15 @@ org.jahia.modules.formidable.engine
 │   └── FormDataParser.java, FieldValidator.java, FormFieldMetadataCollector.java
 ├── files/                              ← file types, from Apache Tika's registry only (docs/architecture/form-submission-flow.md)
 │   └── AllowedTypes (what a file field accepts, for its view and the parser), FileTypeService (extensions, labels)
-├── config/                              ← the five configuration themes, one PID and one shipped .cfg each (docs/administration/configuration.md)
+├── config/                              ← the five configuration themes, one PID and one shipped .cfg each, and two lists as one factory configuration per entry (docs/administration/configuration.md)
 │   ├── ThemeLifecycle.java              ← what the themes share: the snapshot in force, the one-time migration handshake
 │   ├── LegacyConfigurationMigration.java ← carries the pre-0.5 single PID into a theme's file once its own file is in place
-│   ├── common/   ConfigurationValues (lines, bounds, HTTP client), EndpointRule (HTTPS, or HTTP on a local host in a dev list)
+│   ├── common/   ConfigurationValues (lines, bounds, HTTP client), EndpointRule (HTTPS, or HTTP on a local host for a development entry),
+│   │             FactoryEntries + FactoryEntry (a list's entries bound, console creations stored as files through ConfigService, former lines converted)
 │   ├── captcha/  CaptchaConfig + CaptchaConfigService (keys, endpoints, verifyCaptcha)
 │   ├── uploads/  UploadsConfig + UploadsConfigService (size and count bounds, allowed file types read as MIME types)
-│   ├── choiceoptions/ ChoiceOptionsConfig + ChoiceOptionsConfigService (options sources, cache, query cap)
-│   ├── formactions/   FormActionsConfig + FormActionsConfigService (forward targets, HTTP client)
+│   ├── choiceoptions/ ChoiceOptionsConfig + ChoiceOptionsConfigService (cache, query cap); OptionsSourceConfig + OptionsSourceComponent (one source file)
+│   ├── formactions/   FormActionsConfig + FormActionsConfigService (HTTP client); ForwardTargetConfig + ForwardTargetComponent (one target file)
 │   └── fieldactions/  FieldActionsConfig + FieldActionsConfigService (HTTP client and timeouts, endpoint guards)
 └── actions/                             ← one folder per kind, and what the two kinds share
     ├── common/   ActionSummaryService (a type's label, tooltip and icon), FieldEscaper, TemplateInterpolator

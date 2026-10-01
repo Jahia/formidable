@@ -6,12 +6,17 @@ import org.jahia.modules.formidable.engine.config.fieldactions.FieldActionsConfi
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -22,6 +27,8 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 
 class FieldActionGatewayImplTest {
+
+    private static final String SWITCH_OFF_REASON = "Experian is a development endpoint, and they are switched off";
 
     private static Endpoint provider(String base) {
         return new Endpoint("crm", URI.create(base), "X-Api-Key", "s3cr3t", false, false);
@@ -191,23 +198,61 @@ class FieldActionGatewayImplTest {
         // Verifies the administrator learns why a check does not run: the gateway's own refusal — the switch off, here
         // — is logged at WARN with its reason, once, however many values are checked; the base class logs only the
         // exception's type.
-        FieldActionSettings off = new FieldActionSettings(false, Duration.ofSeconds(5), Duration.ofSeconds(10),
-                mock(HttpClient.class), Duration.ZERO, 30, 512, 20);
+        FieldActionSettings off = switchedOff();
         FieldActionGatewayImpl gateway = new FieldActionGatewayImpl(() -> off);
-        Endpoint stub = new Endpoint("Experian", URI.create("http://localhost:8080/stub"), "", "", false, true);
-        java.io.PrintStream previous = System.err;
-        java.io.ByteArrayOutputStream captured = new java.io.ByteArrayOutputStream();
-        System.setErr(new java.io.PrintStream(captured, true, java.nio.charset.StandardCharsets.UTF_8));
-        try {
+        Endpoint stub = developmentStub();
+
+        String logged = stderrWhile(() -> {
             for (int attempt = 0; attempt < 3; attempt++) {
                 assertThrows(IllegalArgumentException.class, () -> gateway.get(stub, "x"));
             }
+        });
+
+        assertEquals(1, occurrences(logged, SWITCH_OFF_REASON), logged);
+    }
+
+    @Test
+    void anEndpointRefusalIsLoggedAgainOnceTheConfigurationChanged() {
+        // Verifies a refusal said once is said again under new settings: an administrator who turns the switch off
+        // again, long after the first refusal, reads why the check does not run — the same reason, a new configuration.
+        AtomicReference<FieldActionSettings> settings = new AtomicReference<>(switchedOff());
+        FieldActionGatewayImpl gateway = new FieldActionGatewayImpl(settings::get);
+        Endpoint stub = developmentStub();
+
+        String logged = stderrWhile(() -> {
+            assertThrows(IllegalArgumentException.class, () -> gateway.get(stub, "x"));
+            assertThrows(IllegalArgumentException.class, () -> gateway.get(stub, "x"));
+            settings.set(switchedOff());
+            assertThrows(IllegalArgumentException.class, () -> gateway.get(stub, "x"));
+        });
+
+        assertEquals(2, occurrences(logged, SWITCH_OFF_REASON), logged);
+    }
+
+    /** The settings with the development endpoints switched off — a fresh snapshot each time, as a configuration change gives. */
+    private static FieldActionSettings switchedOff() {
+        return new FieldActionSettings(false, Duration.ofSeconds(5), Duration.ofSeconds(10), mock(HttpClient.class),
+                Duration.ZERO, 30, 512, 20);
+    }
+
+    private static Endpoint developmentStub() {
+        return new Endpoint("Experian", URI.create("http://localhost:8080/stub"), "", "", false, true);
+    }
+
+    /** What the test logging wrote on System.err while the action ran. */
+    private static String stderrWhile(Runnable action) {
+        PrintStream previous = System.err;
+        ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        System.setErr(new PrintStream(captured, true, StandardCharsets.UTF_8));
+        try {
+            action.run();
         } finally {
             System.setErr(previous);
         }
+        return captured.toString(StandardCharsets.UTF_8);
+    }
 
-        String logged = captured.toString(java.nio.charset.StandardCharsets.UTF_8);
-        String reason = "Experian is a development endpoint, and they are switched off";
-        assertEquals(1, logged.split(java.util.regex.Pattern.quote(reason), -1).length - 1, logged);
+    private static int occurrences(String text, String needle) {
+        return text.split(Pattern.quote(needle), -1).length - 1;
     }
 }

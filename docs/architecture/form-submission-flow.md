@@ -504,26 +504,32 @@ appear in the list.
 
 The target URL is never stored in JCR. The contributor picks a `targetId` from a choicelist
 populated by `FormidableForwardTargetsInitializer`. The available targets are defined by an
-administrator in `org.jahia.modules.formidable.formActions.cfg`:
+administrator, one file per target in `karaf/etc/` — a configuration of the factory
+`org.jahia.modules.formidable.formActions.target` ([Configuration files](../administration/configuration.md#the-lists-one-file-per-entry)),
+each read by a `ForwardTargetComponent` that `FormActionsConfigService` aggregates:
 
-```
-forwardTargets=salesforce-prod|Salesforce Prod|https://api.salesforce.com/services/\n\
-crm-staging|CRM Staging|https://crm.internal/hook
-```
-
-(Entries are separated by newlines *inside the value*: in the `.cfg` properties format that
-is an escaped `\n` plus a `\` line continuation, as above — two plain lines would leave
-only the first target configured.)
-
-Optional development-only targets can be enabled explicitly:
-
-```
-enableDevForwardTargets=true
-devForwardTargets=local-api|Local API|http://localhost:3000/hook\n\
-docker-api|Docker API|http://host.docker.internal:8080/hook
+```properties
+# karaf/etc/org.jahia.modules.formidable.formActions.target-salesforce-prod.cfg
+id=salesforce-prod
+label=Salesforce Prod
+url=https://api.salesforce.com/services/
 ```
 
-`devForwardTargets` only accepts plain HTTP on `localhost` and `host.docker.internal`.
+A development target is a file with `development=true`; it only accepts plain HTTP on `localhost`
+and `host.docker.internal`, and it is honoured only while `enableDevForwardTargets=true` in
+`org.jahia.modules.formidable.formActions.cfg`:
+
+```properties
+# karaf/etc/org.jahia.modules.formidable.formActions.target-localhost.cfg
+id=localhost
+label=Localhost
+url=http://host.docker.internal:3000
+development=true
+```
+
+That one is the file the samples module ships. A target file that describes nothing usable — no id,
+no URL, a standard target without HTTPS or with credentials in its URL, a development URL on another host — is logged
+with its id and the reason and offered to no one.
 
 `FormActionsConfigService.resolveForwardTarget(targetId)` returns an `Optional`, empty for an
 unknown ID — the forward action then fails the submission as a configuration error. This

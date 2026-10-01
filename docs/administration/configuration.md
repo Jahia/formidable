@@ -14,12 +14,13 @@ typed syntax (`L"5"`, quoted strings) a `.cfg` file does not read back.
 |---|---|---|---|
 | CAPTCHA | `org.jahia.modules.formidable.captcha` | `captchaSiteKey`, `captchaSecretKey`, `captchaScriptUrl`, `captchaWidgetVar`, `captchaTokenField`, `captchaVerifyUrl`, `captchaHttpConnectTimeoutSeconds`, `captchaHttpRequestTimeoutSeconds` | the widget in the page, the verification at submission — [CAPTCHA server-side validation](captcha-server-side-validation.md) |
 | Uploads | `org.jahia.modules.formidable.uploads` | `uploadMaxFileSizeBytes`, `uploadMaxRequestSizeBytes`, `uploadMaxFileCount`, `uploadAllowedTypes` | the multipart parser, the early size guard, the e-mail action's attachment bound, the file field and its `accept` choicelist — [Allowed file types](#allowed-file-types) |
-| Choice options | `org.jahia.modules.formidable.choiceOptions` | `optionsSources`, `optionsSourcesCacheTtlSeconds`, `optionsQueryMaxResults` | the options sources a choice field may pick — [Choice field options sources](../architecture/choice-field-options-sources.md#declaring-sources-administrator) |
-| Form actions | `org.jahia.modules.formidable.formActions` | `forwardTargets`, `enableDevForwardTargets`, `devForwardTargets`, `forwardHttpConnectTimeoutSeconds`, `forwardHttpRequestTimeoutSeconds` | the forward action and its target picker |
+| Choice options | `org.jahia.modules.formidable.choiceOptions` | `optionsSourcesCacheTtlSeconds`, `optionsQueryMaxResults`; the sources, one file each (below) | the options sources a choice field may pick — [Choice field options sources](../architecture/choice-field-options-sources.md#declaring-sources-administrator) |
+| Form actions | `org.jahia.modules.formidable.formActions` | `enableDevForwardTargets`, `forwardHttpConnectTimeoutSeconds`, `forwardHttpRequestTimeoutSeconds`; the forward targets, one file each (below) | the forward action and its target picker |
 | Field actions | `org.jahia.modules.formidable.fieldActions` | `enableDevFieldActionEndpoints`, `fieldActionHttpConnectTimeoutSeconds`, `fieldActionHttpRequestTimeoutSeconds`, `fieldActionVerdictCacheTtlSeconds`, `fieldActionRateLimitPerMinute`, `fieldActionMaxValueLength`, `fieldActionMaxValuesPerField` | the calls of the field actions (and whether a development endpoint may be called) and the pre-check endpoint; the service a check calls is in its own module's configuration — [Field actions: services and limits](field-actions.md) |
 
-The setting names are the ones of the single file of earlier builds but one: `uploadAllowedMimeTypes` is now
-`uploadAllowedTypes`, since it takes extensions too. Any other line copied from an old file into its theme's
+The setting names are the ones of the single file of earlier builds but one — `uploadAllowedMimeTypes` is now
+`uploadAllowedTypes`, since it takes extensions too — except two of the lists, which are now one file per
+entry (below). Any other line copied from an old file into its theme's
 file is read as it was; the migration below reads the renamed setting under its former name, does not carry a
 list still at the former default — the new default holds the same seventeen types, written as extensions — and
 carries an empty list, which meant any file until 0.5, as `*/*`. The PIDs are dotted on purpose — `org.jahia.modules.formidable-captcha`
@@ -27,8 +28,8 @@ would declare an instance of a factory configuration, which none of these is —
 together in `karaf/etc/` and in the Felix console.
 
 Each file is logged when it is read (`CaptchaConfigService configured: …`, `UploadsConfigService configured: …`,
-and so on), with what was accepted; a refused line — a target without HTTPS, for instance — is logged with its id and the reason, never a
-credential. A zero or negative
+and so on), with what was accepted; a refused entry — a target without HTTPS, an entry without an id — is
+logged with its id and the reason, never a credential. A zero or negative
 timeout or bound is refused and the default applies, with a warning naming the setting.
 
 ## Allowed file types
@@ -104,6 +105,56 @@ only — `application/*` takes a PDF as well as an archive or an executable —:
 to PDFs or to Word documents, list those types next to `*/*` (`*/*,pdf,docx`), and the setting offers them too. An administrator cannot give a type of their own a translated label; a developer adds
 the key `fmdb_inputFile.accept.<mime/type>` to the module's resource bundle.
 
+## The lists: one file per entry
+
+Two settings are lists an administrator adds to and removes from: the options sources a choice field may
+take its options from, and the services a forward action may send a submission to. Each entry is a file of its
+own, next to its theme's file:
+
+| Entry | File (`karaf/etc/`) | Settings |
+|---|---|---|
+| Options source | `org.jahia.modules.formidable.choiceOptions.source-<id>.cfg` | `id`, `label`, `initializerKey`, `param` — [Choice field options sources](../architecture/choice-field-options-sources.md#declaring-sources-administrator) |
+| Forward target | `org.jahia.modules.formidable.formActions.target-<id>.cfg` | `id`, `label`, `url`, `development` — [Form submission flow](../architecture/form-submission-flow.md#forwardaction--target-registry) |
+
+The `id` setting is required: it is what the content stores (a choice field's source, a forward action's
+target), so keep it once contributors use it. It is letters, digits, dashes and underscores
+only — it names the file, and Jahia's configuration service finds a file by the start of its name, so `crm.eu`
+would collide with `crm`: an entry with another id counts for nothing, with a warning. The `-<id>` of the file name is only
+a convention for the reader — the `id` setting is what counts — and two files declaring the same id keep one,
+with a warning naming the configuration kept and the one ignored. `label` is what the editor's picker shows, the
+id when it is empty. Remove a file to remove the entry — except a file a module ships (below): Jahia copies it
+back at the module's next start whenever it is missing, so empty its `id` instead, and the entry counts for
+nothing. Keep its first line, `# default configuration`: it tells Jahia the file is yours to edit, and a shipped
+file without it is written back from the module at every start. A forward target:
+
+```properties
+# karaf/etc/org.jahia.modules.formidable.formActions.target-crm-prod.cfg
+id=crm-prod
+label=CRM (production)
+url=https://crm.example.com/hook
+```
+
+A forward target marked `development=true` — a service over plain HTTP on `localhost` or
+`host.docker.internal`, such as the samples module's `localhost` target — is honoured only while
+`enableDevForwardTargets` is on (`false` by default; never in production), and a development id never shadows a
+standard one.
+
+Three ways to add an entry, all ending in the same file:
+
+- **Write the file** in `karaf/etc/`; fileinstall loads it without a restart.
+- **The provisioning API**: `editConfiguration` with the factory PID and the id —
+  `org.jahia.modules.formidable.formActions.target-crm-prod` — writes that file.
+- **The Felix console**: the factory's **+** button (*Formidable — Form actions — Forward target*, *Formidable —
+  Choice options — Source*) opens a form of the entry's settings. The console keeps what it creates in its own storage, out of
+  `karaf/etc/`; the module stores it again as a file through Jahia's configuration service, then deletes the
+  console's copy — the log says `The forward target 'crm-prod' created in the console is now the file …`. The
+  entry then shows in the console under a generated PID, the file carrying the id. Without an id nothing is
+  stored and the log asks for one; an id already configured keeps its file, and the console's entry is left for
+  you to delete.
+
+A module may ship entries of its own, as the samples module ships the `country` source and the `localhost` target: a file under
+`META-INF/configurations/`, copied to `karaf/etc/` the first time the module starts without it.
+
 ## Upgrading from the single file
 
 Until 0.5 the engine read one PID, `org.jahia.modules.formidable`, whether from
@@ -136,5 +187,23 @@ upgrade is there, in its theme's file, on a line without a comment; the marker l
 setting the old configuration held that is not in its theme's file was either at its default (then it was
 not copied) or lost to a write that kept failing (then the log says so): re-enter it.
 
+**The lists of earlier builds** — `optionsSources`, `forwardTargets` and `devForwardTargets`, one entry per
+line (`id|Label|…`) — become one file per
+line the first time their theme is read from its file, whether the lines sit in the theme's file (where the
+step above carried them) or still in the old PID; the lines of `devForwardTargets` become entries with
+`development=true`. An id an entry already declares — in its `id` setting, whatever its file is called — keeps
+that entry, and its line is not carried. The settings are then
+removed from the theme's file, which gets the marker `formidable.linesConverted=true`, and the log lists the
+ids: `The forward target lines became one file each, karaf/etc/org.jahia.modules.formidable.formActions.target-<id>.cfg: [...]`.
+A malformed line is logged and skipped. A line whose id holds anything but letters, digits, dashes and
+underscores — a dot, a space, which earlier builds accepted — cannot become a file: the other lines are converted,
+but the lines stay where they were found (the theme's file or `org.jahia.modules.formidable`), no marker is
+written, and an error names the ids and that configuration at each change. The ids already converted are kept in
+the theme's file (`formidable.linesConvertedIds`): a later run leaves them alone, so an entry you delete meanwhile
+does not come back. Declare each such entry as a file
+with a valid id, point the forms that store the former id at the new one — the choice fields' source, the
+forward actions' target —, then remove the lines. A conversion that fails is tried again at the theme's next change. The
+same happens on an instance that ran a 0.5 snapshot build, whose theme files still held the lists.
+
 **In a cluster**, each node reads its own `karaf/etc`: the migration runs on every node at its first start, from
-that node's old configuration. Keep the five files the same on every node, as for any file of `karaf/etc`.
+that node's old configuration. Keep the five files, and the entry files, the same on every node, as for any file of `karaf/etc`.

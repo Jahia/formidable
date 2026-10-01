@@ -29,7 +29,7 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.CO
  * Resolves the option list of a sourced choice field at display time.
  *
  * The service bridges the admin-declared options sources (curated Jahia choicelist
- * initializers, see {@code optionsSources} in org.jahia.modules.formidable.choiceOptions.cfg) to a
+ * initializers, one file each: karaf/etc/org.jahia.modules.formidable.choiceOptions.source-<id>.cfg) to a
  * primitive-friendly contract usable from the GraalVM JS server views through
  * {@code server.osgi.getService}: a source key and a BCP-47 language tag in, an array
  * of JSON-encoded {@code {"value","label","selected"}} strings out — the exact storage
@@ -419,8 +419,8 @@ public class FormidableOptionsSourceService {
     public String[] resolve(String sourceKey, String languageTag) {
         OptionsSource source = config.resolveOptionsSource(sourceKey == null ? "" : sourceKey)
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "Unknown options source '" + sourceKey + "': it is not declared in optionsSources "
-                                + "(org.jahia.modules.formidable.choiceOptions.cfg)"));
+                        "Unknown options source '" + sourceKey + "': no source file declares it "
+                                + "(karaf/etc/org.jahia.modules.formidable.choiceOptions.source-<id>.cfg)"));
 
         String cacheKey = source.id() + '|' + languageTag;
         CacheEntry cached = cache.get(cacheKey);

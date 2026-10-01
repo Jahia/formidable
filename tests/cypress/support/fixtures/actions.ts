@@ -50,7 +50,7 @@ export function getLogSubmissionActionNode(name: string = 'logSubmission'): Jahi
 
 /**
  * A forward action pointing at a configured forward target (fmdb:forwardAction, targetId is a
- * choicelist fed by the module configuration's forwardTargets).
+ * choicelist fed by the forward target files).
  */
 export function getForwardActionNode(data: {name?: string; title?: string; targetId: string}): JahiaNode {
 	const properties: NodeProperty[] = [{name: 'targetId', value: data.targetId}];
