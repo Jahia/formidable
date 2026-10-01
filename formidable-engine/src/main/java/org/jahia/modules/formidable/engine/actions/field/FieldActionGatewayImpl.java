@@ -19,6 +19,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
@@ -40,8 +41,13 @@ public class FieldActionGatewayImpl implements FieldActionGateway {
     private static final Logger log = LoggerFactory.getLogger(FieldActionGatewayImpl.class);
 
     private Supplier<FieldActionSettings> settings;
-    /** The endpoint refusals already logged, by service and reason: said once, not once per value checked. */
+    /**
+     * The endpoint refusals already logged, by service and reason: said once, not once per value checked — and again
+     * under new settings, which may have caused them anew ({@link #refusalsUnder}).
+     */
     private final Set<String> refusalsLogged = ConcurrentHashMap.newKeySet();
+    /** The settings in force when the refusals were logged: a new snapshot — a configuration change — clears them. */
+    private final AtomicReference<FieldActionSettings> refusalsUnder = new AtomicReference<>();
 
     public FieldActionGatewayImpl() {
     }
@@ -74,6 +80,9 @@ public class FieldActionGatewayImpl implements FieldActionGateway {
      * {@code development=true} is not enough.
      */
     private Endpoint checked(Endpoint endpoint, FieldActionSettings current) {
+        if (refusalsUnder.getAndSet(current) != current) {
+            refusalsLogged.clear();
+        }
         if (endpoint == null || endpoint.baseUri() == null) {
             throw new IllegalArgumentException("No endpoint is given");
         }
@@ -89,7 +98,7 @@ public class FieldActionGatewayImpl implements FieldActionGateway {
     }
 
     /**
-     * The refusal of an endpoint, logged the first time with its reason — the gateway's own words, no secret and no
+     * The refusal of an endpoint, logged once per configuration with its reason — the gateway's own words, no secret and no
      * value in them —: the caller only logs an exception's type, the right thing for one the JDK raised.
      */
     private IllegalArgumentException refused(String reason) {
