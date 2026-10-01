@@ -251,7 +251,7 @@ answer's `status` and `sub_status`:
 
 **What they need.** Their own configuration file each, which the samples module ships —
 `org.jahia.test.modules.formidable.samples.experian.cfg` and `…samples.zerobounce.cfg`, `url`, `.credential`,
-`development`, one definition shared by both (`SampleEndpointConfig`) ([Field actions: services and limits](../administration/field-actions.md#the-service-a-check-calls)).
+`development`, one configuration definition each, named after its service so that the configuration manager tells the two apart (`ExperianEmailFieldAction.Config`, `ZeroBounceEmailFieldAction.Config`; the wording of the settings shared in `SampleEndpointSettings`) ([Field actions: services and limits](../administration/field-actions.md#the-service-a-check-calls)).
 Each class reads its file into a `FieldActionGateway.Endpoint` (`ProviderFieldAction.endpointOf`) and hands it to
 the gateway, which injects the credential as the header or the query parameter the service's contract names —
 `Auth-Token`, `api_key` — and never logs it. Outbound HTTPS from the Jahia server to the provider. And an account: Experian's documentation

@@ -163,9 +163,9 @@ class ExperianEmailFieldActionTest {
     }
 
     /** A configuration as DS hands it: the three settings, the rest of the annotation's methods never called. */
-    static SampleEndpointConfig config(String url, String credential, boolean development) {
-        return new SampleEndpointConfig() {
-            @Override public Class<? extends java.lang.annotation.Annotation> annotationType() { return SampleEndpointConfig.class; }
+    static ExperianEmailFieldAction.Config config(String url, String credential, boolean development) {
+        return new ExperianEmailFieldAction.Config() {
+            @Override public Class<? extends java.lang.annotation.Annotation> annotationType() { return ExperianEmailFieldAction.Config.class; }
             @Override public String url() { return url; }
             @Override public String _credential() { return credential; }
             @Override public boolean development() { return development; }

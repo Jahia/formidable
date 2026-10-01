@@ -9,7 +9,10 @@ import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Modified;
 import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.metatype.annotations.AttributeDefinition;
+import org.osgi.service.metatype.annotations.AttributeType;
 import org.osgi.service.metatype.annotations.Designate;
+import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
 import java.io.IOException;
 import java.net.URLEncoder;
@@ -43,7 +46,7 @@ import java.util.Set;
  * @see <a href="https://www.zerobounce.net/docs/email-validation-api-quickstart/v2-validate-emails">ZeroBounce API v2, validate</a>
  */
 @Component(service = FieldAction.class, configurationPid = ZeroBounceEmailFieldAction.PID)
-@Designate(ocd = SampleEndpointConfig.class)
+@Designate(ocd = ZeroBounceEmailFieldAction.Config.class)
 public class ZeroBounceEmailFieldAction extends EmailVerificationFieldAction {
 
     public static final String NODE_TYPE = "fmdbsample:zeroBounceEmailAction";
@@ -60,6 +63,26 @@ public class ZeroBounceEmailFieldAction extends EmailVerificationFieldAction {
     /** The do_not_mail reasons that still name a mailbox receiving mail: a role, a group. */
     static final Set<String> RECEIVING_ANYWAY = Set.of("role_based", "role_based_catch_all");
 
+    /**
+     * This action's configuration, named like the engine's own entries — Formidable, the theme, the check as the contributor
+     * sees it — so the configuration manager lists every field action together, one row per check, told apart by the
+     * service. The wording of the three settings is {@link SampleEndpointSettings}.
+     */
+    @ObjectClassDefinition(name = "Formidable — Field actions — Email mailbox check (ZeroBounce)", description = "Where the ZeroBounce check calls ZeroBounce's validate operation, and the account's API key.")
+    public @interface Config {
+
+        @AttributeDefinition(name = SampleEndpointSettings.URL_NAME, description = SampleEndpointSettings.URL_DESCRIPTION)
+        String url() default "";
+
+        /** The file's {@code .credential}: the leading dot keeps it off the service registry. */
+        @AttributeDefinition(name = SampleEndpointSettings.CREDENTIAL_NAME, description = SampleEndpointSettings.CREDENTIAL_DESCRIPTION,
+                type = AttributeType.PASSWORD)
+        String _credential() default "";
+
+        @AttributeDefinition(name = SampleEndpointSettings.DEVELOPMENT_NAME, description = SampleEndpointSettings.DEVELOPMENT_DESCRIPTION)
+        boolean development() default false;
+    }
+
     @Reference
     private FieldActionGateway gateway;
 
@@ -73,7 +96,7 @@ public class ZeroBounceEmailFieldAction extends EmailVerificationFieldAction {
 
     @Activate
     @Modified
-    public void activate(SampleEndpointConfig config) {
+    public void activate(Config config) {
         configure("ZeroBounce", config.url(), config._credential(), config.development(), KEY_PARAMETER, FieldActionGateway.Endpoint.CREDENTIAL_IN_QUERY);
     }
 

@@ -9,7 +9,10 @@ import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Modified;
 import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.metatype.annotations.AttributeDefinition;
+import org.osgi.service.metatype.annotations.AttributeType;
 import org.osgi.service.metatype.annotations.Designate;
+import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
 import java.io.IOException;
 import java.util.Locale;
@@ -43,7 +46,7 @@ import java.util.Set;
  * @see <a href="https://docs.experianaperture.io/email-validation/experian-email-validation-v2">Experian Email Validation v2</a>
  */
 @Component(service = FieldAction.class, configurationPid = ExperianEmailFieldAction.PID)
-@Designate(ocd = SampleEndpointConfig.class)
+@Designate(ocd = ExperianEmailFieldAction.Config.class)
 public class ExperianEmailFieldAction extends EmailVerificationFieldAction {
 
     public static final String NODE_TYPE = "fmdbsample:experianEmailAction";
@@ -58,6 +61,26 @@ public class ExperianEmailFieldAction extends EmailVerificationFieldAction {
     /** The confidences Experian documents as "reject". */
     static final Set<String> REFUSED = Set.of("undeliverable", "unreachable", "illegitimate", "disposable");
 
+    /**
+     * This action's configuration, named like the engine's own entries — Formidable, the theme, the check as the contributor
+     * sees it — so the configuration manager lists every field action together, one row per check, told apart by the
+     * service. The wording of the three settings is {@link SampleEndpointSettings}.
+     */
+    @ObjectClassDefinition(name = "Formidable — Field actions — Email mailbox check (Experian)", description = "Where the Experian check calls Experian Email Validation, and the account's token.")
+    public @interface Config {
+
+        @AttributeDefinition(name = SampleEndpointSettings.URL_NAME, description = SampleEndpointSettings.URL_DESCRIPTION)
+        String url() default "";
+
+        /** The file's {@code .credential}: the leading dot keeps it off the service registry. */
+        @AttributeDefinition(name = SampleEndpointSettings.CREDENTIAL_NAME, description = SampleEndpointSettings.CREDENTIAL_DESCRIPTION,
+                type = AttributeType.PASSWORD)
+        String _credential() default "";
+
+        @AttributeDefinition(name = SampleEndpointSettings.DEVELOPMENT_NAME, description = SampleEndpointSettings.DEVELOPMENT_DESCRIPTION)
+        boolean development() default false;
+    }
+
     @Reference
     private FieldActionGateway gateway;
 
@@ -71,7 +94,7 @@ public class ExperianEmailFieldAction extends EmailVerificationFieldAction {
 
     @Activate
     @Modified
-    public void activate(SampleEndpointConfig config) {
+    public void activate(Config config) {
         configure("Experian", config.url(), config._credential(), config.development(), TOKEN_HEADER, FieldActionGateway.Endpoint.CREDENTIAL_IN_HEADER);
     }
 
