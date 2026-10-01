@@ -40,16 +40,17 @@
 
 // A third field action of the samples, and an example implementation rather than a supported connector: the
 // mailbox check a project wants once the domain check is not enough, written out in full against one provider,
-// Experian Email Validation v2, on the engine's EmailVerificationFieldAction. The provider the contributor picks
-// comes with fmdbmix:providerFieldAction — one of the ids the administrator declared under fieldActionProviders, the
-// token staying in that file — and the provider's confidence becomes the verdict (docs/architecture/field-actions.md,
-// "Email verification behind a provider"). Exercised by the test suite against the samples' own double of the
-// provider, ExperianStubServlet.
-[fmdbsample:experianEmailAction] > jnt:content, fmdbmix:fieldAction, fmdbmix:providerFieldAction, mix:title
+// Experian Email Validation v2, on the engine's EmailVerificationFieldAction. The contributor has no service to pick:
+// the action reads where Experian is and the account's token from its own configuration
+// (org.jahia.test.modules.formidable.samples.experian), and the service's confidence becomes the verdict
+// (docs/architecture/field-actions.md, "Email verification behind a provider"). Exercised by the test suite against
+// the samples' own double of the service, ExperianStubServlet, which the samples' configuration points at.
+[fmdbsample:experianEmailAction] > jnt:content, fmdbmix:fieldAction, mix:title
  - jcr:title (string) = resourceBundle('fmdbsample_experianEmailAction') autocreated i18n
 
-// The same check against another provider, ZeroBounce, on the same engine base — the shape to copy for a third:
-// the type, the mapping of the provider's vocabulary, nothing else. ZeroBounce reads its key off the URL, which
-// the provider line's query placement is for. Exercised against ZeroBounceStubServlet.
-[fmdbsample:zeroBounceEmailAction] > jnt:content, fmdbmix:fieldAction, fmdbmix:providerFieldAction, mix:title
+// The same check against another service, ZeroBounce, on the same engine base — the shape to copy for a third:
+// the type, the action's own configuration (org.jahia.test.modules.formidable.samples.zerobounce), the mapping of
+// the service's vocabulary, nothing else. ZeroBounce reads its key off the URL, as a query parameter. Exercised
+// against ZeroBounceStubServlet.
+[fmdbsample:zeroBounceEmailAction] > jnt:content, fmdbmix:fieldAction, mix:title
  - jcr:title (string) = resourceBundle('fmdbsample_zeroBounceEmailAction') autocreated i18n

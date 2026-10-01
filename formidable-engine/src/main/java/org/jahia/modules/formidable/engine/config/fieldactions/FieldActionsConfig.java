@@ -6,13 +6,14 @@ import org.osgi.service.metatype.annotations.AttributeType;
 import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
 /**
- * The field actions theme: the providers a field action may call, their development list, the timeouts of
- * those calls, and the guards of the pre-check endpoint (verdict cache, rate limit, value length, values per
- * field). Deployed as {@code karaf/etc/org.jahia.modules.formidable.fieldActions.cfg}.
+ * The field actions theme: the timeouts of the calls a field action makes to an external service — the service
+ * itself is in the configuration of the module that ships the action — and the guards of the pre-check endpoint
+ * (verdict cache, rate limit, value length, values per field). Deployed as
+ * {@code karaf/etc/org.jahia.modules.formidable.fieldActions.cfg}.
  */
 @ObjectClassDefinition(
         name = "Formidable — Field actions",
-        description = "The services a field's check may call, where their credential goes, and the limits of the pre-check endpoint."
+        description = "The timeouts of a field's check calling an external service, and the limits of the pre-check endpoint."
 )
 public @interface FieldActionsConfig {
 
@@ -22,40 +23,17 @@ public @interface FieldActionsConfig {
     int DEFAULT_FIELD_ACTION_MAX_VALUES_PER_FIELD = 50;
 
     @AttributeDefinition(
-            name = "Field action providers",
-            description = "Newline-separated list of the external services a field action may call through the " +
-                    "FieldActionGateway. Each entry has the form: id|Label|https://base-url|Credential-Header-Name|credential " +
-                    "with an optional sixth part, header (the default) or query: where the credential goes, a request header " +
-                    "of that name or a query parameter of that name. " +
-                    "The id is stored in JCR on the field-action node; the base URL, the header name and the credential " +
-                    "stay here and never reach a contributor, the visitor's page or a log line. " +
-                    "Leave empty when no field action calls an external service (fail-safe default).",
-            type = AttributeType.PASSWORD
-    )
-    String fieldActionProviders() default "";
-
-    @AttributeDefinition(
-            name = "Enable development field action providers",
-            description = "Allows use of devFieldActionProviders. Disabled by default. " +
-                    "When enabled, only plain HTTP providers on localhost or host.docker.internal are accepted.",
+            name = "Enable development field action endpoints",
+            description = "Lets a field action call a double of its service on this machine — plain HTTP on localhost or " +
+                    "host.docker.internal — when the action's own configuration marks its URL development=true, such as " +
+                    "the samples module's stubs. Off by default; never in production.",
             type = AttributeType.BOOLEAN
     )
-    boolean enableDevFieldActionProviders() default false;
-
-    @AttributeDefinition(
-            name = "Development field action providers",
-            description = "Newline-separated list of development-only field action providers, in the form of " +
-                    "fieldActionProviders with a plain HTTP base URL on localhost or host.docker.internal: " +
-                    "id|Label|http://localhost:8080/...|Credential-Header-Name|credential. " +
-                    "Ignored unless 'Enable development field action providers' is true. A double of a provider " +
-                    "is declared here, such as the samples module's Experian stub.",
-            type = AttributeType.PASSWORD
-    )
-    String devFieldActionProviders() default "";
+    boolean enableDevFieldActionEndpoints() default false;
 
     @AttributeDefinition(
             name = "Field action HTTP connect timeout (seconds)",
-            description = "Maximum time allowed to establish the connection to a field action provider. Default: 5 seconds.",
+            description = "Maximum time allowed to establish the connection to the service a field action calls. Default: 5 seconds.",
             type = AttributeType.LONG
     )
     long fieldActionHttpConnectTimeoutSeconds() default ConfigurationValues.DEFAULT_HTTP_CONNECT_TIMEOUT_SECONDS;

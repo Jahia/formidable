@@ -28,10 +28,10 @@ import java.util.List;
  * answer is an unavailable check, which the contributor's {@code whenUnavailable} decides, and never a refusal.
  * What the action catches is the case that matters and is provable: the mistyped domain.</p>
  *
- * <p>It needs no provider, no credential, no account, no configuration, and it is honest about its limit — the
- * contributor's help text says so: <strong>it does not prove the mailbox exists</strong>. Only a provider can, which
- * is what the Experian and ZeroBounce samples, {@code FieldActionGateway} and the {@code fieldActionProviders}
- * configuration are there for.</p>
+ * <p>It needs no service, no credential, no account, no configuration, and it is honest about its limit — the
+ * contributor's help text says so: <strong>it does not prove the mailbox exists</strong>. Only a mailbox service
+ * can, which is what the Experian and ZeroBounce samples, each with its own configuration, and
+ * {@code FieldActionGateway} are there for.</p>
  *
  * <p>What leaves the server is the <em>domain</em>, never the address: the local part is dropped before the query,
  * so the visitor's identity is not handed to a resolver. A value that is not an address at all is accepted without

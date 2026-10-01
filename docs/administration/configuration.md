@@ -16,7 +16,7 @@ typed syntax (`L"5"`, quoted strings) a `.cfg` file does not read back.
 | Uploads | `org.jahia.modules.formidable.uploads` | `uploadMaxFileSizeBytes`, `uploadMaxRequestSizeBytes`, `uploadMaxFileCount`, `uploadAllowedTypes` | the multipart parser, the early size guard, the e-mail action's attachment bound, the file field and its `accept` choicelist — [Allowed file types](#allowed-file-types) |
 | Choice options | `org.jahia.modules.formidable.choiceOptions` | `optionsSources`, `optionsSourcesCacheTtlSeconds`, `optionsQueryMaxResults` | the options sources a choice field may pick — [Choice field options sources](../architecture/choice-field-options-sources.md#declaring-sources-administrator) |
 | Form actions | `org.jahia.modules.formidable.formActions` | `forwardTargets`, `enableDevForwardTargets`, `devForwardTargets`, `forwardHttpConnectTimeoutSeconds`, `forwardHttpRequestTimeoutSeconds` | the forward action and its target picker |
-| Field actions | `org.jahia.modules.formidable.fieldActions` | `fieldActionProviders`, `enableDevFieldActionProviders`, `devFieldActionProviders`, `fieldActionHttpConnectTimeoutSeconds`, `fieldActionHttpRequestTimeoutSeconds`, `fieldActionVerdictCacheTtlSeconds`, `fieldActionRateLimitPerMinute`, `fieldActionMaxValueLength`, `fieldActionMaxValuesPerField` | the field actions' providers and the pre-check endpoint — [Field actions: providers and limits](field-actions.md) |
+| Field actions | `org.jahia.modules.formidable.fieldActions` | `enableDevFieldActionEndpoints`, `fieldActionHttpConnectTimeoutSeconds`, `fieldActionHttpRequestTimeoutSeconds`, `fieldActionVerdictCacheTtlSeconds`, `fieldActionRateLimitPerMinute`, `fieldActionMaxValueLength`, `fieldActionMaxValuesPerField` | the calls of the field actions (and whether a development endpoint may be called) and the pre-check endpoint; the service a check calls is in its own module's configuration — [Field actions: services and limits](field-actions.md) |
 
 The setting names are the ones of the single file of earlier builds but one: `uploadAllowedMimeTypes` is now
 `uploadAllowedTypes`, since it takes extensions too. Any other line copied from an old file into its theme's
@@ -27,8 +27,8 @@ would declare an instance of a factory configuration, which none of these is —
 together in `karaf/etc/` and in the Felix console.
 
 Each file is logged when it is read (`CaptchaConfigService configured: …`, `UploadsConfigService configured: …`,
-and so on), with what was accepted; a refused line — a target without HTTPS, a provider line whose sixth part is
-neither `header` nor `query` — is logged with its id and the reason, never a credential. A zero or negative
+and so on), with what was accepted; a refused line — a target without HTTPS, for instance — is logged with its id and the reason, never a
+credential. A zero or negative
 timeout or bound is refused and the default applies, with a warning naming the setting.
 
 ## Allowed file types

@@ -3,11 +3,11 @@ package org.jahia.modules.formidable.engine.api;
 import java.io.IOException;
 
 /**
- * A {@link ProviderFieldAction} that verifies an email address with a provider: the value must read as one address
- * ({@link EmailAddress#domainOf}) for the provider to be asked at all — the shape of a value is the field's own
- * validation, at step 9, and an answer is chargeable — and the module writes {@link #verify} alone: the call and
- * the provider's own vocabulary turned into the three verdicts. The samples module ships two, against Experian
- * and against ZeroBounce, the shape to copy for another provider.
+ * A {@link ProviderFieldAction} that verifies an email address with an external service: the value must read as one
+ * address ({@link EmailAddress#domainOf}) for the service to be asked at all — the shape of a value is the field's
+ * own validation, at step 9, and an answer is chargeable — and the module writes {@link #verify} alone: the call and
+ * the service's own vocabulary turned into the three verdicts. The samples module ships two, against Experian and
+ * against ZeroBounce, each with its own configuration: the shape to copy for another service.
  */
 public abstract class EmailVerificationFieldAction extends ProviderFieldAction {
 
@@ -17,13 +17,13 @@ public abstract class EmailVerificationFieldAction extends ProviderFieldAction {
     }
 
     @Override
-    protected final FieldActionResult ask(String providerId, FieldActionRequest request) throws IOException {
-        return verify(providerId, request.value().trim());
+    protected final FieldActionResult ask(FieldActionGateway.Endpoint endpoint, FieldActionRequest request) throws IOException {
+        return verify(endpoint, request.value().trim());
     }
 
     /**
-     * The provider's verdict on one address: accept when the mailbox receives mail, reject when it does not or is a
-     * trap or disposable, unavailable when the provider could not conclude or the answer is not its documented one.
+     * The service's verdict on one address: accept when the mailbox receives mail, reject when it does not or is a
+     * trap or disposable, unavailable when the service could not conclude or the answer is not its documented one.
      */
-    protected abstract FieldActionResult verify(String providerId, String address) throws IOException;
+    protected abstract FieldActionResult verify(FieldActionGateway.Endpoint endpoint, String address) throws IOException;
 }

@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -21,6 +22,7 @@ class ZeroBounceEmailFieldActionTest {
     /** A gateway answering what the test decided, and remembering what it was asked. */
     private static final class Gateway implements FieldActionGateway {
         final List<String> paths = new ArrayList<>();
+        final List<Endpoint> endpoints = new ArrayList<>();
         private final int status;
         private final String body;
 
@@ -30,20 +32,29 @@ class ZeroBounceEmailFieldActionTest {
         }
 
         @Override
-        public Response post(String providerId, String path, String jsonBody) {
+        public Response post(Endpoint endpoint, String path, String jsonBody) {
             throw new UnsupportedOperationException("the sample gets");
         }
 
         @Override
-        public Response get(String providerId, String path) {
-            paths.add(providerId + " " + path);
+        public Response get(Endpoint endpoint, String path) {
+            endpoints.add(endpoint);
+            paths.add(endpoint.name() + " " + (endpoint.credentialInQuery() ? "query:" : "header:") + endpoint.credentialName() + " " + path);
             return new Response(status, body);
         }
     }
 
+    /** The endpoint the samples' configuration describes: their double of ZeroBounce, the key in the query. */
+    private static final FieldActionGateway.Endpoint STUB = FieldActionGateway.Endpoint.of("ZeroBounce",
+            "http://localhost:8080/modules/formidable-samples/zerobounce-stub", "api_key", "stub-token", "query", true);
+
+    private static ZeroBounceEmailFieldAction action(Gateway gateway) {
+        return new ZeroBounceEmailFieldAction(gateway, STUB);
+    }
+
     private static FieldActionResult judge(String status, String subStatus, String address) {
         String body = "{\"address\":\"" + address + "\",\"status\":\"" + status + "\",\"sub_status\":\"" + subStatus + "\",\"free_email\":false}";
-        return new ZeroBounceEmailFieldAction(new Gateway(200, body)).judge("zerobounce", of(address));
+        return action(new Gateway(200, body)).judge(of(address));
     }
 
     private static FieldActionRequest of(String value) {
@@ -56,10 +67,10 @@ class ZeroBounceEmailFieldActionTest {
         // and the ip_address one left empty, the key nowhere in what the action sends — the gateway appends it.
         Gateway gateway = new Gateway(200, "{\"address\":\"ada+1@example.com\",\"status\":\"valid\",\"sub_status\":\"\"}");
 
-        FieldActionResult result = new ZeroBounceEmailFieldAction(gateway).judge("zerobounce", of(" ada+1@example.com "));
+        FieldActionResult result = action(gateway).judge(of(" ada+1@example.com "));
 
         assertEquals(FieldActionResult.Verdict.ACCEPT, result.verdict());
-        assertEquals(List.of("zerobounce v2/validate?email=ada%2B1%40example.com&ip_address="), gateway.paths);
+        assertEquals(List.of("ZeroBounce query:api_key v2/validate?email=ada%2B1%40example.com&ip_address="), gateway.paths);
     }
 
     @Test
@@ -93,25 +104,42 @@ class ZeroBounceEmailFieldActionTest {
     void aRefusedKeyAnOutageOrAnUnreadableAnswerIsAnUnavailableCheckNeverARefusal() {
         // Verifies the provider's own way of refusing a call — a 200 carrying an error field, for a wrong key or an
         // account out of credits — and the plainer failures: a status that is not 200, a body that is not its JSON.
-        ZeroBounceEmailFieldAction refusedKey = new ZeroBounceEmailFieldAction(new Gateway(200, "{\"error\":\"Invalid API Key or your account ran out of credits\"}"));
-        FieldActionResult result = refusedKey.judge("zerobounce", of("ada@example.com"));
+        ZeroBounceEmailFieldAction refusedKey = action(new Gateway(200, "{\"error\":\"Invalid API Key or your account ran out of credits\"}"));
+        FieldActionResult result = refusedKey.judge(of("ada@example.com"));
         assertEquals(FieldActionResult.Verdict.UNAVAILABLE, result.verdict());
         assertTrue(result.detail().contains("Invalid API Key"), result.detail());
 
         for (int status : List.of(400, 401, 429, 500, 503)) {
-            assertEquals(FieldActionResult.Verdict.UNAVAILABLE, new ZeroBounceEmailFieldAction(new Gateway(status, "")).judge("zerobounce", of("ada@example.com")).verdict(), String.valueOf(status));
+            assertEquals(FieldActionResult.Verdict.UNAVAILABLE, action(new Gateway(status, "")).judge(of("ada@example.com")).verdict(), String.valueOf(status));
         }
-        assertEquals(FieldActionResult.Verdict.UNAVAILABLE, new ZeroBounceEmailFieldAction(new Gateway(200, "<html>maintenance</html>")).judge("zerobounce", of("ada@example.com")).verdict());
+        assertEquals(FieldActionResult.Verdict.UNAVAILABLE, action(new Gateway(200, "<html>maintenance</html>")).judge(of("ada@example.com")).verdict());
     }
 
     @Test
     void aValueThatIsNotAnAddressIsAcceptedWithoutACall() {
         // Verifies the engine base at work in this sample: nothing is spent on a value the field's own validation judges.
         Gateway gateway = new Gateway(200, "{\"status\":\"invalid\"}");
-        ZeroBounceEmailFieldAction action = new ZeroBounceEmailFieldAction(gateway);
+        ZeroBounceEmailFieldAction action = action(gateway);
 
-        assertEquals(FieldActionResult.Verdict.ACCEPT, action.judge("zerobounce", of("hello")).verdict());
-        assertEquals(FieldActionResult.Verdict.ACCEPT, action.judge("zerobounce", of("")).verdict());
+        assertEquals(FieldActionResult.Verdict.ACCEPT, action.judge(of("hello")).verdict());
+        assertEquals(FieldActionResult.Verdict.ACCEPT, action.judge(of("")).verdict());
         assertEquals(List.of(), gateway.paths);
+    }
+
+    @Test
+    void theConfigurationBecomesTheEndpointWithTheKeyInTheQuery() {
+        // Verifies the path a copying project relies on, field by field: the administrator's URL — not a default —,
+        // the key as ZeroBounce reads it, the api_key query parameter, and the development flag.
+        Gateway gateway = new Gateway(200, "{\"status\":\"valid\"}");
+        ZeroBounceEmailFieldAction action = new ZeroBounceEmailFieldAction(gateway, null);
+
+        action.activate(ExperianEmailFieldActionTest.config("https://bulkapi.zerobounce.net", "k3y", false));
+        action.judge(of("ada@example.com"));
+        FieldActionGateway.Endpoint endpoint = gateway.endpoints.get(0);
+        assertEquals(java.net.URI.create("https://bulkapi.zerobounce.net"), endpoint.baseUri());
+        assertEquals("api_key", endpoint.credentialName());
+        assertEquals("k3y", endpoint.credential());
+        assertTrue(endpoint.credentialInQuery());
+        assertFalse(endpoint.development());
     }
 }

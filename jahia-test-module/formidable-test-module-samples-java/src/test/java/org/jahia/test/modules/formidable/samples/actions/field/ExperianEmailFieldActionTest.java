@@ -11,14 +11,14 @@ import java.util.List;
 import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The example implementation against Experian: what it sends, what it makes of each documented answer, and that
- * nothing the provider does — or fails to do — turns into a refusal on its own. The gateway is the one seam: a
- * test that called the provider would be a test of an account. The node is read by one line, {@code providerIdOf},
- * left to the live spec: the rules are judged from the id it yields.
+ * nothing the service does — or fails to do — turns into a refusal on its own. The gateway is the one seam: a
+ * test that called the service would be a test of an account. The endpoint comes from the action's own
+ * configuration, read by {@code configure}: the tests hand one over, or a configuration.
  */
 class ExperianEmailFieldActionTest {
 
@@ -29,7 +29,8 @@ class ExperianEmailFieldActionTest {
 
     /** A gateway answering what the test decided, and remembering what it was asked. */
     private static final class Gateway implements FieldActionGateway {
-        final List<String> providers = new ArrayList<>();
+        final List<String> services = new ArrayList<>();
+        final List<Endpoint> endpoints = new ArrayList<>();
         final List<String> paths = new ArrayList<>();
         final List<String> bodies = new ArrayList<>();
         private final Answer answer;
@@ -39,15 +40,16 @@ class ExperianEmailFieldActionTest {
         }
 
         @Override
-        public Response post(String providerId, String path, String jsonBody) throws IOException {
-            providers.add(providerId);
+        public Response post(Endpoint endpoint, String path, String jsonBody) throws IOException {
+            services.add(endpoint.name() + " " + endpoint.credentialName() + "=" + endpoint.credential());
+            endpoints.add(endpoint);
             paths.add(path);
             bodies.add(jsonBody);
             return answer.get();
         }
 
         @Override
-        public Response get(String providerId, String path) {
+        public Response get(Endpoint endpoint, String path) {
             throw new UnsupportedOperationException("the sample posts");
         }
     }
@@ -64,20 +66,25 @@ class ExperianEmailFieldActionTest {
         return new FieldActionRequest("form-1", "email", value, Locale.ENGLISH);
     }
 
+    /** The endpoint the samples' configuration describes: their double of Experian, the stub's token. */
+    private static final FieldActionGateway.Endpoint STUB = FieldActionGateway.Endpoint.of("Experian",
+            "http://localhost:8080/modules/formidable-samples/experian-stub", "Auth-Token", "stub-token", "header", true);
+
     private static FieldActionResult judge(Gateway gateway, String value) {
-        return new ExperianEmailFieldAction(gateway).judge("experian", of(value));
+        return new ExperianEmailFieldAction(gateway, STUB).judge(of(value));
     }
 
     @Test
     void theAddressIsPostedToTheDocumentedOperationAndAVerifiedMailboxIsAccepted() {
-        // Verifies the contract with the provider, exactly: the id from the node, Experian's v2 operation under the
-        // base URL, a body that is the address and nothing else — and the one confidence that accepts.
+        // Verifies the contract with the service, exactly: the action's own endpoint with the token in Experian's
+        // header, the v2 operation under the base URL, a body that is the address and nothing else — and the one
+        // confidence that accepts.
         Gateway gateway = confident("verified");
 
         FieldActionResult result = judge(gateway, " ada@example.com ");
 
         assertEquals(FieldActionResult.Verdict.ACCEPT, result.verdict());
-        assertEquals(List.of("experian"), gateway.providers);
+        assertEquals(List.of("Experian Auth-Token=stub-token"), gateway.services);
         assertEquals(List.of("email/validate/v2"), gateway.paths);
         assertEquals(List.of("{\"email\":\"ada@example.com\"}"), gateway.bodies);
     }
@@ -137,17 +144,51 @@ class ExperianEmailFieldActionTest {
     }
 
     @Test
-    void aNodeWithoutAProviderIsAnUnavailableCheckWithoutACall() {
-        // Verifies the node side: a node that names no provider — none at all, or one the reading yields nothing
-        // for — leaves the action unable to know whom to ask, which is the contributor's setting to fix; the gateway
-        // is not asked to guess.
+    void anActionWithoutAConfiguredServiceIsAnUnavailableCheckWithoutACall() {
+        // Verifies the configuration side: the action's configuration has no token yet (the annotation's default),
+        // so there is nobody to ask — an unavailable check, which the contributor's setting decides; the gateway is
+        // not asked. A configuration with its token gives the endpoint, the credential in Experian's header.
         Gateway gateway = confident("verified");
-        ExperianEmailFieldAction action = new ExperianEmailFieldAction(gateway);
+        ExperianEmailFieldAction action = new ExperianEmailFieldAction(gateway, null);
 
         assertEquals(FieldActionResult.Verdict.UNAVAILABLE, action.execute(null, of("ada@example.com")).verdict());
-        assertEquals(FieldActionResult.Verdict.UNAVAILABLE, action.judge(null, of("ada@example.com")).verdict());
-        assertNull(ExperianEmailFieldAction.providerIdOf(null));
-
         assertEquals(List.of(), gateway.paths);
+
+        action.activate(config("https://api.experianaperture.io", "t0k3n", false));
+        assertEquals(FieldActionResult.Verdict.ACCEPT, action.judge(of("ada@example.com")).verdict());
+        assertEquals(List.of("Experian Auth-Token=t0k3n"), gateway.services);
+
+        action.activate(config("https://api.experianaperture.io", "", false));
+        assertEquals(FieldActionResult.Verdict.UNAVAILABLE, action.judge(of("ada@example.com")).verdict());
+    }
+
+    /** A configuration as DS hands it: the three settings, the rest of the annotation's methods never called. */
+    static SampleEndpointConfig config(String url, String credential, boolean development) {
+        return new SampleEndpointConfig() {
+            @Override public Class<? extends java.lang.annotation.Annotation> annotationType() { return SampleEndpointConfig.class; }
+            @Override public String url() { return url; }
+            @Override public String _credential() { return credential; }
+            @Override public boolean development() { return development; }
+        };
+    }
+
+    @Test
+    void theConfigurationBecomesTheEndpointWithTheTokenInExperiansHeader() {
+        // Verifies the path a copying project relies on, field by field: the administrator's URL — not a default —,
+        // the token in the Auth-Token header, never on the URL where access logs keep it, and the development flag.
+        Gateway gateway = confident("verified");
+        ExperianEmailFieldAction action = new ExperianEmailFieldAction(gateway, null);
+
+        action.activate(config("https://eu.experianaperture.io/v2", "t0k3n", false));
+        action.judge(of("ada@example.com"));
+        FieldActionGateway.Endpoint endpoint = gateway.endpoints.get(0);
+        assertEquals(java.net.URI.create("https://eu.experianaperture.io/v2"), endpoint.baseUri());
+        assertEquals("Auth-Token", endpoint.credentialName());
+        assertFalse(endpoint.credentialInQuery());
+        assertFalse(endpoint.development());
+
+        action.activate(config("http://localhost:8080/stub", "stub-token", true));
+        action.judge(of("bob@example.com"));
+        assertTrue(gateway.endpoints.get(1).development());
     }
 }

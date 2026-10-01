@@ -376,6 +376,25 @@ final URL.
 - `Local OK` is present
 - `Bad host` is absent
 
+### 7.4 A field action's development endpoint stays behind the administrator's switch
+
+The same rule for a field action calling a service: its own configuration may mark its URL `development=true`,
+but the engine calls it only while `enableDevFieldActionEndpoints` is on in
+`org.jahia.modules.formidable.fieldActions.cfg` — an action's file alone cannot open plain HTTP.
+
+**Precondition:**
+1. Keep `enableDevFieldActionEndpoints=false` (the default).
+2. Point the samples' ZeroBounce check at its double: `org.jahia.test.modules.formidable.samples.zerobounce.cfg` with
+   `url=http://localhost:8080/modules/formidable-samples/zerobounce-stub`, `.credential=stub-token`,
+   `development=true`.
+3. Add **Email mailbox check (ZeroBounce)** to an email field of a published form, **If the check cannot run** set
+   to refuse.
+
+**Expected:**
+- Typing an address and leaving the field refuses it as a check that could not run (the log names the service
+  and `IllegalArgumentException`); no request reaches the double
+- With `enableDevFieldActionEndpoints=true`, the same address is answered by the double
+
 ---
 
 ## 8. Outbound dependency timeouts

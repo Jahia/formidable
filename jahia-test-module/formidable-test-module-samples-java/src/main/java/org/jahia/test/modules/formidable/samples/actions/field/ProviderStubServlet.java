@@ -23,11 +23,11 @@ public abstract class ProviderStubServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
     private static final Logger log = LoggerFactory.getLogger(ProviderStubServlet.class);
 
-    /** The credential every double accepts: the one the development provider line carries. */
+    /** The credential every double accepts: the one the samples' configuration of each action carries. */
     public static final String TOKEN = "stub-token";
     static final int MAX_BODY_CHARS = 4096;
 
-    /** The alias the double is registered under, the base URL of its provider line. */
+    /** The alias the double is registered under, the base URL the samples' configuration of the action names. */
     protected abstract String alias();
 
     /** A POST on the operation under the alias; a double that does not serve POST answers 405, naming what it refused. */

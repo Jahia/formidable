@@ -6,49 +6,51 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jcr.RepositoryException;
 import java.io.IOException;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * The shape of a field action behind a provider — what every check calling an external service has in common, so
- * that a module writes the call and the reading of the answer, nothing else. The type takes
- * {@code fmdbmix:providerFieldAction} beside {@code fmdbmix:fieldAction}: the contributor picks one of the providers
- * the administrator declared under {@code fieldActionProviders}, and this class reads the id off the node
- * ({@link #providerIdOf}), hands it to {@link #ask} with the request, and turns every way the call can fail into an
- * unavailable check — a provider that cannot be reached or times out, an id the configuration no longer declares, a
- * node naming no provider. An unavailable check is what the contributor's {@code whenUnavailable} setting decides:
- * an outage never refuses on its own.
+ * The shape of a field action behind an external service — what every check calling one has in common, so that a
+ * module writes the call and the reading of the answer, nothing else. The service is the action's own: its module
+ * reads the base URL and the credential from its own configuration ({@link #endpoint()}), and the contributor has no
+ * service to pick. This class hands the endpoint to {@link #ask} with the request, and turns every way the call can
+ * fail into an unavailable check — a service that is not configured, cannot be reached or times out, a URL the
+ * endpoint rule refuses. An unavailable check is what the contributor's {@code whenUnavailable} setting decides: an
+ * outage never refuses on its own.
  *
  * <p>A value the action does not judge at all ({@link #concerns}) is accepted without a call: every answer of a
- * provider has a price. The gateway comes from the module, which holds the OSGi reference ({@link #gateway()}).</p>
+ * service has a price. The gateway comes from the module, which holds the OSGi reference ({@link #gateway()}).</p>
  */
 public abstract class ProviderFieldAction implements FieldAction {
 
     private static final Logger log = LoggerFactory.getLogger(ProviderFieldAction.class);
 
+    /** The endpoint the module's configuration describes, as {@link #configure} last read it. */
+    private final AtomicReference<Optional<FieldActionGateway.Endpoint>> configured = new AtomicReference<>(Optional.empty());
+
     @Override
     public final FieldActionResult execute(JCRNodeWrapper actionNode, FieldActionRequest request) {
-        return judge(providerIdOf(actionNode), request);
+        return judge(request);
     }
 
-    /**
-     * The verdict once the provider is known — the whole of the action but the reading of the node, which is what a
-     * test drives; the id is null when the node names no provider.
-     */
-    public final FieldActionResult judge(String providerId, FieldActionRequest request) {
+    /** The verdict — the whole of the action, which is what a test drives. */
+    public final FieldActionResult judge(FieldActionRequest request) {
         if (!concerns(request)) {
             return FieldActionResult.accept();
         }
-        if (providerId == null) {
-            return FieldActionResult.unavailable("no provider is set on the action node");
+        Optional<FieldActionGateway.Endpoint> endpoint = endpoint();
+        if (endpoint.isEmpty()) {
+            return FieldActionResult.unavailable("the service is not configured");
         }
         try {
-            return ask(providerId, request);
+            return ask(endpoint.get(), request);
         } catch (IOException | IllegalArgumentException e) {
-            // Unreachable, timed out, or an id the configuration no longer declares: not a verdict on the value.
-            log.info("[ProviderFieldAction] Provider '{}' could not be asked about field '{}': {}", providerId, request.fieldName(), e.getClass().getSimpleName());
-            return FieldActionResult.unavailable("the provider did not answer: " + e.getClass().getSimpleName());
+            // Unreachable, timed out, or a URL the endpoint rule refuses: not a verdict on the value.
+            String service = endpoint.get().name();
+            String failure = e.getClass().getSimpleName();
+            log.info("[ProviderFieldAction] {} could not be asked about field '{}': {}", service, request.fieldName(), failure);
+            return FieldActionResult.unavailable("the service did not answer: " + failure);
         }
     }
 
@@ -61,26 +63,69 @@ public abstract class ProviderFieldAction implements FieldAction {
     }
 
     /**
-     * The provider's verdict on the value: the call through {@link #gateway()} and the reading of the answer. An
-     * {@link IOException} is the provider not answering, which the caller reads as unavailable.
+     * Where the service is: by default what {@link #configure} last read from the module's configuration; empty when
+     * the configuration describes none usable — the check is then unavailable, the configuration's own warning says
+     * why. A module holding its endpoint otherwise overrides it.
      */
-    protected abstract FieldActionResult ask(String providerId, FieldActionRequest request) throws IOException;
+    protected Optional<FieldActionGateway.Endpoint> endpoint() {
+        return configured.get();
+    }
+
+    /**
+     * Reads the module's configuration into the endpoint {@link #endpoint()} serves — call it from the component's
+     * {@code @Activate}/{@code @Modified} with the values of its own configuration. Keep the credential a private
+     * property ({@code .credential}, method {@code _credential()}): Declarative Services publishes a component's
+     * configuration with the service it registers, except the names starting with a dot.
+     *
+     * @param name           what the service is called in log lines ({@code "Experian"})
+     * @param credentialName the header or query parameter the service reads its credential from — the service's own
+     *                       contract, not a setting: {@code Auth-Token}, {@code api_key}
+     * @param credentialIn   {@link FieldActionGateway.Endpoint#CREDENTIAL_IN_HEADER} or
+     *                       {@link FieldActionGateway.Endpoint#CREDENTIAL_IN_QUERY}
+     */
+    protected final void configure(String name, String url, String credential, boolean development,
+                                   String credentialName, String credentialIn) {
+        configured.set(endpointOf(name, url, credentialName, credential, credentialIn, development));
+    }
+
+    /** Sets the endpoint directly — the tests' seam, and a module building its endpoint another way. */
+    protected final void useEndpoint(FieldActionGateway.Endpoint endpoint) {
+        configured.set(Optional.ofNullable(endpoint));
+    }
+
+    /**
+     * The service's verdict on the value: the call through {@link #gateway()} and the reading of the answer. An
+     * {@link IOException} is the service not answering, which the caller reads as unavailable.
+     */
+    protected abstract FieldActionResult ask(FieldActionGateway.Endpoint endpoint, FieldActionRequest request) throws IOException;
+
+    /**
+     * The endpoint a module's configuration describes, for {@link #endpoint()}: empty, with a log line naming the
+     * service, when the configuration has no credential yet — the check is unavailable until an administrator sets
+     * one — or describes no usable endpoint ({@link FieldActionGateway.Endpoint#of} says why, never the credential).
+     * Called where the configuration is read ({@code @Activate}/{@code @Modified}, through {@link #configure}), so each
+     * problem is logged once per change, not per value.
+     *
+     * @param credentialName the header or query parameter the service reads its credential from — the service's own
+     *                       contract, not a setting: {@code Auth-Token}, {@code api_key}
+     */
+    protected static Optional<FieldActionGateway.Endpoint> endpointOf(String name, String url, String credentialName,
+                                                                     String credential, String credentialIn,
+                                                                     boolean development) {
+        if (credential == null || credential.isBlank()) {
+            log.info("[ProviderFieldAction] No credential is configured for {}: its check is unavailable until one is set", name);
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(FieldActionGateway.Endpoint.of(name, url, credentialName, credential, credentialIn, development));
+        } catch (IllegalArgumentException e) {
+            log.warn("[ProviderFieldAction] {}: its check is unavailable until the configuration is fixed", e.getMessage());
+            return Optional.empty();
+        }
+    }
 
     /** The engine's gateway, held by the module as an OSGi reference. */
     protected abstract FieldActionGateway gateway();
-
-    /** The provider the contributor picked on the node ({@code providerId}); null when the node lacks it or cannot be read. */
-    public static String providerIdOf(JCRNodeWrapper actionNode) {
-        try {
-            if (actionNode == null || !actionNode.hasProperty(FmdbProperty.PROVIDER_ID)) {
-                return null;
-            }
-            String providerId = actionNode.getProperty(FmdbProperty.PROVIDER_ID).getString().trim();
-            return providerId.isEmpty() ? null : providerId;
-        } catch (RepositoryException e) {
-            return null;
-        }
-    }
 
     /** The body of an answer as one JSON object; empty when it is not one, which the caller reads as unavailable. */
     protected static Optional<JSONObject> json(FieldActionGateway.Response response) {
