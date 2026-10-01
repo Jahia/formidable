@@ -33,9 +33,12 @@ Four files, and nothing in Formidable:
 2. **An editor override placing the setting under Help text** —
    [`settings/jahia-content-editor-forms/forms/fmdbsamplemix_helpTextPosition.json`](../settings/jahia-content-editor-forms/forms/fmdbsamplemix_helpTextPosition.json).
    A mixin of this kind would normally show up as a separate fieldset behind a switch. This
-   single override moves the field into the edited type's own fieldset right after **Help
+   single override places the field in the **Help & presentation** fieldset of the **Field
+   settings** section — the layout the built-in field editors share — right after **Help
    text**, keeps the mixin always active so the value is saved without a switch, and hides the
-   now empty fieldset of the mixin. One file serves the twelve types.
+   now empty fieldset of the mixin. One file serves the twelve types; on a type whose editor is
+   not reorganised yet, the setting opens the section on its own while Help text is still in
+   Content.
 3. **A rendering of the text input honouring the setting** —
    [`src/components/Input/Text/default.server.tsx`](../src/components/Input/Text/default.server.tsx).
    It is registered as the `default` view of the text input with a priority above Formidable's,

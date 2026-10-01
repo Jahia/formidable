@@ -3,23 +3,22 @@
 	"priority": 2.0,
 	"sections": [
 		{
-			"name": "validationMessages",
-			"labelKey": "fmdb.section.validationMessages",
-			"rank": 1.50,
+			"name": "fieldSettings",
+			"labelKey": "fmdb.section.fieldSettings",
+			"rank": 1.05,
 			"fieldSets": [
 				{
-					"name": "rangeConstraints",
-					"labelKey": "fmdb.fieldset.rangeConstraints",
-					"rank": 1.0,
+					"name": "validationMessages",
+					"labelKey": "fmdb.fieldset.validationMessages",
+					"rank": 6.0,
 					"fields": [
-						{ "name": "msgRangeUnderflow" },
-						{ "name": "msgRangeOverflow" },
-						{ "name": "msgStepMismatch" },
-						{ "name": "msgBadInput" }
+						{ "name": "msgRangeUnderflow", "rank": 6.0 },
+						{ "name": "msgRangeOverflow", "rank": 7.0 },
+						{ "name": "msgStepMismatch", "rank": 8.0 },
+						{ "name": "msgBadInput", "rank": 9.0 }
 					]
 				}
 			]
 		}
 	]
 }
-

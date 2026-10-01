@@ -6,15 +6,24 @@
 			"name": "content",
 			"fieldSets": [
 				{
-					"name": "<main>",
-					"fields": [
-						{ "name": "helpTextPosition", "rank": 1.4 }
-					]
-				},
-				{
 					"name": "fmdbsamplemix:helpTextPosition",
 					"isAlwaysActivated": true,
 					"hide": true
+				}
+			]
+		},
+		{
+			"name": "fieldSettings",
+			"labelKey": "fmdb.section.fieldSettings",
+			"rank": 1.05,
+			"fieldSets": [
+				{
+					"name": "helpAndPresentation",
+					"labelKey": "fmdb.fieldset.helpAndPresentation",
+					"rank": 1.0,
+					"fields": [
+						{ "name": "helpTextPosition", "rank": 1.5 }
+					]
 				}
 			]
 		}
