@@ -10,8 +10,17 @@ def entries = new JsonSlurper().parseText('''__ENTRIES__''')
 def admin = BundleUtils.getOsgiService("org.osgi.service.cm.ConfigurationAdmin", null)
 def configs = BundleUtils.getOsgiService("org.jahia.services.modulemanager.spi.ConfigService", null)
 
+// An entry wanted again under the file this script writes is updated in place, never deleted first: deleting a
+// configuration and writing its file back within milliseconds loses it — fileinstall handles the deletion event
+// late and removes the file it finds, the fresh one (seen in CI, 2026-10-01).
+def wanted = entries.collect { it.id } as Set
 (admin.listConfigurations("(service.factoryPid=" + factoryPid + ")") ?: []).each { configuration ->
-    configs.deleteConfig(configs.getConfig(configuration.pid))
+    def id = configuration.properties.get("id")
+    def file = String.valueOf(configuration.properties.get("felix.fileinstall.filename"))
+    def kept = id != null && wanted.contains(id) && file.endsWith("/" + factoryPid + "-" + id + ".cfg")
+    if (!kept) {
+        configs.deleteConfig(configs.getConfig(configuration.pid))
+    }
 }
 entries.each { entry ->
     def config = configs.getConfig(factoryPid, entry.id)
