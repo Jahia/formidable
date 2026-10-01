@@ -168,7 +168,9 @@ configuration, and the engine's `FieldActionGateway` makes the call. Three piece
    The leading dot matters: Declarative Services publishes a component's configuration with the service it
    registers — readable by anyone listing services — except the names starting with a dot. The annotation method is
    `_credential()`, which DS reads as `.credential`. Declare the configuration's `@ObjectClassDefinition` in your
-   own bundle: bnd generates the metatype only from a definition it finds there.
+   own bundle: bnd generates the metatype only from a definition it finds there. Name it `Formidable — Field
+   actions — <your check>`, as the engine names its own entries: the configuration manager then lists every field
+   action together, and the service name tells the rows apart.
 
 2. **The configuration read into an endpoint**, with `@Designate` and `@Activate`/`@Modified` on your component,
    through the base's `configure(name, url, credential, development, credentialName, credentialIn)` — it checks the
@@ -197,7 +199,7 @@ public class MailboxFieldAction extends EmailVerificationFieldAction {
 
     static final String PID = "com.myco.mailbox";
 
-    @ObjectClassDefinition(name = "My company — mailbox check")
+    @ObjectClassDefinition(name = "Formidable — Field actions — Mailbox check (My company)")
     public @interface Config {
         String url() default "https://api.example.com/v1";
         /** The file's .credential: a private property, never published with the service. */

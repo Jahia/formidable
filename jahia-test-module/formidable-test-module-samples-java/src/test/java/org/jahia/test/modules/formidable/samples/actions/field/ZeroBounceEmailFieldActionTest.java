@@ -126,6 +126,16 @@ class ZeroBounceEmailFieldActionTest {
         assertEquals(List.of(), gateway.paths);
     }
 
+    /** A configuration as DS hands it: the three settings, the rest of the annotation's methods never called. */
+    static ZeroBounceEmailFieldAction.Config config(String url, String credential, boolean development) {
+        return new ZeroBounceEmailFieldAction.Config() {
+            @Override public Class<? extends java.lang.annotation.Annotation> annotationType() { return ZeroBounceEmailFieldAction.Config.class; }
+            @Override public String url() { return url; }
+            @Override public String _credential() { return credential; }
+            @Override public boolean development() { return development; }
+        };
+    }
+
     @Test
     void theConfigurationBecomesTheEndpointWithTheKeyInTheQuery() {
         // Verifies the path a copying project relies on, field by field: the administrator's URL — not a default —,
@@ -133,7 +143,7 @@ class ZeroBounceEmailFieldActionTest {
         Gateway gateway = new Gateway(200, "{\"status\":\"valid\"}");
         ZeroBounceEmailFieldAction action = new ZeroBounceEmailFieldAction(gateway, null);
 
-        action.activate(ExperianEmailFieldActionTest.config("https://bulkapi.zerobounce.net", "k3y", false));
+        action.activate(config("https://bulkapi.zerobounce.net", "k3y", false));
         action.judge(of("ada@example.com"));
         FieldActionGateway.Endpoint endpoint = gateway.endpoints.get(0);
         assertEquals(java.net.URI.create("https://bulkapi.zerobounce.net"), endpoint.baseUri());
