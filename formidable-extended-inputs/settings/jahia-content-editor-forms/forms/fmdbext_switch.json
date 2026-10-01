@@ -1,0 +1,43 @@
+{
+	"nodeType": "fmdbext:switch",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "content",
+			"fieldSets": [
+				{
+					"name": "<main>",
+					"fields": [
+						{ "name": "required", "rank": 1.2 }
+					]
+				}
+			]
+		},
+		{
+			"name": "fieldSettings",
+			"labelKey": "fmdb.section.fieldSettings",
+			"rank": 1.05,
+			"fieldSets": [
+				{
+					"name": "helpAndPresentation",
+					"labelKey": "fmdb.fieldset.helpAndPresentation",
+					"rank": 1.0,
+					"fields": [
+						{ "name": "helpText", "rank": 1.0 },
+						{ "name": "displayMode", "rank": 1.2 },
+						{ "name": "onLabel", "rank": 1.5 },
+						{ "name": "offLabel", "rank": 1.6 }
+					]
+				},
+				{
+					"name": "valueAndInput",
+					"labelKey": "fmdb.fieldset.valueAndInput",
+					"rank": 2.0,
+					"fields": [
+						{ "name": "defaultState", "rank": 2.0 }
+					]
+				}
+			]
+		}
+	]
+}
