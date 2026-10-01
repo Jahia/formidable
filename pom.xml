@@ -102,6 +102,13 @@
         <sonar.issue.ignore.multicriteria.radiogroupRating.resourceKey>**/Input/Rating/default.server.tsx</sonar.issue.ignore.multicriteria.radiogroupRating.resourceKey>
         <sonar.issue.ignore.multicriteria.radiogroupScale.ruleKey>typescript:S6842</sonar.issue.ignore.multicriteria.radiogroupScale.ruleKey>
         <sonar.issue.ignore.multicriteria.radiogroupScale.resourceKey>**/Input/Scale/ScaleField.tsx</sonar.issue.ignore.multicriteria.radiogroupScale.resourceKey>
+        <!-- The two sample mailbox checks (Experian, ZeroBounce) are twins on purpose: each carries its own
+             @ObjectClassDefinition, because the metatype of a component is generated from a definition in
+             the component's own bundle and the configuration manager tells the two apart by its name — the
+             wording they share is already factored in SampleEndpointSettings. A project copies ONE of them, so
+             the repetition is the sample's point, not debt to pay down. Excluded from duplication detection
+             here rather than dismissed in the dashboard, for the same reasons as the S6842 block above. -->
+        <sonar.cpd.exclusions>**/samples/actions/field/ExperianEmailFieldAction.java,**/samples/actions/field/ZeroBounceEmailFieldAction.java</sonar.cpd.exclusions>
     </properties>
 
     <repositories>
