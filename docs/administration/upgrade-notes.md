@@ -87,6 +87,9 @@ upgrade is in its theme's file, and the file carries the marker line
 `formidable.migratedFrom=org.jahia.modules.formidable` the migration wrote. A setting missing from its file was
 either at its default before (not copied) or lost to a write that kept failing — the log then says
 `Gave up carrying the settings of org.jahia.modules.formidable over`, and the setting is to be re-entered.
+The engine's former csrf-guard file, `org.jahia.modules.jahiacsrfguard-formidable-engine.cfg` (0.3 and 0.4),
+stays next to the new `org.jahia.modules.jahiacsrfguard-formidable.cfg`: harmless — the whitelist of the new file
+wins, verified with an authenticated submission on an upgraded instance — and yours to remove.
 
 ## 0.4.x → 0.5.0: the mixin properties lose their `fmdb:` prefix, migrated at startup
 
