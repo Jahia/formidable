@@ -51,14 +51,12 @@ const LIST_ORDERING_SECTION = 'listOrdering';
 const SETTINGS_SECTION = 'fieldSettings';
 const FIELD_ACTIONS_SWITCH = 'fmdbmix:fieldActions';
 const VALIDATION_MESSAGES = ['msgValueMissing', 'msgTypeMismatch', 'msgPatternMismatch', 'msgTooShort', 'msgTooLong'];
+/** The HTML attributes hidden in the CND: no field of the editor at all (docs/architecture/content-editor-layout.md, "Hidden for good"). */
+const HIDDEN_ATTRIBUTES = ['form', 'dirname', 'size', 'cols'];
 
-/**
- * The Field settings section of each type, fieldset by fieldset in rank order, and what the type's
- * storage mixin keeps hidden (docs/architecture/content-editor-layout.md).
- */
-const LAYOUTS: Record<string, {settings: [string, string[]][]; hidden?: {fieldSet: string; fields: string[]}}> = {
+/** The Field settings section of each type, fieldset by fieldset in rank order (docs/architecture/content-editor-layout.md). */
+const LAYOUTS: Record<string, {settings: [string, string[]][]}> = {
 	'fmdb:inputText': {
-		hidden: {fieldSet: 'fmdbmix:advancedInputTextSettings', fields: ['form', 'dirname', 'size']},
 		settings: [
 			['helpAndPresentation', ['helpText', 'title']],
 			['valueAndInput', ['placeholder', 'defaultValue', 'mask', 'pattern', 'autocomplete', 'spellcheck', 'list']],
@@ -76,7 +74,6 @@ const LAYOUTS: Record<string, {settings: [string, string[]][]; hidden?: {fieldSe
 		]
 	},
 	'fmdb:textarea': {
-		hidden: {fieldSet: 'fmdbmix:advancedTextareaSettings', fields: ['cols', 'form', 'dirname']},
 		settings: [
 			['helpAndPresentation', ['helpText']],
 			['valueAndInput', ['placeholder', 'defaultValue', 'autocomplete', 'spellcheck', 'wrap', 'rows', 'resize']],
@@ -90,14 +87,14 @@ const LAYOUTS: Record<string, {settings: [string, string[]][]; hidden?: {fieldSe
 /**
  * The editor of a text, an email and a textarea field is laid out by Content Editor form overrides, not
  * by the CND: Content keeps what a contributor almost always fills, every other setting sits in the Field
- * settings section, in fieldsets shared by the three types. The properties the type declares behind its
- * "advanced settings" mixin are spread over those fieldsets and the mixin is kept as hidden storage, always
- * activated; the attributes a form never needs (form, dirname, size, cols) stay in that hidden fieldset.
+ * settings section, in fieldsets shared by the three types. The properties once behind the type's
+ * "advanced settings" switch belong to a supertype of the type now and are spread over those fieldsets;
+ * the attributes a form never needs (form, dirname, size, cols) are hidden in the CND and appear nowhere.
  * The validation messages join the section; the field actions switch stays at the end of Content, a
  * capability of the field rather than a setting, next to the children block its list makes the editor
  * show — a block the engine hides, one node being nothing to order. Read through the editor form
- * the Content Editor builds, on a field carrying the storage mixin and on one without it: the layout is
- * the same, which is the point of the hidden always-activated fieldset.
+ * the Content Editor builds, on a field with the settings set and on a plain one: the layout owes
+ * nothing to the values.
  */
 describe('Form fields - 225 The field editor layout of the text family', () => {
 	useFormidableSite();
@@ -107,11 +104,10 @@ describe('Form fields - 225 The field editor layout of the text family', () => {
 
 	before(() => {
 		createFormNode(formName, 'Editor Layout Text Family', [
-			// A mask puts the storage mixin on the node; the plain one has no mixin at all.
+			// One with a setting set, one plain: the layout must be the same.
 			getInputTextNode({name: 'maskedText', title: 'Masked text', mask: 'AA-9999'}),
 			getInputTextNode({name: 'plainText', title: 'Plain text'}),
 			getInputEmailNode({name: 'email', title: 'Email'}),
-			// wrap puts the storage mixin on the node.
 			getTextareaNode({name: 'wrappedTextarea', title: 'Wrapped textarea', wrap: 'hard'}),
 			getTextareaNode({name: 'plainTextarea', title: 'Plain textarea'}),
 			// A container: its children are worth ordering, the editor's block must stay on it.
@@ -131,15 +127,9 @@ describe('Form fields - 225 The field editor layout of the text family', () => {
 		const main = content?.fieldSets.find(fieldSet => fieldSet.name === type);
 		expect(main?.fields.map(field => field.name), `Content fields of ${name}`).to.deep.equal(CONTENT_FIELDS);
 
-		if (layout.hidden) {
-			// The storage mixin: hidden, always activated — on a node carrying it and on one that does not,
-			// which is what lets a moved field be saved on either — keeping only what no form needs.
-			const storage = content?.fieldSets.find(fieldSet => fieldSet.name === layout.hidden?.fieldSet);
-			expect(storage, `storage fieldset of ${name}`).not.to.be.undefined;
-			expect(storage?.visible, `storage fieldset hidden on ${name}`).to.be.false;
-			expect(storage?.activated, `storage fieldset activated on ${name}`).to.be.true;
-			expect(storage?.fields.map(field => field.name), `hidden fields of ${name}`).to.deep.equal(layout.hidden.fields);
-		}
+		// The attributes hidden in the CND are no field of the editor, in no section: nothing to tuck away.
+		const everyField = sections.flatMap(section => section.fieldSets.flatMap(fieldSet => fieldSet.fields.map(field => field.name)));
+		HIDDEN_ATTRIBUTES.forEach(attribute => expect(everyField, `${attribute} absent from the editor of ${name}`).not.to.include(attribute));
 
 		const settings = sections.find(section => section.name === SETTINGS_SECTION);
 		expect(settings, `Field settings section of ${name}`).not.to.be.undefined;
@@ -165,7 +155,7 @@ describe('Form fields - 225 The field editor layout of the text family', () => {
 		expect(sections.map(section => section.name), `children block hidden on ${name}`).not.to.include(LIST_ORDERING_SECTION);
 	});
 
-	it('lays out a text input the same way with and without its storage mixin', () => {
+	it('lays out a text input the same way, masked or plain', () => {
 		assertLayout('maskedText', 'fmdb:inputText');
 		assertLayout('plainText', 'fmdb:inputText');
 	});
@@ -174,7 +164,7 @@ describe('Form fields - 225 The field editor layout of the text family', () => {
 		assertLayout('email', 'fmdb:inputEmail');
 	});
 
-	it('lays out a textarea the same way with and without its storage mixin', () => {
+	it('lays out a textarea the same way, wrapped or plain', () => {
 		assertLayout('wrappedTextarea', 'fmdb:textarea');
 		assertLayout('plainTextarea', 'fmdb:textarea');
 	});

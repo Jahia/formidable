@@ -37,17 +37,6 @@ export function getTextareaNode(data: TextareaData = TEXTAREA_COMPLETE): JahiaNo
 	if (data.wrap) properties.push({name: 'wrap', value: data.wrap});
 	if (data.resize) properties.push({name: 'resize', value: data.resize});
 
-	if (
-		data.cols !== undefined ||
-		data.spellcheck !== undefined ||
-		data.readonly !== undefined ||
-		data.autofocus !== undefined ||
-		data.disabled !== undefined ||
-		data.wrap !== undefined
-	) {
-		mixins.push('fmdbmix:advancedTextareaSettings');
-	}
-
 	return {
 		name: data.name || 'textarea',
 		primaryNodeType: 'fmdb:textarea',

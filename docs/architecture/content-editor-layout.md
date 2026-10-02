@@ -21,7 +21,6 @@ How a third-party module joins the layout with a setting of its own is in the
 ```
 Content                 Title · System name · Required                  the field's own fieldset (<main>)
                         Field actions                                   the switch (docs/architecture/field-actions.md)
-                        [storage mixin: hidden, always activated]       the type's former "advanced settings"
 (Content list & ordering: the editor's own block, shown once the switch created the actions list — hidden)
 Field settings  1.05    1 Help & presentation                           help text, title attribute
                         2 Value & input                                 placeholder, default value, mask, pattern,
@@ -77,9 +76,9 @@ ordering block, their children (steps, fields) being worth ordering. Folding the
 an effect nothing reads, in a Formidable form, and are no longer offered: `form` (associates an input placed
 outside its `<form>` — ours are always inside), `dirname` (makes the browser post `<name>.dir=ltr|rtl`, which
 the engine never reads), `size` and `cols` (presentational, superseded by any stylesheet sizing the controls —
-the module ships none, the sample theme sets `width: 100%`). They stay in the CND and a value already set
-still renders; they are listed in the hidden storage fieldset, which is how the CI check tells "hidden on
-purpose" from "forgotten".
+the module ships none, the sample theme sets `width: 100%`). They stay in the CND, marked `hidden`, and a
+value already set still renders; a `hidden` property is no field of the editor at all, which is how the CI
+check tells "hidden on purpose" from "forgotten".
 
 **Mask and pattern.** The text input derives its HTML `pattern` from the mask (`maskToPattern`) unless the
 contributor types a pattern of their own; both tooltips say so, and the two sit side by side in Value &
@@ -89,7 +88,7 @@ input, the mask first.
 
 | Family | Types | Status |
 | ------ | ----- | ------ |
-| Text | `fmdb:inputText`, `fmdb:inputEmail`, `fmdb:textarea` | **done** (2026-10-01): Content = title, system name, required; the "advanced settings" mixins dissolved into the fieldsets, kept as hidden storage |
+| Text | `fmdb:inputText`, `fmdb:inputEmail`, `fmdb:textarea` | **done** (2026-10-01): Content = title, system name, required; the "advanced settings" mixins dissolved into the fieldsets as supertypes of their types (no switch, no mixin to add on save; `AdvancedSettingsMixinMigration` drops the redundant one from older fields)|
 | Numbers and dates | `fmdb:inputNumber`, `fmdb:inputRange`, `fmdb:inputDate`, `fmdb:inputDatetimeLocal` | to do — the bound modes and their dynamic fieldsets go to Constraints; a slider keeps its min and max in Content |
 | Choices and files | `fmdb:select`, `fmdb:radio`, `fmdb:checkbox`, `fmdb:inputFile`, `fmdb:inputColor`, `fmdb:inputHidden` | to do — the options mode and its dynamic fieldsets stay in Content next to the options |
 | Extended inputs | `fmdbext:consent`, `fmdbext:rating`, `fmdbext:scale`, `fmdbext:switch` | to do |
@@ -165,14 +164,17 @@ What follows from the three rules, and shaped the overrides:
   fields). A switch **without a property** — `fmdbmix:fieldActions` autocreates a child and declares no
   property — would need `"alwaysPresent": true` on the moved copy; without it both copies are dropped and
   the switch disappears, which the spike proved before the switch was left in Content.
-- **Dissolving an "advanced settings" mixin** into the shared fieldsets keeps the mixin as **storage**:
-  its properties still belong to it, so the node must carry it for the values to be saved. The override
-  declares the mixin's fieldset in `content` (merging with the generated one, not duplicating it) with
-  `"isAlwaysActivated": true` and `"hide": true` — the editor adds the mixin on save, shows no switch —
-  and lists in it the properties meant to stay hidden. Every field saved from the editor gains the mixin;
-  the properties are optional and the views read them as before. The clean-up (the properties declared
-  by the type, the mixin retired) is a CND change for a later version: removing a property from a
-  registered type is refused by the definitions checker in the same version.
+- **Dissolving an "advanced settings" mixin** into the shared fieldsets makes the mixin a **supertype** of
+  its field type — the mixin loses `extends` and `itemtype`, the type lists it among its supertypes, the
+  way `fmdbmix:textValidationMessages` carries the messages. Every field has the properties, no switch, no
+  mixin to add on save (which a translator's role cannot do), and their CND defaults show in the editor like
+  any property's. The mixin keeps its name and its own override file: the editor applies a supertype's
+  override to the node, so the fields it declares are placed from there, and the attributes meant to stay
+  hidden are `hidden` in the CND. The properties cannot move to the field type itself under their names: a
+  node still listing the mixin — every field saved before — would have no effective node type for Jackrabbit
+  ("ambiguous property definition") and refuse every write, the removal of the mixin included (verified on
+  8.2.4; a type removed from the CND stays registered anyway). `AdvancedSettingsMixinMigration` drops the
+  redundant mixin from the fields saved before; a field keeps working either way.
 - **A relabel** is a `labelKey` on the fieldset entry; it applies to a type-named fieldset too.
 - **`priority`** orders the overrides among themselves; the generated form merges first. Every override of
   this repository uses 2.0 — their fields never collide, so the order among them does not matter.
@@ -186,7 +188,7 @@ What follows from the three rules, and shaped the overrides:
 | File (`jahia-content-editor-forms/forms/`) | Module | Places |
 | ----- | ------ | ------ |
 | `fmdb_<type>.json` | the type's module (elements, extended-inputs) | the type's own properties: `<main>` keeps `required`, the rest in Field settings |
-| `fmdbmix_advanced<Type>Settings.json` | the type's module | the mixin's properties in the shared fieldsets, the hidden ones in its hidden storage fieldset |
+| `fmdbmix_advanced<Type>Settings.json` | the type's module | the properties of the type's advanced-settings supertype in the shared fieldsets (its `hidden` ones are no fields) |
 | `fmdbmix_validationMessages.json`, `…textValidationMessages.json`, `…rangeValidationMessages.json` | elements | the messages in the Validation messages fieldset, ranks 1, 2–5, 6–9 |
 | `fmdbmix_fieldActions.json` | engine | nothing of the switch, which stays where the editor generates it, at the end of Content; it hides the editor's Content list & ordering block on the elements that can carry field actions, and on them only (`listOrdering`, `"hide": true`) |
 | `fmdbsamplemix_helpTextPosition.json` | the sample module | a third-party setting in Help & presentation, rank 1.5 |
@@ -201,15 +203,16 @@ A property an override forgets stays where the editor generated it — in Conten
 fieldset — in silence. `scripts/check-editor-forms.mjs`, run by CI (`on-code-change.yml`), reads every
 `forms/*.json` of the repository and, for each one declaring the `fieldSettings` section, compares the
 fields it lists with the properties its `nodeType` declares in the CND: every property placed exactly
-once, hidden ones in the hidden fieldset, nothing the CND does not declare. A property marked `hidden` in
-the CND is not a field and is not expected; a type's inherited properties (`jcr:title`, `ce:systemName`)
-are not its own and are not expected. An override that does not declare the section — the files of the
+once, nothing the CND does not declare. A property marked `hidden` in the CND is not a field and is not
+expected — which is how a deliberate hide is told from an omission; a type's inherited properties
+(`jcr:title`, `ce:systemName`, a supertype's settings) are not its own and are not expected, the
+supertype's own override placing them. An override that does not declare the section — the files of the
 families still to move — is not checked, so the check tightens as the layout spreads.
 
 The layout itself is asserted by the Cypress spec `fields/225` for the text family (through
-`forms.editForm`, on a field carrying its storage mixin and on one without it: Content, the switch after
-the type's fieldset, no children block, the five fieldsets), `fields/222` for the sample's setting
-and `fields/223` for the switch.
+`forms.editForm`, on a field with its settings set and on a plain one: Content, the switch after the
+type's fieldset, no children block, the five fieldsets, the hidden attributes nowhere), `fields/222` for
+the sample's setting and `fields/223` for the switch.
 
 ## Decision log
 
@@ -225,3 +228,5 @@ and `fields/223` for the switch.
 | 2026-10-01 | **The Content list & ordering block is hidden for fields, not moved** (HDU asked for it after jExperience and closed, then « Hide CONTENT LIST ») | Its position is hard-coded second by jContent's FormBuilder, out of reach of a module; whether it shows is a flag the engine's override sets. Folded was the first cut; hidden is cleaner for a one-node list whose node is managed in the Page Builder |
 | 2026-10-01 | **Pattern stays visible next to the mask, both tooltips say the pattern is derived** (HDU: « pattern est déduit de mask non ? c'est bien précisé quelque part ? ») | It is derived in the view and nothing said so; a pattern alone still validates by regex, and a typed one replaces the derived one |
 | 2026-10-01 | **The layout is checked by CI, "hidden" is spelled out** | Rule 2 above makes a forgotten property fail in silence; listing the hidden ones in the hidden fieldset is what lets the check tell a choice from an omission |
+| 2026-10-02 | **The "advanced settings" mixins become supertypes of their field types; the hidden always-activated storage fieldset is gone** (HDU review of #359: the editor added the mixin on every save, which a translator's role cannot do, and the always-activated fieldset showed no CND default; HDU: « fait l'alternative propre : déplacer ces propriétés sur les types primaires et retirer les mixins ») | Moving the properties onto the type under their names bricks every field saved before: Jackrabbit builds no effective node type for a node whose primary type and mixin declare the same property ("ambiguous property definition"), every write fails, the removal of the mixin included — verified on 8080; a type removed from the CND stays registered anyway. A supertype gives the same editor (no switch, the properties as the type's own, defaults shown) and keeps those fields writable; `AdvancedSettingsMixinMigration` drops the redundant mixin |
+| 2026-10-02 | **`size` and `cols` stay hidden with `form` and `dirname`** (HDU: « j'avais confondu cols avec rows ») | Presentational, superseded by any stylesheet sizing the controls; `rows` is the one with an effect of its own, and it stays |

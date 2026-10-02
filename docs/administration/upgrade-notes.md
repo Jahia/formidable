@@ -407,8 +407,8 @@ workspaces, keyed on the content state and idempotent.
 They come in two waves. The 0.4.x wave exists for instances upgrading from 0.3.x
 content. It **stays in 0.5.0** (decided 2026-09-10) so that a 0.3.x instance can upgrade
 to 0.5.0 directly, without a stop at 0.4.0; it leaves in 0.6 together with the 0.5.0 wave
-(`MixinPropertyNamesMigration`, for 0.4.x content) and the deprecated definitions that
-wave reads. From 0.6 on, 0.5.x is the minimum upgrade source: every instance has then run
+(`MixinPropertyNamesMigration` and `AdvancedSettingsMixinMigration`, for 0.4.x content) and
+the deprecated definitions that wave reads. From 0.6 on, 0.5.x is the minimum upgrade source: every instance has then run
 both waves at least once. Each class carries a `Lifecycle:` note in its Javadoc pointing
 here.
 
@@ -436,6 +436,7 @@ from a 0.3 restore. No released version is concerned.
 | `TranslationFieldKeyCleanup` | 0.4.0 (#215) | 0.6 | Stray `fieldKey` on `j:translation_*` subnodes of form elements |
 | `ListTitlesContentMigration` | 0.4.x (#231) | 0.6 | Missing `jcr:title` on a form's `fields`/`actions` lists → the type's default label, per site language (in live, published languages only) |
 | `MixinPropertyNamesMigration` | 0.5.0 (#312) | 0.6 | The thirteen `fmdb:`-prefixed properties (options source, date bounds, the select's empty-option label) → unprefixed names, translations included; the deprecated definitions it reads leave with it |
+| `AdvancedSettingsMixinMigration` | 0.5.0 (#359) | 0.6 | The `fmdbmix:advancedInputTextSettings` / `fmdbmix:advancedTextareaSettings` still listed in `jcr:mixinTypes` by text and textarea fields saved before 0.5.0 — redundant since the mixins are supertypes of their types — dropped, values kept; look for "[AdvancedSettingsMixinMigration] Dropped the redundant" in the log |
 
 Removal checklist: delete the class and its unit test, drop the Cypress spec that
 restarts the engine to exercise it, and remove the row above. When the last row

@@ -3,21 +3,6 @@
 	"priority": 2.0,
 	"sections": [
 		{
-			"name": "content",
-			"fieldSets": [
-				{
-					"name": "fmdbmix:advancedTextareaSettings",
-					"isAlwaysActivated": true,
-					"hide": true,
-					"fields": [
-						{ "name": "cols" },
-						{ "name": "form" },
-						{ "name": "dirname" }
-					]
-				}
-			]
-		},
-		{
 			"name": "fieldSettings",
 			"labelKey": "fmdb.section.fieldSettings",
 			"rank": 1.05,
