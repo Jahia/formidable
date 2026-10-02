@@ -251,9 +251,9 @@ export const extractWorkspace = (props: SelectorProps): string => {
     return editorContext?.nodeData?.workspace ?? editorContext?.workspace ?? 'EDIT';
 };
 
-export const findFormPath = (node?: GraphNode | null): string | undefined => {
-    const formAncestor = node?.ancestors?.find(a => a.primaryNodeType?.name === 'fmdb:form');
-    return formAncestor?.path;
+/** The site default language, which holds the option identity of choice fields: the editor context carries it, else the content language. */
+export const extractDefaultLanguage = (props: SelectorProps, language: string): string => {
+    return extractEditorContext(props)?.siteInfo?.defaultLanguage ?? language;
 };
 
 const getNodeType = (node?: GraphNode | null): string | undefined => {
