@@ -1,13 +1,12 @@
-// Range input advanced settings mixin.
-// Only the attributes HTML defines for type="range": readonly does not apply to
-// range inputs, and pattern/mask/size/spellcheck/dirname are text-input settings.
+// Range input advanced settings: only the attributes HTML defines for type="range" — readonly does not
+// apply to a range input, and pattern/mask/size/spellcheck/dirname are text-input settings. A supertype
+// of the range input since 0.5.0, no switch (see Input/Text/definition.cnd for the reasoning;
+// AdvancedSettingsMixinMigration drops the mixin from the fields saved before). form is hidden.
 [fmdbmix:advancedInputRangeSettings] mixin
- extends = fmdb:inputRange
- itemtype = content
  - title (string) i18n indexed=no
  - autofocus (boolean) = false
  - disabled (boolean) = false
- - form (string) indexed=no
+ - form (string) hidden indexed=no
 
 // Range (slider) input component properties.
 // A native range control always has a thumb position, so an untouched slider would be
@@ -22,7 +21,7 @@
 // Base fmdbmix:validationMessages only: user interaction can only fail 'required' (the
 // browser clamps the thumb into range, so rangeOverflow/stepMismatch are unreachable
 // client-side); forged out-of-range submissions are still rejected server-side.
-[fmdb:inputRange] > jnt:content, fmdbmix:element, fmdbmix:submittableField, fmdbmix:profileMappableField, fmdbmix:numberField, fmdbmix:validationMessages
+[fmdb:inputRange] > jnt:content, fmdbmix:element, fmdbmix:submittableField, fmdbmix:profileMappableField, fmdbmix:numberField, fmdbmix:validationMessages, fmdbmix:advancedInputRangeSettings
  - helpText (string, richtext[ckeditor.toolbar='FormidableHelp',ckeditor.customConfig='$context/modules/formidable-engine/javascript/ckeditor/helpTextConfig.js']) i18n indexed=no
  - required (boolean) = false
  - defaultValue (double)

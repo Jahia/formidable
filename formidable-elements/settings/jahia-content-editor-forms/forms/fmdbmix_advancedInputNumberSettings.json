@@ -1,0 +1,43 @@
+{
+	"nodeType": "fmdbmix:advancedInputNumberSettings",
+	"priority": 2,
+	"sections": [
+		{
+			"name": "fieldSettings",
+			"labelKey": "fmdb.section.fieldSettings",
+			"rank": 1.05,
+			"fieldSets": [
+				{
+					"name": "helpAndPresentation",
+					"labelKey": "fmdb.fieldset.helpAndPresentation",
+					"rank": 1,
+					"fields": [
+						{
+							"name": "title",
+							"rank": 2
+						}
+					]
+				},
+				{
+					"name": "behaviour",
+					"labelKey": "fmdb.fieldset.behaviour",
+					"rank": 4,
+					"fields": [
+						{
+							"name": "readonly",
+							"rank": 1
+						},
+						{
+							"name": "disabled",
+							"rank": 2
+						},
+						{
+							"name": "autofocus",
+							"rank": 3
+						}
+					]
+				}
+			]
+		}
+	]
+}

@@ -82,7 +82,8 @@ Applies to: date, datetime-local, number — elements with range and step constr
 Each bound of a date or datetime-local field is a **mode**: `minBoundMode` /
 `maxBoundMode` (from the `fmdbmix:dateBounds` / `fmdbmix:datetimeBounds`
 contracts) hold `none`, `date`, `today` or `relative`. In the editor the mode is
-a dropdown; choosing the fixed date reveals its calendar (a `jmix:dynamicFieldset`
+a dropdown in the **Constraints** fieldset of the Field settings section
+(`content-editor-layout.md`); choosing the fixed date reveals its calendar (a `jmix:dynamicFieldset`
 mixin — `fmdbmix:fixedMinDate` and friends — carries the `min`/`max` property),
 choosing the relative date reveals its offset (`fmdbmix:relativeMinDate` and
 friends carry a signed amount and a unit), choosing the submission day shows
@@ -138,7 +139,8 @@ Each element type extends the appropriate mixin in its `definition.cnd`:
 
 The content editor form definition (`fmdbmix_validationMessages.json`,
 `fmdbmix_textValidationMessages.json`, `fmdbmix_rangeValidationMessages.json`) surfaces
-only the relevant properties for each mixin level.
+only the relevant properties for each mixin level, in one **Validation messages** fieldset of the
+field's Field settings section (`content-editor-layout.md`).
 
 ---
 

@@ -1,6 +1,16 @@
 import gql from 'graphql-tag';
 import {CONTENT_PATH} from '../../support/constants';
-import {createFormNode, getFieldsetNode, getInputEmailNode, getInputTextNode, getTextareaNode} from '../../support/fixtures';
+import {
+	createFormNode,
+	getFieldsetNode,
+	getInputDateNode,
+	getInputDatetimeLocalNode,
+	getInputEmailNode,
+	getInputNumberNode,
+	getInputRangeNode,
+	getInputTextNode,
+	getTextareaNode
+} from '../../support/fixtures';
 import {useFormidableSite} from './support';
 
 const EDIT_FORM = gql`
@@ -50,19 +60,35 @@ const CONTENT_FIELDS = ['jcr:title', 'ce:systemName', 'required'];
 const LIST_ORDERING_SECTION = 'listOrdering';
 const SETTINGS_SECTION = 'fieldSettings';
 const FIELD_ACTIONS_SWITCH = 'fmdbmix:fieldActions';
-const VALIDATION_MESSAGES = ['msgValueMissing', 'msgTypeMismatch', 'msgPatternMismatch', 'msgTooShort', 'msgTooLong'];
-/** The HTML attributes hidden in the CND: no field of the editor at all (docs/architecture/content-editor-layout.md, "Hidden for good"). */
-const HIDDEN_ATTRIBUTES = ['form', 'dirname', 'size', 'cols'];
+const TEXT_MESSAGES = ['msgValueMissing', 'msgTypeMismatch', 'msgPatternMismatch', 'msgTooShort', 'msgTooLong'];
+const RANGE_MESSAGES = ['msgValueMissing', 'msgRangeUnderflow', 'msgRangeOverflow', 'msgStepMismatch', 'msgBadInput'];
+/** The four dynamic bound fieldsets of a date contract, at ranks 3.1 to 3.4, each carrying one mode's value. */
+const boundFieldSets = (kind: 'Date' | 'Datetime'): [string, string[]][] => [
+	[`fmdbmix:fixedMin${kind}`, ['min']],
+	[`fmdbmix:relativeMin${kind}`, ['minRelativeAmount', 'minRelativeUnit']],
+	[`fmdbmix:fixedMax${kind}`, ['max']],
+	[`fmdbmix:relativeMax${kind}`, ['maxRelativeAmount', 'maxRelativeUnit']]
+];
 
-/** The Field settings section of each type, fieldset by fieldset in rank order (docs/architecture/content-editor-layout.md). */
-const LAYOUTS: Record<string, {settings: [string, string[]][]}> = {
+interface Layout {
+	/** What Content keeps besides the title and the system name: Required, and what draws the control. */
+	content?: string[];
+	/** The Field settings section, fieldset by fieldset in rank order. */
+	settings: [string, string[]][];
+	/** The HTML attributes the CND hides on this type: no field of the editor at all ("Hidden for good"). */
+	hidden?: string[];
+}
+
+/** The layout of each type (docs/architecture/content-editor-layout.md). */
+const LAYOUTS: Record<string, Layout> = {
 	'fmdb:inputText': {
+		hidden: ['form', 'dirname', 'size'],
 		settings: [
 			['helpAndPresentation', ['helpText', 'title']],
 			['valueAndInput', ['placeholder', 'defaultValue', 'mask', 'pattern', 'autocomplete', 'spellcheck', 'list']],
 			['constraints', ['minLength', 'maxLength']],
 			['behaviour', ['readonly', 'disabled', 'autofocus']],
-			['validationMessages', VALIDATION_MESSAGES]
+			['validationMessages', TEXT_MESSAGES]
 		]
 	},
 	'fmdb:inputEmail': {
@@ -70,36 +96,78 @@ const LAYOUTS: Record<string, {settings: [string, string[]][]}> = {
 			['helpAndPresentation', ['helpText']],
 			['valueAndInput', ['placeholder', 'defaultValue', 'multiple', 'pattern', 'autocomplete', 'list']],
 			['constraints', ['minLength', 'maxLength']],
-			['validationMessages', VALIDATION_MESSAGES]
+			['validationMessages', TEXT_MESSAGES]
 		]
 	},
 	'fmdb:textarea': {
+		hidden: ['form', 'dirname', 'cols'],
 		settings: [
 			['helpAndPresentation', ['helpText']],
 			['valueAndInput', ['placeholder', 'defaultValue', 'autocomplete', 'spellcheck', 'wrap', 'rows', 'resize']],
 			['constraints', ['minLength', 'maxLength']],
 			['behaviour', ['readonly', 'disabled', 'autofocus']],
-			['validationMessages', VALIDATION_MESSAGES]
+			['validationMessages', TEXT_MESSAGES]
+		]
+	},
+	'fmdb:inputNumber': {
+		hidden: ['form'],
+		settings: [
+			['helpAndPresentation', ['helpText', 'title']],
+			['valueAndInput', ['placeholder', 'defaultValue', 'step', 'list']],
+			['constraints', ['minValue', 'maxValue']],
+			['behaviour', ['readonly', 'disabled', 'autofocus']],
+			['validationMessages', RANGE_MESSAGES]
+		]
+	},
+	// A slider is drawn by its bounds: they stay in Content, beside Required.
+	'fmdb:inputRange': {
+		hidden: ['form'],
+		content: ['required', 'minValue', 'maxValue'],
+		settings: [
+			['helpAndPresentation', ['helpText', 'minLabel', 'maxLabel', 'title']],
+			['valueAndInput', ['defaultValue', 'step', 'list']],
+			['behaviour', ['disabled', 'autofocus']],
+			['validationMessages', ['msgValueMissing']]
+		]
+	},
+	'fmdb:inputDate': {
+		settings: [
+			['helpAndPresentation', ['helpText']],
+			['valueAndInput', ['defaultValue', 'step']],
+			['constraints', ['minBoundMode', 'maxBoundMode']],
+			...boundFieldSets('Date'),
+			['validationMessages', RANGE_MESSAGES]
+		]
+	},
+	'fmdb:inputDatetimeLocal': {
+		settings: [
+			['helpAndPresentation', ['helpText']],
+			['valueAndInput', ['defaultValue', 'step']],
+			['constraints', ['minBoundMode', 'maxBoundMode']],
+			...boundFieldSets('Datetime'),
+			['validationMessages', RANGE_MESSAGES]
 		]
 	}
 };
 
 /**
- * The editor of a text, an email and a textarea field is laid out by Content Editor form overrides, not
- * by the CND: Content keeps what a contributor almost always fills, every other setting sits in the Field
- * settings section, in fieldsets shared by the three types. The properties once behind the type's
- * "advanced settings" switch belong to a supertype of the type now and are spread over those fieldsets;
- * the attributes a form never needs (form, dirname, size, cols) are hidden in the CND and appear nowhere.
+ * The editor of a field is laid out by Content Editor form overrides, not by the CND: Content keeps what a
+ * contributor almost always fills, every other setting sits in the Field settings section, in fieldsets
+ * shared by every type. The properties once behind a type's "advanced settings" switch belong to a supertype
+ * of the type now and are spread over those fieldsets; the attributes a form never needs (form, dirname, size,
+ * cols) are hidden in the CND and appear nowhere. A slider keeps the bounds that draw
+ * it in Content; the date bound modes sit in Constraints with their dynamic fieldsets right after, shown
+ * once their mode is chosen.
  * The validation messages join the section; the field actions switch stays at the end of Content, a
  * capability of the field rather than a setting, next to the children block its list makes the editor
  * show — a block the engine hides, one node being nothing to order. Read through the editor form
- * the Content Editor builds, on a field with the settings set and on a plain one: the layout owes
- * nothing to the values.
+ * the Content Editor builds, on a field with its settings set and on a plain one: the layout owes nothing
+ * to the values.
  */
-describe('Form fields - 225 The field editor layout of the text family', () => {
+describe('Form fields - 225 The field editor layout', () => {
 	useFormidableSite();
 
-	const formName = 'editor-layout-text-family';
+	const formName = 'editor-layout';
 	const fieldPath = (name: string) => `${CONTENT_PATH}/${formName}/fields/${name}`;
 
 	before(() => {
@@ -110,6 +178,12 @@ describe('Form fields - 225 The field editor layout of the text family', () => {
 			getInputEmailNode({name: 'email', title: 'Email'}),
 			getTextareaNode({name: 'wrappedTextarea', title: 'Wrapped textarea', wrap: 'hard'}),
 			getTextareaNode({name: 'plainTextarea', title: 'Plain textarea'}),
+			getInputNumberNode({name: 'quantity', title: 'Quantity'}),
+			getInputRangeNode({name: 'satisfaction', title: 'Satisfaction'}),
+			// A fixed maximum puts the fixedMaxDate mixin on the node: its bound fieldset is the activated one.
+			getInputDateNode({name: 'booking', title: 'Booking', max: '2100-06-30T00:00:00.000'}),
+			getInputDateNode({name: 'plainDate', title: 'Plain date'}),
+			getInputDatetimeLocalNode({name: 'appointment', title: 'Appointment', minBoundMode: 'today'}),
 			// A container: its children are worth ordering, the editor's block must stay on it.
 			getFieldsetNode({name: 'group', title: 'Group', children: [getInputTextNode({name: 'inGroup', title: 'In group'})]})
 		]);
@@ -125,11 +199,13 @@ describe('Form fields - 225 The field editor layout of the text family', () => {
 		const layout = LAYOUTS[type];
 		const content = sections.find(section => section.name === 'content');
 		const main = content?.fieldSets.find(fieldSet => fieldSet.name === type);
-		expect(main?.fields.map(field => field.name), `Content fields of ${name}`).to.deep.equal(CONTENT_FIELDS);
+		expect(main?.fields.map(field => field.name), `Content fields of ${name}`)
+			.to.deep.equal(layout.content ? ['jcr:title', 'ce:systemName', ...layout.content] : CONTENT_FIELDS);
 
-		// The attributes hidden in the CND are no field of the editor, in no section: nothing to tuck away.
+		// The attributes the CND hides on the type are no field of the editor, in no section: nothing to tuck away.
+		// Per type: the select's `size` is another property, the number of visible rows, and is a field.
 		const everyField = sections.flatMap(section => section.fieldSets.flatMap(fieldSet => fieldSet.fields.map(field => field.name)));
-		HIDDEN_ATTRIBUTES.forEach(attribute => expect(everyField, `${attribute} absent from the editor of ${name}`).not.to.include(attribute));
+		(layout.hidden ?? []).forEach(attribute => expect(everyField, `${attribute} absent from the editor of ${name}`).not.to.include(attribute));
 
 		const settings = sections.find(section => section.name === SETTINGS_SECTION);
 		expect(settings, `Field settings section of ${name}`).not.to.be.undefined;
@@ -150,7 +226,7 @@ describe('Form fields - 225 The field editor layout of the text family', () => {
 		expect(actions?.hasEnableSwitch, `field actions enable switch on ${name}`).to.be.true;
 		expect(settings?.fieldSets.map(fieldSet => fieldSet.name), `no switch in Field settings on ${name}`).not.to.include(FIELD_ACTIONS_SWITCH);
 
-		// The Validation messages section is gone, and so is the editor's children block — on fields.
+		// The Validation messages section is gone, and so is the editor's children block.
 		expect(sections.map(section => section.name), `sections of ${name}`).not.to.include('validationMessages');
 		expect(sections.map(section => section.name), `children block hidden on ${name}`).not.to.include(LIST_ORDERING_SECTION);
 	});
@@ -167,6 +243,23 @@ describe('Form fields - 225 The field editor layout of the text family', () => {
 	it('lays out a textarea the same way, wrapped or plain', () => {
 		assertLayout('wrappedTextarea', 'fmdb:textarea');
 		assertLayout('plainTextarea', 'fmdb:textarea');
+	});
+
+	it('lays out a number input, and a slider with its bounds in Content', () => {
+		assertLayout('quantity', 'fmdb:inputNumber');
+		assertLayout('satisfaction', 'fmdb:inputRange');
+	});
+
+	it('lays out the date inputs, the bound fieldset of a chosen mode activated in Constraints', () => {
+		assertLayout('booking', 'fmdb:inputDate');
+		assertLayout('plainDate', 'fmdb:inputDate');
+		assertLayout('appointment', 'fmdb:inputDatetimeLocal');
+
+		editFormOf('booking').then(sections => {
+			const settings = sections.find(section => section.name === SETTINGS_SECTION);
+			const activated = settings?.fieldSets.filter(fieldSet => fieldSet.dynamic && fieldSet.activated).map(fieldSet => fieldSet.name);
+			expect(activated, 'the one bound fieldset activated on booking').to.deep.equal(['fmdbmix:fixedMaxDate']);
+		});
 	});
 
 	it('keeps the editor\'s children block on a container: the hide is the field actions mixin\'s, not the form\'s', () => {

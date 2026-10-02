@@ -1,0 +1,21 @@
+{
+	"nodeType": "fmdbmix:relativeMinDate",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "fieldSettings",
+			"labelKey": "fmdb.section.fieldSettings",
+			"rank": 1.05,
+			"fieldSets": [
+				{
+					"name": "fmdbmix:relativeMinDate",
+					"rank": 3.2,
+					"fields": [
+						{ "name": "minRelativeAmount", "rank": 1.0 },
+						{ "name": "minRelativeUnit", "rank": 2.0 }
+					]
+				}
+			]
+		}
+	]
+}

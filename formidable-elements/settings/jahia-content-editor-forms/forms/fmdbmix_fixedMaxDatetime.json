@@ -1,0 +1,20 @@
+{
+	"nodeType": "fmdbmix:fixedMaxDatetime",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "fieldSettings",
+			"labelKey": "fmdb.section.fieldSettings",
+			"rank": 1.05,
+			"fieldSets": [
+				{
+					"name": "fmdbmix:fixedMaxDatetime",
+					"rank": 3.3,
+					"fields": [
+						{ "name": "max", "rank": 1.0 }
+					]
+				}
+			]
+		}
+	]
+}

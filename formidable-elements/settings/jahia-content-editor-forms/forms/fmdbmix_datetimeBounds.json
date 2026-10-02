@@ -1,0 +1,22 @@
+{
+	"nodeType": "fmdbmix:datetimeBounds",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "fieldSettings",
+			"labelKey": "fmdb.section.fieldSettings",
+			"rank": 1.05,
+			"fieldSets": [
+				{
+					"name": "constraints",
+					"labelKey": "fmdb.fieldset.constraints",
+					"rank": 3.0,
+					"fields": [
+						{ "name": "minBoundMode", "rank": 1.0 },
+						{ "name": "maxBoundMode", "rank": 2.0 }
+					]
+				}
+			]
+		}
+	]
+}

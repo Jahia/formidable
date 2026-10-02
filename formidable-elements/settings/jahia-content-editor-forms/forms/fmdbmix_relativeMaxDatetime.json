@@ -1,0 +1,21 @@
+{
+	"nodeType": "fmdbmix:relativeMaxDatetime",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "fieldSettings",
+			"labelKey": "fmdb.section.fieldSettings",
+			"rank": 1.05,
+			"fieldSets": [
+				{
+					"name": "fmdbmix:relativeMaxDatetime",
+					"rank": 3.4,
+					"fields": [
+						{ "name": "maxRelativeAmount", "rank": 1.0 },
+						{ "name": "maxRelativeUnit", "rank": 2.0 }
+					]
+				}
+			]
+		}
+	]
+}
