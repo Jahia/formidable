@@ -192,16 +192,16 @@
 			"fields": {
 				"startDate": "Date de début",
 				"endDate": "Date de fin",
-				"allResults": "Supprimer tous les résultats et retirer le formulaire de cette page",
+				"allResults": "Supprimer tous les résultats et retirer les résultats du formulaire de cette page",
 				"confirmationLabel": "Confirmation",
 				"confirmationHelp": "Veuillez saisir \"{{name}}\" pour confirmer la suppression."
 			},
 			"count": {
 				"loading": "Comptage des soumissions correspondantes...",
 				"label": "{{count}} soumissions seront supprimées.",
-				"all": "{{count}} soumissions seront supprimées. Le formulaire quitte cette page jusqu'à sa prochaine soumission.",
-				"allUnpublished": "{{count}} soumissions seront supprimées. Le formulaire quitte cette page jusqu'à ce qu'il soit republié et reçoive une nouvelle soumission.",
-				"allDeleted": "{{count}} soumissions seront supprimées. L'entrée quitte cette page ; son formulaire n'existe plus."
+				"all": "{{count}} soumissions seront supprimées. Les résultats du formulaire quittent cette page jusqu'à sa prochaine soumission.",
+				"allUnpublished": "{{count}} soumissions seront supprimées. Les résultats du formulaire quittent cette page jusqu'à ce qu'il soit republié et reçoive une nouvelle soumission.",
+				"allDeleted": "{{count}} soumissions seront supprimées. Les résultats du formulaire quittent cette page ; le formulaire n'existe plus dans jContent."
 			},
 			"validation": {
 				"invalidRange": "Sélectionnez une plage de dates valide, ou supprimez tous les résultats.",
