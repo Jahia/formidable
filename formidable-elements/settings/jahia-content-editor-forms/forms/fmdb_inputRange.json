@@ -26,8 +26,8 @@
 					"rank": 1.0,
 					"fields": [
 						{ "name": "helpText", "rank": 1.0 },
-						{ "name": "minLabel", "rank": 1.5 },
-						{ "name": "maxLabel", "rank": 1.6 }
+						{ "name": "minLabel", "rank": 1.6 },
+						{ "name": "maxLabel", "rank": 1.7 }
 					]
 				},
 				{

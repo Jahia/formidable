@@ -54,7 +54,7 @@ the same groups:
 
 | Rank | Fieldset              | Name                  | Label key                           | Holds |
 | ---- | --------------------- | --------------------- | ----------------------------------- | ----- |
-| 1    | Help & presentation   | `helpAndPresentation` | `fmdb.fieldset.helpAndPresentation` | `helpText` (rank 1), the slider's `minLabel` / `maxLabel` (1.5, 1.6), the HTML `title` attribute (2), a third-party setting about the help text (the sample puts `helpTextPosition` at 1.5) |
+| 1    | Help & presentation   | `helpAndPresentation` | `fmdb.fieldset.helpAndPresentation` | `helpText` (rank 1), the slider's `minLabel` / `maxLabel` (1.6, 1.7, after the 1.5 a third-party module may take, as the sample does), the HTML `title` attribute (2), a third-party setting about the help text (the sample puts `helpTextPosition` at 1.5) |
 | 2    | Value & input         | `valueAndInput`       | `fmdb.fieldset.valueAndInput`       | by frequency of use: `placeholder` (1), `defaultValue` (2), `mask` or `step` (3), `pattern` (4), `autocomplete` (5), `spellcheck` (6), `wrap` (7), `list` (7), `rows` (8), `resize` (9) |
 | 3    | Constraints           | `constraints`         | `fmdb.fieldset.constraints`         | `minLength`, `maxLength`; `minValue`, `maxValue` (number); `minBoundMode`, `maxBoundMode` (date, datetime) |
 | 3.1–3.4 | the date bound fieldsets | `fmdbmix:fixedMin<Kind>`, `fmdbmix:relativeMin<Kind>`, `fmdbmix:fixedMax<Kind>`, `fmdbmix:relativeMax<Kind>` | the mixins' labels (engine) | the fixed date or the relative offset of each bound; dynamic fieldsets without a switch, shown when the mode above selects them |
