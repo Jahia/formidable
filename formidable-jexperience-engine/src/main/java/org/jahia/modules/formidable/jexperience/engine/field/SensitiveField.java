@@ -38,9 +38,18 @@ public final class SensitiveField {
         return property != null && !property.isBlank();
     }
 
-    /** Whether the stored field is marked sensitive; false for a field saved before the flag existed. */
+    /**
+     * Whether the stored field is marked sensitive: the engine's flag, or — until 0.6 — the retired name a field saved
+     * by a development build still carries while {@code ProfileSensitiveFlagMigration} waits for the redeploy of
+     * formidable-elements (review of #369: a flag that failed open in that window would send a value to the profile,
+     * which cannot be taken back). False for a field that never carried either.
+     */
     public static boolean isSensitive(JCRNodeWrapper field) throws RepositoryException {
-        return field.hasProperty(FmdbProperty.PROFILE_SENSITIVE) && field.getProperty(FmdbProperty.PROFILE_SENSITIVE).getBoolean();
+        return flag(field, FmdbProperty.PROFILE_SENSITIVE) || flag(field, JxpProperty.RETIRED_SENSITIVE);
+    }
+
+    private static boolean flag(JCRNodeWrapper field, String name) throws RepositoryException {
+        return field.hasProperty(name) && field.getProperty(name).getBoolean();
     }
 
     /**

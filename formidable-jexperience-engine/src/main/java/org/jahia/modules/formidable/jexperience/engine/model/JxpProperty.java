@@ -22,8 +22,9 @@ public final class JxpProperty {
     public static final String SET_STRATEGY = "jExperienceSetStrategy";
 
     /**
-     * DEPRECATED, removed in 0.6 with the retired mixin: the sensitive flag's first name, hidden in the CND; nothing in
-     * this module reads it, the engine's ProfileSensitiveFlagMigration moves it to {@code FmdbProperty.PROFILE_SENSITIVE}.
+     * DEPRECATED, removed in 0.6 with the retired mixin: the sensitive flag's first name, hidden in the CND. The engine's
+     * ProfileSensitiveFlagMigration moves it to {@code FmdbProperty.PROFILE_SENSITIVE}; until it has, {@code SensitiveField}
+     * still reads it, so that a field waiting for the migration never fails open.
      */
     public static final String RETIRED_SENSITIVE = "jExperienceSensitive";
 
