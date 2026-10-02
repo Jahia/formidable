@@ -124,7 +124,9 @@
 		},
 		"actions": {
 			"export": "Export",
+			"exportTitle": "Export the selected form results",
 			"delete": "Delete",
+			"deleteTitle": "Delete the selected form results",
 			"refresh": "Refresh"
 		},
 		"empty": {

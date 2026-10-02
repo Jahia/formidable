@@ -195,6 +195,7 @@ export const FormResultsApp = () => {
                     variant="ghost"
                     icon={<Download/>}
                     label={t('formResults.actions.export')}
+                    title={t('formResults.actions.exportTitle')}
                     isDisabled={!selectedForm}
                     onClick={() => setIsExportDialogOpen(true)}
                 />
@@ -204,6 +205,7 @@ export const FormResultsApp = () => {
                         color="danger"
                         icon={<DeletePermanently/>}
                         label={t('formResults.actions.delete')}
+                        title={t('formResults.actions.deleteTitle')}
                         data-sel-role="delete-results"
                         isDisabled={!selectedForm}
                         onClick={() => setIsDeleteDialogOpen(true)}

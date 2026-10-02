@@ -124,7 +124,9 @@
 		},
 		"actions": {
 			"export": "Exporter",
+			"exportTitle": "Exporter les résultats du formulaire sélectionné",
 			"delete": "Supprimer",
+			"deleteTitle": "Supprimer les résultats du formulaire sélectionné",
 			"refresh": "Rafraîchir"
 		},
 		"empty": {
