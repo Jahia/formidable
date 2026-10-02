@@ -23,7 +23,7 @@ import {
     parseSubmissionNode,
     type FormResultsNode,
     type SubmissionRow
-, type GqlSubmissionNode} from '../FormResults.utils';
+, type GqlSubmissionNode, nextEntryIndex} from '../FormResults.utils';
 
 interface SubmissionsTableProps {
     formResults: FormResultsNode;
@@ -32,6 +32,8 @@ interface SubmissionsTableProps {
     selectedSubmission: SubmissionRow | null;
     onSelectSubmission: (submission: SubmissionRow | null) => void;
     onRegisterRefresh: (refresh: (() => Promise<unknown>) | null) => void;
+    /** The left arrow hands the focus back, to the list of forms. */
+    onMoveLeft?: () => void;
 }
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -41,7 +43,8 @@ export const SubmissionsTable = ({
     selectedSubmission,
     fieldOrder,
     onSelectSubmission,
-    onRegisterRefresh
+    onRegisterRefresh,
+    onMoveLeft
 }: SubmissionsTableProps) => {
     const {t} = useTranslation('formidable-engine');
 
@@ -117,6 +120,12 @@ export const SubmissionsTable = ({
     const tableRef = useRef<HTMLDivElement | null>(null);
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+        if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            onMoveLeft?.();
+            return;
+        }
+
         if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') {
             return;
         }
@@ -131,15 +140,8 @@ export const SubmissionsTable = ({
             ? submissions.findIndex(s => s.uuid === selectedSubmission.uuid)
             : -1;
 
-        let nextIndex: number;
-        if (e.key === 'ArrowDown') {
-            nextIndex = currentIndex < submissions.length - 1 ? currentIndex + 1 : 0;
-        } else {
-            nextIndex = currentIndex > 0 ? currentIndex - 1 : submissions.length - 1;
-        }
-
-        onSelectSubmission(submissions[nextIndex]);
-    }, [submissions, selectedSubmission, onSelectSubmission]);
+        onSelectSubmission(submissions[nextEntryIndex(submissions.length, currentIndex, e.key)]);
+    }, [submissions, selectedSubmission, onSelectSubmission, onMoveLeft]);
 
     useEffect(() => {
         if (!selectedSubmission || !tableRef.current) {
@@ -179,6 +181,7 @@ export const SubmissionsTable = ({
             <div
                 ref={tableRef}
                 tabIndex={0}
+                data-sel-role="submissions-table"
                 onKeyDown={handleKeyDown}
                 style={{
                     flex: 1,

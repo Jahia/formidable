@@ -473,3 +473,16 @@ export function currentSiteKey(): string | undefined {
     const context = uiContext();
     return siteKeyFromRoute(globalThis.location.pathname, context.contextPath ?? '') ?? context.siteKey;
 }
+
+/**
+ * The entry an up or down arrow selects in a list: the next or previous one, wrapping around at both
+ * ends, the first downwards and the last upwards when none is selected (index -1). Shared by the list
+ * of forms and the table of submissions.
+ */
+export function nextEntryIndex(count: number, currentIndex: number, key: 'ArrowUp' | 'ArrowDown'): number {
+    if (key === 'ArrowDown') {
+        return currentIndex < count - 1 ? currentIndex + 1 : 0;
+    }
+
+    return currentIndex > 0 ? currentIndex - 1 : count - 1;
+}

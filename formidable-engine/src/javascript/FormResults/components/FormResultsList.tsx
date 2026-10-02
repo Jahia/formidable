@@ -1,18 +1,57 @@
-import React from 'react';
+import React, {useCallback, useEffect, useRef} from 'react';
 import {Badge, Paper, Typography} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
 import type {FormResultsNode} from '../FormResults.utils';
-import {formResultsLabel, formStatus} from '../FormResults.utils';
+import {formResultsLabel, formStatus, nextEntryIndex} from '../FormResults.utils';
 import {FormStatusIcon} from './FormStatusIcon';
 
 interface FormResultsListProps {
     forms: FormResultsNode[];
     selectedId: string;
     onSelect: (id: string) => void;
+    /** The right arrow hands the focus over, to the table. */
+    onMoveRight?: () => void;
 }
 
-export const FormResultsList = ({forms, selectedId, onSelect}: FormResultsListProps) => {
+export const FormResultsList = ({forms, selectedId, onSelect, onMoveRight}: FormResultsListProps) => {
     const {t} = useTranslation('formidable-engine');
+    const listRef = useRef<HTMLDivElement | null>(null);
+
+    // Up and down move the selection, as they do in the table; right hands the focus to the table.
+    const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
+        if (event.key === 'ArrowRight') {
+            event.preventDefault();
+            onMoveRight?.();
+            return;
+        }
+
+        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') {
+            return;
+        }
+
+        event.preventDefault();
+        if (forms.length === 0) {
+            return;
+        }
+
+        const currentIndex = forms.findIndex(form => form.uuid === selectedId);
+        onSelect(forms[nextEntryIndex(forms.length, currentIndex, event.key)].uuid);
+    }, [forms, selectedId, onSelect, onMoveRight]);
+
+    // The selected entry takes the focus when the selection moved from inside the list, so the
+    // next arrow continues from it; a selection made elsewhere leaves the focus where it is.
+    useEffect(() => {
+        const list = listRef.current;
+        if (!list || !selectedId || !list.contains(document.activeElement)) {
+            return;
+        }
+
+        const selected = list.querySelector<HTMLElement>('[data-sel-role="form-results-entry"][aria-pressed="true"]');
+        if (selected) {
+            selected.focus({preventScroll: true});
+            selected.scrollIntoView({block: 'nearest'});
+        }
+    }, [selectedId]);
 
     return (
         <aside
@@ -48,7 +87,12 @@ export const FormResultsList = ({forms, selectedId, onSelect}: FormResultsListPr
                     <Badge label={String(forms.length)} color="accent"/>
                 </div>
 
-                <div style={{padding: '8px', overflowY: 'auto'}}>
+                <div
+                    ref={listRef}
+                    data-sel-role="form-results-list"
+                    style={{padding: '8px', overflowY: 'auto'}}
+                    onKeyDown={handleKeyDown}
+                >
                 {forms.map(form => {
                     const isSelected = form.uuid === selectedId;
                     const label = formResultsLabel(form);
@@ -97,4 +141,3 @@ export const FormResultsList = ({forms, selectedId, onSelect}: FormResultsListPr
         </aside>
     );
 };
-
