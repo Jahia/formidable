@@ -30,7 +30,7 @@ Field settings  1.05    1 Help & presentation                           help tex
                                                                         when their mode is chosen
                         4 Behaviour                                     read-only, disabled, autofocus
                         5 Validation messages                           the messages replacing the browser's
-Logic           1.10    unchanged
+Conditional display  1.10  renamed from "Logic" (2026-10-02): the rules show or hide the field
 jExperience     1.15    unchanged (formidable-jexperience-engine)
 Metadata, Layout, List ordering, Visibility: the platform's own sections, unchanged
 ```
@@ -156,7 +156,7 @@ cannot depend on which file is read first):
 | ---- | ------------------- | --------------------------------------------------------------------------- | --------------------- |
 | 1.05 | Field settings      | the field types and their mixins (elements), the validation-message mixins (elements), `fmdbsamplemix:helpTextPosition` (sample) | fields |
 | 1.06 | Configuration       | `fmdbmix:fieldActionFeedback` (engine)                                      | a field action, not a field |
-| 1.10 | Logic               | `fmdbmix:formLogicElement` (engine)                                         | fields and containers |
+| 1.10 | Conditional display | `fmdbmix:formLogicElement` (engine)                                         | fields and containers |
 | 1.12 | Responses           | `fmdbmix:responses` (elements)                                              | form                  |
 | 1.15 | jExperience         | `fmdbmix:jExperienceProfileMapping` and, through the module's override of the engine marker, the `profileSensitive` flag of `fmdbmix:profileMappableField` (jexperience-engine) | fields |
 | 1.20 | Buttons             | `fmdbmix:buttons` and `fmdbmix:multiStep` (elements) — the step navigation switch sits with the Previous/Next labels | form                  |
@@ -294,4 +294,5 @@ the sample's setting and `fields/223` for the switch.
 | 2026-10-02 | **`size` and `cols` stay hidden with `form` and `dirname`** (HDU: « j'avais confondu cols avec rows ») | Presentational, superseded by any stylesheet sizing the controls; `rows` is the one with an effect of its own, and it stays |
 | 2026-10-02 | **The form editor loses two blocks: the Multi-step section, whose only setting joins Buttons › Step navigation, and the children block** (HDU: « quelle est la pertinence de la props dans la section multi-step ? » and « content list et ordering pour un form… je vois pas trop l'intérêt, le passer en hidden ? »; closes #150) | A section for one checkbox, and the checkbox belongs with the Previous/Next labels it governs; the form's children are its field and action lists, which the editor must not offer to reorder — the same reason the block is hidden on a field with actions, while a container keeps it for the fields it orders |
 | 2026-10-02 | **The "if empty, the browser's message" hint is said once, under the Validation messages title** (HDU, screenshot: the same line under nine messages) | A fieldset `descriptionKey`, translated like a label; the nine tooltips keep what each message is for |
+| 2026-10-02 | **The "Logic" section is "Conditional display"** (HDU: « c'est logic pour l'affichage ? »; the fieldset inside is "Display rules") | The rules only show or hide the field; "logic" promised more, and "Visibility" is the platform's own section for publication windows. The technical section name `logic` stays, so the overrides and the specs are untouched |
 | 2026-10-02 | **The field-action feedback mixin follows: a supertype of `fmdbmix:fieldAction`, its always-activated fieldset gone** (#365) | Same finding, same remedy as the row above — the marker reaches every field-action type whatever its module, so a supertype of the marker reaches them all, which is what `extends` was there for; `RedundantMixinMigration` (renamed from `AdvancedSettingsMixinMigration`, since it now serves two families) drops the redundant mixin from the actions saved before |
