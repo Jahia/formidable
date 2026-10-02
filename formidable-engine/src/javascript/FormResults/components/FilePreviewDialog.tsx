@@ -60,7 +60,8 @@ export const FilePreviewDialog = ({file, onClose}: FilePreviewDialogProps) => {
                         <a
                             href={fileUrl}
                             download={file.fileName}
-                            style={{textDecoration: 'none'}}
+                            // The button inside draws the control: the browser's link colour must not reach it.
+                            style={{textDecoration: 'none', color: 'inherit'}}
                         >
                             <Button
                                 variant="ghost"

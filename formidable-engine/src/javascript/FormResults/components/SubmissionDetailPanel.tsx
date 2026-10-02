@@ -229,7 +229,9 @@ export const SubmissionDetailPanel = ({submission, formFields, onClose}: Submiss
                                                         <a
                                                             href={file.fileUrl}
                                                             download={file.fileName}
-                                                            style={{textDecoration: 'none'}}
+                                                            // The anchor only carries the download; the button inside draws the control, so the
+                                                            // browser's link colour must not reach it (it did: a blue Download next to a grey Preview).
+                                                            style={{textDecoration: 'none', color: 'inherit'}}
                                                         >
                                                             <Button
                                                                 variant="ghost"

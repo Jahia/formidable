@@ -1,9 +1,9 @@
 import React from 'react';
-import {Badge, Form as FormIcon, Paper, Typography} from '@jahia/moonstone';
+import {Badge, Paper, Typography} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
 import type {FormResultsNode} from '../FormResults.utils';
 import {formResultsLabel, formStatus} from '../FormResults.utils';
-import {FormStatusChip} from './FormStatusChip';
+import {FormStatusIcon} from './FormStatusIcon';
 
 interface FormResultsListProps {
     forms: FormResultsNode[];
@@ -57,6 +57,7 @@ export const FormResultsList = ({forms, selectedId, onSelect}: FormResultsListPr
                         <button
                             key={form.uuid}
                             type="button"
+                            aria-pressed={isSelected}
                             data-sel-role="form-results-entry"
                             data-sel-name={form.name}
                             onClick={() => onSelect(form.uuid)}
@@ -75,7 +76,7 @@ export const FormResultsList = ({forms, selectedId, onSelect}: FormResultsListPr
                                 color: isSelected ? 'var(--color-light)' : 'inherit'
                             }}
                         >
-                            <FormIcon size="small"/>
+                            <FormStatusIcon status={formStatus(form)}/>
                             <Typography
                                 variant="body"
                                 weight={isSelected ? 'bold' : 'default'}
@@ -88,7 +89,6 @@ export const FormResultsList = ({forms, selectedId, onSelect}: FormResultsListPr
                             >
                                 {label}
                             </Typography>
-                            <FormStatusChip status={formStatus(form)} style={{flexShrink: 0}}/>
                         </button>
                     );
                 })}

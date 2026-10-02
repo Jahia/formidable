@@ -17,11 +17,10 @@ export const CURRENT_NODE_BY_PATH = gql`
                 descendant(relPath: "logicsSrc") {
                     children {
                         nodes {
-                            name
+                            ...JcrNodeIdentity
                             property(name: "logicNodeSource") {
                                 refNode {
-                                    name
-                                    uuid
+                                    ...JcrNodeIdentity
                                 }
                             }
                         }

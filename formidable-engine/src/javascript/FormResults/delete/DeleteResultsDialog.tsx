@@ -180,9 +180,10 @@ export const DeleteResultsDialog = ({formResults, onClose, onDeleted}: DeleteRes
                         gap: '12px',
                         padding: '12px 14px',
                         // borderRadius: '6px',
-                        backgroundColor: 'var(--color-warning_light40)'
+                        // A Moonstone token: the former --color-warning_light40 does not exist, the box was white.
+                        backgroundColor: 'var(--color-warning_plain20)'
                     }}>
-                        <Warning/>
+                        <Warning color="yellow"/>
                         <Typography variant="body">
                             {t('formResults.delete.warning')}
                         </Typography>

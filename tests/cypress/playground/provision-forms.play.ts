@@ -66,9 +66,10 @@
  * the server across runs, site member as editor) with fmdb-results-reader
  * granted on the two simple forms only — to test the results access rights.
  *
- * Two more forms in the plain look leave results behind them: one deleted from both
+ * Three more forms in the plain look leave results behind them: one deleted from both
  * workspaces, one unpublished — the two cases the Results page flags (Form deleted /
- * Form not published) and lets an administrator clear with "Delete all results".
+ * Form not published) — and one whose only submission was deleted, an entry with no
+ * result; "Delete all results" clears all three.
  */
 import gql from 'graphql-tag';
 import {addNode, createSite, createUser, deleteNode, deleteSite, enableModule, getNodeByPath, grantRoles, publishAndWaitJobEnding, unpublishNode} from '@jahia/cypress';
@@ -1118,10 +1119,11 @@ describe('Playground - provision manual-testing forms', () => {
 		addNode({parentPathOrId: AGENCIES_ROOT_PATH, ...getTitledTextNode('draft', 'Draft agency', 'Agence brouillon')});
 	});
 
-	it('leaves results behind a deleted form and an unpublished one, for the Results page to flag', () => {
-		// Two throwaway forms in the plain look, two entries each. Then one is deleted from both workspaces:
-		// its entry reads "Form deleted" and is named after its node. The other is unpublished: its entry
-		// reads "Form not published", keeps its title, and comes back to life once the form is published again.
+	it('leaves results behind a deleted form, an unpublished one and an emptied one, for the Results page to show', () => {
+		// Three throwaway forms in the plain look. One is deleted from both workspaces: its entry reads
+		// "Form deleted" and is named after its node. One is unpublished: its entry reads "Form not published",
+		// keeps its title, and comes back to life once the form is published again. One loses its only
+		// submission, as the Results page's date-range deletion does: its entry stays, with nothing in it.
 		const look = LOOKS.find(candidate => candidate.key === 'plain')!;
 		const leftovers: Array<{base: string; title: string; frTitle: string; visitors: string[]; then: (info: {formPath: string; pagePath: string}) => void}> = [
 			{
@@ -1140,6 +1142,26 @@ describe('Playground - provision manual-testing forms', () => {
 					['en', 'fr'].forEach(language => {
 						unpublishNode(info.pagePath, language);
 						unpublishNode(info.formPath, language);
+					});
+				}
+			},
+			{
+				base: 'emptied', title: 'Emptied form', frTitle: 'Formulaire vide', visitors: ['Helene Marchand'],
+				then: () => {
+					// What the Results page's date-range deletion does: the submissions go, the entry stays.
+					cy.apollo({
+						mutation: gql`
+							mutation emptyTheResults($query: String!) {
+								jcr(workspace: LIVE) {
+									mutateNodesByQuery(query: $query, queryLanguage: SQL2) {
+										delete
+									}
+								}
+							}
+						`,
+						variables: {query: `SELECT * FROM [fmdb:formSubmission] AS s WHERE ISDESCENDANTNODE(s, '/sites/${FORMIDABLE_TEST_SITE.key}/formidable-results/${nameOf(look, 'emptied')}/submissions')`}
+					}).then((response: {errors?: unknown}) => {
+						expect(response.errors, 'GraphQL errors emptying the results').to.equal(undefined);
 					});
 				}
 			}

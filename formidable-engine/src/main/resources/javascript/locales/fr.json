@@ -118,13 +118,15 @@
 			"title": "Résultats de formulaires"
 		},
 		"sidebar": {
-			"title": "Formulaires",
-			"formDeleted": "Formulaire supprimé",
-			"formUnpublished": "Formulaire non publié"
+			"title": "Formulaires avec résultats",
+			"formDeleted": "Formulaire supprimé dans jContent",
+			"formUnpublished": "Formulaire non publié dans jContent"
 		},
 		"actions": {
 			"export": "Exporter",
+			"exportTitle": "Exporter les résultats du formulaire sélectionné",
 			"delete": "Supprimer",
+			"deleteTitle": "Supprimer les résultats du formulaire sélectionné",
 			"refresh": "Rafraîchir"
 		},
 		"empty": {
@@ -192,16 +194,16 @@
 			"fields": {
 				"startDate": "Date de début",
 				"endDate": "Date de fin",
-				"allResults": "Supprimer tous les résultats",
+				"allResults": "Supprimer tous les résultats et retirer les résultats du formulaire de cette page",
 				"confirmationLabel": "Confirmation",
 				"confirmationHelp": "Veuillez saisir \"{{name}}\" pour confirmer la suppression."
 			},
 			"count": {
 				"loading": "Comptage des soumissions correspondantes...",
 				"label": "{{count}} soumissions seront supprimées.",
-				"all": "{{count}} soumissions seront supprimées. Le formulaire quitte cette page jusqu'à sa prochaine soumission.",
-				"allUnpublished": "{{count}} soumissions seront supprimées. Le formulaire quitte cette page jusqu'à ce qu'il soit republié et reçoive une nouvelle soumission.",
-				"allDeleted": "{{count}} soumissions seront supprimées. L'entrée quitte cette page ; son formulaire n'existe plus."
+				"all": "{{count}} soumissions seront supprimées. Les résultats du formulaire quittent cette page jusqu'à sa prochaine soumission.",
+				"allUnpublished": "{{count}} soumissions seront supprimées. Les résultats du formulaire quittent cette page jusqu'à ce qu'il soit republié et reçoive une nouvelle soumission.",
+				"allDeleted": "{{count}} soumissions seront supprimées. Les résultats du formulaire quittent cette page ; le formulaire n'existe plus dans jContent."
 			},
 			"validation": {
 				"invalidRange": "Sélectionnez une plage de dates valide, ou supprimez tous les résultats.",

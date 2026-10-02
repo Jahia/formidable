@@ -178,14 +178,16 @@ export const FormResultsApp = () => {
                 <Typography variant="heading" weight="bold">
                     {t('formResults.nav.title')}
                 </Typography>
-                {selectedFormLabel && (
-                    <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px'}}>
+                {/* Always one line below the title, as tall as the chip: the header must not change height
+                    when an entry is selected or deselected. */}
+                <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', minHeight: '24px'}}>
+                    {selectedFormLabel && (
                         <Typography variant="body" style={{color: 'var(--color-gray)'}}>
                             {selectedFormLabel}
                         </Typography>
-                        {selectedForm && <FormStatusChip status={formStatus(selectedForm)}/>}
-                    </div>
-                )}
+                    )}
+                    {selectedForm && <FormStatusChip status={formStatus(selectedForm)}/>}
+                </div>
             </div>
 
             <div
@@ -202,6 +204,7 @@ export const FormResultsApp = () => {
                     variant="ghost"
                     icon={<Download/>}
                     label={t('formResults.actions.export')}
+                    title={t('formResults.actions.exportTitle')}
                     isDisabled={!selectedForm}
                     onClick={() => setIsExportDialogOpen(true)}
                 />
@@ -211,6 +214,7 @@ export const FormResultsApp = () => {
                         color="danger"
                         icon={<DeletePermanently/>}
                         label={t('formResults.actions.delete')}
+                        title={t('formResults.actions.deleteTitle')}
                         data-sel-role="delete-results"
                         isDisabled={!selectedForm}
                         onClick={() => setIsDeleteDialogOpen(true)}
@@ -241,7 +245,8 @@ export const FormResultsApp = () => {
                 <FormResultsList
                     forms={forms}
                     selectedId={selectedForm?.uuid ?? ''}
-                    onSelect={setSelectedFormResultsId}
+                    // A click on the selected entry deselects it: the list is a toggle, not a radio.
+                    onSelect={id => setSelectedFormResultsId(current => (current === id ? null : id))}
                 />
                 <div role="main" style={{display: 'flex', flex: '1 1 0', minWidth: 0, gap: '1px', overflow: 'hidden', backgroundColor: 'var(--color-gray_light40)'}}>
                     {selectedForm ? (

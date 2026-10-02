@@ -118,13 +118,15 @@
 			"title": "Form Results"
 		},
 		"sidebar": {
-			"title": "Forms",
-			"formDeleted": "Form deleted",
-			"formUnpublished": "Form not published"
+			"title": "Forms with results",
+			"formDeleted": "Form deleted in jContent",
+			"formUnpublished": "Form not published in jContent"
 		},
 		"actions": {
 			"export": "Export",
+			"exportTitle": "Export the selected form results",
 			"delete": "Delete",
+			"deleteTitle": "Delete the selected form results",
 			"refresh": "Refresh"
 		},
 		"empty": {
@@ -192,16 +194,16 @@
 			"fields": {
 				"startDate": "Start date",
 				"endDate": "End date",
-				"allResults": "Delete all results",
+				"allResults": "Delete all results and remove the form results from this page",
 				"confirmationLabel": "Confirmation",
 				"confirmationHelp": "Please type \"{{name}}\" to confirm deletion."
 			},
 			"count": {
 				"loading": "Counting matching submissions...",
 				"label": "{{count}} submissions will be deleted.",
-				"all": "{{count}} submissions will be deleted. The form leaves this page until it receives a new submission.",
-				"allUnpublished": "{{count}} submissions will be deleted. The form leaves this page until it is published again and receives a new submission.",
-				"allDeleted": "{{count}} submissions will be deleted. The entry leaves this page; its form no longer exists."
+				"all": "{{count}} submissions will be deleted. The form results leave this page until the form receives a new submission.",
+				"allUnpublished": "{{count}} submissions will be deleted. The form results leave this page until the form is published again and receives a new submission.",
+				"allDeleted": "{{count}} submissions will be deleted. The form results leave this page; the form no longer exists in jContent."
 			},
 			"validation": {
 				"invalidRange": "Select a valid start and end date, or delete all results.",

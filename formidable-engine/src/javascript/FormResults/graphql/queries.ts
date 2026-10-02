@@ -14,6 +14,7 @@ export const GET_FORM_RESULTS_LIST = gql`
                         canRemoveNode: hasPermission(permissionName: "jcr:removeNode")
                         submissionsContainer: children(names: ["submissions"]) {
                             nodes {
+                                ...JcrNodeIdentity
                                 canRemoveNode: hasPermission(permissionName: "jcr:removeNode")
                                 canRemoveChildNodes: hasPermission(permissionName: "jcr:removeChildNodes")
                             }
@@ -170,15 +171,19 @@ export const GET_FORMS_IN_EDIT = gql`
 `;
 
 export const GET_FORM_FIELD_LABELS = gql`
+    ${JCR_NODE_IDENTITY}
     query GetFormFieldLabels($formUuid: String!, $language: String!, $workspace: Workspace = LIVE) {
         jcr(workspace: $workspace) {
             nodeById(uuid: $formUuid) {
+                ...JcrNodeIdentity
                 fields: children(names: ["fields"]) {
                     nodes {
+                        ...JcrNodeIdentity
                         descendants(
                             typesFilter: {types: ["fmdbmix:formElement"], multi: ANY}
                         ) {
                             nodes {
+                                ...JcrNodeIdentity
                                 name
                                 displayName(language: $language)
                                 isDate: isNodeType(type: {types: ["fmdbmix:dateField"]})
