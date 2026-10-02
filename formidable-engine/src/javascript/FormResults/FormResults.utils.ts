@@ -444,7 +444,7 @@ export function uiContext(): UiContext {
     return (globalThis as typeof globalThis & {contextJsParameters?: UiContext}).contextJsParameters ?? {};
 }
 
-const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const JCONTENT_APP_ROUTE = /^\/jahia\/jcontent\/([^/]+)\/[^/]+\/apps\//;
 
 /**
  * The site key of a jContent app route (`<contextPath>/jahia/jcontent/<siteKey>/<lang>/apps/...`),
@@ -453,7 +453,11 @@ const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/
  * the caller would silently fall back to the global it is meant to avoid.
  */
 export function siteKeyFromRoute(pathname: string, contextPath = ''): string | undefined {
-    return new RegExp(`^${escapeRegExp(contextPath)}/jahia/jcontent/([^/]+)/[^/]+/apps/`).exec(pathname)?.[1];
+    if (!pathname.startsWith(contextPath)) {
+        return undefined;
+    }
+
+    return JCONTENT_APP_ROUTE.exec(pathname.slice(contextPath.length))?.[1];
 }
 
 /**
