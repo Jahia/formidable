@@ -32,9 +32,15 @@ export const FormResultsApp = () => {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [refreshSelectedForm, setRefreshSelectedForm] = useState<(() => Promise<unknown>) | null>(null);
 
+    // errorPolicy 'all': the list must survive one entry whose form reference cannot be resolved. A
+    // dangling weak reference normally answers refNode: null, but Jahia has been seen throwing
+    // ItemNotFoundException on it for an unpublished form (the live path still known, the node gone),
+    // which with the default policy voided the whole list. With the field left null, the entry reads
+    // as missing in live and the EDIT lookup tells unpublished from deleted, as for any other.
     const {loading, error, data, refetch: refetchForms} = useQuery(GET_FORM_RESULTS_LIST, {
         variables: {resultsPath, workspace: 'LIVE', language},
         fetchPolicy: 'network-only',
+        errorPolicy: 'all',
         skip: !siteKey
     });
 
@@ -137,7 +143,8 @@ export const FormResultsApp = () => {
         );
     }
 
-    if (error) {
+    // An error with no data at all is fatal; one that came with the list (errorPolicy 'all') is not.
+    if (error && !data?.jcr?.nodeByPath) {
         if (error.graphQLErrors?.some(e => e.message?.includes('javax.jcr.PathNotFoundException'))) {
             return (
                 <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', flexDirection: 'column', gap: '1rem', padding: '48px', textAlign: 'center'}}>
