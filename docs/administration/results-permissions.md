@@ -114,8 +114,32 @@ evolution path if non-admin deletion becomes a real requirement.
 
 If a form is deleted, its `formResults` node remains in live with all submission
 data and ACLs intact. This is intentional: submission data is never destroyed
-automatically. A cleanup mechanism for orphaned results may be added in a future
-version.
+automatically — a contributor deleting or recreating a form in jContent has
+neither the results rights nor a warning about them, and an unpublication is
+indistinguishable from a deletion in the live workspace. The Results page keeps
+listing the entry, flagged **Form deleted**, with its field values under their
+raw names (the labels came from the form).
+
+The live reference alone cannot tell a deleted form from an unpublished one, so
+the page looks the form up in the edit workspace before flagging: a form that
+still stands there is flagged **Form not published** instead, keeps its title,
+and its entry comes back to life with the next submission once the form is
+published again. (A user who cannot read the form in the edit workspace sees
+**Form deleted** for an unpublished form too; such a user has no deletion
+rights, so nothing is at stake.)
+
+## Removing a form's entry from the Results page
+
+**Delete** → **Delete all results** removes the whole `formResults` node: its
+submissions, its ACL, and the entry itself, which leaves the page. The next
+submission of the form recreates the node, with its ACL synced again. The same
+action clears an entry that is already empty (all its submissions deleted by
+date range) or whose form was deleted. Deleting by date range only ever removes
+submissions and keeps the entry.
+
+Removing the entry needs `jcr:removeNode` on the `formResults` node on top of
+the rights on its submissions; the **Delete** button is shown only when the
+user holds all of them.
 
 ## Content model
 

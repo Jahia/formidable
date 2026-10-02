@@ -2,6 +2,8 @@ import React from 'react';
 import {Badge, Form as FormIcon, Paper, Typography} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
 import type {FormResultsNode} from '../FormResults.utils';
+import {formResultsLabel, formStatus} from '../FormResults.utils';
+import {FormStatusChip} from './FormStatusChip';
 
 interface FormResultsListProps {
     forms: FormResultsNode[];
@@ -49,12 +51,14 @@ export const FormResultsList = ({forms, selectedId, onSelect}: FormResultsListPr
                 <div style={{padding: '8px', overflowY: 'auto'}}>
                 {forms.map(form => {
                     const isSelected = form.uuid === selectedId;
-                    const label = form.parentForm?.refNode?.displayName ?? form.displayName ?? form.name;
+                    const label = formResultsLabel(form);
 
                     return (
                         <button
                             key={form.uuid}
                             type="button"
+                            data-sel-role="form-results-entry"
+                            data-sel-name={form.name}
                             onClick={() => onSelect(form.uuid)}
                             style={{
                                 width: '100%',
@@ -84,6 +88,7 @@ export const FormResultsList = ({forms, selectedId, onSelect}: FormResultsListPr
                             >
                                 {label}
                             </Typography>
+                            <FormStatusChip status={formStatus(form)} style={{flexShrink: 0}}/>
                         </button>
                     );
                 })}

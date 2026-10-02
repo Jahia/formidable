@@ -118,7 +118,9 @@
 			"title": "Résultats de formulaires"
 		},
 		"sidebar": {
-			"title": "Formulaires"
+			"title": "Formulaires",
+			"formDeleted": "Formulaire supprimé",
+			"formUnpublished": "Formulaire non publié"
 		},
 		"actions": {
 			"export": "Exporter",
@@ -196,7 +198,10 @@
 			},
 			"count": {
 				"loading": "Comptage des soumissions correspondantes...",
-				"label": "{{count}} soumissions seront supprimées."
+				"label": "{{count}} soumissions seront supprimées.",
+				"all": "{{count}} soumissions seront supprimées. Le formulaire quitte cette page jusqu'à sa prochaine soumission.",
+				"allUnpublished": "{{count}} soumissions seront supprimées. Le formulaire quitte cette page jusqu'à ce qu'il soit republié et reçoive une nouvelle soumission.",
+				"allDeleted": "{{count}} soumissions seront supprimées. L'entrée quitte cette page ; son formulaire n'existe plus."
 			},
 			"validation": {
 				"invalidRange": "Sélectionnez une plage de dates valide, ou supprimez tous les résultats.",

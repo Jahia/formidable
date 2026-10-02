@@ -65,9 +65,13 @@
  * provisions the results reader user john-doe (password John#1234, kept on
  * the server across runs, site member as editor) with fmdb-results-reader
  * granted on the two simple forms only — to test the results access rights.
+ *
+ * Two more forms in the plain look leave results behind them: one deleted from both
+ * workspaces, one unpublished — the two cases the Results page flags (Form deleted /
+ * Form not published) and lets an administrator clear with "Delete all results".
  */
 import gql from 'graphql-tag';
-import {addNode, createSite, createUser, deleteSite, enableModule, getNodeByPath, grantRoles, publishAndWaitJobEnding} from '@jahia/cypress';
+import {addNode, createSite, createUser, deleteNode, deleteSite, enableModule, getNodeByPath, grantRoles, publishAndWaitJobEnding, unpublishNode} from '@jahia/cypress';
 import {
 	CHECKBOX_GROUP_COMPLETE,
 	CHECKBOX_SINGLE_COMPLETE,
@@ -1112,5 +1116,44 @@ describe('Playground - provision manual-testing forms', () => {
 		// publishes its referenced options root with its subtree, so an earlier
 		// draft would have been published along.
 		addNode({parentPathOrId: AGENCIES_ROOT_PATH, ...getTitledTextNode('draft', 'Draft agency', 'Agence brouillon')});
+	});
+
+	it('leaves results behind a deleted form and an unpublished one, for the Results page to flag', () => {
+		// Two throwaway forms in the plain look, two entries each. Then one is deleted from both workspaces:
+		// its entry reads "Form deleted" and is named after its node. The other is unpublished: its entry
+		// reads "Form not published", keeps its title, and comes back to life once the form is published again.
+		const look = LOOKS.find(candidate => candidate.key === 'plain')!;
+		const leftovers: Array<{base: string; title: string; frTitle: string; visitors: string[]; then: (info: {formPath: string; pagePath: string}) => void}> = [
+			{
+				base: 'vanished', title: 'Vanished form', frTitle: 'Formulaire disparu', visitors: ['Diane Moreau', 'Emile Roux'],
+				then: info => {
+					deleteNode(info.pagePath, 'LIVE');
+					deleteNode(info.pagePath);
+					deleteNode(info.formPath, 'LIVE');
+					deleteNode(info.formPath);
+				}
+			},
+			{
+				base: 'unpublished', title: 'Unpublished form', frTitle: 'Formulaire depublie', visitors: ['Fabien Leroy', 'Gaelle Simon'],
+				then: info => {
+					// One language at a time (the helper's contract); the live node goes with the last one.
+					['en', 'fr'].forEach(language => {
+						unpublishNode(info.pagePath, language);
+						unpublishNode(info.formPath, language);
+					});
+				}
+			}
+		];
+		leftovers.forEach(({base, title, frTitle, visitors, then}) => {
+			provisionForm(look, base, title, frTitle, [fullNameField()]).then(info => {
+				visitors.forEach(fullName => {
+					const form = visitLiveForm(livePageOf(look, base));
+					form.getTextInput('fullName').type(fullName);
+					form.submit();
+					form.waitForSubmit();
+				});
+				then(info);
+			});
+		});
 	});
 });

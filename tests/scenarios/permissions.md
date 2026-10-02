@@ -136,6 +136,22 @@ Log in as `test-reader`, navigate to the formResults admin route, select the for
 **Expected:** the "Delete" button is NOT visible in the toolbar. Only "Export"
 and "Refresh" are shown.
 
+### 3.3 GraphQL entry removal fails
+
+Execute `DELETE_FORM_RESULTS` as `test-reader` (what "Delete all results" sends: the
+whole `formResults` node goes, with its ACL and its submissions):
+
+```graphql
+mutation {
+  jcr(workspace: LIVE) {
+    deleteNode(pathOrId: "/sites/<siteKey>/formidable-results/<formName>")
+  }
+}
+```
+
+**Expected:** error (access denied / insufficient permissions). The entry and its
+submissions are still there.
+
 ---
 
 ## 4. ACL propagation on publication

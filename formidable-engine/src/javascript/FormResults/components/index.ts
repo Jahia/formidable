@@ -3,3 +3,4 @@ export {SubmissionsTable} from './SubmissionsTable';
 export {SubmissionDetailPanel} from './SubmissionDetailPanel';
 export {FilePreviewDialog} from './FilePreviewDialog';
 
+export {FormStatusChip} from './FormStatusChip';

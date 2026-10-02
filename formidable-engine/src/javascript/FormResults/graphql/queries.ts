@@ -11,6 +11,7 @@ export const GET_FORM_RESULTS_LIST = gql`
                     nodes {
                         ...JcrNodeIdentity
                         displayName(language: $language)
+                        canRemoveNode: hasPermission(permissionName: "jcr:removeNode")
                         submissionsContainer: children(names: ["submissions"]) {
                             nodes {
                                 canRemoveNode: hasPermission(permissionName: "jcr:removeNode")
@@ -18,6 +19,7 @@ export const GET_FORM_RESULTS_LIST = gql`
                             }
                         }
                         parentForm: property(name: "parentForm") {
+                            value
                             refNode {
                                 ...JcrNodeIdentity
                                 displayName(language: $language)
@@ -132,6 +134,36 @@ export const DELETE_SUBMISSIONS = gql`
                 queryLanguage: SQL2
             ) {
                 delete
+            }
+        }
+    }
+`;
+
+/**
+ * Removes a form's whole entry from the Results page: the fmdb:formResults node with its ACL
+ * and whatever submissions it still holds. The form's next submission recreates the node.
+ */
+export const DELETE_FORM_RESULTS = gql`
+    mutation DeleteFormResults($pathOrId: String!, $workspace: Workspace = LIVE) {
+        jcr(workspace: $workspace) {
+            deleteNode(pathOrId: $pathOrId)
+        }
+    }
+`;
+
+/**
+ * The forms, among those whose live reference does not resolve, that still stand in EDIT: their
+ * entries are "not published" rather than "deleted". The statement comes from buildFormsInEditQuery.
+ */
+export const GET_FORMS_IN_EDIT = gql`
+    ${JCR_NODE_IDENTITY}
+    query GetFormsInEdit($formsQuery: String!, $language: String!) {
+        jcr(workspace: EDIT) {
+            nodesByQuery(query: $formsQuery, queryLanguage: SQL2) {
+                nodes {
+                    ...JcrNodeIdentity
+                    displayName(language: $language)
+                }
             }
         }
     }
