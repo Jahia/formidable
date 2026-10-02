@@ -309,7 +309,16 @@ orderable
 // profile mapping. The jExperience module attaches its property mixin to this single
 // marker (extends), never to a list of field types, so a third-party field opts in from
 // its own CND exactly as it opts into a value kind. Files are not mappable; hidden inputs are.
+// profileSensitive is the author's "keep this field's value out of the visitor profile": the
+// jExperience module leaves the value out of what a submission sends to the profile and offers
+// the field no mapping. It lives on the marker so that every mappable field has it and the editor
+// has nothing to add on save — its first home, an always-activated `extends` mixin of that module,
+// made the editor add the mixin to every mappable field on save, which a translator's role cannot
+// do (#365) — but the engine acts on it nowhere: the engine's own override hides it, and the
+// jExperience module's override places it in its section, so the box exists exactly where it has
+// a meaning. ProfileSensitiveFlagMigration moves the value of the fields saved before.
 [fmdbmix:profileMappableField] mixin
+ - profileSensitive (boolean) = false autocreated indexed=no
 
 // Sends a notification email after a successful form submission.
 // Subject and body support ${fieldName} interpolation from the submitted form data.

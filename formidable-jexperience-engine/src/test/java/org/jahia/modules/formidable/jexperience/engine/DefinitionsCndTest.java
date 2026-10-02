@@ -100,23 +100,22 @@ class DefinitionsCndTest {
         String property = lineStartingWith(mixin, "- " + JxpProperty.PROFILE_PROPERTY + " ");
         assertTrue(property.contains("choicelist[" + ProfilePropertiesChoiceListInitializer.KEY + ",dependentProperties='"
                 + FieldShapes.MULTIPLE_PROPERTY + "," + FmdbProperty.OPTIONS + ","
-                + FmdbProperty.OPTIONS_MODE + "," + JxpProperty.SENSITIVE + "']"), property);
+                + FmdbProperty.OPTIONS_MODE + "," + FmdbProperty.PROFILE_SENSITIVE + "']"), property);
     }
 
     @Test
-    void theSensitiveMixinIsSwitchLessAndItsFlagDrivesTheDropdown() throws Exception {
-        // Verifies the three clauses the sensitive flag lives on. It reaches every mappable field through the
-        // marker. jcontent renders it without an enable switch, which only a jmix:templateMixin fieldset loses,
-        // and the flag has to be answerable before the mapping fieldset is switched on. The mapping's choicelist
-        // names it, which is what empties that dropdown the moment the author ticks the box.
+    void theRetiredSensitiveMixinStaysDeclaredHiddenAndDetachedUntil06() throws Exception {
+        // The flag is the engine's profileSensitive, on the marker, since #369. The mixin that first carried it stays
+        // declared until 0.6, so that a field saved before still deploys, with nothing for the editor to show or to
+        // add on save: no supertype, no `extends`, its property hidden. The mapping's choicelist names the engine's
+        // flag, which is what empties that dropdown the moment the author ticks the box.
         List<String> lines = cnd();
-        assertTrue(lines.stream().anyMatch(line -> line.strip().startsWith("<jmix = 'http://www.jahia.org/jahia/mix/1.0'>")), "the jmix namespace is declared");
         List<String> mixin = declarationOf(lines, JxpMixin.SENSITIVE_FIELD);
-        assertEquals("[" + JxpMixin.SENSITIVE_FIELD + "] > jmix:templateMixin mixin", mixin.get(0));
-        assertEquals("extends = " + FmdbMixin.PROFILE_MAPPABLE_FIELD, lineStartingWith(mixin, "extends"));
-        assertEquals("- " + JxpProperty.SENSITIVE + " (boolean) = false autocreated indexed=no", lineStartingWith(mixin, "- " + JxpProperty.SENSITIVE + " "));
+        assertEquals("[" + JxpMixin.SENSITIVE_FIELD + "] mixin", mixin.get(0));
+        assertTrue(mixin.stream().noneMatch(line -> line.startsWith("extends")), "no extends: the editor must offer nothing for it");
+        assertEquals("- " + JxpProperty.RETIRED_SENSITIVE + " (boolean) hidden indexed=no", lineStartingWith(mixin, "- " + JxpProperty.RETIRED_SENSITIVE + " "));
         assertTrue(lineStartingWith(declarationOf(lines, JxpMixin.MAPPING), "- " + JxpProperty.PROFILE_PROPERTY + " ")
-                .contains("," + JxpProperty.SENSITIVE + "'"), "the choicelist depends on the flag");
+                .contains("," + FmdbProperty.PROFILE_SENSITIVE + "'"), "the choicelist depends on the engine's flag");
     }
 
     @Test

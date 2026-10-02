@@ -11,7 +11,10 @@ public final class JxpMixin {
     /** The mapping of a field to a visitor profile property, with its write strategy and its prefill. */
     public static final String MAPPING = "fmdbmix:jExperienceProfileMapping";
 
-    /** The author's "this field is sensitive": its value never leaves the site, and no mapping can be made on it. */
+    /**
+     * DEPRECATED, removed in 0.6: the sensitive flag's first home. The flag is the engine's {@code FmdbProperty.PROFILE_SENSITIVE}
+     * on its marker since #369; the mixin stays declared, hidden, until the engine's migration has run everywhere.
+     */
     public static final String SENSITIVE_FIELD = "fmdbmix:jExperienceSensitiveField";
 
     private JxpMixin() {

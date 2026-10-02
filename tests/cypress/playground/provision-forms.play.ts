@@ -215,10 +215,10 @@ const withEnglish = (node: JahiaNode, enProperties: Array<{name: string; value?:
 };
 
 // --- jExperience: the visitor profile mapping of a field, applied only when the module is on the instance.
-// The mixins below are declared by formidable-jexperience-engine; the flag is read in the first test, before
-// any form is built, and the two helpers hand the node back untouched when the module is absent.
+// The mapping mixin below is declared by formidable-jexperience-engine; the sensitive flag is the engine's, on the
+// marker every mappable field takes, and the module's editor section is what shows it. The flag is read in the first
+// test, before any form is built, and the two helpers hand the node back untouched when the module is absent.
 const JXP_MAPPING_MIXIN = 'fmdbmix:jExperienceProfileMapping';
-const JXP_SENSITIVE_MIXIN = 'fmdbmix:jExperienceSensitiveField';
 // The tracker loads its context through jCustomer: a cold instance takes longer than the default command
 // timeout, so the context is polled up to this long — and never waited for, since a jCustomer that does
 // not answer is a case this script goes on through.
@@ -250,8 +250,7 @@ const mappedTo = (node: JahiaNode, profileProperty: string, options: {strategy?:
 /** Marks the field sensitive: its value never reaches the visitor profile, and the dropdown offers it no mapping. */
 const sensitive = (node: JahiaNode): JahiaNode => {
 	if (!jExperienceAvailable) return node;
-	node.mixins = [...(node.mixins ?? []), JXP_SENSITIVE_MIXIN];
-	node.properties.push({name: 'jExperienceSensitive', value: 'true', type: 'BOOLEAN'});
+	node.properties.push({name: 'profileSensitive', value: 'true', type: 'BOOLEAN'});
 	return node;
 };
 
