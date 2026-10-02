@@ -417,7 +417,7 @@ workspaces, keyed on the content state and idempotent.
 They come in two waves. The 0.4.x wave exists for instances upgrading from 0.3.x
 content. It **stays in 0.5.0** (decided 2026-09-10) so that a 0.3.x instance can upgrade
 to 0.5.0 directly, without a stop at 0.4.0; it leaves in 0.6 together with the 0.5.0 wave
-(`MixinPropertyNamesMigration` and `AdvancedSettingsMixinMigration`, for 0.4.x content) and
+(`MixinPropertyNamesMigration` and `RedundantMixinMigration`, for 0.4.x content and the field actions of the 0.5.0 development builds) and
 the deprecated definitions that wave reads. From 0.6 on, 0.5.x is the minimum upgrade source: every instance has then run
 both waves at least once. Each class carries a `Lifecycle:` note in its Javadoc pointing
 here.
