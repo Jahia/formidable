@@ -1,20 +1,7 @@
 {
 	"nodeType": "fmdbmix:advancedInputRangeSettings",
-	"priority": 2.0,
+	"priority": 2,
 	"sections": [
-		{
-			"name": "content",
-			"fieldSets": [
-				{
-					"name": "fmdbmix:advancedInputRangeSettings",
-					"isAlwaysActivated": true,
-					"hide": true,
-					"fields": [
-						{ "name": "form" }
-					]
-				}
-			]
-		},
 		{
 			"name": "fieldSettings",
 			"labelKey": "fmdb.section.fieldSettings",
@@ -23,18 +10,27 @@
 				{
 					"name": "helpAndPresentation",
 					"labelKey": "fmdb.fieldset.helpAndPresentation",
-					"rank": 1.0,
+					"rank": 1,
 					"fields": [
-						{ "name": "title", "rank": 2.0 }
+						{
+							"name": "title",
+							"rank": 2
+						}
 					]
 				},
 				{
 					"name": "behaviour",
 					"labelKey": "fmdb.fieldset.behaviour",
-					"rank": 4.0,
+					"rank": 4,
 					"fields": [
-						{ "name": "disabled", "rank": 2.0 },
-						{ "name": "autofocus", "rank": 3.0 }
+						{
+							"name": "disabled",
+							"rank": 2
+						},
+						{
+							"name": "autofocus",
+							"rank": 3
+						}
 					]
 				}
 			]

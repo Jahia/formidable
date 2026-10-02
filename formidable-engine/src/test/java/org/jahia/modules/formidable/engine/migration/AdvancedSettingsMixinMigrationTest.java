@@ -25,8 +25,10 @@ class AdvancedSettingsMixinMigrationTest {
     }
 
     @Test
-    void theTwoRetiredMixinsBelongToTheTextAndTextareaTypes() {
-        assertEquals(2, AdvancedSettingsMixinMigration.RETIRED_MIXINS.size());
+    void theRetiredMixinsBelongToTheTextTextareaNumberAndRangeTypes() {
+        assertEquals(4, AdvancedSettingsMixinMigration.RETIRED_MIXINS.size());
+        assertEquals("fmdbmix:advancedInputNumberSettings", AdvancedSettingsMixinMigration.RETIRED_MIXINS.get("fmdb:inputNumber"));
+        assertEquals("fmdbmix:advancedInputRangeSettings", AdvancedSettingsMixinMigration.RETIRED_MIXINS.get("fmdb:inputRange"));
         assertEquals("fmdbmix:advancedInputTextSettings", AdvancedSettingsMixinMigration.RETIRED_MIXINS.get("fmdb:inputText"));
         assertEquals("fmdbmix:advancedTextareaSettings", AdvancedSettingsMixinMigration.RETIRED_MIXINS.get("fmdb:textarea"));
     }

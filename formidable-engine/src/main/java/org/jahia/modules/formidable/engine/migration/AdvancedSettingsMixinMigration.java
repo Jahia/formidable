@@ -13,10 +13,10 @@ import javax.jcr.query.Query;
 import java.util.Map;
 
 /**
- * One-shot content migration for the text and textarea fields saved before 0.5.0 (#359). Their
- * "advanced settings" — mask, pattern, title, read-only, autofocus, disabled, spell check, wrap,
- * and the hidden form/dirname/size/cols — were carried by a mixin the editor added behind a
- * switch ({@code fmdbmix:advancedInputTextSettings}, {@code fmdbmix:advancedTextareaSettings}).
+ * One-shot content migration for the text, textarea, number and range fields saved before 0.5.0
+ * (#359, #361). Their "advanced settings" — mask, pattern, title, read-only, autofocus, disabled,
+ * spell check, wrap, and the hidden form/dirname/size/cols — were carried by a mixin the editor added
+ * behind a switch ({@code fmdbmix:advanced<Type>Settings}, one per type).
  * Since 0.5.0 each mixin is a supertype of its field type: every field has the settings without
  * carrying the mixin. A field saved earlier still lists it in {@code jcr:mixinTypes} — harmless,
  * Jackrabbit accepts a mixin the primary type already includes — and this migration drops that
@@ -50,7 +50,9 @@ public class AdvancedSettingsMixinMigration extends ElementsRedeployRetriggeredM
     /** Field type to the mixin it includes as a supertype since 0.5.0, and that its older fields may still list. */
     static final Map<String, String> RETIRED_MIXINS = Map.of(
             "fmdb:inputText", "fmdbmix:advancedInputTextSettings",
-            "fmdb:textarea", "fmdbmix:advancedTextareaSettings");
+            "fmdb:textarea", "fmdbmix:advancedTextareaSettings",
+            "fmdb:inputNumber", "fmdbmix:advancedInputNumberSettings",
+            "fmdb:inputRange", "fmdbmix:advancedInputRangeSettings");
 
     @Activate
     public void activate() {
