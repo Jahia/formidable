@@ -57,6 +57,7 @@ export const FormResultsList = ({forms, selectedId, onSelect}: FormResultsListPr
                         <button
                             key={form.uuid}
                             type="button"
+                            aria-pressed={isSelected}
                             data-sel-role="form-results-entry"
                             data-sel-name={form.name}
                             onClick={() => onSelect(form.uuid)}

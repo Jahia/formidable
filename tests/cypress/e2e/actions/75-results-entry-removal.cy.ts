@@ -63,8 +63,17 @@ const openResultsPage = () => {
 
 const entry = (name: string) => cy.get(`[data-sel-role="form-results-entry"][data-sel-name="${name}"]`);
 
+/** Selects the entry unless it already is: a second click would deselect it. */
+const selectEntry = (name: string) => {
+	entry(name).then($entry => {
+		if ($entry.attr('aria-pressed') !== 'true') {
+			cy.wrap($entry).click();
+		}
+	});
+};
+
 const openDeleteDialog = (name: string) => {
-	entry(name).click();
+	selectEntry(name);
 	cy.get('[data-sel-role="delete-results"]').click();
 	cy.get('[data-sel-role="delete-results-dialog"]').should('have.attr', 'open');
 };
@@ -146,6 +155,12 @@ describe('Actions - 75 Removing a form entry from the Results page', () => {
 		entry(EMPTIED_FORM.name).should('exist');
 		listResultsEntries().should('include', EMPTIED_FORM.name);
 		cy.contains('No submissions').should('be.visible');
+
+		// A click on the selected entry deselects it (the actions go), a second one selects it again.
+		entry(EMPTIED_FORM.name).should('have.attr', 'aria-pressed', 'true').click();
+		cy.get('[data-sel-role="delete-results"]').should('not.exist');
+		entry(EMPTIED_FORM.name).should('have.attr', 'aria-pressed', 'false').click();
+		cy.get('[data-sel-role="delete-results"]').should('exist');
 
 		// A range cannot remove what is left (nothing matches); the whole entry can.
 		deleteAllResults(EMPTIED_FORM.name);

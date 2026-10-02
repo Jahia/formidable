@@ -236,7 +236,8 @@ export const FormResultsApp = () => {
                 <FormResultsList
                     forms={forms}
                     selectedId={selectedForm?.uuid ?? ''}
-                    onSelect={setSelectedFormResultsId}
+                    // A click on the selected entry deselects it: the list is a toggle, not a radio.
+                    onSelect={id => setSelectedFormResultsId(current => (current === id ? null : id))}
                 />
                 <div role="main" style={{display: 'flex', flex: '1 1 0', minWidth: 0, gap: '1px', overflow: 'hidden', backgroundColor: 'var(--color-gray_light40)'}}>
                     {selectedForm ? (
