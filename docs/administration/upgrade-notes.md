@@ -447,6 +447,7 @@ from a 0.3 restore. No released version is concerned.
 | `ListTitlesContentMigration` | 0.4.x (#231) | 0.6 | Missing `jcr:title` on a form's `fields`/`actions` lists → the type's default label, per site language (in live, published languages only) |
 | `MixinPropertyNamesMigration` | 0.5.0 (#312) | 0.6 | The thirteen `fmdb:`-prefixed properties (options source, date bounds, the select's empty-option label) → unprefixed names, translations included; the deprecated definitions it reads leave with it |
 | `RedundantMixinMigration` | 0.5.0 (#359, #361, #365) | 0.6 | A mixin still listed in `jcr:mixinTypes` by a node whose type has since taken it as a supertype — the `fmdbmix:advanced<Type>Settings` of text, textarea, number and range fields, the `fmdbmix:fieldActionFeedback` of field actions, saved before 0.5.0 — dropped, values kept; look for "[RedundantMixinMigration] Dropped the redundant" in the log |
+| `ProfileSensitiveFlagMigration` | 0.5.0 (#369) | 0.6 | The sensitive flag of a mappable field, `jExperienceSensitive` on the retired `fmdbmix:jExperienceSensitiveField` of a 0.5.0 development build (0.4.0 has no jExperience module) → `profileSensitive` on `fmdbmix:profileMappableField`, in both workspaces, the mixin dropped; the retired declaration (jexperience-engine) leaves with it; look for "[ProfileSensitiveFlagMigration] Moved the sensitive flag" in the log |
 
 A type registered by one module keeps the supertypes it resolved then, whatever another
 module's CND declares afterwards (measured on 8.2.4: after the engine redeploy,

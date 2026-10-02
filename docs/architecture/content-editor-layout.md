@@ -158,7 +158,7 @@ cannot depend on which file is read first):
 | 1.06 | Configuration       | `fmdbmix:fieldActionFeedback` (engine)                                      | a field action, not a field |
 | 1.10 | Logic               | `fmdbmix:formLogicElement` (engine)                                         | fields and containers |
 | 1.12 | Responses           | `fmdbmix:responses` (elements)                                              | form                  |
-| 1.15 | jExperience         | `fmdbmix:jExperienceProfileMapping`, `fmdbmix:jExperienceSensitiveField` (jexperience-engine) | fields |
+| 1.15 | jExperience         | `fmdbmix:jExperienceProfileMapping` and, through the module's override of the engine marker, the `profileSensitive` flag of `fmdbmix:profileMappableField` (jexperience-engine) | fields |
 | 1.20 | Buttons             | `fmdbmix:buttons` (elements)                                                | form                  |
 | 1.30 | Multi-step          | `fmdbmix:multistep` (elements)                                              | form                  |
 | 1.40 | Style               | `fmdbmix:style` (elements, joined by the sample's `fmdbsamplemix:customStyle`) | form              |
@@ -244,6 +244,7 @@ What follows from the three rules, and shaped the overrides:
 | `fmdbmix_optionsSource.json` | elements (same reason) | content-only: the options origin at rank 1.5 of `<main>` on every choice field; the dynamic options fieldsets stay where the editor generates them |
 | `fmdbmix_validationMessages.json`, `…textValidationMessages.json`, `…rangeValidationMessages.json` | elements | the messages in the Validation messages fieldset, ranks 1, 2–5, 6–9 |
 | `fmdbmix_fieldActions.json` | engine | nothing of the switch, which stays where the editor generates it, at the end of Content; it hides the editor's Content list & ordering block on the elements that can carry field actions, and on them only (`listOrdering`, `"hide": true`) |
+| `fmdbmix_profileMappableField.json` | engine, then jexperience-engine (priority 3.0) | the engine hides the marker's generated fieldset, `profileSensitive` in it, since without the jExperience module the flag means nothing; that module's file of the same name takes the field into a Privacy fieldset at rank -1 of its jExperience section, with its own `labelKey` and `descriptionKey` |
 | `fmdbext_<type>.json` | extended-inputs | the optional types, from their own module, the shared keys resolved through its dependency on elements |
 | `fmdbsamplemix_helpTextPosition.json` | the sample module | a third-party setting in Help & presentation, rank 1.5 |
 

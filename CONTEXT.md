@@ -108,8 +108,9 @@ fmdbmix:formContent (elements) ← non-field content embeddable in a form
 fmdbmix:formStep (engine)      > fmdbmix:formContainer — step marker
 fmdbmix:submittableField (engine) ← marker: the field submits a value (not a file, a button, a fieldset);
                                    fmdbmix:fieldActions (engine, the field-actions switch) extends it
-fmdbmix:profileMappableField (engine) ← marker: the field can be mapped to a jCustomer profile property;
-                                   fmdbmix:jExperienceProfileMapping (formidable-jexperience-engine) extends it
+fmdbmix:profileMappableField (engine) ← marker: the field can be mapped to a visitor profile property;
+                                   fmdbmix:jExperienceProfileMapping (formidable-jexperience-engine) extends it;
+                                   carries profileSensitive, the flag that module reads (hidden without it)
 fmdbmix:component (elements)   ← makes a type visible/droppable in the editor
 ```
 

@@ -1,6 +1,7 @@
 package org.jahia.modules.formidable.jexperience.engine.field;
 
 import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.modules.formidable.engine.api.FmdbProperty;
 import org.jahia.modules.formidable.jexperience.engine.model.JxpProperty;
 import org.jahia.modules.formidable.jexperience.engine.util.EditorContext;
 
@@ -37,9 +38,9 @@ public final class SensitiveField {
         return property != null && !property.isBlank();
     }
 
-    /** Whether the stored field is marked sensitive; false for a field that never carried the mixin. */
+    /** Whether the stored field is marked sensitive; false for a field saved before the flag existed. */
     public static boolean isSensitive(JCRNodeWrapper field) throws RepositoryException {
-        return field.hasProperty(JxpProperty.SENSITIVE) && field.getProperty(JxpProperty.SENSITIVE).getBoolean();
+        return field.hasProperty(FmdbProperty.PROFILE_SENSITIVE) && field.getProperty(FmdbProperty.PROFILE_SENSITIVE).getBoolean();
     }
 
     /**
@@ -57,6 +58,6 @@ public final class SensitiveField {
 
     /** The unsaved value as jcontent sends it: a boolean, a string, or a list holding one; empty when absent. */
     static Optional<Boolean> pending(Map<String, Object> context) {
-        return EditorContext.pendingBoolean(context, JxpProperty.SENSITIVE);
+        return EditorContext.pendingBoolean(context, FmdbProperty.PROFILE_SENSITIVE);
     }
 }

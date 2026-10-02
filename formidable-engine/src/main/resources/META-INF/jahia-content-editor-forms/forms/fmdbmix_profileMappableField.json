@@ -1,0 +1,18 @@
+{
+	"nodeType": "fmdbmix:profileMappableField",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "content",
+			"fieldSets": [
+				{
+					"name": "fmdbmix:profileMappableField",
+					"hide": true,
+					"fields": [
+						{ "name": "profileSensitive" }
+					]
+				}
+			]
+		}
+	]
+}

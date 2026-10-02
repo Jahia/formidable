@@ -1,0 +1,25 @@
+{
+	"nodeType": "fmdbmix:profileMappableField",
+	"priority": 3.0,
+	"sections": [
+		{
+			"name": "jexperience",
+			"labelKey": "fmdb.section.jexperience",
+			"rank": 1.15,
+			"fieldSets": [
+				{
+					"name": "privacy",
+					"labelKey": "fmdb.fieldset.privacy",
+					"rank": -1.0,
+					"fields": [
+						{
+							"name": "profileSensitive",
+							"labelKey": "fmdbmix_profileMappableField.profileSensitive",
+							"descriptionKey": "fmdbmix_profileMappableField.profileSensitive.ui.tooltip"
+						}
+					]
+				}
+			]
+		}
+	]
+}

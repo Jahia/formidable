@@ -187,8 +187,8 @@ class ProfilePropertiesChoiceListInitializerTest {
     private static JCRNodeWrapper sensitive(JCRNodeWrapper node) throws Exception {
         JCRPropertyWrapper flag = mock(JCRPropertyWrapper.class);
         when(flag.getBoolean()).thenReturn(true);
-        when(node.hasProperty(JxpProperty.SENSITIVE)).thenReturn(true);
-        when(node.getProperty(JxpProperty.SENSITIVE)).thenReturn(flag);
+        when(node.hasProperty(FmdbProperty.PROFILE_SENSITIVE)).thenReturn(true);
+        when(node.getProperty(FmdbProperty.PROFILE_SENSITIVE)).thenReturn(flag);
         return node;
     }
 
@@ -417,10 +417,10 @@ class ProfilePropertiesChoiceListInitializerTest {
 
         assertEquals(List.of(""), values(listed(initializer, context(
                 ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, fieldNode(null, false, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD),
-                JxpProperty.SENSITIVE, true))));
+                FmdbProperty.PROFILE_SENSITIVE, true))));
         assertEquals(List.of("firstName"), values(listed(initializer, context(
                 ProfilePropertiesChoiceListInitializer.CONTEXT_NODE, sensitive(fieldNode(null, false, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD)),
-                JxpProperty.SENSITIVE, List.of(false)))));
+                FmdbProperty.PROFILE_SENSITIVE, List.of(false)))));
     }
 
     /** The initializer with its sensitive message stubbed: Jahia's bundle lookup does not run outside a container. */

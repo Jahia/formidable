@@ -21,8 +21,11 @@ public final class JxpProperty {
     /** How the profile property is written on submission: always, or only while it is still empty. */
     public static final String SET_STRATEGY = "jExperienceSetStrategy";
 
-    /** The sensitive flag — a property rather than a switch, so that the dropdown can depend on it unsaved. */
-    public static final String SENSITIVE = "jExperienceSensitive";
+    /**
+     * DEPRECATED, removed in 0.6 with the retired mixin: the sensitive flag's first name, hidden in the CND; nothing in
+     * this module reads it, the engine's ProfileSensitiveFlagMigration moves it to {@code FmdbProperty.PROFILE_SENSITIVE}.
+     */
+    public static final String RETIRED_SENSITIVE = "jExperienceSensitive";
 
     private JxpProperty() {
     }

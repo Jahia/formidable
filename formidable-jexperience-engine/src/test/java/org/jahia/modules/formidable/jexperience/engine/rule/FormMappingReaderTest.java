@@ -5,6 +5,7 @@ import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRPropertyWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
+import org.jahia.modules.formidable.engine.api.FmdbProperty;
 import org.jahia.modules.formidable.jexperience.engine.model.JxpProperty;
 import org.jahia.modules.formidable.jexperience.engine.field.FieldShapes;
 import org.jahia.modules.formidable.jexperience.engine.profile.ProfilePropertiesUnavailableException;
@@ -171,8 +172,8 @@ class FormMappingReaderTest {
         JCRNodeWrapper field = field("nationalId", "firstName", null, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD);
         JCRPropertyWrapper flag = mock(JCRPropertyWrapper.class);
         when(flag.getBoolean()).thenReturn(true);
-        when(field.hasProperty(JxpProperty.SENSITIVE)).thenReturn(true);
-        when(field.getProperty(JxpProperty.SENSITIVE)).thenReturn(flag);
+        when(field.hasProperty(FmdbProperty.PROFILE_SENSITIVE)).thenReturn(true);
+        when(field.getProperty(FmdbProperty.PROFILE_SENSITIVE)).thenReturn(flag);
 
         assertTrue(new FormMappingReader(catalog(), counting(1)).fieldMappingOf(field, SCHEMA, "en").isEmpty());
     }

@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.jexperience.engine.render;
 
+import org.jahia.modules.formidable.engine.api.FmdbProperty;
 import org.jahia.modules.formidable.jexperience.engine.model.JxpMixin;
 import org.jahia.modules.formidable.jexperience.engine.model.JxpProperty;
 import org.jahia.services.content.JCRNodeWrapper;
@@ -41,7 +42,7 @@ class PrefillMappingsTest {
         when(node.isNodeType(JxpMixin.MAPPING)).thenReturn(mapped);
         flag(node, JxpProperty.PREFILL, prefill);
         when(node.getPropertyAsString(JxpProperty.PROFILE_PROPERTY)).thenReturn(mapped ? property : null);
-        flag(node, JxpProperty.SENSITIVE, sensitive);
+        flag(node, FmdbProperty.PROFILE_SENSITIVE, sensitive);
         return node;
     }
 
