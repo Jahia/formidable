@@ -3,15 +3,16 @@
 	"priority": 2.0,
 	"sections": [
 		{
-			"name": "validationMessages",
-			"labelKey": "fmdb.section.validationMessages",
-			"rank": 1.50,
+			"name": "fieldSettings",
+			"labelKey": "fmdb.section.fieldSettings",
+			"rank": 1.05,
 			"fieldSets": [
 				{
-					"name": "required",
-					"rank": 0.0,
+					"name": "validationMessages",
+					"labelKey": "fmdb.fieldset.validationMessages",
+					"rank": 5.0,
 					"fields": [
-						{ "name": "msgValueMissing" }
+						{ "name": "msgValueMissing", "rank": 1.0 }
 					]
 				}
 			]

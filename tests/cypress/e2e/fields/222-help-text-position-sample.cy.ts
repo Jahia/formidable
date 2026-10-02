@@ -188,12 +188,14 @@ describe('Form fields - 222 Help text position (third-party sample)', () => {
 			withHelpTextPosition(getInputTextNode(FIELDS.up), 'up'),
 			withHelpTextPosition(getSelectNode(SELECT_FIELD), 'down')
 		]).then(({formPath}) => {
-			// One form override, on the mixin, serves every type it extends: its <main> fieldset
-			// resolves to the edited type's own fieldset.
+			// One form override, on the mixin, serves every type it extends: it places the setting in the
+			// Help & presentation fieldset of the Field settings section, which the reorganised field editors
+			// (text, email, textarea so far) share — right under Help text there. A type whose editor is not
+			// reorganised yet keeps its help text in Content, and the setting opens the new section alone.
 			[
-				{name: FIELDS.up.name, type: 'fmdb:inputText'},
-				{name: SELECT_FIELD.name, type: 'fmdb:select'}
-			].forEach(({name, type}) => {
+				{name: FIELDS.up.name, type: 'fmdb:inputText', helpTextMoved: true},
+				{name: SELECT_FIELD.name, type: 'fmdb:select', helpTextMoved: false}
+			].forEach(({name, type, helpTextMoved}) => {
 				cy.apollo({
 					query: EDIT_FORM,
 					variables: {path: `${formPath}/fields/${name}`}
@@ -201,20 +203,26 @@ describe('Form fields - 222 Help text position (third-party sample)', () => {
 					expect(response.errors, `GraphQL errors for the edit form of ${type}`).to.be.undefined;
 
 					const sections = response.data?.forms?.editForm?.sections ?? [];
-					const content = sections.find(section => section.name === 'content');
-					const main = content?.fieldSets.find(fieldSet => fieldSet.name === type);
-					const names = main?.fields.map(field => field.name) ?? [];
+					const settings = sections.find(section => section.name === 'fieldSettings');
+					const help = settings?.fieldSets.find(fieldSet => fieldSet.name === 'helpAndPresentation');
+					const names = help?.fields.map(field => field.name) ?? [];
 
-					// Surfaced in the field's own fieldset, right after Help text.
-					expect(names, `fields of the ${type} fieldset`).to.include('helpText');
-					expect(names[names.indexOf('helpText') + 1], `field under Help text of ${type}`).to.equal('helpTextPosition');
+					expect(names, `fields of the Help & presentation fieldset of ${type}`).to.include('helpTextPosition');
+					if (helpTextMoved) {
+						// Right after Help text, which the type's own override moved into the same fieldset.
+						expect(names[names.indexOf('helpText') + 1], `field under Help text of ${type}`).to.equal('helpTextPosition');
+					} else {
+						const content = sections.find(section => section.name === 'content');
+						const main = content?.fieldSets.find(fieldSet => fieldSet.name === type);
+						expect(main?.fields.map(field => field.name) ?? [], `fields of the ${type} fieldset`).to.include('helpText');
+					}
 
 					// The mixin's own fieldset holds nothing any more: no switch to flip before the setting shows.
-					const own = content?.fieldSets.find(fieldSet => fieldSet.name === POSITION_MIXIN);
+					const own = sections.flatMap(section => section.fieldSets).find(fieldSet => fieldSet.name === POSITION_MIXIN);
 					expect(own?.fields ?? [], `fields left in the mixin fieldset of ${type}`).to.be.empty;
 
 					// The choices, labelled from the sample module's bundle.
-					const position = main?.fields.find(field => field.name === 'helpTextPosition');
+					const position = help?.fields.find(field => field.name === 'helpTextPosition');
 					expect(position?.valueConstraints?.map(constraint => constraint.value?.string), `values for ${type}`)
 						.to.deep.equal(['up', 'down', 'both']);
 					expect(position?.valueConstraints?.map(constraint => constraint.displayValue), `labels for ${type}`)

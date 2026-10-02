@@ -1,0 +1,52 @@
+{
+	"nodeType": "fmdb:inputText",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "content",
+			"fieldSets": [
+				{
+					"name": "<main>",
+					"fields": [
+						{ "name": "required" }
+					]
+				}
+			]
+		},
+		{
+			"name": "fieldSettings",
+			"labelKey": "fmdb.section.fieldSettings",
+			"rank": 1.05,
+			"fieldSets": [
+				{
+					"name": "helpAndPresentation",
+					"labelKey": "fmdb.fieldset.helpAndPresentation",
+					"rank": 1,
+					"fields": [
+						{ "name": "helpText", "rank": 1 }
+					]
+				},
+				{
+					"name": "valueAndInput",
+					"labelKey": "fmdb.fieldset.valueAndInput",
+					"rank": 2,
+					"fields": [
+						{ "name": "placeholder", "rank": 1 },
+						{ "name": "defaultValue", "rank": 2 },
+						{ "name": "autocomplete", "rank": 5 },
+						{ "name": "list", "rank": 7 }
+					]
+				},
+				{
+					"name": "constraints",
+					"labelKey": "fmdb.fieldset.constraints",
+					"rank": 3,
+					"fields": [
+						{ "name": "minLength", "rank": 1 },
+						{ "name": "maxLength", "rank": 2 }
+					]
+				}
+			]
+		}
+	]
+}

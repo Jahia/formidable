@@ -1,8 +1,14 @@
-// Text input component properties
-
+// Text input component properties.
+// The settings once behind an "Advanced settings" switch are a supertype of the text input since 0.5.0
+// — the way fmdbmix:textValidationMessages carries the messages — so every text field has them, no
+// switch, no mixin to add on save; the editor lays them out in Field settings. The name stays: a field
+// saved by an earlier version still lists the mixin in jcr:mixinTypes, and Jackrabbit accepts a mixin
+// the primary type already includes (it refuses a node whose primary type and mixin both declare the
+// same property — which is why the properties cannot move to fmdb:inputText itself).
+// AdvancedSettingsMixinMigration drops that redundant mixin from existing fields.
+// form, dirname and size are hidden: no effect, or an effect nothing reads, in a Formidable form
+// (docs/architecture/content-editor-layout.md, "Hidden for good"); a value already set still renders.
 [fmdbmix:advancedInputTextSettings] mixin
- extends = fmdb:inputText
- itemtype = content
  - mask (string) indexed=no
  - pattern (string) indexed=no
  - title (string) i18n indexed=no
@@ -10,11 +16,11 @@
  - autofocus (boolean) = false
  - disabled (boolean) = false
  - spellcheck (boolean) = true
- - form (string) indexed=no
- - dirname (boolean) = false
- - size (long)
+ - form (string) hidden indexed=no
+ - dirname (boolean) = false hidden
+ - size (long) hidden
 
-[fmdb:inputText] > jnt:content, fmdbmix:element, fmdbmix:submittableField, fmdbmix:profileMappableField, fmdbmix:textField, fmdbmix:textValidationMessages
+[fmdb:inputText] > jnt:content, fmdbmix:element, fmdbmix:submittableField, fmdbmix:profileMappableField, fmdbmix:textField, fmdbmix:textValidationMessages, fmdbmix:advancedInputTextSettings
  - helpText (string, richtext[ckeditor.toolbar='FormidableHelp',ckeditor.customConfig='$context/modules/formidable-engine/javascript/ckeditor/helpTextConfig.js']) i18n indexed=no
  - required (boolean) = false
  - placeholder (string) i18n indexed=no

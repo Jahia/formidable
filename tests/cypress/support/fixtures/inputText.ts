@@ -48,10 +48,6 @@ export function getInputTextNode(data: InputTextData = INPUT_TEXT_SIMPLE): Jahia
 	if (data.autocomplete) properties.push({name: 'autocomplete', value: data.autocomplete});
 	if (data.list && data.list.length > 0) properties.push({name: 'list', values: data.list, language: 'en'});
 
-	if (data.pattern || data.mask) {
-		mixins.push('fmdbmix:advancedInputTextSettings');
-	}
-
 	return {
 		name: data.name || 'textInput',
 		primaryNodeType: 'fmdb:inputText',

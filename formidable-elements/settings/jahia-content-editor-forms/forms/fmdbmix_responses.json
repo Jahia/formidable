@@ -5,7 +5,7 @@
 		{
 			"name": "responses",
 			"labelKey": "fmdb.section.responses",
-			"rank": 1.10,
+			"rank": 1.12,
 			"fieldSets": [
 				{
 					"name": "messages",

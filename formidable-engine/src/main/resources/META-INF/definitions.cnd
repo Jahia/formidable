@@ -136,10 +136,14 @@ orderable
  - jcr:title (string) = resourceBundle('fmdb_fieldActionList') autocreated i18n
  + * (fmdbmix:fieldAction) = fmdbmix:fieldAction version
 
-// The switch in the field's own editor, offered on every field type taking fmdbmix:submittableField —
-// the fields with a value, third-party included — and on nothing else: a fieldset, a button or a file
-// field would show a switch whose actions never run. On, it adds the mixin, which autocreates the
-// list; off, it removes both. No `> jmix:dynamicFieldset`: that supertype extends jmix:templateMixin,
+// The switch at the end of the Content section of the field's own editor, offered on every field type
+// taking fmdbmix:submittableField — the fields with a value, third-party included — and on nothing else:
+// a fieldset, a button or a file field would show a switch whose actions never run. The list it creates
+// makes the editor show its "Content list & ordering" block right under Content; this module's form
+// override (META-INF/jahia-content-editor-forms/forms/fmdbmix_fieldActions.json) hides that block — on the
+// elements that can carry field actions only; a fieldset or a step keeps it, their fields being worth ordering.
+// On, it adds the mixin, which autocreates the list; off, it removes both. No `> jmix:dynamicFieldset`:
+// that supertype extends jmix:templateMixin,
 // which the Content Editor renders without an enable switch, and a fieldset with no switch and no
 // property of its own is not rendered at all. `extends` alone makes it dynamic. See
 // docs/architecture/field-actions.md.

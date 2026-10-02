@@ -307,8 +307,9 @@ labels come from your module's bundle, keyed `fmdbsamplemix_helpTextPosition.hel
 `extends` mixin shows up in the Content Editor as a fieldset of its own, behind an enable
 switch. One override, on the mixin itself
 (`settings/jahia-content-editor-forms/forms/fmdbsamplemix_helpTextPosition.json`), moves the
-field into the edited field's own fieldset — `<main>` — right under Help text, and keeps the
-mixin always activated so the value is saved without a switch to flip:
+field into the **Help & presentation** fieldset of the **Field settings** section — the layout the
+built-in field editors share (`docs/architecture/content-editor-layout.md`) — right under Help
+text, and keeps the mixin always activated so the value is saved without a switch to flip:
 
 ```json
 {
@@ -318,24 +319,42 @@ mixin always activated so the value is saved without a switch to flip:
     {
       "name": "content",
       "fieldSets": [
-        { "name": "<main>", "fields": [{ "name": "helpTextPosition", "rank": 1.4 }] },
         { "name": "fmdbsamplemix:helpTextPosition", "isAlwaysActivated": true, "hide": true }
+      ]
+    },
+    {
+      "name": "fieldSettings",
+      "labelKey": "fmdb.section.fieldSettings",
+      "rank": 1.05,
+      "fieldSets": [
+        {
+          "name": "helpAndPresentation",
+          "labelKey": "fmdb.fieldset.helpAndPresentation",
+          "rank": 1.0,
+          "fields": [{ "name": "helpTextPosition", "rank": 1.5 }]
+        }
       ]
     }
   ]
 }
 ```
 
-How it reads: `<main>` in an override means the fieldset of the type being edited, whichever
-form declares the override — so this single file serves the twelve types the mixin extends.
-Any field of the form can be pulled into `<main>` this way, whichever fieldset declared it.
-The mixin's own fieldset, emptied by the move, would still show as a bare switch: `hide`
+How it reads. A field listed in an override is taken from wherever the editor generated it and
+placed in the fieldset that lists it, so this single file serves the twelve types the mixin
+extends. Sections and fieldsets merge by name across every override of the form: naming
+`fieldSettings` and `helpAndPresentation` with the same label keys and ranks as the built-in
+overrides joins them rather than creating twins — the keys resolve through your module's
+dependency on `formidable-elements`. Help text sits at rank 1 in that fieldset, so 1.5 lands right
+under it. The mixin's own fieldset, emptied by the move, would still show as a bare switch: `hide`
 takes it off the screen while the editor keeps tracking it, so the mixin is still added on save.
-The fields of `<main>` are ranked 1, 2, 3… in declaration order and `helpText` is the first
-declared property of every field type (title and system name sit before it with lower ranks),
-so 1.4 lands right after Help text — before Required, and before the options mode the choice
-fields already place at 1.5. With the mixin always activated, every extended field saved in
-the editor gets it — acceptable for a sample, a deliberate choice for a product module.
+With the mixin always activated, every extended field saved in the editor gets it, and the editor adds
+it on save to every existing field that lacks it: a contributor whose role cannot manage node types (a
+translator) can then no longer save such a field. Acceptable for a sample; a product module should keep
+the switch, or add the mixin to the existing fields itself (a startup migration) before relying on it —
+the built-in settings left this pattern for that reason, their mixins becoming supertypes of the field
+types, which a module extending a type it does not own cannot do. On a field type whose editor is not
+reorganised yet, the setting opens the Field settings section on its own while Help text is still
+in Content; the gap closes as each family of fields moves to the shared layout.
 
 **3. A view honouring the setting.** Two ways to ship it. A view registered on the built-in
 type under a *new name* is opt-in: the contributor picks it in the View chooser
@@ -462,8 +481,8 @@ properties while it is on; without it your field is single-valued (the checkbox 
 read by name: its cardinality follows its number of choices, as the view renders it).
 
 The other one, `fmdbmix:submittableField`, says the field submits a value. Declare it on the same fields
-(never on a file field, a button or a container): it is what offers the **Enable field actions** switch in
-the field's editor, and every future setting meant for "every field with a value" will attach to it the
+(never on a file field, a button or a container): it is what offers the **Field actions** switch at the
+end of the Content section of the field's editor, and every future setting meant for "every field with a value" will attach to it the
 same way (`docs/architecture/field-actions.md`). The submission itself does not depend on it — a field
 without the marker is still submitted; it only lacks those switches.
 

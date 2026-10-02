@@ -29,7 +29,7 @@ interface InputTextProps extends TextValidationMessageProps {
   "maxLength"?: number;
   "required"?: boolean;
   "autocomplete"?: string;
-  // fmdbmix:advancedInputTextSettings
+  // fmdbmix:advancedInputTextSettings — a supertype of the text input since 0.5.0, no switch
   "mask"?: string;
   "pattern"?: string;
   "readonly"?: boolean;

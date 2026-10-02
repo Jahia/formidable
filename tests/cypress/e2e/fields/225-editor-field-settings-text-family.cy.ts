@@ -1,0 +1,177 @@
+import gql from 'graphql-tag';
+import {CONTENT_PATH} from '../../support/constants';
+import {createFormNode, getFieldsetNode, getInputEmailNode, getInputTextNode, getTextareaNode} from '../../support/fixtures';
+import {useFormidableSite} from './support';
+
+const EDIT_FORM = gql`
+	query editFormOfField($path: String!) {
+		forms {
+			editForm(uiLocale: "en", locale: "en", uuidOrPath: $path) {
+				sections {
+					name
+					fieldSets {
+						name
+						visible
+						dynamic
+						activated
+						hasEnableSwitch
+						fields {
+							name
+						}
+					}
+				}
+			}
+		}
+	}
+`;
+
+interface FieldSet {
+	name: string;
+	visible?: boolean;
+	dynamic?: boolean;
+	activated?: boolean;
+	hasEnableSwitch?: boolean;
+	fields: {name: string}[];
+}
+
+interface Section {
+	name: string;
+	fieldSets: FieldSet[];
+}
+
+interface EditFormResponse {
+	errors?: unknown;
+	data?: {forms?: {editForm?: {sections: Section[]}}};
+}
+
+/** What Content keeps on every reorganised field type: the title, the system name, the required switch. */
+const CONTENT_FIELDS = ['jcr:title', 'ce:systemName', 'required'];
+/** The editor's own block listing a node's children, which the field actions list makes appear. */
+const LIST_ORDERING_SECTION = 'listOrdering';
+const SETTINGS_SECTION = 'fieldSettings';
+const FIELD_ACTIONS_SWITCH = 'fmdbmix:fieldActions';
+const VALIDATION_MESSAGES = ['msgValueMissing', 'msgTypeMismatch', 'msgPatternMismatch', 'msgTooShort', 'msgTooLong'];
+/** The HTML attributes hidden in the CND: no field of the editor at all (docs/architecture/content-editor-layout.md, "Hidden for good"). */
+const HIDDEN_ATTRIBUTES = ['form', 'dirname', 'size', 'cols'];
+
+/** The Field settings section of each type, fieldset by fieldset in rank order (docs/architecture/content-editor-layout.md). */
+const LAYOUTS: Record<string, {settings: [string, string[]][]}> = {
+	'fmdb:inputText': {
+		settings: [
+			['helpAndPresentation', ['helpText', 'title']],
+			['valueAndInput', ['placeholder', 'defaultValue', 'mask', 'pattern', 'autocomplete', 'spellcheck', 'list']],
+			['constraints', ['minLength', 'maxLength']],
+			['behaviour', ['readonly', 'disabled', 'autofocus']],
+			['validationMessages', VALIDATION_MESSAGES]
+		]
+	},
+	'fmdb:inputEmail': {
+		settings: [
+			['helpAndPresentation', ['helpText']],
+			['valueAndInput', ['placeholder', 'defaultValue', 'multiple', 'pattern', 'autocomplete', 'list']],
+			['constraints', ['minLength', 'maxLength']],
+			['validationMessages', VALIDATION_MESSAGES]
+		]
+	},
+	'fmdb:textarea': {
+		settings: [
+			['helpAndPresentation', ['helpText']],
+			['valueAndInput', ['placeholder', 'defaultValue', 'autocomplete', 'spellcheck', 'wrap', 'rows', 'resize']],
+			['constraints', ['minLength', 'maxLength']],
+			['behaviour', ['readonly', 'disabled', 'autofocus']],
+			['validationMessages', VALIDATION_MESSAGES]
+		]
+	}
+};
+
+/**
+ * The editor of a text, an email and a textarea field is laid out by Content Editor form overrides, not
+ * by the CND: Content keeps what a contributor almost always fills, every other setting sits in the Field
+ * settings section, in fieldsets shared by the three types. The properties once behind the type's
+ * "advanced settings" switch belong to a supertype of the type now and are spread over those fieldsets;
+ * the attributes a form never needs (form, dirname, size, cols) are hidden in the CND and appear nowhere.
+ * The validation messages join the section; the field actions switch stays at the end of Content, a
+ * capability of the field rather than a setting, next to the children block its list makes the editor
+ * show — a block the engine hides, one node being nothing to order. Read through the editor form
+ * the Content Editor builds, on a field with the settings set and on a plain one: the layout owes
+ * nothing to the values.
+ */
+describe('Form fields - 225 The field editor layout of the text family', () => {
+	useFormidableSite();
+
+	const formName = 'editor-layout-text-family';
+	const fieldPath = (name: string) => `${CONTENT_PATH}/${formName}/fields/${name}`;
+
+	before(() => {
+		createFormNode(formName, 'Editor Layout Text Family', [
+			// One with a setting set, one plain: the layout must be the same.
+			getInputTextNode({name: 'maskedText', title: 'Masked text', mask: 'AA-9999'}),
+			getInputTextNode({name: 'plainText', title: 'Plain text'}),
+			getInputEmailNode({name: 'email', title: 'Email'}),
+			getTextareaNode({name: 'wrappedTextarea', title: 'Wrapped textarea', wrap: 'hard'}),
+			getTextareaNode({name: 'plainTextarea', title: 'Plain textarea'}),
+			// A container: its children are worth ordering, the editor's block must stay on it.
+			getFieldsetNode({name: 'group', title: 'Group', children: [getInputTextNode({name: 'inGroup', title: 'In group'})]})
+		]);
+	});
+
+	const editFormOf = (name: string) => cy.apollo({query: EDIT_FORM, variables: {path: fieldPath(name)}})
+		.then((response: EditFormResponse) => {
+			expect(response.errors, `GraphQL errors for the edit form of ${name}`).to.be.undefined;
+			return cy.wrap(response.data?.forms?.editForm?.sections ?? []);
+		});
+
+	const assertLayout = (name: string, type: string) => editFormOf(name).then(sections => {
+		const layout = LAYOUTS[type];
+		const content = sections.find(section => section.name === 'content');
+		const main = content?.fieldSets.find(fieldSet => fieldSet.name === type);
+		expect(main?.fields.map(field => field.name), `Content fields of ${name}`).to.deep.equal(CONTENT_FIELDS);
+
+		// The attributes hidden in the CND are no field of the editor, in no section: nothing to tuck away.
+		const everyField = sections.flatMap(section => section.fieldSets.flatMap(fieldSet => fieldSet.fields.map(field => field.name)));
+		HIDDEN_ATTRIBUTES.forEach(attribute => expect(everyField, `${attribute} absent from the editor of ${name}`).not.to.include(attribute));
+
+		const settings = sections.find(section => section.name === SETTINGS_SECTION);
+		expect(settings, `Field settings section of ${name}`).not.to.be.undefined;
+		expect(settings?.fieldSets.map(fieldSet => fieldSet.name), `fieldsets of ${name}`)
+			.to.deep.equal(layout.settings.map(([fieldSet]) => fieldSet));
+		layout.settings.forEach(([fieldSetName, fields]) => {
+			const fieldSet = settings?.fieldSets.find(candidate => candidate.name === fieldSetName);
+			expect(fieldSet?.fields.map(field => field.name), `fields of ${fieldSetName} on ${name}`).to.deep.equal(fields);
+			expect(fieldSet?.visible, `${fieldSetName} visible on ${name}`).to.be.true;
+		});
+
+		// The field actions switch stays in Content, after the type's own fieldset, with its enable switch.
+		const contentNames = content?.fieldSets.filter(fieldSet => fieldSet.visible).map(fieldSet => fieldSet.name) ?? [];
+		expect(contentNames.indexOf(FIELD_ACTIONS_SWITCH), `field actions switch after the ${type} fieldset on ${name}`)
+			.to.be.greaterThan(contentNames.indexOf(type));
+		const actions = content?.fieldSets.find(fieldSet => fieldSet.name === FIELD_ACTIONS_SWITCH);
+		expect(actions?.dynamic, `field actions switch dynamic on ${name}`).to.be.true;
+		expect(actions?.hasEnableSwitch, `field actions enable switch on ${name}`).to.be.true;
+		expect(settings?.fieldSets.map(fieldSet => fieldSet.name), `no switch in Field settings on ${name}`).not.to.include(FIELD_ACTIONS_SWITCH);
+
+		// The Validation messages section is gone, and so is the editor's children block — on fields.
+		expect(sections.map(section => section.name), `sections of ${name}`).not.to.include('validationMessages');
+		expect(sections.map(section => section.name), `children block hidden on ${name}`).not.to.include(LIST_ORDERING_SECTION);
+	});
+
+	it('lays out a text input the same way, masked or plain', () => {
+		assertLayout('maskedText', 'fmdb:inputText');
+		assertLayout('plainText', 'fmdb:inputText');
+	});
+
+	it('lays out an email input', () => {
+		assertLayout('email', 'fmdb:inputEmail');
+	});
+
+	it('lays out a textarea the same way, wrapped or plain', () => {
+		assertLayout('wrappedTextarea', 'fmdb:textarea');
+		assertLayout('plainTextarea', 'fmdb:textarea');
+	});
+
+	it('keeps the editor\'s children block on a container: the hide is the field actions mixin\'s, not the form\'s', () => {
+		editFormOf('group').then(sections => {
+			expect(sections.map(section => section.name), 'sections of the fieldset container').to.include(LIST_ORDERING_SECTION);
+		});
+	});
+});

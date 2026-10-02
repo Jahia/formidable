@@ -683,11 +683,10 @@ mandatory flag added to a type already registered is a MAJOR change to Jahia's `
 which cancels the deployment of the module. The options-source settings of `formidable-elements` carry
 theirs in a `fieldsets/` override for the same reason.
 
-- **Rank.** Sections order by rank, and the ranks Formidable already uses are 1.10 for Logic and
-  Responses, 1.20 Buttons, 1.30 Multi-step, 1.40 Style, 1.50 Validation messages. 1.15 gives
-  jExperience a rank of its own and places it right after Logic on a field. Documenting the rank
-  table and how to add a section is tracked in
-  [formidable#311](https://github.com/Jahia/formidable/issues/311).
+- **Rank.** Sections order by rank, one rank per section across the product: 1.05 Field settings,
+  1.06 Configuration, 1.10 Logic, 1.12 Responses, 1.20 Buttons, 1.30 Multi-step, 1.40 Style. 1.15 gives
+  jExperience a rank of its own and places it right after Logic on a field. The rank table and how to add
+  a section: [`content-editor-layout.md`](content-editor-layout.md).
 - **Labels.** `fmdb.section.jexperience=jExperience` plus the fieldset and property labels go in
   the module's own bundle, a Java bundle, so the French file escapes its accents as `\uXXXX`.
 - **The switch stays.** The fieldset is left activatable, not `isAlwaysActivated`: switching it

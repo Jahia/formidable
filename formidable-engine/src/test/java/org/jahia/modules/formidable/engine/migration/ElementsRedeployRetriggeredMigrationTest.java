@@ -1,7 +1,15 @@
 package org.jahia.modules.formidable.engine.migration;
 
 import org.jahia.services.templates.JahiaTemplateManagerService.TemplatePackageRedeployedEvent;
+import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.services.content.JCRSessionWrapper;
 import org.junit.jupiter.api.Test;
+
+import javax.jcr.RepositoryException;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import java.util.EventObject;
 
@@ -49,5 +57,46 @@ class ElementsRedeployRetriggeredMigrationTest {
     @Test
     void onlySubscribesToRedeployEvents() {
         assertArrayEquals(new Class[]{TemplatePackageRedeployedEvent.class}, new CountingMigration().getEventTypes());
+    }
+
+    @Test
+    void aMigratedNodeIsSavedOnItsOwn() throws Exception {
+        JCRSessionWrapper session = mock(JCRSessionWrapper.class);
+        JCRNodeWrapper node = mock(JCRNodeWrapper.class);
+
+        ElementsRedeployRetriggeredMigration.Outcome outcome = new CountingMigration()
+                .migrateOne(session, node, "default", "Rewrote", (s, n) -> ElementsRedeployRetriggeredMigration.Outcome.MIGRATED);
+
+        assertEquals(ElementsRedeployRetriggeredMigration.Outcome.MIGRATED, outcome);
+        verify(session).save();
+    }
+
+    @Test
+    void aDeferredOrUntouchedNodeIsNotSaved() throws Exception {
+        JCRSessionWrapper session = mock(JCRSessionWrapper.class);
+        JCRNodeWrapper node = mock(JCRNodeWrapper.class);
+        CountingMigration migration = new CountingMigration();
+
+        assertEquals(ElementsRedeployRetriggeredMigration.Outcome.DEFERRED,
+                migration.migrateOne(session, node, "default", "Rewrote", (s, n) -> ElementsRedeployRetriggeredMigration.Outcome.DEFERRED));
+        assertEquals(ElementsRedeployRetriggeredMigration.Outcome.UNTOUCHED,
+                migration.migrateOne(session, node, "default", "Rewrote", (s, n) -> ElementsRedeployRetriggeredMigration.Outcome.UNTOUCHED));
+        verify(session, never()).save();
+    }
+
+    @Test
+    void aFailingNodeIsCountedFailedAndItsChangesDropped() throws Exception {
+        JCRSessionWrapper session = mock(JCRSessionWrapper.class);
+        JCRNodeWrapper node = mock(JCRNodeWrapper.class);
+
+        ElementsRedeployRetriggeredMigration.Outcome outcome = new CountingMigration()
+                .migrateOne(session, node, "live", "Rewrote", (s, n) -> {
+                    throw new RepositoryException("locked");
+                });
+
+        assertEquals(ElementsRedeployRetriggeredMigration.Outcome.FAILED, outcome);
+        // The half-applied changes go, so the later saves of the pass are not poisoned by them.
+        verify(session).refresh(false);
+        verify(session, never()).save();
     }
 }

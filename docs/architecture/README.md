@@ -7,6 +7,7 @@ For the maintainer: how the modules work, and why they are built this way.
 - [Form submission flow](form-submission-flow.md) — the request lifecycle, the twelve-step pipeline (plus the field actions' step 11b), the trust model and the server-side safeguards
 - [Save to JCR](save-to-jcr.md) — how submissions and uploaded files are stored, the results tree, personal data
 - [Export](export.md) — the multi-format export of the results (CSV, JSON) and how to add a format
+- [Content Editor layout](content-editor-layout.md) — what a field's editor shows where: Content for the essentials, the Field settings section for everything else; the section ranks, the jContent merge rules the form overrides rely on, the CI check that keeps every property placed
 - [Custom validation](custom-validation.md) — inline validation messages replacing the native browser tooltips, with per-field contributor overrides
 - [Conditional logic field resolution](conditional-logic-field-resolution.md) — the weakref-based model of the conditional-logic dependencies, and how rules are resolved
 - [Choice field options sources](choice-field-options-sources.md) — options from categories or from content: storage model, resolution, cache, writing a source initializer

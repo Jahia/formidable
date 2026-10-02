@@ -1,0 +1,10 @@
+{
+	"nodeType": "fmdbmix:fieldActions",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "listOrdering",
+			"hide": true
+		}
+	]
+}
