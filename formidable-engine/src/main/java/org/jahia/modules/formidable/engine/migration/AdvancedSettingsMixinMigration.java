@@ -66,20 +66,17 @@ public class AdvancedSettingsMixinMigration extends ElementsRedeployRetriggeredM
         migrateBothWorkspaces(this::migrateWorkspace);
     }
 
-    /** What became of one carrier node. */
-    private enum Outcome { MIGRATED, DEFERRED, FAILED }
-
     /** @return the number of migrated fields */
     private int migrateWorkspace(JCRSessionWrapper session, String workspace) throws RepositoryException {
-        int[] counts = new int[Outcome.values().length];
+        Tally tally = new Tally();
         for (Map.Entry<String, String> retired : RETIRED_MIXINS.entrySet()) {
             JCRNodeIteratorWrapper nodes = carriersOf(session, retired.getKey(), retired.getValue());
             while (nodes.hasNext()) {
-                counts[migrateOne(session, (JCRNodeWrapper) nodes.nextNode(), retired.getValue(), workspace).ordinal()]++;
+                tally.add(migrateOne(session, (JCRNodeWrapper) nodes.nextNode(), retired.getValue(), workspace));
             }
         }
-        logSummary(workspace, counts[Outcome.MIGRATED.ordinal()], counts[Outcome.DEFERRED.ordinal()], counts[Outcome.FAILED.ordinal()]);
-        return counts[Outcome.MIGRATED.ordinal()];
+        logSummary(workspace, tally);
+        return tally.of(Outcome.MIGRATED);
     }
 
     /**
@@ -134,16 +131,10 @@ public class AdvancedSettingsMixinMigration extends ElementsRedeployRetriggeredM
         node.removeMixin(mixin);
     }
 
-    /** Drops the half-applied changes, or every later save would re-throw them. */
-    private static void refreshQuietly(JCRSessionWrapper session) {
-        try {
-            session.refresh(false);
-        } catch (RepositoryException e) {
-            log.warn("[AdvancedSettingsMixinMigration] Could not discard the pending changes: {}", e.getMessage(), e);
-        }
-    }
-
-    private static void logSummary(String workspace, int migrated, int deferred, int failed) {
+    private static void logSummary(String workspace, Tally tally) {
+        int migrated = tally.of(Outcome.MIGRATED);
+        int deferred = tally.of(Outcome.DEFERRED);
+        int failed = tally.of(Outcome.FAILED);
         if (migrated > 0) {
             log.info("[AdvancedSettingsMixinMigration] Dropped the redundant advanced-settings mixin from {} field(s) in workspace '{}'",
                     migrated, workspace);

@@ -347,8 +347,12 @@ overrides joins them rather than creating twins — the keys resolve through you
 dependency on `formidable-elements`. Help text sits at rank 1 in that fieldset, so 1.5 lands right
 under it. The mixin's own fieldset, emptied by the move, would still show as a bare switch: `hide`
 takes it off the screen while the editor keeps tracking it, so the mixin is still added on save.
-With the mixin always activated, every extended field saved in the editor gets it — acceptable
-for a sample, a deliberate choice for a product module. On a field type whose editor is not
+With the mixin always activated, every extended field saved in the editor gets it, and the editor adds
+it on save to every existing field that lacks it: a contributor whose role cannot manage node types (a
+translator) can then no longer save such a field. Acceptable for a sample; a product module should keep
+the switch, or add the mixin to the existing fields itself (a startup migration) before relying on it —
+the built-in settings left this pattern for that reason, their mixins becoming supertypes of the field
+types, which a module extending a type it does not own cannot do. On a field type whose editor is not
 reorganised yet, the setting opens the Field settings section on its own while Help text is still
 in Content; the gap closes as each family of fields moves to the shared layout.
 

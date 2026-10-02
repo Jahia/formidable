@@ -174,7 +174,9 @@ What follows from the three rules, and shaped the overrides:
   node still listing the mixin — every field saved before — would have no effective node type for Jackrabbit
   ("ambiguous property definition") and refuse every write, the removal of the mixin included (verified on
   8.2.4; a type removed from the CND stays registered anyway). `AdvancedSettingsMixinMigration` drops the
-  redundant mixin from the fields saved before; a field keeps working either way.
+  redundant mixin from the fields saved before; a field keeps working either way. Once that migration
+  leaves (0.6), the declarations may be inlined into their types and dropped — optional, cosmetic
+  (upgrade-notes.md, "Startup migrations", removal checklist).
 - **A relabel** is a `labelKey` on the fieldset entry; it applies to a type-named fieldset too.
 - **`priority`** orders the overrides among themselves; the generated form merges first. Every override of
   this repository uses 2.0 — their fields never collide, so the order among them does not matter.

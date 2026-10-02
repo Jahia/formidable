@@ -57,6 +57,31 @@ abstract class ElementsRedeployRetriggeredMigration implements JahiaEventListene
     /** Runs the whole migration; keyed on content state, so re-running is a no-op. */
     abstract void run();
 
+    /** What became of one carrier node — the tally a workspace pass reports. */
+    enum Outcome { MIGRATED, DEFERRED, UNTOUCHED, FAILED }
+
+    /** The outcomes of one workspace pass, counted. */
+    static final class Tally {
+        private final int[] counts = new int[Outcome.values().length];
+
+        void add(Outcome outcome) {
+            counts[outcome.ordinal()]++;
+        }
+
+        int of(Outcome outcome) {
+            return counts[outcome.ordinal()];
+        }
+    }
+
+    /** Drops the half-applied changes of a failed node, or every later save would re-throw them. */
+    void refreshQuietly(JCRSessionWrapper session) {
+        try {
+            session.refresh(false);
+        } catch (RepositoryException e) {
+            log.warn("[{}] Could not discard the pending changes: {}", getClass().getSimpleName(), e.getMessage(), e);
+        }
+    }
+
     /**
      * Runs one pass per workspace, default then live, each in the session
      * {@link MigrationSessions} provides (the live one a system session, so that Jahia does

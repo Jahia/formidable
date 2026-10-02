@@ -439,7 +439,17 @@ from a 0.3 restore. No released version is concerned.
 | `AdvancedSettingsMixinMigration` | 0.5.0 (#359) | 0.6 | The `fmdbmix:advancedInputTextSettings` / `fmdbmix:advancedTextareaSettings` still listed in `jcr:mixinTypes` by text and textarea fields saved before 0.5.0 — redundant since the mixins are supertypes of their types — dropped, values kept; look for "[AdvancedSettingsMixinMigration] Dropped the redundant" in the log |
 
 Removal checklist: delete the class and its unit test, drop the Cypress spec that
-restarts the engine to exercise it, and remove the row above. When the last row
+restarts the engine to exercise it, and remove the row above. Once
+`AdvancedSettingsMixinMigration` is gone — every 0.5.x instance has run it, so no field
+lists `fmdbmix:advancedInputTextSettings` or `fmdbmix:advancedTextareaSettings` any more —
+the two mixins **may** be inlined: their properties declared under `fmdb:inputText` and
+`fmdb:textarea` themselves, the mixin declarations and their override files dropped, the
+labels re-keyed on the types. Optional and cosmetic (decided 2026-10-02): the supertype
+form is final as it stands. What forbids it in 0.5 is the fields saved before, which still
+list the mixin until the migration runs; a type declaring a property its node's mixin also
+declares has no effective node type for Jackrabbit, so those fields would refuse every
+write. If it is done, a 0.4 export imported afterwards lists an unknown mixin on its text
+fields: say so in this note. When the last row
 goes, also delete `ElementsRedeployRetriggeredMigration`, `MigrationSessions`,
 `ElementsSiteReactivation` and their tests. The two marker mixins of the engine's CND
 are a different matter: a declaration that disappears while nodes still carry it leaves

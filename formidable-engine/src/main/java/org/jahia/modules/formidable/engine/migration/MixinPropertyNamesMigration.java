@@ -81,12 +81,9 @@ public class MixinPropertyNamesMigration extends ElementsRedeployRetriggeredMigr
         migrateBothWorkspaces(this::migrateWorkspace);
     }
 
-    /** What became of one carrier node. */
-    private enum Outcome { MIGRATED, DEFERRED, UNTOUCHED, FAILED }
-
     /** @return the number of migrated fields */
     private int migrateWorkspace(JCRSessionWrapper session, String workspace) throws RepositoryException {
-        int[] counts = new int[Outcome.values().length];
+        Tally tally = new Tally();
         Set<String> visited = new HashSet<>();
         for (String mixin : CARRIER_MIXINS) {
             JCRNodeIteratorWrapper nodes = carriersOf(session, mixin);
@@ -94,12 +91,12 @@ public class MixinPropertyNamesMigration extends ElementsRedeployRetriggeredMigr
                 JCRNodeWrapper node = (JCRNodeWrapper) nodes.nextNode();
                 // A node may carry two of the mixins (a datetime field, the date and datetime bounds): once
                 if (visited.add(node.getIdentifier())) {
-                    counts[migrateOne(session, node, workspace).ordinal()]++;
+                    tally.add(migrateOne(session, node, workspace));
                 }
             }
         }
-        logSummary(workspace, counts[Outcome.MIGRATED.ordinal()], counts[Outcome.DEFERRED.ordinal()], counts[Outcome.FAILED.ordinal()]);
-        return counts[Outcome.MIGRATED.ordinal()];
+        logSummary(workspace, tally);
+        return tally.of(Outcome.MIGRATED);
     }
 
     /** Scoped to editorial content: module-bundled nodes under /modules belong to their module and must not be rewritten from here. */
@@ -132,16 +129,10 @@ public class MixinPropertyNamesMigration extends ElementsRedeployRetriggeredMigr
         }
     }
 
-    /** Drops the half-applied changes, or every later save would re-throw them. */
-    private static void refreshQuietly(JCRSessionWrapper session) {
-        try {
-            session.refresh(false);
-        } catch (RepositoryException e) {
-            log.warn("[MixinPropertyNamesMigration] Could not discard the pending changes: {}", e.getMessage(), e);
-        }
-    }
-
-    private static void logSummary(String workspace, int migrated, int deferred, int failed) {
+    private static void logSummary(String workspace, Tally tally) {
+        int migrated = tally.of(Outcome.MIGRATED);
+        int deferred = tally.of(Outcome.DEFERRED);
+        int failed = tally.of(Outcome.FAILED);
         if (migrated > 0) {
             log.info("[MixinPropertyNamesMigration] Renamed the prefixed mixin properties of {} field(s) in workspace '{}'",
                     migrated, workspace);
