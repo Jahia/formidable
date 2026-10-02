@@ -119,7 +119,8 @@
 		},
 		"sidebar": {
 			"title": "Forms",
-			"formDeleted": "Form deleted"
+			"formDeleted": "Form deleted",
+			"formUnpublished": "Form not published"
 		},
 		"actions": {
 			"export": "Export",
@@ -199,7 +200,8 @@
 				"loading": "Counting matching submissions...",
 				"label": "{{count}} submissions will be deleted.",
 				"all": "{{count}} submissions will be deleted. The form leaves this page until it receives a new submission.",
-				"allOrphan": "{{count}} submissions will be deleted. The entry leaves this page; its form no longer exists."
+				"allUnpublished": "{{count}} submissions will be deleted. The form leaves this page until it is published again and receives a new submission.",
+				"allDeleted": "{{count}} submissions will be deleted. The entry leaves this page; its form no longer exists."
 			},
 			"validation": {
 				"invalidRange": "Select a valid start and end date, or delete all results.",

@@ -2,8 +2,20 @@ import React, {useCallback, useMemo, useRef, useState} from 'react';
 import {useMutation, useQuery} from '@apollo/client';
 import {Button, Checkbox, Close, DeletePermanently, Input, Typography, Warning} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
-import {buildCountQuery, formResultsLabel, isOrphanFormResults, type FormResultsNode} from '../FormResults.utils';
+import {buildCountQuery, formResultsLabel, formStatus, type FormResultsNode, type FormStatus} from '../FormResults.utils';
 import {DELETE_FORM_RESULTS, DELETE_SUBMISSIONS, GET_SUBMISSION_COUNT} from '../graphql';
+
+/**
+ * The count line of a whole-entry deletion says what goes with the submissions: the form leaves
+ * the page until its next submission; until it is published again when it is unpublished; for
+ * good when it no longer exists. A form not told apart yet reads like a published one.
+ */
+const ENTRY_COUNT_LABEL: Record<FormStatus, string> = {
+    published: 'formResults.delete.count.all',
+    unknown: 'formResults.delete.count.all',
+    unpublished: 'formResults.delete.count.allUnpublished',
+    deleted: 'formResults.delete.count.allDeleted'
+};
 
 interface DeleteResultsDialogProps {
     formResults: FormResultsNode;
@@ -57,14 +69,14 @@ export const DeleteResultsDialog = ({formResults, onClose, onDeleted}: DeleteRes
     });
 
     const submissionCount = countData?.jcr?.nodesByQuery?.pageInfo?.totalCount ?? 0;
-    // The count line says what the deletion takes with it: a range takes submissions only; the
-    // whole entry takes the form off the page too, for good when its form no longer exists.
-    const countLabelKey = allResults
-        ? (isOrphanFormResults(formResults) ? 'formResults.delete.count.allOrphan' : 'formResults.delete.count.all')
-        : 'formResults.delete.count.label';
+    // A range takes submissions only; the whole entry takes the form off the page too.
+    const countLabelKey = allResults ? ENTRY_COUNT_LABEL[formStatus(formResults)] : 'formResults.delete.count.label';
 
-    const handleBackdropClick = useCallback((event: React.MouseEvent) => {
-        if (event.target === dialogRef.current && !isDeleting) {
+    // Escape closes a modal <dialog> natively, which would leave the React state open behind a
+    // closed element; the cancel event becomes the same close as the buttons (not while deleting).
+    const handleCancel = useCallback((event: React.SyntheticEvent<HTMLDialogElement>) => {
+        event.preventDefault();
+        if (!isDeleting) {
             onClose();
         }
     }, [isDeleting, onClose]);
@@ -123,7 +135,7 @@ export const DeleteResultsDialog = ({formResults, onClose, onDeleted}: DeleteRes
                     element.showModal();
                 }
             }}
-            onClick={handleBackdropClick}
+            onCancel={handleCancel}
             style={{
                 border: 'none',
                 // borderRadius: '8px',

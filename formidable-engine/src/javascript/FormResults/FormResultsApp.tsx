@@ -1,13 +1,23 @@
 import React, {useCallback, useEffect, useState, useMemo} from 'react';
 import {useQuery} from '@apollo/client';
-import {Button, Chip, DeletePermanently, Download, Loader, Reload, Typography} from '@jahia/moonstone';
+import {Button, DeletePermanently, Download, Loader, Reload, Typography} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
-import {GET_FORM_RESULTS_LIST, GET_FORM_FIELD_LABELS} from './graphql';
+import {GET_FORM_RESULTS_LIST, GET_FORM_FIELD_LABELS, GET_FORMS_IN_EDIT} from './graphql';
 import {DeleteResultsDialog} from './delete';
 import {ExportResultsDialog} from './export';
-import {FormResultsList, SubmissionDetailPanel, SubmissionsTable} from './components';
+import {FormResultsList, FormStatusChip, SubmissionDetailPanel, SubmissionsTable} from './components';
 import type {FormResultsNode, SubmissionRow} from './FormResults.utils';
-import {currentSiteKey, EMPTY_FORM_FIELDS, formResultsLabel, isOrphanFormResults, parseFormFields, uiContext} from './FormResults.utils';
+import {
+    buildFormsInEditQuery,
+    currentSiteKey,
+    EMPTY_FORM_FIELDS,
+    formResultsLabel,
+    formStatus,
+    isMissingInLive,
+    parseFormFields,
+    uiContext,
+    withEditForms
+} from './FormResults.utils';
 
 export const FormResultsApp = () => {
     const {t} = useTranslation('formidable-engine');
@@ -28,7 +38,21 @@ export const FormResultsApp = () => {
         skip: !siteKey
     });
 
-    const forms: FormResultsNode[] = data?.jcr?.nodeByPath?.children?.nodes ?? [];
+    const liveForms: FormResultsNode[] = useMemo(() => data?.jcr?.nodeByPath?.children?.nodes ?? [], [data]);
+    // The entries whose form is not in live are told apart — unpublished or deleted — by one lookup in EDIT.
+    const formsQuery = useMemo(
+        () => buildFormsInEditQuery(liveForms.filter(isMissingInLive).map(form => form.parentForm?.value ?? '')),
+        [liveForms]
+    );
+    const {data: editFormsData} = useQuery(GET_FORMS_IN_EDIT, {
+        variables: {formsQuery: formsQuery!, language},
+        skip: !formsQuery,
+        fetchPolicy: 'network-only'
+    });
+    const forms = useMemo(
+        () => withEditForms(liveForms, formsQuery ? editFormsData?.jcr?.nodesByQuery?.nodes : []),
+        [liveForms, formsQuery, editFormsData]
+    );
     const selectedForm = forms.find(f => f.uuid === selectedFormResultsId) ?? null;
     const selectedFormUuid = selectedForm?.uuid ?? null;
     const selectedFormLabel = selectedForm ? formResultsLabel(selectedForm) : '';
@@ -152,11 +176,7 @@ export const FormResultsApp = () => {
                         <Typography variant="body" style={{color: 'var(--color-gray)'}}>
                             {selectedFormLabel}
                         </Typography>
-                        {selectedForm && isOrphanFormResults(selectedForm) && (
-                            <span data-sel-role="form-deleted">
-                                <Chip label={t('formResults.sidebar.formDeleted')} color="warning"/>
-                            </span>
-                        )}
+                        {selectedForm && <FormStatusChip status={formStatus(selectedForm)}/>}
                     </div>
                 )}
             </div>

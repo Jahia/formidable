@@ -43,8 +43,11 @@ export const ExportResultsDialog = ({formResults, onClose}: ExportResultsDialogP
         endDate: allResults ? undefined : endDate
     }), [allResults, startDate, endDate]);
 
-    const handleBackdropClick = useCallback((e: React.MouseEvent) => {
-        if (e.target === dialogRef.current && !isExporting) {
+    // Escape closes a modal <dialog> natively, which would leave the React state open behind a
+    // closed element; the cancel event becomes the same close as the buttons (not while exporting).
+    const handleCancel = useCallback((event: React.SyntheticEvent<HTMLDialogElement>) => {
+        event.preventDefault();
+        if (!isExporting) {
             onClose();
         }
     }, [isExporting, onClose]);
@@ -127,7 +130,7 @@ export const ExportResultsDialog = ({formResults, onClose}: ExportResultsDialogP
                     el.showModal();
                 }
             }}
-            onClick={handleBackdropClick}
+            onCancel={handleCancel}
             style={{
                 border: 'none',
                 // borderRadius: '8px',

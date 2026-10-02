@@ -1,5 +1,14 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
-import {formatFieldValue, formResultsLabel, isOrphanFormResults, parseFormFields, siteKeyFromRoute, type FormResultsNode} from './FormResults.utils';
+import {
+    buildFormsInEditQuery,
+    formatFieldValue,
+    formResultsLabel,
+    formStatus,
+    parseFormFields,
+    siteKeyFromRoute,
+    withEditForms,
+    type FormResultsNode
+} from './FormResults.utils';
 
 /** The value as typed, in the reader's locale: the parts are formatted in UTC so no zone shifts them. */
 const utcDate = (year: number, month: number, day: number, hours = 0, minutes = 0): Date => {
@@ -97,20 +106,42 @@ describe('parseFormFields', () => {
 });
 
 describe('form results entries', () => {
-    const entry = (parentForm: FormResultsNode['parentForm']): FormResultsNode => ({
-        uuid: 'u', path: '/sites/s/formidable-results/contact', name: 'contact', displayName: 'contact', parentForm
+    const liveForm = {uuid: 'f', path: '/sites/s/contents/contact', displayName: 'Contact us'};
+    const entry = (parentForm: FormResultsNode['parentForm'], editForm?: FormResultsNode['editForm']): FormResultsNode => ({
+        uuid: 'u', path: '/sites/s/formidable-results/contact', name: 'contact', displayName: 'contact', parentForm, editForm
     });
 
-    it('names an entry after its form, or after itself once the form is gone', () => {
-        expect(formResultsLabel(entry({refNode: {uuid: 'f', path: '/sites/s/contents/contact', displayName: 'Contact us'}}))).toEqual('Contact us');
-        expect(formResultsLabel(entry({refNode: null}))).toEqual('contact');
+    it('names an entry after its form, from live or from edit, or after itself once the form is gone', () => {
+        expect(formResultsLabel(entry({value: 'f', refNode: liveForm}))).toEqual('Contact us');
+        expect(formResultsLabel(entry({value: 'f', refNode: null}, {uuid: 'f', displayName: 'Contact us (draft)'}))).toEqual('Contact us (draft)');
+        expect(formResultsLabel(entry({value: 'f', refNode: null}, null))).toEqual('contact');
         expect(formResultsLabel(entry(null))).toEqual('contact');
     });
 
-    it('flags an entry whose form no longer resolves', () => {
-        expect(isOrphanFormResults(entry({refNode: {uuid: 'f', path: '/sites/s/contents/contact', displayName: 'Contact us'}}))).toBe(false);
-        expect(isOrphanFormResults(entry({refNode: null}))).toBe(true);
-        expect(isOrphanFormResults(entry(null))).toBe(true);
+    it('tells a published form from an unpublished and a deleted one, once the edit lookup answered', () => {
+        expect(formStatus(entry({value: 'f', refNode: liveForm}))).toEqual('published');
+        expect(formStatus(entry({value: 'f', refNode: null}))).toEqual('unknown');
+        expect(formStatus(entry({value: 'f', refNode: null}, {uuid: 'f', displayName: 'Contact us'}))).toEqual('unpublished');
+        expect(formStatus(entry({value: 'f', refNode: null}, null))).toEqual('deleted');
+    });
+
+    it('attaches the edit lookup to the entries missing in live only', () => {
+        const published = entry({value: 'p', refNode: liveForm});
+        const unpublished = entry({value: 'f', refNode: null});
+        const deleted = entry({value: 'g', refNode: null});
+        const [a, b, c] = withEditForms([published, unpublished, deleted], [{uuid: 'f', displayName: 'Contact us'}]);
+        expect(a.editForm).toBeUndefined();
+        expect(b.editForm).toEqual({uuid: 'f', displayName: 'Contact us'});
+        expect(c.editForm).toBeNull();
+        // Not answered yet: nothing is judged.
+        expect(withEditForms([unpublished], undefined)[0].editForm).toBeUndefined();
+    });
+
+    it('looks the missing forms up by well-formed UUIDs only', () => {
+        expect(buildFormsInEditQuery(['31eaa06e-4647-4d0b-bfdb-98d59d36e5b9', 'not a uuid', '']))
+            .toEqual("SELECT * FROM [fmdb:form] AS f WHERE f.[jcr:uuid] = '31eaa06e-4647-4d0b-bfdb-98d59d36e5b9'");
+        expect(buildFormsInEditQuery(['x'])).toBeNull();
+        expect(buildFormsInEditQuery([])).toBeNull();
     });
 });
 
@@ -118,6 +149,12 @@ describe('siteKeyFromRoute', () => {
     it('reads the site of a jContent app route', () => {
         expect(siteKeyFromRoute('/jahia/jcontent/FormidableSite4Tests/en/apps/formidableResults')).toEqual('FormidableSite4Tests');
         expect(siteKeyFromRoute('/jahia/jcontent/my-site/fr/apps/formidableResults/extra')).toEqual('my-site');
+    });
+
+    it('reads it behind the servlet context path, and only there', () => {
+        expect(siteKeyFromRoute('/dx/jahia/jcontent/my-site/en/apps/formidableResults', '/dx')).toEqual('my-site');
+        expect(siteKeyFromRoute('/dx/jahia/jcontent/my-site/en/apps/formidableResults')).toBeUndefined();
+        expect(siteKeyFromRoute('/jahia/jcontent/my-site/en/apps/formidableResults', '/dx')).toBeUndefined();
     });
 
     it('knows nothing outside a jContent app route', () => {

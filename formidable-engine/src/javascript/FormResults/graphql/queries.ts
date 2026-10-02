@@ -19,6 +19,7 @@ export const GET_FORM_RESULTS_LIST = gql`
                             }
                         }
                         parentForm: property(name: "parentForm") {
+                            value
                             refNode {
                                 ...JcrNodeIdentity
                                 displayName(language: $language)
@@ -146,6 +147,24 @@ export const DELETE_FORM_RESULTS = gql`
     mutation DeleteFormResults($pathOrId: String!, $workspace: Workspace = LIVE) {
         jcr(workspace: $workspace) {
             deleteNode(pathOrId: $pathOrId)
+        }
+    }
+`;
+
+/**
+ * The forms, among those whose live reference does not resolve, that still stand in EDIT: their
+ * entries are "not published" rather than "deleted". The statement comes from buildFormsInEditQuery.
+ */
+export const GET_FORMS_IN_EDIT = gql`
+    ${JCR_NODE_IDENTITY}
+    query GetFormsInEdit($formsQuery: String!, $language: String!) {
+        jcr(workspace: EDIT) {
+            nodesByQuery(query: $formsQuery, queryLanguage: SQL2) {
+                nodes {
+                    ...JcrNodeIdentity
+                    displayName(language: $language)
+                }
+            }
         }
     }
 `;

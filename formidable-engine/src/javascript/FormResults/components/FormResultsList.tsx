@@ -1,8 +1,9 @@
 import React from 'react';
-import {Badge, Chip, Form as FormIcon, Paper, Typography} from '@jahia/moonstone';
+import {Badge, Form as FormIcon, Paper, Typography} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
 import type {FormResultsNode} from '../FormResults.utils';
-import {formResultsLabel, isOrphanFormResults} from '../FormResults.utils';
+import {formResultsLabel, formStatus} from '../FormResults.utils';
+import {FormStatusChip} from './FormStatusChip';
 
 interface FormResultsListProps {
     forms: FormResultsNode[];
@@ -87,11 +88,7 @@ export const FormResultsList = ({forms, selectedId, onSelect}: FormResultsListPr
                             >
                                 {label}
                             </Typography>
-                            {isOrphanFormResults(form) && (
-                                <span data-sel-role="form-deleted" style={{flexShrink: 0}}>
-                                    <Chip label={t('formResults.sidebar.formDeleted')} color="warning"/>
-                                </span>
-                            )}
+                            <FormStatusChip status={formStatus(form)} style={{flexShrink: 0}}/>
                         </button>
                     );
                 })}

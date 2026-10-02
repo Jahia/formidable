@@ -12,27 +12,81 @@ export interface FormResultsNode {
         }>;
     };
     parentForm: {
+        /** The form's UUID as stored, whether or not it still resolves. */
+        value?: string;
         refNode: {
             uuid: string;
             path: string;
             displayName: string;
         } | null;
     } | null;
+    /**
+     * Set by the page once it looked the form up in EDIT because the live reference did not
+     * resolve: the form as it stands there (not published), or null when it is gone from both
+     * workspaces. Undefined while the lookup has not answered.
+     */
+    editForm?: {uuid: string; displayName: string} | null;
     submissionCount?: number;
 }
 
 /**
- * An entry whose form no longer exists: the parentForm weak reference does not resolve any
- * more. The results are kept on purpose (a form deleted in jContent never destroys its
- * submissions); the page flags the entry and lets an authorised user remove it.
+ * What the page knows about an entry's form. The live reference not resolving means "unpublished
+ * or deleted" — an administrator who unpublished a form for a while must not read that it is gone
+ * — so the page looks the form up in EDIT before judging. The results are kept whatever the
+ * status (a form deleted in jContent never destroys its submissions); the page flags the entry
+ * and lets an authorised user remove it.
  */
-export function isOrphanFormResults(form: FormResultsNode): boolean {
+export type FormStatus = 'published' | 'unpublished' | 'deleted' | 'unknown';
+
+/** The live reference does not resolve: the form is unpublished, deleted, or not readable there. */
+export function isMissingInLive(form: FormResultsNode): boolean {
     return !form.parentForm?.refNode;
 }
 
-/** The name the page shows for an entry: the form's title, or the node's own when the form is gone. */
+export function formStatus(form: FormResultsNode): FormStatus {
+    if (!isMissingInLive(form)) {
+        return 'published';
+    }
+
+    if (form.editForm === undefined) {
+        return 'unknown';
+    }
+
+    return form.editForm ? 'unpublished' : 'deleted';
+}
+
+/**
+ * Attaches to every entry missing in live what the EDIT lookup found about its form: the form
+ * (unpublished) or null (deleted). `editForms` undefined = the lookup has not answered yet.
+ */
+export function withEditForms(
+    forms: FormResultsNode[],
+    editForms: Array<{uuid: string; displayName: string}> | undefined
+): FormResultsNode[] {
+    return forms.map(form => {
+        if (!isMissingInLive(form) || editForms === undefined) {
+            return form;
+        }
+
+        return {...form, editForm: editForms.find(editForm => editForm.uuid === form.parentForm?.value) ?? null};
+    });
+}
+
+/** The name the page shows for an entry: the form's title, from live or from edit, or the node's own name once the form is gone. */
 export function formResultsLabel(form: FormResultsNode): string {
-    return form.parentForm?.refNode?.displayName ?? form.displayName ?? form.name;
+    return form.parentForm?.refNode?.displayName ?? form.editForm?.displayName ?? form.displayName ?? form.name;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The forms still standing in EDIT among the given UUIDs, as a SQL2 statement rather than a
+ * nodesById call: that one fails the whole field as soon as one UUID is unknown, and unknown is the
+ * very case looked for here. Only well-formed UUIDs reach the statement; null when none does.
+ */
+export function buildFormsInEditQuery(uuids: string[]): string | null {
+    const clauses = uuids.filter(uuid => UUID.test(uuid)).map(uuid => `f.[jcr:uuid] = '${uuid}'`);
+    return clauses.length === 0 ? null : `SELECT * FROM [fmdb:form] AS f WHERE ${clauses.join(' OR ')}`;
 }
 
 export interface SubmissionFieldValue {
@@ -378,16 +432,28 @@ export function parseFormFields(data: GqlFormFieldsResponse | undefined): FormFi
     return {labels, order, kinds};
 }
 
-/** Typed access to Jahia's global UI context (window.contextJsParameters). */
-export function uiContext(): {siteKey?: string; uilang?: string} {
-    return (window as Window & {contextJsParameters?: {siteKey?: string; uilang?: string}}).contextJsParameters ?? {};
+interface UiContext {
+    siteKey?: string;
+    uilang?: string;
+    /** The servlet context path, empty at the root, `/dx` on an instance deployed under /dx. */
+    contextPath?: string;
 }
 
-const JCONTENT_ROUTE = /^\/jahia\/jcontent\/([^/]+)\/[^/]+\/apps\//;
+/** Typed access to Jahia's global UI context (window.contextJsParameters). */
+export function uiContext(): UiContext {
+    return (globalThis as typeof globalThis & {contextJsParameters?: UiContext}).contextJsParameters ?? {};
+}
 
-/** The site key of a jContent app route (`/jahia/jcontent/<siteKey>/<lang>/apps/...`), or undefined elsewhere. */
-export function siteKeyFromRoute(pathname: string): string | undefined {
-    return JCONTENT_ROUTE.exec(pathname)?.[1];
+const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * The site key of a jContent app route (`<contextPath>/jahia/jcontent/<siteKey>/<lang>/apps/...`),
+ * or undefined elsewhere. The pathname carries the servlet context path (`/dx/jahia/...` on an
+ * instance deployed under /dx), hence the prefix: without it the route would never match there and
+ * the caller would silently fall back to the global it is meant to avoid.
+ */
+export function siteKeyFromRoute(pathname: string, contextPath = ''): string | undefined {
+    return new RegExp(`^${escapeRegExp(contextPath)}/jahia/jcontent/([^/]+)/[^/]+/apps/`).exec(pathname)?.[1];
 }
 
 /**
@@ -398,5 +464,6 @@ export function siteKeyFromRoute(pathname: string): string | undefined {
  * is what jContent itself derives the site from; the global context stays the fallback outside it.
  */
 export function currentSiteKey(): string | undefined {
-    return siteKeyFromRoute(window.location.pathname) ?? uiContext().siteKey;
+    const context = uiContext();
+    return siteKeyFromRoute(globalThis.location.pathname, context.contextPath ?? '') ?? context.siteKey;
 }
