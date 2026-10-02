@@ -22,8 +22,8 @@
 				"labelKey": "fmdb.fieldset.stepNavigation",
 				"rank": 1.0,
 					"fields": [
-						{ "name": "previousBtnLabel" },
-						{ "name": "nextBtnLabel" }
+						{ "name": "previousBtnLabel", "rank": 1.0 },
+						{ "name": "nextBtnLabel", "rank": 2.0 }
 					]
 				},
 			{

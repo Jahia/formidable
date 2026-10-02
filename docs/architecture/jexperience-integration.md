@@ -688,7 +688,7 @@ which cancels the deployment of the module. The options-source settings of `form
 theirs in a `fieldsets/` override for the same reason.
 
 - **Rank.** Sections order by rank, one rank per section across the product: 1.05 Field settings,
-  1.06 Configuration, 1.10 Logic, 1.12 Responses, 1.20 Buttons, 1.30 Multi-step, 1.40 Style. 1.15 gives
+  1.06 Configuration, 1.10 Logic, 1.12 Responses, 1.20 Buttons, 1.40 Style. 1.15 gives
   jExperience a rank of its own and places it right after Logic on a field. The rank table and how to add
   a section: [`content-editor-layout.md`](content-editor-layout.md).
 - **Labels.** `fmdb.section.jexperience=jExperience` plus the fieldset and property labels go in

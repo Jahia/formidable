@@ -31,6 +31,7 @@ const EDIT_FORM = gql`
 					name
 					fieldSets {
 						name
+						description
 						visible
 						dynamic
 						activated
@@ -47,6 +48,7 @@ const EDIT_FORM = gql`
 
 interface FieldSet {
 	name: string;
+	description?: string;
 	visible?: boolean;
 	dynamic?: boolean;
 	activated?: boolean;
@@ -74,6 +76,10 @@ const SETTINGS_SECTION = 'fieldSettings';
 const FIELD_ACTIONS_SWITCH = 'fmdbmix:fieldActions';
 const TEXT_MESSAGES = ['msgValueMissing', 'msgTypeMismatch', 'msgPatternMismatch', 'msgTooShort', 'msgTooLong'];
 const RANGE_MESSAGES = ['msgValueMissing', 'msgRangeUnderflow', 'msgRangeOverflow', 'msgStepMismatch', 'msgBadInput'];
+/** The one note under the Validation messages title, said once instead of under each message. */
+const VALIDATION_MESSAGES_NOTE = /browser/;
+/** The form's Step navigation fieldset in Buttons: the switch of the steps bar, then the two labels it governs. */
+const STEP_NAVIGATION = ['showStepsNav', 'previousBtnLabel', 'nextBtnLabel'];
 /** The four dynamic bound fieldsets of a date contract, at ranks 3.1 to 3.4, each carrying one mode's value. */
 const boundFieldSets = (kind: 'Date' | 'Datetime'): [string, string[]][] => [
 	[`fmdbmix:fixedMin${kind}`, ['min']],
@@ -279,11 +285,12 @@ describe('Form fields - 225 The field editor layout', () => {
 		]);
 	});
 
-	const editFormOf = (name: string) => cy.apollo({query: EDIT_FORM, variables: {path: fieldPath(name)}})
+	const editFormAt = (path: string, what: string) => cy.apollo({query: EDIT_FORM, variables: {path}})
 		.then((response: EditFormResponse) => {
-			expect(response.errors, `GraphQL errors for the edit form of ${name}`).to.be.undefined;
+			expect(response.errors, `GraphQL errors for the edit form of ${what}`).to.be.undefined;
 			return cy.wrap(response.data?.forms?.editForm?.sections ?? []);
 		});
+	const editFormOf = (name: string) => editFormAt(fieldPath(name), name);
 
 	const assertLayout = (name: string, type: string) => editFormOf(name).then(sections => {
 		const layout = LAYOUTS[type];
@@ -309,6 +316,10 @@ describe('Form fields - 225 The field editor layout', () => {
 				const names = fieldSet?.fields.map(field => field.name).filter(field => field !== SAMPLE_FIELD);
 				expect(names, `fields of ${fieldSetName} on ${name}`).to.deep.equal(fields);
 				expect(fieldSet?.visible, `${fieldSetName} visible on ${name}`).to.be.true;
+				if (fieldSetName === 'validationMessages') {
+					// Said once under the title ("a message left empty keeps the browser's"), not under each message.
+					expect(fieldSet?.description, `the Validation messages note on ${name}`).to.match(VALIDATION_MESSAGES_NOTE);
+				}
 			});
 		}
 
@@ -364,9 +375,22 @@ describe('Form fields - 225 The field editor layout', () => {
 		});
 	});
 
-	it('keeps the editor\'s children block on a container: the hide is the field actions mixin\'s, not the form\'s', () => {
+	it('keeps the editor\'s children block on a container: its children are the fields it orders', () => {
 		editFormOf('group').then(sections => {
 			expect(sections.map(section => section.name), 'sections of the fieldset container').to.include(LIST_ORDERING_SECTION);
+		});
+	});
+
+	it('lays out the form: the steps bar switch with the Previous/Next labels in Buttons, no Multi-step section, no children block', () => {
+		editFormAt(`${CONTENT_PATH}/${formName}`, 'the form').then(sections => {
+			const names = sections.map(section => section.name);
+			// One checkbox had a section to itself; it governs the step labels, so it sits with them (#150).
+			expect(names, 'no Multi-step section on the form').not.to.include('multistep');
+			// The form's children are its field and action lists: nothing a contributor orders.
+			expect(names, 'children block hidden on the form').not.to.include(LIST_ORDERING_SECTION);
+			const navigation = sections.find(section => section.name === 'buttons')?.fieldSets.find(fieldSet => fieldSet.name === 'stepNavigation');
+			expect(navigation?.fields.map(field => field.name), 'Step navigation fieldset of the form').to.deep.equal(STEP_NAVIGATION);
+			expect(navigation?.visible, 'Step navigation visible on the form').to.be.true;
 		});
 	});
 	it('lays out the choice fields, their options origin kept in Content with its fieldsets', () => {

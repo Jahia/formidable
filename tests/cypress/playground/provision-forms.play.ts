@@ -223,6 +223,10 @@ const JXP_MAPPING_MIXIN = 'fmdbmix:jExperienceProfileMapping';
 // timeout, so the context is polled up to this long — and never waited for, since a jCustomer that does
 // not answer is a case this script goes on through.
 const JXP_CONTEXT_TIMEOUT_MS = 30000;
+// The sample module of the TSX test modules adds a setting to the built-in fields (help text position): enabled on the
+// site when it is deployed, so that the playground shows what a third-party module adds to a field's editor.
+const SAMPLE_TSX_MODULE = 'formidable-test-module-samples-tsx';
+const SAMPLE_TSX_MIXIN = 'fmdbsamplemix:helpTextPosition';
 const CONTEXT_ATTEMPT_PAUSE_MS = 2000;
 let jExperienceAvailable = false;
 
@@ -751,6 +755,14 @@ describe('Playground - provision manual-testing forms', () => {
 		deleteSite(FORMIDABLE_TEST_SITE.key);
 		createSite(FORMIDABLE_TEST_SITE.key, FORMIDABLE_TEST_SITE.config);
 		FORMIDABLE_MODULE_IDS.forEach(moduleId => enableModule(moduleId, FORMIDABLE_TEST_SITE.key));
+		cy.apollo({query: gql`query sampleHelpTextPositionMixin { jcr { nodeTypeByName(name: "${SAMPLE_TSX_MIXIN}") { name } } }`})
+			.then((response: {errors?: unknown; data?: {jcr?: {nodeTypeByName?: {name?: string} | null}}}) => {
+				if (!response.errors && response.data?.jcr?.nodeTypeByName?.name) {
+					enableModule(SAMPLE_TSX_MODULE, FORMIDABLE_TEST_SITE.key);
+				} else {
+					cy.log(`${SAMPLE_TSX_MODULE} absent: the fields show no help text position setting`);
+				}
+			});
 		cy.then(() => {
 			if (jExperienceAvailable) {
 				// Both halves of the render filter's site check: jExperience among the site's modules, and ours.
