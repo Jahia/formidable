@@ -168,7 +168,7 @@ export const sharedSourcesView = (input: SourcesInput | null, held: HeldLoad | n
         return {...NOTHING, loading: false, errorKey: 'conditionalLogic.unresolvedContext'};
     }
 
-    if (held === null || held.key !== sourcesKey(input)) {
+    if (held?.key !== sourcesKey(input)) {
         return {...NOTHING, loading: true, errorKey: null};
     }
 

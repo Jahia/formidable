@@ -30,7 +30,7 @@ export const describeRuleView = (
     return {
         showValueDropdown: needsValue && kind === 'choice',
         showScalarInput: needsValue && isScalarValueKind(kind),
-        scalarInputType: kind === 'number' ? 'number' : (kind === 'text' ? 'text' : 'date')
+        scalarInputType: kind === 'number' || kind === 'text' ? kind : 'date'
     };
 };
 
