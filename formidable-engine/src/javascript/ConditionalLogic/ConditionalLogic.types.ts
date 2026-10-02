@@ -132,7 +132,7 @@ export interface GraphNode {
     path: string;
     displayName?: string | null;
     primaryNodeType?: {name?: string | null} | null;
-    // Semantic-mixin flags fetched by FORM_TREE_BY_PATH; drive source eligibility.
+    // Semantic-mixin flags fetched by ConditionalLogicSources; drive source eligibility.
     isChoiceField?: boolean;
     isDateField?: boolean;
     isNumberField?: boolean;
@@ -151,6 +151,8 @@ export interface GraphAncestorNode {
     name: string;
     path: string;
     primaryNodeType?: {name?: string | null} | null;
+    // The form tree, fetched under the fmdb:form ancestor by ConditionalLogicSources.
+    descendants?: {nodes?: GraphNode[] | null} | null;
 }
 
 export interface ChoiceValue {

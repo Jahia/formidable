@@ -58,7 +58,7 @@ The purpose is to keep `ConditionalLogicCmp.tsx` readable and avoid repeating ad
 
 This file contains the non-visual logic:
 
-- GraphQL queries used to resolve the current edited node and the parent form tree (using the shared `JCR_NODE_IDENTITY` fragment from `src/javascript/graphql/`)
+- parsing of the editor context and the shaping of the source list (the one GraphQL query that reads the edited field, its rule references and, through its form ancestor, the form tree lives in `graphql/queries.ts`; `sources.ts` posts it once per edited field and shares the answer between the rule rows — see "Loading" below)
 - parsing of the stored JSON rule
 - extraction of editor context values such as path, language, and workspace
 - discovery of valid source fields located before the current target field
@@ -95,6 +95,30 @@ Keeping them together made the main component harder to read and harder to evolv
    - an operator
    - zero, one, or multiple values depending on the source type
 13. The selector serializes the rule as JSON and writes it back through `onChange`.
+
+## Loading: one request per edited field, shared by the rule rows
+
+`sources.ts` reads everything the editor needs in **one GraphQL operation** (`graphql/queries.ts`,
+`ConditionalLogicSources`): the edited field, the rule references its `logicsSrc` subnode holds and,
+nested under the field's `fmdb:form` ancestor, the whole form tree. Before 2026-10-03 this was two
+queries in sequence — the field, then the form at the path the first had answered — because the form
+path and the site default language came from the first answer; the default language now comes from
+the editor context (`siteInfo.defaultLanguage`, the content language as fallback).
+
+The operation is **posted directly** to `/modules/graphql`, not through the editor's Apollo client.
+Measured on 8.2.4 with a field of the complete playground form: the server answered each query in 20 to
+35 ms, but through that client each left the browser about a second after it was issued — a batching
+window, paid once per query, so a rule cost two seconds of waiting before its dropdowns filled. The
+editor keeps nothing of this in the client's cache (the queries were `network-only`), so a direct
+request loses nothing.
+
+The load is **shared by the rule rows** of the field being edited: the Content Editor mounts one
+`ConditionalLogicCmp` per stored rule and remounts them all when a rule is added or removed, each
+asking for the same form. A row acquires the load on mount (`acquireSources`) and releases it on
+unmount (`releaseSources`); the entry leaves once nobody holds it, after a grace of
+`RELEASE_GRACE_MS` that a remount storm re-acquires within — so adding a rule costs no request, while
+closing the editor forgets the form and a field added elsewhere shows at the next opening. A failed
+load is not kept: the next row to ask tries again. `sources.test.ts` covers the shaping and the sharing.
 
 ## Source eligibility: semantic mixins
 

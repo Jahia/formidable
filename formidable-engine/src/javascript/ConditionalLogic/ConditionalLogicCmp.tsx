@@ -1,14 +1,11 @@
-import {useApolloClient} from '@apollo/client';
 import {Dropdown, Input, Loader, Typography} from '@jahia/moonstone';
 import React, {useEffect, useMemo, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {
-    buildLogicIdToSourceMap,
-    buildSourceFieldOptions,
     extractCurrentNodePath,
+    extractDefaultLanguage,
     extractLanguage,
     extractWorkspace,
-    findFormPath,
     getOperatorsForSource,
     isScalarValueKind,
     clearedProviderConfig,
@@ -24,8 +21,8 @@ import {
 } from './ConditionalLogic.utils';
 import {getSourceDescriptor, operatorNeedsValue} from './sourceDescriptors';
 import {getLogicProvider, listLogicProviders, type LogicProviderDescriptor, PROVIDER_OPERATORS} from './providers';
-import {CURRENT_NODE_BY_PATH, FORM_TREE_BY_PATH} from './graphql';
-import type {ConditionalLogicRule, GraphNode, LogicOperator, RuleSourceType, SelectorProps, SourceFieldOption} from './ConditionalLogic.types';
+import {acquireSources, releaseSources, sourcesKey} from './sources';
+import type {ConditionalLogicRule, LogicOperator, RuleSourceType, SelectorProps, SourceFieldOption} from './ConditionalLogic.types';
 import './conditionalLogic.css';
 
 
@@ -206,15 +203,19 @@ const touchedProviderRefs = new Set<string>();
 export const ConditionalLogicCmp = (props: SelectorProps) => {
     const {field, id, value, onChange} = props;
     const {t} = useTranslation('formidable-engine');
-    const client = useApolloClient();
     const [sources, setSources] = useState<SourceFieldOption[]>([]);
     const [logicIdToSource, setLogicIdToSource] = useState<Map<string, {name: string; uuid: string}>>(() => new Map());
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    // The load this row holds, by its sharing key, and how it ended: `loading` and `error` derive
+    // from them below, so the effect sets no state before the request answers.
+    const [loadedFor, setLoadedFor] = useState<string | null>(null);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
     const currentNodePath = extractCurrentNodePath(props);
     const language = extractLanguage(props);
     const workspace = extractWorkspace(props);
+    // The site default language holds the option identity of choice fields; the dropdown is
+    // labelled in the content language with it as fallback.
+    const defaultLanguage = extractDefaultLanguage(props, language);
     const rule = useMemo(() => parseRule(value), [value]);
     // Whether the provider-reference input was visited: its error only shows after
     // that (a rule opened with a stored reference is validated right away). Declared
@@ -319,72 +320,47 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     const selectedDescriptor = getSourceDescriptor(selectedSource?.type, selectedSource?.valueKind);
     const selectedOperator = sanitizeOperator(selectedSource, rule.operator);
 
+    // One load of the form per field being edited, shared by every rule row (sources.ts): the editor
+    // mounts a row per rule and remounts them all when one is added, each needing the same form.
+    const input = useMemo(
+        () => (currentNodePath ? {path: currentNodePath, workspace, language, defaultLanguage} : null),
+        [currentNodePath, defaultLanguage, language, workspace]
+    );
+    const key = input ? sourcesKey(input) : null;
+
     useEffect(() => {
+        if (!input) {
+            return undefined;
+        }
+
         let cancelled = false;
-
-        const loadSources = async () => {
-            if (!currentNodePath) {
-                setSources([]);
-                setError(t('conditionalLogic.unresolvedContext'));
-                return;
-            }
-
-            setLoading(true);
-            setError(null);
-
-            try {
-                const currentNodeResult = await client.query<{
-                    jcr?: {nodeByPath?: GraphNode | null} | null;
-                }>({
-                    query: CURRENT_NODE_BY_PATH,
-                    variables: {path: currentNodePath, workspace, language},
-                    fetchPolicy: 'network-only'
-                });
-
-                const currentNode = currentNodeResult.data?.jcr?.nodeByPath;
-                // The site default language holds the option identity; the rule
-                // dropdown is labelled current-language-first with it as fallback.
-                const defaultLanguage = currentNode?.site?.defaultLanguage ?? language;
-                const formPath = findFormPath(currentNode);
-                if (!currentNode || !formPath) {
-                    throw new Error(t('conditionalLogic.formNotFound'));
-                }
-
-                const logicSrcNodes = currentNode.descendant?.children?.nodes ?? [];
-                const resolvedMap = buildLogicIdToSourceMap(logicSrcNodes);
-
-                const formTreeResult = await client.query<{
-                    jcr?: {nodeByPath?: GraphNode | null} | null;
-                }>({
-                    query: FORM_TREE_BY_PATH,
-                    variables: {path: formPath, workspace, language, defaultLanguage},
-                    fetchPolicy: 'network-only'
-                });
-
-                const descendantNodes = formTreeResult.data?.jcr?.nodeByPath?.descendants?.nodes ?? [];
+        const heldKey = sourcesKey(input);
+        acquireSources(input)
+            .then(load => {
                 if (!cancelled) {
-                    setSources(buildSourceFieldOptions(currentNode.path, descendantNodes));
-                    setLogicIdToSource(resolvedMap);
+                    setSources(load.sources);
+                    setLogicIdToSource(load.logicIdToSource);
+                    setLoadError(null);
+                    setLoadedFor(heldKey);
                 }
-            } catch (error) {
+            })
+            .catch((error: unknown) => {
                 if (!cancelled) {
                     console.error('[ConditionalLogicCmp] failed to load source fields', error);
                     setSources([]);
-                    setError(t('conditionalLogic.loadError'));
+                    setLoadError(t('conditionalLogic.loadError'));
+                    setLoadedFor(heldKey);
                 }
-            } finally {
-                if (!cancelled) {
-                    setLoading(false);
-                }
-            }
-        };
-
-        void loadSources();
+            });
 
         return () => {
             cancelled = true;
+            releaseSources(input);
         };
-    }, [client, currentNodePath, language, t, workspace]);
+    }, [input, t]);
+
+    const loading = input !== null && loadedFor !== key;
+    const error = input ? loadError : t('conditionalLogic.unresolvedContext');
 
     const updateRule = (nextRule: ConditionalLogicRule) => {
         const source = sources.find(source => source.id === nextRule.sourceNodeId);

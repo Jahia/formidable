@@ -520,7 +520,7 @@ field it would leave the range enforced in the browser alone, and a forged submi
 outside it would be accepted.
 
 The rules editor discovers eligible sources through these mixins (the
-`FORM_TREE_BY_PATH` query checks `isNodeType`), so your field appears in the
+`ConditionalLogicSources` query checks `isNodeType`), so your field appears in the
 source dropdown of every later field, with the operators of its kind.
 
 ### 2. Render native named controls (usually nothing to do)
