@@ -118,9 +118,9 @@
 			"title": "Résultats de formulaires"
 		},
 		"sidebar": {
-			"title": "Formulaires",
-			"formDeleted": "Formulaire supprimé",
-			"formUnpublished": "Formulaire non publié"
+			"title": "Résultats de formulaires",
+			"formDeleted": "Formulaire supprimé dans jContent",
+			"formUnpublished": "Formulaire non publié dans jContent"
 		},
 		"actions": {
 			"export": "Exporter",

@@ -118,9 +118,9 @@
 			"title": "Form Results"
 		},
 		"sidebar": {
-			"title": "Forms",
-			"formDeleted": "Form deleted",
-			"formUnpublished": "Form not published"
+			"title": "Form results",
+			"formDeleted": "Form deleted in jContent",
+			"formUnpublished": "Form not published in jContent"
 		},
 		"actions": {
 			"export": "Export",
