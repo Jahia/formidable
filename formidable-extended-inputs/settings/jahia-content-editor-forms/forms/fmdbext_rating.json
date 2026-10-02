@@ -1,0 +1,36 @@
+{
+	"nodeType": "fmdbext:rating",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "content",
+			"fieldSets": [
+				{
+					"name": "<main>",
+					"fields": [
+						{ "name": "required", "rank": 1.2 },
+						{ "name": "maxValue" }
+					]
+				}
+			]
+		},
+		{
+			"name": "fieldSettings",
+			"labelKey": "fmdb.section.fieldSettings",
+			"rank": 1.05,
+			"fieldSets": [
+				{
+					"name": "helpAndPresentation",
+					"labelKey": "fmdb.fieldset.helpAndPresentation",
+					"rank": 1.0,
+					"fields": [
+						{ "name": "helpText", "rank": 1.0 },
+						{ "name": "icon", "rank": 1.3 },
+						{ "name": "minLabel", "rank": 1.5 },
+						{ "name": "maxLabel", "rank": 1.6 }
+					]
+				}
+			]
+		}
+	]
+}

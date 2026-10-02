@@ -4,6 +4,7 @@ import {
 	createFormNode,
 	getFieldsetNode,
 	getCheckboxNode,
+	getConsentNode,
 	getInputColorNode,
 	getInputDateNode,
 	getInputFileNode,
@@ -13,7 +14,10 @@ import {
 	getInputRangeNode,
 	getInputTextNode,
 	getRadioNode,
+	getRatingNode,
+	getScaleNode,
 	getSelectNode,
+	getSwitchNode,
 	getTextareaNode
 } from '../../support/fixtures';
 import type {JahiaNode} from '../../support/fixtures';
@@ -190,7 +194,31 @@ const LAYOUTS: Record<string, Layout> = {
 		]
 	},
 	// One property, no help text, no messages: nothing to move, no section.
-	'fmdb:inputHidden': {content: ['value'], settings: []}
+	'fmdb:inputHidden': {content: ['value'], settings: []},
+	// The optional types, laid out from their own module: what defines the control stays, what dresses it moves.
+	'fmdbext:consent': {
+		content: ['required', 'statement', 'termsTarget'],
+		settings: [['helpAndPresentation', ['helpText', 'termsLinkLabel']], ['validationMessages', ['msgValueMissing']]]
+	},
+	'fmdbext:rating': {
+		content: ['required', 'maxValue'],
+		settings: [['helpAndPresentation', ['helpText', 'icon', 'minLabel', 'maxLabel']], ['validationMessages', ['msgValueMissing']]]
+	},
+	'fmdbext:scale': {
+		content: ['required', 'minValue', 'maxValue'],
+		settings: [
+			['helpAndPresentation', ['helpText', 'minLabel', 'maxLabel']],
+			['valueAndInput', ['step']],
+			['validationMessages', ['msgValueMissing']]
+		]
+	},
+	'fmdbext:switch': {
+		settings: [
+			['helpAndPresentation', ['helpText', 'displayMode', 'onLabel', 'offLabel']],
+			['valueAndInput', ['defaultState']],
+			['validationMessages', ['msgValueMissing']]
+		]
+	}
 };
 
 const hiddenInput: JahiaNode = {
@@ -207,7 +235,9 @@ const hiddenInput: JahiaNode = {
  * cols) are hidden in the CND and appear nowhere. A slider keeps the bounds that draw
  * it in Content; the date bound modes sit in Constraints with their dynamic fieldsets right after, shown
  * once their mode is chosen. A choice field keeps its options origin and the fieldsets of its origins in
- * Content, a file field what it accepts and how many; the hidden input has nothing to move.
+ * Content, a file field what it accepts and how many; the hidden input has nothing to move. The optional
+ * types of formidable-extended-inputs follow from their own module, the shared labels resolved through its
+ * dependency on formidable-elements.
  * The validation messages join the section; the field actions switch stays at the end of Content, a
  * capability of the field rather than a setting, next to the children block its list makes the editor
  * show — a block the engine hides, one node being nothing to order. Read through the editor form
@@ -241,7 +271,11 @@ describe('Form fields - 225 The field editor layout', () => {
 			getCheckboxNode({name: 'topics', title: 'Topics', choices: [{value: 'news', label: 'News', selected: false}]}),
 			getInputFileNode({name: 'attachment', title: 'Attachment'}),
 			getInputColorNode({name: 'favourite', title: 'Favourite colour'}),
-			hiddenInput
+			hiddenInput,
+			getConsentNode({name: 'terms', title: 'Terms', statement: 'I agree to the terms.'}),
+			getRatingNode({name: 'stars', title: 'Stars'}),
+			getScaleNode({name: 'nps', title: 'Recommendation'}),
+			getSwitchNode({name: 'newsletter', title: 'Newsletter'})
 		]);
 	});
 
@@ -352,5 +386,12 @@ describe('Form fields - 225 The field editor layout', () => {
 		assertLayout('attachment', 'fmdb:inputFile');
 		assertLayout('favourite', 'fmdb:inputColor');
 		assertLayout('tracking', 'fmdb:inputHidden');
+	});
+
+	it('lays out the extended inputs from their own module', () => {
+		assertLayout('terms', 'fmdbext:consent');
+		assertLayout('stars', 'fmdbext:rating');
+		assertLayout('nps', 'fmdbext:scale');
+		assertLayout('newsletter', 'fmdbext:switch');
 	});
 });
