@@ -706,7 +706,7 @@ theirs in a `fieldsets/` override for the same reason.
   own switch. The checkbox is the engine's `profileSensitive`, a property of the marker every mappable
   field takes: the engine's own override hides it in the fieldset the editor generates for the marker,
   and this module's `forms/fmdbmix_profileMappableField.json` (priority 3.0, above the engine's 2.0)
-  takes it from there into a Privacy fieldset at rank -1 of the jExperience section, with this module's
+  takes it from there into an untitled fieldset at rank -1 of the jExperience section (no heading over one checkbox), with this module's
   labels (`labelKey`, `descriptionKey` on the field) — so the box exists exactly where it has a meaning,
   and nothing is added to the field on save (a translator's role cannot add a mixin; #365). The flag gates
   the mapping, so it must be answerable before the mapping is switched on — which is why it is a property
