@@ -9,7 +9,6 @@
 			"fieldSets": [
 				{
 					"name": "rules",
-					"descriptionKey": "fmdb.fieldset.rules.description",
 					"rank": 0.0,
 					"fields": [
 						{ "name": "logics" }
