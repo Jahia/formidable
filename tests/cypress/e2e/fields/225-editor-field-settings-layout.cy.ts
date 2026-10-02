@@ -112,9 +112,11 @@ const LAYOUTS: Record<string, Layout> = {
 		]
 	},
 	'fmdb:inputEmail': {
+		// Multiple emails defines what the field accepts, as the select's and the file field's multiple do: Content.
+		content: ['required', 'multiple'],
 		settings: [
 			['helpAndPresentation', ['helpText']],
-			['valueAndInput', ['multiple', 'placeholder', 'defaultValue', 'pattern', 'autocomplete', 'list']],
+			['valueAndInput', ['placeholder', 'defaultValue', 'pattern', 'autocomplete', 'list']],
 			['constraints', ['minLength', 'maxLength']],
 			['validationMessages', TEXT_MESSAGES]
 		]

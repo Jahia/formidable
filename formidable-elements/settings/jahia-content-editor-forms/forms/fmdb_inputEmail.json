@@ -8,7 +8,8 @@
 				{
 					"name": "<main>",
 					"fields": [
-						{ "name": "required" }
+						{ "name": "required", "rank": 1.2 },
+						{ "name": "multiple", "rank": 1.8 }
 					]
 				}
 			]
@@ -31,7 +32,6 @@
 					"labelKey": "fmdb.fieldset.valueAndInput",
 					"rank": 2,
 					"fields": [
-						{ "name": "multiple", "rank": 0.5 },
 						{ "name": "placeholder", "rank": 1 },
 						{ "name": "defaultValue", "rank": 2 },
 						{ "name": "pattern", "rank": 4 },

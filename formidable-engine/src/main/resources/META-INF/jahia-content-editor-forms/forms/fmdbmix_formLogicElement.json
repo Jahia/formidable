@@ -5,11 +5,11 @@
 		{
 			"name": "logic",
 			"labelKey": "fmdb.section.logic",
-			"descriptionKey": "fmdb.section.logic.description",
 			"rank": 1.10,
 			"fieldSets": [
 				{
 					"name": "rules",
+					"descriptionKey": "fmdb.fieldset.rules.description",
 					"rank": 0.0,
 					"fields": [
 						{ "name": "logics" }
