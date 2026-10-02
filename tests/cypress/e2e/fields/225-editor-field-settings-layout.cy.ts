@@ -62,8 +62,6 @@ const SETTINGS_SECTION = 'fieldSettings';
 const FIELD_ACTIONS_SWITCH = 'fmdbmix:fieldActions';
 const TEXT_MESSAGES = ['msgValueMissing', 'msgTypeMismatch', 'msgPatternMismatch', 'msgTooShort', 'msgTooLong'];
 const RANGE_MESSAGES = ['msgValueMissing', 'msgRangeUnderflow', 'msgRangeOverflow', 'msgStepMismatch', 'msgBadInput'];
-/** The HTML attributes hidden in the CND: no field of the editor at all (docs/architecture/content-editor-layout.md, "Hidden for good"). */
-const HIDDEN_ATTRIBUTES = ['form', 'dirname', 'size', 'cols'];
 /** The four dynamic bound fieldsets of a date contract, at ranks 3.1 to 3.4, each carrying one mode's value. */
 const boundFieldSets = (kind: 'Date' | 'Datetime'): [string, string[]][] => [
 	[`fmdbmix:fixedMin${kind}`, ['min']],
@@ -77,11 +75,14 @@ interface Layout {
 	content?: string[];
 	/** The Field settings section, fieldset by fieldset in rank order. */
 	settings: [string, string[]][];
+	/** The HTML attributes the CND hides on this type: no field of the editor at all ("Hidden for good"). */
+	hidden?: string[];
 }
 
 /** The layout of each type (docs/architecture/content-editor-layout.md). */
 const LAYOUTS: Record<string, Layout> = {
 	'fmdb:inputText': {
+		hidden: ['form', 'dirname', 'size'],
 		settings: [
 			['helpAndPresentation', ['helpText', 'title']],
 			['valueAndInput', ['placeholder', 'defaultValue', 'mask', 'pattern', 'autocomplete', 'spellcheck', 'list']],
@@ -99,6 +100,7 @@ const LAYOUTS: Record<string, Layout> = {
 		]
 	},
 	'fmdb:textarea': {
+		hidden: ['form', 'dirname', 'cols'],
 		settings: [
 			['helpAndPresentation', ['helpText']],
 			['valueAndInput', ['placeholder', 'defaultValue', 'autocomplete', 'spellcheck', 'wrap', 'rows', 'resize']],
@@ -108,6 +110,7 @@ const LAYOUTS: Record<string, Layout> = {
 		]
 	},
 	'fmdb:inputNumber': {
+		hidden: ['form'],
 		settings: [
 			['helpAndPresentation', ['helpText', 'title']],
 			['valueAndInput', ['placeholder', 'defaultValue', 'step', 'list']],
@@ -118,6 +121,7 @@ const LAYOUTS: Record<string, Layout> = {
 	},
 	// A slider is drawn by its bounds: they stay in Content, beside Required.
 	'fmdb:inputRange': {
+		hidden: ['form'],
 		content: ['required', 'minValue', 'maxValue'],
 		settings: [
 			['helpAndPresentation', ['helpText', 'minLabel', 'maxLabel', 'title']],
@@ -198,9 +202,10 @@ describe('Form fields - 225 The field editor layout', () => {
 		expect(main?.fields.map(field => field.name), `Content fields of ${name}`)
 			.to.deep.equal(layout.content ? ['jcr:title', 'ce:systemName', ...layout.content] : CONTENT_FIELDS);
 
-		// The attributes hidden in the CND are no field of the editor, in no section: nothing to tuck away.
+		// The attributes the CND hides on the type are no field of the editor, in no section: nothing to tuck away.
+		// Per type: the select's `size` is another property, the number of visible rows, and is a field.
 		const everyField = sections.flatMap(section => section.fieldSets.flatMap(fieldSet => fieldSet.fields.map(field => field.name)));
-		HIDDEN_ATTRIBUTES.forEach(attribute => expect(everyField, `${attribute} absent from the editor of ${name}`).not.to.include(attribute));
+		(layout.hidden ?? []).forEach(attribute => expect(everyField, `${attribute} absent from the editor of ${name}`).not.to.include(attribute));
 
 		const settings = sections.find(section => section.name === SETTINGS_SECTION);
 		expect(settings, `Field settings section of ${name}`).not.to.be.undefined;
