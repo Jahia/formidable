@@ -155,8 +155,10 @@ export const SubmissionsTable = ({
 
         onRegisterEnter(() => {
             if (submissions.length === 0) {
-                tableRef.current?.focus({preventScroll: true});
-            } else if (selectedSubmission) {
+                return;
+            }
+
+            if (selectedSubmission) {
                 tableRef.current?.querySelector<HTMLElement>(`[data-submission-uuid="${selectedSubmission.uuid}"]`)?.focus({preventScroll: true});
             } else {
                 onSelectSubmission(submissions[0]);
@@ -203,9 +205,7 @@ export const SubmissionsTable = ({
         <Paper hasPadding={false} style={{display: 'flex', flexDirection: 'column', height: '100%', borderRadius: '0'}}>
             <div
                 ref={tableRef}
-                tabIndex={0}
                 data-sel-role="submissions-table"
-                onKeyDown={handleKeyDown}
                 style={{
                     flex: 1,
                     overflow: 'auto',
@@ -235,13 +235,16 @@ export const SubmissionsTable = ({
                     </TableHead>
 
                     <TableBody>
-                        {submissions.map(submission => (
+                        {submissions.map((submission, index) => (
                             <TableRow
                                 key={submission.uuid}
                                 isHighlighted={selectedSubmission?.uuid === submission.uuid}
-                                tabIndex={-1}
+                                // Roving tabindex: the selected row is the one Tab reaches, or the first while
+                                // none is; the arrow keys are handled on the rows, the native interactive elements.
+                                tabIndex={(selectedSubmission ? selectedSubmission.uuid === submission.uuid : index === 0) ? 0 : -1}
                                 data-submission-uuid={submission.uuid}
                                 onClick={() => onSelectSubmission(submission)}
+                                onKeyDown={handleKeyDown}
                                 style={{cursor: 'pointer', outline: 'none'}}
                             >
                                 <TableBodyCell width="180px" isScrollable>

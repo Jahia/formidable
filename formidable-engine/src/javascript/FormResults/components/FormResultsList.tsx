@@ -17,7 +17,8 @@ export const FormResultsList = ({forms, selectedId, onSelect, onMoveRight}: Form
     const {t} = useTranslation('formidable-engine');
     const listRef = useRef<HTMLDivElement | null>(null);
 
-    // Up and down move the selection, as they do in the table; right hands the focus to the table.
+    // Up and down move the selection, as they do in the table; right hands the focus to the table. On the
+    // entries themselves, the native buttons, not on the list around them.
     const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
         if (event.key === 'ArrowRight') {
             event.preventDefault();
@@ -91,7 +92,6 @@ export const FormResultsList = ({forms, selectedId, onSelect, onMoveRight}: Form
                     ref={listRef}
                     data-sel-role="form-results-list"
                     style={{padding: '8px', overflowY: 'auto'}}
-                    onKeyDown={handleKeyDown}
                 >
                 {forms.map(form => {
                     const isSelected = form.uuid === selectedId;
@@ -105,6 +105,7 @@ export const FormResultsList = ({forms, selectedId, onSelect, onMoveRight}: Form
                             data-sel-role="form-results-entry"
                             data-sel-name={form.name}
                             onClick={() => onSelect(form.uuid)}
+                            onKeyDown={handleKeyDown}
                             style={{
                                 width: '100%',
                                 display: 'flex',
