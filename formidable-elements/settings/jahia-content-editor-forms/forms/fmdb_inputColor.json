@@ -1,5 +1,5 @@
 {
-	"nodeType": "fmdb:select",
+	"nodeType": "fmdb:inputColor",
 	"priority": 2.0,
 	"sections": [
 		{
@@ -8,8 +8,7 @@
 				{
 					"name": "<main>",
 					"fields": [
-						{ "name": "required", "rank": 1.2 },
-						{ "name": "multiple", "rank": 1.8 }
+						{ "name": "required" }
 					]
 				}
 			]
@@ -24,8 +23,7 @@
 					"labelKey": "fmdb.fieldset.helpAndPresentation",
 					"rank": 1.0,
 					"fields": [
-						{ "name": "helpText", "rank": 1.0 },
-						{ "name": "optionsEmptyLabel", "rank": 1.6 }
+						{ "name": "helpText", "rank": 1.0 }
 					]
 				},
 				{
@@ -33,16 +31,7 @@
 					"labelKey": "fmdb.fieldset.valueAndInput",
 					"rank": 2.0,
 					"fields": [
-						{ "name": "size", "rank": 3.0 }
-					]
-				},
-				{
-					"name": "behaviour",
-					"labelKey": "fmdb.fieldset.behaviour",
-					"rank": 4.0,
-					"fields": [
-						{ "name": "disabled", "rank": 2.0 },
-						{ "name": "autofocus", "rank": 3.0 }
+						{ "name": "defaultValue", "rank": 2.0 }
 					]
 				}
 			]

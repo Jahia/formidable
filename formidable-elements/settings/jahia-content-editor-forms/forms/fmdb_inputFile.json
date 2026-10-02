@@ -1,6 +1,6 @@
 {
-	"nodeType": "fmdb:checkbox",
-	"priority": 2.0,
+	"nodeType": "fmdb:inputFile",
+	"priority": 2,
 	"sections": [
 		{
 			"name": "content",
@@ -8,7 +8,16 @@
 				{
 					"name": "<main>",
 					"fields": [
-						{ "name": "required", "rank": 1.2 }
+						{
+							"name": "required",
+							"rank": 1.2
+						},
+						{
+							"name": "accept"
+						},
+						{
+							"name": "multiple"
+						}
 					]
 				}
 			]
@@ -21,12 +30,19 @@
 				{
 					"name": "helpAndPresentation",
 					"labelKey": "fmdb.fieldset.helpAndPresentation",
-					"rank": 1.0,
+					"rank": 1,
 					"fields": [
-						{ "name": "helpText", "rank": 1.0 }
+						{
+							"name": "helpText",
+							"rank": 1
+						}
 					]
 				}
 			]
+		},
+		{
+			"name": "listOrdering",
+			"hide": true
 		}
 	]
 }
