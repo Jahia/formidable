@@ -114,7 +114,7 @@ const LAYOUTS: Record<string, Layout> = {
 	'fmdb:inputEmail': {
 		settings: [
 			['helpAndPresentation', ['helpText']],
-			['valueAndInput', ['placeholder', 'defaultValue', 'multiple', 'pattern', 'autocomplete', 'list']],
+			['valueAndInput', ['multiple', 'placeholder', 'defaultValue', 'pattern', 'autocomplete', 'list']],
 			['constraints', ['minLength', 'maxLength']],
 			['validationMessages', TEXT_MESSAGES]
 		]

@@ -31,9 +31,9 @@
 					"labelKey": "fmdb.fieldset.valueAndInput",
 					"rank": 2,
 					"fields": [
+						{ "name": "multiple", "rank": 0.5 },
 						{ "name": "placeholder", "rank": 1 },
 						{ "name": "defaultValue", "rank": 2 },
-						{ "name": "multiple", "rank": 3 },
 						{ "name": "pattern", "rank": 4 },
 						{ "name": "autocomplete", "rank": 5 },
 						{ "name": "list", "rank": 7 }
