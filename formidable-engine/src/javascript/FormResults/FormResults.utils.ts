@@ -82,11 +82,13 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /**
  * The forms still standing in EDIT among the given UUIDs, as a SQL2 statement rather than a
  * nodesById call: that one fails the whole field as soon as one UUID is unknown, and unknown is the
- * very case looked for here. Only well-formed UUIDs reach the statement; null when none does.
+ * very case looked for here. Selected by the form marker fmdbmix:formRoot, what the save action
+ * resolves as a form — a third-party form type declares it, not fmdb:form. Only well-formed UUIDs
+ * reach the statement; null when none does.
  */
 export function buildFormsInEditQuery(uuids: string[]): string | null {
     const clauses = uuids.filter(uuid => UUID.test(uuid)).map(uuid => `f.[jcr:uuid] = '${uuid}'`);
-    return clauses.length === 0 ? null : `SELECT * FROM [fmdb:form] AS f WHERE ${clauses.join(' OR ')}`;
+    return clauses.length === 0 ? null : `SELECT * FROM [fmdbmix:formRoot] AS f WHERE ${clauses.join(' OR ')}`;
 }
 
 export interface SubmissionFieldValue {

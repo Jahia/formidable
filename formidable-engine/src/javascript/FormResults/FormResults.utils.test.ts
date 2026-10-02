@@ -139,7 +139,7 @@ describe('form results entries', () => {
 
     it('looks the missing forms up by well-formed UUIDs only', () => {
         expect(buildFormsInEditQuery(['31eaa06e-4647-4d0b-bfdb-98d59d36e5b9', 'not a uuid', '']))
-            .toEqual("SELECT * FROM [fmdb:form] AS f WHERE f.[jcr:uuid] = '31eaa06e-4647-4d0b-bfdb-98d59d36e5b9'");
+            .toEqual("SELECT * FROM [fmdbmix:formRoot] AS f WHERE f.[jcr:uuid] = '31eaa06e-4647-4d0b-bfdb-98d59d36e5b9'");
         expect(buildFormsInEditQuery(['x'])).toBeNull();
         expect(buildFormsInEditQuery([])).toBeNull();
     });
