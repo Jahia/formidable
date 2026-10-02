@@ -1,4 +1,4 @@
-import {deleteNode} from '@jahia/cypress';
+import {deleteNode, unpublishNode} from '@jahia/cypress';
 import {localDay} from '../../support/constants';
 import {
 	createPublishedLiveFormPage,
@@ -169,10 +169,14 @@ describe('Actions - 75 Removing a form entry from the Results page', () => {
 	});
 
 	it('flags the entry of an unpublished form apart from a deleted one, keeps its title, and lets it be removed', () => {
-		// Unpublishing removes the live node and nothing else: the form still stands in EDIT.
-		deleteNode(unpublishedFormPath, 'LIVE');
+		// A real unpublication, not a removal of the live node: the form still stands in EDIT, and on the
+		// core's unpublish route the live workspace has been seen throwing ItemNotFoundException on the
+		// results entry's parentForm reference instead of answering null — the page must survive both.
+		unpublishNode(unpublishedFormPath, 'en');
 
 		openResultsPage();
+		// The whole list is still there: one unresolvable reference must not void the page.
+		cy.get('[data-sel-role="form-results-entry"]').should('have.length', 2);
 		entry(UNPUBLISHED_FORM.name).should('contain', UNPUBLISHED_FORM.title);
 		entry(UNPUBLISHED_FORM.name).find('[data-sel-role="form-unpublished"]').should('exist');
 		entry(UNPUBLISHED_FORM.name).find('[data-sel-role="form-deleted"]').should('not.exist');
