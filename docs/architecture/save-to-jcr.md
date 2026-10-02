@@ -54,6 +54,8 @@ This gives two properties:
 
 The `fmdb:formResults` node name is not contractual. It is a historical folder name kept for operator readability, but functional identity is always resolved through `parentForm`.
 
+The node lives as long as someone wants its results: the Results page removes it (**Delete** → **Delete all results**) with its ACL and its submissions, and the next submission of the form recreates it through the same resolve-or-create path, ACL synced again. Deleting the form never removes it (see [What happens when a form is deleted](../administration/results-permissions.md#what-happens-when-a-form-is-deleted)).
+
 ## Submission Node Naming
 
 Each submission node is created with a readable name:
@@ -182,7 +184,7 @@ Field labels (human-readable names like "Email Address" instead of `email`) are 
 
 The dashboard uses a GraphQL query (`GET_FORM_FIELD_LABELS`) to read `displayName` (i.e. `jcr:title`) of each field from the `parentForm` in the dashboard user's UI language (`uilang`). This provides consistent, locale-aware labels across all submissions regardless of which language the visitor submitted in.
 
-If the form has been deleted (the `parentForm` weakreference no longer resolves), the dashboard falls back to the raw JCR field name.
+If the form has been deleted (the `parentForm` weakreference no longer resolves), the dashboard falls back to the raw JCR field name and flags the entry **Form deleted**; the entry stays until an authorised user removes it with **Delete all results**.
 
 ### Uploaded Files
 
@@ -225,4 +227,4 @@ At runtime, the action performs the following steps:
 - Folder names are intended to stay readable for operators, but they are not a functional identifier.
 - `parentForm` is the real form identity key.
 - Renaming a form does not create a second logical results folder; the existing folder is reused as-is.
-- Field labels are resolved at read time from the form node via GraphQL, not stored in the submission data. If the form is deleted, the dashboard falls back to the raw field name.
+- Field labels are resolved at read time from the form node via GraphQL, not stored in the submission data. If the form is deleted, the dashboard falls back to the raw field name and flags the entry.

@@ -11,6 +11,7 @@ export const GET_FORM_RESULTS_LIST = gql`
                     nodes {
                         ...JcrNodeIdentity
                         displayName(language: $language)
+                        canRemoveNode: hasPermission(permissionName: "jcr:removeNode")
                         submissionsContainer: children(names: ["submissions"]) {
                             nodes {
                                 canRemoveNode: hasPermission(permissionName: "jcr:removeNode")
@@ -133,6 +134,18 @@ export const DELETE_SUBMISSIONS = gql`
             ) {
                 delete
             }
+        }
+    }
+`;
+
+/**
+ * Removes a form's whole entry from the Results page: the fmdb:formResults node with its ACL
+ * and whatever submissions it still holds. The form's next submission recreates the node.
+ */
+export const DELETE_FORM_RESULTS = gql`
+    mutation DeleteFormResults($pathOrId: String!, $workspace: Workspace = LIVE) {
+        jcr(workspace: $workspace) {
+            deleteNode(pathOrId: $pathOrId)
         }
     }
 `;

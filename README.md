@@ -60,7 +60,7 @@ The current release includes the ability to:
   - Keyboard navigation (arrow keys)
   - Multi-format export (CSV, JSON) with date range filtering
   - Per-form access control via `fmdb-results-reader` role (results are private by default)
-  - Submission deletion (admin-only in v1)
+  - Submission deletion (admin-only in v1): a date range, or a form's whole entry, which leaves the list
 - Custom CSS injection per form (see [Styling a form](docs/styling/README.md) for the class hooks and CSS variables)
 - Extension points:
   - Create your own action (implement `FormAction` OSGi service via `org.jahia.modules.formidable.engine.api`)

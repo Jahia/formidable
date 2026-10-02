@@ -1,7 +1,8 @@
 import React from 'react';
-import {Badge, Form as FormIcon, Paper, Typography} from '@jahia/moonstone';
+import {Badge, Chip, Form as FormIcon, Paper, Typography} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
 import type {FormResultsNode} from '../FormResults.utils';
+import {formResultsLabel, isOrphanFormResults} from '../FormResults.utils';
 
 interface FormResultsListProps {
     forms: FormResultsNode[];
@@ -49,12 +50,14 @@ export const FormResultsList = ({forms, selectedId, onSelect}: FormResultsListPr
                 <div style={{padding: '8px', overflowY: 'auto'}}>
                 {forms.map(form => {
                     const isSelected = form.uuid === selectedId;
-                    const label = form.parentForm?.refNode?.displayName ?? form.displayName ?? form.name;
+                    const label = formResultsLabel(form);
 
                     return (
                         <button
                             key={form.uuid}
                             type="button"
+                            data-sel-role="form-results-entry"
+                            data-sel-name={form.name}
                             onClick={() => onSelect(form.uuid)}
                             style={{
                                 width: '100%',
@@ -84,6 +87,11 @@ export const FormResultsList = ({forms, selectedId, onSelect}: FormResultsListPr
                             >
                                 {label}
                             </Typography>
+                            {isOrphanFormResults(form) && (
+                                <span data-sel-role="form-deleted" style={{flexShrink: 0}}>
+                                    <Chip label={t('formResults.sidebar.formDeleted')} color="warning"/>
+                                </span>
+                            )}
                         </button>
                     );
                 })}

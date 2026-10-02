@@ -3,6 +3,8 @@ export interface FormResultsNode {
     path: string;
     name: string;
     displayName: string;
+    /** Whether the current user may remove the entry itself (the fmdb:formResults node). */
+    canRemoveNode?: boolean;
     submissionsContainer?: {
         nodes?: Array<{
             canRemoveNode?: boolean;
@@ -17,6 +19,20 @@ export interface FormResultsNode {
         } | null;
     } | null;
     submissionCount?: number;
+}
+
+/**
+ * An entry whose form no longer exists: the parentForm weak reference does not resolve any
+ * more. The results are kept on purpose (a form deleted in jContent never destroys its
+ * submissions); the page flags the entry and lets an authorised user remove it.
+ */
+export function isOrphanFormResults(form: FormResultsNode): boolean {
+    return !form.parentForm?.refNode;
+}
+
+/** The name the page shows for an entry: the form's title, or the node's own when the form is gone. */
+export function formResultsLabel(form: FormResultsNode): string {
+    return form.parentForm?.refNode?.displayName ?? form.displayName ?? form.name;
 }
 
 export interface SubmissionFieldValue {
@@ -365,4 +381,22 @@ export function parseFormFields(data: GqlFormFieldsResponse | undefined): FormFi
 /** Typed access to Jahia's global UI context (window.contextJsParameters). */
 export function uiContext(): {siteKey?: string; uilang?: string} {
     return (window as Window & {contextJsParameters?: {siteKey?: string; uilang?: string}}).contextJsParameters ?? {};
+}
+
+const JCONTENT_ROUTE = /^\/jahia\/jcontent\/([^/]+)\/[^/]+\/apps\//;
+
+/** The site key of a jContent app route (`/jahia/jcontent/<siteKey>/<lang>/apps/...`), or undefined elsewhere. */
+export function siteKeyFromRoute(pathname: string): string | undefined {
+    return JCONTENT_ROUTE.exec(pathname)?.[1];
+}
+
+/**
+ * The site the page is about: the one in the route, not the global context. jContent rewrites
+ * `contextJsParameters.siteKey` while it syncs its own site state, and a render caught in between
+ * read `systemsite` — the results list then re-queried a path that does not exist and the page
+ * showed "no results" over a list it had just displayed (seen under Cypress, spec 75). The route
+ * is what jContent itself derives the site from; the global context stays the fallback outside it.
+ */
+export function currentSiteKey(): string | undefined {
+    return siteKeyFromRoute(window.location.pathname) ?? uiContext().siteKey;
 }

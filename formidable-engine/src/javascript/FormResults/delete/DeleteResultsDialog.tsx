@@ -2,19 +2,27 @@ import React, {useCallback, useMemo, useRef, useState} from 'react';
 import {useMutation, useQuery} from '@apollo/client';
 import {Button, Checkbox, Close, DeletePermanently, Input, Typography, Warning} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
-import {buildCountQuery, type FormResultsNode} from '../FormResults.utils';
-import {DELETE_SUBMISSIONS, GET_SUBMISSION_COUNT} from '../graphql';
+import {buildCountQuery, formResultsLabel, isOrphanFormResults, type FormResultsNode} from '../FormResults.utils';
+import {DELETE_FORM_RESULTS, DELETE_SUBMISSIONS, GET_SUBMISSION_COUNT} from '../graphql';
 
 interface DeleteResultsDialogProps {
     formResults: FormResultsNode;
     onClose: () => void;
-    onDeleted: () => Promise<void> | void;
+    /** Called once the deletion went through; `entryRemoved` says the form's entry itself is gone from the page. */
+    onDeleted: (entryRemoved: boolean) => Promise<void> | void;
 }
 
+/**
+ * Deletes a form's submissions over a date range, or — "Delete all results" — the form's whole
+ * entry: the fmdb:formResults node goes with its submissions, and the form leaves the page until
+ * its next submission recreates the node. The entry removal is what clears an entry that is
+ * already empty, or whose form was deleted in jContent (the results are never destroyed with
+ * the form); both cases cannot be reached by the range deletion, which needs a submission to match.
+ */
 export const DeleteResultsDialog = ({formResults, onClose, onDeleted}: DeleteResultsDialogProps) => {
     const {t} = useTranslation('formidable-engine');
     const dialogRef = useRef<HTMLDialogElement | null>(null);
-    const confirmationTarget = formResults.parentForm?.refNode?.displayName ?? formResults.displayName ?? formResults.name;
+    const confirmationTarget = formResultsLabel(formResults);
 
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -24,6 +32,7 @@ export const DeleteResultsDialog = ({formResults, onClose, onDeleted}: DeleteRes
     const [errorMessage, setErrorMessage] = useState('');
 
     const [deleteSubmissions] = useMutation(DELETE_SUBMISSIONS);
+    const [deleteFormResults] = useMutation(DELETE_FORM_RESULTS);
 
     const filters = useMemo(() => ({
         startDate: allResults ? undefined : startDate,
@@ -33,6 +42,8 @@ export const DeleteResultsDialog = ({formResults, onClose, onDeleted}: DeleteRes
     const isRangeComplete = allResults || (startDate !== '' && endDate !== '');
     const hasValidRange = allResults || (startDate !== '' && endDate !== '' && startDate <= endDate);
     const hasDeleteAllConfirmation = !allResults || confirmationText === confirmationTarget;
+    // A range must match a submission; the whole entry goes whatever it holds, zero included.
+    const needsMatchingSubmissions = !allResults;
 
     const countQuery = useMemo(
         () => buildCountQuery(formResults.path, filters),
@@ -46,6 +57,11 @@ export const DeleteResultsDialog = ({formResults, onClose, onDeleted}: DeleteRes
     });
 
     const submissionCount = countData?.jcr?.nodesByQuery?.pageInfo?.totalCount ?? 0;
+    // The count line says what the deletion takes with it: a range takes submissions only; the
+    // whole entry takes the form off the page too, for good when its form no longer exists.
+    const countLabelKey = allResults
+        ? (isOrphanFormResults(formResults) ? 'formResults.delete.count.allOrphan' : 'formResults.delete.count.all')
+        : 'formResults.delete.count.label';
 
     const handleBackdropClick = useCallback((event: React.MouseEvent) => {
         if (event.target === dialogRef.current && !isDeleting) {
@@ -59,7 +75,7 @@ export const DeleteResultsDialog = ({formResults, onClose, onDeleted}: DeleteRes
             return;
         }
 
-        if (!isCounting && submissionCount === 0) {
+        if (needsMatchingSubmissions && !isCounting && submissionCount === 0) {
             setErrorMessage(t('formResults.delete.validation.noResults'));
             return;
         }
@@ -73,14 +89,23 @@ export const DeleteResultsDialog = ({formResults, onClose, onDeleted}: DeleteRes
         setIsDeleting(true);
 
         try {
-            await deleteSubmissions({
-                variables: {
-                    submissionsQuery: countQuery,
-                    workspace: 'LIVE'
-                }
-            });
+            if (allResults) {
+                await deleteFormResults({
+                    variables: {
+                        pathOrId: formResults.uuid,
+                        workspace: 'LIVE'
+                    }
+                });
+            } else {
+                await deleteSubmissions({
+                    variables: {
+                        submissionsQuery: countQuery,
+                        workspace: 'LIVE'
+                    }
+                });
+            }
 
-            await onDeleted();
+            await onDeleted(allResults);
             onClose();
         } catch (error) {
             setErrorMessage(error instanceof Error ? error.message : t('formResults.delete.validation.unexpectedError'));
@@ -91,6 +116,7 @@ export const DeleteResultsDialog = ({formResults, onClose, onDeleted}: DeleteRes
 
     return (
         <dialog
+            data-sel-role="delete-results-dialog"
             ref={element => {
                 dialogRef.current = element;
                 if (element && !element.open) {
@@ -178,6 +204,7 @@ export const DeleteResultsDialog = ({formResults, onClose, onDeleted}: DeleteRes
 
                     <label style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
                         <Checkbox
+                            data-sel-role="delete-all-results"
                             checked={allResults}
                             isDisabled={isDeleting}
                             onChange={(_event, _value, checked) => {
@@ -199,6 +226,7 @@ export const DeleteResultsDialog = ({formResults, onClose, onDeleted}: DeleteRes
                                 {t('formResults.delete.fields.confirmationHelp', {name: confirmationTarget})}
                             </Typography>
                             <Input
+                                data-sel-role="delete-results-confirmation"
                                 size="big"
                                 value={confirmationText}
                                 isDisabled={isDeleting}
@@ -209,8 +237,8 @@ export const DeleteResultsDialog = ({formResults, onClose, onDeleted}: DeleteRes
                     )}
 
                     {hasValidRange && (
-                        <Typography variant="body" style={{color: 'var(--color-gray)'}}>
-                            {isCounting ? t('formResults.delete.count.loading') : t('formResults.delete.count.label', {count: submissionCount})}
+                        <Typography variant="body" style={{color: 'var(--color-gray)'}} data-sel-role="delete-results-count">
+                            {isCounting ? t('formResults.delete.count.loading') : t(countLabelKey, {count: submissionCount})}
                         </Typography>
                     )}
 
@@ -239,7 +267,8 @@ export const DeleteResultsDialog = ({formResults, onClose, onDeleted}: DeleteRes
                         color="danger"
                         icon={<DeletePermanently/>}
                         label={t('formResults.delete.confirm')}
-                        isDisabled={!isRangeComplete || !hasValidRange || !hasDeleteAllConfirmation || isCounting || submissionCount === 0}
+                        isDisabled={!isRangeComplete || !hasValidRange || !hasDeleteAllConfirmation || isCounting || (needsMatchingSubmissions && submissionCount === 0)}
+                        data-sel-role="delete-results-confirm"
                         isLoading={isDeleting}
                         onClick={handleDelete}
                     />

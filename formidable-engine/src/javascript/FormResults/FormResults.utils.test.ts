@@ -1,5 +1,5 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
-import {formatFieldValue, parseFormFields} from './FormResults.utils';
+import {formatFieldValue, formResultsLabel, isOrphanFormResults, parseFormFields, siteKeyFromRoute, type FormResultsNode} from './FormResults.utils';
 
 /** The value as typed, in the reader's locale: the parts are formatted in UTC so no zone shifts them. */
 const utcDate = (year: number, month: number, day: number, hours = 0, minutes = 0): Date => {
@@ -93,5 +93,36 @@ describe('parseFormFields', () => {
         expect(fields.kinds.get('birthday')).toEqual('date');
         expect(fields.kinds.get('appointment')).toEqual('datetime');
         expect(fields.kinds.has('comment')).toEqual(false);
+    });
+});
+
+describe('form results entries', () => {
+    const entry = (parentForm: FormResultsNode['parentForm']): FormResultsNode => ({
+        uuid: 'u', path: '/sites/s/formidable-results/contact', name: 'contact', displayName: 'contact', parentForm
+    });
+
+    it('names an entry after its form, or after itself once the form is gone', () => {
+        expect(formResultsLabel(entry({refNode: {uuid: 'f', path: '/sites/s/contents/contact', displayName: 'Contact us'}}))).toEqual('Contact us');
+        expect(formResultsLabel(entry({refNode: null}))).toEqual('contact');
+        expect(formResultsLabel(entry(null))).toEqual('contact');
+    });
+
+    it('flags an entry whose form no longer resolves', () => {
+        expect(isOrphanFormResults(entry({refNode: {uuid: 'f', path: '/sites/s/contents/contact', displayName: 'Contact us'}}))).toBe(false);
+        expect(isOrphanFormResults(entry({refNode: null}))).toBe(true);
+        expect(isOrphanFormResults(entry(null))).toBe(true);
+    });
+});
+
+describe('siteKeyFromRoute', () => {
+    it('reads the site of a jContent app route', () => {
+        expect(siteKeyFromRoute('/jahia/jcontent/FormidableSite4Tests/en/apps/formidableResults')).toEqual('FormidableSite4Tests');
+        expect(siteKeyFromRoute('/jahia/jcontent/my-site/fr/apps/formidableResults/extra')).toEqual('my-site');
+    });
+
+    it('knows nothing outside a jContent app route', () => {
+        expect(siteKeyFromRoute('/jahia/jcontent/my-site/en/pages/home')).toBeUndefined();
+        expect(siteKeyFromRoute('/jahia/category-manager')).toBeUndefined();
+        expect(siteKeyFromRoute('/')).toBeUndefined();
     });
 });

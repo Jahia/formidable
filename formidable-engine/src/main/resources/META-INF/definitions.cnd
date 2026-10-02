@@ -334,6 +334,10 @@ orderable
 [fmdb:resultsFolder] > jnt:content, jmix:accessControlled
  + * (fmdb:formResults) = fmdb:formResults
 
+// One per form, created in live by the first submission the Save to JCR action stores, named after the
+// form (identity = parentForm). Removed from the Results page by "Delete all results" — the entry goes
+// with its ACL and its submissions, and the next submission recreates it. Never removed with the form:
+// a form deleted in jContent leaves its results in place, flagged on the page until someone removes them.
 [fmdb:formResults] > jnt:content, jmix:accessControlled
  - parentForm (weakreference) mandatory indexed=no
  - buildingLang (string) indexed=no

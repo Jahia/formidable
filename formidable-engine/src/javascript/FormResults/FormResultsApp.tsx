@@ -1,17 +1,17 @@
 import React, {useCallback, useEffect, useState, useMemo} from 'react';
 import {useQuery} from '@apollo/client';
-import {Button, DeletePermanently, Download, Loader, Reload, Typography} from '@jahia/moonstone';
+import {Button, Chip, DeletePermanently, Download, Loader, Reload, Typography} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
 import {GET_FORM_RESULTS_LIST, GET_FORM_FIELD_LABELS} from './graphql';
 import {DeleteResultsDialog} from './delete';
 import {ExportResultsDialog} from './export';
 import {FormResultsList, SubmissionDetailPanel, SubmissionsTable} from './components';
 import type {FormResultsNode, SubmissionRow} from './FormResults.utils';
-import {EMPTY_FORM_FIELDS, parseFormFields, uiContext} from './FormResults.utils';
+import {currentSiteKey, EMPTY_FORM_FIELDS, formResultsLabel, isOrphanFormResults, parseFormFields, uiContext} from './FormResults.utils';
 
 export const FormResultsApp = () => {
     const {t} = useTranslation('formidable-engine');
-    const siteKey = uiContext().siteKey;
+    const siteKey = currentSiteKey();
     const language = uiContext().uilang || 'en';
     const resultsPath = `/sites/${siteKey}/formidable-results`;
 
@@ -31,10 +31,12 @@ export const FormResultsApp = () => {
     const forms: FormResultsNode[] = data?.jcr?.nodeByPath?.children?.nodes ?? [];
     const selectedForm = forms.find(f => f.uuid === selectedFormResultsId) ?? null;
     const selectedFormUuid = selectedForm?.uuid ?? null;
-    const selectedFormLabel = selectedForm
-        ? selectedForm.parentForm?.refNode?.displayName ?? selectedForm.displayName ?? selectedForm.name
-        : '';
+    const selectedFormLabel = selectedForm ? formResultsLabel(selectedForm) : '';
+    // One Delete button for both deletions: the submissions of a range, or the whole entry. The
+    // user needs the rights of both — administrative access today, the results-reader role carrying
+    // none of them (docs/administration/results-permissions.md, "Deletion permissions").
     const canDeleteSelectedForm = Boolean(
+        selectedForm?.canRemoveNode &&
         selectedForm?.submissionsContainer?.nodes?.[0]?.canRemoveNode &&
         selectedForm?.submissionsContainer?.nodes?.[0]?.canRemoveChildNodes
     );
@@ -76,8 +78,15 @@ export const FormResultsApp = () => {
         }
     };
 
-    const handleDeleteSuccess = async () => {
+    const handleDeleteSuccess = async (entryRemoved: boolean) => {
         setSelectedSubmission(null);
+
+        if (entryRemoved) {
+            // The entry is gone: nothing to refresh under it, the list alone is re-read.
+            setSelectedFormResultsId(null);
+            await refetchForms();
+            return;
+        }
 
         if (!selectedForm || !refreshSelectedForm) {
             await refetchForms();
@@ -139,9 +148,16 @@ export const FormResultsApp = () => {
                     {t('formResults.nav.title')}
                 </Typography>
                 {selectedFormLabel && (
-                    <Typography variant="body" style={{marginTop: '4px', color: 'var(--color-gray)'}}>
-                        {selectedFormLabel}
-                    </Typography>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px'}}>
+                        <Typography variant="body" style={{color: 'var(--color-gray)'}}>
+                            {selectedFormLabel}
+                        </Typography>
+                        {selectedForm && isOrphanFormResults(selectedForm) && (
+                            <span data-sel-role="form-deleted">
+                                <Chip label={t('formResults.sidebar.formDeleted')} color="warning"/>
+                            </span>
+                        )}
+                    </div>
                 )}
             </div>
 
@@ -168,6 +184,7 @@ export const FormResultsApp = () => {
                         color="danger"
                         icon={<DeletePermanently/>}
                         label={t('formResults.actions.delete')}
+                        data-sel-role="delete-results"
                         isDisabled={!selectedForm}
                         onClick={() => setIsDeleteDialogOpen(true)}
                     />
