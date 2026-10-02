@@ -194,16 +194,16 @@
 			"fields": {
 				"startDate": "Start date",
 				"endDate": "End date",
-				"allResults": "Delete all results and remove the form results from this page",
+				"allResults": "All results",
 				"confirmationLabel": "Confirmation",
 				"confirmationHelp": "Please type \"{{name}}\" to confirm deletion."
 			},
 			"count": {
 				"loading": "Counting matching submissions...",
 				"label": "{{count}} submissions will be deleted.",
-				"all": "{{count}} submissions will be deleted. The form results leave this page until the form receives a new submission.",
-				"allUnpublished": "{{count}} submissions will be deleted. The form results leave this page until the form is published again and receives a new submission.",
-				"allDeleted": "{{count}} submissions will be deleted. The form results leave this page; the form no longer exists."
+				"all": "{{count}} submissions will be deleted. The form leaves the list until it receives a new submission.",
+				"allUnpublished": "{{count}} submissions will be deleted. The form leaves the list until it is published again and receives a new submission.",
+				"allDeleted": "{{count}} submissions will be deleted. The form leaves the list for good: it no longer exists."
 			},
 			"validation": {
 				"invalidRange": "Select a valid start and end date, or delete all results.",
