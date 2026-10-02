@@ -100,28 +100,33 @@ orderable
 
 // --- Field actions (docs/architecture/field-actions.md) ---
 
-// Marker: what the node IS. A field action the engine runs against ONE field's candidate value,
-// at the visitor's request while the form is being filled and again when the submission is
-// parsed, before any form action runs. Concrete field-action types take it as a supertype,
-// whatever module declares them, exactly as action types take fmdbmix:formAction. A field
-// action answers a verdict; it never writes.
-[fmdbmix:fieldAction] mixin
-
-// What the contributor sets on every field action, whatever its type — attached through the
-// marker with `extends`, the way the options fieldsets extend fmdbmix:optionsSource, so a
-// third-party type gets it with nothing to opt into: the message the visitor reads when the
-// value is refused (${value} interpolation, escaped server-side), when to ask (blur for a cheap
-// check, submit for a paid one), whether a refusal blocks the submission or only warns, and what
-// an unanswered check means (accept — a provider outage never blocks visitors — or reject, for a
-// form that must not pass unchecked). The engine reads all four, hence owns the mixin and its
-// Content Editor override. A node saved outside the editor may lack the mixin: the engine then
-// uses the defaults.
-[fmdbmix:fieldActionFeedback] > jmix:templateMixin mixin
- extends = fmdbmix:fieldAction
+// What the contributor sets on every field action, whatever its type: the message the visitor
+// reads when the value is refused (${value} interpolation, escaped server-side), when to ask (blur
+// for a cheap check, submit for a paid one), whether a refusal blocks the submission or only warns,
+// and what an unanswered check means (accept — a provider outage never blocks visitors — or reject,
+// for a form that must not pass unchecked). A supertype of the marker below since 0.5.0, so a
+// third-party type gets the four with the marker, nothing to opt into and no mixin for the editor
+// to add on save: attached with `extends` and kept always activated, as it first was, the editor
+// added it to every existing action on save, which a translator's role cannot do (the finding of
+// #359 on the field settings; same remedy, #365). The engine reads all four, hence owns the mixin
+// and its Content Editor override, which lays the fieldset out in the Configuration section. The
+// name stays: an action saved before still lists the mixin in jcr:mixinTypes, harmless (Jackrabbit
+// accepts a mixin the type already includes), and RedundantMixinMigration drops it. A property
+// removed by hand reads as its default. A field-action type declared by another module sees the
+// supertype once that module is redeployed after the engine (a registered type keeps the
+// supertypes it resolved; docs/administration/upgrade-notes.md, "Startup migrations").
+[fmdbmix:fieldActionFeedback] mixin
  - rejectionMessage (string, richtext[ckeditor.toolbar='FormidableHelp',ckeditor.customConfig='$context/modules/formidable-engine/javascript/ckeditor/helpTextConfig.js']) = resourceBundle('fmdbmix_fieldActionFeedback.rejectionMessage.default') autocreated i18n indexed=no
  - trigger (string, choicelist[resourceBundle]) = 'blur' autocreated indexed=no < 'blur', 'submit'
  - severity (string, choicelist[resourceBundle]) = 'block' autocreated indexed=no < 'block', 'warn'
  - whenUnavailable (string, choicelist[resourceBundle]) = 'accept' autocreated indexed=no < 'accept', 'reject'
+
+// Marker: what the node IS. A field action the engine runs against ONE field's candidate value,
+// at the visitor's request while the form is being filled and again when the submission is
+// parsed, before any form action runs. Concrete field-action types take it as a supertype,
+// whatever module declares them, exactly as action types take fmdbmix:formAction — and with it
+// the feedback settings above. A field action answers a verdict; it never writes.
+[fmdbmix:fieldAction] > fmdbmix:fieldActionFeedback mixin
 
 // DEPRECATED, removed in 0.6: the provider a field action picked when the services were a list of the engine's
 // configuration. A field action now reads its service from its own module's configuration; nothing reads this

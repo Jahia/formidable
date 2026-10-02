@@ -80,24 +80,25 @@ that SDK ships, form actions and field actions written in JavaScript will go thr
 ## JCR definitions
 
 The split follows [CND module ownership](cnd-module-ownership.md): **markers the engine keys on live in
-the engine and carry no property; what the contributor configures is a property mixin attached through
-a marker with `extends`; concrete types live with the code that implements them.**
+the engine and carry no property of their own; what the contributor configures on every such node is a
+property mixin the marker includes as a supertype — a setting that is switched on is attached to the
+marker with `extends` instead; concrete types live with the code that implements them.**
 
 ### `formidable-engine` — `META-INF/definitions.cnd`
 
 ```cnd
-// Marker: what the node IS. Concrete field-action types take it as a supertype, whatever module
-// declares them, exactly as action types take fmdbmix:formAction. A field action answers; it never writes.
-[fmdbmix:fieldAction] mixin
-
-// What the contributor sets on every field action, whatever its type — attached through the marker with
-// `extends`, so a third-party type gets it with nothing to opt into.
+// What the contributor sets on every field action, whatever its type — a supertype of the marker, so a
+// third-party type gets it with the marker, nothing to opt into and no mixin for the editor to add on save.
 [fmdbmix:fieldActionFeedback] mixin
- extends = fmdbmix:fieldAction
  - rejectionMessage (string, richtext[…]) = resourceBundle('fmdbmix_fieldActionFeedback.rejectionMessage.default') autocreated i18n indexed=no
  - trigger (string, choicelist[resourceBundle]) = 'blur' autocreated indexed=no < 'blur', 'submit'
  - severity (string, choicelist[resourceBundle]) = 'block' autocreated indexed=no < 'block', 'warn'
  - whenUnavailable (string, choicelist[resourceBundle]) = 'accept' autocreated indexed=no < 'accept', 'reject'
+
+// Marker: what the node IS. Concrete field-action types take it as a supertype, whatever module
+// declares them, exactly as action types take fmdbmix:formAction — and with it the feedback settings.
+// A field action answers; it never writes.
+[fmdbmix:fieldAction] > fmdbmix:fieldActionFeedback mixin
 
 // The per-field list, fmdb:actionList in miniature. Orderable: the first blocking refusal wins.
 [fmdb:fieldActionList] > jnt:content, jmix:list, mix:title, jmix:systemNameReadonly
@@ -164,8 +165,8 @@ of their overrides, so they must not offer a switch of their own.
 when the browser asks (`blur` for a cheap check, `submit` for a paid one — the pipeline runs the blocking
 ones again regardless), whether a refusal blocks the submission or only warns, and what an unanswered
 check means (`accept`: a provider outage never blocks visitors; `reject`: a form that must not pass
-unchecked). A node saved outside the editor may lack the mixin or a property: the engine reads the CND
-defaults (`ResolvedFieldAction`).
+unchecked). Every action has the four, since its type includes the mixin; a property removed by hand, or
+a value the choicelist never offered, reads as the CND default (`ResolvedFieldAction`).
 
 ### A field-action type — in the module that implements it
 
@@ -174,8 +175,8 @@ names the concrete type: it reaches it through the markers.
 
 ```cnd
 // A module of its own: the type takes the marker, carries its own settings, and a Java service
-// bound to it judges the value. The four feedback settings arrive through
-// `extends`, unasked. A type calling a service takes nothing more: the service is its module's own,
+// bound to it judges the value. The four feedback settings arrive with the marker, whose
+// supertype they are, unasked. A type calling a service takes nothing more: the service is its module's own,
 // read from that module's configuration — the contributor has no service to pick.
 [myco:crmLookupAction] > jnt:content, fmdbmix:fieldAction, mix:title
  - jcr:title (string) = resourceBundle('myco_crmLookupAction') autocreated i18n
@@ -713,6 +714,7 @@ call per blocking action and non-blank value never pre-checked.
 | 2026-09-25 | **No spinner while the field actions settle before the submission**; a second click meanwhile is ignored | The spinner hides the form (the accepted submission replaces it), and the messages the settle may produce land on that very form: a refused value would have flashed the form away and back. The pending state on the fields checked is the feedback, and a guard in the submission hook keeps a second click from starting a second settle |
 | 2026-09-28 | **Submit is disabled while a field action's blocking refusal is shown**; Next likewise for its step — and not while a check runs (HDU, manual review: two refusals on screen and a Submit that looked clickable; then the review of #349) | A refusal drawn under a field is a state the visitor must act on, and a button that only meets it again on click says the opposite. The browser's own validation keeps the button active — the click is what draws its messages — and the captcha is the precedent for a button blocked by an unmet condition. The first cut also disabled the button while a check ran, and dropped the most ordinary click of all: the one on Submit that leaves the last field, whose `focusout` starts the blur check, which React flushes before `mouseup` — the click on a now-disabled button is never dispatched. The settle awaits the check instead, as decided on 2026-09-25. The island reads the refusals from the DOM on the validity event the messages utility dispatches, so a refused submission's anchoring counts as the pre-check's does, and once more after the `input`/`change` events conditional logic toggles controls on, so a refusal on a hidden field stops counting |
 | 2026-09-25 | **The pre-check leaves alone a field conditional logic holds hidden** (`isAskable`) | The pipeline skips hidden fields, so asking about one would spend a provider call on a value that is never judged, and show a message under a field the visitor cannot see. Was an open question of the engine PR |
+| 2026-10-02 | **`fmdbmix:fieldActionFeedback` is a supertype of the marker, no longer a mixin attached to it with `extends` and kept always activated** (#365, the finding of #359 carried over: the always-activated fieldset made the editor add the mixin to every existing action on save, which a translator's role cannot do, and showed no CND default) | The marker reaches every field-action type whatever its module, so a supertype of the marker reaches them all the same way, with the properties as the type's own: no switch, defaults shown, nothing added on save. Same remedy as the field settings, same migration — `RedundantMixinMigration` drops the redundant mixin from the actions saved before; the name stays, since Jackrabbit refuses a node whose primary type and mixin declare the same property. Measured on 8080 at the first deploy: a type registered by another module (`fmdbsample:blockedWordsAction`) keeps the supertypes it resolved and reported no feedback supertype until the samples module was redeployed — so the migration defers such actions and re-runs on any module redeploy, and the upgrade note asks for that redeploy |
 | 2026-09-25 | **The library helpers handed the verdict over in the engine's raw-html element; the reader decoded entities only once the raw body had failed to read** (review of #346, two rounds — withdrawn with the JavaScript path, the row above) | `renderToString` escapes the text a component returns: every JavaScript field action answered as a plain string reached the reader as `&quot;`-quoted JSON, UNAVAILABLE, accepted by the CND default — and nothing had run that chain end to end. The element was what the engine emitted verbatim. The first cut decoded every body: a raw body whose `detail` held entity text (`provider said &quot;no&quot;`) then read as malformed — or as a second `verdict` — and a refusal ended accepted; decoding after a failed raw read kept both paths exact. The samples' JavaScript action and spec 73 held the chain until the withdrawal |
 | 2026-09-25 | **`jsm-raw-html` was the engine's internal element; the engine stripped its tags itself as a belt** (review of #346 — withdrawn with the JavaScript path, the row above) | The JavaScript modules engine's source says the element should not be used in userland, and the published library then depended on it: had it been renamed or dropped, the tags would have reached the reader as markup and every JavaScript action would have gone UNAVAILABLE, accepted, silently. `RenderServiceViewRenderer.body` stripped the tags too, so the verdict read either way; the library test pinned that strip. Whether the element might be relied on was a question for the JavaScript modules team, moot since the withdrawal |
 | 2026-09-25 | **Next moves from the step the visitor is on once the answer lands, not from the one the click saw** (review of #346) | The validation now waits on a provider; Previous stays enabled meanwhile. Read from the click's render, the move jumped a step when the visitor had gone back, or when logic had revealed one. The current step and the visible steps are refs updated with the state, and a move whose step is gone is dropped |

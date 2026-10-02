@@ -1,6 +1,5 @@
 package org.jahia.modules.formidable.engine.actions.field;
 
-import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.engine.api.FmdbProperty;
 import org.jahia.services.content.JCRNodeWrapper;
 
@@ -53,18 +52,18 @@ public record ResolvedFieldAction(String id, String nodeType, Trigger trigger, S
     }
 
     /**
-     * Reads a field-action node. A node saved outside the editor may lack the feedback mixin or one of its
-     * properties: every setting then falls back to its CND default — blur, block, accept — so the engine and the
+     * Reads a field-action node. The four settings come with the type — the marker includes
+     * {@code fmdbmix:fieldActionFeedback} — so every action has them; a property removed by hand, or a value
+     * the choicelist never offered, falls back to its CND default — blur, block, accept — so the engine and the
      * editor agree on what an unset value means.
      */
     public static ResolvedFieldAction read(JCRNodeWrapper node) throws RepositoryException {
-        boolean hasFeedback = node.isNodeType(FmdbMixin.FIELD_ACTION_FEEDBACK);
         return new ResolvedFieldAction(
                 node.getIdentifier(),
                 node.getPrimaryNodeTypeName(),
-                Trigger.of(hasFeedback ? property(node, FmdbProperty.TRIGGER) : null),
-                Severity.of(hasFeedback ? property(node, FmdbProperty.SEVERITY) : null),
-                Unavailable.of(hasFeedback ? property(node, FmdbProperty.WHEN_UNAVAILABLE) : null)
+                Trigger.of(property(node, FmdbProperty.TRIGGER)),
+                Severity.of(property(node, FmdbProperty.SEVERITY)),
+                Unavailable.of(property(node, FmdbProperty.WHEN_UNAVAILABLE))
         );
     }
 

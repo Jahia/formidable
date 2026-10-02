@@ -10,7 +10,6 @@
 				{
 					"name": "fmdbmix:fieldActionFeedback",
 					"rank": 0.0,
-					"isAlwaysActivated": true,
 					"fields": [
 						{ "name": "trigger", "rank": 1.0 },
 						{ "name": "severity", "rank": 2.0 },

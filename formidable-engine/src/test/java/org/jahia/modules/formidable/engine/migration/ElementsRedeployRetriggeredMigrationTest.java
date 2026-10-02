@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
  */
 class ElementsRedeployRetriggeredMigrationTest {
 
-    private static final class CountingMigration extends ElementsRedeployRetriggeredMigration {
+    private static class CountingMigration extends ElementsRedeployRetriggeredMigration {
         int runs;
 
         @Override
@@ -41,10 +41,22 @@ class ElementsRedeployRetriggeredMigrationTest {
     }
 
     @Test
-    void ignoresOtherModulesRedeployments() {
+    void ignoresOtherModulesRedeploymentsByDefault() {
         CountingMigration migration = new CountingMigration();
         migration.onEvent(new TemplatePackageRedeployedEvent("formidable-extended-inputs"));
         assertEquals(0, migration.runs);
+    }
+
+    @Test
+    void aMigrationMayWidenTheModulesThatRerunIt() {
+        CountingMigration migration = new CountingMigration() {
+            @Override
+            boolean retriggeredBy(String moduleId) {
+                return true;
+            }
+        };
+        migration.onEvent(new TemplatePackageRedeployedEvent("formidable-extended-inputs"));
+        assertEquals(1, migration.runs);
     }
 
     @Test
