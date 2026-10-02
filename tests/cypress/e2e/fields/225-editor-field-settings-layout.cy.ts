@@ -294,13 +294,9 @@ describe('Form fields - 225 The field editor layout', () => {
 
 		// The Validation messages section is gone, and so is the editor's children block.
 		expect(sections.map(section => section.name), `sections of ${name}`).not.to.include('validationMessages');
-		// The children block is hidden by the engine override keyed on the field actions mixin: a type without the
-		// switch (a file field) is out of its reach and keeps the editor's block.
-		if (layout.noFieldActions) {
-			expect(sections.map(section => section.name), `children block kept on ${name}, no field actions`).to.include(LIST_ORDERING_SECTION);
-		} else {
-			expect(sections.map(section => section.name), `children block hidden on ${name}`).not.to.include(LIST_ORDERING_SECTION);
-		}
+		// The children block is hidden on every field: by the engine override keyed on the field actions mixin on the
+		// fields with a value, by its own override on the file field, which carries no field actions and has no children.
+		expect(sections.map(section => section.name), `children block hidden on ${name}`).not.to.include(LIST_ORDERING_SECTION);
 	});
 
 	it('lays out a text input the same way, masked or plain', () => {

@@ -72,7 +72,8 @@ Its position cannot be changed from a module; whether it shows can: the engine's
 `fmdbmix:fieldActions` declares the section with `"hide": true`, so the block never shows on a field — one
 node, nothing to order; the actions are managed in the Page Builder zone under the field. **The scope is the
 mixin's**: the override reaches exactly the elements that can carry field actions — the field types with a
-value, switch on or off — and nothing else. A form, a step, a fieldset or a button keeps its Content list &
+value, switch on or off — and nothing else; the file field, which carries no field actions and has no
+children either, hides the block through its own override (`fmdb_inputFile.json`). A form, a step, a fieldset or a button keeps its Content list &
 ordering block, their children (steps, fields) being worth ordering. Folding the block instead
 (`"expanded": false` on the section) was the first cut and is the other flag at hand.
 

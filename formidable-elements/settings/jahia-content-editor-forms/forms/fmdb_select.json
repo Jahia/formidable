@@ -25,7 +25,7 @@
 					"rank": 1.0,
 					"fields": [
 						{ "name": "helpText", "rank": 1.0 },
-						{ "name": "optionsEmptyLabel", "rank": 1.5 }
+						{ "name": "optionsEmptyLabel", "rank": 1.6 }
 					]
 				},
 				{
