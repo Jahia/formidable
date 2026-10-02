@@ -1161,7 +1161,7 @@ describe('Playground - provision manual-testing forms', () => {
 						`,
 						variables: {query: `SELECT * FROM [fmdb:formSubmission] AS s WHERE ISDESCENDANTNODE(s, '/sites/${FORMIDABLE_TEST_SITE.key}/formidable-results/${nameOf(look, 'emptied')}/submissions')`}
 					}).then((response: {errors?: unknown}) => {
-						expect(response.errors, 'GraphQL errors emptying the results').to.be.undefined;
+						expect(response.errors, 'GraphQL errors emptying the results').to.equal(undefined);
 					});
 				}
 			}
