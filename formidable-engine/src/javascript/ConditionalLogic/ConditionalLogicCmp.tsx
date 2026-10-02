@@ -1,5 +1,5 @@
 import {Dropdown, Input, Loader, Typography} from '@jahia/moonstone';
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useMemo, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {
     extractCurrentNodePath,
@@ -10,7 +10,6 @@ import {
     isScalarValueKind,
     clearedProviderConfig,
     normalizeStoredProviderRule,
-    dateBetweenIssue,
     localIsoDay,
     normalizeStoredRule,
     parseRule,
@@ -21,8 +20,18 @@ import {
 } from './ConditionalLogic.utils';
 import {getSourceDescriptor, operatorNeedsValue} from './sourceDescriptors';
 import {getLogicProvider, listLogicProviders, type LogicProviderDescriptor, PROVIDER_OPERATORS} from './providers';
-import {acquireSources, releaseSources, sourcesKey} from './sources';
-import type {ConditionalLogicRule, LogicOperator, RuleSourceType, SelectorProps, SourceFieldOption} from './ConditionalLogic.types';
+import {useSharedSources} from './sources';
+import {
+    allRuleValuesOf,
+    describeRuleView,
+    isLastRuleOfList,
+    providerReferenceIssue,
+    providerRefErrorShown,
+    rowMessageOf,
+    ruleSourceTypeOf,
+    translated
+} from './ruleRow';
+import type {ConditionalLogicRule, LogicOperator, RuleSourceType, SelectorProps} from './ConditionalLogic.types';
 import './conditionalLogic.css';
 
 
@@ -203,19 +212,16 @@ const touchedProviderRefs = new Set<string>();
 export const ConditionalLogicCmp = (props: SelectorProps) => {
     const {field, id, value, onChange} = props;
     const {t} = useTranslation('formidable-engine');
-    const [sources, setSources] = useState<SourceFieldOption[]>([]);
-    const [logicIdToSource, setLogicIdToSource] = useState<Map<string, {name: string; uuid: string}>>(() => new Map());
-    // The load this row holds, by its sharing key, and how it ended: `loading` and `error` derive
-    // from them below, so the effect sets no state before the request answers.
-    const [loadedFor, setLoadedFor] = useState<string | null>(null);
-    const [loadError, setLoadError] = useState<string | null>(null);
-
     const currentNodePath = extractCurrentNodePath(props);
     const language = extractLanguage(props);
     const workspace = extractWorkspace(props);
     // The site default language holds the option identity of choice fields; the dropdown is
     // labelled in the content language with it as fallback.
     const defaultLanguage = extractDefaultLanguage(props, language);
+    // One load of the form per field being edited, shared by every rule row (sources.ts): the editor
+    // mounts a row per rule and remounts them all when one is added, each needing the same form.
+    const {sources, logicIdToSource, loading, errorKey} = useSharedSources(currentNodePath, {workspace, language, defaultLanguage});
+    const error = translated(t, errorKey);
     const rule = useMemo(() => parseRule(value), [value]);
     // Whether the provider-reference input was visited: its error only shows after
     // that (a rule opened with a stored reference is validated right away). Declared
@@ -320,48 +326,6 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     const selectedDescriptor = getSourceDescriptor(selectedSource?.type, selectedSource?.valueKind);
     const selectedOperator = sanitizeOperator(selectedSource, rule.operator);
 
-    // One load of the form per field being edited, shared by every rule row (sources.ts): the editor
-    // mounts a row per rule and remounts them all when one is added, each needing the same form.
-    const input = useMemo(
-        () => (currentNodePath ? {path: currentNodePath, workspace, language, defaultLanguage} : null),
-        [currentNodePath, defaultLanguage, language, workspace]
-    );
-    const key = input ? sourcesKey(input) : null;
-
-    useEffect(() => {
-        if (!input) {
-            return undefined;
-        }
-
-        let cancelled = false;
-        const heldKey = sourcesKey(input);
-        acquireSources(input)
-            .then(load => {
-                if (!cancelled) {
-                    setSources(load.sources);
-                    setLogicIdToSource(load.logicIdToSource);
-                    setLoadError(null);
-                    setLoadedFor(heldKey);
-                }
-            })
-            .catch((error: unknown) => {
-                if (!cancelled) {
-                    console.error('[ConditionalLogicCmp] failed to load source fields', error);
-                    setSources([]);
-                    setLoadError(t('conditionalLogic.loadError'));
-                    setLoadedFor(heldKey);
-                }
-            });
-
-        return () => {
-            cancelled = true;
-            releaseSources(input);
-        };
-    }, [input, t]);
-
-    const loading = input !== null && loadedFor !== key;
-    const error = input ? loadError : t('conditionalLogic.unresolvedContext');
-
     const updateRule = (nextRule: ConditionalLogicRule) => {
         const source = sources.find(source => source.id === nextRule.sourceNodeId);
         onChange(JSON.stringify(normalizeStoredRule(nextRule, source)));
@@ -449,26 +413,16 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         rule.values ?? []
     );
 
-    const showValueDropdown = selectedSource
-        && selectedDescriptor?.valueKind === 'choice'
-        && operatorNeedsValue(selectedOperator);
-
-    // Scalar kinds (date/number/text) show input(s) only for operators that
-    // compare against a value; isEmpty/isNotEmpty need none.
-    const showScalarInput = Boolean(selectedSource)
-        && isScalarValueKind(selectedDescriptor?.valueKind)
-        && operatorNeedsValue(selectedOperator);
-    const scalarInputType: 'date' | 'number' | 'text' = selectedDescriptor?.valueKind === 'number'
-        ? 'number'
-        : (selectedDescriptor?.valueKind === 'text' ? 'text' : 'date');
+    // Which value control the row shows (ruleRow.ts): the choices of a choice source, a typed input for a
+    // scalar one, nothing for an operator such as "is filled".
+    const view = describeRuleView(selectedSource, selectedDescriptor, selectedOperator);
+    const {showValueDropdown, showScalarInput, scalarInputType} = view;
 
     const selectedProvider = getLogicProvider(rule.sourceType);
     // A sourceType naming no provider this module ships comes from a rule authored
     // against a newer version: it gets its own rendering below, never the field-rule UI,
     // and keeps its raw sourceType so nothing rewrites the stored rule.
-    const isUnknownSourceType = !selectedProvider
-        && Boolean(rule.sourceType) && rule.sourceType !== 'field';
-    const ruleSourceType = selectedProvider?.id ?? (isUnknownSourceType ? rule.sourceType! : 'field');
+    const {isUnknownSourceType, ruleSourceType} = ruleSourceTypeOf(rule, selectedProvider);
     const providerOperator = sanitizeProviderOperator(rule.operator);
 
     const handleSourceTypeChange = (_event: React.MouseEvent, item: {value?: string}) => {
@@ -638,24 +592,14 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     // row, so its presence never moves the fields, and only shows once the
     // contributor has left the reference input (a rule opened with a stored
     // reference is validated right away).
-    const providerRef = selectedProvider ? (rule[selectedProvider.configKey] ?? '').trim() : '';
-    const providerRefError = !selectedProvider
-        ? null
-        : (providerRef === ''
-            ? t('conditionalLogic.providerRefMissing')
-            : (selectedProvider.isValidRef && !selectedProvider.isValidRef(providerRef)
-                ? t('conditionalLogic.providerRefInvalid')
-                : null));
-    // A rule that is no longer the last of the list has been left behind: the
-    // contributor added rules after it, so its reference counts as visited even when
-    // no blur was ever observed (dropdown menus and the add button can take the focus
-    // without it ever sitting inside the row).
-    const ruleIndexMatch = /\[(\d+)\]$/.exec(id ?? '');
-    const allRuleValues = field.name ? props.form?.values?.[field.name] : undefined;
-    const isLastRule = !ruleIndexMatch
-        || !Array.isArray(allRuleValues)
-        || Number(ruleIndexMatch[1]) >= allRuleValues.length - 1;
-    const showProviderRefError = (providerRefTouched || !isLastRule) && providerRefError !== null;
+    const providerRefIssue = providerReferenceIssue(selectedProvider, rule);
+    // A rule that is no longer the last of the list has been left behind: the contributor added rules
+    // after it, so its reference counts as visited even when no blur was ever observed (ruleRow.ts).
+    const showProviderRefError = providerRefErrorShown(
+        providerRefIssue,
+        providerRefTouched,
+        isLastRuleOfList(id, allRuleValuesOf(props.form, field.name))
+    );
 
     // One shape for every provider: the name of the thing designated, an operator, and a
     // value when the operator compares against one. Adding a provider adds no markup here.
@@ -739,18 +683,23 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     // reference errors. 'inverted' (two fixed dates in the wrong order) is an
     // authoring error; 'noMatch' (a submission-day side empties the interval) is a
     // warning — the runtime ignores such a rule instead of hiding its field forever.
-    const betweenIssue = !selectedProvider && showScalarInput && scalarInputType === 'date'
-        && selectedOperator === 'between'
-        ? dateBetweenIssue(rule.values, localIsoDay())
-        : null;
-    const rowMessage = showProviderRefError
-        ? providerRefError
-        : (betweenIssue === 'inverted'
-            ? t('conditionalLogic.betweenInverted')
-            : (betweenIssue === 'noMatch' ? t('conditionalLogic.betweenNoMatch') : null));
-    const rowMessageColor = !showProviderRefError && betweenIssue === 'noMatch'
-        ? 'var(--color-warning)'
-        : 'var(--color-danger)';
+    const row = rowMessageOf({
+        providerIssueShown: showProviderRefError,
+        providerIssue: providerRefIssue,
+        isFieldRule: !selectedProvider,
+        view,
+        operator: selectedOperator,
+        values: rule.values
+    });
+    const rowMessage = translated(t, row.messageKey);
+
+    const renderRuleBody = () => {
+        if (selectedProvider) {
+            return renderProviderRule(selectedProvider);
+        }
+
+        return isUnknownSourceType ? renderUnknownSourceRule() : renderFieldRule();
+    };
 
     return (
         <div className="flexCol flexFluid" onBlur={handleRowBlur}>
@@ -765,9 +714,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                         onChange={handleSourceTypeChange}
                     />
                 </div>
-                {selectedProvider
-                    ? renderProviderRule(selectedProvider)
-                    : (isUnknownSourceType ? renderUnknownSourceRule() : renderFieldRule())}
+                {renderRuleBody()}
             </div>
             {/* Reserved line: keeps every rule row the same height whether or not a
                 message is shown, so it never shifts the fields around. */}
@@ -776,8 +723,8 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                 variant="caption"
                 style={{
                     minHeight: '1.25rem',
-                    color: rowMessageColor,
-                    visibility: rowMessage ? 'visible' : 'hidden'
+                    color: row.color,
+                    visibility: row.visibility
                 }}
             >
                 {rowMessage ?? ''}

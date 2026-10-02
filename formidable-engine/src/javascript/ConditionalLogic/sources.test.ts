@@ -1,5 +1,5 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
-import {acquireSources, fetchSources, forgetSources, RELEASE_GRACE_MS, releaseSources} from './sources';
+import {acquireSources, fetchSources, forgetSources, RELEASE_GRACE_MS, releaseSources, sharedSourcesView} from './sources';
 import type {SourcesInput, SourcesLoad} from './sources';
 
 const input: SourcesInput = {path: '/sites/s/contents/forms/f/fields/city', workspace: 'EDIT', language: 'en', defaultLanguage: 'en'};
@@ -103,5 +103,20 @@ describe('acquireSources / releaseSources', () => {
 		await Promise.resolve();
 		await expect(acquireSources(input, load)).resolves.toBe(result);
 		expect(load).toHaveBeenCalledTimes(2);
+	});
+});
+
+describe('sharedSourcesView', () => {
+	const held = {key: 'EDIT|/sites/s/contents/forms/f/fields/city|en|en', sources: [], logicIdToSource: new Map(), failed: false};
+
+	it('says what prevents a list, then loads, then shows the load it holds', () => {
+		expect(sharedSourcesView(null, null)).toMatchObject({loading: false, errorKey: 'conditionalLogic.unresolvedContext'});
+		expect(sharedSourcesView(input, null)).toMatchObject({loading: true, errorKey: null});
+		expect(sharedSourcesView(input, held)).toMatchObject({loading: false, errorKey: null, sources: held.sources});
+	});
+
+	it('keeps loading while the held load is another field\'s, and reports a failed one', () => {
+		expect(sharedSourcesView({...input, path: '/sites/s/contents/forms/f/fields/zip'}, held).loading).toBe(true);
+		expect(sharedSourcesView(input, {...held, failed: true})).toMatchObject({loading: false, errorKey: 'conditionalLogic.loadError'});
 	});
 });

@@ -1,3 +1,4 @@
+import {useEffect, useMemo, useState} from 'react';
 import {CONDITIONAL_LOGIC_SOURCES} from './graphql';
 import {buildLogicIdToSourceMap, buildSourceFieldOptions} from './ConditionalLogic.utils';
 import type {GraphNode, SourceFieldOption} from './ConditionalLogic.types';
@@ -143,4 +144,82 @@ export const forgetSources = (): void => {
     }
 
     loads.clear();
+};
+
+interface HeldLoad {
+    key: string;
+    sources: SourceFieldOption[];
+    logicIdToSource: Map<string, {name: string; uuid: string}>;
+    failed: boolean;
+}
+
+export interface SharedSources extends Pick<HeldLoad, 'sources' | 'logicIdToSource'> {
+    /** True until the load this row holds has answered. */
+    loading: boolean;
+    /** The i18n key of what prevents a list: no field path to load for, or a failed request. */
+    errorKey: 'conditionalLogic.unresolvedContext' | 'conditionalLogic.loadError' | null;
+}
+
+const NOTHING: Pick<HeldLoad, 'sources' | 'logicIdToSource'> = {sources: [], logicIdToSource: new Map()};
+
+/** What a row shows, from the load that answered last — pure, so the tests cover it without rendering. */
+export const sharedSourcesView = (input: SourcesInput | null, held: HeldLoad | null): SharedSources => {
+    if (!input) {
+        return {...NOTHING, loading: false, errorKey: 'conditionalLogic.unresolvedContext'};
+    }
+
+    if (held === null || held.key !== sourcesKey(input)) {
+        return {...NOTHING, loading: true, errorKey: null};
+    }
+
+    return {
+        sources: held.sources,
+        logicIdToSource: held.logicIdToSource,
+        loading: false,
+        errorKey: held.failed ? 'conditionalLogic.loadError' : null
+    };
+};
+
+/**
+ * The shared load as a rule row uses it: acquired on mount, released on unmount, held by its key so that
+ * `loading` and the error derive from what answered rather than being set ahead of the request.
+ */
+export const useSharedSources = (
+    path: string | undefined,
+    context: {workspace: string; language: string; defaultLanguage: string}
+): SharedSources => {
+    const {workspace, language, defaultLanguage} = context;
+    const input = useMemo(
+        () => (path ? {path, workspace, language, defaultLanguage} : null),
+        [path, workspace, language, defaultLanguage]
+    );
+    const [held, setHeld] = useState<HeldLoad | null>(null);
+
+    useEffect(() => {
+        if (!input) {
+            return undefined;
+        }
+
+        let cancelled = false;
+        const key = sourcesKey(input);
+        acquireSources(input)
+            .then(load => {
+                if (!cancelled) {
+                    setHeld({key, sources: load.sources, logicIdToSource: load.logicIdToSource, failed: false});
+                }
+            })
+            .catch((error: unknown) => {
+                if (!cancelled) {
+                    console.error('[ConditionalLogic] failed to load source fields', error);
+                    setHeld({key, ...NOTHING, failed: true});
+                }
+            });
+
+        return () => {
+            cancelled = true;
+            releaseSources(input);
+        };
+    }, [input]);
+
+    return sharedSourcesView(input, held);
 };

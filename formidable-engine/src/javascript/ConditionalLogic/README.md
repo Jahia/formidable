@@ -118,7 +118,14 @@ asking for the same form. A row acquires the load on mount (`acquireSources`) an
 unmount (`releaseSources`); the entry leaves once nobody holds it, after a grace of
 `RELEASE_GRACE_MS` that a remount storm re-acquires within — so adding a rule costs no request, while
 closing the editor forgets the form and a field added elsewhere shows at the next opening. A failed
-load is not kept: the next row to ask tries again. `sources.test.ts` covers the shaping and the sharing.
+load is not kept: the next row to ask tries again. The component uses it through `useSharedSources`,
+which holds the load by its key and derives `loading` and the error from what answered
+(`sharedSourcesView`, pure). `sources.test.ts` covers the shaping, the sharing and the view.
+
+The rest of what a row decides — which value control to show, the source type, the provider
+reference error, the message of the reserved line — lives in `ruleRow.ts` as pure functions with their
+own tests (`ruleRow.test.ts`), so the component is an assembly of them: SonarQube's cognitive complexity
+gate (15) had the inline ternaries at 35 (review of #372).
 
 ## Source eligibility: semantic mixins
 
