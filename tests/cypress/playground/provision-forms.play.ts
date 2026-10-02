@@ -68,7 +68,7 @@
  *
  * Three more forms in the plain look leave results behind them: one deleted from both
  * workspaces, one unpublished — the two cases the Results page flags (Form deleted /
- * Form not published) — and one whose only submission was deleted, an entry with no
+ * Form unpublished) — and one whose only submission was deleted, an entry with no
  * result; "Delete all results" clears all three.
  */
 import gql from 'graphql-tag';
@@ -1132,7 +1132,7 @@ describe('Playground - provision manual-testing forms', () => {
 
 	it('leaves results behind a deleted form, an unpublished one and an emptied one, for the Results page to show', () => {
 		// Three throwaway forms in the plain look. One is deleted from both workspaces: its entry reads
-		// "Form deleted" and is named after its node. One is unpublished: its entry reads "Form not published",
+		// "Form deleted" and is named after its node. One is unpublished: its entry reads "Form unpublished",
 		// keeps its title, and comes back to life once the form is published again. One loses its only
 		// submission, as the Results page's date-range deletion does: its entry stays, with nothing in it.
 		const look = LOOKS.find(candidate => candidate.key === 'plain')!;
