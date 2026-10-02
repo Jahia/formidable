@@ -68,8 +68,8 @@ Rules:
 - the type must extend `fmdbmix:fieldAction` — the list under a field (`fmdb:fieldActionList`) accepts nothing else
 - `jnt:content` is the normal base type, `mix:title` with a default title keeps the card readable
 - the four contributor settings — the message the visitor reads, when to check (`blur` or `submit`), whether a
-  refusal blocks or only warns, what an unanswered check means — come with the marker through
-  `fmdbmix:fieldActionFeedback`: do not redeclare them
+  refusal blocks or only warns, what an unanswered check means — come with the marker, whose supertype
+  `fmdbmix:fieldActionFeedback` is: do not redeclare them
 - your own properties are what the contributor configures on the check: a threshold, a list of words, a country
 - a check that calls an external service takes nothing more: the service is the module's own, read from the
   module's configuration, and the contributor has none to pick (Step 5)

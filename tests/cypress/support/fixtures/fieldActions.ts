@@ -3,9 +3,9 @@ import {JahiaNode, NodeProperty} from './types';
 /**
  * Builders for the field actions of a field (children of its 'actions' list, under the
  * fmdbmix:fieldActions switch). The feedback settings — when the check runs, what a refusal
- * does, what an unanswered check means, the visitor's message — reach every field action through
- * the engine's fmdbmix:fieldActionFeedback mixin; a setting left out keeps its CND default
- * (blur, block, accept, the bundle's message).
+ * does, what an unanswered check means, the visitor's message — come with every field-action type,
+ * whose marker includes the engine's fmdbmix:fieldActionFeedback as a supertype (no mixin to push);
+ * a setting left out keeps its CND default (blur, block, accept, the bundle's message).
  */
 
 export interface FieldActionFeedbackData {
@@ -43,7 +43,6 @@ export function getBlockedWordsFieldActionNode(data: BlockedWordsFieldActionData
 	return {
 		name: data.name || 'blockedWords',
 		primaryNodeType: 'fmdbsample:blockedWordsAction',
-		mixins: ['fmdbmix:fieldActionFeedback'],
 		properties: [{name: 'words', values: data.words}, ...feedbackProperties(data)]
 	};
 }
@@ -73,7 +72,6 @@ export function getExperianEmailFieldActionNode(data: FieldActionFeedbackData): 
 	return {
 		name: data.name || 'experianEmail',
 		primaryNodeType: 'fmdbsample:experianEmailAction',
-		mixins: ['fmdbmix:fieldActionFeedback'],
 		properties: feedbackProperties(data)
 	};
 }
@@ -87,7 +85,6 @@ export function getZeroBounceEmailFieldActionNode(data: FieldActionFeedbackData)
 	return {
 		name: data.name || 'zeroBounceEmail',
 		primaryNodeType: 'fmdbsample:zeroBounceEmailAction',
-		mixins: ['fmdbmix:fieldActionFeedback'],
 		properties: feedbackProperties(data)
 	};
 }

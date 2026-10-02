@@ -1,7 +1,7 @@
 // Number input advanced settings: only the attributes HTML defines for type="number" — pattern, mask,
 // size, spellcheck and dirname (text-input settings) do not apply. A supertype of the number input
 // since 0.5.0, no switch (see Input/Text/definition.cnd for the reasoning: Jackrabbit accepts a
-// redundant mixin but not a property declared twice; AdvancedSettingsMixinMigration drops the mixin
+// redundant mixin but not a property declared twice; RedundantMixinMigration drops the mixin
 // from the fields saved before). form is hidden: no effect in a Formidable form.
 [fmdbmix:advancedInputNumberSettings] mixin
  - title (string) i18n indexed=no

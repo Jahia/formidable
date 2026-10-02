@@ -1,7 +1,7 @@
 // Range input advanced settings: only the attributes HTML defines for type="range" — readonly does not
 // apply to a range input, and pattern/mask/size/spellcheck/dirname are text-input settings. A supertype
 // of the range input since 0.5.0, no switch (see Input/Text/definition.cnd for the reasoning;
-// AdvancedSettingsMixinMigration drops the mixin from the fields saved before). form is hidden.
+// RedundantMixinMigration drops the mixin from the fields saved before). form is hidden.
 [fmdbmix:advancedInputRangeSettings] mixin
  - title (string) i18n indexed=no
  - autofocus (boolean) = false

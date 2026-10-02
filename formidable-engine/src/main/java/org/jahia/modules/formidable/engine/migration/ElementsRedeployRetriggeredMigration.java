@@ -12,7 +12,8 @@ import java.util.EventObject;
 
 /**
  * Base for the startup content migrations that must also re-run when the
- * formidable-elements module is (re)deployed. The engine usually starts (and is
+ * formidable-elements module is (re)deployed — or another module a migration
+ * names through {@link #retriggeredBy}. The engine usually starts (and is
  * upgraded) before the elements, and a migration that writes properties or mixins
  * resolved through the element types can only succeed once that module has
  * registered its upgraded definitions: on the engine-first upgrade path the
@@ -44,10 +45,18 @@ abstract class ElementsRedeployRetriggeredMigration implements JahiaEventListene
     /** The redeploy event carries the module id as its source. */
     @Override
     public void onEvent(EventObject event) {
-        if (event instanceof TemplatePackageRedeployedEvent && ELEMENTS_MODULE_ID.equals(event.getSource())) {
-            log.info("[{}] {} (re)deployed, re-running the migration", getClass().getSimpleName(), ELEMENTS_MODULE_ID);
+        if (event instanceof TemplatePackageRedeployedEvent && event.getSource() instanceof String moduleId && retriggeredBy(moduleId)) {
+            log.info("[{}] {} (re)deployed, re-running the migration", getClass().getSimpleName(), moduleId);
             run();
         }
+    }
+
+    /**
+     * Whether the (re)deploy of this module re-runs the migration: formidable-elements, whose types the
+     * migrations write through. A migration whose carriers may be declared by any module widens it.
+     */
+    boolean retriggeredBy(String moduleId) {
+        return ELEMENTS_MODULE_ID.equals(moduleId);
     }
 
     @Override

@@ -5,7 +5,7 @@
 // saved by an earlier version still lists the mixin in jcr:mixinTypes, and Jackrabbit accepts a mixin
 // the primary type already includes (it refuses a node whose primary type and mixin both declare the
 // same property — which is why the properties cannot move to fmdb:inputText itself).
-// AdvancedSettingsMixinMigration drops that redundant mixin from existing fields.
+// RedundantMixinMigration drops that redundant mixin from existing fields.
 // form, dirname and size are hidden: no effect, or an effect nothing reads, in a Formidable form
 // (docs/architecture/content-editor-layout.md, "Hidden for good"); a value already set still renders.
 [fmdbmix:advancedInputTextSettings] mixin
