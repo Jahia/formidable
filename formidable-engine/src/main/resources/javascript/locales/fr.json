@@ -119,8 +119,8 @@
 		},
 		"sidebar": {
 			"title": "Formulaires avec résultats",
-			"formDeleted": "Formulaire supprimé dans jContent",
-			"formUnpublished": "Formulaire non publié dans jContent"
+			"formDeleted": "Formulaire supprimé",
+			"formUnpublished": "Formulaire dépublié"
 		},
 		"actions": {
 			"export": "Exporter",
@@ -203,7 +203,7 @@
 				"label": "{{count}} soumissions seront supprimées.",
 				"all": "{{count}} soumissions seront supprimées. Les résultats du formulaire quittent cette page jusqu'à sa prochaine soumission.",
 				"allUnpublished": "{{count}} soumissions seront supprimées. Les résultats du formulaire quittent cette page jusqu'à ce qu'il soit republié et reçoive une nouvelle soumission.",
-				"allDeleted": "{{count}} soumissions seront supprimées. Les résultats du formulaire quittent cette page ; le formulaire n'existe plus dans jContent."
+				"allDeleted": "{{count}} soumissions seront supprimées. Les résultats du formulaire quittent cette page ; le formulaire n'existe plus."
 			},
 			"validation": {
 				"invalidRange": "Sélectionnez une plage de dates valide, ou supprimez tous les résultats.",

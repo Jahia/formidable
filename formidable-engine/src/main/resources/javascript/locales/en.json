@@ -119,8 +119,8 @@
 		},
 		"sidebar": {
 			"title": "Forms with results",
-			"formDeleted": "Form deleted in jContent",
-			"formUnpublished": "Form not published in jContent"
+			"formDeleted": "Form deleted",
+			"formUnpublished": "Form unpublished"
 		},
 		"actions": {
 			"export": "Export",
@@ -203,7 +203,7 @@
 				"label": "{{count}} submissions will be deleted.",
 				"all": "{{count}} submissions will be deleted. The form results leave this page until the form receives a new submission.",
 				"allUnpublished": "{{count}} submissions will be deleted. The form results leave this page until the form is published again and receives a new submission.",
-				"allDeleted": "{{count}} submissions will be deleted. The form results leave this page; the form no longer exists in jContent."
+				"allDeleted": "{{count}} submissions will be deleted. The form results leave this page; the form no longer exists."
 			},
 			"validation": {
 				"invalidRange": "Select a valid start and end date, or delete all results.",

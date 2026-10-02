@@ -97,9 +97,9 @@ const deleteAllResults = (name: string) => {
  * The Results page lists one entry per form that stored submissions. Deleting a date range of
  * submissions keeps the entry; "Delete all results" removes the entry itself, so the form leaves
  * the page until its next submission recreates it. That is also how an entry already emptied by
- * date range, or whose form was deleted in jContent (its results are kept on purpose and flagged),
+ * date range, or whose form was deleted (its results are kept on purpose and flagged),
  * is cleared: neither holds a submission a range could match. An unpublished form is told apart
- * from a deleted one by a lookup in EDIT: its entry is flagged "not published" and keeps its title.
+ * from a deleted one by a lookup in EDIT: its entry is flagged "unpublished" and keeps its title.
  */
 describe('Actions - 75 Removing a form entry from the Results page', () => {
 	useFormidableSite();
