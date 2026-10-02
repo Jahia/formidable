@@ -91,18 +91,17 @@ export const FormResultsApp = () => {
         setIsDeleteDialogOpen(false);
     }, [selectedFormUuid]);
 
-    // The arrow keys cross the page: right from the list lands on the table (its selected row when there is one),
-    // left from the table lands on the selected form, or the first.
+    // The arrow keys cross the page: right from the list lands on the table — the selected submission, or the
+    // first one, selected on the way (the table registers that move, it alone knows its rows) — and left from
+    // the table lands on the selected form, or the first.
     const contentRef = useRef<HTMLDivElement | null>(null);
+    const enterTableRef = useRef<(() => void) | null>(null);
+    const handleRegisterEnter = useCallback((enter: (() => void) | null) => {
+        enterTableRef.current = enter;
+    }, []);
     const focusTable = useCallback(() => {
-        const content = contentRef.current;
-        if (!content) {
-            return;
-        }
-
-        const row = selectedSubmission ? content.querySelector<HTMLElement>(`[data-submission-uuid="${selectedSubmission.uuid}"]`) : null;
-        (row ?? content.querySelector<HTMLElement>('[data-sel-role="submissions-table"]'))?.focus({preventScroll: true});
-    }, [selectedSubmission]);
+        enterTableRef.current?.();
+    }, []);
     const focusList = useCallback(() => {
         const content = contentRef.current;
         if (!content) {
@@ -282,6 +281,7 @@ export const FormResultsApp = () => {
                                 onSelectSubmission={setSelectedSubmission}
                                 onRegisterRefresh={handleRegisterRefresh}
                                 onMoveLeft={focusList}
+                                onRegisterEnter={handleRegisterEnter}
                             />
                         </div>
                     ) : (

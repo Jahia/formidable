@@ -34,6 +34,8 @@ interface SubmissionsTableProps {
     onRegisterRefresh: (refresh: (() => Promise<unknown>) | null) => void;
     /** The left arrow hands the focus back, to the list of forms. */
     onMoveLeft?: () => void;
+    /** Hands the app the way in from the list: the selected submission takes the focus, else the first one is selected. */
+    onRegisterEnter?: (enter: (() => void) | null) => void;
 }
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -44,7 +46,8 @@ export const SubmissionsTable = ({
     fieldOrder,
     onSelectSubmission,
     onRegisterRefresh,
-    onMoveLeft
+    onMoveLeft,
+    onRegisterEnter
 }: SubmissionsTableProps) => {
     const {t} = useTranslation('formidable-engine');
 
@@ -142,6 +145,26 @@ export const SubmissionsTable = ({
 
         onSelectSubmission(submissions[nextEntryIndex(submissions.length, currentIndex, e.key)]);
     }, [submissions, selectedSubmission, onSelectSubmission, onMoveLeft]);
+
+    // The right arrow from the list of forms lands here: on the selected row, or on the first submission, which
+    // it selects — the selection effect below then gives its row the focus.
+    useEffect(() => {
+        if (!onRegisterEnter) {
+            return undefined;
+        }
+
+        onRegisterEnter(() => {
+            if (submissions.length === 0) {
+                tableRef.current?.focus({preventScroll: true});
+            } else if (selectedSubmission) {
+                tableRef.current?.querySelector<HTMLElement>(`[data-submission-uuid="${selectedSubmission.uuid}"]`)?.focus({preventScroll: true});
+            } else {
+                onSelectSubmission(submissions[0]);
+            }
+        });
+
+        return () => onRegisterEnter(null);
+    }, [onRegisterEnter, submissions, selectedSubmission, onSelectSubmission]);
 
     useEffect(() => {
         if (!selectedSubmission || !tableRef.current) {

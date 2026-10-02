@@ -138,11 +138,12 @@ describe('Actions - 75 Removing a form entry from the Results page', () => {
 			.and('not.have.attr', 'data-sel-name', ENTRY_FORM.name);
 		cy.realPress('ArrowUp');
 		cy.focused().should('have.attr', 'data-sel-name', ENTRY_FORM.name).and('have.attr', 'aria-pressed', 'true');
-		// Right lands on the table; down there selects the first submission, whose row takes the focus.
+		// Right lands on the table: the first submission is selected and its row takes the focus; down moves to the next.
 		cy.realPress('ArrowRight');
-		cy.focused().should('have.attr', 'data-sel-role', 'submissions-table');
-		cy.realPress('ArrowDown');
-		cy.focused().should('have.attr', 'data-submission-uuid');
+		cy.focused().should('have.attr', 'data-submission-uuid').then(first => {
+			cy.realPress('ArrowDown');
+			cy.focused().should('have.attr', 'data-submission-uuid').and('not.eq', first);
+		});
 		// Left comes back to the selected form.
 		cy.realPress('ArrowLeft');
 		cy.focused().should('have.attr', 'data-sel-name', ENTRY_FORM.name);
