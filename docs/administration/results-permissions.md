@@ -117,7 +117,7 @@ data and ACLs intact. This is intentional: submission data is never destroyed
 automatically — a contributor deleting or recreating a form in jContent has
 neither the results rights nor a warning about them, and an unpublication is
 indistinguishable from a deletion in the live workspace. The Results page keeps
-listing the entry, flagged **Form deleted**, with its field values under their
+listing the entry, flagged **Form deleted** (a red form icon in the list, the words in its tooltip and in the header once selected), with its field values under their
 raw names (the labels came from the form).
 
 The live reference alone cannot tell a deleted form from an unpublished one, so

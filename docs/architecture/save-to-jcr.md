@@ -184,7 +184,7 @@ Field labels (human-readable names like "Email Address" instead of `email`) are 
 
 The dashboard uses a GraphQL query (`GET_FORM_FIELD_LABELS`) to read `displayName` (i.e. `jcr:title`) of each field from the `parentForm` in the dashboard user's UI language (`uilang`). This provides consistent, locale-aware labels across all submissions regardless of which language the visitor submitted in.
 
-If the form is not in live (the `parentForm` weakreference no longer resolves), the dashboard falls back to the raw JCR field name and flags the entry: **Form not published** when the form still stands in the edit workspace (one `nodesByQuery` lookup on `jcr:uuid`, which keeps the title), **Form deleted** otherwise. The entry stays until an authorised user removes it with **Delete all results**.
+If the form is not in live (the `parentForm` weakreference no longer resolves), the dashboard falls back to the raw JCR field name and flags the entry — an orange form icon for **Form not published** when the form still stands in the edit workspace (one `nodesByQuery` lookup on `jcr:uuid`, which keeps the title), a red one for **Form deleted** otherwise; the words sit in the icon's tooltip and in the header chip once the entry is selected. The entry stays until an authorised user removes it with **Delete all results**.
 
 ### Uploaded Files
 
