@@ -6,8 +6,6 @@ import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.observation.JahiaEventListener;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.jcr.RepositoryException;
 import javax.jcr.nodetype.NodeType;
@@ -48,8 +46,6 @@ import java.util.Map;
  */
 @Component(service = {AdvancedSettingsMixinMigration.class, JahiaEventListener.class}, immediate = true)
 public class AdvancedSettingsMixinMigration extends ElementsRedeployRetriggeredMigration {
-
-    private static final Logger log = LoggerFactory.getLogger(AdvancedSettingsMixinMigration.class);
 
     /** Field type to the mixin it includes as a supertype since 0.5.0, and that its older fields may still list. */
     static final Map<String, String> RETIRED_MIXINS = Map.of(
@@ -92,24 +88,13 @@ public class AdvancedSettingsMixinMigration extends ElementsRedeployRetriggeredM
     }
 
     private Outcome migrateOne(JCRSessionWrapper session, JCRNodeWrapper node, String mixin, String workspace) {
-        try {
-            if (!includedBySupertype(node.getPrimaryNodeType(), mixin)) {
+        return migrateOne(session, node, workspace, "Dropped the redundant " + mixin + " from", (s, n) -> {
+            if (!includedBySupertype(n.getPrimaryNodeType(), mixin)) {
                 return Outcome.DEFERRED;
             }
-            dropMixin(session, node, mixin);
-            // One save per migrated node: a failure must never discard the nodes already
-            // migrated before it, nor poison the later saves.
-            session.save();
-            // Reported once the save went through: this line is what the upgrade note tells
-            // the administrator to look for.
-            log.info("[AdvancedSettingsMixinMigration] Dropped the redundant {} from '{}'", mixin, node.getPath());
+            dropMixin(s, n, mixin);
             return Outcome.MIGRATED;
-        } catch (RepositoryException e) {
-            log.error("[AdvancedSettingsMixinMigration] Could not migrate node '{}' in workspace '{}': {}",
-                    node.getPath(), workspace, e.getMessage(), e);
-            refreshQuietly(session);
-            return Outcome.FAILED;
-        }
+        });
     }
 
     /**
@@ -131,24 +116,13 @@ public class AdvancedSettingsMixinMigration extends ElementsRedeployRetriggeredM
         node.removeMixin(mixin);
     }
 
-    private static void logSummary(String workspace, Tally tally) {
-        int migrated = tally.of(Outcome.MIGRATED);
-        int deferred = tally.of(Outcome.DEFERRED);
-        int failed = tally.of(Outcome.FAILED);
-        if (migrated > 0) {
-            log.info("[AdvancedSettingsMixinMigration] Dropped the redundant advanced-settings mixin from {} field(s) in workspace '{}'",
-                    migrated, workspace);
-        }
-        if (deferred > 0) {
-            log.info("[AdvancedSettingsMixinMigration] {} field(s) in workspace '{}' wait for the formidable-elements (re)deploy:"
-                    + " their type does not include the settings yet (engine upgraded first); the redeploy rerun drops the mixin",
-                    deferred, workspace);
-        }
-        if (failed > 0) {
-            log.warn("[AdvancedSettingsMixinMigration] {} field(s) still list the advanced-settings mixin in workspace '{}' after the errors above;"
-                    + " the next engine start or elements redeploy retries them", failed, workspace);
-        } else if (migrated == 0 && deferred == 0) {
-            log.debug("[AdvancedSettingsMixinMigration] No field lists an advanced-settings mixin in workspace '{}'", workspace);
-        }
+    private void logSummary(String workspace, Tally tally) {
+        logSummary(workspace, tally,
+                "[AdvancedSettingsMixinMigration] Dropped the redundant advanced-settings mixin from {} field(s) in workspace '{}'",
+                "[AdvancedSettingsMixinMigration] {} field(s) in workspace '{}' wait for the formidable-elements (re)deploy:"
+                        + " their type does not include the settings yet (engine upgraded first); the redeploy rerun drops the mixin",
+                "[AdvancedSettingsMixinMigration] {} field(s) still list the advanced-settings mixin in workspace '{}' after the errors above;"
+                        + " the next engine start or elements redeploy retries them",
+                "[AdvancedSettingsMixinMigration] No field lists an advanced-settings mixin in workspace '{}'");
     }
 }

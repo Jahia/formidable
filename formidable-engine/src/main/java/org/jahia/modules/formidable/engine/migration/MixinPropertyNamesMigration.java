@@ -107,47 +107,22 @@ public class MixinPropertyNamesMigration extends ElementsRedeployRetriggeredMigr
     }
 
     private Outcome migrateOne(JCRSessionWrapper session, JCRNodeWrapper node, String workspace) {
-        try {
-            if (!definitionsReady(node)) {
+        return migrateOne(session, node, workspace, "Renamed the prefixed properties of", (s, n) -> {
+            if (!definitionsReady(n)) {
                 return Outcome.DEFERRED;
             }
-            if (!migrateNode(session, node)) {
-                return Outcome.UNTOUCHED;
-            }
-            // One save per migrated node: a failure must never discard the nodes already
-            // migrated before it, nor poison the later saves.
-            session.save();
-            // Reported once the save went through: this line is what the upgrade note tells
-            // the administrator to look for.
-            log.info("[MixinPropertyNamesMigration] Renamed the prefixed properties of '{}'", node.getPath());
-            return Outcome.MIGRATED;
-        } catch (RepositoryException e) {
-            log.error("[MixinPropertyNamesMigration] Could not migrate node '{}' in workspace '{}': {}",
-                    node.getPath(), workspace, e.getMessage(), e);
-            refreshQuietly(session);
-            return Outcome.FAILED;
-        }
+            return migrateNode(s, n) ? Outcome.MIGRATED : Outcome.UNTOUCHED;
+        });
     }
 
-    private static void logSummary(String workspace, Tally tally) {
-        int migrated = tally.of(Outcome.MIGRATED);
-        int deferred = tally.of(Outcome.DEFERRED);
-        int failed = tally.of(Outcome.FAILED);
-        if (migrated > 0) {
-            log.info("[MixinPropertyNamesMigration] Renamed the prefixed mixin properties of {} field(s) in workspace '{}'",
-                    migrated, workspace);
-        }
-        if (deferred > 0) {
-            log.info("[MixinPropertyNamesMigration] {} field(s) in workspace '{}' wait for the formidable-elements (re)deploy:"
-                    + " their types do not know the unprefixed names yet (engine upgraded first); the redeploy rerun renames them",
-                    deferred, workspace);
-        }
-        if (failed > 0) {
-            log.warn("[MixinPropertyNamesMigration] {} field(s) still carry prefixed properties in workspace '{}' after the errors above;"
-                    + " the next engine start or elements redeploy retries them", failed, workspace);
-        } else if (migrated == 0 && deferred == 0) {
-            log.debug("[MixinPropertyNamesMigration] No prefixed mixin property found in workspace '{}'", workspace);
-        }
+    private void logSummary(String workspace, Tally tally) {
+        logSummary(workspace, tally,
+                "[MixinPropertyNamesMigration] Renamed the prefixed mixin properties of {} field(s) in workspace '{}'",
+                "[MixinPropertyNamesMigration] {} field(s) in workspace '{}' wait for the formidable-elements (re)deploy:"
+                        + " their types do not know the unprefixed names yet (engine upgraded first); the redeploy rerun renames them",
+                "[MixinPropertyNamesMigration] {} field(s) still carry prefixed properties in workspace '{}' after the errors above;"
+                        + " the next engine start or elements redeploy retries them",
+                "[MixinPropertyNamesMigration] No prefixed mixin property found in workspace '{}'");
     }
 
     /**

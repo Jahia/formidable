@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.engine.migration;
 
+import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.observation.JahiaEventListener;
 import org.jahia.services.templates.JahiaTemplateManagerService.TemplatePackageRedeployedEvent;
@@ -79,6 +80,58 @@ abstract class ElementsRedeployRetriggeredMigration implements JahiaEventListene
             session.refresh(false);
         } catch (RepositoryException e) {
             log.warn("[{}] Could not discard the pending changes: {}", getClass().getSimpleName(), e.getMessage(), e);
+        }
+    }
+
+    /** One carrier node's rewrite: judges the node and writes, answers its outcome, saves nothing. */
+    @FunctionalInterface
+    interface NodePass {
+        Outcome rewrite(JCRSessionWrapper session, JCRNodeWrapper node) throws RepositoryException;
+    }
+
+    /**
+     * Runs one node's pass and saves it when it migrated: one save per migrated node, so a
+     * failure never discards the nodes migrated before it nor poisons the later saves. A failure
+     * is logged with its half-applied changes dropped, and counts as FAILED. The MIGRATED line —
+     * {@code migratedMessage} followed by the node path — is what the upgrade note tells the
+     * administrator to look for, reported once the save went through.
+     */
+    Outcome migrateOne(JCRSessionWrapper session, JCRNodeWrapper node, String workspace, String migratedMessage, NodePass pass) {
+        try {
+            Outcome outcome = pass.rewrite(session, node);
+            if (outcome == Outcome.MIGRATED) {
+                session.save();
+                log.info("[{}] {} '{}'", getClass().getSimpleName(), migratedMessage, node.getPath());
+            }
+            return outcome;
+        } catch (RepositoryException e) {
+            log.error("[{}] Could not migrate node '{}' in workspace '{}': {}",
+                    getClass().getSimpleName(), node.getPath(), workspace, e.getMessage(), e);
+            refreshQuietly(session);
+            return Outcome.FAILED;
+        }
+    }
+
+    /**
+     * Ends a workspace pass with its tally: the migrated count, the deferred count with the way
+     * out (the elements redeploy), the failed count with the retry (next start or redeploy), or a
+     * debug line when nothing was found. The templates take the count and the workspace, the
+     * {@code none} one the workspace alone; each starts with the migration's own tag.
+     */
+    void logSummary(String workspace, Tally tally, String migrated, String deferred, String failed, String none) {
+        int migratedCount = tally.of(Outcome.MIGRATED);
+        int deferredCount = tally.of(Outcome.DEFERRED);
+        int failedCount = tally.of(Outcome.FAILED);
+        if (migratedCount > 0) {
+            log.info(migrated, migratedCount, workspace);
+        }
+        if (deferredCount > 0) {
+            log.info(deferred, deferredCount, workspace);
+        }
+        if (failedCount > 0) {
+            log.warn(failed, failedCount, workspace);
+        } else if (migratedCount == 0 && deferredCount == 0) {
+            log.debug(none, workspace);
         }
     }
 
