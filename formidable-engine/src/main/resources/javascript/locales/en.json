@@ -192,7 +192,7 @@
 			"fields": {
 				"startDate": "Start date",
 				"endDate": "End date",
-				"allResults": "Delete all results",
+				"allResults": "Delete all results and remove the form from this page",
 				"confirmationLabel": "Confirmation",
 				"confirmationHelp": "Please type \"{{name}}\" to confirm deletion."
 			},

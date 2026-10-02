@@ -192,7 +192,7 @@
 			"fields": {
 				"startDate": "Date de début",
 				"endDate": "Date de fin",
-				"allResults": "Supprimer tous les résultats",
+				"allResults": "Supprimer tous les résultats et retirer le formulaire de cette page",
 				"confirmationLabel": "Confirmation",
 				"confirmationHelp": "Veuillez saisir \"{{name}}\" pour confirmer la suppression."
 			},
