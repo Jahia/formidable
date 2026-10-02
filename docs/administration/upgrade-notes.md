@@ -287,6 +287,16 @@ Two things remain true whatever the order:
 - if the editor still looks wrong after step 4, restart the formidable-elements
   bundle once (its definitions then re-register against the running engine).
 
+### Leftover: the engine's former csrf-guard file
+
+Up to 0.3 the engine shipped a csrf-guard file, `org.jahia.modules.jahiacsrfguard-formidable-engine.cfg`, that put
+the submission endpoint under the token check (`urlPatterns`); 0.4 ships
+`org.jahia.modules.jahiacsrfguard-formidable.cfg`, which whitelists it instead. The upgrade does not remove the old
+file, so an instance that started on 0.2 or 0.3 keeps both in `karaf/etc/`. Harmless: the csrf-guard filter skips a
+request any of its configurations whitelists, so the new file's whitelist wins — verified with an authenticated
+submission on an upgraded instance. The old file is yours to remove; an instance installed on 0.4 or later has
+nothing to find.
+
 ## 0.3.0 (and earlier) → 0.4.0: choice-field options are migrated at startup
 
 **Nothing to do — the migration is fully automatic.**
