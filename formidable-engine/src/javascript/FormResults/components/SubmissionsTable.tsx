@@ -157,7 +157,8 @@ export const SubmissionsTable = ({
 
         onRegisterEnter(() => {
             if (submissions.length === 0) {
-                enterPendingRef.current = true;
+                // Only a load in progress is waited for: a form with no submission has nothing to land on
+                enterPendingRef.current = loading;
             } else if (selectedSubmission) {
                 tableRef.current?.querySelector<HTMLElement>(`[data-submission-uuid="${selectedSubmission.uuid}"]`)?.focus({preventScroll: true});
             } else {
@@ -166,7 +167,12 @@ export const SubmissionsTable = ({
         });
 
         return () => onRegisterEnter(null);
-    }, [onRegisterEnter, submissions, selectedSubmission, onSelectSubmission]);
+    }, [onRegisterEnter, submissions, selectedSubmission, onSelectSubmission, loading]);
+
+    // The table is not keyed per form: a move pending on one form must not land on the next one selected.
+    useEffect(() => {
+        enterPendingRef.current = false;
+    }, [formResults.uuid]);
 
     useEffect(() => {
         if (enterPendingRef.current && submissions.length > 0) {
