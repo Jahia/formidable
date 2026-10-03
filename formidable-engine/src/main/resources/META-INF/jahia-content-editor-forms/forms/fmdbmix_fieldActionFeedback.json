@@ -8,7 +8,7 @@
 			"rank": 1.06,
 			"fieldSets": [
 				{
-					"name": "fmdbmix:fieldActionFeedback",
+					"name": "feedback",
 					"rank": 0.0,
 					"fields": [
 						{ "name": "trigger", "rank": 1.0 },
