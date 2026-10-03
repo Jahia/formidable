@@ -121,6 +121,9 @@ export const SubmissionsTable = ({
     }, [currentPage, loading, queryResult?.pageInfo, totalPages]);
 
     const tableRef = useRef<HTMLDivElement | null>(null);
+    // Roving tabindex: the selected row is the one Tab reaches, or the first while none is selected.
+    const isTabStop = (uuid: string, index: number): boolean =>
+        selectedSubmission ? selectedSubmission.uuid === uuid : index === 0;
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
         if (e.key === 'ArrowLeft') {
@@ -254,7 +257,7 @@ export const SubmissionsTable = ({
                                 isHighlighted={selectedSubmission?.uuid === submission.uuid}
                                 // Roving tabindex: the selected row is the one Tab reaches, or the first while
                                 // none is; the arrow keys are handled on the rows, the native interactive elements.
-                                tabIndex={(selectedSubmission ? selectedSubmission.uuid === submission.uuid : index === 0) ? 0 : -1}
+                                tabIndex={isTabStop(submission.uuid, index) ? 0 : -1}
                                 data-submission-uuid={submission.uuid}
                                 onClick={() => onSelectSubmission(submission)}
                                 onKeyDown={handleKeyDown}
