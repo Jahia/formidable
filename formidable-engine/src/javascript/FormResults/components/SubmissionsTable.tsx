@@ -23,7 +23,7 @@ import {
     parseSubmissionNode,
     type FormResultsNode,
     type SubmissionRow
-, type GqlSubmissionNode} from '../FormResults.utils';
+, type GqlSubmissionNode, nextEntryIndex} from '../FormResults.utils';
 
 interface SubmissionsTableProps {
     formResults: FormResultsNode;
@@ -32,6 +32,10 @@ interface SubmissionsTableProps {
     selectedSubmission: SubmissionRow | null;
     onSelectSubmission: (submission: SubmissionRow | null) => void;
     onRegisterRefresh: (refresh: (() => Promise<unknown>) | null) => void;
+    /** The left arrow hands the focus back, to the list of forms. */
+    onMoveLeft?: () => void;
+    /** Hands the app the way in from the list: the selected submission takes the focus, else the first one is selected. */
+    onRegisterEnter?: (enter: (() => void) | null) => void;
 }
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -41,7 +45,9 @@ export const SubmissionsTable = ({
     selectedSubmission,
     fieldOrder,
     onSelectSubmission,
-    onRegisterRefresh
+    onRegisterRefresh,
+    onMoveLeft,
+    onRegisterEnter
 }: SubmissionsTableProps) => {
     const {t} = useTranslation('formidable-engine');
 
@@ -115,8 +121,17 @@ export const SubmissionsTable = ({
     }, [currentPage, loading, queryResult?.pageInfo, totalPages]);
 
     const tableRef = useRef<HTMLDivElement | null>(null);
+    // Roving tabindex: the selected row is the one Tab reaches, or the first while none is selected.
+    const isTabStop = (uuid: string, index: number): boolean =>
+        selectedSubmission ? selectedSubmission.uuid === uuid : index === 0;
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+        if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            onMoveLeft?.();
+            return;
+        }
+
         if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') {
             return;
         }
@@ -131,15 +146,43 @@ export const SubmissionsTable = ({
             ? submissions.findIndex(s => s.uuid === selectedSubmission.uuid)
             : -1;
 
-        let nextIndex: number;
-        if (e.key === 'ArrowDown') {
-            nextIndex = currentIndex < submissions.length - 1 ? currentIndex + 1 : 0;
-        } else {
-            nextIndex = currentIndex > 0 ? currentIndex - 1 : submissions.length - 1;
+        onSelectSubmission(submissions[nextEntryIndex(submissions.length, currentIndex, e.key)]);
+    }, [submissions, selectedSubmission, onSelectSubmission, onMoveLeft]);
+
+    // The right arrow from the list of forms lands here: on the selected row, or on the first submission, which
+    // it selects — the selection effect below then gives its row the focus. Pressed while the submissions are
+    // still loading (the form was just selected), the move waits for them.
+    const enterPendingRef = useRef(false);
+    useEffect(() => {
+        if (!onRegisterEnter) {
+            return undefined;
         }
 
-        onSelectSubmission(submissions[nextIndex]);
-    }, [submissions, selectedSubmission, onSelectSubmission]);
+        onRegisterEnter(() => {
+            if (submissions.length === 0) {
+                // Only a load in progress is waited for: a form with no submission has nothing to land on
+                enterPendingRef.current = loading;
+            } else if (selectedSubmission) {
+                tableRef.current?.querySelector<HTMLElement>(`[data-submission-uuid="${selectedSubmission.uuid}"]`)?.focus({preventScroll: true});
+            } else {
+                onSelectSubmission(submissions[0]);
+            }
+        });
+
+        return () => onRegisterEnter(null);
+    }, [onRegisterEnter, submissions, selectedSubmission, onSelectSubmission, loading]);
+
+    // The table is not keyed per form: a move pending on one form must not land on the next one selected.
+    useEffect(() => {
+        enterPendingRef.current = false;
+    }, [formResults.uuid]);
+
+    useEffect(() => {
+        if (enterPendingRef.current && submissions.length > 0) {
+            enterPendingRef.current = false;
+            onSelectSubmission(submissions[0]);
+        }
+    }, [submissions, onSelectSubmission]);
 
     useEffect(() => {
         if (!selectedSubmission || !tableRef.current) {
@@ -178,8 +221,7 @@ export const SubmissionsTable = ({
         <Paper hasPadding={false} style={{display: 'flex', flexDirection: 'column', height: '100%', borderRadius: '0'}}>
             <div
                 ref={tableRef}
-                tabIndex={0}
-                onKeyDown={handleKeyDown}
+                data-sel-role="submissions-table"
                 style={{
                     flex: 1,
                     overflow: 'auto',
@@ -209,13 +251,16 @@ export const SubmissionsTable = ({
                     </TableHead>
 
                     <TableBody>
-                        {submissions.map(submission => (
+                        {submissions.map((submission, index) => (
                             <TableRow
                                 key={submission.uuid}
                                 isHighlighted={selectedSubmission?.uuid === submission.uuid}
-                                tabIndex={-1}
+                                // Roving tabindex: the selected row is the one Tab reaches, or the first while
+                                // none is; the arrow keys are handled on the rows, the native interactive elements.
+                                tabIndex={isTabStop(submission.uuid, index) ? 0 : -1}
                                 data-submission-uuid={submission.uuid}
                                 onClick={() => onSelectSubmission(submission)}
+                                onKeyDown={handleKeyDown}
                                 style={{cursor: 'pointer', outline: 'none'}}
                             >
                                 <TableBodyCell width="180px" isScrollable>

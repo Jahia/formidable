@@ -128,6 +128,27 @@ describe('Actions - 75 Removing a form entry from the Results page', () => {
 		});
 	});
 
+	it('moves with the arrow keys: up and down in the list, right to the table and left back to the form', () => {
+		openResultsPage();
+		selectEntry(ENTRY_FORM.name);
+		entry(ENTRY_FORM.name).focus();
+		// Down selects the entry after the current one and carries the focus with it; up comes back.
+		cy.realPress('ArrowDown');
+		cy.focused().should('have.attr', 'data-sel-role', 'form-results-entry').and('have.attr', 'aria-pressed', 'true')
+			.and('not.have.attr', 'data-sel-name', ENTRY_FORM.name);
+		cy.realPress('ArrowUp');
+		cy.focused().should('have.attr', 'data-sel-name', ENTRY_FORM.name).and('have.attr', 'aria-pressed', 'true');
+		// Right lands on the table: the first submission is selected and its row takes the focus; down moves to the next.
+		cy.realPress('ArrowRight');
+		cy.focused().should('have.attr', 'data-submission-uuid').then(first => {
+			cy.realPress('ArrowDown');
+			cy.focused().should('have.attr', 'data-submission-uuid').and('not.eq', first);
+		});
+		// Left comes back to the selected form.
+		cy.realPress('ArrowLeft');
+		cy.focused().should('have.attr', 'data-sel-name', ENTRY_FORM.name);
+	});
+
 	it('removes the form from the page once all its results are deleted, until its next submission', () => {
 		openResultsPage();
 		entry(ENTRY_FORM.name).should('contain', ENTRY_FORM.title).find('[data-sel-role="form-deleted"]').should('not.exist');

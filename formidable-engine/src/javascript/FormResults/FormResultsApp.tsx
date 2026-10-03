@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState, useMemo} from 'react';
+import React, {useCallback, useEffect, useRef, useState, useMemo} from 'react';
 import {useQuery} from '@apollo/client';
 import {Button, DeletePermanently, Download, Loader, Reload, Typography} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
@@ -90,6 +90,27 @@ export const FormResultsApp = () => {
         // eslint-disable-next-line @eslint-react/hooks-extra/no-direct-set-state-in-use-effect -- deliberate reset when the selected form changes
         setIsDeleteDialogOpen(false);
     }, [selectedFormUuid]);
+
+    // The arrow keys cross the page: right from the list lands on the table — the selected submission, or the
+    // first one, selected on the way (the table registers that move, it alone knows its rows) — and left from
+    // the table lands on the selected form, or the first.
+    const contentRef = useRef<HTMLDivElement | null>(null);
+    const enterTableRef = useRef<(() => void) | null>(null);
+    const handleRegisterEnter = useCallback((enter: (() => void) | null) => {
+        enterTableRef.current = enter;
+    }, []);
+    const focusTable = useCallback(() => {
+        enterTableRef.current?.();
+    }, []);
+    const focusList = useCallback(() => {
+        const content = contentRef.current;
+        if (!content) {
+            return;
+        }
+
+        (content.querySelector<HTMLElement>('[data-sel-role="form-results-entry"][aria-pressed="true"]')
+            ?? content.querySelector<HTMLElement>('[data-sel-role="form-results-entry"]'))?.focus({preventScroll: true});
+    }, []);
 
     const handleRegisterRefresh = useCallback((refresh: (() => Promise<unknown>) | null) => {
         setRefreshSelectedForm(() => refresh);
@@ -231,6 +252,7 @@ export const FormResultsApp = () => {
             </div>
 
             <div
+                ref={contentRef}
                 style={{
                     display: 'flex',
                     flex: 1,
@@ -247,6 +269,7 @@ export const FormResultsApp = () => {
                     selectedId={selectedForm?.uuid ?? ''}
                     // A click on the selected entry deselects it: the list is a toggle, not a radio.
                     onSelect={id => setSelectedFormResultsId(current => (current === id ? null : id))}
+                    onMoveRight={focusTable}
                 />
                 <div role="main" style={{display: 'flex', flex: '1 1 0', minWidth: 0, gap: '1px', overflow: 'hidden', backgroundColor: 'var(--color-gray_light40)'}}>
                     {selectedForm ? (
@@ -257,6 +280,8 @@ export const FormResultsApp = () => {
                                 selectedSubmission={selectedSubmission}
                                 onSelectSubmission={setSelectedSubmission}
                                 onRegisterRefresh={handleRegisterRefresh}
+                                onMoveLeft={focusList}
+                                onRegisterEnter={handleRegisterEnter}
                             />
                         </div>
                     ) : (
