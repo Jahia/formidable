@@ -6,7 +6,8 @@ class ConditionalLogicRuleRow extends BaseComponent {
 }
 
 export class ConditionalLogicField extends BaseComponent {
-	static defaultSelector = '[data-sel-content-editor-field="fmdbmix:formLogicElement_logics"]';
+	// The editor names a field <fieldset>_<property>: the rules sit in the untitled "rules" fieldset of Conditional display.
+	static defaultSelector = '[data-sel-content-editor-field="rules_logics"]';
 
 	private static readonly menuSelector = '.moonstone-menu:not(.moonstone-hidden)';
 	private static readonly menuOverlaySelector = '.moonstone-menu_overlay';

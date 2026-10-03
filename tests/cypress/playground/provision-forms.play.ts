@@ -68,7 +68,7 @@
  *
  * Three more forms in the plain look leave results behind them: one deleted from both
  * workspaces, one unpublished — the two cases the Results page flags (Form deleted /
- * Form not published) — and one whose only submission was deleted, an entry with no
+ * Form unpublished) — and one whose only submission was deleted, an entry with no
  * result; "Delete all results" clears all three.
  */
 import gql from 'graphql-tag';
@@ -223,6 +223,10 @@ const JXP_MAPPING_MIXIN = 'fmdbmix:jExperienceProfileMapping';
 // timeout, so the context is polled up to this long — and never waited for, since a jCustomer that does
 // not answer is a case this script goes on through.
 const JXP_CONTEXT_TIMEOUT_MS = 30000;
+// The sample module of the TSX test modules adds a setting to the built-in fields (help text position): enabled on the
+// site when it is deployed, so that the playground shows what a third-party module adds to a field's editor.
+const SAMPLE_TSX_MODULE = 'formidable-test-module-samples-tsx';
+const SAMPLE_TSX_MIXIN = 'fmdbsamplemix:helpTextPosition';
 const CONTEXT_ATTEMPT_PAUSE_MS = 2000;
 let jExperienceAvailable = false;
 
@@ -751,6 +755,14 @@ describe('Playground - provision manual-testing forms', () => {
 		deleteSite(FORMIDABLE_TEST_SITE.key);
 		createSite(FORMIDABLE_TEST_SITE.key, FORMIDABLE_TEST_SITE.config);
 		FORMIDABLE_MODULE_IDS.forEach(moduleId => enableModule(moduleId, FORMIDABLE_TEST_SITE.key));
+		cy.apollo({query: gql`query sampleHelpTextPositionMixin { jcr { nodeTypeByName(name: "${SAMPLE_TSX_MIXIN}") { name } } }`})
+			.then((response: {errors?: unknown; data?: {jcr?: {nodeTypeByName?: {name?: string} | null}}}) => {
+				if (!response.errors && response.data?.jcr?.nodeTypeByName?.name) {
+					enableModule(SAMPLE_TSX_MODULE, FORMIDABLE_TEST_SITE.key);
+				} else {
+					cy.log(`${SAMPLE_TSX_MODULE} absent: the fields show no help text position setting`);
+				}
+			});
 		cy.then(() => {
 			if (jExperienceAvailable) {
 				// Both halves of the render filter's site check: jExperience among the site's modules, and ours.
@@ -1120,7 +1132,7 @@ describe('Playground - provision manual-testing forms', () => {
 
 	it('leaves results behind a deleted form, an unpublished one and an emptied one, for the Results page to show', () => {
 		// Three throwaway forms in the plain look. One is deleted from both workspaces: its entry reads
-		// "Form deleted" and is named after its node. One is unpublished: its entry reads "Form not published",
+		// "Form deleted" and is named after its node. One is unpublished: its entry reads "Form unpublished",
 		// keeps its title, and comes back to life once the form is published again. One loses its only
 		// submission, as the Results page's date-range deletion does: its entry stays, with nothing in it.
 		const look = LOOKS.find(candidate => candidate.key === 'plain')!;

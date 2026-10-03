@@ -8,7 +8,7 @@
 			"rank": 1.10,
 			"fieldSets": [
 				{
-					"name": "fmdbmix:formLogicElement",
+					"name": "rules",
 					"rank": 0.0,
 					"fields": [
 						{ "name": "logics" }

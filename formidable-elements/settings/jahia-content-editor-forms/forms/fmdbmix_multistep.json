@@ -3,15 +3,16 @@
 	"priority": 2.0,
 	"sections": [
 		{
-			"name": "multistep",
-			"labelKey": "fmdb.section.multistep",
-			"rank": 1.30,
+			"name": "buttons",
+			"labelKey": "fmdb.section.buttons",
+			"rank": 1.20,
 			"fieldSets": [
 				{
-					"name": "navigation",
-					"rank": 0.0,
+					"name": "stepNavigation",
+					"labelKey": "fmdb.fieldset.stepNavigation",
+					"rank": 1.0,
 					"fields": [
-						{ "name": "showStepsNav" }
+						{ "name": "showStepsNav", "rank": 0.0 }
 					]
 				}
 			]

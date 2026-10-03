@@ -30,7 +30,7 @@ Field settings  1.05    1 Help & presentation                           help tex
                                                                         when their mode is chosen
                         4 Behaviour                                     read-only, disabled, autofocus
                         5 Validation messages                           the messages replacing the browser's
-Logic           1.10    unchanged
+Conditional display  1.10  renamed from "Logic" (2026-10-02): the rules show or hide the field
 jExperience     1.15    unchanged (formidable-jexperience-engine)
 Metadata, Layout, List ordering, Visibility: the platform's own sections, unchanged
 ```
@@ -156,11 +156,10 @@ cannot depend on which file is read first):
 | ---- | ------------------- | --------------------------------------------------------------------------- | --------------------- |
 | 1.05 | Field settings      | the field types and their mixins (elements), the validation-message mixins (elements), `fmdbsamplemix:helpTextPosition` (sample) | fields |
 | 1.06 | Configuration       | `fmdbmix:fieldActionFeedback` (engine)                                      | a field action, not a field |
-| 1.10 | Logic               | `fmdbmix:formLogicElement` (engine)                                         | fields and containers |
+| 1.10 | Conditional display | `fmdbmix:formLogicElement` (engine)                                         | fields and containers |
 | 1.12 | Responses           | `fmdbmix:responses` (elements)                                              | form                  |
 | 1.15 | jExperience         | `fmdbmix:jExperienceProfileMapping` and, through the module's override of the engine marker, the `profileSensitive` flag of `fmdbmix:profileMappableField` (jexperience-engine) | fields |
-| 1.20 | Buttons             | `fmdbmix:buttons` (elements)                                                | form                  |
-| 1.30 | Multi-step          | `fmdbmix:multistep` (elements)                                              | form                  |
+| 1.20 | Buttons             | `fmdbmix:buttons` and `fmdbmix:multiStep` (elements) — the step navigation switch sits with the Previous/Next labels | form                  |
 | 1.40 | Style               | `fmdbmix:style` (elements, joined by the sample's `fmdbsamplemix:customStyle`) | form              |
 
 1.50, the former Validation messages section, is free: its three overrides now feed the Validation
@@ -226,7 +225,14 @@ What follows from the three rules, and shaped the overrides:
   redundant mixin from the fields saved before; a field keeps working either way. Once that migration
   leaves (0.6), the declarations may be inlined into their types and dropped — optional, cosmetic
   (upgrade-notes.md, "Startup migrations", removal checklist).
-- **A relabel** is a `labelKey` on the fieldset entry; it applies to a type-named fieldset too.
+- **A relabel** is a `labelKey` on the fieldset entry; it applies to a type-named fieldset too. **A note under
+  the title** is a `descriptionKey` on the same entry, resolved from the module's bundle in the UI language like
+  the label (measured on 8.2.4: `GqlEditorFormFieldSet.description`), so one sentence can say what nine
+  per-field tooltips repeated. The GraphQL model carries a section description as well
+  (`GqlEditorFormSection.description`), but the editor does not render it (measured 2026-10-03): the sentence
+  common to a section's single fieldset can go on that fieldset, untitled — its description renders right
+  under the section title — though Conditional display ended with the sentence in its one field's tooltip
+  instead, one layer less.
 - **`priority`** orders the overrides among themselves; the generated form merges first. Every override of
   this repository uses 2.0 — their fields never collide, so the order among them does not matter.
 - **The field-level flags** that belong to the property definition (`mandatory`, `valueConstraints`,
@@ -242,9 +248,11 @@ What follows from the three rules, and shaped the overrides:
 | `fmdbmix_advanced<Type>Settings.json` | the type's module | the properties of the type's advanced-settings supertype in the shared fieldsets (its `hidden` ones are no fields) |
 | `fmdbmix_dateBounds.json`, `fmdbmix_datetimeBounds.json`, `fmdbmix_<fixed|relative><Min|Max><Date|Datetime>.json` | elements — the mixins are the engine's, their editor overrides live next to the date types that use them, as their `fieldsets/` overrides already did | the bound modes in Constraints, each dynamic bound fieldset at its rank 3.1–3.4 |
 | `fmdbmix_optionsSource.json` | elements (same reason) | content-only: the options origin at rank 1.5 of `<main>` on every choice field; the dynamic options fieldsets stay where the editor generates them |
-| `fmdbmix_validationMessages.json`, `…textValidationMessages.json`, `…rangeValidationMessages.json` | elements | the messages in the Validation messages fieldset, ranks 1, 2–5, 6–9 |
+| `fmdbmix_validationMessages.json`, `…textValidationMessages.json`, `…rangeValidationMessages.json` | elements | the messages in the Validation messages fieldset, ranks 1, 2–5, 6–9, and the fieldset's one note (`descriptionKey`: a message left empty keeps the browser's), said once instead of under each message |
+| `fmdb_form.json` | elements | the editor's children block hidden on the form, whose children are the field and action lists: nothing a contributor orders there (#150 thread, HDU) |
+| `fmdbmix_multistep.json` | elements | the one setting of the multi-step mixin, the step navigation switch, placed first in the Step navigation fieldset of Buttons; the Multi-step section it had to itself is gone (#150) |
 | `fmdbmix_fieldActions.json` | engine | nothing of the switch, which stays where the editor generates it, at the end of Content; it hides the editor's Content list & ordering block on the elements that can carry field actions, and on them only (`listOrdering`, `"hide": true`) |
-| `fmdbmix_profileMappableField.json` | engine, then jexperience-engine (priority 3.0) | the engine hides the marker's generated fieldset, `profileSensitive` in it, since without the jExperience module the flag means nothing; that module's file of the same name takes the field into a Privacy fieldset at rank -1 of its jExperience section, with its own `labelKey` and `descriptionKey` |
+| `fmdbmix_profileMappableField.json` | engine, then jexperience-engine (priority 3.0) | the engine hides the marker's generated fieldset, `profileSensitive` in it, since without the jExperience module the flag means nothing; that module's file of the same name takes the field into an untitled fieldset at rank -1 of its jExperience section — no heading over one checkbox (HDU) — the field carrying its own `labelKey` and `descriptionKey` |
 | `fmdbext_<type>.json` | extended-inputs | the optional types, from their own module, the shared keys resolved through its dependency on elements |
 | `fmdbsamplemix_helpTextPosition.json` | the sample module | a third-party setting in Help & presentation, rank 1.5 |
 
@@ -288,4 +296,9 @@ the sample's setting and `fields/223` for the switch.
 | 2026-10-01 | **Numbers and dates: the slider keeps its minimum and maximum in Content; the date bound modes and their dynamic fieldsets move to Constraints** (the arbitrated schema: « curseur : Libellé · Obligatoire · Min · Max » ; « bornes → Contraintes ») | A slider is drawn by its bounds, a date is constrained by them; the dynamic bound fieldsets follow the mode that selects them, moved from their own overrides so the `fieldsets/` flags (mandatory offsets) travel with the fields |
 | 2026-10-02 | **The "advanced settings" mixins become supertypes of their field types; the hidden always-activated storage fieldset is gone** (HDU review of #359: the editor added the mixin on every save, which a translator's role cannot do, and the always-activated fieldset showed no CND default; HDU: « fait l'alternative propre : déplacer ces propriétés sur les types primaires et retirer les mixins ») | Moving the properties onto the type under their names bricks every field saved before: Jackrabbit builds no effective node type for a node whose primary type and mixin declare the same property ("ambiguous property definition"), every write fails, the removal of the mixin included — verified on 8080; a type removed from the CND stays registered anyway. A supertype gives the same editor (no switch, the properties as the type's own, defaults shown) and keeps those fields writable; `RedundantMixinMigration` (then named `AdvancedSettingsMixinMigration`) drops the redundant mixin |
 | 2026-10-02 | **`size` and `cols` stay hidden with `form` and `dirname`** (HDU: « j'avais confondu cols avec rows ») | Presentational, superseded by any stylesheet sizing the controls; `rows` is the one with an effect of its own, and it stays |
+| 2026-10-02 | **The form editor loses two blocks: the Multi-step section, whose only setting joins Buttons › Step navigation, and the children block** (HDU: « quelle est la pertinence de la props dans la section multi-step ? » and « content list et ordering pour un form… je vois pas trop l'intérêt, le passer en hidden ? »; closes #150) | A section for one checkbox, and the checkbox belongs with the Previous/Next labels it governs; the form's children are its field and action lists, which the editor must not offer to reorder — the same reason the block is hidden on a field with actions, while a container keeps it for the fields it orders |
+| 2026-10-02 | **The "if empty, the browser's message" hint is said once, under the Validation messages title** (HDU, screenshot: the same line under nine messages) | A fieldset `descriptionKey`, translated like a label; the nine tooltips keep what each message is for |
+| 2026-10-03 | **A section with one fieldset shows no fieldset title**: the field-action settings sit right under Configuration, as the rules under Conditional display (HDU: « il n'apporte rien ici ») | Section › fieldset › field was three titles for one group; the fieldset is untitled (no `labelKey`), the four tooltips say what each setting does. The fieldset is named for what it holds (`rules`, `feedback`), not after the type: a type-named fieldset without `labelKey` takes the type's label as title. The Content Editor names each field `<fieldset>_<property>` (`data-sel-content-editor-field`), so the specs' selector follows (`rules_logics`, #371) Field settings keeps its titled fieldsets: they are the same on every type, which is what lets a contributor find a setting from one field to the next |
+| 2026-10-03 | **The email field's "Multiple emails" switch is in Content, after Required** (HDU: « ça me dérange que ce ne soit pas au même endroit tout le temps »; first moved to the head of Value & input) | `multiple` defines what the field accepts and submits — one address or several, one file or several, a dropdown or a multi-select — so it is Content on the three types that have it, as the select and the file field already had; the email field was the exception |
+| 2026-10-02 | **The "Logic" section is "Conditional display", and its one field sits right under the section title** (HDU: « c'est logic pour l'affichage ? », then « on est obligé d'avoir 3 niveaux ? ») | The rules only show or hide the field; "logic" promised more, and "Visibility" is the platform's own section for publication windows. Section › fieldset › field was three titles for one control: the fieldset is untitled and carries no description (a fieldset description under the section title read as one more layer — HDU), and the Rules tooltip alone says it all in two sentences: when the field shows, what a rule compares. The technical section name `logic` stays, so the overrides and the specs are untouched |
 | 2026-10-02 | **The field-action feedback mixin follows: a supertype of `fmdbmix:fieldAction`, its always-activated fieldset gone** (#365) | Same finding, same remedy as the row above — the marker reaches every field-action type whatever its module, so a supertype of the marker reaches them all, which is what `extends` was there for; `RedundantMixinMigration` (renamed from `AdvancedSettingsMixinMigration`, since it now serves two families) drops the redundant mixin from the actions saved before |

@@ -688,7 +688,7 @@ which cancels the deployment of the module. The options-source settings of `form
 theirs in a `fieldsets/` override for the same reason.
 
 - **Rank.** Sections order by rank, one rank per section across the product: 1.05 Field settings,
-  1.06 Configuration, 1.10 Logic, 1.12 Responses, 1.20 Buttons, 1.30 Multi-step, 1.40 Style. 1.15 gives
+  1.06 Configuration, 1.10 Conditional display, 1.12 Responses, 1.20 Buttons, 1.40 Style. 1.15 gives
   jExperience a rank of its own and places it right after Logic on a field. The rank table and how to add
   a section: [`content-editor-layout.md`](content-editor-layout.md).
 - **Labels.** `fmdb.section.jexperience=jExperience` plus the fieldset and property labels go in
@@ -700,13 +700,13 @@ theirs in a `fieldsets/` override for the same reason.
   [extension guide](../extension/how-to-extend-views-and-elements-from-third-party-module.md)
   accepts for a sample and flags as a deliberate choice for a product module.
 - **No custom selector.** The standard choicelist selector renders the initializer's values, so
-  no `fieldsets/` override is needed; the Logic section needs one only because its rules editor
+  no `fieldsets/` override is needed; the Conditional display section needs one only because its rules editor
   is a React selector of its own.
 - **Two controls, in this order.** The sensitive checkbox first, then the mapping fieldset with its
   own switch. The checkbox is the engine's `profileSensitive`, a property of the marker every mappable
   field takes: the engine's own override hides it in the fieldset the editor generates for the marker,
   and this module's `forms/fmdbmix_profileMappableField.json` (priority 3.0, above the engine's 2.0)
-  takes it from there into a Privacy fieldset at rank -1 of the jExperience section, with this module's
+  takes it from there into an untitled fieldset at rank -1 of the jExperience section (no heading over one checkbox), with this module's
   labels (`labelKey`, `descriptionKey` on the field) — so the box exists exactly where it has a meaning,
   and nothing is added to the field on save (a translator's role cannot add a mixin; #365). The flag gates
   the mapping, so it must be answerable before the mapping is switched on — which is why it is a property

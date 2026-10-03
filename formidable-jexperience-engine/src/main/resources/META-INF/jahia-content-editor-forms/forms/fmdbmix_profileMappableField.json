@@ -9,7 +9,6 @@
 			"fieldSets": [
 				{
 					"name": "privacy",
-					"labelKey": "fmdb.fieldset.privacy",
 					"rank": -1.0,
 					"fields": [
 						{

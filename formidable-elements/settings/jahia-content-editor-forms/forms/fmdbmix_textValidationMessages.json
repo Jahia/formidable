@@ -10,6 +10,7 @@
 				{
 					"name": "validationMessages",
 					"labelKey": "fmdb.fieldset.validationMessages",
+					"descriptionKey": "fmdb.fieldset.validationMessages.description",
 					"rank": 5.0,
 					"fields": [
 						{ "name": "msgTypeMismatch", "rank": 2.0 },
