@@ -147,7 +147,9 @@ export const SubmissionsTable = ({
     }, [submissions, selectedSubmission, onSelectSubmission, onMoveLeft]);
 
     // The right arrow from the list of forms lands here: on the selected row, or on the first submission, which
-    // it selects — the selection effect below then gives its row the focus.
+    // it selects — the selection effect below then gives its row the focus. Pressed while the submissions are
+    // still loading (the form was just selected), the move waits for them.
+    const enterPendingRef = useRef(false);
     useEffect(() => {
         if (!onRegisterEnter) {
             return undefined;
@@ -155,10 +157,8 @@ export const SubmissionsTable = ({
 
         onRegisterEnter(() => {
             if (submissions.length === 0) {
-                return;
-            }
-
-            if (selectedSubmission) {
+                enterPendingRef.current = true;
+            } else if (selectedSubmission) {
                 tableRef.current?.querySelector<HTMLElement>(`[data-submission-uuid="${selectedSubmission.uuid}"]`)?.focus({preventScroll: true});
             } else {
                 onSelectSubmission(submissions[0]);
@@ -167,6 +167,13 @@ export const SubmissionsTable = ({
 
         return () => onRegisterEnter(null);
     }, [onRegisterEnter, submissions, selectedSubmission, onSelectSubmission]);
+
+    useEffect(() => {
+        if (enterPendingRef.current && submissions.length > 0) {
+            enterPendingRef.current = false;
+            onSelectSubmission(submissions[0]);
+        }
+    }, [submissions, onSelectSubmission]);
 
     useEffect(() => {
         if (!selectedSubmission || !tableRef.current) {
