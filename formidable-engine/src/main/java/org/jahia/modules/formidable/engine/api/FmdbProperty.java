@@ -1,5 +1,7 @@
 package org.jahia.modules.formidable.engine.api;
 
+import org.jahia.modules.formidable.engine.migration.RemovedIn;
+
 /**
  * The properties another module reads on Formidable content: a field's business identity and its
  * conditional logic, a choice field's options, and the way from a results node back to its form.
@@ -50,7 +52,8 @@ public final class FmdbProperty {
     /** What an unanswered field action means: {@code accept} or {@code reject} the value ({@code fmdbmix:fieldActionFeedback}). */
     public static final String WHEN_UNAVAILABLE = "whenUnavailable";
 
-    /** DEPRECATED, removed in 0.6: the provider a field action picked ({@code fmdbmix:providerFieldAction}); nothing reads it. */
+    /** The provider a field action picked ({@code fmdbmix:providerFieldAction}); nothing reads it, removed in 0.6. */
+    @RemovedIn("0.6")
     public static final String PROVIDER_ID = "providerId";
 
     /**

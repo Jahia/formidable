@@ -29,10 +29,12 @@ public final class MigrationWrites {
         return ACTIVE.get();
     }
 
+    /** Marks the current thread as writing for a migration; public for the migrations of the wave packages only. */
     public static void begin() {
         ACTIVE.set(Boolean.TRUE);
     }
 
+    /** Clears the mark {@link #begin()} set; always in a {@code finally}. */
     public static void end() {
         ACTIVE.remove();
     }

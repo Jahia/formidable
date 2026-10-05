@@ -128,7 +128,7 @@ orderable
 // the feedback settings above. A field action answers a verdict; it never writes.
 [fmdbmix:fieldAction] > fmdbmix:fieldActionFeedback mixin
 
-// DEPRECATED, removed in 0.6: the provider a field action picked when the services were a list of the engine's
+// @RemovedIn 0.6: the provider a field action picked when the services were a list of the engine's
 // configuration. A field action now reads its service from its own module's configuration; nothing reads this
 // mixin any more, kept hidden so that a type or a node still carrying it deploys.
 [fmdbmix:providerFieldAction] mixin
@@ -163,7 +163,7 @@ orderable
 // options by hand stays the out-of-the-box experience.
 [fmdbmix:optionsSource] mixin
  - optionsMode (string, choicelist) = 'manual' indexed=no
- // DEPRECATED since 0.5, removed in 0.6: the 0.4.0 spelling of the property below, kept hidden so
+ // @RemovedIn 0.6, deprecated since 0.5: the 0.4.0 spelling of the property below, kept hidden so
  // that a 0.4 export still imports; MixinPropertyNamesMigration copies it into the unprefixed name
  // at startup. Same for every "- fmdb:" property of this file. Nothing reads it but the migration.
  - fmdb:optionsMode (string) hidden indexed=no
@@ -178,26 +178,26 @@ orderable
 [fmdbmix:manualOptions] > jmix:dynamicFieldset mixin
  extends = fmdbmix:optionsSource
  - options (string) i18n multiple indexed=no
- // DEPRECATED since 0.5, removed in 0.6 (see fmdbmix:optionsSource above)
+ // @RemovedIn 0.6, deprecated since 0.5 (see fmdbmix:optionsSource above)
  - fmdb:options (string) i18n multiple hidden indexed=no
 
 [fmdbmix:sourcedOptions] > jmix:dynamicFieldset mixin
  extends = fmdbmix:optionsSource
  - optionsSourceKey (string, choicelist[formidableOptionsSources]) indexed=no
- // DEPRECATED since 0.5, removed in 0.6 (see fmdbmix:optionsSource above)
+ // @RemovedIn 0.6, deprecated since 0.5 (see fmdbmix:optionsSource above)
  - fmdb:optionsSourceKey (string) hidden indexed=no
 
 [fmdbmix:categoryOptions] > jmix:dynamicFieldset mixin
  extends = fmdbmix:optionsSource
  - optionsRootCategory (weakreference, picker[type='category']) < 'jnt:category'
- // DEPRECATED since 0.5, removed in 0.6 (see fmdbmix:optionsSource above)
+ // @RemovedIn 0.6, deprecated since 0.5 (see fmdbmix:optionsSource above)
  - fmdb:optionsRootCategory (weakreference) hidden
 
 [fmdbmix:contentOptions] > jmix:dynamicFieldset mixin
  extends = fmdbmix:optionsSource
  - optionsRootNode (weakreference, picker[type='editorial'])
  - optionsNodeType (string, choicelist[formidableContentTypes,dependentProperties='optionsRootNode']) indexed=no
- // DEPRECATED since 0.5, removed in 0.6 (see fmdbmix:optionsSource above)
+ // @RemovedIn 0.6, deprecated since 0.5 (see fmdbmix:optionsSource above)
  - fmdb:optionsRootNode (weakreference) hidden
  - fmdb:optionsNodeType (string) hidden indexed=no
 
@@ -217,12 +217,12 @@ orderable
 // exactly what a 0.4.0 export brings in — before MixinPropertyNamesMigration renames it;
 // and Jahia's DefinitionsBundleChecker rates a mandatory property ADDED to a deployed type
 // as a MAJOR change and cancels the module deployment, which would block the very upgrade
-// from 0.4.0 (seen on a real 0.4.0 instance). The flags come back in 0.6 with the removal
+// from 0.4.0 (seen on a real 0.4.0 instance). @RemovedIn 0.6: the flags come back with the removal
 // of the prefixed definitions (#310).
 [fmdbmix:dateBounds] mixin
  - minBoundMode (string, choicelist) = 'none' indexed=no
  - maxBoundMode (string, choicelist) = 'none' indexed=no
- // DEPRECATED since 0.5, removed in 0.6 (see fmdbmix:optionsSource above)
+ // @RemovedIn 0.6, deprecated since 0.5 (see fmdbmix:optionsSource above)
  - fmdb:minBoundMode (string) hidden indexed=no
  - fmdb:maxBoundMode (string) hidden indexed=no
 
@@ -242,7 +242,7 @@ orderable
  extends = fmdbmix:dateBounds
  - minRelativeAmount (long) = 0 indexed=no
  - minRelativeUnit (string, choicelist) = 'days' indexed=no
- // DEPRECATED since 0.5, removed in 0.6 (see fmdbmix:optionsSource above)
+ // @RemovedIn 0.6, deprecated since 0.5 (see fmdbmix:optionsSource above)
  - fmdb:minRelativeAmount (long) hidden indexed=no
  - fmdb:minRelativeUnit (string) hidden indexed=no
 
@@ -250,14 +250,14 @@ orderable
  extends = fmdbmix:dateBounds
  - maxRelativeAmount (long) = 0 indexed=no
  - maxRelativeUnit (string, choicelist) = 'days' indexed=no
- // DEPRECATED since 0.5, removed in 0.6 (see fmdbmix:optionsSource above)
+ // @RemovedIn 0.6, deprecated since 0.5 (see fmdbmix:optionsSource above)
  - fmdb:maxRelativeAmount (long) hidden indexed=no
  - fmdb:maxRelativeUnit (string) hidden indexed=no
 
 [fmdbmix:datetimeBounds] mixin
  - minBoundMode (string, choicelist) = 'none' indexed=no
  - maxBoundMode (string, choicelist) = 'none' indexed=no
- // DEPRECATED since 0.5, removed in 0.6 (see fmdbmix:optionsSource above)
+ // @RemovedIn 0.6, deprecated since 0.5 (see fmdbmix:optionsSource above)
  - fmdb:minBoundMode (string) hidden indexed=no
  - fmdb:maxBoundMode (string) hidden indexed=no
 
@@ -273,7 +273,7 @@ orderable
  extends = fmdbmix:datetimeBounds
  - minRelativeAmount (long) = 0 indexed=no
  - minRelativeUnit (string, choicelist) = 'days' indexed=no
- // DEPRECATED since 0.5, removed in 0.6 (see fmdbmix:optionsSource above)
+ // @RemovedIn 0.6, deprecated since 0.5 (see fmdbmix:optionsSource above)
  - fmdb:minRelativeAmount (long) hidden indexed=no
  - fmdb:minRelativeUnit (string) hidden indexed=no
 
@@ -281,7 +281,7 @@ orderable
  extends = fmdbmix:datetimeBounds
  - maxRelativeAmount (long) = 0 indexed=no
  - maxRelativeUnit (string, choicelist) = 'days' indexed=no
- // DEPRECATED since 0.5, removed in 0.6 (see fmdbmix:optionsSource above)
+ // @RemovedIn 0.6, deprecated since 0.5 (see fmdbmix:optionsSource above)
  - fmdb:maxRelativeAmount (long) hidden indexed=no
  - fmdb:maxRelativeUnit (string) hidden indexed=no
 

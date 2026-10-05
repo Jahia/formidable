@@ -37,7 +37,7 @@
  - jExperiencePrefillThen (string, choicelist[resourceBundle,formidableJExperiencePrefillThen,dependentProperties='jExperiencePrefill,jExperiencePrefillThen']) = 'editable' autocreated indexed=no < 'editable', 'readOnly', 'hidden'
 
 
-// DEPRECATED, removed in 0.6: the sensitive flag's first home (0.5.0 development builds; no released version holds it).
+// @RemovedIn 0.6: the sensitive flag's first home (0.5.0 development builds; no released version holds it).
 // The flag is the engine's profileSensitive, on fmdbmix:profileMappableField, since #369: attached here with
 // `extends` and kept always activated, the mixin was added by the editor to every mappable field on save, which a
 // translator's role cannot do. The engine's ProfileSensitiveFlagMigration copies the value and drops this mixin;

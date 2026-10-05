@@ -434,8 +434,9 @@ the deprecated definitions that wave reads. From 0.6 on, 0.5.x is the minimum up
 both waves at least once. The classes live in the engine's `migration` package, by wave — `v04` (0.3 → 0.4),
 `v05` (0.4 → 0.5, the configuration's move to five files included), `common` for what both share —, and each carries
 a `Lifecycle:` note in its Javadoc pointing here. Each also carries the `@RemovedIn("0.6")` marker, and so does every
-read elsewhere that only keeps content not migrated yet working (a retired property name, a bound without a mode):
-`grep -rn "@RemovedIn"` over the repository, Java and TypeScript, is the list of what 0.6 removes.
+read elsewhere that only keeps content not migrated yet working (a retired property name, a bound without a mode),
+as an annotation in Java, a JSDoc tag in TypeScript and a comment in the CND (`// @RemovedIn 0.6`) on every
+deprecated declaration: `grep -rn "@RemovedIn"` over the repository is the list of what 0.6 removes.
 
 Every workspace pass goes through `MigrationSessions`. The **live pass runs with
 JCR observation switched off**: Jahia records a direct live write on a published

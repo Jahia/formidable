@@ -173,7 +173,7 @@ public final class FormerListLines {
         for (String line : ConfigurationValues.lines(lines)) {
             String[] parts = line.split("\\|", 4);
             if (parts.length < 3 || parts[0].isBlank() || parts[2].isBlank()) {
-                log.warn("[ChoiceOptionsConfigService] Skipping malformed optionsSources line (expected id|Label|initializerKey[|param]): '{}'", line);
+                log.warn("[FormerListLines] Skipping malformed optionsSources line (expected id|Label|initializerKey[|param]): '{}'", line);
                 continue;
             }
             Map<String, String> settings = new LinkedHashMap<>();
@@ -193,7 +193,7 @@ public final class FormerListLines {
             for (String line : ConfigurationValues.lines(development ? developmentLines : standardLines)) {
                 String[] parts = line.split("\\|", 3);
                 if (parts.length != 3 || parts[0].isBlank()) {
-                    log.warn("[FormActionsConfigService] Skipping malformed forward target line (expected id|label|url): '{}'", line);
+                    log.warn("[FormerListLines] Skipping malformed forward target line (expected id|label|url): '{}'", line);
                     continue;
                 }
                 Map<String, String> settings = new LinkedHashMap<>();
