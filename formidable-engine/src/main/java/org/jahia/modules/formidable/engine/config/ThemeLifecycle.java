@@ -24,6 +24,10 @@ import java.util.function.Function;
  * never lapses to the new file's default. The next attempts are scheduled here — nothing else would call the
  * migration again until the file changed or the node restarted — and once the last one fails the snapshot is read
  * from the file as it stands.
+ * <p>
+ * Once the migration is over, the first configuration received from the file at each start is completed with the
+ * settings it does not hold, at their defaults ({@link MissingSettingsCompletion}) — never before: the default written for a setting the
+ * migration still has to carry would read, to the migration, as a value the administrator chose.
  *
  * @param <C> the theme's definition
  * @param <S> the theme's snapshot, an immutable record of what its getters serve
@@ -42,6 +46,7 @@ public final class ThemeLifecycle<C extends Annotation, S> {
     private final AtomicReference<Map<String, Object>> lastProperties = new AtomicReference<>();
     private final AtomicReference<C> lastConfig = new AtomicReference<>();
     private final LegacyConfigurationMigration migration;
+    private final MissingSettingsCompletion completion;
     private Executor retries = CompletableFuture.delayedExecutor(RETRY_DELAY_SECONDS, TimeUnit.SECONDS);
 
     public ThemeLifecycle(String pid, Class<C> definition, Function<C, S> reader) {
@@ -49,6 +54,7 @@ public final class ThemeLifecycle<C extends Annotation, S> {
         this.definition = definition;
         this.reader = reader;
         this.migration = new LegacyConfigurationMigration(pid, definition);
+        this.completion = new MissingSettingsCompletion(pid, definition);
     }
 
     /** The tests' seam: the next attempt of a failed write runs when the executor says. */
@@ -89,6 +95,10 @@ public final class ThemeLifecycle<C extends Annotation, S> {
         }
         if (outcome == LegacyConfigurationMigration.Outcome.RETRY) {
             retries.execute(this::runMigration);
+        } else if (outcome == LegacyConfigurationMigration.Outcome.NOT_DUE && migration.settled()) {
+            // Not right after the migration's own run: one that wrote is followed by a callback of its own, which the
+            // completion reads, and one that gave up has just seen its writes fail — the next callback tries again.
+            completion.run(configurationAdmin.get(), lastProperties.get());
         }
         return outcome;
     }

@@ -3,11 +3,13 @@ package org.jahia.modules.formidable.engine.config;
 import org.jahia.modules.formidable.engine.config.LegacyConfigurationMigration.Outcome;
 import org.jahia.modules.formidable.engine.config.formactions.FormActionsConfig;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Dictionary;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
@@ -90,6 +92,45 @@ class ThemeLifecycleTest {
         verify(theme, times(3)).update(any());
         assertEquals(10L, lifecycle.current(), "given up: the file's value");
         assertEquals(0, scheduled.size());
+    }
+
+    @Test
+    void theMissingSettingsAreAddedOnceTheMigrationIsOverNeverAlongsideItsRun() throws Exception {
+        // Verifies the order: the migration's own run writes its marker alone (a default written then would read, to
+        // the migration, as the administrator's value); the callback that write brings holds the marker, and that one
+        // completes the file with the settings it lacks.
+        Configuration theme = mock(Configuration.class);
+        ConfigurationAdmin admin = adminWithLegacyTimeout(theme);
+        ThemeLifecycle<FormActionsConfig, Long> lifecycle = lifecycle();
+        lifecycle.setConfigurationAdmin(admin);
+
+        assertEquals(Outcome.WRITTEN, lifecycle.configure(fromFile(), TestConfigs.of(FormActionsConfig.class)));
+        verify(theme, times(1)).update(any());
+
+        Map<String, Object> marked = fromFile();
+        marked.put(LegacyConfigurationMigration.MARKER, LegacyConfigurationMigration.LEGACY_PID);
+        when(theme.getProperties()).thenAnswer(invocation -> new Hashtable<>(marked));
+        assertEquals(Outcome.NOT_DUE, lifecycle.configure(marked, TestConfigs.of(FormActionsConfig.class)));
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Dictionary<String, Object>> written = ArgumentCaptor.forClass(Dictionary.class);
+        verify(theme, times(2)).update(written.capture());
+        assertEquals("false", written.getValue().get("enableDevForwardTargets"));
+        assertEquals("5", written.getValue().get("forwardHttpConnectTimeoutSeconds"));
+        assertEquals("10", written.getValue().get("forwardHttpRequestTimeoutSeconds"));
+    }
+
+    @Test
+    void nothingIsCompletedWhileTheMigrationWaitsForItsNextAttempt() throws Exception {
+        // Verifies a pending migration keeps the file to itself: its write failed, the completion does not write the
+        // defaults of the settings it is about to carry.
+        Configuration theme = mock(Configuration.class);
+        doThrow(new IOException("disk full")).when(theme).update(any());
+        ThemeLifecycle<FormActionsConfig, Long> lifecycle = lifecycle();
+        lifecycle.retryWith(runnable -> { });
+        lifecycle.setConfigurationAdmin(adminWithLegacyTimeout(theme));
+
+        assertEquals(Outcome.RETRY, lifecycle.configure(fromFile(), TestConfigs.of(FormActionsConfig.class)));
+        verify(theme, times(1)).update(any());
     }
 
     @Test

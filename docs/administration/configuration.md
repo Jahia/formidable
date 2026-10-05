@@ -8,6 +8,17 @@ for). Edit the files, or use the provisioning API (`editConfiguration` with the 
 applies a change without a restart. Avoid the Felix Web Console for these PIDs: it rewrites the file in a
 typed syntax (`L"5"`, quoted strings) a `.cfg` file does not read back.
 
+## Settings added by a later version
+
+Since your copy of a file is never overwritten, a setting a later version adds would not reach it. The module
+therefore completes each file at every start: a setting the file does not hold is appended at the end, at its
+default, and the log names them — `[org.jahia.modules.formidable.<theme>] Added the settings missing from the
+theme's file, at their defaults: [...]`. Nothing else changes: a value present in the file, edited or not, stays
+as it is, your comments stay, and a line the module does not know is left in place. A setting you delete from a
+file comes back at its default at the next start, which is the value the module applied without it anyway. The
+[upgrade notes](upgrade-notes.md#settings-added-to-the-configuration-files) list the settings each version adds.
+A configuration made without a file (the Felix console) is not completed.
+
 ## The five themes
 
 | Theme | PID and file (`karaf/etc/<PID>.cfg`) | Settings | Read by |
@@ -186,8 +197,8 @@ version with the themes:
 **How to check**: open the five files after the upgrade. A setting that was not at its default before the
 upgrade is there, in its theme's file, on a line without a comment; the marker line
 `formidable.migratedFrom=org.jahia.modules.formidable` is the trace that the migration wrote the file. A
-setting the old configuration held that is not in its theme's file was either at its default (then it was
-not copied) or lost to a write that kept failing (then the log says so): re-enter it.
+setting the old configuration held that its theme's file shows at the default was either at its default (then
+it was not copied) or lost to a write that kept failing (then the log says so): re-enter it.
 
 **The lists of earlier builds** — `optionsSources`, `forwardTargets` and `devForwardTargets`, one entry per
 line (`id|Label|…`) — become one file per

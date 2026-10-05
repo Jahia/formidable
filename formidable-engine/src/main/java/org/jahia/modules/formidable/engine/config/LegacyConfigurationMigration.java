@@ -188,6 +188,11 @@ public final class LegacyConfigurationMigration {
         return pending;
     }
 
+    /** Whether the migration is over for this theme — run, found already run, or given up: it never writes again. */
+    synchronized boolean settled() {
+        return done;
+    }
+
     private Outcome retry(Map<String, Object> carried) {
         failedAttempts++;
         if (failedAttempts < MAX_ATTEMPTS) {
