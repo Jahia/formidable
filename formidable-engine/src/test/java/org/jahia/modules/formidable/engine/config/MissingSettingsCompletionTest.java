@@ -155,6 +155,23 @@ class MissingSettingsCompletionTest {
     }
 
     @Test
+    void aFileCompleteAtStartStaysUntouchedWhenALineIsDeletedWhileTheModuleRuns() throws Exception {
+        // Verifies the common case of the guarantee above (review of #374): the shipped files hold every setting, so
+        // at most starts nothing is written; a line deleted afterwards still stays deleted until the next start.
+        ConfigurationAdmin admin = mock(ConfigurationAdmin.class);
+        Map<String, Object> file = partialFile();
+        file.put("enableDevForwardTargets", "false");
+        file.put("forwardHttpConnectTimeoutSeconds", "5");
+        Configuration theme = themeConfiguration(admin, file);
+        MissingSettingsCompletion completion = completion();
+
+        assertTrue(completion.run(admin, file).isEmpty());
+        file.remove("forwardHttpConnectTimeoutSeconds");
+        assertTrue(completion.run(admin, file).isEmpty());
+        verify(theme, never()).update(any());
+    }
+
+    @Test
     void theDefaultsAreTheDefinitionsAttributesAsStrings() {
         // Verifies the values written are strings, the form a .cfg file reads back (a typed value would be persisted
         // in fileinstall's typed syntax).

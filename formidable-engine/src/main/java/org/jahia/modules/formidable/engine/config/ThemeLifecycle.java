@@ -25,8 +25,8 @@ import java.util.function.Function;
  * migration again until the file changed or the node restarted — and once the last one fails the snapshot is read
  * from the file as it stands.
  * <p>
- * Once the migration is over, each configuration received from the file is completed with the settings it does not
- * hold, at their defaults ({@link MissingSettingsCompletion}) — never before: the default written for a setting the
+ * Once the migration is over, the first configuration received from the file at each start is completed with the
+ * settings it does not hold, at their defaults ({@link MissingSettingsCompletion}) — never before: the default written for a setting the
  * migration still has to carry would read, to the migration, as a value the administrator chose.
  *
  * @param <C> the theme's definition
