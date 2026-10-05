@@ -23,11 +23,7 @@ public final class JxpProperty {
     /** How the profile property is written on submission: always, or only while it is still empty. */
     public static final String SET_STRATEGY = "jExperienceSetStrategy";
 
-    /**
-     * The sensitive flag's first name, hidden in the CND; removed in 0.6 with the retired mixin. The engine's
-     * ProfileSensitiveFlagMigration moves it to {@code FmdbProperty.PROFILE_SENSITIVE}; until it has, {@code SensitiveField}
-     * still reads it, so that a field waiting for the migration never fails open.
-     */
+    /** The property of {@link JxpMixin#SENSITIVE_FIELD}, read by nothing; declared until 0.6 with it. */
     @RemovedIn("0.6")
     public static final String RETIRED_SENSITIVE = "jExperienceSensitive";
 

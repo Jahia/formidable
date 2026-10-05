@@ -8,7 +8,7 @@ import org.jahia.modules.formidable.jexperience.engine.model.JxpMixin;
 import org.jahia.modules.formidable.jexperience.engine.model.JxpProperty;
 import org.jahia.modules.formidable.jexperience.engine.field.FieldShape;
 import org.jahia.modules.formidable.jexperience.engine.field.FieldShapes;
-import org.jahia.modules.formidable.jexperience.engine.field.SensitiveField;
+import org.jahia.modules.formidable.jexperience.engine.field.MappedField;
 import org.jahia.modules.formidable.jexperience.engine.profile.ProfilePropertiesUnavailableException;
 import org.jahia.modules.formidable.jexperience.engine.profile.ProfilePropertyCatalog;
 import org.jahia.modules.formidable.jexperience.engine.profile.ProfilePropertyDescriptor;
@@ -88,15 +88,10 @@ public class FormMappingReader {
 
     Optional<MappingRule.FieldMapping> fieldMappingOf(JCRNodeWrapper field, List<ProfilePropertyDescriptor> schema, String language)
             throws RepositoryException {
-        if (!SensitiveField.isMapped(field)) {
+        if (!MappedField.isMapped(field)) {
             return Optional.empty();
         }
         String propertyName = field.getPropertyAsString(JxpProperty.PROFILE_PROPERTY);
-        if (SensitiveField.isSensitive(field)) {
-            // the dropdown offers nothing on a sensitive field, but a mapping may predate the flag
-            log.warn("[FormMappingReader] '{}' maps '{}' but is marked sensitive: skipped", field.getPath(), propertyName);
-            return Optional.empty();
-        }
         Optional<FieldShape> shape = FieldShapes.infer(field, Optional.empty(), () -> countChoices(field, language));
         if (shape.isEmpty()) {
             log.warn("[FormMappingReader] '{}' maps '{}' but is not a mappable field: skipped", field.getPath(), propertyName);

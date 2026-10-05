@@ -35,7 +35,7 @@ order (CSS before Plain, Complete form first), which is the order jContent's tre
 | `simple` | Minimal contact form (published in EN and FR, custom required messages on the name fields, a select revealing a conditional phone field, an optional single file); the only one showing the two optional buttons, **Reset** and **New form** (offered in the success message); its fields map to the visitor profile when jExperience is there, see below |
 | `newsletter` | Two small fields; only on the two-forms page |
 | `steps` | Three-step form with navigation, a fieldset inside step 2 and conditional logic driven by the delivery method |
-| `complete` | Every built-in field type, in three blocks: the visitor profile fields first (mapped and prefilled when jExperience is there, then the sensitive one), the other field types, and the choice fields completing the options matrix below |
+| `complete` | Every built-in field type, in three blocks: the visitor profile fields first (mapped and prefilled when jExperience is there), the other field types, and the choice fields completing the options matrix below |
 | `languages` | Choice field whose French labels are only half translated, to try the site's *Replace untranslated content with the default language content* setting both ways |
 | `<look>-two-forms-page` | A page holding the simple form (referenced) next to the newsletter one: two results sets, two mappings, one tracking script |
 
@@ -91,7 +91,6 @@ publication, submission event, profile update — is testable at once:
 | simple | `firstName`, `lastName` | `firstName`, `lastName` | always set, prefill on |
 | simple | `email` | `email` | set if missing, prefill on |
 | simple | `phoneNumber` (shown when a call is asked for, masked `+99 9 99 99 99 99`) | `phoneNumber` | set if missing, prefill on — a field the logic hides is prefilled all the same, and shows its value once revealed |
-| simple | `message` | — | marked **sensitive**: never leaves the site |
 | complete | `email` | `email` | set if missing, prefill on — with the first visitor's address, which the simple form stated: the sample entries type theirs over it |
 | complete | birth date | `birthDate` | always set, prefill on, then **read-only** — the visitor sees the date the profile knows and cannot change it |
 | complete | `gender` (radio) | `gender` | set if missing, prefill on, then **read-only** — a radio group has no native read-only, the page puts the profile's choice back on every change |
@@ -99,7 +98,6 @@ publication, submission event, profile update — is testable at once:
 | complete | `country` (sourced select, ISO codes) | `countryName` | set if missing, prefill on, then **hidden** — the field disappears once the profile knows the country, its value still submitted |
 | complete | interests (checkbox group) | `formidableInterests` — multi-valued, playground card | always set, prefill on — the multi-valued shape |
 | complete | `newsletter` (switch) | `formidableOptIn` — boolean, playground card | set if missing, prefill on — the boolean shape |
-| complete | employee code | — | marked **sensitive** |
 
 jCustomer's default schema has no multi-valued and no boolean property, so the script creates the two
 it needs in a **Formidable playground** card of the visitor profile (through jExperience's admin proxy,

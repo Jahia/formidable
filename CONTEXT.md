@@ -109,8 +109,7 @@ fmdbmix:formStep (engine)      > fmdbmix:formContainer — step marker
 fmdbmix:submittableField (engine) ← marker: the field submits a value (not a file, a button, a fieldset);
                                    fmdbmix:fieldActions (engine, the field-actions switch) extends it
 fmdbmix:profileMappableField (engine) ← marker: the field can be mapped to a visitor profile property;
-                                   fmdbmix:jExperienceProfileMapping (formidable-jexperience-engine) extends it;
-                                   carries profileSensitive, the flag that module reads (hidden without it)
+                                   fmdbmix:jExperienceProfileMapping (formidable-jexperience-engine) extends it
 fmdbmix:component (elements)   ← makes a type visible/droppable in the editor
 ```
 
@@ -235,7 +234,7 @@ org.jahia.modules.formidable.engine
 ├── migration/                           ← what exists only for an upgrade, by wave; RemovedIn marks it and anything elsewhere that goes with it (docs/administration/upgrade-notes.md, "Startup migrations")
 │   ├── common/   ElementsRedeployRetriggeredMigration (base: re-run on a redeploy), MigrationSessions (live pass without observation), MigrationWrites, MigrationMarker
 │   ├── v04/      0.3 → 0.4 content: ChoiceOptionsContentMigration, DateBoundsContentMigration, TranslationFieldKeyCleanup, ListTitlesContentMigration, ElementsSiteReactivation
-│   └── v05/      0.4 → 0.5: MixinPropertyNamesMigration, RedundantMixinMigration, ProfileSensitiveFlagMigration (content); LegacyConfigurationMigration (single PID → theme files), FormerListLines (list lines → entry files)
+│   └── v05/      0.4 → 0.5: MixinPropertyNamesMigration, RedundantMixinMigration (content); LegacyConfigurationMigration (single PID → theme files), FormerListLines (list lines → entry files)
 └── actions/                             ← one folder per kind, and what the two kinds share
     ├── common/   ActionSummaryService (a type's label, tooltip and icon), FieldEscaper, TemplateInterpolator
     ├── form/     ContentDispositionUtils

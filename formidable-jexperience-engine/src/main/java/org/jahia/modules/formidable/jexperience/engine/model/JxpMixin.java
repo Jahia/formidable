@@ -14,8 +14,8 @@ public final class JxpMixin {
     public static final String MAPPING = "fmdbmix:jExperienceProfileMapping";
 
     /**
-     * The sensitive flag's first home, removed in 0.6. The flag is the engine's {@code FmdbProperty.PROFILE_SENSITIVE}
-     * on its marker since #369; the mixin stays declared, hidden, until the engine's migration has run everywhere.
+     * The sensitive flag's first home, read by nothing since the flag was removed (2026-10-05); declared until 0.6 so
+     * that a node a 0.5.0 development build left carrying it still deploys.
      */
     @RemovedIn("0.6")
     public static final String SENSITIVE_FIELD = "fmdbmix:jExperienceSensitiveField";

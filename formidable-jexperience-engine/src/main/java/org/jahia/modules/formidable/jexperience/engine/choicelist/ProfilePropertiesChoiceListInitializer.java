@@ -11,7 +11,6 @@ import org.jahia.utils.i18n.Messages;
 import org.jahia.modules.formidable.jexperience.engine.model.JxpProperty;
 import org.jahia.modules.formidable.jexperience.engine.field.FieldShape;
 import org.jahia.modules.formidable.jexperience.engine.field.FieldShapes;
-import org.jahia.modules.formidable.jexperience.engine.field.SensitiveField;
 import org.jahia.modules.formidable.jexperience.engine.profile.ProfilePropertiesUnavailableException;
 import org.jahia.modules.formidable.jexperience.engine.profile.ProfilePropertyCatalog;
 import org.osgi.service.component.annotations.Component;
@@ -39,8 +38,7 @@ import java.util.OptionalInt;
  * Only when jCustomer cannot be asked is the stored mapping left in place: it is then the one entry
  * of the list, its description saying why, so nothing else can be picked and nothing can break it
  * — the outage says nothing about the mapping, and a save during it must not wipe one the author
- * never touched. A field the author marked sensitive is answered before any of that: it offers the
- * one message saying so, and jCustomer is not asked at all.
+ * never touched.
  */
 @Component(service = ModuleChoiceListInitializer.class, immediate = true)
 public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListInitializer {
@@ -51,7 +49,6 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
     static final String UNAVAILABLE_KEY = "formidableJExperienceProfileProperties.unavailable";
     static final String NONE_KEY = "formidableJExperienceProfileProperties.none";
     public static final String KEPT_KEY = "formidableJExperienceProfileProperties.kept";
-    static final String SENSITIVE_KEY = "formidableJExperienceProfileProperties.sensitive";
     /** The value property the Content Editor reads to pre-select an entry (jcontent, registerChoiceList initValue). */
     static final String DEFAULT_PROPERTY = "defaultProperty";
     /**
@@ -100,11 +97,6 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
             return List.of();
         }
         try {
-            // asked before anything else: a sensitive field has nothing to offer whatever jCustomer says,
-            // and this way an outage cannot even be reached from here
-            if (SensitiveField.isSensitive(context, context.get(CONTEXT_NODE))) {
-                return messageEntry(sensitiveMessage(locale));
-            }
             Optional<FieldShape> shape = shapeOf(context);
             String siteKey = siteKeyOf(context);
             if (shape.isEmpty() || siteKey == null) {
@@ -249,10 +241,6 @@ public class ProfilePropertiesChoiceListInitializer implements ModuleChoiceListI
             }
         }
         return null;
-    }
-
-    String sensitiveMessage(Locale locale) {
-        return Messages.get(BUNDLE, SENSITIVE_KEY, locale, "This field is marked as sensitive, so it cannot be mapped to a visitor profile property");
     }
 
     String keptMessage(Locale locale) {

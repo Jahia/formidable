@@ -158,7 +158,7 @@ cannot depend on which file is read first):
 | 1.06 | Configuration       | `fmdbmix:fieldActionFeedback` (engine)                                      | a field action, not a field |
 | 1.10 | Conditional display | `fmdbmix:formLogicElement` (engine)                                         | fields and containers |
 | 1.12 | Responses           | `fmdbmix:responses` (elements)                                              | form                  |
-| 1.15 | jExperience         | `fmdbmix:jExperienceProfileMapping` and, through the module's override of the engine marker, the `profileSensitive` flag of `fmdbmix:profileMappableField` (jexperience-engine) | fields |
+| 1.15 | jExperience         | `fmdbmix:jExperienceProfileMapping` (jexperience-engine) | fields |
 | 1.20 | Buttons             | `fmdbmix:buttons` and `fmdbmix:multiStep` (elements) — the step navigation switch sits with the Previous/Next labels | form                  |
 | 1.40 | Style               | `fmdbmix:style` (elements, joined by the sample's `fmdbsamplemix:customStyle`) | form              |
 
@@ -256,7 +256,6 @@ What follows from the three rules, and shaped the overrides:
 | `fmdb_form.json` | elements | the editor's children block hidden on the form, whose children are the field and action lists: nothing a contributor orders there (#150 thread, HDU) |
 | `fmdbmix_multistep.json` | elements | the one setting of the multi-step mixin, the step navigation switch, placed first in the Step navigation fieldset of Buttons; the Multi-step section it had to itself is gone (#150) |
 | `fmdbmix_fieldActions.json` | engine | the switch, last in Field settings (fieldset rank 6, `"alwaysPresent": true`, the section declared with its label and rank); and it hides the editor's Content list & ordering block on the elements that can carry field actions, and on them only (`listOrdering`, `"hide": true`) |
-| `fmdbmix_profileMappableField.json` | engine, then jexperience-engine (priority 3.0) | the engine hides the marker's generated fieldset, `profileSensitive` in it, since without the jExperience module the flag means nothing; that module's file of the same name takes the field into an untitled fieldset at rank -1 of its jExperience section — no heading over one checkbox (HDU) — the field carrying its own `labelKey` and `descriptionKey` |
 | `fmdbext_<type>.json` | extended-inputs | the optional types, from their own module, the shared keys resolved through its dependency on elements |
 | `fmdbsamplemix_helpTextPosition.json` | the sample module | a third-party setting in Help & presentation, rank 1.5 |
 

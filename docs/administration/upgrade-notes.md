@@ -429,7 +429,7 @@ workspaces, keyed on the content state and idempotent.
 They come in two waves. The 0.4.x wave exists for instances upgrading from 0.3.x
 content. It **stays in 0.5.0** (decided 2026-09-10) so that a 0.3.x instance can upgrade
 to 0.5.0 directly, without a stop at 0.4.0; it leaves in 0.6 together with the 0.5.0 wave
-(`MixinPropertyNamesMigration`, `RedundantMixinMigration` and `ProfileSensitiveFlagMigration`, for 0.4.x content and the field actions and sensitive flags of the 0.5.0 development builds) and
+(`MixinPropertyNamesMigration` and `RedundantMixinMigration`, for 0.4.x content and the field actions of the 0.5.0 development builds) and
 the deprecated definitions that wave reads. From 0.6 on, 0.5.x is the minimum upgrade source: every instance has then run
 both waves at least once. The classes live in the engine's `migration` package, by wave — `v04` (0.3 → 0.4),
 `v05` (0.4 → 0.5, the configuration's move to five files included), `common` for what both share —, and each carries
@@ -463,7 +463,6 @@ from a 0.3 restore. No released version is concerned.
 | `ListTitlesContentMigration` | 0.4.x (#231) | 0.6 | Missing `jcr:title` on a form's `fields`/`actions` lists → the type's default label, per site language (in live, published languages only) |
 | `MixinPropertyNamesMigration` | 0.5.0 (#312) | 0.6 | The thirteen `fmdb:`-prefixed properties (options source, date bounds, the select's empty-option label) → unprefixed names, translations included; the deprecated definitions it reads leave with it |
 | `RedundantMixinMigration` | 0.5.0 (#359, #361, #365) | 0.6 | A mixin still listed in `jcr:mixinTypes` by a node whose type has since taken it as a supertype — the `fmdbmix:advanced<Type>Settings` of text, textarea, number and range fields, the `fmdbmix:fieldActionFeedback` of field actions, saved before 0.5.0 — dropped, values kept; look for "[RedundantMixinMigration] Dropped the redundant" in the log |
-| `ProfileSensitiveFlagMigration` | 0.5.0 (#369) | 0.6 | The sensitive flag of a mappable field, `jExperienceSensitive` on the retired `fmdbmix:jExperienceSensitiveField` of a 0.5.0 development build (0.4.0 has no jExperience module) → `profileSensitive` on `fmdbmix:profileMappableField`, in both workspaces, the mixin dropped; the retired declaration (jexperience-engine) leaves with it, and so does the module's fallback read of the retired name, which keeps a field sensitive while it waits; look for "[ProfileSensitiveFlagMigration] Moved the sensitive flag" in the log |
 
 A type registered by one module keeps the supertypes it resolved then, whatever another
 module's CND declares afterwards (measured on 8.2.4: after the engine redeploy,
@@ -473,6 +472,16 @@ already holds field actions — a 0.5.0 development build; 0.4.0 has none — **
 modules declaring field-action types after the engine**, or restart Jahia: until then
 `RedundantMixinMigration` defers their actions (it re-runs on any module's redeploy) and a
 new action of such a type shows no behaviour and message settings in the editor.
+
+An instance that ran a **0.5.0 development build carrying the sensitive flag** (#369 to the flag's removal,
+2026-10-05) refuses the next engine: Jahia's `DefinitionsBundleChecker` rates the property it no longer declares,
+`profileSensitive` on `fmdbmix:profileMappableField`, a MAJOR change and cancels the deployment. Deploy the engine
+once with `ignoreChecks` (provisioning `installOrUpgradeBundle` … `"ignoreChecks": true`), then redeploy
+`formidable-elements` and `formidable-extended-inputs`: a field type keeps the supertypes it resolved until its
+own module is redeployed (above). A field still holding the value then no longer exposes it, and saves, opens in the
+editor and publishes normally (measured on 8.2.4). No released version is concerned: 0.4.0 has no jExperience
+module. The flag's first home, `fmdbmix:jExperienceSensitiveField`, stays declared until 0.6 for the builds between
+#326 and #369 that never ran the migration of #369.
 
 Removal checklist: delete the class and its unit test, drop its Cypress spec in
 `tests/cypress/e2e/migrations/` (listed in `tests/scenarios/migrations.md`), remove the row above, and resolve every

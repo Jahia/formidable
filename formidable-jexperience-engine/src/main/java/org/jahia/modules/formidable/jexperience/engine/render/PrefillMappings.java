@@ -1,7 +1,7 @@
 package org.jahia.modules.formidable.jexperience.engine.render;
 
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
-import org.jahia.modules.formidable.jexperience.engine.field.SensitiveField;
+import org.jahia.modules.formidable.jexperience.engine.field.MappedField;
 import org.jahia.modules.formidable.jexperience.engine.model.JxpMixin;
 import org.jahia.modules.formidable.jexperience.engine.model.JxpProperty;
 import org.jahia.modules.formidable.jexperience.engine.util.Json;
@@ -21,7 +21,7 @@ import java.util.Map;
 
 /**
  * The fields of a form the page prefills from the visitor profile, read in live from the JCR alone:
- * a field carrying the mapping mixin with a property, its prefill switched on, and not marked sensitive.
+ * a field carrying the mapping mixin with a property and its prefill switched on.
  * Never jCustomer — a render is not the place for a network call, and a property the schema no longer
  * offers simply comes back absent from the tracker's context. One entry per field name: the profile
  * property it reads and, when the author asked for it, what follows the write ({@code readOnly} or
@@ -63,8 +63,8 @@ class PrefillMappings {
                 entries.put(field.getName(), new Entry(field.getPropertyAsString(JxpProperty.PROFILE_PROPERTY),
                         then == null || EDITABLE.equals(then) ? null : then));
             } else if (isPrefillOn(field)) {
-                // the one place an author's prefill switch is dropped — a field whose mapping names no property,
-                // or one marked sensitive after the fact — so the log says it, at a level an integrator turns on
+                // the one place an author's prefill switch is dropped — a field whose mapping names no property —
+                // so the log says it, at a level an integrator turns on
                 log.debug("[PrefillMappings] {} is not prefilled: {}", field.getPath(), leftOut);
             }
         }
@@ -72,7 +72,7 @@ class PrefillMappings {
     }
 
     /**
-     * Why a mappable field is left out of the block, or null when it is in — the four conditions, in the
+     * Why a mappable field is left out of the block, or null when it is in — the three conditions, in the
      * order an author meets them.
      */
     static String leftOut(JCRNodeWrapper field) throws RepositoryException {
@@ -82,11 +82,8 @@ class PrefillMappings {
         if (!isPrefillOn(field)) {
             return "the prefill is not switched on";
         }
-        if (!SensitiveField.isMapped(field)) {
+        if (!MappedField.isMapped(field)) {
             return "the field is mapped but names no profile property (none chosen, or the list no longer offers it)";
-        }
-        if (SensitiveField.isSensitive(field)) {
-            return "the field is marked sensitive";
         }
         return null;
     }

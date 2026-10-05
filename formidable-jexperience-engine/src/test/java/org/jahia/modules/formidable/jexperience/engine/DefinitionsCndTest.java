@@ -27,9 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The CND clauses the Java depends on, pinned: no test environment installs this module yet, so
- * the three load-bearing declarations — the mapping mixin attaching to the marker, the
- * dependent-property re-query, the sensitive flag on a switch-less mixin — would otherwise
- * be guarded by nothing. The reader is a line-level parser of the module's own file, not Jahia's
+ * the two load-bearing declarations — the mapping mixin attaching to the marker and the
+ * dependent-property re-query — would otherwise be guarded by nothing. The reader is a line-level parser of the module's own file, not Jahia's
  * (which needs a registry); it knows type headers, {@code extends} lines and property lines.
  */
 class DefinitionsCndTest {
@@ -100,22 +99,7 @@ class DefinitionsCndTest {
         String property = lineStartingWith(mixin, "- " + JxpProperty.PROFILE_PROPERTY + " ");
         assertTrue(property.contains("choicelist[" + ProfilePropertiesChoiceListInitializer.KEY + ",dependentProperties='"
                 + FieldShapes.MULTIPLE_PROPERTY + "," + FmdbProperty.OPTIONS + ","
-                + FmdbProperty.OPTIONS_MODE + "," + FmdbProperty.PROFILE_SENSITIVE + "']"), property);
-    }
-
-    @Test
-    void theRetiredSensitiveMixinStaysDeclaredHiddenAndDetachedUntil06() throws Exception {
-        // The flag is the engine's profileSensitive, on the marker, since #369. The mixin that first carried it stays
-        // declared until 0.6, so that a field saved before still deploys, with nothing for the editor to show or to
-        // add on save: no supertype, no `extends`, its property hidden. The mapping's choicelist names the engine's
-        // flag, which is what empties that dropdown the moment the author ticks the box.
-        List<String> lines = cnd();
-        List<String> mixin = declarationOf(lines, JxpMixin.SENSITIVE_FIELD);
-        assertEquals("[" + JxpMixin.SENSITIVE_FIELD + "] mixin", mixin.get(0));
-        assertTrue(mixin.stream().noneMatch(line -> line.startsWith("extends")), "no extends: the editor must offer nothing for it");
-        assertEquals("- " + JxpProperty.RETIRED_SENSITIVE + " (boolean) hidden indexed=no", lineStartingWith(mixin, "- " + JxpProperty.RETIRED_SENSITIVE + " "));
-        assertTrue(lineStartingWith(declarationOf(lines, JxpMixin.MAPPING), "- " + JxpProperty.PROFILE_PROPERTY + " ")
-                .contains("," + FmdbProperty.PROFILE_SENSITIVE + "'"), "the choicelist depends on the engine's flag");
+                + FmdbProperty.OPTIONS_MODE + "']"), property);
     }
 
     @Test
