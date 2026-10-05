@@ -243,12 +243,12 @@ const hiddenInput: JahiaNode = {
  * cols) are hidden in the CND and appear nowhere. A slider keeps the bounds that draw
  * it in Content; the date bound modes sit in Constraints with their dynamic fieldsets right after, shown
  * once their mode is chosen. A choice field keeps its options origin and the fieldsets of its origins in
- * Content, a file field what it accepts and how many; the hidden input has nothing to move. The optional
+ * Content, a file field what it accepts and how many; the hidden input has nothing to move but the switch. The optional
  * types of formidable-extended-inputs follow from their own module, the shared labels resolved through its
  * dependency on formidable-elements.
- * The validation messages join the section; the field actions switch stays at the end of Content, a
- * capability of the field rather than a setting, next to the children block its list makes the editor
- * show — a block the engine hides, one node being nothing to order. Read through the editor form
+ * The validation messages join the section, and the field actions switch closes it — the engine places it there
+ * from the mixin's own file, on every field with a value, the hidden input included; the children block its list
+ * makes the editor show stays hidden, one node being nothing to order. Read through the editor form
  * the Content Editor builds, on a field with its settings set and on a plain one: the layout owes nothing
  * to the values.
  */
@@ -307,12 +307,12 @@ describe('Form fields - 225 The field editor layout', () => {
 		(layout.hidden ?? []).forEach(attribute => expect(everyField, `${attribute} absent from the editor of ${name}`).not.to.include(attribute));
 
 		const settings = sections.find(section => section.name === SETTINGS_SECTION);
+		const settingsNames = settings?.fieldSets.map(fieldSet => fieldSet.name).filter(fieldSet => fieldSet !== FIELD_ACTIONS_SWITCH) ?? [];
 		if (layout.settings.length === 0) {
-			expect(settings, `no Field settings section on ${name}`).to.be.undefined;
+			expect(settingsNames, `no Field settings fieldset but the switch on ${name}`).to.deep.equal([]);
 		} else {
 			expect(settings, `Field settings section of ${name}`).not.to.be.undefined;
-			expect(settings?.fieldSets.map(fieldSet => fieldSet.name), `fieldsets of ${name}`)
-				.to.deep.equal(layout.settings.map(([fieldSet]) => fieldSet));
+			expect(settingsNames, `fieldsets of ${name}`).to.deep.equal(layout.settings.map(([fieldSet]) => fieldSet));
 			layout.settings.forEach(([fieldSetName, fields]) => {
 				const fieldSet = settings?.fieldSets.find(candidate => candidate.name === fieldSetName);
 				const names = fieldSet?.fields.map(field => field.name).filter(field => field !== SAMPLE_FIELD);
@@ -325,18 +325,17 @@ describe('Form fields - 225 The field editor layout', () => {
 			});
 		}
 
-		// The field actions switch stays in Content, after the type's own fieldset, with its enable switch —
-		// on the fields with a value; a file field is offered none.
-		const contentNames = content?.fieldSets.filter(fieldSet => fieldSet.visible).map(fieldSet => fieldSet.name) ?? [];
-		const actions = content?.fieldSets.find(fieldSet => fieldSet.name === FIELD_ACTIONS_SWITCH);
+		// The field actions switch closes Field settings, with its enable switch — on the fields with a value; a
+		// file field is offered none. Content no longer holds it.
+		const visibleSettings = settings?.fieldSets.filter(fieldSet => fieldSet.visible).map(fieldSet => fieldSet.name) ?? [];
+		const actions = settings?.fieldSets.find(fieldSet => fieldSet.name === FIELD_ACTIONS_SWITCH);
+		expect(content?.fieldSets.map(fieldSet => fieldSet.name) ?? [], `no switch in Content on ${name}`).not.to.include(FIELD_ACTIONS_SWITCH);
 		if (layout.noFieldActions) {
 			expect(actions, `no field actions switch on ${name}`).to.be.undefined;
 		} else {
-			expect(contentNames.indexOf(FIELD_ACTIONS_SWITCH), `field actions switch after the ${type} fieldset on ${name}`)
-				.to.be.greaterThan(contentNames.indexOf(type));
+			expect(visibleSettings.at(-1), `field actions switch last in Field settings on ${name}`).to.equal(FIELD_ACTIONS_SWITCH);
 			expect(actions?.dynamic, `field actions switch dynamic on ${name}`).to.be.true;
 			expect(actions?.hasEnableSwitch, `field actions enable switch on ${name}`).to.be.true;
-			expect(settings?.fieldSets.map(fieldSet => fieldSet.name) ?? [], `no switch in Field settings on ${name}`).not.to.include(FIELD_ACTIONS_SWITCH);
 		}
 
 		// The Validation messages section is gone, and so is the editor's children block.
