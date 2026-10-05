@@ -30,8 +30,9 @@ import org.jahia.modules.formidable.engine.migration.RemovedIn;
  * the replacement map comes row-for-row from the same save that rewrote the options.
  *
  * <p>Lifecycle: serves only the fields the 0.4.0 options migration marked; removed in 0.6 with that wave, together
- * with the positional pairing of {@link ManualOptionEntries} — a field still marked then (migrated from 0.3, never
- * saved since) is read value-keyed like any other. See docs/administration/upgrade-notes.md, "Startup migrations".
+ * with the positional pairing of {@link ManualOptionEntries}. A field still marked then (migrated from 0.3, never
+ * saved since) would be read value-keyed and its 0.3 rules never remapped: whether 0.6 realigns those fields first
+ * is open — docs/administration/upgrade-notes.md, "Startup migrations", on fmdbmix:migratedChoiceOptions.
  */
 @RemovedIn("0.6")
 final class FormLogicRuleValueRemap {

@@ -12,7 +12,7 @@ package org.jahia.modules.formidable.engine.api;
  * that a migration has already healed a node, which is the engine talking to itself; their
  * declarations outlive the migrations, so that content still carrying one stays valid, but
  * publishing the names would freeze as contract something no other module has a reason to
- * read. They stay with the migrations, in {@code migration/MigrationMarker}.
+ * read. They stay with the migrations, in {@code migration/common/MigrationMarker}.
  * <p>
  * These are compile-time constants — see {@link FmdbNodeType} for what that implies.
  */

@@ -494,8 +494,15 @@ are a different matter: a declaration that disappears while nodes still carry it
 those nodes with an unknown mixin, and nothing flags it at deploy time — the definitions
 check diffs only the types present in the new CND.
 
-- `fmdbmix:migratedChoiceOptions` clears itself: `ManualOptionsLanguageSync` removes it the
-  first time a field's languages realign, so its declaration goes once no field carries it.
+- `fmdbmix:migratedChoiceOptions` clears itself, but only at a save: `ManualOptionsLanguageSync` removes it the
+  first time an editor saves the field and its languages realign. A 0.3 choice field nobody has saved since
+  still carries it, and 0.6 drops what the marker gates — the positional pairing of its labels and the remap of
+  its 0.3 logic rules (`FormLogicRuleValueRemap`). Read value-keyed, such a field loses the labels of the
+  languages whose values translated the identity, and a 0.3 rule stored on an editing-language value (`rouge`)
+  never matches again. **Open, to settle with 0.6:** either the administrator saves those fields before the
+  upgrade — `SELECT * FROM [fmdbmix:migratedChoiceOptions]` lists them, in both workspaces — or 0.6 ships a
+  last one-shot that realigns every marked field at startup, the save's work, before the gate goes. The
+  declaration goes once no field carries it.
 - `fmdbmix:elementsReactivated` is stamped once per site healed on a 0.3.x path and removed
   nowhere — that permanence is what makes the healing one-shot — so every such site still
   carries it in 0.6. Keep its (empty) declaration in the CND and delete only the code that

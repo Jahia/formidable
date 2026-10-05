@@ -1,7 +1,7 @@
 import gql from 'graphql-tag';
 import {createPublishedLiveFormPage, expectNoLiveOwnedProperty} from '../../support/fixtures';
 import {CONTENT_PATH} from '../../support/constants';
-import {useFormidableSite} from './support';
+import {useFormidableSite} from '../support/useFormidableSite';
 
 const FORM_NAME = 'list-titles-form';
 const FORM_PATH = `${CONTENT_PATH}/${FORM_NAME}`;

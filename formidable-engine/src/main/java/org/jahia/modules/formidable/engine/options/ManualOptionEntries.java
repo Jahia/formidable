@@ -287,7 +287,8 @@ public final class ManualOptionEntries {
     /**
      * Whether the field still carries the marker of the 0.3 options migration: the provenance gate of the positional
      * pairing above, the only content allowed per-language values that translate the identity. Removed in 0.6 with
-     * the marker, the positional pairing and the rule remap: every field is then value-keyed.
+     * the marker, the positional pairing and the rule remap — once no field carries the marker (the fields never
+     * saved since 0.3 are the open point of upgrade-notes.md, "Startup migrations").
      */
     @RemovedIn("0.6")
     public static boolean migratedFrom03(JCRNodeWrapper fieldNode) throws RepositoryException {

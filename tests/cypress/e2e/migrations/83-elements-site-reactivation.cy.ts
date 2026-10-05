@@ -2,7 +2,7 @@ import gql from 'graphql-tag';
 import {addNode, createSite, deleteSite, enableModule} from '@jahia/cypress';
 import {createPublishedLiveFormPage, getInputTextNode} from '../../support/fixtures';
 import {FORMIDABLE_TEST_SITE} from '../../support/fixtures/site';
-import {useFormidableSite} from './support';
+import {useFormidableSite} from '../support/useFormidableSite';
 
 const SITE_PATH = `/sites/${FORMIDABLE_TEST_SITE.key}`;
 // A second, throwaway site: its healing in the same pass is the proof that the

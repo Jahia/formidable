@@ -1,7 +1,7 @@
 import gql from 'graphql-tag';
 import {createPublishedLiveFormPage, expectNoLiveOwnedProperty, getSelectNode, SELECT_SINGLE, visitLiveForm} from '../../support/fixtures';
 import {CONTENT_PATH} from '../../support/constants';
-import {useFormidableSite} from './support';
+import {useFormidableSite} from '../support/useFormidableSite';
 
 const FORM_NAME = 'legacy-options-form';
 const SELECT_PATH = `${CONTENT_PATH}/${FORM_NAME}/fields/legacySelect`;

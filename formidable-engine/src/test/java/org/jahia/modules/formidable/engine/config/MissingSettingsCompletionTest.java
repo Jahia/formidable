@@ -171,5 +171,4 @@ class MissingSettingsCompletionTest {
         assertTrue(completion.run(admin, file).isEmpty());
         verify(theme, never()).update(any());
     }
-
 }

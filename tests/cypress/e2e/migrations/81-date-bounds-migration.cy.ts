@@ -7,8 +7,8 @@ import {
 	getInputDatetimeLocalNode,
 	visitLiveForm
 } from '../../support/fixtures';
-import {CONTENT_PATH} from '../../support/constants';
-import {localDay, useFormidableSite} from './support';
+import {CONTENT_PATH, localDay} from '../../support/constants';
+import {useFormidableSite} from '../support/useFormidableSite';
 
 const FORM_NAME = 'legacy-bounds-form';
 const FORM_PATH = `${CONTENT_PATH}/${FORM_NAME}`;
