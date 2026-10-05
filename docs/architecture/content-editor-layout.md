@@ -215,7 +215,7 @@ What follows from the three rules, and shaped the overrides:
   the section with its `labelKey` and rank: on a type no other file gives a Field settings section — the
   hidden input — the switch would otherwise have no section to land in and vanish; the label key is then
   resolved from the bundle of the module shipping the file, so the engine's bundle carries
-  `fmdb.section.fieldSettings` too, worded as the elements' one.
+  `fmdb.section.fieldSettings` too, worded as the elements' one — a CI check keeps the two equal (below).
 - **Dissolving an "advanced settings" mixin** into the shared fieldsets makes the mixin a **supertype** of
   its field type — the mixin loses `extends` and `itemtype`, the type lists it among its supertypes, the
   way `fmdbmix:textValidationMessages` carries the messages. Every field has the properties, no switch, no
@@ -275,6 +275,14 @@ expected — which is how a deliberate hide is told from an omission; a type's i
 (`jcr:title`, `ce:systemName`, a supertype's settings) are not its own and are not expected, the
 supertype's own override placing them. An override that does not declare the section — the files of the
 families still to move — is not checked, so the check tightens as the layout spreads.
+
+The same script holds the labels two modules share. The editor keeps the label of the override merged last,
+and overrides of one priority are ordered by a tie-break (jcontent `Section.mergeWith`,
+`DefinitionRegistryItemComparator`), so two wordings of one key would show one label or the other depending on
+the field's type — the engine's copy of `fmdb.section.fieldSettings` against the elements' one. Every
+`labelKey` and `descriptionKey` a form override gives a section or a fieldset is looked up in every
+`resources/*.properties` of the repository (escaped `\uXXXX` and raw UTF-8 alike): the bundles carrying it hold
+the same text in the same languages, or the build fails naming both wordings (HDU review of #377).
 
 The layout itself is asserted by the Cypress spec `fields/225` for the text family (through
 `forms.editForm`, on a field with its settings set and on a plain one: Content, the switch last in Field
