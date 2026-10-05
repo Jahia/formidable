@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.engine.util;
 
+import org.jahia.modules.formidable.engine.migration.RemovedIn;
 import org.jahia.services.content.JCRNodeWrapper;
 
 import java.time.ZoneId;
@@ -67,8 +68,10 @@ public final class JcrProps {
      * Like {@link #dateAsIso}, but read on the underlying Jackrabbit node: a value
      * stored under a property definition that later moved away (e.g. the date bounds
      * of pre-0.4 fields) has no applicable definition anymore, which hides it from
-     * the wrapper API while it still exists in storage.
+     * the wrapper API while it still exists in storage. Removed in 0.6 with its only reader, the bounds of a field
+     * stored before bound modes existed.
      */
+    @RemovedIn("0.6")
     public static String rawDateAsIso(
             JCRNodeWrapper node,
             String name,

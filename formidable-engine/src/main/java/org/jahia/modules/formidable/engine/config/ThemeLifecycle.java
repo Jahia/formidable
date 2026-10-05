@@ -1,5 +1,8 @@
 package org.jahia.modules.formidable.engine.config;
 
+import org.jahia.modules.formidable.engine.config.common.ConfigurationAttributes;
+import org.jahia.modules.formidable.engine.migration.RemovedIn;
+import org.jahia.modules.formidable.engine.migration.v05.LegacyConfigurationMigration;
 import org.osgi.service.cm.ConfigurationAdmin;
 
 import java.lang.annotation.Annotation;
@@ -45,6 +48,8 @@ public final class ThemeLifecycle<C extends Annotation, S> {
     /** The raw properties and the configuration last received, for a migration tried again later. */
     private final AtomicReference<Map<String, Object>> lastProperties = new AtomicReference<>();
     private final AtomicReference<C> lastConfig = new AtomicReference<>();
+    /** Removed in 0.6 with the migration: the handshake below then reduces to the snapshot and the completion. */
+    @RemovedIn("0.6")
     private final LegacyConfigurationMigration migration;
     private final MissingSettingsCompletion completion;
     private Executor retries = CompletableFuture.delayedExecutor(RETRY_DELAY_SECONDS, TimeUnit.SECONDS);
@@ -103,14 +108,18 @@ public final class ThemeLifecycle<C extends Annotation, S> {
         return outcome;
     }
 
-    /** The configuration with the pending settings laid over it, each read as the attribute's type. */
+    /**
+     * The configuration with the pending settings laid over it, each read as the attribute's type; removed in 0.6
+     * with the migration.
+     */
+    @RemovedIn("0.6")
     @SuppressWarnings("unchecked")
     private C withPending(C config, Map<String, Object> pending) {
         if (pending.isEmpty()) {
             return config;
         }
         return (C) Proxy.newProxyInstance(definition.getClassLoader(), new Class<?>[] {definition}, (proxy, method, args) -> {
-            Object value = method.getParameterCount() == 0 ? pending.get(LegacyConfigurationMigration.attributeId(method.getName())) : null;
+            Object value = method.getParameterCount() == 0 ? pending.get(ConfigurationAttributes.attributeId(method.getName())) : null;
             if (value == null) {
                 return method.invoke(config, args);
             }

@@ -431,8 +431,11 @@ content. It **stays in 0.5.0** (decided 2026-09-10) so that a 0.3.x instance can
 to 0.5.0 directly, without a stop at 0.4.0; it leaves in 0.6 together with the 0.5.0 wave
 (`MixinPropertyNamesMigration`, `RedundantMixinMigration` and `ProfileSensitiveFlagMigration`, for 0.4.x content and the field actions and sensitive flags of the 0.5.0 development builds) and
 the deprecated definitions that wave reads. From 0.6 on, 0.5.x is the minimum upgrade source: every instance has then run
-both waves at least once. Each class carries a `Lifecycle:` note in its Javadoc pointing
-here.
+both waves at least once. The classes live in the engine's `migration` package, by wave — `v04` (0.3 → 0.4),
+`v05` (0.4 → 0.5, the configuration's move to five files included), `common` for what both share —, and each carries
+a `Lifecycle:` note in its Javadoc pointing here. Each also carries the `@RemovedIn("0.6")` marker, and so does every
+read elsewhere that only keeps content not migrated yet working (a retired property name, a bound without a mode):
+`grep -rn "@RemovedIn"` over the repository, Java and TypeScript, is the list of what 0.6 removes.
 
 Every workspace pass goes through `MigrationSessions`. The **live pass runs with
 JCR observation switched off**: Jahia records a direct live write on a published
@@ -451,7 +454,7 @@ carries that marker on its migrated fields, and the migrations never revisit a
 migrated node: clear `jmix:liveProperties` from them in live, or upgrade again
 from a 0.3 restore. No released version is concerned.
 
-| Class (`org.jahia.modules.formidable.engine.migration`) | Introduced | Leaves in | What it rewrites |
+| Class (`org.jahia.modules.formidable.engine.migration.v04` and `.v05`) | Introduced | Leaves in | What it rewrites |
 |---|---|---|---|
 | `ChoiceOptionsContentMigration` | 0.4.0 (#193) | 0.6 | Legacy `options`/`choices` of choice fields → `fmdb:options` (`options` since 0.5.0) + manual mode |
 | `DateBoundsContentMigration` | 0.4.0 (#202) | 0.6 | Fixed date/datetime bounds without a bound mode → mode `date` + fixed-bound mixins |
@@ -470,8 +473,9 @@ modules declaring field-action types after the engine**, or restart Jahia: until
 `RedundantMixinMigration` defers their actions (it re-runs on any module's redeploy) and a
 new action of such a type shows no behaviour and message settings in the editor.
 
-Removal checklist: delete the class and its unit test, drop the Cypress spec that
-restarts the engine to exercise it, and remove the row above. Once
+Removal checklist: delete the class and its unit test, drop its Cypress spec in
+`tests/cypress/e2e/migrations/` (listed in `tests/scenarios/migrations.md`), remove the row above, and resolve every
+`@RemovedIn("0.6")` its Javadoc or its readers name. Once
 `RedundantMixinMigration` is gone — every 0.5.x instance has run it, so no node lists one
 of the retired mixins any more — those mixins **may** be inlined: the advanced settings
 declared under `fmdb:inputText`, `fmdb:textarea`, `fmdb:inputNumber` and `fmdb:inputRange`
@@ -482,8 +486,9 @@ the nodes saved before, which still list the mixin until the migration runs; a t
 declaring a property its node's mixin also declares has no effective node type for
 Jackrabbit, so those nodes would refuse every write. If it is done, a 0.4 export imported
 afterwards lists an unknown mixin on its text fields: say so in this note. When the last row
-goes, also delete `ElementsRedeployRetriggeredMigration`, `MigrationSessions`,
-`ElementsSiteReactivation` and their tests. The two marker mixins of the engine's CND
+goes, delete the whole `migration` package and its tests — `common` (`ElementsRedeployRetriggeredMigration`,
+`MigrationSessions`, `MigrationWrites`, `MigrationMarker`), `v04`, `v05` with `LegacyConfigurationMigration` and
+`FormerListLines` —, the `migrations` Cypress folder, and the `RemovedIn` annotation once nothing carries it. The two marker mixins of the engine's CND
 are a different matter: a declaration that disappears while nodes still carry it leaves
 those nodes with an unknown mixin, and nothing flags it at deploy time — the definitions
 check diffs only the types present in the new CND.

@@ -2,6 +2,7 @@ package org.jahia.modules.formidable.engine.config.fieldactions;
 
 import org.jahia.modules.formidable.engine.config.ThemeLifecycle;
 import org.jahia.modules.formidable.engine.config.common.ConfigurationValues;
+import org.jahia.modules.formidable.engine.migration.RemovedIn;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -60,19 +61,13 @@ public class FieldActionsConfigService {
     }
 
     /** The settings of earlier builds that held the providers, which the actions' own configurations replace. */
+    @RemovedIn("0.6")
     static final List<String> FORMER_PROVIDER_SETTINGS = List.of("fieldActionProviders", "enableDevFieldActionProviders", "devFieldActionProviders");
 
     @Activate
     @Modified
     public void configure(FieldActionsConfig config, Map<String, Object> properties) {
-        if (properties != null) {
-            // Only a setting that held something: the file shipped with the lists held them empty, and false.
-            List<String> former = FORMER_PROVIDER_SETTINGS.stream().filter(key -> meaningful(properties.get(key))).toList();
-            if (!former.isEmpty()) {
-                log.warn("[FieldActionsConfigService] {} no longer read: a field action calling a service reads it from the "
-                        + "configuration of the module that ships the action", former);
-            }
-        }
+        warnOfTheFormerProviders(properties);
         lifecycle.configure(properties, config);
     }
 
@@ -111,6 +106,21 @@ public class FieldActionsConfigService {
         return settings;
     }
 
+    /** The provider settings of a 0.5.0 development build still in the file; removed in 0.6 with the 0.5.0 wave. */
+    @RemovedIn("0.6")
+    private static void warnOfTheFormerProviders(Map<String, Object> properties) {
+        if (properties == null) {
+            return;
+        }
+        // Only a setting that held something: the file shipped with the lists held them empty, and false.
+        List<String> former = FORMER_PROVIDER_SETTINGS.stream().filter(key -> meaningful(properties.get(key))).toList();
+        if (!former.isEmpty()) {
+            log.warn("[FieldActionsConfigService] {} no longer read: a field action calling a service reads it from the "
+                    + "configuration of the module that ships the action", former);
+        }
+    }
+
+    @RemovedIn("0.6")
     private static boolean meaningful(Object value) {
         String text = value == null ? "" : String.valueOf(value).trim();
         return !text.isEmpty() && !"false".equalsIgnoreCase(text);

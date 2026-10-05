@@ -224,14 +224,18 @@ org.jahia.modules.formidable.engine
 ├── config/                              ← the five configuration themes, one PID and one shipped .cfg each, and two lists as one factory configuration per entry (docs/administration/configuration.md)
 │   ├── ThemeLifecycle.java              ← what the themes share: the snapshot in force, the one-time migration handshake, then the completion
 │   ├── MissingSettingsCompletion.java   ← appends to a theme's file the settings it lacks, at their defaults, at every start (additive only)
-│   ├── LegacyConfigurationMigration.java ← carries the pre-0.5 single PID into a theme's file once its own file is in place
-│   ├── common/   ConfigurationValues (lines, bounds, HTTP client), EndpointRule (HTTPS, or HTTP on a local host for a development entry),
-│   │             FactoryEntries + FactoryEntry (a list's entries bound, console creations stored as files through ConfigService, former lines converted)
+│   ├── common/   ConfigurationValues (lines, bounds, HTTP client), ConfigurationAttributes (a definition read as the metatype reads it),
+│   │             EndpointRule (HTTPS, or HTTP on a local host for a development entry),
+│   │             FactoryEntries + FactoryEntry (a list's entries bound, console creations stored as files through ConfigService)
 │   ├── captcha/  CaptchaConfig + CaptchaConfigService (keys, endpoints, verifyCaptcha)
 │   ├── uploads/  UploadsConfig + UploadsConfigService (size and count bounds, allowed file types read as MIME types)
 │   ├── choiceoptions/ ChoiceOptionsConfig + ChoiceOptionsConfigService (cache, query cap); OptionsSourceConfig + OptionsSourceComponent (one source file)
 │   ├── formactions/   FormActionsConfig + FormActionsConfigService (HTTP client); ForwardTargetConfig + ForwardTargetComponent (one target file)
 │   └── fieldactions/  FieldActionsConfig + FieldActionsConfigService (HTTP client and timeouts, endpoint guards)
+├── migration/                           ← what exists only for an upgrade, by wave; RemovedIn marks it and anything elsewhere that goes with it (docs/administration/upgrade-notes.md, "Startup migrations")
+│   ├── common/   ElementsRedeployRetriggeredMigration (base: re-run on a redeploy), MigrationSessions (live pass without observation), MigrationWrites, MigrationMarker
+│   ├── v04/      0.3 → 0.4 content: ChoiceOptionsContentMigration, DateBoundsContentMigration, TranslationFieldKeyCleanup, ListTitlesContentMigration, ElementsSiteReactivation
+│   └── v05/      0.4 → 0.5: MixinPropertyNamesMigration, RedundantMixinMigration, ProfileSensitiveFlagMigration (content); LegacyConfigurationMigration (single PID → theme files), FormerListLines (list lines → entry files)
 └── actions/                             ← one folder per kind, and what the two kinds share
     ├── common/   ActionSummaryService (a type's label, tooltip and icon), FieldEscaper, TemplateInterpolator
     ├── form/     ContentDispositionUtils

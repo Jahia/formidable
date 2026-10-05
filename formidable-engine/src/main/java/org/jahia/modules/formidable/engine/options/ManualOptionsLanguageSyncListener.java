@@ -1,7 +1,8 @@
 package org.jahia.modules.formidable.engine.options;
 
-import org.jahia.modules.formidable.engine.migration.ChoiceOptionsContentMigration;
-import org.jahia.modules.formidable.engine.migration.MigrationWrites;
+import org.jahia.modules.formidable.engine.migration.RemovedIn;
+import org.jahia.modules.formidable.engine.migration.common.MigrationWrites;
+import org.jahia.modules.formidable.engine.migration.v04.ChoiceOptionsContentMigration;
 import org.jahia.services.content.DefaultEventListener;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
@@ -64,6 +65,7 @@ public class ManualOptionsLanguageSyncListener extends DefaultEventListener {
      */
     @Reference
     @SuppressWarnings("unused")
+    @RemovedIn("0.6")
     private ChoiceOptionsContentMigration startupMigrationCompleted;
 
     @Override
@@ -135,11 +137,18 @@ public class ManualOptionsLanguageSyncListener extends DefaultEventListener {
         return new String[]{FmdbMixin.MANUAL_OPTIONS};
     }
 
+    /**
+     * The migration's own saves must never be re-aligned: the migrated values are the 0.3-era per-language truth
+     * (values were allowed to diverge back then). Removed in 0.6 with the 0.4.0 wave.
+     */
+    @RemovedIn("0.6")
+    private static boolean aMigrationIsWriting() {
+        return MigrationWrites.isActive();
+    }
+
     @Override
     public void onEvent(EventIterator events) {
-        // The migration's own saves must never be re-aligned: the migrated values are
-        // the 0.3-era per-language truth (values were allowed to diverge back then).
-        if (MigrationWrites.isActive()) {
+        if (aMigrationIsWriting()) {
             return;
         }
 

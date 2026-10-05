@@ -17,7 +17,8 @@ import java.util.Map;
 import java.util.Set;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.engine.api.FmdbProperty;
-import org.jahia.modules.formidable.engine.migration.MigrationMarker;
+import org.jahia.modules.formidable.engine.migration.RemovedIn;
+import org.jahia.modules.formidable.engine.migration.common.MigrationMarker;
 
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.LANGUAGE_PROPERTY;
 
@@ -119,7 +120,7 @@ public final class ManualOptionsLanguageSync {
         // The provenance gate: only a field the migration marked (its per-language
         // values may still translate the identity) may use the divergent-list
         // heuristics. Read once; cleared below when the languages converge.
-        boolean migrated = fieldNode.isNodeType(MigrationMarker.MIGRATED_CHOICE_OPTIONS);
+        boolean migrated = ManualOptionEntries.migratedFrom03(fieldNode);
 
         boolean updated = seeded;
         Map<String, String> valueReplacements = new LinkedHashMap<>();
@@ -145,12 +146,18 @@ public final class ManualOptionsLanguageSync {
         // edit is native 0.4 content, value-keyed and rule-safe. Removed even when
         // nothing else changed: the marker itself is the state that must not persist.
         if (migrated) {
-            fieldNode.getSession().checkout(fieldNode);
-            fieldNode.removeMixin(MigrationMarker.MIGRATED_CHOICE_OPTIONS);
+            dropTheMigrationMarker(fieldNode);
             updated = true;
         }
 
         return updated;
+    }
+
+    /** Spends the 0.3 field's licence once its languages converged; removed in 0.6 with the marker. */
+    @RemovedIn("0.6")
+    private static void dropTheMigrationMarker(JCRNodeWrapper fieldNode) throws RepositoryException {
+        fieldNode.getSession().checkout(fieldNode);
+        fieldNode.removeMixin(MigrationMarker.MIGRATED_CHOICE_OPTIONS);
     }
 
     /** Every translation node of the field, keyed by its language (master included). */

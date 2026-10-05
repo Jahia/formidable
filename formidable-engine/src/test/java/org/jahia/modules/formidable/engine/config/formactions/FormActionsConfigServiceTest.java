@@ -2,8 +2,8 @@ package org.jahia.modules.formidable.engine.config.formactions;
 
 import org.jahia.modules.formidable.engine.config.TestConfigs;
 import org.jahia.modules.formidable.engine.config.common.ConfigurationValues;
-import org.jahia.modules.formidable.engine.config.common.FactoryEntries;
 import org.jahia.modules.formidable.engine.config.common.FakeConfigService;
+import org.jahia.modules.formidable.engine.migration.v05.FormerListLines;
 import org.mockito.ArgumentCaptor;
 import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
@@ -104,17 +104,6 @@ class FormActionsConfigServiceTest {
     }
 
     @Test
-    void theLinesOfEarlierBuildsDescribeOneTargetFileEach() {
-        // Verifies the conversion's reading: id|label|url per line, the development list's marked, a malformed line skipped.
-        List<Map<String, String>> entries = FormActionsConfigService.entries("crm|CRM|https://crm.example.com\ntwo|parts",
-                "local|Local|http://localhost:3000/hook");
-
-        assertEquals(List.of(
-                Map.of("id", "crm", "label", "CRM", "url", "https://crm.example.com", "development", "false"),
-                Map.of("id", "local", "label", "Local", "url", "http://localhost:3000/hook", "development", "true")), entries);
-    }
-
-    @Test
     void activateFallsBackToDefaultTimeoutsWhenConfiguredValuesAreInvalidAndExposesValidOnes() {
         // Verifies timeout hardening: zero or negative values fall back to the defaults, explicit ones are exposed as is.
         FormActionsConfigService broken = new FormActionsConfigService();
@@ -164,7 +153,7 @@ class FormActionsConfigServiceTest {
         ArgumentCaptor<Dictionary<String, Object>> written = ArgumentCaptor.forClass(Dictionary.class);
         // The migration's marker first (a theme with nothing to carry is marked too), then the conversion's write.
         verify(theme, times(2)).update(written.capture());
-        assertEquals("true", written.getValue().get(FactoryEntries.LINES_CONVERTED));
+        assertEquals("true", written.getValue().get(FormerListLines.LINES_CONVERTED));
         assertNull(written.getValue().get("forwardTargets"));
         assertEquals("true", configs.entry("local").get("development"));
     }
@@ -194,7 +183,7 @@ class FormActionsConfigServiceTest {
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Dictionary<String, Object>> written = ArgumentCaptor.forClass(Dictionary.class);
         verify(theme, times(2)).update(written.capture());
-        assertEquals("true", written.getValue().get(FactoryEntries.LINES_CONVERTED));
+        assertEquals("true", written.getValue().get(FormerListLines.LINES_CONVERTED));
     }
 
     @Test
@@ -226,15 +215,15 @@ class FormActionsConfigServiceTest {
 
         assertEquals("https://crm.example.com/hook", configs.entry("crm01").get("url"));
         assertNull(configs.entry("crm.eu"));
-        assertEquals("crm01", file.get(FactoryEntries.LINES_CONVERTED_IDS));
-        assertNull(file.get(FactoryEntries.LINES_CONVERTED));
+        assertEquals("crm01", file.get(FormerListLines.LINES_CONVERTED_IDS));
+        assertNull(file.get(FormerListLines.LINES_CONVERTED));
 
         configs.stored.clear();
         org.mockito.Mockito.clearInvocations(theme);
         service.configure(TestConfigs.of(FormActionsConfig.class), file);
 
         assertTrue(configs.stored.isEmpty(), "an entry deleted after its conversion is not written back");
-        assertNull(file.get(FactoryEntries.LINES_CONVERTED));
+        assertNull(file.get(FormerListLines.LINES_CONVERTED));
         // Nothing stored, nothing written: an update would call the theme back and run the conversion again, forever.
         verify(theme, org.mockito.Mockito.never()).update(any());
     }

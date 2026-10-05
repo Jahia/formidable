@@ -2,6 +2,7 @@ package org.jahia.modules.formidable.engine.servlet;
 
 import org.jahia.modules.formidable.engine.servlet.FormDataParser;
 import org.jahia.modules.formidable.engine.logic.ConditionalLogicRule;
+import org.jahia.modules.formidable.engine.migration.RemovedIn;
 import org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService;
 import org.jahia.modules.formidable.engine.options.ManualOptionEntries;
 import org.jahia.modules.formidable.engine.util.JcrProps;
@@ -32,6 +33,8 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WO
 class FormFieldMetadataCollector {
 
     private static final Logger log = LoggerFactory.getLogger(FormFieldMetadataCollector.class);
+    /** The 0.3 name of a choice field's options, read until the 0.4.0 options migration rewrote it. */
+    @RemovedIn("0.6")
     private static final String CHOICES_PROPERTY = "choices";
     // Mixins whose options are resolved by the engine instead of being stored on the
     // node; must stay aligned with FormidableOptionsSourceService.resolveForField.
@@ -443,6 +446,8 @@ class FormFieldMetadataCollector {
         );
     }
 
+    /** Removed in 0.6 with the 0.4.0 wave: the options are then always {@link FmdbProperty#OPTIONS}. */
+    @RemovedIn("0.6")
     private static String resolveChoicePropertyName(JCRNodeWrapper node) throws RepositoryException {
         if (node.hasProperty(FmdbProperty.OPTIONS)) {
             return FmdbProperty.OPTIONS;
@@ -521,11 +526,20 @@ class FormFieldMetadataCollector {
         }
 
         if (mode == null) {
-            String fixed = JcrProps.dateAsIso(node, fixedProperty, withTime, null);
-            return fixed != null ? fixed : JcrProps.rawDateAsIso(node, fixedProperty, withTime, null);
+            return unmodedFixedBound(node, fixedProperty, withTime);
         }
 
         return null;
+    }
+
+    /**
+     * The fixed bound of a node stored before bound modes existed, read on the underlying node when no property
+     * definition applies any more. Removed in 0.6 with the 0.4.0 wave: every bound then has a mode.
+     */
+    @RemovedIn("0.6")
+    private static String unmodedFixedBound(JCRNodeWrapper node, String fixedProperty, boolean withTime) {
+        String fixed = JcrProps.dateAsIso(node, fixedProperty, withTime, null);
+        return fixed != null ? fixed : JcrProps.rawDateAsIso(node, fixedProperty, withTime, null);
     }
 
     /**

@@ -3,6 +3,8 @@ package org.jahia.modules.formidable.engine.config.formactions;
 import org.jahia.modules.formidable.engine.config.ThemeLifecycle;
 import org.jahia.modules.formidable.engine.config.common.ConfigurationValues;
 import org.jahia.modules.formidable.engine.config.common.FactoryEntries;
+import org.jahia.modules.formidable.engine.migration.RemovedIn;
+import org.jahia.modules.formidable.engine.migration.v05.FormerListLines;
 import org.jahia.services.modulemanager.spi.ConfigService;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.annotations.Activate;
@@ -19,10 +21,7 @@ import org.slf4j.LoggerFactory;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executor;
@@ -41,9 +40,6 @@ import java.util.concurrent.atomic.AtomicReference;
 public class FormActionsConfigService {
 
     public static final String PID = "org.jahia.modules.formidable.formActions";
-
-    static final String STANDARD_LINES = "forwardTargets";
-    static final String DEVELOPMENT_LINES = "devForwardTargets";
 
     /**
      * A forward target from its file.
@@ -65,6 +61,9 @@ public class FormActionsConfigService {
     /** The target files: bound, adopted from the console, converted from the lines of earlier builds. */
     private final FactoryEntries<ForwardTargetComponent> targetFiles = new FactoryEntries<>(PID,
             ForwardTargetComponent.FACTORY_PID, "forward target", ForwardTargetComponent.SETTINGS, this::merge);
+    /** The forwardTargets and devForwardTargets lines of earlier builds, converted once into target files (0.5.0 migration wave). */
+    @RemovedIn("0.6")
+    private final FormerListLines formerLines = FormerListLines.forwardTargets(PID, ForwardTargetComponent.FACTORY_PID);
     /**
      * The targets by id and the theme they were merged with, recomputed whenever the configuration or a file changes
      * — and on read when the theme moved on without a callback (a migration attempt that gave up).
@@ -112,8 +111,7 @@ public class FormActionsConfigService {
     public void configure(FormActionsConfig config, Map<String, Object> properties) {
         lifecycle.configure(properties, config);
         merge();
-        targetFiles.themeConfigured(properties, List.of(STANDARD_LINES, DEVELOPMENT_LINES),
-                texts -> entries(texts.getOrDefault(STANDARD_LINES, ""), texts.getOrDefault(DEVELOPMENT_LINES, "")));
+        targetFiles.themeConfigured(properties, formerLines);
     }
 
     /** Reads the configuration into the snapshot the getters serve, no file behind it; public for the tests. */
@@ -149,27 +147,6 @@ public class FormActionsConfigService {
                 files.byId().size(), files.byId().keySet(), theme.developmentEnabled(),
                 files.ignoredDevelopment() > 0 ? " (" + files.ignoredDevelopment() + " development target(s) ignored)" : "",
                 theme.connectTimeout().toSeconds(), theme.requestTimeout().toSeconds());
-    }
-
-    /** The target files the lines of the former lists describe, {@code id|Label|url} each, the development list's marked. */
-    static List<Map<String, String>> entries(String standardLines, String developmentLines) {
-        List<Map<String, String>> entries = new ArrayList<>();
-        for (boolean development : new boolean[] {false, true}) {
-            for (String line : ConfigurationValues.lines(development ? developmentLines : standardLines)) {
-                String[] parts = line.split("\\|", 3);
-                if (parts.length != 3 || parts[0].isBlank()) {
-                    log.warn("[FormActionsConfigService] Skipping malformed forward target line (expected id|label|url): '{}'", line);
-                    continue;
-                }
-                Map<String, String> settings = new LinkedHashMap<>();
-                settings.put("id", parts[0].trim());
-                settings.put("label", parts[1].trim());
-                settings.put("url", parts[2].trim());
-                settings.put("development", String.valueOf(development));
-                entries.add(settings);
-            }
-        }
-        return entries;
     }
 
     public Duration getForwardHttpConnectTimeout() { return lifecycle.current().connectTimeout(); }

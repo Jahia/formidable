@@ -3,6 +3,7 @@ package org.jahia.modules.formidable.engine.config.uploads;
 import org.jahia.modules.formidable.engine.config.ThemeLifecycle;
 import org.jahia.modules.formidable.engine.config.common.ConfigurationValues;
 import org.jahia.modules.formidable.engine.files.AllowedTypes;
+import org.jahia.modules.formidable.engine.migration.RemovedIn;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -34,6 +35,7 @@ public class UploadsConfigService {
 
     public static final String PID = "org.jahia.modules.formidable.uploads";
     /** The name uploadAllowedTypes had until 0.5, carried from the single PID; still written by an old script. */
+    @RemovedIn("0.6")
     static final String FORMER_ALLOWED_TYPES = "uploadAllowedMimeTypes";
 
     private record Snapshot(long maxFileSizeBytes, long maxRequestSizeBytes, int maxFileCount, Set<String> allowedTypes) {}
@@ -54,11 +56,17 @@ public class UploadsConfigService {
     @Activate
     @Modified
     public void configure(UploadsConfig config, Map<String, Object> properties) {
+        warnOfTheFormerName(properties);
+        lifecycle.configure(properties, config);
+    }
+
+    /** The former name still written by an old script; removed in 0.6 with the migration of the single PID. */
+    @RemovedIn("0.6")
+    private static void warnOfTheFormerName(Map<String, Object> properties) {
         if (properties != null && properties.containsKey(FORMER_ALLOWED_TYPES)) {
             log.warn("{} is no longer read: the setting is uploadAllowedTypes (extensions, MIME types or wildcards)",
                     FORMER_ALLOWED_TYPES);
         }
-        lifecycle.configure(properties, config);
     }
 
     /** Reads the configuration into the snapshot the getters serve, no file behind it; public for the tests. */
