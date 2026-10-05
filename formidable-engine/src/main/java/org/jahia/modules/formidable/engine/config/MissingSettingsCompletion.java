@@ -17,11 +17,12 @@ import java.util.TreeMap;
  * configuration file once and keeps the administrator's copy as edited, so a setting added by a later version never
  * reaches an existing installation's file: the module applies its default all the same, but the administrator reading
  * the file does not know the setting exists. The completion only adds: a value present in the file, edited or not, is
- * never touched, and a key the module does not know is never removed. It writes only when something is missing — the
- * write's own callback then brings a complete configuration, which writes nothing — and only into a configuration that
- * comes from its file ({@value LegacyConfigurationMigration#FILEINSTALL_FILENAME}), the one fileinstall persists the
- * update into. A write that fails is logged and not tried again before the next callback: meanwhile the module applies
- * the defaults the write would have written.
+ * never touched, and a key the module does not know is never removed. It runs once per start of the theme's service,
+ * the first time the theme's configuration comes from its file ({@value LegacyConfigurationMigration#FILEINSTALL_FILENAME},
+ * the one fileinstall persists the update into): a line the administrator deletes later, while the module runs, stays
+ * deleted until the next start — the file is never rewritten under an edit. It writes only when something is missing.
+ * A write that fails, whatever the failure, is logged and tried again at the next callback, never fatal to the theme:
+ * meanwhile the module applies the defaults the write would have written.
  */
 final class MissingSettingsCompletion {
 
@@ -30,6 +31,8 @@ final class MissingSettingsCompletion {
     private final String pid;
     /** The theme's settings and their defaults, as the strings written into a configuration. */
     private final Map<String, Object> defaults;
+    /** Whether this start's completion is over: the file was complete, or completed. */
+    private boolean done;
 
     MissingSettingsCompletion(String pid, Class<? extends Annotation> definition) {
         this.pid = pid;
@@ -37,14 +40,14 @@ final class MissingSettingsCompletion {
     }
 
     /**
-     * Writes the settings missing from the theme's configuration, when it comes from its file and ConfigurationAdmin
-     * is bound.
+     * Writes the settings missing from the theme's configuration, when it comes from its file, ConfigurationAdmin is
+     * bound and this start's completion is not over.
      *
      * @param properties the raw properties DS handed over, null when the service is driven without a file (the tests)
      * @return the settings written, empty when nothing was missing, nothing was due or the write failed
      */
     synchronized Map<String, Object> run(ConfigurationAdmin admin, Map<String, Object> properties) {
-        if (admin == null || properties == null || !properties.containsKey(LegacyConfigurationMigration.FILEINSTALL_FILENAME)) {
+        if (done || admin == null || properties == null || !properties.containsKey(LegacyConfigurationMigration.FILEINSTALL_FILENAME)) {
             return Map.of();
         }
         try {
@@ -64,12 +67,14 @@ final class MissingSettingsCompletion {
                 }
             });
             if (added.isEmpty()) {
+                done = true;
                 return Map.of();
             }
             configuration.update(updated);
+            done = true;
             log.info("[{}] Added the settings missing from the theme's file, at their defaults: {}", pid, added.keySet());
             return added;
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             log.error("[{}] Could not add the settings missing from the theme's file; their defaults apply all the same", pid, e);
             return Map.of();
         }

@@ -19,6 +19,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -96,7 +97,7 @@ class MissingSettingsCompletionTest {
 
     @Test
     void aConfigurationWithoutItsFileOrWithoutConfigurationAdminIsLeftAlone() throws Exception {
-        // Verifies the preconditions: fileinstall persists an update only into the file the configuration came from;
+        // Verifies the preconditions. Fileinstall persists an update only into the file the configuration came from, so
         // a configuration made without one (the Felix console, the tests) is not completed.
         ConfigurationAdmin admin = mock(ConfigurationAdmin.class);
         Map<String, Object> withoutFile = partialFile();
@@ -125,13 +126,32 @@ class MissingSettingsCompletionTest {
     }
 
     @Test
-    void aWriteThatFailsIsLoggedAndReportsNothingAdded() throws Exception {
-        // Verifies a failing write is not fatal: nothing reported as added, the defaults apply all the same.
+    void aWriteThatFailsIsNeverFatalAndIsTriedAgainAtTheNextCallback() throws Exception {
+        // Verifies a failing write, checked or not, is not fatal (a runtime exception would fail the theme's activation):
+        // nothing reported as added, and the next callback tries again since this start's completion is not over.
         ConfigurationAdmin admin = mock(ConfigurationAdmin.class);
         Configuration theme = themeConfiguration(admin, partialFile());
-        doThrow(new IOException("disk full")).when(theme).update(any());
+        doThrow(new IOException("disk full")).doThrow(new IllegalStateException("deleted")).doNothing().when(theme).update(any());
+        MissingSettingsCompletion completion = completion();
 
-        assertTrue(completion().run(admin, partialFile()).isEmpty());
+        assertTrue(completion.run(admin, partialFile()).isEmpty());
+        assertTrue(completion.run(admin, partialFile()).isEmpty());
+        assertEquals(2, completion.run(admin, partialFile()).size());
+        verify(theme, times(3)).update(any());
+    }
+
+    @Test
+    void oneCompletionPerStartSoALineDeletedWhileTheModuleRunsStaysDeleted() throws Exception {
+        // Verifies the file is never rewritten under an edit: once this start's completion is over (written here),
+        // the callback an administrator's edit brings — a line deleted — writes nothing; the next start would.
+        ConfigurationAdmin admin = mock(ConfigurationAdmin.class);
+        Configuration theme = themeConfiguration(admin, partialFile());
+        MissingSettingsCompletion completion = completion();
+
+        assertEquals(2, completion.run(admin, partialFile()).size());
+        assertTrue(completion.run(admin, partialFile()).isEmpty());
+        verify(theme, times(1)).update(any());
+        assertEquals(2, completion().run(admin, partialFile()).size(), "a new start completes again");
     }
 
     @Test
