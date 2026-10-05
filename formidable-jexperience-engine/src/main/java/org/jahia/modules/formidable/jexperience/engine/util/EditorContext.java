@@ -6,9 +6,9 @@ import java.util.Optional;
 
 /**
  * What the Content Editor puts in a choicelist initializer's context: the unsaved values of the
- * properties the choicelist named in its {@code dependentProperties}. Two of this module's dropdowns
- * read a checkbox that way — the sensitive flag and the prefill switch — and jcontent sends it as a
- * boolean, a string, or a list holding one of those, depending on the field.
+ * properties the choicelist named in its {@code dependentProperties}. One of this module's dropdowns
+ * reads a checkbox that way — the prefill switch — and jcontent sends it as a boolean, a string, or a
+ * list holding one of those, depending on the field.
  */
 public final class EditorContext {
 

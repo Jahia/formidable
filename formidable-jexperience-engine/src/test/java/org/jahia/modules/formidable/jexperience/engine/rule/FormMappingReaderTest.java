@@ -5,7 +5,6 @@ import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRPropertyWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
-import org.jahia.modules.formidable.engine.api.FmdbProperty;
 import org.jahia.modules.formidable.jexperience.engine.model.JxpProperty;
 import org.jahia.modules.formidable.jexperience.engine.field.FieldShapes;
 import org.jahia.modules.formidable.jexperience.engine.profile.ProfilePropertiesUnavailableException;
@@ -164,17 +163,4 @@ class FormMappingReaderTest {
                 FormMappingReader.queryFor("/sites/mysite/contents/l'enquete"));
     }
 
-    @Test
-    void aMappingOnASensitiveFieldIsSkipped() throws Exception {
-        // Verifies the belt to the dropdown's braces: the dropdown offers nothing on a sensitive field, but a
-        // mapping made before the author ticked the box is still on the node — it must never become a rule
-        // action, or the value the author forbade would be written to the visitor's profile.
-        JCRNodeWrapper field = field("nationalId", "firstName", null, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD);
-        JCRPropertyWrapper flag = mock(JCRPropertyWrapper.class);
-        when(flag.getBoolean()).thenReturn(true);
-        when(field.hasProperty(FmdbProperty.PROFILE_SENSITIVE)).thenReturn(true);
-        when(field.getProperty(FmdbProperty.PROFILE_SENSITIVE)).thenReturn(flag);
-
-        assertTrue(new FormMappingReader(catalog(), counting(1)).fieldMappingOf(field, SCHEMA, "en").isEmpty());
-    }
 }

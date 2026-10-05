@@ -111,6 +111,6 @@ carrying its own mixin, which the author adds. Its Cypress spec
 
 `formidable-jexperience-engine`'s `SubmissionEventEnricher` is the other example: it returns
 `jexperience: {formId, fields}` — the form's UUID and the accepted values of the fields the visitor
-answered, minus the ones the author marked sensitive — for the client script that sends the form event through
+answered, the mappable ones — for the client script that sends the form event through
 jExperience's tracker; see [jExperience integration](../architecture/jexperience-integration.md),
 "Submitting".

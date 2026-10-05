@@ -1,6 +1,5 @@
 package org.jahia.modules.formidable.jexperience.engine.render;
 
-import org.jahia.modules.formidable.engine.api.FmdbProperty;
 import org.jahia.modules.formidable.jexperience.engine.model.JxpMixin;
 import org.jahia.modules.formidable.jexperience.engine.model.JxpProperty;
 import org.jahia.services.content.JCRNodeWrapper;
@@ -23,17 +22,17 @@ import static org.mockito.Mockito.when;
 /**
  * Which fields the block tells the page to prefill, what the block depends on, and how the pairs are
  * written. Reading is a query of the mappable fields under the form, replaced here by a fixed list; the
- * rule of inclusion is the point: mapped, its prefill switched on, not sensitive — and every mappable
+ * rule of inclusion is the point: mapped and its prefill switched on — and every mappable
  * field, included or not, is a dependency.
  */
 class PrefillMappingsTest {
 
-    private static JCRNodeWrapper field(String name, String property, boolean mapped, boolean prefill, boolean sensitive) throws RepositoryException {
-        return field(name, property, mapped, prefill, sensitive, null);
+    private static JCRNodeWrapper field(String name, String property, boolean mapped, boolean prefill) throws RepositoryException {
+        return field(name, property, mapped, prefill, null);
     }
 
     /** {@code then}: the author's choice of what follows the write, as stored — null for a field saved before the option existed. */
-    private static JCRNodeWrapper field(String name, String property, boolean mapped, boolean prefill, boolean sensitive, String then) throws RepositoryException {
+    private static JCRNodeWrapper field(String name, String property, boolean mapped, boolean prefill, String then) throws RepositoryException {
         JCRNodeWrapper node = mock(JCRNodeWrapper.class);
         when(node.hasProperty(JxpProperty.PREFILL_THEN)).thenReturn(then != null);
         when(node.getPropertyAsString(JxpProperty.PREFILL_THEN)).thenReturn(then);
@@ -42,7 +41,6 @@ class PrefillMappingsTest {
         when(node.isNodeType(JxpMixin.MAPPING)).thenReturn(mapped);
         flag(node, JxpProperty.PREFILL, prefill);
         when(node.getPropertyAsString(JxpProperty.PROFILE_PROPERTY)).thenReturn(mapped ? property : null);
-        flag(node, FmdbProperty.PROFILE_SENSITIVE, sensitive);
         return node;
     }
 
@@ -67,14 +65,13 @@ class PrefillMappingsTest {
     }
 
     @Test
-    void onlyAMappedFieldWithThePrefillOnAndNotSensitiveIsListed() throws Exception {
+    void onlyAMappedFieldWithThePrefillOnIsListed() throws Exception {
         PrefillMappings.Prefill prefill = over(List.of(
-                field("firstName", "firstName", true, true, false),
-                field("email", "email", true, true, false),
-                field("phoneNumber", "phoneNumber", true, false, false), // mapped, prefill off
-                field("secret", "nationality", true, true, true),         // prefill on, but sensitive
-                field("switchedOn", "", true, true, false),              // mapping switched on, property left empty
-                field("message", null, false, false, false)              // mappable, never mapped
+                field("firstName", "firstName", true, true),
+                field("email", "email", true, true),
+                field("phoneNumber", "phoneNumber", true, false), // mapped, prefill off
+                field("switchedOn", "", true, true),              // mapping switched on, property left empty
+                field("message", null, false, false)              // mappable, never mapped
         )).read(mock(JCRSessionWrapper.class), mock(JCRNodeWrapper.class));
 
         assertEquals(Map.of(
@@ -87,14 +84,13 @@ class PrefillMappingsTest {
     @Test
     void theReasonAFieldIsLeftOutIsNamed() throws Exception {
         // Verifies the one trace an author's dropped prefill switch leaves: the debug line names which of
-        // the four conditions failed, in the order the author meets them — nothing in the editor can say it,
+        // the three conditions failed, in the order the author meets them — nothing in the editor can say it,
         // since a switch cannot warn that the mapping above it names no property.
-        assertEquals("the prefill is not switched on", PrefillMappings.leftOut(field("phoneNumber", "phoneNumber", true, false, false)));
-        assertEquals("the field is not mapped", PrefillMappings.leftOut(field("message", null, false, true, false)));
+        assertEquals("the prefill is not switched on", PrefillMappings.leftOut(field("phoneNumber", "phoneNumber", true, false)));
+        assertEquals("the field is not mapped", PrefillMappings.leftOut(field("message", null, false, true)));
         assertEquals("the field is mapped but names no profile property (none chosen, or the list no longer offers it)",
-                PrefillMappings.leftOut(field("switchedOn", "", true, true, false)));
-        assertEquals("the field is marked sensitive", PrefillMappings.leftOut(field("secret", "nationality", true, true, true)));
-        assertNull(PrefillMappings.leftOut(field("firstName", "firstName", true, true, false)));
+                PrefillMappings.leftOut(field("switchedOn", "", true, true)));
+        assertNull(PrefillMappings.leftOut(field("firstName", "firstName", true, true)));
     }
 
     @Test
@@ -102,8 +98,8 @@ class PrefillMappingsTest {
         // Verifies what the block's cache entry must be flushed for: mapping a field later, switching its
         // prefill on — changes to a field the block did not mention yet.
         PrefillMappings.Prefill prefill = over(List.of(
-                field("firstName", "firstName", true, true, false),
-                field("message", null, false, false, false)
+                field("firstName", "firstName", true, true),
+                field("message", null, false, false)
         )).read(mock(JCRSessionWrapper.class), mock(JCRNodeWrapper.class));
 
         assertEquals(List.of("/sites/mysite/contents/contact/fields/firstName", "/sites/mysite/contents/contact/fields/message"), prefill.dependencies());
@@ -115,10 +111,10 @@ class PrefillMappingsTest {
         // editor stores, and what a field saved before the option existed has nothing of — says nothing, the
         // two others travel as they are stored.
         PrefillMappings.Prefill prefill = over(List.of(
-                field("firstName", "firstName", true, true, false, "editable"),
-                field("email", "email", true, true, false, "readOnly"),
-                field("country", "countryName", true, true, false, "hidden"),
-                field("kids", "kids", true, true, false, null)
+                field("firstName", "firstName", true, true, "editable"),
+                field("email", "email", true, true, "readOnly"),
+                field("country", "countryName", true, true, "hidden"),
+                field("kids", "kids", true, true, null)
         )).read(mock(JCRSessionWrapper.class), mock(JCRNodeWrapper.class));
 
         assertEquals(Map.of(

@@ -23,7 +23,7 @@
  *   - steps       three-step form with navigation (step 2 holds a fieldset, the deepest
  *                 authoring level, and the delivery method drives a field and that fieldset)
  *   - complete    every built-in field type (same set as spec 20), the visitor profile fields
- *                 first (mapped, prefilled, then the sensitive one), and the whole options matrix
+ *                 first (mapped and prefilled), and the whole options matrix
  *                 — manual, options source, category and content, each single and multiple, every
  *                 field with words of its own (the content ones point at texts under
  *                 contents/agencies and contents/services; the agencies hold an unpublished draft
@@ -40,9 +40,9 @@
  *
  * When formidable-jexperience-engine is on the instance, the simple and the complete forms map their
  * fields to jCustomer's default visitor profile properties (firstName, lastName, email, phoneNumber,
- * birthDate, gender, kids, countryName), one field per form is marked sensitive, and jExperience is
- * enabled on the site — so a publication writes the mapping rules and a live submission feeds the
- * profile. The two shapes jCustomer's default schema has no property for — a multi-valued string for the
+ * birthDate, gender, kids, countryName), and jExperience is enabled on the site — so a publication writes
+ * the mapping rules and a live submission feeds the profile. The two shapes jCustomer's default schema has
+ * no property for — a multi-valued string for the
  * checkbox group, a boolean for the newsletter switch — get one in a "Formidable playground" card, created
  * once through jExperience's admin proxy. Without the module the same forms are provisioned, mappings left
  * out: nothing here depends on it. The yarn script runs the browser under a plain Chrome user agent: the tracker
@@ -215,9 +215,8 @@ const withEnglish = (node: JahiaNode, enProperties: Array<{name: string; value?:
 };
 
 // --- jExperience: the visitor profile mapping of a field, applied only when the module is on the instance.
-// The mapping mixin below is declared by formidable-jexperience-engine; the sensitive flag is the engine's, on the
-// marker every mappable field takes, and the module's editor section is what shows it. The flag is read in the first
-// test, before any form is built, and the two helpers hand the node back untouched when the module is absent.
+// The mapping mixin below is declared by formidable-jexperience-engine. Whether the module is on the instance is read
+// in the first test, before any form is built, and the helper hands the node back untouched when it is absent.
 const JXP_MAPPING_MIXIN = 'fmdbmix:jExperienceProfileMapping';
 // The tracker loads its context through jCustomer: a cold instance takes longer than the default command
 // timeout, so the context is polled up to this long — and never waited for, since a jCustomer that does
@@ -248,13 +247,6 @@ const mappedTo = (node: JahiaNode, profileProperty: string, options: {strategy?:
 	if (options.prefill && options.then) {
 		node.properties.push({name: 'jExperiencePrefillThen', value: options.then});
 	}
-	return node;
-};
-
-/** Marks the field sensitive: its value never reaches the visitor profile, and the dropdown offers it no mapping. */
-const sensitive = (node: JahiaNode): JahiaNode => {
-	if (!jExperienceAvailable) return node;
-	node.properties.push({name: 'profileSensitive', value: 'true', type: 'BOOLEAN'});
 	return node;
 };
 
@@ -550,7 +542,7 @@ const simpleFormNodes = (): JahiaNode[] => [
 	]),
 	mappedTo(withFrench(lastNameField(), [{name: 'jcr:title', value: 'Nom'}]), 'lastName', {prefill: true}),
 	mappedTo(withFrench(getInputEmailNode({name: 'email', title: 'Email', required: true}), [{name: 'jcr:title', value: 'Email'}]), 'email', {strategy: 'setIfMissing', prefill: true}),
-	sensitive(withFrench(getTextareaNode({name: 'message', title: 'Message'}), [{name: 'jcr:title', value: 'Message'}])),
+	withFrench(getTextareaNode({name: 'message', title: 'Message'}), [{name: 'jcr:title', value: 'Message'}]),
 	contactChannelSelect(),
 	mappedTo(phoneNumberField(), 'phoneNumber', {strategy: 'setIfMissing', prefill: true}),
 	// An optional single file, on the one form that offers Reset: the field a reset has to empty,
@@ -619,8 +611,8 @@ interface ChoiceRoots {
 	servicesRootUuid: string;
 }
 
-// Every built-in field type, in three blocks. The visitor profile first — the mapped fields, all prefilled,
-// then the sensitive one — so that what the jExperience integration touches is read in one place; the other
+// Every built-in field type, in three blocks. The visitor profile first — the mapped fields, all prefilled —
+// so that what the jExperience integration touches is read in one place; the other
 // field types next; and last the choice fields that complete the options matrix — four sources (manual,
 // options source, category, content) each in a single and a multiple shape:
 //   manual         single: gender, deliveryMethod (radio), department (select)   multiple: interests (checkbox group)
@@ -677,15 +669,15 @@ const completeFormNodes = ({tvCategoryUuid, audioCategoryUuid, agenciesRootUuid,
 		{name: 'onLabel', value: 'Oui'},
 		{name: 'offLabel', value: 'Non'}
 	]), 'formidableOptIn', {strategy: 'setIfMissing', prefill: true}),
-	// An employee code is the kind of value that must never reach a visitor profile: the sensitive flag.
+	// An employee code: a mappable field left unmapped.
 	// placeholder and list are i18n as well: without a French value the field loses its example and its
 	// suggestion list in that language.
-	sensitive(withFrench(getInputTextNode({...INPUT_TEXT_COMPLETE, defaultValue: undefined, helpText: '<p>Two capital letters, a dash, four digits: <strong>AB-1234</strong>.</p>'}), [
+	withFrench(getInputTextNode({...INPUT_TEXT_COMPLETE, defaultValue: undefined, helpText: '<p>Two capital letters, a dash, four digits: <strong>AB-1234</strong>.</p>'}), [
 		{name: 'jcr:title', value: 'Code employé'},
 		{name: 'helpText', value: '<p>Deux lettres majuscules, un tiret, quatre chiffres : <strong>AB-1234</strong>.</p>'},
 		{name: 'placeholder', value: 'AB-1234'},
 		{name: 'list', values: ['AB-1234', 'CD-5678']}
-	])),
+	]),
 	// --- The rest of the field types, nothing of the visitor profile in them.
 	// The appointment cannot be before the submission day (the other relative bound mode).
 	withFrench(getInputDatetimeLocalNode({...INPUT_DATETIME_LOCAL_COMPLETE, defaultValue: undefined, min: undefined, minBoundMode: 'today'}), [{name: 'jcr:title', value: 'Rendez-vous'}]),

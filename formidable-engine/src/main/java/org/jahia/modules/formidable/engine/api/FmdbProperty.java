@@ -56,13 +56,6 @@ public final class FmdbProperty {
     @RemovedIn("0.6")
     public static final String PROVIDER_ID = "providerId";
 
-    /**
-     * The author's "keep this field's value out of the visitor profile" ({@code fmdbmix:profileMappableField}): the
-     * jExperience module leaves the value out of what a submission sends to the profile and offers the field no
-     * mapping. The engine declares it so that every mappable field has it, and acts on it nowhere.
-     */
-    public static final String PROFILE_SENSITIVE = "profileSensitive";
-
     private FmdbProperty() {
     }
 }

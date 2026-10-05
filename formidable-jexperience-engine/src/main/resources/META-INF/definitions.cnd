@@ -31,18 +31,8 @@
 [fmdbmix:jExperienceProfileMapping] mixin
  extends = fmdbmix:profileMappableField
  itemtype = content
- - jExperienceProfileProperty (string, choicelist[formidableJExperienceProfileProperties,dependentProperties='multiple,options,optionsMode,profileSensitive']) indexed=no
+ - jExperienceProfileProperty (string, choicelist[formidableJExperienceProfileProperties,dependentProperties='multiple,options,optionsMode']) indexed=no
  - jExperienceSetStrategy (string, choicelist[resourceBundle]) = 'alwaysSet' autocreated indexed=no < 'alwaysSet', 'setIfMissing'
  - jExperiencePrefill (boolean) = false autocreated indexed=no
  - jExperiencePrefillThen (string, choicelist[resourceBundle,formidableJExperiencePrefillThen,dependentProperties='jExperiencePrefill,jExperiencePrefillThen']) = 'editable' autocreated indexed=no < 'editable', 'readOnly', 'hidden'
 
-
-// @RemovedIn 0.6: the sensitive flag's first home (0.5.0 development builds; no released version holds it).
-// The flag is the engine's profileSensitive, on fmdbmix:profileMappableField, since #369: attached here with
-// `extends` and kept always activated, the mixin was added by the editor to every mappable field on save, which a
-// translator's role cannot do. The engine's ProfileSensitiveFlagMigration copies the value and drops this mixin;
-// kept declared, hidden and without `extends`, so that a node still carrying it deploys and the editor shows
-// nothing for it. SensitiveField still reads the property as a fallback, so a field waiting for the migration never
-// fails open.
-[fmdbmix:jExperienceSensitiveField] mixin
- - jExperienceSensitive (boolean) hidden indexed=no
