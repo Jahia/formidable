@@ -20,6 +20,18 @@ property), and 0.6 drops the migration together with the prefixed definitions it
 proof an administrator can look for is the engine log line
 `Renamed the prefixed mixin properties of N field(s)` (see "How to check" below).
 
+## Settings added to the configuration files
+
+Jahia never overwrites your copy of a configuration file, so at every start the module appends to each file the
+settings it does not hold, at their defaults, and logs them (`Added the settings missing from the theme's file, at
+their defaults: [...]`); a value already in the file is never changed —
+[Settings added by a later version](configuration.md#settings-added-by-a-later-version). Each version lists here
+the settings it adds, file by file, so that you know which lines to review after the upgrade.
+
+| Version | File (`karaf/etc/`) | Settings added |
+|---|---|---|
+| 0.5.0 | — | None: the five files are new in this version and ship every setting |
+
 ## 0.4.x → 0.5.0: the configuration moves to five files, one per theme
 
 **Automatic on every installation — check the five files after the upgrade.**
@@ -84,8 +96,8 @@ lines.
 
 Open the five files in `karaf/etc/` after the upgrade, and the entry files next to them. A setting that was not at its default before the
 upgrade is in its theme's file, and the file carries the marker line
-`formidable.migratedFrom=org.jahia.modules.formidable` the migration wrote. A setting missing from its file was
-either at its default before (not copied) or lost to a write that kept failing — the log then says
+`formidable.migratedFrom=org.jahia.modules.formidable` the migration wrote. A setting its file shows at the
+default was either at its default before (not copied) or lost to a write that kept failing — the log then says
 `Gave up carrying the settings of org.jahia.modules.formidable over`, and the setting is to be re-entered.
 
 ## 0.4.x → 0.5.0: the mixin properties lose their `fmdb:` prefix, migrated at startup

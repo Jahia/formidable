@@ -222,7 +222,8 @@ org.jahia.modules.formidable.engine
 ├── files/                              ← file types, from Apache Tika's registry only (docs/architecture/form-submission-flow.md)
 │   └── AllowedTypes (what a file field accepts, for its view and the parser), FileTypeService (extensions, labels)
 ├── config/                              ← the five configuration themes, one PID and one shipped .cfg each, and two lists as one factory configuration per entry (docs/administration/configuration.md)
-│   ├── ThemeLifecycle.java              ← what the themes share: the snapshot in force, the one-time migration handshake
+│   ├── ThemeLifecycle.java              ← what the themes share: the snapshot in force, the one-time migration handshake, then the completion
+│   ├── MissingSettingsCompletion.java   ← appends to a theme's file the settings it lacks, at their defaults, at every start (additive only)
 │   ├── LegacyConfigurationMigration.java ← carries the pre-0.5 single PID into a theme's file once its own file is in place
 │   ├── common/   ConfigurationValues (lines, bounds, HTTP client), EndpointRule (HTTPS, or HTTP on a local host for a development entry),
 │   │             FactoryEntries + FactoryEntry (a list's entries bound, console creations stored as files through ConfigService, former lines converted)

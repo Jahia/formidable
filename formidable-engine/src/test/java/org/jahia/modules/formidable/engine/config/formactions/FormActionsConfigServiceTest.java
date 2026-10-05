@@ -207,6 +207,8 @@ class FormActionsConfigServiceTest {
         ConfigurationAdmin admin = mock(ConfigurationAdmin.class);
         Map<String, Object> file = new HashMap<>(Map.of("felix.fileinstall.filename", "file:/karaf/etc/" + FormActionsConfigService.PID + ".cfg",
                 "forwardTargets", "crm01|Salesforce|https://crm.example.com/hook\ncrm.eu|Salesforce EU|https://eu.example.com/hook"));
+        // Every setting present, as in the shipped file: the completion of the missing ones has nothing to write.
+        file.putAll(Map.of("enableDevForwardTargets", "false", "forwardHttpConnectTimeoutSeconds", "5", "forwardHttpRequestTimeoutSeconds", "10"));
         Configuration theme = mock(Configuration.class);
         when(admin.getConfiguration(FormActionsConfigService.PID, "?")).thenReturn(theme);
         when(theme.getProperties()).thenAnswer(invocation -> new Hashtable<>(file));
