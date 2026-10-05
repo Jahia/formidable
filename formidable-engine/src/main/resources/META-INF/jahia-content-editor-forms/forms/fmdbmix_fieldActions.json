@@ -3,18 +3,6 @@
 	"priority": 2.0,
 	"sections": [
 		{
-			"name": "fieldSettings",
-			"labelKey": "fmdb.section.fieldSettings",
-			"rank": 1.05,
-			"fieldSets": [
-				{
-					"name": "fmdbmix:fieldActions",
-					"rank": 6.0,
-					"alwaysPresent": true
-				}
-			]
-		},
-		{
 			"name": "listOrdering",
 			"hide": true
 		}
