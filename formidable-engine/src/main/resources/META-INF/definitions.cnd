@@ -141,7 +141,9 @@ orderable
  - jcr:title (string) = resourceBundle('fmdb_fieldActionList') autocreated i18n
  + * (fmdbmix:fieldAction) = fmdbmix:fieldAction version
 
-// The switch at the end of the Content section of the field's own editor, offered on every field type
+// The switch closing the Field settings section of the field's own editor (placed there by this module's
+// override, fmdbmix_fieldActions.json, with "alwaysPresent": a switch without a property of its own is
+// dropped once moved otherwise), offered on every field type
 // taking fmdbmix:submittableField — the fields with a value, third-party included — and on nothing else:
 // a fieldset, a button or a file field would show a switch whose actions never run. The list it creates
 // makes the editor show its "Content list & ordering" block right under Content; this module's form
