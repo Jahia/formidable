@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.engine.config;
 
+import org.jahia.modules.formidable.engine.config.common.ConfigurationAttributes;
 import org.jahia.modules.formidable.engine.config.formactions.FormActionsConfig;
 import org.jahia.modules.formidable.engine.config.formactions.FormActionsConfigService;
 import org.junit.jupiter.api.Test;
@@ -30,7 +31,7 @@ class MissingSettingsCompletionTest {
     /** A theme's file holding the request timeout only, edited off its default, and a key the module does not know. */
     private static Map<String, Object> partialFile() {
         Map<String, Object> properties = new HashMap<>();
-        properties.put(LegacyConfigurationMigration.FILEINSTALL_FILENAME, "file:/karaf/etc/" + PID + ".cfg");
+        properties.put(ConfigurationAttributes.FILEINSTALL_FILENAME, "file:/karaf/etc/" + PID + ".cfg");
         properties.put("forwardHttpRequestTimeoutSeconds", "42");
         properties.put("someoneElsesKey", "kept");
         return properties;
@@ -101,7 +102,7 @@ class MissingSettingsCompletionTest {
         // a configuration made without one (the Felix console, the tests) is not completed.
         ConfigurationAdmin admin = mock(ConfigurationAdmin.class);
         Map<String, Object> withoutFile = partialFile();
-        withoutFile.remove(LegacyConfigurationMigration.FILEINSTALL_FILENAME);
+        withoutFile.remove(ConfigurationAttributes.FILEINSTALL_FILENAME);
 
         assertTrue(completion().run(admin, withoutFile).isEmpty());
         assertTrue(completion().run(admin, null).isEmpty());
@@ -169,15 +170,5 @@ class MissingSettingsCompletionTest {
         file.remove("forwardHttpConnectTimeoutSeconds");
         assertTrue(completion.run(admin, file).isEmpty());
         verify(theme, never()).update(any());
-    }
-
-    @Test
-    void theDefaultsAreTheDefinitionsAttributesAsStrings() {
-        // Verifies the values written are strings, the form a .cfg file reads back (a typed value would be persisted
-        // in fileinstall's typed syntax).
-        Map<String, Object> defaults = MissingSettingsCompletion.defaultsOf(FormActionsConfig.class);
-
-        assertEquals(Map.of("enableDevForwardTargets", "false", "forwardHttpConnectTimeoutSeconds", "5",
-                "forwardHttpRequestTimeoutSeconds", "10"), defaults);
     }
 }

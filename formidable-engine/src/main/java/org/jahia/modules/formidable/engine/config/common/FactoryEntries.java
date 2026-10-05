@@ -1,20 +1,16 @@
 package org.jahia.modules.formidable.engine.config.common;
 
-import org.jahia.modules.formidable.engine.config.LegacyConfigurationMigration;
+import org.jahia.modules.formidable.engine.migration.RemovedIn;
+import org.jahia.modules.formidable.engine.migration.v05.FormerListLines;
 import org.jahia.services.modulemanager.spi.Config;
 import org.jahia.services.modulemanager.spi.ConfigService;
 import org.jahia.services.modulemanager.util.PropertiesValues;
-import org.osgi.framework.InvalidSyntaxException;
-import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Dictionary;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -34,9 +30,8 @@ import java.util.function.Function;
  *     <li>an entry the Felix console created — an unnamed factory configuration, a generated PID, no file, so out
  *     of sight in ConfigurationAdmin's own storage — stored again under its {@code id} through Jahia's
  *     {@link ConfigService}, which writes the file, and the console's configuration deleted;</li>
- *     <li>the lines of earlier builds ({@code id|Label|…} in one setting of the theme's file, where the migration from
- *     the single PID put them, or still in that PID) turned into one entry each, once, then removed from the
- *     theme's file with a marker.</li>
+ *     <li>the lines of earlier builds ({@code id|Label|…}) turned into one entry each, once, off the theme's
+ *     callback — the conversion itself is {@link FormerListLines}, part of the 0.5.0 migration wave.</li>
  * </ul>
  * Everything is stored through {@link ConfigService} — the service the provisioning API's {@code editConfiguration}
  * uses — never written by hand.
@@ -44,15 +39,6 @@ import java.util.function.Function;
  * @param <E> the entries' component
  */
 public final class FactoryEntries<E extends FactoryEntry> {
-
-    /** Written into the theme's configuration once the former lines are entries. */
-    public static final String LINES_CONVERTED = "formidable.linesConverted";
-    /**
-     * Written into the theme's configuration while a conversion is pending — a line refused for its id —: the ids
-     * already turned into files, which a later run leaves alone, so that an entry the administrator deleted meanwhile
-     * is not written back. Removed with the lines once the conversion completes.
-     */
-    public static final String LINES_CONVERTED_IDS = "formidable.linesConvertedIds";
 
     private static final Logger log = LoggerFactory.getLogger(FactoryEntries.class);
 
@@ -136,101 +122,22 @@ public final class FactoryEntries<E extends FactoryEntry> {
      * earlier builds when there are any — off this callback, as an adoption is.
      *
      * @param properties the theme's raw properties, null when driven without a file (the tests)
-     * @param lineKeys   the settings of earlier builds that held the list, one entry per line
-     * @param converter  the entries those settings describe — each a map of this list's settings, id included — from
-     *                   the settings' texts by key (a key absent is an empty text)
+     * @param lines      the list's lines of earlier builds, null for a list that never had any; the parameter leaves in
+     *                   0.6 with {@link FormerListLines}
      */
-    public void themeConfigured(Map<String, Object> properties, List<String> lineKeys,
-                                Function<Map<String, String>, List<Map<String, String>>> converter) {
+    public void themeConfigured(Map<String, Object> properties, FormerListLines lines) {
         entries.forEach(this::adopt);
-        if (properties == null || !properties.containsKey("felix.fileinstall.filename") || properties.containsKey(LINES_CONVERTED)) {
+        if (lines == null || !lines.due(properties)) {
             return;
         }
         Map<String, Object> received = Map.copyOf(properties);
-        adoptions.execute(() -> convertLines(received, lineKeys, converter));
+        adoptions.execute(() -> convertLines(lines, received));
     }
 
-    /**
-     * Stores the lines as entries, then removes them from the theme's file with the marker. One conversion at a time,
-     * the marker read again from ConfigurationAdmin: two callbacks in a row convert once. A line whose id is not
-     * letters, digits, dashes and underscores (a dot, a space…) cannot become a file: the lines then stay where they
-     * are — the theme's file, or the single PID of earlier builds —, the others stored, and the error names the ids
-     * and that configuration.
-     */
-    private synchronized void convertLines(Map<String, Object> properties, List<String> lineKeys,
-                                           Function<Map<String, String>, List<Map<String, String>>> converter) {
-        ConfigurationAdmin admin = configurationAdmin.get();
-        ConfigService configs = configService.get();
-        if (admin == null || configs == null) {
-            return;
-        }
-        try {
-            Configuration theme = admin.getConfiguration(themePid, "?");
-            Dictionary<String, Object> current = theme.getProperties();
-            if (current == null || current.get(LINES_CONVERTED) != null) {
-                return;
-            }
-            Map<String, String> texts = texts(properties, lineKeys);
-            String source = themePid;
-            if (texts.isEmpty()) {
-                Dictionary<String, Object> legacy = legacyProperties(admin);
-                texts = legacy == null ? Map.of() : texts(legacy, lineKeys);
-                source = LegacyConfigurationMigration.LEGACY_PID;
-            }
-            Set<String> converted = new LinkedHashSet<>(ConfigurationValues.commaSeparated(asText(current.get(LINES_CONVERTED_IDS))));
-            List<String> written = new ArrayList<>();
-            List<String> invalid = new ArrayList<>();
-            storeLines(configs, converter.apply(texts), converted, written, invalid);
-            String files = fileName(factoryPid, "<id>");
-            if (!written.isEmpty()) {
-                log.warn("[{}] The {} lines became one file each, karaf/etc/{}: {}", themePid, what, files, written);
-            }
-            if (!invalid.isEmpty()) {
-                // Only when this run stored something: an unchanged configuration written back would call this again.
-                if (!written.isEmpty()) {
-                    current.put(LINES_CONVERTED_IDS, String.join(",", converted));
-                    theme.update(current);
-                }
-                log.error("[{}] The {} lines {} of {} have an id that is not letters, digits, dashes and underscores, "
-                        + "which cannot name a file: the lines stay there. Declare each as a file with a valid id, point "
-                        + "the content storing the former id at the new one, then remove the lines from {}", themePid,
-                        what, invalid, source, source);
-                return;
-            }
-            lineKeys.forEach(current::remove);
-            current.remove(LINES_CONVERTED_IDS);
-            current.put(LINES_CONVERTED, "true");
-            theme.update(current);
-        } catch (IOException | InvalidSyntaxException | RuntimeException e) {
-            log.error("[{}] Could not turn the {} lines into files; they will be tried again on the next change", themePid, what, e);
-        }
-    }
-
-    private static Map<String, String> texts(Map<String, Object> properties, List<String> keys) {
-        Map<String, String> texts = new HashMap<>();
-        keys.forEach(key -> {
-            Object value = properties.get(key);
-            if (value != null) {
-                texts.put(key, String.valueOf(value));
-            }
-        });
-        return texts;
-    }
-
-    private static Map<String, String> texts(Dictionary<String, Object> properties, List<String> keys) {
-        Map<String, Object> copy = new HashMap<>();
-        keys.forEach(key -> {
-            Object value = properties.get(key);
-            if (value != null) {
-                copy.put(key, value);
-            }
-        });
-        return texts(copy, keys);
-    }
-
-    private static Dictionary<String, Object> legacyProperties(ConfigurationAdmin admin) throws IOException, InvalidSyntaxException {
-        Configuration[] found = admin.listConfigurations("(service.pid=" + LegacyConfigurationMigration.LEGACY_PID + ")");
-        return found == null || found.length == 0 ? null : found[0].getProperties();
+    /** One conversion at a time: two callbacks in a row convert once. Removed in 0.6 with the lines. */
+    @RemovedIn("0.6")
+    private synchronized void convertLines(FormerListLines lines, Map<String, Object> properties) {
+        lines.convert(configurationAdmin.get(), configService.get(), properties, id -> declaredElsewhere(id, null));
     }
 
     /**
@@ -326,27 +233,6 @@ public final class FactoryEntries<E extends FactoryEntry> {
     public record Merged<T>(Map<String, T> byId, int ignoredDevelopment) {}
 
     /**
-     * Stores each line not converted yet: a line whose id cannot name a file goes to {@code invalid}, one whose id an
-     * entry already declares is left as it is, the others are stored and go to {@code written}; every id handled joins
-     * {@code converted}.
-     */
-    private void storeLines(ConfigService configs, List<Map<String, String>> lines, Set<String> converted,
-                            List<String> written, List<String> invalid) throws IOException {
-        for (Map<String, String> settings : lines) {
-            String id = settings.get("id");
-            if (!FactoryEntry.validId(id)) {
-                invalid.add(id);
-            } else if (converted.add(id)) {
-                if (!declaredElsewhere(id, null) && store(configs, factoryPid, id, settings)) {
-                    written.add(id);
-                } else {
-                    log.info("[{}] The {} '{}' is already configured; its line is not carried over it", themePid, what, id);
-                }
-            }
-        }
-    }
-
-    /**
      * Whether an entry bound already declares this id, whatever its file is called: core's configuration service
      * finds an entry by its file's name only, and a file's {@code -<id>} is a convention, not the rule.
      *
@@ -354,10 +240,6 @@ public final class FactoryEntries<E extends FactoryEntry> {
      */
     private boolean declaredElsewhere(String id, E except) {
         return entries.stream().anyMatch(entry -> entry != except && id.equals(entry.id()));
-    }
-
-    private static String asText(Object value) {
-        return value == null ? "" : String.valueOf(value);
     }
 
     /**

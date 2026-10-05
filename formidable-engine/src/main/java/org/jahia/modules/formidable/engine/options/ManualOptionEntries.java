@@ -18,6 +18,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import org.jahia.modules.formidable.engine.api.FmdbProperty;
+import org.jahia.modules.formidable.engine.migration.RemovedIn;
+import org.jahia.modules.formidable.engine.migration.common.MigrationMarker;
 
 /**
  * The single reading of a manual option entry's storage, shared by everything
@@ -125,6 +127,7 @@ public final class ManualOptionEntries {
      * carrying 'rouge' can never match a submission again (every language submits
      * 'red'): the rules must follow the same replacement their options underwent.
      */
+    @RemovedIn("0.6")
     public static Map<String, String> realignedValueReplacements(List<String> masterOptions,
             List<String> ownOptions, boolean allowPositional) {
         // Provenance-gated exactly like the label carry-over: without the migration
@@ -153,6 +156,7 @@ public final class ManualOptionEntries {
      * language is row i of the master in another tongue. Any shared value means the
      * identity model already applies and positional pairing could mislabel.
      */
+    @RemovedIn("0.6")
     private static boolean keepsLabelsByPosition(List<String> masterOptions, List<String> ownOptions) {
         if (ownOptions.isEmpty() || ownOptions.size() != masterOptions.size()) {
             return false;
@@ -278,5 +282,16 @@ public final class ManualOptionEntries {
     public static Node findTranslation(JCRNodeWrapper fieldNode, String language) throws RepositoryException {
         Locale locale = LanguageCodeConverters.languageCodeToLocale(language);
         return fieldNode.hasI18N(locale, false) ? fieldNode.getI18N(locale, false) : null;
+    }
+
+    /**
+     * Whether the field still carries the marker of the 0.3 options migration: the provenance gate of the positional
+     * pairing above, the only content allowed per-language values that translate the identity. Removed in 0.6 with
+     * the marker, the positional pairing and the rule remap — once no field carries the marker (the fields never
+     * saved since 0.3 are the open point of upgrade-notes.md, "Startup migrations").
+     */
+    @RemovedIn("0.6")
+    public static boolean migratedFrom03(JCRNodeWrapper fieldNode) throws RepositoryException {
+        return fieldNode.isNodeType(MigrationMarker.MIGRATED_CHOICE_OPTIONS);
     }
 }

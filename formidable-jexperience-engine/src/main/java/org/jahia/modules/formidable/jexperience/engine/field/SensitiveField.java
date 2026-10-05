@@ -2,6 +2,7 @@ package org.jahia.modules.formidable.jexperience.engine.field;
 
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.modules.formidable.engine.api.FmdbProperty;
+import org.jahia.modules.formidable.engine.migration.RemovedIn;
 import org.jahia.modules.formidable.jexperience.engine.model.JxpProperty;
 import org.jahia.modules.formidable.jexperience.engine.util.EditorContext;
 
@@ -45,7 +46,13 @@ public final class SensitiveField {
      * which cannot be taken back). False for a field that never carried either.
      */
     public static boolean isSensitive(JCRNodeWrapper field) throws RepositoryException {
-        return flag(field, FmdbProperty.PROFILE_SENSITIVE) || flag(field, JxpProperty.RETIRED_SENSITIVE);
+        return flag(field, FmdbProperty.PROFILE_SENSITIVE) || retiredFlag(field);
+    }
+
+    /** The retired name of the flag; removed in 0.6 with the 0.5.0 wave of startup migrations. */
+    @RemovedIn("0.6")
+    private static boolean retiredFlag(JCRNodeWrapper field) throws RepositoryException {
+        return flag(field, JxpProperty.RETIRED_SENSITIVE);
     }
 
     private static boolean flag(JCRNodeWrapper field, String name) throws RepositoryException {

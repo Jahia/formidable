@@ -1,8 +1,8 @@
 package org.jahia.modules.formidable.engine.config.choiceoptions;
 
 import org.jahia.modules.formidable.engine.config.TestConfigs;
-import org.jahia.modules.formidable.engine.config.common.FactoryEntries;
 import org.jahia.modules.formidable.engine.config.common.FakeConfigService;
+import org.jahia.modules.formidable.engine.migration.v05.FormerListLines;
 import org.mockito.ArgumentCaptor;
 import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
@@ -82,15 +82,6 @@ class ChoiceOptionsConfigServiceTest {
     }
 
     @Test
-    void theLinesOfEarlierBuildsDescribeOneSourceFileEach() {
-        // Verifies the conversion's reading: 3- and 4-part lines, a malformed line and a blank id or initializer skipped.
-        assertEquals(List.of(
-                Map.of("id", "countries", "label", "Countries", "initializerKey", "country", "param", ""),
-                Map.of("id", "tags", "label", "Tags", "initializerKey", "categoryTree", "param", "/sites/systemsite/categories")),
-                ChoiceOptionsConfigService.entries("countries|Countries|country\nonly-two|parts\n|Blank|country\nx|X|\ntags|Tags|categoryTree|/sites/systemsite/categories"));
-    }
-
-    @Test
     void activateFallsBackToTheDefaultsWhenTheTtlOrTheCapIsInvalid() {
         // Verifies the two guards: a non-positive TTL and a non-positive cap fall back to the defaults.
         ChoiceOptionsConfigService service = configured(Map.of("optionsSourcesCacheTtlSeconds", 0L, "optionsQueryMaxResults", -3));
@@ -123,7 +114,7 @@ class ChoiceOptionsConfigServiceTest {
         ArgumentCaptor<Dictionary<String, Object>> written = ArgumentCaptor.forClass(Dictionary.class);
         // The migration's marker first (a theme with nothing to carry is marked too), then the conversion's write.
         verify(theme, times(2)).update(written.capture());
-        assertEquals("true", written.getValue().get(FactoryEntries.LINES_CONVERTED));
+        assertEquals("true", written.getValue().get(FormerListLines.LINES_CONVERTED));
         assertNull(written.getValue().get("optionsSources"));
     }
 }

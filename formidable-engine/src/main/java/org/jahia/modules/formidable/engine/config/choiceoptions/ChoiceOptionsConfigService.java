@@ -3,6 +3,8 @@ package org.jahia.modules.formidable.engine.config.choiceoptions;
 import org.jahia.modules.formidable.engine.config.ThemeLifecycle;
 import org.jahia.modules.formidable.engine.config.common.ConfigurationValues;
 import org.jahia.modules.formidable.engine.config.common.FactoryEntries;
+import org.jahia.modules.formidable.engine.migration.RemovedIn;
+import org.jahia.modules.formidable.engine.migration.v05.FormerListLines;
 import org.jahia.services.modulemanager.spi.ConfigService;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.annotations.Activate;
@@ -17,10 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executor;
@@ -39,8 +38,6 @@ import java.util.concurrent.atomic.AtomicReference;
 public class ChoiceOptionsConfigService {
 
     public static final String PID = "org.jahia.modules.formidable.choiceOptions";
-
-    static final String LINES = "optionsSources";
 
     /**
      * An admin-declared options source for choice fields: a curated Jahia choicelist initializer exposed to
@@ -62,6 +59,9 @@ public class ChoiceOptionsConfigService {
     /** The source files: bound, adopted from the console, converted from the lines of earlier builds. */
     private final FactoryEntries<OptionsSourceComponent> sourceFiles = new FactoryEntries<>(PID,
             OptionsSourceComponent.FACTORY_PID, "options source", OptionsSourceComponent.SETTINGS, this::merge);
+    /** The optionsSources lines of earlier builds, converted once into source files (0.5.0 migration wave). */
+    @RemovedIn("0.6")
+    private final FormerListLines formerLines = FormerListLines.optionsSources(PID, OptionsSourceComponent.FACTORY_PID);
     /** The sources by id, recomputed whenever a file changes. */
     private final AtomicReference<Map<String, OptionsSource>> sources = new AtomicReference<>(Map.of());
 
@@ -104,7 +104,7 @@ public class ChoiceOptionsConfigService {
     public void configure(ChoiceOptionsConfig config, Map<String, Object> properties) {
         lifecycle.configure(properties, config);
         merge();
-        sourceFiles.themeConfigured(properties, List.of(LINES), texts -> entries(texts.getOrDefault(LINES, "")));
+        sourceFiles.themeConfigured(properties, formerLines);
     }
 
     /** Reads the configuration into the snapshot the getters serve, no file behind it; public for the tests. */
@@ -136,28 +136,6 @@ public class ChoiceOptionsConfigService {
         }
         log.info("ChoiceOptionsConfigService configured: {} source(s) {}, cacheTtl={}s, queryMaxResults={}",
                 byId.size(), byId.keySet(), theme.cacheTtl().toSeconds(), theme.queryMaxResults());
-    }
-
-    /**
-     * The source files the lines of the former list describe: {@code id|Label|initializerKey} or
-     * {@code id|Label|initializerKey|param} each; a malformed line is logged and skipped.
-     */
-    static List<Map<String, String>> entries(String lines) {
-        List<Map<String, String>> entries = new ArrayList<>();
-        for (String line : ConfigurationValues.lines(lines)) {
-            String[] parts = line.split("\\|", 4);
-            if (parts.length < 3 || parts[0].isBlank() || parts[2].isBlank()) {
-                log.warn("[ChoiceOptionsConfigService] Skipping malformed optionsSources line (expected id|Label|initializerKey[|param]): '{}'", line);
-                continue;
-            }
-            Map<String, String> settings = new LinkedHashMap<>();
-            settings.put("id", parts[0].trim());
-            settings.put("label", parts[1].trim());
-            settings.put("initializerKey", parts[2].trim());
-            settings.put("param", parts.length == 4 ? parts[3].trim() : "");
-            entries.add(settings);
-        }
-        return entries;
     }
 
     /** Every configured source, by id. */

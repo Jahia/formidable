@@ -169,7 +169,7 @@ crossed and grow when another does. The same asymmetry explains the two mixins t
 the one-shot markers of the 0.4 content migrations. Each records that a migration has already
 healed a node — the engine talking to itself — and although the CND keeps the declarations after
 the migrations leave, so that marked content stays valid, no other module has a reason to read
-one. They live in `migration/MigrationMarker`.
+one. They live in `migration/common/MigrationMarker`.
 
 These are compile-time constants, so a consumer's bytecode carries the value, not a reference to
 the class: they buy one spelling and a compiler error on a typo, not the ability to change a name

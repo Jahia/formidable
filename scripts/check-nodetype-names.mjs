@@ -33,7 +33,7 @@ const CND = 'formidable-engine/src/main/resources/META-INF/definitions.cnd';
 const API = 'formidable-engine/src/main/java/org/jahia/modules/formidable/engine/api';
 // Stamped by a 0.4 content migration to record that it has already healed a node. The declarations
 // outlive the migrations (docs/administration/upgrade-notes.md) so that marked content stays valid,
-// but the names are the engine talking to itself: engine-internal, in migration/MigrationMarker.java.
+// but the names are the engine talking to itself: engine-internal, in migration/common/MigrationMarker.java.
 const TRANSITIONAL = new Set(['fmdbmix:elementsReactivated', 'fmdbmix:migratedChoiceOptions']);
 
 const cnd = readFileSync(join(root, CND), 'utf8');
@@ -119,7 +119,7 @@ for (const file of sources) {
 }
 
 // A holder is used qualified, never statically imported: the class carries the kind the constant dropped.
-const staticImport = /^import static org\.jahia\.modules\.formidable\.engine\.(api\.Fmdb\w+|migration\.MigrationMarker)\.(?:\w+|\*);/gm;
+const staticImport = /^import static org\.jahia\.modules\.formidable\.engine\.(api\.Fmdb\w+|migration\.common\.MigrationMarker)\.(?:\w+|\*);/gm;
 for (const file of javaSources) {
     for (const m of readFileSync(file, 'utf8').matchAll(staticImport)) {
         errors.push(`${relative(root, file)}: static import of ${m[1]} — qualify the use, the class names the kind`);

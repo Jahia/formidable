@@ -19,6 +19,13 @@ export interface ResolvedBound {
 const OFFSET_UNITS = new Set(['days', 'months', 'years']);
 
 /**
+ * A node stored before the bound modes existed: no mode, a fixed value, read as a fixed bound.
+ *
+ * @RemovedIn 0.6 with the 0.4.0 wave of startup migrations — every bound then has a mode.
+ */
+const isUnmodedFixed = (mode: string | undefined, fixed: string | undefined): boolean => !mode && fixed !== undefined;
+
+/**
  * Resolves a bound mode against its stored properties. A node stored before the
  * bound modes existed carries no mode but may carry a fixed value: it keeps
  * its historical behavior until the startup migration stamps it (an import of
@@ -44,7 +51,7 @@ export const resolveBound = (
 		};
 	}
 
-	if (mode === "date" || (!mode && fixed !== undefined)) {
+	if (mode === "date" || isUnmodedFixed(mode, fixed)) {
 		return {today: false, fixed};
 	}
 

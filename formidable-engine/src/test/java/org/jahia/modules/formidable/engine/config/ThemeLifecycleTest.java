@@ -1,7 +1,8 @@
 package org.jahia.modules.formidable.engine.config;
 
-import org.jahia.modules.formidable.engine.config.LegacyConfigurationMigration.Outcome;
 import org.jahia.modules.formidable.engine.config.formactions.FormActionsConfig;
+import org.jahia.modules.formidable.engine.migration.v05.LegacyConfigurationMigration.Outcome;
+import org.jahia.modules.formidable.engine.migration.v05.LegacyConfigurationMigration;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.osgi.service.cm.Configuration;

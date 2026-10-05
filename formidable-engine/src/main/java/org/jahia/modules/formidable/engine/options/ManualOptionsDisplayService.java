@@ -8,7 +8,6 @@ import javax.jcr.Node;
 import javax.jcr.RepositoryException;
 import java.util.List;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
-import org.jahia.modules.formidable.engine.migration.MigrationMarker;
 
 /**
  * The manual options a choice field must RENDER in one language: the site default
@@ -71,7 +70,7 @@ public class ManualOptionsDisplayService {
         // Positional label pairing only for a still-divergent migrated field (the
         // marker survives until the first save converges the languages); native 0.4
         // content is value-keyed, exactly as before.
-        boolean migrated = fieldNode.isNodeType(MigrationMarker.MIGRATED_CHOICE_OPTIONS);
+        boolean migrated = ManualOptionEntries.migratedFrom03(fieldNode);
         return ManualOptionEntries.alignForDisplay(masterOptions, ownOptions, site.isMixLanguagesActive(), migrated)
                 .toArray(new String[0]);
     }

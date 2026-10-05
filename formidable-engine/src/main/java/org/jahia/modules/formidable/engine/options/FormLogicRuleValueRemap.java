@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.engine.api.FmdbProperty;
+import org.jahia.modules.formidable.engine.migration.RemovedIn;
 
 /**
  * Follows a choice field's value realignment into the logic rules that reference it.
@@ -27,7 +28,13 @@ import org.jahia.modules.formidable.engine.api.FmdbProperty;
  * <p>Only rules whose source is THE realigned field are touched (matched on
  * sourceNodeId, the technical shortcut every 0.3 rule carries), and only their values:
  * the replacement map comes row-for-row from the same save that rewrote the options.
+ *
+ * <p>Lifecycle: serves only the fields the 0.4.0 options migration marked; removed in 0.6 with that wave, together
+ * with the positional pairing of {@link ManualOptionEntries}. A field still marked then (migrated from 0.3, never
+ * saved since) would be read value-keyed and its 0.3 rules never remapped: whether 0.6 realigns those fields first
+ * is open — docs/administration/upgrade-notes.md, "Startup migrations", on fmdbmix:migratedChoiceOptions.
  */
+@RemovedIn("0.6")
 final class FormLogicRuleValueRemap {
 
     private static final Logger log = LoggerFactory.getLogger(FormLogicRuleValueRemap.class);

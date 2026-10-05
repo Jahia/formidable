@@ -1,5 +1,7 @@
 package org.jahia.modules.formidable.engine.config;
 
+import org.jahia.modules.formidable.engine.config.common.ConfigurationAttributes;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.annotation.Annotation;
@@ -70,7 +72,7 @@ public final class TestConfigs {
             assertNotNull(in, "the shipped file " + pid + ".cfg");
             shipped.load(in);
         }
-        Map<String, String> defaults = LegacyConfigurationMigration.defaultsOf(definition);
+        Map<String, String> defaults = ConfigurationAttributes.defaultsOf(definition);
         assertEquals(defaults.keySet(), shipped.stringPropertyNames(), "the keys of " + pid + ".cfg");
         defaults.forEach((key, value) -> assertEquals(value, shipped.getProperty(key), key + " in " + pid + ".cfg"));
     }

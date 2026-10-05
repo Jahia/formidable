@@ -12,6 +12,8 @@ This directory contains two kinds of documents:
 - `validation.md` - explains what the `validation` E2E suite is responsible
   for: client-side constraint enforcement, validation messages, focus handling,
   and multi-step validation flow.
+- `migrations.md` - lists the specs of the startup migrations (`migrations`
+  E2E suite), one per migration, removed with them in 0.6.
 
 ## Active scenarios
 
