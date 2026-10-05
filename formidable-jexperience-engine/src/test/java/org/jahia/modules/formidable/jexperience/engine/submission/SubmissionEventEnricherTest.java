@@ -142,6 +142,19 @@ class SubmissionEventEnricherTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void aFormWithNoAnsweredMappableFieldGetsAnEmptyFieldsBlock() throws Exception {
+        // Verifies the far end: the block still exists, so the script can send the event a goal counts, and it
+        // carries no value at all (review of #379: kept from the flag's tests, which never needed the flag for it).
+        Map<String, Object> entries = enricher(configured("mysite"), 1, List.of())
+                .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH, Map.of("flavor", List.of("vanilla"))));
+
+        Map<String, Object> block = (Map<String, Object>) entries.get(SubmissionEventEnricher.KEY);
+        assertEquals(FORM_UUID, block.get("formId"));
+        assertEquals(Map.of(), block.get("fields"));
+    }
+
+    @Test
     void theFieldsAreLookedUpByTheMappableMarker() {
         // Verifies which fields the server considers: every one carrying the marker, not only the mapped ones,
         // since a mapping made in jExperience's own screen names a field Formidable need not know. A quote in

@@ -1,5 +1,7 @@
 package org.jahia.modules.formidable.jexperience.engine.model;
 
+import org.jahia.modules.formidable.engine.migration.RemovedIn;
+
 /**
  * The properties this module's CND declares, named once (see {@link JxpMixin}). A property name is
  * never namespaced, whichever mixin declares it.
@@ -20,6 +22,10 @@ public final class JxpProperty {
 
     /** How the profile property is written on submission: always, or only while it is still empty. */
     public static final String SET_STRATEGY = "jExperienceSetStrategy";
+
+    /** The property of {@link JxpMixin#SENSITIVE_FIELD}, read by nothing; declared until 0.6 with it. */
+    @RemovedIn("0.6")
+    public static final String RETIRED_SENSITIVE = "jExperienceSensitive";
 
     private JxpProperty() {
     }

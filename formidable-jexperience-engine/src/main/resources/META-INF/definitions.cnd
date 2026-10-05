@@ -36,3 +36,10 @@
  - jExperiencePrefill (boolean) = false autocreated indexed=no
  - jExperiencePrefillThen (string, choicelist[resourceBundle,formidableJExperiencePrefillThen,dependentProperties='jExperiencePrefill,jExperiencePrefillThen']) = 'editable' autocreated indexed=no < 'editable', 'readOnly', 'hidden'
 
+
+// @RemovedIn 0.6: the sensitive flag's first home, in the 0.5.0 development builds between #326 and #369 (no
+// released version holds it). Nothing reads it any more — the flag is gone (2026-10-05) — but the declaration stays,
+// hidden and without `extends`, so that a node a build of that window left carrying it still deploys: a mixin that
+// disappears while nodes carry it leaves them with an unknown type, and nothing flags it at deploy time.
+[fmdbmix:jExperienceSensitiveField] mixin
+ - jExperienceSensitive (boolean) hidden indexed=no

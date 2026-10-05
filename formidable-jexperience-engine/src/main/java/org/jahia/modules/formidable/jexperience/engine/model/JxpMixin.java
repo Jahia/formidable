@@ -1,5 +1,7 @@
 package org.jahia.modules.formidable.jexperience.engine.model;
 
+import org.jahia.modules.formidable.engine.migration.RemovedIn;
+
 /**
  * The mixins this module's CND declares, named once — the way the engine names its own in
  * {@code FmdbMixin}: the class states the kind, the constant states the thing, and a use is always
@@ -10,6 +12,13 @@ public final class JxpMixin {
 
     /** The mapping of a field to a visitor profile property, with its write strategy and its prefill. */
     public static final String MAPPING = "fmdbmix:jExperienceProfileMapping";
+
+    /**
+     * The sensitive flag's first home, read by nothing since the flag was removed (2026-10-05); declared until 0.6 so
+     * that a node a 0.5.0 development build left carrying it still deploys.
+     */
+    @RemovedIn("0.6")
+    public static final String SENSITIVE_FIELD = "fmdbmix:jExperienceSensitiveField";
 
     private JxpMixin() {
     }

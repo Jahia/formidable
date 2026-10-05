@@ -473,6 +473,16 @@ modules declaring field-action types after the engine**, or restart Jahia: until
 `RedundantMixinMigration` defers their actions (it re-runs on any module's redeploy) and a
 new action of such a type shows no behaviour and message settings in the editor.
 
+An instance that ran a **0.5.0 development build carrying the sensitive flag** (#369 to the flag's removal,
+2026-10-05) refuses the next engine: Jahia's `DefinitionsBundleChecker` rates the property it no longer declares,
+`profileSensitive` on `fmdbmix:profileMappableField`, a MAJOR change and cancels the deployment. Deploy the engine
+once with `ignoreChecks` (provisioning `installOrUpgradeBundle` … `"ignoreChecks": true`), then redeploy
+`formidable-elements` and `formidable-extended-inputs`: a field type keeps the supertypes it resolved until its
+own module is redeployed (above). A field still holding the value then no longer exposes it, and saves, opens in the
+editor and publishes normally (measured on 8.2.4). No released version is concerned: 0.4.0 has no jExperience
+module. The flag's first home, `fmdbmix:jExperienceSensitiveField`, stays declared until 0.6 for the builds between
+#326 and #369 that never ran the migration of #369.
+
 Removal checklist: delete the class and its unit test, drop its Cypress spec in
 `tests/cypress/e2e/migrations/` (listed in `tests/scenarios/migrations.md`), remove the row above, and resolve every
 `@RemovedIn("0.6")` its Javadoc or its readers name. Once
