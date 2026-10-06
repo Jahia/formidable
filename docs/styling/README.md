@@ -60,6 +60,7 @@ form.fmdb-form [data-fmdb-edit-mode="true"]             the form; a div [data-fm
 │  │     │  └─ div.fmdb-fieldset-elements
 │  │     │     └─ div.fmdb-form-element […]             the fieldset's elements, same wrapper
 │  │     ├─ button.fmdb-btn.fmdb-btn-{primary|secondary|danger}   a Button field
+│  │     ├─ input[type=hidden]                          a hidden field; in edit mode only, inside div.fmdb-authoring-hidden-field (its visible line)
 │  │     └─ div.fmdb-form-group                         a field; a fieldset with .fmdb-radio-group | .fmdb-checkbox-group for a group
 │  │        ├─ label.fmdb-form-label                    legend.fmdb-group-legend for a group; + .fmdb-file-label for a file
 │  │        │  └─ span.fmdb-required-indicator

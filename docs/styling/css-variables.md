@@ -244,6 +244,7 @@ and dashed; these variables are the intended surface for a site that wants it to
 | `--fmdb-zone-actions-warning-color` | `#9a3412` | Text colour of the warning |
 | `--fmdb-zone-field-actions-margin` | `0.5rem 0 0 1.25rem` | Margin of a field's zone, inset under the field |
 | `--fmdb-zone-field-actions-padding` | `0.5rem 0.625rem` | Inner spacing of a field's zone (the form's zone keeps `--fmdb-zone-actions-padding`) |
+| `--fmdb-zone-hidden-field-padding` | `0.375rem 0.625rem` | Inner spacing of a hidden field's line in edit mode, which otherwise takes the zone's border, background, colours and font ([Class hooks](class-hooks.md#hidden-field-edit-mode)) |
 
 The Page Builder box colours are a jContent UI extension registered by the engine
 (`pageBuilderBoxConfig`), not CSS, so a template set cannot override them; purple is left to

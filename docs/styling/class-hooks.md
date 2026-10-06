@@ -138,6 +138,21 @@ editor, for a field action as for a form action. Nothing of it exists in live, p
 |---|---|
 | `fmdb-authoring-field-actions` | The field's zone, next to `fmdb-authoring-actions` on the same `aside` — the hook that tells the two zones apart |
 
+## Hidden field (edit mode)
+
+A hidden input is never shown to the visitor, so its Page Builder box had no height and the field could
+be reached only from the content tree. In edit mode it draws one line around the same hidden input: a
+crossed-out eye, "Hidden field", the field's title (its name without one) and the value it sends, "No
+value" when it sends nothing. The line is authoring chrome, drawn with the
+[actions zones' variables](css-variables.md#form-actions-zone); nothing of it exists in live or preview.
+
+| Class | Element |
+|---|---|
+| `fmdb-authoring-hidden-field` | The line, around the hidden `input` |
+| `fmdb-authoring-hidden-field-glyph` | The crossed-out eye |
+| `fmdb-authoring-hidden-field-label`, `fmdb-authoring-hidden-field-title`, `fmdb-authoring-hidden-field-value` | "Hidden field", the field's title, and its value |
+| `fmdb-authoring-hidden-field-empty` | Next to `fmdb-authoring-hidden-field-value` when the field has no value |
+
 ## Extended inputs
 
 The optional `formidable-extended-inputs` module adds four fields — consent, rating, scale and

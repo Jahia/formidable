@@ -128,6 +128,13 @@ export interface SelectData extends BaseInputData {
  */
 export type InputColorData = InputWithDefaultValue;
 
+/** A hidden input: no label shown to the visitor, only the value it sends. */
+export interface InputHiddenData {
+	name?: string;
+	title?: string;
+	value?: string;
+}
+
 /** One bound of a date/datetime input: nothing, a fixed value, the submission day, or that day shifted. */
 export type DateBoundMode = 'none' | 'date' | 'today' | 'relative';
 

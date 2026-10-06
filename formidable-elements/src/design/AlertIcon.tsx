@@ -1,6 +1,7 @@
 /**
  * The one glyph the authoring zones draw themselves (Lucide-inspired, no icon library): the
- * triangle of a warning. Everything else they show is a type icon the platform serves.
+ * triangle of a warning. Everything else they show is a type icon the platform serves (the
+ * hidden field's line draws its own eye, EyeOffIcon).
  */
 const AlertIcon = () => (
 	<svg className="fmdb-authoring-actions-glyph" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

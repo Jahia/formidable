@@ -9,6 +9,10 @@
 		"ignoredMultipleInvalidFiles": "Files {{invalidFormats}} were ignored. Allowed formats: {{allowedTypes}}.",
 		"noAcceptedType": "This field accepts no file."
 	},
+	"fmdb_inputHidden": {
+		"label": "Hidden field",
+		"empty": "No value"
+	},
 	"fmdb_inputCheckbox": {
 		"error": "Please select at least one option"
 	},
