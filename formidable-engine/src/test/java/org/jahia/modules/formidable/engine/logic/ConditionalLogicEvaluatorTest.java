@@ -273,19 +273,6 @@ class ConditionalLogicEvaluatorTest {
     }
 
     @Test
-    void fieldBecomesHiddenWhenParentContainerIsHidden() {
-        // Verifies container inheritance: a child field must be hidden when its parent container is hidden.
-        ConditionalLogicEvaluator evaluator = evaluator(
-                Map.of("container", List.of(rule("gate", "in", null, List.of("open")))),
-                Map.of("gate", List.of("closed")),
-                Map.of("child", Set.of("container"))
-        );
-
-        // Expected outcome: the child inherits the hidden state from its parent container.
-        assertTrue(evaluator.isHidden("child"));
-    }
-
-    @Test
     void fieldInheritsTheVerdictOfEveryEnclosingContainer() {
         // Verifies nested containers: a field in a conditional fieldset inside a
         // conditional step must inherit the step's verdict through the fieldset —

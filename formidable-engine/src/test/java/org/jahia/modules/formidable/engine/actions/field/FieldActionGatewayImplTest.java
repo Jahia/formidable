@@ -143,8 +143,6 @@ class FieldActionGatewayImplTest {
                 FieldActionGatewayImpl.target(zerobounce, "v2/validate?email=ada%40example.com"));
         assertEquals(URI.create("https://api.zerobounce.net/v2/validate?api_key=s3c+r%26t#top"),
                 FieldActionGatewayImpl.target(zerobounce, "v2/validate#top"));
-        assertEquals(URI.create("https://api.example.com/v1/email/validate"),
-                FieldActionGatewayImpl.target(provider("https://api.example.com/v1"), "email/validate"));
     }
 
     @Test

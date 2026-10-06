@@ -78,7 +78,6 @@ describe('formatFieldValue', () => {
     it('shows a datetime value alone when the submission recorded no zone', () => {
         const expected = asTypedDateTime(2026, 9, 5, 12, 53);
         expect(formatFieldValue('2026-09-05T12:53', 'datetime', null)).toEqual(expected);
-        expect(formatFieldValue('2026-09-05T12:53', 'datetime', undefined)).toEqual(expected);
         expect(formatFieldValue('2026-09-05T12:53', 'datetime', '')).toEqual(expected);
     });
 

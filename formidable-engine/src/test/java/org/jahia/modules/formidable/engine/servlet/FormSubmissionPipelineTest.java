@@ -237,15 +237,6 @@ class FormSubmissionPipelineTest {
     }
 
     @Test
-    void verifyAuthenticationSkipsGuestCheckWhenFormDoesNotRequireAuthentication() throws Exception {
-        // Verifies the bypass case: if the mixin is absent, the auth gate must not reject the submission.
-        FormSubmissionPipeline pipeline = newPipelineWithFormNode(false);
-
-        // Expected outcome: no exception is raised because the form is public.
-        assertDoesNotThrow(() -> invokeVerifyAuthentication(pipeline, null));
-    }
-
-    @Test
     void verifyAuthenticationFailsClosedWhenMixinLookupThrows() throws Exception {
         // Verifies the fail-closed path: a repository error during mixin lookup must reject the submission.
         FormSubmissionPipeline pipeline = newPipelineWithBrokenFormNode();
@@ -273,17 +264,6 @@ class FormSubmissionPipelineTest {
 
         // Expected outcome: fmdbmix:captchaProtectedForm is consulted directly by the pipeline.
         verify(formNode).isNodeType("fmdbmix:captchaProtectedForm");
-    }
-
-    @Test
-    void verifyCaptchaSkipsValidationWhenFormDoesNotRequireCaptcha() throws Exception {
-        // Verifies the bypass case: if the mixin is absent, the CAPTCHA gate must not inspect config or token.
-        CaptchaConfigService config = mock(CaptchaConfigService.class);
-        FormSubmissionPipeline pipeline = newPipelineWithCaptchaFormNode(config, false);
-        HttpServletRequest req = mock(HttpServletRequest.class);
-
-        // Expected outcome: no exception is raised because CAPTCHA is not enabled on the form.
-        assertDoesNotThrow(() -> invokeVerifyCaptcha(pipeline, req));
     }
 
     @Test

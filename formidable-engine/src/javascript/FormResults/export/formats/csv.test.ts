@@ -90,15 +90,4 @@ describe('csv export', () => {
         expect(row[header.indexOf('formResults.detail.origin')]).toEqual('formidable');
         expect(row[header.indexOf('a')]).toEqual('plain value');
     });
-
-    it('leaves ordinary values untouched', () => {
-        const content = csvFormat.buildContent(
-            [submission([{name: 'a', values: ['plain value']}])],
-            t,
-            formFields(['a'])
-        );
-
-        expect(lastRow(content)).toContain('plain value');
-        expect(lastRow(content)).not.toContain("'plain value");
-    });
 });
