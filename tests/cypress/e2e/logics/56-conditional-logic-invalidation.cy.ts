@@ -39,25 +39,12 @@ describe('Form logic - 56 Conditional logic invalidation', () => {
 		]
 	);
 
-	it('re-evaluates when the invalidation event is dispatched on the document', () => {
-		createFormPage('event').then(({livePath}) => {
+	it('re-evaluates on the invalidation event, and hides the field again when the variable stops matching', () => {
+		createFormPage('back').then(({livePath}) => {
 			visitLiveForm(livePath);
 			// Waiting on the attribute proves hydration ran: before it, the field is hidden
 			// because the server rendered it so, not because the rule was evaluated.
 			wrapperShouldBeHidden('memberid', true);
-
-			cy.window().then(win => {
-				(win as unknown as {fmdbTestContext?: {userType: string}}).fmdbTestContext = {userType: 'member'};
-				win.document.dispatchEvent(new win.Event(INVALIDATE_EVENT, {bubbles: true}));
-			});
-
-			wrapperShouldBeHidden('memberid', false);
-		});
-	});
-
-	it('hides the field again when the variable stops matching', () => {
-		createFormPage('back').then(({livePath}) => {
-			visitLiveForm(livePath);
 
 			cy.window().then(win => {
 				(win as unknown as {fmdbTestContext?: {userType: string}}).fmdbTestContext = {userType: 'member'};
