@@ -18,22 +18,19 @@
         <!-- Jahia EE refuses an org.jahia.modules bundle without a valid Jahia-Signature. Computed with keymaker
              (java -jar keymaker-cli.jar pom -f pom.xml -s); the CI's update-signature job keeps it current. -->
         <jahia-module-signature>MCwCFFS8L/8Dgf0DjASs0Va+xTAHPSSYAhQ7IE66CiaGPqKwGXw2BTiZnQ335Q==</jahia-module-signature>
-        <!-- 4.2.1 is the compile-time API; the OSGi imports below stay open from 3.4 to any 4.x — every member this
-             module calls has the same signature down the whole 3.x line (docs/architecture/dependency-decisions.md),
-             and the jexperience-floor profile below recompiles against the floor so that a 4.x-only call cannot slip
-             in. The 4.2.1 artifact lives in Nexus' internal group (jahia-internal in .github/maven.settings.xml and
-             in a developer's settings); the floor's, in the enterprise group the profile declares. -->
-        <jexperience.version>4.2.1</jexperience.version>
-        <!-- The oldest jExperience the Import-Package ranges admit: what the jexperience-floor profile compiles against. -->
-        <jexperience.floor.version>3.4.0</jexperience.floor.version>
+        <!-- The oldest jExperience the Import-Package ranges below admit, compiled against so that a call to a member
+             that exists only on a later line (ContextServerStatus.isNotInError() on 4.x) fails the build instead of
+             a customer's bundle (docs/architecture/dependency-decisions.md). -->
+        <jexperience.version>3.4.0</jexperience.version>
     </properties>
-    <!-- jExperience is not in Nexus' public group: this repository needs the credentials of the
-         matching <server id="jahia-internal"> of the builder's settings.xml (.github/maven.settings.xml has it). -->
+    <!-- The jExperience jar is on Nexus' public group, but not the parent pom Maven reads its descriptor through
+         (jexperience-parent): both are on the enterprise group, behind the credentials of the matching
+         <server id="jahia-enterprise"> of the builder's settings.xml (.github/maven.settings.xml has it). -->
     <repositories>
         <repository>
-            <id>jahia-internal</id>
-            <name>Jahia Internal Repository</name>
-            <url>https://devtools.jahia.com/nexus/content/groups/internal</url>
+            <id>jahia-enterprise</id>
+            <name>Jahia Enterprise Repository</name>
+            <url>https://devtools.jahia.com/nexus/content/groups/enterprise</url>
             <releases>
                 <enabled>true</enabled>
                 <updatePolicy>never</updatePolicy>
@@ -154,8 +151,8 @@
                              has the same JVM descriptor in all of them — ContextServerService's five members,
                              PropertyType's, Item's, MetadataItem's and Metadata's accessors, read with javap on the
                              jars — so [3.4,5) and [2.1,4) let the one bundle resolve on the 3.x line from 3.4 and on
-                             4.x, and a 4.x upgrade still resolves without a rebuild. The jexperience-floor profile
-                             below holds the floor; the CI compiles it on every change. -->
+                             4.x, and a 4.x upgrade still resolves without a rebuild. Compiling against the floor,
+                             jexperience.version, holds it. -->
                         <Import-Package>
                             org.jahia.modules.formidable.engine.api;version="[0.5,1)",
                             org.jahia.modules.jexperience.admin;version="[3.4,5)",
@@ -205,32 +202,4 @@
             </plugin>
         </plugins>
     </build>
-    <profiles>
-        <!-- The gate behind the Import-Package ranges. The module compiles against 4.2.1 alone, so a call to a member
-             that exists only on the 4.x line (ContextServerStatus.isNotInError(), the UnomiClusterInfo class…) would
-             build green, resolve on a 3.x — the version satisfies the range — and fail as a NoSuchMethodError in a
-             customer's log, as far from the build as a failure gets. This profile recompiles the module and its tests
-             against the floor of the ranges instead; the CI runs it on every change (on-code-change.yml, "Build
-             Module"). Locally: mvn -pl formidable-jexperience-engine -am -P jexperience-floor -DskipTests test-compile -->
-        <profile>
-            <id>jexperience-floor</id>
-            <properties>
-                <jexperience.version>${jexperience.floor.version}</jexperience.version>
-            </properties>
-            <!-- The floor's jar is on Nexus' public group, but not the parent pom Maven reads its descriptor
-                 through (jexperience-parent): both are on the enterprise group, behind the same credentials the
-                 build already carries — server id jahia-enterprise in .github/maven.settings.xml and in a
-                 developer's settings. -->
-            <repositories>
-                <repository>
-                    <id>jahia-enterprise</id>
-                    <name>Jahia Enterprise Repository</name>
-                    <url>https://devtools.jahia.com/nexus/content/groups/enterprise</url>
-                    <snapshots>
-                        <enabled>false</enabled>
-                    </snapshots>
-                </repository>
-            </repositories>
-        </profile>
-    </profiles>
 </project>
