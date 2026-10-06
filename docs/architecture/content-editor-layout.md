@@ -59,7 +59,7 @@ and a third-party module's file all land in the same groups:
 | 3.1–3.4 | the date bound fieldsets | `fmdbmix:fixedMin<Kind>`, `fmdbmix:relativeMin<Kind>`, `fmdbmix:fixedMax<Kind>`, `fmdbmix:relativeMax<Kind>` | the mixins' labels (engine) | the fixed date or the relative offset of each bound; dynamic fieldsets without a switch, shown when the mode above selects them |
 | 4    | Behaviour             | `behaviour`           | `fmdb.fieldset.behaviour`           | `readonly`, `disabled`, `autofocus` |
 | 5    | Validation messages   | `validationMessages`  | `fmdb.fieldset.validationMessages`  | `msgValueMissing` (1), the text messages (2–5), the range messages (6–9) |
-| 6    | Field actions         | `fmdbmix:fieldActions` | the mixin's label (engine)        | the switch, placed by the engine on every field with a value (not a shared fieldset: no other file adds to it) |
+| 6    | Field actions         | `fmdbmix:fieldActions` | the mixin's label (engine)        | the switch, placed by elements' override of the engine mixin on every field with a value (not a shared fieldset: no other file adds to it) |
 
 The label keys live in the bundle of `formidable-elements`; a module joining the layout resolves them
 through its dependency on it.
@@ -211,11 +211,12 @@ What follows from the three rules, and shaped the overrides:
   Content, which is dropped (dynamic, not unique, empty), while the moved copy is kept (it holds the
   fields). A switch **without a property** — `fmdbmix:fieldActions` autocreates a child and declares no
   property — needs `"alwaysPresent": true` on the moved copy: without it both copies are dropped and the
-  switch disappears (measured again 2026-10-05). It moves from the mixin's own file, which must also declare
+  switch disappears (measured again 2026-10-05). It moves from an override keyed on the mixin, shipped by
+  formidable-elements like the overrides of the other engine mixins of the section, which must also declare
   the section with its `labelKey` and rank: on a type no other file gives a Field settings section — the
-  hidden input — the switch would otherwise have no section to land in and vanish; the label key is then
-  resolved from the bundle of the module shipping the file, so the engine's bundle carries
-  `fmdb.section.fieldSettings` too, worded as the elements' one — a CI check keeps the two equal (below).
+  hidden input — the switch would otherwise have no section to land in and vanish. The label key is resolved
+  from the bundle of the module shipping the file, which is why the placement belongs to elements: shipped by
+  the engine (the first cut), it made the engine's bundle carry a copy of `fmdb.section.fieldSettings`.
 - **Dissolving an "advanced settings" mixin** into the shared fieldsets makes the mixin a **supertype** of
   its field type — the mixin loses `extends` and `itemtype`, the type lists it among its supertypes, the
   way `fmdbmix:textValidationMessages` carries the messages. Every field has the properties, no switch, no
@@ -255,7 +256,8 @@ What follows from the three rules, and shaped the overrides:
 | `fmdbmix_validationMessages.json`, `…textValidationMessages.json`, `…rangeValidationMessages.json` | elements | the messages in the Validation messages fieldset, ranks 1, 2–5, 6–9, and the fieldset's one note (`descriptionKey`: a message left empty keeps the browser's), said once instead of under each message |
 | `fmdb_form.json` | elements | the editor's children block hidden on the form, whose children are the field and action lists: nothing a contributor orders there (#150 thread, HDU) |
 | `fmdbmix_multistep.json` | elements | the one setting of the multi-step mixin, the step navigation switch, placed first in the Step navigation fieldset of Buttons; the Multi-step section it had to itself is gone (#150) |
-| `fmdbmix_fieldActions.json` | engine | the switch, last in Field settings (fieldset rank 6, `"alwaysPresent": true`, the section declared with its label and rank); and it hides the editor's Content list & ordering block on the elements that can carry field actions, and on them only (`listOrdering`, `"hide": true`) |
+| `fmdbmix_fieldActions.json` | elements | the Field actions switch, last in Field settings (fieldset rank 6, `"alwaysPresent": true`, the section declared with its label and rank), on every field that can carry field actions, the hidden input included |
+| `fmdbmix_fieldActions.json` | engine | only the editor's Content list & ordering block hidden on the elements that can carry field actions, and on them only (`listOrdering`, `"hide": true`): the behaviour of the engine's own list, not layout |
 | `fmdbext_<type>.json` | extended-inputs | the optional types, from their own module, the shared keys resolved through its dependency on elements |
 | `fmdbsamplemix_helpTextPosition.json` | the sample module | a third-party setting in Help & presentation, rank 1.5 |
 
@@ -278,7 +280,8 @@ families still to move — is not checked, so the check tightens as the layout s
 The same script holds the labels two modules share. The editor keeps the label of the override merged last,
 and overrides of one priority are ordered by a tie-break (jcontent `Section.mergeWith`,
 `DefinitionRegistryItemComparator`), so two wordings of one key would show one label or the other depending on
-the field's type — the engine's copy of `fmdb.section.fieldSettings` against the elements' one. Every
+the field's type (the engine carried a copy of `fmdb.section.fieldSettings` until the placement moved to
+elements, 2026-10-05). Every
 `labelKey` and `descriptionKey` a form override gives a section or a fieldset is looked up in every
 `resources/*.properties` of the repository (escaped `\uXXXX` and raw UTF-8 alike): the bundles carrying it hold
 the same text in the same languages, or the build fails naming both wordings (HDU review of #377).
@@ -314,3 +317,4 @@ the sample's setting and `fields/223` for the switch.
 | 2026-10-02 | **The "Logic" section is "Conditional display", and its one field sits right under the section title** (HDU: « c'est logic pour l'affichage ? », then « on est obligé d'avoir 3 niveaux ? ») | The rules only show or hide the field; "logic" promised more, and "Visibility" is the platform's own section for publication windows. Section › fieldset › field was three titles for one control: the fieldset is untitled and carries no description (a fieldset description under the section title read as one more layer — HDU), and the Rules tooltip alone says it all in two sentences: when the field shows, what a rule compares. The technical section name `logic` stays, so the overrides and the specs are untouched |
 | 2026-10-02 | **The field-action feedback mixin follows: a supertype of `fmdbmix:fieldAction`, its always-activated fieldset gone** (#365) | Same finding, same remedy as the row above — the marker reaches every field-action type whatever its module, so a supertype of the marker reaches them all, which is what `extends` was there for; `RedundantMixinMigration` (renamed from `AdvancedSettingsMixinMigration`, since it now serves two families) drops the redundant mixin from the actions saved before |
 | 2026-10-05 | **The Field actions switch closes Field settings** (HDU: « déplace Field actions à la fin de FIELD SETTINGS »), superseding the 2026-10-01 choice | The children block that kept it next to Content is hidden since #371, so nothing ties the switch to Content any more; at the end of Field settings it follows the settings instead of sitting alone between the title fields and the section titles. Moved from the mixin's own file with `"alwaysPresent"` and the section declared there, so that the hidden input, with no other setting, keeps it |
+| 2026-10-05 | **The Field actions switch is placed by elements' override of the engine mixin**, the engine's file keeping only the children-block hide (HDU review of #377, then « pourquoi le design n'était pas le bon dès le début ? ») | The first cut shipped the placement from the engine, whose bundle then had to hold a copy of the section's label; every other engine mixin of Field settings is placed by elements, from elements' bundle. Measured on 8.2.4: last in Field settings on every type, alone in the section on the hidden input (en, fr), saved from the editor with its list |

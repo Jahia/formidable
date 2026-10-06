@@ -246,9 +246,9 @@ const hiddenInput: JahiaNode = {
  * Content, a file field what it accepts and how many; the hidden input has nothing to move but the switch. The optional
  * types of formidable-extended-inputs follow from their own module, the shared labels resolved through its
  * dependency on formidable-elements.
- * The validation messages join the section, and the field actions switch closes it — the engine places it there
- * from the mixin's own file, on every field with a value, the hidden input included; the children block its list
- * makes the editor show stays hidden, one node being nothing to order. Read through the editor form
+ * The validation messages join the section, and the field actions switch closes it — formidable-elements places
+ * it there from its override of the engine mixin, on every field with a value, the hidden input included; the
+ * children block its list makes the editor show stays hidden by the engine, one node being nothing to order. Read through the editor form
  * the Content Editor builds, on a field with its settings set and on a plain one: the layout owes nothing
  * to the values.
  */

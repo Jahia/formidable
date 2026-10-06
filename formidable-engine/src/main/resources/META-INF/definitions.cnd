@@ -141,7 +141,7 @@ orderable
  - jcr:title (string) = resourceBundle('fmdb_fieldActionList') autocreated i18n
  + * (fmdbmix:fieldAction) = fmdbmix:fieldAction version
 
-// The switch closing the Field settings section of the field's own editor (placed there by this module's
+// The switch closing the Field settings section of the field's own editor (placed there by formidable-elements'
 // override, fmdbmix_fieldActions.json, with "alwaysPresent": a switch without a property of its own is
 // dropped once moved otherwise), offered on every field type
 // taking fmdbmix:submittableField — the fields with a value, third-party included — and on nothing else:
