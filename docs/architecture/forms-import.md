@@ -13,7 +13,7 @@ filtered and exported by the Formidable results screen like the ones it collects
 | In scope | Out of scope (first version) |
 |---|---|
 | Forms 3.x (`forms-core` 3.x, and the three field types of `forms-extended-inputs`) | Forms 2.x and older |
-| Recreating the forms: steps, fields, labels, placeholders, help texts, the required rule and its messages, the choices, the captcha, the save and email actions | The pages that place a Forms form: their `fcnt:formReference` nodes are not replaced by Formidable form references |
+| Recreating the forms: steps, fields, labels, placeholders, help texts, the required rule and its messages, the choices, the captcha, the save and email actions (redirects once the [redirect action](redirect-action.md) ships) | The pages that place a Forms form: their `fcnt:formReference` nodes are not replaced by Formidable form references |
 | Importing every submission saved by the Forms *save to JCR* action, files included | The jExperience prefill of Forms fields (`fcnt:mfffPrefill`): Formidable has its own profile mapping, to be wired in a later step |
 | A dry-run report, then the import, re-runnable | The drafts a visitor saved with *save the form for later* (`fcnt:storedForm`): they are not submissions |
 | | Deleting anything in Forms: the source is never modified |
@@ -187,8 +187,8 @@ value the label, so the stored results need no conversion.
 |---|---|
 | `fcnt:saveToJcrAction` | `fmdb:save2jcrAction` |
 | `fcnt:sendEmailAction` | `fmdb:emailNotificationAction` (`to`, `from`, `subject`; the template to review) |
-| `fcnt:sendEmailToSubmitterAction` | Reported: no action sends to an address the visitor typed (to verify) |
-| `fcnt:redirectToAPageAction`, `fcnt:redirectToUrlAction` | Reported: no redirect action in Formidable; the submission message replaces it |
+| `fcnt:sendEmailToSubmitterAction` | `fmdb:emailNotificationAction` with no recipient: no action sends to the address the visitor typed, so the contributor fills in a fixed recipient before publishing; reported |
+| `fcnt:redirectToAPageAction`, `fcnt:redirectToUrlAction` | Reported with its target page or URL: Formidable has no redirect action yet. A redirect action is proposed in [Redirect action](redirect-action.md); once it ships, the import maps onto it |
 
 ### Submissions
 
@@ -274,7 +274,7 @@ readers, and the guide tells how to grant them in Formidable.
 | Spike 1 | Can a session set `jcr:created` on a new `fmdb:formSubmission`, as the Jahia import does? | If not: an `importedAt`-style property holding the original date, and the results screen and the split reading it when present |
 | Spike 2 | The value an `fmdb:inputDate` submits and stores (`yyyy-MM-dd`?) | The date conversion |
 | Spike 3 | `formidable-extended-inputs` absent: confirm the fallbacks keep the values readable | The switch, rating and consent rows |
-| 4 | The email actions: template conversion, and the *send to the submitter* case | The actions table |
+| 4 | The email actions: converting the Forms mail template to the notification's `templateMessage` | The actions table |
 | 5 | The page placements of the Forms forms (`fcnt:formReference`): replace them in a second step? | Scope |
 | 6 | The jExperience prefill of the Forms fields: map it to the Formidable profile mapping in a second step? | Scope |
 | 7 | The anonymisation of the sample exports before they are committed as fixtures (they hold real email addresses) | Tests |

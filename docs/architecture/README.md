@@ -14,6 +14,7 @@ For the maintainer: how the modules work, and why they are built this way.
 - [Field actions](field-actions.md) — a check of one field's value run server-side while the visitor fills the form and again at submission: the form-action model one level down (marker, per-field list, switch in the field's editor), a Java service as the action's code, the pre-check endpoint and pipeline step 11b sharing one verdict cache, the provider gateway that keeps credentials in the configuration
 - [jExperience integration](jexperience-integration.md) — design and implementation log (revised 2026-09-10, browser-side): the auto-generated form mapping, the submission event sent by the tracker with the accepted values of the form's mappable fields, prefill from the tracker's context, the send condition and consent gates, the form's UUID as its identity in jCustomer; phases 1 and 2 (profile-mappable fields, the jExperience editor section, the mapping rule kept in sync with publication) shipped, phase 3 (the submission event) in progress
 - [Importing from Jahia Forms](forms-import.md) — draft specification: recreating Jahia Forms 3.x forms and importing their submissions from the Jahia export files, the source and target models, the field, value and action mappings, the dry run and the re-runnable import
+- [Redirect action](redirect-action.md) — proposal: a form action sending the visitor to a page of the site or an external URL once the submission is accepted; the servlet names the target in the response, the browser navigates
 
 ## Why it is built this way
 
