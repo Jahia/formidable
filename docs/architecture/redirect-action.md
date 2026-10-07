@@ -25,7 +25,7 @@ the visitor, once the form is submitted, either to **a page of the site** picked
 
 ## Content model
 
-In `formidable-elements`, beside the other action types:
+In `formidable-engine`, beside the other action types (`definitions.cnd`):
 
 ```cnd
 [fmdb:redirectAction] > jnt:content, fmdbmix:formAction, fmdbmix:readOnlyCompatibleAction, mix:title

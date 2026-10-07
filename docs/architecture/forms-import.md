@@ -49,9 +49,9 @@ This document specifies iterations 1 and 2. Iterations 3 and 4 are listed under
 
 | In scope | Out of scope |
 |---|---|
-| Forms 3.x: `forms-core` 3.x, and the three field types of `forms-extended-inputs` | Forms 2.x and older |
+| Forms 3.x: the field types of `forms-core` 3.x, and the two that `forms-extended-inputs` adds with a value (image checkboxes, accept terms) | Forms 2.x and older |
 | Every submission that the Forms *save to JCR* action saved, files included | The forms themselves, which are iterations 3 and 4 |
-| A dry-run report, then the import, which can run again | The drafts that a visitor saved with *save the form for later* (`fcnt:storedForm`), which are not submissions |
+| An import started from the Results page, with a report at its end, which can run again | The drafts that a visitor saved with *save the form for later* (`fcnt:storedForm`), which are not submissions |
 | | The pages that place a Forms form (`fcnt:formReference`) |
 | | Any deletion in Forms: the import never modifies the source |
 
@@ -67,6 +67,8 @@ This document specifies iterations 1 and 2. Iterations 3 and 4 are listed under
 | **Results are written in live** | Results only exist in live in both products. The import writes them there, as `SaveToJcrFormAction` does, and they are never published. |
 | **`origin` = `jahia-forms` on an imported submission** | `origin` is the discriminator that [Save to JCR](save-to-jcr.md) documents for "a legacy-forms import". The Results page and the exports can tell an imported submission from a native one. |
 | **Before iteration 2, only administrators read the imported results** | The readers of a results entry are synced from the grants of its form, and an imported entry has no form yet. |
+| **A Forms form is identified by its path in the export, never by a UUID** | The export of `formFactory` carries no `jcr:uuid`: `parentForm` is written as a path, `#/forms/contact-us`. The path is all the import can read, so it keys the entry and the runs that follow. |
+| **The import starts from the Results page, behind a setting** | An **Import** button in the toolbar of the Results page, off by default, opens a dialog that takes the export file. See [Running it](#running-it). |
 
 ## Source model (Forms 3.x)
 
@@ -79,11 +81,18 @@ The export of the `formFactory` node is a Jahia *document view* XML export (`rep
 - names and values are ISO 9075-encoded: `_x0020_` is a space, and `_x0030_6` is the node name `06`;
 - a multi-valued property is one attribute, and spaces separate its values, each value encoded;
 - a reference is written `#/<path>`, relative to the export root, as in `parentForm="#/forms/contact-us"`;
+- no node carries `jcr:uuid`, so a node is known by its path only. The UUIDs that the import needs are
+  string properties: `fieldId` on a label node, and the node name of a result;
 - every node carries `jcr:created`, `jcr:createdBy` and `jcr:lastModified`;
 - i18n properties live on `j:translation_<lang>` child nodes.
 
 The `forms-core` CND makes `fcnt:formFactory` create both `forms` and `results`, so the export holds the
 forms beside their results. Iteration 1 reads `results` only, and `forms` is the source of iteration 4.
+
+The file comes as the `repository.xml` alone, or as the zip of a Jahia export. In a zip, the import reads
+`live-repository.xml` when the zip has one, because results only exist in live, and `repository.xml`
+otherwise. The export of a single form, from the Forms builder, holds no results: the import says so and
+writes nothing.
 
 ### The results
 
@@ -99,18 +108,20 @@ formFactory
 │           └── <MM>
 │               └── <dd>
 │                   └── <HH>
-│                       └── <uuid>
-│                           └── <fieldName>
-│                               └── <file>
+│                       └── <mm>
+│                           └── <ss>
+│                               └── <uuid>
+│                                   └── <fieldName>
+│                                       └── <file>
 └── forms
 ```
 
 | Name | Responsibility |
 |---|---|
-| `<formName>` | The `fcnt:formResults` node. It holds `parentForm`, a weak reference to the `fcnt:form`, then `buildingLang` and `j:translation_<lang>/jcr:title`. |
-| `labels/<fieldName>` | A `fcnt:resultLabels` child. It holds `fieldId`, the UUID of the field, and `label` and `choices` per language. |
+| `<formName>` | The `fcnt:formResults` node. It holds `parentForm`, a weak reference to the `fcnt:form` that the export writes as a path, then `buildingLang` and `j:translation_<lang>/jcr:title`. |
+| `labels/<fieldName>` | A label node, a `fcnt:definitionOptions` under the `fcnt:resultLabels` node `labels`. It holds `fieldId`, the UUID of the field, and `label` and `choices` per language. |
 | `actions` | A copy of the actions of the form. The import ignores it. |
-| `submissions` | A `fcnt:submissions` node with `jmix:autoSplitFolders`, split by month, day and hour, with no year level. |
+| `submissions` | A `fcnt:submissions` node with `jmix:autoSplitFolders`, with no year level. The current `forms-core` 3.x splits by month, day, hour, minute and second (`FormSubmission`); older 3.x releases stopped at the hour, as the sample export does. The import walks the `fcnt:splittedResult` folders at any depth and takes every `fcnt:result` it finds. |
 | `fakeSplittedResultForAreaDisplay` | A placeholder. The import skips it. |
 | `<uuid>` | A `fcnt:result`. It holds `jcr:created`, the date of the submission, and `origin`, the referer or the request URI. When the form tracks users, it also holds `ip_address` and `jcr:createdBy`. |
 | `<fieldName>` | A `fcnt:resultField`. It holds `result`, a string that is always multiple, then `label`, a weak reference to `labels/<fieldName>`, and `optional`. |
@@ -125,7 +136,7 @@ Forms writes a value as follows (`SaveToJcrAction` in `forms-core`):
   `labels/<fieldName>`, a JSON `[{"key","value"}]` per language;
 - a date is the moment.js `toISOString()` of the chosen date, a UTC instant: a date picked as 13 August in
   Paris is `2024-08-12T22:00:00.000Z`;
-- matrix, rating and country fields store one JSON object as a string, with a `rendererName`
+- the matrix, rating and country fields of `forms-core` store one JSON object as a string, with a `rendererName`
   (`matrixRadios`, `matrixCheckboxes`, `rating`, `country`);
 - a file field stores a JSON object `{"url":[],"name":[],"type":[],"size":[],"image":[],"rendererName":"fileUpload"}`,
   and the files themselves are `jnt:file` children of the `fcnt:resultField`;
@@ -169,10 +180,10 @@ it, and adds its own markers:
 
 | Forms (`fcnt:formResults`) | Formidable (`fmdb:formResults`) |
 |---|---|
-| `parentForm` | `parentForm` holds the UUID of the Forms form. It points at no node until iteration 2 (spike 1). |
+| `parentForm`, a path in the export | `parentForm` holds a UUID derived from the site key and that path (a name-based UUID), so that it is stable from one run to the next and unique per Forms form. It points at no node until iteration 2 (spike 1). |
 | `buildingLang` | `buildingLang` |
 | The node name | The node name, or the next free name in `formidable-results` |
-| — | `fmdbimportmix:importedResults`, with `sourceFormIds` (the UUID of the Forms form), `sourceFormName`, `sourceTitle` per language, and `importedLabels` |
+| — | `fmdbimportmix:importedResults`, with `sourceFormPaths` (the path of the Forms form in the export, `forms/contact-us`), `sourceFormName`, `sourceTitle` per language, and `importedLabels` |
 
 `importedLabels` is a JSON string, and it is not indexed. It holds one entry per label node:
 
@@ -202,40 +213,94 @@ no reader grant, because there is no form to sync the readers from.
 
 | Forms value | Formidable value |
 |---|---|
-| Text, email, number, hidden, textarea | Unchanged |
+| Text, email, phone, number, hidden, textarea | Unchanged |
+| A switch, `true` or `false` | Unchanged |
+| An image checkbox or an accept-terms checkbox (`forms-extended-inputs`) | Unchanged: the keys, or the accepted value |
 | A choice key, one or several | Unchanged. The key is the value that an option of a later form must carry. |
-| A date, a UTC instant | `yyyy-MM-dd`: the date of the nearest UTC midnight, which is the instant plus 12 hours, truncated to the day |
+| A date, a UTC instant | `yyyy-MM-dd`: the instant plus 12 hours, truncated to the UTC day |
 | Country, a JSON object | Its country code |
 | Rating, a JSON object | The rating number |
 | Matrix, a JSON object | One line per row, `row: answer(s)` |
 | File, a JSON object and the `jnt:file` children | The files are copied under `files/<fieldName>/`, and the JSON is dropped. |
 | The password placeholder | Dropped |
 
-The date rule needs no time zone. Forms stored the local midnight of the visitor, so the nearest UTC
-midnight is the chosen date for every visitor whose offset is strictly between −12 and +12 hours. A
-single time zone for every submission gives the previous day to every visitor east of that zone. With
-UTC, the Paris example above becomes 12 August.
+The date rule needs no time zone. Forms stored the local midnight of the visitor: for a visitor at the
+offset `o`, the instant is the chosen day minus `o`. Adding 12 hours and truncating gives back the
+chosen day for every offset above −12 and up to +12 hours. The Paris example above, at +2, becomes
+13 August again. A single time zone for every submission would instead give the previous day to every
+visitor east of that zone.
+
+The rule fails at +13 and +14, the offsets of New Zealand in summer, Tonga, Samoa and Kiribati: their
+visitors get the previous day. The offsets in use span 26 hours, from −12 to +14, more than a day, so no
+rule without a time zone covers them all. The administration guide states this limit.
 
 ### The Results page
 
-An imported entry has no form until iteration 2. The engine reads `fmdbimportmix:importedResults` in two
+An imported entry has no form until iteration 2. The engine reads `fmdbimportmix:importedResults` in three
 places:
 
 - the status of the entry is **Imported**, not **Form deleted**;
 - the label of a field comes from `importedLabels`, in the language of the user interface, or else in the
-  `buildingLang`. A name that the snapshot does not hold shows as it is stored.
+  `buildingLang`. A name that the snapshot does not hold shows as it is stored;
+- the exports take their column headers from the same labels, so that an export of imported results reads
+  as the page does.
 
-These two changes are the only changes that iteration 1 makes to `formidable-engine`.
+With the toolbar extension point of [Running it](#running-it), these are the only changes that iteration 1
+makes to `formidable-engine`.
 
 ### Running it
 
-The module adds an administration page for site administrators, in jContent under *Additional* ›
-*Import from Jahia Forms*:
+The import starts from the toolbar of the Results page, next to **Export**, **Delete** and **Refresh**.
 
-1. **Upload.** The administrator uploads the `formFactory` export and chooses the site.
-2. **Dry run.** Nothing is written, and the page shows the report.
-3. **Import.** The import writes the submissions by batches of 100, and saves each batch on its own. The
-   page shows the progress and the final report.
+**The setting.** `formidable-forms-import` ships its own configuration file,
+`org.jahia.modules.formidable.formsImport.cfg`, with the conventions of the other Formidable files (see the
+[administration guide](../administration/configuration.md)):
+
+| Setting | Default | Effect |
+|---|---|---|
+| `importButtonEnabled` | `false` | Shows the **Import** button on the Results page of every site |
+| `maxFileSizeMb` | `200` | The largest export the dialog accepts |
+
+The button is off by default: the import is used once per site, and an administrator turns it on for that
+time, then off again or uninstalls the module.
+
+**The extension point.** The engine knows nothing of Forms, so it does not draw the button itself. The
+Results toolbar renders, after its own buttons, the entries registered in the jContent registry under the
+type `formidableResultsToolbarAction`: a label, an icon, a visibility check and the dialog that the
+button opens. `formidable-forms-import` registers its **Import** entry there. The entry is visible when
+the module answers that `importButtonEnabled` is on and the user is an administrator of the current site;
+the endpoint checks both again.
+
+**The dialog.** The **Import** button carries Moonstone's `Upload` icon. It opens a dialog in four
+states:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Waiting
+    Waiting --> Importing: a .zip or .xml file, dropped or chosen
+    Importing --> Done: the import ends
+    Importing --> Failed: the file is refused, or the import stops
+    Failed --> Waiting: Try again
+    Done --> [*]: Close
+    Waiting --> [*]: Cancel
+```
+
+| State | What the dialog shows |
+|---|---|
+| Waiting | A drop zone that takes a `.zip` or an `.xml` file by drag and drop, and a **Choose a file** button that opens the file picker. Another type, or a file above `maxFileSizeMb`, is refused in the dialog with its reason. |
+| Importing | The file name and a spinner. The dialog cannot be closed. |
+| Done | Moonstone's `Check` icon, then the report: the counts per Forms form. **Close** refreshes the list of entries. |
+| Failed | The reason, as the server gives it (a file that holds no Forms results, a broken export, a lost connection), and **Try again**. |
+
+**The server.** The upload is a `POST` to an endpoint of the module, on the current site. The endpoint
+starts the import and answers with a job identifier; the dialog asks for the job's state every second
+until it ends, so that a long import never runs into a proxy timeout. The import writes the submissions by
+batches of 100 and saves each batch on its own. The file is read from a temporary file, which is deleted
+when the job ends.
+
+There is no dry run: an import that runs again duplicates nothing (see
+[Running it twice](#running-it-twice)), and the report after the import gives the same figures that a dry
+run would have given.
 
 The report gives, per Forms form:
 
@@ -250,8 +315,10 @@ Each imported submission carries `fmdbimportmix:importedSubmission`, whose `sour
 Forms result. The import skips a submission whose source is already imported, wherever that submission
 lives in `formidable-results`. An import that stopped half-way therefore runs again as it is.
 
-When the UUID of a Forms form is already in the `sourceFormIds` of an entry, the import adds the new
-submissions of that form to that entry. After iteration 2, that entry is the entry of the attached form.
+When the path of a Forms form is already in the `sourceFormPaths` of an entry, the import adds the new
+submissions of that form to that entry. After iteration 2, that entry is the entry of the attached form. A
+Forms form renamed between two exports has another path, so its second import makes a new entry; the
+report names it, and iteration 2 merges the two.
 
 ## Iteration 2: attaching the results to a form
 
@@ -294,6 +361,10 @@ For each name that the imported submissions hold, the page proposes a field of `
 3. **A choice by hand.** Otherwise, the administrator picks a field of `F`, or keeps the name as it is. A
    kept name shows on the Results page after the known fields, under its raw name.
 
+A field of `F` takes at most one imported name. The page refuses a mapping that sends two names to the same
+field, because a submission that holds both would lose one of its values. Two names that are the same field
+in Forms already share their label node, so they arrive as one name (see [the results](#the-results)).
+
 For a choice field, the page lists the imported keys that no option of the matched field carries as its
 value. The import keeps these values as they are.
 
@@ -305,7 +376,7 @@ The page shows the mapping as a dry run before it writes anything.
   and the entry is renamed after `F` when that name is free.
 - **`F` already has a results entry.** The imported submissions move into that entry, under
   `yyyy/MM/dd`, and the imported entry is removed. The entry of `F` takes the
-  `fmdbimportmix:importedResults` mixin, and the UUID of the Forms form joins its `sourceFormIds`. Several
+  `fmdbimportmix:importedResults` mixin, and the path of the Forms form joins its `sourceFormPaths`. Several
   Forms forms can attach to one `F` this way.
 - **The values.** Every property of `data` whose name the mapping changes is renamed, by batches of 100.
   An attachment that stopped half-way runs again, because the attachment no longer finds a name that it
@@ -340,7 +411,9 @@ results through iteration 2. This iteration needs its own specification. Four po
 
 - A password field is not recreated. Forms masked the password in storage and in the mail, but a
   Formidable text field would store and mail it in clear.
-- A country field needs the `country` options source, and only the samples module ships that source.
+- A country field needs a `country` options source. Formidable ships none, but a site adds it with a
+  three-line configuration file that uses the core `country` initializer (see
+  [Choice field options sources](choice-field-options-sources.md)).
 - A Forms redirect action maps onto the [redirect action](redirect-action.md) once that action ships.
 - The send-to-submitter action maps onto a notification action whose recipient the contributor fills in.
 
@@ -348,11 +421,14 @@ results through iteration 2. This iteration needs its own specification. Four po
 
 - **Unit tests.** They cover the reader (ISO 9075 decoding, multi-values, references), each value
   conversion, the snapshot of the labels and the mapping proposal of iteration 2. The date rule is tested
-  at the offsets −11, −4, 0, +2, +9 and +11 hours. The fixtures are the anonymised sample exports.
-- **A Cypress spec for iteration 1.** The spec uploads the sample export and checks the dry-run report.
-  After the import, the spec checks the count, the values, the dates, the **Imported** status, the labels
-  from the snapshot and the imported origin on the Results page. A second run of the import must
-  duplicate nothing.
+  at the offsets −11, −4, 0, +2, +9 and +11 hours, and at +13, where it gives the previous day as
+  documented. The fixtures are the anonymised sample exports.
+- **A Cypress spec for iteration 1.** The **Import** button is absent while `importButtonEnabled` is off,
+  and absent for an editor once it is on. The spec drops the sample export on the dialog, waits for the
+  check and reads the report. It then checks the count, the values, the dates, the **Imported** status,
+  the labels from the snapshot, the export headers and the imported origin on the Results page. A second
+  run of the import must duplicate nothing, and a file that holds no results, the export of a single form,
+  must end in the failed state with its reason.
 - **A Cypress spec for iteration 2.** The spec attaches the imported results to a form with three fields:
   one with the same node name, one with the same label, and one that the administrator picks. The spec
   checks the labels, the renamed values and the readers, then attaches a second entry to the same form
@@ -362,7 +438,7 @@ results through iteration 2. This iteration needs its own specification. Four po
 
 | # | Point | Effect |
 |---|---|---|
-| Spike 1 | Can a session write `parentForm`, a mandatory weak reference, with the UUID of a node that does not exist? Can it set `jcr:created` on a new `fmdb:formSubmission`, as the Jahia import does? | If the first fails, the entry needs a placeholder target, or `parentForm` becomes optional. If the second fails, an `importedAt` property holds the original date, and the Results page and the split read it when it is present. |
+| Spike 1 | Can a session write `parentForm`, a mandatory weak reference, with the UUID of a node that does not exist? Can it set `jcr:created` on a new `fmdb:formSubmission`, as the Jahia import does? And when does the auto-split of `submissions` place a new node: when it is added, before `jcr:created` can be set, or when it is saved? | If the first fails, the entry needs a placeholder target, or `parentForm` becomes optional. If the second fails, an `importedAt` property holds the original date, and the Results page reads it when it is present. If the auto-split places the node before its date is set, the import creates the `yyyy/MM/dd` folders itself and adds the submission under them. |
 | Spike 2 | Which value does an `fmdb:inputDate` submit and store: `yyyy-MM-dd`? | The date conversion |
 | 3 | Who reads the results before iteration 2: a role granted on an imported entry, or administrators only? | Permissions |
 | 4 | Before iteration 2, does the Results page show the label of a choice from `importedLabels`, or the key? | Iteration 1 |
