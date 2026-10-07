@@ -10,7 +10,6 @@ import {
 	getInputTextNode,
 	getRadioNode,
 	getSelectNode,
-	getStepNode,
 	getTextareaNode,
 	INPUT_COLOR_COMPLETE,
 	INPUT_DATE_COMPLETE,

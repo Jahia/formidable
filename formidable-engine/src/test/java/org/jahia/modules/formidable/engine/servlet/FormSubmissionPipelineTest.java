@@ -223,14 +223,15 @@ class FormSubmissionPipelineTest {
     @Test
     void verifyAuthenticationUsesEngineOwnedSemanticMixin() throws Exception {
         // Verifies the ownership split: the pipeline must read fmdbmix:authenticatedOnlyForm
-        // instead of the elements-owned wrapper mixin applied by authors.
+        // instead of the elements-owned wrapper mixin applied by authors. The mixin is absent and the user a guest, so
+        // this is also the only test of the bypass: a public form lets a guest through.
         FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
         JCRNodeWrapper formNode = mock(JCRNodeWrapper.class);
         when(formNode.isNodeType("fmdbmix:authenticatedOnlyForm")).thenReturn(false);
         setField(pipeline, "formNode", formNode);
         setField(pipeline, "formId", "test-form-id");
 
-        invokeVerifyAuthentication(pipeline, null);
+        assertDoesNotThrow(() -> invokeVerifyAuthentication(pipeline, null));
 
         // Expected outcome: fmdbmix:authenticatedOnlyForm is consulted directly by the pipeline.
         verify(formNode).isNodeType("fmdbmix:authenticatedOnlyForm");
@@ -251,7 +252,8 @@ class FormSubmissionPipelineTest {
     @Test
     void verifyCaptchaUsesEngineOwnedSemanticMixin() throws Exception {
         // Verifies the ownership split: the pipeline must read fmdbmix:captchaProtectedForm
-        // instead of the elements-owned wrapper mixin applied by authors.
+        // instead of the elements-owned wrapper mixin applied by authors. The mixin is absent, so this is also the only
+        // test of the bypass: a form without CAPTCHA is not checked.
         CaptchaConfigService config = mock(CaptchaConfigService.class);
         FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), config, mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
         JCRNodeWrapper formNode = mock(JCRNodeWrapper.class);
