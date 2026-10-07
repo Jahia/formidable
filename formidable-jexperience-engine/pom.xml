@@ -234,5 +234,24 @@
                 </repository>
             </repositories>
         </profile>
+        <!-- A Java bundle with no package.json: the sync-version execution inherited from the root's release-prepare
+             profile has no script and no file to sync here, so it is unbound. -->
+        <profile>
+            <id>release-prepare</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>sync-version</id>
+                                <phase>none</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 </project>
