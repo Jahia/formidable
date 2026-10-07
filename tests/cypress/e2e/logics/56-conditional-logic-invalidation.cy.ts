@@ -41,6 +41,9 @@ describe('Form logic - 56 Conditional logic invalidation', () => {
 
 	it('re-evaluates on the invalidation event, and hides the field again when the variable stops matching', () => {
 		createFormPage('back').then(({livePath}) => {
+			// The JS-variable sampler runs on setInterval and would flip the field on its own
+			// within the command timeout: frozen here, only the event can re-evaluate the rule.
+			cy.clock(Date.now(), ['setInterval']);
 			visitLiveForm(livePath);
 			// Waiting on the attribute proves hydration ran: before it, the field is hidden
 			// because the server rendered it so, not because the rule was evaluated.
