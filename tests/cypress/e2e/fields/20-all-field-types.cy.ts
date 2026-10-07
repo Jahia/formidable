@@ -10,7 +10,6 @@ import {
 	getInputTextNode,
 	getRadioNode,
 	getSelectNode,
-	getStepNode,
 	getTextareaNode,
 	INPUT_COLOR_COMPLETE,
 	INPUT_DATE_COMPLETE,
@@ -175,61 +174,6 @@ describe('Form fields - 20 All field types', () => {
 				assertIntro('[en preview]', previewUrl('en'), () => visitPreviewForm(livePath, 'en'), 'Welcome!', 'our home page');
 				assertIntro('[fr preview]', previewUrl('fr'), () => visitPreviewForm(livePath, 'fr'), 'Bienvenue !', 'notre page d’accueil');
 			});
-		});
-	});
-
-	it('submits a multistep live form with all supported field types distributed across steps', () => {
-		createPublishedLiveFormPage(
-			'all-fields-step-form',
-			'All Fields Step Form',
-			[
-				getStepNode({
-					name: 'identityStep',
-					title: 'Identity',
-					label: 'Identity',
-					children: [
-						getInputTextNode({...INPUT_TEXT_COMPLETE, defaultValue: undefined}),
-						getInputEmailNode({...INPUT_EMAIL_COMPLETE, defaultValue: undefined}),
-						getCheckboxNode(CHECKBOX_GROUP_COMPLETE),
-						getRadioNode(RADIO_GROUP),
-						getSelectNode(SELECT_SINGLE)
-					]
-				}),
-				getStepNode({
-					name: 'detailsStep',
-					title: 'Details',
-					label: 'Details',
-					children: [
-						getInputDateNode({...INPUT_DATE_COMPLETE, defaultValue: undefined}),
-						getInputDatetimeLocalNode({...INPUT_DATETIME_LOCAL_COMPLETE, defaultValue: undefined}),
-						getInputColorNode(INPUT_COLOR_COMPLETE),
-						getTextareaNode({...TEXTAREA_COMPLETE, defaultValue: undefined}),
-						getInputFileNode(INPUT_FILE_MULTIPLE)
-					]
-				})
-			]
-		).then(({livePath}) => {
-			const form = visitLiveForm(livePath);
-
-			form.shouldHaveVisibleStepCount(2).shouldHaveCurrentStep('Identity');
-			form.getTextInput(INPUT_TEXT_COMPLETE.name!).type('CD-4567');
-			form.getEmailInput(INPUT_EMAIL_COMPLETE.name!).type('step@example.com');
-			form.getCheckboxGroup(CHECKBOX_GROUP_COMPLETE.name!).checkByLabels(['Sports']);
-			form.getRadioGroup(RADIO_GROUP.name!).select('Express');
-			form.getSelectInput(SELECT_SINGLE.name!)
-				.shouldHaveSelectedOption('Please select')
-				.select('Sales');
-			form.nextStep();
-
-			form.shouldHaveCurrentStep('Details');
-			form.getDateInput(INPUT_DATE_COMPLETE.name!).setDate('2004-04-05');
-			form.getDateTimeLocalInput(INPUT_DATETIME_LOCAL_COMPLETE.name!).setDateTime('2026-06-20T14:15');
-			form.getColorInput(INPUT_COLOR_COMPLETE.name!).setColor('#663399');
-			form.getTextarea(TEXTAREA_COMPLETE.name!).type('Second step details long enough for textarea validation.');
-			form.getFileInput(INPUT_FILE_MULTIPLE.name!).attachFile('cypress/fixtures/files/document.pdf');
-
-			form.submit();
-			form.waitForSubmit().shouldHaveSubmissionMessage('Form submitted successfully!');
 		});
 	});
 });

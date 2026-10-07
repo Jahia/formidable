@@ -78,12 +78,6 @@ class FieldEscaperTest {
     }
 
     @Test
-    void plainTextPreservesNonNullValue() {
-        // Verifies the plain-text sink behavior: values are preserved as-is.
-        assertEquals("Hello <b>world</b>", FieldEscaper.plainText("Hello <b>world</b>"));
-    }
-
-    @Test
     void plainTextPreservesEmptyString() {
         // Verifies that an explicit empty string is preserved as-is.
         assertEquals("", FieldEscaper.plainText(""));

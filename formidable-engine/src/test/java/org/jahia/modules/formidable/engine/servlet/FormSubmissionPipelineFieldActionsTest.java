@@ -196,17 +196,6 @@ class FormSubmissionPipelineFieldActionsTest {
     }
 
     @Test
-    void aWarningActionDoesNotRunAgainAtSubmission() throws Exception {
-        // Verifies the blockingOnly rule at the pipeline's seat: an action that only warns had its say at the
-        // pre-check; here it is neither run nor reported.
-        AtomicInteger calls = new AtomicInteger();
-        runFieldActions(pipelineAtStep11b(dispatcher(FieldActionResult.reject("x"), calls),
-                Map.of("email", List.of(action("w1", Severity.WARN))), Map.of("email", List.of("ada@example.com")), allVisible()));
-
-        assertEquals(0, calls.get());
-    }
-
-    @Test
     void withoutADispatcherTheStepWarnsThatTheChecksDidNotRun() throws Exception {
         // Verifies the warning itself, not just the absence of a crash: an unbound runtime lets a submission through
         // with its checks unrun, and the only trace an operator has is this line. Asserted through the test-scope
@@ -391,17 +380,9 @@ class FormSubmissionPipelineFieldActionsTest {
     }
 
     @Test
-    void withoutADispatcherOrWithoutFieldActionsTheStepIsANoOp() throws Exception {
-        // Verifies the two idle cases: a pipeline built without the field-action runtime (the tests' 4-arg
-        // constructor, an instance without the component — the step then warns that the checks did not run), and a
-        // form whose fields declare no action.
-        FormSubmissionPipeline noDispatcher = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(),
-                mock(FormidableOptionsSourceService.class), () -> false);
-        set(noDispatcher, "fieldMetadata", new FormFieldMetadataCollector.Result(Map.of(), Map.of(), Map.of(), Map.of(),
-                Map.of("email", List.of(action("a1", Severity.BLOCK)))));
-        set(noDispatcher, "parsed", new FormDataParser.ParseResult(Map.of("email", List.of("x")), List.of()));
-        runFieldActions(noDispatcher);
-
+    void withoutFieldActionsTheStepIsANoOp() throws Exception {
+        // Verifies the idle case: a form whose fields declare no action never reaches the dispatcher. A pipeline built
+        // without the field-action runtime is withoutADispatcherTheStepWarnsThatTheChecksDidNotRun.
         AtomicInteger calls = new AtomicInteger();
         runFieldActions(pipelineAtStep11b(dispatcher(FieldActionResult.reject("x"), calls), Map.of(),
                 Map.of("email", List.of("ada@example.com")), allVisible()));

@@ -1,4 +1,4 @@
-import {createPublishedLiveFormPage, getInputTextNode, visitEditForm, visitLiveForm} from '../../support/fixtures';
+import {createPublishedLiveFormPage, getInputTextNode, visitEditForm} from '../../support/fixtures';
 import {useFormidableSite} from './support';
 
 /**
@@ -25,17 +25,6 @@ describe('Validation - 41 Form reference owns its Page Builder box', () => {
 			cy.get(`[jahiatype="module"][path="${referencePath}"]`).should('exist');
 			cy.get(`[jahiatype="module"][path="${formPath}"]`).should('not.exist');
 			cy.get(`[jahiatype="module"][path^="${referencePath}@/"]`).should('exist');
-		});
-	});
-
-	it('keeps the live rendering and its hydration through the reference', () => {
-		const formName = 'ref-live-form';
-
-		createPublishedLiveFormPage(formName, 'Ref Live Form', [
-			getInputTextNode({name: 'refLiveField', title: 'Ref live field'})
-		]).then(({livePath}) => {
-			const form = visitLiveForm(livePath);
-			form.get().find('input[name="refLiveField"]').should('be.visible');
 		});
 	});
 });

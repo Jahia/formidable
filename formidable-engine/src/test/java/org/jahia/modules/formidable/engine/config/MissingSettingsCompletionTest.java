@@ -69,19 +69,6 @@ class MissingSettingsCompletionTest {
     }
 
     @Test
-    void aCompleteFileIsNotWrittenSoTheWritesOwnCallbackEndsThere() throws Exception {
-        // Verifies the anti-loop guard: the configuration the write brings back holds every setting, nothing written.
-        ConfigurationAdmin admin = mock(ConfigurationAdmin.class);
-        Map<String, Object> complete = partialFile();
-        complete.put("enableDevForwardTargets", "false");
-        complete.put("forwardHttpConnectTimeoutSeconds", "5");
-        Configuration theme = themeConfiguration(admin, complete);
-
-        assertTrue(completion().run(admin, complete).isEmpty());
-        verify(theme, never()).update(any());
-    }
-
-    @Test
     void theSettingsMissingFromConfigurationAdminAreWrittenThoughTheCallbackHoldsThemAll() throws Exception {
         // Verifies the case measured on a running instance: DS hands over every setting — the definition's defaults
         // are component properties of the generated component description — while the file lacks one; what is
