@@ -129,7 +129,7 @@ formFactory
 | Name | Responsibility |
 |---|---|
 | `<formName>` | The `fcnt:formResults` node. It holds `parentForm`, a weak reference to the `fcnt:form` that the export writes as a path, then `buildingLang` and `j:translation_<lang>/jcr:title`. |
-| `labels/<fieldName>` | A label node, a `fcnt:definitionOptions` under the `fcnt:resultLabels` node `labels`. It holds `fieldId`, the UUID of the field, and `label` and `choices` per language. |
+| `labels/<fieldName>` | A label node, a `fcnt:definitionOptionsTranslatable` under the `fcnt:resultLabels` node `labels`. It holds `fieldId`, the UUID of the field, and `label` and `choices` per language. |
 | `actions` | A copy of the actions of the form. The import ignores it. |
 | `submissions` | A `fcnt:submissions` node with `jmix:autoSplitFolders`, with no year level. The current `forms-core` 3.x splits by month, day, hour, minute and second (`FormSubmission`); older 3.x releases stopped at the hour, as the sample export does. The import walks the `fcnt:splittedResult` folders at any depth and takes every `fcnt:result` it finds. |
 | `fakeSplittedResultForAreaDisplay` | A placeholder. The import skips it. |
@@ -193,7 +193,7 @@ it, and adds its own markers:
 
 | Forms (`fcnt:formResults`) | Formidable (`fmdb:formResults`) |
 |---|---|
-| `parentForm`, a path in the export | `parentForm` holds a random UUID, drawn when the entry is created. It is unique per entry and points at no node until iteration 2 (spike 1). A later run finds the entry by its field UUIDs, never by `parentForm`. |
+| `parentForm`, a path in the export | `parentForm` holds a random UUID, drawn when the entry is created and kept as `placeholderFormId`. It is unique per entry and points at no node until iteration 2 (spike 1). A later run finds the entry by its field UUIDs, never by `parentForm`. |
 | `buildingLang` | `buildingLang` |
 | The node name | The node name, or the next free name in `formidable-results` |
 | — | `fmdbmix:importedResults`, and its `imports` child |
@@ -216,8 +216,18 @@ the submissions of one source form.
 
 - the field name;
 - its `fieldId`;
-- its label per language;
+- its label per language, the first text found among, in this order:
+  1. the `label` of the label node;
+  2. the `jcr:title` of the field in `formFactory/forms`, under the path of the form, found by its node
+     name;
+  3. the `placeholder` of that field;
+  4. none, and the page shows the field name;
 - its choices per language, each with its key and its label.
+
+The second and third steps exist because Forms often leaves both labels empty and shows the placeholder
+as the only text of a field: in the sample export, four of the five labels of `contact-us` and the titles
+of its fields are empty, and the placeholder of `text-input_0_1` reads "Your First name*". A form that the
+export no longer holds under `forms` gets the labels of its label nodes only.
 
 The entry gets the ACL that `SaveToJcrFormAction` gives a new entry: the inheritance is broken. It gets
 no reader grant, because there is no form to sync the readers from.
@@ -244,6 +254,7 @@ Forms: `sourceSystem` does.
 
 ```cnd
 [fmdbmix:importedResults] mixin
+ - placeholderFormId (string) indexed=no
  + imports (fmdb:importSources) = fmdb:importSources autocreated
 
 [fmdb:importSources] > jnt:content
@@ -260,13 +271,19 @@ Forms: `sourceSystem` does.
  - sourceId (string) mandatory
  - importSource (weakreference) mandatory
 
-[fmdb:importJob] > jnt:content, jmix:accessControlled
+[fmdb:importJobs] > jnt:content, jmix:accessControlled
+ - runningImport (string) indexed=no
+ + * (fmdb:importJob) = fmdb:importJob
+
+[fmdb:importJob] > jnt:content
  - state (string) indexed=no
  - report (string) indexed=no
  + file (jnt:file) = jnt:file
 ```
 
-`fmdb:resultsFolder` gets one named child, `import-jobs`, for the jobs of [Running it](#running-it).
+`fmdb:resultsFolder` gets one named child, `import-jobs` (`fmdb:importJobs`), for the jobs of
+[Running it](#running-it). Its ACL inheritance is broken, as on a results entry, so the jobs and their
+files stay with the administrators.
 
 ### Values
 
@@ -298,8 +315,9 @@ rule without a time zone covers them all. The administration guide states this l
 An imported entry has no form until iteration 2. The Results page reads `fmdbmix:importedResults` in three
 places:
 
-- the status of the entry is **Imported** while its `parentForm` resolves to no form, instead of **Form
-  deleted**. Once iteration 2 attached a form, the usual statuses apply, although the marker stays;
+- the status of the entry is **Imported** while its `parentForm` still holds its `placeholderFormId`,
+  instead of **Form deleted**. Once iteration 2 has set `parentForm` to a form, the usual statuses apply,
+  although the marker stays: an attached form deleted later shows **Form deleted**;
 - a field that the form does not hold, or every field before iteration 2, takes its label from the
   `importedLabels` of the submission's source, in the language of the user interface, or else in the
   `buildingLang`. A name that the snapshot does not hold shows as it is stored;
@@ -350,15 +368,14 @@ stateDiagram-v2
 |---|---|
 | Waiting | A drop zone that takes a `.zip` or an `.xml` file by drag and drop, and a **Choose a file** button that opens the file picker. Another type, or a file above `maxFileSizeMb`, is refused in the dialog with its reason. |
 | Analysing | The file name and a spinner, while the server reads the export and writes nothing. |
-| Review | The report of the dry run (below), and two buttons: **Import** and **Cancel**. A report with nothing to import (every submission already imported) shows **Close** alone. |
+| Review | The report of the dry run (below), and two buttons: **Import** and **Cancel**. A report with nothing to import (every submission already imported) shows **Close** alone. While another import runs on the site, **Import** is refused with that reason. |
 | Importing | The file name and a spinner. The dialog cannot be closed. |
 | Done | Moonstone's `Check` icon, then the final report. **Close** refreshes the list of entries. |
 | Failed | The reason, as the server gives it (a file that holds no Forms results, a broken export, a lost connection), and **Try again**. |
 
 **The server.** The file is uploaded once, by a `POST` to an endpoint of the engine on the current site.
 It is stored in the repository, not on the disk of one server: a `fmdb:importJob` node under
-`formidable-results/import-jobs`, in live, holds the file and the state of the job, with its ACL
-inheritance broken as on a results entry. Each phase is a job of Jahia's scheduler: the upload starts the
+`formidable-results/import-jobs`, in live, holds the file and the state of the job. Each phase is a job of Jahia's scheduler: the upload starts the
 dry run, and **Import** starts the import on the same node. The endpoint answers each start with the job's
 identifier, and the dialog asks for its state every second until it ends, so that a long phase never runs
 into a proxy timeout.
@@ -366,6 +383,18 @@ into a proxy timeout.
 On a cluster, the job runs on whichever server the scheduler picks, and the poll and **Import** reach
 whichever server the load balancer picks. All of them read the file and the state from the repository, so
 no server needs to be the one that took the upload.
+
+**One import at a time per site.** The check on `sourceId` happens before a batch is written, so two
+imports of overlapping exports, from two tabs or two administrators, could both find a result absent and
+both write it. **Import** therefore claims the site first: it sets `runningImport` on `import-jobs` to
+its job, in one save, and only when the property is empty. Two claims at the same instant change the same
+property, so the repository refuses the second save, and that **Import** is refused too. A refused
+**Import** keeps the dialog in the review state with its reason ("another import is running on this
+site"). The import clears the property when it ends, whether it succeeded or failed. A server that stops
+mid-import cannot clear it, so a claim is taken over when its job node is gone, or when that job has saved
+no batch for ten minutes; the import that takes it over finds the submissions already written by their
+`sourceId`. Dry runs write
+nothing, so they need no claim and can run side by side.
 
 The import writes the submissions by batches of 100 and saves each batch on its own. The job node is
 removed when the import ends, when the administrator cancels, or one hour after a dry run that no import
@@ -517,12 +546,14 @@ results through iteration 2. This iteration needs its own specification. Four po
   reads the final report. It then checks the count, the values, the dates, the **Imported** status,
   the labels from the snapshot, the export headers and the imported origin on the Results page. A second
   run of the import must duplicate nothing, and a file that holds no results, the export of a single form,
-  must end in the failed state with its reason.
+  must end in the failed state with its reason. An **Import** clicked while another import runs on the
+  site must be refused with its reason.
 - **A Cypress spec for iteration 2.** The spec attaches the imported results to a form with three fields:
   one with the same node name, one with the same label, and one that the administrator picks. The spec
   checks the labels, the renamed values and the readers. It then attaches a second source to the same
   form and checks the merge: each source keeps its labels, and neither a native submission of the form nor
-  the submissions of the first source lose a value that holds a name the second mapping renames.
+  the submissions of the first source lose a value that holds a name the second mapping renames. Last,
+  it deletes the form and checks that the entry shows **Form deleted**, not **Imported**.
 
 ## Open points
 
