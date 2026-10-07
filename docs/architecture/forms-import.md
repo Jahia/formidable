@@ -51,7 +51,7 @@ This document specifies iterations 1 and 2. Iterations 3 and 4 are listed under
 |---|---|
 | Forms 3.x: the field types of `forms-core` 3.x, and the two that `forms-extended-inputs` adds with a value (image checkboxes, accept terms) | Forms 2.x and older |
 | Every submission that the Forms *save to JCR* action saved, files included | The forms themselves, which are iterations 3 and 4 |
-| An import started from the Results page, with a report at its end, which can run again | The drafts that a visitor saved with *save the form for later* (`fcnt:storedForm`), which are not submissions |
+| An import started from the Results page of the target site: a dry run and its report, then the import, which can run again | The drafts that a visitor saved with *save the form for later* (`fcnt:storedForm`), which are not submissions |
 | | The pages that place a Forms form (`fcnt:formReference`) |
 | | Any deletion in Forms: the import never modifies the source |
 
@@ -68,7 +68,7 @@ This document specifies iterations 1 and 2. Iterations 3 and 4 are listed under
 | **`origin` = `jahia-forms` on an imported submission** | `origin` is the discriminator that [Save to JCR](save-to-jcr.md) documents for "a legacy-forms import". The Results page and the exports can tell an imported submission from a native one. |
 | **Before iteration 2, only administrators read the imported results** | The readers of a results entry are synced from the grants of its form, and an imported entry has no form yet. |
 | **A Forms form is identified by its path in the export, never by a UUID** | The export of `formFactory` carries no `jcr:uuid`: `parentForm` is written as a path, `#/forms/contact-us`. The path is all the import can read, so it keys the entry and the runs that follow. |
-| **The import starts from the Results page, behind a setting** | An **Import** button in the toolbar of the Results page, off by default, opens a dialog that takes the export file. See [Running it](#running-it). |
+| **The import starts from the Results page, behind a setting** | An **Import** button in the toolbar of the Results page, off by default, opens a dialog that takes the export file, shows the report of a dry run, then imports into the current site. See [Running it](#running-it). |
 
 ## Source model (Forms 3.x)
 
@@ -271,15 +271,23 @@ button opens. `formidable-forms-import` registers its **Import** entry there. Th
 the module answers that `importButtonEnabled` is on and the user is an administrator of the current site;
 the endpoint checks both again.
 
-**The dialog.** The **Import** button carries Moonstone's `Upload` icon. It opens a dialog in four
-states:
+**The site.** The import writes into the site whose Results page is open. A `formFactory` export belongs
+to one site, and its paths are relative to its root, so nothing in the file names a site: the administrator
+opens the Results page of the target site, which may differ from the source site.
+
+**The dialog.** The **Import** button carries Moonstone's `Upload` icon. It opens a dialog that runs a dry
+run first, then the import:
 
 ```mermaid
 stateDiagram-v2
     [*] --> Waiting
-    Waiting --> Importing: a .zip or .xml file, dropped or chosen
+    Waiting --> Analysing: a .zip or .xml file, dropped or chosen
+    Analysing --> Review: the dry run ends
+    Review --> Importing: Import
+    Review --> [*]: Cancel
     Importing --> Done: the import ends
-    Importing --> Failed: the file is refused, or the import stops
+    Analysing --> Failed: the file is refused, or the dry run stops
+    Importing --> Failed: the import stops
     Failed --> Waiting: Try again
     Done --> [*]: Close
     Waiting --> [*]: Cancel
@@ -288,19 +296,21 @@ stateDiagram-v2
 | State | What the dialog shows |
 |---|---|
 | Waiting | A drop zone that takes a `.zip` or an `.xml` file by drag and drop, and a **Choose a file** button that opens the file picker. Another type, or a file above `maxFileSizeMb`, is refused in the dialog with its reason. |
+| Analysing | The file name and a spinner, while the server reads the export and writes nothing. |
+| Review | The report of the dry run (below), and two buttons: **Import** and **Cancel**. A report with nothing to import (every submission already imported) shows **Close** alone. |
 | Importing | The file name and a spinner. The dialog cannot be closed. |
-| Done | Moonstone's `Check` icon, then the report: the counts per Forms form. **Close** refreshes the list of entries. |
+| Done | Moonstone's `Check` icon, then the final report. **Close** refreshes the list of entries. |
 | Failed | The reason, as the server gives it (a file that holds no Forms results, a broken export, a lost connection), and **Try again**. |
 
-**The server.** The upload is a `POST` to an endpoint of the module, on the current site. The endpoint
-starts the import and answers with a job identifier; the dialog asks for the job's state every second
-until it ends, so that a long import never runs into a proxy timeout. The import writes the submissions by
-batches of 100 and saves each batch on its own. The file is read from a temporary file, which is deleted
-when the job ends.
+**The server.** The file is uploaded once, by a `POST` to an endpoint of the module on the current site,
+and kept in a temporary file. Each phase is a job: the upload starts the dry run, and **Import** starts the
+import on the same file. The endpoint answers each start with a job identifier, and the dialog asks for the
+job's state every second until it ends, so that a long phase never runs into a proxy timeout. The import
+writes the submissions by batches of 100 and saves each batch on its own. The temporary file is deleted
+when the import ends, when the administrator cancels, or one hour after the dry run.
 
-There is no dry run: an import that runs again duplicates nothing (see
-[Running it twice](#running-it-twice)), and the report after the import gives the same figures that a dry
-run would have given.
+The dry run and the import read the export the same way, so the final report gives the figures of the dry
+run, except for submissions that another import wrote in between.
 
 The report gives, per Forms form:
 
@@ -424,8 +434,9 @@ results through iteration 2. This iteration needs its own specification. Four po
   at the offsets −11, −4, 0, +2, +9 and +11 hours, and at +13, where it gives the previous day as
   documented. The fixtures are the anonymised sample exports.
 - **A Cypress spec for iteration 1.** The **Import** button is absent while `importButtonEnabled` is off,
-  and absent for an editor once it is on. The spec drops the sample export on the dialog, waits for the
-  check and reads the report. It then checks the count, the values, the dates, the **Imported** status,
+  and absent for an editor once it is on. The spec drops the sample export on the dialog, reads the
+  dry-run report and checks that nothing is written yet, clicks **Import**, waits for the check and
+  reads the final report. It then checks the count, the values, the dates, the **Imported** status,
   the labels from the snapshot, the export headers and the imported origin on the Results page. A second
   run of the import must duplicate nothing, and a file that holds no results, the export of a single form,
   must end in the failed state with its reason.
