@@ -61,7 +61,7 @@ multiple times has no side effects.
 - **Publication validates rights.** Modifying permissions in EDIT without
   publishing has no effect on results access.
 - **Propagation is unidirectional.** ACEs flow from the form to the formResults
-  node, never the other way. Do not edit formResults ACLs directly.
+  node, never the other way. Do not edit formResults ACLs directly (the one exception: a deleted form, see below).
 - **Form editing uses standard Jahia roles.** The `editor` and `contributor`
   roles control who can edit a form. No custom role is needed for this.
 - **GraphQL respects ACLs.** The results dashboard only shows `formResults`
@@ -127,6 +127,28 @@ and its entry comes back to life with the next submission once the form is
 published again. (A user who cannot read the form in the edit workspace sees
 **Form deleted** for an unpublished form too; such a user has no deletion
 rights, so nothing is at stake.)
+
+### Who can read the results of a deleted form
+
+Access stays as it was at the form's last publication. The ACEs reach the
+`formResults` node only when the form is published, and once the form is gone
+from live, nothing syncs them again: the users and groups that held
+`fmdb-results-reader` keep reading the results, and the form's **Permissions**
+screen, the only place where that access is managed, no longer exists. Group
+membership still applies, so removing a user from a group that holds the role
+removes that user's access.
+
+To end the access of a user or group, a site administrator has two options:
+
+1. **Remove the entry.** On the Results page, **Delete** → **Delete all
+   results** removes the submissions and their ACL together (see below).
+   Export the results first if the data must be kept.
+2. **Edit the ACL of the results directly.** In the live workspace, remove the
+   user's or group's `jnt:ace` under the `j:acl` of the `formResults` node
+   (Jahia's JCR browser, or a GraphQL mutation). The rule against editing these
+   ACLs directly protects the sync from the form; a deleted form has no sync
+   left to protect. Do not do it for an **unpublished** form: its next
+   publication syncs the ACEs from the form again and undoes the change.
 
 ## Removing a form's entry from the Results page
 
