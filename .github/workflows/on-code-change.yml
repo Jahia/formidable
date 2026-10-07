@@ -97,17 +97,19 @@ jobs:
           nexus_username: ${{ secrets.NEXUS_USERNAME }}
           nexus_password: ${{ secrets.NEXUS_PASSWORD }}
           module_id: formidable
-      # The jExperience integration's Import-Package ranges promise jExperience 3.4+, and the module compiles against
-      # 4.2.1: recompiling it against jexperience.floor.version is what fails on a call that exists only on the 4.x line,
-      # which the ranges would otherwise let through to a NoSuchMethodError in a customer's log. The build above ran
-      # `mvn clean install`, so the engine it depends on is in the local repository: one module compiles here, no
-      # second reactor build. The floor's POM chain comes from the enterprise repository the profile declares, behind
-      # the same credentials as the build.
-      - name: Compile the jExperience integration against the floor of its OSGi ranges
+      # The jExperience integration's Import-Package ranges promise jExperience 3.4 to any 4.x, and the build above
+      # compiled it against the floor, 3.4.0: recompiling it against jexperience.ceiling.version is what fails on a call
+      # to a member the 4.x line removed, which the ranges would otherwise let through to a NoSuchMethodError in a
+      # customer's log. The build above ran `mvn clean install`, so the engine it depends on is in the local repository:
+      # one module compiles here, no second reactor build. `clean` is not optional: the module's classes are already
+      # in target/, and the incremental compiler does not recompile them when only a dependency changed, so without it
+      # this step goes green whatever the 4.x API says. The 4.x artifact comes from the internal repository the
+      # profile declares, behind the same credentials as the build.
+      - name: Compile the jExperience integration against the ceiling of its OSGi ranges
         env:
           NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
           NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
-        run: mvn -s .github/maven.settings.xml -B -pl formidable-jexperience-engine -P jexperience-floor -DskipTests test-compile
+        run: mvn -s .github/maven.settings.xml -B -pl formidable-jexperience-engine -P jexperience-ceiling -DskipTests clean test-compile
 
   sonar-analysis:
     name: Sonar Analysis

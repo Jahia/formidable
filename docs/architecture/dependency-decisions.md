@@ -76,10 +76,13 @@ This project uses two distinct dependency strategies in its Java modules:
 
 ### Provided libraries
 
-- `org.jahia.modules:jexperience` 4.2.1 — compile-time API for `ContextServerService` and the Unomi
-  `PropertyType`; `provided`, every transitive excluded. The artifact is only on Nexus' internal
-  group, so the module pom declares that repository and the build needs the matching server
-  credentials (`.github/maven.settings.xml` in CI, a developer's own `settings.xml` locally).
+- `org.jahia.modules:jexperience` 3.4.0, the floor of the OSGi ranges below — compile-time API for
+  `ContextServerService` and the Unomi `PropertyType`; `provided`, every transitive excluded. The jar is
+  on Nexus' public group, but the parent pom its descriptor needs (`jexperience-parent`) is only on the
+  enterprise group, so the module pom declares that repository and the build needs the matching server
+  credentials (`.github/maven.settings.xml` in CI, a developer's own `settings.xml` locally). The
+  `jexperience-ceiling` profile swaps in 4.2.1, the newest 4.x published, from Nexus' internal group behind
+  the same credentials (see the ranges below).
 - `org.jahia.modules:formidable-engine` — `provided`, for the exported `api` package only (`ChoiceOptionsResolver`);
   imported as `org.jahia.modules.formidable.engine.api;version="[0.5,1)"`.
 - `commons-lang:commons-lang` — referenced by the signatures of the JCR wrappers the unit tests mock,
@@ -107,13 +110,15 @@ This project uses two distinct dependency strategies in its Java modules:
   Unomi 2.1.0's `PropertyHelper.setProperty`, like 2.5.0's and 3.0.0's, returns on a null value before any
   strategy — the guard the "unanswered field" contract relies on (#340). Exercised end to end on
   jExperience 3.9.0 + jCustomer 2.5.0 (PR #343): resolution, the 18 properties in the editor, the 4 rules,
-  a profile written and read back, the tracker sending. The ranges are held by a gate, not by that one
-  session: the `jexperience-floor` Maven profile recompiles the module and its tests against
-  `jexperience.floor.version` (3.4.0, resolved from Nexus' enterprise group: the jar is on the public group
-  but the parent pom its descriptor needs is not, so the profile declares the enterprise repository behind
-  the credentials the build already carries), and the CI runs it on every change — a call
-  to a member that exists only on the 4.x line (`ContextServerStatus.isNotInError()`) builds green against
-  4.2.1 and fails there, verified with a throwaway probe. The first version of the module, 2026-09-14,
+  a profile written and read back, the tracker sending. The ranges are held by two builds, one per end, not
+  by that one session. The module and its tests compile against the floor, 3.4.0, so a call to a member
+  that exists only on the 4.x line (`ContextServerStatus.isNotInError()`) fails the build instead of a
+  customer's bundle. The `jexperience-ceiling` profile, run by the CI as a second step on every change,
+  recompiles them against 4.2.1, so a call to a member the 4.x line removed fails too: 3.4.0 has members
+  4.2.1 has not, `ContextServerStatus.isAlreadyInError()`, `EventService.getEventProperties()` and
+  `ClusterService.sendEvent(Serializable)` among them (javap on both jars). Until 2026-10-06 the default
+  build compiled against 4.2.1 and a `jexperience-floor` profile held the floor; the default now holds the
+  floor, the end a developer's own build checks too. The first version of the module, 2026-09-14,
   declared `[4,5)` and `[3,4)` although its documentation announced the ranges open to 3.4+: on any 3.x
   the bundle did not resolve.
 - `maven-dependency-plugin:analyze-only` with `failOnWarning`, as in the engine.

@@ -7,7 +7,7 @@
 > lands on the `feat/jexperience-integration` branch and this document is updated as each phase ships.
 > Targets: Formidable 0.5.x with jExperience 3.4 or later and its jCustomer 2.x, or jExperience 4.x and jCustomer
 > 3.x — one bundle, its OSGi ranges `[3.4,5)` on jExperience's admin package and `[2.1,4)` on the Unomi API, held
-> by a CI gate that recompiles the module against the floor (the measurement and the gate:
+> by two builds, the default one against the floor and a CI one against the newest 4.x (the measurement and the builds:
 > [dependency decisions](dependency-decisions.md), "Notes"). Developed and proven on 4.2.1 + jCustomer 3.0.0,
 > exercised end to end on 3.9.0 + jCustomer 2.5.0.
 
