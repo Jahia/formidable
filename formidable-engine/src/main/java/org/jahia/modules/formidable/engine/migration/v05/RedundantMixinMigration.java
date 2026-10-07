@@ -10,10 +10,13 @@ import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.observation.JahiaEventListener;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.jcr.RepositoryException;
 import javax.jcr.nodetype.NodeType;
 import javax.jcr.query.Query;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -44,7 +47,10 @@ import java.util.Map;
  * {@code fmdbsample:blockedWordsAction} still reported no feedback supertype until the samples module was
  * redeployed), hence the rerun on any module's redeploy. Keyed on content state: re-running is a no-op
  * once no node lists a retired mixin. The carriers are found by their {@code jcr:mixinTypes} value, not
- * by the mixin as a query type, so the lookup asks nothing of the type registry.
+ * by the mixin as a query type, so the lookup asks nothing of the registry about the mixin. It does need
+ * the node type it selects from: a type the registry does not know yet — {@code fmdb:inputNumber} while
+ * the formidable-elements of 0.3 still runs, on the direct 0.3 upgrade path — holds no node, and is
+ * skipped instead of failing the whole workspace.
  *
  * <p>No Cypress spec exercises this one, unlike its siblings: the legacy state — a node listing a mixin its
  * type includes — cannot be produced on a fresh instance (Jackrabbit silently ignores {@code addMixin} of
@@ -58,6 +64,8 @@ import java.util.Map;
 @Component(service = {RedundantMixinMigration.class, JahiaEventListener.class}, immediate = true)
 @RemovedIn("0.6")
 public class RedundantMixinMigration extends ElementsRedeployRetriggeredMigration {
+
+    private static final Logger log = LoggerFactory.getLogger(RedundantMixinMigration.class);
 
     /**
      * The type whose nodes may still list the mixin, to the mixin it includes as a supertype since 0.5.0 —
@@ -93,7 +101,7 @@ public class RedundantMixinMigration extends ElementsRedeployRetriggeredMigratio
     /** @return the number of migrated nodes */
     private int migrateWorkspace(JCRSessionWrapper session, String workspace) throws RepositoryException {
         Tally tally = new Tally();
-        for (Map.Entry<String, String> retired : RETIRED_MIXINS.entrySet()) {
+        for (Map.Entry<String, String> retired : retiredMixinsOfRegisteredTypes(session, workspace).entrySet()) {
             JCRNodeIteratorWrapper nodes = carriersOf(session, retired.getKey(), retired.getValue());
             while (nodes.hasNext()) {
                 tally.add(migrateOne(session, (JCRNodeWrapper) nodes.nextNode(), retired.getValue(), workspace));
@@ -101,6 +109,25 @@ public class RedundantMixinMigration extends ElementsRedeployRetriggeredMigratio
         }
         logSummary(workspace, tally);
         return tally.of(Outcome.MIGRATED);
+    }
+
+    /**
+     * The entries of {@link #RETIRED_MIXINS} whose type the registry knows. Querying an unregistered type
+     * throws, and no node can be of a type that is not registered: an older formidable-elements still
+     * running (no {@code fmdb:inputNumber} in 0.3) leaves that type to the rerun its redeploy fires.
+     */
+    static Map<String, String> retiredMixinsOfRegisteredTypes(JCRSessionWrapper session, String workspace)
+            throws RepositoryException {
+        Map<String, String> registered = new LinkedHashMap<>();
+        for (Map.Entry<String, String> retired : RETIRED_MIXINS.entrySet()) {
+            if (session.getWorkspace().getNodeTypeManager().hasNodeType(retired.getKey())) {
+                registered.put(retired.getKey(), retired.getValue());
+            } else {
+                log.debug("[RedundantMixinMigration] Type {} is not registered, nothing to migrate for it in workspace '{}'",
+                        retired.getKey(), workspace);
+            }
+        }
+        return registered;
     }
 
     /**
