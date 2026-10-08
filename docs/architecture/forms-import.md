@@ -68,7 +68,7 @@ invites to publish the forms.
 | **The submitter's IP address and user name are not imported** | Formidable does not store them for its own submissions, because they are personal data (see [Save to JCR](save-to-jcr.md)). An imported submission must not hold more than a native one. The administration guide states this, so that a site that needs them exports them from Forms first. |
 | **The forms are created unpublished, the results are written in live** | A contributor reviews a form, completes what the import reported, then publishes it: the import never publishes. Until then the Results page shows the entry as **Unpublished**, with the system names of the fields as columns, as for any native form that is not published. Results only exist in live in both products: the import writes them there, as `SaveToJcrFormAction` does, and they are never published. |
 | **`origin` = `jahia-forms` on an imported submission** | `origin` is the discriminator that [Save to JCR](save-to-jcr.md) documents for "a legacy-forms import". The Results page and the exports can tell an imported submission from a native one. |
-| **A Forms form is recognised by its `jcr:uuid`, a field by its `jcr:uuid` too, a submission by its node name** | All three are in the zip export. A later run finds the form it created, the field each value belongs to and the submissions it wrote, and adds only what is missing. See [Running it twice](#running-it-twice). |
+| **A Forms form is recognised by its `jcr:uuid` and by the `jcr:uuid` of its results node, a field by its `jcr:uuid`, a submission by its node name** | All of them are in the zip export. A later run finds the form it created, the field each value belongs to and the submissions it wrote, and adds only what is missing. The form keeps both of its keys because either can be missing: the form's, once Forms deleted the form; the results node's, while the form was never published. See [Running it twice](#running-it-twice). |
 | **The import starts from the Results page, behind a setting** | An **Import** button in the toolbar of the Results page, off by default, opens a dialog that takes the export, shows the report of a dry run, then imports into the current site. See [Running it](#running-it). |
 
 ## Source model (Forms 3.x)
@@ -243,7 +243,8 @@ Each `fcnt:form` of the export becomes one `fmdb:form`:
 A form whose results the export holds but which `forms` no longer holds, because it was deleted in Forms,
 is built from its label nodes alone: one `fmdb:inputText` per label node, or one `fmdb:select` with the
 choices of the label node when it has some, titled and named from the `label` of the label node by the
-same rules as the other fields. Its title is the title of the `fcnt:formResults`.
+same rules as the other fields. Its title is the title of the `fcnt:formResults`, and the `jcr:uuid` of
+that node is its only key (see [Running it twice](#running-it-twice)).
 
 ### The fields
 
@@ -335,7 +336,7 @@ published, which is the reason to generate them: `text-input_0_1` would stand th
 
 | Forms action | Formidable action |
 |---|---|
-| `saveToJcrAction` | `fmdb:save2jcrAction`, so that the form keeps saving once published. It is created even when Forms had none: the imported results need the entry. |
+| `saveToJcrAction` | `fmdb:save2jcrAction`, so that the form keeps saving once published. A form that Forms did not save gets no action: the imported results need the entry, which the import creates itself, not the action, and a form that starts keeping the personal data of its visitors must be a choice of the site, not of the import. The report says: "Forms did not save this form's submissions; add *Save to JCR* to keep saving them." |
 | `sendEmailAction` | `fmdb:emailNotificationAction`, with the recipients, the sender and the subject of the Forms action; the body is reported, because the two templates differ |
 | `sendEmailToSubmitterAction` | `fmdb:emailNotificationAction` with no recipient, reported: Formidable has no action that writes to the submitter |
 | `redirectToAPageAction`, `redirectToUrlAction` | Reported, with the target, until the [redirect action](redirect-action.md) ships |
@@ -362,9 +363,12 @@ Forms: `sourceSystem` does.
 
 ```cnd
 // On a form the import created. sourceId is what a later run looks up, hence indexed.
+// sourceId is the jcr:uuid of the Forms form, sourceResultsId the jcr:uuid of its fcnt:formResults; a
+// later run looks a form up by either, hence both indexed. At least one is set.
 [fmdbmix:importedForm] mixin
  - sourceSystem (string) mandatory indexed=no
- - sourceId (string) mandatory
+ - sourceId (string)
+ - sourceResultsId (string)
  - sourcePath (string) indexed=no
 
 // On a field the import created: the Forms field it stands for, and the Forms name its values had.
@@ -377,7 +381,8 @@ Forms: `sourceSystem` does.
  - sourceSystem (string) mandatory indexed=no
  - sourceFormIds (string) multiple indexed=no
 
-// On an imported submission. sourceId is what a later run looks up, hence indexed.
+// On an imported submission. sourceId is what a later run looks up, hence indexed. sourceFormId is the
+// key of its source form: the form's sourceId, or its sourceResultsId when Forms had deleted the form.
 [fmdbmix:importedSubmission] mixin
  - sourceId (string) mandatory
  - sourceFormId (string) mandatory indexed=no
@@ -433,6 +438,7 @@ stateDiagram-v2
     Review --> Importing: Import
     Review --> [*]: Cancel
     Importing --> Done: the import ends
+    Importing --> [*]: Close, the job goes on
     Analysing --> Failed: the file is refused, or the dry run stops
     Importing --> Failed: the import stops
     Failed --> Waiting: Try again
@@ -442,41 +448,48 @@ stateDiagram-v2
 
 | State | What the dialog shows |
 |---|---|
-| Waiting | A drop zone that takes a `.zip` file by drag and drop, and a **Choose a file** button that opens the file picker. Another type, or a file above `maxFileSizeMb`, is refused in the dialog with its reason. |
+| Waiting | A drop zone that takes a `.zip` file by drag and drop, and a **Choose a file** button that opens the file picker. Another type, or a file above `maxFileSizeMb`, is refused in the dialog with its reason. The dialog opens in this state unless the site has an import that is running, or that ended and whose report nobody has read: it then opens in that job's state. |
 | Analysing | The file name and a spinner, while the server reads the export and writes nothing. |
 | Review | The report of the dry run (below), and two buttons: **Import** and **Cancel**. A report with nothing to import (every form and every submission already imported) shows **Close** alone. While another import runs on the site, **Import** is refused with that reason. |
-| Importing | The file name and a spinner. The dialog cannot be closed. |
+| Importing | The file name and a spinner. The dialog can be closed: the job goes on without it, and the dialog, opened again on this site, shows the running import, or its end state once it has ended. |
 | Done | Moonstone's `Check` icon, then the final report, which ends with the invitation to publish the forms. **Close** refreshes the list of entries. |
 | Failed | The reason, as the server gives it (an export without results, a broken zip, a lost connection), and **Try again**. |
 
 **The server.** The file is uploaded once, by a `POST` to an endpoint of the engine on the current site.
 It is stored in the repository, not on the disk of one server: a `fmdb:importJob` node under
 `formidable-results/import-jobs`, in live, holds the file and the state of the job. Each phase is a job of
-Jahia's scheduler: the upload starts the dry run, and **Import** starts the import on the same node. The
-endpoint answers each start with the job's identifier, and the dialog asks for its state every second
-until it ends, so that a long phase never runs into a proxy timeout.
+Jahia's **persistent** scheduler, the one backed by the database (`SchedulerService`), not the RAM one,
+which would lose both the uniqueness and the recovery below: the upload starts the dry run, and **Import**
+starts the import on the same node. The endpoint answers each start with the job's identifier, and the
+dialog asks for its state every second until it ends, so that a long phase never runs into a proxy
+timeout.
 
 The reader is a streaming XML parser (StAX), because an export of 200 MB does not fit in memory as a
 document, and it is read twice, by the dry run and by the import. It reads the two `repository.xml`
 entries of the zip and the binaries that the submissions reference, nothing else, with external entities
 disabled and each entry bounded in size.
 
-On a cluster, the job runs on whichever server the scheduler picks, and the poll and **Import** reach
-whichever server the load balancer picks. All of them read the file and the state from the repository, so
-no server needs to be the one that took the upload.
+On a cluster, the persistent scheduler runs on the processing server only, so the jobs run there, while
+the upload, the poll and **Import** reach whichever server the load balancer picks. All of them read the
+file and the state from the repository, so no server needs to be the one that took the upload.
 
 **One import at a time per site.** The check on `sourceId` happens before a batch is written, so two
 imports of overlapping exports, from two tabs or two administrators, could both find a submission absent
 and both write it. The import job is therefore scheduled under one name per site,
-`forms-import-<siteKey>`: the scheduler holds one job of a name at a time, so the second **Import** finds
-the job and is refused, in the review state, with its reason ("another import is running on this site").
-A server that stops mid-import leaves its job to the scheduler, which runs it again on another server
-(the job requests recovery); the import then finds the forms and the submissions already written by their
-`sourceId`. Dry runs write nothing, so each runs under its own name, side by side.
+`forms-import-<siteKey>`: the persistent scheduler holds one job of a name at a time, across the cluster,
+so the second **Import** finds the job and is refused, in the review state, with its reason ("another
+import is running on this site"). A processing server that stops mid-import leaves its job in the
+database; the job requests recovery, so it runs again when that server is back, and the import then finds
+the forms and the submissions already written by their `sourceId`. Until then the job reads as running,
+in the dialog of anyone who opens it on that site. Dry runs write nothing, so each runs under its own
+name, side by side.
 
 The import writes the forms first, then the submissions by batches of 100, and saves each batch on its
-own. The job node is removed when the import ends, when the administrator cancels, or one hour after a dry
-run that no import followed. Once an import has started, only its end removes the node.
+own. When a phase ends, the job node keeps its end state and its report, and the import drops the `file`
+child, which has served. The dialog reads the report from the node, then **Close** removes the node, so a
+reload, or a second administrator, still finds the report until someone has read it. A node nobody read
+is removed one hour after its end, as is a dry run that no import followed; **Cancel** removes the node
+too. A running import is never removed.
 
 The dry run and the import read the export the same way, so the final report gives the figures of the dry
 run, except for what another import wrote in between.
@@ -496,9 +509,13 @@ contributor reviews each form, completes what the report lists, then publishes i
 
 ### Running it twice
 
-Each form the import creates carries `fmdbmix:importedForm`, whose `sourceId` is the `jcr:uuid` of the
-Forms form, and each submission carries `fmdbmix:importedSubmission`, whose `sourceId` is the UUID of the
-Forms result. A later run finds both, wherever they live in the site: a form moved out of
+Each form the import creates carries `fmdbmix:importedForm`, with the `jcr:uuid` of the Forms form as
+`sourceId` and the `jcr:uuid` of its `fcnt:formResults` as `sourceResultsId`, each when the export holds
+it, and each submission carries `fmdbmix:importedSubmission`, whose `sourceId` is the UUID of the Forms
+result. A later run looks a form up by either key, because an export can lose one of them: a form deleted
+in Forms between two exports keeps only its results node, which the second run matches on
+`sourceResultsId` instead of creating an empty twin; a form never published has no results node yet, and
+matches on `sourceId` until it does. A later run finds forms and submissions wherever they live in the site: a form moved out of
 `imported-forms`, reworked or renamed is found, and left as it is, even when the export changed; a
 submission already imported is skipped. The run adds the forms and the submissions that are missing, into
 the entry of the form it found, and names each value after the field whose `fmdbmix:importedField` carries
@@ -596,7 +613,8 @@ mapping or to another form.
 - **Unit tests.** They cover the reader (the zip, ISO 9075 decoding, multi-values, references, `jcr:uuid`,
   the split at any depth), the type map of each Forms definition, each value conversion, the label rule
   with the trailing `*`, the system name rule (generation, a duplicate label, no label, a reserved key, the
-  32 characters), the form built from the label nodes alone, and the mapping proposal of iteration 2. The date rule is tested at the offsets −11, −4, 0, +2, +9 and +11 hours, and at +13, where
+  32 characters), the form built from the label nodes alone, the lookup of a form by either of its two keys,
+  and the mapping proposal of iteration 2. The date rule is tested at the offsets −11, −4, 0, +2, +9 and +11 hours, and at +13, where
   it gives the previous day as documented. The fixtures are the anonymised sample exports.
 - **A Cypress spec for iteration 1.** The **Import** button is absent while `importButtonEnabled` is off,
   and absent for an editor once it is on. The spec drops the sample zip on the dialog, reads the dry-run
@@ -608,7 +626,8 @@ mapping or to another form.
   columns; the spec publishes `contact-us`, then checks the labels, the count, the values, the dates, the
   imported origin and the exports, while the entry of an unpublished form still shows its system names.
   A second run must duplicate nothing and must leave a title and a field name edited between the runs,
-  the renamed field still receiving its values. An XML export, and a zip without results, must end in the failed state with the
+  the renamed field still receiving its values. A dialog closed during the import and opened again must
+  show the running import, then its report, and the report must be readable after a reload until **Close**. An XML export, and a zip without results, must end in the failed state with the
   procedure. An **Import** clicked while another import runs on the site must be refused with its reason.
 - **A Cypress spec for iteration 2.** The spec attaches the imported results to a form with three fields:
   one with the same node name, one with the same label, and one that the administrator picks. The spec
