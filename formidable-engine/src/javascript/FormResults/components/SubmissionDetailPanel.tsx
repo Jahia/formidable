@@ -49,7 +49,7 @@ export const SubmissionDetailPanel = ({submission, formFields, onClose}: Submiss
     ].filter(item => item.value);
 
     return (
-        <aside style={{
+        <aside data-sel-role="submission-detail" style={{
             flex: '0 0 500px',
             display: 'flex',
             flexDirection: 'column',

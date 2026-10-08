@@ -127,7 +127,9 @@
 			"exportTitle": "Exporter les résultats du formulaire sélectionné",
 			"delete": "Supprimer",
 			"deleteTitle": "Supprimer les résultats du formulaire sélectionné",
-			"refresh": "Rafraîchir"
+			"refresh": "Rafraîchir",
+			"import": "Importer",
+			"importTitle": "Importer les formulaires et résultats de Jahia Forms dans ce site"
 		},
 		"empty": {
 			"noForms": "Aucun résultat disponible",
@@ -210,6 +212,45 @@
 				"noResults": "Aucune soumission ne correspond à la plage sélectionnée.",
 				"confirmationMismatch": "Saisissez le nom attendu du formulaire pour confirmer la suppression.",
 				"unexpectedError": "Échec de la suppression."
+			}
+		},
+		"import": {
+			"title": "Importer depuis Jahia Forms",
+			"dropzone": "Déposez ici l'export du nœud formFactory du site, un fichier .zip",
+			"chooseFile": "Choisir un fichier",
+			"fileHint": "Faites l'export dans l'explorateur de dépôt : clic droit sur le nœud formFactory du site, Export, puis Export Zip with live content. Jusqu'à {{max}} Mo.",
+			"analysing": "Analyse de {{file}}…",
+			"importing": "Import{{file}}…",
+			"review": {
+				"title": "Ce que l'import va faire"
+			},
+			"report": {
+				"totals": "{{forms}} formulaire(s), {{found}} soumission(s) trouvée(s), {{toImport}} à importer",
+				"nothing": "Rien à importer : chaque formulaire et chaque soumission sont déjà dans ce site.",
+				"created": "Créé sous le nom « {{name}} » dans {{folder}}",
+				"found": "Déjà importé, dans {{path}}",
+				"submissions": "{{found}} soumission(s) : {{toImport}} à importer, {{already}} déjà importée(s)",
+				"fields": "{{count}} champ(s)",
+				"files": "{{count}} fichier(s), {{size}}",
+				"values": "{{dropped}} valeur(s) écartée(s), {{notConverted}} gardée(s) telles quelles"
+			},
+			"actions": {
+				"import": "Importer",
+				"cancel": "Annuler",
+				"close": "Fermer",
+				"tryAgain": "Réessayer"
+			},
+			"done": {
+				"title": "Import terminé",
+				"nextStep": "Les formulaires sont dans le dossier « Imported from Jahia Forms » du site, non publiés. Tant qu'un formulaire n'est pas publié, son entrée s'affiche comme non publiée avec les noms système des champs en colonnes : relisez chaque formulaire, complétez ce que le rapport liste, puis publiez-le."
+			},
+			"failed": {
+				"title": "L'import a échoué"
+			},
+			"error": {
+				"notZip": "Le fichier doit être un export .zip",
+				"tooLarge": "Le fichier dépasse {{max}} Mo",
+				"unexpected": "Une erreur est survenue, voir le journal du serveur"
 			}
 		}
 	},

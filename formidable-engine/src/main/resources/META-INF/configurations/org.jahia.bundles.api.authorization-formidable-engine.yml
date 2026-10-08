@@ -16,3 +16,12 @@ formidable-field-action:
   grants:
     - api: formidable-field-action
       node: none
+formidable-import:
+  description: Can import the forms and results of another form system into a site, from the Results page
+  metadata:
+    visible: false
+  auto_apply:
+    - origin: hosted
+  grants:
+    - api: formidable-import
+      node: none

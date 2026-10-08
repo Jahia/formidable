@@ -1,8 +1,8 @@
 # Importing forms and results from Jahia Forms
 
 Specification of the import of [Jahia Forms](https://github.com/Jahia/forms-core) (`forms-core` 3.x) forms
-and submissions into Formidable. Status: **draft for review**. Nothing of it is implemented yet. The open
-points are listed at the end, and the spikes there can change parts of the design.
+and submissions into Formidable. Status: iteration 1 implemented in the engine (the reader and the converters first, then the writer, the
+job and the Results page dialog); iteration 2 to come. The open points are listed at the end.
 
 ## Goal and iterations
 
@@ -59,7 +59,7 @@ invites to publish the forms.
 
 | Decision | Why |
 |---|---|
-| **The import reads the zip export of the site's `formFactory` node, taken with its live content** | The source can live on another instance, or on an instance that is being retired, so `forms-core` need not be installed where Formidable runs. The zip is the only export that carries the three things the import needs: the results, which Forms writes in live only; the `jcr:uuid` of every node, which keys the forms; and the uploaded files. See [The export file](#the-export-file). |
+| **The import reads the zip export of the site's `formFactory` node, taken with its live content** | The source can live on another instance, or on an instance that is being retired, so `forms-core` need not be installed where Formidable runs. That zip is the only export that carries the three things the import needs: the `jcr:uuid` of every node, which keys the forms, their fields and their results; the results themselves, which Forms writes in live only; and the uploaded files. The other exports hold the results, but no `jcr:uuid` (spike 3). See [The export file](#the-export-file). |
 | **The import lives in `formidable-engine`, behind a setting** | No module to install, then to keep installed or to uninstall while its markers stay on the nodes. The markers are generic, owned by the engine and written for any source system ([CND module ownership](cnd-module-ownership.md)). Only the reader of the Forms export and the conversion of its forms and values know Forms, in their own package of the engine. |
 | **Every Forms form becomes a Formidable form before its results are written** | A results entry without a form has no labels, no readers and no status, and supporting that state would cost a placeholder form reference, an **Imported** status, a snapshot of the labels rendered by the Results page and the exports. Creating the form first removes all of it: imported results are native results. |
 | **The forms land in one content folder, `contents/imported-forms`** | Formidable forms are contents of the site (`/sites/<site>/contents/...`). One folder keeps the imported forms apart from the forms built by hand, where contributors find them in jContent, review them, move them and publish them. |
@@ -104,9 +104,13 @@ The other two exports hold less, and the dry run refuses them with the reason, a
 
 - **Export XML**, a `repository.xml` alone: it holds the results, but no `jcr:uuid` and no binary, so the
   files of the submissions are lost;
-- **Export Zip**, without live content: it holds the forms and no result (spike 3 confirms it). The same
-  message serves a zip taken from jContent, which reads the edit workspace only, and the export of a
-  single form from the Forms builder.
+- **Export Zip**, without live content: it holds the results too, each live-only node marked
+  `j:originWS="live"`, but no `jcr:uuid` on the forms, the fields or the results (spike 3 measured it on
+  the sample site), so a later run could not find what the first one wrote: refused with the same message
+  as the XML export.
+
+A zip taken from jContent, which reads the edit workspace only, and the export of a single form from the
+Forms builder hold no results at all, and are refused for that, with the same procedure.
 
 The administration guide gives the same procedure, with the two screens.
 
@@ -417,13 +421,15 @@ Forms: `sourceSystem` does.
 [fmdb:importJob] > jnt:content
  - state (string) indexed=no
  - report (string) indexed=no
+ - message (string) indexed=no
+ - updated (date) indexed=no
  + file (jnt:file) = jnt:file
 ```
 
-`fmdb:resultsFolder` gets one named child, `import-jobs` (`fmdb:importJobs`), for the jobs of
-[Running it](#running-it). The name is quoted in the CND: the parser of the Jahia Maven plugin breaks an
-unquoted name at its hyphen. Its ACL inheritance is broken, as on a results entry, so the jobs and their
-files stay with the administrators.
+`fmdb:resultsFolder` gets one child of type `fmdb:importJobs`, for the jobs of [Running it](#running-it):
+a residual child in the CND, found by its type and named `import-jobs` unless a results entry, which is
+named after its form, holds that name already. Its ACL inheritance is broken, as on a results entry, so
+the jobs and their files stay with the administrators.
 
 ### The readers
 
@@ -446,7 +452,9 @@ with the conventions of the other five (see the [administration guide](../admini
 
 The button is off by default: the import is used once per site, and an administrator turns it on for that
 time, then off again. The button shows after **Refresh** when the setting is on and the user is an
-administrator of the current site; the endpoint checks both again.
+administrator of the current site, which is the `site-admin` permission on the site node, the one the
+site-administrator role grants; the endpoint checks both again. The writes themselves run in a system
+session.
 
 **The site.** The import writes into the site whose Results page is open. A `formFactory` export belongs
 to one site, and its paths are relative to its root, so nothing in the file names a site: the administrator
@@ -479,7 +487,7 @@ stateDiagram-v2
 | Review | The report of the dry run (below), and two buttons: **Import** and **Cancel**. A report with nothing to import (every form and every submission already imported) shows **Close** alone. While another import runs on the site, **Import** is refused with that reason. |
 | Importing | The file name and a spinner. The dialog can be closed: the job goes on without it, and the dialog, opened again on this site, shows the running import, or its end state once it has ended. |
 | Done | Moonstone's `Check` icon, then the final report, which ends with the invitation to publish the forms. **Close** refreshes the list of entries. |
-| Failed | The reason, as the server gives it (an export without results, a broken zip, a lost connection), then **Try again** and **Close**. |
+| Failed | The reason, as the server gives it (an export without results or without identifiers, a broken zip, a lost connection), then **Try again** and **Close**. Both remove the failed job: **Try again** goes back to Waiting. |
 
 **The server.** The file is uploaded once, by a `POST` to an endpoint of the engine on the current site.
 It is stored in the repository, not on the disk of one server: a `fmdb:importJob` node under
@@ -508,14 +516,19 @@ import is running on this site"). A processing server that stops mid-import leav
 database; the job requests recovery, so it runs again when that server is back, and the import then finds
 the forms and the submissions already written by their `sourceId`. Until then the job reads as running,
 in the dialog of anyone who opens it on that site. Dry runs write nothing, so each runs under its own
-name, side by side.
+name, side by side. The jobs are durable, so an ended import keeps its name in the scheduler: the next
+**Import** drops it first, and refuses only a job that is still added, scheduled or executing. A job node
+that reads as running while the scheduler holds no active job for it, because the module was stopped or
+redeployed between the schedule and the run, is marked failed, with that reason, the next time the dialog
+asks the site for its job, so that it stops reopening.
 
 The import writes the forms first, then the submissions by batches of 100, and saves each batch on its
 own. When a phase ends, the job node keeps its end state and its report. A dry run keeps its file for the
 import that may follow; the import drops the `file` child when it ends, because it has served. The dialog
 reads the report from the node, then **Close** removes the node, so a reload, or a second administrator,
 still finds the report until someone has read it. A node nobody read is removed one hour after its end, as
-is a dry run that no import followed; **Cancel** removes the node too. A running import is never removed.
+is a dry run that no import followed; **Cancel** removes the node too, even while the dry run runs, which
+then finds nothing to do. A running import is never removed.
 
 The dry run and the import read the export the same way, so the final report gives the figures of the dry
 run, except for what another import wrote in between.
@@ -674,7 +687,7 @@ mapping or to another form.
 | # | Point | Effect |
 |---|---|---|
 | Spike 2 | Which value does an `fmdb:inputDate` submit and store: `yyyy-MM-dd`? | The date conversion |
-| Spike 3 | Does **Export Zip**, without live content, hold any result? The results are written in live only, so none is expected. | The message of the dry run, and the administration guide |
-| 4 | The captcha of a recreated form depends on the captcha configuration of the instance: the import turns it on when a provider is configured, else reports it. To confirm against the captcha settings. | The forms |
+| Spike 3 | Answered: **Export Zip**, without live content, holds the results, marked `j:originWS="live"`, but no `jcr:uuid` at all. The dry run refuses it with the procedure, as it refuses the XML export. | The message of the dry run, and the administration guide |
+| 4 | Answered: a recreated form that displayed a captcha gets `fmdbmix:captcha` only when the instance configures a captcha, its widget and its verification both (`CaptchaConfigService.isCaptchaWidgetConfigured() && isCaptchaVerificationConfigured()`, read by `ImportJobs` and handed to the converter); otherwise the report says that the form displayed one and that the instance configures none. | The forms |
 | 5 | The sample exports hold real email addresses, so they must be anonymised before they are committed as fixtures. | Tests |
 | Spike 4 | Partly answered from the sources of `forms-core` 3.x (`src/main/resources/fcnt_*/html/*.wzd`, the design views and the directives): the option nodes are `textOn`/`textOff` for a switch, `max` for a rating, `value` for a hidden field, `filetype` (a JSON list of groups) and `filenumber` for the file rules, `to`/`cc`/`bcc`/`from`/`subject` for the e-mail action, `redirectto` for both redirects, `yes`/`no`/`termsLabel`/`link` for an accept-terms box; the value shapes of a rating, a matrix, a country and a consent are in [The results](#the-results). Still to confirm on an export that holds them: the labels of a `buttonTriple`, and the entry names of the uploaded files in the zip. | The buttons, the files |

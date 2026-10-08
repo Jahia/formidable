@@ -54,6 +54,16 @@ final class FormsExportZip implements Closeable {
         return edit;
     }
 
+    /** The size of the binary of a file node as the central directory records it, or -1 when the zip holds none. */
+    long binarySize(String nodePath, String fileName) {
+        String tail = nodePath + "/" + fileName;
+        ZipEntry entry = zip.getEntry(LIVE_CONTENT + tail);
+        if (entry == null) {
+            entry = zip.getEntry(CONTENT + tail);
+        }
+        return entry == null ? -1 : entry.getSize();
+    }
+
     boolean hasLiveXml() {
         return zip.getEntry(LIVE_XML) != null;
     }

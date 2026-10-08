@@ -3,6 +3,7 @@ package org.jahia.modules.formidable.engine.imports.jahiaforms;
 import javax.xml.stream.XMLStreamException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Path;
 import java.util.function.Consumer;
 
 /**
@@ -11,12 +12,26 @@ import java.util.function.Consumer;
  * streamed one by one, because an export of a busy site is large and is read twice, by the dry run and
  * by the import.
  */
-public final class FormsExportReader {
+public final class FormsExportReader implements java.io.Closeable {
 
     private final FormsExportZip zip;
 
     FormsExportReader(FormsExportZip zip) {
         this.zip = zip;
+    }
+
+    /** Opens an export file; the caller closes the reader when done with it. */
+    public static FormsExportReader open(Path exportFile) throws IOException {
+        return new FormsExportReader(new FormsExportZip(exportFile));
+    }
+
+    /** The size of an uploaded file in the export, or -1 when the zip does not hold it. */
+    public long binarySize(FormsFile file) {
+        return zip.binarySize(file.path(), file.name());
+    }
+
+    public void close() throws IOException {
+        zip.close();
     }
 
     /**

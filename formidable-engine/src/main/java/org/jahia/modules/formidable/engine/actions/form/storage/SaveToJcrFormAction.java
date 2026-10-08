@@ -44,7 +44,7 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WO
 @Component(service = FormAction.class)
 public class SaveToJcrFormAction implements FormAction {
     private static final Logger log = LoggerFactory.getLogger(SaveToJcrFormAction.class);
-    private static final String RESULTS_ROOT_NAME = "formidable-results";
+    public static final String RESULTS_ROOT_NAME = "formidable-results";
     private static final String SUBMISSION_ORIGIN = "formidable";
     /** The submitter's time zone, sent by the form client as the browser reports it (an IANA zone id). */
     static final String TIME_ZONE_HEADER = "X-Formidable-Time-Zone";
@@ -181,7 +181,7 @@ public class SaveToJcrFormAction implements FormAction {
         return formResults;
     }
 
-    private static JCRNodeWrapper getOrCreateResultsRoot(JCRNodeWrapper siteNode, JCRSessionWrapper session)
+    public static JCRNodeWrapper getOrCreateResultsRoot(JCRNodeWrapper siteNode, JCRSessionWrapper session)
             throws RepositoryException {
         if (siteNode.hasNode(RESULTS_ROOT_NAME)) {
             return siteNode.getNode(RESULTS_ROOT_NAME);
@@ -218,7 +218,8 @@ public class SaveToJcrFormAction implements FormAction {
         return null;
     }
 
-    private static void ensureAutoSplit(JCRNodeWrapper submissions) throws RepositoryException {
+    /** Splits the submissions by year, month and day of jcr:created; the import reuses it on the entries it creates. */
+    public static void ensureAutoSplit(JCRNodeWrapper submissions) throws RepositoryException {
         if (!submissions.isNodeType("jmix:autoSplitFolders")) {
             JCRAutoSplitUtils.enableAutoSplitting(submissions, SPLIT_CONFIG, FmdbNodeType.SPLITTED_SUBMISSION);
         }
@@ -272,8 +273,13 @@ public class SaveToJcrFormAction implements FormAction {
     }
 
     private static String buildSubmissionNodeName() {
+        return submissionNodeName(Instant.now());
+    }
+
+    /** The name of a submission node for the moment it was submitted; the import names its submissions the same way. */
+    public static String submissionNodeName(Instant submittedAt) {
         // Use UTC for this technical identifier so node names stay stable across server JVM timezones.
-        String timestamp = Instant.now().atZone(ZoneOffset.UTC).format(SUBMISSION_NAME_FORMATTER);
+        String timestamp = submittedAt.atZone(ZoneOffset.UTC).format(SUBMISSION_NAME_FORMATTER);
         String shortUuid = UUID.randomUUID().toString().substring(0, 3);
         return "submission-" + timestamp + "-" + shortUuid;
     }

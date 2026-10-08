@@ -127,7 +127,9 @@
 			"exportTitle": "Export the selected form results",
 			"delete": "Delete",
 			"deleteTitle": "Delete the selected form results",
-			"refresh": "Refresh"
+			"refresh": "Refresh",
+			"import": "Import",
+			"importTitle": "Import the forms and results of Jahia Forms into this site"
 		},
 		"empty": {
 			"noForms": "No form results available",
@@ -210,6 +212,45 @@
 				"noResults": "No submissions match the selected range.",
 				"confirmationMismatch": "Type the expected form name to confirm deletion.",
 				"unexpectedError": "Deletion failed."
+			}
+		},
+		"import": {
+			"title": "Import from Jahia Forms",
+			"dropzone": "Drop the export of the site's formFactory node here, a .zip file",
+			"chooseFile": "Choose a file",
+			"fileHint": "Take the export in the Repository explorer: right-click the site's formFactory node, Export, then Export Zip with live content. Up to {{max}} MB.",
+			"analysing": "Analysing {{file}}…",
+			"importing": "Importing{{file}}…",
+			"review": {
+				"title": "What the import will do"
+			},
+			"report": {
+				"totals": "{{forms}} form(s), {{found}} submission(s) found, {{toImport}} to import",
+				"nothing": "Nothing to import: every form and every submission is already in this site.",
+				"created": "Created as \"{{name}}\" in {{folder}}",
+				"found": "Already imported, at {{path}}",
+				"submissions": "{{found}} submission(s): {{toImport}} to import, {{already}} already imported",
+				"fields": "{{count}} field(s)",
+				"files": "{{count}} file(s), {{size}}",
+				"values": "{{dropped}} value(s) dropped, {{notConverted}} kept as stored"
+			},
+			"actions": {
+				"import": "Import",
+				"cancel": "Cancel",
+				"close": "Close",
+				"tryAgain": "Try again"
+			},
+			"done": {
+				"title": "Import done",
+				"nextStep": "The forms are in the \"Imported from Jahia Forms\" folder of the site, unpublished. Until a form is published, its entry shows as Unpublished with the field system names as columns: review each form, complete what the report lists, then publish it."
+			},
+			"failed": {
+				"title": "The import failed"
+			},
+			"error": {
+				"notZip": "The file must be a .zip export",
+				"tooLarge": "The file is larger than {{max}} MB",
+				"unexpected": "Something went wrong, see the server log"
 			}
 		}
 	},
