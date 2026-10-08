@@ -1,16 +1,8 @@
 # formidable Changelog
 
-## 0.4.0
+## 0.5.0
 
 ### New Features
-
-* Added a ready-made title to every new form action (#169)
-
-* Added a New content button to every step and field group in the Page Builder, so an empty one can be filled (#230)
-
-* Improved form authoring with colour-coded zones and icons telling steps, fields and contents apart (#230)
-
-* Added a translatable title to the field and action lists of a form, shown in the Page Builder (#231)
 
 * Added the submitter's time zone to the form results and exports, shown with the other details of a submission (#302)
 
@@ -76,75 +68,17 @@
 
 * Added arrow keys to the Results page: up and down along the forms, right and left between forms and submissions (#373).
 
-* Added live input-mask guidance while typing in text fields (#166)
-
-* Added contributor-authored rich text help under form field labels (#142)
-
-* Improved the select option rows with clearer placeholders and hover hints (#168)
-
-* Changed source-based option settings to be required: a choice field must name the source its options mode needs (#196)
-
-  **Breaking change.** You are affected if you create or import forms programmatically with a source-based options mode: the field can no longer be saved without the settings that mode needs — the source for a declared source, the root category for category options, the root node and content type for content options. The list of manually typed options is NOT required. In the editor nothing changes beyond the standard required indicators; existing forms are not modified, but the next edit of an incomplete field asks for the missing values.
-
-* Added choice-field options filled live from admin-declared sources or categories (#193)
-
-* Changed choice-field option storage to one shared format; existing forms are converted automatically at startup (#193)
-
-  **Breaking change.** You are affected if you built custom views, queries or integrations that read a choice field's option list directly from its stored properties: selects, radios and checkboxes previously each stored their options under their own property, and they now all share a single one. Regular forms need no action: the conversion runs once when the new version starts, in both edit and live, and published forms keep rendering without a republish.
-
-  One case needs attention: a form export made with version 0.3.0 or earlier and imported into an instance already running this version shows empty option lists on its choice fields until the server restarts, which re-runs the conversion. Restart after such an import, or re-save the options in the editor.
-
-* Improved the form preview in jContent: every step and conditional field is shown, instead of a frozen first step (#233)
-
 * Added the settings a new version brings to your configuration files at startup, with their defaults (#374)
 
 * Changed the engine's configuration from one file to five, one per theme (#350)
 
   **Breaking change for administrators.** The single file `karaf/etc/org.jahia.modules.formidable.cfg` (PID `org.jahia.modules.formidable`) is no longer read. Each theme now has its own file, `karaf/etc/org.jahia.modules.formidable.<theme>.cfg`, with `<theme>` one of `captcha`, `uploads`, `choiceOptions`, `formActions`, `fieldActions`; the setting names are unchanged. **Who is affected:** every installation that changed a setting — CAPTCHA keys, upload limits, options sources, forward targets, field action providers — through the file, the provisioning API or the Felix console. **What happens at the first start:** the module copies the five files with their defaults, then carries every setting held at a non-default value in the old configuration into its theme's file (the log line `Carried over from org.jahia.modules.formidable into the theme's file` names them); the old file gets a first line saying it is no longer read, and is never deleted. **What to do:** open the five files after the upgrade and check your settings are there; re-enter any the log reports as not carried over (`Gave up carrying …`); point your provisioning scripts (`editConfiguration`) at the theme's PID. Details in the administration guide, "Configuration files".
 
-* Added choice-field options filled live from the site contents under a picked root (#196)
-
-  The submitted value is the content path relative to the picked root, and the list is capped by a configurable limit: above it the field reports an error instead of silently truncating the options. Note that publishing the form also publishes the picked root and the contents under it; mark drafts as work in progress to keep them out.
-
-* Added support for array entries in datalayer visibility rules (for example dataLayer.0.event) (#193)
-
-* Added browser variables (such as datalayer entries) as conditional logic sources (#172)
-
-* Added date and datetime bounds that follow the submission day, e.g. no birth date in the future (#202)
-
-  **Upgrade impact.** You are affected if your forms use minimum or maximum dates: each bound is now a choice between a fixed date and the current date, and existing fixed bounds are converted automatically when the new version starts, in both edit and live — published forms keep rendering without a republish. Follow the documented installation order (see the upgrade notes), as for every upgrade that changes content definitions.
-
-  One case needs attention: a form export made with version 0.3.0 or earlier and imported into an instance already running this version keeps its date bounds enforced when the form is submitted, but the date pickers and the editor do not show them until the server restarts, which re-runs the conversion. Restart after such an import, or re-select the bounds in the editor.
-
-* Added date bounds at an offset from the submission day, e.g. age limits or booking windows (#210)
-
-* Added the German and Spanish translations of every form element and form action label (#251)
-
-* Added optional rating, scale, switch and consent fields, logic-ready and validated server-side (#172)
-
-* Added numeric and boolean logic operators, with rules that survive renames, copies and imports (#172)
-
 * Improved file fields: allowed types can be given as extensions, and fields offer only the types still allowed (#351)
 
   Every allowed type, even one an administrator adds, shows its extensions and a clear name. An empty list of allowed types now refuses every file instead of accepting any, and `*/*` accepts any file; an installation whose list was empty keeps accepting any file after the upgrade. A type removed from the list is no longer accepted by the fields that named it. The setting `uploadAllowedMimeTypes` is renamed `uploadAllowedTypes`; its value is carried over at the upgrade, but provisioning scripts must use the new name.
 
-* Changed the editing of multi-step forms: every step is shown at once while authoring, with no step navigation (#230)
-
 * Added a visible line for hidden fields in Page Builder, so you can select and edit them (#382)
-
-* Added a number field with spinner, minimum/maximum/step constraints and range validation messages (#175)
-
-* Added a slider field with range bounds, end labels and tick marks, counted as answered on interaction (#176)
-
-* Hardened form submissions by rejecting values for fields proven hidden by their display conditions (#183)
-
-* Added URL parameters and cookies as conditions for showing or hiding a form field (#182)
-
-* Added a style hook on fields driven by conditional logic, so template sets can flag them, notably in edit mode (#227)
-
-* Added text, textarea and email fields as conditional logic sources (filled, empty, equals, contains) (#174)
-
-* Added conditional logic date criteria that compare against the submission day instead of a fixed date (#205)
 
 * Changed the thirteen prefixed properties of choice and date fields to unprefixed names, migrated at startup (#312)
 
@@ -168,6 +102,113 @@
     engine afterwards so the imported fields are renamed too.
   * **How to check**: `jahia.log` reports how many fields were renamed at startup (`Renamed the
     prefixed mixin properties of N field(s)`), and a field reads back under the new names in GraphQL.
+
+### Bug Fixes
+
+* Fixed the success message so a slow submission no longer waits an extra half second before showing it (#332)
+
+* Fixed an unanswered form field writing an empty value into the visitor profile, blocking every later answer (#340)
+
+* Fixed the Results page, which showed an error instead of the list when a form's reference could not be resolved (#366).
+
+* Changed the Results page to mark a deleted or unpublished form with a coloured icon instead of a tag in the list (#367).
+
+* Fixed the save of a field action by a translator, which failed on the behaviour and message settings (#368).
+
+* Improved the form editor: the steps bar switch joins Buttons, the children block is hidden, one note on messages (#371).
+  Under Validation messages, one sentence says that an empty message keeps the browser's, instead of a line under each message.
+  The Logic section is renamed Conditional display, since its rules only show or hide a field.
+  The rules of Conditional display sit right under the section title, with one sentence on what they do.
+  On an email field, the Multiple emails switch sits in Content next to Required, as on a select or a file field.
+  The settings of a field action sit right under Configuration, without a fieldset title.
+  On the Results page, a form that lost its publication reads "Form unpublished" and a removed one "Form deleted"; deleting all results says once that the form leaves the list.
+
+* Improved the rules editor of Conditional display, which reads a field's sources once instead of twice per rule (#372).
+  Opening a field with rules, or adding a rule, no longer waits on two queries in sequence for every rule row.
+
+* Fixed misleading migration errors in the server log during a direct upgrade from version 0.3 (#390)
+
+* Improved the documentation: one folder per reader — styling, extension, administration, architecture (#307)
+
+* Changed the Field actions switch of a field's editor: it now closes the Field settings section (#377)
+
+* Fixed the file field still listing the uploaded file after a reset or when the visitor starts another submission (#290)
+
+* Fixed the visitor profile integration so it installs next to jExperience 3.4+ and jCustomer 2.x as well as 4.x (#343)
+
+* Fixed date and time answers showing as raw values in the form results (#285)
+
+* Improved the styling guide: every class hook and variable documented, with a map of the rendered form (#303)
+
+## 0.4.0
+
+### New Features
+
+* Added a ready-made title to every new form action (#169)
+
+* Added a New content button to every step and field group in the Page Builder, so an empty one can be filled (#230)
+
+* Improved form authoring with colour-coded zones and icons telling steps, fields and contents apart (#230)
+
+* Added a translatable title to the field and action lists of a form, shown in the Page Builder (#231)
+
+* Added live input-mask guidance while typing in text fields (#166)
+
+* Added contributor-authored rich text help under form field labels (#142)
+
+* Improved the select option rows with clearer placeholders and hover hints (#168)
+
+* Changed source-based option settings to be required: a choice field must name the source its options mode needs (#196)
+
+  **Breaking change.** You are affected if you create or import forms programmatically with a source-based options mode: the field can no longer be saved without the settings that mode needs — the source for a declared source, the root category for category options, the root node and content type for content options. The list of manually typed options is NOT required. In the editor nothing changes beyond the standard required indicators; existing forms are not modified, but the next edit of an incomplete field asks for the missing values.
+
+* Added choice-field options filled live from admin-declared sources or categories (#193)
+
+* Changed choice-field option storage to one shared format; existing forms are converted automatically at startup (#193)
+
+  **Breaking change.** You are affected if you built custom views, queries or integrations that read a choice field's option list directly from its stored properties: selects, radios and checkboxes previously each stored their options under their own property, and they now all share a single one. Regular forms need no action: the conversion runs once when the new version starts, in both edit and live, and published forms keep rendering without a republish.
+
+  One case needs attention: a form export made with version 0.3.0 or earlier and imported into an instance already running this version shows empty option lists on its choice fields until the server restarts, which re-runs the conversion. Restart after such an import, or re-save the options in the editor.
+
+* Improved the form preview in jContent: every step and conditional field is shown, instead of a frozen first step (#233)
+
+* Added choice-field options filled live from the site contents under a picked root (#196)
+
+  The submitted value is the content path relative to the picked root, and the list is capped by a configurable limit: above it the field reports an error instead of silently truncating the options. Note that publishing the form also publishes the picked root and the contents under it; mark drafts as work in progress to keep them out.
+
+* Added support for array entries in datalayer visibility rules (for example dataLayer.0.event) (#193)
+
+* Added browser variables (such as datalayer entries) as conditional logic sources (#172)
+
+* Added date and datetime bounds that follow the submission day, e.g. no birth date in the future (#202)
+
+  **Upgrade impact.** You are affected if your forms use minimum or maximum dates: each bound is now a choice between a fixed date and the current date, and existing fixed bounds are converted automatically when the new version starts, in both edit and live — published forms keep rendering without a republish. Follow the documented installation order (see the upgrade notes), as for every upgrade that changes content definitions.
+
+  One case needs attention: a form export made with version 0.3.0 or earlier and imported into an instance already running this version keeps its date bounds enforced when the form is submitted, but the date pickers and the editor do not show them until the server restarts, which re-runs the conversion. Restart after such an import, or re-select the bounds in the editor.
+
+* Added date bounds at an offset from the submission day, e.g. age limits or booking windows (#210)
+
+* Added the German and Spanish translations of every form element and form action label (#251)
+
+* Added optional rating, scale, switch and consent fields, logic-ready and validated server-side (#172)
+
+* Added numeric and boolean logic operators, with rules that survive renames, copies and imports (#172)
+
+* Changed the editing of multi-step forms: every step is shown at once while authoring, with no step navigation (#230)
+
+* Added a number field with spinner, minimum/maximum/step constraints and range validation messages (#175)
+
+* Added a slider field with range bounds, end labels and tick marks, counted as answered on interaction (#176)
+
+* Hardened form submissions by rejecting values for fields proven hidden by their display conditions (#183)
+
+* Added URL parameters and cookies as conditions for showing or hiding a form field (#182)
+
+* Added a style hook on fields driven by conditional logic, so template sets can flag them, notably in edit mode (#227)
+
+* Added text, textarea and email fields as conditional logic sources (filled, empty, equals, contains) (#174)
+
+* Added conditional logic date criteria that compare against the submission day instead of a fixed date (#205)
 
 * Changed the form rendering module's identity; upgrading from 0.3.0 or earlier requires a one-time reinstall (#187)
 
@@ -196,27 +237,6 @@
   Single-choice selects only: the option is not rendered on multiple selects. Starting empty makes the required validation of the field effective in the browser.
 
 ### Bug Fixes
-
-* Fixed the success message so a slow submission no longer waits an extra half second before showing it (#332)
-
-* Fixed an unanswered form field writing an empty value into the visitor profile, blocking every later answer (#340)
-
-* Fixed the Results page, which showed an error instead of the list when a form's reference could not be resolved (#366).
-
-* Changed the Results page to mark a deleted or unpublished form with a coloured icon instead of a tag in the list (#367).
-
-* Fixed the save of a field action by a translator, which failed on the behaviour and message settings (#368).
-
-* Improved the form editor: the steps bar switch joins Buttons, the children block is hidden, one note on messages (#371).
-  Under Validation messages, one sentence says that an empty message keeps the browser's, instead of a line under each message.
-  The Logic section is renamed Conditional display, since its rules only show or hide a field.
-  The rules of Conditional display sit right under the section title, with one sentence on what they do.
-  On an email field, the Multiple emails switch sits in Content next to Required, as on a select or a file field.
-  The settings of a field action sit right under Configuration, without a fieldset title.
-  On the Results page, a form that lost its publication reads "Form unpublished" and a removed one "Form deleted"; deleting all results says once that the form leaves the list.
-
-* Improved the rules editor of Conditional display, which reads a field's sources once instead of twice per rule (#372).
-  Opening a field with rules, or adding a rule, no longer waits on two queries in sequence for every rule row.
 
 * Changed failed submissions to answer with the status the failing action reported instead of a generic one (#271)
 
@@ -250,11 +270,7 @@
 
 * Improved diagnostics: a condition whose source field was deleted is now reported in the server logs (#274)
 
-* Fixed misleading migration errors in the server log during a direct upgrade from version 0.3 (#390)
-
 * Fixed the upgrade guide and developer documentation drifting from the released behavior (#270)
-
-* Improved the documentation: one folder per reader — styling, extension, administration, architecture (#307)
 
 * Fixed a display glitch when a form intro or message contains rich text (#247)
 
@@ -264,11 +280,7 @@
 
 * Improved failed submissions: the form now stays on screen with its values so visitors can simply retry (#263)
 
-* Changed the Field actions switch of a field's editor: it now closes the Field settings section (#377)
-
 * Fixed form elements leaving a stray identity value on each translation, which made content-integrity scans fail (#215)
-
-* Fixed the file field still listing the uploaded file after a reset or when the visitor starts another submission (#290)
 
 * Improved the content list offered inside a form: fields are grouped together, apart from steps and blocks (#216)
 
@@ -281,8 +293,6 @@
 * Fixed submissions being rejected after a section was hidden while a field inside it had its condition met (#263)
 
 * Fixed forms refusing to send while a required choice field was hidden by conditional logic (#275)
-
-* Fixed the visitor profile integration so it installs next to jExperience 3.4+ and jCustomer 2.x as well as 4.x (#343)
 
 * Removed a misleading unused dependency declaration from the form modules' build files (#272)
 
@@ -330,8 +340,6 @@
 
 * Fixed two simultaneous first submissions splitting a form's results in two (#246)
 
-* Fixed date and time answers showing as raw values in the form results (#285)
-
 * Improved the results screen and exports: submission values follow the order of the fields in the form (#224)
 
 * Improved the reliability of the built-in results reader role titles (#248)
@@ -351,8 +359,6 @@
 * Fixed hiding the steps indicator also disabling step-by-step display and validation (#263)
 
 * Fixed step titles disappearing everywhere when the steps navigation option is turned off (#268)
-
-* Improved the styling guide: every class hook and variable documented, with a map of the rendered form (#303)
 
 * Fixed translated option labels being lost when a migrated choice field was first saved after the upgrade (#278)
 
