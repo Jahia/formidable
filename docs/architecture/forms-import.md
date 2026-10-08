@@ -327,8 +327,8 @@ the rule gives what the contributor would have typed, no more, and the contribut
 badly.
 
 The name is unique in the form: a second field with the same label takes the next free name, `email-1`.
-A field without any label keeps its Forms name, `text-input_0_1`. A generated name that is a reserved key
-of the submission servlet (`FormSubmitServlet.RESERVED_KEYS`) takes a suffix too.
+A field without any label keeps its Forms name, `text-input_0_1`. A generated name that is a request
+parameter the submission pipeline reads for itself (`fid`, `lang`) takes a suffix too.
 
 Each field carries `fmdbmix:importedField`, with the `jcr:uuid` of the Forms field as `sourceId` and its
 Forms node name as `sourceName`: the mapping from the Forms names to the new ones lives on the form, and a
@@ -624,7 +624,7 @@ mapping or to another form.
 
 - **Unit tests.** They cover the reader (the zip, ISO 9075 decoding, multi-values, references, `jcr:uuid`,
   the split at any depth), the type map of each Forms definition, each value conversion, the label rule
-  with the trailing `*`, the system name rule (generation, a duplicate label, no label, a reserved key, the
+  with the trailing `*`, the system name rule (generation, a duplicate label, no label, a reserved name, the
   32 characters), the form built from the label nodes alone, the lookup of a form by either of its two
   keys, and the mapping proposal of iteration 2. The date rule is tested at the offsets −11, −4, 0, +2, +9
   and +11 hours, and at +13, where it gives the previous day as documented. The fixtures are the
@@ -659,3 +659,4 @@ mapping or to another form.
 | Spike 3 | Does **Export Zip**, without live content, hold any result? The results are written in live only, so none is expected. | The message of the dry run, and the administration guide |
 | 4 | The captcha of a recreated form depends on the captcha configuration of the instance: the import turns it on when a provider is configured, else reports it. To confirm against the captcha settings. | The forms |
 | 5 | The sample exports hold real email addresses, so they must be anonymised before they are committed as fixtures. | Tests |
+| Spike 4 | The sample export holds no switch, rating, hidden or button field and no uploaded file: the names of the option nodes of those definitions, and the entry names of the binaries in the zip, are to be confirmed on an export that holds them before the import of those fields and files is relied on. | The fields, the files |
