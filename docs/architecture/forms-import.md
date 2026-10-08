@@ -34,7 +34,7 @@ flowchart LR
 
 | Iteration | What it delivers |
 |---|---|
-| 1. Import | Every Forms form becomes an unpublished Formidable form in the `imported-forms` content folder of the site, with system names generated from the labels, the field types Formidable has, the labels, placeholders, help texts, required rules, choices and actions that map. Every submission the Forms *save to JCR* action stored becomes a submission of that form, files included. The Results page lists, filters and exports them as native results. |
+| 1. Import | Every Forms form becomes an unpublished Formidable form in the `imported-forms` content folder of the site, with system names generated from the labels, the field types Formidable has, the labels, placeholders, help texts, required rules, choices and actions that map. Every submission the Forms *save to JCR* action stored becomes a submission of that form, files included. The Results page lists, filters and exports them as native results, with the labels of the form once it is published. |
 | 2. Attach to another form | An administrator moves the imported results of one Forms form onto another Formidable form, built by hand or reworked: the field names are mapped and renamed, and the results take the readers of that form. |
 
 No result ever exists without a form: iteration 1 creates the form before it writes the first submission,
@@ -217,7 +217,7 @@ of one field land under one name, the system name of the field in the recreated 
 | `imported-forms` | A `jnt:contentFolder` titled *Imported from Jahia Forms*, created by the first import when the site has none. |
 | `<formName>` | A `fmdb:form` with `fmdbmix:importedForm`, named after the Forms form, or the next free name in the folder. [The forms](#the-forms-1) gives its content. |
 | `fields/<fieldName>` | One field per Forms field, named as [The system names](#the-system-names) says, with `fmdbmix:importedField`. A form with several steps holds one `fmdb:step` per `fcnt:step` under `fields`, and the fields of that step under it. |
-| `<entry>` | The `fmdb:formResults` of the new form, as `SaveToJcrFormAction` creates it: `parentForm` set to the form, `buildingLang` from Forms, the ACL inheritance broken. It carries `fmdbmix:importedResults`. |
+| `<entry>` | The `fmdb:formResults` of the new form, as `SaveToJcrFormAction` creates it: named after the form, or the next free name, `parentForm` set to the form, `buildingLang` from Forms, the ACL inheritance broken. It carries `fmdbmix:importedResults`. |
 | `<submission>` | A `fmdb:formSubmission` with `fmdbmix:importedSubmission`. It is named `submission-<yyyyMMdd-HHmmss>-<xxx>` from the original date, in UTC, as `SaveToJcrFormAction` names it. |
 | `data` | The `fmdb:submissionData` node: one string property per field name, multiple for several answers. |
 | `files/<fieldName>/<file>` | A `jnt:folder`, a `jnt:folder` and a `jnt:file`, as `SaveToJcrFormAction` writes them. |
@@ -263,16 +263,20 @@ says. The third column gives what the import writes into `data` for that field, 
 | `selectBasicDefinition`, `selectMultipleDefinition` | `fmdb:select`, `multiple` for the second, with manual options | The option key, one or several, unchanged |
 | `multipleRadiosDefinition`, `multipleRadiosInlineDefinition` | `fmdb:radio` with manual options | The option key |
 | `multipleCheckBoxesDefinition`, `multipleCheckBoxesInlineDefinition` | `fmdb:checkbox` with manual options | The option keys |
-| `switchDefinition` | `fmdb:radio` with the two options `true` and `false`, labelled from the switch's texts, or from the values | `true` or `false`, unchanged |
+| `switchDefinition` | `fmdbext:switch`, its `onLabel` and `offLabel` from the switch's texts; without the extended inputs, `fmdb:radio` with the two options `true` and `false` | `true` or `false`, unchanged |
 | `datePickerDefinition`, `simpleDateDefinition` | `fmdb:inputDate` | `yyyy-MM-dd`: the instant plus 12 hours, truncated to the UTC day (below) |
-| `countryListDefinition` | `fmdb:select` on the `country` options source when the instance declares one (see [Choice field options sources](choice-field-options-sources.md)), else with the choices of the label node | The country code |
-| `ratingDefinition` | `fmdb:inputNumber` | The rating |
+| `countryListDefinition` | `fmdb:select` on the `country` options source when the instance declares one (see [Choice field options sources](choice-field-options-sources.md)), else with the choices of the label node | The country code, the `key` of the `country` object in the JSON |
+| `ratingDefinition` | `fmdbext:rating`, its `maxValue` from the Forms rating; without the extended inputs, `fmdb:inputNumber` | The rating |
 | `matrixRadiosDefinition`, `matrixCheckBoxesDefinition` | `fmdb:textarea`, reported: Formidable has no matrix | One line per row, `row: answer(s)` |
 | `fileUploadDefinition` | `fmdb:inputFile`, `accept` from `fileValidation`, `multiple` from `fileNumberValidation` | The files are copied under `files/<fieldName>/`, and the JSON is dropped |
-| `acceptTermCheckboxDefinition` (`forms-extended-inputs`) | `fmdb:checkbox` with one option, the accepted value | Unchanged |
+| `acceptTermCheckboxDefinition` (`forms-extended-inputs`) | `fmdbext:consent`, its `statement` from the label; without the extended inputs, `fmdb:checkbox` with one option, the accepted value | `true` for the consent, because Forms stores an answer only when the box was ticked; the accepted value, unchanged, for the checkbox |
 | `imageCheckboxDefinition` (`forms-extended-inputs`) | `fmdb:checkbox` with manual options, the images dropped | The option keys |
 | `contentDisplayDefinition` (`forms-extended-inputs`) | Not recreated, reported: it displays a content, submits nothing | — |
 | Any other type | `fmdb:inputText`, reported | Unchanged |
+
+The `fmdbext:*` types belong to `formidable-extended-inputs`. The import uses them when the repository
+registers the type, as the migrations test a type before they query it, and falls back on the
+`formidable-elements` type of the row otherwise, with a line in the report.
 
 For every field:
 
@@ -362,9 +366,9 @@ The engine declares the import's types beside the results types, in `definitions
 Forms: `sourceSystem` does.
 
 ```cnd
-// On a form the import created. sourceId is what a later run looks up, hence indexed.
-// sourceId is the jcr:uuid of the Forms form, sourceResultsId the jcr:uuid of its fcnt:formResults; a
-// later run looks a form up by either, hence both indexed. At least one is set.
+// On a form the import created. sourceId is the jcr:uuid of the Forms form, sourceResultsId the
+// jcr:uuid of its fcnt:formResults; a later run looks a form up by either, hence both indexed. At least
+// one is set.
 [fmdbmix:importedForm] mixin
  - sourceSystem (string) mandatory indexed=no
  - sourceId (string)
@@ -377,9 +381,11 @@ Forms: `sourceSystem` does.
  - sourceName (string) mandatory indexed=no
 
 // On a results entry that holds imported submissions, of one source form or several after iteration 2.
+// mappings holds, per source form, the mapping that an attachment applied (one JSON string each).
 [fmdbmix:importedResults] mixin
  - sourceSystem (string) mandatory indexed=no
  - sourceFormIds (string) multiple indexed=no
+ - mappings (string) multiple indexed=no
 
 // On an imported submission. sourceId is what a later run looks up, hence indexed. sourceFormId is the
 // key of its source form: the form's sourceId, or its sourceResultsId when Forms had deleted the form.
@@ -442,6 +448,7 @@ stateDiagram-v2
     Analysing --> Failed: the file is refused, or the dry run stops
     Importing --> Failed: the import stops
     Failed --> Waiting: Try again
+    Failed --> [*]: Close
     Done --> [*]: Close
     Waiting --> [*]: Cancel
 ```
@@ -453,7 +460,7 @@ stateDiagram-v2
 | Review | The report of the dry run (below), and two buttons: **Import** and **Cancel**. A report with nothing to import (every form and every submission already imported) shows **Close** alone. While another import runs on the site, **Import** is refused with that reason. |
 | Importing | The file name and a spinner. The dialog can be closed: the job goes on without it, and the dialog, opened again on this site, shows the running import, or its end state once it has ended. |
 | Done | Moonstone's `Check` icon, then the final report, which ends with the invitation to publish the forms. **Close** refreshes the list of entries. |
-| Failed | The reason, as the server gives it (an export without results, a broken zip, a lost connection), and **Try again**. |
+| Failed | The reason, as the server gives it (an export without results, a broken zip, a lost connection), then **Try again** and **Close**. |
 
 **The server.** The file is uploaded once, by a `POST` to an endpoint of the engine on the current site.
 It is stored in the repository, not on the disk of one server: a `fmdb:importJob` node under
@@ -485,11 +492,11 @@ in the dialog of anyone who opens it on that site. Dry runs write nothing, so ea
 name, side by side.
 
 The import writes the forms first, then the submissions by batches of 100, and saves each batch on its
-own. When a phase ends, the job node keeps its end state and its report, and the import drops the `file`
-child, which has served. The dialog reads the report from the node, then **Close** removes the node, so a
-reload, or a second administrator, still finds the report until someone has read it. A node nobody read
-is removed one hour after its end, as is a dry run that no import followed; **Cancel** removes the node
-too. A running import is never removed.
+own. When a phase ends, the job node keeps its end state and its report. A dry run keeps its file for the
+import that may follow; the import drops the `file` child when it ends, because it has served. The dialog
+reads the report from the node, then **Close** removes the node, so a reload, or a second administrator,
+still finds the report until someone has read it. A node nobody read is removed one hour after its end, as
+is a dry run that no import followed; **Cancel** removes the node too. A running import is never removed.
 
 The dry run and the import read the export the same way, so the final report gives the figures of the dry
 run, except for what another import wrote in between.
@@ -514,8 +521,11 @@ Each form the import creates carries `fmdbmix:importedForm`, with the `jcr:uuid`
 it, and each submission carries `fmdbmix:importedSubmission`, whose `sourceId` is the UUID of the Forms
 result. A later run looks a form up by either key, because an export can lose one of them: a form deleted
 in Forms between two exports keeps only its results node, which the second run matches on
-`sourceResultsId` instead of creating an empty twin; a form never published has no results node yet, and
-matches on `sourceId` until it does. A later run finds forms and submissions wherever they live in the site: a form moved out of
+`sourceResultsId` instead of creating an empty twin; a form that was never published nor submitted has no
+results node yet (Forms creates it at the first of the two, `FormSubmission`), and matches on `sourceId`
+until it does.
+
+A later run finds forms and submissions wherever they live in the site: a form moved out of
 `imported-forms`, reworked or renamed is found, and left as it is, even when the export changed; a
 submission already imported is skipped. The run adds the forms and the submissions that are missing, into
 the entry of the form it found, and names each value after the field whose `fmdbmix:importedField` carries
@@ -533,8 +543,10 @@ An administrator moves the imported results of one Forms form onto another Formi
 contributor built by hand or reworked. The attachment is part of the engine, like the markers it reads: it
 knows nothing of Forms, so it would serve any later import.
 
-The attachment works on one source form at a time, the submissions of an entry that carry one
-`sourceFormId`. An entry that holds several, after an earlier attachment, asks which one.
+It starts from an **Attach to another form** action on an entry of the Results page, shown on the entries
+that carry `fmdbmix:importedResults`. The attachment works on one source form at a time, the submissions
+of the entry that carry one `sourceFormId`. An entry that holds several, after an earlier attachment, asks
+which one.
 
 ```mermaid
 flowchart TD
@@ -574,7 +586,7 @@ order:
    imported form, in the same language, is proposed, and the administrator confirms it. The rule needs the
    imported form: once it is deleted, the page proposes names and hands alone.
 3. **A choice by hand.** Otherwise, the administrator picks a field of `F`, or keeps the name as it is. A
-   kept name shows on the Results page after the known fields, under its raw name.
+   kept name shows on the Results page after the known fields, under its own name.
 
 A field of `F` takes at most one name. The page refuses a mapping that sends two names to the same field,
 because a submission that holds both would lose one of its values.
@@ -597,9 +609,9 @@ The page shows the mapping as a dry run before it writes anything.
   of another source merged into the same entry, are never touched, even when they hold the same name
   (an `email` field exists in most forms). An attachment that stopped half-way runs again, because
   it no longer finds a name it already renamed.
-- **The mapping applied** is kept on the entry, per source form, so that a later attachment of the same
-  source shows the original names next to the current ones, and so that a wrong mapping is corrected by
-  mapping again.
+- **The mapping applied** is kept on the entry, per source form, in `mappings` of
+  `fmdbmix:importedResults`, so that a later attachment of the same source shows the original names next
+  to the current ones, and so that a wrong mapping is corrected by mapping again.
 - **The readers.** The ACL of the entry is synced from the `fmdb-results-reader` grants of `F`, as for a
   native entry (see [Results permissions](../administration/results-permissions.md)).
 - **The imported form** stays where it is. The report says that it holds no result any more, and the
@@ -613,9 +625,10 @@ mapping or to another form.
 - **Unit tests.** They cover the reader (the zip, ISO 9075 decoding, multi-values, references, `jcr:uuid`,
   the split at any depth), the type map of each Forms definition, each value conversion, the label rule
   with the trailing `*`, the system name rule (generation, a duplicate label, no label, a reserved key, the
-  32 characters), the form built from the label nodes alone, the lookup of a form by either of its two keys,
-  and the mapping proposal of iteration 2. The date rule is tested at the offsets −11, −4, 0, +2, +9 and +11 hours, and at +13, where
-  it gives the previous day as documented. The fixtures are the anonymised sample exports.
+  32 characters), the form built from the label nodes alone, the lookup of a form by either of its two
+  keys, and the mapping proposal of iteration 2. The date rule is tested at the offsets −11, −4, 0, +2, +9
+  and +11 hours, and at +13, where it gives the previous day as documented. The fixtures are the
+  anonymised sample exports.
 - **A Cypress spec for iteration 1.** The **Import** button is absent while `importButtonEnabled` is off,
   and absent for an editor once it is on. The spec drops the sample zip on the dialog, reads the dry-run
   report and checks that nothing is written yet, clicks **Import**, waits for the check and reads the final
@@ -627,8 +640,9 @@ mapping or to another form.
   imported origin and the exports, while the entry of an unpublished form still shows its system names.
   A second run must duplicate nothing and must leave a title and a field name edited between the runs,
   the renamed field still receiving its values. A dialog closed during the import and opened again must
-  show the running import, then its report, and the report must be readable after a reload until **Close**. An XML export, and a zip without results, must end in the failed state with the
-  procedure. An **Import** clicked while another import runs on the site must be refused with its reason.
+  show the running import, then its report, and the report must be readable after a reload until
+  **Close**. An XML export, and a zip without results, must end in the failed state with the procedure.
+  An **Import** clicked while another import runs on the site must be refused with its reason.
 - **A Cypress spec for iteration 2.** The spec attaches the imported results to a form with three fields:
   one with the same node name, one with the same label, and one that the administrator picks. The spec
   checks the labels, the renamed values and the readers. It then attaches a second source to the same
