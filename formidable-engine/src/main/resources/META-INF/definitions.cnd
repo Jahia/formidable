@@ -354,7 +354,7 @@ orderable
 
 [fmdb:resultsFolder] > jnt:content, jmix:accessControlled
  + * (fmdb:formResults) = fmdb:formResults
- + * (fmdb:importJobs) = fmdb:importJobs
+ + 'import-jobs' (fmdb:importJobs) = fmdb:importJobs
 
 // One per form, created in live by the first submission the Save to JCR action stores, named after the
 // form (identity = parentForm). Removed from the Results page by "Delete all results" — the entry goes

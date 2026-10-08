@@ -29,7 +29,8 @@ public record ImportedField(String name, String nodeType, Map<String, String> ti
                             String sourceId, String sourceName, String sourceType, List<String> report)
         implements ImportedElement {
 
-    public static final String REQUIRED = "required";
+    public static final String REQUIRED_PROPERTY = "required";
+    private static final String NO_SUCH_SETTING = " has no such setting";
 
     /**
      * @param accepted the properties the node type declares: a property outside it is reported, not kept,
@@ -72,8 +73,8 @@ public record ImportedField(String name, String nodeType, Map<String, String> ti
 
         /** Marks the field required, or reports it when the type has no such setting. */
         public Builder required(boolean value) {
-            if (value && !accepts(REQUIRED)) {
-                report("required not carried over: " + nodeType + " has no such setting");
+            if (value && !accepts(REQUIRED_PROPERTY)) {
+                report("required not carried over: " + nodeType + NO_SUCH_SETTING);
                 return this;
             }
             required = value;
@@ -86,7 +87,7 @@ public record ImportedField(String name, String nodeType, Map<String, String> ti
                 return this;
             }
             if (!accepts(key)) {
-                return report(key + " (" + value + ") not carried over: " + nodeType + " has no such setting");
+                return report(key + " (" + value + ") not carried over: " + nodeType + NO_SUCH_SETTING);
             }
             properties.put(key, value);
             return this;
@@ -106,7 +107,7 @@ public record ImportedField(String name, String nodeType, Map<String, String> ti
                 return this;
             }
             if (!accepts(key)) {
-                return report(key + " not carried over: " + nodeType + " has no such setting");
+                return report(key + " not carried over: " + nodeType + NO_SUCH_SETTING);
             }
             i18nProperties.put(key, kept);
             return this;

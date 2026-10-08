@@ -91,7 +91,7 @@ class FormsFormConverterTest {
             assertFalse(accepted.isEmpty(), field.nodeType());
             assertTrue(accepted.containsAll(field.properties().keySet()), field.name() + " " + field.properties().keySet());
             assertTrue(accepted.containsAll(field.i18nProperties().keySet()), field.name() + " " + field.i18nProperties().keySet());
-            assertTrue(!field.required() || accepted.contains(ImportedField.REQUIRED), field.name());
+            assertTrue(!field.required() || accepted.contains(ImportedField.REQUIRED_PROPERTY), field.name());
         }
     }
 

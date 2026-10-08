@@ -170,61 +170,80 @@ public final class FormsFormConverter {
 
     /** Writes the settings and the message of a rule the Formidable field can carry; false when it cannot. */
     private static boolean carried(ImportedField.Builder field, FormsValidation rule, FormsFieldTypes.Mapping mapping) {
-        return switch (rule.type()) {
+        switch (rule.type()) {
             case FormsValidation.REQUIRED -> {
                 field.required(true);
-                yield message(field, rule, FormsFieldTypes.MSG_VALUE_MISSING);
+                message(field, rule, FormsFieldTypes.MSG_VALUE_MISSING);
             }
-            case FormsValidation.EMAIL -> mapping.is(FormsFieldTypes.INPUT_EMAIL)
-                    && message(field, rule, FormsFieldTypes.MSG_TYPE_MISMATCH);
-            case FormsValidation.RANGE_LENGTH -> field.accepts(FormsFieldTypes.MIN_LENGTH)
-                    && bounds(field, rule, FormsFieldTypes.MIN_LENGTH, FormsFieldTypes.MAX_LENGTH)
-                    && message(field, rule, FormsFieldTypes.MSG_TOO_SHORT, FormsFieldTypes.MSG_TOO_LONG);
-            case FormsValidation.RANGE -> field.accepts(FormsFieldTypes.MIN_VALUE)
-                    && bounds(field, rule, FormsFieldTypes.MIN_VALUE, FormsFieldTypes.MAX_VALUE)
-                    && message(field, rule, FormsFieldTypes.MSG_RANGE_UNDERFLOW, FormsFieldTypes.MSG_RANGE_OVERFLOW);
-            case FormsValidation.REGEX -> field.accepts(FormsFieldTypes.PATTERN)
-                    && set(field, FormsFieldTypes.PATTERN, plain(rule, FormsOptionNames.REGEX))
-                    && message(field, rule, FormsFieldTypes.MSG_PATTERN_MISMATCH);
-            case FormsValidation.FILE -> mapping.is(FormsFieldTypes.INPUT_FILE)
-                    && set(field, FormsFieldTypes.ACCEPT, plain(rule, FormsOptionNames.FILE_TYPE))
-                    && noMessage(field, rule);
-            case FormsValidation.FILE_NUMBER -> mapping.is(FormsFieldTypes.INPUT_FILE)
-                    && set(field, FormsFieldTypes.MULTIPLE, severalFiles(rule))
-                    && noMessage(field, rule);
-            default -> false;
-        };
-    }
-
-    private static boolean bounds(ImportedField.Builder field, FormsValidation rule, String minProperty, String maxProperty) {
-        set(field, minProperty, plain(rule, FormsOptionNames.MIN));
-        set(field, maxProperty, plain(rule, FormsOptionNames.MAX));
+            case FormsValidation.EMAIL -> {
+                if (!mapping.is(FormsFieldTypes.INPUT_EMAIL)) {
+                    return false;
+                }
+                message(field, rule, FormsFieldTypes.MSG_TYPE_MISMATCH);
+            }
+            case FormsValidation.RANGE_LENGTH -> {
+                if (!field.accepts(FormsFieldTypes.MIN_LENGTH)) {
+                    return false;
+                }
+                bounds(field, rule, FormsFieldTypes.MIN_LENGTH, FormsFieldTypes.MAX_LENGTH);
+                message(field, rule, FormsFieldTypes.MSG_TOO_SHORT, FormsFieldTypes.MSG_TOO_LONG);
+            }
+            case FormsValidation.RANGE -> {
+                if (!field.accepts(FormsFieldTypes.MIN_VALUE)) {
+                    return false;
+                }
+                bounds(field, rule, FormsFieldTypes.MIN_VALUE, FormsFieldTypes.MAX_VALUE);
+                message(field, rule, FormsFieldTypes.MSG_RANGE_UNDERFLOW, FormsFieldTypes.MSG_RANGE_OVERFLOW);
+            }
+            case FormsValidation.REGEX -> {
+                if (!field.accepts(FormsFieldTypes.PATTERN)) {
+                    return false;
+                }
+                field.property(FormsFieldTypes.PATTERN, plain(rule, FormsOptionNames.REGEX));
+                message(field, rule, FormsFieldTypes.MSG_PATTERN_MISMATCH);
+            }
+            case FormsValidation.FILE -> {
+                if (!mapping.is(FormsFieldTypes.INPUT_FILE)) {
+                    return false;
+                }
+                field.property(FormsFieldTypes.ACCEPT, plain(rule, FormsOptionNames.FILE_TYPE));
+                noMessage(field, rule);
+            }
+            case FormsValidation.FILE_NUMBER -> {
+                if (!mapping.is(FormsFieldTypes.INPUT_FILE)) {
+                    return false;
+                }
+                field.property(FormsFieldTypes.MULTIPLE, severalFiles(rule));
+                noMessage(field, rule);
+            }
+            default -> {
+                return false;
+            }
+        }
         return true;
     }
 
-    private static boolean set(ImportedField.Builder field, String property, String value) {
-        field.property(property, value);
-        return true;
+    private static void bounds(ImportedField.Builder field, FormsValidation rule, String minProperty, String maxProperty) {
+        field.property(minProperty, plain(rule, FormsOptionNames.MIN));
+        field.property(maxProperty, plain(rule, FormsOptionNames.MAX));
     }
 
     /** The message of the rule, per language, into each slot the type has for it. */
-    private static boolean message(ImportedField.Builder field, FormsValidation rule, String... slots) {
+    private static void message(ImportedField.Builder field, FormsValidation rule, String... slots) {
         Map<String, String> messages = rule.messages();
         if (messages.isEmpty()) {
-            return true;
+            return;
         }
         for (String slot : slots) {
             field.i18nProperty(slot, messages);
         }
-        return true;
     }
 
     /** A rule whose settings carry but whose custom message has no slot on the type. */
-    private static boolean noMessage(ImportedField.Builder field, FormsValidation rule) {
+    private static void noMessage(ImportedField.Builder field, FormsValidation rule) {
         if (!rule.messages().isEmpty()) {
             field.report("message of rule " + rule.type() + " not carried over: the field type has no slot for it");
         }
-        return true;
     }
 
     private static String severalFiles(FormsValidation rule) {
