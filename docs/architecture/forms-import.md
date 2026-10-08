@@ -350,7 +350,7 @@ published, which is the reason to generate them: `text-input_0_1` would stand th
 
 | Forms (`fcnt:result`) | Formidable (`fmdb:formSubmission`) |
 |---|---|
-| `jcr:created` | `jcr:created` holds the date of the submission, which also files the submission under `yyyy/MM/dd` (spike 1). |
+| `jcr:created` | `jcr:created` holds the date of the submission. The property is protected, and `JCRNodeWrapper.addNode(name, type, uuid, created, createdBy, lastModified, lastModifiedBy)`, what the Jahia import calls, sets it. The auto-split listener places only the direct children of `submissions`, so the import creates the `yyyy/MM/dd` folders itself and adds the submission under them, where the listener leaves it (verified on 8.2, spike 1). |
 | `origin`, the referer or the request URI | `referer` |
 | — | `origin` = `jahia-forms` |
 | — | `locale` holds the `buildingLang` of the form, because Forms does not record the language of the visitor. |
@@ -654,7 +654,6 @@ mapping or to another form.
 
 | # | Point | Effect |
 |---|---|---|
-| Spike 1 | Can a session set `jcr:created` on a new `fmdb:formSubmission`, as the Jahia import does? And when does the auto-split of `submissions` place a new node: when it is added, before `jcr:created` can be set, or when it is saved? | If the first fails, an `importedAt` property holds the original date, and the Results page reads it when it is present. If the auto-split places the node before its date is set, the import creates the `yyyy/MM/dd` folders itself and adds the submission under them. |
 | Spike 2 | Which value does an `fmdb:inputDate` submit and store: `yyyy-MM-dd`? | The date conversion |
 | Spike 3 | Does **Export Zip**, without live content, hold any result? The results are written in live only, so none is expected. | The message of the dry run, and the administration guide |
 | 4 | The captcha of a recreated form depends on the captcha configuration of the instance: the import turns it on when a provider is configured, else reports it. To confirm against the captcha settings. | The forms |
