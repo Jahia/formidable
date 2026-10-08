@@ -378,3 +378,46 @@ orderable
  - timeZone (string) indexed=no
  + data (fmdb:submissionData) = fmdb:submissionData autocreated
  + files (jnt:folder) = jnt:folder
+
+// --- Imports from another form system (docs/architecture/forms-import.md, "Content model") ---
+// Source-agnostic markers: none of them names Jahia Forms, sourceSystem does. The engine owns them
+// because the import and the attachment of results to another form are engine features.
+
+// On a form the import created. sourceId is the identity of the form in the source system (its
+// jcr:uuid for Jahia Forms), sourceResultsId the identity of its results entry there; a later run looks a
+// form up by either, hence both indexed, because an export can lose one of them. At least one is set.
+[fmdbmix:importedForm] mixin
+ - sourceSystem (string) mandatory indexed=no
+ - sourceId (string)
+ - sourceResultsId (string)
+ - sourcePath (string) indexed=no
+
+// On a field the import created: the field it stands for in the source system, and the name its values
+// had there. A later run reads the mapping from the fields of the form, so no query: not indexed.
+[fmdbmix:importedField] mixin
+ - sourceId (string) mandatory indexed=no
+ - sourceName (string) mandatory indexed=no
+
+// On a results entry that holds imported submissions, of one source form or several once results were
+// attached to another form. mappings holds, per source form, the mapping an attachment applied, one JSON
+// string each.
+[fmdbmix:importedResults] mixin
+ - sourceSystem (string) mandatory indexed=no
+ - sourceFormIds (string) multiple indexed=no
+ - mappings (string) multiple indexed=no
+
+// On an imported submission. sourceId is what a later run skips on, hence indexed. sourceFormId is the
+// key of its source form: the form's sourceId, or its sourceResultsId when the source had deleted the form.
+[fmdbmix:importedSubmission] mixin
+ - sourceId (string) mandatory
+ - sourceFormId (string) mandatory indexed=no
+
+// The jobs of an import, under formidable-results/import-jobs: the uploaded export and the state and
+// report of the dry run and of the import, kept in the repository so that any server of a cluster reads them.
+[fmdb:importJobs] > jnt:content, jmix:accessControlled
+ + * (fmdb:importJob) = fmdb:importJob
+
+[fmdb:importJob] > jnt:content
+ - state (string) indexed=no
+ - report (string) indexed=no
+ + file (jnt:file) = jnt:file
