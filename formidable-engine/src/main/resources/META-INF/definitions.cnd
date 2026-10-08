@@ -342,9 +342,19 @@ orderable
 [fmdb:save2jcrAction] > jnt:content, fmdbmix:formAction, mix:title
  - jcr:title (string) = resourceBundle('fmdb_save2jcrAction') autocreated i18n
 
+// The jobs of an import, under formidable-results/import-jobs: the uploaded export and the state and
+// report of the dry run and of the import, kept in the repository so that any server of a cluster reads them.
+[fmdb:importJobs] > jnt:content, jmix:accessControlled
+ + * (fmdb:importJob) = fmdb:importJob
+
+[fmdb:importJob] > jnt:content
+ - state (string) indexed=no
+ - report (string) indexed=no
+ + file (jnt:file) = jnt:file
+
 [fmdb:resultsFolder] > jnt:content, jmix:accessControlled
  + * (fmdb:formResults) = fmdb:formResults
- + import-jobs (fmdb:importJobs) = fmdb:importJobs
+ + * (fmdb:importJobs) = fmdb:importJobs
 
 // One per form, created in live by the first submission the Save to JCR action stores, named after the
 // form (identity = parentForm). Removed from the Results page by "Delete all results" — the entry goes
@@ -413,12 +423,3 @@ orderable
  - sourceId (string) mandatory
  - sourceFormId (string) mandatory indexed=no
 
-// The jobs of an import, under formidable-results/import-jobs: the uploaded export and the state and
-// report of the dry run and of the import, kept in the repository so that any server of a cluster reads them.
-[fmdb:importJobs] > jnt:content, jmix:accessControlled
- + * (fmdb:importJob) = fmdb:importJob
-
-[fmdb:importJob] > jnt:content
- - state (string) indexed=no
- - report (string) indexed=no
- + file (jnt:file) = jnt:file

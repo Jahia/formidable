@@ -409,7 +409,7 @@ Forms: `sourceSystem` does.
  + file (jnt:file) = jnt:file
 ```
 
-`fmdb:resultsFolder` gets one named child, `import-jobs` (`fmdb:importJobs`), for the jobs of
+`fmdb:resultsFolder` allows a `fmdb:importJobs` child, which the import names `import-jobs`, for the jobs of
 [Running it](#running-it). Its ACL inheritance is broken, as on a results entry, so the jobs and their
 files stay with the administrators.
 

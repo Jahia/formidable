@@ -119,6 +119,17 @@ class FormsFormConverterTest {
         // a textarea has no pattern
         assertNull(fields.get(2).properties().get(FormsFieldTypes.PATTERN));
         assertTrue(fields.get(2).report().stream().anyMatch(line -> line.contains("fcnt:regexValidation not carried over")), fields.get(2).report().toString());
+
+        // the builder itself reports a plain setting and an i18n setting the type does not declare
+        ImportedField.Builder builder = ImportedField.builder("hidden", FormsFieldTypes.INPUT_HIDDEN, FormsFieldTypes.accepted(FormsFieldTypes.INPUT_HIDDEN))
+                .property(FormsFieldTypes.ROWS, "5")
+                .i18nProperty(FormsFieldTypes.PLACEHOLDER, Map.of("en", "Type here"));
+        ImportedField built = builder.build();
+        assertTrue(built.properties().isEmpty());
+        assertTrue(built.i18nProperties().isEmpty());
+        assertEquals(List.of(
+                "rows (5) not carried over: fmdb:inputHidden has no such setting",
+                "placeholder not carried over: fmdb:inputHidden has no such setting"), built.report());
     }
 
     @Test
@@ -130,11 +141,17 @@ class FormsFormConverterTest {
         FormsField text = new FormsField("text_0_1", "u1", "fcnt:inputDefinition", Map.of("en", "Name"),
                 null, Map.of(), List.of(length, email), false, false);
         FormsValidation range = new FormsValidation("range", FormsValidation.RANGE, Map.of(
-                "min", new FormsOption("min", "1", Map.of()), "max", new FormsOption("max", "10", Map.of())));
+                "min", new FormsOption("min", "1", Map.of()), "max", new FormsOption("max", "10", Map.of()),
+                "message", new FormsOption("message", null, Map.of("en", "From 1 to 10"))));
         FormsField number = new FormsField("number_0_2", "u2", "fcnt:numberDefinition", Map.of("en", "Score"),
                 null, Map.of(), List.of(range), false, false);
+        FormsValidation regex = new FormsValidation("regex", FormsValidation.REGEX, Map.of(
+                "regex", new FormsOption("regex", "^[A-Z]+$", Map.of()),
+                "message", new FormsOption("message", null, Map.of("en", "Capitals only"))));
+        FormsField code = new FormsField("code_0_3", "u3", "fcnt:inputDefinition", Map.of("en", "Code"),
+                null, Map.of(), List.of(regex), false, false);
 
-        List<ImportedField> fields = EVERYTHING.convert(formOf(text, number), null).fields().toList();
+        List<ImportedField> fields = EVERYTHING.convert(formOf(text, number, code), null).fields().toList();
 
         assertEquals("2", fields.get(0).properties().get(FormsFieldTypes.MIN_LENGTH));
         assertEquals("40", fields.get(0).properties().get(FormsFieldTypes.MAX_LENGTH));
@@ -144,7 +161,11 @@ class FormsFormConverterTest {
         assertTrue(fields.get(0).report().stream().anyMatch(line -> line.contains("fcnt:emailValidation not carried over")), fields.get(0).report().toString());
         assertEquals("1", fields.get(1).properties().get(FormsFieldTypes.MIN_VALUE));
         assertEquals("10", fields.get(1).properties().get(FormsFieldTypes.MAX_VALUE));
+        assertEquals(Map.of("en", "From 1 to 10"), fields.get(1).i18nProperties().get(FormsFieldTypes.MSG_RANGE_UNDERFLOW));
+        assertEquals(Map.of("en", "From 1 to 10"), fields.get(1).i18nProperties().get(FormsFieldTypes.MSG_RANGE_OVERFLOW));
         assertTrue(fields.get(1).report().isEmpty(), fields.get(1).report().toString());
+        assertEquals("^[A-Z]+$", fields.get(2).properties().get(FormsFieldTypes.PATTERN));
+        assertEquals(Map.of("en", "Capitals only"), fields.get(2).i18nProperties().get(FormsFieldTypes.MSG_PATTERN_MISMATCH));
     }
 
     @Test
