@@ -1,13 +1,16 @@
 package org.jahia.modules.formidable.engine.imports.jahiaforms;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Predicate;
 
 /**
  * The Formidable type each Forms field definition becomes (docs/architecture/forms-import.md, "The
- * fields"). The {@code fmdbext:*} types of formidable-extended-inputs are used when the repository
- * registers them, else the formidable-elements type of the row, with a word in the report. This is the
- * one place of the engine that names concrete field types: the import creates them, it does not read them.
+ * fields"), and the properties each of those types declares, so that the converter never hands the
+ * writer a setting the type cannot take. The {@code fmdbext:*} types of formidable-extended-inputs are
+ * used when the repository registers them, else the formidable-elements type of the row, with a word in
+ * the report. This is the one place of the engine that names concrete field types: the import creates
+ * them, it does not read them.
  */
 final class FormsFieldTypes {
 
@@ -26,6 +29,51 @@ final class FormsFieldTypes {
     static final String CONSENT = "fmdbext:consent";
     private static final String CREATED_AS = "created as ";
 
+    // the properties the import may write, per type, as the CNDs of formidable-elements and
+    // formidable-extended-inputs declare them (settings, then the validation messages of the type's mixins)
+    static final String HELP_TEXT = "helpText";
+    static final String REQUIRED = "required";
+    static final String PLACEHOLDER = "placeholder";
+    static final String MIN_LENGTH = "minLength";
+    static final String MAX_LENGTH = "maxLength";
+    static final String PATTERN = "pattern";
+    static final String ROWS = "rows";
+    static final String MIN_VALUE = "minValue";
+    static final String MAX_VALUE = "maxValue";
+    static final String MULTIPLE = "multiple";
+    static final String ACCEPT = "accept";
+    static final String VALUE = "value";
+    static final String OPTIONS_EMPTY_LABEL = "optionsEmptyLabel";
+    static final String ON_LABEL = "onLabel";
+    static final String OFF_LABEL = "offLabel";
+    static final String STATEMENT = "statement";
+    static final String MSG_VALUE_MISSING = "msgValueMissing";
+    static final String MSG_TYPE_MISMATCH = "msgTypeMismatch";
+    static final String MSG_PATTERN_MISMATCH = "msgPatternMismatch";
+    static final String MSG_TOO_SHORT = "msgTooShort";
+    static final String MSG_TOO_LONG = "msgTooLong";
+    static final String MSG_RANGE_UNDERFLOW = "msgRangeUnderflow";
+    static final String MSG_RANGE_OVERFLOW = "msgRangeOverflow";
+
+    private static final Set<String> TEXT_MESSAGES = Set.of(MSG_VALUE_MISSING, MSG_TYPE_MISMATCH, MSG_PATTERN_MISMATCH,
+            MSG_TOO_SHORT, MSG_TOO_LONG);
+    private static final Set<String> RANGE_MESSAGES = Set.of(MSG_VALUE_MISSING, MSG_RANGE_UNDERFLOW, MSG_RANGE_OVERFLOW);
+
+    private static final Map<String, Set<String>> ACCEPTED = Map.ofEntries(
+            Map.entry(INPUT_TEXT, union(Set.of(HELP_TEXT, REQUIRED, PLACEHOLDER, MIN_LENGTH, MAX_LENGTH, PATTERN), TEXT_MESSAGES)),
+            Map.entry(INPUT_EMAIL, union(Set.of(HELP_TEXT, REQUIRED, PLACEHOLDER, MULTIPLE, PATTERN, MIN_LENGTH, MAX_LENGTH), TEXT_MESSAGES)),
+            Map.entry(TEXTAREA, union(Set.of(HELP_TEXT, REQUIRED, PLACEHOLDER, MIN_LENGTH, MAX_LENGTH, ROWS), TEXT_MESSAGES)),
+            Map.entry(INPUT_NUMBER, union(Set.of(HELP_TEXT, REQUIRED, PLACEHOLDER, MIN_VALUE, MAX_VALUE), RANGE_MESSAGES)),
+            Map.entry(INPUT_HIDDEN, Set.of(VALUE)),
+            Map.entry(INPUT_DATE, union(Set.of(HELP_TEXT, REQUIRED), RANGE_MESSAGES)),
+            Map.entry(INPUT_FILE, Set.of(HELP_TEXT, REQUIRED, ACCEPT, MULTIPLE, MSG_VALUE_MISSING)),
+            Map.entry(SELECT, Set.of(HELP_TEXT, REQUIRED, MULTIPLE, OPTIONS_EMPTY_LABEL, MSG_VALUE_MISSING)),
+            Map.entry(RADIO, Set.of(HELP_TEXT, REQUIRED, MSG_VALUE_MISSING)),
+            Map.entry(CHECKBOX, Set.of(HELP_TEXT, REQUIRED, MSG_VALUE_MISSING)),
+            Map.entry(SWITCH, Set.of(HELP_TEXT, REQUIRED, ON_LABEL, OFF_LABEL, MSG_VALUE_MISSING)),
+            Map.entry(RATING, Set.of(HELP_TEXT, REQUIRED, MAX_VALUE, MSG_VALUE_MISSING)),
+            Map.entry(CONSENT, Set.of(HELP_TEXT, REQUIRED, STATEMENT, MSG_VALUE_MISSING)));
+
     /**
      * @param nodeType the type to create
      * @param note what the report says of the choice, or null when the type is the natural equivalent
@@ -33,6 +81,10 @@ final class FormsFieldTypes {
     record Mapping(String nodeType, String note) {
         boolean is(String type) {
             return type.equals(nodeType);
+        }
+
+        Set<String> accepted() {
+            return FormsFieldTypes.accepted(nodeType);
         }
     }
 
@@ -95,6 +147,11 @@ final class FormsFieldTypes {
                 + field.type());
     }
 
+    /** The properties a type declares among those the import writes; empty for a type this map does not know. */
+    static Set<String> accepted(String nodeType) {
+        return ACCEPTED.getOrDefault(nodeType, Set.of());
+    }
+
     /** The kinds the import turns into something else than a field, or into nothing. */
     static boolean isRecreated(String kind) {
         return !isLayout(kind) && !"password".equals(kind) && !"contentDisplay".equals(kind);
@@ -118,5 +175,11 @@ final class FormsFieldTypes {
 
     static boolean isMultipleChoice(String kind) {
         return "selectMultiple".equals(kind) || kind.startsWith("multipleCheckBoxes") || "imageCheckbox".equals(kind);
+    }
+
+    private static Set<String> union(Set<String> a, Set<String> b) {
+        Set<String> all = new java.util.HashSet<>(a);
+        all.addAll(b);
+        return Set.copyOf(all);
     }
 }

@@ -13,6 +13,8 @@ record FormsResults(String name, String uuid, String parentFormPath, String buil
                     Map<String, String> titles, Map<String, FormsLabel> labels) {
 
     static final String TYPE = "fcnt:formResults";
+    /** The type of the {@code submissions} folder, whose subtree the structure reading skips. */
+    static final String SUBMISSIONS_TYPE = "fcnt:submissions";
     private static final String PARENT_FORM = "parentForm";
     private static final String BUILDING_LANG = "buildingLang";
 

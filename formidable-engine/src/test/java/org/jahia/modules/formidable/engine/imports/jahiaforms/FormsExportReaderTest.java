@@ -2,11 +2,12 @@ package org.jahia.modules.formidable.engine.imports.jahiaforms;
 
 import org.junit.jupiter.api.Test;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,9 +29,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class FormsExportReaderTest {
 
     static final String SAMPLE = "/imports/jahiaforms/formFactory-sample.zip";
+    private static final String XML_HEAD = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
+    private static final String JCR_NS = "xmlns:jcr=\"http://www.jcp.org/jcr/1.0\"";
 
     static FormsExportReader sampleReader() {
-        return new FormsExportReader(new FormsExportZip(name -> FormsExportReaderTest.class.getResourceAsStream(SAMPLE)));
+        try {
+            return new FormsExportReader(new FormsExportZip(sampleZip()));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** The sample, copied once to a file: the zip is read through the central directory, which needs a file. */
+    static Path sampleZip() throws IOException {
+        Path copy = Files.createTempFile("formFactory-sample", ".zip");
+        copy.toFile().deleteOnExit();
+        try (InputStream resource = FormsExportReaderTest.class.getResourceAsStream(SAMPLE)) {
+            Files.copy(resource, copy, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }
+        return copy;
     }
 
     @Test
@@ -50,6 +67,10 @@ class FormsExportReaderTest {
                 contact.fields().stream().map(FormsField::name).toList());
         assertEquals(List.of(FormsAction.SAVE_TO_JCR, FormsAction.REDIRECT_TO_PAGE),
                 contact.actions().stream().map(FormsAction::type).toList());
+        assertTrue(contact.settings().displaysCaptcha());
+        assertTrue(contact.settings().tracksUsers());
+        assertFalse(contact.settings().savable());
+        assertFalse(contact.settings().constrained());
     }
 
     @Test
@@ -125,12 +146,11 @@ class FormsExportReaderTest {
     }
 
     @Test
-    void aZipWithoutResultsIsRefusedWithTheProcedure() {
-        String formsOnly = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-                + "<formFactory xmlns:jcr=\"http://www.jcp.org/jcr/1.0\" jcr:primaryType=\"fcnt:formFactory\">"
+    void aZipWithoutResultsIsRefusedWithTheProcedure() throws Exception {
+        String formsOnly = XML_HEAD + "<formFactory " + JCR_NS + " jcr:primaryType=\"fcnt:formFactory\">"
                 + "<forms jcr:primaryType=\"fcnt:formsFolder\"><contact-us jcr:primaryType=\"fcnt:form\"/></forms>"
                 + "<results jcr:primaryType=\"fcnt:resultsFolder\"/></formFactory>";
-        FormsExportReader reader = new FormsExportReader(new FormsExportZip(name -> zipOf(Map.of(FormsExportZip.XML, formsOnly))));
+        FormsExportReader reader = new FormsExportReader(new FormsExportZip(zipOf(Map.of(FormsExportZip.XML, formsOnly))));
 
         FormsExportException refused = assertThrows(FormsExportException.class, reader::readStructure);
         assertTrue(refused.getMessage().contains("no results"), refused.getMessage());
@@ -138,59 +158,81 @@ class FormsExportReaderTest {
     }
 
     @Test
-    void aFileThatIsNoExportIsRefused() {
-        FormsExportReader noXml = new FormsExportReader(new FormsExportZip(name -> zipOf(Map.of("readme.txt", "hello"))));
+    void aFileThatIsNoExportIsRefused() throws Exception {
+        FormsExportReader noXml = new FormsExportReader(new FormsExportZip(zipOf(Map.of("readme.txt", "hello"))));
         assertTrue(assertThrows(FormsExportException.class, noXml::readStructure).getMessage().contains("no repository.xml"));
 
-        String page = "<?xml version=\"1.0\"?><home xmlns:jcr=\"http://www.jcp.org/jcr/1.0\" jcr:primaryType=\"jnt:page\"/>";
-        FormsExportReader notForms = new FormsExportReader(new FormsExportZip(name -> zipOf(Map.of(FormsExportZip.XML, page))));
+        String page = XML_HEAD + "<home " + JCR_NS + " jcr:primaryType=\"jnt:page\"/>";
+        FormsExportReader notForms = new FormsExportReader(new FormsExportZip(zipOf(Map.of(FormsExportZip.XML, page))));
         assertTrue(assertThrows(FormsExportException.class, notForms::readStructure).getMessage().contains("not the export of a formFactory"));
     }
 
     @Test
-    void anExternalEntityIsNotResolved() {
+    void anExternalEntityIsNotResolved() throws Exception {
+        // the reference sits in element content, where XML allows an external entity: only the parser's
+        // settings refuse it
         String xxe = "<?xml version=\"1.0\"?><!DOCTYPE formFactory [<!ENTITY xxe SYSTEM \"file:///etc/hostname\">]>"
-                + "<formFactory xmlns:jcr=\"http://www.jcp.org/jcr/1.0\" jcr:primaryType=\"fcnt:formFactory\" jcr:title=\"&xxe;\">"
-                + "<results jcr:primaryType=\"fcnt:resultsFolder\"/></formFactory>";
-        FormsExportReader reader = new FormsExportReader(new FormsExportZip(name -> zipOf(Map.of(FormsExportZip.XML, xxe))));
+                + "<formFactory " + JCR_NS + " jcr:primaryType=\"fcnt:formFactory\">"
+                + "<results jcr:primaryType=\"fcnt:resultsFolder\"><f jcr:primaryType=\"fcnt:formResults\" parentForm=\"#/forms/f\">"
+                + "<labels jcr:primaryType=\"fcnt:resultLabels\"><x jcr:primaryType=\"fcnt:definitionOptionsTranslatable\" fieldId=\"u\">"
+                + "&xxe;</x></labels></f></results></formFactory>";
+        FormsExportReader reader = new FormsExportReader(new FormsExportZip(zipOf(Map.of(FormsExportZip.XML, xxe))));
         FormsExportException refused = assertThrows(FormsExportException.class, reader::readStructure);
         assertTrue(refused.getMessage().contains("cannot be parsed"), refused.getMessage());
     }
 
     @Test
+    void anEntryIsNotReadPastTheBound() throws Exception {
+        String big = "x".repeat(100);
+        try (FormsExportZip zip = new FormsExportZip(zipOf(Map.of("big.bin", big)), 10);
+             InputStream in = zip.open("big.bin")) {
+            assertThrows(IOException.class, in::readAllBytes);
+        }
+        try (FormsExportZip zip = new FormsExportZip(zipOf(Map.of("big.bin", big)), 100);
+             InputStream in = zip.open("big.bin")) {
+            assertEquals(100, in.readAllBytes().length);
+        }
+    }
+
+    @Test
     void theLiveXmlWinsOverTheEditOne() throws Exception {
-        String edit = "<?xml version=\"1.0\"?><formFactory xmlns:jcr=\"http://www.jcp.org/jcr/1.0\" jcr:primaryType=\"fcnt:formFactory\">"
+        String edit = XML_HEAD + "<formFactory " + JCR_NS + " jcr:primaryType=\"fcnt:formFactory\">"
                 + "<results jcr:primaryType=\"fcnt:resultsFolder\"/></formFactory>";
-        String live = "<?xml version=\"1.0\"?><formFactory xmlns:jcr=\"http://www.jcp.org/jcr/1.0\" jcr:primaryType=\"fcnt:formFactory\">"
+        String live = XML_HEAD + "<formFactory " + JCR_NS + " jcr:primaryType=\"fcnt:formFactory\">"
                 + "<results jcr:primaryType=\"fcnt:resultsFolder\"><f jcr:primaryType=\"fcnt:formResults\" parentForm=\"#/forms/f\"/></results></formFactory>";
-        FormsExportZip zip = new FormsExportZip(name -> zipOf(Map.of(FormsExportZip.XML, edit, FormsExportZip.LIVE_XML, live)));
+        FormsExportZip zip = new FormsExportZip(zipOf(Map.of(FormsExportZip.XML, edit, FormsExportZip.LIVE_XML, live)));
 
         assertTrue(zip.hasLiveXml());
         assertEquals(1, new FormsExportReader(zip).readStructure().results().size());
     }
 
     @Test
-    void aBinaryIsFoundByTheTailOfItsPath() throws Exception {
-        FormsExportZip zip = new FormsExportZip(name -> zipOf(Map.of(
-                "live-content/sites/motor-retail/formFactory/results/contact-us/submissions/06/20/x/cv/cv.pdf", "PDF")));
+    void aBinaryIsFoundWhereJahiaWritesIt() throws Exception {
+        // DocumentViewExporter.buildBinaryPathInZip: <path of the file node, relative to the parent of the
+        // exported node>/<file name>, under live-content/ for the live workspace
+        String node = "formFactory/results/contact-us/submissions/06/20/x/cv/cv.pdf";
+        FormsExportZip zip = new FormsExportZip(zipOf(Map.of("live-content/" + node + "/cv.pdf", "PDF")));
 
-        try (InputStream found = zip.openBinary("formFactory/results/contact-us/submissions/06/20/x/cv/cv.pdf")) {
+        try (InputStream found = zip.openBinary(node, "cv.pdf")) {
             assertEquals("PDF", new String(found.readAllBytes(), StandardCharsets.UTF_8));
         }
-        assertNull(zip.openBinary("formFactory/results/contact-us/submissions/06/20/x/cv/other.pdf"));
+        assertNull(zip.openBinary(node, "other.pdf"));
+
+        FormsExportZip editOnly = new FormsExportZip(zipOf(Map.of("content/" + node + "/cv.pdf", "PDF")));
+        assertNotNull(editOnly.openBinary(node, "cv.pdf"));
     }
 
-    static InputStream zipOf(Map<String, String> entries) {
-        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        try (ZipOutputStream zip = new ZipOutputStream(bytes)) {
+    /** A zip of text entries, written to a temporary file. */
+    static Path zipOf(Map<String, String> entries) throws IOException {
+        Path file = Files.createTempFile("forms-export", ".zip");
+        file.toFile().deleteOnExit();
+        try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(file))) {
             for (Map.Entry<String, String> entry : entries.entrySet()) {
                 zip.putNextEntry(new ZipEntry(entry.getKey()));
                 zip.write(entry.getValue().getBytes(StandardCharsets.UTF_8));
                 zip.closeEntry();
             }
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
         }
-        return new ByteArrayInputStream(bytes.toByteArray());
+        return file;
     }
 }

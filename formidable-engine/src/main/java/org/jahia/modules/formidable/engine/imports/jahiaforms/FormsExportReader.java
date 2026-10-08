@@ -27,7 +27,8 @@ public final class FormsExportReader {
     public FormsExport readStructure() throws IOException, FormsExportException {
         XmlNode root;
         try (InputStream xml = zip.openRepositoryXml()) {
-            root = XmlTreeReader.readTree(xml, FormsSubmission.TYPE);
+            // the submissions folders are not even built: one split folder per submission on a busy site
+            root = XmlTreeReader.readTree(xml, FormsResults.SUBMISSIONS_TYPE);
         } catch (XMLStreamException e) {
             throw new FormsExportException("The repository.xml of the file cannot be parsed: " + e.getMessage(), e);
         }
@@ -54,6 +55,6 @@ public final class FormsExportReader {
 
     /** The binary of an uploaded file, or null when the zip does not hold it. The caller closes it. */
     public InputStream openBinary(FormsFile file) throws IOException {
-        return zip.openBinary(file.path());
+        return zip.openBinary(file.path(), file.name());
     }
 }

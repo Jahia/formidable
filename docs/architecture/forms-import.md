@@ -79,7 +79,9 @@ This section describes what the import reads. Paths are relative to the root of 
 
 The export is taken in the **Repository explorer**: open the site, right-click its `formFactory` node,
 choose **Export**, then **Export Zip with live content**. The zip holds two Jahia *document view* files,
-`repository.xml` and `live-repository.xml`, and the binaries of the files under them. In the sample export
+`repository.xml` and `live-repository.xml`, and the binaries of the files under them, each at
+`live-content/<path of the file node>/<file name>`, the path being relative to the parent of the exported
+node (`DocumentViewExporter.buildBinaryPathInZip`). In the sample export
 the two files are identical: the forms come from the edit workspace, the results from live, and each
 live-only node is marked `j:originWS="live"`. The import reads `live-repository.xml` when the zip has one,
 `repository.xml` otherwise.
@@ -234,7 +236,7 @@ Each `fcnt:form` of the export becomes one `fmdb:form`:
 | One `fcnt:step` | The fields directly under `fields` |
 | Several `fcnt:step` | One `fmdb:step` per step, titled after it, in the order of `stepNumber` |
 | A `fieldsetStart` and its `fieldsetEnd` | One `fmdb:fieldset`, titled after the start, holding the fields between them |
-| The `button` definitions | Not fields: their labels fill `submitBtnLabel`, `nextBtnLabel` and `previousBtnLabel` when they match |
+| The `button` definitions | Not fields: the title of a button fills `submitBtnLabel`; the three labels of a `buttonTriple` are part of spike 4 |
 | `fcmix:displayCaptcha` | The form's captcha, when the instance has a captcha configured; reported otherwise |
 | `fcmix:trackUser` | Nothing: Formidable does not track the submitter |
 | `fcmix:formSavable`, `fcmix:submissionConstraints` | Nothing, reported: Formidable has neither *save for later* nor submission constraints |
@@ -281,10 +283,14 @@ registers the type, as the migrations test a type before they query it, and fall
 For every field:
 
 - `jcr:title` per language follows [the label rule](#the-labels);
-- `placeholder` and `helptext` become `placeholder` and `helpText`;
-- a `requiredValidation` sets `required`, and its message becomes the field's required message;
+- `placeholder` and `helptext` become `placeholder` and `helpText`; a select, which has no placeholder,
+  takes it as its `optionsEmptyLabel`; a setting the target type does not declare is reported, never
+  written, so that the writer meets no constraint violation;
+- a `requiredValidation` sets `required`, and its message becomes `msgValueMissing`;
 - a `rangeLengthValidation` sets `minLength` and `maxLength`, a `rangeValidation` sets `minValue` and
-  `maxValue`, a `regexValidation` sets `pattern`, each with its message. A rule the field type cannot carry,
+  `maxValue`, a `regexValidation` sets `pattern`, each with its message in the slot of the type
+  (`msgTooShort` and `msgTooLong`, `msgRangeUnderflow` and `msgRangeOverflow`, `msgPatternMismatch`); an
+  `emailValidation` on an e-mail field fills `msgTypeMismatch`. A rule the field type cannot carry,
   and `equalToValidation`, are reported;
 - a manual option is written as Formidable stores it, `{"value","label","selected"}` per language: the Forms
   key becomes the value, so that the imported values match, and the Forms label becomes the label;
@@ -320,7 +326,8 @@ The label of an option is the Forms label of the choice, per language, and its v
 
 The node name of a recreated field is generated from its label in the `buildingLang` of the form, as the
 Content Editor generates a system name from a title (`JCRContentUtils.generateNodeName`): lower case,
-accents removed, spaces and punctuation turned into hyphens, cut at 32 characters. In the sample export,
+accents removed, spaces and punctuation turned into hyphens, cut at 128 characters, the default of
+`jahia.jcr.maxNameSize`. In the sample export,
 `contact-us` gets `your-first-name`, `your-last-name`, `your-email-address`, `your-telephone-number` and
 `your-enquiry`, and `newsletterregistration` gets `firstname`, `lastname` and `enter-your-email-here`:
 the rule gives what the contributor would have typed, no more, and the contributor renames what reads
@@ -341,7 +348,7 @@ published, which is the reason to generate them: `text-input_0_1` would stand th
 | Forms action | Formidable action |
 |---|---|
 | `saveToJcrAction` | `fmdb:save2jcrAction`, so that the form keeps saving once published. A form that Forms did not save gets no action: the imported results need the entry, which the import creates itself, not the action, and a form that starts keeping the personal data of its visitors must be a choice of the site, not of the import. The report says: "Forms did not save this form's submissions; add *Save to JCR* to keep saving them." |
-| `sendEmailAction` | `fmdb:emailNotificationAction`, with the recipients, the sender and the subject of the Forms action; the body is reported, because the two templates differ |
+| `sendEmailAction` | `fmdb:emailNotificationAction`, with the `to` recipients, the sender and the subject of the Forms action. The CC and BCC addresses are reported, not carried: Formidable sends one message to one list, where they would be shown to the other recipients. The body is reported, because the two templates differ |
 | `sendEmailToSubmitterAction` | `fmdb:emailNotificationAction` with no recipient, reported: Formidable has no action that writes to the submitter |
 | `redirectToAPageAction`, `redirectToUrlAction` | Reported, with the target, until the [redirect action](redirect-action.md) ships |
 | Any other type | Reported |
@@ -625,7 +632,7 @@ mapping or to another form.
 - **Unit tests.** They cover the reader (the zip, ISO 9075 decoding, multi-values, references, `jcr:uuid`,
   the split at any depth), the type map of each Forms definition, each value conversion, the label rule
   with the trailing `*`, the system name rule (generation, a duplicate label, no label, a reserved name, the
-  32 characters), the form built from the label nodes alone, the lookup of a form by either of its two
+  128 characters), the form built from the label nodes alone, the lookup of a form by either of its two
   keys, and the mapping proposal of iteration 2. The date rule is tested at the offsets −11, −4, 0, +2, +9
   and +11 hours, and at +13, where it gives the previous day as documented. The fixtures are the
   anonymised sample exports.
@@ -658,4 +665,4 @@ mapping or to another form.
 | Spike 3 | Does **Export Zip**, without live content, hold any result? The results are written in live only, so none is expected. | The message of the dry run, and the administration guide |
 | 4 | The captcha of a recreated form depends on the captcha configuration of the instance: the import turns it on when a provider is configured, else reports it. To confirm against the captcha settings. | The forms |
 | 5 | The sample exports hold real email addresses, so they must be anonymised before they are committed as fixtures. | Tests |
-| Spike 4 | The sample export holds no switch, rating, hidden or button field and no uploaded file: the names of the option nodes of those definitions, and the entry names of the binaries in the zip, are to be confirmed on an export that holds them before the import of those fields and files is relied on. | The fields, the files |
+| Spike 4 | The sample export holds no switch, rating, hidden or button field and no uploaded file: the names of the option nodes of those definitions are to be confirmed on an export that holds them before the import of those fields and files is relied on. | The fields, the files |

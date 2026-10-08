@@ -20,8 +20,11 @@ import java.util.regex.Matcher;
  */
 public final class SystemNames {
 
-    /** The length the Content Editor allows a generated system name. */
-    public static final int MAX_LENGTH = 32;
+    /**
+     * The length the Content Editor allows a system name: the default of {@code jahia.jcr.maxNameSize},
+     * which the import does not read from the instance.
+     */
+    public static final int MAX_LENGTH = 128;
     /** The request parameters of the submission pipeline that a field name must not take. */
     static final Set<String> RESERVED = Set.of("fid", "lang");
 

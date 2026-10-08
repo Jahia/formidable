@@ -26,10 +26,13 @@ public final class FormsFormConverter {
 
     public static final String SOURCE_SYSTEM = "jahia-forms";
     static final String COUNTRY_SOURCE = "country";
+    /** The value a consent stores, and the one option of an accept-terms checkbox without choices. */
+    static final String ACCEPTED = "true";
     private static final String SAVE_ACTION_NAME = "save-to-jcr";
     private static final String EMAIL_ACTION_NAME = "email-notification";
     private static final String ACTION = "action ";
     private static final String FIELD = "field ";
+    private static final String PLAIN_LANGUAGE = "";
 
     private final Predicate<String> registeredTypes;
     private final Predicate<String> declaredOptionsSources;
@@ -70,9 +73,11 @@ public final class FormsFormConverter {
         for (FormsLabel label : results.labels().values()) {
             Map<String, String> titles = FormsLabels.titles(null, label, label.name());
             String name = names.of(titles.get(results.buildingLang()), label.name());
-            ImportedField.Builder field = label.hasChoices()
-                    ? ImportedField.builder(name, FormsFieldTypes.SELECT).options(FormsChoices.options(label.choices()))
-                    : ImportedField.builder(name, FormsFieldTypes.INPUT_TEXT);
+            String type = label.hasChoices() ? FormsFieldTypes.SELECT : FormsFieldTypes.INPUT_TEXT;
+            ImportedField.Builder field = ImportedField.builder(name, type, FormsFieldTypes.accepted(type));
+            if (label.hasChoices()) {
+                field.options(FormsChoices.options(label.choices()));
+            }
             fields.add(field.titles(titles).source(label.fieldId(), label.name(), null).build());
         }
         String parentName = results.parentFormName();
@@ -120,7 +125,7 @@ public final class FormsFormConverter {
     }
 
     private Optional<ImportedField> fieldOf(FormsField definition, FormsResults results, String buildingLang,
-                                                     SystemNames names, List<String> report) {
+                                           SystemNames names, List<String> report) {
         FormsFieldTypes.Mapping mapping = FormsFieldTypes.of(definition, registeredTypes);
         if (mapping == null) {
             report.add(notRecreated(definition));
@@ -128,22 +133,24 @@ public final class FormsFormConverter {
         }
         FormsLabel label = labelOf(results, definition);
         Map<String, String> titles = FormsLabels.titles(definition, label, definition.name());
-        ImportedField.Builder field = ImportedField.builder(names.of(titles.get(buildingLang), definition.name()), mapping.nodeType())
+        ImportedField.Builder field = ImportedField
+                .builder(names.of(titles.get(buildingLang), definition.name()), mapping.nodeType(), mapping.accepted())
                 .titles(titles)
                 .source(definition.uuid(), definition.name(), definition.type());
         if (mapping.note() != null) {
             field.report(mapping.note());
         }
-        fillCommon(field, definition);
+        fillCommon(field, definition, mapping);
         fillRules(field, definition, mapping);
-        fillByKind(field, definition, label, titles, mapping);
+        fillByKind(field, definition, label, titles, buildingLang, mapping);
         return Optional.of(field.build());
     }
 
-    private static void fillCommon(ImportedField.Builder field, FormsField definition) {
-        field.i18nProperty("placeholder", valuesOf(definition.option(FormsOptionNames.PLACEHOLDER)));
-        field.i18nProperty("helpText", valuesOf(definition.option(FormsOptionNames.HELP_TEXT)));
-        field.required(definition.validation(FormsValidation.REQUIRED).isPresent());
+    private static void fillCommon(ImportedField.Builder field, FormsField definition, FormsFieldTypes.Mapping mapping) {
+        // a select has no placeholder, but shows its empty option's label where a placeholder would stand
+        String placeholderSlot = mapping.is(FormsFieldTypes.SELECT) ? FormsFieldTypes.OPTIONS_EMPTY_LABEL : FormsFieldTypes.PLACEHOLDER;
+        field.i18nProperty(placeholderSlot, valuesOf(definition.option(FormsOptionNames.PLACEHOLDER)));
+        field.i18nProperty(FormsFieldTypes.HELP_TEXT, valuesOf(definition.option(FormsOptionNames.HELP_TEXT)));
         if (definition.prefilled()) {
             field.report("prefill not carried over: Formidable prefills come from the visitor profile mapping, set it by hand");
         }
@@ -155,20 +162,36 @@ public final class FormsFormConverter {
     private static void fillRules(ImportedField.Builder field, FormsField definition, FormsFieldTypes.Mapping mapping) {
         for (FormsValidation rule : definition.validations()) {
             if (!carried(field, rule, mapping)) {
-                field.report("rule " + rule.type() + " not carried over: the field type has no such rule");
+                field.report("rule " + rule.type() + " not carried over: " + mapping.nodeType() + " has no such rule"
+                        + (rule.messages().isEmpty() ? "" : ", nor its message"));
             }
         }
     }
 
-    /** Writes the settings of a rule the Formidable field can carry; false when it cannot. */
+    /** Writes the settings and the message of a rule the Formidable field can carry; false when it cannot. */
     private static boolean carried(ImportedField.Builder field, FormsValidation rule, FormsFieldTypes.Mapping mapping) {
         return switch (rule.type()) {
-            case FormsValidation.REQUIRED, FormsValidation.EMAIL -> true; // required is a flag; an email field validates itself
-            case FormsValidation.RANGE_LENGTH -> isText(mapping) && bounds(field, rule, "minLength", "maxLength");
-            case FormsValidation.RANGE -> mapping.is(FormsFieldTypes.INPUT_NUMBER) && bounds(field, rule, "minValue", "maxValue");
-            case FormsValidation.REGEX -> isText(mapping) && set(field, "pattern", plain(rule, FormsOptionNames.REGEX));
-            case FormsValidation.FILE -> mapping.is(FormsFieldTypes.INPUT_FILE) && set(field, "accept", plain(rule, FormsOptionNames.FILE_TYPE));
-            case FormsValidation.FILE_NUMBER -> mapping.is(FormsFieldTypes.INPUT_FILE) && set(field, "multiple", severalFiles(rule));
+            case FormsValidation.REQUIRED -> {
+                field.required(true);
+                yield message(field, rule, FormsFieldTypes.MSG_VALUE_MISSING);
+            }
+            case FormsValidation.EMAIL -> mapping.is(FormsFieldTypes.INPUT_EMAIL)
+                    && message(field, rule, FormsFieldTypes.MSG_TYPE_MISMATCH);
+            case FormsValidation.RANGE_LENGTH -> field.accepts(FormsFieldTypes.MIN_LENGTH)
+                    && bounds(field, rule, FormsFieldTypes.MIN_LENGTH, FormsFieldTypes.MAX_LENGTH)
+                    && message(field, rule, FormsFieldTypes.MSG_TOO_SHORT, FormsFieldTypes.MSG_TOO_LONG);
+            case FormsValidation.RANGE -> field.accepts(FormsFieldTypes.MIN_VALUE)
+                    && bounds(field, rule, FormsFieldTypes.MIN_VALUE, FormsFieldTypes.MAX_VALUE)
+                    && message(field, rule, FormsFieldTypes.MSG_RANGE_UNDERFLOW, FormsFieldTypes.MSG_RANGE_OVERFLOW);
+            case FormsValidation.REGEX -> field.accepts(FormsFieldTypes.PATTERN)
+                    && set(field, FormsFieldTypes.PATTERN, plain(rule, FormsOptionNames.REGEX))
+                    && message(field, rule, FormsFieldTypes.MSG_PATTERN_MISMATCH);
+            case FormsValidation.FILE -> mapping.is(FormsFieldTypes.INPUT_FILE)
+                    && set(field, FormsFieldTypes.ACCEPT, plain(rule, FormsOptionNames.FILE_TYPE))
+                    && noMessage(field, rule);
+            case FormsValidation.FILE_NUMBER -> mapping.is(FormsFieldTypes.INPUT_FILE)
+                    && set(field, FormsFieldTypes.MULTIPLE, severalFiles(rule))
+                    && noMessage(field, rule);
             default -> false;
         };
     }
@@ -184,34 +207,55 @@ public final class FormsFormConverter {
         return true;
     }
 
+    /** The message of the rule, per language, into each slot the type has for it. */
+    private static boolean message(ImportedField.Builder field, FormsValidation rule, String... slots) {
+        Map<String, String> messages = rule.messages();
+        if (messages.isEmpty()) {
+            return true;
+        }
+        for (String slot : slots) {
+            field.i18nProperty(slot, messages);
+        }
+        return true;
+    }
+
+    /** A rule whose settings carry but whose custom message has no slot on the type. */
+    private static boolean noMessage(ImportedField.Builder field, FormsValidation rule) {
+        if (!rule.messages().isEmpty()) {
+            field.report("message of rule " + rule.type() + " not carried over: the field type has no slot for it");
+        }
+        return true;
+    }
+
     private static String severalFiles(FormsValidation rule) {
         String number = plain(rule, FormsOptionNames.FILE_NUMBER);
         return number != null && !"1".equals(number.trim()) ? "true" : null;
     }
 
     private void fillByKind(ImportedField.Builder field, FormsField definition, FormsLabel label,
-                            Map<String, String> titles, FormsFieldTypes.Mapping mapping) {
+                            Map<String, String> titles, String buildingLang, FormsFieldTypes.Mapping mapping) {
         String kind = definition.kind();
         if (FormsFieldTypes.isMultipleChoice(kind) && mapping.is(FormsFieldTypes.SELECT)) {
-            field.property("multiple", "true");
+            field.property(FormsFieldTypes.MULTIPLE, "true");
         }
         if (mapping.is(FormsFieldTypes.SELECT) || mapping.is(FormsFieldTypes.RADIO) || mapping.is(FormsFieldTypes.CHECKBOX)) {
-            fillOptions(field, definition, label, kind);
+            fillOptions(field, definition, label, kind, titles, buildingLang);
         }
         switch (kind) {
-            case "textArea" -> field.property("rows", plain(definition, FormsOptionNames.ROWS));
-            case "hidden" -> field.property("value", plain(definition, FormsOptionNames.VALUE));
+            case "textArea" -> field.property(FormsFieldTypes.ROWS, plain(definition, FormsOptionNames.ROWS));
+            case "hidden" -> field.property(FormsFieldTypes.VALUE, plain(definition, FormsOptionNames.VALUE));
             case "switch" -> {
-                field.i18nProperty("onLabel", valuesOf(definition.option(FormsOptionNames.ON_LABEL)));
-                field.i18nProperty("offLabel", valuesOf(definition.option(FormsOptionNames.OFF_LABEL)));
-                if (mapping.is(FormsFieldTypes.RADIO)) {
+                if (mapping.is(FormsFieldTypes.SWITCH)) {
+                    field.i18nProperty(FormsFieldTypes.ON_LABEL, valuesOf(definition.option(FormsOptionNames.ON_LABEL)));
+                    field.i18nProperty(FormsFieldTypes.OFF_LABEL, valuesOf(definition.option(FormsOptionNames.OFF_LABEL)));
+                } else {
                     field.options(trueFalseOptions(definition, titles.keySet()));
                 }
             }
-            case "rating" -> field.property("maxValue", plain(definition, FormsOptionNames.MAX));
+            case "rating" -> field.property(FormsFieldTypes.MAX_VALUE, plain(definition, FormsOptionNames.MAX));
             case "acceptTermCheckbox" -> {
                 if (mapping.is(FormsFieldTypes.CONSENT)) {
-                    field.i18nProperty("statement", titles);
+                    field.i18nProperty(FormsFieldTypes.STATEMENT, titles);
                 }
             }
             default -> {
@@ -220,30 +264,31 @@ public final class FormsFormConverter {
         }
     }
 
-    private void fillOptions(ImportedField.Builder field, FormsField definition, FormsLabel label, String kind) {
+    private void fillOptions(ImportedField.Builder field, FormsField definition, FormsLabel label, String kind,
+                             Map<String, String> titles, String buildingLang) {
         if ("countryList".equals(kind) && declaredOptionsSources.test(COUNTRY_SOURCE)) {
             field.optionsSourceKey(COUNTRY_SOURCE);
             return;
         }
         Map<String, List<String>> options = optionsOf(definition, label);
-        if (options.isEmpty()) {
-            if ("acceptTermCheckbox".equals(kind)) {
-                field.options(Map.of(definition.titles().isEmpty() ? "en" : definition.titles().keySet().iterator().next(),
-                        List.of(FormsChoices.option("true", "accepted"))));
-            } else {
-                field.report("no choices found in the export: add the options by hand"
-                        + ("countryList".equals(kind) ? ", or declare a country options source" : ""));
-            }
-            return;
+        if (!options.isEmpty()) {
+            field.options(options);
+        } else if ("acceptTermCheckbox".equals(kind)) {
+            // no choices to take the stored value from: the one option is the accepted value, and the
+            // answers are rewritten to it as for a consent (FormsSubmissionConverter)
+            String language = titles.containsKey(buildingLang) || titles.isEmpty() ? buildingLang : titles.keySet().iterator().next();
+            field.options(Map.of(language, List.of(FormsChoices.option(ACCEPTED, titles.getOrDefault(language, ACCEPTED)))));
+        } else {
+            field.report("no choices found in the export: add the options by hand"
+                    + ("countryList".equals(kind) ? ", or declare a country options source" : ""));
         }
-        field.options(options);
     }
 
     /** The choices of the definition, per language, else those of the label node. */
     private static Map<String, List<String>> optionsOf(FormsField definition, FormsLabel label) {
         for (FormsOption choices : definition.choiceOptions()) {
             Map<String, List<String>> options = FormsChoices.options(choices.values().isEmpty() && choices.value() != null
-                    ? Map.of("", choices.value()) : choices.values());
+                    ? Map.of(PLAIN_LANGUAGE, choices.value()) : choices.values());
             if (!options.isEmpty()) {
                 return options;
             }
@@ -290,24 +335,33 @@ public final class FormsFormConverter {
         return actions;
     }
 
+    /**
+     * The notification keeps the {@code to} recipients alone: Formidable sends one message to one list,
+     * so an address Forms kept in CC or BCC would be shown to every other recipient.
+     */
     private static ImportedAction emailNotification(FormsAction action, List<String> report) {
         Map<String, String> properties = new LinkedHashMap<>();
-        putPlain(properties, "to", recipients(action));
+        putPlain(properties, "to", plain(action, FormsOptionNames.TO));
         putPlain(properties, "from", plain(action, FormsOptionNames.FROM));
+        String copies = copies(action);
+        if (copies != null) {
+            report.add(ACTION + action.type() + ": Forms also sent this mail in CC/BCC to " + copies
+                    + "; Formidable sends to one list, add them by hand if they may be visible to the other recipients");
+        }
         report.add(ACTION + action.type() + ": the body of the mail was not carried over, the two templates differ");
         return new ImportedAction(EMAIL_ACTION_NAME, FmdbNodeType.EMAIL_NOTIFICATION_ACTION, properties,
                 nonBlankI18n(Map.of("subject", valuesOf(action.option(FormsOptionNames.SUBJECT)))));
     }
 
-    private static String recipients(FormsAction action) {
+    private static String copies(FormsAction action) {
         List<String> all = new ArrayList<>();
-        for (String option : List.of(FormsOptionNames.TO, FormsOptionNames.CC, FormsOptionNames.BCC)) {
+        for (String option : List.of(FormsOptionNames.CC, FormsOptionNames.BCC)) {
             String value = plain(action, option);
             if (value != null && !value.isBlank()) {
                 all.add(value.trim());
             }
         }
-        return all.isEmpty() ? null : String.join(",", all);
+        return all.isEmpty() ? null : String.join(", ", all);
     }
 
     private static String redirectTarget(FormsAction action) {
@@ -331,6 +385,7 @@ public final class FormsFormConverter {
         }
     }
 
+    /** The title of a plain button fills the submit label; the triple button's labels wait for spike 4 of the spec. */
     private static Map<String, Map<String, String>> buttonLabels(FormsForm form) {
         Map<String, Map<String, String>> labels = new LinkedHashMap<>();
         for (FormsField definition : form.fields()) {
@@ -372,30 +427,26 @@ public final class FormsFormConverter {
         return slash < 0 ? exportPath : exportPath.substring(slash + 1);
     }
 
-    private static boolean isText(FormsFieldTypes.Mapping mapping) {
-        return mapping.is(FormsFieldTypes.INPUT_TEXT) || mapping.is(FormsFieldTypes.INPUT_EMAIL) || mapping.is(FormsFieldTypes.TEXTAREA);
-    }
-
     private static String plain(FormsField definition, String option) {
         FormsOption found = definition.option(option);
-        return found == null ? null : found.in("");
+        return found == null ? null : found.in(PLAIN_LANGUAGE);
     }
 
     private static String plain(FormsValidation rule, String option) {
         FormsOption found = rule.option(option);
-        return found == null ? null : found.in("");
+        return found == null ? null : found.in(PLAIN_LANGUAGE);
     }
 
     private static String plain(FormsAction action, String option) {
         FormsOption found = action.option(option);
-        return found == null ? null : found.in("");
+        return found == null ? null : found.in(PLAIN_LANGUAGE);
     }
 
     private static Map<String, String> valuesOf(FormsOption option) {
         if (option == null) {
             return Map.of();
         }
-        return option.values().isEmpty() && option.value() != null ? Map.of("", option.value()) : nonBlank(option.values());
+        return option.values().isEmpty() && option.value() != null ? Map.of(PLAIN_LANGUAGE, option.value()) : nonBlank(option.values());
     }
 
     private static void putPlain(Map<String, String> properties, String key, String value) {

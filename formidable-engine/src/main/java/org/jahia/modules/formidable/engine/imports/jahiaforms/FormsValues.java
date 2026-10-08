@@ -125,11 +125,18 @@ final class FormsValues {
             return Optional.empty();
         }
         List<String> lines = new ArrayList<>();
-        for (String row : rows.keySet()) {
+        for (String row : rowsInTextOrder(rows, json)) {
             Object answer = rows.get(row);
             lines.add(row + ": " + (answer instanceof JSONArray several ? join(several) : String.valueOf(answer)));
         }
         return Optional.of(String.join("\n", lines));
+    }
+
+    /** The rows as the JSON text lists them: a {@link JSONObject} keeps no order of its own. */
+    private static List<String> rowsInTextOrder(JSONObject rows, String json) {
+        List<String> ordered = new ArrayList<>(rows.keySet());
+        ordered.sort(java.util.Comparator.comparingInt(row -> json.indexOf(JSONObject.quote(row))));
+        return ordered;
     }
 
     private static String join(JSONArray values) {

@@ -18,10 +18,11 @@ class SystemNamesTest {
 
     @Test
     void aLongLabelIsCutAtTheLengthTheContentEditorAllows() {
-        String name = SystemNames.generate("A label that is far too long to be a system name of thirty-two characters");
+        String name = SystemNames.generate("A label that is far too long to be a system name ".repeat(4));
+        assertEquals(128, SystemNames.MAX_LENGTH);
         assertTrue(name.length() <= SystemNames.MAX_LENGTH, name);
         assertFalse(name.endsWith("-"), name);
-        assertEquals("a-label-that-is-far-too-long-to", name);
+        assertTrue(name.startsWith("a-label-that-is-far-too-long-to-be-a-system-name-a-label"), name);
     }
 
     @Test

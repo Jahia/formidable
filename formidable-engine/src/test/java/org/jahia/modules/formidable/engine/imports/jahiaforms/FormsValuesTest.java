@@ -65,6 +65,13 @@ class FormsValuesTest {
     }
 
     @Test
+    void theRowsOfAMatrixKeepTheOrderOfTheText() {
+        // a JSONObject iterates its keys by hash: row1, Zeta, row10, Alpha, row2
+        String json = "{\"matrixRadios\":{\"row1\":\"a\",\"row2\":\"b\",\"row10\":\"c\",\"Zeta\":\"d\",\"Alpha\":\"e\"},\"rendererName\":\"matrixRadios\"}";
+        assertEquals(Optional.of("row1: a\nrow2: b\nrow10: c\nZeta: d\nAlpha: e"), FormsValues.matrix(json));
+    }
+
+    @Test
     void aPasswordIsDroppedAndAFileJsonToo() {
         FormsValues.Converted password = FormsValues.convert("password", List.of(FormsValues.PASSWORD_PLACEHOLDER), false);
         assertTrue(password.values().isEmpty());

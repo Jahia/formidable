@@ -1,34 +1,43 @@
 package org.jahia.modules.formidable.engine.imports.jahiaforms;
 
-import java.io.BufferedInputStream;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.function.Function;
-import java.util.function.Predicate;
+import java.nio.file.Path;
 import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
+import java.util.zip.ZipFile;
 
 /**
  * The zip a Jahia "Export Zip with live content" gives for a node: a {@code repository.xml}, a
  * {@code live-repository.xml} when live content was asked for, and the binaries of the files under the
- * node, each at an entry named after the node's path. The zip comes from an upload, so it is read as a
- * stream, entry by entry, and no entry is read past {@link #MAX_ENTRY_BYTES}: a zip bomb stops there.
+ * node. Jahia writes a binary at {@code live-content/<path of the file node>/<file name>} (or
+ * {@code content/…} for the edit workspace), the path being relative to the parent of the exported node,
+ * {@code formFactory/results/…/cv/cv.pdf/cv.pdf} ({@code DocumentViewExporter.buildBinaryPathInZip}).
+ * <p>
+ * The zip is opened as a {@link ZipFile}, which seeks to an entry through the central directory instead
+ * of inflating its way there, so the structure, the submissions and each file cost one read each. The
+ * file comes from an upload: no entry is read past the bound, a zip bomb stops there.
  */
-final class FormsExportZip {
+final class FormsExportZip implements Closeable {
 
     static final String LIVE_XML = "live-repository.xml";
     static final String XML = "repository.xml";
+    private static final String LIVE_CONTENT = "live-content/";
+    private static final String CONTENT = "content/";
     /** 512 MB: above the largest export the dialog accepts, with room for the binaries it unpacks. */
     static final long MAX_ENTRY_BYTES = 512L * 1024 * 1024;
 
-    private final Function<String, InputStream> opener;
+    private final ZipFile zip;
+    private final long maxEntryBytes;
 
-    /**
-     * @param opener opens the zip anew each time, from the upload stored in the repository: the stream
-     *               is read once per entry looked up, and the structure and the submissions are two reads
-     */
-    FormsExportZip(Function<String, InputStream> opener) {
-        this.opener = opener;
+    /** @param file the uploaded export, copied to a local file by the caller, who deletes it after {@link #close()} */
+    FormsExportZip(Path file) throws IOException {
+        this(file, MAX_ENTRY_BYTES);
+    }
+
+    FormsExportZip(Path file, long maxEntryBytes) throws IOException {
+        this.zip = new ZipFile(file.toFile());
+        this.maxEntryBytes = maxEntryBytes;
     }
 
     /** Opens the XML that holds the results: {@code live-repository.xml} when present, else {@code repository.xml}. */
@@ -45,52 +54,50 @@ final class FormsExportZip {
         return edit;
     }
 
-    boolean hasLiveXml() throws IOException {
-        try (InputStream live = open(LIVE_XML)) {
-            return live != null;
-        }
+    boolean hasLiveXml() {
+        return zip.getEntry(LIVE_XML) != null;
     }
 
     /**
-     * The binary of a file node, found at the entry whose name ends with the node's path in the export
-     * ({@code …/formFactory/results/…/<file>}): the export prefixes it with the workspace folder and the
-     * site path, which the XML does not name. Null when the zip holds no such entry.
+     * The binary of a file node, at the entry Jahia writes for it, under {@code live-content/} first and
+     * {@code content/} otherwise. Null when the zip holds neither.
+     *
+     * @param nodePath the path of the {@code jnt:file} node in the export, {@code formFactory/results/…/cv.pdf}
      */
-    InputStream openBinary(String nodePath) throws IOException {
-        return openMatching(name -> name.endsWith("/" + nodePath) || name.equals(nodePath));
+    InputStream openBinary(String nodePath, String fileName) throws IOException {
+        String tail = nodePath + "/" + fileName;
+        InputStream live = open(LIVE_CONTENT + tail);
+        return live != null ? live : open(CONTENT + tail);
     }
 
     /** Opens the entry with that exact name, or returns null. The caller closes the stream. */
     InputStream open(String entryName) throws IOException {
-        return openMatching(name -> name.equals(entryName));
-    }
-
-    private InputStream openMatching(Predicate<String> entryName) throws IOException {
-        ZipInputStream zip = new ZipInputStream(new BufferedInputStream(opener.apply("zip")));
-        ZipEntry entry;
-        while ((entry = zip.getNextEntry()) != null) {
-            if (!entry.isDirectory() && entryName.test(entry.getName())) {
-                return new BoundedEntryStream(zip, MAX_ENTRY_BYTES);
-            }
+        ZipEntry entry = zip.getEntry(entryName);
+        if (entry == null || entry.isDirectory()) {
+            return null;
         }
-        zip.close();
-        return null;
+        return new BoundedStream(zip.getInputStream(entry), maxEntryBytes);
     }
 
-    /** The current entry of a zip stream, bounded in size, and closing the zip when it is closed. */
-    private static final class BoundedEntryStream extends InputStream {
-        private final ZipInputStream zip;
+    @Override
+    public void close() throws IOException {
+        zip.close();
+    }
+
+    /** An entry stream that refuses to read past the bound. */
+    private static final class BoundedStream extends InputStream {
+        private final InputStream in;
         private final long limit;
         private long read;
 
-        BoundedEntryStream(ZipInputStream zip, long limit) {
-            this.zip = zip;
+        BoundedStream(InputStream in, long limit) {
+            this.in = in;
             this.limit = limit;
         }
 
         @Override
         public int read() throws IOException {
-            int b = zip.read();
+            int b = in.read();
             if (b >= 0) {
                 count(1);
             }
@@ -99,7 +106,7 @@ final class FormsExportZip {
 
         @Override
         public int read(byte[] buffer, int off, int len) throws IOException {
-            int n = zip.read(buffer, off, len);
+            int n = in.read(buffer, off, len);
             if (n > 0) {
                 count(n);
             }
@@ -115,7 +122,7 @@ final class FormsExportZip {
 
         @Override
         public void close() throws IOException {
-            zip.close();
+            in.close();
         }
     }
 }
