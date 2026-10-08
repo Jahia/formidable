@@ -67,7 +67,7 @@ No redirect in edit mode or preview, where submission is already disabled.
 
 ## Import from Jahia Forms
 
-Once this action ships, iteration 4 of the [import](forms-import.md), which recreates the forms, maps `fcnt:redirectToAPageAction` to a `page` target —
+Once this action ships, the [import](forms-import.md), which recreates the Forms forms, maps `fcnt:redirectToAPageAction` to a `page` target —
 the Forms path resolved in the target site, reported when the page is not found — and
 `fcnt:redirectToUrlAction` to a `url` target, its value per language.
 
