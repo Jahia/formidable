@@ -190,7 +190,7 @@ public final class ImportWriter {
         JCRNodeWrapper node = parent.addNode(JCRContentUtils.findAvailableNodeName(parent, field.name()), field.nodeType());
         i18n(node, TITLE, field.titles());
         if (field.required()) {
-            node.setProperty(ImportedField.REQUIRED, "true");
+            node.setProperty(ImportedField.REQUIRED_PROPERTY, "true");
         }
         field.properties().forEach((key, value) -> setQuietly(node, key, value));
         field.i18nProperties().forEach((key, byLanguage) -> i18nQuietly(node, key, byLanguage));
