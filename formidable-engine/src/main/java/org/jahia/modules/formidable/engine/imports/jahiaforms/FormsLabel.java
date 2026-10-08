@@ -15,10 +15,10 @@ record FormsLabel(String name, String fieldId, Map<String, String> labels, Map<S
     static final String LABELS_NODE = "labels";
     private static final String FIELD_ID = "fieldId";
     private static final String LABEL = "label";
-    private static final String CHOICES = "choices";
+    private static final String CHOICES_PROPERTY = "choices";
 
     static FormsLabel from(XmlNode node) {
-        return new FormsLabel(node.name(), node.attribute(FIELD_ID), node.i18n(LABEL), node.i18n(CHOICES));
+        return new FormsLabel(node.name(), node.attribute(FIELD_ID), node.i18n(LABEL), node.i18n(CHOICES_PROPERTY));
     }
 
     boolean hasChoices() {

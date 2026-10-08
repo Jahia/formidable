@@ -19,6 +19,8 @@ import java.util.function.Consumer;
  */
 final class XmlTreeReader {
 
+    private static final char PATH_SEPARATOR = '/';
+
     private XmlTreeReader() {
     }
 
@@ -109,7 +111,7 @@ final class XmlTreeReader {
             attributes.put(qualified(reader.getAttributePrefix(i), reader.getAttributeLocalName(i)),
                     reader.getAttributeValue(i));
         }
-        String path = parent == null ? name : parent.path() + "/" + name;
+        String path = parent == null ? name : parent.path() + PATH_SEPARATOR + name;
         return new XmlNode(name, path, attributes);
     }
 

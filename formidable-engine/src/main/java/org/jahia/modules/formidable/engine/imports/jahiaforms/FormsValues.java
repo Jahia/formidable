@@ -25,6 +25,7 @@ final class FormsValues {
     static final String PASSWORD_PLACEHOLDER = "**********";
     private static final Duration HALF_DAY = Duration.ofHours(12);
     private static final String RENDERER_NAME = "rendererName";
+    private static final String RATING = "rating";
 
     /** The converted values, and a note when something was dropped or could not be converted. */
     record Converted(List<String> values, String note) {
@@ -53,7 +54,7 @@ final class FormsValues {
             case "fileUpload" -> Converted.of(List.of());
             case "datePicker", "simpleDate" -> each(values, FormsValues::date);
             case "countryList" -> each(values, FormsValues::country);
-            case "rating" -> each(values, FormsValues::rating);
+            case RATING -> each(values, FormsValues::rating);
             case "matrixRadios", "matrixCheckBoxes" -> each(values, FormsValues::matrix);
             case "acceptTermCheckbox" -> consent ? Converted.of(List.of("true")) : Converted.of(values);
             default -> Converted.of(values);
@@ -101,10 +102,10 @@ final class FormsValues {
             return value.matches("\\d+(\\.\\d+)?") ? Optional.of(value) : Optional.empty();
         }
         JSONObject rating = object.get();
-        if (!rating.has("rating")) {
+        if (!rating.has(RATING)) {
             return Optional.empty();
         }
-        Object number = rating.get("rating");
+        Object number = rating.get(RATING);
         return Optional.of(number instanceof JSONObject nested ? nested.optString("value", nested.toString()) : String.valueOf(number));
     }
 

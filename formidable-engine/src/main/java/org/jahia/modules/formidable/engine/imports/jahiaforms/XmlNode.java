@@ -16,7 +16,7 @@ import java.util.Optional;
 final class XmlNode {
 
     static final String PRIMARY_TYPE = "jcr:primaryType";
-    static final String UUID = "jcr:uuid";
+    static final String UUID_PROPERTY = "jcr:uuid";
     private static final String TRANSLATION_PREFIX = "j:translation_";
 
     private final String name;
@@ -43,7 +43,7 @@ final class XmlNode {
     }
 
     String uuid() {
-        return attributes.get(UUID);
+        return attributes.get(UUID_PROPERTY);
     }
 
     boolean isOfType(String primaryType) {

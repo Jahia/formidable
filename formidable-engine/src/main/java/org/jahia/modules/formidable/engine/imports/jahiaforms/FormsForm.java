@@ -29,7 +29,7 @@ record FormsForm(String name, String uuid, String path, String buildingLang, Map
         static final Settings NONE = new Settings(false, false, false, false);
         private static final String DISPLAY_CAPTCHA = "displayCaptcha";
         private static final String TRACK_USER = "trackUser";
-        private static final String SAVABLE = "isFormSavable";
+        private static final String SAVABLE_PROPERTY = "isFormSavable";
         private static final String START_DATE = "startDate";
         private static final String END_DATE = "endDate";
         private static final String MAX_SUBMISSIONS = "maxSubmissions";
@@ -37,7 +37,7 @@ record FormsForm(String name, String uuid, String path, String buildingLang, Map
         static Settings from(XmlNode node) {
             boolean constrained = isSet(node.attribute(START_DATE)) || isSet(node.attribute(END_DATE))
                     || (isSet(node.attribute(MAX_SUBMISSIONS)) && !"0".equals(node.attribute(MAX_SUBMISSIONS).trim()));
-            return new Settings(flag(node, DISPLAY_CAPTCHA), flag(node, TRACK_USER), flag(node, SAVABLE), constrained);
+            return new Settings(flag(node, DISPLAY_CAPTCHA), flag(node, TRACK_USER), flag(node, SAVABLE_PROPERTY), constrained);
         }
 
         private static boolean flag(XmlNode node, String property) {

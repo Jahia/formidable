@@ -19,9 +19,9 @@ record FormsSubmission(String uuid, String formName, Instant created, String ori
                        String createdBy, List<FormsResultField> fields, String path) {
 
     static final String TYPE = "fcnt:result";
-    private static final String CREATED = "jcr:created";
+    private static final String CREATED_PROPERTY = "jcr:created";
     private static final String CREATED_BY = "jcr:createdBy";
-    private static final String ORIGIN = "origin";
+    private static final String ORIGIN_PROPERTY = "origin";
     private static final String IP_ADDRESS = "ip_address";
     private static final String RESULTS_SEGMENT = "/results/";
 
@@ -29,8 +29,8 @@ record FormsSubmission(String uuid, String formName, Instant created, String ori
         List<FormsResultField> fields = node.childrenOfType(FormsResultField.TYPE).stream()
                 .map(FormsResultField::from)
                 .toList();
-        return new FormsSubmission(node.name(), formNameOf(node.path()), parseInstant(node.attribute(CREATED)),
-                node.attribute(ORIGIN), node.attribute(IP_ADDRESS), node.attribute(CREATED_BY), fields, node.path());
+        return new FormsSubmission(node.name(), formNameOf(node.path()), parseInstant(node.attribute(CREATED_PROPERTY)),
+                node.attribute(ORIGIN_PROPERTY), node.attribute(IP_ADDRESS), node.attribute(CREATED_BY), fields, node.path());
     }
 
     /** The segment after {@code results/} in the path: {@code formFactory/results/contact-us/submissions/…}. */

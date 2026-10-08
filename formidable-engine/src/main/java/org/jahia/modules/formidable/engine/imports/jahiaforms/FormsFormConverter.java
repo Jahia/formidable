@@ -28,6 +28,8 @@ public final class FormsFormConverter {
     static final String COUNTRY_SOURCE = "country";
     private static final String SAVE_ACTION_NAME = "save-to-jcr";
     private static final String EMAIL_ACTION_NAME = "email-notification";
+    private static final String ACTION = "action ";
+    private static final String FIELD = "field ";
 
     private final Predicate<String> registeredTypes;
     private final Predicate<String> declaredOptionsSources;
@@ -273,13 +275,13 @@ public final class FormsFormConverter {
             } else if (action.is(FormsAction.SEND_EMAIL_TO_SUBMITTER)) {
                 actions.add(new ImportedAction(EMAIL_ACTION_NAME + "-submitter", FmdbNodeType.EMAIL_NOTIFICATION_ACTION,
                         Map.of(), nonBlankI18n(Map.of("subject", valuesOf(action.option(FormsOptionNames.SUBJECT))))));
-                report.add("action " + action.type() + ": Formidable has no action that writes to the submitter; "
+                report.add(ACTION + action.type() + ": Formidable has no action that writes to the submitter; "
                         + "a notification without recipient was created, complete or remove it");
             } else if (action.is(FormsAction.REDIRECT_TO_PAGE) || action.is(FormsAction.REDIRECT_TO_URL)) {
-                report.add("action " + action.type() + " not carried over (target: " + redirectTarget(action)
+                report.add(ACTION + action.type() + " not carried over (target: " + redirectTarget(action)
                         + "): Formidable has no redirect action yet");
             } else {
-                report.add("action " + action.type() + " not carried over: Formidable has no equivalent");
+                report.add(ACTION + action.type() + " not carried over: Formidable has no equivalent");
             }
         }
         if (!saved) {
@@ -292,7 +294,7 @@ public final class FormsFormConverter {
         Map<String, String> properties = new LinkedHashMap<>();
         putPlain(properties, "to", recipients(action));
         putPlain(properties, "from", plain(action, FormsOptionNames.FROM));
-        report.add("action " + action.type() + ": the body of the mail was not carried over, the two templates differ");
+        report.add(ACTION + action.type() + ": the body of the mail was not carried over, the two templates differ");
         return new ImportedAction(EMAIL_ACTION_NAME, FmdbNodeType.EMAIL_NOTIFICATION_ACTION, properties,
                 nonBlankI18n(Map.of("subject", valuesOf(action.option(FormsOptionNames.SUBJECT)))));
     }
@@ -344,9 +346,9 @@ public final class FormsFormConverter {
 
     private static String notRecreated(FormsField definition) {
         return switch (definition.kind()) {
-            case "password" -> "field " + definition.name() + " (password) not recreated: Formidable would store and mail the password in clear";
-            case "contentDisplay" -> "field " + definition.name() + " (content display) not recreated: it displays a content, submits nothing";
-            default -> "field " + definition.name() + " (" + definition.type() + ") not recreated";
+            case "password" -> FIELD + definition.name() + " (password) not recreated: Formidable would store and mail the password in clear";
+            case "contentDisplay" -> FIELD + definition.name() + " (content display) not recreated: it displays a content, submits nothing";
+            default -> FIELD + definition.name() + " (" + definition.type() + ") not recreated";
         };
     }
 

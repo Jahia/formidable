@@ -24,6 +24,7 @@ final class FormsFieldTypes {
     static final String SWITCH = "fmdbext:switch";
     static final String RATING = "fmdbext:rating";
     static final String CONSENT = "fmdbext:consent";
+    private static final String CREATED_AS = "created as ";
 
     /**
      * @param nodeType the type to create
@@ -83,14 +84,14 @@ final class FormsFieldTypes {
         if (extended != null) {
             return registered.test(extended.preferred())
                     ? new Mapping(extended.preferred(), null)
-                    : new Mapping(extended.fallback(), "created as " + extended.fallback()
+                    : new Mapping(extended.fallback(), CREATED_AS + extended.fallback()
                     + " because " + extended.preferred() + " is not deployed on this instance");
         }
         String nearest = NO_EQUIVALENT.get(kind);
         if (nearest != null) {
-            return new Mapping(nearest, "created as " + nearest + " because Formidable has no " + kind + " field");
+            return new Mapping(nearest, CREATED_AS + nearest + " because Formidable has no " + kind + " field");
         }
-        return new Mapping(INPUT_TEXT, "created as " + INPUT_TEXT + " because Formidable has no equivalent of "
+        return new Mapping(INPUT_TEXT, CREATED_AS + INPUT_TEXT + " because Formidable has no equivalent of "
                 + field.type());
     }
 

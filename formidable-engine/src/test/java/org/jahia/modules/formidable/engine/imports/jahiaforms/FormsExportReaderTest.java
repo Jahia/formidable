@@ -125,7 +125,7 @@ class FormsExportReaderTest {
     }
 
     @Test
-    void aZipWithoutResultsIsRefusedWithTheProcedure() throws Exception {
+    void aZipWithoutResultsIsRefusedWithTheProcedure() {
         String formsOnly = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
                 + "<formFactory xmlns:jcr=\"http://www.jcp.org/jcr/1.0\" jcr:primaryType=\"fcnt:formFactory\">"
                 + "<forms jcr:primaryType=\"fcnt:formsFolder\"><contact-us jcr:primaryType=\"fcnt:form\"/></forms>"
