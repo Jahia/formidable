@@ -17,7 +17,7 @@
         <sonar.sources>src,pom.xml</sonar.sources>
         <!-- Jahia EE refuses an org.jahia.modules bundle without a valid Jahia-Signature. Computed with keymaker
              (java -jar keymaker-cli.jar pom -f pom.xml -s); the CI's update-signature job keeps it current. -->
-        <jahia-module-signature>MCwCFFS8L/8Dgf0DjASs0Va+xTAHPSSYAhQ7IE66CiaGPqKwGXw2BTiZnQ335Q==</jahia-module-signature>
+        <jahia-module-signature>MCwCFHFcXXCT2BRv4OOsdiiZP2IPmYRBAhRLiCPJDKNSuZkZBBM4e5D2unKnHw==</jahia-module-signature>
         <!-- The Import-Package ranges below admit jExperience from 3.4 to any 4.x, and each end has its build. The
              default one compiles against the floor, so that a call to a member that exists only on a later line
              (ContextServerStatus.isNotInError() on 4.x) fails here instead of in a customer's bundle; the
