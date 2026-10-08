@@ -4,13 +4,17 @@ import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.engine.migration.common.ElementsRedeployRetriggeredMigration;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
+import org.jahia.services.content.JCRWorkspaceWrapper;
 import org.junit.jupiter.api.Test;
 
 import javax.jcr.nodetype.NodeType;
+import javax.jcr.nodetype.NodeTypeManager;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -54,6 +58,25 @@ class RedundantMixinMigrationTest {
     void aFieldWhoseTypeDoesNotIncludeTheMixinYetWaitsForTheElementsRedeploy() {
         // Engine upgraded first: the mixin is still the only type defining the settings, removing it would drop them.
         assertFalse(RedundantMixinMigration.includedBySupertype(typeIncludingTheMixin(false), MIXIN));
+    }
+
+    @Test
+    void aTypeTheRegistryDoesNotKnowYetIsSkippedNotQueried() throws Exception {
+        // The direct 0.3 upgrade path: the engine starts while the formidable-elements of 0.3, which has no number
+        // field, still runs. Querying fmdb:inputNumber would throw and stop the whole workspace; no node can be of it.
+        JCRSessionWrapper session = mock(JCRSessionWrapper.class);
+        JCRWorkspaceWrapper workspace = mock(JCRWorkspaceWrapper.class);
+        NodeTypeManager types = mock(NodeTypeManager.class);
+        when(session.getWorkspace()).thenReturn(workspace);
+        when(workspace.getNodeTypeManager()).thenReturn(types);
+        when(types.hasNodeType(anyString())).thenReturn(true);
+        when(types.hasNodeType("fmdb:inputNumber")).thenReturn(false);
+
+        Map<String, String> queried = RedundantMixinMigration.retiredMixinsOfRegisteredTypes(session, "default");
+
+        assertEquals(4, queried.size());
+        assertFalse(queried.containsKey("fmdb:inputNumber"));
+        assertEquals("fmdbmix:advancedInputTextSettings", queried.get("fmdb:inputText"));
     }
 
     @Test
