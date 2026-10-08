@@ -12,7 +12,7 @@
     <description>Formidable Engine - UI Extensions (selectorTypes for Content Editor)</description>
     <properties>
         <jahia-depends>javascript-modules-engine</jahia-depends>
-        <jahia-module-signature>MC0CFA34BUMVXOQaf1i8dEQX4aD9Lac5AhUAkOEYgGmNqIt+xpMlhtzXofNoskI=</jahia-module-signature>
+        <jahia-module-signature>MC0CFCpnAu/4iFwniSozhUpbpr0zycwyAhUAg0KIJOj4GlMVdOMzNEMMxNarAw4=</jahia-module-signature>
         <sonar.sources>src,package.json,pom.xml</sonar.sources>
     </properties>
     <scm>
