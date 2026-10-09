@@ -26,6 +26,7 @@ export const GET_FORM_RESULTS_LIST = gql`
                                 displayName(language: $language)
                             }
                         }
+                        imported: isNodeType(type: {types: ["fmdbmix:importedResults"]})
                     }
                 }
             }

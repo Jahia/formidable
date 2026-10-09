@@ -122,6 +122,9 @@ describe('form results entries', () => {
         expect(formStatus(entry({value: 'f', refNode: null}))).toEqual('unknown');
         expect(formStatus(entry({value: 'f', refNode: null}, {uuid: 'f', displayName: 'Contact us'}))).toEqual('unpublished');
         expect(formStatus(entry({value: 'f', refNode: null}, null))).toEqual('deleted');
+        // an entry imported without a form has no reference at all: imported, not deleted
+        expect(formStatus({...entry(null), imported: true})).toEqual('imported');
+        expect(formStatus({...entry(null, null), imported: false})).toEqual('deleted');
     });
 
     it('attaches the edit lookup to the entries missing in live only', () => {

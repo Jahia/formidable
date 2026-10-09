@@ -91,9 +91,14 @@ export const FormResultsApp = () => {
         selectedForm?.submissionsContainer?.nodes?.[0]?.canRemoveChildNodes
     );
 
-    const formUuid = selectedForm?.parentForm?.refNode?.uuid;
+    // The labels of the fields come from the form in live, or from the form as it stands in edit while it
+    // is not published: an unpublished form, imported or native, still names its columns.
+    const labelsForm = selectedForm?.parentForm?.refNode
+        ? {uuid: selectedForm.parentForm.refNode.uuid, workspace: 'LIVE'}
+        : (selectedForm?.editForm ? {uuid: selectedForm.editForm.uuid, workspace: 'EDIT'} : null);
+    const formUuid = labelsForm?.uuid;
     const {data: fieldLabelsData} = useQuery(GET_FORM_FIELD_LABELS, {
-        variables: {formUuid: formUuid!, language, workspace: 'LIVE'},
+        variables: {formUuid: formUuid!, language, workspace: labelsForm?.workspace ?? 'LIVE'},
         skip: !formUuid,
         fetchPolicy: 'cache-first'
     });

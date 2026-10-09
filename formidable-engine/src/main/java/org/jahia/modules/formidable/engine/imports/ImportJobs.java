@@ -43,6 +43,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -88,6 +89,7 @@ public class ImportJobs {
     private static final String REPORT = "report";
     private static final String MESSAGE = "message";
     private static final String UPDATED = "updated";
+    private static final String CHOICES = "choices";
     private static final String JOB_NAME_PREFIX = "forms-import-";
     /** The temporary copy of the export a phase reads, on the disk of the processing server. */
     private static final String EXPORT_COPY_PREFIX = "forms-import-export-";
@@ -213,8 +215,13 @@ public class ImportJobs {
         });
     }
 
-    /** Starts the import of a reviewed dry run, one import at a time per site. */
-    public JobView startImport(String siteKey, String jobId) throws RepositoryException, RefusedException {
+    /**
+     * Starts the import of a reviewed dry run, one import at a time per site.
+     *
+     * @param choices what receives the results of each source form, by its name, as the administrator chose
+     *                in the review; the results alone for the forms it does not name
+     */
+    public JobView startImport(String siteKey, String jobId, Map<String, ImportChoice> choices) throws RepositoryException, RefusedException {
         refuseWhileImportRuns(siteKey);
         JobView started = inLive(session -> {
             JCRNodeWrapper job = jobNode(session, siteKey, jobId);
@@ -225,6 +232,7 @@ public class ImportJobs {
                 return view(job, siteKey);
             }
             job.setProperty(STATE, State.IMPORTING.stored());
+            job.setProperty(CHOICES, ImportChoice.toJson(choices));
             job.setProperty(UPDATED, now());
             session.save();
             return view(job, siteKey);
@@ -280,7 +288,8 @@ public class ImportJobs {
                 log.info("[FormsImport] Job {} of site {} was closed before its {} ran", jobId, siteKey, phase);
                 return;
             }
-            ImportReport report = runOn(export, siteKey, phase);
+            Map<String, ImportChoice> choices = phase == Phase.IMPORT ? choicesOf(siteKey, jobId) : Map.of();
+            ImportReport report = runOn(export, siteKey, phase, choices);
             update(siteKey, jobId, phase == Phase.DRY_RUN ? State.REVIEW : State.DONE, report.toJson().toString(), null,
                     phase == Phase.IMPORT);
             log.info("[FormsImport] Job {} of site {}: {} ended, {}", jobId, siteKey, phase, report.toJson().getJSONObject("totals"));
@@ -302,17 +311,25 @@ public class ImportJobs {
         }
     }
 
-    private ImportReport runOn(Path export, String siteKey, Phase phase) throws RepositoryException {
+    private ImportReport runOn(Path export, String siteKey, Phase phase, Map<String, ImportChoice> choices) throws RepositoryException {
         return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, FormidableJcrConstants.WORKSPACE_EDIT, null, edit -> {
             JCRSessionWrapper live = JCRSessionFactory.getInstance().getCurrentSystemSession(FormidableJcrConstants.WORKSPACE_LIVE, null, null);
             try (FormsExportReader reader = FormsExportReader.open(export)) {
                 ImportWriter writer = new ImportWriter(edit, live, siteKey, FOLDER_TITLE);
-                FormsImportRun run = new FormsImportRun(reader, writer, phase == Phase.DRY_RUN,
+                FormsImportRun run = new FormsImportRun(reader, writer, phase == Phase.DRY_RUN, choices,
                         type -> hasNodeType(edit, type), this::isOptionsSourceDeclared, isCaptchaConfigured());
                 return run.run();
             } catch (IOException | FormsExportException e) {
                 throw new RepositoryException(e.getMessage(), e);
             }
+        });
+    }
+
+    /** The choices the administrator made for the import of a job, as the start recorded them. */
+    private static Map<String, ImportChoice> choicesOf(String siteKey, String jobId) throws RepositoryException {
+        return inLive(session -> {
+            JCRNodeWrapper job = jobNode(session, siteKey, jobId);
+            return job == null ? Map.of() : ImportChoice.fromJson(job.getPropertyAsString(CHOICES));
         });
     }
 

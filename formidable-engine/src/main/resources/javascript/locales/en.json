@@ -120,7 +120,8 @@
 		"sidebar": {
 			"title": "Forms with results",
 			"formDeleted": "Form deleted",
-			"formUnpublished": "Form unpublished"
+			"formUnpublished": "Form unpublished",
+			"formImported": "Imported, no form"
 		},
 		"actions": {
 			"export": "Export",
@@ -205,7 +206,8 @@
 				"label": "{{count}} submissions will be deleted.",
 				"all": "{{count}} submissions will be deleted. The form leaves the list until it receives a new submission.",
 				"allUnpublished": "{{count}} submissions will be deleted. The form leaves the list until it is published again and receives a new submission.",
-				"allDeleted": "{{count}} submissions will be deleted. The form leaves the list for good: it no longer exists."
+				"allDeleted": "{{count}} submissions will be deleted. The form leaves the list for good: it no longer exists.",
+				"allImported": "{{count}} submissions will be deleted. The entry leaves the list for good: it was imported without a form, nothing writes into it."
 			},
 			"validation": {
 				"invalidRange": "Select a valid start and end date, or delete all results.",
@@ -230,11 +232,17 @@
 				"nothing": "Nothing to import: every form and every submission is already in this site.",
 				"created": "Created as \"{{name}}\" in {{folder}}",
 				"found": "Already imported, at {{path}}",
+				"resultsOnly": "Results only: the entry \"{{name}}\" on this page, without a form",
 				"submissions": "{{found}} submission(s): {{toImport}} to import, {{already}} already imported",
 				"fields": "{{count}} field(s)",
 				"files": "{{count}} file(s), {{size}}",
 				"filesMissing": "{{count}} file(s) not in the export, left behind",
 				"values": "{{dropped}} value(s) dropped, {{notConverted}} kept as stored"
+			},
+			"choice": {
+				"label": "What receives the results",
+				"resultsOnly": "The results only, as an entry without a form",
+				"create": "A form created in the \"Imported from Jahia Forms\" folder, with its entry"
 			},
 			"actions": {
 				"import": "Import",
@@ -244,7 +252,8 @@
 			},
 			"done": {
 				"title": "Import done",
-				"nextStep": "The forms are in the \"Imported from Jahia Forms\" folder of the site, unpublished. Until a form is published, its entry shows as Unpublished with the field system names as columns: review each form, complete what the report lists, then publish it."
+				"nextStepResultsOnly": "The results are on this page, as entries without a form, flagged \"Imported, no form\", with the field system names as columns.",
+				"nextStep": "The forms are in the \"Imported from Jahia Forms\" folder of the site, unpublished, and their entries show as Form unpublished until then: review each form, complete what the report lists, then publish it."
 			},
 			"failed": {
 				"title": "The import failed"

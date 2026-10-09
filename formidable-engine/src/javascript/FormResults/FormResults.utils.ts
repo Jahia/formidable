@@ -26,6 +26,8 @@ export interface FormResultsNode {
      * workspaces. Undefined while the lookup has not answered.
      */
     editForm?: {uuid: string; displayName: string} | null;
+    /** Whether the entry holds results imported from another form system (fmdbmix:importedResults). */
+    imported?: boolean;
     submissionCount?: number;
 }
 
@@ -34,9 +36,11 @@ export interface FormResultsNode {
  * or deleted" — an administrator who unpublished a form for a while must not read that it is gone
  * — so the page looks the form up in EDIT before judging. The results are kept whatever the
  * status (a form deleted in jContent never destroys its submissions); the page flags the entry
- * and lets an authorised user remove it.
+ * and lets an authorised user remove it. An entry imported from another form system without a form
+ * has no reference at all: it is "imported", not deleted (docs/architecture/forms-import.md,
+ * "Results only").
  */
-export type FormStatus = 'published' | 'unpublished' | 'deleted' | 'unknown';
+export type FormStatus = 'published' | 'unpublished' | 'deleted' | 'imported' | 'unknown';
 
 /** The live reference does not resolve: the form is unpublished, deleted, or not readable there. */
 export function isMissingInLive(form: FormResultsNode): boolean {
@@ -44,6 +48,10 @@ export function isMissingInLive(form: FormResultsNode): boolean {
 }
 
 export function formStatus(form: FormResultsNode): FormStatus {
+    if (!form.parentForm?.value && form.imported) {
+        return 'imported';
+    }
+
     if (!isMissingInLive(form)) {
         return 'published';
     }

@@ -37,13 +37,14 @@ flowchart LR
 | 1. Import | Every Forms form becomes an unpublished Formidable form in the `imported-forms` content folder of the site, with system names generated from the labels, the field types Formidable has, the labels, placeholders, help texts, required rules, choices and actions that map. Every submission the Forms *save to JCR* action stored becomes a submission of that form, files included. The Results page lists, filters and exports them as native results, with the labels of the form once it is published. |
 | 2. Attach to another form | An administrator moves the imported results of one Forms form onto another Formidable form, built by hand or reworked: the field names are mapped and renamed, and the results take the readers of that form. |
 
-No result ever exists without a form: iteration 1 creates the form before it writes the first submission,
-so the Results page, the exports and the statuses need no change for imported results. The import never
-publishes, though, and the page resolves a form through its live reference (`FormResultsApp.tsx`): until a
-contributor publishes an imported form, its entry shows as **Unpublished**, and the page and the exports
-head their columns with the system names of the fields. This is why the import gives each field a readable
-system name, generated from its label (`your-first-name`, not `text-input_0_1`), and why the final report
-invites to publish the forms.
+Iteration 1 creates a form before it writes the first submission, so the Results page, the exports and the
+statuses need no change for imported results. The import never publishes, though: until a contributor
+publishes an imported form, its entry shows as **Unpublished**, and the page resolves the form through its
+live reference, else through the edit workspace (`FormResultsApp.tsx`), so that the columns carry the
+labels of the form even then. The system names of the fields head the columns only when no form exists,
+the default of iteration 2. This is why the import gives each field a readable system name, generated from
+its label (`your-first-name`, not `text-input_0_1`), and why the final report of a created form invites to
+publish it.
 
 ## Scope
 
@@ -543,7 +544,7 @@ The report gives, per Forms form:
 - the files, and their total size.
 
 The final report ends with the next step: the forms are in `imported-forms`, unpublished; until a form is
-published, its entry shows as **Unpublished** on the Results page, with the system names as columns; a
+published, its entry shows as **Unpublished** on the Results page, with the labels of the form, read from edit, as columns; a
 contributor reviews each form, completes what the report lists, then publishes it.
 
 ### Running it twice
@@ -698,7 +699,7 @@ mapping or to another form.
   report, which must end with the invitation to publish. It then checks `imported-forms` and its three
   forms: the five fields of `contact-us`, their system names (`your-first-name`…) and types, "Your First
   name" and "Votre prénom" from the placeholder, "Your Enquiry" from the title, the save and the reported
-  redirect. On the Results page, the entry of `contact-us` shows **Unpublished** with the system names as
+  redirect. On the Results page, the entry of `contact-us` shows **Unpublished** with the labels of the form as
   columns; the spec publishes `contact-us`, then checks the labels, the count, the values, the dates, the
   imported origin and the exports, while the entry of an unpublished form still shows its system names.
   A second run must duplicate nothing and must leave a title and a field name edited between the runs,

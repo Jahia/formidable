@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.engine.imports.jahiaforms;
 
+import org.jahia.modules.formidable.engine.imports.ImportChoice;
 import org.jahia.modules.formidable.engine.imports.ImportReport;
 import org.jahia.modules.formidable.engine.imports.ImportWriter;
 import org.jahia.modules.formidable.engine.imports.model.ImportedField;
@@ -37,21 +38,24 @@ public final class FormsImportRun {
     private final FormsExportReader reader;
     private final ImportWriter writer;
     private final boolean dryRun;
+    private final Map<String, ImportChoice> choices;
     private final FormsFormConverter converter;
     /** By source form: the names of the fields of the form an earlier run created, when the form was found. */
     private final Map<String, Map<String, String>> foundNames = new HashMap<>();
 
     /**
      * @param writer the writer on the target site; in a dry run it is only read from
+     * @param choices what receives the results of each source form, by its name; the results alone for the others
      * @param registeredTypes whether the repository registers a node type
      * @param declaredOptionsSources whether the instance declares an options source by key
      * @param captchaConfigured whether the instance configures a captcha, for the forms that displayed one
      */
-    public FormsImportRun(FormsExportReader reader, ImportWriter writer, boolean dryRun,
+    public FormsImportRun(FormsExportReader reader, ImportWriter writer, boolean dryRun, Map<String, ImportChoice> choices,
                           Predicate<String> registeredTypes, Predicate<String> declaredOptionsSources, boolean captchaConfigured) {
         this.reader = reader;
         this.writer = writer;
         this.dryRun = dryRun;
+        this.choices = choices;
         this.converter = new FormsFormConverter(registeredTypes, declaredOptionsSources, captchaConfigured);
     }
 
@@ -87,35 +91,54 @@ public final class FormsImportRun {
     }
 
     /**
-     * Reports the form, and in an import creates it with its results entry; null when nothing is written.
-     * A form found from an earlier run is reported with the fields it holds now, which are the ones the
-     * submissions of this run land under.
+     * Reports what receives the results of the form, and in an import writes it; null when nothing is
+     * written. A form found from an earlier run is reported with the fields it holds now, which are the
+     * ones the submissions of this run land under; an entry found from an earlier run, or written alone,
+     * takes the names generated from the export.
      */
     private JCRNodeWrapper prepareForm(Source source, ImportReport report) throws RepositoryException {
         ImportedForm form = source.form();
         ImportReport.FormEntry entry = report.form(form.name(), form.titles());
-        JCRNodeWrapper existing = writer.findForm(form.sourceId(), form.sourceResultsId());
-        if (existing != null) {
-            entry.target(existing.getName(), existing.getPath(), ImportReport.FormOutcome.FOUND);
-            List<ImportWriter.FoundField> fields = writer.importedFields(existing);
+        JCRNodeWrapper existingForm = writer.findForm(form.sourceId(), form.sourceResultsId());
+        JCRNodeWrapper existingEntry = existingForm == null ? writer.findResultsOnlyEntry(form.sourceKey()) : null;
+        ImportChoice choice = choices.getOrDefault(form.name(), ImportChoice.RESULTS_ONLY);
+        if (existingForm != null) {
+            entry.target(existingForm.getName(), existingForm.getPath(), ImportReport.FormOutcome.FOUND);
+            List<ImportWriter.FoundField> fields = writer.importedFields(existingForm);
             fields.forEach(field -> entry.field(field.name(), field.nodeType(), List.of()));
             foundNames.put(form.name(), namesOf(fields));
+        } else if (existingEntry != null) {
+            entry.target(existingEntry.getName(), existingEntry.getPath(), ImportReport.FormOutcome.FOUND);
+            form.fields().forEach(field -> entry.field(field.name(), field.nodeType(), List.of()));
         } else {
+            // nothing of the form exists yet: the report tells what a created form could not carry over, which
+            // the dialog shows while the administrator can still choose to create it
             entry.notes(form.report());
             form.fields().forEach(field -> entry.field(field.name(), field.nodeType(), field.report()));
-            entry.target(form.name(), writer.importedFormsPath() + "/" + form.name(), ImportReport.FormOutcome.CREATED);
+            if (choice == ImportChoice.CREATE) {
+                entry.target(form.name(), writer.importedFormsPath() + "/" + form.name(), ImportReport.FormOutcome.CREATED);
+            } else {
+                entry.target(form.name(), writer.resultsRootPath() + "/" + form.name(), ImportReport.FormOutcome.RESULTS_ONLY);
+            }
         }
         if (dryRun) {
             return null;
         }
-        JCRNodeWrapper formNode = existing;
-        if (formNode == null) {
-            formNode = writer.findOrCreateForm(form).node();
+        JCRNodeWrapper results;
+        if (existingForm != null) {
+            results = writer.findOrCreateResultsEntry(existingForm, form);
+        } else if (existingEntry != null) {
+            results = existingEntry;
+        } else if (choice == ImportChoice.CREATE) {
+            JCRNodeWrapper formNode = writer.findOrCreateForm(form).node();
             entry.target(formNode.getName(), formNode.getPath(), ImportReport.FormOutcome.CREATED);
             // the entry points at the form: the form is persisted first, whatever the entry's own save does
             writer.saveForms();
+            results = writer.findOrCreateResultsEntry(formNode, form);
+        } else {
+            results = writer.createResultsOnlyEntry(form);
+            entry.target(results.getName(), results.getPath(), ImportReport.FormOutcome.RESULTS_ONLY);
         }
-        JCRNodeWrapper results = writer.findOrCreateResultsEntry(formNode, form);
         writer.save();
         return results;
     }

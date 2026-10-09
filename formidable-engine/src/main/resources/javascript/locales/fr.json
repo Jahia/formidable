@@ -120,7 +120,8 @@
 		"sidebar": {
 			"title": "Formulaires avec résultats",
 			"formDeleted": "Formulaire supprimé",
-			"formUnpublished": "Formulaire dépublié"
+			"formUnpublished": "Formulaire dépublié",
+			"formImported": "Importé, sans formulaire"
 		},
 		"actions": {
 			"export": "Exporter",
@@ -205,7 +206,8 @@
 				"label": "{{count}} soumissions seront supprimées.",
 				"all": "{{count}} soumissions seront supprimées. Le formulaire quitte la liste jusqu'à sa prochaine soumission.",
 				"allUnpublished": "{{count}} soumissions seront supprimées. Le formulaire quitte la liste jusqu'à ce qu'il soit republié et reçoive une nouvelle soumission.",
-				"allDeleted": "{{count}} soumissions seront supprimées. Le formulaire quitte la liste pour de bon : il n'existe plus."
+				"allDeleted": "{{count}} soumissions seront supprimées. Le formulaire quitte la liste pour de bon : il n'existe plus.",
+				"allImported": "{{count}} soumissions seront supprimées. L’entrée quitte la liste pour de bon : importée sans formulaire, rien n’y écrit."
 			},
 			"validation": {
 				"invalidRange": "Sélectionnez une plage de dates valide, ou supprimez tous les résultats.",
@@ -230,11 +232,17 @@
 				"nothing": "Rien à importer : chaque formulaire et chaque soumission sont déjà dans ce site.",
 				"created": "Créé sous le nom « {{name}} » dans {{folder}}",
 				"found": "Déjà importé, dans {{path}}",
+				"resultsOnly": "Résultats seuls : l’entrée « {{name}} » de cette page, sans formulaire",
 				"submissions": "{{found}} soumission(s) : {{toImport}} à importer, {{already}} déjà importée(s)",
 				"fields": "{{count}} champ(s)",
 				"files": "{{count}} fichier(s), {{size}}",
 				"filesMissing": "{{count}} fichier(s) absent(s) de l’export, laissé(s) de côté",
 				"values": "{{dropped}} valeur(s) écartée(s), {{notConverted}} gardée(s) telles quelles"
+			},
+			"choice": {
+				"label": "Ce qui reçoit les résultats",
+				"resultsOnly": "Les résultats seuls, dans une entrée sans formulaire",
+				"create": "Un formulaire créé dans le dossier « Imported from Jahia Forms », avec son entrée"
 			},
 			"actions": {
 				"import": "Importer",
@@ -244,7 +252,8 @@
 			},
 			"done": {
 				"title": "Import terminé",
-				"nextStep": "Les formulaires sont dans le dossier « Imported from Jahia Forms » du site, non publiés. Tant qu'un formulaire n'est pas publié, son entrée s'affiche comme non publiée avec les noms système des champs en colonnes : relisez chaque formulaire, complétez ce que le rapport liste, puis publiez-le."
+				"nextStepResultsOnly": "Les résultats sont sur cette page, dans des entrées sans formulaire marquées « Importé, sans formulaire », avec les noms système des champs en colonnes.",
+				"nextStep": "Les formulaires sont dans le dossier « Imported from Jahia Forms » du site, non publiés, et leurs entrées s'affichent comme dépubliées jusque-là : relisez chaque formulaire, complétez ce que le rapport liste, puis publiez-le."
 			},
 			"failed": {
 				"title": "L'import a échoué"

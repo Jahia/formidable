@@ -7,6 +7,7 @@ import {
     fetchJob,
     formTitle,
     groupedFieldNotes,
+    type ImportChoice,
     type ImportJob,
     type ImportReport,
     type ImportReportForm,
@@ -45,6 +46,8 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
     const [job, setJob] = useState<ImportJob | null>(initialJob ?? null);
     const [fileName, setFileName] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
+    // What receives the results of each form of the export, chosen in the review; the results alone by default.
+    const [choices, setChoices] = useState<Record<string, ImportChoice>>({});
     const [isDragging, setIsDragging] = useState(false);
     const importedRef = useRef(initialJob?.state === 'done');
 
@@ -118,7 +121,7 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
         }
         setErrorMessage('');
         try {
-            const started = await startImport(siteKey, job.id);
+            const started = await startImport(siteKey, job.id, choices);
             setJob(started);
             setState(stateOf(started));
         } catch (error) {
@@ -259,7 +262,13 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                     {state === 'review' && job?.report && (
                         <>
                             <Typography variant="subheading" weight="bold">{t('formResults.import.review.title')}</Typography>
-                            <ReportView report={job.report} language={language} t={t}/>
+                            <ReportView
+                                report={job.report}
+                                language={language}
+                                t={t}
+                                choices={choices}
+                                onChoice={(sourceName, choice) => setChoices(previous => ({...previous, [sourceName]: choice}))}
+                            />
                         </>
                     )}
                     {state === 'done' && job?.report && (
@@ -268,8 +277,11 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                                 <Check size="big" color="green"/>
                                 <Typography variant="subheading" weight="bold">{t('formResults.import.done.title')}</Typography>
                             </div>
+                            <Typography data-sel-role="import-next-step">
+                                {t(job.report.forms.some(form => form.outcome === 'created') ?
+                                    'formResults.import.done.nextStep' : 'formResults.import.done.nextStepResultsOnly')}
+                            </Typography>
                             <ReportView report={job.report} language={language} t={t}/>
-                            <Typography data-sel-role="import-next-step">{t('formResults.import.done.nextStep')}</Typography>
                         </>
                     )}
                     {state === 'failed' && (
@@ -314,9 +326,12 @@ interface ReportViewProps {
     report: ImportReport;
     language: string;
     t: (key: string, options?: Record<string, unknown>) => string;
+    /** The choices of the review, when the report is a dry run the administrator can still steer. */
+    choices?: Record<string, ImportChoice>;
+    onChoice?: (sourceName: string, choice: ImportChoice) => void;
 }
 
-const ReportView = ({report, language, t}: ReportViewProps) => (
+const ReportView = ({report, language, t, choices, onChoice}: ReportViewProps) => (
     <div data-sel-role="import-report" style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
         <Typography data-sel-role="import-totals">
             {t('formResults.import.report.totals', {
@@ -328,7 +343,9 @@ const ReportView = ({report, language, t}: ReportViewProps) => (
         {report.nothingToImport && (
             <Typography data-sel-role="import-nothing">{t('formResults.import.report.nothing')}</Typography>
         )}
-        {report.forms.map(form => <FormReport key={form.sourceName} form={form} report={report} language={language} t={t}/>)}
+        {report.forms.map(form => (
+            <FormReport key={form.sourceName} form={form} report={report} language={language} t={t} choices={choices} onChoice={onChoice}/>
+        ))}
     </div>
 );
 
@@ -336,15 +353,44 @@ interface FormReportProps extends ReportViewProps {
     form: ImportReportForm;
 }
 
-const FormReport = ({form, report, language, t}: FormReportProps) => {
-    const notes = [...form.notes, ...groupedFieldNotes(form.fields)];
+/** What the import will do for a form: the choice of the review while it can still change, else the outcome the server reports. */
+function outcomeOf(form: ImportReportForm, choice: ImportChoice | undefined, steerable: boolean): ImportReportForm['outcome'] {
+    if (form.outcome === 'found' || !steerable) {
+        return form.outcome;
+    }
+    return (choice ?? 'resultsOnly') === 'create' ? 'created' : 'resultsOnly';
+}
+
+const FormReport = ({form, report, language, t, choices, onChoice}: FormReportProps) => {
+    const outcome = outcomeOf(form, choices?.[form.sourceName], Boolean(onChoice));
+    // what the form itself cannot carry over only matters when a form is created
+    const notes = outcome === 'created' ? [...form.notes, ...groupedFieldNotes(form.fields)] : [];
+    const choiceName = `import-choice-${form.sourceName}`;
     return (
-        <div data-sel-role="import-report-form" data-sel-name={form.sourceName} data-sel-outcome={form.outcome ?? ''} style={{border: '1px solid var(--color-gray_light40)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '6px'}}>
+        <div data-sel-role="import-report-form" data-sel-name={form.sourceName} data-sel-outcome={outcome ?? ''} style={{border: '1px solid var(--color-gray_light40)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '6px'}}>
             <Typography variant="subheading" weight="bold">{formTitle(form, language)}</Typography>
+            {onChoice && form.outcome !== 'found' && (
+                <fieldset data-sel-role="import-choice" style={{border: 'none', margin: 0, padding: 0, display: 'flex', flexWrap: 'wrap', gap: '4px 24px'}}>
+                    <legend style={{padding: 0}}><Typography variant="body" weight="bold">{t('formResults.import.choice.label')}</Typography></legend>
+                    {(['resultsOnly', 'create'] as const).map(choice => (
+                        <label key={choice} style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer'}}>
+                            <input
+                                type="radio"
+                                name={choiceName}
+                                value={choice}
+                                data-sel-choice={choice}
+                                checked={(choices?.[form.sourceName] ?? 'resultsOnly') === choice}
+                                onChange={() => onChoice(form.sourceName, choice)}
+                            />
+                            <Typography variant="body">{t(`formResults.import.choice.${choice}`)}</Typography>
+                        </label>
+                    ))}
+                </fieldset>
+            )}
             <Typography variant="body">
-                {form.outcome === 'found' ?
-                    t('formResults.import.report.found', {path: form.targetPath}) :
-                    t('formResults.import.report.created', {name: form.targetName, folder: report.importedFormsFolder})}
+                {outcome === 'found' && t('formResults.import.report.found', {path: form.targetPath})}
+                {outcome === 'created' && t('formResults.import.report.created', {name: form.targetName, folder: report.importedFormsFolder})}
+                {outcome === 'resultsOnly' && t('formResults.import.report.resultsOnly', {name: form.targetName})}
             </Typography>
             <Typography variant="body">
                 {t('formResults.import.report.submissions', {
