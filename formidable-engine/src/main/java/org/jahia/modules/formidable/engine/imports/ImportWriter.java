@@ -1,6 +1,6 @@
 package org.jahia.modules.formidable.engine.imports;
 
-import org.jahia.modules.formidable.engine.util.FormidableJcrConstants;
+import org.jahia.modules.formidable.engine.util.JcrFiles;
 import org.jahia.modules.formidable.engine.actions.form.storage.SaveToJcrFormAction;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.engine.api.FmdbNodeName;
@@ -42,6 +42,7 @@ import java.util.TimeZone;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACL_NODE;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACL_NODE_TYPE;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.INHERIT_PROPERTY;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.SITES;
 
 /**
  * Writes what an import produces into a site (docs/architecture/forms-import.md, "Target model"): the
@@ -51,7 +52,8 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.IN
  * <p>
  * The caller saves: the import saves by batches, the dry run never.
  */
-public final class ImportWriter {
+// Not final: the run is tested against a mock of it.
+public class ImportWriter {
 
     public static final String FOLDER_NAME = "imported-forms";
     public static final String CONTENTS_NODE = "contents";
@@ -85,6 +87,10 @@ public final class ImportWriter {
     public record FormHandle(JCRNodeWrapper node, boolean created) {
     }
 
+    /** A field of a form an earlier run created, with the identity of the source field it stands for. */
+    public record FoundField(String name, String nodeType, String sourceId, String sourceName) {
+    }
+
     private final JCRSessionWrapper edit;
     private final JCRSessionWrapper live;
     private final String siteKey;
@@ -116,15 +122,41 @@ public final class ImportWriter {
         if (keys.isEmpty()) {
             return null;
         }
-        String statement = "SELECT * FROM [" + FmdbMixin.IMPORTED_FORM + "] AS f WHERE ISDESCENDANTNODE(f, '/sites/"
+        String statement = "SELECT * FROM [" + FmdbMixin.IMPORTED_FORM + "] AS f WHERE ISDESCENDANTNODE(f, '" + SITES
                 + escape(siteKey) + "') AND (" + String.join(" OR ", keys) + ")";
         NodeIterator found = edit.getWorkspace().getQueryManager().createQuery(statement, Query.JCR_SQL2).execute().getNodes();
         return found.hasNext() ? (JCRNodeWrapper) found.nextNode() : null;
     }
 
+    /**
+     * The fields of a form an earlier run created, as they are now: the contributor may have renamed,
+     * moved or deleted some since. Each one still knows the source field it stands for, through its
+     * {@code fmdbmix:importedField} marker, which is how the submissions of a later run find their column.
+     */
+    public List<FoundField> importedFields(JCRNodeWrapper form) throws RepositoryException {
+        List<FoundField> fields = new ArrayList<>();
+        if (form.hasNode(FIELDS_NODE)) {
+            collectImportedFields(form.getNode(FIELDS_NODE), fields);
+        }
+        return fields;
+    }
+
+    private static void collectImportedFields(JCRNodeWrapper parent, List<FoundField> fields) throws RepositoryException {
+        NodeIterator children = parent.getNodes();
+        while (children.hasNext()) {
+            JCRNodeWrapper child = (JCRNodeWrapper) children.nextNode();
+            if (child.isNodeType(FmdbMixin.IMPORTED_FIELD)) {
+                fields.add(new FoundField(child.getName(), child.getPrimaryNodeTypeName(),
+                        child.getPropertyAsString(SOURCE_ID), child.getPropertyAsString(SOURCE_NAME)));
+            } else {
+                collectImportedFields(child, fields);
+            }
+        }
+    }
+
     /** The {@code imported-forms} folder of the site, or its path when it does not exist yet. */
     public String importedFormsPath() {
-        return "/sites/" + siteKey + "/" + CONTENTS_NODE + "/" + FOLDER_NAME;
+        return SITES + siteKey + "/" + CONTENTS_NODE + "/" + FOLDER_NAME;
     }
 
     public FormHandle findOrCreateForm(ImportedForm form) throws RepositoryException {
@@ -163,7 +195,7 @@ public final class ImportWriter {
     }
 
     private JCRNodeWrapper importedFormsFolder() throws RepositoryException {
-        JCRNodeWrapper contents = edit.getNode("/sites/" + siteKey + "/" + CONTENTS_NODE);
+        JCRNodeWrapper contents = edit.getNode(SITES + siteKey + "/" + CONTENTS_NODE);
         if (contents.hasNode(FOLDER_NAME)) {
             return contents.getNode(FOLDER_NAME);
         }
@@ -216,9 +248,16 @@ public final class ImportWriter {
 
     // --- results ---
 
-    /** The results entry of the form in live, created as SaveToJcrFormAction creates one when it is missing. */
+    /**
+     * The results entry of the form in live, created as SaveToJcrFormAction creates one when it is missing.
+     * The form must be saved first: the auto-split setting saves the live session, entry included, and an
+     * entry must never be persisted ahead of the form it points to.
+     */
     public JCRNodeWrapper findOrCreateResultsEntry(JCRNodeWrapper formNode, ImportedForm form) throws RepositoryException {
-        JCRNodeWrapper site = live.getNode("/sites/" + siteKey);
+        if (formNode.isNew()) {
+            throw new IllegalStateException("The form " + formNode.getName() + " must be saved before its results entry is created");
+        }
+        JCRNodeWrapper site = live.getNode(SITES + siteKey);
         JCRNodeWrapper root = SaveToJcrFormAction.getOrCreateResultsRoot(site, live);
         JCRNodeWrapper entry = findEntry(root, formNode.getIdentifier());
         if (entry == null) {
@@ -255,7 +294,7 @@ public final class ImportWriter {
 
     /** The source identities of every submission already imported into the site, whatever its entry. */
     public Set<String> importedSubmissionIds() throws RepositoryException {
-        String statement = "SELECT [" + SOURCE_ID + "] FROM [" + FmdbMixin.IMPORTED_SUBMISSION + "] AS s WHERE ISDESCENDANTNODE(s, '/sites/"
+        String statement = "SELECT [" + SOURCE_ID + "] FROM [" + FmdbMixin.IMPORTED_SUBMISSION + "] AS s WHERE ISDESCENDANTNODE(s, '" + SITES
                 + escape(siteKey) + "/" + SaveToJcrFormAction.RESULTS_ROOT_NAME + "')";
         RowIterator rows = live.getWorkspace().getQueryManager().createQuery(statement, Query.JCR_SQL2).execute().getRows();
         Set<String> ids = new HashSet<>();
@@ -300,18 +339,17 @@ public final class ImportWriter {
         return node;
     }
 
-    private void writeFiles(JCRNodeWrapper submission, List<ImportedFile> files, BinaryOpener binaries)
+    /** A file the export does not hold is left behind: the run reports it when it counts the files. */
+    private static void writeFiles(JCRNodeWrapper submission, List<ImportedFile> files, BinaryOpener binaries)
             throws RepositoryException, IOException {
         for (ImportedFile file : files) {
             try (InputStream binary = binaries.open(file)) {
                 if (binary == null) {
                     continue;
                 }
-                JCRNodeWrapper folder = submission.hasNode(FmdbNodeName.FILES)
-                        ? submission.getNode(FmdbNodeName.FILES) : submission.addNode(FmdbNodeName.FILES, FOLDER_TYPE);
-                JCRNodeWrapper fieldFolder = folder.hasNode(file.fieldName())
-                        ? folder.getNode(file.fieldName()) : folder.addNode(file.fieldName(), FOLDER_TYPE);
-                fieldFolder.uploadFile(JCRContentUtils.findAvailableNodeName(fieldFolder, file.fileName()), binary,
+                JCRNodeWrapper folder = childOrCreate(submission, FmdbNodeName.FILES, FOLDER_TYPE);
+                JCRNodeWrapper fieldFolder = childOrCreate(folder, file.fieldName(), FOLDER_TYPE);
+                JcrFiles.addFile(fieldFolder, JCRContentUtils.findAvailableNodeName(fieldFolder, file.fileName()), binary,
                         file.mimeType() == null ? "application/octet-stream" : file.mimeType());
             }
         }
@@ -323,6 +361,11 @@ public final class ImportWriter {
             folder = folder.hasNode(segment) ? folder.getNode(segment) : folder.addNode(segment, FmdbNodeType.SPLITTED_SUBMISSION);
         }
         return folder;
+    }
+
+    /** Saves the forms, before their results entries are created. */
+    public void saveForms() throws RepositoryException {
+        edit.save();
     }
 
     public void save() throws RepositoryException {
@@ -349,7 +392,7 @@ public final class ImportWriter {
 
     private List<Locale> siteLocales() throws RepositoryException {
         List<Locale> locales = new ArrayList<>();
-        JCRNodeWrapper site = edit.getNode("/sites/" + siteKey);
+        JCRNodeWrapper site = edit.getNode(SITES + siteKey);
         if (site.hasProperty("j:languages")) {
             for (javax.jcr.Value language : site.getProperty("j:languages").getValues()) {
                 locales.add(LanguageCodeConverters.languageCodeToLocale(language.getString()));
@@ -423,10 +466,5 @@ public final class ImportWriter {
 
     private static String escape(String value) {
         return value.replace("'", "''");
-    }
-
-    /** The workspace names the writer expects its two sessions to be on. */
-    public static boolean onTheRightWorkspaces(JCRSessionWrapper edit, JCRSessionWrapper live) throws RepositoryException {
-        return FormidableJcrConstants.WORKSPACE_EDIT.equals(edit.getWorkspace().getName()) && FormidableJcrConstants.WORKSPACE_LIVE.equals(live.getWorkspace().getName());
     }
 }

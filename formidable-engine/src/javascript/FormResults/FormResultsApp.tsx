@@ -32,7 +32,7 @@ export const FormResultsApp = () => {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     // The import of another form system's forms and results, offered when the setting is on and the user
-    // may write what it writes (docs/architecture/forms-import.md). A job left running or unread reopens.
+    // administers the site (docs/architecture/forms-import.md). A job left running or unread reopens.
     const [importSettings, setImportSettings] = useState<ImportSettings | null>(null);
     const [importDialog, setImportDialog] = useState<{open: boolean; job: ImportJob | null}>({open: false, job: null});
     useEffect(() => {
@@ -176,6 +176,16 @@ export const FormResultsApp = () => {
         return <Typography>{t('formResults.error.noSite')}</Typography>;
     }
 
+    // The button opens on the job the site has, running or unread, which may have started since the page loaded.
+    const openImportDialog = async () => {
+        try {
+            const settings = await fetchSettings(siteKey);
+            setImportSettings(settings);
+            setImportDialog({open: true, job: settings.job ?? null});
+        } catch {
+            setImportDialog({open: true, job: null});
+        }
+    };
     const importButton = importSettings?.allowed && (
         <Button
             variant="ghost"
@@ -183,7 +193,7 @@ export const FormResultsApp = () => {
             label={t('formResults.actions.import')}
             title={t('formResults.actions.importTitle')}
             data-sel-role="import-results"
-            onClick={() => setImportDialog({open: true, job: null})}
+            onClick={openImportDialog}
         />
     );
     const importDialogElement = importSettings && importDialog.open && (
@@ -208,7 +218,7 @@ export const FormResultsApp = () => {
                     {importButton}
                 </div>
             )}
-            <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, flexDirection: 'column', gap: '1rem', padding: '48px', textAlign: 'center'}}>
+            <div data-sel-role="form-results-empty" style={{display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, flexDirection: 'column', gap: '1rem', padding: '48px', textAlign: 'center'}}>
                 <Typography variant="heading" weight="bold">{t('formResults.empty.noForms')}</Typography>
                 <Typography>{t('formResults.empty.noFormsDescription')}</Typography>
             </div>

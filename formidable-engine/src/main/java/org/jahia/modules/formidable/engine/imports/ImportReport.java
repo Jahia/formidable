@@ -35,6 +35,7 @@ public final class ImportReport {
         private int valuesNotConverted;
         private int files;
         private long fileBytes;
+        private int filesMissing;
 
         FormEntry(String sourceName, Map<String, String> titles) {
             this.sourceName = sourceName;
@@ -86,6 +87,12 @@ public final class ImportReport {
             return this;
         }
 
+        /** A file a submission references that the export does not hold: left behind, and said so. */
+        public FormEntry fileMissing() {
+            filesMissing++;
+            return this;
+        }
+
         public int submissionsToImport() {
             return submissionsFound - submissionsAlreadyImported;
         }
@@ -108,7 +115,7 @@ public final class ImportReport {
                             .put("converted", valuesConverted)
                             .put("dropped", valuesDropped)
                             .put("notConverted", valuesNotConverted))
-                    .put("files", new JSONObject().put("count", files).put("bytes", fileBytes));
+                    .put("files", new JSONObject().put("count", files).put("bytes", fileBytes).put("missing", filesMissing));
         }
     }
 

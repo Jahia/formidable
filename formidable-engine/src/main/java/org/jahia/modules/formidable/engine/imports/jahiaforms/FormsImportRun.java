@@ -13,7 +13,9 @@ import org.slf4j.LoggerFactory;
 import javax.jcr.RepositoryException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -36,6 +38,8 @@ public final class FormsImportRun {
     private final ImportWriter writer;
     private final boolean dryRun;
     private final FormsFormConverter converter;
+    /** By source form: the names of the fields of the form an earlier run created, when the form was found. */
+    private final Map<String, Map<String, String>> foundNames = new HashMap<>();
 
     /**
      * @param writer the writer on the target site; in a dry run it is only read from
@@ -81,35 +85,60 @@ public final class FormsImportRun {
         return sources;
     }
 
-    /** Reports the form, and in an import creates it with its results entry; null when nothing is written. */
+    /**
+     * Reports the form, and in an import creates it with its results entry; null when nothing is written.
+     * A form found from an earlier run is reported with the fields it holds now, which are the ones the
+     * submissions of this run land under.
+     */
     private JCRNodeWrapper prepareForm(Source source, ImportReport report) throws RepositoryException {
         ImportedForm form = source.form();
-        ImportReport.FormEntry entry = report.form(form.name(), form.titles()).notes(form.report());
-        form.fields().forEach(field -> entry.field(field.name(), field.nodeType(), field.report()));
+        ImportReport.FormEntry entry = report.form(form.name(), form.titles());
         JCRNodeWrapper existing = writer.findForm(form.sourceId(), form.sourceResultsId());
         if (existing != null) {
             entry.target(existing.getName(), existing.getPath(), ImportReport.FormOutcome.FOUND);
+            List<ImportWriter.FoundField> fields = writer.importedFields(existing);
+            fields.forEach(field -> entry.field(field.name(), field.nodeType(), List.of()));
+            foundNames.put(form.name(), namesOf(fields));
         } else {
+            entry.notes(form.report());
+            form.fields().forEach(field -> entry.field(field.name(), field.nodeType(), field.report()));
             entry.target(form.name(), writer.importedFormsPath() + "/" + form.name(), ImportReport.FormOutcome.CREATED);
         }
         if (dryRun) {
             return null;
         }
-        JCRNodeWrapper formNode = existing != null ? existing : writer.findOrCreateForm(form).node();
-        if (existing == null) {
+        JCRNodeWrapper formNode = existing;
+        if (formNode == null) {
+            formNode = writer.findOrCreateForm(form).node();
             entry.target(formNode.getName(), formNode.getPath(), ImportReport.FormOutcome.CREATED);
+            // the entry points at the form: the form is persisted first, whatever the entry's own save does
+            writer.saveForms();
         }
         JCRNodeWrapper results = writer.findOrCreateResultsEntry(formNode, form);
         writer.save();
         return results;
     }
 
+    /** The node name of each found field, by the identity and by the name of the source field it stands for. */
+    private static Map<String, String> namesOf(List<ImportWriter.FoundField> fields) {
+        Map<String, String> names = new HashMap<>();
+        for (ImportWriter.FoundField field : fields) {
+            if (field.sourceId() != null) {
+                names.putIfAbsent(field.sourceId(), field.name());
+            }
+            if (field.sourceName() != null) {
+                names.putIfAbsent(field.sourceName(), field.name());
+            }
+        }
+        return names;
+    }
+
     private void importSubmissions(Map<String, Source> sources, Map<String, JCRNodeWrapper> entries, ImportReport report)
             throws IOException, FormsExportException, RepositoryException {
         Set<String> imported = writer.importedSubmissionIds();
         Map<String, FormsSubmissionConverter> converters = new LinkedHashMap<>();
-        sources.forEach((name, source) -> converters.put(resultsName(source),
-                new FormsSubmissionConverter(source.form(), source.definition(), source.results())));
+        sources.forEach((name, source) -> converters.put(resultsName(source), new FormsSubmissionConverter(
+                source.form(), source.definition(), source.results(), foundNames.get(name))));
         int[] pending = {0};
         try {
             reader.readSubmissions(submission -> {
@@ -163,6 +192,7 @@ public final class FormsImportRun {
         }
     }
 
+    /** Counts the values and the files of a submission; a file the zip does not hold is reported, not counted. */
     private void count(ImportReport.FormEntry entry, FormsSubmission submission, ImportedSubmission converted) {
         int dropped = (int) converted.report().stream().filter(line -> line.contains("dropped")).count();
         int notConverted = (int) converted.report().stream().filter(line -> line.contains("could not be converted")).count();
@@ -170,7 +200,12 @@ public final class FormsImportRun {
         entry.values(converted0, dropped, notConverted);
         for (FormsResultField answer : submission.fields()) {
             for (FormsFile file : answer.files()) {
-                entry.file(reader.binarySize(file));
+                long size = reader.binarySize(file);
+                if (size < 0) {
+                    entry.fileMissing();
+                } else {
+                    entry.file(size);
+                }
             }
         }
     }

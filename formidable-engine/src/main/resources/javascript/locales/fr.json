@@ -220,7 +220,7 @@
 			"chooseFile": "Choisir un fichier",
 			"fileHint": "Faites l'export dans l'explorateur de dépôt : clic droit sur le nœud formFactory du site, Export, puis Export Zip with live content. Jusqu'à {{max}} Mo.",
 			"analysing": "Analyse de {{file}}…",
-			"importing": "Import{{file}}…",
+			"importing": "Import de {{file}}…",
 			"review": {
 				"title": "Ce que l'import va faire"
 			},
@@ -232,6 +232,7 @@
 				"submissions": "{{found}} soumission(s) : {{toImport}} à importer, {{already}} déjà importée(s)",
 				"fields": "{{count}} champ(s)",
 				"files": "{{count}} fichier(s), {{size}}",
+				"filesMissing": "{{count}} fichier(s) absent(s) de l’export, laissé(s) de côté",
 				"values": "{{dropped}} valeur(s) écartée(s), {{notConverted}} gardée(s) telles quelles"
 			},
 			"actions": {

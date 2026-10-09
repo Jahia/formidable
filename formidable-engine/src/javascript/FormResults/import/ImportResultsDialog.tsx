@@ -32,7 +32,8 @@ const stateOf = (job: ImportJob): DialogState => job.state;
 /**
  * The import dialog of the Results page (docs/architecture/forms-import.md, "The dialog"): the export
  * dropped or chosen, a dry run and its report, then the import and its report. The job lives on the
- * server; the dialog polls it every second while it runs, and can be closed meanwhile.
+ * server; the dialog polls it every second while it runs, and can be closed meanwhile: a dry run closed
+ * is cancelled, an import closed goes on, and the dialog opened again shows it.
  */
 export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: ImportResultsDialogProps) => {
     const {t} = useTranslation('formidable-engine');
@@ -70,6 +71,7 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
         return () => clearInterval(timer);
     }, [job, state, siteKey, t]);
 
+    // The node of a job that is not importing goes with the dialog; a running import keeps its node.
     const close = useCallback(async () => {
         if (job && state !== 'importing') {
             try {
@@ -84,7 +86,7 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
     // Escape closes a modal <dialog> natively: the cancel event becomes the same close as the buttons.
     const handleCancel = useCallback((event: React.SyntheticEvent<HTMLDialogElement>) => {
         event.preventDefault();
-        void close();
+        close();
     }, [close]);
 
     const takeFile = async (file: File | undefined) => {
@@ -124,17 +126,31 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
         }
     };
 
-    const tryAgain = () => {
+    // The failed job is closed on the server too, or the dialog would open on it again.
+    const tryAgain = async () => {
+        if (job) {
+            try {
+                await closeJob(siteKey, job.id);
+            } catch {
+                // the node goes by itself after an hour
+            }
+        }
         setJob(null);
         setFileName('');
         setErrorMessage('');
         setState('waiting');
     };
 
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        takeFile(file);
+    };
+
     const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
         event.preventDefault();
         setIsDragging(false);
-        void takeFile(event.dataTransfer.files?.[0]);
+        takeFile(event.dataTransfer.files?.[0]);
     };
 
     return (
@@ -161,14 +177,14 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
             <div style={{display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 32px)'}}>
                 <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: '1px solid var(--color-gray_light40)'}}>
                     <Typography variant="heading" weight="bold">{t('formResults.import.title')}</Typography>
-                    {state !== 'importing' && (
-                        <Button variant="ghost" icon={<Close/>} data-sel-role="import-close-x" onClick={() => void close()}/>
-                    )}
+                    <Button variant="ghost" icon={<Close/>} data-sel-role="import-close-x" onClick={close}/>
                 </div>
                 <div style={{padding: '24px', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '16px'}}>
                     {state === 'waiting' && (
                         <>
+                            {/* The drop is a convenience over the Choose a file button, which is the keyboard path */}
                             <div
+                                role="presentation"
                                 data-sel-role="import-dropzone"
                                 style={{
                                     border: `2px dashed ${isDragging ? 'var(--color-accent)' : 'var(--color-gray_light)'}`,
@@ -199,10 +215,7 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                                     accept=".zip,application/zip"
                                     data-sel-role="import-file-input"
                                     style={{display: 'none'}}
-                                    onChange={event => {
-                                        void takeFile(event.target.files?.[0]);
-                                        event.target.value = '';
-                                    }}
+                                    onChange={handleFileChange}
                                 />
                             </div>
                             <Typography variant="caption" style={{color: 'var(--color-gray)'}}>
@@ -247,24 +260,24 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                     )}
                 </div>
                 <div style={{display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '16px 24px', borderTop: '1px solid var(--color-gray_light40)'}}>
-                    {state === 'waiting' && (
-                        <Button label={t('formResults.import.actions.cancel')} data-sel-role="import-cancel" onClick={() => void close()}/>
+                    {(state === 'waiting' || state === 'analysing') && (
+                        <Button label={t('formResults.import.actions.cancel')} data-sel-role="import-cancel" onClick={close}/>
                     )}
                     {state === 'review' && job?.report?.nothingToImport && (
-                        <Button label={t('formResults.import.actions.close')} data-sel-role="import-close" onClick={() => void close()}/>
+                        <Button label={t('formResults.import.actions.close')} data-sel-role="import-close" onClick={close}/>
                     )}
                     {state === 'review' && !job?.report?.nothingToImport && (
                         <>
-                            <Button label={t('formResults.import.actions.cancel')} data-sel-role="import-cancel" onClick={() => void close()}/>
-                            <Button color="accent" label={t('formResults.import.actions.import')} data-sel-role="import-confirm" onClick={() => void handleImport()}/>
+                            <Button label={t('formResults.import.actions.cancel')} data-sel-role="import-cancel" onClick={close}/>
+                            <Button color="accent" label={t('formResults.import.actions.import')} data-sel-role="import-confirm" onClick={handleImport}/>
                         </>
                     )}
-                    {state === 'done' && (
-                        <Button color="accent" label={t('formResults.import.actions.close')} data-sel-role="import-close" onClick={() => void close()}/>
+                    {(state === 'importing' || state === 'done') && (
+                        <Button color="accent" label={t('formResults.import.actions.close')} data-sel-role="import-close" onClick={close}/>
                     )}
                     {state === 'failed' && (
                         <>
-                            <Button label={t('formResults.import.actions.close')} data-sel-role="import-close" onClick={() => void close()}/>
+                            <Button label={t('formResults.import.actions.close')} data-sel-role="import-close" onClick={close}/>
                             <Button color="accent" label={t('formResults.import.actions.tryAgain')} data-sel-role="import-try-again" onClick={tryAgain}/>
                         </>
                     )}
@@ -303,7 +316,7 @@ interface FormReportProps extends ReportViewProps {
 const FormReport = ({form, report, language, t}: FormReportProps) => {
     const fieldNotes = form.fields.flatMap(field => field.notes.map(note => `${field.name}: ${note}`));
     return (
-        <div data-sel-role="import-report-form" data-sel-name={form.sourceName} style={{border: '1px solid var(--color-gray_light40)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '4px'}}>
+        <div data-sel-role="import-report-form" data-sel-name={form.sourceName} data-sel-outcome={form.outcome ?? ''} style={{border: '1px solid var(--color-gray_light40)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '4px'}}>
             <Typography weight="bold">{formTitle(form, language)}</Typography>
             <Typography variant="caption">
                 {form.outcome === 'found' ?
@@ -317,9 +330,10 @@ const FormReport = ({form, report, language, t}: FormReportProps) => {
                     already: form.submissions.alreadyImported
                 })}
             </Typography>
-            <Typography variant="caption">
+            <Typography variant="caption" data-sel-role="import-report-figures">
                 {t('formResults.import.report.fields', {count: form.fields.length})}
                 {form.files.count > 0 && ` — ${t('formResults.import.report.files', {count: form.files.count, size: formatFileSize(form.files.bytes)})}`}
+                {form.files.missing > 0 && ` — ${t('formResults.import.report.filesMissing', {count: form.files.missing})}`}
                 {(form.values.dropped > 0 || form.values.notConverted > 0) &&
                     ` — ${t('formResults.import.report.values', {dropped: form.values.dropped, notConverted: form.values.notConverted})}`}
             </Typography>

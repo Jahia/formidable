@@ -59,6 +59,35 @@ class FormsSubmissionConverterTest {
         assertTrue(converted.stream().noneMatch(s -> s.values().containsKey("text-input_0_1")));
     }
 
+    /** The second run on a form the first created, whose fields the contributor has renamed and deleted since. */
+    @Test
+    void onAFoundFormAnAnswerLandsUnderTheNameItsFieldHasNow() throws Exception {
+        FormsExport export = FormsExportReaderTest.sampleReader().readStructure();
+        FormsForm source = export.forms().get("contact-us");
+        FormsResults results = export.resultsOf(source);
+        ImportedForm form = CONVERTER.convert(source, results);
+        List<FormsSubmission> submissions = new ArrayList<>();
+        FormsExportReaderTest.sampleReader().readSubmissions(submissions::add);
+        FormsSubmission first = submissions.stream().filter(s -> s.uuid().equals("2c591198-6092-485b-b936-2a8cbf0213c8")).findFirst().orElseThrow();
+        // the fields as the found form holds them: the first name renamed, the enquiry deleted
+        Map<String, String> found = new java.util.HashMap<>();
+        form.fields().filter(f -> !f.name().equals("your-enquiry")).forEach(f -> {
+            found.put(f.sourceId(), f.name());
+            found.put(f.sourceName(), f.name());
+        });
+        found.put(source.fields().get(0).uuid(), "firstname");
+        found.put("text-input_0_1", "firstname");
+
+        ImportedSubmission converted = new FormsSubmissionConverter(form, source, results, found).convert(first);
+
+        assertEquals(List.of("your-last-name", "your-telephone-number", "your-email-address", "firstname", "text-area_0_4"),
+                new ArrayList<>(converted.values().keySet()));
+        assertFalse(converted.values().containsKey("your-first-name"));
+        assertFalse(converted.values().containsKey("your-enquiry"));
+        assertEquals(1, converted.report().size());
+        assertTrue(converted.report().get(0).contains("text-area_0_4"), converted.report().get(0));
+    }
+
     @Test
     void anAnswerWhoseFieldIsGoneKeepsItsFormsNameAndIsNoted() throws Exception {
         FormsExport export = FormsExportReaderTest.sampleReader().readStructure();

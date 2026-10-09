@@ -220,7 +220,7 @@
 			"chooseFile": "Choose a file",
 			"fileHint": "Take the export in the Repository explorer: right-click the site's formFactory node, Export, then Export Zip with live content. Up to {{max}} MB.",
 			"analysing": "Analysing {{file}}…",
-			"importing": "Importing{{file}}…",
+			"importing": "Importing {{file}}…",
 			"review": {
 				"title": "What the import will do"
 			},
@@ -232,6 +232,7 @@
 				"submissions": "{{found}} submission(s): {{toImport}} to import, {{already}} already imported",
 				"fields": "{{count}} field(s)",
 				"files": "{{count}} file(s), {{size}}",
+				"filesMissing": "{{count}} file(s) not in the export, left behind",
 				"values": "{{dropped}} value(s) dropped, {{notConverted}} kept as stored"
 			},
 			"actions": {

@@ -23,17 +23,17 @@ a result of that form. The design is in [Importing forms and results from Jahia 
 
 On the instance that runs Jahia Forms, open the **Repository explorer**, open the site, right-click its
 `formFactory` node, choose **Export**, then **Export Zip with live content**. That zip is the only export
-that holds the three things the import needs: the results, which Forms writes in live only; the
-identifiers of the forms; and the uploaded files. **Export XML** has no identifier and no file, and an export
-taken from jContent reads the edit workspace, without the results: the import refuses both with this
-procedure.
+that holds the three things the import needs: the identifiers of the forms and of their fields, which a
+later run looks them up by; the results; and the uploaded files. **Export XML** and **Export Zip** without
+live content hold no identifier, and an export taken from jContent reads the edit workspace, without the
+results: the import refuses them with this procedure.
 
 ## Running the import
 
 1. Turn the button on: in `karaf/etc/org.jahia.modules.formidable.formsImport.cfg`, set
    `importButtonEnabled=true` (see [Configuration](configuration.md)). The change applies at once, no restart.
 2. Open the **Results** page of the target site in jContent. The **Import** button shows in its toolbar to
-   the users who may write the contents of the site and its results — its administrators.
+   the administrators of the site, the users who hold the site-administrator role on it.
 3. Click **Import**, drop the zip on the dialog or choose it. The dialog analyses the export without
    writing anything, and shows what the import will do: per form, whether it is created or already there,
    its fields and what could not be carried over, the submissions found, to import and already imported,

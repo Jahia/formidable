@@ -19,7 +19,7 @@ export interface ImportReportForm {
     notes: string[];
     submissions: {found: number; imported: number; alreadyImported: number; toImport: number};
     values: {converted: number; dropped: number; notConverted: number};
-    files: {count: number; bytes: number};
+    files: {count: number; bytes: number; missing: number};
 }
 
 export interface ImportReport {

@@ -157,6 +157,21 @@ class FormsExportReaderTest {
         assertTrue(refused.getMessage().contains("Export Zip with live content"), refused.getMessage());
     }
 
+    /** An "Export Zip" taken without the live content holds the results, marked live, but no jcr:uuid (spike 3). */
+    @Test
+    void aZipWhoseFormsHaveNoIdentifierIsRefusedWithTheProcedure() throws Exception {
+        String withoutIds;
+        try (InputStream xml = new FormsExportZip(sampleZip()).openRepositoryXml()) {
+            withoutIds = new String(xml.readAllBytes(), StandardCharsets.UTF_8).replaceAll(" jcr:uuid=\"[^\"]*\"", "");
+        }
+        FormsExportReader reader = new FormsExportReader(new FormsExportZip(zipOf(Map.of(FormsExportZip.XML, withoutIds))));
+
+        FormsExportException refused = assertThrows(FormsExportException.class, reader::readStructure);
+        assertTrue(refused.getMessage().contains("no identifier"), refused.getMessage());
+        assertTrue(refused.getMessage().contains("without the live content"), refused.getMessage());
+        assertTrue(refused.getMessage().contains("Export Zip with live content"), refused.getMessage());
+    }
+
     @Test
     void aFileThatIsNoExportIsRefused() throws Exception {
         FormsExportReader noXml = new FormsExportReader(new FormsExportZip(zipOf(Map.of("readme.txt", "hello"))));
@@ -249,7 +264,7 @@ class FormsExportReaderTest {
         String edit = XML_HEAD + "<formFactory " + JCR_NS + " jcr:primaryType=\"fcnt:formFactory\">"
                 + "<results jcr:primaryType=\"fcnt:resultsFolder\"/></formFactory>";
         String live = XML_HEAD + "<formFactory " + JCR_NS + " jcr:primaryType=\"fcnt:formFactory\">"
-                + "<results jcr:primaryType=\"fcnt:resultsFolder\"><f jcr:primaryType=\"fcnt:formResults\" parentForm=\"#/forms/f\"/></results></formFactory>";
+                + "<results jcr:primaryType=\"fcnt:resultsFolder\"><f jcr:primaryType=\"fcnt:formResults\" jcr:uuid=\"r1\" parentForm=\"#/forms/f\"/></results></formFactory>";
         FormsExportZip zip = new FormsExportZip(zipOf(Map.of(FormsExportZip.XML, edit, FormsExportZip.LIVE_XML, live)));
 
         assertTrue(zip.hasLiveXml());

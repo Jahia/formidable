@@ -8,6 +8,7 @@ import org.jahia.modules.formidable.engine.api.FmdbNodeName;
 import org.jahia.modules.formidable.engine.api.FmdbNodeType;
 import org.jahia.modules.formidable.engine.api.FmdbProperty;
 import org.jahia.modules.formidable.engine.permissions.FormResultsAclSyncService;
+import org.jahia.modules.formidable.engine.util.JcrFiles;
 import org.jahia.services.content.JCRAutoSplitUtils;
 import org.jahia.services.content.JCRContentUtils;
 import org.jahia.services.content.JCRNodeWrapper;
@@ -17,7 +18,6 @@ import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jcr.Binary;
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import javax.jcr.Value;
@@ -27,7 +27,6 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.ZoneOffset;
-import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -352,18 +351,7 @@ public class SaveToJcrFormAction implements FormAction {
     ) throws RepositoryException {
         session.checkout(fieldFolder);
         String fileNodeName = JCRContentUtils.findAvailableNodeName(fieldFolder, file.originalName());
-        JCRNodeWrapper fileNode = fieldFolder.addNode(fileNodeName, "jnt:file");
-        JCRNodeWrapper contentNode = fileNode.addNode("jcr:content", "jnt:resource");
-
-        ByteArrayInputStream input = new ByteArrayInputStream(file.data());
-        Binary binary = session.getValueFactory().createBinary(input);
-        try {
-            contentNode.setProperty("jcr:data", binary);
-        } finally {
-            binary.dispose();
-        }
-        contentNode.setProperty("jcr:mimeType", file.mimeType());
-        contentNode.setProperty("jcr:lastModified", Calendar.getInstance());
+        JcrFiles.addFile(fieldFolder, fileNodeName, new ByteArrayInputStream(file.data()), file.mimeType());
     }
 
     private static void setOptionalProperty(JCRNodeWrapper node, String propertyName, String value)

@@ -7,7 +7,9 @@ import org.jahia.modules.formidable.engine.config.choiceoptions.ChoiceOptionsCon
 import org.jahia.modules.formidable.engine.imports.jahiaforms.FormsExportException;
 import org.jahia.modules.formidable.engine.imports.jahiaforms.FormsExportReader;
 import org.jahia.modules.formidable.engine.imports.jahiaforms.FormsImportRun;
+import org.jahia.modules.formidable.engine.util.JcrFiles;
 import org.jahia.registries.ServicesRegistry;
+import org.jahia.services.content.JCRCallback;
 import org.jahia.services.content.JCRContentUtils;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionFactory;
@@ -19,8 +21,8 @@ import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
-import org.quartz.JobDataMap;
 import org.quartz.JobDetail;
+import org.quartz.ObjectAlreadyExistsException;
 import org.quartz.SchedulerException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,18 +43,24 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACL_NODE;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACL_NODE_TYPE;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.INHERIT_PROPERTY;
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.SITES;
 
 /**
  * The jobs of an import (docs/architecture/forms-import.md, "Running it"): each one a {@code fmdb:importJob}
  * node under {@code formidable-results/import-jobs} of the site, in live, that holds the uploaded export,
  * the state and the report, so that any server of a cluster reads them; each phase, the dry run and the
  * import, a job of Jahia's persistent scheduler, which runs on the processing server.
+ * <p>
+ * The import job of a site is scheduled under one name, {@code forms-import-<siteKey>}: the scheduler
+ * holds one job of a name at a time, across the cluster, which is what keeps one import at a time per
+ * site. A dry run writes nothing and runs under the name of its job node.
  */
 @Component(service = ImportJobs.class, immediate = true)
 public class ImportJobs {
@@ -63,6 +71,14 @@ public class ImportJobs {
     public static final String FOLDER_TITLE = "Imported from Jahia Forms";
     /** A dry run nobody imported, or an ended job nobody read, goes after this delay. */
     static final Duration STALE_AFTER = Duration.ofHours(1);
+    /**
+     * A job node that reads as running while the scheduler holds no active job for it is taken for stopped
+     * after this delay, which covers the moment between the node's save and its schedule.
+     */
+    static final Duration STOPPED_AFTER = Duration.ofMinutes(1);
+    static final String ANOTHER_IMPORT_RUNS = "another import is running on this site";
+    static final String STOPPED = "the job stopped before it ended: the server restarted, or the module was "
+            + "redeployed meanwhile. Try again.";
 
     static final String DATA_SITE = "importSiteKey";
     static final String DATA_JOB = "importJobId";
@@ -71,6 +87,10 @@ public class ImportJobs {
     private static final String REPORT = "report";
     private static final String MESSAGE = "message";
     private static final String UPDATED = "updated";
+    private static final String JOB_NAME_PREFIX = "forms-import-";
+    private static final String ZIP = "application/zip";
+    private static final Set<String> ACTIVE_STATUSES = Set.of(BackgroundJob.STATUS_ADDED, BackgroundJob.STATUS_SCHEDULED,
+            BackgroundJob.STATUS_EXECUTING);
     private static final DateTimeFormatter JOB_NAMES = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss").withZone(ZoneOffset.UTC);
     private static final Logger log = LoggerFactory.getLogger(ImportJobs.class);
     private static final AtomicReference<ImportJobs> INSTANCE = new AtomicReference<>();
@@ -133,26 +153,33 @@ public class ImportJobs {
 
     // --- the requests of the dialog ---
 
-    /** Stores the upload in a new job node and starts its dry run. */
+    /**
+     * Stores the upload in a new job node and starts its dry run. The stream is read into the node's
+     * binary by the repository: a stream that fails to read fails the request, with the cause.
+     */
     public JobView create(String siteKey, String fileName, InputStream file, String mimeType) throws RepositoryException {
-        purgeStale(siteKey);
+        reconcile(siteKey);
         String jobId = "job-" + JOB_NAMES.format(Instant.now()) + "-" + UUID.randomUUID().toString().substring(0, 3);
-        JobView created = JCRTemplate.getInstance().doExecuteWithSystemSession(null, FormidableJcrConstants.WORKSPACE_LIVE, session -> {
-            JCRNodeWrapper jobs = jobsNode(session, siteKey);
+        JobView created = inLive(session -> {
+            JCRNodeWrapper jobs = jobsNode(session, siteKey, true);
             JCRNodeWrapper job = jobs.addNode(JCRContentUtils.findAvailableNodeName(jobs, jobId), FmdbNodeType.IMPORT_JOB);
-            job.uploadFile(FILE_NODE, file, mimeType == null ? "application/zip" : mimeType);
+            JcrFiles.addFile(job, FILE_NODE, file, mimeType == null ? ZIP : mimeType);
             job.setProperty(STATE, State.ANALYSING.stored());
             job.setProperty(UPDATED, now());
             session.save();
             log.info("[FormsImport] Job {} created for site {} from the upload '{}'", job.getName(), siteKey, fileName);
             return view(job, siteKey);
         });
-        schedule(siteKey, created.id(), Phase.DRY_RUN);
+        try {
+            schedule(siteKey, created.id(), Phase.DRY_RUN);
+        } catch (SchedulerException e) {
+            throw notScheduled(siteKey, created.id(), e);
+        }
         return created;
     }
 
     public Optional<JobView> get(String siteKey, String jobId) throws RepositoryException {
-        return JCRTemplate.getInstance().doExecuteWithSystemSession(null, FormidableJcrConstants.WORKSPACE_LIVE, session -> {
+        return inLive(session -> {
             JCRNodeWrapper job = jobNode(session, siteKey, jobId);
             return job == null ? Optional.empty() : Optional.of(view(job, siteKey));
         });
@@ -160,8 +187,8 @@ public class ImportJobs {
 
     /** The job the dialog should open on: running, or ended and not yet closed; the most recent one. */
     public Optional<JobView> open(String siteKey) throws RepositoryException {
-        purgeStale(siteKey);
-        return JCRTemplate.getInstance().doExecuteWithSystemSession(null, FormidableJcrConstants.WORKSPACE_LIVE, session -> {
+        reconcile(siteKey);
+        return inLive(session -> {
             JobView latest = null;
             for (JCRNodeWrapper job : jobNodes(session, siteKey)) {
                 JobView candidate = view(job, siteKey);
@@ -175,10 +202,8 @@ public class ImportJobs {
 
     /** Starts the import of a reviewed dry run, one import at a time per site. */
     public JobView startImport(String siteKey, String jobId) throws RepositoryException, RefusedException {
-        if (isImportRunning(siteKey)) {
-            throw new RefusedException("another import is running on this site");
-        }
-        JobView started = JCRTemplate.getInstance().doExecuteWithSystemSession(null, FormidableJcrConstants.WORKSPACE_LIVE, session -> {
+        refuseWhileImportRuns(siteKey);
+        JobView started = inLive(session -> {
             JCRNodeWrapper job = jobNode(session, siteKey, jobId);
             if (job == null) {
                 return null;
@@ -197,18 +222,29 @@ public class ImportJobs {
         if (started.state() != State.IMPORTING) {
             throw new RefusedException("the job is not reviewed (" + started.state().stored() + ")");
         }
-        schedule(siteKey, jobId, Phase.IMPORT);
+        try {
+            schedule(siteKey, jobId, Phase.IMPORT);
+        } catch (ObjectAlreadyExistsException e) {
+            // two Import clicks at the same moment: the scheduler took the first, this one goes back to its review
+            update(siteKey, jobId, State.REVIEW, null, null, false);
+            throw new RefusedException(ANOTHER_IMPORT_RUNS);
+        } catch (SchedulerException e) {
+            throw notScheduled(siteKey, jobId, e);
+        }
         return started;
     }
 
-    /** Removes the job: a dry run cancelled, or a report read. Refused while the import runs. */
+    /**
+     * Removes the job: a dry run cancelled, even while it runs since it writes nothing, or a report read.
+     * Refused while the import runs.
+     */
     public void close(String siteKey, String jobId) throws RepositoryException, RefusedException {
-        boolean refused = JCRTemplate.getInstance().doExecuteWithSystemSession(null, FormidableJcrConstants.WORKSPACE_LIVE, session -> {
+        boolean refused = inLive(session -> {
             JCRNodeWrapper job = jobNode(session, siteKey, jobId);
             if (job == null) {
                 return false;
             }
-            if (State.of(job.getPropertyAsString(STATE)).running()) {
+            if (State.of(job.getPropertyAsString(STATE)) == State.IMPORTING) {
                 return true;
             }
             job.remove();
@@ -220,22 +256,6 @@ public class ImportJobs {
         }
     }
 
-    /** Whether an import job of the site is scheduled or executing, on any server. */
-    public boolean isImportRunning(String siteKey) {
-        try {
-            for (JobDetail job : scheduler().getAllActiveJobs(BackgroundJob.getGroupName(FormsImportJob.class))) {
-                JobDataMap data = job.getJobDataMap();
-                if (siteKey.equals(data.getString(DATA_SITE)) && Phase.IMPORT.name().equals(data.getString(DATA_PHASE))) {
-                    return true;
-                }
-            }
-            return false;
-        } catch (SchedulerException e) {
-            log.warn("[FormsImport] Cannot read the active jobs, assuming an import runs on site {}", siteKey, e);
-            return true;
-        }
-    }
-
     // --- the work of a job ---
 
     /** Runs one phase of a job: called by {@link FormsImportJob} on the processing server. */
@@ -243,7 +263,10 @@ public class ImportJobs {
         Path export = null;
         try {
             export = Files.createTempFile("forms-import-", ".zip");
-            download(siteKey, jobId, export);
+            if (!download(siteKey, jobId, export)) {
+                log.info("[FormsImport] Job {} of site {} was closed before its {} ran", jobId, siteKey, phase);
+                return;
+            }
             ImportReport report = runOn(export, siteKey, phase);
             update(siteKey, jobId, phase == Phase.DRY_RUN ? State.REVIEW : State.DONE, report.toJson().toString(), null,
                     phase == Phase.IMPORT);
@@ -267,7 +290,7 @@ public class ImportJobs {
     }
 
     private ImportReport runOn(Path export, String siteKey, Phase phase) throws RepositoryException {
-        return JCRTemplate.getInstance().doExecuteWithSystemSession(null, FormidableJcrConstants.WORKSPACE_EDIT, edit -> {
+        return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, FormidableJcrConstants.WORKSPACE_EDIT, null, edit -> {
             JCRSessionWrapper live = JCRSessionFactory.getInstance().getCurrentSystemSession(FormidableJcrConstants.WORKSPACE_LIVE, null, null);
             try (FormsExportReader reader = FormsExportReader.open(export)) {
                 ImportWriter writer = new ImportWriter(edit, live, siteKey, FOLDER_TITLE);
@@ -293,24 +316,25 @@ public class ImportJobs {
         }
     }
 
-    private void download(String siteKey, String jobId, Path target) throws RepositoryException {
-        JCRTemplate.getInstance().doExecuteWithSystemSession(null, FormidableJcrConstants.WORKSPACE_LIVE, session -> {
+    /** Copies the export of the job to the file; false when the job was closed meanwhile. */
+    private static boolean download(String siteKey, String jobId, Path target) throws RepositoryException {
+        return inLive(session -> {
             JCRNodeWrapper job = jobNode(session, siteKey, jobId);
             if (job == null || !job.hasNode(FILE_NODE)) {
-                throw new RepositoryException("The job " + jobId + " holds no export file any more");
+                return false;
             }
             try (InputStream in = job.getNode(FILE_NODE).getFileContent().downloadFile()) {
                 Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException e) {
                 throw new RepositoryException("The export of job " + jobId + " cannot be read", e);
             }
-            return null;
+            return true;
         });
     }
 
-    private void update(String siteKey, String jobId, State state, String report, String message, boolean dropFile)
+    private static void update(String siteKey, String jobId, State state, String report, String message, boolean dropFile)
             throws RepositoryException {
-        JCRTemplate.getInstance().doExecuteWithSystemSession(null, FormidableJcrConstants.WORKSPACE_LIVE, session -> {
+        inLive(session -> {
             JCRNodeWrapper job = jobNode(session, siteKey, jobId);
             if (job == null) {
                 log.warn("[FormsImport] Job {} of site {} is gone, its {} state is lost", jobId, siteKey, state);
@@ -340,62 +364,143 @@ public class ImportJobs {
         return cause.getMessage() == null ? cause.getClass().getSimpleName() : cause.getMessage();
     }
 
-    // --- the nodes and the scheduler ---
+    // --- the scheduler ---
 
-    private void schedule(String siteKey, String jobId, Phase phase) throws RepositoryException {
-        JobDetail detail = BackgroundJob.createJahiaJob("forms-import-" + phase.name().toLowerCase(Locale.ROOT) + "-" + jobId, FormsImportJob.class);
+    /** The name of the scheduler job of a phase: one per site for the import, one per job node for a dry run. */
+    static String jobName(String siteKey, String jobId, Phase phase) {
+        return phase == Phase.IMPORT ? JOB_NAME_PREFIX + siteKey : JOB_NAME_PREFIX + "dry-run-" + jobId;
+    }
+
+    private static void schedule(String siteKey, String jobId, Phase phase) throws SchedulerException {
+        // createJahiaJob takes a description and generates the name: the name is what makes the import one per site
+        JobDetail detail = BackgroundJob.createJahiaJob(JOB_NAME_PREFIX + phase.name().toLowerCase(Locale.ROOT) + " " + jobId,
+                FormsImportJob.class);
+        detail.setName(jobName(siteKey, jobId, phase));
         detail.setRequestsRecovery(true);
         detail.getJobDataMap().put(DATA_SITE, siteKey);
         detail.getJobDataMap().put(DATA_JOB, jobId);
         detail.getJobDataMap().put(DATA_PHASE, phase.name());
+        scheduler().scheduleJobNow(detail);
+    }
+
+    private static RepositoryException notScheduled(String siteKey, String jobId, SchedulerException e) throws RepositoryException {
+        update(siteKey, jobId, State.FAILED, null, "the job could not be scheduled: " + e.getMessage(), false);
+        return new RepositoryException("The import job could not be scheduled", e);
+    }
+
+    /**
+     * Refuses while the scheduler holds an active import job of the site, on any server. The job is
+     * durable, so an ended one still holds the name: it is dropped to free it.
+     */
+    private static void refuseWhileImportRuns(String siteKey) throws RefusedException {
+        String name = jobName(siteKey, null, Phase.IMPORT);
         try {
-            scheduler().scheduleJobNow(detail);
+            JobDetail existing = scheduler().getScheduler().getJobDetail(name, group());
+            if (existing == null) {
+                return;
+            }
+            if (isActive(existing)) {
+                throw new RefusedException(ANOTHER_IMPORT_RUNS);
+            }
+            scheduler().getScheduler().deleteJob(name, group());
         } catch (SchedulerException e) {
-            update(siteKey, jobId, State.FAILED, null, "the job could not be scheduled: " + e.getMessage(), false);
-            throw new RepositoryException("The import job could not be scheduled", e);
+            log.warn("[FormsImport] Cannot read the import job of site {}, refusing the import", siteKey, e);
+            throw new RefusedException("the scheduler cannot be read: " + e.getMessage());
         }
+    }
+
+    /** Whether the scheduler still holds, active, the job of the phase a node says is running. */
+    private static boolean isSchedulerJobActive(JobView job) {
+        Phase phase = job.state() == State.ANALYSING ? Phase.DRY_RUN : Phase.IMPORT;
+        try {
+            JobDetail detail = scheduler().getScheduler().getJobDetail(jobName(job.siteKey(), job.id(), phase), group());
+            return detail != null && isActive(detail) && job.id().equals(detail.getJobDataMap().getString(DATA_JOB));
+        } catch (SchedulerException e) {
+            log.warn("[FormsImport] Cannot read the scheduler job of {} on site {}, assuming it runs", job.id(), job.siteKey(), e);
+            return true;
+        }
+    }
+
+    /** A job added, scheduled or executing; a job that ended keeps its status in its data. */
+    private static boolean isActive(JobDetail detail) {
+        String status = detail.getJobDataMap().getString(BackgroundJob.JOB_STATUS);
+        return status == null || ACTIVE_STATUSES.contains(status);
+    }
+
+    private static String group() {
+        return BackgroundJob.getGroupName(FormsImportJob.class);
     }
 
     private static SchedulerService scheduler() {
         return ServicesRegistry.getInstance().getSchedulerService();
     }
 
-    private void purgeStale(String siteKey) throws RepositoryException {
-        JCRTemplate.getInstance().doExecuteWithSystemSession(null, FormidableJcrConstants.WORKSPACE_LIVE, session -> {
-            boolean removed = false;
+    // --- the nodes ---
+
+    /**
+     * Brings the job nodes of the site in line with what happened: an ended job nobody closed in time is
+     * removed, and a job that reads as running while the scheduler holds no active job for it, because
+     * the module stopped between the schedule and the run, is marked failed so that it stops reopening.
+     */
+    private static void reconcile(String siteKey) throws RepositoryException {
+        inLive(session -> {
+            boolean changed = false;
+            Instant now = Instant.now();
             for (JCRNodeWrapper job : jobNodes(session, siteKey)) {
                 JobView view = view(job, siteKey);
-                if (!view.state().running() && view.updated().plus(STALE_AFTER).isBefore(Instant.now())) {
+                if (view.state().running()) {
+                    if (view.updated().plus(STOPPED_AFTER).isBefore(now) && !isSchedulerJobActive(view)) {
+                        log.warn("[FormsImport] Job {} of site {} reads as {} since {} and the scheduler holds no job for it: failed",
+                                view.id(), siteKey, view.state().stored(), view.updated());
+                        job.setProperty(STATE, State.FAILED.stored());
+                        job.setProperty(MESSAGE, STOPPED);
+                        job.setProperty(UPDATED, now());
+                        changed = true;
+                    }
+                } else if (view.updated().plus(STALE_AFTER).isBefore(now)) {
                     log.info("[FormsImport] Job {} of site {} ended {} and was never closed: removed", view.id(), siteKey, view.updated());
                     job.remove();
-                    removed = true;
+                    changed = true;
                 }
             }
-            if (removed) {
+            if (changed) {
                 session.save();
             }
             return null;
         });
     }
 
-    private static JCRNodeWrapper jobsNode(JCRSessionWrapper live, String siteKey) throws RepositoryException {
-        JCRNodeWrapper root = SaveToJcrFormAction.getOrCreateResultsRoot(live.getNode("/sites/" + siteKey), live);
-        if (root.hasNode(JOBS_NODE)) {
-            return root.getNode(JOBS_NODE);
+    /** The jobs node of the site, the child of the results root of its type, whatever its name; null when absent and not created. */
+    private static JCRNodeWrapper jobsNode(JCRSessionWrapper live, String siteKey, boolean create) throws RepositoryException {
+        JCRNodeWrapper site = live.getNode(SITES + siteKey);
+        if (!create && !site.hasNode(SaveToJcrFormAction.RESULTS_ROOT_NAME)) {
+            return null;
         }
-        JCRNodeWrapper jobs = root.addNode(JOBS_NODE, FmdbNodeType.IMPORT_JOBS);
+        JCRNodeWrapper root = SaveToJcrFormAction.getOrCreateResultsRoot(site, live);
+        NodeIterator children = root.getNodes();
+        while (children.hasNext()) {
+            JCRNodeWrapper child = (JCRNodeWrapper) children.nextNode();
+            if (child.isNodeType(FmdbNodeType.IMPORT_JOBS)) {
+                return child;
+            }
+        }
+        if (!create) {
+            return null;
+        }
+        // a form named import-jobs owns that entry: the jobs node then takes the next free name
+        JCRNodeWrapper jobs = root.addNode(JCRContentUtils.findAvailableNodeName(root, JOBS_NODE), FmdbNodeType.IMPORT_JOBS);
         JCRNodeWrapper acl = jobs.addNode(ACL_NODE, ACL_NODE_TYPE);
         acl.setProperty(INHERIT_PROPERTY, false);
         return jobs;
     }
 
     private static List<JCRNodeWrapper> jobNodes(JCRSessionWrapper live, String siteKey) throws RepositoryException {
-        String path = "/sites/" + siteKey + "/" + SaveToJcrFormAction.RESULTS_ROOT_NAME + "/" + JOBS_NODE;
         List<JCRNodeWrapper> jobs = new ArrayList<>();
-        if (!live.nodeExists(path)) {
+        JCRNodeWrapper jobsNode = jobsNode(live, siteKey, false);
+        if (jobsNode == null) {
             return jobs;
         }
-        NodeIterator children = live.getNode(path).getNodes();
+        NodeIterator children = jobsNode.getNodes();
         while (children.hasNext()) {
             JCRNodeWrapper child = (JCRNodeWrapper) children.nextNode();
             if (child.isNodeType(FmdbNodeType.IMPORT_JOB)) {
@@ -405,18 +510,27 @@ public class ImportJobs {
         return jobs;
     }
 
+    /** The job node of that id, and only a job node: nothing else under the jobs node is ever handed out. */
     private static JCRNodeWrapper jobNode(JCRSessionWrapper live, String siteKey, String jobId) throws RepositoryException {
         if (jobId == null || jobId.contains("/")) {
             return null;
         }
-        String path = "/sites/" + siteKey + "/" + SaveToJcrFormAction.RESULTS_ROOT_NAME + "/" + JOBS_NODE + "/" + jobId;
-        return live.nodeExists(path) ? live.getNode(path) : null;
+        JCRNodeWrapper jobsNode = jobsNode(live, siteKey, false);
+        if (jobsNode == null || !jobsNode.hasNode(jobId)) {
+            return null;
+        }
+        JCRNodeWrapper job = jobsNode.getNode(jobId);
+        return job.isNodeType(FmdbNodeType.IMPORT_JOB) ? job : null;
     }
 
     private static JobView view(JCRNodeWrapper job, String siteKey) throws RepositoryException {
         Instant updated = job.hasProperty(UPDATED) ? job.getProperty(UPDATED).getDate().toInstant() : Instant.EPOCH;
         return new JobView(job.getName(), siteKey, State.of(job.getPropertyAsString(STATE)),
                 job.getPropertyAsString(REPORT), job.getPropertyAsString(MESSAGE), updated);
+    }
+
+    private static <T> T inLive(JCRCallback<T> callback) throws RepositoryException {
+        return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, FormidableJcrConstants.WORKSPACE_LIVE, null, callback);
     }
 
     private static Calendar now() {
