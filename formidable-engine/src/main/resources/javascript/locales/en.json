@@ -128,7 +128,7 @@
 			"delete": "Delete",
 			"deleteTitle": "Delete the selected form results",
 			"refresh": "Refresh",
-			"import": "Import",
+			"import": "Import from Jahia Forms",
 			"importTitle": "Import the forms and results of Jahia Forms into this site"
 		},
 		"empty": {
