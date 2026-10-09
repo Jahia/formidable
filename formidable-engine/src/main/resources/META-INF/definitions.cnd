@@ -415,8 +415,9 @@ orderable
  - sourceName (string) mandatory indexed=no
 
 // On a results entry that holds imported submissions, of one source form or several once results were
-// attached to another form. sourceFormIds is what a later run finds an entry imported without a form by,
-// hence indexed. mappings holds, per source form, the mapping an attachment applied, one JSON string each.
+// attached to a form. sourceFormIds is what a later run finds an entry imported without a form, or attached
+// to a form, by, hence indexed. mappings holds, per source form, the mapping an attachment applied, one JSON
+// string each ({"source":"<key>","mapping":{"<field of the source>":"<field of the form>"}}).
 [fmdbmix:importedResults] mixin
  - sourceSystem (string) mandatory indexed=no
  - sourceFormIds (string) multiple

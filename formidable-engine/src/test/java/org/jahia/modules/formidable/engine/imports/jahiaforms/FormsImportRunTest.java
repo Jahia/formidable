@@ -1,6 +1,6 @@
 package org.jahia.modules.formidable.engine.imports.jahiaforms;
 
-import org.jahia.modules.formidable.engine.imports.ImportChoice;
+import org.jahia.modules.formidable.engine.imports.FormChoice;
 import org.jahia.modules.formidable.engine.imports.ImportReport;
 import org.jahia.modules.formidable.engine.imports.ImportWriter;
 import org.jahia.modules.formidable.engine.imports.model.ImportedSubmission;
@@ -40,8 +40,8 @@ class FormsImportRunTest {
     private static final String FOLDER = "/sites/x/contents/imported-forms";
     private static final String CONTACT_ID = "08246a0f-de43-4dbb-b91e-55cdd366614b";
     private static final String RESULTS = "/sites/x/formidable-results";
-    private static final Map<String, ImportChoice> CREATE_ALL = Map.of("contact-us", ImportChoice.CREATE,
-            "newsletterregistration", ImportChoice.CREATE, "newsletter-registration", ImportChoice.CREATE);
+    private static final Map<String, FormChoice> CREATE_ALL = Map.of("contact-us", FormChoice.CREATE,
+            "newsletterregistration", FormChoice.CREATE, "newsletter-registration", FormChoice.CREATE);
 
     private static ImportWriter writer() throws RepositoryException {
         ImportWriter writer = mock(ImportWriter.class);
@@ -172,7 +172,7 @@ class FormsImportRunTest {
         ImportWriter writer = writer();
         JCRNodeWrapper found = node("contact-us", RESULTS + "/contact-us");
         JCRNodeWrapper other = node("other", RESULTS + "/other");
-        when(writer.findResultsOnlyEntry(CONTACT_ID)).thenReturn(found);
+        when(writer.findImportedEntry(CONTACT_ID)).thenReturn(found);
         when(writer.createResultsOnlyEntry(any())).thenReturn(other);
         FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, Map.of(), type -> true, s -> true, false);
 
@@ -186,6 +186,74 @@ class FormsImportRunTest {
         verify(writer, org.mockito.Mockito.times(2)).createResultsOnlyEntry(any());
         verify(writer, never()).createResultsOnlyEntry(org.mockito.ArgumentMatchers.argThat(f -> f.name().equals("contact-us")));
         verify(writer, org.mockito.Mockito.times(44)).writeSubmission(eq(found), any(), any());
+    }
+
+    @Test
+    void theImportAttachesTheResultsToTheChosenFormAndNamesTheValuesAfterItsFields() throws Exception {
+        ImportWriter writer = writer();
+        JCRNodeWrapper target = node("contact", "/sites/x/contents/forms/contact");
+        JCRNodeWrapper entry = node("contact", RESULTS + "/contact");
+        JCRNodeWrapper other = node("other", RESULTS + "/other");
+        when(writer.findSiteForm("f-contact")).thenReturn(target);
+        when(writer.findOrCreateResultsEntry(eq(target), any())).thenReturn(entry);
+        when(writer.createResultsOnlyEntry(any())).thenReturn(other);
+        Map<String, String> mapping = Map.of("your-first-name", "firstname", "your-email-address", "email");
+        Map<String, FormChoice> choices = Map.of("contact-us", FormChoice.attachTo("f-contact", mapping));
+        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, choices, type -> true, s -> true, false);
+
+        JSONObject report = run.run().toJson();
+
+        JSONObject contact = report.getJSONArray("forms").getJSONObject(0);
+        assertEquals("attached", contact.getString("outcome"));
+        assertEquals("/sites/x/contents/forms/contact", contact.getString("targetPath"));
+        // the fields keep their own names in the report, with their titles for the dialog to match
+        assertEquals("your-first-name", contact.getJSONArray("fields").getJSONObject(0).getString("name"));
+        assertEquals("Your First name", contact.getJSONArray("fields").getJSONObject(0).getJSONObject("titles").getString("en"));
+        verify(writer, never()).findOrCreateForm(any());
+        verify(writer).recordMapping(entry, CONTACT_ID, mapping);
+        ArgumentCaptor<ImportedSubmission> written = ArgumentCaptor.forClass(ImportedSubmission.class);
+        verify(writer, org.mockito.Mockito.times(44)).writeSubmission(eq(entry), written.capture(), any());
+        assertTrue(written.getAllValues().stream().allMatch(s -> s.values().containsKey("firstname")));
+        assertTrue(written.getAllValues().stream().allMatch(s -> s.values().containsKey("email")));
+        assertTrue(written.getAllValues().stream().allMatch(s -> s.values().containsKey("your-last-name")));
+        assertTrue(written.getAllValues().stream().noneMatch(s -> s.values().containsKey("your-first-name")));
+    }
+
+    @Test
+    void aSecondRunFindsTheAttachedEntryAndNamesTheValuesAsTheFirstDid() throws Exception {
+        ImportWriter writer = writer();
+        JCRNodeWrapper target = node("contact", "/sites/x/contents/forms/contact");
+        JCRNodeWrapper entry = node("contact", RESULTS + "/contact");
+        JCRNodeWrapper other = node("other", RESULTS + "/other");
+        when(writer.findImportedEntry(CONTACT_ID)).thenReturn(entry);
+        when(writer.formOf(entry)).thenReturn(target);
+        when(writer.mappingOf(entry, CONTACT_ID)).thenReturn(Map.of("your-first-name", "firstname"));
+        when(writer.createResultsOnlyEntry(any())).thenReturn(other);
+        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, Map.of(), type -> true, s -> true, false);
+
+        JSONObject report = run.run().toJson();
+
+        JSONObject contact = report.getJSONArray("forms").getJSONObject(0);
+        assertEquals("found", contact.getString("outcome"));
+        assertEquals("/sites/x/contents/forms/contact", contact.getString("targetPath"));
+        assertEquals("firstname", contact.getJSONArray("fields").getJSONObject(0).getString("name"));
+        verify(writer, never()).recordMapping(any(), any(), any());
+        ArgumentCaptor<ImportedSubmission> written = ArgumentCaptor.forClass(ImportedSubmission.class);
+        verify(writer, org.mockito.Mockito.times(44)).writeSubmission(eq(entry), written.capture(), any());
+        assertTrue(written.getAllValues().stream().allMatch(s -> s.values().containsKey("firstname")));
+        assertTrue(written.getAllValues().stream().allMatch(s -> s.values().containsKey("your-last-name")));
+    }
+
+    @Test
+    void anAttachmentToAFormGoneSinceTheReviewFailsTheImport() throws Exception {
+        ImportWriter writer = writer();
+        Map<String, FormChoice> choices = Map.of("contact-us", FormChoice.attachTo("gone", Map.of()));
+        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, choices, type -> true, s -> true, false);
+
+        RepositoryException failure = org.junit.jupiter.api.Assertions.assertThrows(RepositoryException.class, run::run);
+
+        assertTrue(failure.getMessage().contains("contact-us"));
+        verify(writer, never()).writeSubmission(any(), any(), any());
     }
 
     @Test

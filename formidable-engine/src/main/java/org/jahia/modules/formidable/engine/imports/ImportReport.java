@@ -17,10 +17,10 @@ public final class ImportReport {
 
     /**
      * What receives the results of a source form: a form created for them, a form or an entry found from an
-     * earlier run, or an entry alone, without a form.
+     * earlier run, an entry alone, without a form, or an existing form they attach to.
      */
     public enum FormOutcome {
-        CREATED("created"), FOUND("found"), RESULTS_ONLY("resultsOnly");
+        CREATED("created"), FOUND("found"), RESULTS_ONLY("resultsOnly"), ATTACHED("attached");
 
         private final String json;
 
@@ -61,7 +61,16 @@ public final class ImportReport {
         }
 
         public FormEntry field(String name, String nodeType, List<String> report) {
-            fields.add(new JSONObject().put("name", name).put("type", nodeType).put("notes", new JSONArray(report)));
+            return field(name, nodeType, Map.of(), report);
+        }
+
+        /**
+         * A field of the form, with its titles by language: what the dialog matches the fields of an
+         * existing form against, when the administrator attaches the results to one.
+         */
+        public FormEntry field(String name, String nodeType, Map<String, String> titles, List<String> report) {
+            fields.add(new JSONObject().put("name", name).put("type", nodeType).put("titles", new JSONObject(titles))
+                    .put("notes", new JSONArray(report)));
             return this;
         }
 

@@ -579,7 +579,7 @@ administrator the choice, in the review state of the dialog, per form of the exp
 |---|---|
 | **Results only** (the default) | The results entry alone, without a form: see [Results only](#results-only). |
 | **Create the form** | What iteration 1 writes: the form in `imported-forms`, then its entry. |
-| **Attach to an existing form** `F` | The submissions under the entry of `F`, their values named after the fields of `F` through [the mapping](#the-mapping), and `F` takes `fmdbmix:importedForm` with the keys of the source, so that a later run finds it. Nothing is created but the entry of `F` when it has none. |
+| **Attach to an existing form** `F` | The submissions under the entry of `F`, their values named after the fields of `F` through [the mapping](#the-mapping); the entry of `F` takes the keys of the source in `sourceFormIds` and the mapping in `mappings`, so that a later run finds it and names the values the same way. `F` itself is not marked, since several sources can attach to one form and `fmdbmix:importedForm` holds the keys of one. Nothing is created but the entry of `F` when it has none. The start of the import refuses an attachment to a form that is not a form of the site, a mapping that names a field the dry run did not list, and a mapping that sends a field to the name another field of the source keeps. |
 
 The same mapping serves an **Attach to another form** action on an entry of the Results page, shown on
 the entries that carry `fmdbmix:importedResults`: an administrator moves the imported results of one Forms
