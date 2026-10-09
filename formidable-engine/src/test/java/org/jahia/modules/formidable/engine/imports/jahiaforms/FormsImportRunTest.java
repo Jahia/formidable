@@ -46,7 +46,7 @@ class FormsImportRunTest {
         return writer;
     }
 
-    private static JCRNodeWrapper node(String name, String path) throws RepositoryException {
+    private static JCRNodeWrapper node(String name, String path) {
         JCRNodeWrapper node = mock(JCRNodeWrapper.class);
         when(node.getName()).thenReturn(name);
         when(node.getPath()).thenReturn(path);
