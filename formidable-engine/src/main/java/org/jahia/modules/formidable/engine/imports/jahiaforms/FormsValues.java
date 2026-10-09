@@ -135,7 +135,7 @@ final class FormsValues {
             return Optional.empty();
         }
         Object number = rating.get(RATING_VALUE);
-        return Optional.of(number instanceof JSONObject nested ? nested.optString("value", nested.toString()) : String.valueOf(number));
+        return Optional.of(number instanceof JSONObject nested ? nested.optString(RATING_VALUE, nested.toString()) : String.valueOf(number));
     }
 
     /**
