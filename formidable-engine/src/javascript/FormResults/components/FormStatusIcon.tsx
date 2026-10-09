@@ -20,15 +20,17 @@ const VISUALLY_HIDDEN: React.CSSProperties = {
 export const FormStatusIcon = ({status}: FormStatusIconProps) => {
     const {t} = useTranslation('formidable-engine');
 
-    if (status === 'deleted' || status === 'unpublished') {
-        const label = t(status === 'deleted' ? 'formResults.sidebar.formDeleted' : 'formResults.sidebar.formUnpublished');
+    if (status === 'deleted' || status === 'unpublished' || status === 'imported') {
+        const labels = {deleted: 'formResults.sidebar.formDeleted', unpublished: 'formResults.sidebar.formUnpublished', imported: 'formResults.sidebar.formImported'};
+        const colors = {deleted: 'red', unpublished: 'yellow', imported: 'blue'} as const;
+        const label = t(labels[status]);
         return (
             <span
-                data-sel-role={status === 'deleted' ? 'form-deleted' : 'form-unpublished'}
+                data-sel-role={`form-${status}`}
                 title={label}
                 style={{display: 'inline-flex', position: 'relative'}}
             >
-                <FormIcon size="small" color={status === 'deleted' ? 'red' : 'yellow'}/>
+                <FormIcon size="small" color={colors[status]}/>
                 <span style={VISUALLY_HIDDEN}>{label}</span>
             </span>
         );

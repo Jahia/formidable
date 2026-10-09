@@ -9,12 +9,15 @@ export interface ImportReportField {
     notes: string[];
 }
 
+/** What receives the results of a source form: an entry alone (the default), or a form created for them. */
+export type ImportChoice = 'resultsOnly' | 'create';
+
 export interface ImportReportForm {
     sourceName: string;
     titles: Record<string, string>;
     targetName: string | null;
     targetPath: string | null;
-    outcome: 'created' | 'found' | null;
+    outcome: 'created' | 'found' | 'resultsOnly' | null;
     fields: ImportReportField[];
     notes: string[];
     submissions: {found: number; imported: number; alreadyImported: number; toImport: number};
@@ -72,8 +75,13 @@ export const uploadExport = (siteKey: string, file: File): Promise<ImportJob> =>
 export const fetchJob = (siteKey: string, jobId: string): Promise<ImportJob> =>
     call(endpoint(siteKey, `/jobs/${encodeURIComponent(jobId)}`));
 
-export const startImport = (siteKey: string, jobId: string): Promise<ImportJob> =>
-    call(endpoint(siteKey, `/jobs/${encodeURIComponent(jobId)}/import`), {method: 'POST'});
+/** Starts the import with the choices of the review; a form the choices do not name takes the results alone. */
+export const startImport = (siteKey: string, jobId: string, choices: Record<string, ImportChoice> = {}): Promise<ImportJob> =>
+    call(endpoint(siteKey, `/jobs/${encodeURIComponent(jobId)}/import`), {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({choices})
+    });
 
 export const closeJob = (siteKey: string, jobId: string): Promise<unknown> =>
     call(endpoint(siteKey, `/jobs/${encodeURIComponent(jobId)}`), {method: 'DELETE'});
@@ -94,4 +102,13 @@ export function refuseFile(file: File, maxFileSizeMb: number): 'notZip' | 'tooLa
         return 'tooLarge';
     }
     return null;
+}
+
+/** The notes of the fields, one line per distinct note with the fields it concerns: a prefill note repeats on every field. */
+export function groupedFieldNotes(fields: ImportReportField[]): string[] {
+    const fieldsByNote = new Map<string, string[]>();
+    fields.forEach(field => field.notes.forEach(note => {
+        fieldsByNote.set(note, [...(fieldsByNote.get(note) ?? []), field.name]);
+    }));
+    return [...fieldsByNote.entries()].map(([note, names]) => `${note} — ${names.join(', ')}`);
 }

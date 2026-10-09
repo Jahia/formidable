@@ -42,7 +42,7 @@ results: the import refuses them with this procedure.
    meanwhile — opening it again shows the running import, then its report. One import runs at a time per
    site.
 5. Read the final report, then publish the forms: until a form is published, its entry on the Results
-   page shows as **Unpublished**, with the system names of the fields as column heads. Review each form,
+   page shows as **Unpublished**, with the labels of the form as column heads, read from the edit workspace. Review each form,
    complete what the report lists, then publish it. Grant the **Form results reader** role on the form to
    the people who read its results, as for any form ([Results permissions](results-permissions.md)).
 6. Turn the button off again.

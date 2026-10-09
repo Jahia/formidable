@@ -14,6 +14,7 @@ import {
     EMPTY_FORM_FIELDS,
     formResultsLabel,
     formStatus,
+    labelsFormOf,
     isMissingInLive,
     parseFormFields,
     uiContext,
@@ -91,9 +92,10 @@ export const FormResultsApp = () => {
         selectedForm?.submissionsContainer?.nodes?.[0]?.canRemoveChildNodes
     );
 
-    const formUuid = selectedForm?.parentForm?.refNode?.uuid;
+    const labelsForm = labelsFormOf(selectedForm);
+    const formUuid = labelsForm?.uuid;
     const {data: fieldLabelsData} = useQuery(GET_FORM_FIELD_LABELS, {
-        variables: {formUuid: formUuid!, language, workspace: 'LIVE'},
+        variables: {formUuid: formUuid!, language, workspace: labelsForm?.workspace ?? 'LIVE'},
         skip: !formUuid,
         fetchPolicy: 'cache-first'
     });

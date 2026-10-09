@@ -120,7 +120,8 @@
 		"sidebar": {
 			"title": "Formulaires avec résultats",
 			"formDeleted": "Formulaire supprimé",
-			"formUnpublished": "Formulaire dépublié"
+			"formUnpublished": "Formulaire dépublié",
+			"formImported": "Importé, sans formulaire"
 		},
 		"actions": {
 			"export": "Exporter",
@@ -205,7 +206,8 @@
 				"label": "{{count}} soumissions seront supprimées.",
 				"all": "{{count}} soumissions seront supprimées. Le formulaire quitte la liste jusqu'à sa prochaine soumission.",
 				"allUnpublished": "{{count}} soumissions seront supprimées. Le formulaire quitte la liste jusqu'à ce qu'il soit republié et reçoive une nouvelle soumission.",
-				"allDeleted": "{{count}} soumissions seront supprimées. Le formulaire quitte la liste pour de bon : il n'existe plus."
+				"allDeleted": "{{count}} soumissions seront supprimées. Le formulaire quitte la liste pour de bon : il n'existe plus.",
+				"allImported": "{{count}} soumissions seront supprimées. L’entrée quitte la liste pour de bon : importée sans formulaire, rien n’y écrit."
 			},
 			"validation": {
 				"invalidRange": "Sélectionnez une plage de dates valide, ou supprimez tous les résultats.",
@@ -216,6 +218,7 @@
 		},
 		"import": {
 			"title": "Importer les résultats de Jahia Forms",
+			"description": "Rapatrier dans ce site les résultats des formulaires d’un export Jahia Forms.",
 			"dropzone": "Déposez ici l'export du nœud formFactory du site, un fichier .zip",
 			"chooseFile": "Choisir un fichier",
 			"fileHint": "Faites l'export dans l'explorateur de dépôt : clic droit sur le nœud formFactory du site, Export, puis Export Zip with live content. Jusqu'à {{max}} Mo.",
@@ -227,13 +230,19 @@
 			"report": {
 				"totals": "{{forms}} formulaire(s), {{found}} soumission(s) trouvée(s), {{toImport}} à importer",
 				"nothing": "Rien à importer : chaque formulaire et chaque soumission sont déjà dans ce site.",
-				"created": "Créé sous le nom « {{name}} » dans {{folder}}",
+				"created": "Le formulaire « {{name}} » dans {{folder}}, avec son entrée sur cette page",
 				"found": "Déjà importé, dans {{path}}",
+				"resultsOnly": "L’entrée « {{name}} » de cette page, sans formulaire",
 				"submissions": "{{found}} soumission(s) : {{toImport}} à importer, {{already}} déjà importée(s)",
 				"fields": "{{count}} champ(s)",
 				"files": "{{count}} fichier(s), {{size}}",
 				"filesMissing": "{{count}} fichier(s) absent(s) de l’export, laissé(s) de côté",
 				"values": "{{dropped}} valeur(s) écartée(s), {{notConverted}} gardée(s) telles quelles"
+			},
+			"choice": {
+				"label": "Ce qui reçoit les résultats",
+				"resultsOnly": "Résultats seuls",
+				"create": "Créer le formulaire"
 			},
 			"actions": {
 				"import": "Importer",
@@ -243,7 +252,8 @@
 			},
 			"done": {
 				"title": "Import terminé",
-				"nextStep": "Les formulaires sont dans le dossier « Imported from Jahia Forms » du site, non publiés. Tant qu'un formulaire n'est pas publié, son entrée s'affiche comme non publiée avec les noms système des champs en colonnes : relisez chaque formulaire, complétez ce que le rapport liste, puis publiez-le."
+				"created": "Ces formulaires ont été créés dans le dossier « Imported from Jahia Forms » du site, non publiés, et leurs entrées s’affichent comme dépubliées jusque-là : relisez chacun, complétez ce que son rapport liste, puis publiez-le.",
+				"resultsOnly": "Les résultats de ces formulaires sont sur cette page, dans des entrées sans formulaire marquées « Importé, sans formulaire », avec les noms système des champs en colonnes."
 			},
 			"failed": {
 				"title": "L'import a échoué"

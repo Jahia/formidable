@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {formTitle, refuseFile, type ImportReportForm} from './import.utils';
+import {formTitle, groupedFieldNotes, refuseFile, type ImportReportForm} from './import.utils';
 
 const fileOf = (name: string, size: number, type = ''): File => {
     const file = new File([new Uint8Array(1)], name, {type});
@@ -27,5 +27,17 @@ describe('formTitle', () => {
         expect(formTitle(form, 'fr')).toEqual('Contact');
         expect(formTitle(form, 'de')).toEqual('Contact Us');
         expect(formTitle({sourceName: 'newsletter', titles: {}} as ImportReportForm, 'en')).toEqual('newsletter');
+    });
+});
+
+describe('groupedFieldNotes', () => {
+    it('gives one line per distinct note, with the fields it concerns', () => {
+        const prefill = 'prefill not carried over: set it by hand';
+        expect(groupedFieldNotes([
+            {name: 'first-name', type: 'fmdb:inputText', notes: [prefill]},
+            {name: 'last-name', type: 'fmdb:inputText', notes: [prefill, 'pattern not carried over']},
+            {name: 'email', type: 'fmdb:inputEmail', notes: []}
+        ])).toEqual([`${prefill} — first-name, last-name`, 'pattern not carried over — last-name']);
+        expect(groupedFieldNotes([])).toEqual([]);
     });
 });
