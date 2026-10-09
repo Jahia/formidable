@@ -362,52 +362,74 @@ function outcomeOf(form: ImportReportForm, choice: ImportChoice | undefined, ste
 }
 
 const FormReport = ({form, report, language, t, choices, onChoice}: FormReportProps) => {
+    const steerable = Boolean(onChoice) && form.outcome !== 'found';
     const outcome = outcomeOf(form, choices?.[form.sourceName], Boolean(onChoice));
+    const choice = choices?.[form.sourceName] ?? 'resultsOnly';
     // what the form itself cannot carry over only matters when a form is created
     const notes = outcome === 'created' ? [...form.notes, ...groupedFieldNotes(form.fields)] : [];
-    const choiceName = `import-choice-${form.sourceName}`;
+    const describe = (what: ImportReportForm['outcome']) => {
+        if (what === 'found') {
+            return t('formResults.import.report.found', {path: form.targetPath});
+        }
+        return what === 'created' ?
+            t('formResults.import.report.created', {name: form.targetName, folder: report.importedFormsFolder}) :
+            t('formResults.import.report.resultsOnly', {name: form.targetName});
+    };
+    const figures = [
+        t('formResults.import.report.submissions', {
+            found: form.submissions.found,
+            toImport: report.dryRun ? form.submissions.toImport : form.submissions.imported,
+            already: form.submissions.alreadyImported
+        }),
+        t('formResults.import.report.fields', {count: form.fields.length}),
+        form.files.count > 0 && t('formResults.import.report.files', {count: form.files.count, size: formatFileSize(form.files.bytes)}),
+        form.files.missing > 0 && t('formResults.import.report.filesMissing', {count: form.files.missing}),
+        (form.values.dropped > 0 || form.values.notConverted > 0) &&
+            t('formResults.import.report.values', {dropped: form.values.dropped, notConverted: form.values.notConverted})
+    ].filter(Boolean).join(' · ');
     return (
-        <div data-sel-role="import-report-form" data-sel-name={form.sourceName} data-sel-outcome={outcome ?? ''} style={{border: '1px solid var(--color-gray_light40)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '6px'}}>
-            <Typography variant="subheading" weight="bold">{formTitle(form, language)}</Typography>
-            {onChoice && form.outcome !== 'found' && (
-                <fieldset data-sel-role="import-choice" style={{border: 'none', margin: 0, padding: 0, display: 'flex', flexWrap: 'wrap', gap: '4px 24px'}}>
-                    <legend style={{padding: 0}}><Typography variant="body" weight="bold">{t('formResults.import.choice.label')}</Typography></legend>
-                    {(['resultsOnly', 'create'] as const).map(choice => (
-                        <label key={choice} style={{display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer'}}>
+        <div data-sel-role="import-report-form" data-sel-name={form.sourceName} data-sel-outcome={outcome ?? ''} style={{border: '1px solid var(--color-gray_light40)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px'}}>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '16px', flexWrap: 'wrap'}}>
+                <Typography variant="subheading" weight="bold">{formTitle(form, language)}</Typography>
+                <Typography variant="body" data-sel-role="import-report-figures" style={{color: 'var(--color-gray)'}}>{figures}</Typography>
+            </div>
+            {steerable ? (
+                <div role="radiogroup" aria-label={t('formResults.import.choice.label')} data-sel-role="import-choice" style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                    {([['resultsOnly', 'resultsOnly'], ['create', 'created']] as const).map(([value, what]) => (
+                        <label
+                            key={value}
+                            style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'auto 1fr',
+                                columnGap: '12px',
+                                alignItems: 'start',
+                                padding: '10px 12px',
+                                border: `1px solid ${choice === value ? 'var(--color-accent)' : 'var(--color-gray_light40)'}`,
+                                borderRadius: '4px',
+                                cursor: 'pointer'
+                            }}
+                        >
                             <input
                                 type="radio"
-                                name={choiceName}
-                                value={choice}
-                                data-sel-choice={choice}
-                                checked={(choices?.[form.sourceName] ?? 'resultsOnly') === choice}
-                                onChange={() => onChoice(form.sourceName, choice)}
+                                name={`import-choice-${form.sourceName}`}
+                                value={value}
+                                data-sel-choice={value}
+                                checked={choice === value}
+                                style={{marginTop: '4px', accentColor: 'var(--color-accent)'}}
+                                onChange={() => onChoice?.(form.sourceName, value)}
                             />
-                            <Typography variant="body">{t(`formResults.import.choice.${choice}`)}</Typography>
+                            <span style={{display: 'flex', flexDirection: 'column', gap: '2px'}}>
+                                <Typography variant="body" weight="bold">{t(`formResults.import.choice.${value}`)}</Typography>
+                                <Typography variant="body" style={{color: 'var(--color-gray)'}}>{describe(what)}</Typography>
+                            </span>
                         </label>
                     ))}
-                </fieldset>
+                </div>
+            ) : (
+                <Typography variant="body">{describe(outcome)}</Typography>
             )}
-            <Typography variant="body">
-                {outcome === 'found' && t('formResults.import.report.found', {path: form.targetPath})}
-                {outcome === 'created' && t('formResults.import.report.created', {name: form.targetName, folder: report.importedFormsFolder})}
-                {outcome === 'resultsOnly' && t('formResults.import.report.resultsOnly', {name: form.targetName})}
-            </Typography>
-            <Typography variant="body">
-                {t('formResults.import.report.submissions', {
-                    found: form.submissions.found,
-                    toImport: report.dryRun ? form.submissions.toImport : form.submissions.imported,
-                    already: form.submissions.alreadyImported
-                })}
-            </Typography>
-            <Typography variant="body" data-sel-role="import-report-figures">
-                {t('formResults.import.report.fields', {count: form.fields.length})}
-                {form.files.count > 0 && ` — ${t('formResults.import.report.files', {count: form.files.count, size: formatFileSize(form.files.bytes)})}`}
-                {form.files.missing > 0 && ` — ${t('formResults.import.report.filesMissing', {count: form.files.missing})}`}
-                {(form.values.dropped > 0 || form.values.notConverted > 0) &&
-                    ` — ${t('formResults.import.report.values', {dropped: form.values.dropped, notConverted: form.values.notConverted})}`}
-            </Typography>
             {notes.length > 0 && (
-                <ul style={{margin: '4px 0 0', paddingLeft: '20px'}} data-sel-role="import-report-notes">
+                <ul style={{margin: 0, paddingLeft: '20px'}} data-sel-role="import-report-notes">
                     {notes.map(note => (
                         <li key={note}><Typography variant="body">{note}</Typography></li>
                     ))}

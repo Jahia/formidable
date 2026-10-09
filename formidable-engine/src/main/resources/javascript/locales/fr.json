@@ -230,9 +230,9 @@
 			"report": {
 				"totals": "{{forms}} formulaire(s), {{found}} soumission(s) trouvée(s), {{toImport}} à importer",
 				"nothing": "Rien à importer : chaque formulaire et chaque soumission sont déjà dans ce site.",
-				"created": "Créé sous le nom « {{name}} » dans {{folder}}",
+				"created": "Le formulaire « {{name}} » dans {{folder}}, avec son entrée sur cette page",
 				"found": "Déjà importé, dans {{path}}",
-				"resultsOnly": "Résultats seuls : l’entrée « {{name}} » de cette page, sans formulaire",
+				"resultsOnly": "L’entrée « {{name}} » de cette page, sans formulaire",
 				"submissions": "{{found}} soumission(s) : {{toImport}} à importer, {{already}} déjà importée(s)",
 				"fields": "{{count}} champ(s)",
 				"files": "{{count}} fichier(s), {{size}}",
@@ -241,8 +241,8 @@
 			},
 			"choice": {
 				"label": "Ce qui reçoit les résultats",
-				"resultsOnly": "Les résultats seuls, dans une entrée sans formulaire",
-				"create": "Un formulaire créé dans le dossier « Imported from Jahia Forms », avec son entrée"
+				"resultsOnly": "Résultats seuls",
+				"create": "Créer le formulaire"
 			},
 			"actions": {
 				"import": "Importer",

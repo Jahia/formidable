@@ -230,9 +230,9 @@
 			"report": {
 				"totals": "{{forms}} form(s), {{found}} submission(s) found, {{toImport}} to import",
 				"nothing": "Nothing to import: every form and every submission is already in this site.",
-				"created": "Created as \"{{name}}\" in {{folder}}",
+				"created": "The form \"{{name}}\" in {{folder}}, with its entry on this page",
 				"found": "Already imported, at {{path}}",
-				"resultsOnly": "Results only: the entry \"{{name}}\" on this page, without a form",
+				"resultsOnly": "The entry \"{{name}}\" on this page, without a form",
 				"submissions": "{{found}} submission(s): {{toImport}} to import, {{already}} already imported",
 				"fields": "{{count}} field(s)",
 				"files": "{{count}} file(s), {{size}}",
@@ -241,8 +241,8 @@
 			},
 			"choice": {
 				"label": "What receives the results",
-				"resultsOnly": "The results only, as an entry without a form",
-				"create": "A form created in the \"Imported from Jahia Forms\" folder, with its entry"
+				"resultsOnly": "Results only",
+				"create": "Create the form"
 			},
 			"actions": {
 				"import": "Import",
