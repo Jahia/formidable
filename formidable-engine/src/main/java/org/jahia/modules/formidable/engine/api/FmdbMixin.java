@@ -64,6 +64,12 @@ public final class FmdbMixin {
     public static final String DATETIME_LOCAL_FIELD = "fmdbmix:datetimeLocalField";
     public static final String COLOR_FIELD = "fmdbmix:colorField";
 
+    // Imports from another form system (docs/architecture/forms-import.md): the markers the import writes
+    public static final String IMPORTED_FORM = "fmdbmix:importedForm";
+    public static final String IMPORTED_FIELD = "fmdbmix:importedField";
+    public static final String IMPORTED_RESULTS = "fmdbmix:importedResults";
+    public static final String IMPORTED_SUBMISSION = "fmdbmix:importedSubmission";
+
     // A field type claims a jExperience profile mapping by applying this one marker
     public static final String PROFILE_MAPPABLE_FIELD = "fmdbmix:profileMappableField";
 

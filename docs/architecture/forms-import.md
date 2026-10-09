@@ -79,15 +79,22 @@ This section describes what the import reads. Paths are relative to the root of 
 
 The export is taken in the **Repository explorer**: open the site, right-click its `formFactory` node,
 choose **Export**, then **Export Zip with live content**. The zip holds two Jahia *document view* files,
-`repository.xml` and `live-repository.xml`, and the binaries of the files under them. In the sample export
+`repository.xml` and `live-repository.xml`, and the binaries of the files under them, each at
+`live-content/<path of the file node>/<file name>`, the path being relative to the parent of the exported
+node (`DocumentViewExporter.buildBinaryPathInZip`). In the sample export
 the two files are identical: the forms come from the edit workspace, the results from live, and each
 live-only node is marked `j:originWS="live"`. The import reads `live-repository.xml` when the zip has one,
 `repository.xml` otherwise.
 
 In these files:
 
-- names and values are ISO 9075-encoded: `_x0020_` is a space, and `_x0030_6` is the node name `06`;
-- a multi-valued property is one attribute, and spaces separate its values, each value encoded;
+- node names are ISO 9075-encoded: `_x0020_` is a space, and `_x0030_6` is the node name `06`;
+- a multi-valued property is one attribute, and spaces separate its values, each value encoded the same
+  way (`result="+44_x0020_7911_x0020_123456"` in the sample); a single value is written as it is
+  (`jsonValue="Your First name*"`), except a reference, which `DocumentViewExporter` encodes like a
+  multi-value (`JCRMultipleValueUtils.encode`): the import decodes names, multi-values and the two
+  references it reads, `parentForm` and the `label` of an answer, so a form or a field named with a
+  space keeps its results;
 - every node carries `jcr:uuid`, `jcr:created`, `jcr:createdBy` and `jcr:lastModified`;
 - a reference is nonetheless written as a path, `#/<path>` relative to the export root, as in
   `parentForm="#/forms/contact-us"`;
@@ -173,7 +180,13 @@ Forms writes a value as follows (`SaveToJcrAction` in `forms-core`):
 - a date is the moment.js `toISOString()` of the chosen date, a UTC instant: a date picked as 13 August in
   Paris is `2024-08-12T22:00:00.000Z`;
 - the matrix, rating and country fields of `forms-core` store one JSON object as a string, with a `rendererName`
-  (`matrixRadios`, `matrixCheckboxes`, `rating`, `country`);
+  (`matrixRadios`, `matrixCheckboxes`, `rating`, `country`), shaped as their directives submit it
+  (`forms-core/src/main/resources/fcnt_*Definition/js`): a matrix keeps one key per row beside the renderer
+  name, `{"Price":"Good","Service":"Poor","rendererName":"matrixRadios"}`; a rating keeps its number under
+  `value`, `{"rendererName":"rating","css":"fa-star rated","type":"…","value":4}`; a country keeps its code
+  under `country.key`, `{"country":{"key":"FR","name":"France"},"rendererName":"country"}`;
+- an accept-terms box (`forms-extended-inputs`) stores its `yes` label when ticked, "Accepted" by default,
+  and its `no` label when not, "Not Accepted", in the language of the form (`ng-false-value="'{{input.no}}'"`);
 - a file field stores a JSON object `{"url":[],"name":[],"type":[],"size":[],"image":[],"rendererName":"fileUpload"}`,
   and the files themselves are `jnt:file` children of the `fcnt:resultField`;
 - a password field stores the placeholder `**********`, never the password;
@@ -234,7 +247,7 @@ Each `fcnt:form` of the export becomes one `fmdb:form`:
 | One `fcnt:step` | The fields directly under `fields` |
 | Several `fcnt:step` | One `fmdb:step` per step, titled after it, in the order of `stepNumber` |
 | A `fieldsetStart` and its `fieldsetEnd` | One `fmdb:fieldset`, titled after the start, holding the fields between them |
-| The `button` definitions | Not fields: their labels fill `submitBtnLabel`, `nextBtnLabel` and `previousBtnLabel` when they match |
+| The `button` definitions | Not fields: the title of a button fills `submitBtnLabel`; the three labels of a `buttonTriple` are part of spike 4 |
 | `fcmix:displayCaptcha` | The form's captcha, when the instance has a captcha configured; reported otherwise |
 | `fcmix:trackUser` | Nothing: Formidable does not track the submitter |
 | `fcmix:formSavable`, `fcmix:submissionConstraints` | Nothing, reported: Formidable has neither *save for later* nor submission constraints |
@@ -263,13 +276,13 @@ says. The third column gives what the import writes into `data` for that field, 
 | `selectBasicDefinition`, `selectMultipleDefinition` | `fmdb:select`, `multiple` for the second, with manual options | The option key, one or several, unchanged |
 | `multipleRadiosDefinition`, `multipleRadiosInlineDefinition` | `fmdb:radio` with manual options | The option key |
 | `multipleCheckBoxesDefinition`, `multipleCheckBoxesInlineDefinition` | `fmdb:checkbox` with manual options | The option keys |
-| `switchDefinition` | `fmdbext:switch`, its `onLabel` and `offLabel` from the switch's texts; without the extended inputs, `fmdb:radio` with the two options `true` and `false` | `true` or `false`, unchanged |
+| `switchDefinition` | `fmdbext:switch`, its `onLabel` and `offLabel` from the `textOn` and `textOff` of the switch; without the extended inputs, `fmdb:radio` with the two options `true` and `false`, labelled with those texts | `true` or `false`, unchanged |
 | `datePickerDefinition`, `simpleDateDefinition` | `fmdb:inputDate` | `yyyy-MM-dd`: the instant plus 12 hours, truncated to the UTC day (below) |
 | `countryListDefinition` | `fmdb:select` on the `country` options source when the instance declares one (see [Choice field options sources](choice-field-options-sources.md)), else with the choices of the label node | The country code, the `key` of the `country` object in the JSON |
-| `ratingDefinition` | `fmdbext:rating`, its `maxValue` from the Forms rating; without the extended inputs, `fmdb:inputNumber` | The rating |
-| `matrixRadiosDefinition`, `matrixCheckBoxesDefinition` | `fmdb:textarea`, reported: Formidable has no matrix | One line per row, `row: answer(s)` |
-| `fileUploadDefinition` | `fmdb:inputFile`, `accept` from `fileValidation`, `multiple` from `fileNumberValidation` | The files are copied under `files/<fieldName>/`, and the JSON is dropped |
-| `acceptTermCheckboxDefinition` (`forms-extended-inputs`) | `fmdbext:consent`, its `statement` from the label; without the extended inputs, `fmdb:checkbox` with one option, the accepted value | `true` for the consent, because Forms stores an answer only when the box was ticked; the accepted value, unchanged, for the checkbox |
+| `ratingDefinition` | `fmdbext:rating`, its `maxValue` from the `max` of the Forms rating; without the extended inputs, `fmdb:inputNumber` | The `value` of the rating JSON |
+| `matrixRadiosDefinition`, `matrixCheckBoxesDefinition` | `fmdb:textarea`, reported: Formidable has no matrix | One line per row of the JSON, `row: answer(s)`, in the order of the text |
+| `fileUploadDefinition` | `fmdb:inputFile`; `accept` from the type groups a `fileValidation` selects (`image`, `audio`, `video`, `pdf`, `text` have an `accept` equivalent, `all` restricts nothing, `doc` is a regular expression over the office types, reported); `multiple` when the `filenumber` of a `fileNumberValidation` is not 1 | The files are copied under `files/<fieldName>/`, and the JSON is dropped |
+| `acceptTermCheckboxDefinition` (`forms-extended-inputs`) | `fmdbext:consent`, its `statement` from the `termsLabel` of the box as its visitors read it: the braces, which marked the text of the link to the terms file, go, the text stays, and the file (`link`, a repository path) is reported; the title of the field when the box has no terms label. Without the extended inputs, `fmdb:checkbox` with one option, the accepted value | `true` when the answer is the `yes` label of the box, nothing when it is the `no` label, for the consent and for the checkbox alike; any other text is kept, with a note |
 | `imageCheckboxDefinition` (`forms-extended-inputs`) | `fmdb:checkbox` with manual options, the images dropped | The option keys |
 | `contentDisplayDefinition` (`forms-extended-inputs`) | Not recreated, reported: it displays a content, submits nothing | — |
 | Any other type | `fmdb:inputText`, reported | Unchanged |
@@ -281,10 +294,14 @@ registers the type, as the migrations test a type before they query it, and fall
 For every field:
 
 - `jcr:title` per language follows [the label rule](#the-labels);
-- `placeholder` and `helptext` become `placeholder` and `helpText`;
-- a `requiredValidation` sets `required`, and its message becomes the field's required message;
+- `placeholder` and `helptext` become `placeholder` and `helpText`; a select, which has no placeholder,
+  takes it as its `optionsEmptyLabel`; a setting the target type does not declare is reported, never
+  written, so that the writer meets no constraint violation;
+- a `requiredValidation` sets `required`, and its message becomes `msgValueMissing`;
 - a `rangeLengthValidation` sets `minLength` and `maxLength`, a `rangeValidation` sets `minValue` and
-  `maxValue`, a `regexValidation` sets `pattern`, each with its message. A rule the field type cannot carry,
+  `maxValue`, a `regexValidation` sets `pattern`, each with its message in the slot of the type
+  (`msgTooShort` and `msgTooLong`, `msgRangeUnderflow` and `msgRangeOverflow`, `msgPatternMismatch`); an
+  `emailValidation` on an e-mail field fills `msgTypeMismatch`. A rule the field type cannot carry,
   and `equalToValidation`, are reported;
 - a manual option is written as Formidable stores it, `{"value","label","selected"}` per language: the Forms
   key becomes the value, so that the imported values match, and the Forms label becomes the label;
@@ -320,7 +337,8 @@ The label of an option is the Forms label of the choice, per language, and its v
 
 The node name of a recreated field is generated from its label in the `buildingLang` of the form, as the
 Content Editor generates a system name from a title (`JCRContentUtils.generateNodeName`): lower case,
-accents removed, spaces and punctuation turned into hyphens, cut at 32 characters. In the sample export,
+accents removed, spaces and punctuation turned into hyphens, cut at 128 characters, the default of
+`jahia.jcr.maxNameSize`. In the sample export,
 `contact-us` gets `your-first-name`, `your-last-name`, `your-email-address`, `your-telephone-number` and
 `your-enquiry`, and `newsletterregistration` gets `firstname`, `lastname` and `enter-your-email-here`:
 the rule gives what the contributor would have typed, no more, and the contributor renames what reads
@@ -341,7 +359,7 @@ published, which is the reason to generate them: `text-input_0_1` would stand th
 | Forms action | Formidable action |
 |---|---|
 | `saveToJcrAction` | `fmdb:save2jcrAction`, so that the form keeps saving once published. A form that Forms did not save gets no action: the imported results need the entry, which the import creates itself, not the action, and a form that starts keeping the personal data of its visitors must be a choice of the site, not of the import. The report says: "Forms did not save this form's submissions; add *Save to JCR* to keep saving them." |
-| `sendEmailAction` | `fmdb:emailNotificationAction`, with the recipients, the sender and the subject of the Forms action; the body is reported, because the two templates differ |
+| `sendEmailAction` | `fmdb:emailNotificationAction`, with the `to` recipients, the sender and the subject of the Forms action. The CC and BCC addresses are reported, not carried: Formidable sends one message to one list, where they would be shown to the other recipients. The body is reported, because the two templates differ |
 | `sendEmailToSubmitterAction` | `fmdb:emailNotificationAction` with no recipient, reported: Formidable has no action that writes to the submitter |
 | `redirectToAPageAction`, `redirectToUrlAction` | Reported, with the target, until the [redirect action](redirect-action.md) ships |
 | Any other type | Reported |
@@ -403,7 +421,8 @@ Forms: `sourceSystem` does.
 ```
 
 `fmdb:resultsFolder` gets one named child, `import-jobs` (`fmdb:importJobs`), for the jobs of
-[Running it](#running-it). Its ACL inheritance is broken, as on a results entry, so the jobs and their
+[Running it](#running-it). The name is quoted in the CND: the parser of the Jahia Maven plugin breaks an
+unquoted name at its hyphen. Its ACL inheritance is broken, as on a results entry, so the jobs and their
 files stay with the administrators.
 
 ### The readers
@@ -625,7 +644,7 @@ mapping or to another form.
 - **Unit tests.** They cover the reader (the zip, ISO 9075 decoding, multi-values, references, `jcr:uuid`,
   the split at any depth), the type map of each Forms definition, each value conversion, the label rule
   with the trailing `*`, the system name rule (generation, a duplicate label, no label, a reserved name, the
-  32 characters), the form built from the label nodes alone, the lookup of a form by either of its two
+  128 characters), the form built from the label nodes alone, the lookup of a form by either of its two
   keys, and the mapping proposal of iteration 2. The date rule is tested at the offsets −11, −4, 0, +2, +9
   and +11 hours, and at +13, where it gives the previous day as documented. The fixtures are the
   anonymised sample exports.
@@ -658,4 +677,4 @@ mapping or to another form.
 | Spike 3 | Does **Export Zip**, without live content, hold any result? The results are written in live only, so none is expected. | The message of the dry run, and the administration guide |
 | 4 | The captcha of a recreated form depends on the captcha configuration of the instance: the import turns it on when a provider is configured, else reports it. To confirm against the captcha settings. | The forms |
 | 5 | The sample exports hold real email addresses, so they must be anonymised before they are committed as fixtures. | Tests |
-| Spike 4 | The sample export holds no switch, rating, hidden or button field and no uploaded file: the names of the option nodes of those definitions, and the entry names of the binaries in the zip, are to be confirmed on an export that holds them before the import of those fields and files is relied on. | The fields, the files |
+| Spike 4 | Partly answered from the sources of `forms-core` 3.x (`src/main/resources/fcnt_*/html/*.wzd`, the design views and the directives): the option nodes are `textOn`/`textOff` for a switch, `max` for a rating, `value` for a hidden field, `filetype` (a JSON list of groups) and `filenumber` for the file rules, `to`/`cc`/`bcc`/`from`/`subject` for the e-mail action, `redirectto` for both redirects, `yes`/`no`/`termsLabel`/`link` for an accept-terms box; the value shapes of a rating, a matrix, a country and a consent are in [The results](#the-results). Still to confirm on an export that holds them: the labels of a `buttonTriple`, and the entry names of the uploaded files in the zip. | The buttons, the files |

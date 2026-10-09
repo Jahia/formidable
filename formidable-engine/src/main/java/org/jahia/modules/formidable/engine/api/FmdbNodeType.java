@@ -34,6 +34,10 @@ public final class FmdbNodeType {
     public static final String FORM_SUBMISSION = "fmdb:formSubmission";
     public static final String SUBMISSION_DATA = "fmdb:submissionData";
 
+    // Imports from another form system (docs/architecture/forms-import.md)
+    public static final String IMPORT_JOBS = "fmdb:importJobs";
+    public static final String IMPORT_JOB = "fmdb:importJob";
+
     private FmdbNodeType() {
     }
 }
