@@ -319,10 +319,13 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
     );
 };
 
-interface ReportViewProps {
+interface ReportProps {
     report: ImportReport;
     language: string;
     t: (key: string, options?: Record<string, unknown>) => string;
+}
+
+interface ReportViewProps extends ReportProps {
     /** The choices of the review, when the report is a dry run the administrator can still steer. */
     choices?: Record<string, ImportChoice>;
     onChoice?: (sourceName: string, choice: ImportChoice) => void;
@@ -347,7 +350,7 @@ const ReportView = ({report, language, t, choices, onChoice}: ReportViewProps) =
 );
 
 /** What to do next, per outcome, with the forms it concerns by name: a created form is to review and publish, an entry alone just is. */
-const NextSteps = ({report, language, t}: ReportViewProps) => {
+const NextSteps = ({report, language, t}: ReportProps) => {
     const groups = (['created', 'resultsOnly'] as const)
         .map(outcome => ({outcome, forms: report.forms.filter(form => form.outcome === outcome)}))
         .filter(group => group.forms.length > 0);
