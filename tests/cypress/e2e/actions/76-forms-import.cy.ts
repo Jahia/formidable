@@ -78,6 +78,17 @@ const importedSubmission = (sourceId: string): Cypress.Chainable<SubmissionData>
 
 const valueNames = (submission: SubmissionData) => submission.data.properties.filter(p => !p.name.includes(':')).map(p => p.name);
 
+/** The parentForm of an entry, as stored: absent on an entry imported without a form. */
+const parentFormOf = (entryPath: string): Cypress.Chainable<string | null> =>
+	graphql<{jcr: {nodeByPath: {parentForm: {value: string} | null; imported: boolean}}}>(
+		`query Entry($path: String!) { jcr(workspace: LIVE) { nodeByPath(path: $path) {
+			parentForm: property(name: "parentForm") { value } imported: isNodeType(type: {types: ["fmdbmix:importedResults"]}) } } }`,
+		{path: entryPath}
+	).then(data => {
+		expect(data.jcr.nodeByPath.imported, `${entryPath} carries fmdbmix:importedResults`).to.equal(true);
+		return cy.wrap(data.jcr.nodeByPath.parentForm?.value ?? null, {log: false});
+	});
+
 /** The endpoint of the dialog, called as the dialog calls it. */
 const importApi = (method: 'GET' | 'POST' | 'DELETE', path: string) =>
 	cy.request({method, url: `${IMPORT_ENDPOINT}${path}?site=${SITE}`, headers: withSameOriginHeaders(), failOnStatusCode: false});
@@ -134,15 +145,28 @@ const closeDialog = () => {
 	cy.get('[data-sel-role="import-results-dialog"]').should('not.exist');
 };
 
+const reportForm = (name: string) => cy.get(`[data-sel-role="import-report-form"][data-sel-name="${name}"]`);
+
+/** Picks, for a form of the dry run, what receives its results. */
+const choose = (name: string, choice: 'resultsOnly' | 'create') =>
+	reportForm(name).find(`[data-sel-role="import-choice"] input[data-sel-choice="${choice}"]`).check();
+
 // The caption inside the entry sits at its centre, which Cypress takes for a cover: the click is forced.
 const selectEntry = (name: string) =>
 	cy.get(`[data-sel-role="form-results-entry"][data-sel-name="${name}"]`).should('be.visible').click({force: true});
 
+const openFirstSubmission = (name: string) => {
+	openResultsPage();
+	selectEntry(name);
+	cy.get('[data-sel-role="submissions-table"] tbody tr', {timeout: 30000}).first().click();
+};
+
 /**
  * The Import button of the Results page, behind the importButtonEnabled setting, takes the zip export of a
- * Jahia Forms formFactory node: a dry run shows what the import will do, the import recreates the forms in
- * the imported-forms folder and writes their submissions as results, one import at a time per site, and
- * a second run adds only what is missing, under the names the fields have by then.
+ * Jahia Forms formFactory node: a dry run shows what the import will do, and the administrator chooses, per
+ * form, what receives its results — the results alone, the default, as an entry without a form, or a form
+ * created in the imported-forms folder. One import runs at a time per site, and a later run adds only what
+ * is missing, under the names the fields have by then.
  */
 describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 	useFormidableSite();
@@ -164,7 +188,7 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		setImportButton(true);
 	});
 
-	it('offers the import on an empty Results page, shows the dry run, then imports, refusing a second import meanwhile', () => {
+	it('imports the results alone by default, under entries without a form, refusing a second import meanwhile', () => {
 		openResultsPage();
 		openImportDialog();
 		dropFile(SAMPLE_EXPORT);
@@ -172,7 +196,10 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		dialogState('review');
 		cy.get('[data-sel-role="import-report-form"]').should('have.length', SAMPLE.forms.length);
 		cy.get('[data-sel-role="import-totals"]').should('contain', '106');
-		cy.get('[data-sel-role="import-report-form"][data-sel-name="contact-us"]').should('contain', 'Contact Us');
+		// the default: the results alone, a choice the administrator can still change per form
+		cy.get('[data-sel-role="import-report-form"][data-sel-outcome="resultsOnly"]').should('have.length', SAMPLE.forms.length);
+		cy.get('[data-sel-role="import-choice"] input[data-sel-choice="resultsOnly"]:checked').should('have.length', SAMPLE.forms.length);
+		reportForm('contact-us').should('contain', 'Contact Us').and('contain', 'Results only');
 		// the dry run wrote nothing
 		children(CONTENTS_PATH, 'EDIT').then(nodes => expect(nodes.map(n => n.name)).not.to.include('imported-forms'));
 
@@ -194,8 +221,7 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		closeDialog();
 		openImportDialog();
 		dialogState('done');
-		cy.get('[data-sel-role="import-next-step"]').scrollIntoView();
-		cy.get('[data-sel-role="import-next-step"]').should('be.visible');
+		cy.get('[data-sel-role="import-next-step"]').should('be.visible').and('contain', 'without a form');
 		cy.get('[data-sel-role="import-totals"]').should('contain', '106');
 
 		// the report survives a reload until it is closed
@@ -204,9 +230,64 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		cy.get('[data-sel-role="import-totals"]').should('contain', '106');
 		closeDialog();
 		cy.get('[data-sel-role="form-results-entry"]', {timeout: 60000}).should('have.length', SAMPLE.forms.length);
+		cy.get('[data-sel-role="form-results-entry"] [data-sel-role="form-imported"]').should('have.length', SAMPLE.forms.length);
 		cy.reload();
 		cy.get('[data-sel-role="form-results-entry"]', {timeout: 60000}).should('have.length', SAMPLE.forms.length);
 		cy.get('[data-sel-role="import-results-dialog"]').should('not.exist');
+
+		// no form was created, the entries carry the marker and no parentForm
+		children(CONTENTS_PATH, 'EDIT').then(nodes => expect(nodes.map(n => n.name)).not.to.include('imported-forms'));
+		SAMPLE.forms.forEach(form => parentFormOf(`${RESULTS_ROOT_PATH}/${form}`).should('be.null'));
+	});
+
+	it('wrote every submission under the system names of its fields, dated as the visitor submitted it', () => {
+		Object.entries(SAMPLE.submissions).forEach(([form, count]) => {
+			countSubmissions(`${RESULTS_ROOT_PATH}/${form}`).should('eq', count);
+		});
+		importedSubmission(SAMPLE.firstSubmission.id).then(submission => {
+			expect(submission.path).to.contain(`${RESULTS_ROOT_PATH}/contact-us/submissions/${SAMPLE.firstSubmission.day}/`);
+			expect(submission.origin.value).to.equal('jahia-forms');
+			expect(valueNames(submission)).to.have.members(SAMPLE.contactFields);
+			const email = submission.data.properties.find(p => p.name === 'your-email-address');
+			expect(email?.value).to.match(/@example\.com$/);
+		});
+	});
+
+	it('shows an entry without a form as Imported, no form, with the system names as columns', () => {
+		openFirstSubmission('contact-us');
+		cy.get('[data-sel-role="form-imported"]').should('exist');
+		cy.get('[data-sel-role="submission-detail"]').should('contain', 'your-first-name');
+	});
+
+	it('imports nothing on a second run: every entry is found, nothing is left to choose', () => {
+		openResultsPage();
+		openImportDialog();
+		dropFile(SAMPLE_EXPORT);
+		dialogState('review');
+		cy.get('[data-sel-role="import-nothing"]').should('be.visible');
+		cy.get('[data-sel-role="import-report-form"][data-sel-outcome="found"]').should('have.length', SAMPLE.forms.length);
+		cy.get('[data-sel-role="import-choice"]').should('not.exist');
+		cy.get('[data-sel-role="import-confirm"]').should('not.exist');
+		closeDialog();
+	});
+
+	it('creates the forms when asked, once the entries written alone are gone', () => {
+		SAMPLE.forms.forEach(form => deleteNode(`${RESULTS_ROOT_PATH}/${form}`, 'LIVE'));
+
+		openResultsPage();
+		openImportDialog();
+		dropFile(SAMPLE_EXPORT);
+		dialogState('review');
+		SAMPLE.forms.forEach(form => choose(form, 'create'));
+		cy.get('[data-sel-role="import-report-form"][data-sel-outcome="created"]').should('have.length', SAMPLE.forms.length);
+		reportForm('contact-us').should('contain', IMPORTED_FORMS_PATH);
+		cy.get('[data-sel-role="import-confirm"]').click();
+		dialogState('done');
+		cy.get('[data-sel-role="import-next-step"]').should('contain', 'Imported from Jahia Forms');
+		cy.get('[data-sel-role="import-totals"]').should('contain', '106');
+		closeDialog();
+		cy.get('[data-sel-role="form-results-entry"]', {timeout: 60000}).should('have.length', SAMPLE.forms.length);
+		cy.get('[data-sel-role="form-results-entry"] [data-sel-role="form-unpublished"]').should('have.length', SAMPLE.forms.length);
 	});
 
 	it('created the forms in the imported-forms folder, with their fields, labels, markers and actions', () => {
@@ -246,32 +327,21 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 			expect(form.field.placeholder.value).to.equal('Your First name*');
 			expect(form.field.sourceName.value).to.equal('text-input_0_1');
 		});
-	});
-
-	it('wrote every submission under the system names of its fields, dated as the visitor submitted it', () => {
 		Object.entries(SAMPLE.submissions).forEach(([form, count]) => {
 			countSubmissions(`${RESULTS_ROOT_PATH}/${form}`).should('eq', count);
 		});
-		importedSubmission(SAMPLE.firstSubmission.id).then(submission => {
-			expect(submission.path).to.contain(`${RESULTS_ROOT_PATH}/contact-us/submissions/${SAMPLE.firstSubmission.day}/`);
-			expect(submission.origin.value).to.equal('jahia-forms');
-			expect(valueNames(submission)).to.have.members(SAMPLE.contactFields);
-			const email = submission.data.properties.find(p => p.name === 'your-email-address');
-			expect(email?.value).to.match(/@example\.com$/);
-		});
 	});
 
-	it('shows the entry as unpublished with the system names, then the labels once the form is published', () => {
-		// the page resolves the labels through the live reference of the form: none while it is unpublished
-		openResultsPage();
-		selectEntry('contact-us');
-		cy.get('[data-sel-role="submissions-table"] tbody tr', {timeout: 30000}).first().click();
-		cy.get('[data-sel-role="submission-detail"]').should('contain', 'your-first-name').and('not.contain', 'Your First name');
+	it('shows the labels of the form while it is unpublished, and still once it is published', () => {
+		// the page resolves the labels through the live reference of the form, else through the edit workspace
+		const contactIcon = '[data-sel-role="form-results-entry"][data-sel-name="contact-us"] [data-sel-role="form-unpublished"]';
+		openFirstSubmission('contact-us');
+		cy.get(contactIcon).should('exist');
+		cy.get('[data-sel-role="submission-detail"]').should('contain', 'Your First name');
 
 		publishAndWaitJobEnding(`${IMPORTED_FORMS_PATH}/contact-us`, ['en', 'fr']);
-		openResultsPage();
-		selectEntry('contact-us');
-		cy.get('[data-sel-role="submissions-table"] tbody tr', {timeout: 30000}).first().click();
+		openFirstSubmission('contact-us');
+		cy.get(contactIcon).should('not.exist');
 		cy.get('[data-sel-role="submission-detail"]').should('contain', 'Your First name');
 	});
 
@@ -291,7 +361,7 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		openImportDialog();
 		dropFile(SAMPLE_EXPORT);
 		dialogState('review');
-		cy.get('[data-sel-role="import-report-form"][data-sel-name="contact-us"]')
+		reportForm('contact-us')
 			.should('have.attr', 'data-sel-outcome', 'found')
 			.and('contain', `${IMPORTED_FORMS_PATH}/contact-us`)
 			.and('contain', '4 field(s)');
