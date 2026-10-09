@@ -59,6 +59,39 @@ class FormsSubmissionConverterTest {
         assertTrue(converted.stream().noneMatch(s -> s.values().containsKey("text-input_0_1")));
     }
 
+    /**
+     * On a found form, each lookup has a case only it resolves: the identity when the Forms name of the
+     * field changed between the exports, the label name when the field has no identity, the answer's own
+     * name when its label node is gone.
+     */
+    @Test
+    void onAFoundFormEachLookupResolvesTheCaseOnlyItCan() throws Exception {
+        FormsExport export = FormsExportReaderTest.sampleReader().readStructure();
+        FormsForm source = export.forms().get("contact-us");
+        FormsResults results = export.resultsOf(source);
+        ImportedForm form = CONVERTER.convert(source, results);
+        String firstNameId = source.fields().get(0).uuid();
+        // the found form: the first name is known by its identity and a Forms name that no longer matches,
+        // the last name by its Forms name alone, a legacy field by the name its answers were stored under
+        Map<String, String> found = Map.of(
+                firstNameId, "firstname", "renamed-in-forms_0_9", "firstname",
+                "text-input_0_1_copy_01", "your-last-name",
+                "legacy_0_7", "legacy");
+        FormsSubmission submission = new FormsSubmission("s1", "contact-us", Instant.EPOCH, null, null, "guest",
+                List.of(new FormsResultField("text-input_0_1", "text-input_0_1", List.of("Jane"), true, List.of()),
+                        new FormsResultField("text-input_0_1_copy_01", "text-input_0_1_copy_01", List.of("Doe"), true, List.of()),
+                        // the label node of this answer is gone: only its own name can find it
+                        new FormsResultField("legacy_0_7", "legacy-renamed", List.of("kept"), true, List.of())),
+                "formFactory/results/contact-us/submissions/x/s1");
+
+        ImportedSubmission converted = new FormsSubmissionConverter(form, source, results, found).convert(submission);
+
+        assertEquals(List.of("Jane"), converted.values().get("firstname"));
+        assertEquals(List.of("Doe"), converted.values().get("your-last-name"));
+        assertEquals(List.of("kept"), converted.values().get("legacy"));
+        assertTrue(converted.report().isEmpty(), converted.report().toString());
+    }
+
     /** The second run on a form the first created, whose fields the contributor has renamed and deleted since. */
     @Test
     void onAFoundFormAnAnswerLandsUnderTheNameItsFieldHasNow() throws Exception {

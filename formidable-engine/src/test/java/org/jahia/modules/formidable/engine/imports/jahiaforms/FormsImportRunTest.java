@@ -106,12 +106,13 @@ class FormsImportRunTest {
         when(writer.findForm(eq(CONTACT_ID), any())).thenReturn(found);
         FormsExport export = FormsExportReaderTest.sampleReader().readStructure();
         FormsForm source = export.forms().get("contact-us");
-        // the form as the contributor left it: the first name renamed, the enquiry deleted
+        // the form as the contributor left it: the first name renamed, the enquiry deleted; the telephone field
+        // was renamed in Forms between the two exports, so only its identity can find it
         when(writer.importedFields(found)).thenReturn(List.of(
                 new ImportWriter.FoundField("firstname", "fmdb:inputText", source.fields().get(0).uuid(), "text-input_0_1"),
                 new ImportWriter.FoundField("your-last-name", "fmdb:inputText", source.fields().get(1).uuid(), "text-input_0_1_copy_01"),
                 new ImportWriter.FoundField("your-email-address", "fmdb:inputEmail", source.fields().get(2).uuid(), "email-input_0_2"),
-                new ImportWriter.FoundField("your-telephone-number", "fmdb:inputText", source.fields().get(3).uuid(), "text-input_0_5")));
+                new ImportWriter.FoundField("your-telephone-number", "fmdb:inputText", source.fields().get(3).uuid(), "phone-input_0_9")));
         JCRNodeWrapper other = node("other", FOLDER + "/other");
         when(writer.findOrCreateForm(any())).thenReturn(new ImportWriter.FormHandle(other, true));
         when(writer.findOrCreateResultsEntry(any(), any())).thenReturn(entry);
@@ -132,6 +133,8 @@ class FormsImportRunTest {
         List<ImportedSubmission> ofContact = written.getAllValues().stream().filter(s -> CONTACT_ID.equals(s.sourceFormId())).toList();
         assertEquals(44, ofContact.size());
         assertTrue(ofContact.stream().allMatch(s -> s.values().containsKey("firstname")));
+        assertTrue(ofContact.stream().allMatch(s -> s.values().containsKey("your-telephone-number")));
+        assertTrue(ofContact.stream().noneMatch(s -> s.values().containsKey("text-input_0_5")));
         assertTrue(ofContact.stream().noneMatch(s -> s.values().containsKey("your-first-name")));
         assertTrue(ofContact.stream().noneMatch(s -> s.values().containsKey("your-enquiry")));
         assertTrue(ofContact.stream().allMatch(s -> s.values().containsKey("text-area_0_4")));
