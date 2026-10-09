@@ -4,6 +4,7 @@ import org.jahia.modules.formidable.engine.imports.ImportReport;
 import org.jahia.modules.formidable.engine.imports.ImportWriter;
 import org.jahia.modules.formidable.engine.imports.model.ImportedSubmission;
 import org.jahia.services.content.JCRNodeWrapper;
+import javax.jcr.RepositoryException;
 import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -38,14 +39,14 @@ class FormsImportRunTest {
     private static final String FOLDER = "/sites/x/contents/imported-forms";
     private static final String CONTACT_ID = "08246a0f-de43-4dbb-b91e-55cdd366614b";
 
-    private static ImportWriter writer() throws Exception {
+    private static ImportWriter writer() throws RepositoryException {
         ImportWriter writer = mock(ImportWriter.class);
         when(writer.importedFormsPath()).thenReturn(FOLDER);
         when(writer.importedSubmissionIds()).thenReturn(Set.of());
         return writer;
     }
 
-    private static JCRNodeWrapper node(String name, String path) throws Exception {
+    private static JCRNodeWrapper node(String name, String path) throws RepositoryException {
         JCRNodeWrapper node = mock(JCRNodeWrapper.class);
         when(node.getName()).thenReturn(name);
         when(node.getPath()).thenReturn(path);
@@ -138,31 +139,33 @@ class FormsImportRunTest {
 
     @Test
     void aFileTheZipDoesNotHoldIsReportedMissingNotCounted() throws Exception {
-        String export = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-                + "<formFactory xmlns:jcr=\"http://www.jcp.org/jcr/1.0\" xmlns:j=\"http://www.jahia.org/jahia/1.0\" jcr:primaryType=\"fcnt:formFactory\">\n"
-                + "  <results jcr:primaryType=\"fcnt:resultsFolder\">\n"
-                + "    <survey jcr:primaryType=\"fcnt:formResults\" jcr:uuid=\"r0000000-0000-0000-0000-000000000009\" parentForm=\"#/forms/survey\">\n"
-                + "      <labels jcr:primaryType=\"fcnt:resultLabels\">\n"
-                + "        <upload jcr:primaryType=\"fcnt:definitionOptionsTranslatable\" fieldId=\"u0000000-0000-0000-0000-000000000001\"><j:translation_en jcr:primaryType=\"jnt:translation\" label=\"Your photo\"/></upload>\n"
-                + "      </labels>\n"
-                + "      <submissions jcr:primaryType=\"fcnt:submissions\">\n"
-                + "        <s1 jcr:primaryType=\"fcnt:result\" jcr:created=\"2024-06-01T10:00:00.000Z\" jcr:createdBy=\"guest\">\n"
-                + "          <upload_0_1 jcr:primaryType=\"fcnt:resultField\" label=\"#/results/survey/labels/upload\" result=\"photo.png\">\n"
-                + "            <photo.png jcr:primaryType=\"jnt:file\"><jcr:content jcr:primaryType=\"jnt:resource\" jcr:mimeType=\"image/png\"/></photo.png>\n"
-                + "          </upload_0_1>\n"
-                + "        </s1>\n"
-                + "      </submissions>\n"
-                + "    </survey>\n"
-                + "  </results>\n"
-                + "  <forms jcr:primaryType=\"fcnt:formsFolder\">\n"
-                + "    <survey jcr:primaryType=\"fcnt:form\" jcr:uuid=\"f0000000-0000-0000-0000-000000000008\">\n"
-                + "      <j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Survey\"/>\n"
-                + "      <step-1 jcr:primaryType=\"fcnt:step\" stepNumber=\"1\">\n"
-                + "        <photo jcr:primaryType=\"fcnt:fileUploadDefinition\" jcr:uuid=\"u0000000-0000-0000-0000-000000000001\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Your photo\"/></photo>\n"
-                + "      </step-1>\n"
-                + "    </survey>\n"
-                + "  </forms>\n"
-                + "</formFactory>\n";
+        String export = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <formFactory xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:j="http://www.jahia.org/jahia/1.0" jcr:primaryType="fcnt:formFactory">
+                  <results jcr:primaryType="fcnt:resultsFolder">
+                    <survey jcr:primaryType="fcnt:formResults" jcr:uuid="r0000000-0000-0000-0000-000000000009" parentForm="#/forms/survey">
+                      <labels jcr:primaryType="fcnt:resultLabels">
+                        <upload jcr:primaryType="fcnt:definitionOptionsTranslatable" fieldId="u0000000-0000-0000-0000-000000000001"><j:translation_en jcr:primaryType="jnt:translation" label="Your photo"/></upload>
+                      </labels>
+                      <submissions jcr:primaryType="fcnt:submissions">
+                        <s1 jcr:primaryType="fcnt:result" jcr:created="2024-06-01T10:00:00.000Z" jcr:createdBy="guest">
+                          <upload_0_1 jcr:primaryType="fcnt:resultField" label="#/results/survey/labels/upload" result="photo.png">
+                            <photo.png jcr:primaryType="jnt:file"><jcr:content jcr:primaryType="jnt:resource" jcr:mimeType="image/png"/></photo.png>
+                          </upload_0_1>
+                        </s1>
+                      </submissions>
+                    </survey>
+                  </results>
+                  <forms jcr:primaryType="fcnt:formsFolder">
+                    <survey jcr:primaryType="fcnt:form" jcr:uuid="f0000000-0000-0000-0000-000000000008">
+                      <j:translation_en jcr:primaryType="jnt:translation" jcr:title="Survey"/>
+                      <step-1 jcr:primaryType="fcnt:step" stepNumber="1">
+                        <photo jcr:primaryType="fcnt:fileUploadDefinition" jcr:uuid="u0000000-0000-0000-0000-000000000001"><j:translation_en jcr:primaryType="jnt:translation" jcr:title="Your photo"/></photo>
+                      </step-1>
+                    </survey>
+                  </forms>
+                </formFactory>
+                """;
         Path withoutBinary = FormsExportReaderTest.zipOf(Map.of(FormsExportZip.XML, export));
         JSONObject files = new FormsImportRun(FormsExportReader.open(withoutBinary), writer(), true, type -> true, s -> true, false)
                 .run().toJson().getJSONArray("forms").getJSONObject(0).getJSONObject("files");

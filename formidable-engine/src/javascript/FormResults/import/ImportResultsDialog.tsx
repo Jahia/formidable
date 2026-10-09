@@ -147,7 +147,7 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
         takeFile(file);
     };
 
-    const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    const handleDrop = (event: React.DragEvent<HTMLButtonElement>) => {
         event.preventDefault();
         setIsDragging(false);
         takeFile(event.dataTransfer.files?.[0]);
@@ -182,9 +182,9 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                 <div style={{padding: '24px', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '16px'}}>
                     {state === 'waiting' && (
                         <>
-                            {/* The drop is a convenience over the Choose a file button, which is the keyboard path */}
-                            <div
-                                role="presentation"
+                            {/* The whole zone is one button: a click or Enter opens the file picker, a drop takes the file */}
+                            <button
+                                type="button"
                                 data-sel-role="import-dropzone"
                                 style={{
                                     border: `2px dashed ${isDragging ? 'var(--color-accent)' : 'var(--color-gray_light)'}`,
@@ -193,8 +193,14 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                                     display: 'flex',
                                     flexDirection: 'column',
                                     alignItems: 'center',
-                                    gap: '12px'
+                                    gap: '12px',
+                                    width: '100%',
+                                    background: 'transparent',
+                                    font: 'inherit',
+                                    color: 'inherit',
+                                    cursor: 'pointer'
                                 }}
+                                onClick={() => fileInputRef.current?.click()}
                                 onDragOver={event => {
                                     event.preventDefault();
                                     setIsDragging(true);
@@ -204,20 +210,16 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                             >
                                 <Upload size="big"/>
                                 <Typography>{t('formResults.import.dropzone')}</Typography>
-                                <Button
-                                    label={t('formResults.import.chooseFile')}
-                                    data-sel-role="import-choose-file"
-                                    onClick={() => fileInputRef.current?.click()}
-                                />
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    accept=".zip,application/zip"
-                                    data-sel-role="import-file-input"
-                                    style={{display: 'none'}}
-                                    onChange={handleFileChange}
-                                />
-                            </div>
+                                <Typography weight="bold" data-sel-role="import-choose-file">{t('formResults.import.chooseFile')}</Typography>
+                            </button>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept=".zip,application/zip"
+                                data-sel-role="import-file-input"
+                                style={{display: 'none'}}
+                                onChange={handleFileChange}
+                            />
                             <Typography variant="caption" style={{color: 'var(--color-gray)'}}>
                                 {t('formResults.import.fileHint', {max: settings.maxFileSizeMb})}
                             </Typography>

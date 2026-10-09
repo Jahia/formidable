@@ -89,6 +89,8 @@ public class ImportJobs {
     private static final String MESSAGE = "message";
     private static final String UPDATED = "updated";
     private static final String JOB_NAME_PREFIX = "forms-import-";
+    /** The temporary copy of the export a phase reads, on the disk of the processing server. */
+    private static final String EXPORT_COPY_PREFIX = "forms-import-export-";
     private static final String ZIP = "application/zip";
     private static final Set<String> ACTIVE_STATUSES = Set.of(BackgroundJob.STATUS_ADDED, BackgroundJob.STATUS_SCHEDULED,
             BackgroundJob.STATUS_EXECUTING);
@@ -123,6 +125,10 @@ public class ImportJobs {
     public static class RefusedException extends Exception {
         public RefusedException(String message) {
             super(message);
+        }
+
+        public RefusedException(String message, Throwable cause) {
+            super(message, cause);
         }
     }
 
@@ -269,7 +275,7 @@ public class ImportJobs {
     void run(String siteKey, String jobId, Phase phase) {
         Path export = null;
         try {
-            export = Files.createTempFile("forms-import-", ".zip");
+            export = Files.createTempFile(EXPORT_COPY_PREFIX, ".zip");
             if (!download(siteKey, jobId, export)) {
                 log.info("[FormsImport] Job {} of site {} was closed before its {} ran", jobId, siteKey, phase);
                 return;
@@ -417,8 +423,7 @@ public class ImportJobs {
             }
             scheduler().getScheduler().deleteJob(name, group());
         } catch (SchedulerException e) {
-            log.warn("[FormsImport] Cannot read the import job of site {}, refusing the import", siteKey, e);
-            throw new RefusedException("the scheduler cannot be read: " + e.getMessage());
+            throw new RefusedException("the import job of site " + siteKey + " cannot be read, the import is refused: " + e.getMessage(), e);
         }
     }
 
