@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Button, Check, Close, Loader, Typography, Upload} from '@jahia/moonstone';
+import {Button, Check, Close, Loader, RadioGroup, RadioItem, Typography, Upload} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
 import {formatFileSize, uiContext} from '../FormResults.utils';
 import {
@@ -415,37 +415,26 @@ const FormReport = ({form, report, language, t, choices, onChoice}: FormReportPr
                 <Typography variant="body" data-sel-role="import-report-figures" style={{color: 'var(--color-gray)'}}>{figures}</Typography>
             </div>
             {steerable ? (
-                <div role="radiogroup" aria-label={t('formResults.import.choice.label')} data-sel-role="import-choice" style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
-                    {([['resultsOnly', 'resultsOnly'], ['create', 'created']] as const).map(([value, what]) => (
-                        <label
-                            key={value}
-                            style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'auto 1fr',
-                                columnGap: '12px',
-                                alignItems: 'start',
-                                padding: '10px 12px',
-                                border: `1px solid ${choice === value ? 'var(--color-accent)' : 'var(--color-gray_light40)'}`,
-                                borderRadius: '4px',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            <input
-                                type="radio"
-                                name={`import-choice-${form.sourceName}`}
-                                value={value}
-                                data-sel-choice={value}
-                                checked={choice === value}
-                                style={{marginTop: '4px', accentColor: 'var(--color-accent)'}}
-                                onChange={() => onChoice?.(form.sourceName, value)}
-                            />
-                            <span style={{display: 'flex', flexDirection: 'column', gap: '2px'}}>
-                                <Typography variant="body" weight="bold">{t(`formResults.import.choice.${value}`)}</Typography>
-                                <Typography variant="body" style={{color: 'var(--color-gray)'}}>{describe(what)}</Typography>
-                            </span>
-                        </label>
-                    ))}
-                </div>
+                <RadioGroup
+                    name={`import-choice-${form.sourceName}`}
+                    value={choice}
+                    aria-label={t('formResults.import.choice.label')}
+                    data-sel-role="import-choice"
+                    onChange={(_event: React.ChangeEvent<HTMLInputElement>, value: string) => onChoice?.(form.sourceName, value as ImportChoice)}
+                >
+                    <RadioItem
+                        id={`import-choice-${form.sourceName}-resultsOnly`}
+                        value="resultsOnly"
+                        label={t('formResults.import.choice.resultsOnly')}
+                        description={describe('resultsOnly')}
+                    />
+                    <RadioItem
+                        id={`import-choice-${form.sourceName}-create`}
+                        value="create"
+                        label={t('formResults.import.choice.create')}
+                        description={describe('created')}
+                    />
+                </RadioGroup>
             ) : (
                 <Typography variant="body">{describe(outcome)}</Typography>
             )}

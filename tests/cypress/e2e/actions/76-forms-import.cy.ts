@@ -147,9 +147,9 @@ const closeDialog = () => {
 
 const reportForm = (name: string) => cy.get(`[data-sel-role="import-report-form"][data-sel-name="${name}"]`);
 
-/** Picks, for a form of the dry run, what receives its results. */
+/** Picks, for a form of the dry run, what receives its results: the radio items carry an id per form and choice. */
 const choose = (name: string, choice: 'resultsOnly' | 'create') =>
-	reportForm(name).find(`[data-sel-role="import-choice"] input[data-sel-choice="${choice}"]`).check();
+	cy.get(`#import-choice-${name}-${choice}`).check({force: true});
 
 // The caption inside the entry sits at its centre, which Cypress takes for a cover: the click is forced.
 const selectEntry = (name: string) =>
@@ -198,7 +198,7 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		cy.get('[data-sel-role="import-totals"]').should('contain', '106');
 		// the default: the results alone, a choice the administrator can still change per form
 		cy.get('[data-sel-role="import-report-form"][data-sel-outcome="resultsOnly"]').should('have.length', SAMPLE.forms.length);
-		cy.get('[data-sel-role="import-choice"] input[data-sel-choice="resultsOnly"]:checked').should('have.length', SAMPLE.forms.length);
+		cy.get('[data-sel-role="import-choice"] input[value="resultsOnly"]:checked').should('have.length', SAMPLE.forms.length);
 		reportForm('contact-us').should('contain', 'Contact Us').and('contain', 'Results only');
 		// the dry run wrote nothing
 		children(CONTENTS_PATH, 'EDIT').then(nodes => expect(nodes.map(n => n.name)).not.to.include('imported-forms'));
