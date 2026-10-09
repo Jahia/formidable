@@ -22,7 +22,8 @@ record FormsResults(String name, String uuid, String parentFormPath, String buil
         Map<String, FormsLabel> labels = new LinkedHashMap<>();
         node.child(FormsLabel.LABELS_NODE).ifPresent(labelsNode ->
                 labelsNode.children().forEach(label -> labels.put(label.name(), FormsLabel.from(label))));
-        return new FormsResults(node.name(), node.uuid(), node.attribute(PARENT_FORM), node.attribute(BUILDING_LANG),
+        // a reference is the one single value Jahia encodes (DocumentViewExporter, JCRMultipleValueUtils.encode)
+        return new FormsResults(node.name(), node.uuid(), Iso9075.decode(node.attribute(PARENT_FORM)), node.attribute(BUILDING_LANG),
                 node.i18n("jcr:title"), labels);
     }
 

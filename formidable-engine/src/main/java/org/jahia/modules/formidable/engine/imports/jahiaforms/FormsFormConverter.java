@@ -41,6 +41,8 @@ public final class FormsFormConverter {
     private static final Map<String, String> FILE_TYPES = Map.of(
             "image", "image/*", "audio", "audio/*", "video", "video/*", "pdf", "application/pdf", "text", "text/plain");
     private static final String ALL_FILE_TYPES = "all";
+    /** The braced text of a terms label, which the accept-terms box rendered as the link to the terms. */
+    private static final java.util.regex.Pattern LINK_TEXT = java.util.regex.Pattern.compile("\\{([^}]*)\\}");
 
     private final Predicate<String> registeredTypes;
     private final Predicate<String> declaredOptionsSources;
@@ -340,7 +342,7 @@ public final class FormsFormConverter {
             case "rating" -> field.property(FormsFieldTypes.MAX_VALUE, plain(definition, FormsOptionNames.MAX));
             case "acceptTermCheckbox" -> {
                 if (mapping.is(FormsFieldTypes.CONSENT)) {
-                    field.i18nProperty(FormsFieldTypes.STATEMENT, statementOf(definition, titles));
+                    field.i18nProperty(FormsFieldTypes.STATEMENT, statementOf(field, definition, titles));
                 }
             }
             default -> {
@@ -382,22 +384,22 @@ public final class FormsFormConverter {
     }
 
     /**
-     * The statement of a consent: the terms label of the box, its {@code {LICENSE}} placeholder replaced by
-     * the link to the terms when the box has one, else removed; the title of the field when the box has no
-     * terms label.
+     * The statement of a consent: the terms label of the box, as its visitors read it. The braces of the
+     * label mark the text the box rendered as a link to the terms file ({@code firstPart <a>hrefLabel</a>
+     * lastPart} in the accept-terms directive): the text stays, the braces go, and the file, a repository
+     * path the statement cannot hold, is reported. The title of the field when the box has no terms label.
      */
-    private static Map<String, String> statementOf(FormsField definition, Map<String, String> titles) {
+    private static Map<String, String> statementOf(ImportedField.Builder field, FormsField definition, Map<String, String> titles) {
         Map<String, String> terms = valuesOf(definition.option(FormsOptionNames.TERMS_LABEL));
         if (terms.isEmpty()) {
             return titles;
         }
-        FormsOption link = definition.option(FormsOptionNames.LINK);
         Map<String, String> statement = new LinkedHashMap<>();
-        terms.forEach((language, text) -> {
-            String target = link == null ? null : link.in(language);
-            String replacement = target == null || target.isBlank() ? "" : target.trim();
-            statement.put(language, text.replace(FormsOptionNames.LICENSE_PLACEHOLDER, replacement).replaceAll("\\s+", " ").trim());
-        });
+        terms.forEach((language, text) -> statement.put(language, LINK_TEXT.matcher(text).replaceAll("$1").trim()));
+        String link = plain(definition, FormsOptionNames.LINK);
+        if (link != null && !link.isBlank()) {
+            field.report("the link to the terms (" + link.trim() + ") not carried over: the statement holds no link, add one by hand");
+        }
         return statement;
     }
 

@@ -305,18 +305,29 @@ class FormsFormConverterTest {
         assertTrue(fallback.report().get(0).contains("not deployed"));
     }
 
-    /** The statement of a consent is the terms label of the box, its {LICENSE} placeholder turned into the link. */
+    /**
+     * The statement of a consent is the terms label as the visitors read it: the braces marked the text the
+     * box rendered as a link to the terms file, a repository path the statement cannot hold.
+     */
     @Test
-    void aConsentTakesItsStatementFromTheTermsLabelElseFromTheTitle() {
+    void aConsentTakesItsStatementFromTheTermsLabelAndReportsTheLinkedFile() {
         Map<String, FormsOption> terms = Map.of(
                 FormsOptionNames.TERMS_LABEL, new FormsOption(FormsOptionNames.TERMS_LABEL, null,
-                        Map.of("en", "I have read and agree to the {LICENSE}.", "fr", "J'ai lu les {LICENSE} et je les accepte.")),
-                FormsOptionNames.LINK, new FormsOption(FormsOptionNames.LINK, null, Map.of("en", "https://example.com/terms", "fr", "")));
+                        Map.of("en", "I have read and agree to the {LICENSE}.", "fr", "J'ai lu {nos conditions} et je les accepte.")),
+                FormsOptionNames.LINK, new FormsOption(FormsOptionNames.LINK, null, Map.of("en", "/sites/acme/files/terms.pdf")));
         FormsField withTerms = new FormsField("terms_0_1", "u1", "fcnt:acceptTermCheckboxDefinition", Map.of("en", "I agree"), null, terms, List.of(), false, false);
 
         ImportedField consent = EVERYTHING.convert(formOf(withTerms), null).fields().toList().get(0);
-        assertEquals(Map.of("en", "I have read and agree to the https://example.com/terms.", "fr", "J'ai lu les et je les accepte."),
+        assertEquals(Map.of("en", "I have read and agree to the LICENSE.", "fr", "J'ai lu nos conditions et je les accepte."),
                 consent.i18nProperties().get(FormsFieldTypes.STATEMENT));
+        assertTrue(consent.report().stream().anyMatch(line -> line.contains("/sites/acme/files/terms.pdf")), consent.report().toString());
+
+        // no terms file: nothing to report, the statement still reads as the visitors read it
+        FormsField unlinked = new FormsField("terms_0_2", "u2", "fcnt:acceptTermCheckboxDefinition", Map.of("en", "I agree"), null,
+                Map.of(FormsOptionNames.TERMS_LABEL, terms.get(FormsOptionNames.TERMS_LABEL)), List.of(), false, false);
+        ImportedField plain = EVERYTHING.convert(formOf(unlinked), null).fields().toList().get(0);
+        assertEquals("I have read and agree to the LICENSE.", plain.i18nProperties().get(FormsFieldTypes.STATEMENT).get("en"));
+        assertTrue(plain.report().isEmpty(), plain.report().toString());
     }
 
     @Test

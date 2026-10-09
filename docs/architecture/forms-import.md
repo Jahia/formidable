@@ -91,7 +91,10 @@ In these files:
 - node names are ISO 9075-encoded: `_x0020_` is a space, and `_x0030_6` is the node name `06`;
 - a multi-valued property is one attribute, and spaces separate its values, each value encoded the same
   way (`result="+44_x0020_7911_x0020_123456"` in the sample); a single value is written as it is
-  (`jsonValue="Your First name*"`), so the import decodes names and multi-values only;
+  (`jsonValue="Your First name*"`), except a reference, which `DocumentViewExporter` encodes like a
+  multi-value (`JCRMultipleValueUtils.encode`): the import decodes names, multi-values and the two
+  references it reads, `parentForm` and the `label` of an answer, so a form or a field named with a
+  space keeps its results;
 - every node carries `jcr:uuid`, `jcr:created`, `jcr:createdBy` and `jcr:lastModified`;
 - a reference is nonetheless written as a path, `#/<path>` relative to the export root, as in
   `parentForm="#/forms/contact-us"`;
@@ -279,7 +282,7 @@ says. The third column gives what the import writes into `data` for that field, 
 | `ratingDefinition` | `fmdbext:rating`, its `maxValue` from the `max` of the Forms rating; without the extended inputs, `fmdb:inputNumber` | The `value` of the rating JSON |
 | `matrixRadiosDefinition`, `matrixCheckBoxesDefinition` | `fmdb:textarea`, reported: Formidable has no matrix | One line per row of the JSON, `row: answer(s)`, in the order of the text |
 | `fileUploadDefinition` | `fmdb:inputFile`; `accept` from the type groups a `fileValidation` selects (`image`, `audio`, `video`, `pdf`, `text` have an `accept` equivalent, `all` restricts nothing, `doc` is a regular expression over the office types, reported); `multiple` when the `filenumber` of a `fileNumberValidation` is not 1 | The files are copied under `files/<fieldName>/`, and the JSON is dropped |
-| `acceptTermCheckboxDefinition` (`forms-extended-inputs`) | `fmdbext:consent`, its `statement` from the `termsLabel` of the box, the `{LICENSE}` placeholder turned into its `link`, else from the title; without the extended inputs, `fmdb:checkbox` with one option, the accepted value | `true` when the answer is the `yes` label of the box, nothing when it is the `no` label, for the consent and for the checkbox alike; any other text is kept, with a note |
+| `acceptTermCheckboxDefinition` (`forms-extended-inputs`) | `fmdbext:consent`, its `statement` from the `termsLabel` of the box as its visitors read it: the braces, which marked the text of the link to the terms file, go, the text stays, and the file (`link`, a repository path) is reported; the title of the field when the box has no terms label. Without the extended inputs, `fmdb:checkbox` with one option, the accepted value | `true` when the answer is the `yes` label of the box, nothing when it is the `no` label, for the consent and for the checkbox alike; any other text is kept, with a note |
 | `imageCheckboxDefinition` (`forms-extended-inputs`) | `fmdb:checkbox` with manual options, the images dropped | The option keys |
 | `contentDisplayDefinition` (`forms-extended-inputs`) | Not recreated, reported: it displays a content, submits nothing | — |
 | Any other type | `fmdb:inputText`, reported | Unchanged |

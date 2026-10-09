@@ -213,6 +213,37 @@ class FormsExportReaderTest {
         assertEquals("formFactory/results/f/submissions/06/s1", submissions.get(0).path());
     }
 
+    /**
+     * A reference is the one single value Jahia encodes (DocumentViewExporter writes it through
+     * JCRMultipleValueUtils.encode): a form and a field named with a space keep their results.
+     */
+    @Test
+    void aReferenceIsDecodedSoThatASpacedNameKeepsItsResults() throws Exception {
+        String xml = XML_HEAD + "<formFactory " + JCR_NS + " xmlns:j=\"http://www.jahia.org/jahia/1.0\" jcr:primaryType=\"fcnt:formFactory\">"
+                + "<results jcr:primaryType=\"fcnt:resultsFolder\"><my_x0020_form jcr:primaryType=\"fcnt:formResults\" jcr:uuid=\"r1\" parentForm=\"#/forms/my_x0020_form\" buildingLang=\"en\">"
+                + "<labels jcr:primaryType=\"fcnt:resultLabels\"><first_x0020_name jcr:primaryType=\"fcnt:definitionOptionsTranslatable\" fieldId=\"f1\">"
+                + "<j:translation_en jcr:primaryType=\"jnt:translation\" label=\"First name\"/></first_x0020_name></labels>"
+                + "<submissions jcr:primaryType=\"fcnt:submissions\"><s1 jcr:primaryType=\"fcnt:result\">"
+                + "<first_x0020_name jcr:primaryType=\"fcnt:resultField\" label=\"#/results/my_x0020_form/labels/first_x0020_name\" result=\"Jane\"/></s1>"
+                + "</submissions></my_x0020_form></results>"
+                + "<forms jcr:primaryType=\"fcnt:formsFolder\"><my_x0020_form jcr:primaryType=\"fcnt:form\" jcr:uuid=\"f0\" buildingLang=\"en\">"
+                + "<step-1 jcr:primaryType=\"fcnt:step\" stepNumber=\"1\"><first_x0020_name jcr:primaryType=\"fcnt:inputDefinition\" jcr:uuid=\"f1\"/></step-1>"
+                + "</my_x0020_form></forms></formFactory>";
+        FormsExportReader reader = new FormsExportReader(new FormsExportZip(zipOf(Map.of(FormsExportZip.XML, xml))));
+
+        FormsExport export = reader.readStructure();
+        FormsResults results = export.results().get("my form");
+        assertEquals("my form", results.parentFormName());
+        assertEquals("my form", export.formOf(results).name());
+        List<FormsSubmission> submissions = new ArrayList<>();
+        reader.readSubmissions(submissions::add);
+        FormsResultField answer = submissions.get(0).fields().get(0);
+        assertEquals("first name", answer.name());
+        assertEquals("first name", answer.labelName());
+        assertEquals("f1", results.label(answer.labelName()).fieldId());
+        assertEquals("my form", submissions.get(0).formName());
+    }
+
     @Test
     void theLiveXmlWinsOverTheEditOne() throws Exception {
         String edit = XML_HEAD + "<formFactory " + JCR_NS + " jcr:primaryType=\"fcnt:formFactory\">"

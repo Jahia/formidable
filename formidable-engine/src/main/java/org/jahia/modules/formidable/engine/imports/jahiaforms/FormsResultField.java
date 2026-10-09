@@ -17,7 +17,8 @@ record FormsResultField(String name, String labelName, List<String> values, bool
     private static final String OPTIONAL_PROPERTY = "optional";
 
     static FormsResultField from(XmlNode node) {
-        String labelPath = node.attribute(LABEL);
+        // a reference is the one single value Jahia encodes (DocumentViewExporter, JCRMultipleValueUtils.encode)
+        String labelPath = Iso9075.decode(node.attribute(LABEL));
         String labelName = labelPath == null ? node.name() : labelPath.substring(labelPath.lastIndexOf('/') + 1);
         List<FormsFile> files = node.childrenOfType(FormsFile.TYPE).stream().map(FormsFile::from).toList();
         return new FormsResultField(node.name(), labelName, node.values(RESULT),

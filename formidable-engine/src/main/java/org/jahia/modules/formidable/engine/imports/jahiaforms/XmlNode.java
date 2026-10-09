@@ -14,7 +14,10 @@ import java.util.Optional;
  * the export, {@code formFactory/results/contact-us}, which is how the export writes its references.
  * Jahia ISO 9075-encodes the node names and the values of a multi-valued property, which a space
  * separates; a single value is written as it is (sample export: {@code jsonValue="Your First name*"}
- * beside {@code result="+44_x0020_7911"}), so only the former are decoded.
+ * beside {@code result="+44_x0020_7911"}), so only the former are decoded here. The one single value
+ * Jahia does encode is a reference ({@code DocumentViewExporter} writes a {@code REFERENCE} or
+ * {@code WEAKREFERENCE} through {@code JCRMultipleValueUtils.encode}): the readers of {@code parentForm}
+ * and {@code label} decode those two themselves.
  */
 final class XmlNode {
 

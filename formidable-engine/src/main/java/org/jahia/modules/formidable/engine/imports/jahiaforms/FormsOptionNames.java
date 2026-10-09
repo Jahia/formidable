@@ -23,10 +23,9 @@ final class FormsOptionNames {
     /** The texts an accept-terms box submits and shows ({@code acceptTermCheckboxDefinition.wzd}). */
     static final String YES = "yes";
     static final String NO = "no";
+    /** The statement of the box, its braced text rendered as the link to the terms file of {@code link}, a repository path. */
     static final String TERMS_LABEL = "termsLabel";
     static final String LINK = "link";
-    /** The placeholder of the terms label that the box turns into the link to the terms. */
-    static final String LICENSE_PLACEHOLDER = "{LICENSE}";
 
     // validation rules (the option names are the designView keys of forms-core_en.properties)
     static final String REGEX = "regex";
