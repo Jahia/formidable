@@ -350,11 +350,14 @@ orderable
 [fmdb:importJob] > jnt:content
  - state (string) indexed=no
  - report (string) indexed=no
+ - message (string) indexed=no
+ - updated (date) indexed=no
  + file (jnt:file) = jnt:file
 
+// The jobs child takes the first free name from import-jobs, so that a form of that name keeps its entry.
 [fmdb:resultsFolder] > jnt:content, jmix:accessControlled
  + * (fmdb:formResults) = fmdb:formResults
- + 'import-jobs' (fmdb:importJobs) = fmdb:importJobs
+ + * (fmdb:importJobs)
 
 // One per form, created in live by the first submission the Save to JCR action stores, named after the
 // form (identity = parentForm). Removed from the Results page by "Delete all results" — the entry goes

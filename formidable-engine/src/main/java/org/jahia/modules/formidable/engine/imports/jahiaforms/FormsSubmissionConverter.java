@@ -17,12 +17,17 @@ import java.util.Set;
  * "The submissions"): each answer lands under the system name of the field created for its label node,
  * converted for the kind of that field; an answer whose field the form does not hold keeps its Forms name
  * and its value as stored, unless the Forms definition says the value is one to drop, a password.
+ * <p>
+ * When the form was found from an earlier run, the names come from the fields that form holds now, by
+ * the source identity each one remembers ({@code fmdbmix:importedField}): a field the contributor renamed
+ * keeps receiving its values, and a field they deleted leaves its answers under their Forms name.
  */
 public final class FormsSubmissionConverter {
 
     private final ImportedForm form;
     private final FormsForm source;
     private final FormsResults results;
+    private final Map<String, String> foundNames;
 
     /**
      * @param form the form the import created or found for the submissions
@@ -32,9 +37,18 @@ public final class FormsSubmissionConverter {
      *                answer to a field; null when the export has none, which leaves every answer under its name
      */
     public FormsSubmissionConverter(ImportedForm form, FormsForm source, FormsResults results) {
+        this(form, source, results, null);
+    }
+
+    /**
+     * @param foundNames the node name of every field the found form holds, by the source identity and by
+     *                   the source name of the field it stands for; null when the run creates the form
+     */
+    public FormsSubmissionConverter(ImportedForm form, FormsForm source, FormsResults results, Map<String, String> foundNames) {
         this.form = form;
         this.source = source;
         this.results = results;
+        this.foundNames = foundNames;
     }
 
     public ImportedSubmission convert(FormsSubmission submission) {
@@ -45,9 +59,10 @@ public final class FormsSubmissionConverter {
             FormsLabel label = results == null ? null : results.label(answer.labelName());
             ImportedField field = fieldOf(answer, label);
             FormsField definition = definitionOf(answer, label);
-            String name = field == null ? answer.labelName() : field.name();
+            String fieldName = foundNames == null ? createdName(field) : foundName(answer, label);
+            String name = fieldName == null ? answer.labelName() : fieldName;
             String kind = kindOf(field, definition);
-            if (field == null && !"password".equals(kind)) {
+            if (fieldName == null && !"password".equals(kind)) {
                 report.add("answer " + answer.name() + " kept under its Forms name: the form holds no field for it");
             }
             convertValue(answer, kind, consentLabels(definition), name, values, report);
@@ -69,6 +84,21 @@ public final class FormsSubmissionConverter {
         if (!kept.isEmpty()) {
             values.put(name, kept);
         }
+    }
+
+    /** On a form the run creates: the system name of the field converted for the answer; null when none was. */
+    private static String createdName(ImportedField field) {
+        return field == null ? null : field.name();
+    }
+
+    /** On a form found: the field that remembers the answer's source, by identity, else by name; null when none does. */
+    private String foundName(FormsResultField answer, FormsLabel label) {
+        String byId = label == null || label.fieldId() == null ? null : foundNames.get(label.fieldId());
+        if (byId != null) {
+            return byId;
+        }
+        String byLabelName = foundNames.get(answer.labelName());
+        return byLabelName != null ? byLabelName : foundNames.get(answer.name());
     }
 
     /** The field for an answer: by the fieldId of its label node, else by the Forms name, else none. */

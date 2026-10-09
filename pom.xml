@@ -206,6 +206,13 @@
                 <scope>provided</scope>
             </dependency>
             <dependency>
+                <!-- The scheduler of the Forms import jobs; the version Jahia 8.2 ships -->
+                <groupId>org.quartz-scheduler</groupId>
+                <artifactId>quartz</artifactId>
+                <version>1.8.6</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
                 <groupId>commons-io</groupId>
                 <artifactId>commons-io</artifactId>
                 <version>${commons.io.version}</version>

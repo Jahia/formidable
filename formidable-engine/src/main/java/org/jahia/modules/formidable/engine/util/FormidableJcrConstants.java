@@ -10,6 +10,9 @@ package org.jahia.modules.formidable.engine.util;
 public final class FormidableJcrConstants {
 
     public static final String WORKSPACE_LIVE = "live";
+    public static final String WORKSPACE_EDIT = "default";
+    /** The parent of every site node: a site is at {@code SITES + siteKey}. */
+    public static final String SITES = "/sites/";
 
     public static final String ACL_NODE_TYPE = "jnt:acl";
     public static final String ACE_NODE_TYPE = "jnt:ace";

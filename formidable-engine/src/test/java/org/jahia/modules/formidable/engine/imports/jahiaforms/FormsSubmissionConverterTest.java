@@ -59,6 +59,68 @@ class FormsSubmissionConverterTest {
         assertTrue(converted.stream().noneMatch(s -> s.values().containsKey("text-input_0_1")));
     }
 
+    /**
+     * On a found form, each lookup has a case only it resolves: the identity when the Forms name of the
+     * field changed between the exports, the label name when the field has no identity, the answer's own
+     * name when its label node is gone.
+     */
+    @Test
+    void onAFoundFormEachLookupResolvesTheCaseOnlyItCan() throws Exception {
+        FormsExport export = FormsExportReaderTest.sampleReader().readStructure();
+        FormsForm source = export.forms().get("contact-us");
+        FormsResults results = export.resultsOf(source);
+        ImportedForm form = CONVERTER.convert(source, results);
+        String firstNameId = source.fields().get(0).uuid();
+        // the found form: the first name is known by its identity and a Forms name that no longer matches,
+        // the last name by its Forms name alone, a legacy field by the name its answers were stored under
+        Map<String, String> found = Map.of(
+                firstNameId, "firstname", "renamed-in-forms_0_9", "firstname",
+                "text-input_0_1_copy_01", "your-last-name",
+                "legacy_0_7", "legacy");
+        FormsSubmission submission = new FormsSubmission("s1", "contact-us", Instant.EPOCH, null, null, "guest",
+                List.of(new FormsResultField("text-input_0_1", "text-input_0_1", List.of("Jane"), true, List.of()),
+                        new FormsResultField("text-input_0_1_copy_01", "text-input_0_1_copy_01", List.of("Doe"), true, List.of()),
+                        // the label node of this answer is gone: only its own name can find it
+                        new FormsResultField("legacy_0_7", "legacy-renamed", List.of("kept"), true, List.of())),
+                "formFactory/results/contact-us/submissions/x/s1");
+
+        ImportedSubmission converted = new FormsSubmissionConverter(form, source, results, found).convert(submission);
+
+        assertEquals(List.of("Jane"), converted.values().get("firstname"));
+        assertEquals(List.of("Doe"), converted.values().get("your-last-name"));
+        assertEquals(List.of("kept"), converted.values().get("legacy"));
+        assertTrue(converted.report().isEmpty(), converted.report().toString());
+    }
+
+    /** The second run on a form the first created, whose fields the contributor has renamed and deleted since. */
+    @Test
+    void onAFoundFormAnAnswerLandsUnderTheNameItsFieldHasNow() throws Exception {
+        FormsExport export = FormsExportReaderTest.sampleReader().readStructure();
+        FormsForm source = export.forms().get("contact-us");
+        FormsResults results = export.resultsOf(source);
+        ImportedForm form = CONVERTER.convert(source, results);
+        List<FormsSubmission> submissions = new ArrayList<>();
+        FormsExportReaderTest.sampleReader().readSubmissions(submissions::add);
+        FormsSubmission first = submissions.stream().filter(s -> s.uuid().equals("2c591198-6092-485b-b936-2a8cbf0213c8")).findFirst().orElseThrow();
+        // the fields as the found form holds them: the first name renamed, the enquiry deleted
+        Map<String, String> found = new java.util.HashMap<>();
+        form.fields().filter(f -> !f.name().equals("your-enquiry")).forEach(f -> {
+            found.put(f.sourceId(), f.name());
+            found.put(f.sourceName(), f.name());
+        });
+        found.put(source.fields().get(0).uuid(), "firstname");
+        found.put("text-input_0_1", "firstname");
+
+        ImportedSubmission converted = new FormsSubmissionConverter(form, source, results, found).convert(first);
+
+        assertEquals(List.of("your-last-name", "your-telephone-number", "your-email-address", "firstname", "text-area_0_4"),
+                new ArrayList<>(converted.values().keySet()));
+        assertFalse(converted.values().containsKey("your-first-name"));
+        assertFalse(converted.values().containsKey("your-enquiry"));
+        assertEquals(1, converted.report().size());
+        assertTrue(converted.report().get(0).contains("text-area_0_4"), converted.report().get(0));
+    }
+
     @Test
     void anAnswerWhoseFieldIsGoneKeepsItsFormsNameAndIsNoted() throws Exception {
         FormsExport export = FormsExportReaderTest.sampleReader().readStructure();

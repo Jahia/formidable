@@ -8,6 +8,7 @@ import org.jahia.modules.formidable.engine.api.FmdbNodeName;
 import org.jahia.modules.formidable.engine.api.FmdbNodeType;
 import org.jahia.modules.formidable.engine.api.FmdbProperty;
 import org.jahia.modules.formidable.engine.permissions.FormResultsAclSyncService;
+import org.jahia.modules.formidable.engine.util.JcrFiles;
 import org.jahia.services.content.JCRAutoSplitUtils;
 import org.jahia.services.content.JCRContentUtils;
 import org.jahia.services.content.JCRNodeWrapper;
@@ -17,7 +18,6 @@ import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jcr.Binary;
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import javax.jcr.Value;
@@ -27,7 +27,6 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.ZoneOffset;
-import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -44,7 +43,7 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WO
 @Component(service = FormAction.class)
 public class SaveToJcrFormAction implements FormAction {
     private static final Logger log = LoggerFactory.getLogger(SaveToJcrFormAction.class);
-    private static final String RESULTS_ROOT_NAME = "formidable-results";
+    public static final String RESULTS_ROOT_NAME = "formidable-results";
     private static final String SUBMISSION_ORIGIN = "formidable";
     /** The submitter's time zone, sent by the form client as the browser reports it (an IANA zone id). */
     static final String TIME_ZONE_HEADER = "X-Formidable-Time-Zone";
@@ -181,7 +180,7 @@ public class SaveToJcrFormAction implements FormAction {
         return formResults;
     }
 
-    private static JCRNodeWrapper getOrCreateResultsRoot(JCRNodeWrapper siteNode, JCRSessionWrapper session)
+    public static JCRNodeWrapper getOrCreateResultsRoot(JCRNodeWrapper siteNode, JCRSessionWrapper session)
             throws RepositoryException {
         if (siteNode.hasNode(RESULTS_ROOT_NAME)) {
             return siteNode.getNode(RESULTS_ROOT_NAME);
@@ -218,7 +217,8 @@ public class SaveToJcrFormAction implements FormAction {
         return null;
     }
 
-    private static void ensureAutoSplit(JCRNodeWrapper submissions) throws RepositoryException {
+    /** Splits the submissions by year, month and day of jcr:created; the import reuses it on the entries it creates. */
+    public static void ensureAutoSplit(JCRNodeWrapper submissions) throws RepositoryException {
         if (!submissions.isNodeType("jmix:autoSplitFolders")) {
             JCRAutoSplitUtils.enableAutoSplitting(submissions, SPLIT_CONFIG, FmdbNodeType.SPLITTED_SUBMISSION);
         }
@@ -272,8 +272,13 @@ public class SaveToJcrFormAction implements FormAction {
     }
 
     private static String buildSubmissionNodeName() {
+        return submissionNodeName(Instant.now());
+    }
+
+    /** The name of a submission node for the moment it was submitted; the import names its submissions the same way. */
+    public static String submissionNodeName(Instant submittedAt) {
         // Use UTC for this technical identifier so node names stay stable across server JVM timezones.
-        String timestamp = Instant.now().atZone(ZoneOffset.UTC).format(SUBMISSION_NAME_FORMATTER);
+        String timestamp = submittedAt.atZone(ZoneOffset.UTC).format(SUBMISSION_NAME_FORMATTER);
         String shortUuid = UUID.randomUUID().toString().substring(0, 3);
         return "submission-" + timestamp + "-" + shortUuid;
     }
@@ -346,18 +351,7 @@ public class SaveToJcrFormAction implements FormAction {
     ) throws RepositoryException {
         session.checkout(fieldFolder);
         String fileNodeName = JCRContentUtils.findAvailableNodeName(fieldFolder, file.originalName());
-        JCRNodeWrapper fileNode = fieldFolder.addNode(fileNodeName, "jnt:file");
-        JCRNodeWrapper contentNode = fileNode.addNode("jcr:content", "jnt:resource");
-
-        ByteArrayInputStream input = new ByteArrayInputStream(file.data());
-        Binary binary = session.getValueFactory().createBinary(input);
-        try {
-            contentNode.setProperty("jcr:data", binary);
-        } finally {
-            binary.dispose();
-        }
-        contentNode.setProperty("jcr:mimeType", file.mimeType());
-        contentNode.setProperty("jcr:lastModified", Calendar.getInstance());
+        JcrFiles.addFile(fieldFolder, fileNodeName, new ByteArrayInputStream(file.data()), file.mimeType());
     }
 
     private static void setOptionalProperty(JCRNodeWrapper node, String propertyName, String value)

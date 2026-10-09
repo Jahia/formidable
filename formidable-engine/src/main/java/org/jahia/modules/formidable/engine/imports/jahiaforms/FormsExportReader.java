@@ -3,6 +3,7 @@ package org.jahia.modules.formidable.engine.imports.jahiaforms;
 import javax.xml.stream.XMLStreamException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Path;
 import java.util.function.Consumer;
 
 /**
@@ -11,7 +12,7 @@ import java.util.function.Consumer;
  * streamed one by one, because an export of a busy site is large and is read twice, by the dry run and
  * by the import.
  */
-public final class FormsExportReader {
+public final class FormsExportReader implements java.io.Closeable {
 
     private final FormsExportZip zip;
 
@@ -19,10 +20,25 @@ public final class FormsExportReader {
         this.zip = zip;
     }
 
+    /** Opens an export file; the caller closes the reader when done with it. */
+    public static FormsExportReader open(Path exportFile) throws IOException {
+        return new FormsExportReader(new FormsExportZip(exportFile));
+    }
+
+    /** The size of an uploaded file in the export, or -1 when the zip does not hold it. */
+    public long binarySize(FormsFile file) {
+        return zip.binarySize(file.path(), file.name());
+    }
+
+    public void close() throws IOException {
+        zip.close();
+    }
+
     /**
      * The forms and the results entries of the export. Refused when the file is not a Jahia export of a
-     * {@code formFactory} node, or when it holds no results entry: the export of a single form, or an
-     * export taken without live content.
+     * {@code formFactory} node, when it holds no results entry (the export of a single form, or one taken
+     * from jContent), or when its forms carry no {@code jcr:uuid} (a zip taken without the live content,
+     * or an XML export).
      */
     public FormsExport readStructure() throws IOException, FormsExportException {
         XmlNode root;
@@ -38,8 +54,15 @@ public final class FormsExportReader {
         }
         FormsExport export = FormsExport.from(root);
         if (export.results().isEmpty()) {
-            throw new FormsExportException("The file holds forms but no results: it was taken without the live "
-                    + "content, or it is the export of a single form. " + FormsExportException.PROCEDURE);
+            throw new FormsExportException("The file holds forms but no results: it is the export of a single form, "
+                    + "or an export taken from jContent. " + FormsExportException.PROCEDURE);
+        }
+        // a zip taken without the live content, and an XML export, hold the results but no jcr:uuid: a later
+        // run could not find the forms and the fields the first one wrote
+        if (export.forms().values().stream().anyMatch(form -> form.uuid() == null)
+                || export.results().values().stream().anyMatch(results -> results.uuid() == null)) {
+            throw new FormsExportException("The file holds no identifier for its forms: it was taken without the "
+                    + "live content, or as an XML export. " + FormsExportException.PROCEDURE);
         }
         return export;
     }
