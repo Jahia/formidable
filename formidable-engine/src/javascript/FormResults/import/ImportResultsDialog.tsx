@@ -277,10 +277,7 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                                 <Check size="big" color="green"/>
                                 <Typography variant="subheading" weight="bold">{t('formResults.import.done.title')}</Typography>
                             </div>
-                            <Typography data-sel-role="import-next-step">
-                                {t(job.report.forms.some(form => form.outcome === 'created') ?
-                                    'formResults.import.done.nextStep' : 'formResults.import.done.nextStepResultsOnly')}
-                            </Typography>
+                            <NextSteps report={job.report} language={language} t={t}/>
                             <ReportView report={job.report} language={language} t={t}/>
                         </>
                     )}
@@ -348,6 +345,30 @@ const ReportView = ({report, language, t, choices, onChoice}: ReportViewProps) =
         ))}
     </div>
 );
+
+/** What to do next, per outcome, with the forms it concerns by name: a created form is to review and publish, an entry alone just is. */
+const NextSteps = ({report, language, t}: ReportViewProps) => {
+    const groups = (['created', 'resultsOnly'] as const)
+        .map(outcome => ({outcome, forms: report.forms.filter(form => form.outcome === outcome)}))
+        .filter(group => group.forms.length > 0);
+    if (groups.length === 0) {
+        return null;
+    }
+    return (
+        <div data-sel-role="import-next-step" style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+            {groups.map(group => (
+                <div key={group.outcome}>
+                    <Typography variant="body">{t(`formResults.import.done.${group.outcome}`)}</Typography>
+                    <ul style={{margin: '4px 0 0', paddingLeft: '20px'}}>
+                        {group.forms.map(form => (
+                            <li key={form.sourceName}><Typography variant="body" weight="bold">{formTitle(form, language)}</Typography></li>
+                        ))}
+                    </ul>
+                </div>
+            ))}
+        </div>
+    );
+};
 
 interface FormReportProps extends ReportViewProps {
     form: ImportReportForm;

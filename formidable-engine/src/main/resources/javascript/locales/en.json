@@ -252,8 +252,8 @@
 			},
 			"done": {
 				"title": "Import done",
-				"nextStepResultsOnly": "The results are on this page, as entries without a form, flagged \"Imported, no form\", with the field system names as columns.",
-				"nextStep": "The forms are in the \"Imported from Jahia Forms\" folder of the site, unpublished, and their entries show as Form unpublished until then: review each form, complete what the report lists, then publish it."
+				"created": "These forms were created in the \"Imported from Jahia Forms\" folder of the site, unpublished, and their entries show as Form unpublished until then: review each one, complete what its report lists, then publish it.",
+				"resultsOnly": "The results of these forms are on this page, as entries without a form, flagged \"Imported, no form\", with the field system names as columns."
 			},
 			"failed": {
 				"title": "The import failed"

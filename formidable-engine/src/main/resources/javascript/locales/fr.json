@@ -252,8 +252,8 @@
 			},
 			"done": {
 				"title": "Import terminé",
-				"nextStepResultsOnly": "Les résultats sont sur cette page, dans des entrées sans formulaire marquées « Importé, sans formulaire », avec les noms système des champs en colonnes.",
-				"nextStep": "Les formulaires sont dans le dossier « Imported from Jahia Forms » du site, non publiés, et leurs entrées s'affichent comme dépubliées jusque-là : relisez chaque formulaire, complétez ce que le rapport liste, puis publiez-le."
+				"created": "Ces formulaires ont été créés dans le dossier « Imported from Jahia Forms » du site, non publiés, et leurs entrées s’affichent comme dépubliées jusque-là : relisez chacun, complétez ce que son rapport liste, puis publiez-le.",
+				"resultsOnly": "Les résultats de ces formulaires sont sur cette page, dans des entrées sans formulaire marquées « Importé, sans formulaire », avec les noms système des champs en colonnes."
 			},
 			"failed": {
 				"title": "L'import a échoué"
