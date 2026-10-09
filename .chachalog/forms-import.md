@@ -3,4 +3,4 @@
 formidable: minor
 ---
 
-Added the import of Jahia Forms forms and results from the Results page, behind a setting (#393)
+Added the import of Jahia Forms results from the Results page, with their forms recreated on request (#393, #396)
