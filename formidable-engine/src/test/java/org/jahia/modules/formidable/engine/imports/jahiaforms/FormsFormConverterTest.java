@@ -178,10 +178,58 @@ class FormsFormConverterTest {
         assertEquals("fmdb:save2jcrAction", form.actions().get(0).nodeType());
         assertTrue(form.report().stream().anyMatch(line -> line.contains("fcnt:redirectToAPageAction") && line.contains("/sites/motor-retail/home")),
                 form.report().toString());
-        // the sample forms display a captcha (displayCaptcha="true") and track their users; neither is a form setting here
-        assertTrue(form.captcha());
-        assertTrue(form.report().stream().anyMatch(line -> line.contains("captcha")));
         assertFalse(form.report().stream().anyMatch(line -> line.contains("save the form for later")), form.report().toString());
+    }
+
+    /** The sample forms display a captcha (displayCaptcha="true"): it is set only on an instance that configures one. */
+    @Test
+    void aFormThatDisplayedACaptchaGetsOneWhenTheInstanceConfiguresIt() throws Exception {
+        FormsExport export = sample();
+        FormsForm source = export.forms().get("contact-us");
+
+        ImportedForm without = EVERYTHING.convert(source, export.resultsOf(source));
+        assertFalse(without.captcha());
+        assertTrue(without.report().stream().anyMatch(line -> line.contains("configures no captcha")), without.report().toString());
+
+        ImportedForm with = new FormsFormConverter(type -> true, s -> true, true).convert(source, export.resultsOf(source));
+        assertTrue(with.captcha());
+        assertTrue(with.report().stream().anyMatch(line -> line.contains("turned on")), with.report().toString());
+    }
+
+    /** The file rules of Forms: a JSON list of type groups with a selected flag, and a number of files (fileValidation.wzd). */
+    @Test
+    void aFileFieldTakesAcceptFromTheSelectedTypeGroupsAndMultipleFromTheNumberOfFiles() {
+        String groups = "[{\"key\":\"all\",\"value\":\".*\",\"selected\":false},{\"key\":\"image\",\"value\":\"image/.*\",\"selected\":true},"
+                + "{\"key\":\"pdf\",\"value\":\"application/pdf\",\"selected\":true},{\"key\":\"doc\",\"value\":\"application/(pdf|.*word.*)\",\"selected\":true}]";
+        FormsValidation types = new FormsValidation("file", FormsValidation.FILE, Map.of(
+                FormsOptionNames.FILE_TYPE, new FormsOption(FormsOptionNames.FILE_TYPE, groups, Map.of())));
+        FormsValidation number = new FormsValidation("fileNumber", FormsValidation.FILE_NUMBER, Map.of(
+                FormsOptionNames.FILE_NUMBER, new FormsOption(FormsOptionNames.FILE_NUMBER, "3", Map.of())));
+        FormsField upload = new FormsField("file_0_1", "u1", "fcnt:fileUploadDefinition", Map.of("en", "CV"),
+                null, Map.of(), List.of(types, number), false, false);
+
+        ImportedField field = EVERYTHING.convert(formOf(upload), null).fields().toList().get(0);
+        assertEquals("image/*,application/pdf", field.properties().get(FormsFieldTypes.ACCEPT));
+        assertEquals("true", field.properties().get(FormsFieldTypes.MULTIPLE));
+        assertTrue(field.report().stream().anyMatch(line -> line.contains("doc")), field.report().toString());
+
+        // every type allowed: nothing to restrict
+        FormsValidation all = new FormsValidation("file", FormsValidation.FILE, Map.of(FormsOptionNames.FILE_TYPE,
+                new FormsOption(FormsOptionNames.FILE_TYPE, "[{\"key\":\"all\",\"value\":\".*\",\"selected\":true}]", Map.of())));
+        FormsField any = new FormsField("file_0_2", "u2", "fcnt:fileUploadDefinition", Map.of("en", "Any"), null, Map.of(), List.of(all), false, false);
+        assertNull(EVERYTHING.convert(formOf(any), null).fields().toList().get(0).properties().get(FormsFieldTypes.ACCEPT));
+    }
+
+    @Test
+    void aFormWithoutBuildingLanguageConvertsWithTheNamesOfItsSource() {
+        FormsField a = field("text_0_1", "fcnt:inputDefinition", "A");
+        FormsStep step = new FormsStep("step-1", 1, Map.of(), List.of(a));
+        FormsForm form = new FormsForm("f", "uf", "formFactory/forms/f", null, Map.of(), Map.of(), FormsForm.Settings.NONE, List.of(step), List.of());
+
+        ImportedForm converted = EVERYTHING.convert(form, null);
+        assertEquals(Map.of("", "f"), converted.titles());
+        assertEquals(List.of("text_0_1"), converted.fields().map(ImportedField::name).toList());
+        assertNull(converted.buildingLang());
     }
 
     @Test
@@ -233,20 +281,42 @@ class FormsFormConverterTest {
         assertEquals("red", new JSONObject(field.options().get("fr").get(0)).getString("value"));
     }
 
+    /** The switch texts are the textOn and textOff options of the definition (switchDefinition.wzd). */
     @Test
     void aSwitchBecomesTheExtendedTypeOrARadioWithTwoOptions() {
-        FormsField definition = field("switch_0_1", "fcnt:switchDefinition", "Newsletter");
+        Map<String, FormsOption> texts = Map.of(
+                FormsOptionNames.TEXT_ON, new FormsOption(FormsOptionNames.TEXT_ON, null, Map.of("en", "Yes please")),
+                FormsOptionNames.TEXT_OFF, new FormsOption(FormsOptionNames.TEXT_OFF, null, Map.of("en", "No thanks")));
+        FormsField definition = new FormsField("switch_0_1", "u1", "fcnt:switchDefinition", Map.of("en", "Newsletter"), null, texts, List.of(), false, false);
 
         ImportedField extended = EVERYTHING.convert(formOf(definition), null).fields().toList().get(0);
         assertEquals(FormsFieldTypes.SWITCH, extended.nodeType());
         assertTrue(extended.options().isEmpty());
+        assertEquals(Map.of("en", "Yes please"), extended.i18nProperties().get(FormsFieldTypes.ON_LABEL));
+        assertEquals(Map.of("en", "No thanks"), extended.i18nProperties().get(FormsFieldTypes.OFF_LABEL));
 
         ImportedField fallback = ELEMENTS_ONLY.convert(formOf(definition), null).fields().toList().get(0);
         assertEquals(FormsFieldTypes.RADIO, fallback.nodeType());
         assertEquals(2, fallback.options().get("en").size());
         assertEquals("true", new JSONObject(fallback.options().get("en").get(0)).getString("value"));
+        assertEquals("Yes please", new JSONObject(fallback.options().get("en").get(0)).getString("label"));
+        assertEquals("No thanks", new JSONObject(fallback.options().get("en").get(1)).getString("label"));
         assertNull(fallback.i18nProperties().get(FormsFieldTypes.ON_LABEL));
         assertTrue(fallback.report().get(0).contains("not deployed"));
+    }
+
+    /** The statement of a consent is the terms label of the box, its {LICENSE} placeholder turned into the link. */
+    @Test
+    void aConsentTakesItsStatementFromTheTermsLabelElseFromTheTitle() {
+        Map<String, FormsOption> terms = Map.of(
+                FormsOptionNames.TERMS_LABEL, new FormsOption(FormsOptionNames.TERMS_LABEL, null,
+                        Map.of("en", "I have read and agree to the {LICENSE}.", "fr", "J'ai lu les {LICENSE} et je les accepte.")),
+                FormsOptionNames.LINK, new FormsOption(FormsOptionNames.LINK, null, Map.of("en", "https://example.com/terms", "fr", "")));
+        FormsField withTerms = new FormsField("terms_0_1", "u1", "fcnt:acceptTermCheckboxDefinition", Map.of("en", "I agree"), null, terms, List.of(), false, false);
+
+        ImportedField consent = EVERYTHING.convert(formOf(withTerms), null).fields().toList().get(0);
+        assertEquals(Map.of("en", "I have read and agree to the https://example.com/terms.", "fr", "J'ai lu les et je les accepte."),
+                consent.i18nProperties().get(FormsFieldTypes.STATEMENT));
     }
 
     @Test

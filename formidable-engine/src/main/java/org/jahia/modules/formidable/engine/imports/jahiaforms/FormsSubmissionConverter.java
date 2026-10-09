@@ -4,12 +4,13 @@ import org.jahia.modules.formidable.engine.imports.model.ImportedField;
 import org.jahia.modules.formidable.engine.imports.model.ImportedFile;
 import org.jahia.modules.formidable.engine.imports.model.ImportedForm;
 import org.jahia.modules.formidable.engine.imports.model.ImportedSubmission;
-import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Turns a Forms submission into the submission the import writes (docs/architecture/forms-import.md,
@@ -26,7 +27,7 @@ public final class FormsSubmissionConverter {
     /**
      * @param form the form the import created or found for the submissions
      * @param source the Forms form the export holds, which tells the kind of an answer whose field was not
-     *               recreated; null once Forms deleted the form
+     *               recreated, a password, and the texts of an accept-terms box; null once Forms deleted the form
      * @param results the results entry of the export the submissions come from: its label nodes tie an
      *                answer to a field; null when the export has none, which leaves every answer under its name
      */
@@ -43,12 +44,13 @@ public final class FormsSubmissionConverter {
         for (FormsResultField answer : submission.fields()) {
             FormsLabel label = results == null ? null : results.label(answer.labelName());
             ImportedField field = fieldOf(answer, label);
+            FormsField definition = definitionOf(answer, label);
             String name = field == null ? answer.labelName() : field.name();
-            String kind = kindOf(answer, label, field);
+            String kind = kindOf(field, definition);
             if (field == null && !"password".equals(kind)) {
                 report.add("answer " + answer.name() + " kept under its Forms name: the form holds no field for it");
             }
-            convertValue(answer, kind, storesAccepted(field), name, values, report);
+            convertValue(answer, kind, consentLabels(definition), name, values, report);
             for (FormsFile file : answer.files()) {
                 files.add(new ImportedFile(name, file.name(), file.mimeType(), file.path()));
             }
@@ -57,9 +59,9 @@ public final class FormsSubmissionConverter {
                 submission.uuid(), form.sourceKey(), report);
     }
 
-    private static void convertValue(FormsResultField answer, String kind, boolean accepted, String name,
+    private static void convertValue(FormsResultField answer, String kind, FormsValues.ConsentLabels consent, String name,
                                      Map<String, List<String>> values, List<String> report) {
-        FormsValues.Converted converted = FormsValues.convert(kind, answer.values(), accepted);
+        FormsValues.Converted converted = FormsValues.convert(kind, answer.values(), consent);
         if (converted.note() != null) {
             report.add("answer " + answer.name() + ": " + converted.note());
         }
@@ -79,40 +81,53 @@ public final class FormsSubmissionConverter {
         return byLabelName != null ? byLabelName : form.fieldBySourceName(answer.name());
     }
 
+    /** The Forms definition of an answer, by the fieldId of its label node, else by name; null when the export lost it. */
+    private FormsField definitionOf(FormsResultField answer, FormsLabel label) {
+        if (source == null) {
+            return null;
+        }
+        FormsField byId = label == null ? null : source.fieldById(label.fieldId());
+        if (byId != null) {
+            return byId;
+        }
+        return source.fields().stream()
+                .filter(f -> f.name().equals(answer.labelName()) || f.name().equals(answer.name()))
+                .findFirst()
+                .orElse(null);
+    }
+
     /**
      * The Forms kind of an answer: from the field created for it, else from the definition of the source
      * form, which still knows a field that was not recreated, a password; null when nothing knows it.
      */
-    private String kindOf(FormsResultField answer, FormsLabel label, ImportedField field) {
+    private static String kindOf(ImportedField field, FormsField definition) {
         if (field != null && field.sourceType() != null) {
             return kindOf(field.sourceType());
-        }
-        if (source == null) {
-            return null;
-        }
-        FormsField definition = label == null ? null : source.fieldById(label.fieldId());
-        if (definition == null) {
-            definition = source.fields().stream()
-                    .filter(f -> f.name().equals(answer.labelName()) || f.name().equals(answer.name()))
-                    .findFirst()
-                    .orElse(null);
         }
         return definition == null ? null : definition.kind();
     }
 
-    /**
-     * Whether a ticked accept-terms box is to be stored as {@code true}: for a consent, and for the
-     * checkbox fallback whose one option is {@code true} because Forms gave no choices to take the value from.
-     */
-    private static boolean storesAccepted(ImportedField field) {
-        if (field == null) {
-            return false;
+    /** The texts an accept-terms box submits, from its {@code yes} and {@code no} options; null without the definition. */
+    private static FormsValues.ConsentLabels consentLabels(FormsField definition) {
+        if (definition == null) {
+            return null;
         }
-        if (FormsFieldTypes.CONSENT.equals(field.nodeType())) {
-            return true;
+        return new FormsValues.ConsentLabels(texts(definition.option(FormsOptionNames.YES)), texts(definition.option(FormsOptionNames.NO)));
+    }
+
+    /** Every text of an option, in every language, trimmed and non-blank. */
+    private static Set<String> texts(FormsOption option) {
+        Set<String> texts = new LinkedHashSet<>();
+        if (option == null) {
+            return texts;
         }
-        return FormsFieldTypes.CHECKBOX.equals(field.nodeType()) && field.options().values().stream()
-                .allMatch(options -> options.size() == 1 && FormsFormConverter.ACCEPTED.equals(new JSONObject(options.get(0)).optString("value")));
+        if (option.value() != null && !option.value().isBlank()) {
+            texts.add(option.value().trim());
+        }
+        option.values().values().stream()
+                .filter(v -> v != null && !v.isBlank())
+                .forEach(v -> texts.add(v.trim()));
+        return texts;
     }
 
     private static String kindOf(String formsType) {

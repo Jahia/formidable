@@ -7,6 +7,9 @@ import org.jahia.modules.formidable.engine.imports.model.ImportedContainer;
 import org.jahia.modules.formidable.engine.imports.model.ImportedElement;
 import org.jahia.modules.formidable.engine.imports.model.ImportedField;
 import org.jahia.modules.formidable.engine.imports.model.ImportedForm;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -34,16 +37,30 @@ public final class FormsFormConverter {
     private static final String FIELD = "field ";
     private static final String PLAIN_LANGUAGE = "";
 
+    /** The Forms file-type groups a {@code fileValidation} selects, as {@code accept} can say them; {@code all} restricts nothing. */
+    private static final Map<String, String> FILE_TYPES = Map.of(
+            "image", "image/*", "audio", "audio/*", "video", "video/*", "pdf", "application/pdf", "text", "text/plain");
+    private static final String ALL_FILE_TYPES = "all";
+
     private final Predicate<String> registeredTypes;
     private final Predicate<String> declaredOptionsSources;
+    private final boolean captchaConfigured;
 
     /**
      * @param registeredTypes whether the repository registers a node type: decides the extended inputs
      * @param declaredOptionsSources whether the instance declares an options source by key: decides the country field
+     * @param captchaConfigured whether the instance configures a captcha: decides whether a form that displayed
+     *                          one gets its captcha, or a line in the report
      */
-    public FormsFormConverter(Predicate<String> registeredTypes, Predicate<String> declaredOptionsSources) {
+    public FormsFormConverter(Predicate<String> registeredTypes, Predicate<String> declaredOptionsSources, boolean captchaConfigured) {
         this.registeredTypes = registeredTypes;
         this.declaredOptionsSources = declaredOptionsSources;
+        this.captchaConfigured = captchaConfigured;
+    }
+
+    /** A converter on an instance without a captcha: the forms that displayed one are reported. */
+    public FormsFormConverter(Predicate<String> registeredTypes, Predicate<String> declaredOptionsSources) {
+        this(registeredTypes, declaredOptionsSources, false);
     }
 
     /**
@@ -53,14 +70,19 @@ public final class FormsFormConverter {
     public ImportedForm convert(FormsForm form, FormsResults results) {
         SystemNames names = new SystemNames();
         List<String> report = new ArrayList<>();
-        String buildingLang = form.buildingLang();
+        String buildingLang = languageOf(form.buildingLang());
         List<ImportedElement> elements = form.steps().size() == 1
                 ? elementsOf(form.steps().get(0), results, buildingLang, names, report)
-                : stepsOf(form, results, names, report);
+                : stepsOf(form, results, buildingLang, names, report);
         reportFormSettings(form, report);
-        return new ImportedForm(form.name(), titlesOf(form), buildingLang, nonBlank(form.afterSubmissionText()),
-                buttonLabels(form), form.settings().displaysCaptcha(), elements, actionsOf(form, report),
+        return new ImportedForm(form.name(), titlesOf(form, buildingLang), form.buildingLang(), nonBlank(form.afterSubmissionText()),
+                buttonLabels(form), form.settings().displaysCaptcha() && captchaConfigured, elements, actionsOf(form, report),
                 SOURCE_SYSTEM, form.uuid(), results == null ? null : results.uuid(), relativePath(form.path()), report);
+    }
+
+    /** The language the names are generated in; the plain language, the site's default, when the source names none. */
+    private static String languageOf(String buildingLang) {
+        return buildingLang == null || buildingLang.isBlank() ? PLAIN_LANGUAGE : buildingLang;
     }
 
     /**
@@ -69,10 +91,11 @@ public final class FormsFormConverter {
      */
     public ImportedForm convertFromLabels(FormsResults results) {
         SystemNames names = new SystemNames();
+        String buildingLang = languageOf(results.buildingLang());
         List<ImportedElement> fields = new ArrayList<>();
         for (FormsLabel label : results.labels().values()) {
             Map<String, String> titles = FormsLabels.titles(null, label, label.name());
-            String name = names.of(titles.get(results.buildingLang()), label.name());
+            String name = names.of(titles.get(buildingLang), label.name());
             String type = label.hasChoices() ? FormsFieldTypes.SELECT : FormsFieldTypes.INPUT_TEXT;
             ImportedField.Builder field = ImportedField.builder(name, type, FormsFieldTypes.accepted(type));
             if (label.hasChoices()) {
@@ -82,18 +105,18 @@ public final class FormsFormConverter {
         }
         String parentName = results.parentFormName();
         Map<String, String> titles = results.titles().values().stream().anyMatch(t -> t != null && !t.isBlank())
-                ? nonBlank(results.titles()) : Map.of(results.buildingLang(), results.name());
+                ? nonBlank(results.titles()) : Map.of(buildingLang, results.name());
         return new ImportedForm(results.name(), titles, results.buildingLang(), Map.of(), Map.of(), false, fields,
                 List.of(), SOURCE_SYSTEM, null, results.uuid(), parentName == null ? null : FormsExport.FORMS_NODE + "/" + parentName,
                 List.of("built from the labels of its results: Forms no longer holds the form itself"));
     }
 
-    private List<ImportedElement> stepsOf(FormsForm form, FormsResults results, SystemNames names, List<String> report) {
+    private List<ImportedElement> stepsOf(FormsForm form, FormsResults results, String buildingLang, SystemNames names, List<String> report) {
         List<ImportedElement> steps = new ArrayList<>();
         for (FormsStep step : form.steps()) {
             String name = names.reserve(step.name());
             steps.add(new ImportedContainer(name, ImportedContainer.STEP, nonBlank(step.titles()),
-                    elementsOf(step, results, form.buildingLang(), names, report)));
+                    elementsOf(step, results, buildingLang, names, report)));
         }
         return steps;
     }
@@ -206,7 +229,7 @@ public final class FormsFormConverter {
                 if (!mapping.is(FormsFieldTypes.INPUT_FILE)) {
                     return false;
                 }
-                field.property(FormsFieldTypes.ACCEPT, plain(rule, FormsOptionNames.FILE_TYPE));
+                acceptedFiles(field, rule);
                 noMessage(field, rule);
             }
             case FormsValidation.FILE_NUMBER -> {
@@ -251,6 +274,49 @@ public final class FormsFormConverter {
         return number != null && !"1".equals(number.trim()) ? "true" : null;
     }
 
+    /**
+     * The {@code accept} of the file field from the groups the Forms rule selected, a JSON list of
+     * {@code {key, value, selected}} where the value is a MIME regular expression ({@code fileValidation.wzd}):
+     * the groups {@code accept} can say are written, {@code all} restricts nothing, and the others, such as
+     * {@code doc}, a regular expression over the office types, are reported.
+     */
+    private static void acceptedFiles(ImportedField.Builder field, FormsValidation rule) {
+        String json = plain(rule, FormsOptionNames.FILE_TYPE);
+        if (json == null || json.isBlank()) {
+            return;
+        }
+        List<String> accept = new ArrayList<>();
+        List<String> unmapped = new ArrayList<>();
+        try {
+            JSONArray groups = new JSONArray(json);
+            for (int i = 0; i < groups.length(); i++) {
+                JSONObject group = groups.optJSONObject(i);
+                if (group == null || !group.optBoolean("selected")) {
+                    continue;
+                }
+                String key = group.optString("key");
+                if (ALL_FILE_TYPES.equals(key)) {
+                    return;
+                }
+                String mapped = FILE_TYPES.get(key);
+                if (mapped != null) {
+                    accept.add(mapped);
+                } else {
+                    unmapped.add(key + " (" + group.optString("value") + ")");
+                }
+            }
+        } catch (JSONException e) {
+            field.report("file types not carried over, set accept by hand: " + json);
+            return;
+        }
+        if (!accept.isEmpty()) {
+            field.property(FormsFieldTypes.ACCEPT, String.join(",", accept));
+        }
+        if (!unmapped.isEmpty()) {
+            field.report("file types not carried over, set accept by hand: " + String.join(", ", unmapped));
+        }
+    }
+
     private void fillByKind(ImportedField.Builder field, FormsField definition, FormsLabel label,
                             Map<String, String> titles, String buildingLang, FormsFieldTypes.Mapping mapping) {
         String kind = definition.kind();
@@ -265,8 +331,8 @@ public final class FormsFormConverter {
             case "hidden" -> field.property(FormsFieldTypes.VALUE, plain(definition, FormsOptionNames.VALUE));
             case "switch" -> {
                 if (mapping.is(FormsFieldTypes.SWITCH)) {
-                    field.i18nProperty(FormsFieldTypes.ON_LABEL, valuesOf(definition.option(FormsOptionNames.ON_LABEL)));
-                    field.i18nProperty(FormsFieldTypes.OFF_LABEL, valuesOf(definition.option(FormsOptionNames.OFF_LABEL)));
+                    field.i18nProperty(FormsFieldTypes.ON_LABEL, valuesOf(definition.option(FormsOptionNames.TEXT_ON)));
+                    field.i18nProperty(FormsFieldTypes.OFF_LABEL, valuesOf(definition.option(FormsOptionNames.TEXT_OFF)));
                 } else {
                     field.options(trueFalseOptions(definition, titles.keySet()));
                 }
@@ -274,7 +340,7 @@ public final class FormsFormConverter {
             case "rating" -> field.property(FormsFieldTypes.MAX_VALUE, plain(definition, FormsOptionNames.MAX));
             case "acceptTermCheckbox" -> {
                 if (mapping.is(FormsFieldTypes.CONSENT)) {
-                    field.i18nProperty(FormsFieldTypes.STATEMENT, titles);
+                    field.i18nProperty(FormsFieldTypes.STATEMENT, statementOf(definition, titles));
                 }
             }
             default -> {
@@ -315,11 +381,31 @@ public final class FormsFormConverter {
         return label == null ? Map.of() : FormsChoices.options(label.choices());
     }
 
+    /**
+     * The statement of a consent: the terms label of the box, its {@code {LICENSE}} placeholder replaced by
+     * the link to the terms when the box has one, else removed; the title of the field when the box has no
+     * terms label.
+     */
+    private static Map<String, String> statementOf(FormsField definition, Map<String, String> titles) {
+        Map<String, String> terms = valuesOf(definition.option(FormsOptionNames.TERMS_LABEL));
+        if (terms.isEmpty()) {
+            return titles;
+        }
+        FormsOption link = definition.option(FormsOptionNames.LINK);
+        Map<String, String> statement = new LinkedHashMap<>();
+        terms.forEach((language, text) -> {
+            String target = link == null ? null : link.in(language);
+            String replacement = target == null || target.isBlank() ? "" : target.trim();
+            statement.put(language, text.replace(FormsOptionNames.LICENSE_PLACEHOLDER, replacement).replaceAll("\\s+", " ").trim());
+        });
+        return statement;
+    }
+
     private static Map<String, List<String>> trueFalseOptions(FormsField definition, Iterable<String> languages) {
         Map<String, List<String>> options = new LinkedHashMap<>();
         for (String language : languages) {
-            String on = definition.option(FormsOptionNames.ON_LABEL) == null ? null : definition.option(FormsOptionNames.ON_LABEL).in(language);
-            String off = definition.option(FormsOptionNames.OFF_LABEL) == null ? null : definition.option(FormsOptionNames.OFF_LABEL).in(language);
+            String on = definition.option(FormsOptionNames.TEXT_ON) == null ? null : definition.option(FormsOptionNames.TEXT_ON).in(language);
+            String off = definition.option(FormsOptionNames.TEXT_OFF) == null ? null : definition.option(FormsOptionNames.TEXT_OFF).in(language);
             options.put(language, List.of(
                     FormsChoices.option("true", on == null || on.isBlank() ? "true" : on),
                     FormsChoices.option("false", off == null || off.isBlank() ? "false" : off)));
@@ -360,8 +446,8 @@ public final class FormsFormConverter {
      */
     private static ImportedAction emailNotification(FormsAction action, List<String> report) {
         Map<String, String> properties = new LinkedHashMap<>();
-        putPlain(properties, "to", plain(action, FormsOptionNames.TO));
-        putPlain(properties, "from", plain(action, FormsOptionNames.FROM));
+        putPlain(properties, "to", emails(plain(action, FormsOptionNames.TO)));
+        putPlain(properties, "from", emails(plain(action, FormsOptionNames.FROM)));
         String copies = copies(action);
         if (copies != null) {
             report.add(ACTION + action.type() + ": Forms also sent this mail in CC/BCC to " + copies
@@ -375,23 +461,32 @@ public final class FormsFormConverter {
     private static String copies(FormsAction action) {
         List<String> all = new ArrayList<>();
         for (String option : List.of(FormsOptionNames.CC, FormsOptionNames.BCC)) {
-            String value = plain(action, option);
-            if (value != null && !value.isBlank()) {
-                all.add(value.trim());
+            String value = emails(plain(action, option));
+            if (value != null) {
+                all.add(value);
             }
         }
         return all.isEmpty() ? null : String.join(", ", all);
     }
 
-    private static String redirectTarget(FormsAction action) {
-        String target = plain(action, FormsOptionNames.REDIRECT_TO);
-        if (target == null) {
-            target = plain(action, FormsOptionNames.URL);
+    /**
+     * The addresses of an e-mail option as Forms reads them ({@code SendEmailAction.getEmailsFromStringTable}):
+     * the brackets and quotes of a value stored as a JSON list of strings are dropped, a plain value is kept.
+     */
+    static String emails(String stored) {
+        if (stored == null) {
+            return null;
         }
-        return target == null ? "unknown" : target;
+        String addresses = stored.replace("[", "").replace("]", "").replace("\"", "").trim();
+        return addresses.isEmpty() ? null : addresses;
     }
 
-    private static void reportFormSettings(FormsForm form, List<String> report) {
+    private static String redirectTarget(FormsAction action) {
+        String target = plain(action, FormsOptionNames.REDIRECT_TO);
+        return target == null || target.isBlank() ? "unknown" : target;
+    }
+
+    private void reportFormSettings(FormsForm form, List<String> report) {
         FormsForm.Settings settings = form.settings();
         if (settings.savable()) {
             report.add("\"save the form for later\" not carried over: Formidable has no such feature");
@@ -400,7 +495,9 @@ public final class FormsFormConverter {
             report.add("submission constraints not carried over: Formidable has no such feature");
         }
         if (settings.displaysCaptcha()) {
-            report.add("the form displayed a captcha: turned on when the instance configures one, else to set up");
+            report.add(captchaConfigured
+                    ? "the form displayed a captcha: turned on, with the captcha this instance configures"
+                    : "the form displayed a captcha: not turned on, this instance configures no captcha; set one up, then add the captcha to the form");
         }
     }
 
@@ -436,9 +533,9 @@ public final class FormsFormConverter {
                 .orElse(results.label(definition.name()));
     }
 
-    private static Map<String, String> titlesOf(FormsForm form) {
+    private static Map<String, String> titlesOf(FormsForm form, String buildingLang) {
         Map<String, String> titles = nonBlank(form.titles());
-        return titles.isEmpty() ? Map.of(form.buildingLang(), form.name()) : titles;
+        return titles.isEmpty() ? Map.of(buildingLang, form.name()) : titles;
     }
 
     static String relativePath(String exportPath) {

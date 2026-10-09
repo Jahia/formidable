@@ -2,9 +2,10 @@ package org.jahia.modules.formidable.engine.imports.jahiaforms;
 
 /**
  * Decodes the ISO 9075 escapes of a Jahia document-view export, where {@code _x0020_} is a space and
- * {@code _x0030_6} the node name {@code 06}. Element names and attribute values both carry them, and a
- * multi-valued attribute separates its values with a space that is never escaped, which is why a value
- * is split before it is decoded. The Jackrabbit implementation is not on the engine's compile path.
+ * {@code _x0030_6} the node name {@code 06}. Element names carry them, and so do the values of a
+ * multi-valued attribute, which separates its values with a space that is never escaped, which is why a
+ * value is split before it is decoded; a single-valued attribute is written as it is. The Jackrabbit
+ * implementation is not on the engine's compile path.
  */
 final class Iso9075 {
 

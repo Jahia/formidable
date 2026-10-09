@@ -194,6 +194,25 @@ class FormsExportReaderTest {
         }
     }
 
+    /** Jahia encodes the node names and the values of a multi-valued property, not a single value. */
+    @Test
+    void aSingleValueIsReadAsWrittenAndAMultiValueIsDecoded() throws Exception {
+        String xml = XML_HEAD + "<formFactory " + JCR_NS + " xmlns:j=\"http://www.jahia.org/jahia/1.0\" jcr:primaryType=\"fcnt:formFactory\">"
+                + "<results jcr:primaryType=\"fcnt:resultsFolder\"><f jcr:primaryType=\"fcnt:formResults\" jcr:uuid=\"r1\" parentForm=\"#/forms/f\">"
+                + "<labels jcr:primaryType=\"fcnt:resultLabels\"><x jcr:primaryType=\"fcnt:definitionOptionsTranslatable\" fieldId=\"u\">"
+                + "<j:translation_en jcr:primaryType=\"jnt:translation\" label=\"Keep_x0020_me\"/></x></labels>"
+                + "<submissions jcr:primaryType=\"fcnt:submissions\"><_x0030_6 jcr:primaryType=\"fcnt:splittedResult\">"
+                + "<s1 jcr:primaryType=\"fcnt:result\"><x jcr:primaryType=\"fcnt:resultField\" label=\"#/results/f/labels/x\" result=\"Very_x0020_good Fair\"/></s1>"
+                + "</_x0030_6></submissions></f></results></formFactory>";
+        FormsExportReader reader = new FormsExportReader(new FormsExportZip(zipOf(Map.of(FormsExportZip.XML, xml))));
+
+        assertEquals("Keep_x0020_me", reader.readStructure().results().get("f").label("x").labels().get("en"));
+        List<FormsSubmission> submissions = new ArrayList<>();
+        reader.readSubmissions(submissions::add);
+        assertEquals(List.of("Very good", "Fair"), submissions.get(0).field("x").values());
+        assertEquals("formFactory/results/f/submissions/06/s1", submissions.get(0).path());
+    }
+
     @Test
     void theLiveXmlWinsOverTheEditOne() throws Exception {
         String edit = XML_HEAD + "<formFactory " + JCR_NS + " jcr:primaryType=\"fcnt:formFactory\">"

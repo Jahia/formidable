@@ -59,7 +59,7 @@ class FormsSyntheticExportTest {
             + "      <actions jcr:primaryType=\"fcnt:action\">\n"
             + "        <savetojcraction jcr:primaryType=\"fcnt:saveToJcrAction\"/>\n"
             + "        <sendemailaction jcr:primaryType=\"fcnt:sendEmailAction\">\n"
-            + "          <to jcr:primaryType=\"fcnt:definitionOptions\" jsonValue=\"team@example.com\"/>\n"
+            + "          <to jcr:primaryType=\"fcnt:definitionOptions\" jsonValue=\"[&quot;team@example.com&quot;,&quot;sales@example.com&quot;]\"/>\n"
             + "          <cc jcr:primaryType=\"fcnt:definitionOptions\" jsonValue=\"boss@example.com\"/>\n"
             + "          <bcc jcr:primaryType=\"fcnt:definitionOptions\" jsonValue=\"audit@example.com\"/>\n"
             + "          <from jcr:primaryType=\"fcnt:definitionOptions\" jsonValue=\"noreply@example.com\"/>\n"
@@ -134,7 +134,8 @@ class FormsSyntheticExportTest {
 
         assertEquals(2, form.actions().size());
         assertEquals("fmdb:emailNotificationAction", form.actions().get(1).nodeType());
-        assertEquals("team@example.com", form.actions().get(1).properties().get("to"));
+        // a recipients list Forms stored as a JSON string table reads as Forms reads it
+        assertEquals("team@example.com,sales@example.com", form.actions().get(1).properties().get("to"));
         assertEquals("noreply@example.com", form.actions().get(1).properties().get("from"));
         assertEquals(Map.of("en", "New answer"), form.actions().get(1).i18nProperties().get("subject"));
         assertTrue(form.report().stream().anyMatch(line -> line.contains("CC/BCC") && line.contains("boss@example.com") && line.contains("audit@example.com")),

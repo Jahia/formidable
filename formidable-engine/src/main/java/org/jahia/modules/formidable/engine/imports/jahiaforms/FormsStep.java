@@ -16,7 +16,18 @@ record FormsStep(String name, long number, Map<String, String> titles, List<Form
                 .filter(FormsField::isDefinition)
                 .map(FormsField::from)
                 .toList();
-        String number = node.attribute(STEP_NUMBER);
-        return new FormsStep(node.name(), number == null ? 0 : Long.parseLong(number), node.i18n("jcr:title"), fields);
+        return new FormsStep(node.name(), numberOf(node.attribute(STEP_NUMBER)), node.i18n("jcr:title"), fields);
+    }
+
+    /** The step number, 0 when absent or not a number: the order of the export then stands. */
+    private static long numberOf(String stepNumber) {
+        if (stepNumber == null || stepNumber.isBlank()) {
+            return 0;
+        }
+        try {
+            return Long.parseLong(stepNumber.trim());
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 }

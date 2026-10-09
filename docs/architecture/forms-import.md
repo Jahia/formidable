@@ -88,8 +88,10 @@ live-only node is marked `j:originWS="live"`. The import reads `live-repository.
 
 In these files:
 
-- names and values are ISO 9075-encoded: `_x0020_` is a space, and `_x0030_6` is the node name `06`;
-- a multi-valued property is one attribute, and spaces separate its values, each value encoded;
+- node names are ISO 9075-encoded: `_x0020_` is a space, and `_x0030_6` is the node name `06`;
+- a multi-valued property is one attribute, and spaces separate its values, each value encoded the same
+  way (`result="+44_x0020_7911_x0020_123456"` in the sample); a single value is written as it is
+  (`jsonValue="Your First name*"`), so the import decodes names and multi-values only;
 - every node carries `jcr:uuid`, `jcr:created`, `jcr:createdBy` and `jcr:lastModified`;
 - a reference is nonetheless written as a path, `#/<path>` relative to the export root, as in
   `parentForm="#/forms/contact-us"`;
@@ -175,7 +177,13 @@ Forms writes a value as follows (`SaveToJcrAction` in `forms-core`):
 - a date is the moment.js `toISOString()` of the chosen date, a UTC instant: a date picked as 13 August in
   Paris is `2024-08-12T22:00:00.000Z`;
 - the matrix, rating and country fields of `forms-core` store one JSON object as a string, with a `rendererName`
-  (`matrixRadios`, `matrixCheckboxes`, `rating`, `country`);
+  (`matrixRadios`, `matrixCheckboxes`, `rating`, `country`), shaped as their directives submit it
+  (`forms-core/src/main/resources/fcnt_*Definition/js`): a matrix keeps one key per row beside the renderer
+  name, `{"Price":"Good","Service":"Poor","rendererName":"matrixRadios"}`; a rating keeps its number under
+  `value`, `{"rendererName":"rating","css":"fa-star rated","type":"…","value":4}`; a country keeps its code
+  under `country.key`, `{"country":{"key":"FR","name":"France"},"rendererName":"country"}`;
+- an accept-terms box (`forms-extended-inputs`) stores its `yes` label when ticked, "Accepted" by default,
+  and its `no` label when not, "Not Accepted", in the language of the form (`ng-false-value="'{{input.no}}'"`);
 - a file field stores a JSON object `{"url":[],"name":[],"type":[],"size":[],"image":[],"rendererName":"fileUpload"}`,
   and the files themselves are `jnt:file` children of the `fcnt:resultField`;
 - a password field stores the placeholder `**********`, never the password;
@@ -265,13 +273,13 @@ says. The third column gives what the import writes into `data` for that field, 
 | `selectBasicDefinition`, `selectMultipleDefinition` | `fmdb:select`, `multiple` for the second, with manual options | The option key, one or several, unchanged |
 | `multipleRadiosDefinition`, `multipleRadiosInlineDefinition` | `fmdb:radio` with manual options | The option key |
 | `multipleCheckBoxesDefinition`, `multipleCheckBoxesInlineDefinition` | `fmdb:checkbox` with manual options | The option keys |
-| `switchDefinition` | `fmdbext:switch`, its `onLabel` and `offLabel` from the switch's texts; without the extended inputs, `fmdb:radio` with the two options `true` and `false` | `true` or `false`, unchanged |
+| `switchDefinition` | `fmdbext:switch`, its `onLabel` and `offLabel` from the `textOn` and `textOff` of the switch; without the extended inputs, `fmdb:radio` with the two options `true` and `false`, labelled with those texts | `true` or `false`, unchanged |
 | `datePickerDefinition`, `simpleDateDefinition` | `fmdb:inputDate` | `yyyy-MM-dd`: the instant plus 12 hours, truncated to the UTC day (below) |
 | `countryListDefinition` | `fmdb:select` on the `country` options source when the instance declares one (see [Choice field options sources](choice-field-options-sources.md)), else with the choices of the label node | The country code, the `key` of the `country` object in the JSON |
-| `ratingDefinition` | `fmdbext:rating`, its `maxValue` from the Forms rating; without the extended inputs, `fmdb:inputNumber` | The rating |
-| `matrixRadiosDefinition`, `matrixCheckBoxesDefinition` | `fmdb:textarea`, reported: Formidable has no matrix | One line per row, `row: answer(s)` |
-| `fileUploadDefinition` | `fmdb:inputFile`, `accept` from `fileValidation`, `multiple` from `fileNumberValidation` | The files are copied under `files/<fieldName>/`, and the JSON is dropped |
-| `acceptTermCheckboxDefinition` (`forms-extended-inputs`) | `fmdbext:consent`, its `statement` from the label; without the extended inputs, `fmdb:checkbox` with one option, the accepted value | `true` for the consent, because Forms stores an answer only when the box was ticked; the accepted value, unchanged, for the checkbox |
+| `ratingDefinition` | `fmdbext:rating`, its `maxValue` from the `max` of the Forms rating; without the extended inputs, `fmdb:inputNumber` | The `value` of the rating JSON |
+| `matrixRadiosDefinition`, `matrixCheckBoxesDefinition` | `fmdb:textarea`, reported: Formidable has no matrix | One line per row of the JSON, `row: answer(s)`, in the order of the text |
+| `fileUploadDefinition` | `fmdb:inputFile`; `accept` from the type groups a `fileValidation` selects (`image`, `audio`, `video`, `pdf`, `text` have an `accept` equivalent, `all` restricts nothing, `doc` is a regular expression over the office types, reported); `multiple` when the `filenumber` of a `fileNumberValidation` is not 1 | The files are copied under `files/<fieldName>/`, and the JSON is dropped |
+| `acceptTermCheckboxDefinition` (`forms-extended-inputs`) | `fmdbext:consent`, its `statement` from the `termsLabel` of the box, the `{LICENSE}` placeholder turned into its `link`, else from the title; without the extended inputs, `fmdb:checkbox` with one option, the accepted value | `true` when the answer is the `yes` label of the box, nothing when it is the `no` label, for the consent and for the checkbox alike; any other text is kept, with a note |
 | `imageCheckboxDefinition` (`forms-extended-inputs`) | `fmdb:checkbox` with manual options, the images dropped | The option keys |
 | `contentDisplayDefinition` (`forms-extended-inputs`) | Not recreated, reported: it displays a content, submits nothing | — |
 | Any other type | `fmdb:inputText`, reported | Unchanged |
@@ -666,4 +674,4 @@ mapping or to another form.
 | Spike 3 | Does **Export Zip**, without live content, hold any result? The results are written in live only, so none is expected. | The message of the dry run, and the administration guide |
 | 4 | The captcha of a recreated form depends on the captcha configuration of the instance: the import turns it on when a provider is configured, else reports it. To confirm against the captcha settings. | The forms |
 | 5 | The sample exports hold real email addresses, so they must be anonymised before they are committed as fixtures. | Tests |
-| Spike 4 | The sample export holds no switch, rating, hidden or button field and no uploaded file: the names of the option nodes of those definitions are to be confirmed on an export that holds them before the import of those fields and files is relied on. | The fields, the files |
+| Spike 4 | Partly answered from the sources of `forms-core` 3.x (`src/main/resources/fcnt_*/html/*.wzd`, the design views and the directives): the option nodes are `textOn`/`textOff` for a switch, `max` for a rating, `value` for a hidden field, `filetype` (a JSON list of groups) and `filenumber` for the file rules, `to`/`cc`/`bcc`/`from`/`subject` for the e-mail action, `redirectto` for both redirects, `yes`/`no`/`termsLabel`/`link` for an accept-terms box; the value shapes of a rating, a matrix, a country and a consent are in [The results](#the-results). Still to confirm on an export that holds them: the labels of a `buttonTriple`, and the entry names of the uploaded files in the zip. | The buttons, the files |

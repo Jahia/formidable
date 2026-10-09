@@ -12,6 +12,9 @@ import java.util.Optional;
  * One node of a Jahia document-view export, decoded: the element name is the node name, the attributes
  * are its properties, the child elements its child nodes. {@link #path()} is the path from the root of
  * the export, {@code formFactory/results/contact-us}, which is how the export writes its references.
+ * Jahia ISO 9075-encodes the node names and the values of a multi-valued property, which a space
+ * separates; a single value is written as it is (sample export: {@code jsonValue="Your First name*"}
+ * beside {@code result="+44_x0020_7911"}), so only the former are decoded.
  */
 final class XmlNode {
 
@@ -50,10 +53,9 @@ final class XmlNode {
         return primaryType.equals(primaryType());
     }
 
-    /** A single-valued property, decoded, or null. */
+    /** A single-valued property, as written, or null. */
     String attribute(String name) {
-        String raw = attributes.get(name);
-        return raw == null ? null : Iso9075.decode(raw);
+        return attributes.get(name);
     }
 
     /** A multi-valued property: the values are space-separated in the attribute, each one encoded. */

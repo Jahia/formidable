@@ -99,20 +99,30 @@ class FormsSubmissionConverterTest {
         assertEquals("application/pdf", converted.files().get(0).mimeType());
     }
 
+    /** Forms stores the yes label of a ticked box and the no label of an unticked one, in the form's language. */
     @Test
-    void aTickedAcceptTermsBoxStoresTrueForAConsentAndForTheCheckboxWithoutChoices() {
-        FormsField terms = new FormsField("terms_0_1", "ut", "fcnt:acceptTermCheckboxDefinition", Map.of("en", "I agree"), null, Map.of(), List.of(), false, false);
+    void aTickedAcceptTermsBoxStoresTrueAndAnUntickedOneNothingForAConsentAndForTheCheckbox() {
+        Map<String, FormsOption> labels = Map.of(
+                FormsOptionNames.YES, new FormsOption(FormsOptionNames.YES, null, Map.of("en", "Accepted", "fr", "Accepté")),
+                FormsOptionNames.NO, new FormsOption(FormsOptionNames.NO, null, Map.of("en", "Not Accepted", "fr", "Refusé")));
+        FormsField terms = new FormsField("terms_0_1", "ut", "fcnt:acceptTermCheckboxDefinition", Map.of("en", "I agree"), null, labels, List.of(), false, false);
         FormsForm source = formOf(terms);
         FormsResults results = resultsOf(Map.of("terms_0_1", "ut"));
-        FormsSubmission submission = new FormsSubmission("s1", "f", Instant.EPOCH, null, null, "guest",
-                List.of(new FormsResultField("terms_0_1", "terms_0_1", List.of("agreed"), true, List.of())),
+        FormsSubmission ticked = submissionWith("Accepté");
+        FormsSubmission unticked = submissionWith("Not Accepted");
+
+        for (FormsFormConverter converter : List.of(CONVERTER, ELEMENTS_ONLY)) {
+            FormsSubmissionConverter submissions = new FormsSubmissionConverter(converter.convert(source, results), source, results);
+            assertEquals(List.of("true"), submissions.convert(ticked).values().get("i-agree"));
+            assertFalse(submissions.convert(unticked).values().containsKey("i-agree"));
+            assertTrue(submissions.convert(unticked).report().isEmpty());
+        }
+    }
+
+    private static FormsSubmission submissionWith(String termsAnswer) {
+        return new FormsSubmission("s1", "f", Instant.EPOCH, null, null, "guest",
+                List.of(new FormsResultField("terms_0_1", "terms_0_1", List.of(termsAnswer), true, List.of())),
                 "formFactory/results/f/submissions/x/s1");
-
-        ImportedSubmission consent = new FormsSubmissionConverter(CONVERTER.convert(source, results), source, results).convert(submission);
-        assertEquals(List.of("true"), consent.values().get("i-agree"));
-
-        ImportedSubmission checkbox = new FormsSubmissionConverter(ELEMENTS_ONLY.convert(source, results), source, results).convert(submission);
-        assertEquals(List.of("true"), checkbox.values().get("i-agree"));
     }
 
     private static FormsForm formOf(FormsField... fields) {
