@@ -6,6 +6,7 @@ import {
     closeJob,
     fetchJob,
     formTitle,
+    groupedFieldNotes,
     type ImportJob,
     type ImportReport,
     type ImportReportForm,
@@ -167,19 +168,39 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
             style={{
                 border: 'none',
                 padding: 0,
-                width: '640px',
-                maxWidth: 'calc(100vw - 32px)',
+                // a report needs room: the dialog widens once it shows one
+                width: state === 'review' || state === 'done' ? '960px' : '640px',
+                maxWidth: 'calc(100vw - 48px)',
                 maxHeight: 'calc(100vh - 32px)',
                 backgroundColor: 'var(--color-light)',
-                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.2)'
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
             }}
         >
             <div style={{display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 32px)'}}>
-                <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: '1px solid var(--color-gray_light40)'}}>
-                    <Typography variant="heading" weight="bold">{t('formResults.import.title')}</Typography>
-                    <Button variant="ghost" icon={<Close/>} data-sel-role="import-close-x" onClick={close}/>
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '16px',
+                    padding: '16px 20px',
+                    borderBottom: '1px solid var(--color-gray_light40)'
+                }}>
+                    <div>
+                        <Typography variant="heading" weight="bold">{t('formResults.import.title')}</Typography>
+                        <Typography variant="body" style={{color: 'var(--color-gray)', marginTop: '4px'}}>
+                            {t('formResults.import.description')}
+                        </Typography>
+                    </div>
+                    <Button
+                        variant="ghost"
+                        size="big"
+                        icon={<Close/>}
+                        aria-label={t('formResults.detail.close')}
+                        data-sel-role="import-close-x"
+                        onClick={close}
+                    />
                 </div>
-                <div style={{padding: '24px', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '16px'}}>
+                <div style={{padding: '20px', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '16px'}}>
                     {state === 'waiting' && (
                         <>
                             {/* The whole zone is one button: a click or Enter opens the file picker, a drop takes the file */}
@@ -237,7 +258,7 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                     )}
                     {state === 'review' && job?.report && (
                         <>
-                            <Typography weight="bold">{t('formResults.import.review.title')}</Typography>
+                            <Typography variant="subheading" weight="bold">{t('formResults.import.review.title')}</Typography>
                             <ReportView report={job.report} language={language} t={t}/>
                         </>
                     )}
@@ -245,7 +266,7 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                         <>
                             <div style={{display: 'flex', alignItems: 'center', gap: '8px'}} data-sel-role="import-done">
                                 <Check size="big" color="green"/>
-                                <Typography weight="bold">{t('formResults.import.done.title')}</Typography>
+                                <Typography variant="subheading" weight="bold">{t('formResults.import.done.title')}</Typography>
                             </div>
                             <ReportView report={job.report} language={language} t={t}/>
                             <Typography data-sel-role="import-next-step">{t('formResults.import.done.nextStep')}</Typography>
@@ -261,26 +282,26 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                         <Typography color="danger" data-sel-role="import-error">{errorMessage}</Typography>
                     )}
                 </div>
-                <div style={{display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '16px 24px', borderTop: '1px solid var(--color-gray_light40)'}}>
+                <div style={{display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '0 20px 20px'}}>
                     {(state === 'waiting' || state === 'analysing') && (
-                        <Button label={t('formResults.import.actions.cancel')} data-sel-role="import-cancel" onClick={close}/>
+                        <Button size="big" variant="outlined" label={t('formResults.import.actions.cancel')} data-sel-role="import-cancel" onClick={close}/>
                     )}
                     {state === 'review' && job?.report?.nothingToImport && (
-                        <Button label={t('formResults.import.actions.close')} data-sel-role="import-close" onClick={close}/>
+                        <Button size="big" variant="outlined" label={t('formResults.import.actions.close')} data-sel-role="import-close" onClick={close}/>
                     )}
                     {state === 'review' && !job?.report?.nothingToImport && (
                         <>
-                            <Button label={t('formResults.import.actions.cancel')} data-sel-role="import-cancel" onClick={close}/>
-                            <Button color="accent" label={t('formResults.import.actions.import')} data-sel-role="import-confirm" onClick={handleImport}/>
+                            <Button size="big" variant="outlined" label={t('formResults.import.actions.cancel')} data-sel-role="import-cancel" onClick={close}/>
+                            <Button size="big" color="accent" icon={<Upload/>} label={t('formResults.import.actions.import')} data-sel-role="import-confirm" onClick={handleImport}/>
                         </>
                     )}
                     {(state === 'importing' || state === 'done') && (
-                        <Button color="accent" label={t('formResults.import.actions.close')} data-sel-role="import-close" onClick={close}/>
+                        <Button size="big" color="accent" label={t('formResults.import.actions.close')} data-sel-role="import-close" onClick={close}/>
                     )}
                     {state === 'failed' && (
                         <>
-                            <Button label={t('formResults.import.actions.close')} data-sel-role="import-close" onClick={close}/>
-                            <Button color="accent" label={t('formResults.import.actions.tryAgain')} data-sel-role="import-try-again" onClick={tryAgain}/>
+                            <Button size="big" variant="outlined" label={t('formResults.import.actions.close')} data-sel-role="import-close" onClick={close}/>
+                            <Button size="big" color="accent" label={t('formResults.import.actions.tryAgain')} data-sel-role="import-try-again" onClick={tryAgain}/>
                         </>
                     )}
                 </div>
@@ -316,33 +337,33 @@ interface FormReportProps extends ReportViewProps {
 }
 
 const FormReport = ({form, report, language, t}: FormReportProps) => {
-    const fieldNotes = form.fields.flatMap(field => field.notes.map(note => `${field.name}: ${note}`));
+    const notes = [...form.notes, ...groupedFieldNotes(form.fields)];
     return (
-        <div data-sel-role="import-report-form" data-sel-name={form.sourceName} data-sel-outcome={form.outcome ?? ''} style={{border: '1px solid var(--color-gray_light40)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '4px'}}>
-            <Typography weight="bold">{formTitle(form, language)}</Typography>
-            <Typography variant="caption">
+        <div data-sel-role="import-report-form" data-sel-name={form.sourceName} data-sel-outcome={form.outcome ?? ''} style={{border: '1px solid var(--color-gray_light40)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '6px'}}>
+            <Typography variant="subheading" weight="bold">{formTitle(form, language)}</Typography>
+            <Typography variant="body">
                 {form.outcome === 'found' ?
                     t('formResults.import.report.found', {path: form.targetPath}) :
                     t('formResults.import.report.created', {name: form.targetName, folder: report.importedFormsFolder})}
             </Typography>
-            <Typography variant="caption">
+            <Typography variant="body">
                 {t('formResults.import.report.submissions', {
                     found: form.submissions.found,
                     toImport: report.dryRun ? form.submissions.toImport : form.submissions.imported,
                     already: form.submissions.alreadyImported
                 })}
             </Typography>
-            <Typography variant="caption" data-sel-role="import-report-figures">
+            <Typography variant="body" data-sel-role="import-report-figures">
                 {t('formResults.import.report.fields', {count: form.fields.length})}
                 {form.files.count > 0 && ` — ${t('formResults.import.report.files', {count: form.files.count, size: formatFileSize(form.files.bytes)})}`}
                 {form.files.missing > 0 && ` — ${t('formResults.import.report.filesMissing', {count: form.files.missing})}`}
                 {(form.values.dropped > 0 || form.values.notConverted > 0) &&
                     ` — ${t('formResults.import.report.values', {dropped: form.values.dropped, notConverted: form.values.notConverted})}`}
             </Typography>
-            {(form.notes.length > 0 || fieldNotes.length > 0) && (
+            {notes.length > 0 && (
                 <ul style={{margin: '4px 0 0', paddingLeft: '20px'}} data-sel-role="import-report-notes">
-                    {[...form.notes, ...fieldNotes].map(note => (
-                        <li key={note}><Typography variant="caption">{note}</Typography></li>
+                    {notes.map(note => (
+                        <li key={note}><Typography variant="body">{note}</Typography></li>
                     ))}
                 </ul>
             )}

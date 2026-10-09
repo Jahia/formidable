@@ -216,6 +216,7 @@
 		},
 		"import": {
 			"title": "Import Jahia Forms results",
+			"description": "Bring the results of the forms of a Jahia Forms export into this site.",
 			"dropzone": "Drop the export of the site's formFactory node here, a .zip file",
 			"chooseFile": "Choose a file",
 			"fileHint": "Take the export in the Repository explorer: right-click the site's formFactory node, Export, then Export Zip with live content. Up to {{max}} MB.",

@@ -216,6 +216,7 @@
 		},
 		"import": {
 			"title": "Importer les résultats de Jahia Forms",
+			"description": "Rapatrier dans ce site les résultats des formulaires d’un export Jahia Forms.",
 			"dropzone": "Déposez ici l'export du nœud formFactory du site, un fichier .zip",
 			"chooseFile": "Choisir un fichier",
 			"fileHint": "Faites l'export dans l'explorateur de dépôt : clic droit sur le nœud formFactory du site, Export, puis Export Zip with live content. Jusqu'à {{max}} Mo.",

@@ -95,3 +95,12 @@ export function refuseFile(file: File, maxFileSizeMb: number): 'notZip' | 'tooLa
     }
     return null;
 }
+
+/** The notes of the fields, one line per distinct note with the fields it concerns: a prefill note repeats on every field. */
+export function groupedFieldNotes(fields: ImportReportField[]): string[] {
+    const fieldsByNote = new Map<string, string[]>();
+    fields.forEach(field => field.notes.forEach(note => {
+        fieldsByNote.set(note, [...(fieldsByNote.get(note) ?? []), field.name]);
+    }));
+    return [...fieldsByNote.entries()].map(([note, names]) => `${note} — ${names.join(', ')}`);
+}
