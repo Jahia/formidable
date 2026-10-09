@@ -32,9 +32,9 @@ results: the import refuses them with this procedure.
 
 1. Turn the button on: in `karaf/etc/org.jahia.modules.formidable.formsImport.cfg`, set
    `importButtonEnabled=true` (see [Configuration](configuration.md)). The change applies at once, no restart.
-2. Open the **Results** page of the target site in jContent. The **Import from Jahia Forms** button shows in its toolbar to
+2. Open the **Results** page of the target site in jContent. The **Import Jahia Forms results** button shows in its toolbar to
    the administrators of the site, the users who hold the site-administrator role on it.
-3. Click **Import from Jahia Forms**, drop the zip on the dialog or choose it. The dialog analyses the export without
+3. Click **Import Jahia Forms results**, drop the zip on the dialog or choose it. The dialog analyses the export without
    writing anything, and shows what the import will do: per form, whether it is created or already there,
    its fields and what could not be carried over, the submissions found, to import and already imported,
    the files.
@@ -53,5 +53,5 @@ The export the dialog accepts is bounded by `maxFileSizeMb` (200 MB by default).
 
 | Setting | Default | Effect |
 |---|---|---|
-| `importButtonEnabled` | `false` | Shows the **Import from Jahia Forms** button on the Results page of every site |
+| `importButtonEnabled` | `false` | Shows the **Import Jahia Forms results** button on the Results page of every site |
 | `maxFileSizeMb` | `200` | The largest export the dialog accepts |

@@ -69,7 +69,7 @@ invites to publish the forms.
 | **The forms are created unpublished, the results are written in live** | A contributor reviews a form, completes what the import reported, then publishes it: the import never publishes. Until then the Results page shows the entry as **Unpublished**, with the system names of the fields as columns, as for any native form that is not published. Results only exist in live in both products: the import writes them there, as `SaveToJcrFormAction` does, and they are never published. |
 | **`origin` = `jahia-forms` on an imported submission** | `origin` is the discriminator that [Save to JCR](save-to-jcr.md) documents for "a legacy-forms import". The Results page and the exports can tell an imported submission from a native one. |
 | **A Forms form is recognised by its `jcr:uuid` and by the `jcr:uuid` of its results node, a field by its `jcr:uuid`, a submission by its node name** | All of them are in the zip export. A later run finds the form it created, the field each value belongs to and the submissions it wrote, and adds only what is missing. The form keeps both of its keys because either can be missing: the form's, once Forms deleted the form; the results node's, while the form was never published. See [Running it twice](#running-it-twice). |
-| **The import starts from the Results page, behind a setting** | An **Import from Jahia Forms** button in the toolbar of the Results page, off by default, opens a dialog that takes the export, shows the report of a dry run, then imports into the current site. See [Running it](#running-it). |
+| **The import starts from the Results page, behind a setting** | An **Import Jahia Forms results** button in the toolbar of the Results page, off by default, opens a dialog that takes the export, shows the report of a dry run, then imports into the current site. See [Running it](#running-it). |
 
 ## Source model (Forms 3.x)
 
@@ -447,7 +447,7 @@ with the conventions of the other five (see the [administration guide](../admini
 
 | Setting | Default | Effect |
 |---|---|---|
-| `importButtonEnabled` | `false` | Shows the **Import from Jahia Forms** button on the Results page of every site |
+| `importButtonEnabled` | `false` | Shows the **Import Jahia Forms results** button on the Results page of every site |
 | `maxFileSizeMb` | `200` | The largest export the dialog accepts |
 
 The button is off by default: the import is used once per site, and an administrator turns it on for that
@@ -460,7 +460,7 @@ session.
 to one site, and its paths are relative to its root, so nothing in the file names a site: the administrator
 opens the Results page of the target site, which may differ from the source site.
 
-**The dialog.** The **Import from Jahia Forms** button carries Moonstone's `Upload` icon. It opens a dialog that runs a dry
+**The dialog.** The **Import Jahia Forms results** button carries Moonstone's `Upload` icon. It opens a dialog that runs a dry
 run first, then the import:
 
 ```mermaid
@@ -661,7 +661,7 @@ mapping or to another form.
   keys, and the mapping proposal of iteration 2. The date rule is tested at the offsets −11, −4, 0, +2, +9
   and +11 hours, and at +13, where it gives the previous day as documented. The fixtures are the
   anonymised sample exports.
-- **A Cypress spec for iteration 1.** The **Import from Jahia Forms** button is absent while `importButtonEnabled` is off,
+- **A Cypress spec for iteration 1.** The **Import Jahia Forms results** button is absent while `importButtonEnabled` is off,
   and absent for an editor once it is on. The spec drops the sample zip on the dialog, reads the dry-run
   report and checks that nothing is written yet, clicks **Import**, waits for the check and reads the final
   report, which must end with the invitation to publish. It then checks `imported-forms` and its three

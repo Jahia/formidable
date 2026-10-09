@@ -128,7 +128,7 @@
 			"delete": "Supprimer",
 			"deleteTitle": "Supprimer les résultats du formulaire sélectionné",
 			"refresh": "Rafraîchir",
-			"import": "Importer depuis Jahia Forms",
+			"import": "Importer les résultats de Jahia Forms",
 			"importTitle": "Importer les formulaires et résultats de Jahia Forms dans ce site"
 		},
 		"empty": {
@@ -215,7 +215,7 @@
 			}
 		},
 		"import": {
-			"title": "Importer depuis Jahia Forms",
+			"title": "Importer les résultats de Jahia Forms",
 			"dropzone": "Déposez ici l'export du nœud formFactory du site, un fichier .zip",
 			"chooseFile": "Choisir un fichier",
 			"fileHint": "Faites l'export dans l'explorateur de dépôt : clic droit sur le nœud formFactory du site, Export, puis Export Zip with live content. Jusqu'à {{max}} Mo.",
