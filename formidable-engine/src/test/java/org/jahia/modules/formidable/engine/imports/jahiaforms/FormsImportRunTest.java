@@ -55,7 +55,7 @@ class FormsImportRunTest {
     @Test
     void theDryRunReportsEveryFormAndSubmissionAndWritesNothing() throws Exception {
         ImportWriter writer = writer();
-        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, true, type -> true, source -> true);
+        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, true, type -> true, source -> true, false);
 
         JSONObject report = run.run().toJson();
 
@@ -82,7 +82,7 @@ class FormsImportRunTest {
         JCRNodeWrapper entry = mock(JCRNodeWrapper.class);
         when(writer.findOrCreateForm(any())).thenReturn(new ImportWriter.FormHandle(form, true));
         when(writer.findOrCreateResultsEntry(any(), any())).thenReturn(entry);
-        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, type -> true, source -> true);
+        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, type -> true, source -> true, false);
 
         ImportReport report = run.run();
 
@@ -114,7 +114,7 @@ class FormsImportRunTest {
         JCRNodeWrapper other = node("other", FOLDER + "/other");
         when(writer.findOrCreateForm(any())).thenReturn(new ImportWriter.FormHandle(other, true));
         when(writer.findOrCreateResultsEntry(any(), any())).thenReturn(entry);
-        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, type -> true, s -> true);
+        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, type -> true, s -> true, false);
 
         JSONObject report = run.run().toJson();
 
@@ -164,7 +164,7 @@ class FormsImportRunTest {
                 + "  </forms>\n"
                 + "</formFactory>\n";
         Path withoutBinary = FormsExportReaderTest.zipOf(Map.of(FormsExportZip.XML, export));
-        JSONObject files = new FormsImportRun(FormsExportReader.open(withoutBinary), writer(), true, type -> true, s -> true)
+        JSONObject files = new FormsImportRun(FormsExportReader.open(withoutBinary), writer(), true, type -> true, s -> true, false)
                 .run().toJson().getJSONArray("forms").getJSONObject(0).getJSONObject("files");
         assertEquals(0, files.getInt("count"));
         assertEquals(1, files.getInt("missing"));
@@ -183,7 +183,7 @@ class FormsImportRunTest {
             zip.write(new byte[321]);
             zip.closeEntry();
         }
-        files = new FormsImportRun(FormsExportReader.open(withBinary), writer(), true, type -> true, s -> true)
+        files = new FormsImportRun(FormsExportReader.open(withBinary), writer(), true, type -> true, s -> true, false)
                 .run().toJson().getJSONArray("forms").getJSONObject(0).getJSONObject("files");
         assertEquals(1, files.getInt("count"));
         assertEquals(321, files.getLong("bytes"));

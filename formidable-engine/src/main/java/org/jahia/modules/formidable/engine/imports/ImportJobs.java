@@ -3,6 +3,7 @@ package org.jahia.modules.formidable.engine.imports;
 import org.jahia.modules.formidable.engine.util.FormidableJcrConstants;
 import org.jahia.modules.formidable.engine.actions.form.storage.SaveToJcrFormAction;
 import org.jahia.modules.formidable.engine.api.FmdbNodeType;
+import org.jahia.modules.formidable.engine.config.captcha.CaptchaConfigService;
 import org.jahia.modules.formidable.engine.config.choiceoptions.ChoiceOptionsConfigService;
 import org.jahia.modules.formidable.engine.imports.jahiaforms.FormsExportException;
 import org.jahia.modules.formidable.engine.imports.jahiaforms.FormsExportReader;
@@ -126,10 +127,16 @@ public class ImportJobs {
     }
 
     private final AtomicReference<ChoiceOptionsConfigService> optionsConfig = new AtomicReference<>();
+    private final AtomicReference<CaptchaConfigService> captchaConfig = new AtomicReference<>();
 
     @Reference
     public void setOptionsConfig(ChoiceOptionsConfigService service) {
         optionsConfig.set(service);
+    }
+
+    @Reference
+    public void setCaptchaConfig(CaptchaConfigService service) {
+        captchaConfig.set(service);
     }
 
     @Activate
@@ -295,7 +302,7 @@ public class ImportJobs {
             try (FormsExportReader reader = FormsExportReader.open(export)) {
                 ImportWriter writer = new ImportWriter(edit, live, siteKey, FOLDER_TITLE);
                 FormsImportRun run = new FormsImportRun(reader, writer, phase == Phase.DRY_RUN,
-                        type -> hasNodeType(edit, type), this::isOptionsSourceDeclared);
+                        type -> hasNodeType(edit, type), this::isOptionsSourceDeclared, isCaptchaConfigured());
                 return run.run();
             } catch (IOException | FormsExportException e) {
                 throw new RepositoryException(e.getMessage(), e);
@@ -306,6 +313,12 @@ public class ImportJobs {
     private boolean isOptionsSourceDeclared(String key) {
         ChoiceOptionsConfigService config = optionsConfig.get();
         return config != null && config.resolveOptionsSource(key).isPresent();
+    }
+
+    /** A captcha the forms can use: its widget and its verification are both configured. */
+    private boolean isCaptchaConfigured() {
+        CaptchaConfigService config = captchaConfig.get();
+        return config != null && config.isCaptchaWidgetConfigured() && config.isCaptchaVerificationConfigured();
     }
 
     private static boolean hasNodeType(JCRSessionWrapper session, String type) {

@@ -45,13 +45,14 @@ public final class FormsImportRun {
      * @param writer the writer on the target site; in a dry run it is only read from
      * @param registeredTypes whether the repository registers a node type
      * @param declaredOptionsSources whether the instance declares an options source by key
+     * @param captchaConfigured whether the instance configures a captcha, for the forms that displayed one
      */
     public FormsImportRun(FormsExportReader reader, ImportWriter writer, boolean dryRun,
-                          Predicate<String> registeredTypes, Predicate<String> declaredOptionsSources) {
+                          Predicate<String> registeredTypes, Predicate<String> declaredOptionsSources, boolean captchaConfigured) {
         this.reader = reader;
         this.writer = writer;
         this.dryRun = dryRun;
-        this.converter = new FormsFormConverter(registeredTypes, declaredOptionsSources);
+        this.converter = new FormsFormConverter(registeredTypes, declaredOptionsSources, captchaConfigured);
     }
 
     public ImportReport run() throws IOException, FormsExportException, RepositoryException {
