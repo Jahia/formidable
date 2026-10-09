@@ -412,7 +412,7 @@ const FormReport = ({form, report, language, t, choices, onChoice}: FormReportPr
         <div data-sel-role="import-report-form" data-sel-name={form.sourceName} data-sel-outcome={outcome ?? ''} style={{border: '1px solid var(--color-gray_light40)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px'}}>
             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '16px', flexWrap: 'wrap'}}>
                 <Typography variant="subheading" weight="bold">{formTitle(form, language)}</Typography>
-                <Typography variant="body" data-sel-role="import-report-figures" style={{color: 'var(--color-gray)'}}>{figures}</Typography>
+                <Typography variant="body" data-sel-role="import-report-figures">{figures}</Typography>
             </div>
             {steerable ? (
                 <RadioGroup
@@ -422,22 +422,11 @@ const FormReport = ({form, report, language, t, choices, onChoice}: FormReportPr
                     data-sel-role="import-choice"
                     onChange={(_event: React.ChangeEvent<HTMLInputElement>, value: string) => onChoice?.(form.sourceName, value as ImportChoice)}
                 >
-                    <RadioItem
-                        id={`import-choice-${form.sourceName}-resultsOnly`}
-                        value="resultsOnly"
-                        label={t('formResults.import.choice.resultsOnly')}
-                        description={describe('resultsOnly')}
-                    />
-                    <RadioItem
-                        id={`import-choice-${form.sourceName}-create`}
-                        value="create"
-                        label={t('formResults.import.choice.create')}
-                        description={describe('created')}
-                    />
+                    <RadioItem id={`import-choice-${form.sourceName}-resultsOnly`} value="resultsOnly" label={t('formResults.import.choice.resultsOnly')}/>
+                    <RadioItem id={`import-choice-${form.sourceName}-create`} value="create" label={t('formResults.import.choice.create')}/>
                 </RadioGroup>
-            ) : (
-                <Typography variant="body">{describe(outcome)}</Typography>
-            )}
+            ) : null}
+            <Typography variant="body" data-sel-role="import-report-outcome">{describe(outcome)}</Typography>
             {notes.length > 0 && (
                 <ul style={{margin: 0, paddingLeft: '20px'}} data-sel-role="import-report-notes">
                     {notes.map(note => (
