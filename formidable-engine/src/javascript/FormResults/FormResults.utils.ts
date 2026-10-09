@@ -80,6 +80,23 @@ export function withEditForms(
     });
 }
 
+/**
+ * The form the labels of the fields are read from: the form in live, else the form as it stands in edit
+ * while it is not published, so that an unpublished form, imported or native, still names its columns;
+ * null when no form exists, where the system names of the fields head the columns.
+ */
+export function labelsFormOf(form: FormResultsNode | null): {uuid: string; workspace: 'LIVE' | 'EDIT'} | null {
+    if (form?.parentForm?.refNode) {
+        return {uuid: form.parentForm.refNode.uuid, workspace: 'LIVE'};
+    }
+
+    if (form?.editForm) {
+        return {uuid: form.editForm.uuid, workspace: 'EDIT'};
+    }
+
+    return null;
+}
+
 /** The name the page shows for an entry: the form's title, from live or from edit, or the node's own name once the form is gone. */
 export function formResultsLabel(form: FormResultsNode): string {
     return form.parentForm?.refNode?.displayName ?? form.editForm?.displayName ?? form.displayName ?? form.name;

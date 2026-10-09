@@ -4,6 +4,7 @@ import {
     formatFieldValue,
     formResultsLabel,
     formStatus,
+    labelsFormOf,
     parseFormFields,
     siteKeyFromRoute,
     withEditForms,
@@ -124,6 +125,14 @@ describe('form results entries', () => {
         expect(formStatus(entry({value: 'f', refNode: null}, null))).toEqual('deleted');
         // an entry imported without a form has no reference at all: imported, not deleted
         expect(formStatus({...entry(null), imported: true})).toEqual('imported');
+    });
+
+    it('reads the labels from the form in live, else from the form in edit, else from nowhere', () => {
+        expect(labelsFormOf(entry({value: 'f', refNode: liveForm}))).toEqual({uuid: liveForm.uuid, workspace: 'LIVE'});
+        expect(labelsFormOf(entry({value: 'f', refNode: null}, {uuid: 'f', displayName: 'Contact us'}))).toEqual({uuid: 'f', workspace: 'EDIT'});
+        expect(labelsFormOf(entry({value: 'f', refNode: null}, null))).toBeNull();
+        expect(labelsFormOf({...entry(null), imported: true})).toBeNull();
+        expect(labelsFormOf(null)).toBeNull();
         expect(formStatus({...entry(null, null), imported: false})).toEqual('deleted');
     });
 

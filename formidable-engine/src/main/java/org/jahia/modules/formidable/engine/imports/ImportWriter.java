@@ -114,10 +114,10 @@ public class ImportWriter {
     public JCRNodeWrapper findForm(String sourceId, String sourceResultsId) throws RepositoryException {
         List<String> keys = new ArrayList<>();
         if (sourceId != null) {
-            keys.add("[" + SOURCE_ID + "] = '" + escape(sourceId) + "'");
+            keys.add(equalTo(SOURCE_ID, sourceId));
         }
         if (sourceResultsId != null) {
-            keys.add("[" + SOURCE_RESULTS_ID + "] = '" + escape(sourceResultsId) + "'");
+            keys.add(equalTo(SOURCE_RESULTS_ID, sourceResultsId));
         }
         if (keys.isEmpty()) {
             return null;
@@ -282,7 +282,7 @@ public class ImportWriter {
             return null;
         }
         String statement = "SELECT * FROM [" + FmdbMixin.IMPORTED_RESULTS + "] AS e WHERE ISDESCENDANTNODE(e, '"
-                + escape(resultsRootPath()) + "') AND e.[" + SOURCE_FORM_IDS + "] = '" + escape(sourceKey) + "'";
+                + escape(resultsRootPath()) + "') AND e." + equalTo(SOURCE_FORM_IDS, sourceKey);
         NodeIterator found = live.getWorkspace().getQueryManager().createQuery(statement, Query.JCR_SQL2).execute().getNodes();
         while (found.hasNext()) {
             JCRNodeWrapper entry = (JCRNodeWrapper) found.nextNode();
@@ -512,5 +512,10 @@ public class ImportWriter {
 
     private static String escape(String value) {
         return value.replace("'", "''");
+    }
+
+    /** The SQL2 comparison of a property with a value, the value escaped. */
+    private static String equalTo(String property, String value) {
+        return "[" + property + "] = '" + escape(value) + "'";
     }
 }
