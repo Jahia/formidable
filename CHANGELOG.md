@@ -1,5 +1,9 @@
 # formidable Changelog
 
+## 0.6.0
+
+* Added the import of Jahia Forms forms and results from the Results page, behind a setting (#393)
+
 ## 0.5.0
 
 ### New Features
