@@ -292,31 +292,46 @@ public final class ResultsAttachment {
         int renamed = 0;
         int touched = 0;
         for (JCRNodeWrapper submission : submissions) {
-            boolean changed = false;
-            if (submission.hasNode(FmdbNodeName.DATA)) {
-                JCRNodeWrapper data = submission.getNode(FmdbNodeName.DATA);
-                for (Map.Entry<String, String> name : mapping.entrySet()) {
-                    if (renameValue(data, name.getKey(), name.getValue())) {
-                        renamed++;
-                        changed = true;
-                    }
-                }
-            }
-            if (submission.hasNode(FmdbNodeName.FILES)) {
-                JCRNodeWrapper files = submission.getNode(FmdbNodeName.FILES);
-                for (Map.Entry<String, String> name : mapping.entrySet()) {
-                    if (files.hasNode(name.getKey()) && !files.hasNode(name.getValue())) {
-                        live.move(files.getNode(name.getKey()).getPath(), files.getPath() + "/" + name.getValue());
-                        changed = true;
-                    }
-                }
-            }
-            if (changed && ++touched % BATCH == 0) {
+            int values = renameValues(submission, mapping);
+            boolean moved = renameFiles(submission, mapping);
+            renamed += values;
+            if ((values > 0 || moved) && ++touched % BATCH == 0) {
                 live.save();
             }
         }
         live.save();
         return renamed;
+    }
+
+    /** Renames the values of one submission as the mapping says; the count renamed. */
+    private static int renameValues(JCRNodeWrapper submission, Map<String, String> mapping) throws RepositoryException {
+        if (!submission.hasNode(FmdbNodeName.DATA)) {
+            return 0;
+        }
+        JCRNodeWrapper data = submission.getNode(FmdbNodeName.DATA);
+        int renamed = 0;
+        for (Map.Entry<String, String> name : mapping.entrySet()) {
+            if (renameValue(data, name.getKey(), name.getValue())) {
+                renamed++;
+            }
+        }
+        return renamed;
+    }
+
+    /** Moves the files folders of one submission under the new names of their fields; whether any moved. */
+    private boolean renameFiles(JCRNodeWrapper submission, Map<String, String> mapping) throws RepositoryException {
+        if (!submission.hasNode(FmdbNodeName.FILES)) {
+            return false;
+        }
+        JCRNodeWrapper files = submission.getNode(FmdbNodeName.FILES);
+        boolean moved = false;
+        for (Map.Entry<String, String> name : mapping.entrySet()) {
+            if (files.hasNode(name.getKey()) && !files.hasNode(name.getValue())) {
+                live.move(files.getNode(name.getKey()).getPath(), files.getPath() + "/" + name.getValue());
+                moved = true;
+            }
+        }
+        return moved;
     }
 
     private static boolean renameValue(JCRNodeWrapper data, String from, String to) throws RepositoryException {
