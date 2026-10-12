@@ -70,7 +70,7 @@ export const ExportResultsDialog = ({formResults, onClose}: ExportResultsDialogP
                 try {
                     const {data: labelsData} = await client.query({
                         query: GET_FORM_FIELD_LABELS,
-                        variables: {formUuid, language, workspace: 'LIVE'},
+                        variables: {formUuid, language, optionsLanguage: language, workspace: 'LIVE'},
                         fetchPolicy: 'network-only'
                     });
                     formFields = parseFormFields(labelsData);
@@ -195,7 +195,7 @@ export const ExportResultsDialog = ({formResults, onClose}: ExportResultsDialogP
                         />
                     </label>
 
-                    <label style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+                    <label style={{display: 'flex', alignItems: 'center', gap: '12px'}} data-sel-role="export-all">
                         <Checkbox
                             checked={allResults}
                             isDisabled={isExporting}
@@ -237,6 +237,7 @@ export const ExportResultsDialog = ({formResults, onClose}: ExportResultsDialogP
                         size="big"
                         variant="outlined"
                         label={t('formResults.export.cancel')}
+                        data-sel-role="export-cancel"
                         isDisabled={isExporting}
                         onClick={onClose}
                     />
@@ -245,6 +246,7 @@ export const ExportResultsDialog = ({formResults, onClose}: ExportResultsDialogP
                         color="accent"
                         icon={<Download/>}
                         label={t('formResults.export.confirm')}
+                        data-sel-role="export-confirm"
                         isDisabled={selectedFormatIds.length === 0 || (!allResults && (startDate === '' || endDate === ''))}
                         isLoading={isExporting}
                         onClick={handleExport}

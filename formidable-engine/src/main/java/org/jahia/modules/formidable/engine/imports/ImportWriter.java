@@ -33,11 +33,14 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
+
+import org.json.JSONObject;
 
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACL_NODE;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACL_NODE_TYPE;
@@ -71,8 +74,12 @@ public class ImportWriter {
     private static final String SOURCE_NAME = "sourceName";
     private static final String SOURCE_FORM_ID = "sourceFormId";
     private static final String SOURCE_FORM_IDS = "sourceFormIds";
+    private static final String MAPPINGS = "mappings";
+    private static final String MAPPING_SOURCE = "source";
+    private static final String MAPPING_NAMES = "mapping";
     private static final String CAPTCHA_MIXIN = "fmdbmix:captcha";
     private static final String SYSTEM_AUTHOR = "system";
+    private static final String FORM_TYPE = "fmdb:form";
     private static final String FIELD_LIST_TYPE = "fmdb:fieldList";
     private static final String ACTION_LIST_TYPE = "fmdb:actionList";
     private static final DateTimeFormatter DAY_FOLDERS = DateTimeFormatter.ofPattern("yyyy/MM/dd").withZone(ZoneOffset.UTC);
@@ -154,6 +161,26 @@ public class ImportWriter {
         }
     }
 
+    /**
+     * A form of the site the administrator chose to attach results to, by its identifier in the edit
+     * workspace; null when the identifier names no form of the site any more.
+     */
+    public JCRNodeWrapper findSiteForm(String identifier) throws RepositoryException {
+        return findSiteForm(edit, siteKey, identifier);
+    }
+
+    /** {@link #findSiteForm(String)}, for a caller that holds the edit session alone. */
+    public static JCRNodeWrapper findSiteForm(JCRSessionWrapper edit, String siteKey, String identifier) throws RepositoryException {
+        JCRNodeWrapper node;
+        try {
+            node = edit.getNodeByIdentifier(identifier);
+        } catch (javax.jcr.ItemNotFoundException e) {
+            return null;
+        }
+        boolean ofSite = node.getPath().startsWith(SITES + siteKey + "/");
+        return ofSite && node.isNodeType(FORM_TYPE) ? node : null;
+    }
+
     /** The {@code imported-forms} folder of the site, or its path when it does not exist yet. */
     public String importedFormsPath() {
         return SITES + siteKey + "/" + CONTENTS_NODE + "/" + FOLDER_NAME;
@@ -169,7 +196,7 @@ public class ImportWriter {
 
     private JCRNodeWrapper createForm(ImportedForm form) throws RepositoryException {
         JCRNodeWrapper folder = importedFormsFolder();
-        JCRNodeWrapper node = folder.addNode(JCRContentUtils.findAvailableNodeName(folder, form.name()), "fmdb:form");
+        JCRNodeWrapper node = folder.addNode(JCRContentUtils.findAvailableNodeName(folder, form.name()), FORM_TYPE);
         i18n(node, TITLE, form.titles());
         i18n(node, "submissionMessage", form.submissionMessage());
         form.buttonLabels().forEach((property, byLanguage) -> i18nQuietly(node, property, byLanguage));
@@ -276,22 +303,86 @@ public class ImportWriter {
         return markImported(newEntry(resultsRoot(), form.name(), form), form);
     }
 
-    /** The entry an earlier run wrote for a source form without a form, by the key of that form; null when none. */
-    public JCRNodeWrapper findResultsOnlyEntry(String sourceKey) throws RepositoryException {
+    /**
+     * The entry an earlier run wrote the results of a source form into, by the key of that form: an entry
+     * written alone, or the entry of the form the results were attached to; null when none. The entry of
+     * a form the import created is reached through its form, which a later run finds first.
+     */
+    public JCRNodeWrapper findImportedEntry(String sourceKey) throws RepositoryException {
         if (sourceKey == null) {
             return null;
         }
         String statement = "SELECT * FROM [" + FmdbMixin.IMPORTED_RESULTS + "] AS e WHERE ISDESCENDANTNODE(e, '"
                 + escape(resultsRootPath()) + "') AND e." + equalTo(SOURCE_FORM_IDS, sourceKey);
         NodeIterator found = live.getWorkspace().getQueryManager().createQuery(statement, Query.JCR_SQL2).execute().getNodes();
-        while (found.hasNext()) {
-            JCRNodeWrapper entry = (JCRNodeWrapper) found.nextNode();
-            // an entry under a form is reached through its form, which a later run finds first
-            if (!entry.hasProperty(FmdbProperty.PARENT_FORM)) {
-                return entry;
+        return found.hasNext() ? (JCRNodeWrapper) found.nextNode() : null;
+    }
+
+    /** The form of an entry, in the edit workspace; null for an entry without a form, or whose form is gone. */
+    public JCRNodeWrapper formOf(JCRNodeWrapper entry) throws RepositoryException {
+        if (!entry.hasProperty(FmdbProperty.PARENT_FORM)) {
+            return null;
+        }
+        try {
+            return edit.getNodeByIdentifier(entry.getProperty(FmdbProperty.PARENT_FORM).getString());
+        } catch (javax.jcr.ItemNotFoundException e) {
+            return null;
+        }
+    }
+
+    /**
+     * The results entry of a form, when it exists; null otherwise. Unlike {@link #findOrCreateResultsEntry}
+     * it creates nothing, not even the results root: the dry run reads through it.
+     */
+    public JCRNodeWrapper findResultsEntry(JCRNodeWrapper formNode) throws RepositoryException {
+        if (!live.nodeExists(resultsRootPath())) {
+            return null;
+        }
+        return findEntry(live.getNode(resultsRootPath()), formNode.getIdentifier());
+    }
+
+    /**
+     * The mapping an attachment applied to the values of a source form, as the entry remembers it: the name
+     * of the field of the form each field of the source lands under; empty when the entry holds none.
+     */
+    public Map<String, String> mappingOf(JCRNodeWrapper entry, String sourceKey) throws RepositoryException {
+        for (JSONObject mapping : mappingsOf(entry)) {
+            if (sourceKey.equals(mapping.optString(MAPPING_SOURCE))) {
+                Map<String, String> names = new LinkedHashMap<>();
+                JSONObject stored = mapping.optJSONObject(MAPPING_NAMES);
+                if (stored != null) {
+                    stored.keySet().forEach(name -> names.put(name, stored.getString(name)));
+                }
+                return names;
             }
         }
-        return null;
+        return Map.of();
+    }
+
+    /**
+     * Keeps on the entry the mapping an attachment applied to a source form, in place of the one it held
+     * for that source, so that a later run names the values the same way and a later attachment shows the
+     * original names next to the current ones.
+     */
+    public void recordMapping(JCRNodeWrapper entry, String sourceKey, Map<String, String> mapping) throws RepositoryException {
+        List<String> kept = new ArrayList<>();
+        for (JSONObject stored : mappingsOf(entry)) {
+            if (!sourceKey.equals(stored.optString(MAPPING_SOURCE))) {
+                kept.add(stored.toString());
+            }
+        }
+        kept.add(new JSONObject().put(MAPPING_SOURCE, sourceKey).put(MAPPING_NAMES, new JSONObject(mapping)).toString());
+        entry.setProperty(MAPPINGS, kept.toArray(String[]::new));
+    }
+
+    private static List<JSONObject> mappingsOf(JCRNodeWrapper entry) throws RepositoryException {
+        List<JSONObject> mappings = new ArrayList<>();
+        if (entry.hasProperty(MAPPINGS)) {
+            for (javax.jcr.Value value : entry.getProperty(MAPPINGS).getValues()) {
+                mappings.add(new JSONObject(value.getString()));
+            }
+        }
+        return mappings;
     }
 
     /** The results root of the site, where the entries sit, or its path when it does not exist yet. */

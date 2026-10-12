@@ -1,5 +1,5 @@
 import {deleteNode, publishAndWaitJobEnding} from '@jahia/cypress';
-import {FORMIDABLE_TEST_SITE} from '../../support/fixtures';
+import {createFormNode, FORMIDABLE_TEST_SITE, getSelectNode, type JahiaNode} from '../../support/fixtures';
 import {withSameOriginHeaders} from '../security/support';
 import {useFormidableSite} from '../support/useFormidableSite';
 
@@ -24,6 +24,26 @@ const SAMPLE = {
 	contactFormId: '08246a0f-de43-4dbb-b91e-55cdd366614b',
 	firstSubmission: {id: '2c591198-6092-485b-b936-2a8cbf0213c8', day: '2023/06/20'}
 };
+
+/**
+ * The form built by hand the results of newsletterregistration (firstname, lastname, enter-your-email-here)
+ * attach to: a field of the same node name, one of the same label, one the administrator picks, and a choice
+ * field whose options carry none of the imported values.
+ */
+const ATTACH = {
+	source: 'newsletterregistration',
+	form: 'newsletter',
+	title: 'Newsletter',
+	fields: [
+		{name: 'firstname', title: 'First name', type: 'fmdb:inputText'},
+		{name: 'surname', title: 'Lastname', type: 'fmdb:inputText'},
+		{name: 'email', title: 'Email', type: 'fmdb:inputEmail'}
+	],
+	choice: {name: 'topic', title: 'Topic', options: [{value: 'sales', label: 'Sales'}, {value: 'support', label: 'Support'}]}
+};
+const MENU = '.moonstone-menu:not(.moonstone-hidden)';
+/** The overlay a Moonstone menu opens over: a click on it closes the menu without picking anything. */
+const MENU_OVERLAY = '.moonstone-menu_overlay';
 
 type Workspace = 'EDIT' | 'LIVE';
 type NamedNode = {name: string; primaryNodeType: {name: string}};
@@ -77,6 +97,14 @@ const importedSubmission = (sourceId: string): Cypress.Chainable<SubmissionData>
 	});
 
 const valueNames = (submission: SubmissionData) => submission.data.properties.filter(p => !p.name.includes(':')).map(p => p.name);
+
+/** The first submissions under an entry, with the names their values landed under. */
+const submissionsUnder = (entryPath: string, limit = 5): Cypress.Chainable<SubmissionData[]> =>
+	graphql<{jcr: {nodesByQuery: {nodes: SubmissionData[]}}}>(
+		`query Under($query: String!, $limit: Int!) { jcr(workspace: LIVE) { nodesByQuery(query: $query, queryLanguage: SQL2, limit: $limit) { nodes {
+			path origin: property(name: "origin") { value } data: descendant(relPath: "data") { properties { name value } } } } } }`,
+		{query: `SELECT * FROM [fmdb:formSubmission] AS s WHERE ISDESCENDANTNODE(s, '${entryPath}')`, limit}
+	).then(data => data.jcr.nodesByQuery.nodes);
 
 /** The parentForm of an entry, as stored: absent on an entry imported without a form. */
 const parentFormOf = (entryPath: string): Cypress.Chainable<string | null> =>
@@ -148,8 +176,18 @@ const closeDialog = () => {
 const reportForm = (name: string) => cy.get(`[data-sel-role="import-report-form"][data-sel-name="${name}"]`);
 
 /** Picks, for a form of the dry run, what receives its results: the radio items carry an id per form and choice. */
-const choose = (name: string, choice: 'resultsOnly' | 'create') =>
+const choose = (name: string, choice: 'resultsOnly' | 'create' | 'attach') =>
 	cy.get(`#import-choice-${name}-${choice}`).check({force: true});
+
+/** Opens a Moonstone dropdown of the dialog, once it has loaded its data, and picks the item of that label. */
+const pickInDropdown = (dropdown: () => Cypress.Chainable<JQuery>, label: string) => {
+	dropdown().find('.moonstone-dropdown_loading', {timeout: 15000}).should('not.exist');
+	dropdown().find('.moonstone-dropdown_container').click();
+	cy.get(MENU).contains('.moonstone-menuItem', label).click();
+	cy.get(MENU).should('not.exist');
+};
+
+const mappingRow = (source: string) => cy.get(`[data-sel-role="import-mapping-row"][data-sel-source="${source}"]`);
 
 // The caption inside the entry sits at its centre, which Cypress takes for a cover: the click is forced.
 const selectEntry = (name: string) =>
@@ -345,6 +383,26 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		cy.get('[data-sel-role="submission-detail"]').should('contain', 'Your First name');
 	});
 
+	it('exports the results of the published form with the labels of its fields as headers', () => {
+		// the export reads the fields of the form through the same query as the page: a variable left unset would lose the labels
+		openResultsPage();
+		selectEntry('contact-us');
+		cy.get('[data-sel-role="export-results"]').click();
+		cy.get('[data-sel-role="export-all"]').click();
+		cy.get('[data-sel-role="export-confirm"]').should('be.enabled').click();
+		cy.readFile('cypress/downloads/contact-us-all.csv', {timeout: 30000}).then((content: string) => {
+			const [header] = content.split('\n');
+			expect(header).to.contain('Your First name (your-first-name)');
+			expect(header).to.contain('Your Enquiry (your-enquiry)');
+			expect(content.split('\n').filter(line => line.trim() !== '')).to.have.length(SAMPLE.submissions['contact-us'] + 1);
+		});
+		cy.get('body').then($body => {
+			if ($body.find('[data-sel-role="export-cancel"]').length > 0) {
+				cy.get('[data-sel-role="export-cancel"]').click();
+			}
+		});
+	});
+
 	it('on a second run, finds the form and names the values after the fields it holds now', () => {
 		// the contributor reviewed the form: a field renamed, one deleted, the title changed
 		graphql(`mutation Rename($path: String!) { jcr { mutateNode(pathOrId: $path) { rename(name: "firstname") } } }`,
@@ -377,6 +435,85 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 			`query Title($path: String!) { jcr(workspace: EDIT) { nodeByPath(path: $path) { title: property(name: "jcr:title", language: "en") { value } } } }`,
 			{path: `${IMPORTED_FORMS_PATH}/contact-us`}
 		).then(data => expect(data.jcr.nodeByPath.title.value).to.equal('Contact Us (reviewed)'));
+	});
+
+	it('attaches the results of a form to a form built by hand, the values under the names of its fields', () => {
+		// the created form and its entry are gone: the export offers the choice for that form again
+		deleteNode(`${IMPORTED_FORMS_PATH}/${ATTACH.source}`);
+		deleteNode(`${RESULTS_ROOT_PATH}/${ATTACH.source}`, 'LIVE');
+		const fields: JahiaNode[] = [
+			...ATTACH.fields.map(field => ({
+				name: field.name,
+				primaryNodeType: field.type,
+				properties: [{name: 'jcr:title', value: field.title, language: 'en'}]
+			})),
+			getSelectNode(ATTACH.choice)
+		];
+		let formId = '';
+		createFormNode(ATTACH.form, ATTACH.title, fields).then((response: {data?: {jcr?: {addNode?: {uuid?: string}}}}) => {
+			formId = response?.data?.jcr?.addNode?.uuid ?? '';
+			expect(formId, 'the uuid of the form').to.not.be.empty;
+		});
+
+		openResultsPage();
+		openImportDialog();
+		dropFile(SAMPLE_EXPORT);
+		dialogState('review');
+		reportForm('contact-us').should('have.attr', 'data-sel-outcome', 'found');
+		reportForm(ATTACH.source).should('have.attr', 'data-sel-outcome', 'resultsOnly');
+		choose(ATTACH.source, 'attach');
+		reportForm(ATTACH.source).should('have.attr', 'data-sel-outcome', 'attached').and('contain', 'Pick the form');
+		// nothing starts until the form is picked
+		cy.get('[data-sel-role="import-confirm"]').should('be.disabled');
+		pickInDropdown(() => reportForm(ATTACH.source).find('[data-sel-role="import-attach-form"]'), ATTACH.title);
+		reportForm(ATTACH.source).should('contain', `${CONTENTS_PATH}/${ATTACH.form}`);
+
+		// the same node name is matched, the same label proposed, the third field keeps its name until picked
+		mappingRow('firstname').should('have.attr', 'data-sel-target', 'firstname').and('have.attr', 'data-sel-rule', 'sameName');
+		mappingRow('lastname').should('have.attr', 'data-sel-target', 'surname').and('have.attr', 'data-sel-rule', 'sameLabel');
+		mappingRow('enter-your-email-here').should('have.attr', 'data-sel-target', '').and('have.attr', 'data-sel-rule', '');
+		cy.get('[data-sel-role="import-confirm"]').should('be.enabled');
+		// a choice field lists the imported values none of its options carries
+		pickInDropdown(() => mappingRow('lastname').find('[data-sel-role="import-mapping-target"]'), 'Topic');
+		mappingRow('lastname').find('[data-sel-role="import-mapping-unmatched"]').should('contain', 'match no option');
+		pickInDropdown(() => mappingRow('lastname').find('[data-sel-role="import-mapping-target"]'), 'Lastname');
+		mappingRow('lastname').should('have.attr', 'data-sel-target', 'surname').and('have.attr', 'data-sel-rule', 'sameLabel');
+		mappingRow('lastname').find('[data-sel-role="import-mapping-unmatched"]').should('not.exist');
+		pickInDropdown(() => mappingRow('enter-your-email-here').find('[data-sel-role="import-mapping-target"]'), 'Email');
+		mappingRow('enter-your-email-here').should('have.attr', 'data-sel-target', 'email');
+		// a field of the form picked in one row leaves the menus of the others: no two fields can land together
+		mappingRow('lastname').find('.moonstone-dropdown_container').click();
+		cy.get(MENU).contains('.moonstone-menuItem', 'Lastname').should('exist');
+		cy.get(MENU).contains('.moonstone-menuItem', 'Email').should('not.exist');
+		cy.get(MENU_OVERLAY).first().click('topLeft', {force: true});
+		cy.get(MENU).should('not.exist');
+		cy.get('[data-sel-role="import-mapping-conflict"]').should('not.exist');
+
+		cy.get('[data-sel-role="import-confirm"]').click();
+		dialogState('done');
+		cy.get('[data-sel-role="import-next-step"]').should('contain', 'attached to forms').and('contain', ATTACH.form);
+		reportForm(ATTACH.source).should('have.attr', 'data-sel-outcome', 'attached').and('contain', `${CONTENTS_PATH}/${ATTACH.form}`);
+		closeDialog();
+
+		// the entry of the form holds the submissions, their values under the names of its fields
+		countSubmissions(`${RESULTS_ROOT_PATH}/${ATTACH.form}`).should('eq', SAMPLE.submissions[ATTACH.source]);
+		submissionsUnder(`${RESULTS_ROOT_PATH}/${ATTACH.form}`).then(submissions => {
+			submissions.forEach(submission => expect(valueNames(submission)).to.have.members(['firstname', 'surname', 'email']));
+		});
+		// the form is unpublished: its reference does not resolve in live, the stored identifier says which form
+		graphql<{jcr: {nodeByPath: {parentForm: {value: string}; mappings: {values: string[]}}}}>(
+			`query Entry($path: String!) { jcr(workspace: LIVE) { nodeByPath(path: $path) {
+				parentForm: property(name: "parentForm") { value } mappings: property(name: "mappings") { values } } } }`,
+			{path: `${RESULTS_ROOT_PATH}/${ATTACH.form}`}
+		).then(data => {
+			expect(data.jcr.nodeByPath.parentForm.value).to.equal(formId);
+			expect(data.jcr.nodeByPath.mappings.values).to.have.length(1);
+			expect(JSON.parse(data.jcr.nodeByPath.mappings.values[0]).mapping).to.deep.equal({lastname: 'surname', 'enter-your-email-here': 'email'});
+		});
+		// the Results page shows them under the form, with its labels, unpublished as the form is
+		openFirstSubmission(ATTACH.form);
+		cy.get(`[data-sel-role="form-results-entry"][data-sel-name="${ATTACH.form}"] [data-sel-role="form-unpublished"]`).should('exist');
+		cy.get('[data-sel-role="submission-detail"]').should('contain', 'First name').and('contain', 'Lastname').and('contain', 'Email');
 	});
 
 	it('imports nothing on a third run, and refuses a file that is no zip', () => {

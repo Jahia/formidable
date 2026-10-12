@@ -237,12 +237,15 @@
 				"fields": "{{count}} field(s)",
 				"files": "{{count}} file(s), {{size}}",
 				"filesMissing": "{{count}} file(s) not in the export, left behind",
-				"values": "{{dropped}} value(s) dropped, {{notConverted}} kept as stored"
+				"values": "{{dropped}} value(s) dropped, {{notConverted}} kept as stored",
+				"attached": "Attached to the form \"{{name}}\" at {{path}}, the values under the names of its fields",
+				"attachPending": "Pick the form the results attach to"
 			},
 			"choice": {
 				"label": "What receives the results",
 				"resultsOnly": "Results only",
-				"create": "Create the form"
+				"create": "Create the form",
+				"attach": "Attach to an existing form"
 			},
 			"actions": {
 				"import": "Import",
@@ -253,7 +256,8 @@
 			"done": {
 				"title": "Import done",
 				"created": "These forms were created in the \"Imported from Jahia Forms\" folder of the site, unpublished, and their entries show as Form unpublished until then: review each one, complete what its report lists, then publish it.",
-				"resultsOnly": "The results of these forms are on this page, as entries without a form, flagged \"Imported, no form\", with the field system names as columns."
+				"resultsOnly": "The results of these forms are on this page, as entries without a form, flagged \"Imported, no form\", with the field system names as columns.",
+				"attached": "The results of these forms were attached to forms of this site: they show under those forms, read by their readers."
 			},
 			"failed": {
 				"title": "The import failed"
@@ -262,6 +266,18 @@
 				"notZip": "The file must be a .zip export",
 				"tooLarge": "The file is larger than {{max}} MB",
 				"unexpected": "Something went wrong, see the server log"
+			},
+			"attach": {
+				"form": "Form",
+				"pickForm": "Pick a form of the site",
+				"noForms": "The site has no form yet",
+				"mapping": "Where the values of each field land",
+				"keep": "Keep the name",
+				"noFields": "This form has no field: every value keeps its name",
+				"sameName": "same name",
+				"sameLabel": "same label",
+				"conflict": "Two fields cannot land under the same name, nor under the name of another field of the source: {{names}}",
+				"unmatched": "{{count}} value(s) match no option of this field: {{values}}"
 			}
 		}
 	},

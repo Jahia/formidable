@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.engine.imports.jahiaforms;
 
+import org.jahia.modules.formidable.engine.imports.FormChoice;
 import org.jahia.modules.formidable.engine.imports.ImportChoice;
 import org.jahia.modules.formidable.engine.imports.ImportReport;
 import org.jahia.modules.formidable.engine.imports.ImportWriter;
@@ -38,9 +39,9 @@ public final class FormsImportRun {
     private final FormsExportReader reader;
     private final ImportWriter writer;
     private final boolean dryRun;
-    private final Map<String, ImportChoice> choices;
+    private final Map<String, FormChoice> choices;
     private final FormsFormConverter converter;
-    /** By source form: the names of the fields of the form an earlier run created, when the form was found. */
+    /** By source form: the names the values land under when they go to a form, found or attached to. */
     private final Map<String, Map<String, String>> foundNames = new HashMap<>();
 
     /**
@@ -50,7 +51,7 @@ public final class FormsImportRun {
      * @param declaredOptionsSources whether the instance declares an options source by key
      * @param captchaConfigured whether the instance configures a captcha, for the forms that displayed one
      */
-    public FormsImportRun(FormsExportReader reader, ImportWriter writer, boolean dryRun, Map<String, ImportChoice> choices,
+    public FormsImportRun(FormsExportReader reader, ImportWriter writer, boolean dryRun, Map<String, FormChoice> choices,
                           Predicate<String> registeredTypes, Predicate<String> declaredOptionsSources, boolean captchaConfigured) {
         this.reader = reader;
         this.writer = writer;
@@ -92,34 +93,36 @@ public final class FormsImportRun {
 
     /**
      * Reports what receives the results of the form, and in an import writes it; null when nothing is
-     * written. A form found from an earlier run is reported with the fields it holds now, which are the
-     * ones the submissions of this run land under; an entry found from an earlier run, or written alone,
-     * takes the names generated from the export.
+     * written. A form the import created, found from an earlier run, is reported with the fields it holds
+     * now, which are the ones the submissions of this run land under; an entry found from an earlier run,
+     * written alone or attached to a form, names the values as that run did; an entry written alone takes
+     * the names generated from the export, an attachment the names of the form through its mapping.
      */
     private JCRNodeWrapper prepareForm(Source source, ImportReport report) throws RepositoryException {
         ImportedForm form = source.form();
         ImportReport.FormEntry entry = report.form(form.name(), form.titles());
         JCRNodeWrapper existingForm = writer.findForm(form.sourceId(), form.sourceResultsId());
-        JCRNodeWrapper existingEntry = existingForm == null ? writer.findResultsOnlyEntry(form.sourceKey()) : null;
-        ImportChoice choice = choices.getOrDefault(form.name(), ImportChoice.RESULTS_ONLY);
+        JCRNodeWrapper existingEntry = existingForm == null ? writer.findImportedEntry(form.sourceKey()) : null;
+        FormChoice choice = choices.getOrDefault(form.name(), FormChoice.RESULTS_ONLY);
+        JCRNodeWrapper targetForm = null;
         if (existingForm != null) {
             entry.target(existingForm.getName(), existingForm.getPath(), ImportReport.FormOutcome.FOUND);
             List<ImportWriter.FoundField> fields = writer.importedFields(existingForm);
             fields.forEach(field -> entry.field(field.name(), field.nodeType(), List.of()));
             foundNames.put(form.name(), namesOf(fields));
         } else if (existingEntry != null) {
-            entry.target(existingEntry.getName(), existingEntry.getPath(), ImportReport.FormOutcome.FOUND);
-            form.fields().forEach(field -> entry.field(field.name(), field.nodeType(), List.of()));
+            JCRNodeWrapper attachedForm = writer.formOf(existingEntry);
+            JCRNodeWrapper target = attachedForm != null ? attachedForm : existingEntry;
+            entry.target(target.getName(), target.getPath(), ImportReport.FormOutcome.FOUND);
+            Map<String, String> mapping = writer.mappingOf(existingEntry, form.sourceKey());
+            form.fields().forEach(field -> entry.field(mapping.getOrDefault(field.name(), field.name()), field.nodeType(), List.of()));
+            foundNames.put(form.name(), namesOf(form, mapping));
         } else {
             // nothing of the form exists yet: the report tells what a created form could not carry over, which
-            // the dialog shows while the administrator can still choose to create it
+            // the dialog shows while the administrator can still choose what receives the results
             entry.notes(form.report());
-            form.fields().forEach(field -> entry.field(field.name(), field.nodeType(), field.report()));
-            if (choice == ImportChoice.CREATE) {
-                entry.target(form.name(), writer.importedFormsPath() + "/" + form.name(), ImportReport.FormOutcome.CREATED);
-            } else {
-                entry.target(form.name(), writer.resultsRootPath() + "/" + form.name(), ImportReport.FormOutcome.RESULTS_ONLY);
-            }
+            form.fields().forEach(field -> entry.field(field.name(), field.nodeType(), field.titles(), field.report()));
+            targetForm = prepareNew(form, choice, entry);
         }
         if (dryRun) {
             return null;
@@ -129,18 +132,42 @@ public final class FormsImportRun {
             results = writer.findOrCreateResultsEntry(existingForm, form);
         } else if (existingEntry != null) {
             results = existingEntry;
-        } else if (choice == ImportChoice.CREATE) {
+        } else if (choice.choice() == ImportChoice.CREATE) {
             JCRNodeWrapper formNode = writer.findOrCreateForm(form).node();
             entry.target(formNode.getName(), formNode.getPath(), ImportReport.FormOutcome.CREATED);
             // the entry points at the form: the form is persisted first, whatever the entry's own save does
             writer.saveForms();
             results = writer.findOrCreateResultsEntry(formNode, form);
+        } else if (choice.choice() == ImportChoice.ATTACH) {
+            results = writer.findOrCreateResultsEntry(targetForm, form);
+            writer.recordMapping(results, form.sourceKey(), choice.mapping());
         } else {
             results = writer.createResultsOnlyEntry(form);
             entry.target(results.getName(), results.getPath(), ImportReport.FormOutcome.RESULTS_ONLY);
         }
         writer.save();
         return results;
+    }
+
+    /**
+     * Reports what the choice of the administrator writes for a form nothing exists for yet, and names the
+     * values of an attachment after the fields of the form it attaches to; the form to attach to, or null.
+     */
+    private JCRNodeWrapper prepareNew(ImportedForm form, FormChoice choice, ImportReport.FormEntry entry) throws RepositoryException {
+        switch (choice.choice()) {
+            case CREATE -> entry.target(form.name(), writer.importedFormsPath() + "/" + form.name(), ImportReport.FormOutcome.CREATED);
+            case ATTACH -> {
+                JCRNodeWrapper targetForm = writer.findSiteForm(choice.formId());
+                if (targetForm == null) {
+                    throw new RepositoryException("The form to attach " + form.name() + " to does not exist any more in the site");
+                }
+                entry.target(targetForm.getName(), targetForm.getPath(), ImportReport.FormOutcome.ATTACHED);
+                foundNames.put(form.name(), namesOf(form, choice.mapping()));
+                return targetForm;
+            }
+            case RESULTS_ONLY -> entry.target(form.name(), writer.resultsRootPath() + "/" + form.name(), ImportReport.FormOutcome.RESULTS_ONLY);
+        }
+        return null;
     }
 
     /** The node name of each found field, by the identity and by the name of the source field it stands for. */
@@ -154,6 +181,22 @@ public final class FormsImportRun {
                 names.putIfAbsent(field.sourceName(), field.name());
             }
         }
+        return names;
+    }
+
+    /**
+     * The name the values of each field of the export land under once mapped onto a form, by the identity
+     * and by the name of the field: the field of the form the mapping sends it to, else its own name.
+     */
+    private static Map<String, String> namesOf(ImportedForm form, Map<String, String> mapping) {
+        Map<String, String> names = new HashMap<>();
+        form.fields().forEach(field -> {
+            String name = mapping.getOrDefault(field.name(), field.name());
+            if (field.sourceId() != null) {
+                names.putIfAbsent(field.sourceId(), name);
+            }
+            names.putIfAbsent(field.sourceName(), name);
+        });
         return names;
     }
 
@@ -178,7 +221,10 @@ public final class FormsImportRun {
                 }
                 ImportedSubmission converted = converters.get(submission.formName()).convert(submission);
                 count(entry, submission, converted);
-                if (!dryRun) {
+                if (dryRun) {
+                    // the dialog matches these against the options of the form the results may attach to
+                    converted.values().forEach(entry::values);
+                } else {
                     write(entries.get(source.form().name()), converted, entry);
                     if (++pending[0] >= BATCH_SIZE) {
                         saveBatch();

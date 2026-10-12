@@ -2,7 +2,9 @@
 
 Specification of the import of [Jahia Forms](https://github.com/Jahia/forms-core) (`forms-core` 3.x) forms
 and submissions into Formidable. Status: iteration 1 implemented in the engine (the reader and the converters first, then the writer, the
-job and the Results page dialog); iteration 2 to come. The open points are listed at the end.
+job and the Results page dialog); iteration 2 implemented for the choice at import time (the results alone, a form created, an
+attachment to an existing form with its mapping), the **Attach to another form** action on an entry to come. The open points are
+listed at the end.
 
 ## Goal and iterations
 
@@ -537,7 +539,8 @@ run, except for what another import wrote in between.
 The report gives, per Forms form:
 
 - the form it creates, with its name in `imported-forms`, or the form it found from an earlier run;
-- its fields, with the system name and the type each one takes, and the fields, rules, actions and
+- its fields, with the system name and the type each one takes, their titles and the distinct values the
+  submissions hold (up to thirty, for the mapping of an attachment), and the fields, rules, actions and
   settings that are reported because Formidable has no equivalent;
 - the number of submissions found, to import and already imported;
 - the values converted, dropped (passwords) or not converted (a JSON that does not parse);
@@ -579,7 +582,7 @@ administrator the choice, in the review state of the dialog, per form of the exp
 |---|---|
 | **Results only** (the default) | The results entry alone, without a form: see [Results only](#results-only). |
 | **Create the form** | What iteration 1 writes: the form in `imported-forms`, then its entry. |
-| **Attach to an existing form** `F` | The submissions under the entry of `F`, their values named after the fields of `F` through [the mapping](#the-mapping), and `F` takes `fmdbmix:importedForm` with the keys of the source, so that a later run finds it. Nothing is created but the entry of `F` when it has none. |
+| **Attach to an existing form** `F` | The submissions under the entry of `F`, their values named after the fields of `F` through [the mapping](#the-mapping); the entry of `F` takes the keys of the source in `sourceFormIds` and the mapping in `mappings`, so that a later run finds it and names the values the same way. `F` itself is not marked, since several sources can attach to one form and `fmdbmix:importedForm` holds the keys of one. Nothing is created but the entry of `F` when it has none. The start of the import refuses an attachment to a form that is not a form of the site, a mapping that names a field the dry run did not list, and a mapping that sends a field to the name another field of the source keeps. |
 
 The same mapping serves an **Attach to another form** action on an entry of the Results page, shown on
 the entries that carry `fmdbmix:importedResults`: an administrator moves the imported results of one Forms
@@ -652,11 +655,15 @@ order:
 3. **A choice by hand.** Otherwise, the administrator picks a field of `F`, or keeps the name as it is. A
    kept name shows on the Results page after the known fields, under its own name.
 
-A field of `F` takes at most one name. The page refuses a mapping that sends two names to the same field,
-because a submission that holds both would lose one of its values.
+A field of `F` takes at most one name: a field picked in one row leaves the menus of the other rows, and
+so does the name of another field of the source, kept or mapped away, because a rename cannot chain on
+another in one pass (a chain of renames is two attachments). The page still refuses, and the server with
+it, a mapping that sends two names to the same field or to the name of another field of the source, because
+a submission that holds both would lose one of its values.
 
-For a choice field, the page lists the imported values that no option of the matched field carries. The
-attachment keeps these values as they are.
+For a choice field, the page lists the imported values that no option of the matched field carries: the dry
+run reports, per field, the distinct values the submissions hold, up to thirty, and the page reads the
+options of the fields of `F`. The attachment keeps these values as they are.
 
 The page shows the mapping as a dry run before it writes anything.
 
@@ -707,17 +714,19 @@ mapping or to another form.
   show the running import, then its report, and the report must be readable after a reload until
   **Close**. An XML export, and a zip without results, must end in the failed state with the procedure.
   An **Import** clicked while another import runs on the site must be refused with its reason.
-- **A Cypress spec for iteration 2.** The spec imports the sample with the default choice and checks that
-  no form was created, that the three entries show **Imported, no form** with the system names as
-  columns, that their exports carry those names, that an editor granted nothing sees none of them, and
-  that a second run adds nothing. It then imports a second export with the two other choices: a form
-  created, and the results attached at import time to a form with three fields, one with the same node
-  name, one with the same label, and one that the administrator picks, the values landing under the
-  names of that form. It then attaches the results-only entry to a form through the action on the entry,
-  checks the labels, the renamed values and the readers, attaches a second source to the same form and
-  checks the merge: neither a native submission of the form nor the submissions of the first source lose
-  a value that holds a name the second mapping renames. Last, it deletes the form and checks that the
-  entry shows **Form deleted**.
+- **The same Cypress spec for iteration 2.** The spec imports the sample with the default choice and
+  checks that no form was created, that the three entries show **Imported, no form** with the system names
+  as columns, that a second run adds nothing, and, once the entries are deleted, that the forms are created
+  on request. It then deletes one created form with its entry, builds a form by hand with three fields,
+  one with the same node name, one with the same label, and one that the administrator picks, and attaches
+  the results of that source at import time: the dialog waits for the form to be picked, matches the first
+  field, proposes the second, refuses two fields sent to one field of the form with the name they collide
+  on, and the values land under the names of that form, the entry of the form carrying the mapping and
+  showing on the Results page with its labels. Still to write: the attachment of a results-only entry to a
+  form through the action on the entry, with the labels, the renamed values and the readers checked, a
+  second source attached to the same form and the merge checked (neither a native submission of the form
+  nor the submissions of the first source lose a value that holds a name the second mapping renames), and
+  the deleted form leaving the entry on **Form deleted**.
 
 ## Open points
 
