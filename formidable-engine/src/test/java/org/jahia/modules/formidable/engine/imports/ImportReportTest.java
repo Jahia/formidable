@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.engine.imports;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 
@@ -11,6 +12,26 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ImportReportTest {
+
+    @Test
+    void aFieldListsTheDistinctValuesItMetUpToTheCap() {
+        ImportReport report = new ImportReport(true);
+        ImportReport.FormEntry survey = report.form("survey", Map.of()).field("colour", "fmdb:select", List.of()).field("name", "fmdb:inputText", List.of());
+        survey.values("colour", List.of("red", "", "blue")).values("colour", List.of("red", "green"));
+        for (int i = 0; i < ImportReport.VALUES_LISTED + 5; i++) {
+            survey.values("name", List.of("visitor " + i));
+        }
+        survey.values("name", List.of("visitor 0"));
+
+        JSONArray fields = report.toJson().getJSONArray("forms").getJSONObject(0).getJSONArray("fields");
+
+        JSONObject colour = fields.getJSONObject(0);
+        assertEquals(List.of("red", "blue", "green"), colour.getJSONArray("values").toList());
+        assertFalse(colour.getBoolean("moreValues"));
+        JSONObject name = fields.getJSONObject(1);
+        assertEquals(ImportReport.VALUES_LISTED, name.getJSONArray("values").length());
+        assertTrue(name.getBoolean("moreValues"));
+    }
 
     @Test
     void theFiguresOfAFormAddUpAndAMissingFileIsReportedNotCounted() {

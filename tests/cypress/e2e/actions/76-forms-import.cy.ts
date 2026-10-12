@@ -1,5 +1,5 @@
 import {deleteNode, publishAndWaitJobEnding} from '@jahia/cypress';
-import {createFormNode, FORMIDABLE_TEST_SITE, type JahiaNode} from '../../support/fixtures';
+import {createFormNode, FORMIDABLE_TEST_SITE, getSelectNode, type JahiaNode} from '../../support/fixtures';
 import {withSameOriginHeaders} from '../security/support';
 import {useFormidableSite} from '../support/useFormidableSite';
 
@@ -27,7 +27,8 @@ const SAMPLE = {
 
 /**
  * The form built by hand the results of newsletterregistration (firstname, lastname, enter-your-email-here)
- * attach to: a field of the same node name, one of the same label, one the administrator picks.
+ * attach to: a field of the same node name, one of the same label, one the administrator picks, and a choice
+ * field whose options carry none of the imported values.
  */
 const ATTACH = {
 	source: 'newsletterregistration',
@@ -37,9 +38,12 @@ const ATTACH = {
 		{name: 'firstname', title: 'First name', type: 'fmdb:inputText'},
 		{name: 'surname', title: 'Lastname', type: 'fmdb:inputText'},
 		{name: 'email', title: 'Email', type: 'fmdb:inputEmail'}
-	]
+	],
+	choice: {name: 'topic', title: 'Topic', options: [{value: 'sales', label: 'Sales'}, {value: 'support', label: 'Support'}]}
 };
 const MENU = '.moonstone-menu:not(.moonstone-hidden)';
+/** The overlay a Moonstone menu opens over: a click on it closes the menu without picking anything. */
+const MENU_OVERLAY = '.moonstone-menu_overlay';
 
 type Workspace = 'EDIT' | 'LIVE';
 type NamedNode = {name: string; primaryNodeType: {name: string}};
@@ -175,9 +179,10 @@ const reportForm = (name: string) => cy.get(`[data-sel-role="import-report-form"
 const choose = (name: string, choice: 'resultsOnly' | 'create' | 'attach') =>
 	cy.get(`#import-choice-${name}-${choice}`).check({force: true});
 
-/** Opens a Moonstone dropdown of the dialog and picks the item of that label. */
-const pickInDropdown = (dropdown: Cypress.Chainable<JQuery>, label: string) => {
-	dropdown.find('.moonstone-dropdown_container').click();
+/** Opens a Moonstone dropdown of the dialog, once it has loaded its data, and picks the item of that label. */
+const pickInDropdown = (dropdown: () => Cypress.Chainable<JQuery>, label: string) => {
+	dropdown().find('.moonstone-dropdown_loading', {timeout: 15000}).should('not.exist');
+	dropdown().find('.moonstone-dropdown_container').click();
 	cy.get(MENU).contains('.moonstone-menuItem', label).click();
 	cy.get(MENU).should('not.exist');
 };
@@ -416,11 +421,14 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		// the created form and its entry are gone: the export offers the choice for that form again
 		deleteNode(`${IMPORTED_FORMS_PATH}/${ATTACH.source}`);
 		deleteNode(`${RESULTS_ROOT_PATH}/${ATTACH.source}`, 'LIVE');
-		const fields: JahiaNode[] = ATTACH.fields.map(field => ({
-			name: field.name,
-			primaryNodeType: field.type,
-			properties: [{name: 'jcr:title', value: field.title, language: 'en'}]
-		}));
+		const fields: JahiaNode[] = [
+			...ATTACH.fields.map(field => ({
+				name: field.name,
+				primaryNodeType: field.type,
+				properties: [{name: 'jcr:title', value: field.title, language: 'en'}]
+			})),
+			getSelectNode(ATTACH.choice)
+		];
 		let formId = '';
 		createFormNode(ATTACH.form, ATTACH.title, fields).then((response: {data?: {jcr?: {addNode?: {uuid?: string}}}}) => {
 			formId = response?.data?.jcr?.addNode?.uuid ?? '';
@@ -437,7 +445,7 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		reportForm(ATTACH.source).should('have.attr', 'data-sel-outcome', 'attached').and('contain', 'Pick the form');
 		// nothing starts until the form is picked
 		cy.get('[data-sel-role="import-confirm"]').should('be.disabled');
-		pickInDropdown(reportForm(ATTACH.source).find('[data-sel-role="import-attach-form"]'), ATTACH.title);
+		pickInDropdown(() => reportForm(ATTACH.source).find('[data-sel-role="import-attach-form"]'), ATTACH.title);
 		reportForm(ATTACH.source).should('contain', `${CONTENTS_PATH}/${ATTACH.form}`);
 
 		// the same node name is matched, the same label proposed, the third field keeps its name until picked
@@ -445,14 +453,20 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		mappingRow('lastname').should('have.attr', 'data-sel-target', 'surname').and('have.attr', 'data-sel-rule', 'sameLabel');
 		mappingRow('enter-your-email-here').should('have.attr', 'data-sel-target', '').and('have.attr', 'data-sel-rule', '');
 		cy.get('[data-sel-role="import-confirm"]').should('be.enabled');
-		// two fields sent to one field of the form hold the import, with the name they collide on
-		pickInDropdown(mappingRow('lastname').find('[data-sel-role="import-mapping-target"]'), 'Email');
-		pickInDropdown(mappingRow('enter-your-email-here').find('[data-sel-role="import-mapping-target"]'), 'Email');
-		cy.get('[data-sel-role="import-mapping-conflict"]').should('contain', 'email');
-		cy.get('[data-sel-role="import-confirm"]').should('be.disabled');
-		pickInDropdown(mappingRow('lastname').find('[data-sel-role="import-mapping-target"]'), 'Lastname');
+		// a choice field lists the imported values none of its options carries
+		pickInDropdown(() => mappingRow('lastname').find('[data-sel-role="import-mapping-target"]'), 'Topic');
+		mappingRow('lastname').find('[data-sel-role="import-mapping-unmatched"]').should('contain', 'match no option');
+		pickInDropdown(() => mappingRow('lastname').find('[data-sel-role="import-mapping-target"]'), 'Lastname');
 		mappingRow('lastname').should('have.attr', 'data-sel-target', 'surname').and('have.attr', 'data-sel-rule', 'sameLabel');
+		mappingRow('lastname').find('[data-sel-role="import-mapping-unmatched"]').should('not.exist');
+		pickInDropdown(() => mappingRow('enter-your-email-here').find('[data-sel-role="import-mapping-target"]'), 'Email');
 		mappingRow('enter-your-email-here').should('have.attr', 'data-sel-target', 'email');
+		// a field of the form picked in one row leaves the menus of the others: no two fields can land together
+		mappingRow('lastname').find('.moonstone-dropdown_container').click();
+		cy.get(MENU).contains('.moonstone-menuItem', 'Lastname').should('exist');
+		cy.get(MENU).contains('.moonstone-menuItem', 'Email').should('not.exist');
+		cy.get(MENU_OVERLAY).first().click('topLeft', {force: true});
+		cy.get(MENU).should('not.exist');
 		cy.get('[data-sel-role="import-mapping-conflict"]').should('not.exist');
 
 		cy.get('[data-sel-role="import-confirm"]').click();

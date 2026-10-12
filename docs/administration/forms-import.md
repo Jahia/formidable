@@ -49,8 +49,10 @@ results: the import refuses them with this procedure.
 4. Choose, for each form that is not there yet, what receives its results: **Results only**, **Create the
    form**, or **Attach to an existing form**. For an attachment, pick the form, then check where each field
    lands: a field of the form marked **same name** or **same label** was matched for you; pick a field for
-   the others, or leave **Keep the name**. Two fields cannot land under the same name: the dialog says
-   which name they collide on, and the import waits until they do not.
+   the others, or leave **Keep the name**. A field of the form picked in one row is no longer offered in the
+   others, nor is the name of another field of the source, so that no two fields land under one name. For a
+   choice field, the row lists the imported values that none of its options carries: they are kept as they
+   are, so add the options or pick another field.
 5. Click **Import**. The import runs on the server, by batches; the dialog follows it and can be closed
    meanwhile — opening it again shows the running import, then its report. One import runs at a time per
    site.

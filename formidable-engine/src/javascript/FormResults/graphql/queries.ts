@@ -190,6 +190,9 @@ export const GET_FORM_FIELD_LABELS = gql`
                                 isDate: isNodeType(type: {types: ["fmdbmix:dateField"]})
                                 isDatetime: isNodeType(type: {types: ["fmdbmix:datetimeLocalField"]})
                                 nonSubmittable: isNodeType(type: {types: ["fmdbmix:nonSubmittable"]})
+                                options: property(name: "options", language: $language) {
+                                    values
+                                }
                             }
                         }
                     }

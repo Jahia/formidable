@@ -276,7 +276,8 @@
 				"noFields": "This form has no field: every value keeps its name",
 				"sameName": "same name",
 				"sameLabel": "same label",
-				"conflict": "Two fields cannot land under the same name: {{names}}"
+				"conflict": "Two fields cannot land under the same name, nor under the name of another field of the source: {{names}}",
+				"unmatched": "{{count}} value(s) match no option of this field: {{values}}"
 			}
 		}
 	},

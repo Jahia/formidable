@@ -221,7 +221,10 @@ public final class FormsImportRun {
                 }
                 ImportedSubmission converted = converters.get(submission.formName()).convert(submission);
                 count(entry, submission, converted);
-                if (!dryRun) {
+                if (dryRun) {
+                    // the dialog matches these against the options of the form the results may attach to
+                    converted.values().forEach(entry::values);
+                } else {
                     write(entries.get(source.form().name()), converted, entry);
                     if (++pending[0] >= BATCH_SIZE) {
                         saveBatch();

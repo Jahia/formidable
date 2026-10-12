@@ -12,8 +12,9 @@ import java.util.Map;
 /**
  * Refuses the choices of a review that the import could not honour (docs/architecture/forms-import.md,
  * "The mapping"): an attachment to a form that is not a form of the site, a mapping that names a field the
- * dry run did not list for the source, or that sends a field to the name another field of the source keeps,
- * where a submission holding both would lose one of its values.
+ * dry run did not list for the source, or that sends a field to the name of another field of the source,
+ * kept or mapped away: a submission holding both would lose one of its values, and a rename cannot chain on
+ * another in one pass, so a chain of renames is two attachments.
  */
 final class ChoicesCheck {
 
@@ -51,9 +52,9 @@ final class ChoicesCheck {
                 throw new ImportJobs.RefusedException(sourceName + " has no field named " + name.getKey());
             }
             String target = name.getValue();
-            if (!mapping.containsKey(target) && fields.contains(target)) {
+            if (!target.equals(name.getKey()) && fields.contains(target)) {
                 throw new ImportJobs.RefusedException("the field " + name.getKey() + " of " + sourceName + " cannot land under "
-                        + target + ", the name another field of the form keeps");
+                        + target + ", the name of another field of the source");
             }
         }
     }

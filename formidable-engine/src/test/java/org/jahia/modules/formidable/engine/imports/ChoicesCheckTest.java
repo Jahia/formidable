@@ -20,7 +20,7 @@ class ChoicesCheckTest {
 
     @Test
     void anAttachmentToAFormOfTheSiteWithAMappingOfItsFieldsPasses() {
-        Map<String, FormChoice> choices = Map.of("survey", FormChoice.attachTo(FORM, Map.of("your-name", "name", "email", "mail", "your-email", "email")));
+        Map<String, FormChoice> choices = Map.of("survey", FormChoice.attachTo(FORM, Map.of("your-name", "name", "email", "mail")));
 
         assertDoesNotThrow(() -> ChoicesCheck.check(choices, REPORT, SITE_FORMS));
         assertDoesNotThrow(() -> ChoicesCheck.check(Map.of("survey", FormChoice.CREATE), null, id -> null));
@@ -42,6 +42,16 @@ class ChoicesCheckTest {
         ImportJobs.RefusedException refused = assertThrows(ImportJobs.RefusedException.class, () -> ChoicesCheck.check(choices, REPORT, SITE_FORMS));
 
         assertTrue(refused.getMessage().contains("your-phone"));
+    }
+
+    @Test
+    void aFieldSentToTheNameOfAnotherFieldMappedAwayIsRefused() {
+        // a chain: your-email takes the name of email, which goes on to contact; a rename cannot apply it in one pass
+        Map<String, FormChoice> choices = Map.of("survey", FormChoice.attachTo(FORM, Map.of("your-email", "email", "email", "contact")));
+
+        ImportJobs.RefusedException refused = assertThrows(ImportJobs.RefusedException.class, () -> ChoicesCheck.check(choices, REPORT, SITE_FORMS));
+
+        assertTrue(refused.getMessage().contains("another field of the source"));
     }
 
     @Test

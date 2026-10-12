@@ -24,6 +24,7 @@ import {
     refuseFile,
     type SiteForm,
     startImport,
+    type TargetField,
     uploadExport
 } from './import.utils';
 
@@ -57,6 +58,11 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
     const [errorMessage, setErrorMessage] = useState('');
     // What receives the results of each form of the export, chosen in the review; the results alone by default.
     const [choices, setChoices] = useState<Record<string, ImportChoice>>({});
+    // The fields of the forms an attachment read so far, by identifier: held here so that a card remounted keeps its rows.
+    const [targetFields, setTargetFields] = useState<Record<string, TargetField[]>>({});
+    const rememberTargetFields = useCallback((formId: string, fields: TargetField[]) => {
+        setTargetFields(previous => ({...previous, [formId]: fields}));
+    }, []);
     const [isDragging, setIsDragging] = useState(false);
     const importedRef = useRef(initialJob?.state === 'done');
     // The forms of the site an attachment can pick: read once the review shows, fresh, a form may have been built for it.
@@ -158,6 +164,9 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
         setJob(null);
         setFileName('');
         setErrorMessage('');
+        // the choices went with the report they were made on
+        setChoices({});
+        setTargetFields({});
         setState('waiting');
     };
 
@@ -284,6 +293,8 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                                 t={t}
                                 choices={choices}
                                 siteForms={siteForms}
+                                targetFields={targetFields}
+                                onTargetFields={rememberTargetFields}
                                 onChoice={(sourceName, choice) => setChoices(previous => ({...previous, [sourceName]: choice}))}
                             />
                         </>
@@ -355,10 +366,13 @@ interface ReportViewProps extends ReportProps {
     choices?: Record<string, ImportChoice>;
     /** The forms of the site an attachment can pick, null while they load. */
     siteForms?: SiteForm[] | null;
+    /** The fields of the forms read so far, by identifier, and how to keep the ones read next. */
+    targetFields?: Record<string, TargetField[]>;
+    onTargetFields?: (formId: string, fields: TargetField[]) => void;
     onChoice?: (sourceName: string, choice: ImportChoice) => void;
 }
 
-const ReportView = ({report, language, t, choices, siteForms, onChoice}: ReportViewProps) => (
+const ReportView = ({report, language, t, choices, siteForms, targetFields, onTargetFields, onChoice}: ReportViewProps) => (
     <div data-sel-role="import-report" style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
         <Typography data-sel-role="import-totals">
             {t('formResults.import.report.totals', {
@@ -371,7 +385,18 @@ const ReportView = ({report, language, t, choices, siteForms, onChoice}: ReportV
             <Typography data-sel-role="import-nothing">{t('formResults.import.report.nothing')}</Typography>
         )}
         {report.forms.map(form => (
-            <FormReport key={form.sourceName} form={form} report={report} language={language} t={t} choices={choices} siteForms={siteForms} onChoice={onChoice}/>
+            <FormReport
+                key={form.sourceName}
+                form={form}
+                report={report}
+                language={language}
+                t={t}
+                choices={choices}
+                siteForms={siteForms}
+                targetFields={targetFields}
+                onTargetFields={onTargetFields}
+                onChoice={onChoice}
+            />
         ))}
     </div>
 );
@@ -423,7 +448,7 @@ function outcomeOf(form: ImportReportForm, choice: ImportChoice | undefined, ste
     return OUTCOME_OF_CHOICE[kindOf(choice)];
 }
 
-const FormReport = ({form, report, language, t, choices, siteForms, onChoice}: FormReportProps) => {
+const FormReport = ({form, report, language, t, choices, siteForms, targetFields, onTargetFields, onChoice}: FormReportProps) => {
     const steerable = Boolean(onChoice) && form.outcome !== 'found';
     const choice = choices?.[form.sourceName];
     const outcome = outcomeOf(form, choice, Boolean(onChoice));
@@ -487,11 +512,13 @@ const FormReport = ({form, report, language, t, choices, siteForms, onChoice}: F
             ) : null}
             {steerable && attachment && (
                 <AttachToForm
-                    form={form}
+                    sourceFields={form.fields}
                     choice={attachment}
                     siteForms={siteForms ?? null}
+                    targetFields={targetFields ?? {}}
                     language={language}
                     t={t}
+                    onTargetFields={onTargetFields ?? (() => undefined)}
                     onChange={(next: AttachChoice) => onChoice?.(form.sourceName, next)}
                 />
             )}

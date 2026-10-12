@@ -8,6 +8,10 @@ export interface ImportReportField {
     type: string;
     /** The titles of the source field by language: what the mapping matches the fields of an existing form on. */
     titles?: Record<string, string>;
+    /** The distinct values the submissions hold for the field, up to a cap: matched against the options of a choice field. */
+    values?: string[];
+    /** Whether the submissions hold more distinct values than listed. */
+    moreValues?: boolean;
     notes: string[];
 }
 
@@ -165,10 +169,12 @@ export interface SiteForm {
     title: string;
 }
 
-/** A field of the form the results attach to, as the mapping offers it: its node name and its label in the user's language. */
+/** A field of the form the results attach to, as the mapping offers it: its node name, its label in the user's language, and its options. */
 export interface TargetField {
     name: string;
     label: string;
+    /** The values of the options of a choice field with manual options; null for any other field. */
+    options: string[] | null;
 }
 
 /** How a field of the form came to be proposed for a source field. */
@@ -196,8 +202,32 @@ export function parseSiteForms(data: GqlSiteFormsResponse | undefined): SiteForm
 }
 
 type GqlMappableFieldsResponse = {
-    jcr?: {nodeById?: {fields?: {nodes?: Array<{descendants?: {nodes?: Array<{name: string; displayName?: string; nonSubmittable?: boolean}>}}>}}};
+    jcr?: {nodeById?: {fields?: {nodes?: Array<{descendants?: {nodes?: Array<{
+        name: string;
+        displayName?: string;
+        nonSubmittable?: boolean;
+        options?: {values?: string[]} | null;
+    }>}}>}}};
 };
+
+/** The values of the manual options of a field, stored as one JSON per option; null when the field holds none. */
+function optionValuesOf(stored: string[] | undefined | null): string[] | null {
+    if (!stored || stored.length === 0) {
+        return null;
+    }
+    const values: string[] = [];
+    stored.forEach(option => {
+        try {
+            const parsed = JSON.parse(option) as {value?: unknown};
+            if (typeof parsed.value === 'string') {
+                values.push(parsed.value);
+            }
+        } catch {
+            // not an option as the editor stores them: ignored
+        }
+    });
+    return values;
+}
 
 /**
  * Reads GET_FORM_FIELD_LABELS for the mapping: the fields a submission holds a value for, in the order of the
@@ -207,7 +237,32 @@ export function parseTargetFields(data: GqlMappableFieldsResponse | undefined): 
     const nodes = data?.jcr?.nodeById?.fields?.nodes?.[0]?.descendants?.nodes ?? [];
     return nodes
         .filter(node => typeof node.name === 'string' && node.name && !node.nonSubmittable)
-        .map(node => ({name: node.name, label: node.displayName || node.name}));
+        .map(node => ({name: node.name, label: node.displayName || node.name, options: optionValuesOf(node.options?.values)}));
+}
+
+/** The values of a source field that no option of the field it lands under carries; none for a field without options. */
+export function unmatchedValues(field: ImportReportField, target: TargetField | undefined): string[] {
+    if (!target?.options) {
+        return [];
+    }
+    const options = new Set(target.options);
+    return (field.values ?? []).filter(value => !options.has(value));
+}
+
+/**
+ * The fields of the form a row may pick: not one picked by another row, nor one named like another field of
+ * the source, so that no two fields land together and no rename chains on another (the row keeps its own pick).
+ */
+export function availableTargets(field: ImportReportField, sourceFields: ImportReportField[], mapping: Record<string, string>, targets: TargetField[]): TargetField[] {
+    const taken = new Set<string>();
+    sourceFields.filter(other => other.name !== field.name).forEach(other => {
+        taken.add(other.name);
+        if (mapping[other.name]) {
+            taken.add(mapping[other.name]);
+        }
+    });
+    const own = mapping[field.name];
+    return targets.filter(target => target.name === own || !taken.has(target.name));
 }
 
 /**
@@ -247,14 +302,24 @@ export const mappingOf = (proposals: Record<string, MappingProposal>): Record<st
 /** The name the values of a field land under: the field of the mapping, else the name kept. */
 export const landingName = (field: string, mapping: Record<string, string>): string => mapping[field] || field;
 
-/** The names two source fields would both land under, where a submission holding both would lose a value. */
+/**
+ * The names the mapping cannot be applied with: a name two source fields would both land under, where a
+ * submission holding both would lose a value, and a target that is the name of another field of the source,
+ * mapped away or not, which a rename cannot reach in one pass (the attachment is done twice instead).
+ */
 export function mappingConflicts(sourceFields: ImportReportField[], mapping: Record<string, string>): string[] {
     const sourcesByName = new Map<string, number>();
+    const names = new Set(sourceFields.map(field => field.name));
+    const conflicts = new Set<string>();
     sourceFields.forEach(field => {
         const name = landingName(field.name, mapping);
         sourcesByName.set(name, (sourcesByName.get(name) ?? 0) + 1);
+        if (name !== field.name && names.has(name)) {
+            conflicts.add(name);
+        }
     });
-    return [...sourcesByName.entries()].filter(([, count]) => count > 1).map(([name]) => name);
+    [...sourcesByName.entries()].filter(([, count]) => count > 1).forEach(([name]) => conflicts.add(name));
+    return [...conflicts];
 }
 
 /** Why an attachment cannot start yet: no form picked, or a name two fields land under. */

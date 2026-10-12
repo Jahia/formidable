@@ -5,8 +5,10 @@ import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The report of a dry run or of an import (docs/architecture/forms-import.md, "Running it"): per source
@@ -29,10 +31,16 @@ public final class ImportReport {
         }
     }
 
+    /** The distinct values a field is reported with: enough for the dialog to tell a choice field's options from them. */
+    public static final int VALUES_LISTED = 30;
+
     /** The figures of one source form. */
     public static final class FormEntry {
         private final String sourceName;
         private final Map<String, String> titles;
+        /** The distinct values met per field, capped at {@link #VALUES_LISTED}; the names past the cap are in {@code moreValues}. */
+        private final Map<String, Set<String>> values = new LinkedHashMap<>();
+        private final Set<String> moreValues = new LinkedHashSet<>();
         private String targetName;
         private String targetPath;
         private FormOutcome outcome;
@@ -79,6 +87,25 @@ public final class ImportReport {
             return this;
         }
 
+        /**
+         * The values a submission holds for a field, kept distinct up to the cap: what the dialog matches
+         * against the options of a choice field of the form the results attach to.
+         */
+        public FormEntry values(String field, List<String> submitted) {
+            Set<String> distinct = values.computeIfAbsent(field, name -> new LinkedHashSet<>());
+            for (String value : submitted) {
+                if (value == null || value.isBlank()) {
+                    continue;
+                }
+                if (distinct.size() >= VALUES_LISTED && !distinct.contains(value)) {
+                    moreValues.add(field);
+                } else {
+                    distinct.add(value);
+                }
+            }
+            return this;
+        }
+
         public FormEntry submissionFound() {
             submissionsFound++;
             return this;
@@ -118,13 +145,20 @@ public final class ImportReport {
         }
 
         JSONObject toJson() {
+            JSONArray reported = new JSONArray();
+            for (JSONObject field : fields) {
+                String name = field.getString("name");
+                reported.put(new JSONObject(field.toString())
+                        .put("values", new JSONArray(values.getOrDefault(name, Set.of())))
+                        .put("moreValues", moreValues.contains(name)));
+            }
             return new JSONObject()
                     .put("sourceName", sourceName)
                     .put("titles", new JSONObject(titles))
                     .put("targetName", targetName)
                     .put("targetPath", targetPath)
                     .put("outcome", outcome == null ? JSONObject.NULL : outcome.json)
-                    .put("fields", new JSONArray(fields))
+                    .put("fields", reported)
                     .put("notes", new JSONArray(notes))
                     .put("submissions", new JSONObject()
                             .put("found", submissionsFound)

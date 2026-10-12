@@ -539,7 +539,8 @@ run, except for what another import wrote in between.
 The report gives, per Forms form:
 
 - the form it creates, with its name in `imported-forms`, or the form it found from an earlier run;
-- its fields, with the system name and the type each one takes, and the fields, rules, actions and
+- its fields, with the system name and the type each one takes, their titles and the distinct values the
+  submissions hold (up to thirty, for the mapping of an attachment), and the fields, rules, actions and
   settings that are reported because Formidable has no equivalent;
 - the number of submissions found, to import and already imported;
 - the values converted, dropped (passwords) or not converted (a JSON that does not parse);
@@ -654,11 +655,15 @@ order:
 3. **A choice by hand.** Otherwise, the administrator picks a field of `F`, or keeps the name as it is. A
    kept name shows on the Results page after the known fields, under its own name.
 
-A field of `F` takes at most one name. The page refuses a mapping that sends two names to the same field,
-because a submission that holds both would lose one of its values.
+A field of `F` takes at most one name: a field picked in one row leaves the menus of the other rows, and
+so does the name of another field of the source, kept or mapped away, because a rename cannot chain on
+another in one pass (a chain of renames is two attachments). The page still refuses, and the server with
+it, a mapping that sends two names to the same field or to the name of another field of the source, because
+a submission that holds both would lose one of its values.
 
-For a choice field, the page lists the imported values that no option of the matched field carries. The
-attachment keeps these values as they are.
+For a choice field, the page lists the imported values that no option of the matched field carries: the dry
+run reports, per field, the distinct values the submissions hold, up to thirty, and the page reads the
+options of the fields of `F`. The attachment keeps these values as they are.
 
 The page shows the mapping as a dry run before it writes anything.
 

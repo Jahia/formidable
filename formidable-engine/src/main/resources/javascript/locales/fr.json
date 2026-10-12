@@ -276,7 +276,8 @@
 				"noFields": "Ce formulaire n’a aucun champ : chaque valeur garde son nom",
 				"sameName": "même nom",
 				"sameLabel": "même libellé",
-				"conflict": "Deux champs ne peuvent pas atterrir sous le même nom : {{names}}"
+				"conflict": "Deux champs ne peuvent pas atterrir sous le même nom, ni sous le nom d’un autre champ de la source : {{names}}",
+				"unmatched": "{{count}} valeur(s) ne correspondent à aucune option de ce champ : {{values}}"
 			}
 		}
 	},
