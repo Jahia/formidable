@@ -15,8 +15,19 @@ import java.util.Map;
  */
 public final class ImportReport {
 
-    /** What happened to a form: created, or found from an earlier run. */
-    public enum FormOutcome { CREATED, FOUND }
+    /**
+     * What receives the results of a source form: a form created for them, a form or an entry found from an
+     * earlier run, or an entry alone, without a form.
+     */
+    public enum FormOutcome {
+        CREATED("created"), FOUND("found"), RESULTS_ONLY("resultsOnly");
+
+        private final String json;
+
+        FormOutcome(String json) {
+            this.json = json;
+        }
+    }
 
     /** The figures of one source form. */
     public static final class FormEntry {
@@ -103,7 +114,7 @@ public final class ImportReport {
                     .put("titles", new JSONObject(titles))
                     .put("targetName", targetName)
                     .put("targetPath", targetPath)
-                    .put("outcome", outcome == null ? JSONObject.NULL : outcome.name().toLowerCase())
+                    .put("outcome", outcome == null ? JSONObject.NULL : outcome.json)
                     .put("fields", new JSONArray(fields))
                     .put("notes", new JSONArray(notes))
                     .put("submissions", new JSONObject()
@@ -143,9 +154,9 @@ public final class ImportReport {
         return dryRun;
     }
 
-    /** Whether the import would write anything: a form to create, or a submission to import. */
+    /** Whether the import would write anything: a form or an entry to create, or a submission to import. */
     public boolean hasSomethingToImport() {
-        return forms.values().stream().anyMatch(f -> f.outcome == FormOutcome.CREATED || f.submissionsToImport() > 0);
+        return forms.values().stream().anyMatch(f -> f.outcome != FormOutcome.FOUND || f.submissionsToImport() > 0);
     }
 
     public JSONObject toJson() {

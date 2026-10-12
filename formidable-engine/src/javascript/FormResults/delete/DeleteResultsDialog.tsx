@@ -8,13 +8,15 @@ import {DELETE_FORM_RESULTS, DELETE_SUBMISSIONS, GET_SUBMISSION_COUNT} from '../
 /**
  * The count line of a whole-entry deletion says what goes with the submissions: the form leaves
  * the page until its next submission; until it is published again when it is unpublished; for
- * good when it no longer exists. A form not told apart yet reads like a published one.
+ * good when it no longer exists, or when the entry was imported without a form. A form not told apart yet
+ * reads like a published one.
  */
 const ENTRY_COUNT_LABEL: Record<FormStatus, string> = {
     published: 'formResults.delete.count.all',
     unknown: 'formResults.delete.count.all',
     unpublished: 'formResults.delete.count.allUnpublished',
-    deleted: 'formResults.delete.count.allDeleted'
+    deleted: 'formResults.delete.count.allDeleted',
+    imported: 'formResults.delete.count.allImported'
 };
 
 interface DeleteResultsDialogProps {

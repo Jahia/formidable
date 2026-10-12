@@ -43,6 +43,15 @@ class ImportReportTest {
     }
 
     @Test
+    void anEntryWrittenAloneIsSomethingToImportEvenWithoutASubmission() {
+        ImportReport report = new ImportReport(true);
+        report.form("survey", Map.of()).target("survey", "/sites/x/formidable-results/survey", ImportReport.FormOutcome.RESULTS_ONLY);
+
+        assertTrue(report.hasSomethingToImport());
+        assertEquals("resultsOnly", report.toJson().getJSONArray("forms").getJSONObject(0).getString("outcome"));
+    }
+
+    @Test
     void aReportWhereEveryFormIsFoundAndEverySubmissionImportedHasNothingToImport() {
         ImportReport report = new ImportReport(true);
         report.form("contact-us", Map.of()).target("contact-us", "/sites/x/contents/custom/contact-us", ImportReport.FormOutcome.FOUND)

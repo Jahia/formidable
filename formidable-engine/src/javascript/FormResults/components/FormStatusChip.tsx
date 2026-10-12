@@ -32,5 +32,13 @@ export const FormStatusChip = ({status, style}: FormStatusChipProps) => {
         );
     }
 
+    if (status === 'imported') {
+        return (
+            <span data-sel-role="form-imported" style={style}>
+                <Chip label={t('formResults.sidebar.formImported')} color="accent"/>
+            </span>
+        );
+    }
+
     return null;
 };

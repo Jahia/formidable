@@ -114,10 +114,10 @@ public class ImportWriter {
     public JCRNodeWrapper findForm(String sourceId, String sourceResultsId) throws RepositoryException {
         List<String> keys = new ArrayList<>();
         if (sourceId != null) {
-            keys.add("[" + SOURCE_ID + "] = '" + escape(sourceId) + "'");
+            keys.add(equalTo(SOURCE_ID, sourceId));
         }
         if (sourceResultsId != null) {
-            keys.add("[" + SOURCE_RESULTS_ID + "] = '" + escape(sourceResultsId) + "'");
+            keys.add(equalTo(SOURCE_RESULTS_ID, sourceResultsId));
         }
         if (keys.isEmpty()) {
             return null;
@@ -257,19 +257,65 @@ public class ImportWriter {
         if (formNode.isNew()) {
             throw new IllegalStateException("The form " + formNode.getName() + " must be saved before its results entry is created");
         }
-        JCRNodeWrapper site = live.getNode(SITES + siteKey);
-        JCRNodeWrapper root = SaveToJcrFormAction.getOrCreateResultsRoot(site, live);
+        JCRNodeWrapper root = resultsRoot();
         JCRNodeWrapper entry = findEntry(root, formNode.getIdentifier());
         if (entry == null) {
-            entry = root.addNode(JCRContentUtils.findAvailableNodeName(root, formNode.getName()), FmdbNodeType.FORM_RESULTS);
+            entry = newEntry(root, formNode.getName(), form);
             entry.setProperty(FmdbProperty.PARENT_FORM, formNode.getIdentifier());
-            if (form.buildingLang() != null) {
-                entry.setProperty("buildingLang", form.buildingLang());
-            }
-            JCRNodeWrapper acl = entry.addNode(ACL_NODE, ACL_NODE_TYPE);
-            acl.setProperty(INHERIT_PROPERTY, false);
             FormResultsAclSyncService.syncAclToFormResults(formNode, entry, live);
         }
+        return markImported(entry, form);
+    }
+
+    /**
+     * The entry of the results of a source form imported without a form (docs/architecture/forms-import.md,
+     * "Results only"): created as the entry of a form is, but for the form, so it has no {@code parentForm}
+     * and its readers are the administrators until it is attached to a form.
+     */
+    public JCRNodeWrapper createResultsOnlyEntry(ImportedForm form) throws RepositoryException {
+        return markImported(newEntry(resultsRoot(), form.name(), form), form);
+    }
+
+    /** The entry an earlier run wrote for a source form without a form, by the key of that form; null when none. */
+    public JCRNodeWrapper findResultsOnlyEntry(String sourceKey) throws RepositoryException {
+        if (sourceKey == null) {
+            return null;
+        }
+        String statement = "SELECT * FROM [" + FmdbMixin.IMPORTED_RESULTS + "] AS e WHERE ISDESCENDANTNODE(e, '"
+                + escape(resultsRootPath()) + "') AND e." + equalTo(SOURCE_FORM_IDS, sourceKey);
+        NodeIterator found = live.getWorkspace().getQueryManager().createQuery(statement, Query.JCR_SQL2).execute().getNodes();
+        while (found.hasNext()) {
+            JCRNodeWrapper entry = (JCRNodeWrapper) found.nextNode();
+            // an entry under a form is reached through its form, which a later run finds first
+            if (!entry.hasProperty(FmdbProperty.PARENT_FORM)) {
+                return entry;
+            }
+        }
+        return null;
+    }
+
+    /** The results root of the site, where the entries sit, or its path when it does not exist yet. */
+    public String resultsRootPath() {
+        return SITES + siteKey + "/" + SaveToJcrFormAction.RESULTS_ROOT_NAME;
+    }
+
+    private JCRNodeWrapper resultsRoot() throws RepositoryException {
+        return SaveToJcrFormAction.getOrCreateResultsRoot(live.getNode(SITES + siteKey), live);
+    }
+
+    /** A new entry under the root, named after the source form or the next free name, its ACL inheritance broken. */
+    private static JCRNodeWrapper newEntry(JCRNodeWrapper root, String name, ImportedForm form) throws RepositoryException {
+        JCRNodeWrapper entry = root.addNode(JCRContentUtils.findAvailableNodeName(root, name), FmdbNodeType.FORM_RESULTS);
+        if (form.buildingLang() != null) {
+            entry.setProperty("buildingLang", form.buildingLang());
+        }
+        JCRNodeWrapper acl = entry.addNode(ACL_NODE, ACL_NODE_TYPE);
+        acl.setProperty(INHERIT_PROPERTY, false);
+        return entry;
+    }
+
+    /** Stamps the entry as holding the results of the source form, and splits its submissions by day. */
+    private static JCRNodeWrapper markImported(JCRNodeWrapper entry, ImportedForm form) throws RepositoryException {
         if (!entry.isNodeType(FmdbMixin.IMPORTED_RESULTS)) {
             entry.addMixin(FmdbMixin.IMPORTED_RESULTS);
             entry.setProperty(SOURCE_SYSTEM, form.sourceSystem());
@@ -466,5 +512,10 @@ public class ImportWriter {
 
     private static String escape(String value) {
         return value.replace("'", "''");
+    }
+
+    /** The SQL2 comparison of a property with a value, the value escaped. */
+    private static String equalTo(String property, String value) {
+        return "[" + property + "] = '" + escape(value) + "'";
     }
 }

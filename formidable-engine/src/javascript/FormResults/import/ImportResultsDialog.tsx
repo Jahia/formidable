@@ -1,11 +1,13 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Button, Check, Close, Loader, Typography, Upload} from '@jahia/moonstone';
+import {Button, Check, Close, Loader, RadioGroup, RadioItem, Typography, Upload} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
 import {formatFileSize, uiContext} from '../FormResults.utils';
 import {
     closeJob,
     fetchJob,
     formTitle,
+    groupedFieldNotes,
+    type ImportChoice,
     type ImportJob,
     type ImportReport,
     type ImportReportForm,
@@ -44,6 +46,8 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
     const [job, setJob] = useState<ImportJob | null>(initialJob ?? null);
     const [fileName, setFileName] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
+    // What receives the results of each form of the export, chosen in the review; the results alone by default.
+    const [choices, setChoices] = useState<Record<string, ImportChoice>>({});
     const [isDragging, setIsDragging] = useState(false);
     const importedRef = useRef(initialJob?.state === 'done');
 
@@ -117,7 +121,7 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
         }
         setErrorMessage('');
         try {
-            const started = await startImport(siteKey, job.id);
+            const started = await startImport(siteKey, job.id, choices);
             setJob(started);
             setState(stateOf(started));
         } catch (error) {
@@ -167,19 +171,39 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
             style={{
                 border: 'none',
                 padding: 0,
-                width: '640px',
-                maxWidth: 'calc(100vw - 32px)',
+                // a report needs room: the dialog widens once it shows one
+                width: state === 'review' || state === 'done' ? '960px' : '640px',
+                maxWidth: 'calc(100vw - 48px)',
                 maxHeight: 'calc(100vh - 32px)',
                 backgroundColor: 'var(--color-light)',
-                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.2)'
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
             }}
         >
             <div style={{display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 32px)'}}>
-                <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: '1px solid var(--color-gray_light40)'}}>
-                    <Typography variant="heading" weight="bold">{t('formResults.import.title')}</Typography>
-                    <Button variant="ghost" icon={<Close/>} data-sel-role="import-close-x" onClick={close}/>
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '16px',
+                    padding: '16px 20px',
+                    borderBottom: '1px solid var(--color-gray_light40)'
+                }}>
+                    <div>
+                        <Typography variant="heading" weight="bold">{t('formResults.import.title')}</Typography>
+                        <Typography variant="body" style={{color: 'var(--color-gray)', marginTop: '4px'}}>
+                            {t('formResults.import.description')}
+                        </Typography>
+                    </div>
+                    <Button
+                        variant="ghost"
+                        size="big"
+                        icon={<Close/>}
+                        aria-label={t('formResults.detail.close')}
+                        data-sel-role="import-close-x"
+                        onClick={close}
+                    />
                 </div>
-                <div style={{padding: '24px', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '16px'}}>
+                <div style={{padding: '20px', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '16px'}}>
                     {state === 'waiting' && (
                         <>
                             {/* The whole zone is one button: a click or Enter opens the file picker, a drop takes the file */}
@@ -237,18 +261,24 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                     )}
                     {state === 'review' && job?.report && (
                         <>
-                            <Typography weight="bold">{t('formResults.import.review.title')}</Typography>
-                            <ReportView report={job.report} language={language} t={t}/>
+                            <Typography variant="subheading" weight="bold">{t('formResults.import.review.title')}</Typography>
+                            <ReportView
+                                report={job.report}
+                                language={language}
+                                t={t}
+                                choices={choices}
+                                onChoice={(sourceName, choice) => setChoices(previous => ({...previous, [sourceName]: choice}))}
+                            />
                         </>
                     )}
                     {state === 'done' && job?.report && (
                         <>
                             <div style={{display: 'flex', alignItems: 'center', gap: '8px'}} data-sel-role="import-done">
                                 <Check size="big" color="green"/>
-                                <Typography weight="bold">{t('formResults.import.done.title')}</Typography>
+                                <Typography variant="subheading" weight="bold">{t('formResults.import.done.title')}</Typography>
                             </div>
+                            <NextSteps report={job.report} language={language} t={t}/>
                             <ReportView report={job.report} language={language} t={t}/>
-                            <Typography data-sel-role="import-next-step">{t('formResults.import.done.nextStep')}</Typography>
                         </>
                     )}
                     {state === 'failed' && (
@@ -261,26 +291,26 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                         <Typography color="danger" data-sel-role="import-error">{errorMessage}</Typography>
                     )}
                 </div>
-                <div style={{display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '16px 24px', borderTop: '1px solid var(--color-gray_light40)'}}>
+                <div style={{display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '0 20px 20px'}}>
                     {(state === 'waiting' || state === 'analysing') && (
-                        <Button label={t('formResults.import.actions.cancel')} data-sel-role="import-cancel" onClick={close}/>
+                        <Button size="big" variant="outlined" label={t('formResults.import.actions.cancel')} data-sel-role="import-cancel" onClick={close}/>
                     )}
                     {state === 'review' && job?.report?.nothingToImport && (
-                        <Button label={t('formResults.import.actions.close')} data-sel-role="import-close" onClick={close}/>
+                        <Button size="big" variant="outlined" label={t('formResults.import.actions.close')} data-sel-role="import-close" onClick={close}/>
                     )}
                     {state === 'review' && !job?.report?.nothingToImport && (
                         <>
-                            <Button label={t('formResults.import.actions.cancel')} data-sel-role="import-cancel" onClick={close}/>
-                            <Button color="accent" label={t('formResults.import.actions.import')} data-sel-role="import-confirm" onClick={handleImport}/>
+                            <Button size="big" variant="outlined" label={t('formResults.import.actions.cancel')} data-sel-role="import-cancel" onClick={close}/>
+                            <Button size="big" color="accent" icon={<Upload/>} label={t('formResults.import.actions.import')} data-sel-role="import-confirm" onClick={handleImport}/>
                         </>
                     )}
                     {(state === 'importing' || state === 'done') && (
-                        <Button color="accent" label={t('formResults.import.actions.close')} data-sel-role="import-close" onClick={close}/>
+                        <Button size="big" color="accent" label={t('formResults.import.actions.close')} data-sel-role="import-close" onClick={close}/>
                     )}
                     {state === 'failed' && (
                         <>
-                            <Button label={t('formResults.import.actions.close')} data-sel-role="import-close" onClick={close}/>
-                            <Button color="accent" label={t('formResults.import.actions.tryAgain')} data-sel-role="import-try-again" onClick={tryAgain}/>
+                            <Button size="big" variant="outlined" label={t('formResults.import.actions.close')} data-sel-role="import-close" onClick={close}/>
+                            <Button size="big" color="accent" label={t('formResults.import.actions.tryAgain')} data-sel-role="import-try-again" onClick={tryAgain}/>
                         </>
                     )}
                 </div>
@@ -289,13 +319,19 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
     );
 };
 
-interface ReportViewProps {
+interface ReportProps {
     report: ImportReport;
     language: string;
     t: (key: string, options?: Record<string, unknown>) => string;
 }
 
-const ReportView = ({report, language, t}: ReportViewProps) => (
+interface ReportViewProps extends ReportProps {
+    /** The choices of the review, when the report is a dry run the administrator can still steer. */
+    choices?: Record<string, ImportChoice>;
+    onChoice?: (sourceName: string, choice: ImportChoice) => void;
+}
+
+const ReportView = ({report, language, t, choices, onChoice}: ReportViewProps) => (
     <div data-sel-role="import-report" style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
         <Typography data-sel-role="import-totals">
             {t('formResults.import.report.totals', {
@@ -307,42 +343,97 @@ const ReportView = ({report, language, t}: ReportViewProps) => (
         {report.nothingToImport && (
             <Typography data-sel-role="import-nothing">{t('formResults.import.report.nothing')}</Typography>
         )}
-        {report.forms.map(form => <FormReport key={form.sourceName} form={form} report={report} language={language} t={t}/>)}
+        {report.forms.map(form => (
+            <FormReport key={form.sourceName} form={form} report={report} language={language} t={t} choices={choices} onChoice={onChoice}/>
+        ))}
     </div>
 );
+
+/** What to do next, per outcome, with the forms it concerns by name: a created form is to review and publish, an entry alone just is. */
+const NextSteps = ({report, language, t}: ReportProps) => {
+    const groups = (['created', 'resultsOnly'] as const)
+        .map(outcome => ({outcome, forms: report.forms.filter(form => form.outcome === outcome)}))
+        .filter(group => group.forms.length > 0);
+    if (groups.length === 0) {
+        return null;
+    }
+    return (
+        <div data-sel-role="import-next-step" style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+            {groups.map(group => (
+                <div key={group.outcome}>
+                    <Typography variant="body">{t(`formResults.import.done.${group.outcome}`)}</Typography>
+                    <ul style={{margin: '4px 0 0', paddingLeft: '20px'}}>
+                        {group.forms.map(form => (
+                            <li key={form.sourceName}><Typography variant="body" weight="bold">{formTitle(form, language)}</Typography></li>
+                        ))}
+                    </ul>
+                </div>
+            ))}
+        </div>
+    );
+};
 
 interface FormReportProps extends ReportViewProps {
     form: ImportReportForm;
 }
 
-const FormReport = ({form, report, language, t}: FormReportProps) => {
-    const fieldNotes = form.fields.flatMap(field => field.notes.map(note => `${field.name}: ${note}`));
+/** What the import will do for a form: the choice of the review while it can still change, else the outcome the server reports. */
+function outcomeOf(form: ImportReportForm, choice: ImportChoice | undefined, steerable: boolean): ImportReportForm['outcome'] {
+    if (form.outcome === 'found' || !steerable) {
+        return form.outcome;
+    }
+    return (choice ?? 'resultsOnly') === 'create' ? 'created' : 'resultsOnly';
+}
+
+const FormReport = ({form, report, language, t, choices, onChoice}: FormReportProps) => {
+    const steerable = Boolean(onChoice) && form.outcome !== 'found';
+    const outcome = outcomeOf(form, choices?.[form.sourceName], Boolean(onChoice));
+    const choice = choices?.[form.sourceName] ?? 'resultsOnly';
+    // what the form itself cannot carry over only matters when a form is created
+    const notes = outcome === 'created' ? [...form.notes, ...groupedFieldNotes(form.fields)] : [];
+    const describe = (what: ImportReportForm['outcome']) => {
+        if (what === 'found') {
+            return t('formResults.import.report.found', {path: form.targetPath});
+        }
+        return what === 'created' ?
+            t('formResults.import.report.created', {name: form.targetName, folder: report.importedFormsFolder}) :
+            t('formResults.import.report.resultsOnly', {name: form.targetName});
+    };
+    const figures = [
+        t('formResults.import.report.submissions', {
+            found: form.submissions.found,
+            toImport: report.dryRun ? form.submissions.toImport : form.submissions.imported,
+            already: form.submissions.alreadyImported
+        }),
+        t('formResults.import.report.fields', {count: form.fields.length}),
+        form.files.count > 0 && t('formResults.import.report.files', {count: form.files.count, size: formatFileSize(form.files.bytes)}),
+        form.files.missing > 0 && t('formResults.import.report.filesMissing', {count: form.files.missing}),
+        (form.values.dropped > 0 || form.values.notConverted > 0) &&
+            t('formResults.import.report.values', {dropped: form.values.dropped, notConverted: form.values.notConverted})
+    ].filter(Boolean).join(' · ');
     return (
-        <div data-sel-role="import-report-form" data-sel-name={form.sourceName} data-sel-outcome={form.outcome ?? ''} style={{border: '1px solid var(--color-gray_light40)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '4px'}}>
-            <Typography weight="bold">{formTitle(form, language)}</Typography>
-            <Typography variant="caption">
-                {form.outcome === 'found' ?
-                    t('formResults.import.report.found', {path: form.targetPath}) :
-                    t('formResults.import.report.created', {name: form.targetName, folder: report.importedFormsFolder})}
-            </Typography>
-            <Typography variant="caption">
-                {t('formResults.import.report.submissions', {
-                    found: form.submissions.found,
-                    toImport: report.dryRun ? form.submissions.toImport : form.submissions.imported,
-                    already: form.submissions.alreadyImported
-                })}
-            </Typography>
-            <Typography variant="caption" data-sel-role="import-report-figures">
-                {t('formResults.import.report.fields', {count: form.fields.length})}
-                {form.files.count > 0 && ` — ${t('formResults.import.report.files', {count: form.files.count, size: formatFileSize(form.files.bytes)})}`}
-                {form.files.missing > 0 && ` — ${t('formResults.import.report.filesMissing', {count: form.files.missing})}`}
-                {(form.values.dropped > 0 || form.values.notConverted > 0) &&
-                    ` — ${t('formResults.import.report.values', {dropped: form.values.dropped, notConverted: form.values.notConverted})}`}
-            </Typography>
-            {(form.notes.length > 0 || fieldNotes.length > 0) && (
-                <ul style={{margin: '4px 0 0', paddingLeft: '20px'}} data-sel-role="import-report-notes">
-                    {[...form.notes, ...fieldNotes].map(note => (
-                        <li key={note}><Typography variant="caption">{note}</Typography></li>
+        <div data-sel-role="import-report-form" data-sel-name={form.sourceName} data-sel-outcome={outcome ?? ''} style={{border: '1px solid var(--color-gray_light40)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px'}}>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '16px', flexWrap: 'wrap'}}>
+                <Typography variant="subheading" weight="bold">{formTitle(form, language)}</Typography>
+                <Typography variant="body" data-sel-role="import-report-figures">{figures}</Typography>
+            </div>
+            {steerable ? (
+                <RadioGroup
+                    name={`import-choice-${form.sourceName}`}
+                    value={choice}
+                    aria-label={t('formResults.import.choice.label')}
+                    data-sel-role="import-choice"
+                    onChange={(_event: React.ChangeEvent<HTMLInputElement>, value: string) => onChoice?.(form.sourceName, value as ImportChoice)}
+                >
+                    <RadioItem id={`import-choice-${form.sourceName}-resultsOnly`} value="resultsOnly" label={t('formResults.import.choice.resultsOnly')}/>
+                    <RadioItem id={`import-choice-${form.sourceName}-create`} value="create" label={t('formResults.import.choice.create')}/>
+                </RadioGroup>
+            ) : null}
+            <Typography variant="body" data-sel-role="import-report-outcome">{describe(outcome)}</Typography>
+            {notes.length > 0 && (
+                <ul style={{margin: 0, paddingLeft: '20px'}} data-sel-role="import-report-notes">
+                    {notes.map(note => (
+                        <li key={note}><Typography variant="body">{note}</Typography></li>
                     ))}
                 </ul>
             )}

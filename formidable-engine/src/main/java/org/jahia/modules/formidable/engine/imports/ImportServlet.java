@@ -10,6 +10,7 @@ import org.jahia.modules.formidable.engine.config.formsimport.FormsImportConfigS
 import org.jahia.services.content.JCRSessionFactory;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.securityfilter.PermissionService;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
@@ -21,6 +22,7 @@ import javax.servlet.Servlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -28,9 +30,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -192,8 +196,32 @@ public class ImportServlet extends HttpServlet {
         throw new Refused(HttpServletResponse.SC_BAD_REQUEST, "no file in the field 'file'");
     }
 
-    private JSONObject startImport(Call call) throws RepositoryException, ImportJobs.RefusedException {
-        return json(jobs().startImport(call.site(), call.jobId()));
+    private JSONObject startImport(Call call) throws IOException, RepositoryException, ImportJobs.RefusedException, Refused {
+        return json(jobs().startImport(call.site(), call.jobId(), choicesOf(call.request())));
+    }
+
+    /**
+     * The choices of the review, {@code {"choices":{"contact-us":"create"}}} in a JSON body; none when the
+     * request carries no JSON, which leaves every form on the default.
+     */
+    private static Map<String, ImportChoice> choicesOf(HttpServletRequest req) throws IOException, Refused {
+        String contentType = req.getContentType();
+        if (contentType == null || !contentType.toLowerCase(Locale.ROOT).contains("json")) {
+            return Map.of();
+        }
+        String body;
+        try (BufferedReader reader = req.getReader()) {
+            body = reader.lines().collect(Collectors.joining());
+        }
+        if (body.isBlank()) {
+            return Map.of();
+        }
+        try {
+            JSONObject choices = new JSONObject(body).optJSONObject("choices");
+            return choices == null ? Map.of() : ImportChoice.fromJson(choices.toString());
+        } catch (JSONException | IllegalArgumentException e) {
+            throw new Refused(HttpServletResponse.SC_BAD_REQUEST, "the choices must name, per source form, resultsOnly or create: " + e.getMessage());
+        }
     }
 
     private JSONObject close(Call call) throws RepositoryException, ImportJobs.RefusedException {

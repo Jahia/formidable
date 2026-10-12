@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.engine.imports.jahiaforms;
 
+import org.jahia.modules.formidable.engine.imports.ImportChoice;
 import org.jahia.modules.formidable.engine.imports.ImportReport;
 import org.jahia.modules.formidable.engine.imports.ImportWriter;
 import org.jahia.modules.formidable.engine.imports.model.ImportedSubmission;
@@ -38,10 +39,14 @@ class FormsImportRunTest {
 
     private static final String FOLDER = "/sites/x/contents/imported-forms";
     private static final String CONTACT_ID = "08246a0f-de43-4dbb-b91e-55cdd366614b";
+    private static final String RESULTS = "/sites/x/formidable-results";
+    private static final Map<String, ImportChoice> CREATE_ALL = Map.of("contact-us", ImportChoice.CREATE,
+            "newsletterregistration", ImportChoice.CREATE, "newsletter-registration", ImportChoice.CREATE);
 
     private static ImportWriter writer() throws RepositoryException {
         ImportWriter writer = mock(ImportWriter.class);
         when(writer.importedFormsPath()).thenReturn(FOLDER);
+        when(writer.resultsRootPath()).thenReturn(RESULTS);
         when(writer.importedSubmissionIds()).thenReturn(Set.of());
         return writer;
     }
@@ -56,7 +61,7 @@ class FormsImportRunTest {
     @Test
     void theDryRunReportsEveryFormAndSubmissionAndWritesNothing() throws Exception {
         ImportWriter writer = writer();
-        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, true, type -> true, source -> true, false);
+        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, true, Map.of(), type -> true, source -> true, false);
 
         JSONObject report = run.run().toJson();
 
@@ -66,12 +71,14 @@ class FormsImportRunTest {
         assertEquals(106, report.getJSONObject("totals").getInt("submissionsToImport"));
         assertEquals(0, report.getJSONObject("totals").getInt("submissionsImported"));
         JSONObject contact = report.getJSONArray("forms").getJSONObject(0);
-        assertEquals("created", contact.getString("outcome"));
-        assertEquals(FOLDER + "/contact-us", contact.getString("targetPath"));
+        // the default: the results alone, under an entry named after the form, the fields as its columns
+        assertEquals("resultsOnly", contact.getString("outcome"));
+        assertEquals(RESULTS + "/contact-us", contact.getString("targetPath"));
         assertEquals(5, contact.getJSONArray("fields").length());
         assertEquals(44, contact.getJSONObject("submissions").getInt("found"));
         verify(writer, never()).findOrCreateForm(any());
         verify(writer, never()).findOrCreateResultsEntry(any(), any());
+        verify(writer, never()).createResultsOnlyEntry(any());
         verify(writer, never()).writeSubmission(any(), any(), any());
         verify(writer, never()).save();
     }
@@ -83,7 +90,7 @@ class FormsImportRunTest {
         JCRNodeWrapper entry = mock(JCRNodeWrapper.class);
         when(writer.findOrCreateForm(any())).thenReturn(new ImportWriter.FormHandle(form, true));
         when(writer.findOrCreateResultsEntry(any(), any())).thenReturn(entry);
-        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, type -> true, source -> true, false);
+        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, CREATE_ALL, type -> true, source -> true, false);
 
         ImportReport report = run.run();
 
@@ -116,7 +123,7 @@ class FormsImportRunTest {
         JCRNodeWrapper other = node("other", FOLDER + "/other");
         when(writer.findOrCreateForm(any())).thenReturn(new ImportWriter.FormHandle(other, true));
         when(writer.findOrCreateResultsEntry(any(), any())).thenReturn(entry);
-        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, type -> true, s -> true, false);
+        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, CREATE_ALL, type -> true, s -> true, false);
 
         JSONObject report = run.run().toJson();
 
@@ -138,6 +145,47 @@ class FormsImportRunTest {
         assertTrue(ofContact.stream().noneMatch(s -> s.values().containsKey("your-first-name")));
         assertTrue(ofContact.stream().noneMatch(s -> s.values().containsKey("your-enquiry")));
         assertTrue(ofContact.stream().allMatch(s -> s.values().containsKey("text-area_0_4")));
+    }
+
+    @Test
+    void theImportWritesTheResultsAloneByDefault() throws Exception {
+        ImportWriter writer = writer();
+        JCRNodeWrapper entry = node("contact-us", RESULTS + "/contact-us");
+        when(writer.createResultsOnlyEntry(any())).thenReturn(entry);
+        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, Map.of(), type -> true, s -> true, false);
+
+        JSONObject report = run.run().toJson();
+
+        JSONObject contact = report.getJSONArray("forms").getJSONObject(0);
+        assertEquals("resultsOnly", contact.getString("outcome"));
+        assertEquals(RESULTS + "/contact-us", contact.getString("targetPath"));
+        assertEquals(106, report.getJSONObject("totals").getInt("submissionsImported"));
+        verify(writer, org.mockito.Mockito.times(3)).createResultsOnlyEntry(any());
+        verify(writer, never()).findOrCreateForm(any());
+        verify(writer, never()).saveForms();
+        verify(writer, never()).findOrCreateResultsEntry(any(), any());
+        verify(writer, org.mockito.Mockito.times(106)).writeSubmission(eq(entry), any(), any());
+    }
+
+    @Test
+    void aSecondRunFindsTheEntryWrittenAloneAndAddsNothingToIt() throws Exception {
+        ImportWriter writer = writer();
+        JCRNodeWrapper found = node("contact-us", RESULTS + "/contact-us");
+        JCRNodeWrapper other = node("other", RESULTS + "/other");
+        when(writer.findResultsOnlyEntry(CONTACT_ID)).thenReturn(found);
+        when(writer.createResultsOnlyEntry(any())).thenReturn(other);
+        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, Map.of(), type -> true, s -> true, false);
+
+        JSONObject report = run.run().toJson();
+
+        JSONObject contact = report.getJSONArray("forms").getJSONObject(0);
+        assertEquals("found", contact.getString("outcome"));
+        assertEquals(RESULTS + "/contact-us", contact.getString("targetPath"));
+        assertEquals(5, contact.getJSONArray("fields").length());
+        // the two newsletter forms get their own entries, the found one receives its submissions as it is
+        verify(writer, org.mockito.Mockito.times(2)).createResultsOnlyEntry(any());
+        verify(writer, never()).createResultsOnlyEntry(org.mockito.ArgumentMatchers.argThat(f -> f.name().equals("contact-us")));
+        verify(writer, org.mockito.Mockito.times(44)).writeSubmission(eq(found), any(), any());
     }
 
     @Test
@@ -170,7 +218,7 @@ class FormsImportRunTest {
                 </formFactory>
                 """;
         Path withoutBinary = FormsExportReaderTest.zipOf(Map.of(FormsExportZip.XML, export));
-        JSONObject files = new FormsImportRun(FormsExportReader.open(withoutBinary), writer(), true, type -> true, s -> true, false)
+        JSONObject files = new FormsImportRun(FormsExportReader.open(withoutBinary), writer(), true, Map.of(), type -> true, s -> true, false)
                 .run().toJson().getJSONArray("forms").getJSONObject(0).getJSONObject("files");
         assertEquals(0, files.getInt("count"));
         assertEquals(1, files.getInt("missing"));
@@ -189,7 +237,7 @@ class FormsImportRunTest {
             zip.write(new byte[321]);
             zip.closeEntry();
         }
-        files = new FormsImportRun(FormsExportReader.open(withBinary), writer(), true, type -> true, s -> true, false)
+        files = new FormsImportRun(FormsExportReader.open(withBinary), writer(), true, Map.of(), type -> true, s -> true, false)
                 .run().toJson().getJSONArray("forms").getJSONObject(0).getJSONObject("files");
         assertEquals(1, files.getInt("count"));
         assertEquals(321, files.getLong("bytes"));

@@ -37,13 +37,14 @@ flowchart LR
 | 1. Import | Every Forms form becomes an unpublished Formidable form in the `imported-forms` content folder of the site, with system names generated from the labels, the field types Formidable has, the labels, placeholders, help texts, required rules, choices and actions that map. Every submission the Forms *save to JCR* action stored becomes a submission of that form, files included. The Results page lists, filters and exports them as native results, with the labels of the form once it is published. |
 | 2. Attach to another form | An administrator moves the imported results of one Forms form onto another Formidable form, built by hand or reworked: the field names are mapped and renamed, and the results take the readers of that form. |
 
-No result ever exists without a form: iteration 1 creates the form before it writes the first submission,
-so the Results page, the exports and the statuses need no change for imported results. The import never
-publishes, though, and the page resolves a form through its live reference (`FormResultsApp.tsx`): until a
-contributor publishes an imported form, its entry shows as **Unpublished**, and the page and the exports
-head their columns with the system names of the fields. This is why the import gives each field a readable
-system name, generated from its label (`your-first-name`, not `text-input_0_1`), and why the final report
-invites to publish the forms.
+Iteration 1 creates a form before it writes the first submission, so the Results page, the exports and the
+statuses need no change for imported results. The import never publishes, though: until a contributor
+publishes an imported form, its entry shows as **Unpublished**, and the page resolves the form through its
+live reference, else through the edit workspace (`FormResultsApp.tsx`), so that the columns carry the
+labels of the form even then. The system names of the fields head the columns only when no form exists,
+the default of iteration 2. This is why the import gives each field a readable system name, generated from
+its label (`your-first-name`, not `text-input_0_1`), and why the final report of a created form invites to
+publish it.
 
 ## Scope
 
@@ -61,7 +62,7 @@ invites to publish the forms.
 |---|---|
 | **The import reads the zip export of the site's `formFactory` node, taken with its live content** | The source can live on another instance, or on an instance that is being retired, so `forms-core` need not be installed where Formidable runs. That zip is the only export that carries the three things the import needs: the `jcr:uuid` of every node, which keys the forms, their fields and their results; the results themselves, which Forms writes in live only; and the uploaded files. The other exports hold the results, but no `jcr:uuid` (spike 3). See [The export file](#the-export-file). |
 | **The import lives in `formidable-engine`, behind a setting** | No module to install, then to keep installed or to uninstall while its markers stay on the nodes. The markers are generic, owned by the engine and written for any source system ([CND module ownership](cnd-module-ownership.md)). Only the reader of the Forms export and the conversion of its forms and values know Forms, in their own package of the engine. |
-| **Every Forms form becomes a Formidable form before its results are written** | A results entry without a form has no labels, no readers and no status, and supporting that state would cost a placeholder form reference, an **Imported** status, a snapshot of the labels rendered by the Results page and the exports. Creating the form first removes all of it: imported results are native results. |
+| **The administrator chooses, per Forms form, what receives its results: nothing, a new Formidable form, or an existing one — the results alone by default** | The results are what the import is for; a form is created only on request (decided 2026-10-09, on the first manual tests). The Results page already lives with an entry whose form is gone, and an imported entry without a form is that state named for what it is: **Imported, no form** instead of **Form deleted**, the system names of the fields as columns, its administrators as its only readers until it is attached to a form. Iteration 1 creates a form for every Forms form; [iteration 2](#iteration-2-choosing-what-receives-the-results) brings the choice, with the results alone as the default. What was true of a created form stays true: imported results under a form are native results, with labels, readers and a status. |
 | **The forms land in one content folder, `contents/imported-forms`** | Formidable forms are contents of the site (`/sites/<site>/contents/...`). One folder keeps the imported forms apart from the forms built by hand, where contributors find them in jContent, review them, move them and publish them. |
 | **A field gets a system name generated from its label**, `your-first-name` for "Your First name", not the Forms name `text-input_0_1` | Formidable keys the values of a submission by the node name of the field ([Save to JCR](save-to-jcr.md)), and that name heads the columns of the Results page and of the exports whenever the form does not resolve in live, so a Forms name there reads as noise. The name is generated as the Content Editor generates a system name from a title, the rule a contributor gets anyway. The import writes `data` itself, so the new names cost no rename, and each field remembers its Forms identity for the later runs. See [The system names](#the-system-names). |
 | **The label of a field is its title, else its placeholder, else its name** | Forms often leaves the title of a field empty and shows the placeholder as its only text: in the sample export, eight of the nine fields have an empty title, and their placeholders read "Your First name\*", "Votre prénom\*". See [The labels](#the-labels). |
@@ -234,7 +235,7 @@ of one field land under one name, the system name of the field in the recreated 
 | `imported-forms` | A `jnt:contentFolder` titled *Imported from Jahia Forms*, created by the first import when the site has none. |
 | `<formName>` | A `fmdb:form` with `fmdbmix:importedForm`, named after the Forms form, or the next free name in the folder. [The forms](#the-forms-1) gives its content. |
 | `fields/<fieldName>` | One field per Forms field, named as [The system names](#the-system-names) says, with `fmdbmix:importedField`. A form with several steps holds one `fmdb:step` per `fcnt:step` under `fields`, and the fields of that step under it. |
-| `<entry>` | The `fmdb:formResults` of the new form, as `SaveToJcrFormAction` creates it: named after the form, or the next free name, `parentForm` set to the form, `buildingLang` from Forms, the ACL inheritance broken. It carries `fmdbmix:importedResults`. |
+| `<entry>` | The `fmdb:formResults` of the new form, as `SaveToJcrFormAction` creates it: named after the form, or the next free name, `parentForm` set to the form, `buildingLang` from Forms, the ACL inheritance broken. It carries `fmdbmix:importedResults`. From iteration 2, the entry of a Forms form imported with the default choice has no `parentForm` (see [Results only](#results-only)). |
 | `<submission>` | A `fmdb:formSubmission` with `fmdbmix:importedSubmission`. It is named `submission-<yyyyMMdd-HHmmss>-<xxx>` from the original date, in UTC, as `SaveToJcrFormAction` names it. |
 | `data` | The `fmdb:submissionData` node: one string property per field name, multiple for several answers. |
 | `files/<fieldName>/<file>` | A `jnt:folder`, a `jnt:folder` and a `jnt:file`, as `SaveToJcrFormAction` writes them. |
@@ -484,7 +485,7 @@ stateDiagram-v2
 |---|---|
 | Waiting | A drop zone that takes a `.zip` file by drag and drop, and a **Choose a file** button that opens the file picker. Another type, or a file above `maxFileSizeMb`, is refused in the dialog with its reason. The dialog opens in this state unless the site has an import that is running, or that ended and whose report nobody has read: it then opens in that job's state. |
 | Analysing | The file name and a spinner, while the server reads the export and writes nothing. |
-| Review | The report of the dry run (below), and two buttons: **Import** and **Cancel**. A report with nothing to import (every form and every submission already imported) shows **Close** alone. While another import runs on the site, **Import** is refused with that reason. |
+| Review | The report of the dry run (below), and two buttons: **Import** and **Cancel**. A report with nothing to import (every form and every submission already imported) shows **Close** alone. While another import runs on the site, **Import** is refused with that reason. Iteration 2 adds to this state, per form of the export, the choice of what receives its results (see [Iteration 2](#iteration-2-choosing-what-receives-the-results)). |
 | Importing | The file name and a spinner. The dialog can be closed: the job goes on without it, and the dialog, opened again on this site, shows the running import, or its end state once it has ended. |
 | Done | Moonstone's `Check` icon, then the final report, which ends with the invitation to publish the forms. **Close** refreshes the list of entries. |
 | Failed | The reason, as the server gives it (an export without results or without identifiers, a broken zip, a lost connection), then **Try again** and **Close**. Both remove the failed job: **Try again** goes back to Waiting. |
@@ -543,7 +544,7 @@ The report gives, per Forms form:
 - the files, and their total size.
 
 The final report ends with the next step: the forms are in `imported-forms`, unpublished; until a form is
-published, its entry shows as **Unpublished** on the Results page, with the system names as columns; a
+published, its entry shows as **Unpublished** on the Results page, with the labels of the form, read from edit, as columns; a
 contributor reviews each form, completes what the report lists, then publishes it.
 
 ### Running it twice
@@ -569,16 +570,47 @@ A site created from the export of another site shares its `jcr:uuid`s with it: a
 site finds the forms imported from the first. The dry run names the form it found, with its path, before
 anything is written.
 
-## Iteration 2: attaching the results to another form
+## Iteration 2: choosing what receives the results
 
-An administrator moves the imported results of one Forms form onto another Formidable form, `F`, that a
-contributor built by hand or reworked. The attachment is part of the engine, like the markers it reads: it
-knows nothing of Forms, so it would serve any later import.
+Iteration 1 creates a Formidable form for every Forms form of the export. Iteration 2 gives the
+administrator the choice, in the review state of the dialog, per form of the export:
 
-It starts from an **Attach to another form** action on an entry of the Results page, shown on the entries
-that carry `fmdbmix:importedResults`. The attachment works on one source form at a time, the submissions
-of the entry that carry one `sourceFormId`. An entry that holds several, after an earlier attachment, asks
-which one.
+| Choice | What the import writes |
+|---|---|
+| **Results only** (the default) | The results entry alone, without a form: see [Results only](#results-only). |
+| **Create the form** | What iteration 1 writes: the form in `imported-forms`, then its entry. |
+| **Attach to an existing form** `F` | The submissions under the entry of `F`, their values named after the fields of `F` through [the mapping](#the-mapping), and `F` takes `fmdbmix:importedForm` with the keys of the source, so that a later run finds it. Nothing is created but the entry of `F` when it has none. |
+
+The same mapping serves an **Attach to another form** action on an entry of the Results page, shown on
+the entries that carry `fmdbmix:importedResults`: an administrator moves the imported results of one Forms
+form, imported alone or under a created form, onto a Formidable form `F` that a contributor built by hand
+or reworked. The attachment is part of the engine, like the markers it reads: it knows nothing of Forms,
+so it would serve any later import. It works on one source form at a time, the submissions of the entry
+that carry one `sourceFormId`; an entry that holds several, after an earlier attachment, asks which one.
+
+### Results only
+
+The entry is written as iteration 1 writes it, without the form:
+
+- `parentForm` is left unset, which the CND allows from this iteration (`fmdb:formResults` declares it
+  without `mandatory`); the engine reads an entry that carries `fmdbmix:importedResults` and no
+  `parentForm` as imported without a form, everywhere it reads `parentForm` today: the list of the
+  Results page, the ACL sync, the removal of an entry, the attachment;
+- the Results page shows it with the status **Imported, no form**, where **Form deleted** stands for a
+  native entry whose form is gone, and with the system names of the fields as columns, the names
+  [the system names](#the-system-names) generate from the Forms labels, as for an unpublished form; the
+  exports use the same names;
+- its readers are the administrators of the site, the ACL inheritance broken as on every entry, until the
+  entry is attached to a form, whose `fmdb-results-reader` grants are then synced to it;
+- no `Save to JCR` action exists to keep writing into it: the entry is a history;
+- a later run finds the entry by the keys of its source, `sourceFormIds` of `fmdbmix:importedResults`,
+  indexed from this iteration, where it finds a created form by `sourceId` or `sourceResultsId`; the
+  submissions are skipped by their `sourceId` as before. [Running it twice](#running-it-twice) applies
+  unchanged.
+
+The labels of the Forms fields are not kept on the entry: the system names read well enough
+(`your-first-name`), and a snapshot of the labels per language on the entry, read by the page and the
+exports, stays an open point until a real import says the names do not suffice.
 
 ```mermaid
 flowchart TD
@@ -667,7 +699,7 @@ mapping or to another form.
   report, which must end with the invitation to publish. It then checks `imported-forms` and its three
   forms: the five fields of `contact-us`, their system names (`your-first-name`…) and types, "Your First
   name" and "Votre prénom" from the placeholder, "Your Enquiry" from the title, the save and the reported
-  redirect. On the Results page, the entry of `contact-us` shows **Unpublished** with the system names as
+  redirect. On the Results page, the entry of `contact-us` shows **Unpublished** with the labels of the form as
   columns; the spec publishes `contact-us`, then checks the labels, the count, the values, the dates, the
   imported origin and the exports, while the entry of an unpublished form still shows its system names.
   A second run must duplicate nothing and must leave a title and a field name edited between the runs,
@@ -675,12 +707,17 @@ mapping or to another form.
   show the running import, then its report, and the report must be readable after a reload until
   **Close**. An XML export, and a zip without results, must end in the failed state with the procedure.
   An **Import** clicked while another import runs on the site must be refused with its reason.
-- **A Cypress spec for iteration 2.** The spec attaches the imported results to a form with three fields:
-  one with the same node name, one with the same label, and one that the administrator picks. The spec
-  checks the labels, the renamed values and the readers. It then attaches a second source to the same
-  form and checks the merge: neither a native submission of the form nor the submissions of the first
-  source lose a value that holds a name the second mapping renames. Last, it deletes the form and checks
-  that the entry shows **Form deleted**.
+- **A Cypress spec for iteration 2.** The spec imports the sample with the default choice and checks that
+  no form was created, that the three entries show **Imported, no form** with the system names as
+  columns, that their exports carry those names, that an editor granted nothing sees none of them, and
+  that a second run adds nothing. It then imports a second export with the two other choices: a form
+  created, and the results attached at import time to a form with three fields, one with the same node
+  name, one with the same label, and one that the administrator picks, the values landing under the
+  names of that form. It then attaches the results-only entry to a form through the action on the entry,
+  checks the labels, the renamed values and the readers, attaches a second source to the same form and
+  checks the merge: neither a native submission of the form nor the submissions of the first source lose
+  a value that holds a name the second mapping renames. Last, it deletes the form and checks that the
+  entry shows **Form deleted**.
 
 ## Open points
 
@@ -690,4 +727,5 @@ mapping or to another form.
 | Spike 3 | Answered: **Export Zip**, without live content, holds the results, marked `j:originWS="live"`, but no `jcr:uuid` at all. The dry run refuses it with the procedure, as it refuses the XML export. | The message of the dry run, and the administration guide |
 | 4 | Answered: a recreated form that displayed a captcha gets `fmdbmix:captcha` only when the instance configures a captcha, its widget and its verification both (`CaptchaConfigService.isCaptchaWidgetConfigured() && isCaptchaVerificationConfigured()`, read by `ImportJobs` and handed to the converter); otherwise the report says that the form displayed one and that the instance configures none. | The forms |
 | 5 | The sample exports hold real email addresses, so they must be anonymised before they are committed as fixtures. | Tests |
+| 6 | The columns of an entry imported without a form are the system names of its fields. A snapshot of the Forms labels, per language, on the entry, read by the Results page and the exports, waits for a real import that says the names do not read well enough. | The Results page of a results-only entry |
 | Spike 4 | Partly answered from the sources of `forms-core` 3.x (`src/main/resources/fcnt_*/html/*.wzd`, the design views and the directives): the option nodes are `textOn`/`textOff` for a switch, `max` for a rating, `value` for a hidden field, `filetype` (a JSON list of groups) and `filenumber` for the file rules, `to`/`cc`/`bcc`/`from`/`subject` for the e-mail action, `redirectto` for both redirects, `yes`/`no`/`termsLabel`/`link` for an accept-terms box; the value shapes of a rating, a matrix, a country and a consent are in [The results](#the-results). Still to confirm on an export that holds them: the labels of a `buttonTriple`, and the entry names of the uploaded files in the zip. | The buttons, the files |
