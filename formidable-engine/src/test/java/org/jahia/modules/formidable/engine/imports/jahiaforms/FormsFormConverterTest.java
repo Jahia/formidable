@@ -48,7 +48,7 @@ class FormsFormConverterTest {
     void aPrefillFromTheVisitorProfileBecomesTheMappingOfTheFieldWhenTheIntegrationReachesIt() throws Exception {
         FormsExport export = sample();
         FormsForm source = export.forms().get("contact-us");
-        FormsFormConverter mapping = new FormsFormConverter(type -> true, s -> true, type -> type.equals(FormsFieldTypes.INPUT_TEXT), false);
+        FormsFormConverter mapping = new FormsFormConverter(new ImportEnvironment(type -> true, s -> true, type -> type.equals(FormsFieldTypes.INPUT_TEXT), false));
 
         ImportedForm form = mapping.convert(source, export.resultsOf(source));
 

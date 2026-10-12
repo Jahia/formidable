@@ -10,6 +10,7 @@ import org.jahia.modules.formidable.engine.imports.jahiaforms.FormsExportExcepti
 import org.jahia.modules.formidable.engine.imports.jahiaforms.FormsExportReader;
 import org.jahia.modules.formidable.engine.imports.jahiaforms.FormsFormConverter;
 import org.jahia.modules.formidable.engine.imports.jahiaforms.FormsImportRun;
+import org.jahia.modules.formidable.engine.imports.jahiaforms.ImportEnvironment;
 import org.jahia.modules.formidable.engine.util.JcrFiles;
 import org.jahia.registries.ServicesRegistry;
 import org.jahia.services.content.JCRCallback;
@@ -449,9 +450,9 @@ public class ImportJobs {
             JCRSessionWrapper live = JCRSessionFactory.getInstance().getCurrentSystemSession(FormidableJcrConstants.WORKSPACE_LIVE, null, null);
             try (FormsExportReader reader = FormsExportReader.open(export)) {
                 ImportWriter writer = new ImportWriter(edit, live, siteKey, FOLDER_TITLE);
-                FormsImportRun run = new FormsImportRun(reader, writer, phase == Phase.DRY_RUN, choices,
-                        type -> hasNodeType(edit, type), this::isOptionsSourceDeclared, type -> isProfileMappable(edit, type),
-                        isCaptchaConfigured());
+                ImportEnvironment environment = new ImportEnvironment(type -> hasNodeType(edit, type), this::isOptionsSourceDeclared,
+                        type -> isProfileMappable(edit, type), isCaptchaConfigured());
+                FormsImportRun run = new FormsImportRun(reader, writer, phase == Phase.DRY_RUN, choices, environment);
                 return run.run();
             } catch (IOException | FormsExportException e) {
                 throw new RepositoryException(e.getMessage(), e);
