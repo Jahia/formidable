@@ -1,7 +1,7 @@
 import {uiContext} from '../FormResults.utils';
 
 /** The states of an import job, as the engine stores them (ImportJobs.State). */
-export type ImportJobState = 'analysing' | 'review' | 'importing' | 'done' | 'failed';
+export type ImportJobState = 'analysing' | 'review' | 'importing' | 'attaching' | 'done' | 'failed';
 
 export interface ImportReportField {
     name: string;
@@ -12,6 +12,11 @@ export interface ImportReportField {
     values?: string[];
     /** Whether the submissions hold more distinct values than listed. */
     moreValues?: boolean;
+    /**
+     * The names of the other fields a submission holds alongside this one; absent when every field does, as
+     * in the report of a dry run. Two names held together cannot land under one name.
+     */
+    alongside?: string[];
     notes: string[];
 }
 
@@ -59,16 +64,22 @@ export interface ImportReport {
     nothingToImport: boolean;
 }
 
-export interface ImportJob {
+/** A job of the engine, polled by a dialog: an import, or the attachment of imported results to another form. */
+export interface Job<R> {
     id: string;
+    kind?: 'import' | 'attachment';
     state: ImportJobState;
-    report: ImportReport | null;
+    report: R | null;
     message: string | null;
     updated: string;
 }
 
+export type ImportJob = Job<ImportReport>;
+
 export interface ImportSettings {
     enabled: boolean;
+    /** Whether the user administers the site: the attachment of imported results is theirs. */
+    admin?: boolean;
     allowed: boolean;
     maxFileSizeMb: number;
     job?: ImportJob | null;
@@ -98,7 +109,7 @@ export const uploadExport = (siteKey: string, file: File): Promise<ImportJob> =>
     return call(endpoint(siteKey, '/jobs'), {method: 'POST', body: form});
 };
 
-export const fetchJob = (siteKey: string, jobId: string): Promise<ImportJob> =>
+export const fetchJob = <R = ImportReport>(siteKey: string, jobId: string): Promise<Job<R>> =>
     call(endpoint(siteKey, `/jobs/${encodeURIComponent(jobId)}`));
 
 /** Starts the import with the choices of the review; a form the choices do not name takes the results alone. */
@@ -265,17 +276,24 @@ export function unmatchedValues(field: ImportReportField, target: TargetField | 
     return (field.values ?? []).filter(value => !options.has(value));
 }
 
+/** The names of the other fields a submission holds alongside this one: every other field unless the source says otherwise. */
+const alongsideOf = (field: ImportReportField, sourceFields: ImportReportField[]): string[] =>
+    field.alongside ?? sourceFields.filter(other => other.name !== field.name).map(other => other.name);
+
+/** The renames of a mapping: a field sent under its own name, as the proposal writes it, is no rename. */
+const renamesOf = (mapping: Record<string, string>): Array<[string, string]> =>
+    Object.entries(mapping).filter(([source, target]) => Boolean(target) && target !== source);
+
 /**
- * The fields of the form a row may pick: not one picked by another row, nor one named like another field of
- * the source, so that no two fields land together and no rename chains on another (the row keeps its own pick).
+ * The fields of the form a row may pick: not one picked by another row, nor the name of a field sent
+ * elsewhere itself, nor the name of a field a submission holds alongside this one, so that no two fields land
+ * together and no rename chains on another (the row keeps its own pick).
  */
 export function availableTargets(field: ImportReportField, sourceFields: ImportReportField[], mapping: Record<string, string>, targets: TargetField[]): TargetField[] {
-    const taken = new Set<string>();
-    sourceFields.filter(other => other.name !== field.name).forEach(other => {
-        taken.add(other.name);
-        if (mapping[other.name]) {
-            taken.add(mapping[other.name]);
-        }
+    const taken = new Set<string>(alongsideOf(field, sourceFields));
+    renamesOf(mapping).filter(([source]) => source !== field.name).forEach(([source, target]) => {
+        taken.add(source);
+        taken.add(target);
     });
     const own = mapping[field.name];
     return targets.filter(target => target.name === own || !taken.has(target.name));
@@ -319,22 +337,32 @@ export const mappingOf = (proposals: Record<string, MappingProposal>): Record<st
 export const landingName = (field: string, mapping: Record<string, string>): string => mapping[field] || field;
 
 /**
- * The names the mapping cannot be applied with: a name two source fields would both land under, where a
- * submission holding both would lose a value, and a target that is the name of another field of the source,
- * mapped away or not, which a rename cannot reach in one pass (the attachment is done twice instead).
+ * The names the mapping cannot be applied with: a target that is itself sent elsewhere, which a rename cannot
+ * reach in one pass (the attachment is done twice instead), and a name two fields a submission holds together
+ * would both land under, where that submission would lose a value. Judged against the fields a submission
+ * holds alongside each one, so that a run that stopped half-way, the earlier submissions renamed already, can
+ * go on from the dialog.
  */
 export function mappingConflicts(sourceFields: ImportReportField[], mapping: Record<string, string>): string[] {
-    const sourcesByName = new Map<string, number>();
-    const names = new Set(sourceFields.map(field => field.name));
     const conflicts = new Set<string>();
-    sourceFields.forEach(field => {
-        const name = landingName(field.name, mapping);
-        sourcesByName.set(name, (sourcesByName.get(name) ?? 0) + 1);
-        if (name !== field.name && names.has(name)) {
-            conflicts.add(name);
+    const renames = renamesOf(mapping);
+    const renamed = new Set(renames.map(([source]) => source));
+    const targets = new Set<string>();
+    renames.forEach(([, target]) => {
+        // two fields sent to one, or a target that is sent elsewhere itself: refused on the mapping alone
+        if (targets.has(target) || renamed.has(target)) {
+            conflicts.add(target);
         }
+        targets.add(target);
     });
-    [...sourcesByName.entries()].filter(([, count]) => count > 1).forEach(([name]) => conflicts.add(name));
+    sourceFields.forEach(field => {
+        const landing = landingName(field.name, mapping);
+        alongsideOf(field, sourceFields).forEach(other => {
+            if (landingName(other, mapping) === landing) {
+                conflicts.add(landing);
+            }
+        });
+    });
     return [...conflicts];
 }
 
@@ -345,6 +373,69 @@ export function attachProblem(choice: AttachChoice, sourceFields: ImportReportFi
     }
     return mappingConflicts(sourceFields, choice.mapping).length > 0 ? 'conflict' : null;
 }
+
+// --- attaching the results of an entry to another form ---
+
+/** A source form an entry holds the results of, as the endpoint describes it for the dialog of the entry. */
+export interface EntrySource {
+    id: string;
+    /** The title of the imported form the site still holds for it, null once it is gone. */
+    title: string | null;
+    submissions: number;
+    /** The names the values hold now, with the title of the field each came from, their distinct values, and the names held alongside. */
+    fields: Array<{name: string; title: string; values?: string[]; moreValues?: boolean; alongside?: string[]}>;
+    /** The mapping an earlier run or attachment applied to this source. */
+    mapping: Record<string, string>;
+}
+
+export interface EntryDescription {
+    entry: string;
+    name: string;
+    form: string | null;
+    sources: EntrySource[];
+}
+
+/** What the attachment wrote, as the job reports it. */
+export interface AttachmentReport {
+    entry: string;
+    entryName: string;
+    form: string;
+    formName: string;
+    source: string;
+    submissions: number;
+    moved: number;
+    renamed: number;
+    previousEntryRemoved: boolean;
+    formLeftWithoutResults: string | null;
+}
+
+export type AttachmentJob = Job<AttachmentReport>;
+
+export const describeEntry = (siteKey: string, entryId: string, language: string): Promise<EntryDescription> =>
+    call(`${endpoint(siteKey, '/attachments/entry')}&entry=${encodeURIComponent(entryId)}&language=${encodeURIComponent(language)}`);
+
+/** Starts the attachment of the results of a source of the entry to the form of the choice; the job to poll. */
+export const startAttachment = (siteKey: string, entryId: string, sourceId: string, choice: AttachChoice): Promise<AttachmentJob> =>
+    call(endpoint(siteKey, '/attachments'), {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({entry: entryId, source: sourceId, form: choice.form, mapping: choice.mapping})
+    });
+
+/** The fields of a source of an entry as the mapping rows take them: the title in the language of the user. */
+export const sourceFieldsOf = (source: EntrySource, language: string): ImportReportField[] =>
+    source.fields.map(field => ({
+        name: field.name,
+        type: '',
+        titles: field.title ? {[language]: field.title} : {},
+        values: field.values ?? [],
+        moreValues: field.moreValues ?? false,
+        alongside: field.alongside,
+        notes: []
+    }));
+
+/** The label of a source in the dialog: the title of its imported form, else its key. */
+export const sourceLabel = (source: EntrySource): string => source.title ?? source.id;
 
 /** Whether every choice of the review can start the import: an attachment names its form and lands no two fields together. */
 export function choicesReady(choices: Record<string, ImportChoice>, report: ImportReport): boolean {

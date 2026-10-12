@@ -64,6 +64,23 @@ results: the import refuses them with this procedure.
    readers of that form.
 7. Turn the button off again.
 
+## Attaching imported results to another form
+
+Results imported alone, or under a form the import created, move later under a form of the site that a
+contributor built by hand or reworked: select the entry on the **Results** page and click **Attach to
+another form**, shown to the administrators of the site on the entries that hold imported results, whether
+the import button is on or not. Pick the form, then check where the values of each field land, as in the
+import dialog: a field of the form with the same name is matched, one with the same label is proposed while
+the imported form still exists, and you pick the field for the others, or keep the name. Click **Attach**.
+
+The entry of the form receives the submissions, their values renamed after the fields of the form, and
+takes the readers of that form; the entry they left goes once it is empty. When the entry held one source
+and the form had no entry yet, the entry simply becomes the entry of the form. A form the import had
+created for those results keeps standing: the report says that it holds no result any more, and you delete
+it when nothing else needs it. An entry that holds the results of several sources, after an earlier
+attachment, asks which one to move. The attachment runs on the server like an import; one import or
+attachment runs at a time per site.
+
 The export the dialog accepts is bounded by `maxFileSizeMb` (200 MB by default).
 
 ## Settings

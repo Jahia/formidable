@@ -1,11 +1,11 @@
 import React, {useCallback, useEffect, useRef, useState, useMemo} from 'react';
 import {useQuery} from '@apollo/client';
-import {Button, DeletePermanently, Download, Loader, Reload, Typography, Upload} from '@jahia/moonstone';
+import {Button, DeletePermanently, Download, Link, Loader, Reload, Typography, Upload} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
 import {GET_FORM_RESULTS_LIST, GET_FORM_FIELD_LABELS, GET_FORMS_IN_EDIT} from './graphql';
 import {DeleteResultsDialog} from './delete';
 import {ExportResultsDialog} from './export';
-import {fetchSettings, ImportResultsDialog, type ImportJob, type ImportSettings} from './import';
+import {AttachResultsDialog, fetchSettings, ImportResultsDialog, type ImportJob, type ImportSettings} from './import';
 import {FormResultsList, FormStatusChip, SubmissionDetailPanel, SubmissionsTable} from './components';
 import type {FormResultsNode, SubmissionRow} from './FormResults.utils';
 import {
@@ -31,6 +31,7 @@ export const FormResultsApp = () => {
     const [selectedSubmission, setSelectedSubmission] = useState<SubmissionRow | null>(null);
     const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [isAttachDialogOpen, setIsAttachDialogOpen] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     // The import of another form system's forms and results, offered when the setting is on and the user
     // administers the site (docs/architecture/forms-import.md). A job left running or unread reopens.
@@ -174,6 +175,13 @@ export const FormResultsApp = () => {
         }
     };
 
+    // The entry may have been renamed, merged into another or removed: the selection goes with the list re-read.
+    const handleAttached = async () => {
+        setSelectedSubmission(null);
+        setSelectedFormResultsId(null);
+        await refetchForms();
+    };
+
     if (!siteKey) {
         return <Typography>{t('formResults.error.noSite')}</Typography>;
     }
@@ -292,6 +300,16 @@ export const FormResultsApp = () => {
                     isDisabled={!selectedForm}
                     onClick={() => setIsExportDialogOpen(true)}
                 />
+                {importSettings?.admin && selectedForm?.imported && (
+                    <Button
+                        variant="ghost"
+                        icon={<Link/>}
+                        label={t('formResults.actions.attach')}
+                        title={t('formResults.actions.attachTitle')}
+                        data-sel-role="attach-results"
+                        onClick={() => setIsAttachDialogOpen(true)}
+                    />
+                )}
                 {canDeleteSelectedForm && (
                     <Button
                         variant="ghost"
@@ -368,6 +386,18 @@ export const FormResultsApp = () => {
                 <ExportResultsDialog
                     formResults={selectedForm}
                     onClose={() => setIsExportDialogOpen(false)}
+                />
+            )}
+            {selectedForm && isAttachDialogOpen && (
+                <AttachResultsDialog
+                    siteKey={siteKey}
+                    formResults={selectedForm}
+                    onClose={async attached => {
+                        setIsAttachDialogOpen(false);
+                        if (attached) {
+                            await handleAttached();
+                        }
+                    }}
                 />
             )}
             {selectedForm && canDeleteSelectedForm && isDeleteDialogOpen && (

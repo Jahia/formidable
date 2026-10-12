@@ -40,7 +40,8 @@ interface ImportResultsDialogProps {
 
 type DialogState = 'waiting' | 'analysing' | 'review' | 'importing' | 'done' | 'failed';
 
-const stateOf = (job: ImportJob): DialogState => job.state;
+// an import job never attaches: the state of another kind of job is read as a running one
+const stateOf = (job: ImportJob): DialogState => (job.state === 'attaching' ? 'importing' : job.state);
 
 /**
  * The import dialog of the Results page (docs/architecture/forms-import.md, "The dialog"): the export

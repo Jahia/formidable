@@ -140,6 +140,25 @@ class FormsSubmissionConverterTest {
     }
 
     @Test
+    void twoAnswersSentToOneNameKeepTheFirstAndReportTheSecondDropped() throws Exception {
+        // a mapping recorded on the entry sends two fields of the source to one name: the next submissions must not lose a value in silence
+        FormsExport export = FormsExportReaderTest.sampleReader().readStructure();
+        FormsForm source = export.forms().get("contact-us");
+        FormsResults results = export.resultsOf(source);
+        ImportedForm form = CONVERTER.convert(source, results);
+        Map<String, String> found = Map.of("text-input_0_1", "name", "text-input_0_1_copy_01", "name");
+        FormsSubmission submission = new FormsSubmission("s1", "contact-us", Instant.EPOCH, null, null, "guest",
+                List.of(new FormsResultField("text-input_0_1", "text-input_0_1", List.of("Jane"), true, List.of()),
+                        new FormsResultField("text-input_0_1_copy_01", "text-input_0_1_copy_01", List.of("Doe"), true, List.of())),
+                "formFactory/results/contact-us/submissions/x/s1");
+
+        ImportedSubmission converted = new FormsSubmissionConverter(form, source, results, found).convert(submission);
+
+        assertEquals(List.of("Jane"), converted.values().get("name"));
+        assertTrue(converted.report().stream().anyMatch(line -> line.contains("text-input_0_1_copy_01") && line.contains("dropped")));
+    }
+
+    @Test
     void aDateAndAFileAreConvertedForTheKindOfTheirField() {
         FormsField date = new FormsField("date_0_1", "ud", "fcnt:datePickerDefinition", Map.of("en", "Birthday"), null, Map.of(), List.of(), false, false);
         FormsField file = new FormsField("file_0_2", "uf", "fcnt:fileUploadDefinition", Map.of("en", "CV"), null, Map.of(), List.of(), false, false);
