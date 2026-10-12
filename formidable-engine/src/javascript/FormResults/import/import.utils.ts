@@ -206,7 +206,7 @@ type GqlSiteFormsResponse = {
  */
 export function parseSiteDefaultLanguage(data: GqlSiteFormsResponse | undefined): string | null {
     const language = data?.jcr?.site?.defaultLanguage?.value;
-    return language ? language : null;
+    return language || null;
 }
 
 /** Reads GET_SITE_FORMS: the forms by title, then by path for two forms of one title. */
