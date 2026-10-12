@@ -38,6 +38,10 @@ class ResultsAttachmentTest {
         Set<String> names = Set.of("firstname", "lastname", "email");
 
         assertDoesNotThrow(() -> ResultsAttachment.checkMapping(Map.of("lastname", "surname"), names));
+        // a field the values do not hold cannot be mapped: the dialog offers the names of the submissions alone
+        ImportJobs.RefusedException unknown = assertThrows(ImportJobs.RefusedException.class,
+                () -> ResultsAttachment.checkMapping(Map.of("phone", "surname"), names));
+        assertTrue(unknown.getMessage().contains("phone"));
         ImportJobs.RefusedException twice = assertThrows(ImportJobs.RefusedException.class,
                 () -> ResultsAttachment.checkMapping(Map.of("lastname", "name", "email", "name"), names));
         assertTrue(twice.getMessage().contains("name"));

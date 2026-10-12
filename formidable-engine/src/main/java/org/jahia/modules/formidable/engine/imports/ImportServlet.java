@@ -10,6 +10,7 @@ import org.jahia.modules.formidable.engine.config.formsimport.FormsImportConfigS
 import org.jahia.services.content.JCRSessionFactory;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.securityfilter.PermissionService;
+import org.jahia.utils.LanguageCodeConverters;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.osgi.service.component.annotations.Component;
@@ -249,7 +250,7 @@ public class ImportServlet extends HttpServlet {
             throw new Refused(HttpServletResponse.SC_BAD_REQUEST, "the entry to describe is missing");
         }
         String language = call.request().getParameter(LANGUAGE_PARAMETER);
-        Locale locale = language == null || language.isBlank() ? Locale.ENGLISH : Locale.forLanguageTag(language);
+        Locale locale = language == null || language.isBlank() ? Locale.ENGLISH : LanguageCodeConverters.languageCodeToLocale(language);
         return jobs().describeEntry(call.site(), entry, locale);
     }
 

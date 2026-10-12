@@ -158,7 +158,8 @@ public final class ResultsAttachment {
     /**
      * Refuses what the attachment could not honour, before anything is scheduled: an entry that holds no
      * imported results, a source the entry does not hold, a form that is not a form of the site, and a mapping
-     * that sends two fields to one name, or a field to the name another field of the source keeps.
+     * that names a field the values do not hold, sends two fields to one name, or sends a field to the name of
+     * another field of the source.
      */
     public void check(Request request) throws RepositoryException, ImportJobs.RefusedException {
         JCRNodeWrapper entry = importedEntry(request.entryId());
@@ -173,6 +174,11 @@ public final class ResultsAttachment {
 
     /** The checks of {@link #check} that need no repository: the mapping against the names the values hold. */
     static void checkMapping(Map<String, String> mapping, Set<String> names) throws ImportJobs.RefusedException {
+        for (String mapped : mapping.keySet()) {
+            if (!names.contains(mapped)) {
+                throw new ImportJobs.RefusedException("the submissions of the source hold no field named " + mapped);
+            }
+        }
         Map<String, String> landing = new LinkedHashMap<>();
         for (String name : names) {
             String target = mapping.getOrDefault(name, name);
@@ -279,7 +285,8 @@ public final class ResultsAttachment {
 
     /**
      * What the submissions of a source leave behind: the entry, removed once it holds no submission at all; else
-     * the source, struck from its keys and its mappings. True when the entry was removed.
+     * the source, struck from its keys and its mappings, and the marker of imported results with it once no
+     * source is left, since the entry then holds native submissions alone. True when the entry was removed.
      */
     private boolean leave(JCRNodeWrapper entry, String sourceKey) throws RepositoryException {
         if (!holdsSubmissions(entry)) {
@@ -289,8 +296,12 @@ public final class ResultsAttachment {
         }
         List<String> keys = new ArrayList<>(sourceKeysOf(entry));
         keys.remove(sourceKey);
-        entry.setProperty(SOURCE_FORM_IDS, keys.toArray(String[]::new));
-        writer.forgetMapping(entry, sourceKey);
+        if (keys.isEmpty()) {
+            entry.removeMixin(FmdbMixin.IMPORTED_RESULTS);
+        } else {
+            entry.setProperty(SOURCE_FORM_IDS, keys.toArray(String[]::new));
+            writer.forgetMapping(entry, sourceKey);
+        }
         live.save();
         return false;
     }

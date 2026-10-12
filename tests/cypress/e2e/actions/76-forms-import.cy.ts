@@ -232,12 +232,12 @@ const closeAttachDialog = () => {
 	cy.get('[data-sel-role="attach-results-dialog"]').should('not.exist');
 };
 
-/** The properties of an entry the attachment writes: the form, the sources and the mappings it holds. */
+/** The properties of an entry the attachment writes: the form, the sources and the mappings it holds, and whether it is still marked imported. */
 const entryOf = (entryPath: string) =>
-	graphql<{jcr: {nodeByPath: {parentForm: {value: string} | null; sourceFormIds: {values: string[]} | null; mappings: {values: string[]} | null} | null}}>(
+	graphql<{jcr: {nodeByPath: {parentForm: {value: string} | null; sourceFormIds: {values: string[]} | null; mappings: {values: string[]} | null; imported: boolean} | null}}>(
 		`query Entry($path: String!) { jcr(workspace: LIVE) { nodeByPath(path: $path) {
 			parentForm: property(name: "parentForm") { value } sourceFormIds: property(name: "sourceFormIds") { values }
-			mappings: property(name: "mappings") { values } } } }`,
+			mappings: property(name: "mappings") { values } imported: isNodeType(type: {types: ["fmdbmix:importedResults"]}) } } }`,
 		{path: entryPath}
 	).then(data => data.jcr.nodeByPath);
 
@@ -715,12 +715,17 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		closeAttachDialog();
 		countSubmissions(`${RESULTS_ROOT_PATH}/bulletin`).should('eq', SAMPLE.submissions['newsletter-registration']);
 		countSubmissions(`${RESULTS_ROOT_PATH}/newsletter-registration`).should('eq', 1);
+		// the entry left holds native submissions alone: it is no longer marked as imported results
 		entryOf(`${RESULTS_ROOT_PATH}/newsletter-registration`).then(entry => {
 			expect(entry?.parentForm).to.be.null;
+			expect(entry?.imported).to.equal(false);
 			expect(entry?.sourceFormIds?.values ?? []).to.have.length(0);
 			expect(entry?.mappings?.values ?? []).to.have.length(0);
 		});
-		entryOf(`${RESULTS_ROOT_PATH}/bulletin`).then(entry => expect(entry?.sourceFormIds?.values).to.have.length(1));
+		entryOf(`${RESULTS_ROOT_PATH}/bulletin`).then(entry => {
+			expect(entry?.imported).to.equal(true);
+			expect(entry?.sourceFormIds?.values).to.have.length(1);
+		});
 	});
 
 	it('asks which source when the entry holds several, and shows Form deleted once the form is gone', () => {
