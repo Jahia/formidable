@@ -53,11 +53,17 @@ public final class FormsImportRun {
      */
     public FormsImportRun(FormsExportReader reader, ImportWriter writer, boolean dryRun, Map<String, FormChoice> choices,
                           Predicate<String> registeredTypes, Predicate<String> declaredOptionsSources, boolean captchaConfigured) {
+        this(reader, writer, dryRun, choices, ImportEnvironment.of(registeredTypes, declaredOptionsSources, captchaConfigured));
+    }
+
+    /** @param environment what the instance offers, which decides what the converter carries over */
+    public FormsImportRun(FormsExportReader reader, ImportWriter writer, boolean dryRun, Map<String, FormChoice> choices,
+                          ImportEnvironment environment) {
         this.reader = reader;
         this.writer = writer;
         this.dryRun = dryRun;
         this.choices = choices;
-        this.converter = new FormsFormConverter(registeredTypes, declaredOptionsSources, captchaConfigured);
+        this.converter = new FormsFormConverter(environment);
     }
 
     public ImportReport run() throws IOException, FormsExportException, RepositoryException {

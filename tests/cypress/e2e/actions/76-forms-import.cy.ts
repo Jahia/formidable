@@ -431,6 +431,31 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		Object.entries(SAMPLE.submissions).forEach(([form, count]) => {
 			countSubmissions(`${RESULTS_ROOT_PATH}/${form}`).should('eq', count);
 		});
+		// the prefill of the first name from the visitor profile became its mapping, where the jExperience integration stands;
+		// an unknown type is an error for nodeTypeByName, so the probe takes the answer with its errors, as the playground does
+		cy.request({
+			method: 'POST',
+			url: '/modules/graphql',
+			failOnStatusCode: false,
+			headers: withSameOriginHeaders(),
+			body: {query: '{ jcr { nodeTypeByName(name: "fmdbmix:jExperienceProfileMapping") { name } } }'}
+		}).then(probe => {
+			const integration = !(probe.body as {errors?: unknown[]}).errors;
+			graphql<{jcr: {nodeByPath: {property: {value: string} | null; prefill: {value: string} | null; then: {value: string} | null}}}>(
+				`query Mapping($path: String!) { jcr(workspace: EDIT) { nodeByPath(path: $path) {
+					property: property(name: "jExperienceProfileProperty") { value }
+					prefill: property(name: "jExperiencePrefill") { value } then: property(name: "jExperiencePrefillThen") { value } } } }`,
+				{path: `${IMPORTED_FORMS_PATH}/contact-us/fields/your-first-name`}
+			).then(data => {
+				if (integration) {
+					expect(data.jcr.nodeByPath.property?.value).to.equal('firstName');
+					expect(data.jcr.nodeByPath.prefill?.value).to.equal('true');
+					expect(data.jcr.nodeByPath.then?.value).to.equal('editable');
+				} else {
+					expect(data.jcr.nodeByPath.property, 'no mapping without the integration').to.be.null;
+				}
+			});
+		});
 	});
 
 	it('shows the labels of the form while it is unpublished, and still once it is published', () => {

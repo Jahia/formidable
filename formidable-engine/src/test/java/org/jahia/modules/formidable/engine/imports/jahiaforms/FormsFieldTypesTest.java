@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 class FormsFieldTypesTest {
 
     private static FormsField of(String kind) {
-        return new FormsField("f", "uuid", "fcnt:" + kind + "Definition", Map.of(), null, Map.of(), List.of(), false, false);
+        return new FormsField("f", "uuid", "fcnt:" + kind + "Definition", Map.of(), null, Map.of(), List.of(), List.of(), false);
     }
 
     @Test

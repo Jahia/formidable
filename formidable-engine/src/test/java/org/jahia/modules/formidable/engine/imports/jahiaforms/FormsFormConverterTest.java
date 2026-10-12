@@ -45,6 +45,70 @@ class FormsFormConverterTest {
     }
 
     @Test
+    void aPrefillFromTheVisitorProfileBecomesTheMappingOfTheFieldWhenTheIntegrationReachesIt() throws Exception {
+        FormsExport export = sample();
+        FormsForm source = export.forms().get("contact-us");
+        FormsFormConverter mapping = new FormsFormConverter(new ImportEnvironment(type -> true, s -> true, type -> type.equals(FormsFieldTypes.INPUT_TEXT), false));
+
+        ImportedForm form = mapping.convert(source, export.resultsOf(source));
+
+        ImportedField firstName = form.fields().toList().get(0);
+        assertEquals(List.of(FormsFormConverter.PROFILE_MAPPING_MIXIN), firstName.mixins());
+        assertEquals("firstName", firstName.properties().get(FormsFormConverter.PROFILE_PROPERTY));
+        assertEquals("true", firstName.properties().get(FormsFormConverter.PROFILE_PREFILL));
+        assertEquals("editable", firstName.properties().get(FormsFormConverter.PROFILE_PREFILL_THEN));
+        assertTrue(firstName.report().stream().anyMatch(line -> line.startsWith("mapped to the visitor profile property firstName")));
+        assertEquals("lastName", form.fields().toList().get(1).properties().get(FormsFormConverter.PROFILE_PROPERTY));
+        // without the integration, or on a type its mixin does not reach, the report names the property instead
+        FormsFormConverter withoutIntegration = new FormsFormConverter(type -> !type.equals(FormsFormConverter.PROFILE_MAPPING_MIXIN), s -> true);
+        ImportedField unmapped = withoutIntegration.convert(source, export.resultsOf(source)).fields().toList().get(0);
+        assertNull(unmapped.properties().get(FormsFormConverter.PROFILE_PROPERTY));
+        assertTrue(unmapped.mixins().isEmpty());
+        assertTrue(unmapped.report().stream().anyMatch(line -> line.contains("firstName") && line.contains("not installed")));
+        ImportedField unreachable = EVERYTHING.convert(source, export.resultsOf(source)).fields().toList().get(0);
+        assertNull(unreachable.properties().get(FormsFormConverter.PROFILE_PROPERTY));
+        assertTrue(unreachable.report().stream().anyMatch(line -> line.contains("firstName") && line.contains("takes no mapping")));
+    }
+
+    @Test
+    void aPrefillCarriesWhatFollowsTheWriteTheMappingAloneAndOneMappingPerField() {
+        FormsFormConverter mapping = new FormsFormConverter(new ImportEnvironment(type -> true, s -> true, type -> true, false));
+        FormsPrefill hidden = new FormsPrefill(FormsPrefill.PROFILE_PREFILL_TYPE, "firstName", true, false);
+        FormsPrefill readOnly = new FormsPrefill(FormsPrefill.PROFILE_PREFILL_TYPE, "lastName", false, true);
+        FormsPrefill both = new FormsPrefill(FormsPrefill.PROFILE_PREFILL_TYPE, "email", true, true);
+        FormsPrefill mappingOnly = new FormsPrefill(FormsPrefill.PROFILE_MAPPING_ONLY_TYPE, "phone", false, false);
+        FormsPrefill userInfo = new FormsPrefill("fcnt:userInfoPrefill", null, false, false);
+        ImportedForm form = mapping.convert(formOf(
+                prefilled("hidden_0_1", hidden),
+                prefilled("readonly_0_2", readOnly),
+                prefilled("both_0_3", both),
+                prefilled("mapped_0_4", mappingOnly),
+                prefilled("twice_0_5", hidden, readOnly),
+                prefilled("userinfo_0_6", userInfo)), null);
+        List<ImportedField> fields = form.fields().toList();
+
+        assertEquals("hidden", fields.get(0).properties().get(FormsFormConverter.PROFILE_PREFILL_THEN));
+        assertEquals("readOnly", fields.get(1).properties().get(FormsFormConverter.PROFILE_PREFILL_THEN));
+        // hidden wins over read-only: a hidden field is not edited anyway
+        assertEquals("hidden", fields.get(2).properties().get(FormsFormConverter.PROFILE_PREFILL_THEN));
+        assertEquals("phone", fields.get(3).properties().get(FormsFormConverter.PROFILE_PROPERTY));
+        assertEquals("false", fields.get(3).properties().get(FormsFormConverter.PROFILE_PREFILL));
+        assertNull(fields.get(3).properties().get(FormsFormConverter.PROFILE_PREFILL_THEN));
+        assertTrue(fields.get(3).report().stream().anyMatch(line -> line.contains("without prefill")));
+        // one mapping per field: the first prefill of the kind wins, the second is reported
+        assertEquals("firstName", fields.get(4).properties().get(FormsFormConverter.PROFILE_PROPERTY));
+        assertTrue(fields.get(4).report().stream().anyMatch(line -> line.contains("lastName") && line.contains("already mapped")));
+        // another kind of prefill has no counterpart
+        assertNull(fields.get(5).properties().get(FormsFormConverter.PROFILE_PROPERTY));
+        assertTrue(fields.get(5).mixins().isEmpty());
+        assertTrue(fields.get(5).report().stream().anyMatch(line -> line.contains("fcnt:userInfoPrefill")));
+    }
+
+    private static FormsField prefilled(String name, FormsPrefill... prefills) {
+        return new FormsField(name, "uuid-" + name, "fcnt:inputDefinition", Map.of("en", name), null, Map.of(), List.of(), List.of(prefills), false);
+    }
+
+    @Test
     void aFieldKeepsItsLabelsPlaceholderSourceAndSettings() throws Exception {
         FormsExport export = sample();
         FormsForm source = export.forms().get("contact-us");
@@ -99,14 +163,14 @@ class FormsFormConverterTest {
     void aSettingTheTypeDoesNotHaveIsReportedNotKept() {
         FormsOption placeholder = new FormsOption("placeholder", null, Map.of("en", "Pick one"));
         FormsField select = new FormsField("select_0_1", "u1", "fcnt:selectBasicDefinition", Map.of("en", "Colour"),
-                null, Map.of("placeholder", placeholder), List.of(), false, false);
+                null, Map.of("placeholder", placeholder), List.of(), List.of(), false);
         FormsValidation required = new FormsValidation("required", FormsValidation.REQUIRED, Map.of());
         FormsField hidden = new FormsField("hidden_0_2", "u2", "fcnt:hiddenDefinition", Map.of("en", "Hidden"),
-                null, Map.of(), List.of(required), false, false);
+                null, Map.of(), List.of(required), List.of(), false);
         FormsValidation regex = new FormsValidation("regex", FormsValidation.REGEX,
                 Map.of("regex", new FormsOption("regex", "^[a-z]+$", Map.of())));
         FormsField textarea = new FormsField("area_0_3", "u3", "fcnt:textAreaDefinition", Map.of("en", "Area"),
-                null, Map.of(), List.of(regex), false, false);
+                null, Map.of(), List.of(regex), List.of(), false);
 
         List<ImportedField> fields = EVERYTHING.convert(formOf(select, hidden, textarea), null).fields().toList();
 
@@ -139,17 +203,17 @@ class FormsFormConverterTest {
                 "message", new FormsOption("message", null, Map.of("en", "Between 2 and 40"))));
         FormsValidation email = new FormsValidation("email", FormsValidation.EMAIL, Map.of());
         FormsField text = new FormsField("text_0_1", "u1", "fcnt:inputDefinition", Map.of("en", "Name"),
-                null, Map.of(), List.of(length, email), false, false);
+                null, Map.of(), List.of(length, email), List.of(), false);
         FormsValidation range = new FormsValidation("range", FormsValidation.RANGE, Map.of(
                 "min", new FormsOption("min", "1", Map.of()), "max", new FormsOption("max", "10", Map.of()),
                 "message", new FormsOption("message", null, Map.of("en", "From 1 to 10"))));
         FormsField number = new FormsField("number_0_2", "u2", "fcnt:numberDefinition", Map.of("en", "Score"),
-                null, Map.of(), List.of(range), false, false);
+                null, Map.of(), List.of(range), List.of(), false);
         FormsValidation regex = new FormsValidation("regex", FormsValidation.REGEX, Map.of(
                 "regex", new FormsOption("regex", "^[A-Z]+$", Map.of()),
                 "message", new FormsOption("message", null, Map.of("en", "Capitals only"))));
         FormsField code = new FormsField("code_0_3", "u3", "fcnt:inputDefinition", Map.of("en", "Code"),
-                null, Map.of(), List.of(regex), false, false);
+                null, Map.of(), List.of(regex), List.of(), false);
 
         List<ImportedField> fields = EVERYTHING.convert(formOf(text, number, code), null).fields().toList();
 
@@ -206,7 +270,7 @@ class FormsFormConverterTest {
         FormsValidation number = new FormsValidation("fileNumber", FormsValidation.FILE_NUMBER, Map.of(
                 FormsOptionNames.FILE_NUMBER, new FormsOption(FormsOptionNames.FILE_NUMBER, "3", Map.of())));
         FormsField upload = new FormsField("file_0_1", "u1", "fcnt:fileUploadDefinition", Map.of("en", "CV"),
-                null, Map.of(), List.of(types, number), false, false);
+                null, Map.of(), List.of(types, number), List.of(), false);
 
         ImportedField field = EVERYTHING.convert(formOf(upload), null).fields().toList().get(0);
         assertEquals("image/*,application/pdf", field.properties().get(FormsFieldTypes.ACCEPT));
@@ -216,7 +280,7 @@ class FormsFormConverterTest {
         // every type allowed: nothing to restrict
         FormsValidation all = new FormsValidation("file", FormsValidation.FILE, Map.of(FormsOptionNames.FILE_TYPE,
                 new FormsOption(FormsOptionNames.FILE_TYPE, "[{\"key\":\"all\",\"value\":\".*\",\"selected\":true}]", Map.of())));
-        FormsField any = new FormsField("file_0_2", "u2", "fcnt:fileUploadDefinition", Map.of("en", "Any"), null, Map.of(), List.of(all), false, false);
+        FormsField any = new FormsField("file_0_2", "u2", "fcnt:fileUploadDefinition", Map.of("en", "Any"), null, Map.of(), List.of(all), List.of(), false);
         assertNull(EVERYTHING.convert(formOf(any), null).fields().toList().get(0).properties().get(FormsFieldTypes.ACCEPT));
     }
 
@@ -270,7 +334,7 @@ class FormsFormConverterTest {
         FormsOption choices = new FormsOption("choices", null, Map.of(
                 "en", "[{\"key\":\"red\",\"value\":\"Red\"}]", "fr", "[{\"key\":\"red\",\"value\":\"Rouge\"}]"));
         FormsField select = new FormsField("select_0_1", "u1", "fcnt:selectMultipleDefinition", Map.of("en", "Colour", "fr", "Couleur"),
-                "choices", Map.of("choices", choices), List.of(), false, false);
+                "choices", Map.of("choices", choices), List.of(), List.of(), false);
 
         ImportedField field = EVERYTHING.convert(formOf(select), null).fields().toList().get(0);
         assertEquals("colour", field.name());
@@ -287,7 +351,7 @@ class FormsFormConverterTest {
         Map<String, FormsOption> texts = Map.of(
                 FormsOptionNames.TEXT_ON, new FormsOption(FormsOptionNames.TEXT_ON, null, Map.of("en", "Yes please")),
                 FormsOptionNames.TEXT_OFF, new FormsOption(FormsOptionNames.TEXT_OFF, null, Map.of("en", "No thanks")));
-        FormsField definition = new FormsField("switch_0_1", "u1", "fcnt:switchDefinition", Map.of("en", "Newsletter"), null, texts, List.of(), false, false);
+        FormsField definition = new FormsField("switch_0_1", "u1", "fcnt:switchDefinition", Map.of("en", "Newsletter"), null, texts, List.of(), List.of(), false);
 
         ImportedField extended = EVERYTHING.convert(formOf(definition), null).fields().toList().get(0);
         assertEquals(FormsFieldTypes.SWITCH, extended.nodeType());
@@ -315,7 +379,7 @@ class FormsFormConverterTest {
                 FormsOptionNames.TERMS_LABEL, new FormsOption(FormsOptionNames.TERMS_LABEL, null,
                         Map.of("en", "I have read and agree to the {LICENSE}.", "fr", "J'ai lu {nos conditions} et je les accepte.")),
                 FormsOptionNames.LINK, new FormsOption(FormsOptionNames.LINK, null, Map.of("en", "/sites/acme/files/terms.pdf")));
-        FormsField withTerms = new FormsField("terms_0_1", "u1", "fcnt:acceptTermCheckboxDefinition", Map.of("en", "I agree"), null, terms, List.of(), false, false);
+        FormsField withTerms = new FormsField("terms_0_1", "u1", "fcnt:acceptTermCheckboxDefinition", Map.of("en", "I agree"), null, terms, List.of(), List.of(), false);
 
         ImportedField consent = EVERYTHING.convert(formOf(withTerms), null).fields().toList().get(0);
         assertEquals(Map.of("en", "I have read and agree to the LICENSE.", "fr", "J'ai lu nos conditions et je les accepte."),
@@ -324,7 +388,7 @@ class FormsFormConverterTest {
 
         // no terms file: nothing to report, the statement still reads as the visitors read it
         FormsField unlinked = new FormsField("terms_0_2", "u2", "fcnt:acceptTermCheckboxDefinition", Map.of("en", "I agree"), null,
-                Map.of(FormsOptionNames.TERMS_LABEL, terms.get(FormsOptionNames.TERMS_LABEL)), List.of(), false, false);
+                Map.of(FormsOptionNames.TERMS_LABEL, terms.get(FormsOptionNames.TERMS_LABEL)), List.of(), List.of(), false);
         ImportedField plain = EVERYTHING.convert(formOf(unlinked), null).fields().toList().get(0);
         assertEquals("I have read and agree to the LICENSE.", plain.i18nProperties().get(FormsFieldTypes.STATEMENT).get("en"));
         assertTrue(plain.report().isEmpty(), plain.report().toString());
@@ -333,7 +397,7 @@ class FormsFormConverterTest {
     @Test
     void anAcceptTermsBoxWithoutChoicesGetsOneAcceptedOptionInTheBuildingLanguage() {
         FormsField definition = new FormsField("terms_0_1", "u1", "fcnt:acceptTermCheckboxDefinition",
-                Map.of("fr", "J'accepte", "en", "I agree"), null, Map.of(), List.of(), false, false);
+                Map.of("fr", "J'accepte", "en", "I agree"), null, Map.of(), List.of(), List.of(), false);
 
         ImportedField consent = EVERYTHING.convert(formOf(definition), null).fields().toList().get(0);
         assertEquals(FormsFieldTypes.CONSENT, consent.nodeType());
@@ -365,7 +429,7 @@ class FormsFormConverterTest {
         FormsField a = field("text_0_1", "fcnt:inputDefinition", "A");
         FormsField start = field("fieldset_0_2", "fcnt:fieldsetStartDefinition", "Address");
         FormsField b = field("text_0_3", "fcnt:inputDefinition", "B");
-        FormsField end = new FormsField("fieldsetEnd_0_4", "u4", "fcnt:fieldsetEndDefinition", Map.of(), null, Map.of(), List.of(), false, false);
+        FormsField end = new FormsField("fieldsetEnd_0_4", "u4", "fcnt:fieldsetEndDefinition", Map.of(), null, Map.of(), List.of(), List.of(), false);
         FormsField c = field("text_0_5", "fcnt:inputDefinition", "C");
         FormsStep step1 = new FormsStep("step-1", 1, Map.of("en", "Step 1"), List.of(a, start, b, end));
         FormsStep step2 = new FormsStep("step-2", 2, Map.of("en", "Step 2"), List.of(c));
@@ -393,7 +457,7 @@ class FormsFormConverterTest {
     }
 
     private static FormsField field(String name, String type, String title) {
-        return new FormsField(name, "uuid-" + name, type, Map.of("en", title), null, Map.of(), List.of(), false, false);
+        return new FormsField(name, "uuid-" + name, type, Map.of("en", title), null, Map.of(), List.of(), List.of(), false);
     }
 
     private static FormsForm formOf(FormsField... fields) {

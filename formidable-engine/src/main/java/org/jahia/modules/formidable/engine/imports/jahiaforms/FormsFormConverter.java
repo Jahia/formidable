@@ -44,8 +44,20 @@ public final class FormsFormConverter {
     /** The braced text of a terms label, which the accept-terms box rendered as the link to the terms. */
     private static final java.util.regex.Pattern LINK_TEXT = java.util.regex.Pattern.compile("\\{([^}]*)\\}");
 
+    /** The mixin of the jExperience integration that maps a field to a visitor profile property, and its properties. */
+    public static final String PROFILE_MAPPING_MIXIN = "fmdbmix:jExperienceProfileMapping";
+    static final String PROFILE_PROPERTY = "jExperienceProfileProperty";
+    static final String PROFILE_PREFILL = "jExperiencePrefill";
+    static final String PROFILE_PREFILL_THEN = "jExperiencePrefillThen";
+    private static final String THEN_HIDDEN = "hidden";
+    private static final String THEN_READ_ONLY = "readOnly";
+    private static final String THEN_EDITABLE = "editable";
+    private static final String PROFILE_PREFILL_NOT_CARRIED = "prefill from the visitor profile property ";
+    private static final String NOT_CARRIED_OVER = " not carried over: ";
+
     private final Predicate<String> registeredTypes;
     private final Predicate<String> declaredOptionsSources;
+    private final Predicate<String> profileMappable;
     private final boolean captchaConfigured;
 
     /**
@@ -55,9 +67,15 @@ public final class FormsFormConverter {
      *                          one gets its captcha, or a line in the report
      */
     public FormsFormConverter(Predicate<String> registeredTypes, Predicate<String> declaredOptionsSources, boolean captchaConfigured) {
-        this.registeredTypes = registeredTypes;
-        this.declaredOptionsSources = declaredOptionsSources;
-        this.captchaConfigured = captchaConfigured;
+        this(ImportEnvironment.of(registeredTypes, declaredOptionsSources, captchaConfigured));
+    }
+
+    /** @param environment what the instance offers, which decides what is carried over and what is reported */
+    public FormsFormConverter(ImportEnvironment environment) {
+        this.registeredTypes = environment.registeredTypes();
+        this.declaredOptionsSources = environment.declaredOptionsSources();
+        this.profileMappable = environment.profileMappable();
+        this.captchaConfigured = environment.captchaConfigured();
     }
 
     /** A converter on an instance without a captcha: the forms that displayed one are reported. */
@@ -171,17 +189,72 @@ public final class FormsFormConverter {
         return Optional.of(field.build());
     }
 
-    private static void fillCommon(ImportedField.Builder field, FormsField definition, FormsFieldTypes.Mapping mapping) {
+    private void fillCommon(ImportedField.Builder field, FormsField definition, FormsFieldTypes.Mapping mapping) {
         // a select has no placeholder, but shows its empty option's label where a placeholder would stand
         String placeholderSlot = mapping.is(FormsFieldTypes.SELECT) ? FormsFieldTypes.OPTIONS_EMPTY_LABEL : FormsFieldTypes.PLACEHOLDER;
         field.i18nProperty(placeholderSlot, valuesOf(definition.option(FormsOptionNames.PLACEHOLDER)));
         field.i18nProperty(FormsFieldTypes.HELP_TEXT, valuesOf(definition.option(FormsOptionNames.HELP_TEXT)));
-        if (definition.prefilled()) {
-            field.report("prefill not carried over: Formidable prefills come from the visitor profile mapping, set it by hand");
-        }
+        fillPrefills(field, definition, mapping);
         if (definition.hasLogic()) {
             field.report("conditional logic not carried over: rebuild it by hand");
         }
+    }
+
+    /**
+     * A prefill from the visitor profile becomes the mapping of the field to that profile property, with the
+     * prefill switch on and what follows the write as Forms had it, when the jExperience integration is installed
+     * and reaches the field type; a field takes one mapping, the first prefill of the kind. Any other prefill, or
+     * one the integration cannot take, is reported.
+     */
+    private void fillPrefills(ImportedField.Builder field, FormsField definition, FormsFieldTypes.Mapping mapping) {
+        boolean mapped = false;
+        for (FormsPrefill prefill : definition.prefills()) {
+            String refusal = refusalOf(prefill, mapping, mapped);
+            if (refusal == null) {
+                carry(field, prefill);
+                mapped = true;
+            } else {
+                field.report(refusal);
+            }
+        }
+    }
+
+    /** Why a prefill is reported instead of carried over; null when the field takes it. */
+    private String refusalOf(FormsPrefill prefill, FormsFieldTypes.Mapping mapping, boolean mapped) {
+        if (!prefill.isProfileMapping()) {
+            return "prefill " + prefill.type() + NOT_CARRIED_OVER + "Formidable prefills come from the visitor profile mapping, set it by hand";
+        }
+        String refused = PROFILE_PREFILL_NOT_CARRIED + prefill.profileProperty() + NOT_CARRIED_OVER;
+        if (mapped) {
+            return refused + "the field is already mapped";
+        }
+        if (!registeredTypes.test(PROFILE_MAPPING_MIXIN)) {
+            return refused + "the jExperience integration is not installed, map the field by hand once it is";
+        }
+        if (!profileMappable.test(mapping.nodeType())) {
+            return refused + mapping.nodeType() + " takes no mapping to the visitor profile";
+        }
+        return null;
+    }
+
+    /** The mapping of the field to the profile property, with the prefill and what follows it as Forms had them. */
+    private static void carry(ImportedField.Builder field, FormsPrefill prefill) {
+        field.extension(PROFILE_MAPPING_MIXIN, PROFILE_PROPERTY, prefill.profileProperty());
+        field.extension(PROFILE_MAPPING_MIXIN, PROFILE_PREFILL, String.valueOf(prefill.prefills()));
+        String then = thenOf(prefill);
+        if (prefill.prefills()) {
+            field.extension(PROFILE_MAPPING_MIXIN, PROFILE_PREFILL_THEN, then);
+        }
+        field.report("mapped to the visitor profile property " + prefill.profileProperty()
+                + (prefill.prefills() ? ", prefilled from it, " + then + " once filled" : ", without prefill") + ": check it in the editor");
+    }
+
+    /** What follows the write of the profile's value, as Forms had it: hidden first, then read-only, else editable. */
+    private static String thenOf(FormsPrefill prefill) {
+        if (prefill.hideAfterPrefill()) {
+            return THEN_HIDDEN;
+        }
+        return prefill.readOnlyAfterPrefill() ? THEN_READ_ONLY : THEN_EDITABLE;
     }
 
     private static void fillRules(ImportedField.Builder field, FormsField definition, FormsFieldTypes.Mapping mapping) {

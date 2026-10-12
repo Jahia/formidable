@@ -78,6 +78,16 @@ class FormsExportReaderTest {
         FormsForm contact = sampleReader().readStructure().forms().get("contact-us");
 
         FormsField firstName = contact.fields().get(0);
+        assertEquals(1, firstName.prefills().size());
+        FormsPrefill prefill = firstName.prefills().get(0);
+        assertEquals(FormsPrefill.PROFILE_PREFILL_TYPE, prefill.type());
+        assertEquals("firstName", prefill.profileProperty());
+        assertTrue(prefill.prefills());
+        assertFalse(prefill.hideAfterPrefill());
+        assertFalse(prefill.readOnlyAfterPrefill());
+        assertEquals("email", FormsPrefill.profilePropertyOf("{\"itemId\":\"email\"}"));
+        assertNull(FormsPrefill.profilePropertyOf("not json"));
+        assertNull(FormsPrefill.profilePropertyOf(null));
         assertEquals("fcnt:inputDefinition", firstName.type());
         assertEquals("input", firstName.kind());
         assertEquals("", firstName.titles().get("en"));

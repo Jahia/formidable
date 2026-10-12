@@ -160,8 +160,8 @@ class FormsSubmissionConverterTest {
 
     @Test
     void aDateAndAFileAreConvertedForTheKindOfTheirField() {
-        FormsField date = new FormsField("date_0_1", "ud", "fcnt:datePickerDefinition", Map.of("en", "Birthday"), null, Map.of(), List.of(), false, false);
-        FormsField file = new FormsField("file_0_2", "uf", "fcnt:fileUploadDefinition", Map.of("en", "CV"), null, Map.of(), List.of(), false, false);
+        FormsField date = new FormsField("date_0_1", "ud", "fcnt:datePickerDefinition", Map.of("en", "Birthday"), null, Map.of(), List.of(), List.of(), false);
+        FormsField file = new FormsField("file_0_2", "uf", "fcnt:fileUploadDefinition", Map.of("en", "CV"), null, Map.of(), List.of(), List.of(), false);
         FormsForm source = formOf(date, file);
         FormsResults results = resultsOf(Map.of("date_0_1", "ud", "file_0_2", "uf"));
         ImportedForm form = CONVERTER.convert(source, results);
@@ -186,7 +186,7 @@ class FormsSubmissionConverterTest {
         Map<String, FormsOption> labels = Map.of(
                 FormsOptionNames.YES, new FormsOption(FormsOptionNames.YES, null, Map.of("en", "Accepted", "fr", "Accepté")),
                 FormsOptionNames.NO, new FormsOption(FormsOptionNames.NO, null, Map.of("en", "Not Accepted", "fr", "Refusé")));
-        FormsField terms = new FormsField("terms_0_1", "ut", "fcnt:acceptTermCheckboxDefinition", Map.of("en", "I agree"), null, labels, List.of(), false, false);
+        FormsField terms = new FormsField("terms_0_1", "ut", "fcnt:acceptTermCheckboxDefinition", Map.of("en", "I agree"), null, labels, List.of(), List.of(), false);
         FormsForm source = formOf(terms);
         FormsResults results = resultsOf(Map.of("terms_0_1", "ut"));
         FormsSubmission ticked = submissionWith("Accepté");
