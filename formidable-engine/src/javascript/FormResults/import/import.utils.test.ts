@@ -1,5 +1,22 @@
 import {describe, expect, it} from 'vitest';
-import {formTitle, groupedFieldNotes, refuseFile, type ImportReportForm} from './import.utils';
+import {
+    attachProblem,
+    choicesReady,
+    fieldTitle,
+    formTitle,
+    groupedFieldNotes,
+    type ImportReport,
+    type ImportReportField,
+    type ImportReportForm,
+    kindOf,
+    mappingConflicts,
+    mappingOf,
+    parseSiteForms,
+    parseTargetFields,
+    proposeMapping,
+    refuseFile,
+    requestChoices
+} from './import.utils';
 
 const fileOf = (name: string, size: number, type = ''): File => {
     const file = new File([new Uint8Array(1)], name, {type});
@@ -39,5 +56,80 @@ describe('groupedFieldNotes', () => {
             {name: 'email', type: 'fmdb:inputEmail', notes: []}
         ])).toEqual([`${prefill} — first-name, last-name`, 'pattern not carried over — last-name']);
         expect(groupedFieldNotes([])).toEqual([]);
+    });
+});
+
+describe('attaching to an existing form', () => {
+    const field = (name: string, title?: string): ImportReportField => ({name, type: 'fmdb:inputText', titles: title ? {en: title} : {}, notes: []});
+    const source = [field('firstname', 'Firstname'), field('lastname', 'Lastname'), field('enter-your-email-here', 'enter your email here')];
+    const target = [{name: 'firstname', label: 'First name'}, {name: 'surname', label: 'Lastname'}, {name: 'email', label: 'Email'}];
+
+    it('proposes the field of the same name, else the field of the same label, else nothing', () => {
+        expect(proposeMapping(source, target, 'en')).toEqual({
+            firstname: {target: 'firstname', rule: 'sameName'},
+            lastname: {target: 'surname', rule: 'sameLabel'}
+        });
+        expect(mappingOf(proposeMapping(source, target, 'en'))).toEqual({firstname: 'firstname', lastname: 'surname'});
+    });
+
+    it('proposes a field of the form once, and matches the label in the language of the user alone', () => {
+        const twice = [field('name', 'Lastname'), field('lastname', 'Lastname')];
+        expect(proposeMapping(twice, target, 'en')).toEqual({name: {target: 'surname', rule: 'sameLabel'}});
+        expect(proposeMapping(source, target, 'fr')).toEqual({firstname: {target: 'firstname', rule: 'sameName'}});
+        // a field named after another source field is taken by that one, whatever its label says
+        expect(proposeMapping([field('surname', 'Email'), field('x', 'Lastname')], target, 'en'))
+            .toEqual({surname: {target: 'surname', rule: 'sameName'}});
+    });
+
+    it('finds the names two fields would land under, a kept name included', () => {
+        expect(mappingConflicts(source, {lastname: 'surname'})).toEqual([]);
+        expect(mappingConflicts(source, {lastname: 'email', 'enter-your-email-here': 'email'})).toEqual(['email']);
+        // a field sent to the name another field keeps collides with it
+        expect(mappingConflicts(source, {lastname: 'firstname'})).toEqual(['firstname']);
+    });
+
+    it('holds the import until the attachment names a form and lands no two fields together', () => {
+        const report = {forms: [{sourceName: 'newsletter', fields: source}]} as unknown as ImportReport;
+        expect(attachProblem({choice: 'attach', form: '', mapping: {}}, source)).toEqual('noForm');
+        expect(attachProblem({choice: 'attach', form: 'f1', mapping: {lastname: 'firstname'}}, source)).toEqual('conflict');
+        expect(attachProblem({choice: 'attach', form: 'f1', mapping: {lastname: 'surname'}}, source)).toBeNull();
+        expect(choicesReady({}, report)).toBe(true);
+        expect(choicesReady({newsletter: 'create'}, report)).toBe(true);
+        expect(choicesReady({newsletter: {choice: 'attach', form: '', mapping: {}}}, report)).toBe(false);
+        expect(choicesReady({newsletter: {choice: 'attach', form: 'f1', mapping: {}}}, report)).toBe(true);
+    });
+
+    it('sends the names that change alone', () => {
+        expect(requestChoices({
+            'contact-us': 'create',
+            newsletter: {choice: 'attach', form: 'f1', mapping: {firstname: 'firstname', lastname: 'surname', x: ''}}
+        })).toEqual({'contact-us': 'create', newsletter: {choice: 'attach', form: 'f1', mapping: {lastname: 'surname'}}});
+    });
+
+    it('reads the forms of the site by title, and the fields of a form without its fieldsets and buttons', () => {
+        expect(parseSiteForms({jcr: {nodesByQuery: {nodes: [
+            {uuid: 'b', name: 'survey', path: '/sites/s/contents/survey', displayName: 'Survey'},
+            {uuid: 'a', name: 'contact', path: '/sites/s/contents/contact', displayName: 'Contact'},
+            {uuid: 'c', name: 'contact-2', path: '/sites/s/contents/forms/contact', displayName: 'Contact'}
+        ]}}})).toEqual([
+            {uuid: 'a', name: 'contact', path: '/sites/s/contents/contact', title: 'Contact'},
+            {uuid: 'c', name: 'contact-2', path: '/sites/s/contents/forms/contact', title: 'Contact'},
+            {uuid: 'b', name: 'survey', path: '/sites/s/contents/survey', title: 'Survey'}
+        ]);
+        expect(parseTargetFields({jcr: {nodeById: {fields: {nodes: [{descendants: {nodes: [
+            {name: 'identity', displayName: 'Identity', nonSubmittable: true},
+            {name: 'firstname', displayName: 'First name', nonSubmittable: false},
+            {name: 'submit', displayName: 'Send', nonSubmittable: true},
+            {name: 'email', nonSubmittable: false}
+        ]}}]}}}})).toEqual([{name: 'firstname', label: 'First name'}, {name: 'email', label: 'email'}]);
+        expect(parseTargetFields(undefined)).toEqual([]);
+    });
+
+    it('kinds a choice, the results alone when none was made', () => {
+        expect(kindOf(undefined)).toEqual('resultsOnly');
+        expect(kindOf('create')).toEqual('create');
+        expect(kindOf({choice: 'attach', form: 'f1', mapping: {}})).toEqual('attach');
+        expect(fieldTitle(field('x', 'Title'), 'en')).toEqual('Title');
+        expect(fieldTitle(field('x'), 'en')).toEqual('');
     });
 });

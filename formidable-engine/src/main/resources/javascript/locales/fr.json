@@ -237,12 +237,15 @@
 				"fields": "{{count}} champ(s)",
 				"files": "{{count}} fichier(s), {{size}}",
 				"filesMissing": "{{count}} fichier(s) absent(s) de l’export, laissé(s) de côté",
-				"values": "{{dropped}} valeur(s) écartée(s), {{notConverted}} gardée(s) telles quelles"
+				"values": "{{dropped}} valeur(s) écartée(s), {{notConverted}} gardée(s) telles quelles",
+				"attached": "Rattaché au formulaire « {{name}} » dans {{path}}, les valeurs sous les noms de ses champs",
+				"attachPending": "Choisissez le formulaire auquel rattacher les résultats"
 			},
 			"choice": {
 				"label": "Ce qui reçoit les résultats",
 				"resultsOnly": "Résultats seuls",
-				"create": "Créer le formulaire"
+				"create": "Créer le formulaire",
+				"attach": "Rattacher à un formulaire existant"
 			},
 			"actions": {
 				"import": "Importer",
@@ -253,7 +256,8 @@
 			"done": {
 				"title": "Import terminé",
 				"created": "Ces formulaires ont été créés dans le dossier « Imported from Jahia Forms » du site, non publiés, et leurs entrées s’affichent comme dépubliées jusque-là : relisez chacun, complétez ce que son rapport liste, puis publiez-le.",
-				"resultsOnly": "Les résultats de ces formulaires sont sur cette page, dans des entrées sans formulaire marquées « Importé, sans formulaire », avec les noms système des champs en colonnes."
+				"resultsOnly": "Les résultats de ces formulaires sont sur cette page, dans des entrées sans formulaire marquées « Importé, sans formulaire », avec les noms système des champs en colonnes.",
+				"attached": "Les résultats de ces formulaires ont été rattachés à des formulaires de ce site : ils s’affichent sous ces formulaires, lus par leurs lecteurs."
 			},
 			"failed": {
 				"title": "L'import a échoué"
@@ -262,6 +266,17 @@
 				"notZip": "Le fichier doit être un export .zip",
 				"tooLarge": "Le fichier dépasse {{max}} Mo",
 				"unexpected": "Une erreur est survenue, voir le journal du serveur"
+			},
+			"attach": {
+				"form": "Formulaire",
+				"pickForm": "Choisir un formulaire du site",
+				"noForms": "Le site n’a pas encore de formulaire",
+				"mapping": "Où atterrissent les valeurs de chaque champ",
+				"keep": "Garder le nom",
+				"noFields": "Ce formulaire n’a aucun champ : chaque valeur garde son nom",
+				"sameName": "même nom",
+				"sameLabel": "même libellé",
+				"conflict": "Deux champs ne peuvent pas atterrir sous le même nom : {{names}}"
 			}
 		}
 	},

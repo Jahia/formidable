@@ -189,9 +189,28 @@ export const GET_FORM_FIELD_LABELS = gql`
                                 displayName(language: $language)
                                 isDate: isNodeType(type: {types: ["fmdbmix:dateField"]})
                                 isDatetime: isNodeType(type: {types: ["fmdbmix:datetimeLocalField"]})
+                                nonSubmittable: isNodeType(type: {types: ["fmdbmix:nonSubmittable"]})
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+`;
+
+/**
+ * The forms of the site the imported results can attach to, unpublished ones included: the statement comes
+ * from buildSiteFormsQuery (import.utils.ts).
+ */
+export const GET_SITE_FORMS = gql`
+    ${JCR_NODE_IDENTITY}
+    query GetSiteForms($formsQuery: String!, $language: String!) {
+        jcr(workspace: EDIT) {
+            nodesByQuery(query: $formsQuery, queryLanguage: SQL2) {
+                nodes {
+                    ...JcrNodeIdentity
+                    displayName(language: $language)
                 }
             }
         }

@@ -2,7 +2,9 @@
 
 Specification of the import of [Jahia Forms](https://github.com/Jahia/forms-core) (`forms-core` 3.x) forms
 and submissions into Formidable. Status: iteration 1 implemented in the engine (the reader and the converters first, then the writer, the
-job and the Results page dialog); iteration 2 to come. The open points are listed at the end.
+job and the Results page dialog); iteration 2 implemented for the choice at import time (the results alone, a form created, an
+attachment to an existing form with its mapping), the **Attach to another form** action on an entry to come. The open points are
+listed at the end.
 
 ## Goal and iterations
 
@@ -707,17 +709,19 @@ mapping or to another form.
   show the running import, then its report, and the report must be readable after a reload until
   **Close**. An XML export, and a zip without results, must end in the failed state with the procedure.
   An **Import** clicked while another import runs on the site must be refused with its reason.
-- **A Cypress spec for iteration 2.** The spec imports the sample with the default choice and checks that
-  no form was created, that the three entries show **Imported, no form** with the system names as
-  columns, that their exports carry those names, that an editor granted nothing sees none of them, and
-  that a second run adds nothing. It then imports a second export with the two other choices: a form
-  created, and the results attached at import time to a form with three fields, one with the same node
-  name, one with the same label, and one that the administrator picks, the values landing under the
-  names of that form. It then attaches the results-only entry to a form through the action on the entry,
-  checks the labels, the renamed values and the readers, attaches a second source to the same form and
-  checks the merge: neither a native submission of the form nor the submissions of the first source lose
-  a value that holds a name the second mapping renames. Last, it deletes the form and checks that the
-  entry shows **Form deleted**.
+- **The same Cypress spec for iteration 2.** The spec imports the sample with the default choice and
+  checks that no form was created, that the three entries show **Imported, no form** with the system names
+  as columns, that a second run adds nothing, and, once the entries are deleted, that the forms are created
+  on request. It then deletes one created form with its entry, builds a form by hand with three fields,
+  one with the same node name, one with the same label, and one that the administrator picks, and attaches
+  the results of that source at import time: the dialog waits for the form to be picked, matches the first
+  field, proposes the second, refuses two fields sent to one field of the form with the name they collide
+  on, and the values land under the names of that form, the entry of the form carrying the mapping and
+  showing on the Results page with its labels. Still to write: the attachment of a results-only entry to a
+  form through the action on the entry, with the labels, the renamed values and the readers checked, a
+  second source attached to the same form and the merge checked (neither a native submission of the form
+  nor the submissions of the first source lose a value that holds a name the second mapping renames), and
+  the deleted form leaving the entry on **Form deleted**.
 
 ## Open points
 
