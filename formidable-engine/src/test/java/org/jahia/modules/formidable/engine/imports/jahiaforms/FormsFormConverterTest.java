@@ -71,6 +71,44 @@ class FormsFormConverterTest {
     }
 
     @Test
+    void aPrefillCarriesWhatFollowsTheWriteTheMappingAloneAndOneMappingPerField() {
+        FormsFormConverter mapping = new FormsFormConverter(new ImportEnvironment(type -> true, s -> true, type -> true, false));
+        FormsPrefill hidden = new FormsPrefill(FormsPrefill.PROFILE_PREFILL_TYPE, "firstName", true, false);
+        FormsPrefill readOnly = new FormsPrefill(FormsPrefill.PROFILE_PREFILL_TYPE, "lastName", false, true);
+        FormsPrefill both = new FormsPrefill(FormsPrefill.PROFILE_PREFILL_TYPE, "email", true, true);
+        FormsPrefill mappingOnly = new FormsPrefill(FormsPrefill.PROFILE_MAPPING_ONLY_TYPE, "phone", false, false);
+        FormsPrefill userInfo = new FormsPrefill("fcnt:userInfoPrefill", null, false, false);
+        ImportedForm form = mapping.convert(formOf(
+                prefilled("hidden_0_1", hidden),
+                prefilled("readonly_0_2", readOnly),
+                prefilled("both_0_3", both),
+                prefilled("mapped_0_4", mappingOnly),
+                prefilled("twice_0_5", hidden, readOnly),
+                prefilled("userinfo_0_6", userInfo)), null);
+        List<ImportedField> fields = form.fields().toList();
+
+        assertEquals("hidden", fields.get(0).properties().get(FormsFormConverter.PROFILE_PREFILL_THEN));
+        assertEquals("readOnly", fields.get(1).properties().get(FormsFormConverter.PROFILE_PREFILL_THEN));
+        // hidden wins over read-only: a hidden field is not edited anyway
+        assertEquals("hidden", fields.get(2).properties().get(FormsFormConverter.PROFILE_PREFILL_THEN));
+        assertEquals("phone", fields.get(3).properties().get(FormsFormConverter.PROFILE_PROPERTY));
+        assertEquals("false", fields.get(3).properties().get(FormsFormConverter.PROFILE_PREFILL));
+        assertNull(fields.get(3).properties().get(FormsFormConverter.PROFILE_PREFILL_THEN));
+        assertTrue(fields.get(3).report().stream().anyMatch(line -> line.contains("without prefill")));
+        // one mapping per field: the first prefill of the kind wins, the second is reported
+        assertEquals("firstName", fields.get(4).properties().get(FormsFormConverter.PROFILE_PROPERTY));
+        assertTrue(fields.get(4).report().stream().anyMatch(line -> line.contains("lastName") && line.contains("already mapped")));
+        // another kind of prefill has no counterpart
+        assertNull(fields.get(5).properties().get(FormsFormConverter.PROFILE_PROPERTY));
+        assertTrue(fields.get(5).mixins().isEmpty());
+        assertTrue(fields.get(5).report().stream().anyMatch(line -> line.contains("fcnt:userInfoPrefill")));
+    }
+
+    private static FormsField prefilled(String name, FormsPrefill... prefills) {
+        return new FormsField(name, "uuid-" + name, "fcnt:inputDefinition", Map.of("en", name), null, Map.of(), List.of(), List.of(prefills), false);
+    }
+
+    @Test
     void aFieldKeepsItsLabelsPlaceholderSourceAndSettings() throws Exception {
         FormsExport export = sample();
         FormsForm source = export.forms().get("contact-us");
