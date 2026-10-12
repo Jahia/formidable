@@ -672,7 +672,7 @@ the later ones not, can be run again with the same mapping, from the dialog or b
 because no submission holds a name and its target together, and a name no submission holds any more renames
 nothing. The submissions cannot tell such a run from a field sent onto a name another field keeps while no
 submission filled both, so a later run of the import protects the next submissions itself: an answer whose
-name another answer of the same submission already took is kept apart and reported as dropped, never
+name another answer of the same submission already took is dropped and named in the report, never
 written over.
 
 For a choice field, the page lists the imported values that no option of the matched field carries: the dry
