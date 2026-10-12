@@ -111,7 +111,8 @@ export const AttachToForm = ({form, choice, siteForms, language, t, onChange}: A
                     {form.fields.map(field => {
                         const target = choice.mapping[field.name];
                         const proposal = proposed[field.name];
-                        const rule = proposal?.target === target ? proposal.rule : null;
+                        // a field without a proposal, kept under its name, has no rule to show: both are undefined then
+                        const rule = proposal?.rule && proposal.target === target ? proposal.rule : null;
                         const title = fieldTitle(field, language);
                         return (
                             <div
