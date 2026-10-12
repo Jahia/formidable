@@ -19,9 +19,9 @@ public record FormChoice(ImportChoice choice, String formId, Map<String, String>
 
     public static final FormChoice RESULTS_ONLY = new FormChoice(ImportChoice.RESULTS_ONLY, null, Map.of());
     public static final FormChoice CREATE = new FormChoice(ImportChoice.CREATE, null, Map.of());
-    private static final String CHOICE = "choice";
-    private static final String FORM = "form";
-    private static final String MAPPING = "mapping";
+    private static final String CHOICE_KEY = "choice";
+    private static final String FORM_KEY = "form";
+    private static final String MAPPING_KEY = "mapping";
 
     /**
      * An attachment to the form, the fields renamed as the mapping says. A field of the form takes at most
@@ -71,12 +71,12 @@ public record FormChoice(ImportChoice choice, String formId, Map<String, String>
             return plain(ImportChoice.of(name));
         }
         if (value instanceof JSONObject object) {
-            ImportChoice choice = ImportChoice.of(object.getString(CHOICE));
+            ImportChoice choice = ImportChoice.of(object.getString(CHOICE_KEY));
             if (choice != ImportChoice.ATTACH) {
                 return plain(choice);
             }
             Map<String, String> mapping = new LinkedHashMap<>();
-            JSONObject names = object.optJSONObject(MAPPING);
+            JSONObject names = object.optJSONObject(MAPPING_KEY);
             if (names != null) {
                 for (String source : names.keySet()) {
                     String target = names.optString(source, "");
@@ -85,7 +85,7 @@ public record FormChoice(ImportChoice choice, String formId, Map<String, String>
                     }
                 }
             }
-            return attachTo(object.optString(FORM, null), mapping);
+            return attachTo(object.optString(FORM_KEY, null), mapping);
         }
         throw new IllegalArgumentException("a choice is a name or an object, not " + value);
     }
@@ -108,6 +108,6 @@ public record FormChoice(ImportChoice choice, String formId, Map<String, String>
         if (choice != ImportChoice.ATTACH) {
             return choice.json();
         }
-        return new JSONObject().put(CHOICE, choice.json()).put(FORM, formId).put(MAPPING, new JSONObject(mapping));
+        return new JSONObject().put(CHOICE_KEY, choice.json()).put(FORM_KEY, formId).put(MAPPING_KEY, new JSONObject(mapping));
     }
 }

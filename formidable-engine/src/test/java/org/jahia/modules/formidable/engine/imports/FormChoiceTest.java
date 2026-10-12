@@ -42,7 +42,8 @@ class FormChoiceTest {
     void anAttachmentNamesItsFormAndSendsTwoFieldsToDifferentOnes() {
         assertThrows(IllegalArgumentException.class, () -> FormChoice.fromJson("{\"a\":\"attach\"}"));
         assertThrows(IllegalArgumentException.class, () -> FormChoice.fromJson("{\"a\":{\"choice\":\"attach\"}}"));
-        assertThrows(IllegalArgumentException.class, () -> FormChoice.attachTo("x", Map.of("a", "name", "b", "name")));
+        Map<String, String> twice = Map.of("a", "name", "b", "name");
+        assertThrows(IllegalArgumentException.class, () -> FormChoice.attachTo("x", twice));
         assertThrows(IllegalArgumentException.class, () -> FormChoice.fromJson("{\"a\":\"keep\"}"));
         assertThrows(IllegalArgumentException.class, () -> FormChoice.fromJson("{\"a\":3}"));
     }

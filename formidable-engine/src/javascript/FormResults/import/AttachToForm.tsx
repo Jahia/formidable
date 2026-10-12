@@ -90,7 +90,7 @@ export const AttachToForm = ({form, choice, siteForms, language, t, onChange}: A
                 <div data-sel-role="import-attach-form" style={{minWidth: '320px'}}>
                     <Dropdown
                         variant="outlined"
-                        placeholder={siteForms && siteForms.length === 0 ? t('formResults.import.attach.noForms') : t('formResults.import.attach.pickForm')}
+                        placeholder={siteForms?.length === 0 ? t('formResults.import.attach.noForms') : t('formResults.import.attach.pickForm')}
                         data={(siteForms ?? []).map(siteForm => ({label: siteForm.title, description: siteForm.path, value: siteForm.uuid}))}
                         value={choice.form || undefined}
                         isLoading={siteForms === null || loadingForm !== null}
@@ -111,7 +111,7 @@ export const AttachToForm = ({form, choice, siteForms, language, t, onChange}: A
                     {form.fields.map(field => {
                         const target = choice.mapping[field.name];
                         const proposal = proposed[field.name];
-                        const rule = proposal && proposal.target === target ? proposal.rule : null;
+                        const rule = proposal?.target === target ? proposal.rule : null;
                         const title = fieldTitle(field, language);
                         return (
                             <div
