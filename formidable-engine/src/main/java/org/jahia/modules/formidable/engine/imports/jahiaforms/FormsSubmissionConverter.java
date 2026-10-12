@@ -24,6 +24,9 @@ import java.util.Set;
  */
 public final class FormsSubmissionConverter {
 
+    /** The start of every line of the report about one answer of a submission. */
+    private static final String ANSWER = "answer ";
+
     private final ImportedForm form;
     private final FormsForm source;
     private final FormsResults results;
@@ -63,7 +66,7 @@ public final class FormsSubmissionConverter {
             String name = fieldName == null ? answer.labelName() : fieldName;
             String kind = kindOf(field, definition);
             if (fieldName == null && !"password".equals(kind)) {
-                report.add("answer " + answer.name() + " kept under its Forms name: the form holds no field for it");
+                report.add(ANSWER + answer.name() + " kept under its Forms name: the form holds no field for it");
             }
             convertValue(answer, kind, consentLabels(definition), name, values, report);
             for (FormsFile file : answer.files()) {
@@ -78,7 +81,7 @@ public final class FormsSubmissionConverter {
                                      Map<String, List<String>> values, List<String> report) {
         FormsValues.Converted converted = FormsValues.convert(kind, answer.values(), consent);
         if (converted.note() != null) {
-            report.add("answer " + answer.name() + ": " + converted.note());
+            report.add(ANSWER + answer.name() + ": " + converted.note());
         }
         List<String> kept = converted.values().stream().filter(v -> v != null && !v.isBlank()).toList();
         if (kept.isEmpty()) {
@@ -86,7 +89,7 @@ public final class FormsSubmissionConverter {
         }
         if (values.containsKey(name)) {
             // two answers of one submission sent to one name by a mapping: the first stays, the second is said
-            report.add("answer " + answer.name() + " dropped: its values would land under " + name + ", which another answer of this submission holds");
+            report.add(ANSWER + answer.name() + " dropped: its values would land under " + name + ", which another answer of this submission holds");
             return;
         }
         values.put(name, kept);
