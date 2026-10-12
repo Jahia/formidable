@@ -431,6 +431,21 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		Object.entries(SAMPLE.submissions).forEach(([form, count]) => {
 			countSubmissions(`${RESULTS_ROOT_PATH}/${form}`).should('eq', count);
 		});
+		// the prefill of the first name from the visitor profile became its mapping, where the jExperience integration stands
+		graphql<{jcr: {nodeTypeByName: {name: string} | null; nodeByPath: {property: {value: string} | null; prefill: {value: string} | null; then: {value: string} | null}}}>(
+			`query Mapping($path: String!) { jcr(workspace: EDIT) { nodeTypeByName(name: "fmdbmix:jExperienceProfileMapping") { name }
+				nodeByPath(path: $path) { property: property(name: "jExperienceProfileProperty") { value }
+					prefill: property(name: "jExperiencePrefill") { value } then: property(name: "jExperiencePrefillThen") { value } } } }`,
+			{path: `${IMPORTED_FORMS_PATH}/contact-us/fields/your-first-name`}
+		).then(data => {
+			if (data.jcr.nodeTypeByName) {
+				expect(data.jcr.nodeByPath.property?.value).to.equal('firstName');
+				expect(data.jcr.nodeByPath.prefill?.value).to.equal('true');
+				expect(data.jcr.nodeByPath.then?.value).to.equal('editable');
+			} else {
+				expect(data.jcr.nodeByPath.property, 'no mapping without the integration').to.be.null;
+			}
+		});
 	});
 
 	it('shows the labels of the form while it is unpublished, and still once it is published', () => {

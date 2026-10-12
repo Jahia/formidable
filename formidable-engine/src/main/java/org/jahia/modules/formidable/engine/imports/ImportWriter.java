@@ -251,6 +251,10 @@ public class ImportWriter {
         if (field.required()) {
             node.setProperty(ImportedField.REQUIRED_PROPERTY, "true");
         }
+        // the mixins of other modules first: their properties have no definition on the type alone
+        for (String mixin : field.mixins()) {
+            node.addMixin(mixin);
+        }
         field.properties().forEach((key, value) -> setQuietly(node, key, value));
         field.i18nProperties().forEach((key, byLanguage) -> i18nQuietly(node, key, byLanguage));
         writeOptions(node, field);

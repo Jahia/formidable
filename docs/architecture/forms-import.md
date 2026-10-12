@@ -56,7 +56,7 @@ publish it.
 | Every submission that the Forms *save to JCR* action saved, files included | The drafts that a visitor saved with *save the form for later* (`fcnt:storedForm`), which are not submissions |
 | An import started from the Results page of the target site: a dry run and its report, then the import, which can run again | The pages that place a Forms form (`fcnt:formReference`): the contributor places the new form |
 | The forms, as far as Formidable has an equivalent: what has none is reported, never silently dropped | Any deletion in Forms: the import never modifies the source |
-| | Conditional logic, prefills and the layout of the Forms form: reported, rebuilt by hand |
+| A prefill from the visitor profile (the jExperience bridge of Forms), carried over as the mapping of the field to that profile property when the jExperience integration of Formidable is installed | Conditional logic, the other prefills and the layout of the Forms form: reported, rebuilt by hand |
 
 ## Decisions
 
@@ -72,6 +72,7 @@ publish it.
 | **The forms are created unpublished, the results are written in live** | A contributor reviews a form, completes what the import reported, then publishes it: the import never publishes. Until then the Results page shows the entry as **Unpublished**, with the system names of the fields as columns, as for any native form that is not published. Results only exist in live in both products: the import writes them there, as `SaveToJcrFormAction` does, and they are never published. |
 | **`origin` = `jahia-forms` on an imported submission** | `origin` is the discriminator that [Save to JCR](save-to-jcr.md) documents for "a legacy-forms import". The Results page and the exports can tell an imported submission from a native one. |
 | **A Forms form is recognised by its `jcr:uuid` and by the `jcr:uuid` of its results node, a field by its `jcr:uuid`, a submission by its node name** | All of them are in the zip export. A later run finds the form it created, the field each value belongs to and the submissions it wrote, and adds only what is missing. The form keeps both of its keys because either can be missing: the form's, once Forms deleted the form; the results node's, while the form was never published. See [Running it twice](#running-it-twice). |
+| **A prefill from the visitor profile becomes the mapping of the field to that profile property** | The jExperience bridge of Forms (`jexperience-forms-bridge`) prefills a field from a jCustomer profile property and maps the submitted value back to it (`fcnt:mfffPrefill`), or maps without prefilling (`fcnt:mfffMappingOnly`); its `dataKey` holds the property, whose `itemId` is the identifier Formidable's jExperience integration stores in `jExperienceProfileProperty` ([jExperience integration](jexperience-integration.md)). The import writes that property, the prefill switch and what follows the write (`hideAfterPrefill` → hidden, `makeReadOnlyAfterPrefill` → read-only, else editable) when the integration is installed and its mixin reaches the field type, and reports the mapping so that the contributor checks it; without the integration, or on a type it does not reach, the report names the property to map by hand. The other prefill flavours of Forms (user info, geolocation) have no counterpart and are reported. |
 | **The import starts from the Results page, behind a setting** | An **Import Jahia Forms results** button in the toolbar of the Results page, off by default, opens a dialog that takes the export, shows the report of a dry run, then imports into the current site. See [Running it](#running-it). |
 
 ## Source model (Forms 3.x)
@@ -143,7 +144,7 @@ formFactory
 | `<fieldName>` | A field definition: one of the `fcnt:*Definition` types, all with the `fcmix:definition` mixin. It holds `jcr:title` per language, often empty, and `choiceField`, the names of the child option nodes that hold its choices. |
 | Its option children | `fcnt:definitionOptions` nodes, named after the option: `placeholder`, `helptext`, `inputsize`, `rows`, `choices`… A `fcnt:definitionOptionsTranslatable` holds its `jsonValue` per language. The `choices` of a choice field are a JSON `[{"key","value"}]` per language. |
 | `validations/<rule>` | A rule: `fcnt:requiredValidation`, `emailValidation`, `rangeValidation`, `rangeLengthValidation`, `regexValidation`, `fileValidation`, `fileNumberValidation`, `equalToValidation`… each with a `message` per language. |
-| `prefills`, `logics` | The jExperience prefills and the conditional logic. The import reports them and rebuilds neither. |
+| `prefills`, `logics` | The prefills and the conditional logic. A prefill from the visitor profile (`fcnt:mfffPrefill`, `fcnt:mfffMappingOnly`, from the jExperience bridge of Forms) becomes the mapping of the field to that profile property when the jExperience integration is installed; the import reports the other prefills and the logic, and rebuilds neither. |
 | `actions/<action>` | One of `fcnt:saveToJcrAction`, `sendEmailAction`, `sendEmailToSubmitterAction`, `redirectToAPageAction`, `redirectToUrlAction`, with its options as children. |
 
 ### The results
@@ -312,8 +313,10 @@ For every field:
   and `equalToValidation`, are reported;
 - a manual option is written as Formidable stores it, `{"value","label","selected"}` per language: the Forms
   key becomes the value, so that the imported values match, and the Forms label becomes the label;
-- `prefills` and `logics` are reported, with the names of the fields they touch, and nothing is written for
-  them. `inputsize` is dropped.
+- a prefill from the visitor profile (`fcnt:mfffPrefill`, `fcnt:mfffMappingOnly`) is written as the mapping
+  of the field to that profile property when the jExperience integration is installed and reaches the field
+  type (see the decisions), the first of the kind on a field; every other prefill, and `logics`, are reported,
+  with the names of the fields they touch, and nothing is written for them. `inputsize` is dropped.
 
 **The date rule** needs no time zone. Forms stored the local midnight of the visitor: for a visitor at the
 offset `o`, the instant is the chosen day minus `o`. Adding 12 hours and truncating gives back the chosen
@@ -716,7 +719,8 @@ mapping or to another form.
   128 characters), the form built from the label nodes alone, the lookup of a form by either of its two
   keys, and the mapping proposal of iteration 2. The date rule is tested at the offsets −11, −4, 0, +2, +9
   and +11 hours, and at +13, where it gives the previous day as documented. The fixtures are the
-  anonymised sample exports.
+  anonymised sample exports. The prefill rule is tested on the sample, whose first and last name fields carry
+  a profile prefill: mapped when the integration reaches the type, reported with the property otherwise.
 - **A Cypress spec for iteration 1.** The **Import Jahia Forms results** button is absent while `importButtonEnabled` is off,
   and absent for an editor once it is on. The spec drops the sample zip on the dialog, reads the dry-run
   report and checks that nothing is written yet, clicks **Import**, waits for the check and reads the final

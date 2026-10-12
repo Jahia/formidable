@@ -44,8 +44,18 @@ public final class FormsFormConverter {
     /** The braced text of a terms label, which the accept-terms box rendered as the link to the terms. */
     private static final java.util.regex.Pattern LINK_TEXT = java.util.regex.Pattern.compile("\\{([^}]*)\\}");
 
+    /** The mixin of the jExperience integration that maps a field to a visitor profile property, and its properties. */
+    public static final String PROFILE_MAPPING_MIXIN = "fmdbmix:jExperienceProfileMapping";
+    static final String PROFILE_PROPERTY = "jExperienceProfileProperty";
+    static final String PROFILE_PREFILL = "jExperiencePrefill";
+    static final String PROFILE_PREFILL_THEN = "jExperiencePrefillThen";
+    private static final String THEN_HIDDEN = "hidden";
+    private static final String THEN_READ_ONLY = "readOnly";
+    private static final String THEN_EDITABLE = "editable";
+
     private final Predicate<String> registeredTypes;
     private final Predicate<String> declaredOptionsSources;
+    private final Predicate<String> profileMappable;
     private final boolean captchaConfigured;
 
     /**
@@ -55,8 +65,19 @@ public final class FormsFormConverter {
      *                          one gets its captcha, or a line in the report
      */
     public FormsFormConverter(Predicate<String> registeredTypes, Predicate<String> declaredOptionsSources, boolean captchaConfigured) {
+        this(registeredTypes, declaredOptionsSources, type -> false, captchaConfigured);
+    }
+
+    /**
+     * @param profileMappable whether a Formidable field type takes a mapping to a visitor profile property: the
+     *                        jExperience integration is installed and its mixin reaches the type. Decides whether
+     *                        a prefill from the visitor profile is carried over or reported.
+     */
+    public FormsFormConverter(Predicate<String> registeredTypes, Predicate<String> declaredOptionsSources,
+                              Predicate<String> profileMappable, boolean captchaConfigured) {
         this.registeredTypes = registeredTypes;
         this.declaredOptionsSources = declaredOptionsSources;
+        this.profileMappable = profileMappable;
         this.captchaConfigured = captchaConfigured;
     }
 
@@ -171,16 +192,47 @@ public final class FormsFormConverter {
         return Optional.of(field.build());
     }
 
-    private static void fillCommon(ImportedField.Builder field, FormsField definition, FormsFieldTypes.Mapping mapping) {
+    private void fillCommon(ImportedField.Builder field, FormsField definition, FormsFieldTypes.Mapping mapping) {
         // a select has no placeholder, but shows its empty option's label where a placeholder would stand
         String placeholderSlot = mapping.is(FormsFieldTypes.SELECT) ? FormsFieldTypes.OPTIONS_EMPTY_LABEL : FormsFieldTypes.PLACEHOLDER;
         field.i18nProperty(placeholderSlot, valuesOf(definition.option(FormsOptionNames.PLACEHOLDER)));
         field.i18nProperty(FormsFieldTypes.HELP_TEXT, valuesOf(definition.option(FormsOptionNames.HELP_TEXT)));
-        if (definition.prefilled()) {
-            field.report("prefill not carried over: Formidable prefills come from the visitor profile mapping, set it by hand");
-        }
+        fillPrefills(field, definition, mapping);
         if (definition.hasLogic()) {
             field.report("conditional logic not carried over: rebuild it by hand");
+        }
+    }
+
+    /**
+     * A prefill from the visitor profile becomes the mapping of the field to that profile property, with the
+     * prefill switch on and what follows the write as Forms had it, when the jExperience integration is installed
+     * and reaches the field type; a field takes one mapping, the first prefill of the kind. Any other prefill, or
+     * one the integration cannot take, is reported.
+     */
+    private void fillPrefills(ImportedField.Builder field, FormsField definition, FormsFieldTypes.Mapping mapping) {
+        boolean mapped = false;
+        for (FormsPrefill prefill : definition.prefills()) {
+            if (!prefill.isProfileMapping()) {
+                field.report("prefill " + prefill.type() + " not carried over: Formidable prefills come from the visitor profile mapping, set it by hand");
+            } else if (mapped) {
+                field.report("prefill from the visitor profile property " + prefill.profileProperty() + " not carried over: the field is already mapped");
+            } else if (!registeredTypes.test(PROFILE_MAPPING_MIXIN)) {
+                field.report("prefill from the visitor profile property " + prefill.profileProperty()
+                        + " not carried over: the jExperience integration is not installed, map the field by hand once it is");
+            } else if (!profileMappable.test(mapping.nodeType())) {
+                field.report("prefill from the visitor profile property " + prefill.profileProperty() + " not carried over: "
+                        + mapping.nodeType() + " takes no mapping to the visitor profile");
+            } else {
+                mapped = true;
+                field.extension(PROFILE_MAPPING_MIXIN, PROFILE_PROPERTY, prefill.profileProperty());
+                field.extension(PROFILE_MAPPING_MIXIN, PROFILE_PREFILL, String.valueOf(prefill.prefills()));
+                String then = prefill.hideAfterPrefill() ? THEN_HIDDEN : prefill.readOnlyAfterPrefill() ? THEN_READ_ONLY : THEN_EDITABLE;
+                if (prefill.prefills()) {
+                    field.extension(PROFILE_MAPPING_MIXIN, PROFILE_PREFILL_THEN, then);
+                }
+                field.report("mapped to the visitor profile property " + prefill.profileProperty()
+                        + (prefill.prefills() ? ", prefilled from it, " + then + " once filled" : ", without prefill") + ": check it in the editor");
+            }
         }
     }
 

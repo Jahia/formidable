@@ -2,6 +2,7 @@ package org.jahia.modules.formidable.engine.imports.model;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -18,6 +19,7 @@ import java.util.Set;
  * @param i18nProperties i18n properties by name, then by language: {@code placeholder}, {@code helpText}…
  * @param options the manual options per language, each a JSON {@code {"value","label","selected"}}
  * @param optionsSourceKey the key of an options source, for a choice field fed by one, else null
+ * @param mixins the mixins of other modules the field takes, for the properties of {@code properties} they declare
  * @param sourceId the identity of the field in the source system, its {@code jcr:uuid} for Forms
  * @param sourceName the node name of the field in the source system, {@code text-input_0_1}
  * @param sourceType the type of the field in the source system, {@code fcnt:inputDefinition}
@@ -25,7 +27,7 @@ import java.util.Set;
  */
 public record ImportedField(String name, String nodeType, Map<String, String> titles, boolean required,
                             Map<String, String> properties, Map<String, Map<String, String>> i18nProperties,
-                            Map<String, List<String>> options, String optionsSourceKey,
+                            Map<String, List<String>> options, String optionsSourceKey, List<String> mixins,
                             String sourceId, String sourceName, String sourceType, List<String> report)
         implements ImportedElement {
 
@@ -51,6 +53,7 @@ public record ImportedField(String name, String nodeType, Map<String, String> ti
         private final Map<String, Map<String, String>> i18nProperties = new LinkedHashMap<>();
         private Map<String, List<String>> options = Map.of();
         private String optionsSourceKey;
+        private final Set<String> mixins = new LinkedHashSet<>();
         private String sourceId;
         private String sourceName;
         private String sourceType;
@@ -90,6 +93,19 @@ public record ImportedField(String name, String nodeType, Map<String, String> ti
                 return report(key + " (" + value + ") not carried over: " + nodeType + NO_SUCH_SETTING);
             }
             properties.put(key, value);
+            return this;
+        }
+
+        /**
+         * Sets a property a mixin of another module declares, which the type itself does not: the mixin is added
+         * to the field before the property is written. The caller has checked that the mixin is registered and
+         * reaches the type.
+         */
+        public Builder extension(String mixin, String key, String value) {
+            if (value != null && !value.isBlank()) {
+                mixins.add(mixin);
+                properties.put(key, value);
+            }
             return this;
         }
 
@@ -137,8 +153,8 @@ public record ImportedField(String name, String nodeType, Map<String, String> ti
 
         public ImportedField build() {
             return new ImportedField(name, nodeType, titles, required, Map.copyOf(properties),
-                    Map.copyOf(i18nProperties), options, optionsSourceKey, sourceId, sourceName, sourceType,
-                    List.copyOf(report));
+                    Map.copyOf(i18nProperties), options, optionsSourceKey, List.copyOf(mixins), sourceId, sourceName,
+                    sourceType, List.copyOf(report));
         }
     }
 }

@@ -2,11 +2,13 @@ package org.jahia.modules.formidable.engine.imports;
 
 import org.jahia.modules.formidable.engine.util.FormidableJcrConstants;
 import org.jahia.modules.formidable.engine.actions.form.storage.SaveToJcrFormAction;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.engine.api.FmdbNodeType;
 import org.jahia.modules.formidable.engine.config.captcha.CaptchaConfigService;
 import org.jahia.modules.formidable.engine.config.choiceoptions.ChoiceOptionsConfigService;
 import org.jahia.modules.formidable.engine.imports.jahiaforms.FormsExportException;
 import org.jahia.modules.formidable.engine.imports.jahiaforms.FormsExportReader;
+import org.jahia.modules.formidable.engine.imports.jahiaforms.FormsFormConverter;
 import org.jahia.modules.formidable.engine.imports.jahiaforms.FormsImportRun;
 import org.jahia.modules.formidable.engine.util.JcrFiles;
 import org.jahia.registries.ServicesRegistry;
@@ -448,7 +450,8 @@ public class ImportJobs {
             try (FormsExportReader reader = FormsExportReader.open(export)) {
                 ImportWriter writer = new ImportWriter(edit, live, siteKey, FOLDER_TITLE);
                 FormsImportRun run = new FormsImportRun(reader, writer, phase == Phase.DRY_RUN, choices,
-                        type -> hasNodeType(edit, type), this::isOptionsSourceDeclared, isCaptchaConfigured());
+                        type -> hasNodeType(edit, type), this::isOptionsSourceDeclared, type -> isProfileMappable(edit, type),
+                        isCaptchaConfigured());
                 return run.run();
             } catch (IOException | FormsExportException e) {
                 throw new RepositoryException(e.getMessage(), e);
@@ -496,6 +499,16 @@ public class ImportJobs {
     private boolean isCaptchaConfigured() {
         CaptchaConfigService config = captchaConfig.get();
         return config != null && config.isCaptchaWidgetConfigured() && config.isCaptchaVerificationConfigured();
+    }
+
+    /** Whether a field type takes a mapping to a visitor profile property: the jExperience integration's mixin reaches it. */
+    private static boolean isProfileMappable(JCRSessionWrapper session, String type) {
+        try {
+            return hasNodeType(session, FormsFormConverter.PROFILE_MAPPING_MIXIN)
+                    && session.getWorkspace().getNodeTypeManager().getNodeType(type).isNodeType(FmdbMixin.PROFILE_MAPPABLE_FIELD);
+        } catch (RepositoryException e) {
+            return false;
+        }
     }
 
     private static boolean hasNodeType(JCRSessionWrapper session, String type) {

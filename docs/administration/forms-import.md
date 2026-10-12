@@ -17,9 +17,11 @@ a result of that form. The design is in [Importing forms and results from Jahia 
   - **Create the form**: a Formidable form in the **Imported from Jahia Forms** content folder of the site
     (`contents/imported-forms`), unpublished, with the entry under it. Its fields keep the labels,
     placeholders, help texts, required rules and choices Forms had, under system names generated from the
-    labels; what Formidable has no equivalent for is listed in the report, never dropped in silence: a
-    password field (not recreated), a matrix (a text area), a redirect action, a prefill, a conditional
-    logic, a save-for-later setting.
+    labels; a field that Jahia Forms prefilled from the visitor profile is mapped to that profile property
+    when the jExperience integration of Formidable is installed, prefilled from it as before, and the
+    report says so for you to check it in the editor. What Formidable has no equivalent for is listed in the
+    report, never dropped in silence: a password field (not recreated), a matrix (a text area), a redirect
+    action, another kind of prefill, a conditional logic, a save-for-later setting.
   - **Attach to an existing form**: the results go under a form of the site you pick, built by hand or
     reworked, and show on the Results page with the labels and the readers of that form. The dialog shows
     where the values of each Forms field land: a field of the same name is matched, a field with the same

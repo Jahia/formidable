@@ -158,6 +158,11 @@ in the first lane or in jExperience's tracker.
 The dropdown is server-fed. The editor never needs a jExperience permission or the proxy,
 because the choicelist initializer calls jCustomer with the module's admin client.
 
+The import of Jahia Forms sets the same three properties on a field that Forms prefilled from the visitor
+profile, when this module is installed and its mixin reaches the field type, and reports the mapping for the
+contributor to check in the editor (see [Importing forms and results from Jahia Forms](forms-import.md), the
+decisions).
+
 ### Publishing: keeping the mapping rule in sync
 
 ```

@@ -53,11 +53,21 @@ public final class FormsImportRun {
      */
     public FormsImportRun(FormsExportReader reader, ImportWriter writer, boolean dryRun, Map<String, FormChoice> choices,
                           Predicate<String> registeredTypes, Predicate<String> declaredOptionsSources, boolean captchaConfigured) {
+        this(reader, writer, dryRun, choices, registeredTypes, declaredOptionsSources, type -> false, captchaConfigured);
+    }
+
+    /**
+     * @param profileMappable whether a field type takes a mapping to a visitor profile property (the jExperience
+     *                        integration installed, its mixin reaching the type): decides the prefills
+     */
+    public FormsImportRun(FormsExportReader reader, ImportWriter writer, boolean dryRun, Map<String, FormChoice> choices,
+                          Predicate<String> registeredTypes, Predicate<String> declaredOptionsSources,
+                          Predicate<String> profileMappable, boolean captchaConfigured) {
         this.reader = reader;
         this.writer = writer;
         this.dryRun = dryRun;
         this.choices = choices;
-        this.converter = new FormsFormConverter(registeredTypes, declaredOptionsSources, captchaConfigured);
+        this.converter = new FormsFormConverter(registeredTypes, declaredOptionsSources, profileMappable, captchaConfigured);
     }
 
     public ImportReport run() throws IOException, FormsExportException, RepositoryException {

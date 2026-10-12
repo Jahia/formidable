@@ -8,18 +8,19 @@ import java.util.Optional;
 
 /**
  * One field definition of a Forms form: a node of one of the {@code fcnt:*Definition} types under a
- * step, with its title per language, its option children, its validation rules, and whether it carries
- * prefills or conditional logic, which the import reports and does not rebuild.
+ * step, with its title per language, its option children, its validation rules, its prefills, and whether
+ * it carries conditional logic, which the import reports and does not rebuild.
  *
  * @param name the node name, {@code text-input_0_1}
  * @param uuid the {@code jcr:uuid}, what the label nodes of the results point at as {@code fieldId}
  * @param type the primary type, {@code fcnt:inputDefinition}
  * @param titles {@code jcr:title} per language, often empty strings
  * @param choiceField the {@code choiceField} property: the names of the option nodes that hold the choices
+ * @param prefills the prefill nodes of the field, in their order
  */
 record FormsField(String name, String uuid, String type, Map<String, String> titles, String choiceField,
                   Map<String, FormsOption> options, List<FormsValidation> validations,
-                  boolean prefilled, boolean hasLogic) {
+                  List<FormsPrefill> prefills, boolean hasLogic) {
 
     static final String TYPE_SUFFIX = "Definition";
     static final String TYPE_PREFIX = "fcnt:";
@@ -36,7 +37,7 @@ record FormsField(String name, String uuid, String type, Map<String, String> tit
     static FormsField from(XmlNode node) {
         Map<String, FormsOption> options = new LinkedHashMap<>();
         List<FormsValidation> validations = new ArrayList<>();
-        boolean prefilled = false;
+        List<FormsPrefill> prefills = new ArrayList<>();
         boolean hasLogic = false;
         for (XmlNode child : node.children()) {
             if (FormsOption.isOption(child)) {
@@ -44,13 +45,17 @@ record FormsField(String name, String uuid, String type, Map<String, String> tit
             } else if (FormsValidation.RULES_NODE.equals(child.name())) {
                 child.children().forEach(rule -> validations.add(FormsValidation.from(rule)));
             } else if (PREFILLS_NODE.equals(child.name())) {
-                prefilled = !child.children().isEmpty();
+                child.children().forEach(prefill -> prefills.add(FormsPrefill.from(prefill)));
             } else if (LOGICS_NODE.equals(child.name())) {
                 hasLogic = !child.children().isEmpty();
             }
         }
         return new FormsField(node.name(), node.uuid(), node.primaryType(), node.i18n(TITLE),
-                node.attribute(CHOICE_FIELD), options, validations, prefilled, hasLogic);
+                node.attribute(CHOICE_FIELD), options, validations, prefills, hasLogic);
+    }
+
+    boolean prefilled() {
+        return !prefills.isEmpty();
     }
 
     /** The short type name, {@code input} for {@code fcnt:inputDefinition}. */

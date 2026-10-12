@@ -12,7 +12,7 @@ class FormsLabelsTest {
     private static FormsField field(Map<String, String> titles, Map<String, String> placeholder) {
         FormsOption option = new FormsOption(FormsLabels.PLACEHOLDER, null, placeholder);
         return new FormsField("text-input_0_1", "uuid", "fcnt:inputDefinition", titles, null,
-                Map.of(FormsLabels.PLACEHOLDER, option), List.of(), false, false);
+                Map.of(FormsLabels.PLACEHOLDER, option), List.of(), List.of(), false);
     }
 
     @Test
