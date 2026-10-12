@@ -51,9 +51,13 @@ public final class ResultsAttachment {
     private static final String SOURCE_SYSTEM = "sourceSystem";
     private static final String SOURCE_FORM_IDS = "sourceFormIds";
     private static final String SOURCE_FORM_ID = "sourceFormId";
-    private static final String SOURCE_ID = "sourceId";
     private static final String BUILDING_LANG = "buildingLang";
     private static final String TITLE = "jcr:title";
+    /** The keys of the JSON the dialog and the job exchange. */
+    static final String ENTRY_KEY = "entry";
+    static final String SOURCE_KEY = "source";
+    static final String FORM_KEY = "form";
+    static final String MAPPING_KEY = "mapping";
     private static final Logger log = LoggerFactory.getLogger(ResultsAttachment.class);
 
     /**
@@ -62,11 +66,6 @@ public final class ResultsAttachment {
      * values hold now; a field left out keeps its name.
      */
     public record Request(String entryId, String sourceFormId, String formId, Map<String, String> mapping) {
-
-        private static final String ENTRY = "entry";
-        private static final String SOURCE = "source";
-        private static final String FORM = "form";
-        private static final String MAPPING = "mapping";
 
         public Request {
             if (entryId == null || entryId.isBlank()) {
@@ -85,7 +84,7 @@ public final class ResultsAttachment {
         public static Request fromJson(String json) throws JSONException {
             JSONObject object = new JSONObject(json);
             Map<String, String> mapping = new LinkedHashMap<>();
-            JSONObject names = object.optJSONObject(MAPPING);
+            JSONObject names = object.optJSONObject(MAPPING_KEY);
             if (names != null) {
                 for (String source : names.keySet()) {
                     String target = names.optString(source, "");
@@ -94,11 +93,12 @@ public final class ResultsAttachment {
                     }
                 }
             }
-            return new Request(object.optString(ENTRY, null), object.optString(SOURCE, null), object.optString(FORM, null), mapping);
+            return new Request(object.optString(ENTRY_KEY, null), object.optString(SOURCE_KEY, null), object.optString(FORM_KEY, null), mapping);
         }
 
         public String toJson() {
-            return new JSONObject().put(ENTRY, entryId).put(SOURCE, sourceFormId).put(FORM, formId).put(MAPPING, new JSONObject(mapping)).toString();
+            return new JSONObject().put(ENTRY_KEY, entryId).put(SOURCE_KEY, sourceFormId).put(FORM_KEY, formId)
+                    .put(MAPPING_KEY, new JSONObject(mapping)).toString();
         }
     }
 
@@ -141,12 +141,12 @@ public final class ResultsAttachment {
                     .put("title", importedForm == null ? JSONObject.NULL : titleOf(importedForm))
                     .put("submissions", submissions.size())
                     .put("fields", fields)
-                    .put("mapping", new JSONObject(mapping)));
+                    .put(MAPPING_KEY, new JSONObject(mapping)));
         }
         return new JSONObject()
-                .put("entry", entry.getPath())
+                .put(ENTRY_KEY, entry.getPath())
                 .put("name", entry.getName())
-                .put("form", form == null ? JSONObject.NULL : form.getPath())
+                .put(FORM_KEY, form == null ? JSONObject.NULL : form.getPath())
                 .put("sources", sources);
     }
 
@@ -180,6 +180,10 @@ public final class ResultsAttachment {
         }
     }
 
+    /** Where the submissions of the source ended up: the entry of the form, how many moved there, and whether their entry went. */
+    private record Placement(JCRNodeWrapper target, int moved, boolean previousEntryRemoved) {
+    }
+
     /** Runs the attachment and reports what it wrote; the sessions are saved by batches and at the end. */
     public JSONObject run(Request request) throws RepositoryException, ImportJobs.RefusedException {
         check(request);
@@ -189,45 +193,58 @@ public final class ResultsAttachment {
         JCRNodeWrapper previousForm = writer.formOf(entry);
         Map<String, String> previousMapping = writer.mappingOf(entry, sourceKey);
         List<JCRNodeWrapper> submissions = submissionsOf(entry, sourceKey);
-        boolean alone = sourceKeysOf(entry).size() == 1;
-        JCRNodeWrapper target = writer.findResultsEntry(form);
-        boolean previousEntryRemoved = false;
-        int moved = 0;
-        if (target == null && alone) {
-            // the entry becomes the entry of the form, under its name when that name is free
-            entry.setProperty(FmdbProperty.PARENT_FORM, form.getIdentifier());
-            JCRNodeWrapper root = entry.getParent();
-            if (!form.getName().equals(entry.getName()) && !root.hasNode(form.getName())) {
-                entry.rename(form.getName());
-            }
-            target = entry;
-        } else if (target == null || !target.isSame(entry)) {
-            if (target == null) {
-                target = writer.createResultsEntry(form, entry.getPropertyAsString(BUILDING_LANG));
-            }
-            writer.markImported(target, entry.getPropertyAsString(SOURCE_SYSTEM), sourceKey);
-            live.save();
-            moved = move(submissions, target);
-            previousEntryRemoved = leave(entry, sourceKey);
-        }
+        Placement placement = place(entry, form, sourceKey, submissions);
         int renamed = rename(submissions, request.mapping());
-        writer.recordMapping(target, sourceKey, compose(previousMapping, request.mapping()));
-        FormResultsAclSyncService.syncAclToFormResults(form, target, live);
+        writer.recordMapping(placement.target(), sourceKey, compose(previousMapping, request.mapping()));
+        FormResultsAclSyncService.syncAclToFormResults(form, placement.target(), live);
         live.save();
         boolean formLeftAlone = previousForm != null && !previousForm.isSame(form) && writer.findResultsEntry(previousForm) == null;
         log.info("[FormsImport] Results of the source {} attached to the form {} in site {}: {} submission(s) moved, {} value(s) renamed",
-                sourceKey, form.getPath(), siteKey, moved, renamed);
+                sourceKey, form.getPath(), siteKey, placement.moved(), renamed);
         return new JSONObject()
-                .put("entry", target.getPath())
-                .put("entryName", target.getName())
-                .put("form", form.getPath())
+                .put(ENTRY_KEY, placement.target().getPath())
+                .put("entryName", placement.target().getName())
+                .put(FORM_KEY, form.getPath())
                 .put("formName", form.getName())
-                .put("source", sourceKey)
+                .put(SOURCE_KEY, sourceKey)
                 .put("submissions", submissions.size())
-                .put("moved", moved)
+                .put("moved", placement.moved())
                 .put("renamed", renamed)
-                .put("previousEntryRemoved", previousEntryRemoved)
+                .put("previousEntryRemoved", placement.previousEntryRemoved())
                 .put("formLeftWithoutResults", formLeftAlone ? previousForm.getPath() : JSONObject.NULL);
+    }
+
+    /**
+     * Puts the submissions of the source under the form (docs/architecture/forms-import.md, "What the attachment
+     * writes"): the entry becomes the entry of the form when the form has none and the entry holds this source
+     * alone; the submissions stay where they are when the entry is already the entry of the form; otherwise they
+     * move into the entry of the form, created when needed, and leave theirs.
+     */
+    private Placement place(JCRNodeWrapper entry, JCRNodeWrapper form, String sourceKey, List<JCRNodeWrapper> submissions)
+            throws RepositoryException {
+        JCRNodeWrapper target = writer.findResultsEntry(form);
+        if (target == null && sourceKeysOf(entry).size() == 1) {
+            relink(entry, form);
+            return new Placement(entry, 0, false);
+        }
+        if (target != null && target.isSame(entry)) {
+            return new Placement(entry, 0, false);
+        }
+        if (target == null) {
+            target = writer.createResultsEntry(form, entry.getPropertyAsString(BUILDING_LANG));
+        }
+        writer.markImported(target, entry.getPropertyAsString(SOURCE_SYSTEM), sourceKey);
+        live.save();
+        int moved = move(submissions, target);
+        return new Placement(target, moved, leave(entry, sourceKey));
+    }
+
+    /** The entry becomes the entry of the form, under its name when that name is free. */
+    private static void relink(JCRNodeWrapper entry, JCRNodeWrapper form) throws RepositoryException {
+        entry.setProperty(FmdbProperty.PARENT_FORM, form.getIdentifier());
+        if (!form.getName().equals(entry.getName()) && !entry.getParent().hasNode(form.getName())) {
+            entry.rename(form.getName());
+        }
     }
 
     /** Moves the submissions under the day folders of the target, saving every batch; the count moved. */

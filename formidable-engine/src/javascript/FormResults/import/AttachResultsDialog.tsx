@@ -35,6 +35,10 @@ type DialogState = 'loading' | 'review' | 'attaching' | 'done' | 'failed';
 
 const NO_CHOICE: AttachChoice = {choice: 'attach', form: '', mapping: {}};
 
+/** The state of the dialog once the job started: it ends at once only when the server already ran it. */
+const stateAfterStart = (jobState: AttachmentJob['state']): DialogState =>
+    (jobState === 'done' || jobState === 'failed' ? jobState : 'attaching');
+
 /**
  * The <b>Attach to another form</b> dialog of an entry of the Results page (docs/architecture/forms-import.md,
  * "Iteration 2"): the source form, when the entry holds several, the form of the site the results go to and
@@ -123,7 +127,8 @@ export const AttachResultsDialog = ({siteKey, formResults, onClose}: AttachResul
         close();
     }, [close]);
 
-    const source = description?.sources.find(candidate => candidate.id === sourceId) ?? null;
+    const sources = description?.sources ?? [];
+    const source = sources.find(candidate => candidate.id === sourceId) ?? null;
     const sourceFields = useMemo(() => (source ? sourceFieldsOf(source, language) : []), [source, language]);
     const ready = Boolean(source) && attachProblem(choice, sourceFields) === null;
 
@@ -135,7 +140,7 @@ export const AttachResultsDialog = ({siteKey, formResults, onClose}: AttachResul
         try {
             const started = await startAttachment(siteKey, formResults.uuid, source.id, choice);
             setJob(started);
-            setState(started.state === 'done' ? 'done' : started.state === 'failed' ? 'failed' : 'attaching');
+            setState(stateAfterStart(started.state));
         } catch (error) {
             // a refused start (an import runs on the site, a mapping the server will not take) keeps the review on screen
             setErrorMessage(error instanceof Error ? error.message : t('formResults.import.error.unexpected'));
@@ -196,16 +201,16 @@ export const AttachResultsDialog = ({siteKey, formResults, onClose}: AttachResul
                             <Typography>{t('formResults.attach.loading')}</Typography>
                         </div>
                     )}
-                    {state === 'review' && description && description.sources.length === 0 && (
+                    {state === 'review' && description && sources.length === 0 && (
                         <Typography data-sel-role="attach-no-source">{t('formResults.attach.noSource')}</Typography>
                     )}
-                    {state === 'review' && description && description.sources.length > 1 && (
+                    {state === 'review' && sources.length > 1 && (
                         <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
                             <Typography variant="body">{t('formResults.attach.source')}</Typography>
                             <div data-sel-role="attach-source" style={{minWidth: '320px'}}>
                                 <Dropdown
                                     variant="outlined"
-                                    data={description.sources.map(candidate => ({
+                                    data={sources.map(candidate => ({
                                         label: sourceLabel(candidate),
                                         description: t('formResults.attach.sourceSubmissions', {count: candidate.submissions}),
                                         value: candidate.id
@@ -224,7 +229,7 @@ export const AttachResultsDialog = ({siteKey, formResults, onClose}: AttachResul
                     {state === 'review' && source && (
                         <>
                             <Typography variant="body" data-sel-role="attach-source-figures">
-                                {description?.sources.length === 1 ? `${sourceLabel(source)} · ` : ''}
+                                {sources.length === 1 ? `${sourceLabel(source)} · ` : ''}
                                 {t('formResults.attach.sourceSubmissions', {count: source.submissions})}
                             </Typography>
                             <AttachToForm
