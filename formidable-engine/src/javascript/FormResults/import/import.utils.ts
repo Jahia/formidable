@@ -360,8 +360,8 @@ export interface EntrySource {
     /** The title of the imported form the site still holds for it, null once it is gone. */
     title: string | null;
     submissions: number;
-    /** The names the values hold now, with the title of the field each came from when the site still knows it. */
-    fields: Array<{name: string; title: string}>;
+    /** The names the values hold now, with the title of the field each came from when the site still knows it, and their distinct values. */
+    fields: Array<{name: string; title: string; values?: string[]; moreValues?: boolean}>;
     /** The mapping an earlier run or attachment applied to this source. */
     mapping: Record<string, string>;
 }
@@ -402,7 +402,14 @@ export const startAttachment = (siteKey: string, entryId: string, sourceId: stri
 
 /** The fields of a source of an entry as the mapping rows take them: the title in the language of the user. */
 export const sourceFieldsOf = (source: EntrySource, language: string): ImportReportField[] =>
-    source.fields.map(field => ({name: field.name, type: '', titles: field.title ? {[language]: field.title} : {}, notes: []}));
+    source.fields.map(field => ({
+        name: field.name,
+        type: '',
+        titles: field.title ? {[language]: field.title} : {},
+        values: field.values ?? [],
+        moreValues: field.moreValues ?? false,
+        notes: []
+    }));
 
 /** The label of a source in the dialog: the title of its imported form, else its key. */
 export const sourceLabel = (source: EntrySource): string => source.title ?? source.id;

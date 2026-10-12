@@ -234,7 +234,7 @@ const closeAttachDialog = () => {
 
 /** The properties of an entry the attachment writes: the form, the sources and the mappings it holds. */
 const entryOf = (entryPath: string) =>
-	graphql<{jcr: {nodeByPath: {parentForm: {value: string} | null; sourceFormIds: {values: string[]}; mappings: {values: string[]} | null} | null}}>(
+	graphql<{jcr: {nodeByPath: {parentForm: {value: string} | null; sourceFormIds: {values: string[]} | null; mappings: {values: string[]} | null} | null}}>(
 		`query Entry($path: String!) { jcr(workspace: LIVE) { nodeByPath(path: $path) {
 			parentForm: property(name: "parentForm") { value } sourceFormIds: property(name: "sourceFormIds") { values }
 			mappings: property(name: "mappings") { values } } } }`,
@@ -630,12 +630,12 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		openAttachDialog('contact-us');
 		cy.get('[data-sel-role="attach-source"]').should('not.exist');
 		cy.get('[data-sel-role="attach-confirm"]').should('be.disabled');
-		pickInDropdown(cy.get('[data-sel-role="import-attach-form"]'), CONTACT.title);
+		pickInDropdown(() => cy.get('[data-sel-role="import-attach-form"]'), CONTACT.title);
 		// no imported form stands for this entry: names alone are matched, the rest is picked by hand
 		mappingRow('your-first-name').should('have.attr', 'data-sel-target', 'your-first-name').and('have.attr', 'data-sel-rule', 'sameName');
 		mappingRow('your-email-address').should('have.attr', 'data-sel-target', '').and('have.attr', 'data-sel-rule', '');
-		pickInDropdown(mappingRow('your-email-address').find('[data-sel-role="import-mapping-target"]'), 'Email');
-		pickInDropdown(mappingRow('your-enquiry').find('[data-sel-role="import-mapping-target"]'), 'Message');
+		pickInDropdown(() => mappingRow('your-email-address').find('[data-sel-role="import-mapping-target"]'), 'Email');
+		pickInDropdown(() => mappingRow('your-enquiry').find('[data-sel-role="import-mapping-target"]'), 'Message');
 		cy.get('[data-sel-role="attach-confirm"]').should('be.enabled').click();
 		attachDialogState('done');
 		// the form had no entry and this one held a single source: it became the entry of the form
@@ -650,7 +650,7 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		});
 		entryOf(`${RESULTS_ROOT_PATH}/${CONTACT.form}`).then(entry => {
 			expect(entry?.parentForm?.value).to.equal(formId);
-			expect(entry?.sourceFormIds.values).to.have.length(1);
+			expect(entry?.sourceFormIds?.values).to.have.length(1);
 			expect(entry?.mappings?.values.map(value => JSON.parse(value).mapping)).to.deep.equal([{'your-email-address': 'email', 'your-enquiry': 'message'}]);
 		});
 		// the reader of the form reads the entry; the page shows the labels of the form
@@ -671,9 +671,9 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 			{parent: `${RESULTS_ROOT_PATH}/${CONTACT.form}/submissions`});
 
 		openAttachDialog(ATTACH.source);
-		pickInDropdown(cy.get('[data-sel-role="import-attach-form"]'), CONTACT.title);
-		pickInDropdown(mappingRow('firstname').find('[data-sel-role="import-mapping-target"]'), 'First name');
-		pickInDropdown(mappingRow('enter-your-email-here').find('[data-sel-role="import-mapping-target"]'), 'Email');
+		pickInDropdown(() => cy.get('[data-sel-role="import-attach-form"]'), CONTACT.title);
+		pickInDropdown(() => mappingRow('firstname').find('[data-sel-role="import-mapping-target"]'), 'First name');
+		pickInDropdown(() => mappingRow('enter-your-email-here').find('[data-sel-role="import-mapping-target"]'), 'Email');
 		cy.get('[data-sel-role="attach-confirm"]').should('be.enabled').click();
 		attachDialogState('done');
 		cy.get('[data-sel-role="attach-report"]').should('contain', `${SAMPLE.submissions[ATTACH.source]} submission(s) moved`);
@@ -693,9 +693,34 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 			second.forEach(submission => expect(valueNames(submission)).to.have.members(['your-first-name', 'lastname', 'email']));
 		});
 		entryOf(`${RESULTS_ROOT_PATH}/${CONTACT.form}`).then(entry => {
-			expect(entry?.sourceFormIds.values).to.have.length(2);
+			expect(entry?.sourceFormIds?.values).to.have.length(2);
 			expect(entry?.mappings?.values).to.have.length(2);
 		});
+	});
+
+	it('leaves the native submissions of an entry where they are: an entry holding more than the source merges into a new entry', () => {
+		// the entry of newsletter-registration, written alone, takes a native submission before its source goes to a form without an entry
+		graphql(`mutation Native($parent: String!) { jcr(workspace: LIVE) { addNode(parentPathOrId: $parent, name: "native-submission",
+			primaryNodeType: "fmdb:formSubmission", properties: [{name: "origin", value: "formidable"}],
+			children: [{name: "data", primaryNodeType: "fmdb:submissionData", properties: [{name: "email", value: "native@example.com"}]}]) { uuid } } }`,
+			{parent: `${RESULTS_ROOT_PATH}/newsletter-registration/submissions`});
+		createFormNode('bulletin', 'Bulletin', formNodes([{name: 'bulletin-email', title: 'Email', type: 'fmdb:inputEmail'}]));
+
+		openAttachDialog('newsletter-registration');
+		pickInDropdown(() => cy.get('[data-sel-role="import-attach-form"]'), 'Bulletin');
+		cy.get('[data-sel-role="attach-confirm"]').should('be.enabled').click();
+		attachDialogState('done');
+		// not relinked: the form takes an entry of its own with the imported submissions, the native one stays behind
+		cy.get('[data-sel-role="attach-report"]').should('contain', `${SAMPLE.submissions['newsletter-registration']} submission(s) moved`);
+		closeAttachDialog();
+		countSubmissions(`${RESULTS_ROOT_PATH}/bulletin`).should('eq', SAMPLE.submissions['newsletter-registration']);
+		countSubmissions(`${RESULTS_ROOT_PATH}/newsletter-registration`).should('eq', 1);
+		entryOf(`${RESULTS_ROOT_PATH}/newsletter-registration`).then(entry => {
+			expect(entry?.parentForm).to.be.null;
+			expect(entry?.sourceFormIds?.values ?? []).to.have.length(0);
+			expect(entry?.mappings?.values ?? []).to.have.length(0);
+		});
+		entryOf(`${RESULTS_ROOT_PATH}/bulletin`).then(entry => expect(entry?.sourceFormIds?.values).to.have.length(1));
 	});
 
 	it('asks which source when the entry holds several, and shows Form deleted once the form is gone', () => {

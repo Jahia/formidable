@@ -45,6 +45,12 @@ class ResultsAttachmentTest {
         ImportJobs.RefusedException kept = assertThrows(ImportJobs.RefusedException.class,
                 () -> ResultsAttachment.checkMapping(Map.of("lastname", "firstname"), names));
         assertTrue(kept.getMessage().contains("firstname"));
+        // a chain or a swap lands on the name of another field of the source, mapped away: refused, two attachments instead
+        ImportJobs.RefusedException chain = assertThrows(ImportJobs.RefusedException.class,
+                () -> ResultsAttachment.checkMapping(Map.of("lastname", "firstname", "firstname", "name"), names));
+        assertTrue(chain.getMessage().contains("another field of the source"));
+        assertThrows(ImportJobs.RefusedException.class,
+                () -> ResultsAttachment.checkMapping(Map.of("lastname", "firstname", "firstname", "lastname"), names));
     }
 
     @Test

@@ -675,8 +675,9 @@ The page shows the mapping as a dry run before it writes anything.
 
 ### What the attachment writes
 
-- **`F` has no results entry, and the entry holds this source alone.** The entry becomes the entry of
-  `F`: `parentForm` is set to `F`, and the entry is renamed after `F` when that name is free.
+- **`F` has no results entry, and the entry holds the submissions of this source and nothing else**, no
+  native submission and no other source. The entry becomes the entry of `F`: `parentForm` is set to `F`,
+  and the entry is renamed after `F` when that name is free.
 - **Otherwise.** The submissions of the source move into the entry of `F`, created if needed, under
   `yyyy/MM/dd`. The entry of `F` takes `fmdbmix:importedResults`, and the source form joins its
   `sourceFormIds`. The entry they left is removed once it holds no submission. Several Forms forms can
@@ -684,8 +685,9 @@ The page shows the mapping as a dry run before it writes anything.
 - **The values.** Every property of `data` whose name the mapping changes is renamed, by batches of 100,
   in the submissions of this source and nowhere else. The native submissions of `F`, and the submissions
   of another source merged into the same entry, are never touched, even when they hold the same name
-  (an `email` field exists in most forms). An attachment that stopped half-way runs again, because
-  it no longer finds a name it already renamed.
+  (an `email` field exists in most forms). The values are renamed, and the mapping recorded on the entry
+  of `F`, before the entry they left goes: an attachment that stopped half-way runs again, finds the
+  submissions it moved under `F` and the ones still to move, and no longer finds a name it already renamed.
 - **The mapping applied** is kept on the entry, per source form, in `mappings` of
   `fmdbmix:importedResults`, composed with the one an earlier run or attachment applied, so that it goes
   from the names the import generated to the names the values hold now: a later run of the import names

@@ -132,9 +132,12 @@ public final class ResultsAttachment {
             Map<String, String> mapping = writer.mappingOf(entry, sourceKey);
             JCRNodeWrapper importedForm = writer.findForm(sourceKey, sourceKey);
             Map<String, String> titles = importedForm == null ? Map.of() : titlesOf(importedForm, mapping);
+            SampledValues sampled = valuesOf(submissions);
             JSONArray fields = new JSONArray();
             for (String name : namesOf(submissions)) {
-                fields.put(new JSONObject().put("name", name).put("title", titles.getOrDefault(name, "")));
+                fields.put(new JSONObject().put("name", name).put("title", titles.getOrDefault(name, ""))
+                        .put("values", new JSONArray(sampled.values().getOrDefault(name, Set.of())))
+                        .put("moreValues", sampled.more().contains(name)));
             }
             sources.put(new JSONObject()
                     .put("id", sourceKey)
@@ -173,6 +176,10 @@ public final class ResultsAttachment {
         Map<String, String> landing = new LinkedHashMap<>();
         for (String name : names) {
             String target = mapping.getOrDefault(name, name);
+            if (!target.equals(name) && names.contains(target)) {
+                // a rename cannot chain on another in one pass: a chain of renames is two attachments
+                throw new ImportJobs.RefusedException("the field " + name + " cannot land under " + target + ", the name of another field of the source");
+            }
             String other = landing.put(target, name);
             if (other != null) {
                 throw new ImportJobs.RefusedException("the fields " + other + " and " + name + " cannot both land under " + target);
@@ -180,8 +187,12 @@ public final class ResultsAttachment {
         }
     }
 
-    /** Where the submissions of the source ended up: the entry of the form, how many moved there, and whether their entry went. */
-    private record Placement(JCRNodeWrapper target, int moved, boolean previousEntryRemoved) {
+    /** Where the submissions of the source ended up: the entry of the form, how many moved there, and whether they left theirs. */
+    private record Placement(JCRNodeWrapper target, int moved, boolean merged) {
+    }
+
+    /** The distinct values met per field in a sample of submissions, capped as the import report caps them. */
+    private record SampledValues(Map<String, Set<String>> values, Set<String> more) {
     }
 
     /** Runs the attachment and reports what it wrote; the sessions are saved by batches and at the end. */
@@ -194,10 +205,13 @@ public final class ResultsAttachment {
         Map<String, String> previousMapping = writer.mappingOf(entry, sourceKey);
         List<JCRNodeWrapper> submissions = submissionsOf(entry, sourceKey);
         Placement placement = place(entry, form, sourceKey, submissions);
-        int renamed = rename(submissions, request.mapping());
+        // the submissions of the source as they stand under the target now: a run that stopped renames the moved ones too
+        int renamed = rename(submissionsOf(placement.target(), sourceKey), request.mapping());
         writer.recordMapping(placement.target(), sourceKey, compose(previousMapping, request.mapping()));
         FormResultsAclSyncService.syncAclToFormResults(form, placement.target(), live);
         live.save();
+        // the entry they left goes last, once everything it described is in place, so that a stopped run starts over
+        boolean previousEntryRemoved = placement.merged() && leave(entry, sourceKey);
         boolean formLeftAlone = previousForm != null && !previousForm.isSame(form) && writer.findResultsEntry(previousForm) == null;
         log.info("[FormsImport] Results of the source {} attached to the form {} in site {}: {} submission(s) moved, {} value(s) renamed",
                 sourceKey, form.getPath(), siteKey, placement.moved(), renamed);
@@ -210,20 +224,21 @@ public final class ResultsAttachment {
                 .put("submissions", submissions.size())
                 .put("moved", placement.moved())
                 .put("renamed", renamed)
-                .put("previousEntryRemoved", placement.previousEntryRemoved())
+                .put("previousEntryRemoved", previousEntryRemoved)
                 .put("formLeftWithoutResults", formLeftAlone ? previousForm.getPath() : JSONObject.NULL);
     }
 
     /**
      * Puts the submissions of the source under the form (docs/architecture/forms-import.md, "What the attachment
-     * writes"): the entry becomes the entry of the form when the form has none and the entry holds this source
-     * alone; the submissions stay where they are when the entry is already the entry of the form; otherwise they
-     * move into the entry of the form, created when needed, and leave theirs.
+     * writes"): the entry becomes the entry of the form when the form has none and the entry holds the submissions
+     * of this source and nothing else, no native submission and no other source; the submissions stay where they
+     * are when the entry is already the entry of the form; otherwise they move into the entry of the form,
+     * created when needed, and the caller makes them leave theirs once they are in place.
      */
     private Placement place(JCRNodeWrapper entry, JCRNodeWrapper form, String sourceKey, List<JCRNodeWrapper> submissions)
             throws RepositoryException {
         JCRNodeWrapper target = writer.findResultsEntry(form);
-        if (target == null && sourceKeysOf(entry).size() == 1) {
+        if (target == null && sourceKeysOf(entry).size() == 1 && countSubmissions(entry) == submissions.size()) {
             relink(entry, form);
             return new Placement(entry, 0, false);
         }
@@ -235,8 +250,7 @@ public final class ResultsAttachment {
         }
         writer.markImported(target, entry.getPropertyAsString(SOURCE_SYSTEM), sourceKey);
         live.save();
-        int moved = move(submissions, target);
-        return new Placement(target, moved, leave(entry, sourceKey));
+        return new Placement(target, move(submissions, target), true);
     }
 
     /** The entry becomes the entry of the form, under its name when that name is free. */
@@ -426,18 +440,57 @@ public final class ResultsAttachment {
     }
 
     private static boolean holdsSubmissions(JCRNodeWrapper entry) throws RepositoryException {
-        return entry.hasNode(FmdbNodeName.SUBMISSIONS) && holdsSubmission(entry.getNode(FmdbNodeName.SUBMISSIONS));
+        return countSubmissions(entry) > 0;
     }
 
-    private static boolean holdsSubmission(JCRNodeWrapper parent) throws RepositoryException {
+    /** Every submission under the entry, native or imported, whatever its source. */
+    static int countSubmissions(JCRNodeWrapper entry) throws RepositoryException {
+        return entry.hasNode(FmdbNodeName.SUBMISSIONS) ? countSubmissionsUnder(entry.getNode(FmdbNodeName.SUBMISSIONS)) : 0;
+    }
+
+    private static int countSubmissionsUnder(JCRNodeWrapper parent) throws RepositoryException {
+        int count = 0;
         NodeIterator children = parent.getNodes();
         while (children.hasNext()) {
             JCRNodeWrapper child = (JCRNodeWrapper) children.nextNode();
-            if (child.isNodeType(FmdbNodeType.FORM_SUBMISSION) || holdsSubmission(child)) {
-                return true;
+            count += child.isNodeType(FmdbNodeType.FORM_SUBMISSION) ? 1 : countSubmissionsUnder(child);
+        }
+        return count;
+    }
+
+    /** The distinct values per field in the sample of the submissions, capped as the import report caps them. */
+    private static SampledValues valuesOf(List<JCRNodeWrapper> submissions) throws RepositoryException {
+        Map<String, Set<String>> values = new LinkedHashMap<>();
+        Set<String> more = new LinkedHashSet<>();
+        for (JCRNodeWrapper submission : submissions.subList(0, Math.min(submissions.size(), NAMES_SAMPLE))) {
+            if (!submission.hasNode(FmdbNodeName.DATA)) {
+                continue;
+            }
+            PropertyIterator properties = submission.getNode(FmdbNodeName.DATA).getProperties();
+            while (properties.hasNext()) {
+                javax.jcr.Property property = properties.nextProperty();
+                if (!property.getName().contains(":")) {
+                    sample(values, more, property);
+                }
             }
         }
-        return false;
+        return new SampledValues(values, more);
+    }
+
+    private static void sample(Map<String, Set<String>> values, Set<String> more, javax.jcr.Property property) throws RepositoryException {
+        Set<String> distinct = values.computeIfAbsent(property.getName(), name -> new LinkedHashSet<>());
+        Value[] stored = property.isMultiple() ? property.getValues() : new Value[] {property.getValue()};
+        for (Value value : stored) {
+            String text = value.getString();
+            if (text.isBlank()) {
+                continue;
+            }
+            if (distinct.size() >= ImportReport.VALUES_LISTED && !distinct.contains(text)) {
+                more.add(property.getName());
+            } else {
+                distinct.add(text);
+            }
+        }
     }
 
     /** The names the values hold, in the order they are met, from a sample of the submissions. */

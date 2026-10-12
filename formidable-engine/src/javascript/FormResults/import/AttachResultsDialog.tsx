@@ -20,7 +20,8 @@ import {
     type SiteForm,
     sourceFieldsOf,
     sourceLabel,
-    startAttachment
+    startAttachment,
+    type TargetField
 } from './import.utils';
 
 interface AttachResultsDialogProps {
@@ -53,6 +54,11 @@ export const AttachResultsDialog = ({siteKey, formResults, onClose}: AttachResul
     const [description, setDescription] = useState<EntryDescription | null>(null);
     const [sourceId, setSourceId] = useState('');
     const [choice, setChoice] = useState<AttachChoice>(NO_CHOICE);
+    // the fields of the forms read so far, by identifier, which the mapping rows keep across their remounts
+    const [targetFields, setTargetFields] = useState<Record<string, TargetField[]>>({});
+    const rememberTargetFields = useCallback((formId: string, fields: TargetField[]) => {
+        setTargetFields(previous => ({...previous, [formId]: fields}));
+    }, []);
     const [job, setJob] = useState<AttachmentJob | null>(null);
     const [errorMessage, setErrorMessage] = useState('');
     const attachedRef = useRef(false);
@@ -236,8 +242,10 @@ export const AttachResultsDialog = ({siteKey, formResults, onClose}: AttachResul
                                 sourceFields={sourceFields}
                                 choice={choice}
                                 siteForms={siteForms}
+                                targetFields={targetFields}
                                 language={language}
                                 t={t}
+                                onTargetFields={rememberTargetFields}
                                 onChange={setChoice}
                             />
                         </>
