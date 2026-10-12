@@ -130,7 +130,9 @@
 			"deleteTitle": "Supprimer les résultats du formulaire sélectionné",
 			"refresh": "Rafraîchir",
 			"import": "Importer les résultats de Jahia Forms",
-			"importTitle": "Importer les formulaires et résultats de Jahia Forms dans ce site"
+			"importTitle": "Importer les formulaires et résultats de Jahia Forms dans ce site",
+			"attach": "Rattacher à un autre formulaire",
+			"attachTitle": "Déplacer les résultats importés de cette entrée sous un formulaire du site, leurs valeurs nommées d’après ses champs"
 		},
 		"empty": {
 			"noForms": "Aucun résultat disponible",
@@ -278,6 +280,27 @@
 				"sameLabel": "même libellé",
 				"conflict": "Deux champs ne peuvent pas atterrir sous le même nom, ni sous le nom d’un autre champ de la source : {{names}}",
 				"unmatched": "{{count}} valeur(s) ne correspondent à aucune option de ce champ : {{values}}"
+			}
+		},
+		"attach": {
+			"title": "Rattacher à un autre formulaire",
+			"description": "Les résultats importés de « {{entry}} » passent sous un formulaire du site, leurs valeurs nommées d’après ses champs ; les lecteurs de ce formulaire les lisent.",
+			"loading": "Lecture de l’entrée…",
+			"source": "Formulaire source",
+			"sourceSubmissions": "{{count}} soumission(s)",
+			"noSource": "Cette entrée ne contient aucun résultat importé.",
+			"attaching": "Rattachement des résultats…",
+			"attach": "Rattacher",
+			"cancel": "Annuler",
+			"close": "Fermer",
+			"done": {
+				"title": "Résultats rattachés",
+				"summary": "Les résultats sont maintenant sous le formulaire « {{form}} » dans {{path}} : {{moved}} soumission(s) déplacée(s), {{renamed}} valeur(s) renommée(s).",
+				"relinked": "Cette entrée est maintenant celle du formulaire « {{form}} » dans {{path}} : {{renamed}} valeur(s) renommée(s).",
+				"formLeft": "Le formulaire dans {{path}} ne contient plus aucun résultat : supprimez-le quand plus rien n’en a besoin."
+			},
+			"failed": {
+				"title": "Le rattachement a échoué"
 			}
 		}
 	},

@@ -394,11 +394,47 @@ public class ImportWriter {
         return SaveToJcrFormAction.getOrCreateResultsRoot(live.getNode(SITES + siteKey), live);
     }
 
+    /**
+     * The entry of a form of the site that has none yet, for the results attached to it (ResultsAttachment):
+     * created as the import creates the entry of a form, its readers synced from the form.
+     */
+    public JCRNodeWrapper createResultsEntry(JCRNodeWrapper formNode, String buildingLang) throws RepositoryException {
+        JCRNodeWrapper entry = newEntry(resultsRoot(), formNode.getName(), buildingLang);
+        entry.setProperty(FmdbProperty.PARENT_FORM, formNode.getIdentifier());
+        FormResultsAclSyncService.syncAclToFormResults(formNode, entry, live);
+        return entry;
+    }
+
+    /** Stamps an entry as holding the results of a source, as the import stamps the entries it writes into. */
+    public void markImported(JCRNodeWrapper entry, String sourceSystem, String sourceKey) throws RepositoryException {
+        if (!entry.isNodeType(FmdbMixin.IMPORTED_RESULTS)) {
+            entry.addMixin(FmdbMixin.IMPORTED_RESULTS);
+            entry.setProperty(SOURCE_SYSTEM, sourceSystem == null ? "unknown" : sourceSystem);
+        }
+        addToMultiple(entry, SOURCE_FORM_IDS, sourceKey);
+        SaveToJcrFormAction.ensureAutoSplit(childOrCreate(entry, FmdbNodeName.SUBMISSIONS, FmdbNodeType.SUBMISSIONS));
+    }
+
+    /** Drops the mapping an entry held for a source, once the results of that source left it. */
+    public void forgetMapping(JCRNodeWrapper entry, String sourceKey) throws RepositoryException {
+        List<String> kept = new ArrayList<>();
+        for (JSONObject stored : mappingsOf(entry)) {
+            if (!sourceKey.equals(stored.optString(MAPPING_SOURCE))) {
+                kept.add(stored.toString());
+            }
+        }
+        entry.setProperty(MAPPINGS, kept.toArray(String[]::new));
+    }
+
     /** A new entry under the root, named after the source form or the next free name, its ACL inheritance broken. */
     private static JCRNodeWrapper newEntry(JCRNodeWrapper root, String name, ImportedForm form) throws RepositoryException {
+        return newEntry(root, name, form.buildingLang());
+    }
+
+    private static JCRNodeWrapper newEntry(JCRNodeWrapper root, String name, String buildingLang) throws RepositoryException {
         JCRNodeWrapper entry = root.addNode(JCRContentUtils.findAvailableNodeName(root, name), FmdbNodeType.FORM_RESULTS);
-        if (form.buildingLang() != null) {
-            entry.setProperty("buildingLang", form.buildingLang());
+        if (buildingLang != null) {
+            entry.setProperty("buildingLang", buildingLang);
         }
         JCRNodeWrapper acl = entry.addNode(ACL_NODE, ACL_NODE_TYPE);
         acl.setProperty(INHERIT_PROPERTY, false);
@@ -492,7 +528,7 @@ public class ImportWriter {
         }
     }
 
-    private static JCRNodeWrapper dayFolder(JCRNodeWrapper submissions, Instant created) throws RepositoryException {
+    static JCRNodeWrapper dayFolder(JCRNodeWrapper submissions, Instant created) throws RepositoryException {
         JCRNodeWrapper folder = submissions;
         for (String segment : DAY_FOLDERS.format(created).split("/")) {
             folder = folder.hasNode(segment) ? folder.getNode(segment) : folder.addNode(segment, FmdbNodeType.SPLITTED_SUBMISSION);
@@ -523,7 +559,7 @@ public class ImportWriter {
     }
 
     /** An autocreated child, which Jahia does not create on addNode: taken when there, added otherwise. */
-    private static JCRNodeWrapper childOrCreate(JCRNodeWrapper node, String name, String type) throws RepositoryException {
+    static JCRNodeWrapper childOrCreate(JCRNodeWrapper node, String name, String type) throws RepositoryException {
         return node.hasNode(name) ? node.getNode(name) : node.addNode(name, type);
     }
 

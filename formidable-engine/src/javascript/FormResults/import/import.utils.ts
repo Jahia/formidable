@@ -1,7 +1,7 @@
 import {uiContext} from '../FormResults.utils';
 
 /** The states of an import job, as the engine stores them (ImportJobs.State). */
-export type ImportJobState = 'analysing' | 'review' | 'importing' | 'done' | 'failed';
+export type ImportJobState = 'analysing' | 'review' | 'importing' | 'attaching' | 'done' | 'failed';
 
 export interface ImportReportField {
     name: string;
@@ -59,16 +59,22 @@ export interface ImportReport {
     nothingToImport: boolean;
 }
 
-export interface ImportJob {
+/** A job of the engine, polled by a dialog: an import, or the attachment of imported results to another form. */
+export interface Job<R> {
     id: string;
+    kind?: 'import' | 'attachment';
     state: ImportJobState;
-    report: ImportReport | null;
+    report: R | null;
     message: string | null;
     updated: string;
 }
 
+export type ImportJob = Job<ImportReport>;
+
 export interface ImportSettings {
     enabled: boolean;
+    /** Whether the user administers the site: the attachment of imported results is theirs. */
+    admin?: boolean;
     allowed: boolean;
     maxFileSizeMb: number;
     job?: ImportJob | null;
@@ -98,7 +104,7 @@ export const uploadExport = (siteKey: string, file: File): Promise<ImportJob> =>
     return call(endpoint(siteKey, '/jobs'), {method: 'POST', body: form});
 };
 
-export const fetchJob = (siteKey: string, jobId: string): Promise<ImportJob> =>
+export const fetchJob = <R = ImportReport>(siteKey: string, jobId: string): Promise<Job<R>> =>
     call(endpoint(siteKey, `/jobs/${encodeURIComponent(jobId)}`));
 
 /** Starts the import with the choices of the review; a form the choices do not name takes the results alone. */
@@ -345,6 +351,61 @@ export function attachProblem(choice: AttachChoice, sourceFields: ImportReportFi
     }
     return mappingConflicts(sourceFields, choice.mapping).length > 0 ? 'conflict' : null;
 }
+
+// --- attaching the results of an entry to another form ---
+
+/** A source form an entry holds the results of, as the endpoint describes it for the dialog of the entry. */
+export interface EntrySource {
+    id: string;
+    /** The title of the imported form the site still holds for it, null once it is gone. */
+    title: string | null;
+    submissions: number;
+    /** The names the values hold now, with the title of the field each came from when the site still knows it. */
+    fields: Array<{name: string; title: string}>;
+    /** The mapping an earlier run or attachment applied to this source. */
+    mapping: Record<string, string>;
+}
+
+export interface EntryDescription {
+    entry: string;
+    name: string;
+    form: string | null;
+    sources: EntrySource[];
+}
+
+/** What the attachment wrote, as the job reports it. */
+export interface AttachmentReport {
+    entry: string;
+    entryName: string;
+    form: string;
+    formName: string;
+    source: string;
+    submissions: number;
+    moved: number;
+    renamed: number;
+    previousEntryRemoved: boolean;
+    formLeftWithoutResults: string | null;
+}
+
+export type AttachmentJob = Job<AttachmentReport>;
+
+export const describeEntry = (siteKey: string, entryId: string, language: string): Promise<EntryDescription> =>
+    call(`${endpoint(siteKey, '/attachments/entry')}&entry=${encodeURIComponent(entryId)}&language=${encodeURIComponent(language)}`);
+
+/** Starts the attachment of the results of a source of the entry to the form of the choice; the job to poll. */
+export const startAttachment = (siteKey: string, entryId: string, sourceId: string, choice: AttachChoice): Promise<AttachmentJob> =>
+    call(endpoint(siteKey, '/attachments'), {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({entry: entryId, source: sourceId, form: choice.form, mapping: choice.mapping})
+    });
+
+/** The fields of a source of an entry as the mapping rows take them: the title in the language of the user. */
+export const sourceFieldsOf = (source: EntrySource, language: string): ImportReportField[] =>
+    source.fields.map(field => ({name: field.name, type: '', titles: field.title ? {[language]: field.title} : {}, notes: []}));
+
+/** The label of a source in the dialog: the title of its imported form, else its key. */
+export const sourceLabel = (source: EntrySource): string => source.title ?? source.id;
 
 /** Whether every choice of the review can start the import: an attachment names its form and lands no two fields together. */
 export function choicesReady(choices: Record<string, ImportChoice>, report: ImportReport): boolean {

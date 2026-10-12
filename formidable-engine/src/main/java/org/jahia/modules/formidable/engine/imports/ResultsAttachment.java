@@ -1,0 +1,460 @@
+package org.jahia.modules.formidable.engine.imports;
+
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
+import org.jahia.modules.formidable.engine.api.FmdbNodeName;
+import org.jahia.modules.formidable.engine.api.FmdbNodeType;
+import org.jahia.modules.formidable.engine.api.FmdbProperty;
+import org.jahia.modules.formidable.engine.permissions.FormResultsAclSyncService;
+import org.jahia.services.content.JCRContentUtils;
+import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.services.content.JCRSessionWrapper;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.jcr.NodeIterator;
+import javax.jcr.PropertyIterator;
+import javax.jcr.RepositoryException;
+import javax.jcr.Value;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.SITES;
+
+/**
+ * The <b>Attach to another form</b> action of the Results page (docs/architecture/forms-import.md, "What the
+ * attachment writes"): the imported results of one source form, held by an entry, move under a form of the
+ * site, their values renamed after the fields of that form through a mapping. Source-agnostic, like the
+ * markers it reads: it serves any import that stamped {@code fmdbmix:importedResults} and
+ * {@code fmdbmix:importedSubmission}.
+ * <p>
+ * Where the entry holds this source alone and the form has no entry yet, the entry becomes the entry of the
+ * form; otherwise the submissions of the source move into the entry of the form, created when needed, and the
+ * entry they left is removed once empty. The values are renamed by batches of 100, in the submissions of this
+ * source and nowhere else, and the mapping applied is kept on the entry, per source, composed with the one an
+ * earlier run or attachment applied, so that a later import names the values the same way. The readers of the
+ * entry are synced from the form.
+ */
+public final class ResultsAttachment {
+
+    /** Submissions moved or renamed between two saves. */
+    static final int BATCH = 100;
+    /** The submissions read for the names of the fields of a source: the names are the same across them. */
+    static final int NAMES_SAMPLE = 500;
+    private static final String SOURCE_SYSTEM = "sourceSystem";
+    private static final String SOURCE_FORM_IDS = "sourceFormIds";
+    private static final String SOURCE_FORM_ID = "sourceFormId";
+    private static final String SOURCE_ID = "sourceId";
+    private static final String BUILDING_LANG = "buildingLang";
+    private static final String TITLE = "jcr:title";
+    private static final Logger log = LoggerFactory.getLogger(ResultsAttachment.class);
+
+    /**
+     * What the administrator asked: the entry, the source form among those it holds, the form of the site to
+     * attach the results to, and the field of that form each field of the source lands under, by the name the
+     * values hold now; a field left out keeps its name.
+     */
+    public record Request(String entryId, String sourceFormId, String formId, Map<String, String> mapping) {
+
+        private static final String ENTRY = "entry";
+        private static final String SOURCE = "source";
+        private static final String FORM = "form";
+        private static final String MAPPING = "mapping";
+
+        public Request {
+            if (entryId == null || entryId.isBlank()) {
+                throw new IllegalArgumentException("an attachment names the entry it moves");
+            }
+            if (sourceFormId == null || sourceFormId.isBlank()) {
+                throw new IllegalArgumentException("an attachment names the source form of the entry it moves");
+            }
+            if (formId == null || formId.isBlank()) {
+                throw new IllegalArgumentException("an attachment names the form to attach to");
+            }
+            mapping = Map.copyOf(mapping == null ? Map.of() : mapping);
+        }
+
+        /** {@code {"entry":"<uuid>","source":"<key>","form":"<uuid>","mapping":{"<field>":"<field of the form>"}}}. */
+        public static Request fromJson(String json) throws JSONException {
+            JSONObject object = new JSONObject(json);
+            Map<String, String> mapping = new LinkedHashMap<>();
+            JSONObject names = object.optJSONObject(MAPPING);
+            if (names != null) {
+                for (String source : names.keySet()) {
+                    String target = names.optString(source, "");
+                    if (!target.isBlank() && !target.equals(source)) {
+                        mapping.put(source, target);
+                    }
+                }
+            }
+            return new Request(object.optString(ENTRY, null), object.optString(SOURCE, null), object.optString(FORM, null), mapping);
+        }
+
+        public String toJson() {
+            return new JSONObject().put(ENTRY, entryId).put(SOURCE, sourceFormId).put(FORM, formId).put(MAPPING, new JSONObject(mapping)).toString();
+        }
+    }
+
+    private final JCRSessionWrapper live;
+    private final String siteKey;
+    private final ImportWriter writer;
+
+    /**
+     * @param edit a session on the edit workspace, where the forms stand; localized when the titles are read
+     * @param live a system session on the live workspace, where the results are written
+     */
+    public ResultsAttachment(JCRSessionWrapper edit, JCRSessionWrapper live, String siteKey) {
+        this.live = live;
+        this.siteKey = siteKey;
+        this.writer = new ImportWriter(edit, live, siteKey, ImportJobs.FOLDER_TITLE);
+    }
+
+    // --- what the dialog shows ---
+
+    /**
+     * The sources an entry holds, for the dialog: each with the title of its imported form when the site still
+     * has it, its submissions, the names its values hold now with the title of the field they came from, and the
+     * mapping already applied to it.
+     */
+    public JSONObject describe(String entryId) throws RepositoryException, ImportJobs.RefusedException {
+        JCRNodeWrapper entry = importedEntry(entryId);
+        JCRNodeWrapper form = writer.formOf(entry);
+        JSONArray sources = new JSONArray();
+        for (String sourceKey : sourceKeysOf(entry)) {
+            List<JCRNodeWrapper> submissions = submissionsOf(entry, sourceKey);
+            Map<String, String> mapping = writer.mappingOf(entry, sourceKey);
+            JCRNodeWrapper importedForm = writer.findForm(sourceKey, sourceKey);
+            Map<String, String> titles = importedForm == null ? Map.of() : titlesOf(importedForm, mapping);
+            JSONArray fields = new JSONArray();
+            for (String name : namesOf(submissions)) {
+                fields.put(new JSONObject().put("name", name).put("title", titles.getOrDefault(name, "")));
+            }
+            sources.put(new JSONObject()
+                    .put("id", sourceKey)
+                    .put("title", importedForm == null ? JSONObject.NULL : titleOf(importedForm))
+                    .put("submissions", submissions.size())
+                    .put("fields", fields)
+                    .put("mapping", new JSONObject(mapping)));
+        }
+        return new JSONObject()
+                .put("entry", entry.getPath())
+                .put("name", entry.getName())
+                .put("form", form == null ? JSONObject.NULL : form.getPath())
+                .put("sources", sources);
+    }
+
+    // --- the attachment ---
+
+    /**
+     * Refuses what the attachment could not honour, before anything is scheduled: an entry that holds no
+     * imported results, a source the entry does not hold, a form that is not a form of the site, and a mapping
+     * that sends two fields to one name, or a field to the name another field of the source keeps.
+     */
+    public void check(Request request) throws RepositoryException, ImportJobs.RefusedException {
+        JCRNodeWrapper entry = importedEntry(request.entryId());
+        if (!sourceKeysOf(entry).contains(request.sourceFormId())) {
+            throw new ImportJobs.RefusedException("the entry holds no results of the source " + request.sourceFormId());
+        }
+        if (writer.findSiteForm(request.formId()) == null) {
+            throw new ImportJobs.RefusedException("the form to attach the results to is not a form of the site");
+        }
+        checkMapping(request.mapping(), namesOf(submissionsOf(entry, request.sourceFormId())));
+    }
+
+    /** The checks of {@link #check} that need no repository: the mapping against the names the values hold. */
+    static void checkMapping(Map<String, String> mapping, Set<String> names) throws ImportJobs.RefusedException {
+        Map<String, String> landing = new LinkedHashMap<>();
+        for (String name : names) {
+            String target = mapping.getOrDefault(name, name);
+            String other = landing.put(target, name);
+            if (other != null) {
+                throw new ImportJobs.RefusedException("the fields " + other + " and " + name + " cannot both land under " + target);
+            }
+        }
+    }
+
+    /** Runs the attachment and reports what it wrote; the sessions are saved by batches and at the end. */
+    public JSONObject run(Request request) throws RepositoryException, ImportJobs.RefusedException {
+        check(request);
+        JCRNodeWrapper entry = importedEntry(request.entryId());
+        JCRNodeWrapper form = writer.findSiteForm(request.formId());
+        String sourceKey = request.sourceFormId();
+        JCRNodeWrapper previousForm = writer.formOf(entry);
+        Map<String, String> previousMapping = writer.mappingOf(entry, sourceKey);
+        List<JCRNodeWrapper> submissions = submissionsOf(entry, sourceKey);
+        boolean alone = sourceKeysOf(entry).size() == 1;
+        JCRNodeWrapper target = writer.findResultsEntry(form);
+        boolean previousEntryRemoved = false;
+        int moved = 0;
+        if (target == null && alone) {
+            // the entry becomes the entry of the form, under its name when that name is free
+            entry.setProperty(FmdbProperty.PARENT_FORM, form.getIdentifier());
+            JCRNodeWrapper root = entry.getParent();
+            if (!form.getName().equals(entry.getName()) && !root.hasNode(form.getName())) {
+                entry.rename(form.getName());
+            }
+            target = entry;
+        } else if (target == null || !target.isSame(entry)) {
+            if (target == null) {
+                target = writer.createResultsEntry(form, entry.getPropertyAsString(BUILDING_LANG));
+            }
+            writer.markImported(target, entry.getPropertyAsString(SOURCE_SYSTEM), sourceKey);
+            live.save();
+            moved = move(submissions, target);
+            previousEntryRemoved = leave(entry, sourceKey);
+        }
+        int renamed = rename(submissions, request.mapping());
+        writer.recordMapping(target, sourceKey, compose(previousMapping, request.mapping()));
+        FormResultsAclSyncService.syncAclToFormResults(form, target, live);
+        live.save();
+        boolean formLeftAlone = previousForm != null && !previousForm.isSame(form) && writer.findResultsEntry(previousForm) == null;
+        log.info("[FormsImport] Results of the source {} attached to the form {} in site {}: {} submission(s) moved, {} value(s) renamed",
+                sourceKey, form.getPath(), siteKey, moved, renamed);
+        return new JSONObject()
+                .put("entry", target.getPath())
+                .put("entryName", target.getName())
+                .put("form", form.getPath())
+                .put("formName", form.getName())
+                .put("source", sourceKey)
+                .put("submissions", submissions.size())
+                .put("moved", moved)
+                .put("renamed", renamed)
+                .put("previousEntryRemoved", previousEntryRemoved)
+                .put("formLeftWithoutResults", formLeftAlone ? previousForm.getPath() : JSONObject.NULL);
+    }
+
+    /** Moves the submissions under the day folders of the target, saving every batch; the count moved. */
+    private int move(List<JCRNodeWrapper> submissions, JCRNodeWrapper target) throws RepositoryException {
+        JCRNodeWrapper container = ImportWriter.childOrCreate(target, FmdbNodeName.SUBMISSIONS, FmdbNodeType.SUBMISSIONS);
+        int moved = 0;
+        for (JCRNodeWrapper submission : submissions) {
+            Instant created = submission.getProperty("jcr:created").getDate().toInstant();
+            JCRNodeWrapper day = ImportWriter.dayFolder(container, created);
+            live.move(submission.getPath(), day.getPath() + "/" + JCRContentUtils.findAvailableNodeName(day, submission.getName()));
+            if (++moved % BATCH == 0) {
+                live.save();
+            }
+        }
+        live.save();
+        return moved;
+    }
+
+    /**
+     * What the submissions of a source leave behind: the entry, removed once it holds no submission at all; else
+     * the source, struck from its keys and its mappings. True when the entry was removed.
+     */
+    private boolean leave(JCRNodeWrapper entry, String sourceKey) throws RepositoryException {
+        if (!holdsSubmissions(entry)) {
+            entry.remove();
+            live.save();
+            return true;
+        }
+        List<String> keys = new ArrayList<>(sourceKeysOf(entry));
+        keys.remove(sourceKey);
+        entry.setProperty(SOURCE_FORM_IDS, keys.toArray(String[]::new));
+        writer.forgetMapping(entry, sourceKey);
+        live.save();
+        return false;
+    }
+
+    /**
+     * Renames the values of the submissions as the mapping says, by batches: a name already renamed, or absent,
+     * is left alone, so that an attachment that stopped half-way runs again. The files of a field follow its name.
+     */
+    private int rename(List<JCRNodeWrapper> submissions, Map<String, String> mapping) throws RepositoryException {
+        if (mapping.isEmpty()) {
+            return 0;
+        }
+        int renamed = 0;
+        int touched = 0;
+        for (JCRNodeWrapper submission : submissions) {
+            boolean changed = false;
+            if (submission.hasNode(FmdbNodeName.DATA)) {
+                JCRNodeWrapper data = submission.getNode(FmdbNodeName.DATA);
+                for (Map.Entry<String, String> name : mapping.entrySet()) {
+                    if (renameValue(data, name.getKey(), name.getValue())) {
+                        renamed++;
+                        changed = true;
+                    }
+                }
+            }
+            if (submission.hasNode(FmdbNodeName.FILES)) {
+                JCRNodeWrapper files = submission.getNode(FmdbNodeName.FILES);
+                for (Map.Entry<String, String> name : mapping.entrySet()) {
+                    if (files.hasNode(name.getKey()) && !files.hasNode(name.getValue())) {
+                        live.move(files.getNode(name.getKey()).getPath(), files.getPath() + "/" + name.getValue());
+                        changed = true;
+                    }
+                }
+            }
+            if (changed && ++touched % BATCH == 0) {
+                live.save();
+            }
+        }
+        live.save();
+        return renamed;
+    }
+
+    private static boolean renameValue(JCRNodeWrapper data, String from, String to) throws RepositoryException {
+        if (!data.hasProperty(from) || data.hasProperty(to)) {
+            return false;
+        }
+        javax.jcr.Property property = data.getProperty(from);
+        if (property.isMultiple()) {
+            Value[] values = property.getValues();
+            String[] texts = new String[values.length];
+            for (int i = 0; i < values.length; i++) {
+                texts[i] = values[i].getString();
+            }
+            data.setProperty(to, texts);
+        } else {
+            data.setProperty(to, property.getString());
+        }
+        property.remove();
+        return true;
+    }
+
+    /**
+     * The mapping to keep on the entry: from the names the import generated to the names the values hold after
+     * this attachment, so that a later run of the import names its values the same way. The names the earlier
+     * mapping sent somewhere go on from there; the names it left alone start from themselves.
+     */
+    static Map<String, String> compose(Map<String, String> earlier, Map<String, String> now) {
+        Map<String, String> composed = new LinkedHashMap<>();
+        for (Map.Entry<String, String> name : earlier.entrySet()) {
+            String landing = now.getOrDefault(name.getValue(), name.getValue());
+            if (!landing.equals(name.getKey())) {
+                composed.put(name.getKey(), landing);
+            }
+        }
+        Set<String> current = new LinkedHashSet<>(earlier.values());
+        for (Map.Entry<String, String> name : now.entrySet()) {
+            if (!current.contains(name.getKey()) && !composed.containsKey(name.getKey()) && !name.getValue().equals(name.getKey())) {
+                composed.put(name.getKey(), name.getValue());
+            }
+        }
+        return composed;
+    }
+
+    // --- the nodes ---
+
+    /** The entry, in the results root of the site, that carries imported results; refused otherwise. */
+    private JCRNodeWrapper importedEntry(String entryId) throws RepositoryException, ImportJobs.RefusedException {
+        JCRNodeWrapper entry;
+        try {
+            entry = live.getNodeByIdentifier(entryId);
+        } catch (javax.jcr.ItemNotFoundException e) {
+            throw new ImportJobs.RefusedException("the entry does not exist any more");
+        }
+        boolean ofSite = entry.getPath().startsWith(writer.resultsRootPath() + "/");
+        if (!ofSite || !entry.isNodeType(FmdbNodeType.FORM_RESULTS) || !entry.isNodeType(FmdbMixin.IMPORTED_RESULTS)) {
+            throw new ImportJobs.RefusedException("the entry holds no imported results");
+        }
+        return entry;
+    }
+
+    private static List<String> sourceKeysOf(JCRNodeWrapper entry) throws RepositoryException {
+        List<String> keys = new ArrayList<>();
+        if (entry.hasProperty(SOURCE_FORM_IDS)) {
+            for (Value value : entry.getProperty(SOURCE_FORM_IDS).getValues()) {
+                keys.add(value.getString());
+            }
+        }
+        return keys;
+    }
+
+    /** The imported submissions of the source under the entry, wherever its day folders put them. */
+    static List<JCRNodeWrapper> submissionsOf(JCRNodeWrapper entry, String sourceKey) throws RepositoryException {
+        List<JCRNodeWrapper> submissions = new ArrayList<>();
+        if (entry.hasNode(FmdbNodeName.SUBMISSIONS)) {
+            collect(entry.getNode(FmdbNodeName.SUBMISSIONS), sourceKey, submissions);
+        }
+        return submissions;
+    }
+
+    private static void collect(JCRNodeWrapper parent, String sourceKey, List<JCRNodeWrapper> submissions) throws RepositoryException {
+        NodeIterator children = parent.getNodes();
+        while (children.hasNext()) {
+            JCRNodeWrapper child = (JCRNodeWrapper) children.nextNode();
+            if (child.isNodeType(FmdbNodeType.FORM_SUBMISSION)) {
+                if (child.isNodeType(FmdbMixin.IMPORTED_SUBMISSION) && sourceKey.equals(child.getPropertyAsString(SOURCE_FORM_ID))) {
+                    submissions.add(child);
+                }
+            } else {
+                collect(child, sourceKey, submissions);
+            }
+        }
+    }
+
+    private static boolean holdsSubmissions(JCRNodeWrapper entry) throws RepositoryException {
+        return entry.hasNode(FmdbNodeName.SUBMISSIONS) && holdsSubmission(entry.getNode(FmdbNodeName.SUBMISSIONS));
+    }
+
+    private static boolean holdsSubmission(JCRNodeWrapper parent) throws RepositoryException {
+        NodeIterator children = parent.getNodes();
+        while (children.hasNext()) {
+            JCRNodeWrapper child = (JCRNodeWrapper) children.nextNode();
+            if (child.isNodeType(FmdbNodeType.FORM_SUBMISSION) || holdsSubmission(child)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The names the values hold, in the order they are met, from a sample of the submissions. */
+    static Set<String> namesOf(List<JCRNodeWrapper> submissions) throws RepositoryException {
+        Set<String> names = new LinkedHashSet<>();
+        for (JCRNodeWrapper submission : submissions.subList(0, Math.min(submissions.size(), NAMES_SAMPLE))) {
+            if (!submission.hasNode(FmdbNodeName.DATA)) {
+                continue;
+            }
+            PropertyIterator properties = submission.getNode(FmdbNodeName.DATA).getProperties();
+            while (properties.hasNext()) {
+                String name = properties.nextProperty().getName();
+                if (!name.contains(":")) {
+                    names.add(name);
+                }
+            }
+        }
+        return names;
+    }
+
+    /**
+     * The title of the field each current name came from, from the imported form the site still holds: a name
+     * the earlier mapping changed is looked up by the name the form knows.
+     */
+    private static Map<String, String> titlesOf(JCRNodeWrapper importedForm, Map<String, String> mapping) throws RepositoryException {
+        Map<String, String> byOriginal = new LinkedHashMap<>();
+        if (importedForm.hasNode(ImportWriter.FIELDS_NODE)) {
+            collectTitles(importedForm.getNode(ImportWriter.FIELDS_NODE), byOriginal);
+        }
+        Map<String, String> byCurrent = new LinkedHashMap<>();
+        byOriginal.forEach((original, title) -> byCurrent.put(mapping.getOrDefault(original, original), title));
+        return byCurrent;
+    }
+
+    private static void collectTitles(JCRNodeWrapper parent, Map<String, String> titles) throws RepositoryException {
+        NodeIterator children = parent.getNodes();
+        while (children.hasNext()) {
+            JCRNodeWrapper child = (JCRNodeWrapper) children.nextNode();
+            if (child.isNodeType(FmdbMixin.IMPORTED_FIELD)) {
+                titles.put(child.getName(), titleOf(child));
+            } else {
+                collectTitles(child, titles);
+            }
+        }
+    }
+
+    /** The title of a node in the language of the session, else its name. */
+    private static String titleOf(JCRNodeWrapper node) throws RepositoryException {
+        String title = node.hasProperty(TITLE) ? node.getPropertyAsString(TITLE) : null;
+        return title == null || title.isBlank() ? node.getName() : title;
+    }
+}

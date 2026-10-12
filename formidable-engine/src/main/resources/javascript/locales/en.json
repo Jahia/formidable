@@ -130,7 +130,9 @@
 			"deleteTitle": "Delete the selected form results",
 			"refresh": "Refresh",
 			"import": "Import Jahia Forms results",
-			"importTitle": "Import the forms and results of Jahia Forms into this site"
+			"importTitle": "Import the forms and results of Jahia Forms into this site",
+			"attach": "Attach to another form",
+			"attachTitle": "Move the imported results of this entry under a form of the site, their values named after its fields"
 		},
 		"empty": {
 			"noForms": "No form results available",
@@ -278,6 +280,27 @@
 				"sameLabel": "same label",
 				"conflict": "Two fields cannot land under the same name, nor under the name of another field of the source: {{names}}",
 				"unmatched": "{{count}} value(s) match no option of this field: {{values}}"
+			}
+		},
+		"attach": {
+			"title": "Attach to another form",
+			"description": "The imported results of \"{{entry}}\" move under a form of the site, their values named after its fields; the readers of that form read them.",
+			"loading": "Reading the entry…",
+			"source": "Source form",
+			"sourceSubmissions": "{{count}} submission(s)",
+			"noSource": "This entry holds no imported results.",
+			"attaching": "Attaching the results…",
+			"attach": "Attach",
+			"cancel": "Cancel",
+			"close": "Close",
+			"done": {
+				"title": "Results attached",
+				"summary": "The results are now under the form \"{{form}}\" at {{path}}: {{moved}} submission(s) moved, {{renamed}} value(s) renamed.",
+				"relinked": "This entry is now the entry of the form \"{{form}}\" at {{path}}: {{renamed}} value(s) renamed.",
+				"formLeft": "The form at {{path}} holds no result any more: delete it when nothing else needs it."
+			},
+			"failed": {
+				"title": "The attachment failed"
 			}
 		}
 	},

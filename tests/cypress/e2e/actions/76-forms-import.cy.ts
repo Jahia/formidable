@@ -1,4 +1,4 @@
-import {deleteNode, publishAndWaitJobEnding} from '@jahia/cypress';
+import {createUser, deleteNode, deleteUser, grantRoles, publishAndWaitJobEnding} from '@jahia/cypress';
 import {createFormNode, FORMIDABLE_TEST_SITE, getSelectNode, type JahiaNode} from '../../support/fixtures';
 import {withSameOriginHeaders} from '../security/support';
 import {useFormidableSite} from '../support/useFormidableSite';
@@ -44,6 +44,22 @@ const ATTACH = {
 const MENU = '.moonstone-menu:not(.moonstone-hidden)';
 /** The overlay a Moonstone menu opens over: a click on it closes the menu without picking anything. */
 const MENU_OVERLAY = '.moonstone-menu_overlay';
+
+/**
+ * The form built by hand the results of contact-us (your-first-name, your-last-name, your-email-address,
+ * your-telephone-number, your-enquiry) and of newsletterregistration attach to through the action on the entry.
+ */
+const CONTACT = {
+	form: 'contact',
+	title: 'Contact',
+	fields: [
+		{name: 'your-first-name', title: 'First name', type: 'fmdb:inputText'},
+		{name: 'email', title: 'Email', type: 'fmdb:inputEmail'},
+		{name: 'message', title: 'Message', type: 'fmdb:textarea'}
+	]
+};
+/** A reader of the results of that form: the attachment hands the entry to them. */
+const READER = {name: 'importAttachReader', password: 'ImportAttach#1234'};
 
 type Workspace = 'EDIT' | 'LIVE';
 type NamedNode = {name: string; primaryNodeType: {name: string}};
@@ -189,6 +205,52 @@ const pickInDropdown = (dropdown: () => Cypress.Chainable<JQuery>, label: string
 
 const mappingRow = (source: string) => cy.get(`[data-sel-role="import-mapping-row"][data-sel-source="${source}"]`);
 
+const formNodes = (fields: Array<{name: string; title: string; type: string}>): JahiaNode[] =>
+	fields.map(field => ({name: field.name, primaryNodeType: field.type, properties: [{name: 'jcr:title', value: field.title, language: 'en'}]}));
+
+/** Runs the import of the sample through the endpoint, as the dialog does, with the default choice. */
+const importSampleThroughApi = () =>
+	uploadThroughApi(SAMPLE_FIXTURE).then(jobId => {
+		waitForJobState(jobId, 'review');
+		importApi('POST', `/jobs/${jobId}/import`).its('status').should('eq', 200);
+		waitForJobState(jobId, 'done');
+		importApi('DELETE', `/jobs/${jobId}`).its('status').should('eq', 200);
+	});
+
+const openAttachDialog = (entryName: string) => {
+	openResultsPage();
+	selectEntry(entryName);
+	cy.get('[data-sel-role="attach-results"]').click();
+	cy.get('[data-sel-role="attach-results-dialog"][data-sel-state="review"]', {timeout: 30000}).should('exist');
+};
+
+const attachDialogState = (state: string, timeout = 120000) =>
+	cy.get(`[data-sel-role="attach-results-dialog"][data-sel-state="${state}"]`, {timeout}).should('exist');
+
+const closeAttachDialog = () => {
+	cy.get('[data-sel-role="attach-close"]').click();
+	cy.get('[data-sel-role="attach-results-dialog"]').should('not.exist');
+};
+
+/** The properties of an entry the attachment writes: the form, the sources and the mappings it holds. */
+const entryOf = (entryPath: string) =>
+	graphql<{jcr: {nodeByPath: {parentForm: {value: string} | null; sourceFormIds: {values: string[]}; mappings: {values: string[]} | null} | null}}>(
+		`query Entry($path: String!) { jcr(workspace: LIVE) { nodeByPath(path: $path) {
+			parentForm: property(name: "parentForm") { value } sourceFormIds: property(name: "sourceFormIds") { values }
+			mappings: property(name: "mappings") { values } } } }`,
+		{path: entryPath}
+	).then(data => data.jcr.nodeByPath);
+
+/** Reads a live node with the current session: null when that user may not read it. */
+const readAsCurrentUser = (path: string) =>
+	cy.request({
+		method: 'POST',
+		url: '/modules/graphql',
+		failOnStatusCode: false,
+		headers: withSameOriginHeaders(),
+		body: {query: `query Read($path: String!) { jcr(workspace: LIVE) { nodeByPath(path: $path) { uuid } } }`, variables: {path}}
+	}).then(response => (response.body as {data?: {jcr?: {nodeByPath?: {uuid: string} | null}}}).data?.jcr?.nodeByPath ?? null);
+
 // The caption inside the entry sits at its centre, which Cypress takes for a cover: the click is forced.
 const selectEntry = (name: string) =>
 	cy.get(`[data-sel-role="form-results-entry"][data-sel-name="${name}"]`).should('be.visible').click({force: true});
@@ -217,6 +279,7 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 	after(() => {
 		cy.login();
 		setImportButton(false);
+		deleteUser(READER.name);
 	});
 
 	it('hides the Import button while the setting is off', () => {
@@ -544,5 +607,107 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		importApi('GET', '/settings').its('body.job').should('be.null');
 		cy.get('[data-sel-role="import-cancel"]').click();
 		cy.get('[data-sel-role="import-results-dialog"]').should('not.exist');
+	});
+
+	it('attaches an entry without a form to a form built by hand through the action on the entry', () => {
+		// everything imported goes, and the sample comes back as the results alone: three entries without a form
+		deleteNode(IMPORTED_FORMS_PATH);
+		deleteNode(IMPORTED_FORMS_PATH, 'LIVE');
+		deleteNode(`${CONTENTS_PATH}/${ATTACH.form}`);
+		[...SAMPLE.forms.filter(form => form !== ATTACH.source), ATTACH.form].forEach(entry => deleteNode(`${RESULTS_ROOT_PATH}/${entry}`, 'LIVE'));
+		openResultsPage();
+		importSampleThroughApi();
+		// the form the results go to, with a reader of its results granted before the attachment
+		let formId = '';
+		createFormNode(CONTACT.form, CONTACT.title, formNodes(CONTACT.fields)).then((response: {data?: {jcr?: {addNode?: {uuid?: string}}}}) => {
+			formId = response?.data?.jcr?.addNode?.uuid ?? '';
+			expect(formId, 'the uuid of the form').to.not.be.empty;
+		});
+		createUser(READER.name, READER.password);
+		grantRoles(`/sites/${SITE}`, ['editor'], READER.name, 'USER');
+		grantRoles(`${CONTENTS_PATH}/${CONTACT.form}`, ['fmdb-results-reader'], READER.name, 'USER');
+
+		openAttachDialog('contact-us');
+		cy.get('[data-sel-role="attach-source"]').should('not.exist');
+		cy.get('[data-sel-role="attach-confirm"]').should('be.disabled');
+		pickInDropdown(cy.get('[data-sel-role="import-attach-form"]'), CONTACT.title);
+		// no imported form stands for this entry: names alone are matched, the rest is picked by hand
+		mappingRow('your-first-name').should('have.attr', 'data-sel-target', 'your-first-name').and('have.attr', 'data-sel-rule', 'sameName');
+		mappingRow('your-email-address').should('have.attr', 'data-sel-target', '').and('have.attr', 'data-sel-rule', '');
+		pickInDropdown(mappingRow('your-email-address').find('[data-sel-role="import-mapping-target"]'), 'Email');
+		pickInDropdown(mappingRow('your-enquiry').find('[data-sel-role="import-mapping-target"]'), 'Message');
+		cy.get('[data-sel-role="attach-confirm"]').should('be.enabled').click();
+		attachDialogState('done');
+		// the form had no entry and this one held a single source: it became the entry of the form
+		cy.get('[data-sel-role="attach-report"]').should('contain', 'now the entry of the form').and('contain', `${CONTENTS_PATH}/${CONTACT.form}`);
+		closeAttachDialog();
+
+		cy.get(`[data-sel-role="form-results-entry"][data-sel-name="${CONTACT.form}"] [data-sel-role="form-unpublished"]`, {timeout: 30000}).should('exist');
+		cy.get('[data-sel-role="form-results-entry"][data-sel-name="contact-us"]').should('not.exist');
+		countSubmissions(`${RESULTS_ROOT_PATH}/${CONTACT.form}`).should('eq', SAMPLE.submissions['contact-us']);
+		submissionsUnder(`${RESULTS_ROOT_PATH}/${CONTACT.form}`).then(submissions => {
+			submissions.forEach(submission => expect(valueNames(submission)).to.have.members(['your-first-name', 'your-last-name', 'email', 'your-telephone-number', 'message']));
+		});
+		entryOf(`${RESULTS_ROOT_PATH}/${CONTACT.form}`).then(entry => {
+			expect(entry?.parentForm?.value).to.equal(formId);
+			expect(entry?.sourceFormIds.values).to.have.length(1);
+			expect(entry?.mappings?.values.map(value => JSON.parse(value).mapping)).to.deep.equal([{'your-email-address': 'email', 'your-enquiry': 'message'}]);
+		});
+		// the reader of the form reads the entry; the page shows the labels of the form
+		cy.logout();
+		cy.login(READER.name, READER.password);
+		readAsCurrentUser(`${RESULTS_ROOT_PATH}/${CONTACT.form}`).should('not.be.null');
+		cy.logout();
+		cy.login();
+		openFirstSubmission(CONTACT.form);
+		cy.get('[data-sel-role="submission-detail"]').should('contain', 'First name').and('contain', 'Email').and('contain', 'Message');
+	});
+
+	it('merges a second source into the entry of the form, touching no value already there', () => {
+		// a native submission of the form, under a name the second mapping renames
+		graphql(`mutation Native($parent: String!) { jcr(workspace: LIVE) { addNode(parentPathOrId: $parent, name: "native-submission",
+			primaryNodeType: "fmdb:formSubmission", properties: [{name: "origin", value: "formidable"}],
+			children: [{name: "data", primaryNodeType: "fmdb:submissionData", properties: [{name: "firstname", value: "native"}]}]) { uuid } } }`,
+			{parent: `${RESULTS_ROOT_PATH}/${CONTACT.form}/submissions`});
+
+		openAttachDialog(ATTACH.source);
+		pickInDropdown(cy.get('[data-sel-role="import-attach-form"]'), CONTACT.title);
+		pickInDropdown(mappingRow('firstname').find('[data-sel-role="import-mapping-target"]'), 'First name');
+		pickInDropdown(mappingRow('enter-your-email-here').find('[data-sel-role="import-mapping-target"]'), 'Email');
+		cy.get('[data-sel-role="attach-confirm"]').should('be.enabled').click();
+		attachDialogState('done');
+		cy.get('[data-sel-role="attach-report"]').should('contain', `${SAMPLE.submissions[ATTACH.source]} submission(s) moved`);
+		closeAttachDialog();
+
+		cy.get(`[data-sel-role="form-results-entry"][data-sel-name="${ATTACH.source}"]`).should('not.exist');
+		countSubmissions(`${RESULTS_ROOT_PATH}/${CONTACT.form}`).should('eq', SAMPLE.submissions['contact-us'] + SAMPLE.submissions[ATTACH.source] + 1);
+		submissionsUnder(`${RESULTS_ROOT_PATH}/${CONTACT.form}`, 200).then(submissions => {
+			const native = submissions.filter(submission => submission.origin.value === 'formidable');
+			const first = submissions.filter(submission => valueNames(submission).includes('your-last-name'));
+			const second = submissions.filter(submission => valueNames(submission).includes('lastname'));
+			expect(native, 'the native submission').to.have.length(1);
+			expect(valueNames(native[0])).to.deep.equal(['firstname']);
+			expect(first, 'the submissions of the first source').to.have.length(SAMPLE.submissions['contact-us']);
+			first.forEach(submission => expect(valueNames(submission)).to.have.members(['your-first-name', 'your-last-name', 'email', 'your-telephone-number', 'message']));
+			expect(second, 'the submissions of the second source').to.have.length(SAMPLE.submissions[ATTACH.source]);
+			second.forEach(submission => expect(valueNames(submission)).to.have.members(['your-first-name', 'lastname', 'email']));
+		});
+		entryOf(`${RESULTS_ROOT_PATH}/${CONTACT.form}`).then(entry => {
+			expect(entry?.sourceFormIds.values).to.have.length(2);
+			expect(entry?.mappings?.values).to.have.length(2);
+		});
+	});
+
+	it('asks which source when the entry holds several, and shows Form deleted once the form is gone', () => {
+		openAttachDialog(CONTACT.form);
+		cy.get('[data-sel-role="attach-source"]').should('be.visible');
+		cy.get('[data-sel-role="import-attach-form"]').should('not.exist');
+		cy.get('[data-sel-role="attach-confirm"]').should('be.disabled');
+		cy.get('[data-sel-role="attach-cancel"]').click();
+		cy.get('[data-sel-role="attach-results-dialog"]').should('not.exist');
+
+		deleteNode(`${CONTENTS_PATH}/${CONTACT.form}`);
+		openResultsPage();
+		cy.get(`[data-sel-role="form-results-entry"][data-sel-name="${CONTACT.form}"] [data-sel-role="form-deleted"]`, {timeout: 30000}).should('exist');
 	});
 });
