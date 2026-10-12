@@ -91,7 +91,7 @@ describe('attaching to an existing form', () => {
         expect(mappingConflicts(source, {lastname: 'firstname'})).toEqual(['firstname']);
         // a chain or a swap lands on the name of another field of the source, even mapped away: refused too
         expect(mappingConflicts(source, {lastname: 'firstname', firstname: 'name'})).toEqual(['firstname']);
-        expect(mappingConflicts(source, {lastname: 'firstname', firstname: 'lastname'}).sort()).toEqual(['firstname', 'lastname']);
+        expect(mappingConflicts(source, {lastname: 'firstname', firstname: 'lastname'}).sort((a, b) => a.localeCompare(b))).toEqual(['firstname', 'lastname']);
     });
 
     it('offers a row the fields no other row picked, nor those named like another field of the source', () => {
