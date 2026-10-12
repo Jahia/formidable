@@ -28,6 +28,8 @@ interface AttachToFormProps {
     /** The fields of the forms read so far, by identifier: the dialog holds them, so that a remount keeps the rows. */
     targetFields: Record<string, TargetField[]>;
     language: string;
+    /** The language the options of a choice field are read in: the default language of the site, which always holds them. */
+    optionsLanguage: string;
     t: (key: string, options?: Record<string, unknown>) => string;
     onTargetFields: (formId: string, fields: TargetField[]) => void;
     onChange: (choice: AttachChoice) => void;
@@ -40,7 +42,7 @@ interface AttachToFormProps {
  * form picked in one row leaves the menus of the others, as does the name of another field of the source,
  * so that no two fields land together; a choice field lists the values none of its options carries.
  */
-export const AttachToForm = ({sourceFields, choice, siteForms, targetFields, language, t, onTargetFields, onChange}: AttachToFormProps) => {
+export const AttachToForm = ({sourceFields, choice, siteForms, targetFields, language, optionsLanguage, t, onTargetFields, onChange}: AttachToFormProps) => {
     const client = useApolloClient();
     const [loadingForm, setLoadingForm] = useState<string | null>(null);
     const [readError, setReadError] = useState('');
@@ -59,7 +61,7 @@ export const AttachToForm = ({sourceFields, choice, siteForms, targetFields, lan
         try {
             const {data} = await client.query({
                 query: GET_FORM_FIELD_LABELS,
-                variables: {formUuid: uuid, language, workspace: 'EDIT'},
+                variables: {formUuid: uuid, language, optionsLanguage, workspace: 'EDIT'},
                 fetchPolicy: 'network-only'
             });
             if (!mountedRef.current || request !== requestRef.current) {
@@ -78,7 +80,7 @@ export const AttachToForm = ({sourceFields, choice, siteForms, targetFields, lan
                 setLoadingForm(null);
             }
         }
-    }, [client, language, onTargetFields, t]);
+    }, [client, language, optionsLanguage, onTargetFields, t]);
 
     // A choice remounted with its form but without its fields reads them again: the rows need them.
     useEffect(() => {

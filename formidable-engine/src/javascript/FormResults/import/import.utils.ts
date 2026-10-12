@@ -189,9 +189,25 @@ export interface MappingProposal {
 export const buildSiteFormsQuery = (siteKey: string): string =>
     `SELECT * FROM [fmdb:form] AS form WHERE ISDESCENDANTNODE(form, '/sites/${siteKey}')`;
 
+/** The variables of GET_SITE_FORMS: the forms of the site in the language of the user, and the site node itself. */
+export const siteFormsVariables = (siteKey: string, language: string) =>
+    ({formsQuery: buildSiteFormsQuery(siteKey), language, sitePath: `/sites/${siteKey}`});
+
 type GqlSiteFormsResponse = {
-    jcr?: {nodesByQuery?: {nodes?: Array<{uuid: string; name: string; path: string; displayName?: string}>}};
+    jcr?: {
+        nodesByQuery?: {nodes?: Array<{uuid: string; name: string; path: string; displayName?: string}>};
+        site?: {defaultLanguage?: {value?: string | null} | null} | null;
+    };
 };
+
+/**
+ * The default language of the site, from GET_SITE_FORMS: the options of a choice field are read there, where
+ * the editor always writes them, whatever language the user works in; null when the site does not say.
+ */
+export function parseSiteDefaultLanguage(data: GqlSiteFormsResponse | undefined): string | null {
+    const language = data?.jcr?.site?.defaultLanguage?.value;
+    return language ? language : null;
+}
 
 /** Reads GET_SITE_FORMS: the forms by title, then by path for two forms of one title. */
 export function parseSiteForms(data: GqlSiteFormsResponse | undefined): SiteForm[] {

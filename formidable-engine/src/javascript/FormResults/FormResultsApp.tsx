@@ -95,7 +95,7 @@ export const FormResultsApp = () => {
     const labelsForm = labelsFormOf(selectedForm);
     const formUuid = labelsForm?.uuid;
     const {data: fieldLabelsData} = useQuery(GET_FORM_FIELD_LABELS, {
-        variables: {formUuid: formUuid!, language, workspace: labelsForm?.workspace ?? 'LIVE'},
+        variables: {formUuid: formUuid!, language, optionsLanguage: language, workspace: labelsForm?.workspace ?? 'LIVE'},
         skip: !formUuid,
         fetchPolicy: 'cache-first'
     });

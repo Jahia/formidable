@@ -173,7 +173,7 @@ export const GET_FORMS_IN_EDIT = gql`
 
 export const GET_FORM_FIELD_LABELS = gql`
     ${JCR_NODE_IDENTITY}
-    query GetFormFieldLabels($formUuid: String!, $language: String!, $workspace: Workspace = LIVE) {
+    query GetFormFieldLabels($formUuid: String!, $language: String!, $optionsLanguage: String!, $workspace: Workspace = LIVE) {
         jcr(workspace: $workspace) {
             nodeById(uuid: $formUuid) {
                 ...JcrNodeIdentity
@@ -190,7 +190,7 @@ export const GET_FORM_FIELD_LABELS = gql`
                                 isDate: isNodeType(type: {types: ["fmdbmix:dateField"]})
                                 isDatetime: isNodeType(type: {types: ["fmdbmix:datetimeLocalField"]})
                                 nonSubmittable: isNodeType(type: {types: ["fmdbmix:nonSubmittable"]})
-                                options: property(name: "options", language: $language) {
+                                options: property(name: "options", language: $optionsLanguage) {
                                     values
                                 }
                             }
@@ -203,17 +203,24 @@ export const GET_FORM_FIELD_LABELS = gql`
 `;
 
 /**
- * The forms of the site the imported results can attach to, unpublished ones included: the statement comes
- * from buildSiteFormsQuery (import.utils.ts).
+ * The forms of the site the imported results can attach to, unpublished ones included, and the default
+ * language of the site, where the options of a choice field are always held: the statement comes from
+ * buildSiteFormsQuery (import.utils.ts), the variables from siteFormsVariables.
  */
 export const GET_SITE_FORMS = gql`
     ${JCR_NODE_IDENTITY}
-    query GetSiteForms($formsQuery: String!, $language: String!) {
+    query GetSiteForms($formsQuery: String!, $language: String!, $sitePath: String!) {
         jcr(workspace: EDIT) {
             nodesByQuery(query: $formsQuery, queryLanguage: SQL2) {
                 nodes {
                     ...JcrNodeIdentity
                     displayName(language: $language)
+                }
+            }
+            site: nodeByPath(path: $sitePath) {
+                ...JcrNodeIdentity
+                defaultLanguage: property(name: "j:defaultLanguage") {
+                    value
                 }
             }
         }

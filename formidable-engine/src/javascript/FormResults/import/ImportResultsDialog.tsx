@@ -7,7 +7,6 @@ import {GET_SITE_FORMS} from '../graphql';
 import {AttachToForm} from './AttachToForm';
 import {
     type AttachChoice,
-    buildSiteFormsQuery,
     choicesReady,
     closeJob,
     fetchJob,
@@ -19,10 +18,12 @@ import {
     type ImportReportForm,
     type ImportSettings,
     kindOf,
+    parseSiteDefaultLanguage,
     parseSiteForms,
     POLL_INTERVAL_MS,
     refuseFile,
     type SiteForm,
+    siteFormsVariables,
     startImport,
     type TargetField,
     uploadExport
@@ -67,11 +68,13 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
     const importedRef = useRef(initialJob?.state === 'done');
     // The forms of the site an attachment can pick: read once the review shows, fresh, a form may have been built for it.
     const {data: siteFormsData} = useQuery(GET_SITE_FORMS, {
-        variables: {formsQuery: buildSiteFormsQuery(siteKey), language},
+        variables: siteFormsVariables(siteKey, language),
         skip: state !== 'review',
         fetchPolicy: 'network-only'
     });
     const siteForms = useMemo<SiteForm[] | null>(() => (siteFormsData ? parseSiteForms(siteFormsData) : null), [siteFormsData]);
+    // the options of a choice field are read in the default language of the site, which always holds them
+    const optionsLanguage = parseSiteDefaultLanguage(siteFormsData) ?? language;
 
     // The server job goes on without the dialog: while it runs, its state is read every second.
     useEffect(() => {
@@ -293,6 +296,7 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                                 t={t}
                                 choices={choices}
                                 siteForms={siteForms}
+                                optionsLanguage={optionsLanguage}
                                 targetFields={targetFields}
                                 onTargetFields={rememberTargetFields}
                                 onChoice={(sourceName, choice) => setChoices(previous => ({...previous, [sourceName]: choice}))}
@@ -366,13 +370,15 @@ interface ReportViewProps extends ReportProps {
     choices?: Record<string, ImportChoice>;
     /** The forms of the site an attachment can pick, null while they load. */
     siteForms?: SiteForm[] | null;
+    /** The language the options of a choice field are read in: the default language of the site. */
+    optionsLanguage?: string;
     /** The fields of the forms read so far, by identifier, and how to keep the ones read next. */
     targetFields?: Record<string, TargetField[]>;
     onTargetFields?: (formId: string, fields: TargetField[]) => void;
     onChoice?: (sourceName: string, choice: ImportChoice) => void;
 }
 
-const ReportView = ({report, language, t, choices, siteForms, targetFields, onTargetFields, onChoice}: ReportViewProps) => (
+const ReportView = ({report, language, t, choices, siteForms, optionsLanguage, targetFields, onTargetFields, onChoice}: ReportViewProps) => (
     <div data-sel-role="import-report" style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
         <Typography data-sel-role="import-totals">
             {t('formResults.import.report.totals', {
@@ -393,6 +399,7 @@ const ReportView = ({report, language, t, choices, siteForms, targetFields, onTa
                 t={t}
                 choices={choices}
                 siteForms={siteForms}
+                optionsLanguage={optionsLanguage}
                 targetFields={targetFields}
                 onTargetFields={onTargetFields}
                 onChoice={onChoice}
@@ -448,7 +455,7 @@ function outcomeOf(form: ImportReportForm, choice: ImportChoice | undefined, ste
     return OUTCOME_OF_CHOICE[kindOf(choice)];
 }
 
-const FormReport = ({form, report, language, t, choices, siteForms, targetFields, onTargetFields, onChoice}: FormReportProps) => {
+const FormReport = ({form, report, language, t, choices, siteForms, optionsLanguage, targetFields, onTargetFields, onChoice}: FormReportProps) => {
     const steerable = Boolean(onChoice) && form.outcome !== 'found';
     const choice = choices?.[form.sourceName];
     const outcome = outcomeOf(form, choice, Boolean(onChoice));
@@ -517,6 +524,7 @@ const FormReport = ({form, report, language, t, choices, siteForms, targetFields
                     siteForms={siteForms ?? null}
                     targetFields={targetFields ?? {}}
                     language={language}
+                    optionsLanguage={optionsLanguage ?? language}
                     t={t}
                     onTargetFields={onTargetFields ?? (() => undefined)}
                     onChange={(next: AttachChoice) => onChoice?.(form.sourceName, next)}

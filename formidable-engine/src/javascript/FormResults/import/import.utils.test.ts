@@ -12,6 +12,7 @@ import {
     kindOf,
     mappingConflicts,
     mappingOf,
+    parseSiteDefaultLanguage,
     parseSiteForms,
     parseTargetFields,
     proposeMapping,
@@ -153,6 +154,10 @@ describe('attaching to an existing form', () => {
             {name: 'colour', label: 'Colour', options: ['red']}
         ]);
         expect(parseTargetFields(undefined)).toEqual([]);
+        // the default language of the site, where the options are read; null when the site does not say
+        expect(parseSiteDefaultLanguage({jcr: {site: {defaultLanguage: {value: 'fr'}}}})).toEqual('fr');
+        expect(parseSiteDefaultLanguage({jcr: {site: {defaultLanguage: null}}})).toBeNull();
+        expect(parseSiteDefaultLanguage(undefined)).toBeNull();
     });
 
     it('kinds a choice, the results alone when none was made', () => {
