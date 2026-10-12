@@ -133,11 +133,13 @@ public final class ResultsAttachment {
             JCRNodeWrapper importedForm = writer.findForm(sourceKey, sourceKey);
             Map<String, String> titles = importedForm == null ? Map.of() : titlesOf(importedForm, mapping);
             SampledValues sampled = valuesOf(submissions);
+            Map<String, Set<String>> alongside = alongsideOf(submissions);
             JSONArray fields = new JSONArray();
             for (String name : namesOf(submissions)) {
                 fields.put(new JSONObject().put("name", name).put("title", titles.getOrDefault(name, ""))
                         .put("values", new JSONArray(sampled.values().getOrDefault(name, Set.of())))
-                        .put("moreValues", sampled.more().contains(name)));
+                        .put("moreValues", sampled.more().contains(name))
+                        .put("alongside", new JSONArray(alongside.getOrDefault(name, Set.of()))));
             }
             sources.put(new JSONObject()
                     .put("id", sourceKey)
@@ -158,8 +160,8 @@ public final class ResultsAttachment {
     /**
      * Refuses what the attachment could not honour, before anything is scheduled: an entry that holds no
      * imported results, a source the entry does not hold, a form that is not a form of the site, and a mapping
-     * that names a field the values do not hold, sends two fields to one name, or sends a field to the name of
-     * another field of the source.
+     * that names a field the values do not hold, chains a rename on another, or sends two names a submission
+     * holds together to one field.
      */
     public void check(Request request) throws RepositoryException, ImportJobs.RefusedException {
         JCRNodeWrapper entry = importedEntry(request.entryId());
@@ -169,26 +171,36 @@ public final class ResultsAttachment {
         if (writer.findSiteForm(request.formId()) == null) {
             throw new ImportJobs.RefusedException("the form to attach the results to is not a form of the site");
         }
-        checkMapping(request.mapping(), namesOf(submissionsOf(entry, request.sourceFormId())));
+        checkMapping(request.mapping(), namesPerSubmission(submissionsOf(entry, request.sourceFormId())));
     }
 
-    /** The checks of {@link #check} that need no repository: the mapping against the names the values hold. */
-    static void checkMapping(Map<String, String> mapping, Set<String> names) throws ImportJobs.RefusedException {
-        for (String mapped : mapping.keySet()) {
-            if (!names.contains(mapped)) {
-                throw new ImportJobs.RefusedException("the submissions of the source hold no field named " + mapped);
+    /**
+     * The checks of {@link #check} that need no repository: the mapping against the names each submission holds.
+     * A target that is itself sent elsewhere is refused, because a rename cannot chain on another in one pass (a
+     * chain of renames is two attachments). The landing is judged per submission: two names one submission
+     * holds cannot land together, since it would lose a value, while a name the earlier submissions hold alone,
+     * because a stopped run renamed them already, lets that run go on.
+     */
+    static void checkMapping(Map<String, String> mapping, List<Set<String>> submissions) throws ImportJobs.RefusedException {
+        Set<String> names = new LinkedHashSet<>();
+        submissions.forEach(names::addAll);
+        for (Map.Entry<String, String> rename : mapping.entrySet()) {
+            if (!names.contains(rename.getKey())) {
+                throw new ImportJobs.RefusedException("the submissions of the source hold no field named " + rename.getKey());
+            }
+            if (mapping.containsKey(rename.getValue())) {
+                throw new ImportJobs.RefusedException("the field " + rename.getKey() + " cannot land under " + rename.getValue()
+                        + ", which is sent elsewhere itself: attach twice");
             }
         }
-        Map<String, String> landing = new LinkedHashMap<>();
-        for (String name : names) {
-            String target = mapping.getOrDefault(name, name);
-            if (!target.equals(name) && names.contains(target)) {
-                // a rename cannot chain on another in one pass: a chain of renames is two attachments
-                throw new ImportJobs.RefusedException("the field " + name + " cannot land under " + target + ", the name of another field of the source");
-            }
-            String other = landing.put(target, name);
-            if (other != null) {
-                throw new ImportJobs.RefusedException("the fields " + other + " and " + name + " cannot both land under " + target);
+        for (Set<String> held : submissions) {
+            Map<String, String> landing = new LinkedHashMap<>();
+            for (String name : held) {
+                String other = landing.put(mapping.getOrDefault(name, name), name);
+                if (other != null) {
+                    throw new ImportJobs.RefusedException("the fields " + other + " and " + name + " of one submission cannot both land under "
+                            + mapping.getOrDefault(name, name));
+                }
             }
         }
     }
@@ -507,19 +519,42 @@ public final class ResultsAttachment {
     /** The names the values hold, in the order they are met, from a sample of the submissions. */
     static Set<String> namesOf(List<JCRNodeWrapper> submissions) throws RepositoryException {
         Set<String> names = new LinkedHashSet<>();
-        for (JCRNodeWrapper submission : submissions.subList(0, Math.min(submissions.size(), NAMES_SAMPLE))) {
-            if (!submission.hasNode(FmdbNodeName.DATA)) {
-                continue;
-            }
-            PropertyIterator properties = submission.getNode(FmdbNodeName.DATA).getProperties();
-            while (properties.hasNext()) {
-                String name = properties.nextProperty().getName();
-                if (!name.contains(":")) {
-                    names.add(name);
+        namesPerSubmission(submissions.subList(0, Math.min(submissions.size(), NAMES_SAMPLE))).forEach(names::addAll);
+        return names;
+    }
+
+    /** The names each submission holds values for, one set per submission, every submission read. */
+    static List<Set<String>> namesPerSubmission(List<JCRNodeWrapper> submissions) throws RepositoryException {
+        List<Set<String>> held = new ArrayList<>();
+        for (JCRNodeWrapper submission : submissions) {
+            Set<String> names = new LinkedHashSet<>();
+            if (submission.hasNode(FmdbNodeName.DATA)) {
+                PropertyIterator properties = submission.getNode(FmdbNodeName.DATA).getProperties();
+                while (properties.hasNext()) {
+                    String name = properties.nextProperty().getName();
+                    if (!name.contains(":")) {
+                        names.add(name);
+                    }
                 }
             }
+            held.add(names);
         }
-        return names;
+        return held;
+    }
+
+    /**
+     * The names each name stands alongside in a submission of the sample: what the dialog keeps apart, where a
+     * stopped run left the earlier submissions under a renamed name and the later ones under the old one.
+     */
+    static Map<String, Set<String>> alongsideOf(List<JCRNodeWrapper> submissions) throws RepositoryException {
+        Map<String, Set<String>> alongside = new LinkedHashMap<>();
+        for (Set<String> held : namesPerSubmission(submissions.subList(0, Math.min(submissions.size(), NAMES_SAMPLE)))) {
+            for (String name : held) {
+                Set<String> others = alongside.computeIfAbsent(name, key -> new LinkedHashSet<>());
+                held.stream().filter(other -> !other.equals(name)).forEach(others::add);
+            }
+        }
+        return alongside;
     }
 
     /**

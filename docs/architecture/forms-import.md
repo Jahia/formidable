@@ -662,10 +662,13 @@ order:
    kept name shows on the Results page after the known fields, under its own name.
 
 A field of `F` takes at most one name: a field picked in one row leaves the menus of the other rows, and
-so does the name of another field of the source, kept or mapped away, because a rename cannot chain on
-another in one pass (a chain of renames is two attachments). The page still refuses, and the server with
-it, a mapping that sends two names to the same field or to the name of another field of the source, because
-a submission that holds both would lose one of its values.
+so does the name of a field a submission holds alongside, or of a field sent elsewhere itself, because a
+rename cannot chain on another in one pass (a chain of renames is two attachments). The page still refuses,
+and the server with it, a target that is sent elsewhere itself, and a mapping that sends two names a
+submission holds together to the same field, because that submission would lose one of its values. The rule
+is judged per submission, not on the union of the names: an attachment that stopped half-way, the earlier
+submissions renamed already and the later ones not, can be run again with the same mapping, from the dialog
+or by the scheduler's recovery, because no submission holds a name and its target together.
 
 For a choice field, the page lists the imported values that no option of the matched field carries: the dry
 run reports, per field, the distinct values the submissions hold, up to thirty, and the page reads the

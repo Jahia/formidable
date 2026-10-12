@@ -90,9 +90,13 @@ describe('attaching to an existing form', () => {
         expect(mappingConflicts(source, {lastname: 'email', 'enter-your-email-here': 'email'})).toEqual(['email']);
         // a field sent to the name another field keeps collides with it
         expect(mappingConflicts(source, {lastname: 'firstname'})).toEqual(['firstname']);
-        // a chain or a swap lands on the name of another field of the source, even mapped away: refused too
+        // a chain or a swap sends a field under a name that is sent elsewhere itself: refused too
         expect(mappingConflicts(source, {lastname: 'firstname', firstname: 'name'})).toEqual(['firstname']);
         expect(mappingConflicts(source, {lastname: 'firstname', firstname: 'lastname'}).sort((a, b) => a.localeCompare(b))).toEqual(['firstname', 'lastname']);
+        // a stopped run left the earlier submissions under name and the later ones under firstname: never held together, the rename goes on
+        const split = [{...field('firstname', 'Firstname'), alongside: ['lastname']}, {...field('name'), alongside: ['lastname']}, {...field('lastname', 'Lastname'), alongside: ['firstname', 'name']}];
+        expect(mappingConflicts(split, {firstname: 'name'})).toEqual([]);
+        expect(mappingConflicts(split, {lastname: 'name'})).toEqual(['name']);
     });
 
     it('offers a row the fields no other row picked, nor those named like another field of the source', () => {
@@ -103,6 +107,11 @@ describe('attaching to an existing form', () => {
         // the row keeps its own pick, and may land under its own name; the firstname row may still land under firstname
         expect(names(availableTargets(source[1], source, {lastname: 'surname'}, targets))).toEqual(['surname', 'email', 'lastname']);
         expect(names(availableTargets(source[0], source, {}, targets))).toEqual(['firstname', 'surname', 'email']);
+        // a field never held alongside this one does not take its name away: the renamed submissions of a stopped run
+        const split = [{...field('firstname', 'Firstname'), alongside: ['lastname']}, {...field('name'), alongside: ['lastname']}, {...field('lastname', 'Lastname'), alongside: ['firstname', 'name']}];
+        const withName = [...targets, {name: 'name', label: 'Name', options: null}];
+        expect(names(availableTargets(split[0], split, {}, withName))).toEqual(['firstname', 'surname', 'email', 'name']);
+        expect(names(availableTargets(split[2], split, {}, withName))).toEqual(['surname', 'email', 'lastname']);
     });
 
     it('lists the values of a field that no option of its target carries', () => {

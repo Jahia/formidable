@@ -10,14 +10,15 @@ import {
     type AttachmentJob,
     type AttachmentReport,
     attachProblem,
-    buildSiteFormsQuery,
     closeJob,
     describeEntry,
     type EntryDescription,
     fetchJob,
+    parseSiteDefaultLanguage,
     parseSiteForms,
     POLL_INTERVAL_MS,
     type SiteForm,
+    siteFormsVariables,
     sourceFieldsOf,
     sourceLabel,
     startAttachment,
@@ -64,10 +65,12 @@ export const AttachResultsDialog = ({siteKey, formResults, onClose}: AttachResul
     const attachedRef = useRef(false);
 
     const {data: siteFormsData} = useQuery(GET_SITE_FORMS, {
-        variables: {formsQuery: buildSiteFormsQuery(siteKey), language},
+        variables: siteFormsVariables(siteKey, language),
         fetchPolicy: 'network-only'
     });
     const siteForms = useMemo<SiteForm[] | null>(() => (siteFormsData ? parseSiteForms(siteFormsData) : null), [siteFormsData]);
+    // the options of a choice field are read in the default language of the site, which always holds them
+    const optionsLanguage = parseSiteDefaultLanguage(siteFormsData) ?? language;
 
     // The sources of the entry, read once: the one source is picked by itself, several wait for the choice.
     useEffect(() => {
@@ -244,6 +247,7 @@ export const AttachResultsDialog = ({siteKey, formResults, onClose}: AttachResul
                                 siteForms={siteForms}
                                 targetFields={targetFields}
                                 language={language}
+                                optionsLanguage={optionsLanguage}
                                 t={t}
                                 onTargetFields={rememberTargetFields}
                                 onChange={setChoice}

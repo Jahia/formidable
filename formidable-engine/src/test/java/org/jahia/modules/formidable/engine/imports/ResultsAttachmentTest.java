@@ -3,6 +3,7 @@ package org.jahia.modules.formidable.engine.imports;
 import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -34,27 +35,38 @@ class ResultsAttachmentTest {
     }
 
     @Test
-    void theMappingRefusesTwoFieldsLandingUnderOneName() {
-        Set<String> names = Set.of("firstname", "lastname", "email");
+    void theMappingRefusesTwoFieldsLandingUnderOneNameAndAChainOfRenames() {
+        List<Set<String>> held = List.of(Set.of("firstname", "lastname", "email"), Set.of("firstname", "email"));
 
-        assertDoesNotThrow(() -> ResultsAttachment.checkMapping(Map.of("lastname", "surname"), names));
+        assertDoesNotThrow(() -> ResultsAttachment.checkMapping(Map.of("lastname", "surname"), held));
         // a field the values do not hold cannot be mapped: the dialog offers the names of the submissions alone
         ImportJobs.RefusedException unknown = assertThrows(ImportJobs.RefusedException.class,
-                () -> ResultsAttachment.checkMapping(Map.of("phone", "surname"), names));
+                () -> ResultsAttachment.checkMapping(Map.of("phone", "surname"), held));
         assertTrue(unknown.getMessage().contains("phone"));
         ImportJobs.RefusedException twice = assertThrows(ImportJobs.RefusedException.class,
-                () -> ResultsAttachment.checkMapping(Map.of("lastname", "name", "email", "name"), names));
+                () -> ResultsAttachment.checkMapping(Map.of("lastname", "name", "email", "name"), held));
         assertTrue(twice.getMessage().contains("name"));
-        // a field sent to the name another field keeps collides with it
+        // a field sent to the name another field of the same submission keeps collides with it
         ImportJobs.RefusedException kept = assertThrows(ImportJobs.RefusedException.class,
-                () -> ResultsAttachment.checkMapping(Map.of("lastname", "firstname"), names));
+                () -> ResultsAttachment.checkMapping(Map.of("lastname", "firstname"), held));
         assertTrue(kept.getMessage().contains("firstname"));
-        // a chain or a swap lands on the name of another field of the source, mapped away: refused, two attachments instead
+        // a chain or a swap sends a field under a name that is sent elsewhere itself: refused, two attachments instead
         ImportJobs.RefusedException chain = assertThrows(ImportJobs.RefusedException.class,
-                () -> ResultsAttachment.checkMapping(Map.of("lastname", "firstname", "firstname", "name"), names));
-        assertTrue(chain.getMessage().contains("another field of the source"));
+                () -> ResultsAttachment.checkMapping(Map.of("lastname", "firstname", "firstname", "name"), held));
+        assertTrue(chain.getMessage().contains("attach twice"));
         assertThrows(ImportJobs.RefusedException.class,
-                () -> ResultsAttachment.checkMapping(Map.of("lastname", "firstname", "firstname", "lastname"), names));
+                () -> ResultsAttachment.checkMapping(Map.of("lastname", "firstname", "firstname", "lastname"), held));
+    }
+
+    @Test
+    void aRunThatStoppedHalfWayGoesOnTheRenamedSubmissionsHoldingTheTargetAlone() {
+        // the first submissions were renamed firstname → name before the stop, the last ones were not
+        List<Set<String>> held = List.of(Set.of("name", "lastname"), Set.of("name", "lastname"), Set.of("firstname", "lastname"));
+
+        assertDoesNotThrow(() -> ResultsAttachment.checkMapping(Map.of("firstname", "name"), held));
+        // a submission holding both names would still lose one: refused
+        List<Set<String>> both = List.of(Set.of("name", "lastname"), Set.of("firstname", "name", "lastname"));
+        assertThrows(ImportJobs.RefusedException.class, () -> ResultsAttachment.checkMapping(Map.of("firstname", "name"), both));
     }
 
     @Test

@@ -12,6 +12,11 @@ export interface ImportReportField {
     values?: string[];
     /** Whether the submissions hold more distinct values than listed. */
     moreValues?: boolean;
+    /**
+     * The names of the other fields a submission holds alongside this one; absent when every field does, as
+     * in the report of a dry run. Two names held together cannot land under one name.
+     */
+    alongside?: string[];
     notes: string[];
 }
 
@@ -271,15 +276,20 @@ export function unmatchedValues(field: ImportReportField, target: TargetField | 
     return (field.values ?? []).filter(value => !options.has(value));
 }
 
+/** The names of the other fields a submission holds alongside this one: every other field unless the source says otherwise. */
+const alongsideOf = (field: ImportReportField, sourceFields: ImportReportField[]): string[] =>
+    field.alongside ?? sourceFields.filter(other => other.name !== field.name).map(other => other.name);
+
 /**
- * The fields of the form a row may pick: not one picked by another row, nor one named like another field of
- * the source, so that no two fields land together and no rename chains on another (the row keeps its own pick).
+ * The fields of the form a row may pick: not one picked by another row, nor the name of a field sent
+ * elsewhere itself, nor the name of a field a submission holds alongside this one, so that no two fields land
+ * together and no rename chains on another (the row keeps its own pick).
  */
 export function availableTargets(field: ImportReportField, sourceFields: ImportReportField[], mapping: Record<string, string>, targets: TargetField[]): TargetField[] {
-    const taken = new Set<string>();
+    const taken = new Set<string>(alongsideOf(field, sourceFields));
     sourceFields.filter(other => other.name !== field.name).forEach(other => {
-        taken.add(other.name);
         if (mapping[other.name]) {
+            taken.add(other.name);
             taken.add(mapping[other.name]);
         }
     });
@@ -325,22 +335,27 @@ export const mappingOf = (proposals: Record<string, MappingProposal>): Record<st
 export const landingName = (field: string, mapping: Record<string, string>): string => mapping[field] || field;
 
 /**
- * The names the mapping cannot be applied with: a name two source fields would both land under, where a
- * submission holding both would lose a value, and a target that is the name of another field of the source,
- * mapped away or not, which a rename cannot reach in one pass (the attachment is done twice instead).
+ * The names the mapping cannot be applied with: a target that is itself sent elsewhere, which a rename cannot
+ * reach in one pass (the attachment is done twice instead), and a name two fields a submission holds together
+ * would both land under, where that submission would lose a value. Judged against the fields a submission
+ * holds alongside each one, so that a run that stopped half-way, the earlier submissions renamed already, can
+ * go on from the dialog.
  */
 export function mappingConflicts(sourceFields: ImportReportField[], mapping: Record<string, string>): string[] {
-    const sourcesByName = new Map<string, number>();
-    const names = new Set(sourceFields.map(field => field.name));
     const conflicts = new Set<string>();
-    sourceFields.forEach(field => {
-        const name = landingName(field.name, mapping);
-        sourcesByName.set(name, (sourcesByName.get(name) ?? 0) + 1);
-        if (name !== field.name && names.has(name)) {
-            conflicts.add(name);
+    Object.entries(mapping).forEach(([source, target]) => {
+        if (target && target !== source && mapping[target]) {
+            conflicts.add(target);
         }
     });
-    [...sourcesByName.entries()].filter(([, count]) => count > 1).forEach(([name]) => conflicts.add(name));
+    sourceFields.forEach(field => {
+        const landing = landingName(field.name, mapping);
+        alongsideOf(field, sourceFields).forEach(other => {
+            if (landingName(other, mapping) === landing) {
+                conflicts.add(landing);
+            }
+        });
+    });
     return [...conflicts];
 }
 
@@ -360,8 +375,8 @@ export interface EntrySource {
     /** The title of the imported form the site still holds for it, null once it is gone. */
     title: string | null;
     submissions: number;
-    /** The names the values hold now, with the title of the field each came from when the site still knows it, and their distinct values. */
-    fields: Array<{name: string; title: string; values?: string[]; moreValues?: boolean}>;
+    /** The names the values hold now, with the title of the field each came from, their distinct values, and the names held alongside. */
+    fields: Array<{name: string; title: string; values?: string[]; moreValues?: boolean; alongside?: string[]}>;
     /** The mapping an earlier run or attachment applied to this source. */
     mapping: Record<string, string>;
 }
@@ -408,6 +423,7 @@ export const sourceFieldsOf = (source: EntrySource, language: string): ImportRep
         titles: field.title ? {[language]: field.title} : {},
         values: field.values ?? [],
         moreValues: field.moreValues ?? false,
+        alongside: field.alongside,
         notes: []
     }));
 
