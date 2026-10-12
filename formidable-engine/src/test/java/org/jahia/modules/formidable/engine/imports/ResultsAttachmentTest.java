@@ -39,13 +39,13 @@ class ResultsAttachmentTest {
         List<Set<String>> held = List.of(Set.of("firstname", "lastname", "email"), Set.of("firstname", "email"));
 
         assertDoesNotThrow(() -> ResultsAttachment.checkMapping(Map.of("lastname", "surname"), held));
-        // a field the values do not hold cannot be mapped: the dialog offers the names of the submissions alone
-        ImportJobs.RefusedException unknown = assertThrows(ImportJobs.RefusedException.class,
-                () -> ResultsAttachment.checkMapping(Map.of("phone", "surname"), held));
-        assertTrue(unknown.getMessage().contains("phone"));
+        // a key no submission holds any more renames nothing: a run that stopped after its last rename goes on
+        assertDoesNotThrow(() -> ResultsAttachment.checkMapping(Map.of("phone", "telephone"), held));
+        // two fields sent to one are refused on the mapping itself, whatever the submissions hold
         ImportJobs.RefusedException twice = assertThrows(ImportJobs.RefusedException.class,
                 () -> ResultsAttachment.checkMapping(Map.of("lastname", "name", "email", "name"), held));
         assertTrue(twice.getMessage().contains("name"));
+        assertThrows(ImportJobs.RefusedException.class, () -> ResultsAttachment.checkMapping(Map.of("phone", "contact", "mobile", "contact"), List.of()));
         // a field sent to the name another field of the same submission keeps collides with it
         ImportJobs.RefusedException kept = assertThrows(ImportJobs.RefusedException.class,
                 () -> ResultsAttachment.checkMapping(Map.of("lastname", "firstname"), held));
@@ -64,6 +64,8 @@ class ResultsAttachmentTest {
         List<Set<String>> held = List.of(Set.of("name", "lastname"), Set.of("name", "lastname"), Set.of("firstname", "lastname"));
 
         assertDoesNotThrow(() -> ResultsAttachment.checkMapping(Map.of("firstname", "name"), held));
+        // a merge stopped after its last move: no submission of the source is left under the entry, the mapping still passes
+        assertDoesNotThrow(() -> ResultsAttachment.checkMapping(Map.of("firstname", "name"), List.of()));
         // a submission holding both names would still lose one: refused
         List<Set<String>> both = List.of(Set.of("name", "lastname"), Set.of("firstname", "name", "lastname"));
         assertThrows(ImportJobs.RefusedException.class, () -> ResultsAttachment.checkMapping(Map.of("firstname", "name"), both));

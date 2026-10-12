@@ -81,9 +81,15 @@ public final class FormsSubmissionConverter {
             report.add("answer " + answer.name() + ": " + converted.note());
         }
         List<String> kept = converted.values().stream().filter(v -> v != null && !v.isBlank()).toList();
-        if (!kept.isEmpty()) {
-            values.put(name, kept);
+        if (kept.isEmpty()) {
+            return;
         }
+        if (values.containsKey(name)) {
+            // two answers of one submission sent to one name by a mapping: the first stays, the second is said
+            report.add("answer " + answer.name() + " dropped: its values would land under " + name + ", which another answer of this submission holds");
+            return;
+        }
+        values.put(name, kept);
     }
 
     /** On a form the run creates: the system name of the field converted for the answer; null when none was. */

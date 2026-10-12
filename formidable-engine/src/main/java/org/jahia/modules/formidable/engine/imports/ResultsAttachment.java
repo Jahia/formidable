@@ -160,33 +160,41 @@ public final class ResultsAttachment {
     /**
      * Refuses what the attachment could not honour, before anything is scheduled: an entry that holds no
      * imported results, a source the entry does not hold, a form that is not a form of the site, and a mapping
-     * that names a field the values do not hold, chains a rename on another, or sends two names a submission
-     * holds together to one field.
+     * that sends two fields to one, chains a rename on another, or sends two names a submission holds together
+     * to one field. The submissions are read where the run renames them, under the entry and under the entry
+     * of the form, so that a run that stopped anywhere runs again.
      */
     public void check(Request request) throws RepositoryException, ImportJobs.RefusedException {
         JCRNodeWrapper entry = importedEntry(request.entryId());
         if (!sourceKeysOf(entry).contains(request.sourceFormId())) {
             throw new ImportJobs.RefusedException("the entry holds no results of the source " + request.sourceFormId());
         }
-        if (writer.findSiteForm(request.formId()) == null) {
+        JCRNodeWrapper form = writer.findSiteForm(request.formId());
+        if (form == null) {
             throw new ImportJobs.RefusedException("the form to attach the results to is not a form of the site");
         }
-        checkMapping(request.mapping(), namesPerSubmission(submissionsOf(entry, request.sourceFormId())));
+        List<JCRNodeWrapper> submissions = new ArrayList<>(submissionsOf(entry, request.sourceFormId()));
+        JCRNodeWrapper target = writer.findResultsEntry(form);
+        if (target != null && !target.isSame(entry)) {
+            submissions.addAll(submissionsOf(target, request.sourceFormId()));
+        }
+        checkMapping(request.mapping(), namesPerSubmission(submissions));
     }
 
     /**
-     * The checks of {@link #check} that need no repository: the mapping against the names each submission holds.
-     * A target that is itself sent elsewhere is refused, because a rename cannot chain on another in one pass (a
-     * chain of renames is two attachments). The landing is judged per submission: two names one submission
-     * holds cannot land together, since it would lose a value, while a name the earlier submissions hold alone,
-     * because a stopped run renamed them already, lets that run go on.
+     * The checks of {@link #check} that need no repository. On the mapping itself: two fields cannot be sent to
+     * one, and a target that is itself sent elsewhere is refused, because a rename cannot chain on another in
+     * one pass (a chain of renames is two attachments). On the submissions, the landing is judged one by one:
+     * two names one submission holds cannot land together, since it would lose a value, while a name the earlier
+     * submissions hold alone, because a stopped run renamed them already, lets that run go on; a key no
+     * submission holds any more renames nothing and passes.
      */
     static void checkMapping(Map<String, String> mapping, List<Set<String>> submissions) throws ImportJobs.RefusedException {
-        Set<String> names = new LinkedHashSet<>();
-        submissions.forEach(names::addAll);
+        Map<String, String> sources = new LinkedHashMap<>();
         for (Map.Entry<String, String> rename : mapping.entrySet()) {
-            if (!names.contains(rename.getKey())) {
-                throw new ImportJobs.RefusedException("the submissions of the source hold no field named " + rename.getKey());
+            String twice = sources.put(rename.getValue(), rename.getKey());
+            if (twice != null) {
+                throw new ImportJobs.RefusedException("the fields " + twice + " and " + rename.getKey() + " cannot both land under " + rename.getValue());
             }
             if (mapping.containsKey(rename.getValue())) {
                 throw new ImportJobs.RefusedException("the field " + rename.getKey() + " cannot land under " + rename.getValue()

@@ -280,6 +280,10 @@ export function unmatchedValues(field: ImportReportField, target: TargetField | 
 const alongsideOf = (field: ImportReportField, sourceFields: ImportReportField[]): string[] =>
     field.alongside ?? sourceFields.filter(other => other.name !== field.name).map(other => other.name);
 
+/** The renames of a mapping: a field sent under its own name, as the proposal writes it, is no rename. */
+const renamesOf = (mapping: Record<string, string>): Array<[string, string]> =>
+    Object.entries(mapping).filter(([source, target]) => Boolean(target) && target !== source);
+
 /**
  * The fields of the form a row may pick: not one picked by another row, nor the name of a field sent
  * elsewhere itself, nor the name of a field a submission holds alongside this one, so that no two fields land
@@ -287,11 +291,9 @@ const alongsideOf = (field: ImportReportField, sourceFields: ImportReportField[]
  */
 export function availableTargets(field: ImportReportField, sourceFields: ImportReportField[], mapping: Record<string, string>, targets: TargetField[]): TargetField[] {
     const taken = new Set<string>(alongsideOf(field, sourceFields));
-    sourceFields.filter(other => other.name !== field.name).forEach(other => {
-        if (mapping[other.name]) {
-            taken.add(other.name);
-            taken.add(mapping[other.name]);
-        }
+    renamesOf(mapping).filter(([source]) => source !== field.name).forEach(([source, target]) => {
+        taken.add(source);
+        taken.add(target);
     });
     const own = mapping[field.name];
     return targets.filter(target => target.name === own || !taken.has(target.name));
@@ -343,10 +345,15 @@ export const landingName = (field: string, mapping: Record<string, string>): str
  */
 export function mappingConflicts(sourceFields: ImportReportField[], mapping: Record<string, string>): string[] {
     const conflicts = new Set<string>();
-    Object.entries(mapping).forEach(([source, target]) => {
-        if (target && target !== source && mapping[target]) {
+    const renames = renamesOf(mapping);
+    const renamed = new Set(renames.map(([source]) => source));
+    const targets = new Set<string>();
+    renames.forEach(([, target]) => {
+        // two fields sent to one, or a target that is sent elsewhere itself: refused on the mapping alone
+        if (targets.has(target) || renamed.has(target)) {
             conflicts.add(target);
         }
+        targets.add(target);
     });
     sourceFields.forEach(field => {
         const landing = landingName(field.name, mapping);

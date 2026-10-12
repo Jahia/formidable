@@ -664,11 +664,16 @@ order:
 A field of `F` takes at most one name: a field picked in one row leaves the menus of the other rows, and
 so does the name of a field a submission holds alongside, or of a field sent elsewhere itself, because a
 rename cannot chain on another in one pass (a chain of renames is two attachments). The page still refuses,
-and the server with it, a target that is sent elsewhere itself, and a mapping that sends two names a
-submission holds together to the same field, because that submission would lose one of its values. The rule
-is judged per submission, not on the union of the names: an attachment that stopped half-way, the earlier
-submissions renamed already and the later ones not, can be run again with the same mapping, from the dialog
-or by the scheduler's recovery, because no submission holds a name and its target together.
+and the server with it, two fields sent to one, a target that is sent elsewhere itself, and a mapping that
+sends two names a submission holds together to the same field, because that submission would lose one of
+its values. The last rule is judged per submission, not on the union of the names, under the entry and under
+the entry of `F`: an attachment that stopped anywhere, the earlier submissions renamed or moved already and
+the later ones not, can be run again with the same mapping, from the dialog or by the scheduler's recovery,
+because no submission holds a name and its target together, and a name no submission holds any more renames
+nothing. The submissions cannot tell such a run from a field sent onto a name another field keeps while no
+submission filled both, so a later run of the import protects the next submissions itself: an answer whose
+name another answer of the same submission already took is kept apart and reported as dropped, never
+written over.
 
 For a choice field, the page lists the imported values that no option of the matched field carries: the dry
 run reports, per field, the distinct values the submissions hold, up to thirty, and the page reads the
