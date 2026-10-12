@@ -288,6 +288,7 @@ export const FormResultsApp = () => {
                     icon={<Download/>}
                     label={t('formResults.actions.export')}
                     title={t('formResults.actions.exportTitle')}
+                    data-sel-role="export-results"
                     isDisabled={!selectedForm}
                     onClick={() => setIsExportDialogOpen(true)}
                 />

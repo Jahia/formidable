@@ -383,6 +383,26 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		cy.get('[data-sel-role="submission-detail"]').should('contain', 'Your First name');
 	});
 
+	it('exports the results of the published form with the labels of its fields as headers', () => {
+		// the export reads the fields of the form through the same query as the page: a variable left unset would lose the labels
+		openResultsPage();
+		selectEntry('contact-us');
+		cy.get('[data-sel-role="export-results"]').click();
+		cy.get('[data-sel-role="export-all"]').click();
+		cy.get('[data-sel-role="export-confirm"]').should('be.enabled').click();
+		cy.readFile('cypress/downloads/contact-us-all.csv', {timeout: 30000}).then((content: string) => {
+			const [header] = content.split('\n');
+			expect(header).to.contain('Your First name (your-first-name)');
+			expect(header).to.contain('Your Enquiry (your-enquiry)');
+			expect(content.split('\n').filter(line => line.trim() !== '')).to.have.length(SAMPLE.submissions['contact-us'] + 1);
+		});
+		cy.get('body').then($body => {
+			if ($body.find('[data-sel-role="export-cancel"]').length > 0) {
+				cy.get('[data-sel-role="export-cancel"]').click();
+			}
+		});
+	});
+
 	it('on a second run, finds the form and names the values after the fields it holds now', () => {
 		// the contributor reviewed the form: a field renamed, one deleted, the title changed
 		graphql(`mutation Rename($path: String!) { jcr { mutateNode(pathOrId: $path) { rename(name: "firstname") } } }`,

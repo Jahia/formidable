@@ -173,7 +173,7 @@ export const GET_FORMS_IN_EDIT = gql`
 
 export const GET_FORM_FIELD_LABELS = gql`
     ${JCR_NODE_IDENTITY}
-    query GetFormFieldLabels($formUuid: String!, $language: String!, $optionsLanguage: String!, $workspace: Workspace = LIVE) {
+    query GetFormFieldLabels($formUuid: String!, $language: String!, $optionsLanguage: String, $workspace: Workspace = LIVE) {
         jcr(workspace: $workspace) {
             nodeById(uuid: $formUuid) {
                 ...JcrNodeIdentity
