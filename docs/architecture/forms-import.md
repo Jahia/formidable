@@ -88,7 +88,7 @@ choose **Export**, then **Export Zip with live content**. The zip holds two Jahi
 node (`DocumentViewExporter.buildBinaryPathInZip`), with the split folders decoded: a PDF sent through the
 file field `file-upload_0_6` sits at
 `live-content/formFactory/results/contact-us/submissions/10/13/09/19/32/<uuid>/file-upload_0_6/document.pdf/document.pdf`
-in the second sample export. In the sample export
+in the second sample export. In the first sample export
 the two files are identical: the forms come from the edit workspace, the results from live, and each
 live-only node is marked `j:originWS="live"`. The import reads `live-repository.xml` when the zip has one,
 `repository.xml` otherwise.
