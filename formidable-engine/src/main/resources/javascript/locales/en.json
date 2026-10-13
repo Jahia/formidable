@@ -256,7 +256,7 @@
 			"done": {
 				"title": "Import done",
 				"totals": "{{submissions}} submission(s) imported in {{forms}} form(s)",
-				"created": "The created forms are unpublished: review each one, do what its To do lists, then publish it."
+				"created": "The created forms are unpublished: review each one, see what its Notes ask to review, then publish it."
 			},
 			"failed": {
 				"title": "The import failed"

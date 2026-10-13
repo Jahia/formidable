@@ -256,7 +256,7 @@
 			"done": {
 				"title": "Import terminé",
 				"totals": "{{submissions}} soumission(s) importée(s) dans {{forms}} formulaire(s)",
-				"created": "Les formulaires créés ne sont pas publiés : relisez chacun, faites ce que liste sa colonne À faire, puis publiez-le."
+				"created": "Les formulaires créés ne sont pas publiés : relisez chacun, voyez ce que ses Remarques demandent de revoir, puis publiez-le."
 			},
 			"failed": {
 				"title": "L'import a échoué"
