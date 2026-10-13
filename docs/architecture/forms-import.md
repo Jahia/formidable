@@ -562,8 +562,10 @@ level (`ImportNote`): **action** for what was lost or approximated and is to be 
 redirect, a rule the field type lacks, a field created as the closest type), **info** for what was carried
 over and is only worth knowing (a captcha turned on, a field linked to the visitor profile). The server
 writes no sentence: the dialog translates each code under `formResults.import.note`, with the field types
-and the other parameters in words, and never shows a node type, a path or a Forms type name in its
-sentences. The notes only matter when the form is created, so the row of a form to create shows a count,
+and every rule, prefill, action, field kind and setting in words (`formResults.import.terms`, a name the locales do
+not know read as words drawn from it, without its namespace): its sentences never show a node type or a Forms type
+name. The one path they show is the target of a Forms redirect, a page of the source site, which the
+contributor needs to rebuild it. The notes only matter when the form is created, so the row of a form to create shows a count,
 **N to do**, that unfolds into two lists, what to do by hand and what was carried over; a note met on
 several fields is one line naming the fields by their labels.
 

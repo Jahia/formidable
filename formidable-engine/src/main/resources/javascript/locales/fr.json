@@ -351,7 +351,7 @@
 				"form": {
 					"fromLabels": "Reconstruit à partir des libellés de ses résultats : Jahia Forms ne contient plus le formulaire",
 					"submitterMail": "Le mail à l’auteur de la soumission est devenu une notification sans destinataire : complétez-la ou supprimez-la",
-					"redirect": "La redirection de page ({{target}}) n’est pas reprise : Formidable n’a pas encore de redirection",
+					"redirect": "La redirection de page (vers {{target}} sur le site source) n’est pas reprise : Formidable n’a pas encore de redirection",
 					"action": "L’action {{action}} n’est pas reprise : Formidable n’a pas d’équivalent",
 					"notSaved": "Jahia Forms n’enregistrait pas ses soumissions : ajoutez Save to JCR pour les conserver",
 					"mailCopies": "Les destinataires en copie de la notification ({{copies}}) ne sont pas repris",
@@ -362,7 +362,59 @@
 					"captchaOff": "Captcha non activé : cette instance n’en a pas, configurez-en un puis ajoutez-le au formulaire",
 					"passwordDropped": "Le champ mot de passe {{field}} n’est pas recréé : il serait stocké et envoyé en clair",
 					"contentDisplayDropped": "L’affichage de contenu {{field}} n’est pas recréé : il ne soumet rien",
-					"fieldDropped": "Le champ {{field}} ({{source}}) n’est pas recréé"
+					"fieldDropped": "Le champ {{field}} ({{source}}) n’est pas recréé",
+					"redirectNoTarget": "La redirection n’est pas reprise : Formidable n’a pas encore de redirection"
+				}
+			},
+			"terms": {
+				"rules": {
+					"requiredValidation": "obligatoire",
+					"emailValidation": "format d’e-mail",
+					"rangeValidation": "plage de valeurs",
+					"rangeLengthValidation": "plage de longueur",
+					"regexValidation": "motif",
+					"fileValidation": "types de fichiers",
+					"fileNumberValidation": "nombre de fichiers",
+					"equalToValidation": "égal à un autre champ"
+				},
+				"prefills": {
+					"userInfoPrefill": "informations utilisateur",
+					"geolocationPrefill": "géolocalisation"
+				},
+				"actions": {
+					"sendEmailToSubmitterAction": "mail à l’auteur",
+					"redirectToUrlAction": "redirection vers une URL",
+					"redirectToAPageAction": "redirection vers une page"
+				},
+				"kinds": {
+					"phone": "téléphone",
+					"matrixRadios": "matrice de boutons radio",
+					"matrixCheckBoxes": "matrice de cases à cocher",
+					"switch": "interrupteur",
+					"rating": "note",
+					"acceptTermCheckbox": "acceptation des conditions"
+				},
+				"sources": {
+					"passwordDefinition": "mot de passe",
+					"contentDisplayDefinition": "affichage de contenu"
+				},
+				"settings": {
+					"helpText": "texte d’aide",
+					"required": "obligatoire",
+					"placeholder": "texte indicatif",
+					"minLength": "longueur minimale",
+					"maxLength": "longueur maximale",
+					"pattern": "motif",
+					"rows": "lignes",
+					"minValue": "minimum",
+					"maxValue": "maximum",
+					"multiple": "valeurs multiples",
+					"accept": "types de fichiers acceptés",
+					"value": "valeur",
+					"optionsEmptyLabel": "libellé de l’option vide",
+					"onLabel": "libellé activé",
+					"offLabel": "libellé désactivé",
+					"statement": "énoncé"
 				}
 			}
 		},

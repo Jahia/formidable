@@ -24,6 +24,7 @@ import {
     typeKey,
     unmatchedValues
 } from './import.utils';
+import {noteText, wordsOf} from './notes';
 
 const fileOf = (name: string, size: number, type = ''): File => {
     const file = new File([new Uint8Array(1)], name, {type});
@@ -220,5 +221,26 @@ describe('attaching to an existing form', () => {
         expect(kindOf({choice: 'attach', form: 'f1', mapping: {}})).toEqual('attach');
         expect(fieldTitle(field('x', 'Title'), 'en')).toEqual('Title');
         expect(fieldTitle(field('x'), 'en')).toEqual('');
+    });
+});
+
+describe('noteText', () => {
+    const t = (key: string, options?: Record<string, unknown>): string => {
+        const values = Object.entries(options ?? {}).map(([name, value]) => `${name}=${String(value)}`);
+        return `${key}(${values.join(',')})`;
+    };
+
+    it('words every parameter that names a type, a Forms type or a setting, never the raw name', () => {
+        const text = noteText({code: 'field.rule', level: 'action', params: {rule: 'fcnt:regexValidation', type: 'fmdb:textarea'}}, t);
+        expect(text).toContain('rule=formResults.import.terms.rules.regexValidation(defaultValue=regex)');
+        expect(text).toContain('type=formResults.import.types.textarea(defaultValue=textarea)');
+        expect(noteText({code: 'field.setting', level: 'action', params: {setting: 'minLength', type: 'fmdb:inputHidden'}}, t))
+            .toContain('setting=formResults.import.terms.settings.minLength(defaultValue=min length)');
+    });
+
+    it('draws words from an unknown name, without its namespace and kind', () => {
+        expect(wordsOf('fcnt:geolocationPrefill')).toEqual('geolocation');
+        expect(wordsOf('matrixCheckBoxes')).toEqual('matrix check boxes');
+        expect(wordsOf('fcnt:passwordDefinition')).toEqual('password');
     });
 });

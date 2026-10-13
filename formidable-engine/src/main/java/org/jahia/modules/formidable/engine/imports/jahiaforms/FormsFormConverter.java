@@ -501,7 +501,10 @@ public final class FormsFormConverter {
                         Map.of(), nonBlankI18n(Map.of("subject", valuesOf(action.option(FormsOptionNames.SUBJECT))))));
                 report.add(ImportNote.action("form.submitterMail"));
             } else if (action.is(FormsAction.REDIRECT_TO_PAGE) || action.is(FormsAction.REDIRECT_TO_URL)) {
-                report.add(ImportNote.action("form.redirect", "target", redirectTarget(action)));
+                String target = plain(action, FormsOptionNames.REDIRECT_TO);
+                report.add(target == null || target.isBlank()
+                        ? ImportNote.action("form.redirectNoTarget")
+                        : ImportNote.action("form.redirect", "target", target));
             } else {
                 report.add(ImportNote.action("form.action", ACTION, action.type()));
             }
@@ -550,11 +553,6 @@ public final class FormsFormConverter {
         }
         String addresses = stored.replace("[", "").replace("]", "").replace("\"", "").trim();
         return addresses.isEmpty() ? null : addresses;
-    }
-
-    private static String redirectTarget(FormsAction action) {
-        String target = plain(action, FormsOptionNames.REDIRECT_TO);
-        return target == null || target.isBlank() ? "unknown" : target;
     }
 
     private void reportFormSettings(FormsForm form, List<ImportNote> report) {

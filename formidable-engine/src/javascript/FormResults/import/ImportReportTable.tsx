@@ -15,9 +15,9 @@ import {
     plannedImport,
     type ReportLine,
     type SiteForm,
-    type TargetField,
-    typeKey
+    type TargetField
 } from './import.utils';
+import {noteText} from './notes';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -54,7 +54,8 @@ export const ReportTable = ({report, language, t, choices = {}, onChoice, ...res
                 {steerable ?
                     t('formResults.import.report.totals', {forms: planned.forms, submissions: planned.submissions}) :
                     t('formResults.import.done.totals', {
-                        forms: report.forms.filter(form => form.outcome !== 'skipped').length,
+                        // as the review counted them: a form found from an earlier run counts when it took new submissions
+                        forms: report.forms.filter(form => form.outcome !== 'skipped' && (form.outcome !== 'found' || form.submissions.imported > 0)).length,
                         submissions: report.totals.submissionsImported
                     })}
             </Typography>
@@ -228,20 +229,6 @@ function describe(form: ImportReportForm, outcome: ImportReportForm['outcome'], 
         return t('formResults.import.plan.foundNothing', {name});
     }
     return t(`formResults.import.${tense}.${outcome ?? DEFAULT_CHOICE}`, {name});
-}
-
-/** A note in words: its sentence, the field types and what follows a prefill translated too. */
-export function noteText(note: ImportNote, t: Translate): string {
-    const params: Record<string, unknown> = {...note.params};
-    ['type', 'preferred'].forEach(key => {
-        if (note.params[key]) {
-            params[key] = t(`formResults.import.types.${typeKey(note.params[key])}`, {defaultValue: note.params[key]});
-        }
-    });
-    if (note.params.after) {
-        params.after = t(`formResults.import.after.${note.params.after}`);
-    }
-    return t(`formResults.import.note.${note.code}`, {...params, defaultValue: note.code});
 }
 
 const NotesList = ({title, lines, level, t}: {title: string; lines: ReportLine[]; level: ImportNote['level']; t: Translate}) => (

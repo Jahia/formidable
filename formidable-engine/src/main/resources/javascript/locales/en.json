@@ -351,7 +351,7 @@
 				"form": {
 					"fromLabels": "Rebuilt from the labels of its results: Jahia Forms no longer holds the form",
 					"submitterMail": "The mail to the submitter became a notification without recipient: complete or remove it",
-					"redirect": "The page redirect ({{target}}) is not carried over: Formidable has no redirect yet",
+					"redirect": "The page redirect (to {{target}} on the source site) is not carried over: Formidable has no redirect yet",
 					"action": "The action {{action}} is not carried over: Formidable has no equivalent",
 					"notSaved": "Jahia Forms did not save its submissions: add Save to JCR to keep them",
 					"mailCopies": "The CC and BCC recipients of the notification ({{copies}}) are not carried over",
@@ -362,7 +362,59 @@
 					"captchaOff": "Captcha not turned on: this instance has none, set one up then add it to the form",
 					"passwordDropped": "The password field {{field}} is not recreated: it would be stored and mailed in clear",
 					"contentDisplayDropped": "The content display {{field}} is not recreated: it submits nothing",
-					"fieldDropped": "The field {{field}} ({{source}}) is not recreated"
+					"fieldDropped": "The field {{field}} ({{source}}) is not recreated",
+					"redirectNoTarget": "The redirect is not carried over: Formidable has no redirect yet"
+				}
+			},
+			"terms": {
+				"rules": {
+					"requiredValidation": "required",
+					"emailValidation": "email format",
+					"rangeValidation": "value range",
+					"rangeLengthValidation": "length range",
+					"regexValidation": "pattern",
+					"fileValidation": "file types",
+					"fileNumberValidation": "number of files",
+					"equalToValidation": "equal to another field"
+				},
+				"prefills": {
+					"userInfoPrefill": "user information",
+					"geolocationPrefill": "geolocation"
+				},
+				"actions": {
+					"sendEmailToSubmitterAction": "mail to the submitter",
+					"redirectToUrlAction": "redirect to a URL",
+					"redirectToAPageAction": "redirect to a page"
+				},
+				"kinds": {
+					"phone": "phone",
+					"matrixRadios": "radio matrix",
+					"matrixCheckBoxes": "checkbox matrix",
+					"switch": "switch",
+					"rating": "rating",
+					"acceptTermCheckbox": "accept terms"
+				},
+				"sources": {
+					"passwordDefinition": "password",
+					"contentDisplayDefinition": "content display"
+				},
+				"settings": {
+					"helpText": "help text",
+					"required": "required",
+					"placeholder": "placeholder",
+					"minLength": "minimum length",
+					"maxLength": "maximum length",
+					"pattern": "pattern",
+					"rows": "rows",
+					"minValue": "minimum",
+					"maxValue": "maximum",
+					"multiple": "multiple values",
+					"accept": "accepted file types",
+					"value": "value",
+					"optionsEmptyLabel": "empty option label",
+					"onLabel": "on label",
+					"offLabel": "off label",
+					"statement": "statement"
 				}
 			}
 		},
