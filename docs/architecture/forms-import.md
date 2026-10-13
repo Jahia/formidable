@@ -85,7 +85,10 @@ The export is taken in the **Repository explorer**: open the site, right-click i
 choose **Export**, then **Export Zip with live content**. The zip holds two Jahia *document view* files,
 `repository.xml` and `live-repository.xml`, and the binaries of the files under them, each at
 `live-content/<path of the file node>/<file name>`, the path being relative to the parent of the exported
-node (`DocumentViewExporter.buildBinaryPathInZip`). In the sample export
+node (`DocumentViewExporter.buildBinaryPathInZip`), with the split folders decoded: a PDF sent through the
+file field `file-upload_0_6` sits at
+`live-content/formFactory/results/contact-us/submissions/10/13/09/19/32/<uuid>/file-upload_0_6/document.pdf/document.pdf`
+in the second sample export. In the first sample export
 the two files are identical: the forms come from the edit workspace, the results from live, and each
 live-only node is marked `j:originWS="live"`. The import reads `live-repository.xml` when the zip has one,
 `repository.xml` otherwise.
@@ -719,7 +722,9 @@ mapping or to another form.
   128 characters), the form built from the label nodes alone, the lookup of a form by either of its two
   keys, and the mapping proposal of iteration 2. The date rule is tested at the offsets −11, −4, 0, +2, +9
   and +11 hours, and at +13, where it gives the previous day as documented. The fixtures are the
-  anonymised sample exports. The prefill rule is tested on the sample, whose first and last name fields carry
+  anonymised sample exports; the second one holds a PDF a visitor sent through a file field, read from the
+  zip with its name, type and size, and handed to the writer under the name the created form gives the field.
+  The prefill rule is tested on the sample, whose first and last name fields carry
   a profile prefill: mapped when the integration reaches the type, reported with the property otherwise.
 - **A Cypress spec for iteration 1.** The **Import Jahia Forms results** button is absent while `importButtonEnabled` is off,
   and absent for an editor once it is on. The spec drops the sample zip on the dialog, reads the dry-run
@@ -749,7 +754,9 @@ mapping or to another form.
   the entry; it attaches a second source to the same form and checks the merge, neither a native
   submission of the form nor the submissions of the first source losing a value that holds a name the
   second mapping renames; an entry holding two sources asks which one; the deleted form leaves the entry
-  on **Form deleted**.
+  on **Form deleted**. Last, on a clean results root, it imports the second sample export, whose PDF lands
+  under `files/<fieldName>/` of its submission with its type and size, downloads it as root and gets a 404
+  as a visitor.
 
 ## Open points
 
@@ -760,4 +767,4 @@ mapping or to another form.
 | 4 | Answered: a recreated form that displayed a captcha gets `fmdbmix:captcha` only when the instance configures a captcha, its widget and its verification both (`CaptchaConfigService.isCaptchaWidgetConfigured() && isCaptchaVerificationConfigured()`, read by `ImportJobs` and handed to the converter); otherwise the report says that the form displayed one and that the instance configures none. | The forms |
 | 5 | The sample exports hold real email addresses, so they must be anonymised before they are committed as fixtures. | Tests |
 | 6 | The columns of an entry imported without a form are the system names of its fields. A snapshot of the Forms labels, per language, on the entry, read by the Results page and the exports, waits for a real import that says the names do not read well enough. | The Results page of a results-only entry |
-| Spike 4 | Partly answered from the sources of `forms-core` 3.x (`src/main/resources/fcnt_*/html/*.wzd`, the design views and the directives): the option nodes are `textOn`/`textOff` for a switch, `max` for a rating, `value` for a hidden field, `filetype` (a JSON list of groups) and `filenumber` for the file rules, `to`/`cc`/`bcc`/`from`/`subject` for the e-mail action, `redirectto` for both redirects, `yes`/`no`/`termsLabel`/`link` for an accept-terms box; the value shapes of a rating, a matrix, a country and a consent are in [The results](#the-results). Still to confirm on an export that holds them: the labels of a `buttonTriple`, and the entry names of the uploaded files in the zip. | The buttons, the files |
+| Spike 4 | Partly answered from the sources of `forms-core` 3.x (`src/main/resources/fcnt_*/html/*.wzd`, the design views and the directives): the option nodes are `textOn`/`textOff` for a switch, `max` for a rating, `value` for a hidden field, `filetype` (a JSON list of groups) and `filenumber` for the file rules, `to`/`cc`/`bcc`/`from`/`subject` for the e-mail action, `redirectto` for both redirects, `yes`/`no`/`termsLabel`/`link` for an accept-terms box; the value shapes of a rating, a matrix, a country and a consent are in [The results](#the-results). The entry names of the uploaded files in the zip are confirmed on the second sample export ([The export file](#the-export-file)). Still to confirm on an export that holds them: the labels of a `buttonTriple`. | The buttons |

@@ -3,6 +3,7 @@ package org.jahia.modules.formidable.engine.imports.jahiaforms;
 import org.jahia.modules.formidable.engine.imports.FormChoice;
 import org.jahia.modules.formidable.engine.imports.ImportReport;
 import org.jahia.modules.formidable.engine.imports.ImportWriter;
+import org.jahia.modules.formidable.engine.imports.model.ImportedFile;
 import org.jahia.modules.formidable.engine.imports.model.ImportedSubmission;
 import org.jahia.services.content.JCRNodeWrapper;
 import javax.jcr.RepositoryException;
@@ -311,5 +312,38 @@ class FormsImportRunTest {
         assertEquals(321, files.getLong("bytes"));
         assertEquals(0, files.getInt("missing"));
         assertFalse(photo.path().isEmpty());
+    }
+    @Test
+    void aFileOfARealExportIsCountedThenWrittenFromItsBinaryInTheZip() throws Exception {
+        JSONObject dryRun = new FormsImportRun(FormsExportWithFileTest.withFileReader(), writer(), true, Map.of(), type -> true, s -> true, false)
+                .run().toJson();
+        JSONObject files = dryRun.getJSONArray("forms").getJSONObject(0).getJSONObject("files");
+        assertEquals(1, files.getInt("count"));
+        assertEquals(578, files.getLong("bytes"));
+        assertEquals(0, files.getInt("missing"));
+
+        ImportWriter writer = writer();
+        JCRNodeWrapper form = node("contact-us", FOLDER + "/contact-us");
+        when(writer.findOrCreateForm(any())).thenReturn(new ImportWriter.FormHandle(form, true));
+        when(writer.findOrCreateResultsEntry(any(), any())).thenReturn(mock(JCRNodeWrapper.class));
+        new FormsImportRun(FormsExportWithFileTest.withFileReader(), writer, false, CREATE_ALL, type -> true, s -> true, false).run();
+
+        ArgumentCaptor<ImportedSubmission> written = ArgumentCaptor.forClass(ImportedSubmission.class);
+        ArgumentCaptor<ImportWriter.BinaryOpener> openers = ArgumentCaptor.forClass(ImportWriter.BinaryOpener.class);
+        verify(writer, org.mockito.Mockito.times(109)).writeSubmission(any(), written.capture(), openers.capture());
+        int at = 0;
+        while (written.getAllValues().get(at).files().isEmpty()) {
+            at++;
+        }
+        ImportedSubmission withFile = written.getAllValues().get(at);
+        assertEquals("2dd1fe78-e095-4f47-ab08-b5c30df47a4b", withFile.sourceId());
+        ImportedFile file = withFile.files().get(0);
+        // the file lands under the name the created form gives its field, from the title "Your Id"
+        assertEquals("your-id", file.fieldName());
+        assertEquals("document.pdf", file.fileName());
+        assertEquals("application/pdf", file.mimeType());
+        try (java.io.InputStream binary = openers.getAllValues().get(at).open(file)) {
+            assertEquals(578, binary.readAllBytes().length);
+        }
     }
 }
