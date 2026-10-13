@@ -12,11 +12,15 @@ record FormsExport(String rootName, Map<String, FormsForm> forms, Map<String, Fo
 
     static final String FORMS_NODE = "forms";
     static final String RESULTS_NODE = "results";
+    /** The site key of the captcha, on the {@code formFactory} node ({@code fcmix:captcha}): without it, Forms shows no captcha. */
+    static final String CAPTCHA_KEY = "captchaApiKey";
 
     static FormsExport from(XmlNode root) {
+        String captchaKey = root.attribute(CAPTCHA_KEY);
+        boolean captchaConfigured = captchaKey != null && !captchaKey.isBlank();
         Map<String, FormsForm> forms = new LinkedHashMap<>();
         root.child(FORMS_NODE).ifPresent(node -> node.childrenOfType(FormsForm.TYPE)
-                .forEach(form -> forms.put(form.name(), FormsForm.from(form))));
+                .forEach(form -> forms.put(form.name(), FormsForm.from(form, captchaConfigured))));
         Map<String, FormsResults> results = new LinkedHashMap<>();
         root.child(RESULTS_NODE).ifPresent(node -> node.childrenOfType(FormsResults.TYPE)
                 .forEach(entry -> results.put(entry.name(), FormsResults.from(entry))));

@@ -245,12 +245,22 @@ class FormsFormConverterTest {
         assertFalse(has(form.report(), "form.saveForLater"), form.report().toString());
     }
 
-    /** The sample forms display a captcha (displayCaptcha="true"): it is set only on an instance that configures one. */
+    /**
+     * A form that displayed a captcha gets one only on an instance that configures one. The sample forms have
+     * displayCaptcha="true" but no captcha key on their formFactory, so they displayed none and get none.
+     */
     @Test
     void aFormThatDisplayedACaptchaGetsOneWhenTheInstanceConfiguresIt() throws Exception {
         FormsExport export = sample();
-        FormsForm source = export.forms().get("contact-us");
+        FormsForm sampled = export.forms().get("contact-us");
+        ImportedForm none = new FormsFormConverter(type -> true, s -> true, true).convert(sampled, export.resultsOf(sampled));
+        assertFalse(none.captcha());
+        assertTrue(none.report().stream().noneMatch(note -> note.code().startsWith("form.captcha")), none.report().toString());
 
+        FormsForm.Settings settings = sampled.settings();
+        FormsForm source = new FormsForm(sampled.name(), sampled.uuid(), sampled.path(), sampled.buildingLang(), sampled.titles(),
+                sampled.afterSubmissionText(), new FormsForm.Settings(true, settings.tracksUsers(), settings.savable(), settings.constrained()),
+                sampled.steps(), sampled.actions());
         ImportedForm without = EVERYTHING.convert(source, export.resultsOf(source));
         assertFalse(without.captcha());
         assertTrue(has(without.report(), "form.captchaOff"), without.report().toString());
