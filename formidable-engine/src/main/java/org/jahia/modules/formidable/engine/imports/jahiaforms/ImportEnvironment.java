@@ -2,6 +2,7 @@ package org.jahia.modules.formidable.engine.imports.jahiaforms;
 
 import org.jahia.modules.formidable.engine.api.VisitorProfileSchema;
 
+import java.util.OptionalInt;
 import java.util.function.Predicate;
 
 /**
@@ -23,11 +24,11 @@ public record ImportEnvironment(Predicate<String> registeredTypes, Predicate<Str
     /** {@link VisitorProfileSchema#fit} for the site the import writes into. */
     @FunctionalInterface
     public interface ProfileFit {
-        VisitorProfileSchema.Fit fit(String fieldType, boolean multiple, String property);
+        VisitorProfileSchema.Fit fit(String fieldType, boolean multiple, OptionalInt choices, String property);
     }
 
     /** A profile server that takes every property: the mapping is written as the source had it. */
-    public static final ProfileFit ANY_PROPERTY = (fieldType, multiple, property) -> VisitorProfileSchema.Fit.FITS;
+    public static final ProfileFit ANY_PROPERTY = (fieldType, multiple, choices, property) -> VisitorProfileSchema.Fit.FITS;
 
     /** An instance that offers everything but the jExperience integration, the default of the earlier callers. */
     public static ImportEnvironment of(Predicate<String> registeredTypes, Predicate<String> declaredOptionsSources, boolean captchaConfigured) {

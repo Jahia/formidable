@@ -191,9 +191,9 @@ public class ImportJobs {
      * every property is taken, and the mixin it would add is not registered anyway.
      */
     private ImportEnvironment.ProfileFit profileFitOf(String siteKey) {
-        return (fieldType, multiple, property) -> {
+        return (fieldType, multiple, choices, property) -> {
             VisitorProfileSchema schema = profileSchema.get();
-            return schema == null ? VisitorProfileSchema.Fit.FITS : schema.fit(siteKey, fieldType, multiple, property);
+            return schema == null ? VisitorProfileSchema.Fit.FITS : schema.fit(siteKey, fieldType, multiple, choices, property);
         };
     }
 

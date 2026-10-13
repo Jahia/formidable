@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import javax.jcr.nodetype.NoSuchNodeTypeException;
 import javax.jcr.nodetype.NodeType;
 import java.util.List;
+import java.util.OptionalInt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
@@ -45,14 +46,14 @@ class CatalogProfileSchemaTest {
                 new ProfilePropertyDescriptor("interests", "Interests", "string", true)));
         CatalogProfileSchema schema = schemaOf(catalog);
 
-        assertEquals(Fit.FITS, schema.fit(SITE, TEXT, false, FIRST_NAME));
-        assertEquals(Fit.FITS, schema.fit(SITE, EMAIL, false, FIRST_NAME));
+        assertEquals(Fit.FITS, schema.fit(SITE, TEXT, false, OptionalInt.empty(), FIRST_NAME));
+        assertEquals(Fit.FITS, schema.fit(SITE, EMAIL, false, OptionalInt.empty(), FIRST_NAME));
         // a property jCustomer does not declare is skipped by the mapping rule: the import must not write it
-        assertEquals(Fit.UNKNOWN, schema.fit(SITE, TEXT, false, "sfdc__leadComments"));
+        assertEquals(Fit.UNKNOWN, schema.fit(SITE, TEXT, false, OptionalInt.empty(), "sfdc__leadComments"));
         // a text field holds a string, one value
-        assertEquals(Fit.INCOMPATIBLE, schema.fit(SITE, TEXT, false, "age"));
-        assertEquals(Fit.INCOMPATIBLE, schema.fit(SITE, TEXT, false, "interests"));
-        assertEquals(Fit.INCOMPATIBLE, schema.fit(SITE, "fmdb:unknown", false, FIRST_NAME));
+        assertEquals(Fit.INCOMPATIBLE, schema.fit(SITE, TEXT, false, OptionalInt.empty(), "age"));
+        assertEquals(Fit.INCOMPATIBLE, schema.fit(SITE, TEXT, false, OptionalInt.empty(), "interests"));
+        assertEquals(Fit.INCOMPATIBLE, schema.fit(SITE, "fmdb:unknown", false, OptionalInt.empty(), FIRST_NAME));
     }
 
     @Test
@@ -60,6 +61,6 @@ class CatalogProfileSchemaTest {
         ProfilePropertyCatalog catalog = mock(ProfilePropertyCatalog.class);
         when(catalog.profileProperties(SITE)).thenThrow(new ProfilePropertiesUnavailableException("jCustomer down"));
 
-        assertEquals(Fit.UNAVAILABLE, schemaOf(catalog).fit(SITE, TEXT, false, FIRST_NAME));
+        assertEquals(Fit.UNAVAILABLE, schemaOf(catalog).fit(SITE, TEXT, false, OptionalInt.empty(), FIRST_NAME));
     }
 }

@@ -20,6 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Predicate;
 
 /**
@@ -188,18 +189,18 @@ public final class FormsFormConverter {
         if (mapping.note() != null) {
             field.report(mapping.note());
         }
-        fillCommon(field, definition, mapping);
+        fillCommon(field, definition, label, mapping);
         fillRules(field, definition, mapping);
         fillByKind(field, definition, label, titles, buildingLang, mapping);
         return Optional.of(field.build());
     }
 
-    private void fillCommon(ImportedField.Builder field, FormsField definition, FormsFieldTypes.Mapping mapping) {
+    private void fillCommon(ImportedField.Builder field, FormsField definition, FormsLabel label, FormsFieldTypes.Mapping mapping) {
         // a select has no placeholder, but shows its empty option's label where a placeholder would stand
         String placeholderSlot = mapping.is(FormsFieldTypes.SELECT) ? FormsFieldTypes.OPTIONS_EMPTY_LABEL : FormsFieldTypes.PLACEHOLDER;
         field.i18nProperty(placeholderSlot, valuesOf(definition.option(FormsOptionNames.PLACEHOLDER)));
         field.i18nProperty(FormsFieldTypes.HELP_TEXT, valuesOf(definition.option(FormsOptionNames.HELP_TEXT)));
-        fillPrefills(field, definition, mapping);
+        fillPrefills(field, definition, label, mapping);
         if (definition.hasLogic()) {
             field.report(ImportNote.action("field.logic"));
         }
@@ -211,10 +212,10 @@ public final class FormsFormConverter {
      * and reaches the field type; a field takes one mapping, the first prefill of the kind. Any other prefill, or
      * one the integration cannot take, is reported.
      */
-    private void fillPrefills(ImportedField.Builder field, FormsField definition, FormsFieldTypes.Mapping mapping) {
+    private void fillPrefills(ImportedField.Builder field, FormsField definition, FormsLabel label, FormsFieldTypes.Mapping mapping) {
         boolean mapped = false;
         for (FormsPrefill prefill : definition.prefills()) {
-            PrefillDecision decision = decide(prefill, mapping, mapped);
+            PrefillDecision decision = decide(prefill, definition, label, mapping, mapped);
             if (decision.refusal() == null) {
                 carry(field, prefill);
                 mapped = true;
@@ -240,7 +241,7 @@ public final class FormsFormConverter {
      * integration is installed and reaches the type, and the profile server of the site declares the property with a
      * type the field holds: a mapping to any other property would be skipped when the mapping rule of the form is built.
      */
-    private PrefillDecision decide(FormsPrefill prefill, FormsFieldTypes.Mapping mapping, boolean mapped) {
+    private PrefillDecision decide(FormsPrefill prefill, FormsField definition, FormsLabel label, FormsFieldTypes.Mapping mapping, boolean mapped) {
         if (!prefill.isProfileMapping()) {
             return refused(ImportNote.action("field.prefillOther", "prefill", prefill.type()));
         }
@@ -254,12 +255,25 @@ public final class FormsFormConverter {
         if (!profileMappable.test(mapping.nodeType())) {
             return refused(ImportNote.action("field.prefillNotMappable", PROPERTY, property, TYPE, mapping.nodeType()));
         }
-        return switch (profileFit.fit(mapping.nodeType(), false, property)) {
+        // the cardinality the mapping rule reads off the created field: a select made from a Forms multiple select
+        // holds several values, a checkbox one value when it has a single option
+        boolean multiple = FormsFieldTypes.isMultipleChoice(definition.kind()) && mapping.is(FormsFieldTypes.SELECT);
+        OptionalInt choices = mapping.is(FormsFieldTypes.CHECKBOX) ? choiceCount(definition, label) : OptionalInt.empty();
+        return switch (profileFit.fit(mapping.nodeType(), multiple, choices, property)) {
             case UNKNOWN -> refused(ImportNote.action("field.prefillUnknownProperty", PROPERTY, property));
             case INCOMPATIBLE -> refused(ImportNote.action("field.prefillIncompatible", PROPERTY, property, TYPE, mapping.nodeType()));
             case UNAVAILABLE -> new PrefillDecision(null, true);
             case FITS -> PrefillDecision.CARRIED;
         };
+    }
+
+    /** The number of options the created checkbox gets, in the first language that has some; one for an accept-terms box. */
+    private static OptionalInt choiceCount(FormsField definition, FormsLabel label) {
+        Map<String, List<String>> options = optionsOf(definition, label);
+        if (options.isEmpty()) {
+            return "acceptTermCheckbox".equals(definition.kind()) ? OptionalInt.of(1) : OptionalInt.empty();
+        }
+        return OptionalInt.of(options.values().iterator().next().size());
     }
 
     private static PrefillDecision refused(ImportNote note) {

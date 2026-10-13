@@ -22,6 +22,8 @@ class FormsFormConverterTest {
 
     private static final String PROPERTY = "property";
     private static final String EMAIL_PROPERTY = "email";
+    private static final String CHOICES = "choices";
+    private static final String INTERESTS = "interests";
     private static final FormsFormConverter EVERYTHING = new FormsFormConverter(type -> true, source -> true);
     private static final FormsFormConverter ELEMENTS_ONLY = new FormsFormConverter(type -> !type.startsWith("fmdbext:"), source -> false);
 
@@ -482,7 +484,7 @@ class FormsFormConverterTest {
     void aPrefillIsMappedOnlyToAPropertyTheProfileServerDeclaresWithATypeTheFieldHolds() throws Exception {
         FormsExport export = sample();
         FormsForm source = export.forms().get("contact-us");
-        ImportEnvironment.ProfileFit server = (fieldType, multiple, property) -> switch (property) {
+        ImportEnvironment.ProfileFit server = (fieldType, multiple, choices, property) -> switch (property) {
             case "firstName" -> VisitorProfileSchema.Fit.FITS;
             case "lastName" -> VisitorProfileSchema.Fit.INCOMPATIBLE;
             case EMAIL_PROPERTY -> VisitorProfileSchema.Fit.UNAVAILABLE;
@@ -501,6 +503,34 @@ class FormsFormConverterTest {
         assertTrue(has(fields.get(2).report(), "field.profileUnchecked", PROPERTY, EMAIL_PROPERTY), fields.get(2).report().toString());
         assertNull(fields.get(4).properties().get(FormsFormConverter.PROFILE_PROPERTY));
         assertTrue(has(fields.get(4).report(), "field.prefillUnknownProperty", PROPERTY, "sfdc__leadComments"), fields.get(4).report().toString());
+    }
+
+    @Test
+    void theProfileCheckAsksWithTheCardinalityTheMappingRuleReadsOffTheField() {
+        List<String> asked = new ArrayList<>();
+        ImportEnvironment.ProfileFit server = (fieldType, multiple, choices, property) -> {
+            asked.add(fieldType + "|" + multiple + "|" + (choices.isPresent() ? String.valueOf(choices.getAsInt()) : "-"));
+            // a multivalued property: it fits a field that holds several values only
+            return multiple || (choices.isPresent() && choices.getAsInt() != 1) ? VisitorProfileSchema.Fit.FITS : VisitorProfileSchema.Fit.INCOMPATIBLE;
+        };
+        FormsFormConverter converter = new FormsFormConverter(new ImportEnvironment(type -> true, s -> true, type -> true, server, false));
+        FormsPrefill interests = new FormsPrefill(FormsPrefill.PROFILE_PREFILL_TYPE, INTERESTS, false, false);
+        FormsOption two = new FormsOption(CHOICES, null, Map.of("en", "[{\"key\":\"red\"},{\"key\":\"blue\"}]"));
+        FormsOption one = new FormsOption(CHOICES, null, Map.of("en", "[{\"key\":\"yes\"}]"));
+        FormsField multipleSelect = new FormsField("multi_0_1", "u1", "fcnt:selectMultipleDefinition", Map.of("en", "Colours"),
+                CHOICES, Map.of(CHOICES, two), List.of(), List.of(interests), false);
+        FormsField singleBox = new FormsField("box_0_2", "u2", "fcnt:multipleCheckBoxesDefinition", Map.of("en", "Agree"),
+                CHOICES, Map.of(CHOICES, one), List.of(), List.of(interests), false);
+        FormsField group = new FormsField("group_0_3", "u3", "fcnt:multipleCheckBoxesDefinition", Map.of("en", "Topics"),
+                CHOICES, Map.of(CHOICES, two), List.of(), List.of(interests), false);
+
+        List<ImportedField> fields = converter.convert(formOf(multipleSelect, singleBox, group), null).fields().toList();
+
+        // the select made from a multiple select holds several values, a checkbox with one option one value, a group several
+        assertEquals(List.of(FormsFieldTypes.SELECT + "|true|-", FormsFieldTypes.CHECKBOX + "|false|1", FormsFieldTypes.CHECKBOX + "|false|2"), asked);
+        assertEquals(INTERESTS, fields.get(0).properties().get(FormsFormConverter.PROFILE_PROPERTY));
+        assertTrue(has(fields.get(1).report(), "field.prefillIncompatible", PROPERTY, INTERESTS), fields.get(1).report().toString());
+        assertEquals(INTERESTS, fields.get(2).properties().get(FormsFormConverter.PROFILE_PROPERTY));
     }
 
     /** Whether the notes hold one of that code whose parameters include the given name, value pairs. */

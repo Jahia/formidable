@@ -52,7 +52,7 @@ public class CatalogProfileSchema implements VisitorProfileSchema {
     }
 
     @Override
-    public Fit fit(String siteKey, String fieldType, boolean multiple, String property) {
+    public Fit fit(String siteKey, String fieldType, boolean multiple, OptionalInt choices, String property) {
         List<ProfilePropertyDescriptor> schema;
         try {
             schema = catalog.profileProperties(siteKey);
@@ -65,8 +65,8 @@ public class CatalogProfileSchema implements VisitorProfileSchema {
         }
         Optional<FieldShape> shape;
         try {
-            // a field being created: its type and its multiple toggle; the choices are not counted, a checkbox is a group
-            shape = FieldShapes.infer(nodeTypes.get(fieldType), multiple, FieldShapes.ChoiceCount.of(OptionalInt.empty()));
+            // a field being created: its type, its multiple toggle and, for a checkbox, its number of options
+            shape = FieldShapes.infer(nodeTypes.get(fieldType), multiple, FieldShapes.ChoiceCount.of(choices));
         } catch (RepositoryException e) {
             log.debug("[CatalogProfileSchema] Type {} unreadable: {}", fieldType, e.getMessage());
             return Fit.INCOMPATIBLE;

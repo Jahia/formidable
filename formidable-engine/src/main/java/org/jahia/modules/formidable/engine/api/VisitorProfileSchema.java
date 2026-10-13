@@ -1,5 +1,7 @@
 package org.jahia.modules.formidable.engine.api;
 
+import java.util.OptionalInt;
+
 /**
  * The visitor profile properties a field can be mapped to, as the profile server of a site declares them:
  * offered by the jExperience integration, which owns the catalog of those properties and the rule of which
@@ -26,8 +28,10 @@ public interface VisitorProfileSchema {
     /**
      * @param siteKey   the site whose profile server is asked
      * @param fieldType the node type of the field, which decides the kind of value it holds
-     * @param multiple  whether the field holds several values
+     * @param multiple  whether the field holds several values, by its {@code multiple} setting
+     * @param choices   the number of options of a field whose cardinality follows them (a checkbox: one option is
+     *                  one value, more a group); empty when unknown or irrelevant
      * @param property  the identifier of the profile property
      */
-    Fit fit(String siteKey, String fieldType, boolean multiple, String property);
+    Fit fit(String siteKey, String fieldType, boolean multiple, OptionalInt choices, String property);
 }

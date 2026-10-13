@@ -160,7 +160,7 @@
                              against the floor, the jexperience-ceiling profile below against the newest 4.x; the CI
                              runs both on every change. -->
                         <Import-Package>
-                            org.jahia.modules.formidable.engine.api;version="[0.5,1)",
+                            org.jahia.modules.formidable.engine.api;version="[0.6,1)",
                             org.jahia.modules.jexperience.admin;version="[3.4,5)",
                             org.apache.unomi.api;version="[2.1,4)",
                             org.jahia.services.content,
