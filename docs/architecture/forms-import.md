@@ -434,7 +434,8 @@ Forms: `sourceSystem` does.
 
 Every property of the four markers is `hidden`: the import and the attachment write and read them, and a
 contributor who opens an imported form or field in the editor has nothing to do with them, so the Content
-Editor does not show them.
+Editor does not show them. `ImportMarkersCndTest` holds the rule: a marker property without the flag fails the
+build.
 
 `fmdb:resultsFolder` gets one child of type `fmdb:importJobs`, for the jobs of [Running it](#running-it):
 a residual child in the CND, found by its type and named `import-jobs` unless a results entry, which is
