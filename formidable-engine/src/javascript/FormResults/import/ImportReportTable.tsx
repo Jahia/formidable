@@ -1,18 +1,5 @@
 import React, {useState} from 'react';
-import {
-    Button,
-    Check,
-    Close,
-    Dropdown,
-    Table,
-    TableBody,
-    TableBodyCell,
-    TableHead,
-    TableHeadCell,
-    TableRow,
-    Typography,
-    Warning
-} from '@jahia/moonstone';
+import {Button, Check, Close, Dropdown, Typography, Warning} from '@jahia/moonstone';
 import {formatFileSize} from '../FormResults.utils';
 import {AttachToForm} from './AttachToForm';
 import {
@@ -247,10 +234,20 @@ function describe(form: ImportReportForm, outcome: ImportReportForm['outcome'], 
     return t(`formResults.import.${tense}.${outcome ?? DEFAULT_CHOICE}`, {name});
 }
 
+/** Columns that fit their text up to a limit, the status taking the rest of the width and wrapping. */
+const PROFILE_GRID = {
+    display: 'grid',
+    gridTemplateColumns: 'fit-content(30%) fit-content(25%) max-content minmax(0, 1fr)',
+    columnGap: '16px',
+    rowGap: '2px',
+    alignItems: 'baseline',
+    overflowWrap: 'anywhere' as const
+};
+
 /**
- * The fields mapped to the visitor profile, as a table: the field, the property, a check when the prefill is on, and
- * the status — a green check when jCustomer declares the property and the mapping is written, a red cross and why
- * when it is not, a warning when jCustomer could not be asked. A line under the title says where to review them.
+ * The fields mapped to the visitor profile, as a compact grid: the field, the property, a check when the prefill is
+ * on, and the status — a green check when jCustomer declares the property and the mapping is written, a red cross and
+ * why when it is not, a warning when jCustomer could not be asked. A line under the title says where to review them.
  */
 const ProfileMappings = ({profile, t}: {profile: ReturnType<typeof profileMappings>; t: Translate}) => {
     if (profile.mappings.length === 0) {
@@ -259,15 +256,17 @@ const ProfileMappings = ({profile, t}: {profile: ReturnType<typeof profileMappin
     const statusOf = (mapping: ProfileMapping) => {
         if (mapping.status === 'failed') {
             return (
-                <Typography variant="body" color="danger" style={{display: 'inline-flex', alignItems: 'center', gap: '6px'}}>
-                    <Close size="small" color="red"/>{t(`formResults.import.profile.failed.${mapping.reason}`)}
+                <Typography variant="body" color="danger">
+                    <Close size="small" color="red" style={{verticalAlign: 'middle', marginRight: '4px'}}/>
+                    {t(`formResults.import.profile.failed.${mapping.reason}`)}
                 </Typography>
             );
         }
         if (mapping.status === 'unchecked') {
             return (
-                <Typography variant="body" style={{display: 'inline-flex', alignItems: 'center', gap: '6px'}}>
-                    <Warning size="small" color="yellow"/>{t('formResults.import.profile.unchecked')}
+                <Typography variant="body">
+                    <Warning size="small" color="yellow" style={{verticalAlign: 'middle', marginRight: '4px'}}/>
+                    {t('formResults.import.profile.unchecked')}
                 </Typography>
             );
         }
@@ -277,28 +276,32 @@ const ProfileMappings = ({profile, t}: {profile: ReturnType<typeof profileMappin
         <div data-sel-role="import-report-profile" style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
             <Typography variant="caption" weight="bold">{t('formResults.import.profile.title')}</Typography>
             <Typography variant="caption" style={{color: 'var(--color-gray)'}}>{t('formResults.import.profile.hint')}</Typography>
-            <Table>
-                <TableHead>
-                    <TableRow>
-                        <TableHeadCell>{t('formResults.import.profile.columns.field')}</TableHeadCell>
-                        <TableHeadCell>{t('formResults.import.profile.columns.property')}</TableHeadCell>
-                        <TableHeadCell width="80px" textAlign="center">{t('formResults.import.profile.columns.prefilled')}</TableHeadCell>
-                        <TableHeadCell>{t('formResults.import.profile.columns.status')}</TableHeadCell>
-                    </TableRow>
-                </TableHead>
-                <TableBody>
-                    {profile.mappings.map(mapping => (
-                        <TableRow key={mapping.key} data-sel-role="import-report-profile-row" data-sel-field={mapping.field} data-sel-status={mapping.status}>
-                            <TableBodyCell>{mapping.field}</TableBodyCell>
-                            <TableBodyCell><em>{mapping.property}</em></TableBodyCell>
-                            <TableBodyCell width="80px" textAlign="center">
-                                {mapping.status !== 'failed' && mapping.prefilled && <Check size="small" color="green" aria-label={t('formResults.import.profile.prefill')}/>}
-                            </TableBodyCell>
-                            <TableBodyCell>{statusOf(mapping)}</TableBodyCell>
-                        </TableRow>
+            <div role="table" style={PROFILE_GRID}>
+                <div role="row" style={{display: 'contents'}}>
+                    {(['field', 'property', 'prefilled', 'status'] as const).map(column => (
+                        <Typography key={column} role="columnheader" variant="caption" weight="bold" style={{color: 'var(--color-gray)'}}>
+                            {t(`formResults.import.profile.columns.${column}`)}
+                        </Typography>
                     ))}
-                </TableBody>
-            </Table>
+                </div>
+                {profile.mappings.map(mapping => (
+                    <div
+                        key={mapping.key}
+                        role="row"
+                        style={{display: 'contents'}}
+                        data-sel-role="import-report-profile-row"
+                        data-sel-field={mapping.field}
+                        data-sel-status={mapping.status}
+                    >
+                        <Typography role="cell" variant="body">{mapping.field}</Typography>
+                        <Typography role="cell" variant="body"><em>{mapping.property}</em></Typography>
+                        <div role="cell" style={{textAlign: 'center'}}>
+                            {mapping.status !== 'failed' && mapping.prefilled && <Check size="small" color="green" aria-label={t('formResults.import.profile.prefill')}/>}
+                        </div>
+                        <div role="cell">{statusOf(mapping)}</div>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 };
