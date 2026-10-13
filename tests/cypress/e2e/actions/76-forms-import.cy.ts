@@ -397,7 +397,6 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		reportForm('contact-us').find('[data-sel-role="import-report-toggle"]').should('contain', 'to do').click();
 		reportForm('contact-us').find('[data-sel-role="import-report-notes-action"] [data-sel-code="form.redirect"]')
 			.should('contain', 'page redirect').and('not.contain', 'fcnt:');
-		reportForm('contact-us').find('[data-sel-role="import-report-notes-info"]').should('exist');
 		cy.get('[data-sel-role="import-confirm"]').click();
 		dialogState('done');
 		cy.get('[data-sel-role="import-next-step"]').should('contain', 'unpublished');

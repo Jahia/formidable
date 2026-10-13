@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {Button, Dropdown, Typography, Warning} from '@jahia/moonstone';
+import {Button, Check, Dropdown, Typography, Warning} from '@jahia/moonstone';
 import {formatFileSize} from '../FormResults.utils';
 import {AttachToForm} from './AttachToForm';
 import {
@@ -17,7 +17,7 @@ import {
     type SiteForm,
     type TargetField
 } from './import.utils';
-import {noteText} from './notes';
+import {noteText, type ProfileMapping, profileMappings} from './notes';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -122,6 +122,7 @@ const FormRow = ({form, report, language, t, choices = {}, siteForms, optionsLan
     // what the form itself cannot carry over only matters when a form is created
     const notes = outcome === 'created' ? groupedNotes(form, language) : {action: [], info: []};
     const hasNotes = notes.action.length + notes.info.length > 0;
+    const profile = profileMappings(notes.info);
     const pickedForm = attachment && siteForms?.find(siteForm => siteForm.uuid === attachment.form);
     const choose = (value: string) => {
         onChoice?.(form.sourceName, value === 'attach' ? {choice: 'attach', form: '', mapping: {}} : value as ImportChoice);
@@ -196,7 +197,8 @@ const FormRow = ({form, report, language, t, choices = {}, siteForms, optionsLan
             {open && hasNotes && (
                 <div data-sel-role="import-report-notes" style={{display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '12px'}}>
                     {notes.action.length > 0 && <NotesList title={t('formResults.import.notes.action')} lines={notes.action} level="action" t={t}/>}
-                    {notes.info.length > 0 && <NotesList title={t('formResults.import.notes.info')} lines={notes.info} level="info" t={t}/>}
+                    <ProfileMappings profile={profile} t={t}/>
+                    {profile.others.length > 0 && <NotesList title={t('formResults.import.notes.info')} lines={profile.others} level="info" t={t}/>}
                 </div>
             )}
         </div>
@@ -230,6 +232,48 @@ function describe(form: ImportReportForm, outcome: ImportReportForm['outcome'], 
     }
     return t(`formResults.import.${tense}.${outcome ?? DEFAULT_CHOICE}`, {name});
 }
+
+/**
+ * The fields mapped to the visitor profile, one line each — label, property, a check when prefilled — and what follows
+ * the prefill said once when every prefilled field shares it.
+ */
+const ProfileMappings = ({profile, t}: {profile: ReturnType<typeof profileMappings>; t: Translate}) => {
+    const {mappings, commonAfter} = profile;
+    if (mappings.length === 0) {
+        return null;
+    }
+    // what follows the prefill, on the line of a field only when the fields do not all share it
+    const after = (mapping: ProfileMapping): string => {
+        if (!mapping.prefilled || !mapping.after || commonAfter !== null) {
+            return '';
+        }
+        const label = t(`formResults.import.after.${mapping.after}`);
+        return `· ${label}`;
+    };
+    return (
+        <div data-sel-role="import-report-profile">
+            <Typography variant="caption" weight="bold">{t('formResults.import.profile.title')}</Typography>
+            {commonAfter && (
+                <Typography variant="caption" style={{color: 'var(--color-gray)'}}>
+                    {t('formResults.import.profile.after', {after: t(`formResults.import.after.${commonAfter}`)})}
+                </Typography>
+            )}
+            <ul style={{margin: '4px 0 0', paddingLeft: '20px'}}>
+                {mappings.map(mapping => (
+                    <li key={mapping.field} data-sel-field={mapping.field}>
+                        <Typography variant="body" style={{display: 'inline-flex', alignItems: 'center', gap: '6px'}}>
+                            <strong>{mapping.field}</strong>
+                            <span aria-hidden="true">→</span>
+                            <em>{mapping.property}</em>
+                            {mapping.prefilled && <Check size="small" color="green" aria-label={t('formResults.import.profile.prefilled')}/>}
+                            {after(mapping)}
+                        </Typography>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+};
 
 const NotesList = ({title, lines, level, t}: {title: string; lines: ReportLine[]; level: ImportNote['level']; t: Translate}) => (
     <div data-sel-role={`import-report-notes-${level}`}>

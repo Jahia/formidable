@@ -24,7 +24,7 @@ import {
     typeKey,
     unmatchedValues
 } from './import.utils';
-import {noteText, wordsOf} from './notes';
+import {noteText, profileMappings, wordsOf} from './notes';
 
 const fileOf = (name: string, size: number, type = ''): File => {
     const file = new File([new Uint8Array(1)], name, {type});
@@ -242,5 +242,30 @@ describe('noteText', () => {
         expect(wordsOf('fcnt:geolocationPrefill')).toEqual('geolocation');
         expect(wordsOf('matrixCheckBoxes')).toEqual('matrix check boxes');
         expect(wordsOf('fcnt:passwordDefinition')).toEqual('password');
+    });
+});
+
+describe('profileMappings', () => {
+    const prefilled = (property: string, after: string) => ({code: 'field.profilePrefilled', level: 'info' as const, params: {property, after}});
+
+    it('takes the profile mappings apart, one per field, and says what follows the prefill once when all share it', () => {
+        const captcha = {note: {code: 'form.captchaOn', level: 'info' as const, params: {}}, fields: []};
+        const lines = [
+            {note: prefilled('firstName', 'editable'), fields: ['First name']},
+            {note: {code: 'field.profileMapped', level: 'info' as const, params: {property: 'company'}}, fields: ['Company']},
+            {note: prefilled('email', 'editable'), fields: ['Email']},
+            captcha
+        ];
+
+        const profile = profileMappings(lines);
+
+        expect(profile.mappings).toEqual([
+            {field: 'First name', property: 'firstName', prefilled: true, after: 'editable'},
+            {field: 'Company', property: 'company', prefilled: false, after: undefined},
+            {field: 'Email', property: 'email', prefilled: true, after: 'editable'}
+        ]);
+        expect(profile.others).toEqual([captcha]);
+        expect(profile.commonAfter).toEqual('editable');
+        expect(profileMappings([{note: prefilled('a', 'editable'), fields: ['A']}, {note: prefilled('b', 'hidden'), fields: ['B']}]).commonAfter).toBeNull();
     });
 });

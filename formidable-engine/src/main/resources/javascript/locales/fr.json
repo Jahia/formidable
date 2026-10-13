@@ -416,6 +416,11 @@
 					"offLabel": "libellé désactivé",
 					"statement": "énoncé"
 				}
+			},
+			"profile": {
+				"title": "Lié au profil visiteur (jExperience)",
+				"after": "Après le préremplissage : {{after}}",
+				"prefilled": "prérempli depuis le profil"
 			}
 		},
 		"attach": {

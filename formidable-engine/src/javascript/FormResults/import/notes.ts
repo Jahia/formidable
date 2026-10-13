@@ -1,4 +1,4 @@
-import {type ImportNote, typeKey} from './import.utils';
+import {type ImportNote, type ReportLine, typeKey} from './import.utils';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -28,3 +28,37 @@ export const wordsOf = (value: string): string => typeKey(value)
     .replace(/(Validation|Definition|Action|Prefill)$/, '')
     .replaceAll(/([a-z0-9])([A-Z])/g, '$1 $2')
     .toLowerCase();
+
+/** A field of the form mapped to a visitor profile property, as the report states it. */
+export interface ProfileMapping {
+    field: string;
+    property: string;
+    prefilled: boolean;
+    /** What follows the prefill: editable, readOnly or hidden; absent without prefill. */
+    after?: string;
+}
+
+const PROFILE_CODES = new Set(['field.profilePrefilled', 'field.profileMapped']);
+
+/**
+ * The profile mappings among the lines of what was carried over, one per field, apart from the other lines; and
+ * what follows the prefill when every prefilled field shares it, so that it is said once.
+ */
+export function profileMappings(lines: ReportLine[]): {mappings: ProfileMapping[]; others: ReportLine[]; commonAfter: string | null} {
+    const mappings: ProfileMapping[] = [];
+    const others: ReportLine[] = [];
+    lines.forEach(line => {
+        if (PROFILE_CODES.has(line.note.code)) {
+            line.fields.forEach(field => mappings.push({
+                field,
+                property: line.note.params.property ?? '',
+                prefilled: line.note.code === 'field.profilePrefilled',
+                after: line.note.params.after
+            }));
+        } else {
+            others.push(line);
+        }
+    });
+    const afters = new Set(mappings.filter(mapping => mapping.prefilled).map(mapping => mapping.after));
+    return {mappings, others, commonAfter: afters.size === 1 ? [...afters][0] ?? null : null};
+}

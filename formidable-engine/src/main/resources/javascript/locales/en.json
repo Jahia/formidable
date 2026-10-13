@@ -416,6 +416,11 @@
 					"offLabel": "off label",
 					"statement": "statement"
 				}
+			},
+			"profile": {
+				"title": "Mapped to the visitor profile (jExperience)",
+				"after": "After the prefill: {{after}}",
+				"prefilled": "prefilled from the profile"
 			}
 		},
 		"attach": {
