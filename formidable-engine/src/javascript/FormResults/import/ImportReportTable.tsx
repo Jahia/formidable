@@ -17,7 +17,7 @@ import {
     type SiteForm,
     type TargetField
 } from './import.utils';
-import {noteText, profileMappings} from './notes';
+import {noteText, type ProfileMapping, profileMappings} from './notes';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -235,13 +235,23 @@ function describe(form: ImportReportForm, outcome: ImportReportForm['outcome'], 
 }
 
 /**
- * The fields mapped to the visitor profile, one line each: label, property and whether the prefill is on — and, in
- * red, the fields whose mapping failed, with why. A line under the title says where to review the mappings.
+ * The fields mapped to the visitor profile, one line each: label, property and a mark after it — a green check when
+ * jCustomer declares it and the mapping is written, a red cross and why when it is not, a warning when jCustomer
+ * could not be asked — then "prefill" when the prefill is on. A line under the title says where to review them.
  */
 const ProfileMappings = ({profile, t}: {profile: ReturnType<typeof profileMappings>; t: Translate}) => {
     if (profile.mappings.length === 0) {
         return null;
     }
+    const markOf = (mapping: ProfileMapping) => {
+        if (mapping.status === 'failed') {
+            return <Close size="small" color="red" aria-label={t('formResults.import.profile.missing')}/>;
+        }
+        if (mapping.status === 'unchecked') {
+            return <Warning size="small" color="yellow" aria-label={t('formResults.import.profile.unchecked')}/>;
+        }
+        return <Check size="small" color="green" aria-label={t('formResults.import.profile.exists')}/>;
+    };
     return (
         <div data-sel-role="import-report-profile">
             <Typography variant="caption" weight="bold">{t('formResults.import.profile.title')}</Typography>
@@ -249,26 +259,19 @@ const ProfileMappings = ({profile, t}: {profile: ReturnType<typeof profileMappin
             <ul style={{margin: '4px 0 0', paddingLeft: '20px'}}>
                 {profile.mappings.map(mapping => (
                     <li key={mapping.key} data-sel-field={mapping.field} data-sel-status={mapping.status}>
-                        {mapping.status === 'failed' ? (
-                            <Typography variant="body" color="danger">
-                                <strong>{mapping.field}</strong> → <em>{mapping.property}</em>: {t(`formResults.import.profile.failed.${mapping.reason}`)}
-                            </Typography>
-                        ) : (
-                            <Typography variant="body" style={{display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap'}}>
-                                <strong>{mapping.field}</strong>
-                                <span aria-hidden="true">→</span>
-                                <em>{mapping.property}</em>
-                                <span>· {t('formResults.import.profile.prefill')}</span>
-                                {mapping.prefilled ?
-                                    <Check size="small" color="green" aria-label={t('formResults.import.profile.on')}/> :
-                                    <Close size="small" color="red" aria-label={t('formResults.import.profile.off')}/>}
-                                {mapping.status === 'unchecked' && (
-                                    <span style={{display: 'inline-flex', alignItems: 'center', gap: '4px'}}>
-                                        <Warning size="small" color="yellow"/>{t('formResults.import.profile.unchecked')}
-                                    </span>
-                                )}
-                            </Typography>
-                        )}
+                        <Typography
+                            variant="body"
+                            color={mapping.status === 'failed' ? 'danger' : undefined}
+                            style={{display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap'}}
+                        >
+                            <strong>{mapping.field}</strong>
+                            <span aria-hidden="true">→</span>
+                            <em>{mapping.property}</em>
+                            {markOf(mapping)}
+                            {mapping.status === 'failed' && <span>{t(`formResults.import.profile.failed.${mapping.reason}`)}</span>}
+                            {mapping.status === 'unchecked' && <span>{t('formResults.import.profile.unchecked')}</span>}
+                            {mapping.status !== 'failed' && mapping.prefilled && <span>· {t('formResults.import.profile.prefill')}</span>}
+                        </Typography>
                     </li>
                 ))}
             </ul>

@@ -420,18 +420,18 @@
 			"profile": {
 				"title": "Mapped to the visitor profile (jExperience)",
 				"prefill": "prefill",
-				"on": "prefill on",
-				"off": "prefill off",
 				"unchecked": "not checked, jCustomer could not be reached",
 				"failed": {
 					"field": {
-						"prefillUnknownProperty": "not mapped, jCustomer has no such property: create it, then map the field",
-						"prefillIncompatible": "not mapped, its type does not fit this field",
-						"prefillNoIntegration": "not mapped, the jExperience integration is not installed",
-						"prefillNotMappable": "not mapped, this field type cannot be mapped"
+						"prefillUnknownProperty": "jCustomer has no such property: create it, then map the field",
+						"prefillIncompatible": "its type does not fit this field",
+						"prefillNoIntegration": "the jExperience integration is not installed",
+						"prefillNotMappable": "this field type cannot be mapped"
 					}
 				},
-				"hint": "You can review these mappings after the import, in the jExperience section of each field."
+				"hint": "You can review these mappings after the import, in the jExperience section of each field.",
+				"exists": "the property exists, the mapping is written",
+				"missing": "the mapping is not written"
 			}
 		},
 		"attach": {
