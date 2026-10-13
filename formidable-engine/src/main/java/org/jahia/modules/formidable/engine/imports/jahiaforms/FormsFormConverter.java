@@ -41,6 +41,8 @@ public final class FormsFormConverter {
     private static final String RULE = "rule";
     private static final String PROPERTY = "property";
     private static final String TYPE = "type";
+    /** The Forms accept-terms box (forms-extended-inputs). */
+    private static final String ACCEPT_TERMS_KIND = "acceptTermCheckbox";
     private static final String PLAIN_LANGUAGE = "";
 
     /** The Forms file-type groups a {@code fileValidation} selects, as {@code accept} can say them; {@code all} restricts nothing. */
@@ -271,7 +273,7 @@ public final class FormsFormConverter {
     private static OptionalInt choiceCount(FormsField definition, FormsLabel label) {
         Map<String, List<String>> options = optionsOf(definition, label);
         if (options.isEmpty()) {
-            return "acceptTermCheckbox".equals(definition.kind()) ? OptionalInt.of(1) : OptionalInt.empty();
+            return ACCEPT_TERMS_KIND.equals(definition.kind()) ? OptionalInt.of(1) : OptionalInt.empty();
         }
         return OptionalInt.of(options.values().iterator().next().size());
     }
@@ -456,7 +458,7 @@ public final class FormsFormConverter {
                 }
             }
             case "rating" -> field.property(FormsFieldTypes.MAX_VALUE, plain(definition, FormsOptionNames.MAX));
-            case "acceptTermCheckbox" -> {
+            case ACCEPT_TERMS_KIND -> {
                 if (mapping.is(FormsFieldTypes.CONSENT)) {
                     field.i18nProperty(FormsFieldTypes.STATEMENT, statementOf(field, definition, titles));
                 }
@@ -476,7 +478,7 @@ public final class FormsFormConverter {
         Map<String, List<String>> options = optionsOf(definition, label);
         if (!options.isEmpty()) {
             field.options(options);
-        } else if ("acceptTermCheckbox".equals(kind)) {
+        } else if (ACCEPT_TERMS_KIND.equals(kind)) {
             // no choices to take the stored value from: the one option is the accepted value, and the
             // answers are rewritten to it as for a consent (FormsSubmissionConverter)
             String language = titles.containsKey(buildingLang) || titles.isEmpty() ? buildingLang : titles.keySet().iterator().next();

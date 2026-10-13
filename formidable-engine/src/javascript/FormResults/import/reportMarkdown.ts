@@ -51,7 +51,7 @@ function profileSection(profile: ReturnType<typeof profileMappings>, t: Translat
     if (profile.mappings.length === 0) {
         return [];
     }
-    const header = [t('formResults.import.columns.form'), t('formResults.import.markdown.property'), t('formResults.import.markdown.prefilled'),
+    const header = [t('formResults.import.markdown.field'), t('formResults.import.markdown.property'), t('formResults.import.markdown.prefilled'),
         t('formResults.import.markdown.status')];
     const statusOf = (mapping: ProfileMapping): string => {
         if (mapping.status === 'failed') {
