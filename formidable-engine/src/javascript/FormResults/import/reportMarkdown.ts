@@ -1,7 +1,7 @@
 import {formatFileSize} from '../FormResults.utils';
 import {sanitizeFilenamePart} from '../export/export.utils';
 import {formTitle, groupedNotes, type ImportReport, type ImportReportForm, type ReportLine} from './import.utils';
-import {noteText, profileMappings} from './notes';
+import {noteText, type ProfileMapping, profileMappings} from './notes';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -46,36 +46,41 @@ function figuresOf(form: ImportReportForm, dryRun: boolean, t: Translate): strin
     ].filter(Boolean).map(figure => `- ${figure}`);
 }
 
-/** The fields mapped to the visitor profile, as a table, and what follows the prefill when every field shares it. */
-function profileSection(lines: ReportLine[], t: Translate): string[] {
-    const {mappings, commonAfter} = profileMappings(lines);
-    if (mappings.length === 0) {
+/** The fields mapped to the visitor profile, as a table: property, prefill on or off, and why a mapping failed. */
+function profileSection(profile: ReturnType<typeof profileMappings>, t: Translate): string[] {
+    if (profile.mappings.length === 0) {
         return [];
     }
-    const header = [t('formResults.import.columns.form'), t('formResults.import.markdown.property'), t('formResults.import.markdown.prefilled')];
-    const rows = mappings.map(mapping => {
-        const after = mapping.prefilled && mapping.after && commonAfter === null ? t(`formResults.import.after.${mapping.after}`) : '';
-        const prefilled = mapping.prefilled ? `✓ ${after}`.trim() : '';
-        return `| ${escape(mapping.field)} | *${escape(mapping.property)}* | ${escape(prefilled)} |`;
+    const header = [t('formResults.import.columns.form'), t('formResults.import.markdown.property'), t('formResults.import.markdown.prefilled'),
+        t('formResults.import.markdown.status')];
+    const statusOf = (mapping: ProfileMapping): string => {
+        if (mapping.status === 'failed') {
+            return t(`formResults.import.profile.failed.${mapping.reason}`);
+        }
+        return mapping.status === 'unchecked' ? t('formResults.import.profile.unchecked') : '✓';
+    };
+    const rows = profile.mappings.map(mapping => {
+        const prefill = mapping.status !== 'failed' && mapping.prefilled ? '✓' : '✗';
+        return `| ${escape(mapping.field)} | *${escape(mapping.property)}* | ${prefill} | ${escape(statusOf(mapping))} |`;
     });
-    const afterLine = commonAfter ? ['', t('formResults.import.profile.after', {after: t(`formResults.import.after.${commonAfter}`)})] : [];
-    return ['', `### ${t('formResults.import.profile.title')}`, ...afterLine, '', `| ${header.join(' | ')} |`, '|---|---|---|', ...rows];
+    return ['', `### ${t('formResults.import.profile.title')}`, '', t('formResults.import.profile.hint'), '', `| ${header.join(' | ')} |`, '|---|---|---|---|', ...rows];
 }
 
 /** The section of one form: what receives its results, its figures, what to redo by hand, its profile mappings, the rest. */
 function formSection(form: ImportReport['forms'][number], report: ImportReport, context: MarkdownContext): string[] {
     const {t, language} = context;
     const notes = context.notesApply(form) ? groupedNotes(form, language) : {action: [], info: []};
-    const {others} = profileMappings(notes.info);
-    const toDo = notes.action.length > 0 ? ['', `### ${t('formResults.import.notes.action')}`, '', ...notes.action.map(line => lineOf(line, t))] : [];
-    const carried = others.length > 0 ? ['', `### ${t('formResults.import.notes.info')}`, '', ...others.map(line => lineOf(line, t))] : [];
+    const profile = profileMappings(notes.info, notes.action);
+    const toReview = profile.toReview.length > 0 ?
+        ['', `### ${t('formResults.import.notes.action')}`, '', ...profile.toReview.map(line => lineOf(line, t))] : [];
+    const carried = profile.others.length > 0 ? ['', `### ${t('formResults.import.notes.info')}`, '', ...profile.others.map(line => lineOf(line, t))] : [];
     return [
         `## ${escape(formTitle(form, language))}`,
         '',
         `- ${t('formResults.import.columns.result')}: ${escape(context.outcomeOf(form))}`,
         ...figuresOf(form, report.dryRun, t),
-        ...toDo,
-        ...profileSection(notes.info, t),
+        ...toReview,
+        ...profileSection(profile, t),
         ...carried,
         ''
     ];
