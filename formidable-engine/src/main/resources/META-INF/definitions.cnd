@@ -398,35 +398,36 @@ orderable
 
 // --- Imports from another form system (docs/architecture/forms-import.md, "Content model") ---
 // Source-agnostic markers: none of them names Jahia Forms, sourceSystem does. The engine owns them
-// because the import and the attachment of results to another form are engine features.
+// because the import and the attachment of results to another form are engine features. Every property is
+// hidden: the import writes and reads them, a contributor has nothing to do with them in the editor.
 
 // On a form the import created. sourceId is the identity of the form in the source system (its
 // jcr:uuid for Jahia Forms), sourceResultsId the identity of its results entry there; a later run looks a
 // form up by either, hence both indexed, because an export can lose one of them. At least one is set.
 [fmdbmix:importedForm] mixin
- - sourceSystem (string) mandatory indexed=no
- - sourceId (string)
- - sourceResultsId (string)
- - sourcePath (string) indexed=no
+ - sourceSystem (string) mandatory hidden indexed=no
+ - sourceId (string) hidden
+ - sourceResultsId (string) hidden
+ - sourcePath (string) hidden indexed=no
 
 // On a field the import created: the field it stands for in the source system, and the name its values
 // had there. A later run reads the mapping from the fields of the form, so no query: not indexed.
 [fmdbmix:importedField] mixin
- - sourceId (string) mandatory indexed=no
- - sourceName (string) mandatory indexed=no
+ - sourceId (string) mandatory hidden indexed=no
+ - sourceName (string) mandatory hidden indexed=no
 
 // On a results entry that holds imported submissions, of one source form or several once results were
 // attached to a form. sourceFormIds is what a later run finds an entry imported without a form, or attached
 // to a form, by, hence indexed. mappings holds, per source form, the mapping an attachment applied, one JSON
 // string each ({"source":"<key>","mapping":{"<field of the source>":"<field of the form>"}}).
 [fmdbmix:importedResults] mixin
- - sourceSystem (string) mandatory indexed=no
- - sourceFormIds (string) multiple
- - mappings (string) multiple indexed=no
+ - sourceSystem (string) mandatory hidden indexed=no
+ - sourceFormIds (string) multiple hidden
+ - mappings (string) multiple hidden indexed=no
 
 // On an imported submission. sourceId is what a later run skips on, hence indexed. sourceFormId is the
 // key of its source form: the form's sourceId, or its sourceResultsId when the source had deleted the form.
 [fmdbmix:importedSubmission] mixin
- - sourceId (string) mandatory
- - sourceFormId (string) mandatory indexed=no
+ - sourceId (string) mandatory hidden
+ - sourceFormId (string) mandatory hidden indexed=no
 
