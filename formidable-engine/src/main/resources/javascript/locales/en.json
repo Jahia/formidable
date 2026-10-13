@@ -431,7 +431,13 @@
 				},
 				"hint": "You can review these mappings after the import, in the jExperience section of each field.",
 				"exists": "the property exists, the mapping is written",
-				"missing": "the mapping is not written"
+				"missing": "the mapping is not written",
+				"columns": {
+					"field": "Field",
+					"property": "Profile property",
+					"prefilled": "Prefill",
+					"status": "Status"
+				}
 			}
 		},
 		"attach": {

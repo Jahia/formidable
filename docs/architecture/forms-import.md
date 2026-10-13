@@ -566,7 +566,7 @@ and every rule, prefill, action, field kind and setting in words (`formResults.i
 not know read as words drawn from it, without its namespace): its sentences never show a node type or a Forms type
 name. The one path they show is the target of a Forms redirect, a page of the source site, which the
 contributor needs to rebuild it. The notes only matter when the form is created, so the row of a form to create shows a count,
-**N to review**, in a **Notes** column, a button that unfolds the notes under the row: what to review by hand, then the fields mapped to the visitor profile — label, property, a green check when jCustomer declares the property and the mapping is written, a red cross and why when it is not, and "prefill" when the prefill is on — then the rest of what was carried over; a note met on
+**N to review**, in a **Notes** column, a button that unfolds the notes under the row: what to review by hand, then the fields mapped to the visitor profile, as a table — field, property, a check when the prefill is on, and the status: a green check when jCustomer declares the property and the mapping is written, a red cross and why when it is not — then the rest of what was carried over; a note met on
 several fields is one line naming the fields by their labels.
 
 The final report says, on a line above the rows, that the created forms are in `imported-forms`,

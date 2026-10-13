@@ -431,7 +431,13 @@
 				},
 				"hint": "Vous pourrez revoir ces liaisons après l’import, dans la section jExperience de chaque champ.",
 				"exists": "la propriété existe, la liaison est écrite",
-				"missing": "la liaison n’est pas écrite"
+				"missing": "la liaison n’est pas écrite",
+				"columns": {
+					"field": "Champ",
+					"property": "Propriété du profil",
+					"prefilled": "Préremplissage",
+					"status": "État"
+				}
 			}
 		},
 		"attach": {
