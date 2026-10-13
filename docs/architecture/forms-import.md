@@ -401,28 +401,28 @@ Forms: `sourceSystem` does.
 // jcr:uuid of its fcnt:formResults; a later run looks a form up by either, hence both indexed. At least
 // one is set.
 [fmdbmix:importedForm] mixin
- - sourceSystem (string) mandatory indexed=no
- - sourceId (string)
- - sourceResultsId (string)
- - sourcePath (string) indexed=no
+ - sourceSystem (string) mandatory hidden indexed=no
+ - sourceId (string) hidden
+ - sourceResultsId (string) hidden
+ - sourcePath (string) hidden indexed=no
 
 // On a field the import created: the Forms field it stands for, and the Forms name its values had.
 [fmdbmix:importedField] mixin
- - sourceId (string) mandatory indexed=no
- - sourceName (string) mandatory indexed=no
+ - sourceId (string) mandatory hidden indexed=no
+ - sourceName (string) mandatory hidden indexed=no
 
 // On a results entry that holds imported submissions, of one source form or several after iteration 2.
 // mappings holds, per source form, the mapping that an attachment applied (one JSON string each).
 [fmdbmix:importedResults] mixin
- - sourceSystem (string) mandatory indexed=no
- - sourceFormIds (string) multiple indexed=no
- - mappings (string) multiple indexed=no
+ - sourceSystem (string) mandatory hidden indexed=no
+ - sourceFormIds (string) multiple hidden
+ - mappings (string) multiple hidden indexed=no
 
 // On an imported submission. sourceId is what a later run looks up, hence indexed. sourceFormId is the
 // key of its source form: the form's sourceId, or its sourceResultsId when Forms had deleted the form.
 [fmdbmix:importedSubmission] mixin
- - sourceId (string) mandatory
- - sourceFormId (string) mandatory indexed=no
+ - sourceId (string) mandatory hidden
+ - sourceFormId (string) mandatory hidden indexed=no
 
 [fmdb:importJobs] > jnt:content, jmix:accessControlled
  + * (fmdb:importJob) = fmdb:importJob
@@ -434,6 +434,11 @@ Forms: `sourceSystem` does.
  - updated (date) indexed=no
  + file (jnt:file) = jnt:file
 ```
+
+Every property of the four markers is `hidden`: the import and the attachment write and read them, and a
+contributor who opens an imported form or field in the editor has nothing to do with them, so the Content
+Editor does not show them. `ImportMarkersCndTest` holds the rule: a marker property without the flag fails the
+build.
 
 `fmdb:resultsFolder` gets one child of type `fmdb:importJobs`, for the jobs of [Running it](#running-it):
 a residual child in the CND, found by its type and named `import-jobs` unless a results entry, which is
