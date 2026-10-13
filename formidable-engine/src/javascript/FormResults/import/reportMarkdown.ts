@@ -47,15 +47,15 @@ function figuresOf(form: ImportReportForm, dryRun: boolean, t: Translate): strin
 }
 
 /**
- * The fields mapped to the visitor profile, as a table: the property, whether it exists and the mapping is written
- * (✓), or not and why (✗), or could not be checked (⚠), and whether the prefill is on.
+ * The fields mapped to the visitor profile, as the dialog shows them: the property, whether the prefill is on, and
+ * whether the property exists and the mapping is written (✓), or not and why (✗), or could not be checked (⚠).
  */
 function profileSection(profile: ReturnType<typeof profileMappings>, t: Translate): string[] {
     if (profile.mappings.length === 0) {
         return [];
     }
-    const header = [t('formResults.import.markdown.field'), t('formResults.import.markdown.property'), t('formResults.import.markdown.status'),
-        t('formResults.import.markdown.prefilled')];
+    const header = [t('formResults.import.profile.columns.field'), t('formResults.import.profile.columns.property'),
+        t('formResults.import.profile.columns.prefilled'), t('formResults.import.profile.columns.status')];
     const statusOf = (mapping: ProfileMapping): string => {
         if (mapping.status === 'failed') {
             const why = t(`formResults.import.profile.failed.${mapping.reason}`);
@@ -65,7 +65,7 @@ function profileSection(profile: ReturnType<typeof profileMappings>, t: Translat
     };
     const rows = profile.mappings.map(mapping => {
         const prefill = mapping.status !== 'failed' && mapping.prefilled ? '✓' : '';
-        return `| ${escape(mapping.field)} | *${escape(mapping.property)}* | ${escape(statusOf(mapping))} | ${prefill} |`;
+        return `| ${escape(mapping.field)} | *${escape(mapping.property)}* | ${prefill} | ${escape(statusOf(mapping))} |`;
     });
     return ['', `### ${t('formResults.import.profile.title')}`, '', t('formResults.import.profile.hint'), '', `| ${header.join(' | ')} |`, '|---|---|---|---|', ...rows];
 }
