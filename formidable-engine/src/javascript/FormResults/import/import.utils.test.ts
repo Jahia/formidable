@@ -265,7 +265,7 @@ describe('profileMappings', () => {
 
         const profile = profileMappings(info, action);
 
-        expect(profile.mappings).toEqual([
+        expect(profile.mappings).toMatchObject([
             {field: 'First name', property: 'firstName', status: 'mapped', prefilled: true, after: 'editable', reason: undefined},
             {field: 'Company', property: 'company', status: 'mapped', prefilled: false, after: undefined, reason: undefined},
             {field: 'Email', property: 'email', status: 'unchecked', prefilled: true, after: 'editable', reason: undefined},
@@ -273,6 +273,12 @@ describe('profileMappings', () => {
         ]);
         // the failed and unchecked mappings leave the notes to review for the mapping section, which flags them
         expect(profile.toReview.map(line => line.note.code)).toEqual(['form.redirect']);
+        // two prefills of one field, refused, are two lines of distinct keys
+        const twice = profileMappings([], [
+            {note: {code: 'field.prefillNoIntegration', level: 'action', params: {property: 'firstName'}}, fields: ['Name']},
+            {note: {code: 'field.prefillNoIntegration', level: 'action', params: {property: 'lastName'}}, fields: ['Name']}
+        ]);
+        expect(new Set(twice.mappings.map(mapping => mapping.key)).size).toEqual(2);
         expect(profile.others).toEqual([captcha]);
     });
 });

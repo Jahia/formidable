@@ -247,9 +247,8 @@ const ProfileMappings = ({profile, t}: {profile: ReturnType<typeof profileMappin
             <Typography variant="caption" weight="bold">{t('formResults.import.profile.title')}</Typography>
             <Typography variant="caption" style={{color: 'var(--color-gray)'}}>{t('formResults.import.profile.hint')}</Typography>
             <ul style={{margin: '4px 0 0', paddingLeft: '20px'}}>
-                {profile.mappings.map((mapping, index) => (
-                    // neither the label nor the property is unique: two prefills of one field, two fields of one label
-                    <li key={`${mapping.field}|${mapping.property}|${index}`} data-sel-field={mapping.field} data-sel-status={mapping.status}>
+                {profile.mappings.map(mapping => (
+                    <li key={mapping.key} data-sel-field={mapping.field} data-sel-status={mapping.status}>
                         {mapping.status === 'failed' ? (
                             <Typography variant="body" color="danger">
                                 <strong>{mapping.field}</strong> → <em>{mapping.property}</em>: {t(`formResults.import.profile.failed.${mapping.reason}`)}

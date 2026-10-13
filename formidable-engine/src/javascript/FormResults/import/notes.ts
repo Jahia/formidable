@@ -31,6 +31,8 @@ export const wordsOf = (value: string): string => typeKey(value)
 
 /** A field of the form whose Forms prefill became a mapping to a visitor profile property, or failed to. */
 export interface ProfileMapping {
+    /** Unique in the list: one note per code and parameters, one entry per field of the note. */
+    key: string;
     field: string;
     property: string;
     /** mapped; unchecked when jCustomer could not be asked; failed when the mapping was not written */
@@ -56,6 +58,7 @@ export function profileMappings(info: ReportLine[], action: ReportLine[] = []): 
 } {
     const mappings: ProfileMapping[] = [];
     const add = (line: ReportLine, status: ProfileMapping['status']) => line.fields.forEach(field => mappings.push({
+        key: `${line.note.code}|${field}|${line.note.params.property ?? ''}`,
         field,
         property: line.note.params.property ?? '',
         status,
