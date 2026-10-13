@@ -72,7 +72,7 @@ publish it.
 | **The forms are created unpublished, the results are written in live** | A contributor reviews a form, completes what the import reported, then publishes it: the import never publishes. Until then the Results page shows the entry as **Unpublished**, with the system names of the fields as columns, as for any native form that is not published. Results only exist in live in both products: the import writes them there, as `SaveToJcrFormAction` does, and they are never published. |
 | **`origin` = `jahia-forms` on an imported submission** | `origin` is the discriminator that [Save to JCR](save-to-jcr.md) documents for "a legacy-forms import". The Results page and the exports can tell an imported submission from a native one. |
 | **A Forms form is recognised by its `jcr:uuid` and by the `jcr:uuid` of its results node, a field by its `jcr:uuid`, a submission by its node name** | All of them are in the zip export. A later run finds the form it created, the field each value belongs to and the submissions it wrote, and adds only what is missing. The form keeps both of its keys because either can be missing: the form's, once Forms deleted the form; the results node's, while the form was never published. See [Running it twice](#running-it-twice). |
-| **A prefill from the visitor profile becomes the mapping of the field to that profile property** | The jExperience bridge of Forms (`jexperience-forms-bridge`) prefills a field from a jCustomer profile property and maps the submitted value back to it (`fcnt:mfffPrefill`), or maps without prefilling (`fcnt:mfffMappingOnly`); its `dataKey` holds the property, whose `itemId` is the identifier Formidable's jExperience integration stores in `jExperienceProfileProperty` ([jExperience integration](jexperience-integration.md)). The import writes that property, the prefill switch and what follows the write (`hideAfterPrefill` → hidden, `makeReadOnlyAfterPrefill` → read-only, else editable) when the integration is installed and its mixin reaches the field type, and reports the mapping so that the contributor checks it; without the integration, or on a type it does not reach, the report names the property to map by hand. The other prefill flavours of Forms (user info, geolocation) have no counterpart and are reported. |
+| **A prefill from the visitor profile becomes the mapping of the field to that profile property** | The jExperience bridge of Forms (`jexperience-forms-bridge`) prefills a field from a jCustomer profile property and maps the submitted value back to it (`fcnt:mfffPrefill`), or maps without prefilling (`fcnt:mfffMappingOnly`); its `dataKey` holds the property, whose `itemId` is the identifier Formidable's jExperience integration stores in `jExperienceProfileProperty` ([jExperience integration](jexperience-integration.md)). The import writes that property, the prefill switch and what follows the write (`hideAfterPrefill` → hidden, `makeReadOnlyAfterPrefill` → read-only, else editable) when the integration is installed, its mixin reaches the field type, and the profile server of the site declares the property with a type the field holds, and reports the mapping so that the contributor checks it. The integration answers that last point through `VisitorProfileSchema`, an interface of the engine API it implements from its catalog of profile properties and the type rule of its editor (`FieldShapes`): the mapping rule of a form skips, without a word, a field mapped to a property jCustomer does not declare or whose type does not fit, so the import never writes one; it reports the property to create, or the type that does not fit, instead. When jCustomer cannot be reached, the mapping is written as Forms had it, with a line to check that the property exists. Without the integration, or on a type it does not reach, the report names the property to map by hand. The other prefill flavours of Forms (user info, geolocation) have no counterpart and are reported. |
 | **The import starts from the Results page, behind a setting** | An **Import Jahia Forms results** button in the toolbar of the Results page, off by default, opens a dialog that takes the export, shows the report of a dry run, then imports into the current site. See [Running it](#running-it). |
 
 ## Source model (Forms 3.x)
@@ -318,7 +318,8 @@ For every field:
   key becomes the value, so that the imported values match, and the Forms label becomes the label;
 - a prefill from the visitor profile (`fcnt:mfffPrefill`, `fcnt:mfffMappingOnly`) is written as the mapping
   of the field to that profile property when the jExperience integration is installed and reaches the field
-  type (see the decisions), the first of the kind on a field; every other prefill, and `logics`, are reported,
+  type and the profile server declares the property with a type the field holds (see the decisions), the first
+  of the kind on a field; every other prefill, and `logics`, are reported,
   with the names of the fields they touch, and nothing is written for them. `inputsize` is dropped.
 
 **The date rule** needs no time zone. Forms stored the local midnight of the visitor: for a visitor at the
@@ -573,6 +574,12 @@ The final report says, on a line above the rows, that the created forms are in `
 unpublished; until a form is published, its entry shows as **Unpublished** on the Results page, with the
 labels of the form, read from edit, as columns; a contributor reviews each form, does what its row lists,
 then publishes it.
+
+**Download the report**, in the review and once the import is done, saves the report as a Markdown file,
+`forms-import-<site>-<yyyy-MM-dd-HHmm>.md` (UTC): one section per form with what receives its results, its
+figures, the values and files that did not come along, what to redo or check by hand and what was carried
+over, in the language of the dialog. The dialog builds it from the report it shows, with the same sentences;
+nothing is stored on the server, where the job and its report go once read.
 
 ### Running it twice
 

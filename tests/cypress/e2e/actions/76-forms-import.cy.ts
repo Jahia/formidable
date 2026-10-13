@@ -400,6 +400,16 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		cy.get('[data-sel-role="import-confirm"]').click();
 		dialogState('done');
 		cy.get('[data-sel-role="import-next-step"]').should('contain', 'unpublished');
+		// the report as a Markdown file: one section per form, what to redo by hand in words
+		cy.exec('rm -f cypress/downloads/forms-import-*.md');
+		cy.get('[data-sel-role="import-download-report"]').click();
+		cy.exec('ls cypress/downloads | grep "^forms-import-.*\\.md$"', {timeout: 30000}).its('stdout').then(name => {
+			cy.readFile(`cypress/downloads/${name.trim()}`).then((content: string) => {
+				expect(content).to.contain('# Jahia Forms import report');
+				expect(content).to.contain('## Contact Us');
+				expect(content).to.contain('page redirect').and.not.contain('fcnt:');
+			});
+		});
 		cy.get('[data-sel-role="import-totals"]').should('contain', '106');
 		closeDialog();
 		cy.get('[data-sel-role="form-results-entry"]', {timeout: 60000}).should('have.length', SAMPLE.forms.length);

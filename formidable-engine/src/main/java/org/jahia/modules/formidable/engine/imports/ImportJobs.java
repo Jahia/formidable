@@ -4,6 +4,7 @@ import org.jahia.modules.formidable.engine.util.FormidableJcrConstants;
 import org.jahia.modules.formidable.engine.actions.form.storage.SaveToJcrFormAction;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.engine.api.FmdbNodeType;
+import org.jahia.modules.formidable.engine.api.VisitorProfileSchema;
 import org.jahia.modules.formidable.engine.config.captcha.CaptchaConfigService;
 import org.jahia.modules.formidable.engine.config.choiceoptions.ChoiceOptionsConfigService;
 import org.jahia.modules.formidable.engine.imports.jahiaforms.FormsExportException;
@@ -25,6 +26,8 @@ import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.quartz.JobDetail;
 import org.quartz.ObjectAlreadyExistsException;
 import org.quartz.SchedulerException;
@@ -161,6 +164,8 @@ public class ImportJobs {
 
     private final AtomicReference<ChoiceOptionsConfigService> optionsConfig = new AtomicReference<>();
     private final AtomicReference<CaptchaConfigService> captchaConfig = new AtomicReference<>();
+    /** Offered by the jExperience integration when it is installed: the visitor profile properties of a site. */
+    private final AtomicReference<VisitorProfileSchema> profileSchema = new AtomicReference<>();
 
     @Reference
     public void setOptionsConfig(ChoiceOptionsConfigService service) {
@@ -170,6 +175,26 @@ public class ImportJobs {
     @Reference
     public void setCaptchaConfig(CaptchaConfigService service) {
         captchaConfig.set(service);
+    }
+
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, unbind = "unsetProfileSchema")
+    public void setProfileSchema(VisitorProfileSchema service) {
+        profileSchema.set(service);
+    }
+
+    public void unsetProfileSchema(VisitorProfileSchema service) {
+        profileSchema.compareAndSet(service, null);
+    }
+
+    /**
+     * What the profile server of the site says of a property, read when the import asks; without the integration,
+     * every property is taken, and the mixin it would add is not registered anyway.
+     */
+    private ImportEnvironment.ProfileFit profileFitOf(String siteKey) {
+        return (fieldType, multiple, property) -> {
+            VisitorProfileSchema schema = profileSchema.get();
+            return schema == null ? VisitorProfileSchema.Fit.FITS : schema.fit(siteKey, fieldType, multiple, property);
+        };
     }
 
     @Activate
@@ -451,7 +476,7 @@ public class ImportJobs {
             try (FormsExportReader reader = FormsExportReader.open(export)) {
                 ImportWriter writer = new ImportWriter(edit, live, siteKey, FOLDER_TITLE);
                 ImportEnvironment environment = new ImportEnvironment(type -> hasNodeType(edit, type), this::isOptionsSourceDeclared,
-                        type -> isProfileMappable(edit, type), isCaptchaConfigured());
+                        type -> isProfileMappable(edit, type), profileFitOf(siteKey), isCaptchaConfigured());
                 FormsImportRun run = new FormsImportRun(reader, writer, phase == Phase.DRY_RUN, choices, environment);
                 return run.run();
             } catch (IOException | FormsExportException e) {

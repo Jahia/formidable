@@ -1,10 +1,12 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useQuery} from '@apollo/client';
-import {Button, Check, Close, Loader, Typography, Upload} from '@jahia/moonstone';
+import {Button, Check, Close, Download, Loader, Typography, Upload} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
 import {uiContext} from '../FormResults.utils';
+import {downloadFile} from '../export/export.utils';
 import {GET_SITE_FORMS} from '../graphql';
-import {ReportTable} from './ImportReportTable';
+import {ReportTable, rowOf} from './ImportReportTable';
+import {reportFileName, reportMarkdown} from './reportMarkdown';
 import {
     choicesReady,
     closeJob,
@@ -168,6 +170,26 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
         setState('waiting');
     };
 
+    // The report as a Markdown file, built here from what the dialog shows: nothing is stored on the server.
+    const downloadReport = () => {
+        if (!job?.report) {
+            return;
+        }
+        const date = new Date();
+        const steerable = state === 'review';
+        const rowOfForm = (form: Parameters<typeof rowOf>[0]) => rowOf(form, choices, siteForms, steerable, t);
+        const content = reportMarkdown(job.report, {
+            siteKey,
+            fileName,
+            language,
+            date,
+            t,
+            outcomeOf: form => rowOfForm(form).text,
+            notesApply: form => rowOfForm(form).outcome === 'created'
+        });
+        downloadFile(reportFileName(siteKey, date), content, 'text/markdown;charset=utf-8');
+    };
+
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         event.target.value = '';
@@ -318,6 +340,17 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                     )}
                 </div>
                 <div style={{display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '0 20px 20px'}}>
+                    {(state === 'review' || state === 'done') && job?.report && (
+                        <Button
+                            size="big"
+                            variant="ghost"
+                            icon={<Download/>}
+                            label={t('formResults.import.actions.downloadReport')}
+                            data-sel-role="import-download-report"
+                            style={{marginRight: 'auto'}}
+                            onClick={downloadReport}
+                        />
+                    )}
                     {(state === 'waiting' || state === 'analysing') && (
                         <Button size="big" variant="outlined" label={t('formResults.import.actions.cancel')} data-sel-role="import-cancel" onClick={close}/>
                     )}

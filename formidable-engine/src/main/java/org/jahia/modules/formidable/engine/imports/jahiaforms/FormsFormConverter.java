@@ -1,6 +1,7 @@
 package org.jahia.modules.formidable.engine.imports.jahiaforms;
 
 import org.jahia.modules.formidable.engine.api.FmdbNodeType;
+import org.jahia.modules.formidable.engine.api.VisitorProfileSchema;
 import org.jahia.modules.formidable.engine.imports.SystemNames;
 import org.jahia.modules.formidable.engine.imports.model.ImportedAction;
 import org.jahia.modules.formidable.engine.imports.model.ImportedContainer;
@@ -38,6 +39,7 @@ public final class FormsFormConverter {
     private static final String FIELD = "field";
     private static final String RULE = "rule";
     private static final String PROPERTY = "property";
+    private static final String TYPE = "type";
     private static final String PLAIN_LANGUAGE = "";
 
     /** The Forms file-type groups a {@code fileValidation} selects, as {@code accept} can say them; {@code all} restricts nothing. */
@@ -59,6 +61,7 @@ public final class FormsFormConverter {
     private final Predicate<String> registeredTypes;
     private final Predicate<String> declaredOptionsSources;
     private final Predicate<String> profileMappable;
+    private final ImportEnvironment.ProfileFit profileFit;
     private final boolean captchaConfigured;
 
     /**
@@ -76,6 +79,7 @@ public final class FormsFormConverter {
         this.registeredTypes = environment.registeredTypes();
         this.declaredOptionsSources = environment.declaredOptionsSources();
         this.profileMappable = environment.profileMappable();
+        this.profileFit = environment.profileFit();
         this.captchaConfigured = environment.captchaConfigured();
     }
 
@@ -210,31 +214,56 @@ public final class FormsFormConverter {
     private void fillPrefills(ImportedField.Builder field, FormsField definition, FormsFieldTypes.Mapping mapping) {
         boolean mapped = false;
         for (FormsPrefill prefill : definition.prefills()) {
-            ImportNote refusal = refusalOf(prefill, mapping, mapped);
-            if (refusal == null) {
+            PrefillDecision decision = decide(prefill, mapping, mapped);
+            if (decision.refusal() == null) {
                 carry(field, prefill);
                 mapped = true;
+                if (decision.unchecked()) {
+                    field.report(ImportNote.action("field.profileUnchecked", PROPERTY, prefill.profileProperty()));
+                }
             } else {
-                field.report(refusal);
+                field.report(decision.refusal());
             }
         }
     }
 
-    /** Why a prefill is reported instead of carried over; null when the field takes it. */
-    private ImportNote refusalOf(FormsPrefill prefill, FormsFieldTypes.Mapping mapping, boolean mapped) {
+    /**
+     * Whether a prefill is carried over: the refusal to report instead, or none when the field takes it, and
+     * whether the profile server could not be asked whether it declares the property.
+     */
+    private record PrefillDecision(ImportNote refusal, boolean unchecked) {
+        static final PrefillDecision CARRIED = new PrefillDecision(null, false);
+    }
+
+    /**
+     * A prefill is carried over when it comes from the visitor profile, the field is not mapped yet, the jExperience
+     * integration is installed and reaches the type, and the profile server of the site declares the property with a
+     * type the field holds: a mapping to any other property would be skipped when the mapping rule of the form is built.
+     */
+    private PrefillDecision decide(FormsPrefill prefill, FormsFieldTypes.Mapping mapping, boolean mapped) {
         if (!prefill.isProfileMapping()) {
-            return ImportNote.action("field.prefillOther", "prefill", prefill.type());
+            return refused(ImportNote.action("field.prefillOther", "prefill", prefill.type()));
         }
+        String property = prefill.profileProperty();
         if (mapped) {
-            return ImportNote.action("field.prefillAlreadyMapped", PROPERTY, prefill.profileProperty());
+            return refused(ImportNote.action("field.prefillAlreadyMapped", PROPERTY, property));
         }
         if (!registeredTypes.test(PROFILE_MAPPING_MIXIN)) {
-            return ImportNote.action("field.prefillNoIntegration", PROPERTY, prefill.profileProperty());
+            return refused(ImportNote.action("field.prefillNoIntegration", PROPERTY, property));
         }
         if (!profileMappable.test(mapping.nodeType())) {
-            return ImportNote.action("field.prefillNotMappable", PROPERTY, prefill.profileProperty(), "type", mapping.nodeType());
+            return refused(ImportNote.action("field.prefillNotMappable", PROPERTY, property, TYPE, mapping.nodeType()));
         }
-        return null;
+        return switch (profileFit.fit(mapping.nodeType(), false, property)) {
+            case UNKNOWN -> refused(ImportNote.action("field.prefillUnknownProperty", PROPERTY, property));
+            case INCOMPATIBLE -> refused(ImportNote.action("field.prefillIncompatible", PROPERTY, property, TYPE, mapping.nodeType()));
+            case UNAVAILABLE -> new PrefillDecision(null, true);
+            case FITS -> PrefillDecision.CARRIED;
+        };
+    }
+
+    private static PrefillDecision refused(ImportNote note) {
+        return new PrefillDecision(note, false);
     }
 
     /** The mapping of the field to the profile property, with the prefill and what follows it as Forms had them. */
@@ -261,7 +290,7 @@ public final class FormsFormConverter {
     private static void fillRules(ImportedField.Builder field, FormsField definition, FormsFieldTypes.Mapping mapping) {
         for (FormsValidation rule : definition.validations()) {
             if (!carried(field, rule, mapping)) {
-                field.report(ImportNote.action("field.rule", RULE, rule.type(), "type", mapping.nodeType()));
+                field.report(ImportNote.action("field.rule", RULE, rule.type(), TYPE, mapping.nodeType()));
             }
         }
     }

@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.engine.imports.jahiaforms;
 
+import org.jahia.modules.formidable.engine.api.VisitorProfileSchema;
 import org.jahia.modules.formidable.engine.imports.model.ImportNote;
 import org.jahia.modules.formidable.engine.imports.model.ImportedContainer;
 import org.jahia.modules.formidable.engine.imports.model.ImportedField;
@@ -20,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class FormsFormConverterTest {
 
     private static final String PROPERTY = "property";
+    private static final String EMAIL_PROPERTY = "email";
     private static final FormsFormConverter EVERYTHING = new FormsFormConverter(type -> true, source -> true);
     private static final FormsFormConverter ELEMENTS_ONLY = new FormsFormConverter(type -> !type.startsWith("fmdbext:"), source -> false);
 
@@ -50,7 +52,7 @@ class FormsFormConverterTest {
     void aPrefillFromTheVisitorProfileBecomesTheMappingOfTheFieldWhenTheIntegrationReachesIt() throws Exception {
         FormsExport export = sample();
         FormsForm source = export.forms().get("contact-us");
-        FormsFormConverter mapping = new FormsFormConverter(new ImportEnvironment(type -> true, s -> true, type -> type.equals(FormsFieldTypes.INPUT_TEXT), false));
+        FormsFormConverter mapping = new FormsFormConverter(new ImportEnvironment(type -> true, s -> true, type -> type.equals(FormsFieldTypes.INPUT_TEXT), ImportEnvironment.ANY_PROPERTY, false));
 
         ImportedForm form = mapping.convert(source, export.resultsOf(source));
 
@@ -74,7 +76,7 @@ class FormsFormConverterTest {
 
     @Test
     void aPrefillCarriesWhatFollowsTheWriteTheMappingAloneAndOneMappingPerField() {
-        FormsFormConverter mapping = new FormsFormConverter(new ImportEnvironment(type -> true, s -> true, type -> true, false));
+        FormsFormConverter mapping = new FormsFormConverter(new ImportEnvironment(type -> true, s -> true, type -> true, ImportEnvironment.ANY_PROPERTY, false));
         FormsPrefill hidden = new FormsPrefill(FormsPrefill.PROFILE_PREFILL_TYPE, "firstName", true, false);
         FormsPrefill readOnly = new FormsPrefill(FormsPrefill.PROFILE_PREFILL_TYPE, "lastName", false, true);
         FormsPrefill both = new FormsPrefill(FormsPrefill.PROFILE_PREFILL_TYPE, "email", true, true);
@@ -474,6 +476,31 @@ class FormsFormConverterTest {
         FormsStep step = new FormsStep("step-1", 1, Map.of(), List.of(fields));
         return new FormsForm("f", "uf", "formFactory/forms/f", "en", Map.of("en", "F"), Map.of(), FormsForm.Settings.NONE, List.of(step),
                 List.of(new FormsAction("savetojcraction", FormsAction.SAVE_TO_JCR, Map.of())));
+    }
+
+    @Test
+    void aPrefillIsMappedOnlyToAPropertyTheProfileServerDeclaresWithATypeTheFieldHolds() throws Exception {
+        FormsExport export = sample();
+        FormsForm source = export.forms().get("contact-us");
+        ImportEnvironment.ProfileFit server = (fieldType, multiple, property) -> switch (property) {
+            case "firstName" -> VisitorProfileSchema.Fit.FITS;
+            case "lastName" -> VisitorProfileSchema.Fit.INCOMPATIBLE;
+            case EMAIL_PROPERTY -> VisitorProfileSchema.Fit.UNAVAILABLE;
+            default -> VisitorProfileSchema.Fit.UNKNOWN;
+        };
+        List<ImportedField> fields = new FormsFormConverter(new ImportEnvironment(type -> true, s -> true, type -> true, server, false))
+                .convert(source, export.resultsOf(source)).fields().toList();
+
+        assertEquals("firstName", fields.get(0).properties().get(FormsFormConverter.PROFILE_PROPERTY));
+        // an incompatible or unknown property would be skipped by the mapping rule: not written, to redo by hand
+        assertNull(fields.get(1).properties().get(FormsFormConverter.PROFILE_PROPERTY));
+        assertTrue(fields.get(1).mixins().isEmpty());
+        assertTrue(has(fields.get(1).report(), "field.prefillIncompatible", PROPERTY, "lastName"), fields.get(1).report().toString());
+        // a profile server that cannot be asked leaves the mapping as the source had it, with a line to check it
+        assertEquals(EMAIL_PROPERTY, fields.get(2).properties().get(FormsFormConverter.PROFILE_PROPERTY));
+        assertTrue(has(fields.get(2).report(), "field.profileUnchecked", PROPERTY, EMAIL_PROPERTY), fields.get(2).report().toString());
+        assertNull(fields.get(4).properties().get(FormsFormConverter.PROFILE_PROPERTY));
+        assertTrue(has(fields.get(4).report(), "field.prefillUnknownProperty", PROPERTY, "sfdc__leadComments"), fields.get(4).report().toString());
     }
 
     /** Whether the notes hold one of that code whose parameters include the given name, value pairs. */
