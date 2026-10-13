@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {Button, Check, Dropdown, Typography, Warning} from '@jahia/moonstone';
+import {Button, Check, Close, Dropdown, Typography, Warning} from '@jahia/moonstone';
 import {formatFileSize} from '../FormResults.utils';
 import {AttachToForm} from './AttachToForm';
 import {
@@ -122,7 +122,7 @@ const FormRow = ({form, report, language, t, choices = {}, siteForms, optionsLan
     // what the form itself cannot carry over only matters when a form is created
     const notes = outcome === 'created' ? groupedNotes(form, language) : {action: [], info: []};
     const hasNotes = notes.action.length + notes.info.length > 0;
-    const profile = profileMappings(notes.info);
+    const profile = profileMappings(notes.info, notes.action);
     const pickedForm = attachment && siteForms?.find(siteForm => siteForm.uuid === attachment.form);
     const choose = (value: string) => {
         onChoice?.(form.sourceName, value === 'attach' ? {choice: 'attach', form: '', mapping: {}} : value as ImportChoice);
@@ -197,7 +197,7 @@ const FormRow = ({form, report, language, t, choices = {}, siteForms, optionsLan
             )}
             {open && hasNotes && (
                 <div data-sel-role="import-report-notes" style={{display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '12px'}}>
-                    {notes.action.length > 0 && <NotesList title={t('formResults.import.notes.action')} lines={notes.action} level="action" t={t}/>}
+                    {profile.toReview.length > 0 && <NotesList title={t('formResults.import.notes.action')} lines={profile.toReview} level="action" t={t}/>}
                     <ProfileMappings profile={profile} t={t}/>
                     {profile.others.length > 0 && <NotesList title={t('formResults.import.notes.info')} lines={profile.others} level="info" t={t}/>}
                 </div>
@@ -235,8 +235,8 @@ function describe(form: ImportReportForm, outcome: ImportReportForm['outcome'], 
 }
 
 /**
- * The fields mapped to the visitor profile, one line each — label, property, a check when prefilled — and what follows
- * the prefill said once when every prefilled field shares it.
+ * The fields mapped to the visitor profile, one line each: label, property, whether the prefill is on — what follows
+ * it said once when every prefilled field shares it — and, in red, the fields whose mapping failed, with why.
  */
 const ProfileMappings = ({profile, t}: {profile: ReturnType<typeof profileMappings>; t: Translate}) => {
     const {mappings, commonAfter} = profile;
@@ -261,14 +261,28 @@ const ProfileMappings = ({profile, t}: {profile: ReturnType<typeof profileMappin
             )}
             <ul style={{margin: '4px 0 0', paddingLeft: '20px'}}>
                 {mappings.map(mapping => (
-                    <li key={mapping.field} data-sel-field={mapping.field}>
-                        <Typography variant="body" style={{display: 'inline-flex', alignItems: 'center', gap: '6px'}}>
-                            <strong>{mapping.field}</strong>
-                            <span aria-hidden="true">→</span>
-                            <em>{mapping.property}</em>
-                            {mapping.prefilled && <Check size="small" color="green" aria-label={t('formResults.import.profile.prefilled')}/>}
-                            {after(mapping)}
-                        </Typography>
+                    <li key={mapping.field} data-sel-field={mapping.field} data-sel-status={mapping.status}>
+                        {mapping.status === 'failed' ? (
+                            <Typography variant="body" color="danger">
+                                <strong>{mapping.field}</strong> → <em>{mapping.property}</em>: {t(`formResults.import.profile.failed.${mapping.reason}`)}
+                            </Typography>
+                        ) : (
+                            <Typography variant="body" style={{display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap'}}>
+                                <strong>{mapping.field}</strong>
+                                <span aria-hidden="true">→</span>
+                                <em>{mapping.property}</em>
+                                <span>· {t('formResults.import.profile.prefill')}</span>
+                                {mapping.prefilled ?
+                                    <Check size="small" color="green" aria-label={t('formResults.import.profile.on')}/> :
+                                    <Close size="small" color="red" aria-label={t('formResults.import.profile.off')}/>}
+                                {after(mapping)}
+                                {mapping.status === 'unchecked' && (
+                                    <span style={{display: 'inline-flex', alignItems: 'center', gap: '4px'}}>
+                                        <Warning size="small" color="yellow"/>{t('formResults.import.profile.unchecked')}
+                                    </span>
+                                )}
+                            </Typography>
+                        )}
                     </li>
                 ))}
             </ul>

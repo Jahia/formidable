@@ -248,22 +248,31 @@ describe('noteText', () => {
 describe('profileMappings', () => {
     const prefilled = (property: string, after: string) => ({code: 'field.profilePrefilled', level: 'info' as const, params: {property, after}});
 
-    it('takes the profile mappings apart, one per field, and says what follows the prefill once when all share it', () => {
+    it('gathers the mappings of a form, written or failed, one per field, and says what follows the prefill once', () => {
         const captcha = {note: {code: 'form.captchaOn', level: 'info' as const, params: {}}, fields: []};
-        const lines = [
+        const redirect = {note: {code: 'form.redirect', level: 'action' as const, params: {target: '/home'}}, fields: []};
+        const info = [
             {note: prefilled('firstName', 'editable'), fields: ['First name']},
             {note: {code: 'field.profileMapped', level: 'info' as const, params: {property: 'company'}}, fields: ['Company']},
             {note: prefilled('email', 'editable'), fields: ['Email']},
             captcha
         ];
+        const action = [
+            {note: {code: 'field.prefillUnknownProperty', level: 'action' as const, params: {property: 'sfdc__lead'}}, fields: ['Enquiry']},
+            {note: {code: 'field.profileUnchecked', level: 'action' as const, params: {property: 'email'}}, fields: ['Email']},
+            redirect
+        ];
 
-        const profile = profileMappings(lines);
+        const profile = profileMappings(info, action);
 
         expect(profile.mappings).toEqual([
-            {field: 'First name', property: 'firstName', prefilled: true, after: 'editable'},
-            {field: 'Company', property: 'company', prefilled: false, after: undefined},
-            {field: 'Email', property: 'email', prefilled: true, after: 'editable'}
+            {field: 'First name', property: 'firstName', status: 'mapped', prefilled: true, after: 'editable', reason: undefined},
+            {field: 'Company', property: 'company', status: 'mapped', prefilled: false, after: undefined, reason: undefined},
+            {field: 'Email', property: 'email', status: 'unchecked', prefilled: true, after: 'editable', reason: undefined},
+            {field: 'Enquiry', property: 'sfdc__lead', status: 'failed', prefilled: false, after: undefined, reason: 'field.prefillUnknownProperty'}
         ]);
+        // the failed and unchecked mappings leave the notes to review for the mapping section, which flags them
+        expect(profile.toReview.map(line => line.note.code)).toEqual(['form.redirect']);
         expect(profile.others).toEqual([captcha]);
         expect(profile.commonAfter).toEqual('editable');
         expect(profileMappings([{note: prefilled('a', 'editable'), fields: ['A']}, {note: prefilled('b', 'hidden'), fields: ['B']}]).commonAfter).toBeNull();

@@ -420,7 +420,18 @@
 			"profile": {
 				"title": "Lié au profil visiteur (jExperience)",
 				"after": "Après le préremplissage : {{after}}",
-				"prefilled": "prérempli depuis le profil"
+				"prefill": "préremplissage",
+				"on": "préremplissage activé",
+				"off": "préremplissage désactivé",
+				"unchecked": "non vérifié, jCustomer était injoignable",
+				"failed": {
+					"field": {
+						"prefillUnknownProperty": "non lié, jCustomer n’a pas cette propriété : créez-la, puis liez le champ",
+						"prefillIncompatible": "non lié, son type ne convient pas à ce champ",
+						"prefillNoIntegration": "non lié, l’intégration jExperience n’est pas installée",
+						"prefillNotMappable": "non lié, ce type de champ ne peut pas être lié"
+					}
+				}
 			}
 		},
 		"attach": {
