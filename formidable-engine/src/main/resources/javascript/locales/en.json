@@ -419,7 +419,6 @@
 			},
 			"profile": {
 				"title": "Mapped to the visitor profile (jExperience)",
-				"after": "After the prefill: {{after}}",
 				"prefill": "prefill",
 				"on": "prefill on",
 				"off": "prefill off",
@@ -431,7 +430,8 @@
 						"prefillNoIntegration": "not mapped, the jExperience integration is not installed",
 						"prefillNotMappable": "not mapped, this field type cannot be mapped"
 					}
-				}
+				},
+				"hint": "You can review these mappings after the import, in the jExperience section of each field."
 			}
 		},
 		"attach": {

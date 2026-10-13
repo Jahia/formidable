@@ -48,12 +48,11 @@ const FAILED_CODES = new Set(['field.prefillUnknownProperty', 'field.prefillInco
 const UNCHECKED_CODE = 'field.profileUnchecked';
 
 /**
- * The profile mappings of a form, one per field — the ones written, and the ones that failed, which the notes to
- * review hold — apart from the other lines; and what follows the prefill when every prefilled field shares it,
- * so that it is said once.
+ * The profile mappings of a form, one per field — the ones written, and the ones that failed or could not be
+ * checked, which the notes to review hold — apart from the other lines.
  */
 export function profileMappings(info: ReportLine[], action: ReportLine[] = []): {
-    mappings: ProfileMapping[]; others: ReportLine[]; toReview: ReportLine[]; commonAfter: string | null;
+    mappings: ProfileMapping[]; others: ReportLine[]; toReview: ReportLine[];
 } {
     const mappings: ProfileMapping[] = [];
     const add = (line: ReportLine, status: ProfileMapping['status']) => line.fields.forEach(field => mappings.push({
@@ -85,6 +84,5 @@ export function profileMappings(info: ReportLine[], action: ReportLine[] = []): 
             mapping.status = 'unchecked';
         });
     }));
-    const afters = new Set(mappings.filter(mapping => mapping.status !== 'failed' && mapping.prefilled).map(mapping => mapping.after));
-    return {mappings, others, toReview, commonAfter: afters.size === 1 ? [...afters][0] ?? null : null};
+    return {mappings, others, toReview};
 }

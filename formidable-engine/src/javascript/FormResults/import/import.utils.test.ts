@@ -248,7 +248,7 @@ describe('noteText', () => {
 describe('profileMappings', () => {
     const prefilled = (property: string, after: string) => ({code: 'field.profilePrefilled', level: 'info' as const, params: {property, after}});
 
-    it('gathers the mappings of a form, written or failed, one per field, and says what follows the prefill once', () => {
+    it('gathers the mappings of a form, written, unchecked or failed, one per field', () => {
         const captcha = {note: {code: 'form.captchaOn', level: 'info' as const, params: {}}, fields: []};
         const redirect = {note: {code: 'form.redirect', level: 'action' as const, params: {target: '/home'}}, fields: []};
         const info = [
@@ -274,7 +274,5 @@ describe('profileMappings', () => {
         // the failed and unchecked mappings leave the notes to review for the mapping section, which flags them
         expect(profile.toReview.map(line => line.note.code)).toEqual(['form.redirect']);
         expect(profile.others).toEqual([captcha]);
-        expect(profile.commonAfter).toEqual('editable');
-        expect(profileMappings([{note: prefilled('a', 'editable'), fields: ['A']}, {note: prefilled('b', 'hidden'), fields: ['B']}]).commonAfter).toBeNull();
     });
 });

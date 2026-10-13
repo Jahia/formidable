@@ -419,7 +419,6 @@
 			},
 			"profile": {
 				"title": "Lié au profil visiteur (jExperience)",
-				"after": "Après le préremplissage : {{after}}",
 				"prefill": "préremplissage",
 				"on": "préremplissage activé",
 				"off": "préremplissage désactivé",
@@ -431,7 +430,8 @@
 						"prefillNoIntegration": "non lié, l’intégration jExperience n’est pas installée",
 						"prefillNotMappable": "non lié, ce type de champ ne peut pas être lié"
 					}
-				}
+				},
+				"hint": "Vous pourrez revoir ces liaisons après l’import, dans la section jExperience de chaque champ."
 			}
 		},
 		"attach": {

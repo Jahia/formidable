@@ -17,7 +17,7 @@ import {
     type SiteForm,
     type TargetField
 } from './import.utils';
-import {noteText, type ProfileMapping, profileMappings} from './notes';
+import {noteText, profileMappings} from './notes';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -235,32 +235,19 @@ function describe(form: ImportReportForm, outcome: ImportReportForm['outcome'], 
 }
 
 /**
- * The fields mapped to the visitor profile, one line each: label, property, whether the prefill is on — what follows
- * it said once when every prefilled field shares it — and, in red, the fields whose mapping failed, with why.
+ * The fields mapped to the visitor profile, one line each: label, property and whether the prefill is on — and, in
+ * red, the fields whose mapping failed, with why. A line under the title says where to review the mappings.
  */
 const ProfileMappings = ({profile, t}: {profile: ReturnType<typeof profileMappings>; t: Translate}) => {
-    const {mappings, commonAfter} = profile;
-    if (mappings.length === 0) {
+    if (profile.mappings.length === 0) {
         return null;
     }
-    // what follows the prefill, on the line of a field only when the fields do not all share it
-    const after = (mapping: ProfileMapping): string => {
-        if (!mapping.prefilled || !mapping.after || commonAfter !== null) {
-            return '';
-        }
-        const label = t(`formResults.import.after.${mapping.after}`);
-        return `· ${label}`;
-    };
     return (
         <div data-sel-role="import-report-profile">
             <Typography variant="caption" weight="bold">{t('formResults.import.profile.title')}</Typography>
-            {commonAfter && (
-                <Typography variant="caption" style={{color: 'var(--color-gray)'}}>
-                    {t('formResults.import.profile.after', {after: t(`formResults.import.after.${commonAfter}`)})}
-                </Typography>
-            )}
+            <Typography variant="caption" style={{color: 'var(--color-gray)'}}>{t('formResults.import.profile.hint')}</Typography>
             <ul style={{margin: '4px 0 0', paddingLeft: '20px'}}>
-                {mappings.map(mapping => (
+                {profile.mappings.map(mapping => (
                     <li key={mapping.field} data-sel-field={mapping.field} data-sel-status={mapping.status}>
                         {mapping.status === 'failed' ? (
                             <Typography variant="body" color="danger">
@@ -275,7 +262,6 @@ const ProfileMappings = ({profile, t}: {profile: ReturnType<typeof profileMappin
                                 {mapping.prefilled ?
                                     <Check size="small" color="green" aria-label={t('formResults.import.profile.on')}/> :
                                     <Close size="small" color="red" aria-label={t('formResults.import.profile.off')}/>}
-                                {after(mapping)}
                                 {mapping.status === 'unchecked' && (
                                     <span style={{display: 'inline-flex', alignItems: 'center', gap: '4px'}}>
                                         <Warning size="small" color="yellow"/>{t('formResults.import.profile.unchecked')}
