@@ -234,7 +234,10 @@ function describe(form: ImportReportForm, outcome: ImportReportForm['outcome'], 
     return t(`formResults.import.${tense}.${outcome ?? DEFAULT_CHOICE}`, {name});
 }
 
-/** Columns that fit their text up to a limit, the status taking the rest of the width and wrapping. */
+/**
+ * A native table laid out as a grid: columns that fit their text up to a limit, the status taking the rest of the
+ * width and wrapping. The sections and rows display as contents, their cells being the grid's items.
+ */
 const PROFILE_GRID = {
     display: 'grid',
     gridTemplateColumns: 'fit-content(30%) fit-content(25%) max-content minmax(0, 1fr)',
@@ -243,6 +246,9 @@ const PROFILE_GRID = {
     alignItems: 'baseline',
     overflowWrap: 'anywhere' as const
 };
+
+const CONTENTS = {display: 'contents'};
+const CELL = {padding: 0, textAlign: 'left' as const, fontWeight: 'normal'};
 
 /**
  * The fields mapped to the visitor profile, as a compact grid: the field, the property, a check when the prefill is
@@ -276,32 +282,37 @@ const ProfileMappings = ({profile, t}: {profile: ReturnType<typeof profileMappin
         <div data-sel-role="import-report-profile" style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
             <Typography variant="caption" weight="bold">{t('formResults.import.profile.title')}</Typography>
             <Typography variant="caption" style={{color: 'var(--color-gray)'}}>{t('formResults.import.profile.hint')}</Typography>
-            <div role="table" style={PROFILE_GRID}>
-                <div role="row" style={{display: 'contents'}}>
-                    {(['field', 'property', 'prefilled', 'status'] as const).map(column => (
-                        <Typography key={column} role="columnheader" variant="caption" weight="bold" style={{color: 'var(--color-gray)'}}>
-                            {t(`formResults.import.profile.columns.${column}`)}
-                        </Typography>
+            <table style={PROFILE_GRID}>
+                <thead style={CONTENTS}>
+                    <tr style={CONTENTS}>
+                        {(['field', 'property', 'prefilled', 'status'] as const).map(column => (
+                            <th key={column} scope="col" style={CELL}>
+                                <Typography variant="caption" weight="bold" style={{color: 'var(--color-gray)'}}>
+                                    {t(`formResults.import.profile.columns.${column}`)}
+                                </Typography>
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+                <tbody style={CONTENTS}>
+                    {profile.mappings.map(mapping => (
+                        <tr
+                            key={mapping.key}
+                            style={CONTENTS}
+                            data-sel-role="import-report-profile-row"
+                            data-sel-field={mapping.field}
+                            data-sel-status={mapping.status}
+                        >
+                            <td style={CELL}><Typography variant="body">{mapping.field}</Typography></td>
+                            <td style={CELL}><Typography variant="body"><em>{mapping.property}</em></Typography></td>
+                            <td style={{...CELL, textAlign: 'center'}}>
+                                {mapping.status !== 'failed' && mapping.prefilled && <Check size="small" color="green" aria-label={t('formResults.import.profile.prefill')}/>}
+                            </td>
+                            <td style={CELL}>{statusOf(mapping)}</td>
+                        </tr>
                     ))}
-                </div>
-                {profile.mappings.map(mapping => (
-                    <div
-                        key={mapping.key}
-                        role="row"
-                        style={{display: 'contents'}}
-                        data-sel-role="import-report-profile-row"
-                        data-sel-field={mapping.field}
-                        data-sel-status={mapping.status}
-                    >
-                        <Typography role="cell" variant="body">{mapping.field}</Typography>
-                        <Typography role="cell" variant="body"><em>{mapping.property}</em></Typography>
-                        <div role="cell" style={{textAlign: 'center'}}>
-                            {mapping.status !== 'failed' && mapping.prefilled && <Check size="small" color="green" aria-label={t('formResults.import.profile.prefill')}/>}
-                        </div>
-                        <div role="cell">{statusOf(mapping)}</div>
-                    </div>
-                ))}
-            </div>
+                </tbody>
+            </table>
         </div>
     );
 };
