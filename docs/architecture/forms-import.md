@@ -566,7 +566,7 @@ and every rule, prefill, action, field kind and setting in words (`formResults.i
 not know read as words drawn from it, without its namespace): its sentences never show a node type or a Forms type
 name. The one path they show is the target of a Forms redirect, a page of the source site, which the
 contributor needs to rebuild it. The notes only matter when the form is created, so the row of a form to create shows a count,
-**N to do**, that unfolds into two lists, what to do by hand and what was carried over; a note met on
+**N to review**, in a **Notes** column, a button that unfolds the notes under the row: what to review by hand, then what was carried over; a note met on
 several fields is one line naming the fields by their labels.
 
 The final report says, on a line above the rows, that the created forms are in `imported-forms`,

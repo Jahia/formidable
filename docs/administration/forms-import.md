@@ -47,7 +47,7 @@ results: the import refuses them with this procedure.
    the administrators of the site, the users who hold the site-administrator role on it.
 3. Click **Import Jahia Forms results**, drop the zip on the dialog or choose it. The dialog analyses the export without
    writing anything, and shows what the import will do, one row per form: its submissions, fields and files,
-   whether it is already there, and, for a form to create, how many points are left to do by hand once it is
+   whether it is already there, and, for a form to create, how many points there are to review once it is
    created. Click that count to read them, with what was carried over.
 4. Choose, in the **What to do** menu of each row, what receives the results of the form: **Results only**,
    **Create the form**, **Attach to an existing form**, or **Don't import**, which leaves the form out of
@@ -63,7 +63,7 @@ results: the import refuses them with this procedure.
    site.
 6. Read the final report, then publish the forms you had created: until a form is published, its entry on
    the Results page shows as **Unpublished**, with the labels of the form as column heads, read from the
-   edit workspace. Review each form, do what its row lists under **To do**, then publish it. Grant the **Form
+   edit workspace. Review each form, do what its row lists under **Notes**, then publish it. Grant the **Form
    results reader** role on the form to the people who read its results, as for any form
    ([Results permissions](results-permissions.md)). Results attached to a form of the site already have the
    readers of that form.

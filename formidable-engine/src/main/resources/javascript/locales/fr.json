@@ -282,7 +282,7 @@
 				"form": "Formulaire",
 				"choice": "Que faire",
 				"result": "Résultat",
-				"todo": "À faire"
+				"todo": "Remarques"
 			},
 			"plan": {
 				"resultsOnly": "Ses soumissions s’affichent sur cette page, sans formulaire.",
@@ -301,11 +301,11 @@
 				"skipped": "Non importé"
 			},
 			"todo": {
-				"count": "{{count}} à faire",
+				"count": "{{count}} à revoir",
 				"details": "Détails"
 			},
 			"notes": {
-				"action": "À refaire ou vérifier à la main",
+				"action": "À revoir",
 				"info": "Repris"
 			},
 			"after": {

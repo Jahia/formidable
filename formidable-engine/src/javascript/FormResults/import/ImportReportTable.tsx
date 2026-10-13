@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {Button, Check, ChevronDown, ChevronUp, Dropdown, Typography, Warning} from '@jahia/moonstone';
+import {Button, Check, Dropdown, Typography, Warning} from '@jahia/moonstone';
 import {formatFileSize} from '../FormResults.utils';
 import {AttachToForm} from './AttachToForm';
 import {
@@ -166,11 +166,10 @@ const FormRow = ({form, report, language, t, choices = {}, siteForms, optionsLan
                 </div>
                 <div>
                     {hasNotes ? (
-                        // outlined, with a chevron: it reads as something that opens, not as a figure
+                        // outlined: a button that shows the notes below the row, not a figure; no chevron, it is not a menu
                         <Button
                             variant="outlined"
                             icon={notes.action.length > 0 ? <Warning color="yellow"/> : undefined}
-                            iconEnd={open ? <ChevronUp/> : <ChevronDown/>}
                             label={notes.action.length > 0 ?
                                 t('formResults.import.todo.count', {count: notes.action.length}) :
                                 t('formResults.import.todo.details')}

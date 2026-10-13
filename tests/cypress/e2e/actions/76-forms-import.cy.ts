@@ -394,7 +394,7 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		reportForm('contact-us').find('[data-sel-role="import-report-outcome"]').should('contain', 'Imported from Jahia Forms');
 		// what a created form cannot carry over is folded under its count, what to do apart from what was carried over
 		reportForm('contact-us').find('[data-sel-role="import-report-notes"]').should('not.exist');
-		reportForm('contact-us').find('[data-sel-role="import-report-toggle"]').should('contain', 'to do').click();
+		reportForm('contact-us').find('[data-sel-role="import-report-toggle"]').should('contain', 'to review').click();
 		reportForm('contact-us').find('[data-sel-role="import-report-notes-action"] [data-sel-code="form.redirect"]')
 			.should('contain', 'page redirect').and('not.contain', 'fcnt:');
 		cy.get('[data-sel-role="import-confirm"]').click();

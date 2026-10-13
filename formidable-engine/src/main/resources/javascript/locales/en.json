@@ -282,7 +282,7 @@
 				"form": "Form",
 				"choice": "What to do",
 				"result": "Result",
-				"todo": "To do"
+				"todo": "Notes"
 			},
 			"plan": {
 				"resultsOnly": "Its submissions show on this page, without a form.",
@@ -301,11 +301,11 @@
 				"skipped": "Not imported"
 			},
 			"todo": {
-				"count": "{{count}} to do",
+				"count": "{{count}} to review",
 				"details": "Details"
 			},
 			"notes": {
-				"action": "To redo or check by hand",
+				"action": "To review",
 				"info": "Carried over"
 			},
 			"after": {
