@@ -42,9 +42,14 @@ class FormsExportReaderTest {
 
     /** The sample, copied once to a file: the zip is read through the central directory, which needs a file. */
     static Path sampleZip() throws IOException {
-        Path copy = Files.createTempFile("formFactory-sample", ".zip");
+        return resourceZip(SAMPLE);
+    }
+
+    /** A zip of the test resources, copied to a file. */
+    static Path resourceZip(String resourcePath) throws IOException {
+        Path copy = Files.createTempFile("formFactory", ".zip");
         copy.toFile().deleteOnExit();
-        try (InputStream resource = FormsExportReaderTest.class.getResourceAsStream(SAMPLE)) {
+        try (InputStream resource = FormsExportReaderTest.class.getResourceAsStream(resourcePath)) {
             Files.copy(resource, copy, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         }
         return copy;

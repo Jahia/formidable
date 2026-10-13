@@ -10,6 +10,9 @@ const IMPORTED_FORMS_PATH = `${CONTENTS_PATH}/imported-forms`;
 const RESULTS_ROOT_PATH = `/sites/${SITE}/formidable-results`;
 const SAMPLE_EXPORT = 'cypress/fixtures/imports/formFactory-sample.zip';
 const SAMPLE_FIXTURE = 'imports/formFactory-sample.zip';
+/** The same export taken again after a visitor sent a PDF through the file field "Your Id" of contact-us. */
+const WITH_FILE_FIXTURE = 'imports/formFactory-with-file.zip';
+const WITH_FILE = {submission: '2dd1fe78-e095-4f47-ab08-b5c30df47a4b', fileName: 'document.pdf', mimeType: 'application/pdf', bytes: 578};
 const NO_IDS_EXPORT = 'cypress/fixtures/imports/formFactory-no-ids.zip';
 const NOT_A_ZIP = 'cypress/fixtures/imports/conditional-logic-form.xml';
 const FORMS_IMPORT_PID = 'org.jahia.modules.formidable.formsImport';
@@ -63,6 +66,7 @@ const READER = {name: 'importAttachReader', password: 'ImportAttach#1234'};
 
 type Workspace = 'EDIT' | 'LIVE';
 type NamedNode = {name: string; primaryNodeType: {name: string}};
+type SubmissionFile = {path: string; content: {mimeType: {value: string}; data: {size: number}}};
 type SubmissionData = {path: string; origin: {value: string}; data: {properties: Array<{name: string; value: string}>}};
 
 const setImportButton = (enabled: boolean) =>
@@ -208,9 +212,9 @@ const mappingRow = (source: string) => cy.get(`[data-sel-role="import-mapping-ro
 const formNodes = (fields: Array<{name: string; title: string; type: string}>): JahiaNode[] =>
 	fields.map(field => ({name: field.name, primaryNodeType: field.type, properties: [{name: 'jcr:title', value: field.title, language: 'en'}]}));
 
-/** Runs the import of the sample through the endpoint, as the dialog does, with the default choice. */
-const importSampleThroughApi = () =>
-	uploadThroughApi(SAMPLE_FIXTURE).then(jobId => {
+/** Runs the import of an export through the endpoint, as the dialog does, with the default choice. */
+const importSampleThroughApi = (fixture = SAMPLE_FIXTURE) =>
+	uploadThroughApi(fixture).then(jobId => {
 		waitForJobState(jobId, 'review');
 		importApi('POST', `/jobs/${jobId}/import`).its('status').should('eq', 200);
 		waitForJobState(jobId, 'done');
@@ -764,5 +768,37 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		deleteNode(`${CONTENTS_PATH}/${CONTACT.form}`);
 		openResultsPage();
 		cy.get(`[data-sel-role="form-results-entry"][data-sel-name="${CONTACT.form}"] [data-sel-role="form-deleted"]`, {timeout: 30000}).should('exist');
+	});
+	it('imports a file a visitor uploaded under its submission, readable by the readers of the results only', () => {
+		// a clean slate: every entry the earlier cases left goes, the import jobs stay
+		children(RESULTS_ROOT_PATH, 'LIVE').then(nodes => nodes
+			.filter(node => node.primaryNodeType.name !== 'fmdb:importJobs')
+			.forEach(node => deleteNode(`${RESULTS_ROOT_PATH}/${node.name}`, 'LIVE')));
+		openResultsPage();
+		importSampleThroughApi(WITH_FILE_FIXTURE);
+
+		importedSubmission(WITH_FILE.submission).then(submission =>
+			graphql<{jcr: {nodesByQuery: {nodes: SubmissionFile[]}}}>(
+				`query Files($query: String!) { jcr(workspace: LIVE) { nodesByQuery(query: $query, queryLanguage: SQL2) { nodes {
+					path content: descendant(relPath: "jcr:content") { mimeType: property(name: "jcr:mimeType") { value } data: property(name: "jcr:data") { size } } } } } }`,
+				{query: `SELECT * FROM [jnt:file] AS f WHERE ISDESCENDANTNODE(f, '${submission.path}')`}
+			).then(data => {
+				const files = data.jcr.nodesByQuery.nodes;
+				expect(files, 'the files of the submission').to.have.length(1);
+				const [file] = files;
+				expect(file.path.startsWith(`${submission.path}/files/`), file.path).to.equal(true);
+				expect(file.path.endsWith(`/${WITH_FILE.fileName}`), file.path).to.equal(true);
+				expect(file.content.mimeType.value).to.equal(WITH_FILE.mimeType);
+				expect(file.content.data.size).to.equal(WITH_FILE.bytes);
+
+				cy.request({url: `/files/live${file.path}`, encoding: 'binary'}).then(response => {
+					expect(response.status).to.equal(200);
+					expect(response.body.length).to.equal(WITH_FILE.bytes);
+				});
+				cy.logout();
+				cy.request({url: `/files/live${file.path}`, failOnStatusCode: false}).its('status').should('eq', 404);
+				cy.login();
+			})
+		);
 	});
 });
