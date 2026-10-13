@@ -46,22 +46,26 @@ function figuresOf(form: ImportReportForm, dryRun: boolean, t: Translate): strin
     ].filter(Boolean).map(figure => `- ${figure}`);
 }
 
-/** The fields mapped to the visitor profile, as a table: property, prefill on or off, and why a mapping failed. */
+/**
+ * The fields mapped to the visitor profile, as a table: the property, whether it exists and the mapping is written
+ * (✓), or not and why (✗), or could not be checked (⚠), and whether the prefill is on.
+ */
 function profileSection(profile: ReturnType<typeof profileMappings>, t: Translate): string[] {
     if (profile.mappings.length === 0) {
         return [];
     }
-    const header = [t('formResults.import.markdown.field'), t('formResults.import.markdown.property'), t('formResults.import.markdown.prefilled'),
-        t('formResults.import.markdown.status')];
+    const header = [t('formResults.import.markdown.field'), t('formResults.import.markdown.property'), t('formResults.import.markdown.status'),
+        t('formResults.import.markdown.prefilled')];
     const statusOf = (mapping: ProfileMapping): string => {
         if (mapping.status === 'failed') {
-            return t(`formResults.import.profile.failed.${mapping.reason}`);
+            const why = t(`formResults.import.profile.failed.${mapping.reason}`);
+            return `✗ ${why}`;
         }
-        return mapping.status === 'unchecked' ? t('formResults.import.profile.unchecked') : '✓';
+        return mapping.status === 'unchecked' ? `⚠ ${t('formResults.import.profile.unchecked')}` : '✓';
     };
     const rows = profile.mappings.map(mapping => {
-        const prefill = mapping.status !== 'failed' && mapping.prefilled ? '✓' : '✗';
-        return `| ${escape(mapping.field)} | *${escape(mapping.property)}* | ${prefill} | ${escape(statusOf(mapping))} |`;
+        const prefill = mapping.status !== 'failed' && mapping.prefilled ? '✓' : '';
+        return `| ${escape(mapping.field)} | *${escape(mapping.property)}* | ${escape(statusOf(mapping))} | ${prefill} |`;
     });
     return ['', `### ${t('formResults.import.profile.title')}`, '', t('formResults.import.profile.hint'), '', `| ${header.join(' | ')} |`, '|---|---|---|---|', ...rows];
 }

@@ -64,9 +64,9 @@ describe('reportMarkdown', () => {
         expect(markdown).toContain(String.raw`- formResults.import.note.form.passwordDropped(field=password\_0\_1)`);
         // a profile mapping goes to a table of its own, out of the carried-over list
         expect(markdown).toContain('### formResults.import.profile.title');
-        expect(markdown).toContain('| First name | *firstName* | ✗ | ✓ |');
+        expect(markdown).toContain('| First name | *firstName* | ✓ |  |');
         // a prefill that did not become a mapping is a failed row of the table, with why, not a line to review
-        expect(markdown).toContain(String.raw`| Enquiry | *sfdc\_\_lead* | ✗ | formResults.import.profile.failed.field.prefillUnknownProperty |`);
+        expect(markdown).toContain(String.raw`| Enquiry | *sfdc\_\_lead* | ✗ formResults.import.profile.failed.field.prefillUnknownProperty |  |`);
         expect(markdown).not.toContain('field.profileMapped');
     });
 
