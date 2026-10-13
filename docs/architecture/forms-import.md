@@ -575,8 +575,10 @@ unpublished; until a form is published, its entry shows as **Unpublished** on th
 labels of the form, read from edit, as columns; a contributor reviews each form, does what its row lists,
 then publishes it.
 
-**Download the report**, in the review and once the import is done, saves the report as a Markdown file,
-`forms-import-<site>-<yyyy-MM-dd-HHmm>.md` (UTC): one section per form with what receives its results, its
+**Download the import plan**, in the review, and **Download the import report**, once the import is done, save
+the report as a Markdown file, `forms-import-plan-…` or `forms-import-report-<site>-<yyyy-MM-dd-HHmm>.md` (UTC): the plan
+says what the import will do with the choices of the moment and that nothing is written yet, the report what it did.
+Each has one section per form with what receives its results, its
 figures, the values and files that did not come along, what to redo or check by hand and what was carried
 over, in the language of the dialog. The dialog builds it from the report it shows, with the same sentences;
 nothing is stored on the server, where the job and its report go once read.

@@ -61,8 +61,8 @@ results: the import refuses them with this procedure.
 5. Click **Import**. The import runs on the server, by batches; the dialog follows it and can be closed
    meanwhile — opening it again shows the running import, then its report. One import runs at a time per
    site.
-6. Read the final report — **Download the report** saves it as a Markdown file, to keep what is left to do
-   by hand — then publish the forms you had created: until a form is published, its entry on
+6. Read the final report — **Download the import report** saves it as a Markdown file, to keep what is left to
+   review (in the review, **Download the import plan** saves what the import will do, before anything is written) — then publish the forms you had created: until a form is published, its entry on
    the Results page shows as **Unpublished**, with the labels of the form as column heads, read from the
    edit workspace. Review each form, do what its row lists under **Notes**, then publish it. Grant the **Form
    results reader** role on the form to the people who read its results, as for any form

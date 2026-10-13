@@ -187,7 +187,7 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
             outcomeOf: form => rowOfForm(form).text,
             notesApply: form => rowOfForm(form).outcome === 'created'
         });
-        downloadFile(reportFileName(siteKey, date), content, 'text/markdown;charset=utf-8');
+        downloadFile(reportFileName(siteKey, date, job.report.dryRun), content, 'text/markdown;charset=utf-8');
     };
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -345,7 +345,7 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                             size="big"
                             variant="ghost"
                             icon={<Download/>}
-                            label={t('formResults.import.actions.downloadReport')}
+                            label={t(state === 'review' ? 'formResults.import.actions.downloadPlan' : 'formResults.import.actions.downloadReport')}
                             data-sel-role="import-download-report"
                             style={{marginRight: 'auto'}}
                             onClick={downloadReport}

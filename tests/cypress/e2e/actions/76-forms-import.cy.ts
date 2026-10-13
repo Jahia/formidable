@@ -404,7 +404,7 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		cy.exec('rm -f cypress/downloads/forms-import-*.md');
 		cy.get('[data-sel-role="import-download-report"]').click();
 		// cy.exec does not retry: the command waits itself until the browser has renamed its partial download
-		cy.exec('for i in $(seq 1 40); do f=$(ls cypress/downloads | grep "^forms-import-.*\\.md$") && echo "$f" && exit 0; sleep 0.5; done; exit 1', {timeout: 30000}).its('stdout').then(name => {
+		cy.exec('for i in $(seq 1 40); do f=$(ls cypress/downloads | grep "^forms-import-report-.*\\.md$") && echo "$f" && exit 0; sleep 0.5; done; exit 1', {timeout: 30000}).its('stdout').then(name => {
 			cy.readFile(`cypress/downloads/${name.trim()}`).then((content: string) => {
 				expect(content).to.contain('# Jahia Forms import report');
 				expect(content).to.contain('## Contact Us');

@@ -252,7 +252,8 @@
 				"cancel": "Annuler",
 				"close": "Fermer",
 				"tryAgain": "Réessayer",
-				"downloadReport": "Télécharger le rapport"
+				"downloadReport": "Télécharger le rapport d’import",
+				"downloadPlan": "Télécharger le plan d’import"
 			},
 			"done": {
 				"title": "Import terminé",
@@ -449,7 +450,8 @@
 				"file": "Export",
 				"date": "Date",
 				"dryRun": "Revue avant l’import : rien n’est encore écrit",
-				"imported": "Import terminé"
+				"imported": "Import terminé",
+				"planTitle": "Plan d’import Jahia Forms"
 			}
 		},
 		"attach": {

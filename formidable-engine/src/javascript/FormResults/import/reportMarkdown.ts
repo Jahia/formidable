@@ -91,7 +91,7 @@ function formSection(form: ImportReport['forms'][number], report: ImportReport, 
 }
 
 /**
- * The report of a dry run or of an import as a Markdown file (docs/architecture/forms-import.md, "Running it"): one
+ * The plan of a dry run, or the report of an import, as a Markdown file (docs/architecture/forms-import.md, "Running it"): one
  * section per form with what receives its results, its figures, what to redo or check by hand, its profile
  * mappings and the rest of what was carried over, in the language of the dialog. Built in the browser from the
  * report the dialog shows: nothing is stored.
@@ -100,7 +100,7 @@ export function reportMarkdown(report: ImportReport, context: MarkdownContext): 
     const {t} = context;
     const date = context.date.toISOString().slice(0, 16).replace('T', ' ');
     return [
-        `# ${t('formResults.import.markdown.title')}`,
+        `# ${t(report.dryRun ? 'formResults.import.markdown.planTitle' : 'formResults.import.markdown.title')}`,
         '',
         `- ${t('formResults.import.markdown.site')}: ${escape(context.siteKey)}`,
         `- ${t('formResults.import.markdown.file')}: ${escape(context.fileName)}`,
@@ -111,8 +111,9 @@ export function reportMarkdown(report: ImportReport, context: MarkdownContext): 
     ].join('\n');
 }
 
-/** forms-import-<site>-<yyyy-MM-dd-HHmm>.md, in UTC. */
-export function reportFileName(siteKey: string, date: Date): string {
+/** forms-import-plan-<site>-<yyyy-MM-dd-HHmm>.md before the import, forms-import-report-… after it, in UTC. */
+export function reportFileName(siteKey: string, date: Date, dryRun: boolean): string {
     const [day, time] = date.toISOString().slice(0, 16).split('T');
-    return `forms-import-${sanitizeFilenamePart(siteKey)}-${day}-${time.replace(':', '')}.md`;
+    const kind = dryRun ? 'plan' : 'report';
+    return `forms-import-${kind}-${sanitizeFilenamePart(siteKey)}-${day}-${time.replace(':', '')}.md`;
 }

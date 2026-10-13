@@ -77,7 +77,8 @@ describe('reportMarkdown', () => {
 });
 
 describe('reportFileName', () => {
-    it('names the file after the site and the minute, in UTC', () => {
-        expect(reportFileName('acme', new Date('2026-10-13T14:51:30Z'))).toEqual('forms-import-acme-2026-10-13-1451.md');
+    it('names the file after what it is, the site and the minute, in UTC', () => {
+        expect(reportFileName('acme', new Date('2026-10-13T14:51:30Z'), false)).toEqual('forms-import-report-acme-2026-10-13-1451.md');
+        expect(reportFileName('acme', new Date('2026-10-13T14:51:30Z'), true)).toEqual('forms-import-plan-acme-2026-10-13-1451.md');
     });
 });

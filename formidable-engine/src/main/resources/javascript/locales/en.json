@@ -252,7 +252,8 @@
 				"cancel": "Cancel",
 				"close": "Close",
 				"tryAgain": "Try again",
-				"downloadReport": "Download the report"
+				"downloadReport": "Download the import report",
+				"downloadPlan": "Download the import plan"
 			},
 			"done": {
 				"title": "Import done",
@@ -449,7 +450,8 @@
 				"file": "Export",
 				"date": "Date",
 				"dryRun": "Review before the import: nothing written yet",
-				"imported": "Import done"
+				"imported": "Import done",
+				"planTitle": "Jahia Forms import plan"
 			}
 		},
 		"attach": {
