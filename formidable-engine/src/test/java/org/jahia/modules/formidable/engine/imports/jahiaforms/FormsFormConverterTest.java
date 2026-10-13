@@ -59,7 +59,7 @@ class FormsFormConverterTest {
         assertEquals("firstName", firstName.properties().get(FormsFormConverter.PROFILE_PROPERTY));
         assertEquals("true", firstName.properties().get(FormsFormConverter.PROFILE_PREFILL));
         assertEquals("editable", firstName.properties().get(FormsFormConverter.PROFILE_PREFILL_THEN));
-        assertTrue(has(firstName.report(), "field.profilePrefilled", PROPERTY, "firstName", "then", "editable"), firstName.report().toString());
+        assertTrue(has(firstName.report(), "field.profilePrefilled", PROPERTY, "firstName", "after", "editable"), firstName.report().toString());
         assertEquals("lastName", form.fields().toList().get(1).properties().get(FormsFormConverter.PROFILE_PROPERTY));
         // without the integration, or on a type its mixin does not reach, the report names the property instead
         FormsFormConverter withoutIntegration = new FormsFormConverter(type -> !type.equals(FormsFormConverter.PROFILE_MAPPING_MIXIN), s -> true);

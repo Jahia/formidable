@@ -246,7 +246,7 @@ public final class FormsFormConverter {
             field.extension(PROFILE_MAPPING_MIXIN, PROFILE_PREFILL_THEN, then);
         }
         field.report(prefill.prefills()
-                ? ImportNote.info("field.profilePrefilled", PROPERTY, prefill.profileProperty(), "then", then)
+                ? ImportNote.info("field.profilePrefilled", PROPERTY, prefill.profileProperty(), "after", then)
                 : ImportNote.info("field.profileMapped", PROPERTY, prefill.profileProperty()));
     }
 

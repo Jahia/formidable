@@ -156,6 +156,12 @@ public final class ImportReport {
             return isSkipped() ? 0 : submissionsFound - submissionsAlreadyImported;
         }
 
+        private static JSONArray notesJson(List<ImportNote> notes) {
+            JSONArray array = new JSONArray();
+            notes.forEach(note -> array.put(note.toJson()));
+            return array;
+        }
+
         JSONObject toJson() {
             JSONArray reported = new JSONArray();
             for (JSONObject field : fields) {
@@ -183,12 +189,6 @@ public final class ImportReport {
                             .put("notConverted", valuesNotConverted))
                     .put("files", new JSONObject().put("count", files).put("bytes", fileBytes).put("missing", filesMissing));
         }
-    }
-
-    private static JSONArray notesJson(List<ImportNote> notes) {
-        JSONArray array = new JSONArray();
-        notes.forEach(note -> array.put(note.toJson()));
-        return array;
     }
 
     private final boolean dryRun;

@@ -308,7 +308,7 @@
 				"action": "To redo or check by hand",
 				"info": "Carried over"
 			},
-			"then": {
+			"after": {
 				"editable": "editable",
 				"readOnly": "read-only",
 				"hidden": "hidden"
@@ -339,7 +339,7 @@
 					"prefillAlreadyMapped": "Its second prefill, from {{property}}, is not carried over: the field takes one link to the visitor profile",
 					"prefillNoIntegration": "Not linked to the visitor profile property {{property}}: the jExperience integration is not installed",
 					"prefillNotMappable": "Not linked to the visitor profile property {{property}}: a {{type}} field cannot be linked",
-					"profilePrefilled": "Linked to the visitor profile property {{property}}, prefilled from it, {{then}} once filled",
+					"profilePrefilled": "Linked to the visitor profile property {{property}}, prefilled from it, {{after}} once filled",
 					"profileMapped": "Linked to the visitor profile property {{property}}, without prefill",
 					"rule": "Its {{rule}} rule is not carried over: a {{type}} field has no such rule",
 					"ruleMessage": "The custom message of its {{rule}} rule is not carried over",

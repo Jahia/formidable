@@ -308,7 +308,7 @@
 				"action": "À refaire ou vérifier à la main",
 				"info": "Repris"
 			},
-			"then": {
+			"after": {
 				"editable": "modifiable",
 				"readOnly": "en lecture seule",
 				"hidden": "masqué"
@@ -339,7 +339,7 @@
 					"prefillAlreadyMapped": "Son second préremplissage, depuis {{property}}, n’est pas repris : un champ n’a qu’un lien au profil visiteur",
 					"prefillNoIntegration": "Non lié à la propriété {{property}} du profil visiteur : l’intégration jExperience n’est pas installée",
 					"prefillNotMappable": "Non lié à la propriété {{property}} du profil visiteur : un champ {{type}} ne peut pas être lié",
-					"profilePrefilled": "Lié à la propriété {{property}} du profil visiteur, prérempli depuis elle, {{then}} une fois rempli",
+					"profilePrefilled": "Lié à la propriété {{property}} du profil visiteur, prérempli depuis elle, {{after}} une fois rempli",
 					"profileMapped": "Lié à la propriété {{property}} du profil visiteur, sans préremplissage",
 					"rule": "Sa règle {{rule}} n’est pas reprise : un champ {{type}} n’a pas cette règle",
 					"ruleMessage": "Le message personnalisé de sa règle {{rule}} n’est pas repris",

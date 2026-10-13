@@ -238,8 +238,8 @@ export function noteText(note: ImportNote, t: Translate): string {
             params[key] = t(`formResults.import.types.${typeKey(note.params[key])}`, {defaultValue: note.params[key]});
         }
     });
-    if (note.params.then) {
-        params.then = t(`formResults.import.then.${note.params.then}`);
+    if (note.params.after) {
+        params.after = t(`formResults.import.after.${note.params.after}`);
     }
     return t(`formResults.import.note.${note.code}`, {...params, defaultValue: note.code});
 }
