@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.engine.imports.jahiaforms;
 
+import org.jahia.modules.formidable.engine.imports.model.ImportNote;
 import org.jahia.modules.formidable.engine.imports.model.ImportedContainer;
 import org.jahia.modules.formidable.engine.imports.model.ImportedField;
 import org.jahia.modules.formidable.engine.imports.model.ImportedForm;
@@ -18,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FormsFormConverterTest {
 
+    private static final String PROPERTY = "property";
     private static final FormsFormConverter EVERYTHING = new FormsFormConverter(type -> true, source -> true);
     private static final FormsFormConverter ELEMENTS_ONLY = new FormsFormConverter(type -> !type.startsWith("fmdbext:"), source -> false);
 
@@ -57,17 +59,17 @@ class FormsFormConverterTest {
         assertEquals("firstName", firstName.properties().get(FormsFormConverter.PROFILE_PROPERTY));
         assertEquals("true", firstName.properties().get(FormsFormConverter.PROFILE_PREFILL));
         assertEquals("editable", firstName.properties().get(FormsFormConverter.PROFILE_PREFILL_THEN));
-        assertTrue(firstName.report().stream().anyMatch(line -> line.startsWith("mapped to the visitor profile property firstName")));
+        assertTrue(has(firstName.report(), "field.profilePrefilled", PROPERTY, "firstName", "then", "editable"), firstName.report().toString());
         assertEquals("lastName", form.fields().toList().get(1).properties().get(FormsFormConverter.PROFILE_PROPERTY));
         // without the integration, or on a type its mixin does not reach, the report names the property instead
         FormsFormConverter withoutIntegration = new FormsFormConverter(type -> !type.equals(FormsFormConverter.PROFILE_MAPPING_MIXIN), s -> true);
         ImportedField unmapped = withoutIntegration.convert(source, export.resultsOf(source)).fields().toList().get(0);
         assertNull(unmapped.properties().get(FormsFormConverter.PROFILE_PROPERTY));
         assertTrue(unmapped.mixins().isEmpty());
-        assertTrue(unmapped.report().stream().anyMatch(line -> line.contains("firstName") && line.contains("not installed")));
+        assertTrue(has(unmapped.report(), "field.prefillNoIntegration", PROPERTY, "firstName"), unmapped.report().toString());
         ImportedField unreachable = EVERYTHING.convert(source, export.resultsOf(source)).fields().toList().get(0);
         assertNull(unreachable.properties().get(FormsFormConverter.PROFILE_PROPERTY));
-        assertTrue(unreachable.report().stream().anyMatch(line -> line.contains("firstName") && line.contains("takes no mapping")));
+        assertTrue(has(unreachable.report(), "field.prefillNotMappable", PROPERTY, "firstName"), unreachable.report().toString());
     }
 
     @Test
@@ -94,14 +96,14 @@ class FormsFormConverterTest {
         assertEquals("phone", fields.get(3).properties().get(FormsFormConverter.PROFILE_PROPERTY));
         assertEquals("false", fields.get(3).properties().get(FormsFormConverter.PROFILE_PREFILL));
         assertNull(fields.get(3).properties().get(FormsFormConverter.PROFILE_PREFILL_THEN));
-        assertTrue(fields.get(3).report().stream().anyMatch(line -> line.contains("without prefill")));
+        assertTrue(has(fields.get(3).report(), "field.profileMapped"), fields.get(3).report().toString());
         // one mapping per field: the first prefill of the kind wins, the second is reported
         assertEquals("firstName", fields.get(4).properties().get(FormsFormConverter.PROFILE_PROPERTY));
-        assertTrue(fields.get(4).report().stream().anyMatch(line -> line.contains("lastName") && line.contains("already mapped")));
+        assertTrue(has(fields.get(4).report(), "field.prefillAlreadyMapped", PROPERTY, "lastName"), fields.get(4).report().toString());
         // another kind of prefill has no counterpart
         assertNull(fields.get(5).properties().get(FormsFormConverter.PROFILE_PROPERTY));
         assertTrue(fields.get(5).mixins().isEmpty());
-        assertTrue(fields.get(5).report().stream().anyMatch(line -> line.contains("fcnt:userInfoPrefill")));
+        assertTrue(has(fields.get(5).report(), "field.prefillOther", "prefill", "fcnt:userInfoPrefill"), fields.get(5).report().toString());
     }
 
     private static FormsField prefilled(String name, FormsPrefill... prefills) {
@@ -122,7 +124,7 @@ class FormsFormConverterTest {
         assertEquals("0249eae3-f0a8-4dc0-8b65-1d18d1f4fa9e", firstName.sourceId());
         assertEquals("text-input_0_1", firstName.sourceName());
         assertEquals("fcnt:inputDefinition", firstName.sourceType());
-        assertTrue(firstName.report().stream().anyMatch(line -> line.contains("prefill")));
+        assertTrue(firstName.report().stream().anyMatch(note -> note.code().startsWith("field.prefill")), firstName.report().toString());
 
         ImportedField email = form.fields().toList().get(2);
         assertEquals(Map.of("en", "Please enter a valid email address", "fr", "Please enter a valid email address"),
@@ -179,10 +181,10 @@ class FormsFormConverterTest {
         assertNull(fields.get(0).i18nProperties().get(FormsFieldTypes.PLACEHOLDER));
         // a hidden field has no required flag
         assertFalse(fields.get(1).required());
-        assertTrue(fields.get(1).report().stream().anyMatch(line -> line.contains("required not carried over")), fields.get(1).report().toString());
+        assertTrue(has(fields.get(1).report(), ImportedField.NOTE_SETTING, "setting", "required"), fields.get(1).report().toString());
         // a textarea has no pattern
         assertNull(fields.get(2).properties().get(FormsFieldTypes.PATTERN));
-        assertTrue(fields.get(2).report().stream().anyMatch(line -> line.contains("fcnt:regexValidation not carried over")), fields.get(2).report().toString());
+        assertTrue(has(fields.get(2).report(), "field.rule", "rule", "fcnt:regexValidation"), fields.get(2).report().toString());
 
         // the builder itself reports a plain setting and an i18n setting the type does not declare
         ImportedField.Builder builder = ImportedField.builder("hidden", FormsFieldTypes.INPUT_HIDDEN, FormsFieldTypes.accepted(FormsFieldTypes.INPUT_HIDDEN))
@@ -191,9 +193,8 @@ class FormsFormConverterTest {
         ImportedField built = builder.build();
         assertTrue(built.properties().isEmpty());
         assertTrue(built.i18nProperties().isEmpty());
-        assertEquals(List.of(
-                "rows (5) not carried over: fmdb:inputHidden has no such setting",
-                "placeholder not carried over: fmdb:inputHidden has no such setting"), built.report());
+        assertEquals(List.of("rows", "placeholder"), built.report().stream().map(note -> note.param("setting")).toList());
+        assertTrue(built.report().stream().allMatch(note -> note.code().equals(ImportedField.NOTE_SETTING) && "fmdb:inputHidden".equals(note.param("type"))));
     }
 
     @Test
@@ -222,7 +223,7 @@ class FormsFormConverterTest {
         assertEquals(Map.of("en", "Between 2 and 40"), fields.get(0).i18nProperties().get(FormsFieldTypes.MSG_TOO_SHORT));
         assertEquals(Map.of("en", "Between 2 and 40"), fields.get(0).i18nProperties().get(FormsFieldTypes.MSG_TOO_LONG));
         // an e-mail rule on a plain text field has no equivalent
-        assertTrue(fields.get(0).report().stream().anyMatch(line -> line.contains("fcnt:emailValidation not carried over")), fields.get(0).report().toString());
+        assertTrue(has(fields.get(0).report(), "field.rule", "rule", "fcnt:emailValidation"), fields.get(0).report().toString());
         assertEquals("1", fields.get(1).properties().get(FormsFieldTypes.MIN_VALUE));
         assertEquals("10", fields.get(1).properties().get(FormsFieldTypes.MAX_VALUE));
         assertEquals(Map.of("en", "From 1 to 10"), fields.get(1).i18nProperties().get(FormsFieldTypes.MSG_RANGE_UNDERFLOW));
@@ -240,9 +241,8 @@ class FormsFormConverterTest {
 
         assertEquals(1, form.actions().size());
         assertEquals("fmdb:save2jcrAction", form.actions().get(0).nodeType());
-        assertTrue(form.report().stream().anyMatch(line -> line.contains("fcnt:redirectToAPageAction") && line.contains("/sites/motor-retail/home")),
-                form.report().toString());
-        assertFalse(form.report().stream().anyMatch(line -> line.contains("save the form for later")), form.report().toString());
+        assertTrue(has(form.report(), "form.redirect", "target", "/sites/motor-retail/home"), form.report().toString());
+        assertFalse(has(form.report(), "form.saveForLater"), form.report().toString());
     }
 
     /** The sample forms display a captcha (displayCaptcha="true"): it is set only on an instance that configures one. */
@@ -253,11 +253,11 @@ class FormsFormConverterTest {
 
         ImportedForm without = EVERYTHING.convert(source, export.resultsOf(source));
         assertFalse(without.captcha());
-        assertTrue(without.report().stream().anyMatch(line -> line.contains("configures no captcha")), without.report().toString());
+        assertTrue(has(without.report(), "form.captchaOff"), without.report().toString());
 
         ImportedForm with = new FormsFormConverter(type -> true, s -> true, true).convert(source, export.resultsOf(source));
         assertTrue(with.captcha());
-        assertTrue(with.report().stream().anyMatch(line -> line.contains("turned on")), with.report().toString());
+        assertTrue(has(with.report(), "form.captchaOn"), with.report().toString());
     }
 
     /** The file rules of Forms: a JSON list of type groups with a selected flag, and a number of files (fileValidation.wzd). */
@@ -275,7 +275,7 @@ class FormsFormConverterTest {
         ImportedField field = EVERYTHING.convert(formOf(upload), null).fields().toList().get(0);
         assertEquals("image/*,application/pdf", field.properties().get(FormsFieldTypes.ACCEPT));
         assertEquals("true", field.properties().get(FormsFieldTypes.MULTIPLE));
-        assertTrue(field.report().stream().anyMatch(line -> line.contains("doc")), field.report().toString());
+        assertTrue(field.report().stream().anyMatch(note -> note.code().equals("field.fileTypes") && note.param("types").contains("doc")), field.report().toString());
 
         // every type allowed: nothing to restrict
         FormsValidation all = new FormsValidation("file", FormsValidation.FILE, Map.of(FormsOptionNames.FILE_TYPE,
@@ -305,7 +305,7 @@ class FormsFormConverterTest {
 
         ImportedForm form = EVERYTHING.convert(unsaved, null);
         assertTrue(form.actions().isEmpty());
-        assertTrue(form.report().stream().anyMatch(line -> line.contains("add Save to JCR")));
+        assertTrue(has(form.report(), "form.notSaved"), form.report().toString());
         assertNull(form.sourceResultsId());
         assertEquals(source.uuid(), form.sourceKey());
         assertEquals(List.of("firstname", "lastname", "enter-your-email-here"), form.fields().map(ImportedField::name).toList());
@@ -326,7 +326,7 @@ class FormsFormConverterTest {
                 form.fields().map(ImportedField::name).toList());
         assertTrue(form.fields().allMatch(f -> FormsFieldTypes.INPUT_TEXT.equals(f.nodeType())));
         assertEquals("56555cf3-abce-49e0-acdc-32e357b83c7e", form.fieldBySourceName("text-area_0_4").sourceId());
-        assertTrue(form.report().get(0).contains("no longer holds the form"));
+        assertEquals("form.fromLabels", form.report().get(0).code());
     }
 
     @Test
@@ -366,7 +366,7 @@ class FormsFormConverterTest {
         assertEquals("Yes please", new JSONObject(fallback.options().get("en").get(0)).getString("label"));
         assertEquals("No thanks", new JSONObject(fallback.options().get("en").get(1)).getString("label"));
         assertNull(fallback.i18nProperties().get(FormsFieldTypes.ON_LABEL));
-        assertTrue(fallback.report().get(0).contains("not deployed"));
+        assertEquals("field.createdAsFallback", fallback.report().get(0).code());
     }
 
     /**
@@ -384,7 +384,7 @@ class FormsFormConverterTest {
         ImportedField consent = EVERYTHING.convert(formOf(withTerms), null).fields().toList().get(0);
         assertEquals(Map.of("en", "I have read and agree to the LICENSE.", "fr", "J'ai lu nos conditions et je les accepte."),
                 consent.i18nProperties().get(FormsFieldTypes.STATEMENT));
-        assertTrue(consent.report().stream().anyMatch(line -> line.contains("/sites/acme/files/terms.pdf")), consent.report().toString());
+        assertTrue(has(consent.report(), "field.termsLink", "link", "/sites/acme/files/terms.pdf"), consent.report().toString());
 
         // no terms file: nothing to report, the statement still reads as the visitors read it
         FormsField unlinked = new FormsField("terms_0_2", "u2", "fcnt:acceptTermCheckboxDefinition", Map.of("en", "I agree"), null,
@@ -421,7 +421,7 @@ class FormsFormConverterTest {
 
         ImportedField manual = ELEMENTS_ONLY.convert(formOf(definition), null).fields().toList().get(0);
         assertNull(manual.optionsSourceKey());
-        assertTrue(manual.report().stream().anyMatch(line -> line.contains("country options source")));
+        assertTrue(has(manual.report(), "field.noCountries"), manual.report().toString());
     }
 
     @Test
@@ -453,7 +453,7 @@ class FormsFormConverterTest {
     void aPasswordIsNotRecreatedAndTheReportSaysWhy() {
         ImportedForm form = EVERYTHING.convert(formOf(field("password_0_1", "fcnt:passwordDefinition", "Password")), null);
         assertEquals(0, form.fields().count());
-        assertTrue(form.report().stream().anyMatch(line -> line.contains("password") && line.contains("in clear")));
+        assertTrue(form.report().stream().anyMatch(note -> note.code().equals("form.passwordDropped") && note.level() == ImportNote.Level.ACTION), form.report().toString());
     }
 
     private static FormsField field(String name, String type, String title) {
@@ -464,5 +464,20 @@ class FormsFormConverterTest {
         FormsStep step = new FormsStep("step-1", 1, Map.of(), List.of(fields));
         return new FormsForm("f", "uf", "formFactory/forms/f", "en", Map.of("en", "F"), Map.of(), FormsForm.Settings.NONE, List.of(step),
                 List.of(new FormsAction("savetojcraction", FormsAction.SAVE_TO_JCR, Map.of())));
+    }
+
+    /** Whether the notes hold one of that code whose parameters include the given name, value pairs. */
+    static boolean has(List<ImportNote> notes, String code, String... params) {
+        return notes.stream().anyMatch(note -> {
+            if (!note.code().equals(code)) {
+                return false;
+            }
+            for (int i = 0; i < params.length; i += 2) {
+                if (!params[i + 1].equals(note.param(params[i]))) {
+                    return false;
+                }
+            }
+            return true;
+        });
     }
 }

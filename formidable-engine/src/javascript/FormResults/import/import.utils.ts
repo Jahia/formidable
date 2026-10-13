@@ -3,6 +3,16 @@ import {uiContext} from '../FormResults.utils';
 /** The states of an import job, as the engine stores them (ImportJobs.State). */
 export type ImportJobState = 'analysing' | 'review' | 'importing' | 'attaching' | 'done' | 'failed';
 
+/**
+ * A line of the report about a form or a field (ImportNote): a code the dialog translates under
+ * formResults.import.note, its parameters, and whether it asks for something to be done by hand.
+ */
+export interface ImportNote {
+    code: string;
+    level: 'info' | 'action';
+    params: Record<string, string>;
+}
+
 export interface ImportReportField {
     name: string;
     type: string;
@@ -17,7 +27,7 @@ export interface ImportReportField {
      * in the report of a dry run. Two names held together cannot land under one name.
      */
     alongside?: string[];
-    notes: string[];
+    notes: ImportNote[];
 }
 
 /**
@@ -31,10 +41,13 @@ export interface AttachChoice {
     mapping: Record<string, string>;
 }
 
-/** What receives the results of a source form: an entry alone (the default), a form created for them, or an existing form. */
-export type ImportChoice = 'resultsOnly' | 'create' | AttachChoice;
+/**
+ * What receives the results of a source form: an entry alone (the default), a form created for them, an existing
+ * form, or nothing, the form left out of the run.
+ */
+export type ImportChoice = 'resultsOnly' | 'create' | 'skip' | AttachChoice;
 
-export type ImportChoiceKind = 'resultsOnly' | 'create' | 'attach';
+export type ImportChoiceKind = 'resultsOnly' | 'create' | 'attach' | 'skip';
 
 export const kindOf = (choice: ImportChoice | undefined): ImportChoiceKind => {
     if (choice === undefined) {
@@ -48,9 +61,9 @@ export interface ImportReportForm {
     titles: Record<string, string>;
     targetName: string | null;
     targetPath: string | null;
-    outcome: 'created' | 'found' | 'resultsOnly' | 'attached' | null;
+    outcome: 'created' | 'found' | 'resultsOnly' | 'attached' | 'skipped' | null;
     fields: ImportReportField[];
-    notes: string[];
+    notes: ImportNote[];
     submissions: {found: number; imported: number; alreadyImported: number; toImport: number};
     values: {converted: number; dropped: number; notConverted: number};
     files: {count: number; bytes: number; missing: number};
@@ -161,14 +174,46 @@ export function refuseFile(file: File, maxFileSizeMb: number): 'notZip' | 'tooLa
     return null;
 }
 
-/** The notes of the fields, one line per distinct note with the fields it concerns: a prefill note repeats on every field. */
-export function groupedFieldNotes(fields: ImportReportField[]): string[] {
-    const fieldsByNote = new Map<string, string[]>();
-    fields.forEach(field => field.notes.forEach(note => {
-        fieldsByNote.set(note, [...(fieldsByNote.get(note) ?? []), field.name]);
-    }));
-    return [...fieldsByNote.entries()].map(([note, names]) => `${note} — ${names.join(', ')}`);
+/**
+ * The notes of a form and of its fields, one line per distinct note with the fields it concerns, split into what
+ * asks for something to be done by hand and what was carried over and is only worth knowing.
+ */
+export function groupedNotes(form: ImportReportForm, language: string): {action: ReportLine[]; info: ReportLine[]} {
+    const lines = new Map<string, ReportLine>();
+    const add = (note: ImportNote, field: string | null) => {
+        const key = JSON.stringify([note.code, note.params]);
+        const line = lines.get(key) ?? {note, fields: []};
+        if (field && !line.fields.includes(field)) {
+            line.fields.push(field);
+        }
+        lines.set(key, line);
+    };
+    form.notes.forEach(note => add(note, null));
+    form.fields.forEach(field => field.notes.forEach(note => add(note, fieldTitle(field, language) || field.name)));
+    const all = [...lines.values()];
+    return {action: all.filter(line => line.note.level === 'action'), info: all.filter(line => line.note.level === 'info')};
 }
+
+/** A note of the report with the fields it concerns, by their label; none for a note about the form itself. */
+export interface ReportLine {
+    note: ImportNote;
+    fields: string[];
+}
+
+/**
+ * What the import will do with the choices of the review: the forms it writes for and the submissions it imports.
+ * A form left out counts for neither; a form found from an earlier run counts when it has new submissions.
+ */
+export function plannedImport(report: ImportReport, choices: Record<string, ImportChoice>): {forms: number; submissions: number} {
+    const kept = report.forms.filter(form => kindOf(choices[form.sourceName]) !== 'skip');
+    return {
+        forms: kept.filter(form => form.outcome !== 'found' || form.submissions.toImport > 0).length,
+        submissions: kept.reduce((sum, form) => sum + form.submissions.toImport, 0)
+    };
+}
+
+/** The local name of a field type, the key of its label under formResults.import.types: fmdb:inputText gives inputText. */
+export const typeKey = (type: string | undefined): string => (type ?? '').slice((type ?? '').indexOf(':') + 1);
 
 // --- attaching to an existing form ---
 
@@ -439,8 +484,10 @@ export const sourceLabel = (source: EntrySource): string => source.title ?? sour
 
 /** Whether every choice of the review can start the import: an attachment names its form and lands no two fields together. */
 export function choicesReady(choices: Record<string, ImportChoice>, report: ImportReport): boolean {
-    return report.forms.every(form => {
+    const complete = report.forms.every(form => {
         const choice = choices[form.sourceName];
         return choice === undefined || typeof choice === 'string' || attachProblem(choice, form.fields) === null;
     });
+    // every form left out leaves nothing to import
+    return complete && plannedImport(report, choices).forms > 0;
 }

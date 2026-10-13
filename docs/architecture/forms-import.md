@@ -498,9 +498,9 @@ stateDiagram-v2
 |---|---|
 | Waiting | A drop zone that takes a `.zip` file by drag and drop, and a **Choose a file** button that opens the file picker. Another type, or a file above `maxFileSizeMb`, is refused in the dialog with its reason. The dialog opens in this state unless the site has an import that is running, or that ended and whose report nobody has read: it then opens in that job's state. |
 | Analysing | The file name and a spinner, while the server reads the export and writes nothing. |
-| Review | The report of the dry run (below), and two buttons: **Import** and **Cancel**. A report with nothing to import (every form and every submission already imported) shows **Close** alone. While another import runs on the site, **Import** is refused with that reason. Iteration 2 adds to this state, per form of the export, the choice of what receives its results (see [Iteration 2](#iteration-2-choosing-what-receives-the-results)). |
+| Review | The report of the dry run (below), one row per form of the export, and two buttons: **Import** and **Cancel**. A report with nothing to import (every form and every submission already imported) shows **Close** alone. While another import runs on the site, **Import** is refused with that reason. Iteration 2 adds to each row a menu, **What to do**, the choice of what receives its results (see [Iteration 2](#iteration-2-choosing-what-receives-the-results)); **Import** waits until an attachment names its form, and while every form is left out. |
 | Importing | The file name and a spinner. The dialog can be closed: the job goes on without it, and the dialog, opened again on this site, shows the running import, or its end state once it has ended. |
-| Done | Moonstone's `Check` icon, then the final report, which ends with the invitation to publish the forms. **Close** refreshes the list of entries. |
+| Done | Moonstone's `Check` icon, the submissions imported, a line asking to review and publish the forms when the import created some, then the final report in the same rows, each saying what received the results. **Close** refreshes the list of entries. |
 | Failed | The reason, as the server gives it (an export without results or without identifiers, a broken zip, a lost connection), then **Try again** and **Close**. Both remove the failed job: **Try again** goes back to Waiting. |
 
 **The server.** The file is uploaded once, by a `POST` to an endpoint of the engine on the current site.
@@ -557,9 +557,20 @@ The report gives, per Forms form:
 - the values converted, dropped (passwords) or not converted (a JSON that does not parse);
 - the files, and their total size.
 
-The final report ends with the next step: the forms are in `imported-forms`, unpublished; until a form is
-published, its entry shows as **Unpublished** on the Results page, with the labels of the form, read from edit, as columns; a
-contributor reviews each form, completes what the report lists, then publishes it.
+What the report says of a form and of its fields is a list of notes. A note is a code, its parameters and a
+level (`ImportNote`): **action** for what was lost or approximated and is to be redone or checked by hand (a
+redirect, a rule the field type lacks, a field created as the closest type), **info** for what was carried
+over and is only worth knowing (a captcha turned on, a field linked to the visitor profile). The server
+writes no sentence: the dialog translates each code under `formResults.import.note`, with the field types
+and the other parameters in words, and never shows a node type, a path or a Forms type name in its
+sentences. The notes only matter when the form is created, so the row of a form to create shows a count,
+**N to do**, that unfolds into two lists, what to do by hand and what was carried over; a note met on
+several fields is one line naming the fields by their labels.
+
+The final report says, on a line above the rows, that the created forms are in `imported-forms`,
+unpublished; until a form is published, its entry shows as **Unpublished** on the Results page, with the
+labels of the form, read from edit, as columns; a contributor reviews each form, does what its row lists,
+then publishes it.
 
 ### Running it twice
 
@@ -593,7 +604,11 @@ administrator the choice, in the review state of the dialog, per form of the exp
 |---|---|
 | **Results only** (the default) | The results entry alone, without a form: see [Results only](#results-only). |
 | **Create the form** | What iteration 1 writes: the form in `imported-forms`, then its entry. |
+| **Don't import** | Nothing: no form, no entry, no marker, so a later run of the same export proposes the form again. The report shows the form as **Not imported**, out of the totals. |
 | **Attach to an existing form** `F` | The submissions under the entry of `F`, their values named after the fields of `F` through [the mapping](#the-mapping); the entry of `F` takes the keys of the source in `sourceFormIds` and the mapping in `mappings`, so that a later run finds it and names the values the same way. `F` itself is not marked, since several sources can attach to one form and `fmdbmix:importedForm` holds the keys of one. Nothing is created but the entry of `F` when it has none. The start of the import refuses an attachment to a form that is not a form of the site, a mapping that names a field the dry run did not list, and a mapping that sends a field to the name another field of the source keeps. |
+
+A form found from an earlier run has two choices: **Add the new submissions** (the default), which adds the
+submissions missing from its entry, and **Don't import**; a found form with nothing new has no menu.
 
 The same mapping serves an **Attach to another form** action on an entry of the Results page, shown on
 the entries that carry `fmdbmix:importedResults` to the administrators of the site: an administrator moves

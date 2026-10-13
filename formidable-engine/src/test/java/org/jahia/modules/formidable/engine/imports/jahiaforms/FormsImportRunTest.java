@@ -313,6 +313,7 @@ class FormsImportRunTest {
         assertEquals(0, files.getInt("missing"));
         assertFalse(photo.path().isEmpty());
     }
+
     @Test
     void aFileOfARealExportIsCountedThenWrittenFromItsBinaryInTheZip() throws Exception {
         JSONObject dryRun = new FormsImportRun(FormsExportWithFileTest.withFileReader(), writer(), true, Map.of(), type -> true, s -> true, false)
@@ -345,5 +346,40 @@ class FormsImportRunTest {
         try (java.io.InputStream binary = openers.getAllValues().get(at).open(file)) {
             assertEquals(578, binary.readAllBytes().length);
         }
+    }
+
+    @Test
+    void aSkippedFormIsLeftOutWhetherNewOrFound() throws Exception {
+        ImportWriter writer = writer();
+        JCRNodeWrapper entry = mock(JCRNodeWrapper.class);
+        when(writer.createResultsOnlyEntry(any())).thenReturn(entry);
+        Map<String, FormChoice> choices = Map.of("contact-us", FormChoice.SKIP);
+
+        JSONObject report = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, choices, type -> true, s -> true, false)
+                .run().toJson();
+
+        JSONObject contact = report.getJSONArray("forms").getJSONObject(0);
+        assertEquals("skipped", contact.getString("outcome"));
+        assertEquals(44, contact.getJSONObject("submissions").getInt("found"));
+        assertEquals(0, contact.getJSONObject("submissions").getInt("toImport"));
+        assertEquals(0, contact.getJSONObject("submissions").getInt("imported"));
+        assertEquals(62, report.getJSONObject("totals").getInt("submissionsImported"));
+        verify(writer, never()).findForm(eq(CONTACT_ID), any());
+        verify(writer, org.mockito.Mockito.times(2)).createResultsOnlyEntry(any());
+        ArgumentCaptor<ImportedSubmission> written = ArgumentCaptor.forClass(ImportedSubmission.class);
+        verify(writer, org.mockito.Mockito.times(62)).writeSubmission(any(), written.capture(), any());
+        assertTrue(written.getAllValues().stream().noneMatch(s -> CONTACT_ID.equals(s.sourceFormId())));
+
+        // a found form left out takes none of its new submissions; everything left out leaves nothing to import
+        ImportWriter allFound = writer();
+        JCRNodeWrapper found = node("contact-us", FOLDER + "/contact-us");
+        when(allFound.findForm(any(), any())).thenReturn(found);
+        when(allFound.importedFields(any())).thenReturn(List.of());
+        Map<String, FormChoice> skipAll = Map.of("contact-us", FormChoice.SKIP, "newsletterregistration", FormChoice.SKIP,
+                "newsletter-registration", FormChoice.SKIP);
+        JSONObject none = new FormsImportRun(FormsExportReaderTest.sampleReader(), allFound, true, skipAll, type -> true, s -> true, false)
+                .run().toJson();
+        assertEquals(0, none.getJSONObject("totals").getInt("submissionsToImport"));
+        assertTrue(none.getBoolean("nothingToImport"));
     }
 }

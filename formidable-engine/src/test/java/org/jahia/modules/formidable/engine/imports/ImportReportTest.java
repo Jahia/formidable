@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.engine.imports;
 
+import org.jahia.modules.formidable.engine.imports.model.ImportNote;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
@@ -40,7 +41,7 @@ class ImportReportTest {
         ImportReport.FormEntry contact = report.form("contact-us", Map.of("en", "Contact Us"))
                 .target("contact-us", "/sites/x/contents/imported-forms/contact-us", ImportReport.FormOutcome.CREATED)
                 .field("your-name", "fmdb:inputText", List.of())
-                .notes(List.of("redirect reported"));
+                .notes(List.of(ImportNote.action("form.redirect", "target", "/home")));
         contact.submissionFound().values(3, 1, 0).file(1024).file(2048).fileMissing();
         contact.submissionFound().submissionAlreadyImported();
 
@@ -55,7 +56,10 @@ class ImportReportTest {
         assertEquals(2, form.getJSONObject("files").getInt("count"));
         assertEquals(3072, form.getJSONObject("files").getLong("bytes"));
         assertEquals(1, form.getJSONObject("files").getInt("missing"));
-        assertEquals(List.of("redirect reported"), form.getJSONArray("notes").toList());
+        JSONObject note = form.getJSONArray("notes").getJSONObject(0);
+        assertEquals("form.redirect", note.getString("code"));
+        assertEquals("action", note.getString("level"));
+        assertEquals("/home", note.getJSONObject("params").getString("target"));
         assertEquals(1, json.getJSONObject("totals").getInt("forms"));
         assertEquals(2, json.getJSONObject("totals").getInt("submissionsFound"));
         assertEquals(1, json.getJSONObject("totals").getInt("submissionsToImport"));

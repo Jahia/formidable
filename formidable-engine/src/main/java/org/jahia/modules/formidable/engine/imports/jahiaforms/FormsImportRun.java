@@ -107,9 +107,14 @@ public final class FormsImportRun {
     private JCRNodeWrapper prepareForm(Source source, ImportReport report) throws RepositoryException {
         ImportedForm form = source.form();
         ImportReport.FormEntry entry = report.form(form.name(), form.titles());
+        FormChoice choice = choices.getOrDefault(form.name(), FormChoice.RESULTS_ONLY);
+        if (choice.choice() == ImportChoice.SKIP) {
+            // left out: nothing written, no marker, a later run of the same export proposes the form again
+            entry.skip();
+            return null;
+        }
         JCRNodeWrapper existingForm = writer.findForm(form.sourceId(), form.sourceResultsId());
         JCRNodeWrapper existingEntry = existingForm == null ? writer.findImportedEntry(form.sourceKey()) : null;
-        FormChoice choice = choices.getOrDefault(form.name(), FormChoice.RESULTS_ONLY);
         JCRNodeWrapper targetForm = null;
         if (existingForm != null) {
             entry.target(existingForm.getName(), existingForm.getPath(), ImportReport.FormOutcome.FOUND);
@@ -221,6 +226,9 @@ public final class FormsImportRun {
                     return;
                 }
                 ImportReport.FormEntry entry = report.form(source.form().name()).submissionFound();
+                if (entry.isSkipped()) {
+                    return;
+                }
                 if (imported.contains(submission.uuid())) {
                     entry.submissionAlreadyImported();
                     return;

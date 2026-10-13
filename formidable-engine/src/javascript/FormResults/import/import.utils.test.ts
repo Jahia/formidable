@@ -5,7 +5,8 @@ import {
     choicesReady,
     fieldTitle,
     formTitle,
-    groupedFieldNotes,
+    groupedNotes,
+    type ImportNote,
     type ImportReport,
     type ImportReportField,
     type ImportReportForm,
@@ -15,10 +16,12 @@ import {
     parseSiteDefaultLanguage,
     parseSiteForms,
     parseTargetFields,
+    plannedImport,
     proposeMapping,
     refuseFile,
     requestChoices,
     type TargetField,
+    typeKey,
     unmatchedValues
 } from './import.utils';
 
@@ -51,15 +54,52 @@ describe('formTitle', () => {
     });
 });
 
-describe('groupedFieldNotes', () => {
-    it('gives one line per distinct note, with the fields it concerns', () => {
-        const prefill = 'prefill not carried over: set it by hand';
-        expect(groupedFieldNotes([
-            {name: 'first-name', type: 'fmdb:inputText', notes: [prefill]},
-            {name: 'last-name', type: 'fmdb:inputText', notes: [prefill, 'pattern not carried over']},
-            {name: 'email', type: 'fmdb:inputEmail', notes: []}
-        ])).toEqual([`${prefill} — first-name, last-name`, 'pattern not carried over — last-name']);
-        expect(groupedFieldNotes([])).toEqual([]);
+describe('groupedNotes', () => {
+    const logic: ImportNote = {code: 'field.logic', level: 'action', params: {}};
+    const rule: ImportNote = {code: 'field.rule', level: 'action', params: {rule: 'fcnt:regexValidation', type: 'fmdb:textarea'}};
+    const mapped = (property: string): ImportNote => ({code: 'field.profileMapped', level: 'info', params: {property}});
+    const redirect: ImportNote = {code: 'form.redirect', level: 'action', params: {target: '/home'}};
+
+    it('gives one line per distinct note with the labels of the fields it concerns, what to do apart from what was carried over', () => {
+        const form = {
+            notes: [redirect],
+            fields: [
+                {name: 'first-name', type: 'fmdb:inputText', titles: {en: 'First name'}, notes: [logic, mapped('firstName')]},
+                {name: 'last-name', type: 'fmdb:inputText', titles: {}, notes: [logic, mapped('lastName')]},
+                {name: 'enquiry', type: 'fmdb:textarea', titles: {en: 'Enquiry'}, notes: [rule]}
+            ]
+        } as unknown as ImportReportForm;
+
+        const lines = groupedNotes(form, 'en');
+
+        expect(lines.action).toEqual([
+            {note: redirect, fields: []},
+            {note: logic, fields: ['First name', 'last-name']},
+            {note: rule, fields: ['Enquiry']}
+        ]);
+        expect(lines.info.map(line => line.fields)).toEqual([['First name'], ['last-name']]);
+        expect(groupedNotes({notes: [], fields: []} as unknown as ImportReportForm, 'en')).toEqual({action: [], info: []});
+    });
+
+    it('keys the label of a field type by its local name', () => {
+        expect(typeKey('fmdb:inputText')).toEqual('inputText');
+        expect(typeKey('fmdbext:consent')).toEqual('consent');
+        expect(typeKey(undefined)).toEqual('');
+    });
+});
+
+describe('plannedImport', () => {
+    const form = (sourceName: string, outcome: ImportReportForm['outcome'], toImport: number) =>
+        ({sourceName, outcome, submissions: {toImport}}) as unknown as ImportReportForm;
+    const report = {forms: [form('contact', 'resultsOnly', 45), form('news', 'found', 3), form('old', 'found', 0)]} as unknown as ImportReport;
+
+    it('counts what the choices import: a form left out counts for nothing, a found form only with new submissions', () => {
+        expect(plannedImport(report, {})).toEqual({forms: 2, submissions: 48});
+        expect(plannedImport(report, {contact: 'skip'})).toEqual({forms: 1, submissions: 3});
+        expect(plannedImport(report, {contact: 'skip', news: 'skip'})).toEqual({forms: 0, submissions: 0});
+        expect(choicesReady({contact: 'skip', news: 'skip'}, report)).toBe(false);
+        expect(choicesReady({contact: 'skip'}, report)).toBe(true);
+        expect(kindOf('skip')).toEqual('skip');
     });
 });
 
@@ -129,7 +169,7 @@ describe('attaching to an existing form', () => {
     });
 
     it('holds the import until the attachment names a form and lands no two fields together', () => {
-        const report = {forms: [{sourceName: 'newsletter', fields: source}]} as unknown as ImportReport;
+        const report = {forms: [{sourceName: 'newsletter', outcome: 'resultsOnly', fields: source, submissions: {toImport: 3}}]} as unknown as ImportReport;
         expect(attachProblem({choice: 'attach', form: '', mapping: {}}, source)).toEqual('noForm');
         expect(attachProblem({choice: 'attach', form: 'f1', mapping: {lastname: 'firstname'}}, source)).toEqual('conflict');
         expect(attachProblem({choice: 'attach', form: 'f1', mapping: {lastname: 'surname'}}, source)).toBeNull();

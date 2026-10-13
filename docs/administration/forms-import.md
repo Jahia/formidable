@@ -46,10 +46,13 @@ results: the import refuses them with this procedure.
 2. Open the **Results** page of the target site in jContent. The **Import Jahia Forms results** button shows in its toolbar to
    the administrators of the site, the users who hold the site-administrator role on it.
 3. Click **Import Jahia Forms results**, drop the zip on the dialog or choose it. The dialog analyses the export without
-   writing anything, and shows what the import will do: per form, whether it is already there, its fields
-   and what could not be carried over, the submissions found, to import and already imported, the files.
-4. Choose, for each form that is not there yet, what receives its results: **Results only**, **Create the
-   form**, or **Attach to an existing form**. For an attachment, pick the form, then check where each field
+   writing anything, and shows what the import will do, one row per form: its submissions, fields and files,
+   whether it is already there, and, for a form to create, how many points are left to do by hand once it is
+   created. Click that count to read them, with what was carried over.
+4. Choose, in the **What to do** menu of each row, what receives the results of the form: **Results only**,
+   **Create the form**, **Attach to an existing form**, or **Don't import**, which leaves the form out of
+   this import; importing the same export again proposes it again. A form already imported takes its new
+   submissions, or nothing with **Don't import**. For an attachment, pick the form, then check where each field
    lands: a field of the form marked **same name** or **same label** was matched for you; pick a field for
    the others, or leave **Keep the name**. A field of the form picked in one row is no longer offered in the
    others, nor is the name of another field of the source, so that no two fields land under one name. For a
@@ -60,7 +63,7 @@ results: the import refuses them with this procedure.
    site.
 6. Read the final report, then publish the forms you had created: until a form is published, its entry on
    the Results page shows as **Unpublished**, with the labels of the form as column heads, read from the
-   edit workspace. Review each form, complete what the report lists, then publish it. Grant the **Form
+   edit workspace. Review each form, do what its row lists under **To do**, then publish it. Grant the **Form
    results reader** role on the form to the people who read its results, as for any form
    ([Results permissions](results-permissions.md)). Results attached to a form of the site already have the
    readers of that form.

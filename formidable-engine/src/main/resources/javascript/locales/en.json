@@ -230,24 +230,22 @@
 				"title": "What the import will do"
 			},
 			"report": {
-				"totals": "{{forms}} form(s), {{found}} submission(s) found, {{toImport}} to import",
+				"totals": "{{submissions}} submission(s) to import in {{forms}} form(s)",
 				"nothing": "Nothing to import: every form and every submission is already in this site.",
-				"created": "The form \"{{name}}\" in {{folder}}, with its entry on this page",
-				"found": "Already imported, at {{path}}",
-				"resultsOnly": "The entry \"{{name}}\" on this page, without a form",
-				"submissions": "{{found}} submission(s): {{toImport}} to import, {{already}} already imported",
+				"submissions": "{{count}} submission(s)",
+				"imported": "{{count}} submission(s) imported",
+				"already": "{{count}} already imported",
 				"fields": "{{count}} field(s)",
 				"files": "{{count}} file(s), {{size}}",
 				"filesMissing": "{{count}} file(s) not in the export, left behind",
-				"values": "{{dropped}} value(s) dropped, {{notConverted}} kept as stored",
-				"attached": "Attached to the form \"{{name}}\" at {{path}}, the values under the names of its fields",
-				"attachPending": "Pick the form the results attach to"
+				"values": "{{dropped}} value(s) dropped, {{notConverted}} kept as stored"
 			},
 			"choice": {
-				"label": "What receives the results",
 				"resultsOnly": "Results only",
 				"create": "Create the form",
-				"attach": "Attach to an existing form"
+				"attach": "Attach to an existing form",
+				"skip": "Don't import",
+				"add": "Add the new submissions"
 			},
 			"actions": {
 				"import": "Import",
@@ -257,9 +255,8 @@
 			},
 			"done": {
 				"title": "Import done",
-				"created": "These forms were created in the \"Imported from Jahia Forms\" folder of the site, unpublished, and their entries show as Form unpublished until then: review each one, complete what its report lists, then publish it.",
-				"resultsOnly": "The results of these forms are on this page, as entries without a form, flagged \"Imported, no form\", with the field system names as columns.",
-				"attached": "The results of these forms were attached to forms of this site: they show under those forms, read by their readers."
+				"totals": "{{submissions}} submission(s) imported in {{forms}} form(s)",
+				"created": "The created forms are unpublished: review each one, do what its To do lists, then publish it."
 			},
 			"failed": {
 				"title": "The import failed"
@@ -280,6 +277,93 @@
 				"sameLabel": "same label",
 				"conflict": "Two fields cannot land under the same name, nor under the name of another field of the source: {{names}}",
 				"unmatched": "{{count}} value(s) match no option of this field: {{values}}"
+			},
+			"columns": {
+				"form": "Form",
+				"choice": "What to do",
+				"result": "Result",
+				"todo": "To do"
+			},
+			"plan": {
+				"resultsOnly": "Its submissions show on this page, without a form.",
+				"created": "Creates the form, unpublished, in the Imported from Jahia Forms folder, with its submissions.",
+				"attached": "Its submissions join the results of \"{{name}}\".",
+				"attachPending": "Pick the form its submissions join.",
+				"found": "Already imported: its new submissions join \"{{name}}\".",
+				"foundNothing": "Already imported, nothing new.",
+				"skipped": "Nothing is imported. Importing the same export again proposes it again."
+			},
+			"outcome": {
+				"resultsOnly": "On this page, without a form",
+				"created": "Form \"{{name}}\" created, unpublished",
+				"attached": "Joined \"{{name}}\"",
+				"found": "Joined \"{{name}}\"",
+				"skipped": "Not imported"
+			},
+			"todo": {
+				"count": "{{count}} to do",
+				"details": "Details"
+			},
+			"notes": {
+				"action": "To redo or check by hand",
+				"info": "Carried over"
+			},
+			"then": {
+				"editable": "editable",
+				"readOnly": "read-only",
+				"hidden": "hidden"
+			},
+			"types": {
+				"inputText": "text",
+				"inputEmail": "email",
+				"textarea": "text area",
+				"select": "dropdown",
+				"radio": "radio buttons",
+				"checkbox": "checkboxes",
+				"inputDate": "date",
+				"inputNumber": "number",
+				"inputFile": "file",
+				"inputHidden": "hidden",
+				"consent": "consent",
+				"rating": "rating",
+				"switch": "switch"
+			},
+			"note": {
+				"field": {
+					"setting": "Its {{setting}} setting is not carried over: a {{type}} field has none",
+					"createdAsFallback": "Created as a {{type}} field: the {{preferred}} field is not installed here",
+					"createdAsNearest": "Created as a {{type}} field, the closest: Formidable has no {{kind}} field",
+					"createdAsText": "Created as a text field: Formidable has no equivalent of {{source}}",
+					"logic": "Its conditional logic is not carried over: rebuild it",
+					"prefillOther": "Its prefill ({{prefill}}) is not carried over: link the field to the visitor profile instead",
+					"prefillAlreadyMapped": "Its second prefill, from {{property}}, is not carried over: the field takes one link to the visitor profile",
+					"prefillNoIntegration": "Not linked to the visitor profile property {{property}}: the jExperience integration is not installed",
+					"prefillNotMappable": "Not linked to the visitor profile property {{property}}: a {{type}} field cannot be linked",
+					"profilePrefilled": "Linked to the visitor profile property {{property}}, prefilled from it, {{then}} once filled",
+					"profileMapped": "Linked to the visitor profile property {{property}}, without prefill",
+					"rule": "Its {{rule}} rule is not carried over: a {{type}} field has no such rule",
+					"ruleMessage": "The custom message of its {{rule}} rule is not carried over",
+					"fileTypes": "Its accepted file types ({{types}}) are not carried over: set them by hand",
+					"noChoices": "No options in the export: add them by hand",
+					"noCountries": "No countries in the export: add the options by hand, or declare a country options source",
+					"termsLink": "The link to the terms ({{link}}) is not carried over: add it to the statement"
+				},
+				"form": {
+					"fromLabels": "Rebuilt from the labels of its results: Jahia Forms no longer holds the form",
+					"submitterMail": "The mail to the submitter became a notification without recipient: complete or remove it",
+					"redirect": "The page redirect ({{target}}) is not carried over: Formidable has no redirect yet",
+					"action": "The action {{action}} is not carried over: Formidable has no equivalent",
+					"notSaved": "Jahia Forms did not save its submissions: add Save to JCR to keep them",
+					"mailCopies": "The CC and BCC recipients of the notification ({{copies}}) are not carried over",
+					"mailBody": "The body of the notification mail is not carried over",
+					"saveForLater": "\"Save the form for later\" is not carried over: Formidable has no such feature",
+					"constraints": "The submission limits are not carried over: Formidable has no such feature",
+					"captchaOn": "Captcha turned on, with the captcha of this instance",
+					"captchaOff": "Captcha not turned on: this instance has none, set one up then add it to the form",
+					"passwordDropped": "The password field {{field}} is not recreated: it would be stored and mailed in clear",
+					"contentDisplayDropped": "The content display {{field}} is not recreated: it submits nothing",
+					"fieldDropped": "The field {{field}} ({{source}}) is not recreated"
+				}
 			}
 		},
 		"attach": {

@@ -1,23 +1,17 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useQuery} from '@apollo/client';
-import {Button, Check, Close, Loader, RadioGroup, RadioItem, Typography, Upload} from '@jahia/moonstone';
+import {Button, Check, Close, Loader, Typography, Upload} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
-import {formatFileSize, uiContext} from '../FormResults.utils';
+import {uiContext} from '../FormResults.utils';
 import {GET_SITE_FORMS} from '../graphql';
-import {AttachToForm} from './AttachToForm';
+import {ReportTable} from './ImportReportTable';
 import {
-    type AttachChoice,
     choicesReady,
     closeJob,
     fetchJob,
-    formTitle,
-    groupedFieldNotes,
     type ImportChoice,
     type ImportJob,
-    type ImportReport,
-    type ImportReportForm,
     type ImportSettings,
-    kindOf,
     parseSiteDefaultLanguage,
     parseSiteForms,
     POLL_INTERVAL_MS,
@@ -291,7 +285,7 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                     {state === 'review' && job?.report && (
                         <>
                             <Typography variant="subheading" weight="bold">{t('formResults.import.review.title')}</Typography>
-                            <ReportView
+                            <ReportTable
                                 report={job.report}
                                 language={language}
                                 t={t}
@@ -310,8 +304,7 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                                 <Check size="big" color="green"/>
                                 <Typography variant="subheading" weight="bold">{t('formResults.import.done.title')}</Typography>
                             </div>
-                            <NextSteps report={job.report} language={language} t={t}/>
-                            <ReportView report={job.report} language={language} t={t}/>
+                            <ReportTable report={job.report} language={language} t={t}/>
                         </>
                     )}
                     {state === 'failed' && (
@@ -357,188 +350,5 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                 </div>
             </div>
         </dialog>
-    );
-};
-
-interface ReportProps {
-    report: ImportReport;
-    language: string;
-    t: (key: string, options?: Record<string, unknown>) => string;
-}
-
-interface ReportViewProps extends ReportProps {
-    /** The choices of the review, when the report is a dry run the administrator can still steer. */
-    choices?: Record<string, ImportChoice>;
-    /** The forms of the site an attachment can pick, null while they load. */
-    siteForms?: SiteForm[] | null;
-    /** The language the options of a choice field are read in: the default language of the site. */
-    optionsLanguage?: string;
-    /** The fields of the forms read so far, by identifier, and how to keep the ones read next. */
-    targetFields?: Record<string, TargetField[]>;
-    onTargetFields?: (formId: string, fields: TargetField[]) => void;
-    onChoice?: (sourceName: string, choice: ImportChoice) => void;
-}
-
-const ReportView = ({report, language, t, choices, siteForms, optionsLanguage, targetFields, onTargetFields, onChoice}: ReportViewProps) => (
-    <div data-sel-role="import-report" style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
-        <Typography data-sel-role="import-totals">
-            {t('formResults.import.report.totals', {
-                forms: report.totals.forms,
-                found: report.totals.submissionsFound,
-                toImport: report.dryRun ? report.totals.submissionsToImport : report.totals.submissionsImported
-            })}
-        </Typography>
-        {report.nothingToImport && (
-            <Typography data-sel-role="import-nothing">{t('formResults.import.report.nothing')}</Typography>
-        )}
-        {report.forms.map(form => (
-            <FormReport
-                key={form.sourceName}
-                form={form}
-                report={report}
-                language={language}
-                t={t}
-                choices={choices}
-                siteForms={siteForms}
-                optionsLanguage={optionsLanguage}
-                targetFields={targetFields}
-                onTargetFields={onTargetFields}
-                onChoice={onChoice}
-            />
-        ))}
-    </div>
-);
-
-/**
- * What to do next, per outcome, with the forms it concerns by name: a created form is to review and publish,
- * attached results show under their form, an entry alone just is.
- */
-const NextSteps = ({report, language, t}: ReportProps) => {
-    const groups = (['created', 'attached', 'resultsOnly'] as const)
-        .map(outcome => ({outcome, forms: report.forms.filter(form => form.outcome === outcome)}))
-        .filter(group => group.forms.length > 0);
-    if (groups.length === 0) {
-        return null;
-    }
-    return (
-        <div data-sel-role="import-next-step" style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
-            {groups.map(group => (
-                <div key={group.outcome}>
-                    <Typography variant="body">{t(`formResults.import.done.${group.outcome}`)}</Typography>
-                    <ul style={{margin: '4px 0 0', paddingLeft: '20px'}}>
-                        {group.forms.map(form => (
-                            <li key={form.sourceName}>
-                                <Typography variant="body" weight="bold">{formTitle(form, language)}</Typography>
-                                {/* attached results are read under the form they went to: the step names it */}
-                                {group.outcome === 'attached' && form.targetName && (
-                                    <Typography variant="body"> → {form.targetName}</Typography>
-                                )}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            ))}
-        </div>
-    );
-};
-
-interface FormReportProps extends ReportViewProps {
-    form: ImportReportForm;
-}
-
-const OUTCOME_OF_CHOICE = {resultsOnly: 'resultsOnly', create: 'created', attach: 'attached'} as const;
-
-/** What the import will do for a form: the choice of the review while it can still change, else the outcome the server reports. */
-function outcomeOf(form: ImportReportForm, choice: ImportChoice | undefined, steerable: boolean): ImportReportForm['outcome'] {
-    if (form.outcome === 'found' || !steerable) {
-        return form.outcome;
-    }
-    return OUTCOME_OF_CHOICE[kindOf(choice)];
-}
-
-const FormReport = ({form, report, language, t, choices, siteForms, optionsLanguage, targetFields, onTargetFields, onChoice}: FormReportProps) => {
-    const steerable = Boolean(onChoice) && form.outcome !== 'found';
-    const choice = choices?.[form.sourceName];
-    const outcome = outcomeOf(form, choice, Boolean(onChoice));
-    const attachment = typeof choice === 'object' ? choice : null;
-    // what the form itself cannot carry over only matters when a form is created
-    const notes = outcome === 'created' ? [...form.notes, ...groupedFieldNotes(form.fields)] : [];
-    const describe = (what: ImportReportForm['outcome']) => {
-        switch (what) {
-            case 'found':
-                return t('formResults.import.report.found', {path: form.targetPath});
-            case 'created':
-                return t('formResults.import.report.created', {name: form.targetName, folder: report.importedFormsFolder});
-            case 'attached': {
-                // in the review, the form is the one picked here; once imported, the one the server reports
-                const picked = attachment && siteForms?.find(siteForm => siteForm.uuid === attachment.form);
-                if (steerable && !picked) {
-                    return t('formResults.import.report.attachPending');
-                }
-                return t('formResults.import.report.attached', {
-                    name: picked ? picked.title : form.targetName,
-                    path: picked ? picked.path : form.targetPath
-                });
-            }
-            default:
-                return t('formResults.import.report.resultsOnly', {name: form.targetName});
-        }
-    };
-    const choose = (value: string) => {
-        onChoice?.(form.sourceName, value === 'attach' ? {choice: 'attach', form: '', mapping: {}} : value as ImportChoice);
-    };
-    const figures = [
-        t('formResults.import.report.submissions', {
-            found: form.submissions.found,
-            toImport: report.dryRun ? form.submissions.toImport : form.submissions.imported,
-            already: form.submissions.alreadyImported
-        }),
-        t('formResults.import.report.fields', {count: form.fields.length}),
-        form.files.count > 0 && t('formResults.import.report.files', {count: form.files.count, size: formatFileSize(form.files.bytes)}),
-        form.files.missing > 0 && t('formResults.import.report.filesMissing', {count: form.files.missing}),
-        (form.values.dropped > 0 || form.values.notConverted > 0) &&
-            t('formResults.import.report.values', {dropped: form.values.dropped, notConverted: form.values.notConverted})
-    ].filter(Boolean).join(' · ');
-    return (
-        <div data-sel-role="import-report-form" data-sel-name={form.sourceName} data-sel-outcome={outcome ?? ''} style={{border: '1px solid var(--color-gray_light40)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px'}}>
-            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '16px', flexWrap: 'wrap'}}>
-                <Typography variant="subheading" weight="bold">{formTitle(form, language)}</Typography>
-                <Typography variant="body" data-sel-role="import-report-figures">{figures}</Typography>
-            </div>
-            {steerable ? (
-                <RadioGroup
-                    name={`import-choice-${form.sourceName}`}
-                    value={kindOf(choice)}
-                    aria-label={t('formResults.import.choice.label')}
-                    data-sel-role="import-choice"
-                    onChange={(_event: React.ChangeEvent<HTMLInputElement>, value: string) => choose(value)}
-                >
-                    <RadioItem id={`import-choice-${form.sourceName}-resultsOnly`} value="resultsOnly" label={t('formResults.import.choice.resultsOnly')}/>
-                    <RadioItem id={`import-choice-${form.sourceName}-create`} value="create" label={t('formResults.import.choice.create')}/>
-                    <RadioItem id={`import-choice-${form.sourceName}-attach`} value="attach" label={t('formResults.import.choice.attach')}/>
-                </RadioGroup>
-            ) : null}
-            {steerable && attachment && (
-                <AttachToForm
-                    sourceFields={form.fields}
-                    choice={attachment}
-                    siteForms={siteForms ?? null}
-                    targetFields={targetFields ?? {}}
-                    language={language}
-                    optionsLanguage={optionsLanguage ?? language}
-                    t={t}
-                    onTargetFields={onTargetFields ?? (() => undefined)}
-                    onChange={(next: AttachChoice) => onChoice?.(form.sourceName, next)}
-                />
-            )}
-            <Typography variant="body" data-sel-role="import-report-outcome">{describe(outcome)}</Typography>
-            {notes.length > 0 && (
-                <ul style={{margin: 0, paddingLeft: '20px'}} data-sel-role="import-report-notes">
-                    {notes.map(note => (
-                        <li key={note}><Typography variant="body">{note}</Typography></li>
-                    ))}
-                </ul>
-            )}
-        </div>
     );
 };

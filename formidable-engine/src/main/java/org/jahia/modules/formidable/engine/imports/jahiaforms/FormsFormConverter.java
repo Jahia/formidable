@@ -7,6 +7,7 @@ import org.jahia.modules.formidable.engine.imports.model.ImportedContainer;
 import org.jahia.modules.formidable.engine.imports.model.ImportedElement;
 import org.jahia.modules.formidable.engine.imports.model.ImportedField;
 import org.jahia.modules.formidable.engine.imports.model.ImportedForm;
+import org.jahia.modules.formidable.engine.imports.model.ImportNote;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -33,8 +34,10 @@ public final class FormsFormConverter {
     static final String ACCEPTED = "true";
     private static final String SAVE_ACTION_NAME = "save-to-jcr";
     private static final String EMAIL_ACTION_NAME = "email-notification";
-    private static final String ACTION = "action ";
-    private static final String FIELD = "field ";
+    private static final String ACTION = "action";
+    private static final String FIELD = "field";
+    private static final String RULE = "rule";
+    private static final String PROPERTY = "property";
     private static final String PLAIN_LANGUAGE = "";
 
     /** The Forms file-type groups a {@code fileValidation} selects, as {@code accept} can say them; {@code all} restricts nothing. */
@@ -52,8 +55,6 @@ public final class FormsFormConverter {
     private static final String THEN_HIDDEN = "hidden";
     private static final String THEN_READ_ONLY = "readOnly";
     private static final String THEN_EDITABLE = "editable";
-    private static final String PROFILE_PREFILL_NOT_CARRIED = "prefill from the visitor profile property ";
-    private static final String NOT_CARRIED_OVER = " not carried over: ";
 
     private final Predicate<String> registeredTypes;
     private final Predicate<String> declaredOptionsSources;
@@ -89,7 +90,7 @@ public final class FormsFormConverter {
      */
     public ImportedForm convert(FormsForm form, FormsResults results) {
         SystemNames names = new SystemNames();
-        List<String> report = new ArrayList<>();
+        List<ImportNote> report = new ArrayList<>();
         String buildingLang = languageOf(form.buildingLang());
         List<ImportedElement> elements = form.steps().size() == 1
                 ? elementsOf(form.steps().get(0), results, buildingLang, names, report)
@@ -128,10 +129,10 @@ public final class FormsFormConverter {
                 ? nonBlank(results.titles()) : Map.of(buildingLang, results.name());
         return new ImportedForm(results.name(), titles, results.buildingLang(), Map.of(), Map.of(), false, fields,
                 List.of(), SOURCE_SYSTEM, null, results.uuid(), parentName == null ? null : FormsExport.FORMS_NODE + "/" + parentName,
-                List.of("built from the labels of its results: Forms no longer holds the form itself"));
+                List.of(ImportNote.info("form.fromLabels")));
     }
 
-    private List<ImportedElement> stepsOf(FormsForm form, FormsResults results, String buildingLang, SystemNames names, List<String> report) {
+    private List<ImportedElement> stepsOf(FormsForm form, FormsResults results, String buildingLang, SystemNames names, List<ImportNote> report) {
         List<ImportedElement> steps = new ArrayList<>();
         for (FormsStep step : form.steps()) {
             String name = names.reserve(step.name());
@@ -143,7 +144,7 @@ public final class FormsFormConverter {
 
     /** The fields of a step, the ones between a fieldset start and its end wrapped in a fieldset. */
     private List<ImportedElement> elementsOf(FormsStep step, FormsResults results, String buildingLang,
-                                            SystemNames names, List<String> report) {
+                                            SystemNames names, List<ImportNote> report) {
         Deque<Fieldset> open = new ArrayDeque<>();
         List<ImportedElement> top = new ArrayList<>();
         for (FormsField definition : step.fields()) {
@@ -168,7 +169,7 @@ public final class FormsFormConverter {
     }
 
     private Optional<ImportedField> fieldOf(FormsField definition, FormsResults results, String buildingLang,
-                                           SystemNames names, List<String> report) {
+                                           SystemNames names, List<ImportNote> report) {
         FormsFieldTypes.Mapping mapping = FormsFieldTypes.of(definition, registeredTypes);
         if (mapping == null) {
             report.add(notRecreated(definition));
@@ -196,7 +197,7 @@ public final class FormsFormConverter {
         field.i18nProperty(FormsFieldTypes.HELP_TEXT, valuesOf(definition.option(FormsOptionNames.HELP_TEXT)));
         fillPrefills(field, definition, mapping);
         if (definition.hasLogic()) {
-            field.report("conditional logic not carried over: rebuild it by hand");
+            field.report(ImportNote.action("field.logic"));
         }
     }
 
@@ -209,7 +210,7 @@ public final class FormsFormConverter {
     private void fillPrefills(ImportedField.Builder field, FormsField definition, FormsFieldTypes.Mapping mapping) {
         boolean mapped = false;
         for (FormsPrefill prefill : definition.prefills()) {
-            String refusal = refusalOf(prefill, mapping, mapped);
+            ImportNote refusal = refusalOf(prefill, mapping, mapped);
             if (refusal == null) {
                 carry(field, prefill);
                 mapped = true;
@@ -220,19 +221,18 @@ public final class FormsFormConverter {
     }
 
     /** Why a prefill is reported instead of carried over; null when the field takes it. */
-    private String refusalOf(FormsPrefill prefill, FormsFieldTypes.Mapping mapping, boolean mapped) {
+    private ImportNote refusalOf(FormsPrefill prefill, FormsFieldTypes.Mapping mapping, boolean mapped) {
         if (!prefill.isProfileMapping()) {
-            return "prefill " + prefill.type() + NOT_CARRIED_OVER + "Formidable prefills come from the visitor profile mapping, set it by hand";
+            return ImportNote.action("field.prefillOther", "prefill", prefill.type());
         }
-        String refused = PROFILE_PREFILL_NOT_CARRIED + prefill.profileProperty() + NOT_CARRIED_OVER;
         if (mapped) {
-            return refused + "the field is already mapped";
+            return ImportNote.action("field.prefillAlreadyMapped", PROPERTY, prefill.profileProperty());
         }
         if (!registeredTypes.test(PROFILE_MAPPING_MIXIN)) {
-            return refused + "the jExperience integration is not installed, map the field by hand once it is";
+            return ImportNote.action("field.prefillNoIntegration", PROPERTY, prefill.profileProperty());
         }
         if (!profileMappable.test(mapping.nodeType())) {
-            return refused + mapping.nodeType() + " takes no mapping to the visitor profile";
+            return ImportNote.action("field.prefillNotMappable", PROPERTY, prefill.profileProperty(), "type", mapping.nodeType());
         }
         return null;
     }
@@ -245,8 +245,9 @@ public final class FormsFormConverter {
         if (prefill.prefills()) {
             field.extension(PROFILE_MAPPING_MIXIN, PROFILE_PREFILL_THEN, then);
         }
-        field.report("mapped to the visitor profile property " + prefill.profileProperty()
-                + (prefill.prefills() ? ", prefilled from it, " + then + " once filled" : ", without prefill") + ": check it in the editor");
+        field.report(prefill.prefills()
+                ? ImportNote.info("field.profilePrefilled", PROPERTY, prefill.profileProperty(), "then", then)
+                : ImportNote.info("field.profileMapped", PROPERTY, prefill.profileProperty()));
     }
 
     /** What follows the write of the profile's value, as Forms had it: hidden first, then read-only, else editable. */
@@ -260,8 +261,7 @@ public final class FormsFormConverter {
     private static void fillRules(ImportedField.Builder field, FormsField definition, FormsFieldTypes.Mapping mapping) {
         for (FormsValidation rule : definition.validations()) {
             if (!carried(field, rule, mapping)) {
-                field.report("rule " + rule.type() + " not carried over: " + mapping.nodeType() + " has no such rule"
-                        + (rule.messages().isEmpty() ? "" : ", nor its message"));
+                field.report(ImportNote.action("field.rule", RULE, rule.type(), "type", mapping.nodeType()));
             }
         }
     }
@@ -340,7 +340,7 @@ public final class FormsFormConverter {
     /** A rule whose settings carry but whose custom message has no slot on the type. */
     private static void noMessage(ImportedField.Builder field, FormsValidation rule) {
         if (!rule.messages().isEmpty()) {
-            field.report("message of rule " + rule.type() + " not carried over: the field type has no slot for it");
+            field.report(ImportNote.action("field.ruleMessage", RULE, rule.type()));
         }
     }
 
@@ -381,14 +381,14 @@ public final class FormsFormConverter {
                 }
             }
         } catch (JSONException e) {
-            field.report("file types not carried over, set accept by hand: " + json);
+            field.report(ImportNote.action("field.fileTypes", "types", json));
             return;
         }
         if (!accept.isEmpty()) {
             field.property(FormsFieldTypes.ACCEPT, String.join(",", accept));
         }
         if (!unmapped.isEmpty()) {
-            field.report("file types not carried over, set accept by hand: " + String.join(", ", unmapped));
+            field.report(ImportNote.action("field.fileTypes", "types", String.join(", ", unmapped)));
         }
     }
 
@@ -439,8 +439,7 @@ public final class FormsFormConverter {
             String language = titles.containsKey(buildingLang) || titles.isEmpty() ? buildingLang : titles.keySet().iterator().next();
             field.options(Map.of(language, List.of(FormsChoices.option(ACCEPTED, titles.getOrDefault(language, ACCEPTED)))));
         } else {
-            field.report("no choices found in the export: add the options by hand"
-                    + ("countryList".equals(kind) ? ", or declare a country options source" : ""));
+            field.report(ImportNote.action("countryList".equals(kind) ? "field.noCountries" : "field.noChoices"));
         }
     }
 
@@ -471,7 +470,7 @@ public final class FormsFormConverter {
         terms.forEach((language, text) -> statement.put(language, LINK_TEXT.matcher(text).replaceAll("$1").trim()));
         String link = plain(definition, FormsOptionNames.LINK);
         if (link != null && !link.isBlank()) {
-            field.report("the link to the terms (" + link.trim() + ") not carried over: the statement holds no link, add one by hand");
+            field.report(ImportNote.action("field.termsLink", "link", link.trim()));
         }
         return statement;
     }
@@ -488,7 +487,7 @@ public final class FormsFormConverter {
         return options;
     }
 
-    private static List<ImportedAction> actionsOf(FormsForm form, List<String> report) {
+    private static List<ImportedAction> actionsOf(FormsForm form, List<ImportNote> report) {
         List<ImportedAction> actions = new ArrayList<>();
         boolean saved = false;
         for (FormsAction action : form.actions()) {
@@ -500,17 +499,15 @@ public final class FormsFormConverter {
             } else if (action.is(FormsAction.SEND_EMAIL_TO_SUBMITTER)) {
                 actions.add(new ImportedAction(EMAIL_ACTION_NAME + "-submitter", FmdbNodeType.EMAIL_NOTIFICATION_ACTION,
                         Map.of(), nonBlankI18n(Map.of("subject", valuesOf(action.option(FormsOptionNames.SUBJECT))))));
-                report.add(ACTION + action.type() + ": Formidable has no action that writes to the submitter; "
-                        + "a notification without recipient was created, complete or remove it");
+                report.add(ImportNote.action("form.submitterMail"));
             } else if (action.is(FormsAction.REDIRECT_TO_PAGE) || action.is(FormsAction.REDIRECT_TO_URL)) {
-                report.add(ACTION + action.type() + " not carried over (target: " + redirectTarget(action)
-                        + "): Formidable has no redirect action yet");
+                report.add(ImportNote.action("form.redirect", "target", redirectTarget(action)));
             } else {
-                report.add(ACTION + action.type() + " not carried over: Formidable has no equivalent");
+                report.add(ImportNote.action("form.action", ACTION, action.type()));
             }
         }
         if (!saved) {
-            report.add("Forms did not save this form's submissions; add Save to JCR to keep saving them");
+            report.add(ImportNote.action("form.notSaved"));
         }
         return actions;
     }
@@ -519,16 +516,15 @@ public final class FormsFormConverter {
      * The notification keeps the {@code to} recipients alone: Formidable sends one message to one list,
      * so an address Forms kept in CC or BCC would be shown to every other recipient.
      */
-    private static ImportedAction emailNotification(FormsAction action, List<String> report) {
+    private static ImportedAction emailNotification(FormsAction action, List<ImportNote> report) {
         Map<String, String> properties = new LinkedHashMap<>();
         putPlain(properties, "to", emails(plain(action, FormsOptionNames.TO)));
         putPlain(properties, "from", emails(plain(action, FormsOptionNames.FROM)));
         String copies = copies(action);
         if (copies != null) {
-            report.add(ACTION + action.type() + ": Forms also sent this mail in CC/BCC to " + copies
-                    + "; Formidable sends to one list, add them by hand if they may be visible to the other recipients");
+            report.add(ImportNote.action("form.mailCopies", "copies", copies));
         }
-        report.add(ACTION + action.type() + ": the body of the mail was not carried over, the two templates differ");
+        report.add(ImportNote.action("form.mailBody"));
         return new ImportedAction(EMAIL_ACTION_NAME, FmdbNodeType.EMAIL_NOTIFICATION_ACTION, properties,
                 nonBlankI18n(Map.of("subject", valuesOf(action.option(FormsOptionNames.SUBJECT)))));
     }
@@ -561,18 +557,16 @@ public final class FormsFormConverter {
         return target == null || target.isBlank() ? "unknown" : target;
     }
 
-    private void reportFormSettings(FormsForm form, List<String> report) {
+    private void reportFormSettings(FormsForm form, List<ImportNote> report) {
         FormsForm.Settings settings = form.settings();
         if (settings.savable()) {
-            report.add("\"save the form for later\" not carried over: Formidable has no such feature");
+            report.add(ImportNote.action("form.saveForLater"));
         }
         if (settings.constrained()) {
-            report.add("submission constraints not carried over: Formidable has no such feature");
+            report.add(ImportNote.action("form.constraints"));
         }
         if (settings.displaysCaptcha()) {
-            report.add(captchaConfigured
-                    ? "the form displayed a captcha: turned on, with the captcha this instance configures"
-                    : "the form displayed a captcha: not turned on, this instance configures no captcha; set one up, then add the captcha to the form");
+            report.add(captchaConfigured ? ImportNote.info("form.captchaOn") : ImportNote.action("form.captchaOff"));
         }
     }
 
@@ -590,11 +584,11 @@ public final class FormsFormConverter {
         return labels;
     }
 
-    private static String notRecreated(FormsField definition) {
+    private static ImportNote notRecreated(FormsField definition) {
         return switch (definition.kind()) {
-            case "password" -> FIELD + definition.name() + " (password) not recreated: Formidable would store and mail the password in clear";
-            case "contentDisplay" -> FIELD + definition.name() + " (content display) not recreated: it displays a content, submits nothing";
-            default -> FIELD + definition.name() + " (" + definition.type() + ") not recreated";
+            case "password" -> ImportNote.action("form.passwordDropped", FIELD, definition.name());
+            case "contentDisplay" -> ImportNote.info("form.contentDisplayDropped", FIELD, definition.name());
+            default -> ImportNote.action("form.fieldDropped", FIELD, definition.name(), "source", definition.type());
         };
     }
 

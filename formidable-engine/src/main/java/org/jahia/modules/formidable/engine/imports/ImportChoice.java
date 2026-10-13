@@ -3,11 +3,12 @@ package org.jahia.modules.formidable.engine.imports;
 /**
  * What receives the results of one source form, chosen by the administrator in the review state of the
  * dialog (docs/architecture/forms-import.md, "Iteration 2"): an entry alone, without a form, which is the
- * default; a form created for them; or an existing Formidable form they attach to. The choice of a form,
+ * default; a form created for them; an existing Formidable form they attach to; or nothing, the form and
+ * its results left out of this run, which a later run of the same export proposes again. The choice of a form,
  * with the form and the mapping an attachment needs, is a {@link FormChoice}.
  */
 public enum ImportChoice {
-    RESULTS_ONLY("resultsOnly"), CREATE("create"), ATTACH("attach");
+    RESULTS_ONLY("resultsOnly"), CREATE("create"), ATTACH("attach"), SKIP("skip");
 
     private final String json;
 
@@ -26,6 +27,6 @@ public enum ImportChoice {
                 return choice;
             }
         }
-        throw new IllegalArgumentException("'" + json + "' is not an import choice: resultsOnly, create or attach");
+        throw new IllegalArgumentException("'" + json + "' is not an import choice: resultsOnly, create, attach or skip");
     }
 }
