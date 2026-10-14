@@ -16,6 +16,7 @@ and serves as a real-world validation of it.
 | `fmdbext:scale` (view `nps`) | Standard Net Promoter Score presentation — forces 0–10, translated default end labels                    | number `0..10`         |
 | `fmdbext:switch`             | Boolean yes/no; `toggle` or `buttons` display mode, presentation-only state labels                       | boolean `true`/`false` |
 | `fmdbext:consent`            | Explicit terms/GDPR consent checkbox with rich-text statement and optional link to a terms page/document | `true`                 |
+| `fmdbext:password`           | Password input, a **sensitive field**: its value goes only to an action that consumes it (Create account, Sign in of `formidable-accounts`), never to Save to JCR, e-mail, forward or jExperience | none: kept from every action but the one that needs it |
 
 All types extend `fmdbmix:element` + `fmdbmix:validationMessages`, use the standard `fmdb-` markup
 conventions (`name` = node name, `id` = `<type>-<uuid>`, `fmdb-form-group` wrapper), and are pure
@@ -26,6 +27,7 @@ SSR — no client Islands, all interactivity is native HTML + CSS.
 - **Rating**: no half-steps (accessible radio-group model). Value stored as plain number; aggregation out of scope.
 - **NPS**: implemented as a _view_ on the scale type, not a separate type.
 - **Switch**: value is boolean; in `toggle` mode unchecked submits nothing (standard checkbox semantics) — use `buttons` mode when an explicit `false` answer is required.
+- **Password**: carries `fmdbmix:sensitiveField`, never `fmdbmix:profileMappableField` nor a value kind (no conditional-logic rule reads it), no default value, `autocompleteMode` picks `new-password` or `current-password` for the browser's password manager, `maxLength` 128 unless set. See [`docs/administration/how-to-accounts-actions.md`](../docs/administration/how-to-accounts-actions.md) and "Sensitive fields" in [`form-submission-flow.md`](../docs/architecture/form-submission-flow.md#sensitive-fields).
 - **Consent**: stored value is simply `true`; consent metadata (timestamp/version) is out of scope. The linked terms target **must be guest-readable**.
 
 ## Known limitations
