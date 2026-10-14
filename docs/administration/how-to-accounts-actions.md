@@ -144,4 +144,5 @@ scanner that opens it consumes the token, and the visitor then simply signs in w
 | The field lists of the action are empty | The action is not inside a form, or the form has no field of that kind (an e-mail field, a Password input) | Add the field, then reopen the action |
 | `Too many attempts` for everybody | Behind a proxy every visitor shares one remote address | Configure the container so `getRemoteAddr()` is the visitor's, or raise `maxAttemptsPerAddress` |
 | The module does not start | Jahia older than 8.2.3.0: `AuthenticationService` is not an OSGi service there | Upgrade Jahia |
+| A visitor who just followed the activation link reads "not active yet" for a moment | Jahia publishes user changes to the live workspace in the background, and a sign-in reads the live copy first | Wait a few seconds and sign in again |
 | The visitor is not signed in after the sign-up | The automatic sign-in was refused (logged as a warning with the account's identifier) or **Sign the visitor in** is off | Check the log; the visitor can sign in by hand |

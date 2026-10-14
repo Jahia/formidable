@@ -60,6 +60,7 @@ class JahiaAccountDirectoryTest {
         user = mock(JCRUserNode.class);
         when(user.getIdentifier()).thenReturn(USER_ID);
         when(user.getPath()).thenReturn("/users/a/d/a/ada@example.com");
+        when(user.isNew()).thenReturn(true);
         JCRTemplate template = mock(JCRTemplate.class);
         when(template.doExecuteWithSystemSession(any(JCRCallback.class))).thenAnswer(call -> ((JCRCallback<?>) call.getArgument(0)).doInJCR(session));
         AccountsConfigService config = new AccountsConfigService();
@@ -120,6 +121,24 @@ class JahiaAccountDirectoryTest {
 
         assertEquals(Refusal.TAKEN, e.refusal());
         verify(users, never()).createUser(anyString(), anyString(), any(Properties.class), any(JCRSessionWrapper.class));
+    }
+
+    @Test
+    void aNodeThatCreateUserAnswersButDidNotCreateIsNeverTouched() throws Exception {
+        // Verifies the trap of JahiaUserManagerService.createUser: for a name that exists (a concurrent sign-up got there
+        // first) it answers the existing node. The account is refused as taken: no property written, no group joined,
+        // and the existing user is not removed.
+        when(user.isNew()).thenReturn(false);
+        JCRGroupNode customers = mock(JCRGroupNode.class);
+        when(groups.lookupGroup(null, "customers", session)).thenReturn(customers);
+
+        AccountException e = assertThrows(AccountException.class, () -> directory.create(account("customers"), null));
+
+        assertEquals(Refusal.TAKEN, e.refusal());
+        verify(user, never()).setProperty(anyString(), anyString());
+        verify(user, never()).remove();
+        verify(customers, never()).addMember(any(JCRNodeWrapper.class));
+        verify(session, never()).save();
     }
 
     @Test
@@ -186,16 +205,17 @@ class JahiaAccountDirectoryTest {
         JCRGroupNode customers = mock(JCRGroupNode.class);
         when(customers.getName()).thenReturn("customers");
         when(customers.getGroupKey()).thenReturn("customers");
-        when(groups.lookupGroup("customers", null, session)).thenReturn(customers);
+        when(groups.lookupGroup(null, "customers", session)).thenReturn(customers);
         JCRGroupNode siteGroup = mock(JCRGroupNode.class);
         when(siteGroup.getName()).thenReturn("members");
         when(siteGroup.getGroupKey()).thenReturn("members:mysite");
-        when(groups.lookupGroup("members", "mysite", session)).thenReturn(siteGroup);
+        when(groups.lookupGroup("mysite", "members", session)).thenReturn(siteGroup);
         JCRGroupNode byPath = mock(JCRGroupNode.class);
         when(byPath.getName()).thenReturn("vip");
         when(byPath.getGroupKey()).thenReturn("vip");
         when(groups.lookupGroupByPath("/groups/vip", session)).thenReturn(byPath);
 
+        // the reference "members:mysite" is name:siteKey; the platform's lookup takes the site key first
         directory.create(account("customers"), null);
         directory.create(account("members:mysite"), null);
         directory.create(account("/groups/vip"), null);
@@ -213,7 +233,7 @@ class JahiaAccountDirectoryTest {
         JCRGroupNode administrators = mock(JCRGroupNode.class);
         when(administrators.getName()).thenReturn("administrators");
         when(administrators.getGroupKey()).thenReturn("administrators");
-        when(groups.lookupGroup("administrators", null, session)).thenReturn(administrators);
+        when(groups.lookupGroup(null, "administrators", session)).thenReturn(administrators);
 
         AccountException e = assertThrows(AccountException.class, () -> directory.create(account("administrators"), null));
 

@@ -118,6 +118,11 @@ public class JahiaAccountDirectory implements AccountDirectory {
         if (user == null) {
             throw new AccountException(Refusal.FAILED, "the platform refused to create the user");
         }
+        if (!user.isNew()) {
+            // createUser answers the EXISTING node when the name is already there (it only adds what is missing): a
+            // concurrent sign-up for the same address got there first. Nothing is touched, nothing is granted.
+            throw new AccountException(Refusal.TAKEN, "the user name was taken meanwhile");
+        }
         String identifier = user.getIdentifier();
         try {
             if (pending != null) {
@@ -168,12 +173,13 @@ public class JahiaAccountDirectory implements AccountDirectory {
             }
             return groups.lookupGroupByPath(reference, session);
         }
+        // JahiaGroupManagerService.lookupGroup takes the site key FIRST, and null for a global group
         int colon = reference.indexOf(':');
         if (colon > 0) {
-            return groups.lookupGroup(reference.substring(0, colon), reference.substring(colon + 1), session);
+            return groups.lookupGroup(reference.substring(colon + 1), reference.substring(0, colon), session);
         }
-        JCRGroupNode global = groups.lookupGroup(reference, null, session);
-        return global != null || siteKey == null || siteKey.isBlank() ? global : groups.lookupGroup(reference, siteKey, session);
+        JCRGroupNode global = groups.lookupGroup(null, reference, session);
+        return global != null || siteKey == null || siteKey.isBlank() ? global : groups.lookupGroup(siteKey, reference, session);
     }
 
     private static boolean isExpiredPending(JCRUserNode user, Instant now) throws RepositoryException {
@@ -195,6 +201,9 @@ public class JahiaAccountDirectory implements AccountDirectory {
             JCRNodeWrapper node = session.getNodeByIdentifier(identifier);
             node.remove();
             session.save();
+        } catch (javax.jcr.ItemNotFoundException e) {
+            // the refresh discarded a node that was never saved: nothing is left to remove
+            log.debug("[JahiaAccountDirectory] Nothing to remove: the account was never saved.");
         } catch (RepositoryException | RuntimeException e) {
             log.error("[JahiaAccountDirectory] An account that could not be completed could not be removed either: remove the user {} by hand.", identifier, e);
         }
