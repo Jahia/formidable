@@ -38,7 +38,7 @@ Release notes for the whole repository are assembled by [chachalog](../.chachalo
 
 * JUnit: the rate limiter, the password rule, the user name rule, the activation token and mail, the directory on mocked
   Jahia services, the authenticator, the guard, both actions, the verification servlet, the field chooser.
-* Cypress: `91-accounts-create-account`, `92-accounts-sign-in`, `93-accounts-no-password-leak`.
+* Cypress: `86-accounts-create-account`, `87-accounts-sign-in`, `88-accounts-password-never-stored`, `89-redirect-action`.
 
 ### Documentation
 

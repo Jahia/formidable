@@ -11,6 +11,7 @@
     - 'mvn:org.jahia.modules/content-integrity'
     - 'mvn:org.jahia.modules/jcontent'
     - 'mvn:org.jahia.modules/formidable-engine'
+    - 'mvn:org.jahia.modules/formidable-accounts'
     - 'js:mvn:org.jahia.modules/formidable-elements/LATEST/tgz'
     - 'js:mvn:org.jahia.modules/formidable-extended-inputs/LATEST/tgz'
     - 'mvn:org.jahia.test/formidable-test-module-samples-java'
