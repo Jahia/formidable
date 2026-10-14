@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 import {type ImportReport, type ImportReportForm} from './import.utils';
-import {reportFileName, reportMarkdown} from './reportMarkdown';
+import {importLog, importLogFileName} from './importLog';
 
 // a translation that shows the key and the values it was given, enough to check what reaches the sentence
 const t = (key: string, options?: Record<string, unknown>): string => {
@@ -22,7 +22,7 @@ const form = (sourceName: string, overrides: Partial<ImportReportForm> = {}): Im
     ...overrides
 });
 
-describe('reportMarkdown', () => {
+describe('importLog', () => {
     const contact = form('contact', {
         outcome: 'created',
         notes: [{code: 'form.passwordDropped', level: 'action', params: {field: 'password_0_1'}}],
@@ -31,12 +31,22 @@ describe('reportMarkdown', () => {
             {name: 'enquiry', type: 'fmdb:textarea', titles: {en: 'Enquiry'}, notes: [{code: 'field.prefillUnknownProperty', level: 'action', params: {property: 'sfdc__lead'}}]}
         ],
         values: {converted: 9, dropped: 2, notConverted: 0},
-        files: {count: 1, bytes: 578, missing: 1}
+        files: {count: 1, bytes: 578, missing: 1},
+        submissions: {found: 3, imported: 2, alreadyImported: 0, failed: 1, toImport: 3},
+        incidents: [
+            {code: 'submission.passwordDropped', level: 'action', params: {field: 'Password'}, submission: 's1', created: '2024-06-01T10:00:00Z'},
+            {code: 'submission.passwordDropped', level: 'action', params: {field: 'Password'}, submission: 's2', created: '2024-06-02T11:30:00Z'},
+            {code: 'submission.writeFailed', level: 'action', params: {reason: 'disk full'}, submission: 's3', created: null}
+        ],
+        incidentsOmitted: 4
     });
+    const skipped = form('skipped', {outcome: 'skipped'});
     const news = form('news', {notes: [{code: 'form.redirect', level: 'action', params: {target: '/home'}}]});
-    const report = {dryRun: false, importedFormsFolder: null, forms: [contact, news], totals: {forms: 2, submissionsFound: 6, submissionsToImport: 0, submissionsImported: 6}, nothingToImport: false} as ImportReport;
+    const report = {dryRun: false, importedFormsFolder: null, forms: [contact, news, skipped], totals: {forms: 3, submissionsFound: 9, submissionsToImport: 0, submissionsImported: 5, submissionsFailed: 1},
+        nothingToImport: false, stopped: null,
+        incidents: [{code: 'submission.noForm', level: 'action', params: {form: 'old-survey'}, submission: 's9', created: '2024-01-01T00:00:00Z'}]} as ImportReport;
 
-    const markdown = reportMarkdown(report, {
+    const markdown = importLog(report, {
         siteKey: 'acme',
         fileName: 'formFactory.zip',
         language: 'en',
@@ -54,6 +64,33 @@ describe('reportMarkdown', () => {
         expect(markdown).toContain('- formResults.import.columns.result: outcome of contact');
         expect(markdown).toContain('formResults.import.report.filesMissing(count=1)');
         expect(markdown).toContain('formResults.import.report.values(dropped=2,notConverted=0)');
+        expect(markdown).toContain('- formResults.import.markdown.done');
+        expect(markdown).toContain('formResults.import.markdown.totals(imported=5,failed=1)');
+        expect(markdown).toContain('- formResults.import.report.failed(count=1)');
+        // a form left out of the import has nothing to log
+        expect(markdown).not.toContain('## SKIPPED');
+    });
+
+    it('gives what the submissions lost once per sentence, with the submissions it concerns under it', () => {
+        const section = markdown.indexOf('### formResults.import.markdown.incidents');
+        expect(section).toBeGreaterThan(markdown.indexOf('## CONTACT'));
+        expect(markdown).toContain('- formResults.import.note.submission.passwordDropped(field=Password) (2)');
+        expect(markdown).toContain('  - 2024-06-01 10:00 UTC · formResults.import.markdown.submission(id=s1)');
+        expect(markdown).toContain('  - 2024-06-02 11:30 UTC · formResults.import.markdown.submission(id=s2)');
+        expect(markdown).toContain('- formResults.import.note.submission.writeFailed(reason=disk full) (1)');
+        expect(markdown).toContain('  - formResults.import.markdown.submission(id=s3)');
+        expect(markdown).toContain('- formResults.import.markdown.incidentsOmitted(count=4)');
+        // the submissions of no form come last, in a section of their own
+        expect(markdown.indexOf('## formResults.import.markdown.orphans')).toBeGreaterThan(markdown.indexOf('## NEWS'));
+        expect(markdown).toContain(String.raw`- formResults.import.note.submission.noForm(form=old-survey) (1)`);
+    });
+
+    it('says why an import stopped before its end', () => {
+        const stopped = importLog({...report, stopped: '100 submissions could not be written'}, {
+            siteKey: 'acme', fileName: 'f.zip', language: 'en', date: new Date(), t, outcomeOf: () => '', notesApply: () => false
+        });
+        expect(stopped).toContain('- formResults.import.markdown.stopped(reason=100 submissions could not be written)');
+        expect(stopped).not.toContain('formResults.import.markdown.done');
     });
 
     it('lists what to redo by hand, the field it concerns first, then what was carried over', () => {
@@ -76,9 +113,8 @@ describe('reportMarkdown', () => {
     });
 });
 
-describe('reportFileName', () => {
-    it('names the file after what it is, the site and the minute, in UTC', () => {
-        expect(reportFileName('acme', new Date('2026-10-13T14:51:30Z'), false)).toEqual('forms-import-report-acme-2026-10-13-1451.md');
-        expect(reportFileName('acme', new Date('2026-10-13T14:51:30Z'), true)).toEqual('forms-import-plan-acme-2026-10-13-1451.md');
+describe('importLogFileName', () => {
+    it('names the file after the site and the minute, in UTC', () => {
+        expect(importLogFileName('acme', new Date('2026-10-13T14:51:30Z'))).toEqual('forms-import-log-acme-2026-10-13-1451.md');
     });
 });

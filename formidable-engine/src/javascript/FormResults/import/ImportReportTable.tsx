@@ -226,6 +226,7 @@ function figuresOf(form: ImportReportForm, dryRun: boolean, t: Translate): strin
             t('formResults.import.report.submissions', {count: form.submissions.found}) :
             t('formResults.import.report.imported', {count: form.submissions.imported}),
         form.submissions.alreadyImported > 0 && t('formResults.import.report.already', {count: form.submissions.alreadyImported}),
+        !dryRun && (form.submissions.failed ?? 0) > 0 && t('formResults.import.report.failed', {count: form.submissions.failed}),
         t('formResults.import.report.fields', {count: form.fields.length}),
         form.files.count > 0 && t('formResults.import.report.files', {count: form.files.count, size: formatFileSize(form.files.bytes)}),
         form.files.missing > 0 && t('formResults.import.report.filesMissing', {count: form.files.missing}),

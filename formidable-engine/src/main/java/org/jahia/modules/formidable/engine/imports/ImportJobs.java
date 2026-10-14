@@ -424,7 +424,7 @@ public class ImportJobs {
         } catch (Exception e) {
             log.error("[FormsImport] Job {} of site {}: {} failed", jobId, siteKey, phase, e);
             try {
-                update(siteKey, jobId, State.FAILED, null, failureMessage(e), phase == Phase.IMPORT);
+                update(siteKey, jobId, State.FAILED, stoppedReport(e), failureMessage(e), phase == Phase.IMPORT);
             } catch (RepositoryException inner) {
                 log.error("[FormsImport] Job {} of site {}: the failure could not be recorded", jobId, siteKey, inner);
             }
@@ -583,6 +583,18 @@ public class ImportJobs {
             session.save();
             return null;
         });
+    }
+
+    /** The report of an import that stopped before its end, with why: what the log of the dialog gives; null for any other failure. */
+    private static String stoppedReport(Exception e) {
+        for (Throwable cause = e; cause != null; cause = cause.getCause()) {
+            if (cause instanceof FormsImportRun.Stopped stopped) {
+                ImportReport report = stopped.report();
+                report.stopped(failureMessage(e));
+                return report.toJson().toString();
+            }
+        }
+        return null;
     }
 
     private static String failureMessage(Exception e) {

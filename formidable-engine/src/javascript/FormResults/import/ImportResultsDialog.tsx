@@ -6,7 +6,7 @@ import {uiContext} from '../FormResults.utils';
 import {downloadFile} from '../export/export.utils';
 import {GET_SITE_FORMS} from '../graphql';
 import {ReportTable, rowOf} from './ImportReportTable';
-import {reportFileName, reportMarkdown} from './reportMarkdown';
+import {importLog, importLogFileName} from './importLog';
 import {
     choicesReady,
     closeJob,
@@ -170,15 +170,14 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
         setState('waiting');
     };
 
-    // The report as a Markdown file, built here from what the dialog shows: nothing is stored on the server.
-    const downloadReport = () => {
+    // The log of the import as a Markdown file, built here from the report of the job: nothing more is stored on the server.
+    const downloadLog = () => {
         if (!job?.report) {
             return;
         }
         const date = new Date();
-        const steerable = state === 'review';
-        const rowOfForm = (form: Parameters<typeof rowOf>[0]) => rowOf(form, choices, siteForms, steerable, t);
-        const content = reportMarkdown(job.report, {
+        const rowOfForm = (form: Parameters<typeof rowOf>[0]) => rowOf(form, choices, siteForms, false, t);
+        const content = importLog(job.report, {
             siteKey,
             fileName,
             language,
@@ -187,7 +186,7 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
             outcomeOf: form => rowOfForm(form).text,
             notesApply: form => rowOfForm(form).outcome === 'created'
         });
-        downloadFile(reportFileName(siteKey, date, job.report.dryRun), content, 'text/markdown;charset=utf-8');
+        downloadFile(importLogFileName(siteKey, date), content, 'text/markdown;charset=utf-8');
     };
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -340,15 +339,15 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                     )}
                 </div>
                 <div style={{display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '0 20px 20px'}}>
-                    {(state === 'review' || state === 'done') && job?.report && (
+                    {(state === 'done' || state === 'failed') && job?.report && !job.report.dryRun && (
                         <Button
                             size="big"
                             variant="ghost"
                             icon={<Download/>}
-                            label={t(state === 'review' ? 'formResults.import.actions.downloadPlan' : 'formResults.import.actions.downloadReport')}
-                            data-sel-role="import-download-report"
+                            label={t('formResults.import.actions.downloadLog')}
+                            data-sel-role="import-download-log"
                             style={{marginRight: 'auto'}}
-                            onClick={downloadReport}
+                            onClick={downloadLog}
                         />
                     )}
                     {(state === 'waiting' || state === 'analysing') && (

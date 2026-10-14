@@ -14,8 +14,8 @@ import java.util.Map;
  * @param values the values by field name, one or several strings each, empty answers left out
  * @param sourceId the identity of the submission in the source system, what a later run skips on
  * @param sourceFormId the key of its form in the source system (see {@link ImportedForm#sourceKey()})
- * @param report what the import could not convert in this submission, one line each
+ * @param report what the import could not convert in this submission, or kept under its source name, one note each
  */
 public record ImportedSubmission(Instant created, String referer, String locale, Map<String, List<String>> values,
-                                 List<ImportedFile> files, String sourceId, String sourceFormId, List<String> report) {
+                                 List<ImportedFile> files, String sourceId, String sourceFormId, List<ImportNote> report) {
 }

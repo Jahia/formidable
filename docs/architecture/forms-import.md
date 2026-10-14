@@ -501,8 +501,8 @@ stateDiagram-v2
 | Analysing | The file name and a spinner, while the server reads the export and writes nothing. |
 | Review | The report of the dry run (below), one row per form of the export, and two buttons: **Import** and **Cancel**. A report with nothing to import (every form and every submission already imported) shows **Close** alone. While another import runs on the site, **Import** is refused with that reason. Iteration 2 adds to each row a menu, **What to do**, the choice of what receives its results (see [Iteration 2](#iteration-2-choosing-what-receives-the-results)); **Import** waits until an attachment names its form, and while every form is left out. |
 | Importing | The file name and a spinner. The dialog can be closed: the job goes on without it, and the dialog, opened again on this site, shows the running import, or its end state once it has ended. |
-| Done | Moonstone's `Check` icon, the submissions imported, a line asking to review and publish the forms when the import created some, then the final report in the same rows, each saying what received the results. **Close** refreshes the list of entries. |
-| Failed | The reason, as the server gives it (an export without results or without identifiers, a broken zip, a lost connection), then **Try again** and **Close**. Both remove the failed job: **Try again** goes back to Waiting. |
+| Done | Moonstone's `Check` icon, the submissions imported, a line asking to review and publish the forms when the import created some, then the final report in the same rows, each saying what received the results and how many submissions were not written. **Download the import log** and **Close**, which refreshes the list of entries. |
+| Failed | The reason, as the server gives it (an export without results or without identifiers, a broken zip, a lost connection), then **Try again** and **Close**. Both remove the failed job: **Try again** goes back to Waiting. An import that stopped on its way also offers **Download the import log**, with what it wrote before it stopped. |
 
 **The server.** The file is uploaded once, by a `POST` to an endpoint of the engine on the current site.
 It is stored in the repository, not on the disk of one server: a `fmdb:importJob` node under
@@ -538,7 +538,11 @@ redeployed between the schedule and the run, is marked failed, with that reason,
 asks the site for its job, so that it stops reopening.
 
 The import writes the forms first, then the submissions by batches of 100, and saves each batch on its
-own. When a phase ends, the job node keeps its end state and its report. A dry run keeps its file for the
+own. A submission that cannot be written does not stop the import: the batch it was in is dropped and its
+other submissions written again one by one, each saved alone; the one that fails is left behind, counted as
+not written in the report, with the reason, and the next run of the same export tries it again. Past 100
+of them, or on any other failure, the import stops: what it saved stays, the job ends failed and keeps the
+report as far as it went, with why it stopped. When a phase ends, the job node keeps its end state and its report. A dry run keeps its file for the
 import that may follow; the import drops the `file` child when it ends, because it has served. The dialog
 reads the report from the node, then **Close** removes the node, so a reload, or a second administrator,
 still finds the report until someone has read it. A node nobody read is removed one hour after its end, as
@@ -575,13 +579,19 @@ unpublished; until a form is published, its entry shows as **Unpublished** on th
 labels of the form, read from edit, as columns; a contributor reviews each form, does what its row lists,
 then publishes it.
 
-**Download the import plan**, in the review, and **Download the import report**, once the import is done, save
-the report as a Markdown file, `forms-import-plan-…` or `forms-import-report-<site>-<yyyy-MM-dd-HHmm>.md` (UTC): the plan
-says what the import will do with the choices of the moment and that nothing is written yet, the report what it did.
-Each has one section per form with what receives its results, its
-figures, the values and files that did not come along, what to redo or check by hand and what was carried
-over, in the language of the dialog. The dialog builds it from the report it shows, with the same sentences;
-nothing is stored on the server, where the job and its report go once read.
+**Download the import log**, once the import is done or stopped, saves the log of the import as a Markdown
+file, `forms-import-log-<site>-<yyyy-MM-dd-HHmm>.md` (UTC). The review offers none: it writes nothing, and its
+report is on the screen. The log says how the import ended (done, or stopped and why) with the submissions
+imported and not written, then has one section per form imported with what received its results, its figures,
+what its submissions lost, what to redo or check by hand and what was carried over; last, the submissions of
+no form of the export. What the submissions lost comes from the incidents the import lists, submission by
+submission (the dry run lists none): a value dropped (a password, an answer whose field another answer
+already fills), values kept as stored because they could not be converted, a value kept under its Forms
+name because the form holds no field for it, a file the export does not hold, a submission that could not
+be written, and its reason. The log gives each sentence once, with the count and the submissions it concerns
+under it, by date and source identity; past 1000 incidents per form, the rest are only counted. The dialog
+builds it from the report of the job, in its language, with the same sentences; nothing more is stored on
+the server, where the job and its report go once read.
 
 ### Running it twice
 

@@ -238,7 +238,8 @@
 				"fields": "{{count}} field(s)",
 				"files": "{{count}} file(s), {{size}}",
 				"filesMissing": "{{count}} file(s) not in the export, left behind",
-				"values": "{{dropped}} value(s) dropped, {{notConverted}} kept as stored"
+				"values": "{{dropped}} value(s) dropped, {{notConverted}} kept as stored",
+				"failed": "{{count}} not written, see the import log"
 			},
 			"choice": {
 				"resultsOnly": "Results only",
@@ -252,8 +253,7 @@
 				"cancel": "Cancel",
 				"close": "Close",
 				"tryAgain": "Try again",
-				"downloadReport": "Download the import report",
-				"downloadPlan": "Download the import plan"
+				"downloadLog": "Download the import log"
 			},
 			"done": {
 				"title": "Import done",
@@ -369,6 +369,16 @@
 					"contentDisplayDropped": "The content display {{field}} is not recreated: it submits nothing",
 					"fieldDropped": "The field {{field}} ({{source}}) is not recreated",
 					"redirectNoTarget": "The redirect is not carried over: Formidable has no redirect yet"
+				},
+				"submission": {
+					"keptUnderSourceName": "{{field}}: kept under its Forms name {{name}}, the form holds no field for it",
+					"passwordDropped": "{{field}}: a password, not imported",
+					"notConverted": "{{field}}: {{count}} value(s) kept as stored, they could not be converted",
+					"consentUnknown": "{{field}}: {{count}} value(s) kept as stored, neither the accepted nor the refused text",
+					"duplicateTarget": "{{field}}: dropped, another answer of the submission fills the same field",
+					"fileMissing": "The file {{file}} is not in the export: left behind",
+					"writeFailed": "Not written: {{reason}}. Importing the same export again tries it again",
+					"noForm": "From the results {{form}}, which no form of the export matches: not imported"
 				}
 			},
 			"terms": {
@@ -445,13 +455,17 @@
 				}
 			},
 			"markdown": {
-				"title": "Jahia Forms import report",
+				"title": "Jahia Forms import log",
 				"site": "Site",
 				"file": "Export",
 				"date": "Date",
-				"dryRun": "Review before the import: nothing written yet",
-				"imported": "Import done",
-				"planTitle": "Jahia Forms import plan"
+				"done": "Import done",
+				"stopped": "The import stopped before its end: {{reason}}. What it wrote stays; import the same export again to go on.",
+				"totals": "{{imported}} submission(s) imported, {{failed}} not written",
+				"incidents": "What the submissions lost",
+				"incidentsOmitted": "{{count}} more, not listed",
+				"orphans": "Submissions of no form",
+				"submission": "submission {{id}}"
 			}
 		},
 		"attach": {

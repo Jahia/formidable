@@ -1,17 +1,17 @@
 import {formatFileSize} from '../FormResults.utils';
 import {sanitizeFilenamePart} from '../export/export.utils';
-import {formTitle, groupedNotes, type ImportReport, type ImportReportForm, type ReportLine} from './import.utils';
+import {formTitle, groupedNotes, type ImportIncident, type ImportReport, type ImportReportForm, type ReportLine} from './import.utils';
 import {noteText, type ProfileMapping, profileMappings} from './notes';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
-interface MarkdownContext {
+interface LogContext {
     siteKey: string;
     fileName: string;
     language: string;
-    /** What each row of the report says receives the results, in words, as the dialog shows it. */
+    /** What each row of the report says received the results, in words, as the dialog shows it. */
     outcomeOf: (form: ImportReportForm) => string;
-    /** Whether the notes of a form apply: they only matter when its form is created. */
+    /** Whether the notes of a form apply: they only matter when its form was created. */
     notesApply: (form: ImportReportForm) => boolean;
     date: Date;
     t: Translate;
@@ -22,28 +22,54 @@ const MARKDOWN_SYNTAX = /[\\`*_[\]#|<>]/g;
 /** The text with the characters Markdown reads as syntax escaped. */
 const escape = (text: string): string => text.replaceAll(MARKDOWN_SYNTAX, String.raw`\$&`);
 
+/** A moment as the log gives it: yyyy-MM-dd HH:mm, in UTC. */
+const utc = (date: Date): string => date.toISOString().slice(0, 16).replace('T', ' ');
+
 const lineOf = (line: ReportLine, t: Translate): string => {
     const fields = line.fields.length > 0 ? `**${escape(line.fields.join(', '))}**: ` : '';
     return `- ${fields}${escape(noteText(line.note, t))}`;
 };
 
 /** The figures of a form, one item each: its submissions, its fields, its files, the values that did not come along. */
-function figuresOf(form: ImportReportForm, dryRun: boolean, t: Translate): string[] {
-    const submissions = [t('formResults.import.report.submissions', {count: form.submissions.found})];
-    if (!dryRun) {
-        submissions.push(t('formResults.import.report.imported', {count: form.submissions.imported}));
-    }
+function figuresOf(form: ImportReportForm, t: Translate): string[] {
+    const submissions = [t('formResults.import.report.imported', {count: form.submissions.imported})];
     if (form.submissions.alreadyImported > 0) {
         submissions.push(t('formResults.import.report.already', {count: form.submissions.alreadyImported}));
     }
     return [
         submissions.join(', '),
+        (form.submissions.failed ?? 0) > 0 ? t('formResults.import.report.failed', {count: form.submissions.failed}) : '',
         t('formResults.import.report.fields', {count: form.fields.length}),
         form.files.count > 0 ? t('formResults.import.report.files', {count: form.files.count, size: formatFileSize(form.files.bytes)}) : '',
         form.files.missing > 0 ? t('formResults.import.report.filesMissing', {count: form.files.missing}) : '',
         form.values.dropped > 0 || form.values.notConverted > 0 ?
             t('formResults.import.report.values', {dropped: form.values.dropped, notConverted: form.values.notConverted}) : ''
     ].filter(Boolean).map(figure => `- ${figure}`);
+}
+
+/**
+ * The incidents of a form or of the run, one item per sentence with the submissions it concerns under it, by
+ * date: a field that lost its values in every submission reads once, not once per submission.
+ */
+function incidentsSection(title: string, incidents: ImportIncident[] = [], omitted = 0, t: Translate): string[] {
+    if (incidents.length === 0 && omitted === 0) {
+        return [];
+    }
+    const bySentence = new Map<string, ImportIncident[]>();
+    incidents.forEach(incident => {
+        const sentence = noteText(incident, t);
+        bySentence.set(sentence, [...(bySentence.get(sentence) ?? []), incident]);
+    });
+    const items = [...bySentence].flatMap(([sentence, concerned]) => [
+        `- ${escape(sentence)} (${concerned.length})`,
+        ...concerned.map(incident => {
+            const submission = t('formResults.import.markdown.submission', {id: incident.submission});
+            const date = incident.created ? utc(new Date(incident.created)) + ' UTC · ' : '';
+            return `  - ${date}${escape(submission)}`;
+        })
+    ]);
+    const more = omitted > 0 ? [`- ${t('formResults.import.markdown.incidentsOmitted', {count: omitted})}`] : [];
+    return ['', title, '', ...items, ...more];
 }
 
 /**
@@ -70,8 +96,11 @@ function profileSection(profile: ReturnType<typeof profileMappings>, t: Translat
     return ['', `### ${t('formResults.import.profile.title')}`, '', t('formResults.import.profile.hint'), '', `| ${header.join(' | ')} |`, '|---|---|---|---|', ...rows];
 }
 
-/** The section of one form: what receives its results, its figures, what to redo by hand, its profile mappings, the rest. */
-function formSection(form: ImportReport['forms'][number], report: ImportReport, context: MarkdownContext): string[] {
+/**
+ * The section of one form: what received its results, its figures, what its submissions lost, what to redo by
+ * hand, its profile mappings, the rest.
+ */
+function formSection(form: ImportReportForm, context: LogContext): string[] {
     const {t, language} = context;
     const notes = context.notesApply(form) ? groupedNotes(form, language) : {action: [], info: []};
     const profile = profileMappings(notes.info, notes.action);
@@ -82,7 +111,8 @@ function formSection(form: ImportReport['forms'][number], report: ImportReport, 
         `## ${escape(formTitle(form, language))}`,
         '',
         `- ${t('formResults.import.columns.result')}: ${escape(context.outcomeOf(form))}`,
-        ...figuresOf(form, report.dryRun, t),
+        ...figuresOf(form, t),
+        ...incidentsSection(`### ${t('formResults.import.markdown.incidents')}`, form.incidents, form.incidentsOmitted, t),
         ...toReview,
         ...profileSection(profile, t),
         ...carried,
@@ -91,29 +121,30 @@ function formSection(form: ImportReport['forms'][number], report: ImportReport, 
 }
 
 /**
- * The plan of a dry run, or the report of an import, as a Markdown file (docs/architecture/forms-import.md, "Running it"): one
- * section per form with what receives its results, its figures, what to redo or check by hand, its profile
- * mappings and the rest of what was carried over, in the language of the dialog. Built in the browser from the
- * report the dialog shows: nothing is stored.
+ * The log of an import as a Markdown file (docs/architecture/forms-import.md, "Running it"): how it ended, then
+ * one section per form with what received its results, its figures, what its submissions lost or why they were
+ * not written, what to redo or check by hand, its profile mappings and the rest of what was carried over; last,
+ * the submissions of no form. In the language of the dialog, built in the browser from the report of the job.
  */
-export function reportMarkdown(report: ImportReport, context: MarkdownContext): string {
+export function importLog(report: ImportReport, context: LogContext): string {
     const {t} = context;
-    const date = context.date.toISOString().slice(0, 16).replace('T', ' ');
+    const forms = report.forms.filter(form => form.outcome !== 'skipped');
     return [
-        `# ${t(report.dryRun ? 'formResults.import.markdown.planTitle' : 'formResults.import.markdown.title')}`,
+        `# ${t('formResults.import.markdown.title')}`,
         '',
         `- ${t('formResults.import.markdown.site')}: ${escape(context.siteKey)}`,
         `- ${t('formResults.import.markdown.file')}: ${escape(context.fileName)}`,
-        `- ${t('formResults.import.markdown.date')}: ${date} UTC`,
-        `- ${t(report.dryRun ? 'formResults.import.markdown.dryRun' : 'formResults.import.markdown.imported')}`,
+        `- ${t('formResults.import.markdown.date')}: ${utc(context.date)} UTC`,
+        `- ${report.stopped ? escape(t('formResults.import.markdown.stopped', {reason: report.stopped})) : t('formResults.import.markdown.done')}`,
+        `- ${t('formResults.import.markdown.totals', {imported: report.totals.submissionsImported, failed: report.totals.submissionsFailed ?? 0})}`,
         '',
-        ...report.forms.flatMap(form => formSection(form, report, context))
+        ...forms.flatMap(form => formSection(form, context)),
+        ...incidentsSection(`## ${t('formResults.import.markdown.orphans')}`, report.incidents, report.incidentsOmitted, t)
     ].join('\n');
 }
 
-/** forms-import-plan-<site>-<yyyy-MM-dd-HHmm>.md before the import, forms-import-report-… after it, in UTC. */
-export function reportFileName(siteKey: string, date: Date, dryRun: boolean): string {
+/** forms-import-log-<site>-<yyyy-MM-dd-HHmm>.md, in UTC. */
+export function importLogFileName(siteKey: string, date: Date): string {
     const [day, time] = date.toISOString().slice(0, 16).split('T');
-    const kind = dryRun ? 'plan' : 'report';
-    return `forms-import-${kind}-${sanitizeFilenamePart(siteKey)}-${day}-${time.replace(':', '')}.md`;
+    return `forms-import-log-${sanitizeFilenamePart(siteKey)}-${day}-${time.replace(':', '')}.md`;
 }

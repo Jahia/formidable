@@ -34,14 +34,25 @@ final class FormsValues {
     private static final String ACCEPTED = "true";
     private static final String REFUSED = "false";
 
-    /** The converted values, and a note when something was dropped or could not be converted. */
-    record Converted(List<String> values, String note) {
+    /** The values dropped: a password, which Formidable does not keep. */
+    static final String PASSWORD_DROPPED = "passwordDropped";
+    /** Values kept as stored because they could not be converted for their kind. */
+    static final String NOT_CONVERTED = "notConverted";
+    /** Values of an accept-terms box kept as stored because they are neither its accepted nor its refused label. */
+    static final String CONSENT_UNKNOWN = "consentUnknown";
+
+    /**
+     * The converted values, and when something was dropped or could not be converted, the code of the note
+     * that says so ({@link #PASSWORD_DROPPED}, {@link #NOT_CONVERTED}, {@link #CONSENT_UNKNOWN}) with the
+     * number of values it concerns.
+     */
+    record Converted(List<String> values, String note, int count) {
         static Converted of(List<String> values) {
-            return new Converted(values, null);
+            return new Converted(values, null, 0);
         }
 
         static Converted dropped(String note) {
-            return new Converted(List.of(), note);
+            return new Converted(List.of(), note, 0);
         }
     }
 
@@ -66,7 +77,7 @@ final class FormsValues {
             return Converted.of(values);
         }
         return switch (kind) {
-            case "password" -> Converted.dropped("password dropped");
+            case "password" -> Converted.dropped(PASSWORD_DROPPED);
             case "fileUpload" -> Converted.of(List.of());
             case "datePicker", "simpleDate" -> each(values, FormsValues::date);
             case "countryList" -> each(values, FormsValues::country);
@@ -89,7 +100,7 @@ final class FormsValues {
                 failed++;
             }
         }
-        return new Converted(converted, failed == 0 ? null : failed + " value(s) kept as stored because they could not be converted");
+        return new Converted(converted, failed == 0 ? null : NOT_CONVERTED, failed);
     }
 
     /**
@@ -179,8 +190,7 @@ final class FormsValues {
                 unknown++;
             }
         }
-        return new Converted(converted, unknown == 0 ? null
-                : unknown + " value(s) kept as stored because they are neither the accepted nor the refused label");
+        return new Converted(converted, unknown == 0 ? null : CONSENT_UNKNOWN, unknown);
     }
 
     /** The rows as the JSON text lists them: a {@link JSONObject} keeps no order of its own. */

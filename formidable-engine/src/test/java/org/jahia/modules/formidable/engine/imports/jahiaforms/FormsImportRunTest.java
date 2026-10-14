@@ -382,4 +382,82 @@ class FormsImportRunTest {
         assertEquals(0, none.getJSONObject("totals").getInt("submissionsToImport"));
         assertTrue(none.getBoolean("nothingToImport"));
     }
+
+    @Test
+    void aSubmissionThatCannotBeWrittenIsLeftBehindAndItsBatchWrittenAgainOneByOne() throws Exception {
+        ImportWriter writer = writer();
+        JCRNodeWrapper entry = mock(JCRNodeWrapper.class);
+        when(writer.createResultsOnlyEntry(any())).thenReturn(entry);
+        // the fifth submission written fails, every time it is written
+        java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicReference<String> failing = new java.util.concurrent.atomic.AtomicReference<>();
+        when(writer.writeSubmission(any(), any(), any())).thenAnswer(invocation -> {
+            ImportedSubmission submission = invocation.getArgument(1);
+            if (calls.incrementAndGet() == 5) {
+                failing.set(submission.sourceId());
+            }
+            if (submission.sourceId().equals(failing.get())) {
+                throw new RepositoryException("constraint violated");
+            }
+            return entry;
+        });
+
+        JSONObject report = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, Map.of(), type -> true, s -> true, false)
+                .run().toJson();
+
+        assertEquals(105, report.getJSONObject("totals").getInt("submissionsImported"));
+        assertEquals(1, report.getJSONObject("totals").getInt("submissionsFailed"));
+        List<JSONObject> withFailure = new java.util.ArrayList<>();
+        report.getJSONArray("forms").forEach(form -> {
+            if (((JSONObject) form).getJSONObject("submissions").getInt("failed") > 0) {
+                withFailure.add((JSONObject) form);
+            }
+        });
+        assertEquals(1, withFailure.size());
+        JSONObject incident = withFailure.get(0).getJSONArray("incidents").getJSONObject(0);
+        assertEquals("submission.writeFailed", incident.getString("code"));
+        assertEquals(failing.get(), incident.getString("submission"));
+        assertEquals("constraint violated", incident.getJSONObject("params").getString("reason"));
+        // the batch dropped once, the four written before the failure written again and saved one by one
+        verify(writer).discardSubmissions();
+        verify(writer, org.mockito.Mockito.times(110)).writeSubmission(any(), any(), any());
+        assertTrue(report.isNull("stopped"));
+    }
+
+    @Test
+    void theImportStopsWithItsReportPastTooManyFailedSubmissions() throws Exception {
+        ImportWriter writer = writer();
+        when(writer.createResultsOnlyEntry(any())).thenReturn(mock(JCRNodeWrapper.class));
+        when(writer.writeSubmission(any(), any(), any())).thenThrow(new RepositoryException("disk full"));
+        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, Map.of(), type -> true, s -> true, false);
+
+        FormsImportRun.Stopped stopped = org.junit.jupiter.api.Assertions.assertThrows(FormsImportRun.Stopped.class, run::run);
+
+        JSONObject totals = stopped.report().toJson().getJSONObject("totals");
+        assertEquals(FormsImportRun.MAX_FAILED_SUBMISSIONS, totals.getInt("submissionsFailed"));
+        assertEquals(0, totals.getInt("submissionsImported"));
+        assertEquals(3, stopped.report().toJson().getJSONArray("forms").length());
+    }
+
+    @Test
+    void theImportListsWhatASubmissionLostAndTheDryRunDoesNot() throws Exception {
+        JSONObject dry = new FormsImportRun(FormsSyntheticExportTest.reader(), writer(), true, Map.of(), type -> true, s -> true, false)
+                .run().toJson();
+        JSONObject dryForm = dry.getJSONArray("forms").getJSONObject(0);
+        assertEquals(1, dryForm.getJSONObject("values").getInt("dropped"));
+        assertTrue(dryForm.getJSONArray("incidents").isEmpty());
+
+        ImportWriter writer = writer();
+        when(writer.createResultsOnlyEntry(any())).thenReturn(mock(JCRNodeWrapper.class));
+        JSONObject report = new FormsImportRun(FormsSyntheticExportTest.reader(), writer, false, Map.of(), type -> true, s -> true, false)
+                .run().toJson();
+
+        JSONObject survey = report.getJSONArray("forms").getJSONObject(0);
+        assertEquals(1, survey.getJSONObject("values").getInt("dropped"));
+        JSONObject incident = survey.getJSONArray("incidents").getJSONObject(0);
+        assertEquals("submission.passwordDropped", incident.getString("code"));
+        assertEquals("s1", incident.getString("submission"));
+        assertEquals("2024-06-01T10:00:00Z", incident.getString("created"));
+        assertEquals("Password", incident.getJSONObject("params").getString("field"));
+    }
 }

@@ -56,6 +56,15 @@ export const kindOf = (choice: ImportChoice | undefined): ImportChoiceKind => {
     return typeof choice === 'string' ? choice : choice.choice;
 };
 
+/**
+ * Something a submission lost or kept as it was, or why it was not written (ImportReport, incidents): a note
+ * with the submission it is about, by its identity in the source and its date. Listed by an import only.
+ */
+export interface ImportIncident extends ImportNote {
+    submission: string;
+    created: string | null;
+}
+
 export interface ImportReportForm {
     sourceName: string;
     titles: Record<string, string>;
@@ -64,17 +73,25 @@ export interface ImportReportForm {
     outcome: 'created' | 'found' | 'resultsOnly' | 'attached' | 'skipped' | null;
     fields: ImportReportField[];
     notes: ImportNote[];
-    submissions: {found: number; imported: number; alreadyImported: number; toImport: number};
+    submissions: {found: number; imported: number; alreadyImported: number; failed?: number; toImport: number};
     values: {converted: number; dropped: number; notConverted: number};
     files: {count: number; bytes: number; missing: number};
+    incidents?: ImportIncident[];
+    /** The incidents past the cap the report lists: only counted. */
+    incidentsOmitted?: number;
 }
 
 export interface ImportReport {
     dryRun: boolean;
     importedFormsFolder: string | null;
     forms: ImportReportForm[];
-    totals: {forms: number; submissionsFound: number; submissionsToImport: number; submissionsImported: number};
+    totals: {forms: number; submissionsFound: number; submissionsToImport: number; submissionsImported: number; submissionsFailed?: number};
     nothingToImport: boolean;
+    /** Why the import stopped before its end; null when it ran to its end. */
+    stopped?: string | null;
+    /** The incidents of no form of the export: submissions of a results entry it holds no form for. */
+    incidents?: ImportIncident[];
+    incidentsOmitted?: number;
 }
 
 /** A job of the engine, polled by a dialog: an import, or the attachment of imported results to another form. */

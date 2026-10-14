@@ -44,7 +44,8 @@ class FormsValuesTest {
     void aValueThatIsNoInstantIsKeptAsStoredAndNoted() {
         FormsValues.Converted converted = FormsValues.convert("datePicker", List.of("yesterday"), null);
         assertEquals(List.of("yesterday"), converted.values());
-        assertNotNull(converted.note());
+        assertEquals(FormsValues.NOT_CONVERTED, converted.note());
+        assertEquals(1, converted.count());
     }
 
     @Test
@@ -84,7 +85,7 @@ class FormsValuesTest {
     void aPasswordIsDroppedAndAFileJsonToo() {
         FormsValues.Converted password = FormsValues.convert("password", List.of(FormsValues.PASSWORD_PLACEHOLDER), null);
         assertTrue(password.values().isEmpty());
-        assertEquals("password dropped", password.note());
+        assertEquals(FormsValues.PASSWORD_DROPPED, password.note());
 
         FormsValues.Converted file = FormsValues.convert("fileUpload", List.of("{\"url\":[],\"rendererName\":\"fileUpload\"}"), null);
         assertTrue(file.values().isEmpty());
@@ -106,7 +107,8 @@ class FormsValuesTest {
         // a text that is neither label is kept, and said so
         FormsValues.Converted other = FormsValues.convert("acceptTermCheckbox", List.of("maybe"), labels);
         assertEquals(List.of("maybe"), other.values());
-        assertNotNull(other.note());
+        assertEquals(FormsValues.CONSENT_UNKNOWN, other.note());
+        assertEquals(1, other.count());
         assertNotNull(FormsValues.convert("acceptTermCheckbox", List.of("Accepted"), null).note());
     }
 
