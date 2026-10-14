@@ -5,7 +5,8 @@ import {
     choicesReady,
     fieldTitle,
     formTitle,
-    groupedFieldNotes,
+    groupedNotes,
+    type ImportNote,
     type ImportReport,
     type ImportReportField,
     type ImportReportForm,
@@ -15,12 +16,15 @@ import {
     parseSiteDefaultLanguage,
     parseSiteForms,
     parseTargetFields,
+    plannedImport,
     proposeMapping,
     refuseFile,
     requestChoices,
     type TargetField,
+    typeKey,
     unmatchedValues
 } from './import.utils';
+import {noteText, profileMappings, wordsOf} from './notes';
 
 const fileOf = (name: string, size: number, type = ''): File => {
     const file = new File([new Uint8Array(1)], name, {type});
@@ -51,15 +55,52 @@ describe('formTitle', () => {
     });
 });
 
-describe('groupedFieldNotes', () => {
-    it('gives one line per distinct note, with the fields it concerns', () => {
-        const prefill = 'prefill not carried over: set it by hand';
-        expect(groupedFieldNotes([
-            {name: 'first-name', type: 'fmdb:inputText', notes: [prefill]},
-            {name: 'last-name', type: 'fmdb:inputText', notes: [prefill, 'pattern not carried over']},
-            {name: 'email', type: 'fmdb:inputEmail', notes: []}
-        ])).toEqual([`${prefill} — first-name, last-name`, 'pattern not carried over — last-name']);
-        expect(groupedFieldNotes([])).toEqual([]);
+describe('groupedNotes', () => {
+    const logic: ImportNote = {code: 'field.logic', level: 'action', params: {}};
+    const rule: ImportNote = {code: 'field.rule', level: 'action', params: {rule: 'fcnt:regexValidation', type: 'fmdb:textarea'}};
+    const mapped = (property: string): ImportNote => ({code: 'field.profileMapped', level: 'info', params: {property}});
+    const redirect: ImportNote = {code: 'form.redirect', level: 'action', params: {target: '/home'}};
+
+    it('gives one line per distinct note with the labels of the fields it concerns, what to do apart from what was carried over', () => {
+        const form = {
+            notes: [redirect],
+            fields: [
+                {name: 'first-name', type: 'fmdb:inputText', titles: {en: 'First name'}, notes: [logic, mapped('firstName')]},
+                {name: 'last-name', type: 'fmdb:inputText', titles: {}, notes: [logic, mapped('lastName')]},
+                {name: 'enquiry', type: 'fmdb:textarea', titles: {en: 'Enquiry'}, notes: [rule]}
+            ]
+        } as unknown as ImportReportForm;
+
+        const lines = groupedNotes(form, 'en');
+
+        expect(lines.action).toEqual([
+            {note: redirect, fields: []},
+            {note: logic, fields: ['First name', 'last-name']},
+            {note: rule, fields: ['Enquiry']}
+        ]);
+        expect(lines.info.map(line => line.fields)).toEqual([['First name'], ['last-name']]);
+        expect(groupedNotes({notes: [], fields: []} as unknown as ImportReportForm, 'en')).toEqual({action: [], info: []});
+    });
+
+    it('keys the label of a field type by its local name', () => {
+        expect(typeKey('fmdb:inputText')).toEqual('inputText');
+        expect(typeKey('fmdbext:consent')).toEqual('consent');
+        expect(typeKey(undefined)).toEqual('');
+    });
+});
+
+describe('plannedImport', () => {
+    const form = (sourceName: string, outcome: ImportReportForm['outcome'], toImport: number) =>
+        ({sourceName, outcome, submissions: {toImport}}) as unknown as ImportReportForm;
+    const report = {forms: [form('contact', 'resultsOnly', 45), form('news', 'found', 3), form('old', 'found', 0)]} as unknown as ImportReport;
+
+    it('counts what the choices import: a form left out counts for nothing, a found form only with new submissions', () => {
+        expect(plannedImport(report, {})).toEqual({forms: 2, submissions: 48});
+        expect(plannedImport(report, {contact: 'skip'})).toEqual({forms: 1, submissions: 3});
+        expect(plannedImport(report, {contact: 'skip', news: 'skip'})).toEqual({forms: 0, submissions: 0});
+        expect(choicesReady({contact: 'skip', news: 'skip'}, report)).toBe(false);
+        expect(choicesReady({contact: 'skip'}, report)).toBe(true);
+        expect(kindOf('skip')).toEqual('skip');
     });
 });
 
@@ -129,7 +170,7 @@ describe('attaching to an existing form', () => {
     });
 
     it('holds the import until the attachment names a form and lands no two fields together', () => {
-        const report = {forms: [{sourceName: 'newsletter', fields: source}]} as unknown as ImportReport;
+        const report = {forms: [{sourceName: 'newsletter', outcome: 'resultsOnly', fields: source, submissions: {toImport: 3}}]} as unknown as ImportReport;
         expect(attachProblem({choice: 'attach', form: '', mapping: {}}, source)).toEqual('noForm');
         expect(attachProblem({choice: 'attach', form: 'f1', mapping: {lastname: 'firstname'}}, source)).toEqual('conflict');
         expect(attachProblem({choice: 'attach', form: 'f1', mapping: {lastname: 'surname'}}, source)).toBeNull();
@@ -180,5 +221,64 @@ describe('attaching to an existing form', () => {
         expect(kindOf({choice: 'attach', form: 'f1', mapping: {}})).toEqual('attach');
         expect(fieldTitle(field('x', 'Title'), 'en')).toEqual('Title');
         expect(fieldTitle(field('x'), 'en')).toEqual('');
+    });
+});
+
+describe('noteText', () => {
+    const t = (key: string, options?: Record<string, unknown>): string => {
+        const values = Object.entries(options ?? {}).map(([name, value]) => `${name}=${String(value)}`);
+        return `${key}(${values.join(',')})`;
+    };
+
+    it('words every parameter that names a type, a Forms type or a setting, never the raw name', () => {
+        const text = noteText({code: 'field.rule', level: 'action', params: {rule: 'fcnt:regexValidation', type: 'fmdb:textarea'}}, t);
+        expect(text).toContain('rule=formResults.import.terms.rules.regexValidation(defaultValue=regex)');
+        expect(text).toContain('type=formResults.import.types.textarea(defaultValue=textarea)');
+        expect(noteText({code: 'field.setting', level: 'action', params: {setting: 'minLength', type: 'fmdb:inputHidden'}}, t))
+            .toContain('setting=formResults.import.terms.settings.minLength(defaultValue=min length)');
+    });
+
+    it('draws words from an unknown name, without its namespace and kind', () => {
+        expect(wordsOf('fcnt:geolocationPrefill')).toEqual('geolocation');
+        expect(wordsOf('matrixCheckBoxes')).toEqual('matrix check boxes');
+        expect(wordsOf('fcnt:passwordDefinition')).toEqual('password');
+    });
+});
+
+describe('profileMappings', () => {
+    const prefilled = (property: string, after: string) => ({code: 'field.profilePrefilled', level: 'info' as const, params: {property, after}});
+
+    it('gathers the mappings of a form, written, unchecked or failed, one per field', () => {
+        const captcha = {note: {code: 'form.captchaOn', level: 'info' as const, params: {}}, fields: []};
+        const redirect = {note: {code: 'form.redirect', level: 'action' as const, params: {target: '/home'}}, fields: []};
+        const info = [
+            {note: prefilled('firstName', 'editable'), fields: ['First name']},
+            {note: {code: 'field.profileMapped', level: 'info' as const, params: {property: 'company'}}, fields: ['Company']},
+            {note: prefilled('email', 'editable'), fields: ['Email']},
+            captcha
+        ];
+        const action = [
+            {note: {code: 'field.prefillUnknownProperty', level: 'action' as const, params: {property: 'sfdc__lead'}}, fields: ['Enquiry']},
+            {note: {code: 'field.profileUnchecked', level: 'action' as const, params: {property: 'email'}}, fields: ['Email']},
+            redirect
+        ];
+
+        const profile = profileMappings(info, action);
+
+        expect(profile.mappings).toMatchObject([
+            {field: 'First name', property: 'firstName', status: 'mapped', prefilled: true, after: 'editable', reason: undefined},
+            {field: 'Company', property: 'company', status: 'mapped', prefilled: false, after: undefined, reason: undefined},
+            {field: 'Email', property: 'email', status: 'unchecked', prefilled: true, after: 'editable', reason: undefined},
+            {field: 'Enquiry', property: 'sfdc__lead', status: 'failed', prefilled: false, after: undefined, reason: 'field.prefillUnknownProperty'}
+        ]);
+        // the failed and unchecked mappings leave the notes to review for the mapping section, which flags them
+        expect(profile.toReview.map(line => line.note.code)).toEqual(['form.redirect']);
+        // two prefills of one field, refused, are two lines of distinct keys
+        const twice = profileMappings([], [
+            {note: {code: 'field.prefillNoIntegration', level: 'action', params: {property: 'firstName'}}, fields: ['Name']},
+            {note: {code: 'field.prefillNoIntegration', level: 'action', params: {property: 'lastName'}}, fields: ['Name']}
+        ]);
+        expect(new Set(twice.mappings.map(mapping => mapping.key)).size).toEqual(2);
+        expect(profile.others).toEqual([captcha]);
     });
 });

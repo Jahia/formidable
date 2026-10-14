@@ -23,16 +23,19 @@ import java.util.Set;
  * @param sourceId the identity of the field in the source system, its {@code jcr:uuid} for Forms
  * @param sourceName the node name of the field in the source system, {@code text-input_0_1}
  * @param sourceType the type of the field in the source system, {@code fcnt:inputDefinition}
- * @param report what the import could not carry over for this field, one line each
+ * @param report what the report says of this field: what was carried over worth knowing, what was not
  */
 public record ImportedField(String name, String nodeType, Map<String, String> titles, boolean required,
                             Map<String, String> properties, Map<String, Map<String, String>> i18nProperties,
                             Map<String, List<String>> options, String optionsSourceKey, List<String> mixins,
-                            String sourceId, String sourceName, String sourceType, List<String> report)
+                            String sourceId, String sourceName, String sourceType, List<ImportNote> report)
         implements ImportedElement {
 
     public static final String REQUIRED_PROPERTY = "required";
-    private static final String NO_SUCH_SETTING = " has no such setting";
+    /** A setting of the source the field type cannot hold: {@code setting}, {@code type}. */
+    public static final String NOTE_SETTING = "field.setting";
+    private static final String SETTING = "setting";
+    private static final String TYPE = "type";
 
     /**
      * @param accepted the properties the node type declares: a property outside it is reported, not kept,
@@ -57,7 +60,7 @@ public record ImportedField(String name, String nodeType, Map<String, String> ti
         private String sourceId;
         private String sourceName;
         private String sourceType;
-        private final List<String> report = new ArrayList<>();
+        private final List<ImportNote> report = new ArrayList<>();
 
         private Builder(String name, String nodeType, Set<String> accepted) {
             this.name = name;
@@ -77,7 +80,7 @@ public record ImportedField(String name, String nodeType, Map<String, String> ti
         /** Marks the field required, or reports it when the type has no such setting. */
         public Builder required(boolean value) {
             if (value && !accepts(REQUIRED_PROPERTY)) {
-                report("required not carried over: " + nodeType + NO_SUCH_SETTING);
+                report(ImportNote.action(NOTE_SETTING, SETTING, REQUIRED_PROPERTY, TYPE, nodeType));
                 return this;
             }
             required = value;
@@ -90,7 +93,7 @@ public record ImportedField(String name, String nodeType, Map<String, String> ti
                 return this;
             }
             if (!accepts(key)) {
-                return report(key + " (" + value + ") not carried over: " + nodeType + NO_SUCH_SETTING);
+                return report(ImportNote.action(NOTE_SETTING, SETTING, key, TYPE, nodeType));
             }
             properties.put(key, value);
             return this;
@@ -123,7 +126,7 @@ public record ImportedField(String name, String nodeType, Map<String, String> ti
                 return this;
             }
             if (!accepts(key)) {
-                return report(key + " not carried over: " + nodeType + NO_SUCH_SETTING);
+                return report(ImportNote.action(NOTE_SETTING, SETTING, key, TYPE, nodeType));
             }
             i18nProperties.put(key, kept);
             return this;
@@ -146,8 +149,8 @@ public record ImportedField(String name, String nodeType, Map<String, String> ti
             return this;
         }
 
-        public Builder report(String line) {
-            report.add(line);
+        public Builder report(ImportNote note) {
+            report.add(note);
             return this;
         }
 

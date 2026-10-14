@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.engine.imports;
 
+import org.jahia.modules.formidable.engine.imports.model.ImportNote;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -19,10 +20,11 @@ public final class ImportReport {
 
     /**
      * What receives the results of a source form: a form created for them, a form or an entry found from an
-     * earlier run, an entry alone, without a form, or an existing form they attach to.
+     * earlier run, an entry alone, without a form, an existing form they attach to, or nothing: the form left
+     * out of the run by the administrator.
      */
     public enum FormOutcome {
-        CREATED("created"), FOUND("found"), RESULTS_ONLY("resultsOnly"), ATTACHED("attached");
+        CREATED("created"), FOUND("found"), RESULTS_ONLY("resultsOnly"), ATTACHED("attached"), SKIPPED("skipped");
 
         private final String json;
 
@@ -45,7 +47,7 @@ public final class ImportReport {
         private String targetPath;
         private FormOutcome outcome;
         private final List<JSONObject> fields = new ArrayList<>();
-        private final List<String> notes = new ArrayList<>();
+        private final List<ImportNote> notes = new ArrayList<>();
         private int submissionsFound;
         private int submissionsImported;
         private int submissionsAlreadyImported;
@@ -68,7 +70,17 @@ public final class ImportReport {
             return this;
         }
 
-        public FormEntry field(String name, String nodeType, List<String> report) {
+        /** The form is left out of the run: nothing is written for it, its submissions are not to import. */
+        public FormEntry skip() {
+            outcome = FormOutcome.SKIPPED;
+            return this;
+        }
+
+        public boolean isSkipped() {
+            return outcome == FormOutcome.SKIPPED;
+        }
+
+        public FormEntry field(String name, String nodeType, List<ImportNote> report) {
             return field(name, nodeType, Map.of(), report);
         }
 
@@ -76,13 +88,13 @@ public final class ImportReport {
          * A field of the form, with its titles by language: what the dialog matches the fields of an
          * existing form against, when the administrator attaches the results to one.
          */
-        public FormEntry field(String name, String nodeType, Map<String, String> titles, List<String> report) {
+        public FormEntry field(String name, String nodeType, Map<String, String> titles, List<ImportNote> report) {
             fields.add(new JSONObject().put("name", name).put("type", nodeType).put("titles", new JSONObject(titles))
-                    .put("notes", new JSONArray(report)));
+                    .put("notes", notesJson(report)));
             return this;
         }
 
-        public FormEntry notes(List<String> lines) {
+        public FormEntry notes(List<ImportNote> lines) {
             notes.addAll(lines);
             return this;
         }
@@ -141,7 +153,13 @@ public final class ImportReport {
         }
 
         public int submissionsToImport() {
-            return submissionsFound - submissionsAlreadyImported;
+            return isSkipped() ? 0 : submissionsFound - submissionsAlreadyImported;
+        }
+
+        private static JSONArray notesJson(List<ImportNote> notes) {
+            JSONArray array = new JSONArray();
+            notes.forEach(note -> array.put(note.toJson()));
+            return array;
         }
 
         JSONObject toJson() {
@@ -159,7 +177,7 @@ public final class ImportReport {
                     .put("targetPath", targetPath)
                     .put("outcome", outcome == null ? JSONObject.NULL : outcome.json)
                     .put("fields", reported)
-                    .put("notes", new JSONArray(notes))
+                    .put("notes", notesJson(notes))
                     .put("submissions", new JSONObject()
                             .put("found", submissionsFound)
                             .put("imported", submissionsImported)
@@ -199,7 +217,7 @@ public final class ImportReport {
 
     /** Whether the import would write anything: a form or an entry to create, or a submission to import. */
     public boolean hasSomethingToImport() {
-        return forms.values().stream().anyMatch(f -> f.outcome != FormOutcome.FOUND || f.submissionsToImport() > 0);
+        return forms.values().stream().anyMatch(f -> !f.isSkipped() && (f.outcome != FormOutcome.FOUND || f.submissionsToImport() > 0));
     }
 
     public JSONObject toJson() {

@@ -22,7 +22,10 @@ record FormsForm(String name, String uuid, String path, String buildingLang, Map
     /**
      * The settings of a form. Forms gives every form all of its mixins, so a mixin says nothing: the
      * flags are the properties, {@code displayCaptcha}, {@code trackUser}, {@code isFormSavable}, and a
-     * submission constraint is set when a start date, an end date or a maximum of submissions is.
+     * submission constraint is set when a start date, an end date or a maximum of submissions is. The captcha
+     * is shown only when the {@code formFactory} carries a captcha key too: {@code displayCaptcha} is on by
+     * default, and Forms shows no captcha, nor even the switch, without the key (forms-core
+     * {@code formDefinition.formInputs.jsp}, {@code FormSubmission}).
      */
     record Settings(boolean displaysCaptcha, boolean tracksUsers, boolean savable, boolean constrained) {
 
@@ -34,10 +37,10 @@ record FormsForm(String name, String uuid, String path, String buildingLang, Map
         private static final String END_DATE = "endDate";
         private static final String MAX_SUBMISSIONS = "maxSubmissions";
 
-        static Settings from(XmlNode node) {
+        static Settings from(XmlNode node, boolean captchaConfigured) {
             boolean constrained = isSet(node.attribute(START_DATE)) || isSet(node.attribute(END_DATE))
                     || (isSet(node.attribute(MAX_SUBMISSIONS)) && !"0".equals(node.attribute(MAX_SUBMISSIONS).trim()));
-            return new Settings(flag(node, DISPLAY_CAPTCHA), flag(node, TRACK_USER), flag(node, SAVABLE_PROPERTY), constrained);
+            return new Settings(captchaConfigured && flag(node, DISPLAY_CAPTCHA), flag(node, TRACK_USER), flag(node, SAVABLE_PROPERTY), constrained);
         }
 
         private static boolean flag(XmlNode node, String property) {
@@ -49,14 +52,15 @@ record FormsForm(String name, String uuid, String path, String buildingLang, Map
         }
     }
 
-    static FormsForm from(XmlNode node) {
+    /** @param captchaConfigured whether the {@code formFactory} of the export carries a captcha key */
+    static FormsForm from(XmlNode node, boolean captchaConfigured) {
         List<FormsStep> steps = new ArrayList<>(node.childrenOfType(FormsStep.TYPE).stream().map(FormsStep::from).toList());
         steps.sort(Comparator.comparingLong(FormsStep::number));
         List<FormsAction> actions = node.child(FormsAction.ACTIONS_NODE)
                 .map(a -> a.children().stream().map(FormsAction::from).toList())
                 .orElse(List.of());
         return new FormsForm(node.name(), node.uuid(), node.path(), node.attribute(BUILDING_LANG),
-                node.i18n("jcr:title"), node.i18n(AFTER_SUBMISSION_TEXT), Settings.from(node), steps, actions);
+                node.i18n("jcr:title"), node.i18n(AFTER_SUBMISSION_TEXT), Settings.from(node, captchaConfigured), steps, actions);
     }
 
     /** Every field of every step, in order. */

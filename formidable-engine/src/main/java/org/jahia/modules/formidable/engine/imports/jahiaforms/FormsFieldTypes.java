@@ -1,5 +1,7 @@
 package org.jahia.modules.formidable.engine.imports.jahiaforms;
 
+import org.jahia.modules.formidable.engine.imports.model.ImportNote;
+
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -27,7 +29,7 @@ final class FormsFieldTypes {
     static final String SWITCH = "fmdbext:switch";
     static final String RATING = "fmdbext:rating";
     static final String CONSENT = "fmdbext:consent";
-    private static final String CREATED_AS = "created as ";
+    private static final String TYPE = "type";
 
     // the properties the import may write, per type, as the CNDs of formidable-elements and
     // formidable-extended-inputs declare them (settings, then the validation messages of the type's mixins)
@@ -78,7 +80,7 @@ final class FormsFieldTypes {
      * @param nodeType the type to create
      * @param note what the report says of the choice, or null when the type is the natural equivalent
      */
-    record Mapping(String nodeType, String note) {
+    record Mapping(String nodeType, ImportNote note) {
         boolean is(String type) {
             return type.equals(nodeType);
         }
@@ -136,15 +138,14 @@ final class FormsFieldTypes {
         if (extended != null) {
             return registered.test(extended.preferred())
                     ? new Mapping(extended.preferred(), null)
-                    : new Mapping(extended.fallback(), CREATED_AS + extended.fallback()
-                    + " because " + extended.preferred() + " is not deployed on this instance");
+                    : new Mapping(extended.fallback(), ImportNote.action("field.createdAsFallback", TYPE, extended.fallback(),
+                    "preferred", extended.preferred()));
         }
         String nearest = NO_EQUIVALENT.get(kind);
         if (nearest != null) {
-            return new Mapping(nearest, CREATED_AS + nearest + " because Formidable has no " + kind + " field");
+            return new Mapping(nearest, ImportNote.action("field.createdAsNearest", TYPE, nearest, "kind", kind));
         }
-        return new Mapping(INPUT_TEXT, CREATED_AS + INPUT_TEXT + " because Formidable has no equivalent of "
-                + field.type());
+        return new Mapping(INPUT_TEXT, ImportNote.action("field.createdAsText", TYPE, INPUT_TEXT, "source", field.type()));
     }
 
     /** The properties a type declares among those the import writes; empty for a type this map does not know. */

@@ -138,7 +138,7 @@ class FormsSyntheticExportTest {
         assertEquals("team@example.com,sales@example.com", form.actions().get(1).properties().get("to"));
         assertEquals("noreply@example.com", form.actions().get(1).properties().get("from"));
         assertEquals(Map.of("en", "New answer"), form.actions().get(1).i18nProperties().get("subject"));
-        assertTrue(form.report().stream().anyMatch(line -> line.contains("CC/BCC") && line.contains("boss@example.com") && line.contains("audit@example.com")),
-                form.report().toString());
+        assertTrue(form.report().stream().anyMatch(note -> note.code().equals("form.mailCopies")
+                && note.param("copies").contains("boss@example.com") && note.param("copies").contains("audit@example.com")), form.report().toString());
     }
 }

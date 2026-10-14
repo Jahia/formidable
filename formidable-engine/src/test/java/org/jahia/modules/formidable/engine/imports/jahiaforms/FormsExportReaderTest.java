@@ -72,7 +72,8 @@ class FormsExportReaderTest {
                 contact.fields().stream().map(FormsField::name).toList());
         assertEquals(List.of(FormsAction.SAVE_TO_JCR, FormsAction.REDIRECT_TO_PAGE),
                 contact.actions().stream().map(FormsAction::type).toList());
-        assertTrue(contact.settings().displaysCaptcha());
+        // displayCaptcha is on, but the formFactory of the sample carries no captcha key: Forms showed no captcha
+        assertFalse(contact.settings().displaysCaptcha());
         assertTrue(contact.settings().tracksUsers());
         assertFalse(contact.settings().savable());
         assertFalse(contact.settings().constrained());
@@ -158,6 +159,23 @@ class FormsExportReaderTest {
         assertTrue(email.optional());
         assertTrue(email.files().isEmpty());
         assertTrue(first.path().startsWith("formFactory/results/contact-us/submissions/"));
+    }
+
+    @Test
+    void aFormDisplaysACaptchaOnlyWhenItsFormFactoryCarriesACaptchaKey() throws Exception {
+        String keyed = XML_HEAD + "<formFactory " + JCR_NS + " jcr:primaryType=\"fcnt:formFactory\" jcr:mixinTypes=\"fcmix:captcha\" captchaApiKey=\"site-key\">"
+                + "<forms jcr:primaryType=\"fcnt:formsFolder\"><survey jcr:primaryType=\"fcnt:form\" jcr:uuid=\"f0000000-0000-0000-0000-000000000001\" displayCaptcha=\"true\"/>"
+                + "<quiet jcr:primaryType=\"fcnt:form\" jcr:uuid=\"f0000000-0000-0000-0000-000000000002\" displayCaptcha=\"false\"/></forms>"
+                + "<results jcr:primaryType=\"fcnt:resultsFolder\"><survey jcr:primaryType=\"fcnt:formResults\" jcr:uuid=\"r0000000-0000-0000-0000-000000000001\" parentForm=\"#/forms/survey\"/></results>"
+                + "</formFactory>";
+        FormsExport export = new FormsExportReader(new FormsExportZip(zipOf(Map.of(FormsExportZip.XML, keyed)))).readStructure();
+
+        assertTrue(export.forms().get("survey").settings().displaysCaptcha());
+        assertFalse(export.forms().get("quiet").settings().displaysCaptcha());
+        // the same form under a formFactory without a key: Forms showed no captcha
+        FormsExport unkeyed = new FormsExportReader(new FormsExportZip(zipOf(Map.of(FormsExportZip.XML,
+                keyed.replace(" jcr:mixinTypes=\"fcmix:captcha\" captchaApiKey=\"site-key\"", ""))))).readStructure();
+        assertFalse(unkeyed.forms().get("survey").settings().displaysCaptcha());
     }
 
     @Test

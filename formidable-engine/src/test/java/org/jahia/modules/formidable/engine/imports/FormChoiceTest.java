@@ -47,4 +47,13 @@ class FormChoiceTest {
         assertThrows(IllegalArgumentException.class, () -> FormChoice.fromJson("{\"a\":\"keep\"}"));
         assertThrows(IllegalArgumentException.class, () -> FormChoice.fromJson("{\"a\":3}"));
     }
+
+    @Test
+    void skipNamesAFormLeftOutOfTheRun() {
+        Map<String, FormChoice> read = FormChoice.fromJson("{\"a\":\"skip\",\"b\":{\"choice\":\"skip\"}}");
+
+        assertEquals(FormChoice.SKIP, read.get("a"));
+        assertEquals(FormChoice.SKIP, read.get("b"));
+        assertEquals(read, FormChoice.fromJson(FormChoice.toJson(read)));
+    }
 }

@@ -110,7 +110,7 @@ export const AttachToForm = ({sourceFields, choice, siteForms, targetFields, lan
     const proposed = useMemo(() => (fields ? proposeMapping(sourceFields, fields, language) : {}), [sourceFields, fields, language]);
     const conflicts = fields ? mappingConflicts(sourceFields, choice.mapping) : [];
     return (
-        <div data-sel-role="import-attach" style={{display: 'flex', flexDirection: 'column', gap: '12px', paddingLeft: '28px'}}>
+        <div data-sel-role="import-attach" style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
             <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
                 <Typography variant="body">{t('formResults.import.attach.form')}</Typography>
                 <div data-sel-role="import-attach-form" style={{minWidth: '320px'}}>
@@ -156,9 +156,10 @@ export const AttachToForm = ({sourceFields, choice, siteForms, targetFields, lan
                                 style={{display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr) auto', alignItems: 'center', gap: '12px'}}
                             >
                                 <div style={{minWidth: 0}}>
-                                    <Typography variant="body" weight="bold">{field.name}</Typography>
+                                    {/* the label is what the administrator knows the field by; the name, when it differs, comes second */}
+                                    <Typography variant="body" weight="bold">{title || field.name}</Typography>
                                     {title && title !== field.name && (
-                                        <Typography variant="caption" style={{color: 'var(--color-gray)'}}>{title}</Typography>
+                                        <Typography variant="caption" style={{color: 'var(--color-gray)'}}>{field.name}</Typography>
                                     )}
                                 </div>
                                 <Typography variant="body" aria-hidden="true">→</Typography>

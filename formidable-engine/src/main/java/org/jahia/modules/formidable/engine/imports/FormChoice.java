@@ -19,6 +19,7 @@ public record FormChoice(ImportChoice choice, String formId, Map<String, String>
 
     public static final FormChoice RESULTS_ONLY = new FormChoice(ImportChoice.RESULTS_ONLY, null, Map.of());
     public static final FormChoice CREATE = new FormChoice(ImportChoice.CREATE, null, Map.of());
+    public static final FormChoice SKIP = new FormChoice(ImportChoice.SKIP, null, Map.of());
     private static final String CHOICE_KEY = "choice";
     private static final String FORM_KEY = "form";
     private static final String MAPPING_KEY = "mapping";
@@ -94,6 +95,7 @@ public record FormChoice(ImportChoice choice, String formId, Map<String, String>
         return switch (choice) {
             case CREATE -> CREATE;
             case RESULTS_ONLY -> RESULTS_ONLY;
+            case SKIP -> SKIP;
             case ATTACH -> throw new IllegalArgumentException("an attachment names the form to attach to");
         };
     }

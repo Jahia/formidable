@@ -16,14 +16,14 @@ import java.util.stream.Stream;
  * @param elements the fields, steps and fieldsets under {@code fields}, in order
  * @param sourceId the identity of the form in the source system, or null once the source deleted it
  * @param sourceResultsId the identity of its results entry in the source system, or null when it had none
- * @param report what the import could not carry over for the form itself, one line each
+ * @param report what the report says of the form itself: what was carried over worth knowing, what was not
  */
 public record ImportedForm(String name, Map<String, String> titles, String buildingLang,
                            Map<String, String> submissionMessage, Map<String, Map<String, String>> buttonLabels,
                            boolean captcha,
                            List<ImportedElement> elements, List<ImportedAction> actions,
                            String sourceSystem, String sourceId, String sourceResultsId, String sourcePath,
-                           List<String> report) {
+                           List<ImportNote> report) {
 
     /** Every field of the form, at any depth, in order. */
     public Stream<ImportedField> fields() {

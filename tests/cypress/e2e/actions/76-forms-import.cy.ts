@@ -195,9 +195,7 @@ const closeDialog = () => {
 
 const reportForm = (name: string) => cy.get(`[data-sel-role="import-report-form"][data-sel-name="${name}"]`);
 
-/** Picks, for a form of the dry run, what receives its results: the radio items carry an id per form and choice. */
-const choose = (name: string, choice: 'resultsOnly' | 'create' | 'attach') =>
-	cy.get(`#import-choice-${name}-${choice}`).check({force: true});
+const CHOICE_LABELS = {resultsOnly: 'Results only', create: 'Create the form', attach: 'Attach to an existing form', skip: 'Don\'t import'};
 
 /** Opens a Moonstone dropdown of the dialog, once it has loaded its data, and picks the item of that label. */
 const pickInDropdown = (dropdown: () => Cypress.Chainable<JQuery>, label: string) => {
@@ -205,6 +203,12 @@ const pickInDropdown = (dropdown: () => Cypress.Chainable<JQuery>, label: string
 	dropdown().find('.moonstone-dropdown_container').click();
 	cy.get(MENU).contains('.moonstone-menuItem', label).click();
 	cy.get(MENU).should('not.exist');
+};
+
+/** Picks, for a form of the dry run, what receives its results, in the menu of its row. */
+const choose = (name: string, choice: keyof typeof CHOICE_LABELS) => {
+	pickInDropdown(() => reportForm(name).find('[data-sel-role="import-choice"]'), CHOICE_LABELS[choice]);
+	reportForm(name).find('[data-sel-role="import-choice"]').should('have.attr', 'data-sel-value', choice);
 };
 
 const mappingRow = (source: string) => cy.get(`[data-sel-role="import-mapping-row"][data-sel-source="${source}"]`);
@@ -303,7 +307,7 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		cy.get('[data-sel-role="import-totals"]').should('contain', '106');
 		// the default: the results alone, a choice the administrator can still change per form
 		cy.get('[data-sel-role="import-report-form"][data-sel-outcome="resultsOnly"]').should('have.length', SAMPLE.forms.length);
-		cy.get('[data-sel-role="import-choice"] input[value="resultsOnly"]:checked').should('have.length', SAMPLE.forms.length);
+		cy.get('[data-sel-role="import-choice"][data-sel-value="resultsOnly"]').should('have.length', SAMPLE.forms.length);
 		reportForm('contact-us').should('contain', 'Contact Us').and('contain', 'Results only');
 		// the dry run wrote nothing
 		children(CONTENTS_PATH, 'EDIT').then(nodes => expect(nodes.map(n => n.name)).not.to.include('imported-forms'));
@@ -326,7 +330,9 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		closeDialog();
 		openImportDialog();
 		dialogState('done');
-		cy.get('[data-sel-role="import-next-step"]').should('be.visible').and('contain', 'without a form');
+		// nothing to do by hand without a created form: no next step, the rows say where the results went
+		cy.get('[data-sel-role="import-next-step"]').should('not.exist');
+		reportForm('contact-us').find('[data-sel-role="import-report-outcome"]').should('contain', 'without a form');
 		cy.get('[data-sel-role="import-totals"]').should('contain', '106');
 
 		// the report survives a reload until it is closed
@@ -385,10 +391,15 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		dialogState('review');
 		SAMPLE.forms.forEach(form => choose(form, 'create'));
 		cy.get('[data-sel-role="import-report-form"][data-sel-outcome="created"]').should('have.length', SAMPLE.forms.length);
-		reportForm('contact-us').should('contain', IMPORTED_FORMS_PATH);
+		reportForm('contact-us').find('[data-sel-role="import-report-outcome"]').should('contain', 'Imported from Jahia Forms');
+		// what a created form cannot carry over is folded under its count, what to do apart from what was carried over
+		reportForm('contact-us').find('[data-sel-role="import-report-notes"]').should('not.exist');
+		reportForm('contact-us').find('[data-sel-role="import-report-toggle"]').should('contain', 'to review').click();
+		reportForm('contact-us').find('[data-sel-role="import-report-notes-action"] [data-sel-code="form.redirect"]')
+			.should('contain', 'page redirect').and('not.contain', 'fcnt:');
 		cy.get('[data-sel-role="import-confirm"]').click();
 		dialogState('done');
-		cy.get('[data-sel-role="import-next-step"]').should('contain', 'Imported from Jahia Forms');
+		cy.get('[data-sel-role="import-next-step"]').should('contain', 'unpublished');
 		cy.get('[data-sel-role="import-totals"]').should('contain', '106');
 		closeDialog();
 		cy.get('[data-sel-role="form-results-entry"]', {timeout: 60000}).should('have.length', SAMPLE.forms.length);
@@ -513,7 +524,7 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		dialogState('review');
 		reportForm('contact-us')
 			.should('have.attr', 'data-sel-outcome', 'found')
-			.and('contain', `${IMPORTED_FORMS_PATH}/contact-us`)
+			.and('contain', '"contact-us"')
 			.and('contain', '4 field(s)');
 		cy.get('[data-sel-role="import-confirm"]').click();
 		dialogState('done');
@@ -558,7 +569,7 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		// nothing starts until the form is picked
 		cy.get('[data-sel-role="import-confirm"]').should('be.disabled');
 		pickInDropdown(() => reportForm(ATTACH.source).find('[data-sel-role="import-attach-form"]'), ATTACH.title);
-		reportForm(ATTACH.source).should('contain', `${CONTENTS_PATH}/${ATTACH.form}`);
+		reportForm(ATTACH.source).find('[data-sel-role="import-report-outcome"]').should('contain', ATTACH.title);
 
 		// the same node name is matched, the same label proposed, the third field keeps its name until picked
 		mappingRow('firstname').should('have.attr', 'data-sel-target', 'firstname').and('have.attr', 'data-sel-rule', 'sameName');
@@ -583,8 +594,8 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 
 		cy.get('[data-sel-role="import-confirm"]').click();
 		dialogState('done');
-		cy.get('[data-sel-role="import-next-step"]').should('contain', 'attached to forms').and('contain', ATTACH.form);
-		reportForm(ATTACH.source).should('have.attr', 'data-sel-outcome', 'attached').and('contain', `${CONTENTS_PATH}/${ATTACH.form}`);
+		reportForm(ATTACH.source).should('have.attr', 'data-sel-outcome', 'attached')
+			.find('[data-sel-role="import-report-outcome"]').should('contain', ATTACH.form);
 		closeDialog();
 
 		// the entry of the form holds the submissions, their values under the names of its fields
@@ -769,6 +780,7 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		openResultsPage();
 		cy.get(`[data-sel-role="form-results-entry"][data-sel-name="${CONTACT.form}"] [data-sel-role="form-deleted"]`, {timeout: 30000}).should('exist');
 	});
+
 	it('imports a file a visitor uploaded under its submission, readable by the readers of the results only', () => {
 		// a clean slate: every entry the earlier cases left goes, the import jobs stay
 		children(RESULTS_ROOT_PATH, 'LIVE').then(nodes => nodes
@@ -800,5 +812,39 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 				cy.login();
 			})
 		);
+	});
+
+	it('leaves out a form told not to import, and proposes it again on the next run', () => {
+		children(RESULTS_ROOT_PATH, 'LIVE').then(nodes => nodes
+			.filter(node => node.primaryNodeType.name !== 'fmdb:importJobs')
+			.forEach(node => deleteNode(`${RESULTS_ROOT_PATH}/${node.name}`, 'LIVE')));
+		openResultsPage();
+		openImportDialog();
+		dropFile(SAMPLE_EXPORT);
+		dialogState('review');
+		choose('newsletterregistration', 'skip');
+		choose('newsletter-registration', 'skip');
+		reportForm('newsletter-registration').should('have.attr', 'data-sel-outcome', 'skipped');
+		cy.get('[data-sel-role="import-totals"]').should('contain', `${SAMPLE.submissions['contact-us']} submission(s) to import in 1 form(s)`);
+		// every form left out leaves nothing to import
+		choose('contact-us', 'skip');
+		cy.get('[data-sel-role="import-confirm"]').should('be.disabled');
+		choose('contact-us', 'resultsOnly');
+		cy.get('[data-sel-role="import-confirm"]').should('be.enabled').click();
+		dialogState('done');
+		reportForm('newsletterregistration').should('have.attr', 'data-sel-outcome', 'skipped');
+		cy.get('[data-sel-role="import-totals"]').should('contain', `${SAMPLE.submissions['contact-us']} submission(s) imported in 1 form(s)`);
+		closeDialog();
+		children(RESULTS_ROOT_PATH, 'LIVE').then(nodes => expect(nodes.map(node => node.name)).to.include('contact-us')
+			.and.not.include('newsletterregistration').and.not.include('newsletter-registration'));
+
+		// nothing marks a form left out: the next run proposes it as new
+		openImportDialog();
+		dropFile(SAMPLE_EXPORT);
+		dialogState('review');
+		reportForm('contact-us').should('have.attr', 'data-sel-outcome', 'found');
+		reportForm('newsletterregistration').should('have.attr', 'data-sel-outcome', 'resultsOnly');
+		cy.get('[data-sel-role="import-cancel"]').click();
+		cy.get('[data-sel-role="import-results-dialog"]').should('not.exist');
 	});
 });
