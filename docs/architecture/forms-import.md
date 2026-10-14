@@ -589,7 +589,9 @@ submission (the dry run lists none): a value dropped (a password, an answer whos
 already fills), values kept as stored because they could not be converted, a value kept under its Forms
 name because the form holds no field for it, a file the export does not hold, a submission that could not
 be written, and its reason. The log gives each sentence once, with the count and the submissions it concerns
-under it, by date and source identity; past 1000 incidents per form, the rest are only counted. The dialog
+under it, by date then source identity, a submission without a date last; past 1000 incidents per form, the
+rest are only counted. A submission not written is listed with what it lost, but its values and its files
+count in the figures of its form only once written: the figures of the log are those of the results. The dialog
 builds it from the report of the job, in its language, with the same sentences; nothing more is stored on
 the server, where the job and its report go once read.
 

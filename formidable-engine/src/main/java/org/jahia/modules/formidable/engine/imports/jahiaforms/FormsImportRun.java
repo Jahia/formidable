@@ -47,8 +47,8 @@ public final class FormsImportRun {
     private record Source(ImportedForm form, FormsForm definition, FormsResults results) {
     }
 
-    /** A submission written and not saved yet, with where it goes and the figures it counts in. */
-    private record Pending(JCRNodeWrapper entry, ImportedSubmission submission, ImportReport.FormEntry report) {
+    /** A submission written and not saved yet, with where it goes, what it was read from, and the figures it counts in. */
+    private record Pending(JCRNodeWrapper entry, FormsSubmission source, ImportedSubmission submission, ImportReport.FormEntry report) {
     }
 
     /** The import stopped before its end: what it wrote is saved, its report says how far it went. */
@@ -276,13 +276,15 @@ public final class FormsImportRun {
                     return;
                 }
                 ImportedSubmission converted = converters.get(submission.formName()).convert(submission);
-                count(entry, submission, converted);
                 if (dryRun) {
+                    count(entry, submission, converted);
                     // the dialog matches these against the options of the form the results may attach to
                     converted.values().forEach(entry::values);
                 } else {
+                    // what the submission lost is listed whether it is written or not; its figures count once it is
                     converted.report().forEach(note -> entry.incident(submission.uuid(), submission.created(), note));
-                    write(new Pending(entries.get(source.form().name()), converted, entry));
+                    missingFiles(entry, submission);
+                    write(new Pending(entries.get(source.form().name()), submission, converted, entry));
                 }
             });
             if (!dryRun) {
@@ -321,7 +323,7 @@ public final class FormsImportRun {
             retryAlone(e, null);
             return;
         }
-        pending.forEach(submission -> submission.report().submissionImported());
+        pending.forEach(this::imported);
         pending.clear();
     }
 
@@ -341,7 +343,7 @@ public final class FormsImportRun {
             try {
                 writer.writeSubmission(submission.entry(), submission.submission(), this::openBinary);
                 writer.save();
-                submission.report().submissionImported();
+                imported(submission);
             } catch (RepositoryException | IOException | RuntimeException e) {
                 discard();
                 failed(submission, e);
@@ -369,7 +371,27 @@ public final class FormsImportRun {
         }
     }
 
-    /** Counts the values and the files of a submission; a file the zip does not hold is reported, not counted. */
+    /** A submission saved: it counts in the figures of its form, its values and its files with it. */
+    private void imported(Pending submission) {
+        submission.report().submissionImported();
+        count(submission.report(), submission.source(), submission.submission());
+    }
+
+    /** Lists the files of a submission that the zip does not hold. */
+    private void missingFiles(ImportReport.FormEntry entry, FormsSubmission submission) {
+        for (FormsResultField answer : submission.fields()) {
+            for (FormsFile file : answer.files()) {
+                if (reader.binarySize(file) < 0) {
+                    entry.incident(submission.uuid(), submission.created(), ImportNote.action("submission.fileMissing", "file", file.name()));
+                }
+            }
+        }
+    }
+
+    /**
+     * Counts the values and the files of a submission, a file the zip does not hold as missing: every submission
+     * read in a dry run, the submissions written in an import.
+     */
     private void count(ImportReport.FormEntry entry, FormsSubmission submission, ImportedSubmission converted) {
         int dropped = (int) converted.report().stream().filter(note -> DROPPED.contains(note.code())).count();
         int notConverted = (int) converted.report().stream().filter(note -> NOT_CONVERTED.contains(note.code())).count();
@@ -380,9 +402,6 @@ public final class FormsImportRun {
                 long size = reader.binarySize(file);
                 if (size < 0) {
                     entry.fileMissing();
-                    if (!dryRun) {
-                        entry.incident(submission.uuid(), submission.created(), ImportNote.action("submission.fileMissing", "file", file.name()));
-                    }
                 } else {
                     entry.file(size);
                 }

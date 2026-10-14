@@ -418,6 +418,17 @@ class FormsImportRunTest {
         assertEquals("submission.writeFailed", incident.getString("code"));
         assertEquals(failing.get(), incident.getString("submission"));
         assertEquals("constraint violated", incident.getJSONObject("params").getString("reason"));
+        // the submission left behind does not count its values in the figures of its form
+        String failingForm = withFailure.get(0).getString("sourceName");
+        JSONObject dryRun = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer(), true, Map.of(), type -> true, s -> true, false)
+                .run().toJson();
+        int everyValue = 0;
+        for (Object form : dryRun.getJSONArray("forms")) {
+            if (((JSONObject) form).getString("sourceName").equals(failingForm)) {
+                everyValue = ((JSONObject) form).getJSONObject("values").getInt("converted");
+            }
+        }
+        assertTrue(withFailure.get(0).getJSONObject("values").getInt("converted") < everyValue);
         // the batch dropped once, the four written before the failure written again and saved one by one
         verify(writer).discardSubmissions();
         verify(writer, org.mockito.Mockito.times(110)).writeSubmission(any(), any(), any());

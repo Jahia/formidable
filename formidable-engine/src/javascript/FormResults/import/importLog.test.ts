@@ -34,8 +34,9 @@ describe('importLog', () => {
         files: {count: 1, bytes: 578, missing: 1},
         submissions: {found: 3, imported: 2, alreadyImported: 0, failed: 1, toImport: 3},
         incidents: [
-            {code: 'submission.passwordDropped', level: 'action', params: {field: 'Password'}, submission: 's1', created: '2024-06-01T10:00:00Z'},
+            // read out of date order: the log lists them by date
             {code: 'submission.passwordDropped', level: 'action', params: {field: 'Password'}, submission: 's2', created: '2024-06-02T11:30:00Z'},
+            {code: 'submission.passwordDropped', level: 'action', params: {field: 'Password'}, submission: 's1', created: '2024-06-01T10:00:00Z'},
             {code: 'submission.writeFailed', level: 'action', params: {reason: 'disk full'}, submission: 's3', created: null}
         ],
         incidentsOmitted: 4
@@ -77,6 +78,7 @@ describe('importLog', () => {
         expect(markdown).toContain('- formResults.import.note.submission.passwordDropped(field=Password) (2)');
         expect(markdown).toContain('  - 2024-06-01 10:00 UTC · formResults.import.markdown.submission(id=s1)');
         expect(markdown).toContain('  - 2024-06-02 11:30 UTC · formResults.import.markdown.submission(id=s2)');
+        expect(markdown.indexOf('(id=s1)')).toBeLessThan(markdown.indexOf('(id=s2)'));
         expect(markdown).toContain('- formResults.import.note.submission.writeFailed(reason=disk full) (1)');
         expect(markdown).toContain('  - formResults.import.markdown.submission(id=s3)');
         expect(markdown).toContain('- formResults.import.markdown.incidentsOmitted(count=4)');

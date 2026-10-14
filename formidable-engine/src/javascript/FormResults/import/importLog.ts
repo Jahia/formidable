@@ -47,11 +47,22 @@ function figuresOf(form: ImportReportForm, t: Translate): string[] {
     ].filter(Boolean).map(figure => `- ${figure}`);
 }
 
+/** The submissions under a sentence, by date, then by source identity; a submission without a date last. */
+const byDate = (a: ImportIncident, b: ImportIncident): number => {
+    if (a.created === b.created) {
+        return a.submission.localeCompare(b.submission);
+    }
+    if (!a.created || !b.created) {
+        return a.created ? -1 : 1;
+    }
+    return a.created.localeCompare(b.created);
+};
+
 /**
  * The incidents of a form or of the run, one item per sentence with the submissions it concerns under it, by
  * date: a field that lost its values in every submission reads once, not once per submission.
  */
-function incidentsSection(title: string, incidents: ImportIncident[] = [], omitted = 0, t: Translate): string[] {
+function incidentsSection(title: string, t: Translate, incidents: ImportIncident[] = [], omitted = 0): string[] {
     if (incidents.length === 0 && omitted === 0) {
         return [];
     }
@@ -62,7 +73,7 @@ function incidentsSection(title: string, incidents: ImportIncident[] = [], omitt
     });
     const items = [...bySentence].flatMap(([sentence, concerned]) => [
         `- ${escape(sentence)} (${concerned.length})`,
-        ...concerned.map(incident => {
+        ...[...concerned].sort(byDate).map(incident => {
             const submission = t('formResults.import.markdown.submission', {id: incident.submission});
             const date = incident.created ? utc(new Date(incident.created)) + ' UTC · ' : '';
             return `  - ${date}${escape(submission)}`;
@@ -112,7 +123,7 @@ function formSection(form: ImportReportForm, context: LogContext): string[] {
         '',
         `- ${t('formResults.import.columns.result')}: ${escape(context.outcomeOf(form))}`,
         ...figuresOf(form, t),
-        ...incidentsSection(`### ${t('formResults.import.markdown.incidents')}`, form.incidents, form.incidentsOmitted, t),
+        ...incidentsSection(`### ${t('formResults.import.markdown.incidents')}`, t, form.incidents, form.incidentsOmitted),
         ...toReview,
         ...profileSection(profile, t),
         ...carried,
@@ -139,7 +150,7 @@ export function importLog(report: ImportReport, context: LogContext): string {
         `- ${t('formResults.import.markdown.totals', {imported: report.totals.submissionsImported, failed: report.totals.submissionsFailed ?? 0})}`,
         '',
         ...forms.flatMap(form => formSection(form, context)),
-        ...incidentsSection(`## ${t('formResults.import.markdown.orphans')}`, report.incidents, report.incidentsOmitted, t)
+        ...incidentsSection(`## ${t('formResults.import.markdown.orphans')}`, t, report.incidents, report.incidentsOmitted)
     ].join('\n');
 }
 
