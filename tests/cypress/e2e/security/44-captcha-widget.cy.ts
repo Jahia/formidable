@@ -1,4 +1,4 @@
-import {createPublishedLiveFormPage, getInputTextNode, visitLiveForm} from '../../support/fixtures';
+import {createPublishedLiveFormPage, FORMIDABLE_TEST_SITE, getInputTextNode, visitLiveForm} from '../../support/fixtures';
 import {
 	expectErrorResponse,
 	expectSuccessResponse,
@@ -86,6 +86,20 @@ describe('Security - CAPTCHA widget and verification with the Google reCAPTCHA v
 		// when hydration completed before that second script (cold cache).
 		cy.get('.fmdb-captcha iframe[src*="recaptcha"]', {timeout: 10000})
 			.should('be.visible');
+	});
+
+	it('shows a card in place of the widget while authoring, and loads no provider script there', () => {
+		cy.login();
+		cy.request(`/cms/editframe/default/en/sites/${FORMIDABLE_TEST_SITE.key}/${captchaLivePath}`).its('body').then((body: string) => {
+			const page = new DOMParser().parseFromString(body, 'text/html');
+			const card = page.querySelector('[data-fmdb-authoring="captcha"]');
+			expect(card, 'the captcha card').not.to.equal(null);
+			expect(card?.textContent).to.contain('Captcha');
+			expect(page.querySelectorAll('script[src*="recaptcha/api.js"]'), 'the provider script').to.have.length(0);
+			// the island receives no captcha either: its props never name the site key
+			expect(body).not.to.contain(TEST_SITE_KEY);
+		});
+		cy.logout();
 	});
 
 	it('accepts a direct submission whose token the provider verifies', () => {

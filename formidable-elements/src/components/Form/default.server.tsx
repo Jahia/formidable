@@ -9,6 +9,7 @@ import {
 } from "@jahia/javascript-modules-library";
 import type {JCRNodeWrapper} from "org.jahia.services.content";
 import {useTranslation} from "react-i18next";
+import ShieldCheckIcon from "~/design/ShieldCheckIcon";
 import Form from "./Form.client";
 import {type FormServerProps} from "./types";
 import {resolveUrlPlaceholders, styleTagCss} from "~/utils/richTextUtils";
@@ -112,15 +113,18 @@ jahiaComponent(
 		// the poll deadline there).
 		const rawWidgetTimeout = Number(renderContext.getRequest().getAttribute('formidable.captcha.widgetTimeoutSeconds'));
 		const widgetTimeoutSeconds = Number.isFinite(rawWidgetTimeout) && rawWidgetTimeout > 0 ? rawWidgetTimeout : undefined;
-		const captcha = siteKey && scriptUrl && widgetVar && tokenField
+		const isEditMode = renderContext.isEditMode();
+		const captchaConfig = siteKey && scriptUrl && widgetVar && tokenField
 			? {siteKey, widgetVar, tokenField, widgetTimeoutSeconds}
 			: undefined;
 
-		if (hasCaptchaMixin && !captcha) {
+		// While authoring, the widget is left out: a card in its place says that preview and live run it.
+		const captcha = isEditMode ? undefined : captchaConfig;
+
+		if (hasCaptchaMixin && !captchaConfig) {
 			console.warn(`[Formidable] fmdbmix:captcha is applied on form '${currentNode.getPath()}' but CAPTCHA is not fully configured (siteKey, scriptUrl, widgetVar or tokenField missing). The widget will not be rendered.`);
 		}
 
-		const isEditMode = renderContext.isEditMode();
 		const isSubmitDisabled = isEditMode || renderContext.isPreviewMode();
 		// /modules/… is a mapping inside the Jahia webapp: under a context path the bare path 404s
 		const submitActionUrl = `${renderContext.getRequest().getContextPath()}/modules/formidable-engine/form-submit?fid=${currentNode.getIdentifier()}&lang=${currentNode.getLanguage()}`;
@@ -161,7 +165,7 @@ jahiaComponent(
 			<>
 				{css && <style dangerouslySetInnerHTML={{__html: styleTagCss(css)}}/>}
 				<AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")} />
-				{scriptUrl && (
+				{captcha && scriptUrl && (
 				<AddResources
 					type="javascript"
 					resources={ensureCaptchaExplicit(scriptUrl)}
@@ -220,6 +224,15 @@ jahiaComponent(
 							...(isEditMode ? {className: "fmdb-form-fields"} : {}),
 						}}
 					/>
+				)}
+				{/* The captcha widget is left out while authoring: one line in its place says where it
+				    runs, drawn as the line of a hidden field (authoring.css). */}
+				{isEditMode && captchaConfig && (
+					<div className="fmdb-authoring-hidden-field fmdb-authoring-captcha" data-fmdb-authoring="captcha">
+						<ShieldCheckIcon/>
+						<span className="fmdb-authoring-hidden-field-label">{t("captchaAuthoringTitle")}</span>
+						<span className="fmdb-authoring-hidden-field-value">{t("captchaAuthoringDescription")}</span>
+					</div>
 				)}
 				{/* The actions are invisible on a page otherwise: while authoring, the list
 				    renders as a zone of its own (cards + create button), inside the form so a

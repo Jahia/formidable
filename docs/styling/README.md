@@ -74,7 +74,7 @@ form.fmdb-form [data-fmdb-edit-mode="true"]             the form; a div [data-fm
 │  │        └─ div.fmdb-validation-warning              injected by the client under a field a field action warns about
 │  │     └─ aside.fmdb-authoring-actions.fmdb-authoring-field-actions   edit mode only: the field actions zone, inside the field's wrapper
 │  └─ div [data-fmdb-node-*] …                          an element placed directly in the form: same wrapper, no fmdb-form-element
-├─ div.fmdb-form-group.fmdb-captcha                     a protected form, on its last step
+├─ div.fmdb-form-group.fmdb-captcha                     a protected form, on its last step; in edit mode, div.fmdb-authoring-hidden-field.fmdb-authoring-captcha in its place
 └─ div.fmdb-form-actions
    └─ button.fmdb-btn.fmdb-btn-{primary|secondary}      submit, reset; .fmdb-prev-btn and .fmdb-next-btn on a multi-step form
 aside.fmdb-authoring-actions                            edit mode only: the form actions zone, after the form

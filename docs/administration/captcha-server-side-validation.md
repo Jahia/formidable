@@ -20,6 +20,9 @@ CAPTCHA is configured globally in `org.jahia.modules.formidable.captcha.cfg`, on
 To enable CAPTCHA on a form, apply the `fmdbmix:captcha` mixin to the `fmdb:form` node.
 This author-facing mixin extends `fmdbmix:captchaProtectedForm`.
 
+The widget shows in preview and live. In edit mode the Page Builder shows a **Captcha** line in its place
+and loads no provider script ([Class hooks](../styling/class-hooks.md#captcha-edit-mode)).
+
 ---
 
 ## When is the token verified server-side?
