@@ -252,8 +252,9 @@ const CELL = {padding: 0, textAlign: 'left' as const, fontWeight: 'normal'};
 
 /**
  * The fields mapped to the visitor profile, as a compact grid: the field, the property, a check when the prefill is
- * on, and the status — a green check when jCustomer declares the property and the mapping is written, a red cross and
- * why when it is not, a warning when jCustomer could not be asked. A line under the title says where to review them.
+ * on, and the status — a green check when jCustomer declares the property and the mapping is written, a red cross
+ * labelled as not written and why when it is not, a warning when jCustomer could not be asked. A line under the title
+ * says where to review them.
  */
 const ProfileMappings = ({profile, t}: {profile: ReturnType<typeof profileMappings>; t: Translate}) => {
     if (profile.mappings.length === 0) {
@@ -263,7 +264,7 @@ const ProfileMappings = ({profile, t}: {profile: ReturnType<typeof profileMappin
         if (mapping.status === 'failed') {
             return (
                 <Typography variant="body" color="danger">
-                    <Close size="small" color="red" style={{verticalAlign: 'middle', marginRight: '4px'}}/>
+                    <Close size="small" color="red" aria-label={t('formResults.import.profile.missing')} style={{verticalAlign: 'middle', marginRight: '4px'}}/>
                     {t(`formResults.import.profile.failed.${mapping.reason}`)}
                 </Typography>
             );
