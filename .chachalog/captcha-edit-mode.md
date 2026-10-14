@@ -3,4 +3,4 @@
 formidable: patch
 ---
 
-Fixed the Page Builder drawing a captcha no one can solve: a Captcha line marks its place, the widget shows in preview and live
+Fixed Page Builder drawing a captcha challenge: a Captcha line marks its place, shown in preview and live (#410)
