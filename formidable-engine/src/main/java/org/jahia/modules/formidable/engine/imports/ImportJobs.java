@@ -97,6 +97,11 @@ public class ImportJobs {
     private static final String UPDATED = "updated";
     private static final String CHOICES = "choices";
     private static final String JOB_NAME_PREFIX = "forms-import-";
+    /**
+     * The job nodes of the attachment of imported results to another form, an action withdrawn before its
+     * release: only an instance that ran a development build holds them, and the next look at the jobs drops them.
+     */
+    private static final String WITHDRAWN_ATTACHMENT_JOB_PREFIX = "attach-";
     /** The temporary copy of the export a phase reads, on the disk of the processing server. */
     private static final String EXPORT_COPY_PREFIX = "forms-import-export-";
     private static final String ZIP = "application/zip";
@@ -114,8 +119,16 @@ public class ImportJobs {
             return name().toLowerCase(Locale.ROOT);
         }
 
+        /** The state stored on a job node; a state this version does not know reads as failed. */
         static State of(String stored) {
-            return stored == null ? FAILED : valueOf(stored.toUpperCase(Locale.ROOT));
+            if (stored == null) {
+                return FAILED;
+            }
+            try {
+                return valueOf(stored.toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                return FAILED;
+            }
         }
 
         public boolean running() {
@@ -563,6 +576,12 @@ public class ImportJobs {
             boolean changed = false;
             Instant now = Instant.now();
             for (JCRNodeWrapper job : jobNodes(session, siteKey)) {
+                if (job.getName().startsWith(WITHDRAWN_ATTACHMENT_JOB_PREFIX)) {
+                    log.info("[FormsImport] Job {} of site {} belongs to the withdrawn attachment action: removed", job.getName(), siteKey);
+                    job.remove();
+                    changed = true;
+                    continue;
+                }
                 JobView view = view(job, siteKey);
                 if (view.state().running()) {
                     if (view.updated().plus(STOPPED_AFTER).isBefore(now) && !isSchedulerJobActive(view)) {

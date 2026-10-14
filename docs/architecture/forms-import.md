@@ -18,27 +18,24 @@ work ships in two iterations.
 flowchart LR
     export[("formFactory export<br/>(zip with live content)")]
     it1["1. Import"]
-    forms[("Forms in<br/>contents/imported-forms")]
-    results[("Results of<br/>those forms")]
-    it2["2. Attach to another form"]
+    it2["2. Choose what receives the results"]
+    forms[("A form created in<br/>contents/imported-forms")]
+    alone[("Results without a form")]
     contributor(["Contributor"])
     hand[("A form built by hand")]
-    attached[("Results of<br/>that form")]
 
     export -- "forms, results, files" --> it1
-    it1 -- "creates" --> forms
-    it1 -- "writes" --> results
-    forms -- "attached to" --> results
+    it1 -- "per Forms form" --> it2
+    it2 -- "results only (default)" --> alone
+    it2 -- "create the form" --> forms
     contributor -- "builds" --> hand
-    results -- "a source form" --> it2
-    hand --> it2
-    it2 -- "moves and renames" --> attached
+    it2 -- "attach, fields mapped" --> hand
 ```
 
 | Iteration | What it delivers |
 |---|---|
 | 1. Import | Every Forms form becomes an unpublished Formidable form in the `imported-forms` content folder of the site, with system names generated from the labels, the field types Formidable has, the labels, placeholders, help texts, required rules, choices and actions that map. Every submission the Forms *save to JCR* action stored becomes a submission of that form, files included. The Results page lists, filters and exports them as native results, with the labels of the form once it is published. |
-| 2. Attach to another form | An administrator moves the imported results of one Forms form onto another Formidable form, built by hand or reworked: the field names are mapped and renamed, and the results take the readers of that form. |
+| 2. Choose what receives the results | Per Forms form, the administrator chooses in the review what receives its results: the results alone (the default), a form created as in iteration 1, or an existing Formidable form, built by hand or reworked, whose fields the values are mapped and renamed to, the results taking the readers of that form. An **Attach to another form** action on an entry of the Results page was designed too and withdrawn before its release ([Iteration 2](#iteration-2-choosing-what-receives-the-results)). |
 
 Iteration 1 creates a form before it writes the first submission, so the Results page, the exports and the
 statuses need no change for imported results. The import never publishes, though: until a contributor
