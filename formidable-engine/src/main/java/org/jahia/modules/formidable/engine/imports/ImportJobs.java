@@ -31,7 +31,6 @@ import org.osgi.service.component.annotations.ReferencePolicy;
 import org.quartz.JobDetail;
 import org.quartz.ObjectAlreadyExistsException;
 import org.quartz.SchedulerException;
-import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -97,7 +96,6 @@ public class ImportJobs {
     private static final String MESSAGE = "message";
     private static final String UPDATED = "updated";
     private static final String CHOICES = "choices";
-    private static final String KIND = "kind";
     private static final String JOB_NAME_PREFIX = "forms-import-";
     /** The temporary copy of the export a phase reads, on the disk of the processing server. */
     private static final String EXPORT_COPY_PREFIX = "forms-import-export-";
@@ -110,7 +108,7 @@ public class ImportJobs {
 
     /** The state of a job, as the dialog shows it. */
     public enum State {
-        ANALYSING, REVIEW, IMPORTING, ATTACHING, DONE, FAILED;
+        ANALYSING, REVIEW, IMPORTING, DONE, FAILED;
 
         String stored() {
             return name().toLowerCase(Locale.ROOT);
@@ -121,34 +119,15 @@ public class ImportJobs {
         }
 
         public boolean running() {
-            return this == ANALYSING || this == IMPORTING || this == ATTACHING;
+            return this == ANALYSING || this == IMPORTING;
         }
     }
 
-    /** The phases: the two of an import, and the attachment of imported results to another form. */
-    public enum Phase { DRY_RUN, IMPORT, ATTACH }
-
-    /** What a job node is about: an import, or the attachment of imported results to another form. */
-    public enum Kind {
-        IMPORT("import"), ATTACHMENT("attachment");
-
-        private final String stored;
-
-        Kind(String stored) {
-            this.stored = stored;
-        }
-
-        public String stored() {
-            return stored;
-        }
-
-        static Kind of(String stored) {
-            return ATTACHMENT.stored.equals(stored) ? ATTACHMENT : IMPORT;
-        }
-    }
+    /** The phases of an import. */
+    public enum Phase { DRY_RUN, IMPORT }
 
     /** What the dialog reads of a job. */
-    public record JobView(String id, String siteKey, Kind kind, State state, String report, String message, Instant updated) {
+    public record JobView(String id, String siteKey, State state, String report, String message, Instant updated) {
     }
 
     /** A request the job cannot honour in its state: the dialog shows the reason. */
@@ -257,9 +236,6 @@ public class ImportJobs {
             JobView latest = null;
             for (JCRNodeWrapper job : jobNodes(session, siteKey)) {
                 JobView candidate = view(job, siteKey);
-                if (candidate.kind() != Kind.IMPORT) {
-                    continue;
-                }
                 if (latest == null || candidate.updated().isAfter(latest.updated())) {
                     latest = candidate;
                 }
@@ -312,73 +288,6 @@ public class ImportJobs {
     }
 
     /**
-     * Starts the attachment of the imported results of a source to another form (ResultsAttachment), one job
-     * at a time per site with the imports: the request is checked first, so that the dialog gets its refusal
-     * at once, then written on a job node of its own kind, which the dialog of the entry polls.
-     */
-    public JobView startAttachment(String siteKey, ResultsAttachment.Request request) throws RepositoryException, RefusedException {
-        refuseWhileImportRuns(siteKey);
-        checkAttachment(siteKey, request);
-        reconcile(siteKey);
-        String jobId = "attach-" + JOB_NAMES.format(Instant.now()) + "-" + UUID.randomUUID().toString().substring(0, 3);
-        JobView created = inLive(session -> {
-            JCRNodeWrapper jobs = jobsNode(session, siteKey, true);
-            JCRNodeWrapper job = jobs.addNode(JCRContentUtils.findAvailableNodeName(jobs, jobId), FmdbNodeType.IMPORT_JOB);
-            job.setProperty(KIND, Kind.ATTACHMENT.stored());
-            job.setProperty(STATE, State.ATTACHING.stored());
-            job.setProperty(CHOICES, request.toJson());
-            job.setProperty(UPDATED, now());
-            session.save();
-            log.info("[FormsImport] Job {} created for site {}: results of {} to attach to the form {}", job.getName(), siteKey,
-                    request.sourceFormId(), request.formId());
-            return view(job, siteKey);
-        });
-        try {
-            schedule(siteKey, created.id(), Phase.ATTACH);
-        } catch (ObjectAlreadyExistsException e) {
-            update(siteKey, created.id(), State.FAILED, null, ANOTHER_IMPORT_RUNS, false);
-            throw new RefusedException(ANOTHER_IMPORT_RUNS);
-        } catch (SchedulerException e) {
-            throw notScheduled(siteKey, created.id(), e);
-        }
-        return created;
-    }
-
-    /** What the dialog of an entry shows before an attachment: the sources the entry holds, with their fields. */
-    public JSONObject describeEntry(String siteKey, String entryId, Locale locale) throws RepositoryException, RefusedException {
-        AtomicReference<RefusedException> refused = new AtomicReference<>();
-        JSONObject described = JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, FormidableJcrConstants.WORKSPACE_EDIT, locale, edit -> {
-            JCRSessionWrapper live = JCRSessionFactory.getInstance().getCurrentSystemSession(FormidableJcrConstants.WORKSPACE_LIVE, null, null);
-            try {
-                return new ResultsAttachment(edit, live, siteKey).describe(entryId);
-            } catch (RefusedException e) {
-                refused.set(e);
-                return null;
-            }
-        });
-        if (refused.get() != null) {
-            throw refused.get();
-        }
-        return described;
-    }
-
-    private static void checkAttachment(String siteKey, ResultsAttachment.Request request) throws RepositoryException, RefusedException {
-        AtomicReference<RefusedException> refused = new AtomicReference<>();
-        JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, FormidableJcrConstants.WORKSPACE_EDIT, null, edit -> {
-            JCRSessionWrapper live = JCRSessionFactory.getInstance().getCurrentSystemSession(FormidableJcrConstants.WORKSPACE_LIVE, null, null);
-            try {
-                new ResultsAttachment(edit, live, siteKey).check(request);
-            } catch (RefusedException e) {
-                refused.set(e);
-            }
-            return null;
-        });
-        if (refused.get() != null) {
-            throw refused.get();
-        }
-    }
-
-    /**
      * Removes the job: a dry run cancelled, even while it runs since it writes nothing, or a report read.
      * Refused while the import runs.
      */
@@ -389,7 +298,7 @@ public class ImportJobs {
                 return false;
             }
             State state = State.of(job.getPropertyAsString(STATE));
-            if (state == State.IMPORTING || state == State.ATTACHING) {
+            if (state == State.IMPORTING) {
                 return true;
             }
             job.remove();
@@ -405,10 +314,6 @@ public class ImportJobs {
 
     /** Runs one phase of a job: called by {@link FormsImportJob} on the processing server. */
     void run(String siteKey, String jobId, Phase phase) {
-        if (phase == Phase.ATTACH) {
-            runAttachment(siteKey, jobId);
-            return;
-        }
         Path export = null;
         try {
             export = Files.createTempFile(EXPORT_COPY_PREFIX, ".zip");
@@ -435,37 +340,6 @@ public class ImportJobs {
                 } catch (IOException e) {
                     log.warn("[FormsImport] Temporary file {} not deleted", export, e);
                 }
-            }
-        }
-    }
-
-    private static void runAttachment(String siteKey, String jobId) {
-        try {
-            String stored = inLive(session -> {
-                JCRNodeWrapper job = jobNode(session, siteKey, jobId);
-                return job == null ? null : job.getPropertyAsString(CHOICES);
-            });
-            if (stored == null) {
-                log.info("[FormsImport] Job {} of site {} was closed before its attachment ran", jobId, siteKey);
-                return;
-            }
-            ResultsAttachment.Request request = ResultsAttachment.Request.fromJson(stored);
-            JSONObject report = JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, FormidableJcrConstants.WORKSPACE_EDIT, null, edit -> {
-                JCRSessionWrapper live = JCRSessionFactory.getInstance().getCurrentSystemSession(FormidableJcrConstants.WORKSPACE_LIVE, null, null);
-                try {
-                    return new ResultsAttachment(edit, live, siteKey).run(request);
-                } catch (RefusedException e) {
-                    throw new RepositoryException(e.getMessage(), e);
-                }
-            });
-            update(siteKey, jobId, State.DONE, report.toString(), null, false);
-            log.info("[FormsImport] Job {} of site {}: attachment ended, {}", jobId, siteKey, report);
-        } catch (Exception e) {
-            log.error("[FormsImport] Job {} of site {}: the attachment failed", jobId, siteKey, e);
-            try {
-                update(siteKey, jobId, State.FAILED, null, failureMessage(e), false);
-            } catch (RepositoryException inner) {
-                log.error("[FormsImport] Job {} of site {}: the failure could not be recorded", jobId, siteKey, inner);
             }
         }
     }
@@ -608,8 +482,7 @@ public class ImportJobs {
     // --- the scheduler ---
 
     /**
-     * The name of the scheduler job of a phase: one per site for the import and the attachment, which both write
-     * the results of the site, one per job node for a dry run.
+     * The name of the scheduler job of a phase: one per site for the import, one per job node for a dry run.
      */
     static String jobName(String siteKey, String jobId, Phase phase) {
         return phase == Phase.DRY_RUN ? JOB_NAME_PREFIX + "dry-run-" + jobId : JOB_NAME_PREFIX + siteKey;
@@ -768,7 +641,7 @@ public class ImportJobs {
 
     private static JobView view(JCRNodeWrapper job, String siteKey) throws RepositoryException {
         Instant updated = job.hasProperty(UPDATED) ? job.getProperty(UPDATED).getDate().toInstant() : Instant.EPOCH;
-        return new JobView(job.getName(), siteKey, Kind.of(job.getPropertyAsString(KIND)), State.of(job.getPropertyAsString(STATE)),
+        return new JobView(job.getName(), siteKey, State.of(job.getPropertyAsString(STATE)),
                 job.getPropertyAsString(REPORT), job.getPropertyAsString(MESSAGE), updated);
     }
 

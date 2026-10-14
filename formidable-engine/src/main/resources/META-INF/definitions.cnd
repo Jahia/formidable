@@ -348,7 +348,6 @@ orderable
  + * (fmdb:importJob) = fmdb:importJob
 
 [fmdb:importJob] > jnt:content
- - kind (string) indexed=no
  - state (string) indexed=no
  - report (string) indexed=no
  - message (string) indexed=no

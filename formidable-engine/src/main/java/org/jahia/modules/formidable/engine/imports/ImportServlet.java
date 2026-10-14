@@ -10,7 +10,6 @@ import org.jahia.modules.formidable.engine.config.formsimport.FormsImportConfigS
 import org.jahia.services.content.JCRSessionFactory;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.securityfilter.PermissionService;
-import org.jahia.utils.LanguageCodeConverters;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.osgi.service.component.annotations.Component;
@@ -50,14 +49,10 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.SI
  * <li>{@code POST /jobs}: the upload (multipart, field {@code file}), which starts the dry run;</li>
  * <li>{@code GET /jobs/<id>}: the state and the report of a job, polled by the dialog;</li>
  * <li>{@code POST /jobs/<id>/import}: starts the import of a reviewed dry run;</li>
- * <li>{@code DELETE /jobs/<id>}: closes the job, a dry run cancelled or a report read;</li>
- * <li>{@code GET /attachments/entry?entry=<uuid>}: what the <b>Attach to another form</b> dialog of an entry
- * shows, the sources the entry holds with their fields;</li>
- * <li>{@code POST /attachments}: starts the attachment of the results of a source to another form, a job
- * the dialog polls like an import.</li>
+ * <li>{@code DELETE /jobs/<id>}: closes the job, a dry run cancelled or a report read.</li>
  * </ul>
- * The import and the attachment are open to the administrators of the site, who hold {@code site-admin} on
- * its node: they write the contents of the site and its results. The upload and the start of an import
+ * The import is open to the administrators of the site, who hold {@code site-admin} on its node: it
+ * writes the contents of the site and its results. The upload and the start of an import
  * need the import button on too. A JSON answer every time.
  */
 @Component(
@@ -76,10 +71,6 @@ public class ImportServlet extends HttpServlet {
     private static final Pattern JOB_PATH = Pattern.compile("^/jobs/([A-Za-z0-9_.-]+)(/import)?$");
     private static final String SETTINGS_PATH = "/settings";
     private static final String JOBS_PATH = "/jobs";
-    private static final String ATTACHMENTS_PATH = "/attachments";
-    private static final String ATTACHMENT_ENTRY_PATH = "/attachments/entry";
-    private static final String ENTRY_PARAMETER = "entry";
-    private static final String LANGUAGE_PARAMETER = "language";
     private static final String REFUSED_UPLOAD = "the upload was refused: ";
     private static final Logger log = LoggerFactory.getLogger(ImportServlet.class);
 
@@ -120,8 +111,6 @@ public class ImportServlet extends HttpServlet {
         String jobId = jobIdOf(path, false);
         if (SETTINGS_PATH.equals(path)) {
             handle(req, resp, null, Gate.ANY, this::settings);
-        } else if (ATTACHMENT_ENTRY_PATH.equals(path)) {
-            handle(req, resp, null, Gate.ADMIN, this::describeEntry);
         } else if (jobId != null) {
             handle(req, resp, jobId, Gate.ADMIN, this::job);
         } else {
@@ -135,8 +124,6 @@ public class ImportServlet extends HttpServlet {
         String jobId = jobIdOf(path, true);
         if (JOBS_PATH.equals(path)) {
             handle(req, resp, null, Gate.IMPORT, this::upload);
-        } else if (ATTACHMENTS_PATH.equals(path)) {
-            handle(req, resp, null, Gate.ADMIN, this::startAttachment);
         } else if (jobId != null) {
             handle(req, resp, jobId, Gate.IMPORT, this::startImport);
         } else {
@@ -158,11 +145,9 @@ public class ImportServlet extends HttpServlet {
 
     private JSONObject settings(Call call) throws RepositoryException {
         boolean enabled = config().isImportButtonEnabled();
-        boolean admin = isAllowed(call.site(), call.user());
-        boolean allowed = enabled && admin;
+        boolean allowed = enabled && isAllowed(call.site(), call.user());
         JSONObject settings = new JSONObject()
                 .put("enabled", enabled)
-                .put("admin", admin)
                 .put("allowed", allowed)
                 .put("maxFileSizeMb", config().getMaxFileSizeMb());
         if (allowed) {
@@ -244,31 +229,6 @@ public class ImportServlet extends HttpServlet {
         }
     }
 
-    private JSONObject describeEntry(Call call) throws RepositoryException, ImportJobs.RefusedException, Refused {
-        String entry = call.request().getParameter(ENTRY_PARAMETER);
-        if (entry == null || entry.isBlank()) {
-            throw new Refused(HttpServletResponse.SC_BAD_REQUEST, "the entry to describe is missing");
-        }
-        String language = call.request().getParameter(LANGUAGE_PARAMETER);
-        Locale locale = language == null || language.isBlank() ? Locale.ENGLISH : LanguageCodeConverters.languageCodeToLocale(language);
-        return jobs().describeEntry(call.site(), entry, locale);
-    }
-
-    /** {@code {"entry":"<uuid>","source":"<key>","form":"<uuid>","mapping":{…}}} in a JSON body. */
-    private JSONObject startAttachment(Call call) throws IOException, RepositoryException, ImportJobs.RefusedException, Refused {
-        String body;
-        try (BufferedReader reader = call.request().getReader()) {
-            body = reader.lines().collect(Collectors.joining());
-        }
-        ResultsAttachment.Request request;
-        try {
-            request = ResultsAttachment.Request.fromJson(body);
-        } catch (JSONException | IllegalArgumentException e) {
-            throw new Refused(HttpServletResponse.SC_BAD_REQUEST, "the attachment must name the entry, the source, the form and the mapping: " + e.getMessage());
-        }
-        return json(jobs().startAttachment(call.site(), request));
-    }
-
     private JSONObject close(Call call) throws RepositoryException, ImportJobs.RefusedException {
         jobs().close(call.site(), call.jobId());
         return new JSONObject().put("closed", true);
@@ -334,7 +294,6 @@ public class ImportServlet extends HttpServlet {
     private static JSONObject json(ImportJobs.JobView job) {
         return new JSONObject()
                 .put("id", job.id())
-                .put("kind", job.kind().stored())
                 .put("state", job.state().stored())
                 .put("report", job.report() == null ? JSONObject.NULL : new JSONObject(job.report()))
                 .put("message", job.message() == null ? JSONObject.NULL : job.message())

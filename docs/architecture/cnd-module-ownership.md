@@ -100,7 +100,7 @@ Examples:
 - `fmdb:resultsFolder`
 - `fmdb:formResults`
 - `fmdb:formSubmission`
-- `fmdb:importJobs`, `fmdb:importJob` (the jobs of an import from another form system: the uploaded export and the state of the dry run and of the import, or of the attachment of imported results to another form, kept in the repository — see `forms-import.md`)
+- `fmdb:importJobs`, `fmdb:importJob` (the jobs of an import from another form system: the uploaded export and the state of the dry run and of the import, kept in the repository — see `forms-import.md`)
 
 These types are part of the engine contract. They support submission handling, persistence, exports, imports, and action execution.
 
