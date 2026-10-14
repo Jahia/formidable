@@ -21,7 +21,8 @@ Release notes for the whole repository are assembled by [chachalog](../.chachalo
   `/modules/formidable-accounts/verify`, which unlocks the account and sends the visitor to a chosen page.
 * `org.jahia.modules.formidable.accounts.cfg`: CAPTCHA required (default), attempts per remote address and per account in
   memory, groups a form can never add a visitor to, public base URL and sender of the activation e-mail.
-* English and French labels, tooltips and visitor messages; `dev-unsigned` Maven profile for local deployments on Jahia
+* English and French labels, tooltips and visitor messages, European Portuguese (pt) visitor messages (the editor
+  labels stay English in Portuguese); `dev-unsigned` Maven profile for local deployments on Jahia
   Enterprise.
 
 ### Security

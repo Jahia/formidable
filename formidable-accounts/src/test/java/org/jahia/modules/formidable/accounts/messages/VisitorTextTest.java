@@ -13,6 +13,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VisitorTextTest {
 
+    /** European Portuguese: a site in pt and one in pt_PT read the same _pt bundle. */
+    private static final Locale PORTUGUESE = Locale.forLanguageTag("pt");
+    private static final Locale PORTUGAL = Locale.forLanguageTag("pt-PT");
+
     @Test
     void everySentenceIsInTheBundleInEnglishAndFrenchAndTheEnglishMatchesTheLastResort() {
         // Verifies the bundle and the enum agree: no key is missing, the base bundle says what the code falls back on,
@@ -21,6 +25,19 @@ class VisitorTextTest {
             assertEquals(text.english(), text.in(Locale.ENGLISH), text.key());
             assertNotEquals(text.english(), text.in(Locale.FRENCH), text.key() + " is not translated");
             assertFalse(text.in(Locale.FRENCH).isBlank());
+        }
+    }
+
+    @Test
+    void everySentenceIsTranslatedIntoEuropeanPortugueseForPtAndPtPt() {
+        // Verifies the Portuguese bundle carries every key: a Portuguese visitor, whatever the site's region, reads
+        // neither the English last resort nor the French text.
+        for (VisitorText text : VisitorText.values()) {
+            String portuguese = text.in(PORTUGUESE);
+            assertFalse(portuguese.isBlank(), text.key());
+            assertNotEquals(text.english(), portuguese, text.key() + " is not translated into Portuguese");
+            assertNotEquals(text.in(Locale.FRENCH), portuguese, text.key());
+            assertEquals(portuguese, text.in(PORTUGAL), text.key() + " in pt-PT");
         }
     }
 
@@ -38,7 +55,7 @@ class VisitorTextTest {
         for (VisitorText text : VisitorText.values()) {
             assertTrue(keys.add(text.key()), text.key());
         }
-        for (Locale locale : new Locale[]{Locale.ENGLISH, Locale.FRENCH}) {
+        for (Locale locale : new Locale[]{Locale.ENGLISH, Locale.FRENCH, PORTUGUESE}) {
             String body = VisitorText.ACTIVATION_BODY.in(locale);
             assertTrue(body.contains("${link}") && body.contains("${hours}"), locale.toString());
         }

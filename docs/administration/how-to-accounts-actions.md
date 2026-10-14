@@ -94,7 +94,9 @@ Off by default. When **Require e-mail activation** is on, the account is created
    48 hours by default, 720 at most). The account stays locked (`j:accountLocked`) until the link is followed.
 2. The link is mailed with Jahia's mail service (its SMTP settings must be configured: the sign-up is refused, and nothing is
    created, when it is not). Subject and message come from the module in the visitor's language, or from the action's
-   **Activation e-mail subject** and **message**, where `${link}` and `${hours}` are replaced.
+   **Activation e-mail subject** and **message**, where `${link}` and `${hours}` are replaced. The module writes them, and every
+   sentence the visitor reads, in English, French and European Portuguese (`pt`, for `pt_PT` too); another language
+   reads English.
 3. The link is `/modules/formidable-accounts/verify?t=...`. It unlocks the account, removes the token, and sends the visitor to
    the **Page after activation** (which receives `fmdbActivation=done`, a good place for the sign-in form), or shows a short
    confirmation. Every failure (unknown, used, expired, malformed) is one generic page.
