@@ -1,0 +1,51 @@
+<nt = 'http://www.jcp.org/jcr/nt/1.0'>
+<mix = 'http://www.jcp.org/jcr/mix/1.0'>
+<jnt = 'http://www.jahia.org/jahia/nt/1.0'>
+<fmdbmix = 'http://www.jahia.org/jahia/fmdb/mix/1.0'>
+<fmdbacc = 'http://www.jahia.org/jahia/fmdbacc/nt/1.0'>
+<fmdbaccmix = 'http://www.jahia.org/jahia/fmdbacc/mix/1.0'>
+
+// Formidable Accounts: self-registration and sign-in of site visitors from a Formidable form.
+// Both actions read their values from the form's fields BY NAME (the node name of the field, picked from a list of
+// the enclosing form's fields) and need a password field (fmdbmix:sensitiveField, for instance fmdbext:password of
+// formidable-extended-inputs): only an action that declares it consumes sensitive values receives one.
+// Neither action carries fmdbmix:readOnlyCompatibleAction: both write (the user, the session).
+
+// Marks the user node of an account that was created locked and awaits its activation e-mail. Applied by the
+// Create account action when activation is required, removed by the verification servlet; the token itself is never
+// stored, only its SHA-256 hash, and the account stays locked (j:accountLocked) until the mixin is removed.
+[fmdbaccmix:pendingActivation] mixin
+ - activationTokenHash (string) hidden indexed=no
+ - activationExpires (date) hidden indexed=no
+ - activationRedirect (string) hidden indexed=no
+
+// Creates the account of the visitor who submitted the form: user name from the e-mail, password hashed by the
+// platform, optional group, optional sign-in, optional e-mail activation. The form MUST be captcha protected unless
+// the operator allowed otherwise (org.jahia.modules.formidable.accounts.cfg, requireCaptcha).
+[fmdbacc:createAccountAction] > jnt:content, fmdbmix:formAction, mix:title
+ - jcr:title (string) = resourceBundle('fmdbacc_createAccountAction') autocreated i18n
+ - emailField (string, choicelist[formidableAccountsFields='email']) mandatory indexed=no
+ - passwordField (string, choicelist[formidableAccountsFields='sensitive']) mandatory indexed=no
+ - firstNameField (string, choicelist[formidableAccountsFields='any']) indexed=no
+ - lastNameField (string, choicelist[formidableAccountsFields='any']) indexed=no
+ - group (string) indexed=no
+ - signIn (boolean) = true autocreated indexed=no
+ - redirectPage (weakreference, picker[type='page'])
+ - redirectParameter (string) indexed=no
+ - passwordPattern (string) indexed=no
+ - activationRequired (boolean) = false autocreated indexed=no
+ - activationHours (long) = 48 autocreated indexed=no
+ - activationPage (weakreference, picker[type='page'])
+ - activationSubject (string) i18n indexed=no
+ - activationMessage (string, textarea) i18n indexed=no
+ - pendingMessage (string) i18n indexed=no
+
+// Signs the visitor in through the platform's authentication service (a Jahia login: the login event fires, so
+// jExperience merges the visitor's anonymous profile into the user's). A failure always reads the same.
+[fmdbacc:signInAction] > jnt:content, fmdbmix:formAction, mix:title
+ - jcr:title (string) = resourceBundle('fmdbacc_signInAction') autocreated i18n
+ - loginField (string, choicelist[formidableAccountsFields='any']) mandatory indexed=no
+ - passwordField (string, choicelist[formidableAccountsFields='sensitive']) mandatory indexed=no
+ - redirectPage (weakreference, picker[type='page'])
+ - redirectParameter (string) indexed=no
+ - failureMessage (string) i18n indexed=no
