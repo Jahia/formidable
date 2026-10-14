@@ -3,7 +3,11 @@ package org.jahia.modules.formidable.engine.servlet;
 import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.jahia.modules.formidable.engine.api.AcceptedSubmission;
 import org.jahia.modules.formidable.engine.api.FieldActionRequest;
+import org.jahia.modules.formidable.engine.api.ContextualFormAction;
 import org.jahia.modules.formidable.engine.api.FormAction;
+import org.jahia.modules.formidable.engine.api.FormActionContext;
+import org.jahia.modules.formidable.engine.api.FormActionResult;
+import org.jahia.modules.formidable.engine.api.RedirectTargets;
 import org.jahia.modules.formidable.engine.actions.field.FieldActionMessage;
 import org.jahia.modules.formidable.engine.actions.field.FieldActionDispatcher;
 import org.jahia.modules.formidable.engine.actions.field.ResolvedFieldAction;
@@ -34,6 +38,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -63,8 +68,11 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WO
  *   9.  parseMultipart           — first and only read of the stream; unknown fields discarded inline
  *   10. validateLogicCoherence   — reject values for fields provably hidden by conditional logic
  *   11. validateRequired         — post-parse check for required fields (catches absent fields)
+ *   11a. separateSensitiveValues — the values of fmdbmix:sensitiveField fields are set apart: only an action that
+ *                                  declares it consumes them ever receives them
  *   11b. runFieldActions         — the blocking field actions run again server-side (FMDB-015 with messages)
- *   12. dispatchActions          — execute fmdb:actionList nodes in order
+ *   12. dispatchActions          — execute fmdb:actionList nodes in order; a ContextualFormAction may answer the browser
+ *                                  (redirect, message) or refuse with a message for the visitor (FMDB-018)
  */
 class FormSubmissionPipeline {
 
@@ -145,6 +153,12 @@ class FormSubmissionPipeline {
     private ConditionalLogicEvaluator logicEvaluator;
     private List<ResolvedAction> resolvedActions;
     private HttpServletResponse response;
+    /** The accepted values of the non-sensitive fields: what every action, enricher and log may see. */
+    private Map<String, List<String>> publicParameters;
+    /** The accepted values of the sensitive fields: handed only to an action that consumes them, never anywhere else. */
+    private Map<String, List<String>> sensitiveParameters;
+    /** What the contextual actions told the browser, first redirect and first message winning; empty until dispatched. */
+    private FormActionResult browserInstruction = FormActionResult.none();
 
     FormSubmissionPipeline(Themes themes, List<FormAction> formActions,
                            FormidableOptionsSourceService optionsSourceService,
@@ -205,8 +219,17 @@ class FormSubmissionPipeline {
         parseMultipart(req);
         validateLogicCoherence(req);
         validateRequired();
+        separateSensitiveValues();
         runFieldActions();
         dispatchActions(req);
+    }
+
+    /**
+     * What the contextual actions asked the browser to do, for the servlet to put in the body once {@link #run}
+     * returned: the first redirect and the first message, in action-list order. Never {@code null}.
+     */
+    FormActionResult browserInstruction() {
+        return browserInstruction;
     }
 
     /**
@@ -220,7 +243,15 @@ class FormSubmissionPipeline {
         if (formNode == null || parsed == null) {
             throw new IllegalStateException("the pipeline has not accepted a submission");
         }
-        return new AcceptedSubmission(formNode, formNode.getResolveSite().getSiteKey(), locale, parsed.parameters());
+        javax.jcr.Session formSession = formNode.getSession();
+        if (formSession != null && !formSession.isLive()) {
+            // An action that signed the visitor in replaced the HTTP session, which closes the guest's JCR session the
+            // form was read through: read the form again as whoever the request is now.
+            session = currentUserSessionProvider.get(locale);
+            formNode = session.getNodeByIdentifier(formId);
+        }
+        separateSensitiveValues();
+        return new AcceptedSubmission(formNode, formNode.getResolveSite().getSiteKey(), locale, publicParameters);
     }
 
     // --- Steps ---
@@ -484,6 +515,34 @@ class FormSubmissionPipeline {
     }
 
     /**
+     * Step 11a — sets apart the values of the sensitive fields ({@code fmdbmix:sensitiveField}, a password). From
+     * here on there are two maps: the public one every action, enricher and log line may read, and the sensitive one
+     * handed only to an action declaring {@link ContextualFormAction#consumesSensitiveValues()}. The split is the
+     * guarantee of the marker: a sensitive value cannot reach the save-to-JCR, e-mail or forward actions, the
+     * jExperience enrichment or the field actions because it is not in the map they receive, whatever else is
+     * configured on the form. Runs after the validation, which judged the values (required, length, pattern) where
+     * they were parsed.
+     */
+    private void separateSensitiveValues() {
+        if (publicParameters != null) {
+            return;
+        }
+        Set<String> sensitive = fieldMetadata == null ? Set.of() : fieldMetadata.sensitiveFields();
+        if (sensitive.isEmpty()) {
+            publicParameters = parsed.parameters();
+            sensitiveParameters = Map.of();
+            return;
+        }
+        Map<String, List<String>> open = new LinkedHashMap<>();
+        Map<String, List<String>> secret = new LinkedHashMap<>();
+        for (Map.Entry<String, List<String>> entry : parsed.parameters().entrySet()) {
+            (sensitive.contains(entry.getKey()) ? secret : open).put(entry.getKey(), entry.getValue());
+        }
+        publicParameters = Collections.unmodifiableMap(open);
+        sensitiveParameters = Collections.unmodifiableMap(secret);
+    }
+
+    /**
      * Step 11b — the field actions whose refusal blocks, run again server-side. The pre-check the browser asked
      * for while the form was filled is a courtesy; this is the authority, and a browser that skipped the pre-check
      * meets the same actions here — the shared verdict cache making the honest browser's second run free. A field
@@ -612,10 +671,12 @@ class FormSubmissionPipeline {
     }
 
     private void dispatchActions(HttpServletRequest req) throws SubmissionException {
+        separateSensitiveValues();
         List<ResolvedAction> actions = actions();
         List<SubmittedFile> submittedFiles = toSubmittedFiles(parsed.files());
         int total = actions.size();
         int executed = 0;
+        String siteKey = siteKeyOrNull();
 
         for (ResolvedAction action : actions) {
             String nodeType = action.nodeType();
@@ -633,16 +694,20 @@ class FormSubmissionPipeline {
                 );
             }
             try {
-                jcrTemplateProvider.get().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale, systemSession -> {
+                FormActionResult result = jcrTemplateProvider.get().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale, systemSession -> {
                     JCRNodeWrapper actionNode = systemSession.getNodeByIdentifier(action.id());
                     try {
-                        handler.execute(actionNode, req, session, parsed.parameters(), submittedFiles);
+                        if (handler instanceof ContextualFormAction contextual) {
+                            return contextual.execute(contextFor(contextual, actionNode, systemSession, req, siteKey, submittedFiles));
+                        }
+                        handler.execute(actionNode, req, session, publicParameters, submittedFiles);
+                        return FormActionResult.none();
                     } catch (FormActionException e) {
                         throw new WrappedFormActionException(e);
                     }
-                    return null;
                 });
                 executed++;
+                keepFirstInstruction(result, nodeType);
             } catch (WrappedFormActionException e) {
                 FormActionException cause = e.getFormActionException();
                 throw actionFailure(nodeType, executed, total, cause);
@@ -657,6 +722,48 @@ class FormSubmissionPipeline {
         }
     }
 
+    /** The key of the form's site, or {@code null} when the form cannot say (the context then carries an empty key). */
+    private String siteKeyOrNull() {
+        try {
+            return formNode.getResolveSite().getSiteKey();
+        } catch (RepositoryException | RuntimeException e) {
+            log.warn("[FormSubmissionPipeline] The site of the submitted form could not be resolved", e);
+            return null;
+        }
+    }
+
+    private FormActionContext contextFor(ContextualFormAction action, JCRNodeWrapper actionNode,
+                                         JCRSessionWrapper systemSession, HttpServletRequest req,
+                                         String siteKey, List<SubmittedFile> files) throws RepositoryException {
+        // the secret values are handed over only to an action that declared it consumes them
+        Map<String, List<String>> secret = action.consumesSensitiveValues() ? sensitiveParameters : Map.of();
+        return new FormActionContext(actionNode, systemSession.getNodeByIdentifier(formId), req, response, session,
+                locale, siteKey == null ? "" : siteKey, publicParameters, secret, files);
+    }
+
+    /**
+     * Keeps what a contextual action told the browser: the first redirect and the first message win, in list order.
+     * A redirect that is not a same-origin path is dropped with a warning, never sent: whatever an action computed,
+     * the browser is only ever told a path of the site.
+     */
+    private void keepFirstInstruction(FormActionResult result, String nodeType) {
+        if (result == null || result.isEmpty()) {
+            return;
+        }
+        String redirect = browserInstruction.redirectPath();
+        if (redirect == null && result.redirectPath() != null) {
+            redirect = RedirectTargets.sameOriginPath(result.redirectPath()).orElse(null);
+            if (redirect == null) {
+                log.warn("[FormSubmissionPipeline] Action '{}' asked for a redirect that is not a same-origin path: dropped.", nodeType);
+            }
+        }
+        String message = browserInstruction.message();
+        if (message == null && result.message() != null && !result.message().isBlank()) {
+            message = result.message();
+        }
+        browserInstruction = new FormActionResult(redirect, message);
+    }
+
     /**
      * The declarative mixin is a contract, not a proof: an action without
      * {@code fmdbmix:readOnlyCompatibleAction} whose form slipped past the render/submit
@@ -666,9 +773,14 @@ class FormSubmissionPipeline {
      */
     private SubmissionException actionFailure(String nodeType, int executed, int total, Throwable cause) {
         ErrorCode code = isReadOnlyRejection(cause) ? ErrorCode.FMDB_014 : ErrorCode.FMDB_008;
+        String visitorMessage = null;
+        if (code == ErrorCode.FMDB_008 && cause instanceof FormActionException actionException && actionException.hasVisitorMessage()) {
+            code = ErrorCode.FMDB_018;
+            visitorMessage = actionException.getVisitorMessage();
+        }
         return new SubmissionException(code,
                 "Action '" + nodeType + "' failed (" + executed + "/" + total + " actions completed): " + cause.getMessage(),
-                executed, total, cause, actionHttpStatus(code, cause));
+                executed, total, cause, actionHttpStatus(code, cause), visitorMessage);
     }
 
     /**
@@ -679,7 +791,7 @@ class FormSubmissionPipeline {
      * the maintenance code's own 503 whatever the action threw.
      */
     private static int actionHttpStatus(ErrorCode code, Throwable cause) {
-        if (code != ErrorCode.FMDB_008 || !(cause instanceof FormActionException actionException)) {
+        if ((code != ErrorCode.FMDB_008 && code != ErrorCode.FMDB_018) || !(cause instanceof FormActionException actionException)) {
             return 0;
         }
 
