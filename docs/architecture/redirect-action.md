@@ -87,7 +87,7 @@ otherwise: an absolute URL is not a possible target any more. The import itself 
   escaping, the reservation).
 - Unit (elements): `useFormSubmission.dom.test.ts` (navigation after the success message, refusal of an unsafe
   `redirect`, `userMessage`).
-- Cypress: `tests/cypress/e2e/actions/90-redirect-action.cy.ts` (a form redirecting to a page, to a path, a hostile
+- Cypress: `tests/cypress/e2e/actions/89-redirect-action.cy.ts` (a form redirecting to a page, to a path, a hostile
   path stored in the node answering without a redirect).
 
 ## Open points

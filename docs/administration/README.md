@@ -8,6 +8,7 @@ For the administrator of a Jahia instance running the forms.
 - [CAPTCHA server-side validation](captcha-server-side-validation.md) — configuring a provider, when and how a token is verified
 - [Field actions: services and limits](field-actions.md) — where a check's service and credential are configured, the limits of the pre-check endpoint, and how to try a check without an account
 - [Results viewing permissions](results-permissions.md) — per-form access to the submission results, deletion, what happens when a form is deleted
+- [Create accounts and sign in from a form](how-to-accounts-actions.md) — the `formidable-accounts` module: author steps, the CAPTCHA and rate limits it requires, e-mail activation, what it protects and what it does not
 - [Importing the forms and results of Jahia Forms](forms-import.md) — the export to take, the Import button of the Results page, what the import recreates and reports, what to do after
 
 Choice fields can take their options from categories or from content: declaring those sources is

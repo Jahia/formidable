@@ -19,6 +19,7 @@ Yarn 4 workspaces + Maven multi-module. Toolchain: Java 17 (Temurin), Node LTS, 
 | `formidable-jexperience-engine/` | jExperience integration: the profile mapping of fields (editor section fed by jCustomer's profile properties), the mapping rule kept in sync with publication, the submission event sent by the browser through jExperience's tracker; later the prefill — see `docs/architecture/jexperience-integration.md` | Maven bundle, depends on `formidable-engine` and `jexperience` |
 | `formidable-forms-import/` | The import of the forms and results of Jahia Forms (Java + a jContent app): the Import button and dialog of the Results page, the dry run and import jobs, the converters of the export; compiles against the engine's api only | Maven bundle, `@jahia/vite-federation-plugin` |
 | `packages/formidable/` | The npm package `@jahia/formidable-library`: the rendering contract (help text, validation attributes, input mask) every view is built on. Consumed as `workspace:*` inside the monorepo (a plain version range would still resolve to the workspace), published to npm by the release workflow | TypeScript (tsc, nodenext), vitest |
+| `formidable-accounts/` | Create account and Sign in form actions (`fmdbacc:`): self-registration and sign-in of site visitors from a form, optional e-mail activation, CAPTCHA required, rate limits; needs Jahia 8.2.3.0 | Maven bundle (Java), depends on `formidable-engine` |
 | `jahia-test-module/` | Test modules for Cypress: a JSP template set (Java), a tsx template set, and the two third-party extension examples: `formidable-test-module-samples-tsx` (definitions, editor overrides, views — copyable, its README says what to change) and `formidable-test-module-samples-java` (an external `FormAction`, four field actions — blocked words, email domain, Experian, ZeroBounce — with the two providers' doubles registered as servlets, a choicelist initializer, content-integrity checks) | Maven, Vite |
 | `tests/` | Cypress E2E suite (not a Maven module) | Cypress 14, `@jahia/cypress` |
 
@@ -34,6 +35,8 @@ Architecture decisions and internal flows are documented in `docs/`:
 - `captcha-server-side-validation.md` — provider verification and token handling
 - `configuration.md` — the five configuration files of the engine, one per theme, the Forms import module's own, and how the single file of earlier builds is carried over
 - `forms-import.md` (administration) — importing the forms and results of Jahia Forms from the Results page
+- `how-to-accounts-actions.md` (administration) — creating accounts and signing in from a form (`formidable-accounts`): author steps, the CAPTCHA and rate limits, e-mail activation, what is protected
+- `redirect-action.md` — the redirect action and the mechanism under it: a contextual action returns a same-origin path, the servlet names it in `redirect`, the island navigates
 
 ## Global Instructions
 
@@ -113,6 +116,8 @@ The public API — custom actions, the submission response, the names of the con
 - `FormResultsStore.java` — the results of a site as the engine keeps them (root, an entry's own ACL, day split, submission names, readers synced from the form), for a module that writes results of its own: the Forms import, to become a module
 - `CaptchaSetup.java` — whether the captcha widget and its verification are both configured
 - `ChoiceOptionsSources.java` — whether the configuration declares an options source under a key
+- `ContextualFormAction.java` + `FormActionContext.java` + `FormActionResult.java` — a `FormAction` that gets the response, the locale and site, may return a same-origin redirect and a message, refuses with `FormActionException.refusal(...)` (FMDB-018, a translated `userMessage`), and declares `consumesSensitiveValues()` to receive the values of `fmdbmix:sensitiveField` fields — which no other action, enricher or field action ever sees
+- `RedirectTargets.java` + `PageLinks.java` + `VisitorMessages.java` — the one rule of a redirect target (a path of the same site), a page's public path, a visitor message from a module's bundle
 - `SubmissionResponseEnricher.java` + `AcceptedSubmission.java` — entries a module of its own adds to the JSON body of an accepted submission
 - `FmdbNodeType.java` — the primary types the engine's CND declares (logic storage, built-in actions, submission storage)
 - `FmdbMixin.java` — every mixin it declares, the extension surface a third-party type opts into
@@ -121,7 +126,7 @@ The public API — custom actions, the submission response, the names of the con
 
 The four name holders are used qualified (`FmdbMixin.TEXT_FIELD`), never statically imported — the class states the kind, the constant the thing (`docs/architecture/cnd-module-ownership.md`, "Naming these types from Java").
 
-Built-in actions: `SaveToJcrFormAction`, `SendEmailNotificationFormAction`, `SendEmailContentFormAction`, `ForwardSubmissionFormAction` (four — captcha is not an action: it is a mixin plus OSGi config, verified by the pipeline before the actions run).
+Built-in actions: `SaveToJcrFormAction`, `SendEmailNotificationFormAction`, `SendEmailContentFormAction`, `ForwardSubmissionFormAction`, `RedirectFormAction` (five — captcha is not an action: it is a mixin plus OSGi config, verified by the pipeline before the actions run).
 
 ### Adding a New Field Type
 
