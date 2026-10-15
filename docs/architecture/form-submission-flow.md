@@ -496,8 +496,8 @@ appear in the list.
 | Node type | Description |
 |---|---|
 | `fmdb:save2jcrAction` | Saves form data as JCR child nodes under `formidable-results` (see `docs/architecture/save-to-jcr.md`) |
-| `fmdb:emailNotificationAction` | Sends a notification email via Jahia `MailService`; `${fieldName}` interpolation in subject and body; headers normalized and HTML body escaped |
-| `fmdb:emailContentAction` | Sends the submitted form content by email; may optionally attach validated uploaded files |
+| `fmdb:emailNotificationAction` | Sends a notification email via Jahia `MailService`; `${fieldName}` interpolation in subject and body; headers normalized and HTML body escaped. The addresses are parsed strict before the send, as the mail service parses them later on its queue (`EmailAddresses`): a `to` entry it would refuse is left out and logged against the action, the message goes to the others; a `from` it would refuse gives way to the default sender; with no valid recipient nothing is sent, logged, and the submission goes on — a typo costs an e-mail, never a submission |
+| `fmdb:emailContentAction` | Sends the submitted form content by email; may optionally attach validated uploaded files. The same handling of the addresses |
 | `fmdb:forwardAction` | Forwards declared form fields + pre-parsed files to a target endpoint resolved from config by ID |
 
 ### forwardAction — target registry

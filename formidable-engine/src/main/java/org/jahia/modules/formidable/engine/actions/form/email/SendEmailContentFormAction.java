@@ -26,6 +26,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -87,12 +88,20 @@ public class SendEmailContentFormAction implements FormAction {
             throw FormActionException.serverError(FmdbNodeType.EMAIL_CONTENT_ACTION + " is missing a 'to' address.");
         }
 
-        String from = FieldEscaper.headerSafe(JcrProps.string(actionNode, "from", ""));
+        // The addresses the mail service would refuse later, in the background, are left out here and
+        // logged (EmailAddresses): a typo costs an e-mail, never the submission.
+        Optional<String> recipients = EmailAddresses.recipients(FmdbNodeType.EMAIL_CONTENT_ACTION, actionNode.getPath(), to);
+        if (recipients.isEmpty()) {
+            return;
+        }
+        String sentTo = recipients.get();
+        String from = EmailAddresses.sender(FmdbNodeType.EMAIL_CONTENT_ACTION, actionNode.getPath(),
+                FieldEscaper.headerSafe(JcrProps.string(actionNode, "from", "")), mailService.defaultSender());
         String subject = FieldEscaper.headerSafe(resolveFormSubject(actionNode));
 
         MailMessage message = new MailMessage();
-        message.setTo(to);
-        message.setFrom(from.isBlank() ? null : from);
+        message.setTo(sentTo);
+        message.setFrom(from);
         message.setSubject(subject.isBlank() ? DEFAULT_SUBJECT : subject);
         message.setTextBody(buildTextBody(subject, parameters));
         message.setHtmlBody(buildHtmlBody(subject, parameters));
@@ -107,7 +116,7 @@ public class SendEmailContentFormAction implements FormAction {
             // and do not propagate back to this call site. The catch block below only handles
             // synchronous failures raised while invoking the mail service.
             mailService.sendMessage(message);
-            log.debug("Email content sent to '{}' with subject '{}'", to, subject);
+            log.debug("Email content sent to '{}' with subject '{}'", sentTo, subject);
         } catch (Exception e) {
             throw FormActionException.serverError(
                     "Failed to send form content email to '" + to + "': " + e.getMessage(),

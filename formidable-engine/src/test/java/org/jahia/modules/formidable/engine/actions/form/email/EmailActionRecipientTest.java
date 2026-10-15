@@ -16,10 +16,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class EmailActionRecipientTest {
+
+    private static final String TEAM = "team@example.com";
 
     @Test
     void notificationActionKeepsRecipientLiteral() throws Exception {
@@ -56,8 +59,59 @@ class EmailActionRecipientTest {
         action.execute(actionNode, null, null, java.util.Map.of(), java.util.List.of());
 
         verify(mailService).sendMessage(messageCaptor.capture());
-        // Expected outcome: CR and LF characters are removed before the header is sent.
-        assertEquals("sender@example.com  Bcc:evil@example.com", messageCaptor.getValue().getFrom());
+        // Expected outcome: CR and LF characters are removed, and what is left is no address the mail
+        // service accepts, so the message carries no sender of its own — the default sender takes over.
+        assertNull(messageCaptor.getValue().getFrom());
+    }
+
+    @Test
+    void anAddressTheMailServiceWouldRefuseIsLeftOutAndTheMessageGoesToTheOthers() throws Exception {
+        // the domain ending with a dot is the address of the incident: the mail queue refused the whole
+        // message in the background, after the action had reported a success
+        JCRNodeWrapper actionNode = mockActionNodeWithTo(TEAM + ", sales@example.., Ops <ops@example.com>");
+        MailService mailService = mock(MailService.class);
+        when(mailService.isEnabled()).thenReturn(true);
+        ArgumentCaptor<MailMessage> messageCaptor = ArgumentCaptor.forClass(MailMessage.class);
+        doNothing().when(mailService).sendMessage(any(MailMessage.class));
+
+        SendEmailContentFormAction action = new SendEmailContentFormAction();
+        action.bindMailService(mailService);
+        action.execute(actionNode, null, null, Map.of(), List.of());
+
+        verify(mailService).sendMessage(messageCaptor.capture());
+        assertEquals(TEAM + ", Ops <ops@example.com>", messageCaptor.getValue().getTo());
+    }
+
+    @Test
+    void noValidRecipientSendsNothingAndLetsTheSubmissionGoOn() throws Exception {
+        JCRNodeWrapper actionNode = mockActionNodeWithTo("sales@example.., team.example.com");
+        MailService mailService = mock(MailService.class);
+        when(mailService.isEnabled()).thenReturn(true);
+
+        SendEmailNotificationFormAction action = new SendEmailNotificationFormAction();
+        action.bindMailService(mailService);
+        // no exception: the actions after this one, Save to JCR among them, run
+        action.execute(actionNode, null, null, Map.of(), List.of());
+
+        verify(mailService, never()).sendMessage(any(MailMessage.class));
+    }
+
+    @Test
+    void anInvalidSenderGivesWayToTheDefaultOne() throws Exception {
+        JCRNodeWrapper actionNode = mockActionNode(TEAM, "formidable-no-reply@jahia.com.");
+        MailService mailService = mock(MailService.class);
+        when(mailService.isEnabled()).thenReturn(true);
+        when(mailService.defaultSender()).thenReturn("jahia@example.com");
+        ArgumentCaptor<MailMessage> messageCaptor = ArgumentCaptor.forClass(MailMessage.class);
+        doNothing().when(mailService).sendMessage(any(MailMessage.class));
+
+        SendEmailNotificationFormAction action = new SendEmailNotificationFormAction();
+        action.bindMailService(mailService);
+        action.execute(actionNode, null, null, Map.of(), List.of());
+
+        verify(mailService).sendMessage(messageCaptor.capture());
+        assertEquals(TEAM, messageCaptor.getValue().getTo());
+        assertNull(messageCaptor.getValue().getFrom());
     }
 
     @Test

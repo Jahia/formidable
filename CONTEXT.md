@@ -242,7 +242,7 @@ org.jahia.modules.formidable.engine
 └── actions/                             ← one folder per kind, and what the two kinds share
     ├── common/   ActionSummaryService (a type's label, tooltip and icon), FieldEscaper, TemplateInterpolator
     ├── form/     ContentDispositionUtils
-    │   ├── email/   SendEmailNotificationFormAction, SendEmailContentFormAction
+    │   ├── email/   SendEmailNotificationFormAction, SendEmailContentFormAction, EmailAddresses (the addresses the mail service would refuse, left out and logged before the send)
     │   ├── forward/ ForwardSubmissionFormAction, HostnameResolutionService
     │   └── storage/ SaveToJcrFormAction
     └── field/    FieldActionDispatcher, FieldActionServlet (/field-action), FieldActionRuntime,
