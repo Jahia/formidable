@@ -2,9 +2,10 @@
 
 Specification of the import of [Jahia Forms](https://github.com/Jahia/forms-core) (`forms-core` 3.x) forms
 and submissions into Formidable. Status: iteration 1 implemented in the engine (the reader and the converters first, then the writer, the
-job and the Results page dialog); iteration 2 implemented: the choice at import time (the results alone, a form created, an
-attachment to an existing form with its mapping) and the **Attach to another form** action on an entry. The open points are
-listed at the end.
+job and the Results page dialog); iteration 2 implemented for the choice at import time (the results alone, a form created, an
+attachment to an existing form with its mapping). The **Attach to another form** action on an entry was withdrawn before its
+release: it showed on the entries that hold imported results alone, and may come back for every entry of the Results page. The
+open points are listed at the end.
 
 ## Goal and iterations
 
@@ -17,27 +18,24 @@ work ships in two iterations.
 flowchart LR
     export[("formFactory export<br/>(zip with live content)")]
     it1["1. Import"]
-    forms[("Forms in<br/>contents/imported-forms")]
-    results[("Results of<br/>those forms")]
-    it2["2. Attach to another form"]
+    it2["2. Choose what receives the results"]
+    forms[("A form created in<br/>contents/imported-forms")]
+    alone[("Results without a form")]
     contributor(["Contributor"])
     hand[("A form built by hand")]
-    attached[("Results of<br/>that form")]
 
     export -- "forms, results, files" --> it1
-    it1 -- "creates" --> forms
-    it1 -- "writes" --> results
-    forms -- "attached to" --> results
+    it1 -- "per Forms form" --> it2
+    it2 -- "results only (default)" --> alone
+    it2 -- "create the form" --> forms
     contributor -- "builds" --> hand
-    results -- "a source form" --> it2
-    hand --> it2
-    it2 -- "moves and renames" --> attached
+    it2 -- "attach, fields mapped" --> hand
 ```
 
 | Iteration | What it delivers |
 |---|---|
 | 1. Import | Every Forms form becomes an unpublished Formidable form in the `imported-forms` content folder of the site, with system names generated from the labels, the field types Formidable has, the labels, placeholders, help texts, required rules, choices and actions that map. Every submission the Forms *save to JCR* action stored becomes a submission of that form, files included. The Results page lists, filters and exports them as native results, with the labels of the form once it is published. |
-| 2. Attach to another form | An administrator moves the imported results of one Forms form onto another Formidable form, built by hand or reworked: the field names are mapped and renamed, and the results take the readers of that form. |
+| 2. Choose what receives the results | Per Forms form, the administrator chooses in the review what receives its results: the results alone (the default), a form created as in iteration 1, or an existing Formidable form, built by hand or reworked, whose fields the values are mapped and renamed to, the results taking the readers of that form. An **Attach to another form** action on an entry of the Results page was designed too and withdrawn before its release ([Iteration 2](#iteration-2-choosing-what-receives-the-results)). |
 
 Iteration 1 creates a form before it writes the first submission, so the Results page, the exports and the
 statuses need no change for imported results. The import never publishes, though: until a contributor
@@ -633,42 +631,14 @@ administrator the choice, in the review state of the dialog, per form of the exp
 A form found from an earlier run has two choices: **Add the new submissions** (the default), which adds the
 submissions missing from its entry, and **Don't import**; a found form with nothing new has no menu.
 
-The same mapping serves an **Attach to another form** action on an entry of the Results page, shown on
-the entries that carry `fmdbmix:importedResults` to the administrators of the site: an administrator moves
-the imported results of one Forms form, imported alone or under a created form, onto a Formidable form `F`
-that a contributor built by hand or reworked. The attachment is part of the engine, like the markers it
-reads: it knows nothing of Forms, so it would serve any later import. It works on one source form at a
-time, the submissions of the entry that carry one `sourceFormId`; an entry that holds several, after an
-earlier attachment, asks which one. The dialog reads the sources of the entry from the endpoint of the
-import (`GET /attachments/entry`): per source, the title of its imported form when the site still holds
-it, its submissions, the names its values hold now, with the title of the field each came from, and the
-mapping already applied. **Attach** starts a job (`POST /attachments`) of the same kind as an import, under
-the same scheduler name, so that an import and an attachment never write the results of a site at the same
-time; the dialog polls it as the import dialog does, and its report says what moved and what was renamed.
+The same mapping was designed to serve an **Attach to another form** action on an entry of the Results
+page: an administrator moves the imported results of one Forms form, imported alone or under a created
+form, onto a Formidable form `F` that a contributor built by hand or reworked, one source form at a time.
+**Not implemented:** the action was withdrawn before its release, because it showed on the entries that hold
+imported results alone, and may come back for every entry of the Results page. The flow below and
+[What the attachment writes](#what-the-attachment-writes) keep its design for that day.
 
-### Results only
-
-The entry is written as iteration 1 writes it, without the form:
-
-- `parentForm` is left unset, which the CND allows from this iteration (`fmdb:formResults` declares it
-  without `mandatory`); the engine reads an entry that carries `fmdbmix:importedResults` and no
-  `parentForm` as imported without a form, everywhere it reads `parentForm` today: the list of the
-  Results page, the ACL sync, the removal of an entry, the attachment;
-- the Results page shows it with the status **Imported, no form**, where **Form deleted** stands for a
-  native entry whose form is gone, and with the system names of the fields as columns, the names
-  [the system names](#the-system-names) generate from the Forms labels, as for an unpublished form; the
-  exports use the same names;
-- its readers are the administrators of the site, the ACL inheritance broken as on every entry, until the
-  entry is attached to a form, whose `fmdb-results-reader` grants are then synced to it;
-- no `Save to JCR` action exists to keep writing into it: the entry is a history;
-- a later run finds the entry by the keys of its source, `sourceFormIds` of `fmdbmix:importedResults`,
-  indexed from this iteration, where it finds a created form by `sourceId` or `sourceResultsId`; the
-  submissions are skipped by their `sourceId` as before. [Running it twice](#running-it-twice) applies
-  unchanged.
-
-The labels of the Forms fields are not kept on the entry: the system names read well enough
-(`your-first-name`), and a snapshot of the labels per language on the entry, read by the page and the
-exports, stays an open point until a real import says the names do not suffice.
+The withdrawn action, as designed:
 
 ```mermaid
 flowchart TD
@@ -697,6 +667,30 @@ flowchart TD
     acl --> done
 ```
 
+### Results only
+
+The entry is written as iteration 1 writes it, without the form:
+
+- `parentForm` is left unset, which the CND allows from this iteration (`fmdb:formResults` declares it
+  without `mandatory`); the engine reads an entry that carries `fmdbmix:importedResults` and no
+  `parentForm` as imported without a form, everywhere it reads `parentForm` today: the list of the
+  Results page, the ACL sync, the removal of an entry;
+- the Results page shows it with the status **Imported, no form**, where **Form deleted** stands for a
+  native entry whose form is gone, and with the system names of the fields as columns, the names
+  [the system names](#the-system-names) generate from the Forms labels, as for an unpublished form; the
+  exports use the same names;
+- its readers are the administrators of the site, the ACL inheritance broken as on every entry, until the
+  entry is attached to a form, whose `fmdb-results-reader` grants are then synced to it;
+- no `Save to JCR` action exists to keep writing into it: the entry is a history;
+- a later run finds the entry by the keys of its source, `sourceFormIds` of `fmdbmix:importedResults`,
+  indexed from this iteration, where it finds a created form by `sourceId` or `sourceResultsId`; the
+  submissions are skipped by their `sourceId` as before. [Running it twice](#running-it-twice) applies
+  unchanged.
+
+The labels of the Forms fields are not kept on the entry: the system names read well enough
+(`your-first-name`), and a snapshot of the labels per language on the entry, read by the page and the
+exports, stays an open point until a real import says the names do not suffice.
+
 ### The mapping
 
 For each field name that the submissions of the source hold, the page proposes a field of `F`, in this
@@ -711,18 +705,12 @@ order:
    kept name shows on the Results page after the known fields, under its own name.
 
 A field of `F` takes at most one name: a field picked in one row leaves the menus of the other rows, and
-so does the name of a field a submission holds alongside, or of a field sent elsewhere itself, because a
-rename cannot chain on another in one pass (a chain of renames is two attachments). The page still refuses,
-and the server with it, two fields sent to one, a target that is sent elsewhere itself, and a mapping that
-sends two names a submission holds together to the same field, because that submission would lose one of
-its values. The last rule is judged per submission, not on the union of the names, under the entry and under
-the entry of `F`: an attachment that stopped anywhere, the earlier submissions renamed or moved already and
-the later ones not, can be run again with the same mapping, from the dialog or by the scheduler's recovery,
-because no submission holds a name and its target together, and a name no submission holds any more renames
-nothing. The submissions cannot tell such a run from a field sent onto a name another field keeps while no
-submission filled both, so a later run of the import protects the next submissions itself: an answer whose
-name another answer of the same submission already took is dropped and named in the report, never
-written over.
+so does the name of another field of the source, because a rename cannot chain on another in one pass. The
+page still refuses, and the server with it, two fields sent to one, a target that is sent elsewhere itself,
+and a mapping that sends a field to the name another field of the source keeps, because a submission that
+holds both would lose one of its values; a field sent under its own name, as the proposal writes it, is no
+rename. The import protects the submissions itself too: an answer whose name another answer of the same
+submission already took is dropped and named in the log, never written over.
 
 For a choice field, the page lists the imported values that no option of the matched field carries: the dry
 run reports, per field, the distinct values the submissions hold, up to thirty, and the page reads the
@@ -791,15 +779,9 @@ mapping or to another form.
   the results of that source at import time: the dialog waits for the form to be picked, matches the first
   field, proposes the second, refuses two fields sent to one field of the form with the name they collide
   on, and the values land under the names of that form, the entry of the form carrying the mapping and
-  showing on the Results page with its labels. Last, from three entries without a form, it attaches one to
-  a form built by hand through the action on the entry, a reader of that form granted beforehand: the entry
-  becomes the entry of the form, the values are renamed, the labels of the form show and the reader reads
-  the entry; it attaches a second source to the same form and checks the merge, neither a native
-  submission of the form nor the submissions of the first source losing a value that holds a name the
-  second mapping renames; an entry holding two sources asks which one; the deleted form leaves the entry
-  on **Form deleted**. Last, on a clean results root, it imports the second sample export, whose PDF lands
-  under `files/<fieldName>/` of its submission with its type and size, downloads it as root and gets a 404
-  as a visitor.
+  showing on the Results page with its labels. Last, on a clean results root, it imports the second sample
+  export, whose PDF lands under `files/<fieldName>/` of its submission with its type and size, downloads it
+  as root and gets a 404 as a visitor.
 
 ## Open points
 
