@@ -12,8 +12,10 @@ import org.jahia.services.content.JCRCallback;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.ComplexPublicationService;
 import org.jahia.services.content.JCRSessionWrapper;
+import org.jahia.services.content.JCRSessionFactory;
 import org.jahia.services.content.JCRTemplate;
 import org.jahia.services.usermanager.JahiaUser;
+import org.jahia.services.usermanager.JahiaUserManagerService;
 import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,15 +70,43 @@ public class JcrContentWriter implements ContentWriter {
     private static final int NAME_ATTEMPTS = 4;
 
     private final Supplier<JCRTemplate> jcr;
+    private final AsRoot asRoot;
     private ComplexPublicationService publisher;
+
+    /**
+     * Runs a step with the platform's current user set to root, then restores the previous one. The publication service
+     * reads the publication information with the <em>current user's</em> session, whatever session it is given
+     * ({@code ComplexPublicationServiceImpl.getFullPublicationInfos} passes only the workspace name on): during a
+     * submission that is the submitter, who cannot read {@code default}, and the content is "not found".
+     */
+    @FunctionalInterface
+    interface AsRoot {
+        void run(JCRCallback<Void> step, JCRSessionWrapper session) throws RepositoryException;
+    }
+
+    private static final AsRoot PLATFORM_ROOT = (step, session) -> {
+        JCRSessionFactory factory = JCRSessionFactory.getInstance();
+        JahiaUser previous = factory.getCurrentUser();
+        try {
+            factory.setCurrentUser(JahiaUserManagerService.getInstance().lookupRootUser().getJahiaUser());
+            step.doInJCR(session);
+        } finally {
+            factory.setCurrentUser(previous);
+        }
+    };
 
     /** Production constructor: the platform's own services. */
     public JcrContentWriter() {
-        this(JCRTemplate::getInstance);
+        this(JCRTemplate::getInstance, PLATFORM_ROOT);
     }
 
     JcrContentWriter(Supplier<JCRTemplate> jcr) {
+        this(jcr, (step, session) -> step.doInJCR(session));
+    }
+
+    JcrContentWriter(Supplier<JCRTemplate> jcr, AsRoot asRoot) {
         this.jcr = jcr;
+        this.asRoot = asRoot;
     }
 
     /**
@@ -146,7 +176,10 @@ public class JcrContentWriter implements ContentWriter {
         // The system user (null), in default explicitly: doExecuteWithSystemSession(callback) opens the workspace of the
         // current request, which is live during a form submission, where the new nodes do not exist yet.
         jcr.get().doExecuteWithSystemSessionAsUser(null, DEFAULT, null, (JCRCallback<Void>) session -> {
-            publisher.publish(ids, languages, session, Boolean.TRUE);
+            asRoot.run(inner -> {
+                publisher.publish(ids, languages, inner, Boolean.TRUE);
+                return null;
+            }, session);
             return null;
         });
     }
