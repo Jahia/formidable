@@ -39,6 +39,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -111,8 +112,9 @@ class JcrContentWriterTest {
             opened.add(locale);
             return ((JCRCallback<?>) call.getArgument(3)).doInJCR(sessions.computeIfAbsent(locale, this::session));
         });
-        // the publication runs in a pure system session, not one attributed to the submitter
-        when(template.doExecuteWithSystemSession(any(JCRCallback.class))).thenAnswer(call -> ((JCRCallback<?>) call.getArgument(0)).doInJCR(systemSession));
+        // the publication runs in a pure system session (no user), in default, not one attributed to the submitter
+        when(template.doExecuteWithSystemSessionAsUser(isNull(), eq("default"), isNull(), any(JCRCallback.class)))
+                .thenAnswer(call -> ((JCRCallback<?>) call.getArgument(3)).doInJCR(systemSession));
         writer = new JcrContentWriter(() -> template);
         writer.setPublisher(publication);
     }

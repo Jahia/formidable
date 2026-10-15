@@ -143,7 +143,9 @@ public class JcrContentWriter implements ContentWriter {
         List<String> ids = new ArrayList<>();
         progress.files.forEach(file -> ids.add(file.identifier()));
         ids.add(progress.contentIdentifier);
-        jcr.get().doExecuteWithSystemSession((JCRCallback<Void>) session -> {
+        // The system user (null), in default explicitly: doExecuteWithSystemSession(callback) opens the workspace of the
+        // current request, which is live during a form submission, where the new nodes do not exist yet.
+        jcr.get().doExecuteWithSystemSessionAsUser(null, DEFAULT, null, (JCRCallback<Void>) session -> {
             publisher.publish(ids, languages, session, Boolean.TRUE);
             return null;
         });
