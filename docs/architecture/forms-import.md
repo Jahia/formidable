@@ -638,29 +638,7 @@ form, onto a Formidable form `F` that a contributor built by hand or reworked, o
 imported results alone, and may come back for every entry of the Results page. The flow below and
 [What the attachment writes](#what-the-attachment-writes) keep its design for that day.
 
-### Results only
-
-The entry is written as iteration 1 writes it, without the form:
-
-- `parentForm` is left unset, which the CND allows from this iteration (`fmdb:formResults` declares it
-  without `mandatory`); the engine reads an entry that carries `fmdbmix:importedResults` and no
-  `parentForm` as imported without a form, everywhere it reads `parentForm` today: the list of the
-  Results page, the ACL sync, the removal of an entry;
-- the Results page shows it with the status **Imported, no form**, where **Form deleted** stands for a
-  native entry whose form is gone, and with the system names of the fields as columns, the names
-  [the system names](#the-system-names) generate from the Forms labels, as for an unpublished form; the
-  exports use the same names;
-- its readers are the administrators of the site, the ACL inheritance broken as on every entry, until the
-  entry is attached to a form, whose `fmdb-results-reader` grants are then synced to it;
-- no `Save to JCR` action exists to keep writing into it: the entry is a history;
-- a later run finds the entry by the keys of its source, `sourceFormIds` of `fmdbmix:importedResults`,
-  indexed from this iteration, where it finds a created form by `sourceId` or `sourceResultsId`; the
-  submissions are skipped by their `sourceId` as before. [Running it twice](#running-it-twice) applies
-  unchanged.
-
-The labels of the Forms fields are not kept on the entry: the system names read well enough
-(`your-first-name`), and a snapshot of the labels per language on the entry, read by the page and the
-exports, stays an open point until a real import says the names do not suffice.
+The withdrawn action, as designed:
 
 ```mermaid
 flowchart TD
@@ -688,6 +666,30 @@ flowchart TD
     rename --> acl
     acl --> done
 ```
+
+### Results only
+
+The entry is written as iteration 1 writes it, without the form:
+
+- `parentForm` is left unset, which the CND allows from this iteration (`fmdb:formResults` declares it
+  without `mandatory`); the engine reads an entry that carries `fmdbmix:importedResults` and no
+  `parentForm` as imported without a form, everywhere it reads `parentForm` today: the list of the
+  Results page, the ACL sync, the removal of an entry;
+- the Results page shows it with the status **Imported, no form**, where **Form deleted** stands for a
+  native entry whose form is gone, and with the system names of the fields as columns, the names
+  [the system names](#the-system-names) generate from the Forms labels, as for an unpublished form; the
+  exports use the same names;
+- its readers are the administrators of the site, the ACL inheritance broken as on every entry, until the
+  entry is attached to a form, whose `fmdb-results-reader` grants are then synced to it;
+- no `Save to JCR` action exists to keep writing into it: the entry is a history;
+- a later run finds the entry by the keys of its source, `sourceFormIds` of `fmdbmix:importedResults`,
+  indexed from this iteration, where it finds a created form by `sourceId` or `sourceResultsId`; the
+  submissions are skipped by their `sourceId` as before. [Running it twice](#running-it-twice) applies
+  unchanged.
+
+The labels of the Forms fields are not kept on the entry: the system names read well enough
+(`your-first-name`), and a snapshot of the labels per language on the entry, read by the page and the
+exports, stays an open point until a real import says the names do not suffice.
 
 ### The mapping
 
