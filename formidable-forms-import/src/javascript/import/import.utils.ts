@@ -98,7 +98,9 @@ export interface ImportJob {
 }
 
 export interface ImportSettings {
+    /** The module is enabled on the site: the one switch of the import. */
     enabled: boolean;
+    /** Enabled on the site, and the user administers it: the button shows. */
     allowed: boolean;
     maxFileSizeMb: number;
     job?: ImportJob | null;

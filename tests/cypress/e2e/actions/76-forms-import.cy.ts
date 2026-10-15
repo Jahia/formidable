@@ -1,4 +1,4 @@
-import {deleteNode, publishAndWaitJobEnding} from '@jahia/cypress';
+import {deleteNode, enableModule, publishAndWaitJobEnding} from '@jahia/cypress';
 import {createFormNode, FORMIDABLE_TEST_SITE, getSelectNode, type JahiaNode} from '../../support/fixtures';
 import {withSameOriginHeaders} from '../security/support';
 import {useFormidableSite} from '../support/useFormidableSite';
@@ -15,8 +15,9 @@ const WITH_FILE_FIXTURE = 'imports/formFactory-with-file.zip';
 const WITH_FILE = {submission: '2dd1fe78-e095-4f47-ab08-b5c30df47a4b', fileName: 'document.pdf', mimeType: 'application/pdf', bytes: 578};
 const NO_IDS_EXPORT = 'cypress/fixtures/imports/formFactory-no-ids.zip';
 const NOT_A_ZIP = 'cypress/fixtures/imports/conditional-logic-form.xml';
-const FORMS_IMPORT_PID = 'org.jahia.modules.formidable.formsImport';
-const IMPORT_ENDPOINT = '/modules/formidable-forms-import/import';
+/** The add-on: the test site is created without it, and the spec enables it there as an administrator would. */
+const IMPORT_MODULE = 'formidable-forms-import';
+const IMPORT_ENDPOINT = `/modules/${IMPORT_MODULE}/import`;
 
 /** The anonymised sample export: 3 forms, 106 submissions. */
 const SAMPLE = {
@@ -52,14 +53,6 @@ type Workspace = 'EDIT' | 'LIVE';
 type NamedNode = {name: string; primaryNodeType: {name: string}};
 type SubmissionFile = {path: string; content: {mimeType: {value: string}; data: {size: number}}};
 type SubmissionData = {path: string; origin: {value: string}; data: {properties: Array<{name: string; value: string}>}};
-
-const setImportButton = (enabled: boolean) =>
-	cy.runProvisioningScript({
-		script: {
-			fileContent: JSON.stringify([{editConfiguration: FORMS_IMPORT_PID, properties: {importButtonEnabled: String(enabled)}}]),
-			type: 'application/json'
-		}
-	});
 
 const graphql = <T>(query: string, variables: Record<string, unknown>): Cypress.Chainable<T> =>
 	cy.request({
@@ -217,7 +210,7 @@ const openFirstSubmission = (name: string) => {
 };
 
 /**
- * The Import button of the Results page, behind the importButtonEnabled setting, takes the zip export of a
+ * The Import button of the Results page, shown once the module is enabled on the site, takes the zip export of a
  * Jahia Forms formFactory node: a dry run shows what the import will do, and the administrator chooses, per
  * form, what receives its results — the results alone, the default, as an entry without a form, or a form
  * created in the imported-forms folder. One import runs at a time per site, and a later run adds only what
@@ -226,21 +219,18 @@ const openFirstSubmission = (name: string) => {
 describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 	useFormidableSite();
 
-	before(() => {
-		cy.login();
-		setImportButton(false);
-	});
-
-	after(() => {
-		cy.login();
-		setImportButton(false);
-	});
-
-	it('hides the Import button while the setting is off', () => {
+	it('hides the Import button, and refuses the upload, while the module is not enabled on the site', () => {
 		cy.visit(RESULTS_PAGE);
 		cy.get('[data-sel-role="form-results-empty"], [data-sel-role="form-results-list"]', {timeout: 60000}).should('be.visible');
 		cy.get('[data-sel-role="import-results"]').should('not.exist');
-		setImportButton(true);
+		importApi('GET', '/settings').its('body').should('include', {enabled: false, allowed: false});
+		importApi('POST', '/jobs').then(refused => {
+			expect(refused.status).to.equal(403);
+			expect(refused.body.error).to.contain('not enabled on the site');
+		});
+		// the one switch of the import: the module among the site's modules, as an administrator enables it
+		enableModule(IMPORT_MODULE, SITE);
+		importApi('GET', '/settings').its('body').should('include', {enabled: true, allowed: true});
 	});
 
 	it('imports the results alone by default, under entries without a form, refusing a second import meanwhile', () => {

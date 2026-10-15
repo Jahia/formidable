@@ -13,7 +13,7 @@ export interface ImportActionProps {
 
 /**
  * The Import button of the Results page toolbar and its dialog (docs/architecture/forms-import.md), an action
- * registered on the toolbar's target: offered when the setting is on and the user administers the site. A
+ * registered on the toolbar's target: offered when the module is enabled on the site and the user administers it. A
  * job left running or unread reopens when the page loads, and the button opens on the job the site has,
  * which may have started since.
  */

@@ -61,7 +61,7 @@ publish it.
 | Decision | Why |
 |---|---|
 | **The import reads the zip export of the site's `formFactory` node, taken with its live content** | The source can live on another instance, or on an instance that is being retired, so `forms-core` need not be installed where Formidable runs. That zip is the only export that carries the three things the import needs: the `jcr:uuid` of every node, which keys the forms, their fields and their results; the results themselves, which Forms writes in live only; and the uploaded files. The other exports hold the results, but no `jcr:uuid` (spike 3). See [The export file](#the-export-file). |
-| **The import lives in `formidable-engine`, behind a setting** | No module to install, then to keep installed or to uninstall while its markers stay on the nodes. The markers are generic, owned by the engine and written for any source system ([CND module ownership](cnd-module-ownership.md)). Only the reader of the Forms export and the conversion of its forms and values know Forms, in their own package of the engine. |
+| **The import is a module of its own, `formidable-forms-import`, installed next to the engine** | Decided 2026-10-15, after a first iteration inside the engine behind a setting: a site that never ran Forms installs nothing, and the engine keeps no code that knows Forms. The engine offers what the import needs through its API — the results store, the toolbar of the Results page, the **No form** status — and the module owns the import jobs and the four markers of an imported node ([CND module ownership](cnd-module-ownership.md), [The module](#the-module)). Enabling the module on a site is the one switch of the import there; disabling it, or uninstalling the module, takes away the **Import** button, its endpoint and its job, nothing else: Jahia keeps the node types a module declared once it is undeployed, so the imported forms, fields and results stay readable with their markers, and the Results page keeps listing the entries as it lists any native one. Installing it again binds its types back to it. |
 | **The administrator chooses, per Forms form, what receives its results: nothing, a new Formidable form, or an existing one — the results alone by default** | The results are what the import is for; a form is created only on request (decided 2026-10-09, on the first manual tests). The Results page already lives with an entry whose form is gone, and an imported entry without a form is that state named for what it is: **No form** instead of **Form deleted**, the system names of the fields as columns, its administrators as its only readers until it is attached to a form. Iteration 1 creates a form for every Forms form; [iteration 2](#iteration-2-choosing-what-receives-the-results) brings the choice, with the results alone as the default. What was true of a created form stays true: imported results under a form are native results, with labels, readers and a status. |
 | **The forms land in one content folder, `contents/imported-forms`** | Formidable forms are contents of the site (`/sites/<site>/contents/...`). One folder keeps the imported forms apart from the forms built by hand, where contributors find them in jContent, review them, move them and publish them. |
 | **A field gets a system name generated from its label**, `your-first-name` for "Your First name", not the Forms name `text-input_0_1` | Formidable keys the values of a submission by the node name of the field ([Save to JCR](save-to-jcr.md)), and that name heads the columns of the Results page and of the exports whenever the form does not resolve in live, so a Forms name there reads as noise. The name is generated as the Content Editor generates a system name from a title, the rule a contributor gets anyway. The import writes `data` itself, so the new names cost no rename, and each field remembers its Forms identity for the later runs. See [The system names](#the-system-names). |
@@ -71,7 +71,7 @@ publish it.
 | **`origin` = `jahia-forms` on an imported submission** | `origin` is the discriminator that [Save to JCR](save-to-jcr.md) documents for "a legacy-forms import". The Results page and the exports can tell an imported submission from a native one. |
 | **A Forms form is recognised by its `jcr:uuid` and by the `jcr:uuid` of its results node, a field by its `jcr:uuid`, a submission by its node name** | All of them are in the zip export. A later run finds the form it created, the field each value belongs to and the submissions it wrote, and adds only what is missing. The form keeps both of its keys because either can be missing: the form's, once Forms deleted the form; the results node's, while the form was never published. See [Running it twice](#running-it-twice). |
 | **A prefill from the visitor profile becomes the mapping of the field to that profile property** | The jExperience bridge of Forms (`jexperience-forms-bridge`) prefills a field from a jCustomer profile property and maps the submitted value back to it (`fcnt:mfffPrefill`), or maps without prefilling (`fcnt:mfffMappingOnly`); its `dataKey` holds the property, whose `itemId` is the identifier Formidable's jExperience integration stores in `jExperienceProfileProperty` ([jExperience integration](jexperience-integration.md)). The import writes that property, the prefill switch and what follows the write (`hideAfterPrefill` → hidden, `makeReadOnlyAfterPrefill` → read-only, else editable) when the integration is installed, its mixin reaches the field type, and the profile server of the site declares the property with a type the field holds, and reports the mapping so that the contributor checks it. The integration answers that last point through `VisitorProfileSchema`, an interface of the engine API it implements from its catalog of profile properties and the type rule of its editor (`FieldShapes`): the mapping rule of a form skips, without a word, a field mapped to a property jCustomer does not declare or whose type does not fit, so the import never writes one; it reports the property to create, or the type that does not fit, instead. When jCustomer cannot be reached, the mapping is written as Forms had it, with a line to check that the property exists. Without the integration, or on a type it does not reach, the report names the property to map by hand. The other prefill flavours of Forms (user info, geolocation) have no counterpart and are reported. |
-| **The import starts from the Results page, behind a setting** | An **Import Jahia Forms results** button in the toolbar of the Results page, off by default, opens a dialog that takes the export, shows the report of a dry run, then imports into the current site. See [Running it](#running-it). |
+| **The import starts from the Results page, on the sites the module is enabled on** | An **Import Jahia Forms results** button in the toolbar of the Results page, shown to the administrators of a site the module is enabled on and to no one else, opens a dialog that takes the export, shows the report of a dry run, then imports into the current site. Enabling the module on the site is the one switch: no setting doubles it. See [Running it](#running-it). |
 
 ## Source model (Forms 3.x)
 
@@ -462,19 +462,21 @@ until a contributor grants the role on the form, as for any form (see
 
 The import starts from the toolbar of the Results page, next to **Export**, **Delete** and **Refresh**.
 
-**The setting.** The engine gets a sixth configuration file, `org.jahia.modules.formidable.formsImport.cfg`,
-with the conventions of the other five (see the [administration guide](../administration/configuration.md)):
+**The switch.** The module is enabled on the site, as any module is — the **Modules** page of the site in
+the administration, or `enable` in a provisioning script — and that is the one switch of the import: the
+import is used once per site, and an administrator enables the module on that site for the time of the
+migration, then disables it there, or uninstalls it. The button shows after **Refresh** when the module is
+enabled on the current site and the user is an administrator of it, which is the `site-admin` permission on
+the site node, the one the site-administrator role grants; the endpoint reads both off the site node on
+every call, and the upload and the start of an import refuse a site the module is not enabled on. The writes
+themselves run in a system session. A setting that doubled the switch, `importButtonEnabled`, went with the
+move into a module: one place to look, the site's modules, and nothing to turn off again once the site is
+done. The module ships one configuration file, `org.jahia.modules.formidable.formsImport.cfg` (see the
+[administration guide](../administration/configuration.md)):
 
 | Setting | Default | Effect |
 |---|---|---|
-| `importButtonEnabled` | `false` | Shows the **Import Jahia Forms results** button on the Results page of every site |
 | `maxFileSizeMb` | `200` | The largest export the dialog accepts |
-
-The button is off by default: the import is used once per site, and an administrator turns it on for that
-time, then off again. The button shows after **Refresh** when the setting is on and the user is an
-administrator of the current site, which is the `site-admin` permission on the site node, the one the
-site-administrator role grants; the endpoint checks both again. The writes themselves run in a system
-session.
 
 **The site.** The import writes into the site whose Results page is open. A `formFactory` export belongs
 to one site, and its paths are relative to its root, so nothing in the file names a site: the administrator
@@ -755,7 +757,8 @@ mapping or to another form.
 ## The module
 
 The import is a module of its own, `formidable-forms-import` (Java and a jContent app), installed next to the
-engine when a site migrates and left out otherwise. It reaches the engine through
+engine and enabled on a site when that site migrates, left out otherwise: being enabled on the site is the
+one switch of the import (see [Running it](#running-it)). It reaches the engine through
 `org.jahia.modules.formidable.engine.api` only, the one package the engine exports: `FormResultsStore` for the
 results of the site (the root, an entry's own ACL, the day split, the submission names, the readers synced from
 the form), `CaptchaSetup` and `ChoiceOptionsSources` for what the configuration lets a form carry,
@@ -794,8 +797,8 @@ engine never declared them.
   zip with its name, type and size, and handed to the writer under the name the created form gives the field.
   The prefill rule is tested on the sample, whose first and last name fields carry
   a profile prefill: mapped when the integration reaches the type, reported with the property otherwise.
-- **A Cypress spec for iteration 1.** The **Import Jahia Forms results** button is absent while `importButtonEnabled` is off,
-  and absent for an editor once it is on. The spec drops the sample zip on the dialog, reads the dry-run
+- **A Cypress spec for iteration 1.** The **Import Jahia Forms results** button is absent, and the upload refused, while the
+  module is not enabled on the site; the spec enables it there, as an administrator would. It drops the sample zip on the dialog, reads the dry-run
   report and checks that nothing is written yet, clicks **Import**, waits for the check and reads the final
   report, which must end with the invitation to publish. It then checks `imported-forms` and its three
   forms: the five fields of `contact-us`, their system names (`your-first-name`…) and types, "Your First

@@ -8,6 +8,7 @@ import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.jahia.modules.formidable.formsimport.config.FormsImportConfigService;
 import org.jahia.services.content.JCRSessionFactory;
 import org.jahia.services.content.JCRSessionWrapper;
+import org.jahia.services.content.decorator.JCRSiteNode;
 import org.jahia.services.securityfilter.PermissionService;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -49,8 +50,8 @@ import java.util.regex.Pattern;
  * <li>{@code DELETE /jobs/<id>}: closes the job, a dry run cancelled or a report read.</li>
  * </ul>
  * The import is open to the administrators of the site, who hold {@code site-admin} on its node: it
- * writes the contents of the site and its results. The upload and the start of an import
- * need the import button on too. A JSON answer every time.
+ * writes the contents of the site and its results. The upload and the start of an import need the module
+ * enabled on the site too, the one switch of the import. A JSON answer every time.
  */
 @Component(
         service = {HttpServlet.class, Servlet.class},
@@ -65,6 +66,8 @@ public class ImportServlet extends HttpServlet {
     static final String FILE_FIELD = "file";
     /** The permission of the administrators of a site, held on its node. */
     static final String SITE_ADMIN_PERMISSION = "site-admin";
+    /** The module's id, the one a site lists in {@code j:installedModules} once the module is enabled on it. */
+    static final String MODULE_ID = "formidable-forms-import";
     private static final Pattern JOB_PATH = Pattern.compile("^/jobs/([A-Za-z0-9_.-]+)(/import)?$");
     private static final String SETTINGS_PATH = "/settings";
     private static final String JOBS_PATH = "/jobs";
@@ -75,11 +78,11 @@ public class ImportServlet extends HttpServlet {
     private final transient AtomicReference<ImportJobs> jobs = new AtomicReference<>();
     private final transient AtomicReference<PermissionService> permissionService = new AtomicReference<>();
 
-    /** A request once routed: the site it names, the user's session on edit, and the job its path holds, if any. */
-    private record Call(HttpServletRequest request, String site, JCRSessionWrapper user, String jobId) {
+    /** A request once routed: the site it names, by key and as the user's edit session reads it, and the job its path holds, if any. */
+    private record Call(HttpServletRequest request, String site, JCRSiteNode siteNode, JCRSessionWrapper user, String jobId) {
     }
 
-    /** Who a route is open to: anyone the API lets in, the administrators of the site, or those with the import on. */
+    /** Who a route is open to: anyone the API lets in, the administrators of the site, or those of a site the module is enabled on. */
     private enum Gate { ANY, ADMIN, IMPORT }
 
     @FunctionalInterface
@@ -141,8 +144,8 @@ public class ImportServlet extends HttpServlet {
     // --- the handlers ---
 
     private JSONObject settings(Call call) throws RepositoryException {
-        boolean enabled = config().isImportButtonEnabled();
-        boolean allowed = enabled && isAllowed(call.site(), call.user());
+        boolean enabled = isEnabledOn(call.siteNode());
+        boolean allowed = enabled && isAdministrator(call.siteNode());
         JSONObject settings = new JSONObject()
                 .put("enabled", enabled)
                 .put("allowed", allowed)
@@ -243,13 +246,14 @@ public class ImportServlet extends HttpServlet {
             if (site == null || site.isBlank() || !user.nodeExists(ImportJcr.site(site))) {
                 throw new NotFound("the site does not exist");
             }
-            if (gate != Gate.ANY && !isAllowed(site, user)) {
+            JCRSiteNode siteNode = user.getNode(ImportJcr.site(site)).getResolveSite();
+            if (gate != Gate.ANY && !isAdministrator(siteNode)) {
                 throw new Refused(HttpServletResponse.SC_FORBIDDEN, "not an administrator of the site");
             }
-            if (gate == Gate.IMPORT && !config().isImportButtonEnabled()) {
-                throw new Refused(HttpServletResponse.SC_FORBIDDEN, "the import is not enabled");
+            if (gate == Gate.IMPORT && !isEnabledOn(siteNode)) {
+                throw new Refused(HttpServletResponse.SC_FORBIDDEN, "the Forms import is not enabled on the site");
             }
-            write(resp, HttpServletResponse.SC_OK, handler.handle(new Call(req, site, user, jobId)));
+            write(resp, HttpServletResponse.SC_OK, handler.handle(new Call(req, site, siteNode, user, jobId)));
         } catch (NotFound e) {
             write(resp, HttpServletResponse.SC_NOT_FOUND, error(e.getMessage()));
         } catch (Refused e) {
@@ -263,8 +267,16 @@ public class ImportServlet extends HttpServlet {
     }
 
     /** The administrators of the site: the import writes its contents, in edit, and its results, in live. */
-    private static boolean isAllowed(String site, JCRSessionWrapper user) throws RepositoryException {
-        return user.getNode(ImportJcr.site(site)).hasPermission(SITE_ADMIN_PERMISSION);
+    private static boolean isAdministrator(JCRSiteNode site) {
+        return site.hasPermission(SITE_ADMIN_PERMISSION);
+    }
+
+    /**
+     * The one switch of the import: the module enabled on the site, as an administrator enables any module
+     * on a site. Read from the site's modules on every call, so that the switch acts at once.
+     */
+    private static boolean isEnabledOn(JCRSiteNode site) {
+        return site.getInstalledModulesWithAllDependencies().contains(MODULE_ID);
     }
 
     boolean isRequestAllowed() {

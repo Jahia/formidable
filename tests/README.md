@@ -78,7 +78,10 @@ live once that script has published the site's home in the page language.
 ### With the Forms import
 
 Spec 76 (`actions/76-forms-import.cy.ts`) needs `formidable-forms-import` deployed next to the engine: the
-Import button of the Results page, its endpoint and the import content types are the module's.
+Import button of the Results page, its endpoint and the import content types are the module's. The test site
+is created without it (`FORMIDABLE_MODULE_IDS` lists the modules every spec needs): the spec enables the
+module on the site itself, which is what shows the button, and the playground does the same when the module
+is deployed.
 
 ### With jExperience
 

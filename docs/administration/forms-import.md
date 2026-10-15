@@ -4,9 +4,9 @@ A site that collected submissions with Jahia Forms (`forms-core` 3.x) moves to F
 them: the import recreates each Forms form as a Formidable form, and writes every submission Forms saved as
 a result of that form. The design is in [Importing forms and results from Jahia Forms](../architecture/forms-import.md).
 
-The import is a module of its own, `formidable-forms-import`, installed next to the engine: without it the
-Results page has no **Import** button and the setting below does not exist. Install it for the time of a
-migration, or keep it.
+The import is a module of its own, `formidable-forms-import`, installed next to the engine and enabled on
+the site that migrates: without it the Results page has no **Import** button and the setting below does
+not exist; enabled on no site, the button shows nowhere. Install it for the time of a migration, or keep it.
 
 ## What you get
 
@@ -45,8 +45,10 @@ results: the import refuses them with this procedure.
 
 ## Running the import
 
-1. Turn the button on: in `karaf/etc/org.jahia.modules.formidable.formsImport.cfg`, set
-   `importButtonEnabled=true` (see [Configuration](configuration.md)). The change applies at once, no restart.
+1. Enable `formidable-forms-import` on the target site, as you enable any module on a site: from the
+   **Modules** page of the site in the administration, or with `enable` in a provisioning script. That is the
+   one switch of the import, and it acts at once, no restart: disable the module on the site, or uninstall
+   it, once the migration is done.
 2. Open the **Results** page of the target site in jContent. The **Import Jahia Forms results** button shows in its toolbar to
    the administrators of the site, the users who hold the site-administrator role on it.
 3. Click **Import Jahia Forms results**, drop the zip on the dialog or choose it. The dialog analyses the export without
@@ -82,5 +84,6 @@ The export the dialog accepts is bounded by `maxFileSizeMb` (200 MB by default).
 
 | Setting | Default | Effect |
 |---|---|---|
-| `importButtonEnabled` | `false` | Shows the **Import Jahia Forms results** button on the Results page of every site |
 | `maxFileSizeMb` | `200` | The largest export the dialog accepts |
+
+The button itself has no setting: it shows on the sites the module is enabled on.

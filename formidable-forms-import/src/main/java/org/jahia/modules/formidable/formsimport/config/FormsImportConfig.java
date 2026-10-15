@@ -5,23 +5,16 @@ import org.osgi.service.metatype.annotations.AttributeType;
 import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
 /**
- * The Forms import theme: whether the Results page offers the import, and the largest export it takes
- * (docs/architecture/forms-import.md, "Running it"). Deployed as
- * {@code karaf/etc/org.jahia.modules.formidable.formsImport.cfg}.
+ * The Forms import settings: the largest export the Results page takes (docs/architecture/forms-import.md,
+ * "Running it"). Deployed as {@code karaf/etc/org.jahia.modules.formidable.formsImport.cfg}. The Import
+ * button itself follows the module being enabled on the site, not a setting.
  */
 @ObjectClassDefinition(
         name = "Formidable — Forms import",
-        description = "The import of Jahia Forms forms and results from the Results page: the button, off by default, and the largest export it accepts."
+        description = "The import of Jahia Forms forms and results from the Results page: the largest export it accepts. "
+                + "The Import button shows on the sites the module is enabled on."
 )
 public @interface FormsImportConfig {
-
-    @AttributeDefinition(
-            name = "Import button",
-            description = "Shows the Import button on the Results page of every site, to the administrators of the site. "
-                    + "Turn it on for the time of an import, then off again.",
-            type = AttributeType.BOOLEAN
-    )
-    boolean importButtonEnabled() default false;
 
     @AttributeDefinition(
             name = "Largest export (MB)",
