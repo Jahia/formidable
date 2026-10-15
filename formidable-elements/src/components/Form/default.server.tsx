@@ -8,7 +8,9 @@ import {
 	server,
 } from "@jahia/javascript-modules-library";
 import type {JCRNodeWrapper} from "org.jahia.services.content";
+import type {RenderContext} from "org.jahia.services.render";
 import {useTranslation} from "react-i18next";
+import ShieldCheckIcon from "~/design/ShieldCheckIcon";
 import Form from "./Form.client";
 import {type FormServerProps} from "./types";
 import {resolveUrlPlaceholders, styleTagCss} from "~/utils/richTextUtils";
@@ -44,6 +46,28 @@ const hasRepositoryWritingAction = (formNode: JCRNodeWrapper): boolean => {
 	}
 };
 
+
+/**
+ * The captcha settings CaptchaRenderFilter (Java) sets as request attributes on a form carrying the
+ * fmdbmix:captcha mixin: the script of the provider, and what the island needs to render the widget,
+ * undefined unless the four of them are set.
+ */
+const readCaptchaConfig = (renderContext: RenderContext) => {
+	const request = renderContext.getRequest();
+	const siteKey = request.getAttribute('formidable.captcha.siteKey') as string | null;
+	const scriptUrl = request.getAttribute('formidable.captcha.scriptUrl') as string | null;
+	const widgetVar = request.getAttribute('formidable.captcha.widgetVar') as string | null;
+	const tokenField = request.getAttribute('formidable.captcha.tokenField') as string | null;
+	// Defensive parsing: the attribute is a Java host value; anything that does not
+	// coerce to a finite positive number must not reach the client (NaN would break
+	// the poll deadline there).
+	const rawWidgetTimeout = Number(request.getAttribute('formidable.captcha.widgetTimeoutSeconds'));
+	const widgetTimeoutSeconds = Number.isFinite(rawWidgetTimeout) && rawWidgetTimeout > 0 ? rawWidgetTimeout : undefined;
+	const config = siteKey && scriptUrl && widgetVar && tokenField
+		? {siteKey, widgetVar, tokenField, widgetTimeoutSeconds}
+		: undefined;
+	return {scriptUrl, config};
+};
 
 const ensureCaptchaExplicit = (url: string): string => {
 	// Providers whose script auto-renders at load unless render=explicit is set.
@@ -100,27 +124,15 @@ jahiaComponent(
 			? stepNodes.map((s) => s.getIdentifier())
 			: undefined;
 
-		// Captcha config is injected as request attributes by CaptchaRenderFilter (Java)
-		// when the fmdbmix:captcha mixin is applied to this form node.
-		const hasCaptchaMixin = currentNode.isNodeType('fmdbmix:captcha');
-		const siteKey     = renderContext.getRequest().getAttribute('formidable.captcha.siteKey') as string | null;
-		const scriptUrl   = renderContext.getRequest().getAttribute('formidable.captcha.scriptUrl') as string | null;
-		const widgetVar   = renderContext.getRequest().getAttribute('formidable.captcha.widgetVar') as string | null;
-		const tokenField  = renderContext.getRequest().getAttribute('formidable.captcha.tokenField') as string | null;
-		// Defensive parsing: the attribute is a Java host value; anything that does not
-		// coerce to a finite positive number must not reach the client (NaN would break
-		// the poll deadline there).
-		const rawWidgetTimeout = Number(renderContext.getRequest().getAttribute('formidable.captcha.widgetTimeoutSeconds'));
-		const widgetTimeoutSeconds = Number.isFinite(rawWidgetTimeout) && rawWidgetTimeout > 0 ? rawWidgetTimeout : undefined;
-		const captcha = siteKey && scriptUrl && widgetVar && tokenField
-			? {siteKey, widgetVar, tokenField, widgetTimeoutSeconds}
-			: undefined;
+		const isEditMode = renderContext.isEditMode();
+		const {scriptUrl, config: captchaConfig} = readCaptchaConfig(renderContext);
+		// While authoring, the widget and its script are left out: a line in their place says that preview and live show it.
+		const captcha = isEditMode ? undefined : captchaConfig;
 
-		if (hasCaptchaMixin && !captcha) {
+		if (currentNode.isNodeType('fmdbmix:captcha') && !captchaConfig) {
 			console.warn(`[Formidable] fmdbmix:captcha is applied on form '${currentNode.getPath()}' but CAPTCHA is not fully configured (siteKey, scriptUrl, widgetVar or tokenField missing). The widget will not be rendered.`);
 		}
 
-		const isEditMode = renderContext.isEditMode();
 		const isSubmitDisabled = isEditMode || renderContext.isPreviewMode();
 		// /modules/… is a mapping inside the Jahia webapp: under a context path the bare path 404s
 		const submitActionUrl = `${renderContext.getRequest().getContextPath()}/modules/formidable-engine/form-submit?fid=${currentNode.getIdentifier()}&lang=${currentNode.getLanguage()}`;
@@ -161,7 +173,7 @@ jahiaComponent(
 			<>
 				{css && <style dangerouslySetInnerHTML={{__html: styleTagCss(css)}}/>}
 				<AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")} />
-				{scriptUrl && (
+				{captcha && scriptUrl && (
 				<AddResources
 					type="javascript"
 					resources={ensureCaptchaExplicit(scriptUrl)}
@@ -220,6 +232,15 @@ jahiaComponent(
 							...(isEditMode ? {className: "fmdb-form-fields"} : {}),
 						}}
 					/>
+				)}
+				{/* The captcha widget is left out while authoring: one line in its place says where it
+				    runs, drawn as the line of a hidden field (authoring.css). */}
+				{isEditMode && captchaConfig && (
+					<div className="fmdb-authoring-hidden-field fmdb-authoring-captcha" data-fmdb-authoring="captcha">
+						<ShieldCheckIcon/>
+						<span className="fmdb-authoring-hidden-field-label">{t("captchaAuthoringTitle")}</span>
+						<span className="fmdb-authoring-hidden-field-value">{t("captchaAuthoringDescription")}</span>
+					</div>
 				)}
 				{/* The actions are invisible on a page otherwise: while authoring, the list
 				    renders as a zone of its own (cards + create button), inside the form so a

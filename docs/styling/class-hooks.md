@@ -153,6 +153,18 @@ value" when it sends nothing. The line is authoring chrome, drawn with the
 | `fmdb-authoring-hidden-field-label`, `fmdb-authoring-hidden-field-title`, `fmdb-authoring-hidden-field-value` | "Hidden field", the field's title, and its value |
 | `fmdb-authoring-hidden-field-empty` | Next to `fmdb-authoring-hidden-field-value` when the field has no value |
 
+## Captcha (edit mode)
+
+A form that displays a captcha leaves the widget out in edit mode, and the provider script with it: no
+contributor solves a challenge in the Page Builder. One line takes its place, drawn as the line of a hidden
+field: a shield, "Captcha", and where it shows, in preview and live above the submit button. Nothing of it
+exists in live or preview, where the widget renders as before.
+
+| Class | Element |
+|---|---|
+| `fmdb-authoring-captcha` | The line, next to `fmdb-authoring-hidden-field` on the same `div` — the hook that tells it from a hidden field |
+| `fmdb-authoring-hidden-field-glyph`, `fmdb-authoring-hidden-field-label`, `fmdb-authoring-hidden-field-value` | The shield, "Captcha", and where it shows |
+
 ## Extended inputs
 
 The optional `formidable-extended-inputs` module adds four fields — consent, rating, scale and

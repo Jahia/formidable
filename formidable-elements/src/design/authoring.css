@@ -217,7 +217,9 @@
 
 /* Hidden field (edit mode only): the visitor never sees it, so without a drawn line its Page
    Builder box has no height and cannot be clicked. One dashed line, the zones' chrome and
-   variables: the eye crossed out, "Hidden field", the field's title, and the value it sends. */
+   variables: the eye crossed out, "Hidden field", the field's title, and the value it sends.
+   The captcha of a form, left out while authoring, takes the same line in its place: a shield,
+   "Captcha", and where it shows. */
 .fmdb-authoring-hidden-field {
 	display: flex;
 	align-items: center;

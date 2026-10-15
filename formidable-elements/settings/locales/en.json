@@ -32,6 +32,8 @@
 		"stepsNav": "Form steps",
 		"captchaRequired": "Please complete the CAPTCHA verification.",
 		"editModeSubmitDisabled": "Form submission is disabled in edit/preview mode.",
+		"captchaAuthoringTitle": "Captcha",
+		"captchaAuthoringDescription": "Shown in preview and live, above the submit button",
 		"maintenanceUnavailable": "This form is temporarily unavailable while the platform is under maintenance. Please try again later.",
 		"errorCode": "Error code",
 		"actionsProgress": "{{completed}}/{{total}} actions completed",
