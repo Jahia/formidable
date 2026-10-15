@@ -10,12 +10,15 @@ import {
 import type {JCRNodeWrapper} from "org.jahia.services.content";
 import type {RenderContext} from "org.jahia.services.render";
 import {useTranslation} from "react-i18next";
+import AlertIcon from "~/design/AlertIcon";
+import LockIcon from "~/design/LockIcon";
 import ShieldCheckIcon from "~/design/ShieldCheckIcon";
 import Form from "./Form.client";
 import {type FormServerProps} from "./types";
 import {resolveUrlPlaceholders, styleTagCss} from "~/utils/richTextUtils";
 
 const SETTINGS_BEAN_SERVICE = "org.jahia.api.settings.SettingsBean";
+const CAPTCHA_CONFIG_SERVICE = "org.jahia.modules.formidable.engine.config.captcha.CaptchaConfigService";
 // Absence of the mixin = the action is presumed to write to the repository (the
 // declaration is inverted on purpose; see the engine CND). The submission pipeline
 // reads the same mixin on the same nodes, so render and submit cannot disagree.
@@ -30,6 +33,23 @@ const isPlatformReadOnly = (): boolean => {
 	} catch (error) {
 		console.error("[Formidable] Could not read the platform read-only state", error);
 		return false;
+	}
+};
+
+/**
+ * Whether the captcha of the instance is set up end to end, the widget and its server-side verification, as
+ * the engine reads it from its captcha configuration. Asked while authoring only, to warn the contributor of
+ * a form that cannot be sent: preview and live read the widget's settings off the request attributes
+ * CaptchaRenderFilter sets. A setup that cannot be read counts as complete — the line then says nothing
+ * wrong, and the engine log does.
+ */
+const isCaptchaSetUp = (): boolean => {
+	try {
+		const service = server.osgi.getService(CAPTCHA_CONFIG_SERVICE);
+		return Boolean(service.isCaptchaWidgetConfigured()) && Boolean(service.isCaptchaVerificationConfigured());
+	} catch (error) {
+		console.error("[Formidable] Could not read the captcha configuration", error);
+		return true;
 	}
 };
 
@@ -128,8 +148,13 @@ jahiaComponent(
 		const {scriptUrl, config: captchaConfig} = readCaptchaConfig(renderContext);
 		// While authoring, the widget and its script are left out: a line in their place says that preview and live show it.
 		const captcha = isEditMode ? undefined : captchaConfig;
+		const hasCaptcha = currentNode.isNodeType('fmdbmix:captcha');
+		// Read once per authoring render: the line below says whether the form can be sent at all.
+		const captchaSetUp = isEditMode && hasCaptcha ? isCaptchaSetUp() : true;
+		// The engine-owned semantic the submission pipeline reads (fmdbmix:requireAuthentication extends it).
+		const requiresSignIn = currentNode.isNodeType('fmdbmix:authenticatedOnlyForm');
 
-		if (currentNode.isNodeType('fmdbmix:captcha') && !captchaConfig) {
+		if (hasCaptcha && !captchaConfig) {
 			console.warn(`[Formidable] fmdbmix:captcha is applied on form '${currentNode.getPath()}' but CAPTCHA is not fully configured (siteKey, scriptUrl, widgetVar or tokenField missing). The widget will not be rendered.`);
 		}
 
@@ -233,13 +258,30 @@ jahiaComponent(
 						}}
 					/>
 				)}
-				{/* The captcha widget is left out while authoring: one line in its place says where it
-				    runs, drawn as the line of a hidden field (authoring.css). */}
-				{isEditMode && captchaConfig && (
+				{/* The settings of the form that show nothing of themselves while authoring take one line
+				    each, drawn as the line of a hidden field (authoring.css): a form for signed-in visitors
+				    only, and the captcha, whose widget is left out of the Page Builder. While the instance
+				    has no captcha set up, the captcha line turns loud instead: the form cannot be sent, and
+				    the administrator is the one to tell — what to set is their job, not the contributor's. */}
+				{isEditMode && requiresSignIn && (
+					<div className="fmdb-authoring-hidden-field fmdb-authoring-sign-in" data-fmdb-authoring="sign-in">
+						<LockIcon/>
+						<span className="fmdb-authoring-hidden-field-label">{t("signInAuthoringTitle")}</span>
+						<span className="fmdb-authoring-hidden-field-value">{t("signInAuthoringDescription")}</span>
+					</div>
+				)}
+				{isEditMode && hasCaptcha && captchaSetUp && (
 					<div className="fmdb-authoring-hidden-field fmdb-authoring-captcha" data-fmdb-authoring="captcha">
 						<ShieldCheckIcon/>
 						<span className="fmdb-authoring-hidden-field-label">{t("captchaAuthoringTitle")}</span>
 						<span className="fmdb-authoring-hidden-field-value">{t("captchaAuthoringDescription")}</span>
+					</div>
+				)}
+				{isEditMode && hasCaptcha && !captchaSetUp && (
+					<div className="fmdb-authoring-hidden-field fmdb-authoring-captcha fmdb-authoring-captcha-alert" data-fmdb-authoring="captcha" data-fmdb-authoring-state="unconfigured">
+						<AlertIcon/>
+						<span className="fmdb-authoring-hidden-field-label">{t("captchaAuthoringTitle")}</span>
+						<span className="fmdb-authoring-hidden-field-value" title={t("captchaAuthoringUnconfigured")}>{t("captchaAuthoringUnconfigured")}</span>
 					</div>
 				)}
 				{/* The actions are invisible on a page otherwise: while authoring, the list

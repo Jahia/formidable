@@ -137,7 +137,10 @@ a 400 (`FMDB-004`) because the node will not be found in `live`.
 | `fmdbmix:captcha` | Author-facing wrapper mixin on `fmdb:form`; enables the engine-owned `fmdbmix:captchaProtectedForm` semantic |
 | `fmdbmix:requireAuthentication` | Author-facing wrapper mixin on `fmdb:form`; enables the engine-owned `fmdbmix:authenticatedOnlyForm` semantic |
 
-Both mixins are applied via the Content Editor. Neither requires configuration in JCR properties.
+Both mixins are applied via the Content Editor. Neither requires configuration in JCR properties. Each shows
+as one line of the form in edit mode, where nothing else tells a contributor it is on — **Captcha enabled**,
+turned into a warning while the instance has no captcha set up, and **Sign-in required** — see
+[Class hooks](../styling/class-hooks.md#captcha-and-sign-in-edit-mode).
 
 Internally, the submission pipeline reads `fmdbmix:captchaProtectedForm` and
 `fmdbmix:authenticatedOnlyForm`.

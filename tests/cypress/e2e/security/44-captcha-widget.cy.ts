@@ -39,11 +39,29 @@ const editCaptchaConfig = (properties: Record<string, string>) => {
 	});
 };
 
+type AuthoringLine = {state: string | null; alert: boolean; text: string};
+
 describe('Security - CAPTCHA widget and verification with the Google reCAPTCHA v2 test keys', () => {
 	useFormidableSite();
 
 	let captchaFormId: string;
 	let captchaLivePath: string;
+
+	/**
+	 * The captcha line of the form as the Page Builder renders it, once it shows the state expected: a
+	 * configuration change reaches the engine's service asynchronously, so the page is read until it does.
+	 */
+	const authoringCaptchaLine = (expectedState: string | null): Cypress.Chainable<AuthoringLine> =>
+		cy.waitUntil(() =>
+			cy.request(`/cms/editframe/default/en/sites/${FORMIDABLE_TEST_SITE.key}/${captchaLivePath}`).its('body').then((body: string) => {
+				const line = new DOMParser().parseFromString(body, 'text/html').querySelector('[data-fmdb-authoring="captcha"]');
+				if (!line || line.getAttribute('data-fmdb-authoring-state') !== expectedState) {
+					return false;
+				}
+				return {state: expectedState, alert: line.classList.contains('fmdb-authoring-captcha-alert'), text: line.textContent ?? ''};
+			}),
+		{timeout: 20000, interval: 1000, errorMsg: `the captcha line never showed the state ${expectedState ?? 'set up'}`}
+		) as unknown as Cypress.Chainable<AuthoringLine>;
 
 	before(() => {
 		cy.login();
@@ -94,10 +112,32 @@ describe('Security - CAPTCHA widget and verification with the Google reCAPTCHA v
 			const page = new DOMParser().parseFromString(body, 'text/html');
 			const line = page.querySelector('[data-fmdb-authoring="captcha"]');
 			expect(line, 'the captcha line').not.to.equal(null);
-			expect(line?.textContent).to.contain('Captcha');
+			expect(line?.textContent).to.contain('Captcha enabled').and.to.contain('Shown in preview and live');
+			expect(line?.getAttribute('data-fmdb-authoring-state'), 'a set-up captcha has no state').to.equal(null);
+			expect(page.querySelector('[data-fmdb-authoring="sign-in"]'), 'a form open to anonymous visitors has no sign-in line').to.equal(null);
 			expect(page.querySelectorAll('script[src*="recaptcha/api.js"]'), 'the provider script').to.have.length(0);
 			// the island receives no captcha either: its props never name the site key
 			expect(body).not.to.contain(TEST_SITE_KEY);
+		});
+		cy.logout();
+	});
+
+	it('warns the contributor while authoring when the captcha is not set up on the instance, and sets the line back once it is', () => {
+		cy.login();
+		// nothing set: the line turns loud, telling the contributor the form cannot be sent and whom to tell
+		editCaptchaConfig(CAPTCHA_EMPTY_CONFIG);
+		authoringCaptchaLine('unconfigured').then(line => {
+			expect(line.alert, 'the alert class').to.equal(true);
+			expect(line.text).to.contain('Captcha enabled').and.to.contain('Tell your administrator');
+		});
+		// the widget set but not its verification: every submission would be refused, the same warning
+		editCaptchaConfig({...CAPTCHA_TEST_CONFIG, captchaSecretKey: '', captchaVerifyUrl: ''});
+		authoringCaptchaLine('unconfigured').its('alert').should('equal', true);
+		// set up end to end: the plain line again
+		editCaptchaConfig(CAPTCHA_TEST_CONFIG);
+		authoringCaptchaLine(null).then(line => {
+			expect(line.alert, 'the alert class').to.equal(false);
+			expect(line.text).to.contain('Shown in preview and live');
 		});
 		cy.logout();
 	});
