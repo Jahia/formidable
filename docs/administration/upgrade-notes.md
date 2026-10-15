@@ -7,6 +7,7 @@ are in-place module installs; only the transitions listed here need attention.
 
 | From | To | How |
 |---|---|---|
+| 0.5.x | 0.6.0 | In-place module install of the engine and the JavaScript modules. New and optional: `formidable-forms-import`, the import of the forms and results of Jahia Forms, a module of its own to install next to the engine and enable on the site that migrates, on it alone (see below). To be verified on a real 0.5.0 instance before the release |
 | 0.4.x | 0.5.0 | In-place module install. At the first start the configuration moves to five files, one per theme, the settings carried over, and the 0.5.0 wave of startup migrations renames the prefixed properties (see below). Verified on a real 0.4.0 instance (2026-09-10) |
 | 0.3.x | 0.4.0 | The reinstall procedure below (formidable-elements changed identity), then the 0.4.0 wave of startup migrations runs at the first start. Verified on a real 0.3.0 instance (2026-09-02) |
 | 0.3.x | 0.5.0 directly | The same reinstall procedure, with the 0.5.0 artifacts: 0.5.0 still ships the 0.4.0 wave of startup migrations, so both waves run when formidable-elements deploys (step 3). Verified on a real 0.3.0 instance (2026-09-10): the engine upload is refused by the definitions check as in step 1 (bypass it), the engine-first start logs the expected `Could not migrate node` errors, the elements deploy migrates every field in both workspaces, published forms render and accept submissions, republication works |
@@ -30,7 +31,35 @@ the settings it adds, file by file, so that you know which lines to review after
 
 | Version | File (`karaf/etc/`) | Settings added |
 |---|---|---|
+| 0.6.0 | `org.jahia.modules.formidable.formsImport.cfg` | A new file, shipped by `formidable-forms-import` and present only where that module is installed: `maxFileSizeMb`. Read as it stands — the module appends nothing to it at start |
 | 0.5.0 | — | None: the five files are new in this version and ship every setting |
+
+## 0.5.x → 0.6.0: the import of Jahia Forms is a module of its own, optional
+
+**Nothing to do on an upgrade — install the module only where Jahia Forms results are to be imported.**
+
+### What changes
+
+0.6.0 brings the import of the forms and results of Jahia Forms (`forms-core` 3.x) into Formidable, as a module
+of its own, `formidable-forms-import`: a Java bundle, a jContent extension and one configuration file. The engine
+knows nothing of it — installed alone, its Results page has no **Import** button — and an instance that never ran
+Jahia Forms installs nothing. Where a site migrates, install the module next to the engine (it requires
+`formidable-engine` 0.6), then enable it on that site, as any module is enabled on a site. That is the one switch
+of the import: the **Import Jahia Forms results** button shows on the Results page of the sites the module is
+enabled on, to their administrators, and nowhere else. See
+[Importing the forms and results of Jahia Forms](forms-import.md).
+
+### Who is affected
+
+Nobody by default: the module is for the sites that collected submissions with Jahia Forms and move them to
+Formidable. Once a migration is done, disable the module on the site, or uninstall it: the imported forms, fields
+and results are the site's, Jahia keeps the content types a module declared after it is undeployed, and the Results
+page keeps showing the imported entries as it shows any other.
+
+One case needs a procedure: an instance that ran a **0.6.0 development build** in which the import still lived in
+the engine. Its content types stay registered to the engine, and the module's definitions clash with them at
+install — see [The module](../architecture/forms-import.md#the-module) for the steps. A released engine never
+declared them.
 
 ## 0.4.x → 0.5.0: the configuration moves to five files, one per theme
 
