@@ -26,8 +26,6 @@ export interface FormResultsNode {
      * workspaces. Undefined while the lookup has not answered.
      */
     editForm?: {uuid: string; displayName: string} | null;
-    /** Whether the entry holds results imported from another form system (fmdbmix:importedResults). */
-    imported?: boolean;
     submissionCount?: number;
 }
 
@@ -36,11 +34,11 @@ export interface FormResultsNode {
  * or deleted" — an administrator who unpublished a form for a while must not read that it is gone
  * — so the page looks the form up in EDIT before judging. The results are kept whatever the
  * status (a form deleted in jContent never destroys its submissions); the page flags the entry
- * and lets an authorised user remove it. An entry imported from another form system without a form
- * has no reference at all: it is "imported", not deleted (docs/architecture/forms-import.md,
- * "Results only").
+ * and lets an authorised user remove it. An entry without a form — results imported from another
+ * form system alone (docs/architecture/forms-import.md, "Results only") — has no reference at all:
+ * it has no form, it is not a deleted one.
  */
-export type FormStatus = 'published' | 'unpublished' | 'deleted' | 'imported' | 'unknown';
+export type FormStatus = 'published' | 'unpublished' | 'deleted' | 'noForm' | 'unknown';
 
 /** The live reference does not resolve: the form is unpublished, deleted, or not readable there. */
 export function isMissingInLive(form: FormResultsNode): boolean {
@@ -48,8 +46,8 @@ export function isMissingInLive(form: FormResultsNode): boolean {
 }
 
 export function formStatus(form: FormResultsNode): FormStatus {
-    if (!form.parentForm?.value && form.imported) {
-        return 'imported';
+    if (!form.parentForm?.value) {
+        return 'noForm';
     }
 
     if (!isMissingInLive(form)) {
@@ -465,6 +463,13 @@ interface UiContext {
     /** The servlet context path, empty at the root, `/dx` on an instance deployed under /dx. */
     contextPath?: string;
 }
+
+/**
+ * The registry target of the actions of the Results page toolbar: another module adds a button there with
+ * `registry.add('action', key, {targets: [RESULTS_TOOLBAR_TARGET + ':<priority>'], component})`. The
+ * component receives the page as props — `siteKey`, `selectedForm`, `refetchForms` — and shows or hides itself.
+ */
+export const RESULTS_TOOLBAR_TARGET = 'formidable-results/toolbar';
 
 /** Typed access to Jahia's global UI context (window.contextJsParameters). */
 export function uiContext(): UiContext {

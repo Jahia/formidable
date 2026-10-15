@@ -219,6 +219,25 @@ At runtime, the action performs the following steps:
 12. Write uploaded files into `files`.
 13. Save the session.
 
+## The toolbar of the Results page
+
+The toolbar of the Results page (export, delete, refresh) takes the actions other modules register on the
+registry target `formidable-results/toolbar`, through the `DisplayActions` of `@jahia/ui-extender`:
+
+```ts
+registry.add('action', 'myModuleResultsAction', {
+    targets: ['formidable-results/toolbar:100'],
+    component: MyAction
+});
+```
+
+The component receives the page as props — `siteKey`, `selectedForm` (the entry selected, or null) and
+`refetchForms`, which re-reads the list once the action wrote into the results — and decides whether it
+shows: an action a setting or a right hides returns null. An action that declares `buttonLabel`,
+`buttonIcon`, `isDisabled` and `onClick` instead of a component is rendered as a ghost button like the
+page's own. The actions sit after the page's buttons, and the page shows them on an empty site too, where an
+import starts. The first action is the **Import** of the Forms import ([Forms import](forms-import.md)).
+
 ## Notes
 
 - The `files` node is not autocreated — it is only added when uploaded files are present. This avoids an empty `jnt:folder` on every text-only submission.

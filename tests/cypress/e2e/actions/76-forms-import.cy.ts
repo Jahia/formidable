@@ -287,7 +287,7 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		cy.get('[data-sel-role="import-totals"]').should('contain', '106');
 		closeDialog();
 		cy.get('[data-sel-role="form-results-entry"]', {timeout: 60000}).should('have.length', SAMPLE.forms.length);
-		cy.get('[data-sel-role="form-results-entry"] [data-sel-role="form-imported"]').should('have.length', SAMPLE.forms.length);
+		cy.get('[data-sel-role="form-results-entry"] [data-sel-role="form-no-form"]').should('have.length', SAMPLE.forms.length);
 		cy.reload();
 		cy.get('[data-sel-role="form-results-entry"]', {timeout: 60000}).should('have.length', SAMPLE.forms.length);
 		cy.get('[data-sel-role="import-results-dialog"]').should('not.exist');
@@ -310,9 +310,9 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		});
 	});
 
-	it('shows an entry without a form as Imported, no form, with the system names as columns', () => {
+	it('shows an entry without a form as No form, with the system names as columns', () => {
 		openFirstSubmission('contact-us');
-		cy.get('[data-sel-role="form-imported"]').should('exist');
+		cy.get('[data-sel-role="form-no-form"]').should('exist');
 		cy.get('[data-sel-role="submission-detail"]').should('contain', 'your-first-name');
 	});
 

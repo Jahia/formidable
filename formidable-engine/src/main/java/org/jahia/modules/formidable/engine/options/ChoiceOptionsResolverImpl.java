@@ -3,6 +3,7 @@ package org.jahia.modules.formidable.engine.options;
 import org.jahia.modules.formidable.engine.api.ChoiceOptionsResolver;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.engine.api.FmdbProperty;
+import org.jahia.modules.formidable.engine.config.choiceoptions.ChoiceOptionsConfigService;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
@@ -30,12 +31,20 @@ public class ChoiceOptionsResolverImpl implements ChoiceOptionsResolver {
     @Reference
     private ManualOptionsDisplayService display;
 
+    @Reference
+    private ChoiceOptionsConfigService config;
+
     public ChoiceOptionsResolverImpl() {
     }
 
     ChoiceOptionsResolverImpl(FormidableOptionsSourceService sources, ManualOptionsDisplayService display) {
         this.sources = sources;
         this.display = display;
+    }
+
+    @Override
+    public boolean hasOptionsSource(String key) {
+        return config != null && config.resolveOptionsSource(key).isPresent();
     }
 
     @Override

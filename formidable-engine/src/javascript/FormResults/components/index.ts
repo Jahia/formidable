@@ -5,3 +5,4 @@ export {FilePreviewDialog} from './FilePreviewDialog';
 
 export {FormStatusChip} from './FormStatusChip';
 export {FormStatusIcon} from './FormStatusIcon';
+export {ToolbarButton} from './ToolbarButton';

@@ -1,12 +1,12 @@
 import React, {useCallback, useEffect, useRef, useState, useMemo} from 'react';
 import {useQuery} from '@apollo/client';
-import {Button, DeletePermanently, Download, Loader, Reload, Typography, Upload} from '@jahia/moonstone';
+import {Button, DeletePermanently, Download, Loader, Reload, Typography} from '@jahia/moonstone';
+import {DisplayActions, registry} from '@jahia/ui-extender';
 import {useTranslation} from 'react-i18next';
 import {GET_FORM_RESULTS_LIST, GET_FORM_FIELD_LABELS, GET_FORMS_IN_EDIT} from './graphql';
 import {DeleteResultsDialog} from './delete';
 import {ExportResultsDialog} from './export';
-import {fetchSettings, ImportResultsDialog, type ImportJob, type ImportSettings} from './import';
-import {FormResultsList, FormStatusChip, SubmissionDetailPanel, SubmissionsTable} from './components';
+import {FormResultsList, FormStatusChip, SubmissionDetailPanel, SubmissionsTable, ToolbarButton} from './components';
 import type {FormResultsNode, SubmissionRow} from './FormResults.utils';
 import {
     buildFormsInEditQuery,
@@ -17,6 +17,7 @@ import {
     labelsFormOf,
     isMissingInLive,
     parseFormFields,
+    RESULTS_TOOLBAR_TARGET,
     uiContext,
     withEditForms
 } from './FormResults.utils';
@@ -32,25 +33,6 @@ export const FormResultsApp = () => {
     const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
-    // The import of another form system's forms and results, offered when the setting is on and the user
-    // administers the site (docs/architecture/forms-import.md). A job left running or unread reopens.
-    const [importSettings, setImportSettings] = useState<ImportSettings | null>(null);
-    const [importDialog, setImportDialog] = useState<{open: boolean; job: ImportJob | null}>({open: false, job: null});
-    useEffect(() => {
-        if (!siteKey) {
-            return;
-        }
-        fetchSettings(siteKey)
-            .then(settings => {
-                setImportSettings(settings);
-                if (settings.job) {
-                    setImportDialog({open: true, job: settings.job});
-                }
-            })
-            .catch(() => {
-                setImportSettings(null);
-            });
-    }, [siteKey]);
     const [refreshSelectedForm, setRefreshSelectedForm] = useState<(() => Promise<unknown>) | null>(null);
 
     // errorPolicy 'all': the list must survive one entry whose form reference cannot be resolved. A
@@ -178,53 +160,32 @@ export const FormResultsApp = () => {
         return <Typography>{t('formResults.error.noSite')}</Typography>;
     }
 
-    // The button opens on the job the site has, running or unread, which may have started since the page loaded.
-    const openImportDialog = async () => {
-        try {
-            const settings = await fetchSettings(siteKey);
-            setImportSettings(settings);
-            setImportDialog({open: true, job: settings.job ?? null});
-        } catch {
-            setImportDialog({open: true, job: null});
-        }
-    };
-    const importButton = importSettings?.allowed && (
-        <Button
-            variant="ghost"
-            icon={<Upload/>}
-            label={t('formResults.actions.import')}
-            title={t('formResults.actions.importTitle')}
-            data-sel-role="import-results"
-            onClick={openImportDialog}
-        />
-    );
-    const importDialogElement = importSettings && importDialog.open && (
-        <ImportResultsDialog
+    // The actions other modules add to the toolbar (docs/architecture/save-to-jcr.md, "The toolbar of the Results
+    // page"): the import of another form system's forms and results is one. They read the page as props and
+    // re-read the list once they wrote into the results; each decides whether it shows.
+    const hasExtraActions = registry.find({type: 'action', target: RESULTS_TOOLBAR_TARGET}).length > 0;
+    const extraActions = (
+        <DisplayActions
+            target={RESULTS_TOOLBAR_TARGET}
+            render={ToolbarButton}
             siteKey={siteKey}
-            settings={importSettings}
-            initialJob={importDialog.job}
-            onClose={async imported => {
-                setImportDialog({open: false, job: null});
-                if (imported) {
-                    await refetchForms();
-                }
-            }}
+            selectedForm={selectedForm}
+            refetchForms={refetchForms}
         />
     );
-    // An empty site is where an import starts: the button stays reachable with no entry to list, whether
+    // An empty site is where an import starts: the actions stay reachable with no entry to list, whether
     // the results root is empty or does not exist yet.
     const emptyPage = () => (
         <div style={{display: 'flex', flexDirection: 'column', height: '100%', width: '100%'}}>
-            {importButton && (
+            {hasExtraActions && (
                 <div style={{display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', borderBottom: '1px solid var(--color-gray_light40)', backgroundColor: 'var(--color-light)'}}>
-                    {importButton}
+                    {extraActions}
                 </div>
             )}
             <div data-sel-role="form-results-empty" style={{display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1, flexDirection: 'column', gap: '1rem', padding: '48px', textAlign: 'center'}}>
                 <Typography variant="heading" weight="bold">{t('formResults.empty.noForms')}</Typography>
                 <Typography>{t('formResults.empty.noFormsDescription')}</Typography>
             </div>
-            {importDialogElement}
         </div>
     );
 
@@ -312,7 +273,7 @@ export const FormResultsApp = () => {
                     isLoading={isRefreshing}
                     onClick={handleRefresh}
                 />
-                {importButton}
+                {extraActions}
             </div>
 
             <div
@@ -377,7 +338,6 @@ export const FormResultsApp = () => {
                     onDeleted={handleDeleteSuccess}
                 />
             )}
-            {importDialogElement}
         </div>
     );
 };
