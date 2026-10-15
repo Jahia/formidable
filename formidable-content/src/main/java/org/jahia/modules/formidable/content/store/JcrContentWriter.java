@@ -13,6 +13,7 @@ import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRPublicationService;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRTemplate;
+import org.jahia.services.content.PublicationInfo;
 import org.jahia.services.usermanager.JahiaUser;
 import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
@@ -30,9 +31,11 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -47,7 +50,7 @@ import java.util.function.Supplier;
  * <p><b>Order.</b> Files first, each saved on its own (a name taken at that very moment is retried with a random
  * suffix), then the content node with its properties and the references to the files, in one save, so that a type with a
  * mandatory property or file reference is satisfied. Then the other languages (translated properties are written once per
- * language, in a session of that language), then the publication of the files and the content with its subtree. A failure
+ * language, in a session of that language), then the publication of the files and the content with its subtree and its translations in the site's languages. A failure
  * after any of these removes what was created (and unpublishes it when the publication had started).</p>
  *
  * <p>Threading: a singleton with no per-request state; every session lives inside one call.</p>
@@ -108,11 +111,7 @@ public class JcrContentWriter implements ContentWriter {
             }
             if (plan.publish()) {
                 progress.publishing = true;
-                List<String> ids = new ArrayList<>();
-                progress.files.forEach(file -> ids.add(file.identifier()));
-                ids.add(progress.contentIdentifier);
-                // the submitter cannot publish, and need not: the action's own setting decides, so no permission check
-                publication.get().publish(ids, DEFAULT, LIVE, false, true, null);
+                publish(plan, submitter, first, progress);
             }
             List<String> filePaths = new ArrayList<>();
             progress.files.forEach(file -> filePaths.add(file.path()));
@@ -121,6 +120,33 @@ public class JcrContentWriter implements ContentWriter {
             rollback(progress, submitter, first);
             throw e;
         }
+    }
+
+    /**
+     * Publishes the content and the files the way the platform's own publication does for a set of languages: the
+     * publication info of each root (the node, its sub nodes, and the translation nodes of the given languages) is
+     * collected between a source and a destination session, then published as a whole. Publishing the bare identifiers
+     * would leave every translated value ({@code jcr:title} and the other i18n properties) out of live.
+     *
+     * <p>Both sessions are system sessions attributed to the submitter: the info is read in {@code default}, where the
+     * submitter has no read right. No permission check is made on publish, for the same reason.</p>
+     */
+    private void publish(ContentPlan plan, JahiaUser submitter, Locale first, Progress progress) throws RepositoryException {
+        Set<String> languages = new LinkedHashSet<>();
+        plan.languages().forEach(locale -> languages.add(locale.toString()));
+        List<String> roots = new ArrayList<>();
+        progress.files.forEach(file -> roots.add(file.identifier()));
+        roots.add(progress.contentIdentifier);
+        jcr.get().doExecuteWithSystemSessionAsUser(submitter, DEFAULT, first, (JCRCallback<Void>) source ->
+                jcr.get().doExecuteWithSystemSessionAsUser(submitter, LIVE, first, (JCRCallback<Void>) destination -> {
+                    JCRPublicationService service = publication.get();
+                    List<PublicationInfo> infos = new ArrayList<>();
+                    for (String root : roots) {
+                        infos.addAll(service.getPublicationInfo(root, languages, false, true, true, source, destination));
+                    }
+                    service.publishByInfoList(infos, DEFAULT, LIVE, false, null);
+                    return null;
+                }));
     }
 
     private void writeFirstLanguage(ContentPlan plan, JCRSessionWrapper session, Progress progress) throws RepositoryException {
