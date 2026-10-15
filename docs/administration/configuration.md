@@ -1,6 +1,7 @@
 # Configuration files
 
-The engine is configured through six OSGi configuration files, one per theme, all under
+The engine is configured through five OSGi configuration files, one per theme, and the Forms import module
+through one file of its own, read as it stands (below), all under
 `digital-factory-data/karaf/etc/`. The module ships each file with every setting at its default and a
 comment for each; Jahia copies a file there the first time the module starts without it, and never
 overwrites the copy afterwards (its first line is the `# default configuration` marker the extender looks
@@ -18,9 +19,9 @@ as it is, your comments stay, and a line the module does not know is left in pla
 file comes back at its default at the next start, which is the value the module applied without it anyway. The
 [upgrade notes](upgrade-notes.md#settings-added-to-the-configuration-files) list the settings each version adds.
 A configuration made without a file (the Felix console) is not completed. The Forms import file is read as it
-stands, never completed: it ships whole with the import, which is to move into a module of its own.
+stands, never completed: it ships whole with the import, a module of its own (`formidable-forms-import`).
 
-## The six themes
+## The five themes, and the file of the Forms import
 
 | Theme | PID and file (`karaf/etc/<PID>.cfg`) | Settings | Read by |
 |---|---|---|---|
@@ -29,7 +30,7 @@ stands, never completed: it ships whole with the import, which is to move into a
 | Choice options | `org.jahia.modules.formidable.choiceOptions` | `optionsSourcesCacheTtlSeconds`, `optionsQueryMaxResults`; the sources, one file each (below) | the options sources a choice field may pick — [Choice field options sources](../architecture/choice-field-options-sources.md#declaring-sources-administrator) |
 | Form actions | `org.jahia.modules.formidable.formActions` | `enableDevForwardTargets`, `forwardHttpConnectTimeoutSeconds`, `forwardHttpRequestTimeoutSeconds`; the forward targets, one file each (below) | the forward action and its target picker |
 | Field actions | `org.jahia.modules.formidable.fieldActions` | `enableDevFieldActionEndpoints`, `fieldActionHttpConnectTimeoutSeconds`, `fieldActionHttpRequestTimeoutSeconds`, `fieldActionVerdictCacheTtlSeconds`, `fieldActionRateLimitPerMinute`, `fieldActionMaxValueLength`, `fieldActionMaxValuesPerField` | the calls of the field actions (and whether a development endpoint may be called) and the pre-check endpoint; the service a check calls is in its own module's configuration — [Field actions: services and limits](field-actions.md) |
-| Forms import | `org.jahia.modules.formidable.formsImport` | `importButtonEnabled`, `maxFileSizeMb` | the **Import** button of the Results page and the bound on the export it takes — [Importing the forms and results of Jahia Forms](forms-import.md) |
+| Forms import | `org.jahia.modules.formidable.formsImport` | `maxFileSizeMb` | the bound on the export the **Import** button of the Results page takes — [Importing the forms and results of Jahia Forms](forms-import.md). Shipped by `formidable-forms-import`, not by the engine: the file exists once that module is installed, and the button follows the module being enabled on the site, not a setting |
 
 The setting names are the ones of the single file of earlier builds but one — `uploadAllowedMimeTypes` is now
 `uploadAllowedTypes`, since it takes extensions too — except two of the lists, which are now one file per
@@ -37,7 +38,7 @@ entry (below). Any other line copied from an old file into its theme's
 file is read as it was; the migration below reads the renamed setting under its former name, does not carry a
 list still at the former default — the new default holds the same seventeen types, written as extensions — and
 carries an empty list, which meant any file until 0.5, as `*/*`. The PIDs are dotted on purpose — `org.jahia.modules.formidable-captcha`
-would declare an instance of a factory configuration, which none of these is — so the six files sort
+would declare an instance of a factory configuration, which none of these is — so the five files sort
 together in `karaf/etc/` and in the Felix console.
 
 Each file is logged when it is read (`CaptchaConfigService configured: …`, `UploadsConfigService configured: …`,
@@ -177,7 +178,7 @@ Until 0.5 the engine read one PID, `org.jahia.modules.formidable`, whether from
 alone (the Felix console). Neither is read any more, and both are carried over at the first start of a
 version with the themes:
 
-1. Jahia copies the six theme files to `karaf/etc/` and fileinstall loads them, every setting at its default.
+1. Jahia copies the five theme files to `karaf/etc/` and fileinstall loads them, every setting at its default.
 2. As soon as a theme's configuration comes from its file, the theme reads the old configuration through
    ConfigAdmin and copies every setting of the theme it holds at a value other than the default — as long as
    the theme's file still holds the default for it. A value already set in the new file wins, with a warning
@@ -196,7 +197,7 @@ version with the themes:
    and the log says `Gave up carrying the settings of org.jahia.modules.formidable over … re-enter the settings of
    this theme in it`. A restart starts the three attempts over.
 
-**How to check**: open the six files after the upgrade. A setting that was not at its default before the
+**How to check**: open the five files after the upgrade. A setting that was not at its default before the
 upgrade is there, in its theme's file, on a line without a comment; the marker line
 `formidable.migratedFrom=org.jahia.modules.formidable` is the trace that the migration wrote the file. A
 setting the old configuration held that its theme's file shows at the default was either at its default (then
@@ -221,4 +222,4 @@ forward actions' target —, then remove the lines. A conversion that fails is t
 same happens on an instance that ran a 0.5 snapshot build, whose theme files still held the lists.
 
 **In a cluster**, each node reads its own `karaf/etc`: the migration runs on every node at its first start, from
-that node's old configuration. Keep the six files, and the entry files, the same on every node, as for any file of `karaf/etc`.
+that node's old configuration. Keep the five files, the import module's, and the entry files, the same on every node, as for any file of `karaf/etc`.

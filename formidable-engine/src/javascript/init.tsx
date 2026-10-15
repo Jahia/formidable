@@ -2,7 +2,7 @@ import {registry} from '@jahia/ui-extender';
 import i18next from 'i18next';
 import {SelectOptionsCmp} from './SelectOptions/SelectOptionsCmp';
 import {ConditionalLogicCmp} from './ConditionalLogic/ConditionalLogicCmp';
-import {FormResultsApp, ImportAction, RESULTS_TOOLBAR_TARGET} from './FormResults';
+import {FormResultsApp} from './FormResults';
 import {Form} from '@jahia/moonstone';
 import {registerPageBuilderBoxConfigs} from './PageBuilder/boxConfigs';
 
@@ -23,12 +23,6 @@ export default function () {
                 isSelectable: true,
                 requireModuleInstalledOnSite: 'formidable-engine',
                 render: () => <FormResultsApp/>
-            });
-            // The import of another form system's forms and results, an action of the Results page toolbar
-            // registered as a module of its own would register it (docs/architecture/forms-import.md).
-            registry.add('action', 'formidableResultsImport', {
-                targets: [`${RESULTS_TOOLBAR_TARGET}:100`],
-                component: ImportAction
             });
 
             console.debug('%c Formidable Engine Extensions is activated', 'color: #3c8cba');

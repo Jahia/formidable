@@ -1,0 +1,619 @@
+package org.jahia.modules.formidable.formsimport;
+
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
+import org.jahia.modules.formidable.engine.api.FmdbNodeName;
+import org.jahia.modules.formidable.engine.api.FmdbNodeType;
+import org.jahia.modules.formidable.engine.api.FmdbProperty;
+import org.jahia.modules.formidable.engine.api.FormResultsStore;
+import org.jahia.modules.formidable.formsimport.model.ImportedAction;
+import org.jahia.modules.formidable.formsimport.model.ImportedContainer;
+import org.jahia.modules.formidable.formsimport.model.ImportedElement;
+import org.jahia.modules.formidable.formsimport.model.ImportedField;
+import org.jahia.modules.formidable.formsimport.model.ImportedFile;
+import org.jahia.modules.formidable.formsimport.model.ImportedForm;
+import org.jahia.modules.formidable.formsimport.model.ImportedSubmission;
+import org.jahia.services.content.JCRContentUtils;
+import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.services.content.JCRSessionWrapper;
+import org.jahia.utils.LanguageCodeConverters;
+
+import javax.jcr.Node;
+import javax.jcr.NodeIterator;
+import javax.jcr.RepositoryException;
+import javax.jcr.query.Query;
+import javax.jcr.query.Row;
+import javax.jcr.query.RowIterator;
+import java.io.IOException;
+import java.io.InputStream;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.TimeZone;
+
+import org.json.JSONObject;
+
+/**
+ * Writes what an import produces into a site (docs/architecture/forms-import.md, "Target model"): the
+ * forms in the {@code imported-forms} content folder, in the edit workspace, and their results in live, as
+ * the engine would have written them ({@link FormResultsStore}). Source-agnostic: it reads the {@code model}
+ * records and stamps the markers the engine CND declares.
+ * <p>
+ * The caller saves: the import saves by batches, the dry run never.
+ */
+// Not final: the run is tested against a mock of it.
+public class ImportWriter {
+
+    public static final String FOLDER_NAME = "imported-forms";
+    public static final String CONTENTS_NODE = "contents";
+    public static final String FIELDS_NODE = "fields";
+    private static final String CONTENT_FOLDER_TYPE = "jnt:contentFolder";
+    private static final String FOLDER_TYPE = "jnt:folder";
+    private static final String TITLE = "jcr:title";
+    private static final String OPTIONS_MODE = "optionsMode";
+    private static final String OPTIONS = "options";
+    private static final String OPTIONS_SOURCE_KEY = "optionsSourceKey";
+    private static final String SOURCE_SYSTEM = "sourceSystem";
+    private static final String SOURCE_ID = "sourceId";
+    private static final String SOURCE_RESULTS_ID = "sourceResultsId";
+    private static final String SOURCE_PATH = "sourcePath";
+    private static final String SOURCE_NAME = "sourceName";
+    private static final String SOURCE_FORM_ID = "sourceFormId";
+    private static final String SOURCE_FORM_IDS = "sourceFormIds";
+    private static final String MAPPINGS = "mappings";
+    private static final String MAPPING_SOURCE = "source";
+    private static final String MAPPING_NAMES = "mapping";
+    private static final String CAPTCHA_MIXIN = "fmdbmix:captcha";
+    private static final String SYSTEM_AUTHOR = "system";
+    private static final String FORM_TYPE = "fmdb:form";
+    private static final String FIELD_LIST_TYPE = "fmdb:fieldList";
+    private static final String ACTION_LIST_TYPE = "fmdb:actionList";
+    private static final DateTimeFormatter DAY_FOLDERS = DateTimeFormatter.ofPattern("yyyy/MM/dd").withZone(ZoneOffset.UTC);
+
+    /** Opens the binary of an imported file from the export; null when the export does not hold it. */
+    @FunctionalInterface
+    public interface BinaryOpener {
+        InputStream open(ImportedFile file) throws IOException;
+    }
+
+    /** A form found or created for an imported one. */
+    public record FormHandle(JCRNodeWrapper node, boolean created) {
+    }
+
+    /** A field of a form an earlier run created, with the identity of the source field it stands for. */
+    public record FoundField(String name, String nodeType, String sourceId, String sourceName) {
+    }
+
+    private final JCRSessionWrapper edit;
+    private final JCRSessionWrapper live;
+    private final String siteKey;
+    private final String folderTitle;
+    private final FormResultsStore store;
+
+    /**
+     * @param edit a system session on the edit workspace, where the forms are written
+     * @param live a system session on the live workspace, where the results are written
+     * @param folderTitle the title of the {@code imported-forms} folder when the import creates it
+     * @param store       the results of the site as the engine keeps them, which the entries are written through
+     */
+    public ImportWriter(JCRSessionWrapper edit, JCRSessionWrapper live, String siteKey, String folderTitle, FormResultsStore store) {
+        this.edit = edit;
+        this.live = live;
+        this.siteKey = siteKey;
+        this.folderTitle = folderTitle;
+        this.store = store;
+    }
+
+    // --- forms ---
+
+    /** The form an earlier run created for this source, by either of its keys, wherever it is in the site. */
+    public JCRNodeWrapper findForm(String sourceId, String sourceResultsId) throws RepositoryException {
+        List<String> keys = new ArrayList<>();
+        if (sourceId != null) {
+            keys.add(equalTo(SOURCE_ID, sourceId));
+        }
+        if (sourceResultsId != null) {
+            keys.add(equalTo(SOURCE_RESULTS_ID, sourceResultsId));
+        }
+        if (keys.isEmpty()) {
+            return null;
+        }
+        String statement = "SELECT * FROM [" + FormsImportMixin.IMPORTED_FORM + "] AS f WHERE ISDESCENDANTNODE(f, '"
+                + ImportJcr.site(escape(siteKey)) + "') AND (" + String.join(" OR ", keys) + ")";
+        NodeIterator found = edit.getWorkspace().getQueryManager().createQuery(statement, Query.JCR_SQL2).execute().getNodes();
+        return found.hasNext() ? (JCRNodeWrapper) found.nextNode() : null;
+    }
+
+    /**
+     * The fields of a form an earlier run created, as they are now: the contributor may have renamed,
+     * moved or deleted some since. Each one still knows the source field it stands for, through its
+     * {@code fmdbmix:importedField} marker, which is how the submissions of a later run find their column.
+     */
+    public List<FoundField> importedFields(JCRNodeWrapper form) throws RepositoryException {
+        List<FoundField> fields = new ArrayList<>();
+        if (form.hasNode(FIELDS_NODE)) {
+            collectImportedFields(form.getNode(FIELDS_NODE), fields);
+        }
+        return fields;
+    }
+
+    private static void collectImportedFields(JCRNodeWrapper parent, List<FoundField> fields) throws RepositoryException {
+        NodeIterator children = parent.getNodes();
+        while (children.hasNext()) {
+            JCRNodeWrapper child = (JCRNodeWrapper) children.nextNode();
+            if (child.isNodeType(FormsImportMixin.IMPORTED_FIELD)) {
+                fields.add(new FoundField(child.getName(), child.getPrimaryNodeTypeName(),
+                        child.getPropertyAsString(SOURCE_ID), child.getPropertyAsString(SOURCE_NAME)));
+            } else {
+                collectImportedFields(child, fields);
+            }
+        }
+    }
+
+    /**
+     * A form of the site the administrator chose to attach results to, by its identifier in the edit
+     * workspace; null when the identifier names no form of the site any more.
+     */
+    public JCRNodeWrapper findSiteForm(String identifier) throws RepositoryException {
+        return findSiteForm(edit, siteKey, identifier);
+    }
+
+    /** {@link #findSiteForm(String)}, for a caller that holds the edit session alone. */
+    public static JCRNodeWrapper findSiteForm(JCRSessionWrapper edit, String siteKey, String identifier) throws RepositoryException {
+        JCRNodeWrapper node;
+        try {
+            node = edit.getNodeByIdentifier(identifier);
+        } catch (javax.jcr.ItemNotFoundException e) {
+            return null;
+        }
+        boolean ofSite = node.getPath().startsWith(ImportJcr.site(siteKey) + "/");
+        return ofSite && node.isNodeType(FORM_TYPE) ? node : null;
+    }
+
+    /** The {@code imported-forms} folder of the site, or its path when it does not exist yet. */
+    public String importedFormsPath() {
+        return ImportJcr.site(siteKey) + "/" + CONTENTS_NODE + "/" + FOLDER_NAME;
+    }
+
+    public FormHandle findOrCreateForm(ImportedForm form) throws RepositoryException {
+        JCRNodeWrapper existing = findForm(form.sourceId(), form.sourceResultsId());
+        if (existing != null) {
+            return new FormHandle(existing, false);
+        }
+        return new FormHandle(createForm(form), true);
+    }
+
+    private JCRNodeWrapper createForm(ImportedForm form) throws RepositoryException {
+        JCRNodeWrapper folder = importedFormsFolder();
+        JCRNodeWrapper node = folder.addNode(JCRContentUtils.findAvailableNodeName(folder, form.name()), FORM_TYPE);
+        i18n(node, TITLE, form.titles());
+        i18n(node, "submissionMessage", form.submissionMessage());
+        form.buttonLabels().forEach((property, byLanguage) -> i18nQuietly(node, property, byLanguage));
+        if (form.captcha() && edit.getWorkspace().getNodeTypeManager().hasNodeType(CAPTCHA_MIXIN)) {
+            node.addMixin(CAPTCHA_MIXIN);
+        }
+        JCRNodeWrapper fields = childOrCreate(node, FIELDS_NODE, FIELD_LIST_TYPE);
+        for (ImportedElement element : form.elements()) {
+            writeElement(fields, element);
+        }
+        JCRNodeWrapper actions = childOrCreate(node, FmdbNodeName.ACTIONS, ACTION_LIST_TYPE);
+        for (ImportedAction action : form.actions()) {
+            JCRNodeWrapper actionNode = actions.addNode(JCRContentUtils.findAvailableNodeName(actions, action.name()), action.nodeType());
+            action.properties().forEach((key, value) -> setQuietly(actionNode, key, value));
+            action.i18nProperties().forEach((key, byLanguage) -> i18nQuietly(actionNode, key, byLanguage));
+        }
+        node.addMixin(FormsImportMixin.IMPORTED_FORM);
+        node.setProperty(SOURCE_SYSTEM, form.sourceSystem());
+        setQuietly(node, SOURCE_ID, form.sourceId());
+        setQuietly(node, SOURCE_RESULTS_ID, form.sourceResultsId());
+        setQuietly(node, SOURCE_PATH, form.sourcePath());
+        return node;
+    }
+
+    private JCRNodeWrapper importedFormsFolder() throws RepositoryException {
+        JCRNodeWrapper contents = edit.getNode(ImportJcr.site(siteKey) + "/" + CONTENTS_NODE);
+        if (contents.hasNode(FOLDER_NAME)) {
+            return contents.getNode(FOLDER_NAME);
+        }
+        JCRNodeWrapper folder = contents.addNode(FOLDER_NAME, CONTENT_FOLDER_TYPE);
+        for (Locale locale : siteLocales()) {
+            folder.getOrCreateI18N(locale).setProperty(TITLE, folderTitle);
+        }
+        return folder;
+    }
+
+    private void writeElement(JCRNodeWrapper parent, ImportedElement element) throws RepositoryException {
+        if (element instanceof ImportedContainer container) {
+            JCRNodeWrapper node = parent.addNode(JCRContentUtils.findAvailableNodeName(parent, container.name()), container.nodeType());
+            i18n(node, TITLE, container.titles());
+            for (ImportedElement child : container.children()) {
+                writeElement(node, child);
+            }
+            return;
+        }
+        writeField(parent, (ImportedField) element);
+    }
+
+    private void writeField(JCRNodeWrapper parent, ImportedField field) throws RepositoryException {
+        JCRNodeWrapper node = parent.addNode(JCRContentUtils.findAvailableNodeName(parent, field.name()), field.nodeType());
+        i18n(node, TITLE, field.titles());
+        if (field.required()) {
+            node.setProperty(ImportedField.REQUIRED_PROPERTY, "true");
+        }
+        // the mixins of other modules first: their properties have no definition on the type alone
+        for (String mixin : field.mixins()) {
+            node.addMixin(mixin);
+        }
+        field.properties().forEach((key, value) -> setQuietly(node, key, value));
+        field.i18nProperties().forEach((key, byLanguage) -> i18nQuietly(node, key, byLanguage));
+        writeOptions(node, field);
+        node.addMixin(FormsImportMixin.IMPORTED_FIELD);
+        node.setProperty(SOURCE_ID, field.sourceId() != null ? field.sourceId() : field.sourceName());
+        node.setProperty(SOURCE_NAME, field.sourceName());
+    }
+
+    private void writeOptions(JCRNodeWrapper node, ImportedField field) throws RepositoryException {
+        if (field.optionsSourceKey() != null) {
+            node.addMixin(FmdbMixin.SOURCED_OPTIONS);
+            node.setProperty(OPTIONS_MODE, "sourced");
+            node.setProperty(OPTIONS_SOURCE_KEY, field.optionsSourceKey());
+        } else if (!field.options().isEmpty()) {
+            node.addMixin(FmdbMixin.MANUAL_OPTIONS);
+            node.setProperty(OPTIONS_MODE, "manual");
+            for (Map.Entry<String, List<String>> byLanguage : field.options().entrySet()) {
+                translation(node, byLanguage.getKey()).setProperty(OPTIONS, byLanguage.getValue().toArray(String[]::new));
+            }
+        }
+    }
+
+    // --- results ---
+
+    /**
+     * The results entry of the form in live, created as the engine creates one when it is missing.
+     * The form must be saved first: the auto-split setting saves the live session, entry included, and an
+     * entry must never be persisted ahead of the form it points to.
+     */
+    public JCRNodeWrapper findOrCreateResultsEntry(JCRNodeWrapper formNode, ImportedForm form) throws RepositoryException {
+        if (formNode.isNew()) {
+            throw new IllegalStateException("The form " + formNode.getName() + " must be saved before its results entry is created");
+        }
+        JCRNodeWrapper root = resultsRoot();
+        JCRNodeWrapper entry = findEntry(root, formNode.getIdentifier());
+        if (entry == null) {
+            entry = newEntry(root, formNode.getName(), form);
+            entry.setProperty(FmdbProperty.PARENT_FORM, formNode.getIdentifier());
+            store.syncReaders(formNode, entry, live);
+        }
+        return markImported(entry, form);
+    }
+
+    /**
+     * The entry of the results of a source form imported without a form (docs/architecture/forms-import.md,
+     * "Results only"): created as the entry of a form is, but for the form, so it has no {@code parentForm}
+     * and its readers are the administrators until it is attached to a form.
+     */
+    public JCRNodeWrapper createResultsOnlyEntry(ImportedForm form) throws RepositoryException {
+        return markImported(newEntry(resultsRoot(), form.name(), form), form);
+    }
+
+    /**
+     * The entry an earlier run wrote the results of a source form into, by the key of that form: an entry
+     * written alone, or the entry of the form the results were attached to; null when none. The entry of
+     * a form the import created is reached through its form, which a later run finds first.
+     */
+    public JCRNodeWrapper findImportedEntry(String sourceKey) throws RepositoryException {
+        if (sourceKey == null) {
+            return null;
+        }
+        String statement = "SELECT * FROM [" + FormsImportMixin.IMPORTED_RESULTS + "] AS e WHERE ISDESCENDANTNODE(e, '"
+                + escape(resultsRootPath()) + "') AND e." + equalTo(SOURCE_FORM_IDS, sourceKey);
+        NodeIterator found = live.getWorkspace().getQueryManager().createQuery(statement, Query.JCR_SQL2).execute().getNodes();
+        return found.hasNext() ? (JCRNodeWrapper) found.nextNode() : null;
+    }
+
+    /** The form of an entry, in the edit workspace; null for an entry without a form, or whose form is gone. */
+    public JCRNodeWrapper formOf(JCRNodeWrapper entry) throws RepositoryException {
+        if (!entry.hasProperty(FmdbProperty.PARENT_FORM)) {
+            return null;
+        }
+        try {
+            return edit.getNodeByIdentifier(entry.getProperty(FmdbProperty.PARENT_FORM).getString());
+        } catch (javax.jcr.ItemNotFoundException e) {
+            return null;
+        }
+    }
+
+    /**
+     * The results entry of a form, when it exists; null otherwise. Unlike {@link #findOrCreateResultsEntry}
+     * it creates nothing, not even the results root: the dry run reads through it.
+     */
+    public JCRNodeWrapper findResultsEntry(JCRNodeWrapper formNode) throws RepositoryException {
+        if (!live.nodeExists(resultsRootPath())) {
+            return null;
+        }
+        return findEntry(live.getNode(resultsRootPath()), formNode.getIdentifier());
+    }
+
+    /**
+     * The mapping an attachment applied to the values of a source form, as the entry remembers it: the name
+     * of the field of the form each field of the source lands under; empty when the entry holds none.
+     */
+    public Map<String, String> mappingOf(JCRNodeWrapper entry, String sourceKey) throws RepositoryException {
+        for (JSONObject mapping : mappingsOf(entry)) {
+            if (sourceKey.equals(mapping.optString(MAPPING_SOURCE))) {
+                Map<String, String> names = new LinkedHashMap<>();
+                JSONObject stored = mapping.optJSONObject(MAPPING_NAMES);
+                if (stored != null) {
+                    stored.keySet().forEach(name -> names.put(name, stored.getString(name)));
+                }
+                return names;
+            }
+        }
+        return Map.of();
+    }
+
+    /**
+     * Keeps on the entry the mapping an attachment applied to a source form, in place of the one it held
+     * for that source, so that a later run names the values the same way and a later attachment shows the
+     * original names next to the current ones.
+     */
+    public void recordMapping(JCRNodeWrapper entry, String sourceKey, Map<String, String> mapping) throws RepositoryException {
+        List<String> kept = new ArrayList<>();
+        for (JSONObject stored : mappingsOf(entry)) {
+            if (!sourceKey.equals(stored.optString(MAPPING_SOURCE))) {
+                kept.add(stored.toString());
+            }
+        }
+        kept.add(new JSONObject().put(MAPPING_SOURCE, sourceKey).put(MAPPING_NAMES, new JSONObject(mapping)).toString());
+        entry.setProperty(MAPPINGS, kept.toArray(String[]::new));
+    }
+
+    private static List<JSONObject> mappingsOf(JCRNodeWrapper entry) throws RepositoryException {
+        List<JSONObject> mappings = new ArrayList<>();
+        if (entry.hasProperty(MAPPINGS)) {
+            for (javax.jcr.Value value : entry.getProperty(MAPPINGS).getValues()) {
+                mappings.add(new JSONObject(value.getString()));
+            }
+        }
+        return mappings;
+    }
+
+    /** The results root of the site, where the entries sit, or its path when it does not exist yet. */
+    public String resultsRootPath() {
+        return ImportJcr.site(siteKey) + "/" + FormResultsStore.RESULTS_ROOT_NAME;
+    }
+
+    private JCRNodeWrapper resultsRoot() throws RepositoryException {
+        return store.getOrCreateResultsRoot(live.getNode(ImportJcr.site(siteKey)), live);
+    }
+
+    /** A new entry under the root, named after the source form or the next free name, its ACL inheritance broken. */
+    private JCRNodeWrapper newEntry(JCRNodeWrapper root, String name, ImportedForm form) throws RepositoryException {
+        JCRNodeWrapper entry = root.addNode(JCRContentUtils.findAvailableNodeName(root, name), FmdbNodeType.FORM_RESULTS);
+        if (form.buildingLang() != null) {
+            entry.setProperty("buildingLang", form.buildingLang());
+        }
+        store.detachAcl(entry);
+        return entry;
+    }
+
+    /** Stamps the entry as holding the results of the source form, and splits its submissions by day. */
+    private JCRNodeWrapper markImported(JCRNodeWrapper entry, ImportedForm form) throws RepositoryException {
+        if (!entry.isNodeType(FormsImportMixin.IMPORTED_RESULTS)) {
+            entry.addMixin(FormsImportMixin.IMPORTED_RESULTS);
+            entry.setProperty(SOURCE_SYSTEM, form.sourceSystem());
+        }
+        addToMultiple(entry, SOURCE_FORM_IDS, form.sourceKey());
+        store.ensureAutoSplit(childOrCreate(entry, FmdbNodeName.SUBMISSIONS, FmdbNodeType.SUBMISSIONS));
+        return entry;
+    }
+
+    private static JCRNodeWrapper findEntry(JCRNodeWrapper root, String formIdentifier) throws RepositoryException {
+        NodeIterator children = root.getNodes();
+        while (children.hasNext()) {
+            Node child = children.nextNode();
+            if (child instanceof JCRNodeWrapper candidate && candidate.isNodeType(FmdbNodeType.FORM_RESULTS)
+                    && candidate.hasProperty(FmdbProperty.PARENT_FORM)
+                    && formIdentifier.equals(candidate.getProperty(FmdbProperty.PARENT_FORM).getString())) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    /** The source identities of every submission already imported into the site, whatever its entry. */
+    public Set<String> importedSubmissionIds() throws RepositoryException {
+        String statement = "SELECT [" + SOURCE_ID + "] FROM [" + FormsImportMixin.IMPORTED_SUBMISSION + "] AS s WHERE ISDESCENDANTNODE(s, '"
+                + escape(resultsRootPath()) + "')";
+        RowIterator rows = live.getWorkspace().getQueryManager().createQuery(statement, Query.JCR_SQL2).execute().getRows();
+        Set<String> ids = new HashSet<>();
+        while (rows.hasNext()) {
+            Row row = rows.nextRow();
+            javax.jcr.Value value = row.getValue(SOURCE_ID);
+            if (value != null) {
+                ids.add(value.getString());
+            }
+        }
+        return ids;
+    }
+
+    /**
+     * Writes one submission under the entry: the {@code yyyy/MM/dd} folders of its date, created by the
+     * import itself since the auto-split listener places only the direct children of {@code submissions},
+     * and the node with its original date through the {@code addNode} overload the Jahia import uses.
+     */
+    public JCRNodeWrapper writeSubmission(JCRNodeWrapper entry, ImportedSubmission submission, BinaryOpener binaries)
+            throws RepositoryException, IOException {
+        JCRNodeWrapper day = dayFolder(childOrCreate(entry, FmdbNodeName.SUBMISSIONS, FmdbNodeType.SUBMISSIONS), submission.created());
+        String name = JCRContentUtils.findAvailableNodeName(day, store.submissionNodeName(submission.created()));
+        Calendar created = calendar(submission.created());
+        String author = author();
+        JCRNodeWrapper node = day.addNode(name, FmdbNodeType.FORM_SUBMISSION, null, created, author, created, author);
+        // the discriminator Save to JCR documents for an import: the source system the entry records
+        node.setProperty("origin", entry.getPropertyAsString(SOURCE_SYSTEM));
+        setQuietly(node, "locale", submission.locale());
+        setQuietly(node, "referer", submission.referer());
+        JCRNodeWrapper data = childOrCreate(node, FmdbNodeName.DATA, FmdbNodeType.SUBMISSION_DATA);
+        for (Map.Entry<String, List<String>> value : submission.values().entrySet()) {
+            if (value.getValue().size() == 1) {
+                data.setProperty(value.getKey(), value.getValue().get(0));
+            } else {
+                data.setProperty(value.getKey(), value.getValue().toArray(String[]::new));
+            }
+        }
+        writeFiles(node, submission.files(), binaries);
+        node.addMixin(FormsImportMixin.IMPORTED_SUBMISSION);
+        node.setProperty(SOURCE_ID, submission.sourceId());
+        node.setProperty(SOURCE_FORM_ID, submission.sourceFormId());
+        return node;
+    }
+
+    /** A file the export does not hold is left behind: the run reports it when it counts the files. */
+    private static void writeFiles(JCRNodeWrapper submission, List<ImportedFile> files, BinaryOpener binaries)
+            throws RepositoryException, IOException {
+        for (ImportedFile file : files) {
+            try (InputStream binary = binaries.open(file)) {
+                if (binary == null) {
+                    continue;
+                }
+                JCRNodeWrapper folder = childOrCreate(submission, FmdbNodeName.FILES, FOLDER_TYPE);
+                JCRNodeWrapper fieldFolder = childOrCreate(folder, file.fieldName(), FOLDER_TYPE);
+                ImportFiles.add(fieldFolder, JCRContentUtils.findAvailableNodeName(fieldFolder, file.fileName()), binary,
+                        file.mimeType() == null ? "application/octet-stream" : file.mimeType());
+            }
+        }
+    }
+
+    private static JCRNodeWrapper dayFolder(JCRNodeWrapper submissions, Instant created) throws RepositoryException {
+        JCRNodeWrapper folder = submissions;
+        for (String segment : DAY_FOLDERS.format(created).split("/")) {
+            folder = folder.hasNode(segment) ? folder.getNode(segment) : folder.addNode(segment, FmdbNodeType.SPLITTED_SUBMISSION);
+        }
+        return folder;
+    }
+
+    /** Saves the forms, before their results entries are created. */
+    public void saveForms() throws RepositoryException {
+        edit.save();
+    }
+
+    public void save() throws RepositoryException {
+        edit.save();
+        live.save();
+    }
+
+    /**
+     * Drops the submissions written since the last save, which a failed write or save leaves in the session:
+     * the forms and the results entries, saved before any submission, stay.
+     */
+    public void discardSubmissions() throws RepositoryException {
+        live.refresh(false);
+    }
+
+    // --- helpers ---
+
+    /** The name the submissions are created by: the system user of the sessions, as SaveToJcrFormAction leaves it. */
+    private String author() {
+        for (JCRSessionWrapper session : List.of(edit, live)) {
+            if (session.getUser() != null) {
+                return session.getUser().getName();
+            }
+        }
+        return SYSTEM_AUTHOR;
+    }
+
+    /** An autocreated child, which Jahia does not create on addNode: taken when there, added otherwise. */
+    private static JCRNodeWrapper childOrCreate(JCRNodeWrapper node, String name, String type) throws RepositoryException {
+        return node.hasNode(name) ? node.getNode(name) : node.addNode(name, type);
+    }
+
+    private List<Locale> siteLocales() throws RepositoryException {
+        List<Locale> locales = new ArrayList<>();
+        JCRNodeWrapper site = edit.getNode(ImportJcr.site(siteKey));
+        if (site.hasProperty("j:languages")) {
+            for (javax.jcr.Value language : site.getProperty("j:languages").getValues()) {
+                locales.add(LanguageCodeConverters.languageCodeToLocale(language.getString()));
+            }
+        }
+        if (locales.isEmpty()) {
+            locales.add(Locale.ENGLISH);
+        }
+        return locales;
+    }
+
+    private static void i18n(JCRNodeWrapper node, String property, Map<String, String> byLanguage) throws RepositoryException {
+        for (Map.Entry<String, String> value : byLanguage.entrySet()) {
+            if (value.getValue() != null && !value.getValue().isBlank()) {
+                translation(node, value.getKey()).setProperty(property, value.getValue());
+            }
+        }
+    }
+
+    private static void i18nQuietly(JCRNodeWrapper node, String property, Map<String, String> byLanguage) {
+        try {
+            i18n(node, property, byLanguage);
+        } catch (RepositoryException e) {
+            throw new IllegalStateException("Cannot write " + property + " on " + node.getPath(), e);
+        }
+    }
+
+    /** The translation node of a language; the plain language ({@code ""}) means the default language of the site. */
+    private static Node translation(JCRNodeWrapper node, String language) throws RepositoryException {
+        String code = language == null || language.isBlank() ? siteDefaultLanguage(node) : language;
+        return node.getOrCreateI18N(LanguageCodeConverters.languageCodeToLocale(code));
+    }
+
+    private static String siteDefaultLanguage(JCRNodeWrapper node) throws RepositoryException {
+        JCRNodeWrapper site = node.getResolveSite();
+        return site != null && site.hasProperty("j:defaultLanguage") ? site.getProperty("j:defaultLanguage").getString() : "en";
+    }
+
+    private static void setQuietly(JCRNodeWrapper node, String property, String value) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        try {
+            node.setProperty(property, value);
+        } catch (RepositoryException e) {
+            throw new IllegalStateException("Cannot write " + property + " on " + node.getPath(), e);
+        }
+    }
+
+    private static void addToMultiple(JCRNodeWrapper node, String property, String value) throws RepositoryException {
+        if (value == null) {
+            return;
+        }
+        List<String> values = new ArrayList<>();
+        if (node.hasProperty(property)) {
+            for (javax.jcr.Value existing : node.getProperty(property).getValues()) {
+                values.add(existing.getString());
+            }
+        }
+        if (!values.contains(value)) {
+            values.add(value);
+            node.setProperty(property, values.toArray(String[]::new));
+        }
+    }
+
+    private static Calendar calendar(Instant instant) {
+        Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(ZoneOffset.UTC));
+        calendar.setTimeInMillis(instant.toEpochMilli());
+        return calendar;
+    }
+
+    private static String escape(String value) {
+        return value.replace("'", "''");
+    }
+
+    /** The SQL2 comparison of a property with a value, the value escaped. */
+    private static String equalTo(String property, String value) {
+        return "[" + property + "] = '" + escape(value) + "'";
+    }
+}

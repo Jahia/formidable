@@ -226,6 +226,9 @@ const JXP_CONTEXT_TIMEOUT_MS = 30000;
 // site when it is deployed, so that the playground shows what a third-party module adds to a field's editor.
 const SAMPLE_TSX_MODULE = 'formidable-test-module-samples-tsx';
 const SAMPLE_TSX_MIXIN = 'fmdbsamplemix:helpTextPosition';
+/** The Forms import add-on: deployed, its endpoint answers under the module's path; absent, that path is not found. */
+const FORMS_IMPORT_MODULE = 'formidable-forms-import';
+const FORMS_IMPORT_ENDPOINT = `/modules/${FORMS_IMPORT_MODULE}/import`;
 const CONTEXT_ATTEMPT_PAUSE_MS = 2000;
 let jExperienceAvailable = false;
 
@@ -747,6 +750,15 @@ describe('Playground - provision manual-testing forms', () => {
 		deleteSite(FORMIDABLE_TEST_SITE.key);
 		createSite(FORMIDABLE_TEST_SITE.key, FORMIDABLE_TEST_SITE.config);
 		FORMIDABLE_MODULE_IDS.forEach(moduleId => enableModule(moduleId, FORMIDABLE_TEST_SITE.key));
+		// the Forms import is an add-on the site must enable: when it is deployed, the Results page keeps its Import button
+		cy.request({url: `${FORMS_IMPORT_ENDPOINT}/settings?site=${FORMIDABLE_TEST_SITE.key}`, failOnStatusCode: false})
+			.then(response => {
+				if (response.status !== 404) {
+					enableModule(FORMS_IMPORT_MODULE, FORMIDABLE_TEST_SITE.key);
+				} else {
+					cy.log(`${FORMS_IMPORT_MODULE} absent: the Results page has no Import button`);
+				}
+			});
 		cy.apollo({query: gql`query sampleHelpTextPositionMixin { jcr { nodeTypeByName(name: "${SAMPLE_TSX_MIXIN}") { name } } }`})
 			.then((response: {errors?: unknown; data?: {jcr?: {nodeTypeByName?: {name?: string} | null}}}) => {
 				if (!response.errors && response.data?.jcr?.nodeTypeByName?.name) {

@@ -78,7 +78,6 @@ Examples (non-exhaustive — the CND files are the source of truth):
 - `fmdbmix:numberField`
 - `fmdbmix:booleanField`
 - `fmdbmix:profileMappableField` (the marker a field type claims to take part in a jExperience profile mapping; the jExperience module's property mixin extends this single marker, never a list of field types; it declares nothing — see `jexperience-integration.md`)
-- `fmdbmix:importedForm`, `fmdbmix:importedField`, `fmdbmix:importedResults`, `fmdbmix:importedSubmission` (the markers of an import from another form system: what a node was in the source, so that a later run adds only what is missing and an attachment to an existing form, at import time, keeps its mapping per source; source-agnostic, `sourceSystem` names the source — see `forms-import.md`)
 - `fmdbmix:submittableField` (the marker a field type claims to submit a value — every built-in and extended field but the file input, the button and the fieldset; a mixin meant for every such field attaches to it with `extends`, as the field-actions switch `fmdbmix:fieldActions` does. `extends` names one supertype and cannot express "`formElement` minus `nonSubmittable`", which is what the pipeline tests; the pipeline keeps that test, so a third-party field that has not adopted the marker is still submitted — see `field-actions.md`. Inside this repository `scripts/check-field-markers.mjs`, run by CI, refuses a type extending `fmdbmix:element` or `fmdbmix:formElement` that declares none or several of `submittableField`, `nonSubmittable` and `fileField`)
 
 These are not presentation hints. They are runtime contracts interpreted by Java code in the submission pipeline (the options-mode mixins additionally drive the server-side resolution of choice options).
@@ -100,9 +99,19 @@ Examples:
 - `fmdb:resultsFolder`
 - `fmdb:formResults`
 - `fmdb:formSubmission`
-- `fmdb:importJobs`, `fmdb:importJob` (the jobs of an import from another form system: the uploaded export and the state of the dry run and of the import, kept in the repository — see `forms-import.md`)
 
 These types are part of the engine contract. They support submission handling, persistence, exports, imports, and action execution.
+
+### Types of `formidable-forms-import`
+
+The import of another form system's forms and results declares its own content in its own CND, and names it from
+holders of its own (`FormsImportNodeType`, `FormsImportMixin`), never from the engine's:
+
+- `fmdb:importJobs`, `fmdb:importJob` — the jobs of an import: the uploaded export and the state of the dry run and of the import, kept in the repository (see `forms-import.md`)
+- `fmdbmix:importJobsParent` — set on the engine's `fmdb:resultsFolder` of a site by the first import: the results root may then hold the jobs node
+- `fmdbmix:importedForm`, `fmdbmix:importedField`, `fmdbmix:importedResults`, `fmdbmix:importedSubmission` — the markers of an import: what a node was in the source, so that a later run adds only what is missing and an attachment to an existing form keeps its mapping per source; source-agnostic, `sourceSystem` names the source
+
+The engine reads none of them: an entry without a form shows as **No form** from its missing `parentForm` alone.
 
 ## Decision rules
 

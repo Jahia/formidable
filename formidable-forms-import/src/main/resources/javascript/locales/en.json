@@ -1,0 +1,261 @@
+{
+	"formResults": {
+		"actions": {
+			"import": "Import Jahia Forms results",
+			"importTitle": "Import the forms and results of Jahia Forms into this site"
+		},
+		"import": {
+			"title": "Import Jahia Forms results",
+			"description": "Bring the results of the forms of a Jahia Forms export into this site.",
+			"dropzone": "Drop the export of the site's formFactory node here, a .zip file",
+			"chooseFile": "Choose a file",
+			"fileHint": "Take the export in the Repository explorer: right-click the site's formFactory node, Export, then Export Zip with live content. Up to {{max}} MB.",
+			"analysing": "Analysing {{file}}…",
+			"importing": "Importing {{file}}…",
+			"review": {
+				"title": "What the import will do"
+			},
+			"report": {
+				"totals": "{{submissions}} submission(s) to import in {{forms}} form(s)",
+				"nothing": "Nothing to import: every form and every submission is already in this site.",
+				"submissions": "{{count}} submission(s)",
+				"imported": "{{count}} submission(s) imported",
+				"already": "{{count}} already imported",
+				"fields": "{{count}} field(s)",
+				"files": "{{count}} file(s), {{size}}",
+				"filesMissing": "{{count}} file(s) not in the export, left behind",
+				"values": "{{dropped}} value(s) dropped, {{notConverted}} kept as stored",
+				"failed": "{{count}} not written, see the import log"
+			},
+			"choice": {
+				"resultsOnly": "Results only",
+				"create": "Create the form",
+				"attach": "Attach to an existing form",
+				"skip": "Don't import",
+				"add": "Add the new submissions"
+			},
+			"actions": {
+				"import": "Import",
+				"cancel": "Cancel",
+				"close": "Close",
+				"tryAgain": "Try again",
+				"downloadLog": "Download the import log"
+			},
+			"done": {
+				"title": "Import done",
+				"totals": "{{submissions}} submission(s) imported in {{forms}} form(s)",
+				"created": "The created forms are unpublished: review each one, see what its Notes ask to review, then publish it."
+			},
+			"failed": {
+				"title": "The import failed"
+			},
+			"error": {
+				"notZip": "The file must be a .zip export",
+				"tooLarge": "The file is larger than {{max}} MB",
+				"unexpected": "Something went wrong, see the server log"
+			},
+			"attach": {
+				"form": "Form",
+				"pickForm": "Pick a form of the site",
+				"noForms": "The site has no form yet",
+				"mapping": "Where the values of each field land",
+				"keep": "Keep the name",
+				"noFields": "This form has no field: every value keeps its name",
+				"sameName": "same name",
+				"sameLabel": "same label",
+				"conflict": "Two fields cannot land under the same name, nor under the name of another field of the source: {{names}}",
+				"unmatched": "{{count}} value(s) match no option of this field: {{values}}"
+			},
+			"columns": {
+				"form": "Form",
+				"choice": "What to do",
+				"result": "Result",
+				"todo": "Notes"
+			},
+			"plan": {
+				"resultsOnly": "Its submissions show on this page, without a form.",
+				"created": "Creates the form, unpublished, in the Imported from Jahia Forms folder, with its submissions.",
+				"attached": "Its submissions join the results of \"{{name}}\".",
+				"attachPending": "Pick the form its submissions join.",
+				"found": "Already imported: its new submissions join \"{{name}}\".",
+				"foundNothing": "Already imported, nothing new.",
+				"skipped": "Nothing is imported. Importing the same export again proposes it again."
+			},
+			"outcome": {
+				"resultsOnly": "On this page, without a form",
+				"created": "Form \"{{name}}\" created, unpublished",
+				"attached": "Joined \"{{name}}\"",
+				"found": "Joined \"{{name}}\"",
+				"skipped": "Not imported"
+			},
+			"todo": {
+				"count": "{{count}} to review",
+				"details": "Details"
+			},
+			"notes": {
+				"action": "To review",
+				"info": "Carried over"
+			},
+			"after": {
+				"editable": "editable",
+				"readOnly": "read-only",
+				"hidden": "hidden"
+			},
+			"types": {
+				"inputText": "text",
+				"inputEmail": "email",
+				"textarea": "text area",
+				"select": "dropdown",
+				"radio": "radio buttons",
+				"checkbox": "checkboxes",
+				"inputDate": "date",
+				"inputNumber": "number",
+				"inputFile": "file",
+				"inputHidden": "hidden",
+				"consent": "consent",
+				"rating": "rating",
+				"switch": "switch"
+			},
+			"note": {
+				"field": {
+					"setting": "Its {{setting}} setting is not carried over: a {{type}} field has none",
+					"createdAsFallback": "Created as a {{type}} field: the {{preferred}} field is not installed here",
+					"createdAsNearest": "Created as a {{type}} field, the closest: Formidable has no {{kind}} field",
+					"createdAsText": "Created as a text field: Formidable has no equivalent of {{source}}",
+					"logic": "Its conditional logic is not carried over: rebuild it",
+					"prefillOther": "Its prefill ({{prefill}}) is not carried over: map the field to the visitor profile instead",
+					"prefillAlreadyMapped": "Its second prefill, from {{property}}, is not carried over: the field takes one mapping to the visitor profile",
+					"prefillNoIntegration": "Not mapped to the visitor profile property {{property}}: the jExperience integration is not installed",
+					"prefillNotMappable": "Not mapped to the visitor profile property {{property}}: a {{type}} field cannot be mapped",
+					"profilePrefilled": "Mapped to the visitor profile property {{property}}, prefilled from it, {{after}} once filled",
+					"profileMapped": "Mapped to the visitor profile property {{property}}, without prefill",
+					"rule": "Its {{rule}} rule is not carried over: a {{type}} field has no such rule",
+					"ruleMessage": "The custom message of its {{rule}} rule is not carried over",
+					"fileTypes": "Its accepted file types ({{types}}) are not carried over: set them by hand",
+					"noChoices": "No options in the export: add them by hand",
+					"noCountries": "No countries in the export: add the options by hand, or declare a country options source",
+					"termsLink": "The link to the terms ({{link}}) is not carried over: add it to the statement",
+					"prefillUnknownProperty": "Not mapped to the visitor profile property {{property}}: jCustomer has no such property. Create it, then map the field",
+					"prefillIncompatible": "Not mapped to the visitor profile property {{property}}: its type does not fit a {{type}} field",
+					"profileUnchecked": "Mapped to the visitor profile property {{property}}, unchecked: jCustomer could not be reached. Check that the property exists"
+				},
+				"form": {
+					"fromLabels": "Rebuilt from the labels of its results: Jahia Forms no longer holds the form",
+					"submitterMail": "The mail to the submitter became a notification without recipient: complete or remove it",
+					"redirect": "The page redirect (to {{target}} on the source site) is not carried over: Formidable has no redirect yet",
+					"action": "The action {{action}} is not carried over: Formidable has no equivalent",
+					"notSaved": "Jahia Forms did not save its submissions: add Save to JCR to keep them",
+					"mailCopies": "The CC and BCC recipients of the notification ({{copies}}) are not carried over",
+					"mailBody": "The body of the notification mail is not carried over",
+					"saveForLater": "\"Save the form for later\" is not carried over: Formidable has no such feature",
+					"constraints": "The submission limits are not carried over: Formidable has no such feature",
+					"captchaOn": "Captcha turned on, with the captcha of this instance",
+					"captchaOff": "Captcha not turned on: this instance has none, set one up then add it to the form",
+					"passwordDropped": "The password field {{field}} is not recreated: it would be stored and mailed in clear",
+					"contentDisplayDropped": "The content display {{field}} is not recreated: it submits nothing",
+					"fieldDropped": "The field {{field}} ({{source}}) is not recreated",
+					"redirectNoTarget": "The redirect is not carried over: Formidable has no redirect yet"
+				},
+				"submission": {
+					"keptUnderSourceName": "{{field}}: kept under its Forms name {{name}}, the form holds no field for it",
+					"passwordDropped": "{{field}}: a password, not imported",
+					"notConverted": "{{field}}: {{count}} value(s) kept as stored, they could not be converted",
+					"consentUnknown": "{{field}}: {{count}} value(s) kept as stored, neither the accepted nor the refused text",
+					"duplicateTarget": "{{field}}: dropped, another answer of the submission fills the same field",
+					"fileMissing": "The file {{file}} is not in the export: left behind",
+					"writeFailed": "Not written: {{reason}}. Importing the same export again tries it again",
+					"noForm": "From the results {{form}}, which no form of the export matches: not imported"
+				}
+			},
+			"terms": {
+				"rules": {
+					"requiredValidation": "required",
+					"emailValidation": "email format",
+					"rangeValidation": "value range",
+					"rangeLengthValidation": "length range",
+					"regexValidation": "pattern",
+					"fileValidation": "file types",
+					"fileNumberValidation": "number of files",
+					"equalToValidation": "equal to another field"
+				},
+				"prefills": {
+					"userInfoPrefill": "user information",
+					"geolocationPrefill": "geolocation"
+				},
+				"actions": {
+					"sendEmailToSubmitterAction": "mail to the submitter",
+					"redirectToUrlAction": "redirect to a URL",
+					"redirectToAPageAction": "redirect to a page"
+				},
+				"kinds": {
+					"phone": "phone",
+					"matrixRadios": "radio matrix",
+					"matrixCheckBoxes": "checkbox matrix",
+					"switch": "switch",
+					"rating": "rating",
+					"acceptTermCheckbox": "accept terms"
+				},
+				"sources": {
+					"passwordDefinition": "password",
+					"contentDisplayDefinition": "content display"
+				},
+				"settings": {
+					"helpText": "help text",
+					"required": "required",
+					"placeholder": "placeholder",
+					"minLength": "minimum length",
+					"maxLength": "maximum length",
+					"pattern": "pattern",
+					"rows": "rows",
+					"minValue": "minimum",
+					"maxValue": "maximum",
+					"multiple": "multiple values",
+					"accept": "accepted file types",
+					"value": "value",
+					"optionsEmptyLabel": "empty option label",
+					"onLabel": "on label",
+					"offLabel": "off label",
+					"statement": "statement"
+				}
+			},
+			"profile": {
+				"title": "Mapped to the visitor profile (jExperience)",
+				"prefill": "prefill",
+				"unchecked": "not checked, jCustomer could not be reached",
+				"failed": {
+					"field": {
+						"prefillUnknownProperty": "jCustomer has no such property: create it, then map the field",
+						"prefillIncompatible": "its type does not fit this field",
+						"prefillNoIntegration": "the jExperience integration is not installed",
+						"prefillNotMappable": "this field type cannot be mapped"
+					}
+				},
+				"hint": "You can review these mappings after the import, in the jExperience section of each field.",
+				"exists": "the property exists, the mapping is written",
+				"missing": "the mapping is not written",
+				"columns": {
+					"field": "Field",
+					"property": "Profile property",
+					"prefilled": "Prefill",
+					"status": "Status"
+				}
+			},
+			"markdown": {
+				"title": "Jahia Forms import log",
+				"site": "Site",
+				"file": "Export",
+				"date": "Date",
+				"done": "Import done",
+				"stopped": "The import stopped before its end: {{reason}}. What it wrote stays; import the same export again to go on.",
+				"totals": "{{imported}} submission(s) imported, {{failed}} not written",
+				"incidents": "What the submissions lost",
+				"incidentsOmitted": "{{count}} more, not listed",
+				"orphans": "Submissions of no form",
+				"submission": "submission {{id}}"
+			}
+		},
+		"detail": {
+			"close": "Close"
+		}
+	}
+}

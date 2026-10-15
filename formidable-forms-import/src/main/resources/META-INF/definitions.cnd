@@ -1,0 +1,63 @@
+<jnt = 'http://www.jahia.org/jahia/nt/1.0'>
+<jmix = 'http://www.jahia.org/jahia/mix/1.0'>
+<mix = 'http://www.jcp.org/jcr/mix/1.0'>
+<fmdb = 'http://www.jahia.org/jahia/fmdb/nt/1.0'>
+<fmdbmix = 'http://www.jahia.org/jahia/fmdb/mix/1.0'>
+
+// The content of the import of another form system's forms and results (docs/architecture/forms-import.md,
+// "Content model"), declared by this module: the engine's results root takes the jobs node once it carries the
+// mixin below, and the markers reach the forms, fields, entries and submissions the import writes.
+
+// The jobs of an import, under formidable-results/import-jobs: the uploaded export and the state and
+// report of the dry run and of the import, kept in the repository so that any server of a cluster reads them.
+[fmdb:importJobs] > jnt:content, jmix:accessControlled
+ + * (fmdb:importJob) = fmdb:importJob
+
+[fmdb:importJob] > jnt:content
+ - state (string) indexed=no
+ - report (string) indexed=no
+ - message (string) indexed=no
+ - updated (date) indexed=no
+ - choices (string) indexed=no
+ + file (jnt:file) = jnt:file
+
+// The results root of a site may hold the jobs node, next to the entries: set on the root (fmdb:resultsFolder)
+// by the first import of the site — the repository checks a child against the mixins a node carries, so an
+// extends would not do. The jobs child takes the first free name from import-jobs, so that a form of that
+// name keeps its entry.
+[fmdbmix:importJobsParent] mixin
+ + * (fmdb:importJobs)
+
+// --- The markers of an import ---
+// Source-agnostic: none of them names Jahia Forms, sourceSystem does. Every property is hidden: the import
+// writes and reads them, a contributor has nothing to do with them in the editor.
+
+// On a form the import created. sourceId is the identity of the form in the source system (its
+// jcr:uuid for Jahia Forms), sourceResultsId the identity of its results entry there; a later run looks a
+// form up by either, hence both indexed, because an export can lose one of them. At least one is set.
+[fmdbmix:importedForm] mixin
+ - sourceSystem (string) mandatory hidden indexed=no
+ - sourceId (string) hidden
+ - sourceResultsId (string) hidden
+ - sourcePath (string) hidden indexed=no
+
+// On a field the import created: the field it stands for in the source system, and the name its values
+// had there. A later run reads the mapping from the fields of the form, so no query: not indexed.
+[fmdbmix:importedField] mixin
+ - sourceId (string) mandatory hidden indexed=no
+ - sourceName (string) mandatory hidden indexed=no
+
+// On a results entry that holds imported submissions, of one source form or several once results were
+// attached to a form. sourceFormIds is what a later run finds an entry imported without a form, or attached
+// to a form, by, hence indexed. mappings holds, per source form, the mapping an attachment applied, one JSON
+// string each ({"source":"<key>","mapping":{"<field of the source>":"<field of the form>"}}).
+[fmdbmix:importedResults] mixin
+ - sourceSystem (string) mandatory hidden indexed=no
+ - sourceFormIds (string) multiple hidden
+ - mappings (string) multiple hidden indexed=no
+
+// On an imported submission. sourceId is what a later run skips on, hence indexed. sourceFormId is the
+// key of its source form: the form's sourceId, or its sourceResultsId when the source had deleted the form.
+[fmdbmix:importedSubmission] mixin
+ - sourceId (string) mandatory hidden
+ - sourceFormId (string) mandatory hidden indexed=no

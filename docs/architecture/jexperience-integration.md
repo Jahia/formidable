@@ -809,8 +809,8 @@ dropdown (`FieldShapes`, from the type of a field being created): before the imp
 of Jahia Forms over as a mapping, it asks whether the site's jCustomer declares the property with a type the
 field holds, so that it never writes a mapping the mapping rule would skip (`FormMappingReader` drops a field
 whose property the schema does not offer). A catalog that cannot be read answers "unavailable": the import then
-writes the mapping and reports it to check ([Forms import](forms-import.md)). The engine references the service
-as optional and dynamic: without this module, the import never asks.
+writes the mapping and reports it to check ([Forms import](forms-import.md)). The import module
+(`formidable-forms-import`) references the service as optional and dynamic: without this module, the import never asks.
 
 ## Decision log
 

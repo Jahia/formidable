@@ -68,11 +68,12 @@ The current release includes the ability to:
   - Create a new field type (CND + server view + optional client Island)
 
 ### Packaging
-- 4 modules:
+- 5 modules:
   - **formidable-elements** — provides the fields, form structure and rendering views
   - **formidable-engine** — provides the action framework (Java/OSGi), CAPTCHA verification, editor extensions (custom selectors, form results panel)
   - **formidable-extended-inputs** — provides the optional extra field types, as a separate module so a site can stay on the core set
   - **formidable-jexperience-engine** — integrates the forms with jExperience when it is installed: fields mapped to the visitor's profile from a **jExperience** section of the editor, the form's identity in jCustomer (Java/OSGi, depends on `formidable-engine` and `jexperience`; the mapping rule, the submission event and the prefill follow — see [`docs/architecture/jexperience-integration.md`](docs/architecture/jexperience-integration.md))
+  - **formidable-forms-import** — imports the forms and results of Jahia Forms into a site, from an **Import** button of the Results page: installed next to the engine when a site migrates, left out otherwise
 - 1 npm package, [`@jahia/formidable-library`](packages/formidable/README.md) — the markup contract and input-mask behaviour a module of your own builds on to render form fields, published with each release
 
 ### Current known limitations

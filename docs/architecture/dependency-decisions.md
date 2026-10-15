@@ -76,6 +76,24 @@ This project uses two distinct dependency strategies in its Java modules:
   - keep the current package-level SPI isolation as the intermediate step
   - revisit the split only if Formidable gains multiple external consumers or if OSGi refresh cascades become an operational issue
 
+## `formidable-forms-import`
+
+### Provided libraries
+
+- `org.jahia.modules:formidable-engine` — `provided`, for the exported `api` package only (`FormResultsStore`, `CaptchaSetup`,
+  `ChoiceOptionsSources`, `VisitorProfileSchema`, the `Fmdb*` names); imported as `org.jahia.modules.formidable.engine.api;version="[0.6,1)"`,
+  the engine the import was split out of. `EngineBoundaryTest` reads the module's sources and refuses any other engine package:
+  the whole engine jar is on the compile classpath, only the api resolves at runtime.
+- `commons-fileupload` (the multipart upload of the export), `org.quartz-scheduler:quartz` (the dry run and the import are jobs
+  of Jahia's scheduler), `org.json` — all `provided`, the platform ships them.
+- `commons-lang:commons-lang` — referenced by the signatures of the JCR wrappers the unit tests mock, never called directly.
+
+### Notes
+
+- Nothing is exported (`Export-Package: !*`): the import is a feature, not a contract. `Jahia-Depends: formidable-engine`.
+- The jContent app (the **Import** action of the Results page toolbar) is a federated bundle of its own, built like the
+  engine's; what it needs of the page's own app (the UI context, a file size, a download, two queries) is copied, not shared.
+
 ## `formidable-jexperience-engine`
 
 ### Provided libraries

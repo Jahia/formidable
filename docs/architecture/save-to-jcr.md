@@ -236,7 +236,7 @@ The component receives the page as props — `siteKey`, `selectedForm` (the entr
 shows: an action a setting or a right hides returns null. An action that declares `buttonLabel`,
 `buttonIcon`, `isDisabled` and `onClick` instead of a component is rendered as a ghost button like the
 page's own. The actions sit after the page's buttons, and the page shows them on an empty site too, where an
-import starts. The first action is the **Import** of the Forms import ([Forms import](forms-import.md)).
+import starts. The first action is the **Import** of the Forms import, registered by its module, `formidable-forms-import` ([Forms import](forms-import.md)).
 
 ## Notes
 
