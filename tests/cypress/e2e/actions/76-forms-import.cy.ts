@@ -16,7 +16,7 @@ const WITH_FILE = {submission: '2dd1fe78-e095-4f47-ab08-b5c30df47a4b', fileName:
 const NO_IDS_EXPORT = 'cypress/fixtures/imports/formFactory-no-ids.zip';
 const NOT_A_ZIP = 'cypress/fixtures/imports/conditional-logic-form.xml';
 const FORMS_IMPORT_PID = 'org.jahia.modules.formidable.formsImport';
-const IMPORT_ENDPOINT = '/modules/formidable-engine/import';
+const IMPORT_ENDPOINT = '/modules/formidable-forms-import/import';
 
 /** The anonymised sample export: 3 forms, 106 submissions. */
 const SAMPLE = {

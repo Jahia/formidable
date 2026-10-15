@@ -1,0 +1,261 @@
+{
+	"formResults": {
+		"actions": {
+			"import": "Importer les résultats de Jahia Forms",
+			"importTitle": "Importer les formulaires et résultats de Jahia Forms dans ce site"
+		},
+		"import": {
+			"title": "Importer les résultats de Jahia Forms",
+			"description": "Rapatrier dans ce site les résultats des formulaires d’un export Jahia Forms.",
+			"dropzone": "Déposez ici l'export du nœud formFactory du site, un fichier .zip",
+			"chooseFile": "Choisir un fichier",
+			"fileHint": "Faites l'export dans l'explorateur de dépôt : clic droit sur le nœud formFactory du site, Export, puis Export Zip with live content. Jusqu'à {{max}} Mo.",
+			"analysing": "Analyse de {{file}}…",
+			"importing": "Import de {{file}}…",
+			"review": {
+				"title": "Ce que l'import va faire"
+			},
+			"report": {
+				"totals": "{{submissions}} soumission(s) à importer dans {{forms}} formulaire(s)",
+				"nothing": "Rien à importer : chaque formulaire et chaque soumission sont déjà dans ce site.",
+				"submissions": "{{count}} soumission(s)",
+				"imported": "{{count}} soumission(s) importée(s)",
+				"already": "{{count}} déjà importée(s)",
+				"fields": "{{count}} champ(s)",
+				"files": "{{count}} fichier(s), {{size}}",
+				"filesMissing": "{{count}} fichier(s) absent(s) de l’export, laissé(s) de côté",
+				"values": "{{dropped}} valeur(s) écartée(s), {{notConverted}} gardée(s) telles quelles",
+				"failed": "{{count}} non écrite(s), voir le journal d’import"
+			},
+			"choice": {
+				"resultsOnly": "Résultats seuls",
+				"create": "Créer le formulaire",
+				"attach": "Rattacher à un formulaire existant",
+				"skip": "Ne pas importer",
+				"add": "Ajouter les nouvelles soumissions"
+			},
+			"actions": {
+				"import": "Importer",
+				"cancel": "Annuler",
+				"close": "Fermer",
+				"tryAgain": "Réessayer",
+				"downloadLog": "Télécharger le journal d’import"
+			},
+			"done": {
+				"title": "Import terminé",
+				"totals": "{{submissions}} soumission(s) importée(s) dans {{forms}} formulaire(s)",
+				"created": "Les formulaires créés ne sont pas publiés : relisez chacun, voyez ce que ses Remarques demandent de revoir, puis publiez-le."
+			},
+			"failed": {
+				"title": "L'import a échoué"
+			},
+			"error": {
+				"notZip": "Le fichier doit être un export .zip",
+				"tooLarge": "Le fichier dépasse {{max}} Mo",
+				"unexpected": "Une erreur est survenue, voir le journal du serveur"
+			},
+			"attach": {
+				"form": "Formulaire",
+				"pickForm": "Choisir un formulaire du site",
+				"noForms": "Le site n’a pas encore de formulaire",
+				"mapping": "Où atterrissent les valeurs de chaque champ",
+				"keep": "Garder le nom",
+				"noFields": "Ce formulaire n’a aucun champ : chaque valeur garde son nom",
+				"sameName": "même nom",
+				"sameLabel": "même libellé",
+				"conflict": "Deux champs ne peuvent pas atterrir sous le même nom, ni sous le nom d’un autre champ de la source : {{names}}",
+				"unmatched": "{{count}} valeur(s) ne correspondent à aucune option de ce champ : {{values}}"
+			},
+			"columns": {
+				"form": "Formulaire",
+				"choice": "Que faire",
+				"result": "Résultat",
+				"todo": "Remarques"
+			},
+			"plan": {
+				"resultsOnly": "Ses soumissions s’affichent sur cette page, sans formulaire.",
+				"created": "Crée le formulaire, non publié, dans le dossier Imported from Jahia Forms, avec ses soumissions.",
+				"attached": "Ses soumissions rejoignent les résultats de « {{name}} ».",
+				"attachPending": "Choisissez le formulaire que ses soumissions rejoignent.",
+				"found": "Déjà importé : ses nouvelles soumissions rejoignent « {{name}} ».",
+				"foundNothing": "Déjà importé, rien de nouveau.",
+				"skipped": "Rien n’est importé. Réimporter le même export le proposera de nouveau."
+			},
+			"outcome": {
+				"resultsOnly": "Sur cette page, sans formulaire",
+				"created": "Formulaire « {{name}} » créé, non publié",
+				"attached": "A rejoint « {{name}} »",
+				"found": "A rejoint « {{name}} »",
+				"skipped": "Non importé"
+			},
+			"todo": {
+				"count": "{{count}} à revoir",
+				"details": "Détails"
+			},
+			"notes": {
+				"action": "À revoir",
+				"info": "Repris"
+			},
+			"after": {
+				"editable": "modifiable",
+				"readOnly": "en lecture seule",
+				"hidden": "masqué"
+			},
+			"types": {
+				"inputText": "texte",
+				"inputEmail": "e-mail",
+				"textarea": "zone de texte",
+				"select": "liste déroulante",
+				"radio": "boutons radio",
+				"checkbox": "cases à cocher",
+				"inputDate": "date",
+				"inputNumber": "nombre",
+				"inputFile": "fichier",
+				"inputHidden": "caché",
+				"consent": "consentement",
+				"rating": "note",
+				"switch": "interrupteur"
+			},
+			"note": {
+				"field": {
+					"setting": "Son réglage {{setting}} n’est pas repris : un champ {{type}} n’en a pas",
+					"createdAsFallback": "Créé comme champ {{type}} : le champ {{preferred}} n’est pas installé ici",
+					"createdAsNearest": "Créé comme champ {{type}}, le plus proche : Formidable n’a pas de champ {{kind}}",
+					"createdAsText": "Créé comme champ texte : Formidable n’a pas d’équivalent de {{source}}",
+					"logic": "Sa logique conditionnelle n’est pas reprise : reconstruisez-la",
+					"prefillOther": "Son préremplissage ({{prefill}}) n’est pas repris : liez plutôt le champ au profil visiteur",
+					"prefillAlreadyMapped": "Son second préremplissage, depuis {{property}}, n’est pas repris : un champ n’a qu’un lien au profil visiteur",
+					"prefillNoIntegration": "Non lié à la propriété {{property}} du profil visiteur : l’intégration jExperience n’est pas installée",
+					"prefillNotMappable": "Non lié à la propriété {{property}} du profil visiteur : un champ {{type}} ne peut pas être lié",
+					"profilePrefilled": "Lié à la propriété {{property}} du profil visiteur, prérempli depuis elle, {{after}} une fois rempli",
+					"profileMapped": "Lié à la propriété {{property}} du profil visiteur, sans préremplissage",
+					"rule": "Sa règle {{rule}} n’est pas reprise : un champ {{type}} n’a pas cette règle",
+					"ruleMessage": "Le message personnalisé de sa règle {{rule}} n’est pas repris",
+					"fileTypes": "Ses types de fichiers acceptés ({{types}}) ne sont pas repris : réglez-les à la main",
+					"noChoices": "Aucune option dans l’export : ajoutez-les à la main",
+					"noCountries": "Aucun pays dans l’export : ajoutez les options à la main, ou déclarez une source d’options de pays",
+					"termsLink": "Le lien vers les conditions ({{link}}) n’est pas repris : ajoutez-le à l’énoncé",
+					"prefillUnknownProperty": "Non lié à la propriété {{property}} du profil visiteur : jCustomer n’a pas cette propriété. Créez-la, puis liez le champ",
+					"prefillIncompatible": "Non lié à la propriété {{property}} du profil visiteur : son type ne convient pas à un champ {{type}}",
+					"profileUnchecked": "Lié à la propriété {{property}} du profil visiteur, sans vérification : jCustomer était injoignable. Vérifiez que la propriété existe"
+				},
+				"form": {
+					"fromLabels": "Reconstruit à partir des libellés de ses résultats : Jahia Forms ne contient plus le formulaire",
+					"submitterMail": "Le mail à l’auteur de la soumission est devenu une notification sans destinataire : complétez-la ou supprimez-la",
+					"redirect": "La redirection de page (vers {{target}} sur le site source) n’est pas reprise : Formidable n’a pas encore de redirection",
+					"action": "L’action {{action}} n’est pas reprise : Formidable n’a pas d’équivalent",
+					"notSaved": "Jahia Forms n’enregistrait pas ses soumissions : ajoutez Save to JCR pour les conserver",
+					"mailCopies": "Les destinataires en copie de la notification ({{copies}}) ne sont pas repris",
+					"mailBody": "Le corps du mail de notification n’est pas repris",
+					"saveForLater": "« Enregistrer le formulaire pour plus tard » n’est pas repris : Formidable n’a pas cette fonction",
+					"constraints": "Les limites de soumission ne sont pas reprises : Formidable n’a pas cette fonction",
+					"captchaOn": "Captcha activé, avec le captcha de cette instance",
+					"captchaOff": "Captcha non activé : cette instance n’en a pas, configurez-en un puis ajoutez-le au formulaire",
+					"passwordDropped": "Le champ mot de passe {{field}} n’est pas recréé : il serait stocké et envoyé en clair",
+					"contentDisplayDropped": "L’affichage de contenu {{field}} n’est pas recréé : il ne soumet rien",
+					"fieldDropped": "Le champ {{field}} ({{source}}) n’est pas recréé",
+					"redirectNoTarget": "La redirection n’est pas reprise : Formidable n’a pas encore de redirection"
+				},
+				"submission": {
+					"keptUnderSourceName": "{{field}} : gardé sous son nom Forms {{name}}, le formulaire n’a pas de champ pour lui",
+					"passwordDropped": "{{field}} : un mot de passe, non importé",
+					"notConverted": "{{field}} : {{count}} valeur(s) gardée(s) telles quelles, elles n’ont pas pu être converties",
+					"consentUnknown": "{{field}} : {{count}} valeur(s) gardée(s) telles quelles, ni le texte accepté ni le texte refusé",
+					"duplicateTarget": "{{field}} : écarté, une autre réponse de la soumission remplit le même champ",
+					"fileMissing": "Le fichier {{file}} n’est pas dans l’export : laissé de côté",
+					"writeFailed": "Non écrite : {{reason}}. Importer à nouveau le même export la retente",
+					"noForm": "Des résultats {{form}}, auxquels aucun formulaire de l’export ne correspond : non importée"
+				}
+			},
+			"terms": {
+				"rules": {
+					"requiredValidation": "obligatoire",
+					"emailValidation": "format d’e-mail",
+					"rangeValidation": "plage de valeurs",
+					"rangeLengthValidation": "plage de longueur",
+					"regexValidation": "motif",
+					"fileValidation": "types de fichiers",
+					"fileNumberValidation": "nombre de fichiers",
+					"equalToValidation": "égal à un autre champ"
+				},
+				"prefills": {
+					"userInfoPrefill": "informations utilisateur",
+					"geolocationPrefill": "géolocalisation"
+				},
+				"actions": {
+					"sendEmailToSubmitterAction": "mail à l’auteur",
+					"redirectToUrlAction": "redirection vers une URL",
+					"redirectToAPageAction": "redirection vers une page"
+				},
+				"kinds": {
+					"phone": "téléphone",
+					"matrixRadios": "matrice de boutons radio",
+					"matrixCheckBoxes": "matrice de cases à cocher",
+					"switch": "interrupteur",
+					"rating": "note",
+					"acceptTermCheckbox": "acceptation des conditions"
+				},
+				"sources": {
+					"passwordDefinition": "mot de passe",
+					"contentDisplayDefinition": "affichage de contenu"
+				},
+				"settings": {
+					"helpText": "texte d’aide",
+					"required": "obligatoire",
+					"placeholder": "texte indicatif",
+					"minLength": "longueur minimale",
+					"maxLength": "longueur maximale",
+					"pattern": "motif",
+					"rows": "lignes",
+					"minValue": "minimum",
+					"maxValue": "maximum",
+					"multiple": "valeurs multiples",
+					"accept": "types de fichiers acceptés",
+					"value": "valeur",
+					"optionsEmptyLabel": "libellé de l’option vide",
+					"onLabel": "libellé activé",
+					"offLabel": "libellé désactivé",
+					"statement": "énoncé"
+				}
+			},
+			"profile": {
+				"title": "Lié au profil visiteur (jExperience)",
+				"prefill": "préremplissage",
+				"unchecked": "non vérifié, jCustomer était injoignable",
+				"failed": {
+					"field": {
+						"prefillUnknownProperty": "jCustomer n’a pas cette propriété : créez-la, puis liez le champ",
+						"prefillIncompatible": "son type ne convient pas à ce champ",
+						"prefillNoIntegration": "l’intégration jExperience n’est pas installée",
+						"prefillNotMappable": "ce type de champ ne peut pas être lié"
+					}
+				},
+				"hint": "Vous pourrez revoir ces liaisons après l’import, dans la section jExperience de chaque champ.",
+				"exists": "la propriété existe, la liaison est écrite",
+				"missing": "la liaison n’est pas écrite",
+				"columns": {
+					"field": "Champ",
+					"property": "Propriété du profil",
+					"prefilled": "Préremplissage",
+					"status": "État"
+				}
+			},
+			"markdown": {
+				"title": "Journal d’import Jahia Forms",
+				"site": "Site",
+				"file": "Export",
+				"date": "Date",
+				"done": "Import terminé",
+				"stopped": "L’import s’est arrêté avant la fin : {{reason}}. Ce qu’il a écrit reste ; importez à nouveau le même export pour continuer.",
+				"totals": "{{imported}} soumission(s) importée(s), {{failed}} non écrite(s)",
+				"incidents": "Ce que les soumissions ont perdu",
+				"incidentsOmitted": "{{count}} de plus, non listé(s)",
+				"orphans": "Soumissions sans formulaire",
+				"submission": "soumission {{id}}"
+			}
+		},
+		"detail": {
+			"close": "Fermer"
+		}
+	}
+}

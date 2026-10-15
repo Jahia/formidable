@@ -18,7 +18,7 @@ as it is, your comments stay, and a line the module does not know is left in pla
 file comes back at its default at the next start, which is the value the module applied without it anyway. The
 [upgrade notes](upgrade-notes.md#settings-added-to-the-configuration-files) list the settings each version adds.
 A configuration made without a file (the Felix console) is not completed. The Forms import file is read as it
-stands, never completed: it ships whole with the import, which is to move into a module of its own.
+stands, never completed: it ships whole with the import, a module of its own (`formidable-forms-import`).
 
 ## The six themes
 
@@ -29,7 +29,7 @@ stands, never completed: it ships whole with the import, which is to move into a
 | Choice options | `org.jahia.modules.formidable.choiceOptions` | `optionsSourcesCacheTtlSeconds`, `optionsQueryMaxResults`; the sources, one file each (below) | the options sources a choice field may pick — [Choice field options sources](../architecture/choice-field-options-sources.md#declaring-sources-administrator) |
 | Form actions | `org.jahia.modules.formidable.formActions` | `enableDevForwardTargets`, `forwardHttpConnectTimeoutSeconds`, `forwardHttpRequestTimeoutSeconds`; the forward targets, one file each (below) | the forward action and its target picker |
 | Field actions | `org.jahia.modules.formidable.fieldActions` | `enableDevFieldActionEndpoints`, `fieldActionHttpConnectTimeoutSeconds`, `fieldActionHttpRequestTimeoutSeconds`, `fieldActionVerdictCacheTtlSeconds`, `fieldActionRateLimitPerMinute`, `fieldActionMaxValueLength`, `fieldActionMaxValuesPerField` | the calls of the field actions (and whether a development endpoint may be called) and the pre-check endpoint; the service a check calls is in its own module's configuration — [Field actions: services and limits](field-actions.md) |
-| Forms import | `org.jahia.modules.formidable.formsImport` | `importButtonEnabled`, `maxFileSizeMb` | the **Import** button of the Results page and the bound on the export it takes — [Importing the forms and results of Jahia Forms](forms-import.md) |
+| Forms import | `org.jahia.modules.formidable.formsImport` | `importButtonEnabled`, `maxFileSizeMb` | the **Import** button of the Results page and the bound on the export it takes — [Importing the forms and results of Jahia Forms](forms-import.md). Shipped by `formidable-forms-import`, not by the engine: the file exists once that module is installed |
 
 The setting names are the ones of the single file of earlier builds but one — `uploadAllowedMimeTypes` is now
 `uploadAllowedTypes`, since it takes extensions too — except two of the lists, which are now one file per

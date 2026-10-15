@@ -55,6 +55,7 @@ export default defineConfig(
       // formidable-engine/.gitignore (the generated module-federation bundle,
       // ~600 false positives when linted).
       "formidable-engine/src/main/resources/javascript/apps/**",
+      "formidable-forms-import/src/main/resources/javascript/apps/**",
     ],
   },
 );

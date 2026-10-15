@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <artifactId>formidable</artifactId>
+        <groupId>org.jahia.modules</groupId>
+        <version>0.6.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>formidable-forms-import</artifactId>
+    <name>Formidable Forms Import</name>
+    <packaging>bundle</packaging>
+    <description>The import of the forms and results of Jahia Forms into Formidable: the Import button and dialog of the Results page, the dry run and the import as jobs of the scheduler, the converters of the export (docs/architecture/forms-import.md)</description>
+
+    <properties>
+        <!-- The engine: its api is the one package this module compiles against (FormResultsStore, CaptchaSetup,
+             ChoiceOptionsSources, VisitorProfileSchema, the name holders), and the Results page the import's
+             button sits in. -->
+        <jahia-depends>formidable-engine</jahia-depends>
+        <sonar.sources>src,package.json,pom.xml</sonar.sources>
+        <!-- The module signature, computed from the pom by the keymaker
+             (java -jar keymaker-cli.jar pom -f pom.xml -s); the CI's update-signature job keeps it current. -->
+        <jahia-module-signature>MCwCFFmtGT8DurM5HEAnVPojGdcHJFHGAhRvzV71L8uXlE42s/1hwpkyxyX4qQ==</jahia-module-signature>
+        <!-- The module signature, computed from the pom by the keymaker
+             (java -jar keymaker-cli.jar pom -f pom.xml -s); the CI's update-signature job keeps it current. -->
+    </properties>
+
+    <dependencies>
+        <!-- The api package is all the module uses of the engine at runtime: the engine exports nothing else. -->
+        <dependency>
+            <groupId>org.jahia.modules</groupId>
+            <artifactId>formidable-engine</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jahia.server</groupId>
+            <artifactId>jahia-impl</artifactId>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>javax.jcr</groupId>
+            <artifactId>jcr</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.osgi</groupId>
+            <artifactId>osgi.core</artifactId>
+            <version>${osgi.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.osgi</groupId>
+            <artifactId>osgi.cmpn</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.osgi</groupId>
+            <artifactId>osgi.annotation</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <!-- The multipart upload of the export (ImportServlet). -->
+        <dependency>
+            <groupId>commons-fileupload</groupId>
+            <artifactId>commons-fileupload</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <!-- The dry run and the import are jobs of Jahia's scheduler (FormsImportJob, ImportJobs). -->
+        <dependency>
+            <groupId>org.quartz-scheduler</groupId>
+            <artifactId>quartz</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <!-- Mockito needs the supertypes of the Jahia types it mocks (org.apache.commons.lang.mutable). -->
+        <dependency>
+            <groupId>commons-lang</groupId>
+            <artifactId>commons-lang</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>maven-bundle-plugin</artifactId>
+                <extensions>true</extensions>
+                <configuration>
+                    <instructions>
+                        <_dsannotations>*</_dsannotations>
+                        <!-- Nothing is exported: the import is a feature, not a contract. -->
+                        <Export-Package>!*</Export-Package>
+                        <!-- The engine's api from 0.6, the version this module was split out of. -->
+                        <Import-Package>
+                            org.jahia.modules.formidable.engine.api;version="[0.6,1)",
+                            org.json,
+                            org.osgi.service.http,
+                            *
+                        </Import-Package>
+                    </instructions>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-clean-plugin</artifactId>
+                <configuration>
+                    <filesets>
+                        <fileset>
+                            <directory>${project.basedir}/src/main/resources/javascript/apps/</directory>
+                            <includes>
+                                <include>*</include>
+                            </includes>
+                        </fileset>
+                    </filesets>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>install node and yarn - Formidable Forms Import</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>yarn</executable>
+                            <arguments>
+                                <argument>install</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>yarn lint - Formidable Forms Import</id>
+                        <phase>process-sources</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>yarn</executable>
+                            <arguments>
+                                <argument>lint</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>yarn build - Formidable Forms Import</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>yarn</executable>
+                            <arguments>
+                                <argument>build</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <release>17</release>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

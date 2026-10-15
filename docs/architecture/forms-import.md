@@ -1,8 +1,8 @@
 # Importing forms and results from Jahia Forms
 
 Specification of the import of [Jahia Forms](https://github.com/Jahia/forms-core) (`forms-core` 3.x) forms
-and submissions into Formidable. Status: iteration 1 implemented in the engine (the reader and the converters first, then the writer, the
-job and the Results page dialog); iteration 2 implemented for the choice at import time (the results alone, a form created, an
+and submissions into Formidable. Status: iteration 1 implemented (the reader and the converters first, then the writer, the
+job and the Results page dialog), in a module of its own, `formidable-forms-import`, since 0.6; iteration 2 implemented for the choice at import time (the results alone, a form created, an
 attachment to an existing form with its mapping). The **Attach to another form** action on an entry was withdrawn before its
 release: it showed on the entries that hold imported results alone, and may come back for every entry of the Results page. The
 open points are listed at the end.
@@ -239,10 +239,10 @@ of one field land under one name, the system name of the field in the recreated 
 | `imported-forms` | A `jnt:contentFolder` titled *Imported from Jahia Forms*, created by the first import when the site has none. |
 | `<formName>` | A `fmdb:form` with `fmdbmix:importedForm`, named after the Forms form, or the next free name in the folder. [The forms](#the-forms-1) gives its content. |
 | `fields/<fieldName>` | One field per Forms field, named as [The system names](#the-system-names) says, with `fmdbmix:importedField`. A form with several steps holds one `fmdb:step` per `fcnt:step` under `fields`, and the fields of that step under it. |
-| `<entry>` | The `fmdb:formResults` of the new form, as `SaveToJcrFormAction` creates it: named after the form, or the next free name, `parentForm` set to the form, `buildingLang` from Forms, the ACL inheritance broken. It carries `fmdbmix:importedResults`. From iteration 2, the entry of a Forms form imported with the default choice has no `parentForm` (see [Results only](#results-only)). |
-| `<submission>` | A `fmdb:formSubmission` with `fmdbmix:importedSubmission`. It is named `submission-<yyyyMMdd-HHmmss>-<xxx>` from the original date, in UTC, as `SaveToJcrFormAction` names it. |
+| `<entry>` | The `fmdb:formResults` of the new form, as the engine creates it (`FormResultsStore`): named after the form, or the next free name, `parentForm` set to the form, `buildingLang` from Forms, the ACL inheritance broken. It carries `fmdbmix:importedResults`. From iteration 2, the entry of a Forms form imported with the default choice has no `parentForm` (see [Results only](#results-only)). |
+| `<submission>` | A `fmdb:formSubmission` with `fmdbmix:importedSubmission`. It is named `submission-<yyyyMMdd-HHmmss>-<xxx>` from the original date, in UTC, as the engine names it. |
 | `data` | The `fmdb:submissionData` node: one string property per field name, multiple for several answers. |
-| `files/<fieldName>/<file>` | A `jnt:folder`, a `jnt:folder` and a `jnt:file`, as `SaveToJcrFormAction` writes them. |
+| `files/<fieldName>/<file>` | A `jnt:folder`, a `jnt:folder` and a `jnt:file`, as the engine writes them. |
 | `import-jobs/<job>` | The jobs of [Running it](#running-it). |
 
 ### The forms
@@ -431,7 +431,12 @@ Forms: `sourceSystem` does.
  - report (string) indexed=no
  - message (string) indexed=no
  - updated (date) indexed=no
+ - choices (string) indexed=no
  + file (jnt:file) = jnt:file
+
+// The results root of a site may hold the jobs node: set on the root by the first import of the site.
+[fmdbmix:importJobsParent] mixin
+ + * (fmdb:importJobs)
 ```
 
 Every property of the four markers is `hidden`: the import and the attachment write and read them, and a
@@ -439,8 +444,10 @@ contributor who opens an imported form or field in the editor has nothing to do 
 Editor does not show them. `ImportMarkersCndTest` holds the rule: a marker property without the flag fails the
 build.
 
-`fmdb:resultsFolder` gets one child of type `fmdb:importJobs`, for the jobs of [Running it](#running-it):
-a residual child in the CND, found by its type and named `import-jobs` unless a results entry, which is
+`fmdb:resultsFolder` takes one child of type `fmdb:importJobs`, for the jobs of [Running it](#running-it), through
+`fmdbmix:importJobsParent`, a mixin of the module that the first import of the site sets on the root (the
+repository checks a child against the mixins a node carries: an `extends` in the CND would not do):
+a residual child, found by its type and named `import-jobs` unless a results entry, which is
 named after its form, holds that name already. Its ACL inheritance is broken, as on a results entry, so
 the jobs and their files stay with the administrators.
 
@@ -745,27 +752,35 @@ The page shows the mapping as a dry run before it writes anything.
 An attachment cannot be undone, except by attaching the same source again, to the same `F` with another
 mapping or to another form.
 
-## The boundary with the engine
+## The module
 
-The import is to move into a module of its own. It therefore reaches the rest of the engine through
-`org.jahia.modules.formidable.engine.api` only, as that module will: `FormResultsStore` for the results of
-the site (the root, an entry's own ACL, the day split, the submission names, the readers synced from the form),
-`CaptchaSetup` and `ChoiceOptionsSources` for what the configuration lets a form carry,
-`VisitorProfileSchema` for the profile properties, and the name holders of the content model. The two
-workspaces and the path of a site are facts of the repository the import keeps for itself (`ImportJcr`), and the
-file nodes it writes go through its own copy of the engine's JCR file helper (`ImportFiles`: a stream that fails
-to read fails the write with the cause, where `JCRNodeWrapper.uploadFile` only logs it and leaves a resource
-without data for the save to refuse). A unit
-test, `ImportBoundaryTest`, reads the sources of the import and fails on any other package of the engine
-they name. Its configuration file is read as the framework hands it over, without the completion of absent
-keys the engine applies to its own theme files.
+The import is a module of its own, `formidable-forms-import` (Java and a jContent app), installed next to the
+engine when a site migrates and left out otherwise. It reaches the engine through
+`org.jahia.modules.formidable.engine.api` only, the one package the engine exports: `FormResultsStore` for the
+results of the site (the root, an entry's own ACL, the day split, the submission names, the readers synced from
+the form), `CaptchaSetup` and `ChoiceOptionsSources` for what the configuration lets a form carry,
+`VisitorProfileSchema` for the profile properties, and the name holders of the engine's content model. Its own
+types — the jobs, the markers, the mixin it sets on the results root so that it holds the jobs — are declared in its CND and
+named from its own holders (`FormsImportNodeType`, `FormsImportMixin`). The two workspaces and the path of a
+site are facts of the repository it keeps for itself (`ImportJcr`), and the file nodes it writes go through its
+own copy of the engine's JCR file helper (`ImportFiles`: a stream that fails to read fails the write with the cause,
+where `JCRNodeWrapper.uploadFile` only logs it and leaves a resource without data for the save to refuse). A unit
+test, `EngineBoundaryTest`, reads the
+module's sources and fails on any other package of the engine they name: the whole engine jar is on the compile
+classpath, only the api resolves at runtime. Its configuration file ships with it and is read as the framework
+hands it over, without the completion of absent keys the engine applies to its own theme files.
 
-On the Results page, the **Import** button and its dialog are an action registered on the toolbar's registry
-target (`formidable-results/toolbar`, see [Save to JCR](save-to-jcr.md#the-toolbar-of-the-results-page)):
-the page knows nothing of the import, and an entry without a form shows as **No form** from its missing
-`parentForm` alone, not from the import's marker. What the move still has to take along: the holders of the
-import's own types (`fmdb:importJobs`, `fmdb:importJob`, the four markers), the CND, the configuration file and
-its OCD, the endpoint under the module's own path, the locales and the jContent app that registers the action.
+On the Results page, the **Import** button and its dialog are an action the module registers on the toolbar's
+registry target (`formidable-results/toolbar`, see [Save to JCR](save-to-jcr.md#the-toolbar-of-the-results-page))
+from its own federated app: the page knows nothing of the import, and an entry without a form shows as **No form**
+from its missing `parentForm` alone, not from the import's marker. The endpoint of the dialog sits under the
+module's own path, `/modules/formidable-forms-import/import`.
+
+Deploying the module on an instance whose engine once declared these types (a development build before 0.6):
+Jahia keeps a type registered by the module that first declared it, so the engine's redeploy leaves them as
+ghosts of the engine and the module's CND would clash. Remove the import content, redeploy the engine, unregister
+the six types (`tools/ghost-types.mjs` of the repository's local tools), then install the module. A released
+engine never declared them.
 
 ## Tests
 

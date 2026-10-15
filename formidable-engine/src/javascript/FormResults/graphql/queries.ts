@@ -201,27 +201,3 @@ export const GET_FORM_FIELD_LABELS = gql`
     }
 `;
 
-/**
- * The forms of the site the imported results can attach to, unpublished ones included, and the default
- * language of the site, where the options of a choice field are always held: the statement comes from
- * buildSiteFormsQuery (import.utils.ts), the variables from siteFormsVariables.
- */
-export const GET_SITE_FORMS = gql`
-    ${JCR_NODE_IDENTITY}
-    query GetSiteForms($formsQuery: String!, $language: String!, $sitePath: String!) {
-        jcr(workspace: EDIT) {
-            nodesByQuery(query: $formsQuery, queryLanguage: SQL2) {
-                nodes {
-                    ...JcrNodeIdentity
-                    displayName(language: $language)
-                }
-            }
-            site: nodeByPath(path: $sitePath) {
-                ...JcrNodeIdentity
-                defaultLanguage: property(name: "j:defaultLanguage") {
-                    value
-                }
-            }
-        }
-    }
-`;

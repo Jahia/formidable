@@ -4,6 +4,10 @@ A site that collected submissions with Jahia Forms (`forms-core` 3.x) moves to F
 them: the import recreates each Forms form as a Formidable form, and writes every submission Forms saved as
 a result of that form. The design is in [Importing forms and results from Jahia Forms](../architecture/forms-import.md).
 
+The import is a module of its own, `formidable-forms-import`, installed next to the engine: without it the
+Results page has no **Import** button and the setting below does not exist. Install it for the time of a
+migration, or keep it.
+
 ## What you get
 
 - One results entry per Forms form, with every submission Forms saved, its files included, dated as the
