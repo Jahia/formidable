@@ -1,0 +1,36 @@
+<nt = 'http://www.jcp.org/jcr/nt/1.0'>
+<mix = 'http://www.jcp.org/jcr/mix/1.0'>
+<jnt = 'http://www.jahia.org/jahia/nt/1.0'>
+<fmdbmix = 'http://www.jahia.org/jahia/fmdb/mix/1.0'>
+<fmdbcnt = 'http://www.jahia.org/jahia/fmdbcnt/nt/1.0'>
+
+// Formidable Content: the "Create content" form action. A signed-in user's submission becomes a content node of a
+// chosen type (the form's fields fill its properties), the uploaded files become jnt:file nodes the content references,
+// and both are published. Everything is configured here, on the action node; nothing is configured in a file.
+// The action refuses guests, and writes only in a folder the submitter's own live session can read (the subfolder named
+// by their group). It carries no fmdbmix:readOnlyCompatibleAction: it writes.
+//
+// The mapping settings are lines of text, one per value:
+//   fieldMappings     formField=property       the field's value, converted to the property's type
+//   fileMappings      fileField=property       the field's files, stored and referenced by the (weak)reference property
+//   fileProperties    formField=fileProperty   the field's value written on every stored file
+//   fixedValues       property=value           a constant (repeat the line for a multiple property)
+//   requiredPairs     dependentField<-field:mimePattern   e.g. captions<-media:video/*
+[fmdbcnt:createContentAction] > jnt:content, fmdbmix:formAction, mix:title
+ - jcr:title (string) = resourceBundle('fmdbcnt_createContentAction') autocreated i18n
+ - contentType (string) mandatory indexed=no
+ - parentFolder (weakreference) mandatory
+ - filesFolder (weakreference, picker[type='folder'])
+ - groupPrefix (string) indexed=no
+ - titleField (string, choicelist[formidableContentFields='any']) indexed=no
+ - fieldMappings (string) multiple indexed=no
+ - fileMappings (string) multiple indexed=no
+ - fileMixin (string) indexed=no
+ - fileProperties (string) multiple indexed=no
+ - fixedValues (string) multiple indexed=no
+ - submitterProperty (string) indexed=no
+ - organizationProperty (string) indexed=no
+ - pageProperty (string) indexed=no
+ - requiredPairs (string) multiple indexed=no
+ - pairRefusalMessage (string) i18n indexed=no
+ - publish (boolean) = true autocreated indexed=no

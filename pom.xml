@@ -57,6 +57,7 @@
         <module>formidable-jexperience-engine</module>
         <module>formidable-forms-import</module>
         <module>formidable-accounts</module>
+        <module>formidable-content</module>
         <module>jahia-test-module</module>
     </modules>
 
