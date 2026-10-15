@@ -56,7 +56,12 @@
 	margin-bottom: var(--fmdb-zone-actions-margin, 1rem);
 }
 
+/* contain: inline-size: the zone takes the width of the column it sits in and never asks for
+   one. Its lines do not wrap (they end on an ellipsis), so without it a long description is
+   the min-content width of the form, and a template set's flex column holding the form
+   cannot shrink below it: the columns beside it wrap under it, in the Page Builder only. */
 .fmdb-authoring-actions {
+	contain: inline-size;
 	box-sizing: border-box;
 	padding: var(--fmdb-zone-actions-padding, 0.75rem);
 	border: var(--fmdb-zone-actions-border, 1px dashed #b8bcc4);
@@ -221,6 +226,7 @@
    The captcha of a form, left out while authoring, takes the same line in its place: a shield,
    "Captcha", and where it shows. */
 .fmdb-authoring-hidden-field {
+	contain: inline-size; /* one line that does not wrap: see .fmdb-authoring-actions */
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
