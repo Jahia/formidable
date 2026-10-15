@@ -1,7 +1,7 @@
 # Configuration files
 
 The engine is configured through five OSGi configuration files, one per theme, and the Forms import module
-through one file of its own, read the same way, all under
+through one file of its own, read as it stands (below), all under
 `digital-factory-data/karaf/etc/`. The module ships each file with every setting at its default and a
 comment for each; Jahia copies a file there the first time the module starts without it, and never
 overwrites the copy afterwards (its first line is the `# default configuration` marker the extender looks

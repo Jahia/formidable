@@ -24,7 +24,7 @@ class ImportServletTest {
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getMethod()).thenReturn(method);
         when(request.getPathInfo()).thenReturn(path);
-        when(request.getRequestURI()).thenReturn("/modules/formidable-engine/import" + path);
+        when(request.getRequestURI()).thenReturn("/modules/formidable-forms-import/import" + path);
         return request;
     }
 
