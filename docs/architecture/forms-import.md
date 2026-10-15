@@ -771,7 +771,9 @@ where `JCRNodeWrapper.uploadFile` only logs it and leaves a resource without dat
 test, `EngineBoundaryTest`, reads the
 module's sources and fails on any other package of the engine they name: the whole engine jar is on the compile
 classpath, only the api resolves at runtime. Its configuration file ships with it and is read as the framework
-hands it over, without the completion of absent keys the engine applies to its own theme files.
+hands it over, without the completion of absent keys the engine applies to its own theme files; so does the
+authorization file that declares its API scope, `formidable-import`, the one the endpoint asks the security
+filter for — the engine's own file declares the submit and field-action scopes, nothing of the import.
 
 On the Results page, the **Import** button and its dialog are an action the module registers on the toolbar's
 registry target (`formidable-results/toolbar`, see [Save to JCR](save-to-jcr.md#the-toolbar-of-the-results-page))
