@@ -132,3 +132,62 @@ export function getSignInActionNode(data: {name?: string; loginField?: string; p
 		properties
 	};
 }
+
+export interface CreateContentActionData {
+	name?: string;
+	contentType: string;
+	parentFolderUuid: string;
+	filesFolderUuid?: string;
+	groupPrefix?: string;
+	titleField?: string;
+	fieldMappings?: string[];
+	fileMappings?: string[];
+	fileMixin?: string;
+	fileProperties?: string[];
+	fixedValues?: string[];
+	submitterProperty?: string;
+	organizationProperty?: string;
+	pageProperty?: string;
+	requiredPairs?: string[];
+	pairRefusalMessage?: string;
+	publish?: boolean;
+}
+
+/**
+ * The Create content action of formidable-content (fmdbcnt:createContentAction). The mapping settings are lists of
+ * lines ("formField=property"); the folders are weak references by UUID.
+ */
+export function getCreateContentActionNode(data: CreateContentActionData): JahiaNode {
+	const properties: NodeProperty[] = [
+		{name: 'contentType', value: data.contentType},
+		{name: 'parentFolder', value: data.parentFolderUuid, type: 'WEAKREFERENCE'}
+	];
+	if (data.filesFolderUuid) properties.push({name: 'filesFolder', value: data.filesFolderUuid, type: 'WEAKREFERENCE'});
+	for (const [name, value] of [
+		['groupPrefix', data.groupPrefix],
+		['titleField', data.titleField],
+		['fileMixin', data.fileMixin],
+		['submitterProperty', data.submitterProperty],
+		['organizationProperty', data.organizationProperty],
+		['pageProperty', data.pageProperty]
+	] as Array<[string, string | undefined]>) {
+		if (value) properties.push({name, value});
+	}
+	for (const [name, values] of [
+		['fieldMappings', data.fieldMappings],
+		['fileMappings', data.fileMappings],
+		['fileProperties', data.fileProperties],
+		['fixedValues', data.fixedValues],
+		['requiredPairs', data.requiredPairs]
+	] as Array<[string, string[] | undefined]>) {
+		if (values && values.length > 0) properties.push({name, values});
+	}
+	if (data.pairRefusalMessage) properties.push({name: 'pairRefusalMessage', value: data.pairRefusalMessage, language: 'en'});
+	if (data.publish !== undefined) properties.push({name: 'publish', value: String(data.publish), type: 'BOOLEAN'});
+
+	return {
+		name: data.name || 'createContent',
+		primaryNodeType: 'fmdbcnt:createContentAction',
+		properties
+	};
+}

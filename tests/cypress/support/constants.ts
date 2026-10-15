@@ -8,6 +8,7 @@ export const FORMIDABLE_MODULE_IDS = [
 	'formidable-engine',
 	'formidable-extended-inputs',
 	'formidable-accounts',
+	'formidable-content',
 	'formidable-test-module-samples-java'
 ] as const
 
