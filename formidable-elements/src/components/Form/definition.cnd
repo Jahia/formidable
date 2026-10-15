@@ -41,12 +41,17 @@
  extends = fmdb:form
  itemtype = content
 
-[fmdb:actionList] > jnt:content, jmix:list, mix:title, jmix:systemNameReadonly
+// The two lists of a form are its structure, autocreated with it and mandatory: a form without them is
+// broken, and the repository does not enforce `mandatory` on a removal. jmix:hideDeleteAction is the
+// platform's switch for that — jContent hides Delete and Cut on the node and the Page Builder refuses to
+// drag it — as jmix:systemNameReadonly already keeps their names. The form itself stays deletable, lists
+// included.
+[fmdb:actionList] > jnt:content, jmix:list, mix:title, jmix:systemNameReadonly, jmix:hideDeleteAction
  orderable
  - jcr:title (string) = resourceBundle('fmdb_actionList') autocreated i18n
  + * (fmdbmix:formAction) = fmdbmix:formAction version
 
-[fmdb:fieldList] > jnt:content, jmix:list, fmdbmix:formContainer, mix:title, jmix:systemNameReadonly
+[fmdb:fieldList] > jnt:content, jmix:list, fmdbmix:formContainer, mix:title, jmix:systemNameReadonly, jmix:hideDeleteAction
  orderable
  - jcr:title (string) = resourceBundle('fmdb_fieldList') autocreated i18n
  + * (fmdbmix:formElement) = fmdbmix:formElement

@@ -101,7 +101,8 @@ marker with `extends` instead; concrete types live with the code that implements
 [fmdbmix:fieldAction] > fmdbmix:fieldActionFeedback mixin
 
 // The per-field list, fmdb:actionList in miniature. Orderable: the first blocking refusal wins.
-[fmdb:fieldActionList] > jnt:content, jmix:list, mix:title, jmix:systemNameReadonly
+// jmix:hideDeleteAction: the switch of the field creates and removes it, never a contributor by hand.
+[fmdb:fieldActionList] > jnt:content, jmix:list, mix:title, jmix:systemNameReadonly, jmix:hideDeleteAction
  orderable
  - jcr:title (string) = resourceBundle('fmdb_fieldActionList') autocreated i18n
  + * (fmdbmix:fieldAction) = fmdbmix:fieldAction version
