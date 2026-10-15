@@ -20,6 +20,7 @@ Yarn 4 workspaces + Maven multi-module. Toolchain: Java 17 (Temurin), Node LTS, 
 | `formidable-forms-import/` | The import of the forms and results of Jahia Forms (Java + a jContent app): the Import button and dialog of the Results page, the dry run and import jobs, the converters of the export; compiles against the engine's api only | Maven bundle, `@jahia/vite-federation-plugin` |
 | `packages/formidable/` | The npm package `@jahia/formidable-library`: the rendering contract (help text, validation attributes, input mask) every view is built on. Consumed as `workspace:*` inside the monorepo (a plain version range would still resolve to the workspace), published to npm by the release workflow | TypeScript (tsc, nodenext), vitest |
 | `formidable-accounts/` | Create account and Sign in form actions (`fmdbacc:`): self-registration and sign-in of site visitors from a form, optional e-mail activation, CAPTCHA required, rate limits; needs Jahia 8.2.3.0 | Maven bundle (Java), depends on `formidable-engine` |
+| `formidable-content/` | Create content form action (`fmdbcnt`): a signed-in user's submission becomes a content node of a chosen type (fields mapped to properties, uploaded files stored as `jnt:file` and referenced), published, in the subfolder their group names, which their own live session must be able to read | Maven bundle (Java), depends on `formidable-engine` |
 | `jahia-test-module/` | Test modules for Cypress: a JSP template set (Java), a tsx template set, and the two third-party extension examples: `formidable-test-module-samples-tsx` (definitions, editor overrides, views — copyable, its README says what to change) and `formidable-test-module-samples-java` (an external `FormAction`, four field actions — blocked words, email domain, Experian, ZeroBounce — with the two providers' doubles registered as servlets, a choicelist initializer, content-integrity checks) | Maven, Vite |
 | `tests/` | Cypress E2E suite (not a Maven module) | Cypress 14, `@jahia/cypress` |
 
@@ -35,6 +36,7 @@ Architecture decisions and internal flows are documented in `docs/`:
 - `captcha-server-side-validation.md` — provider verification and token handling
 - `configuration.md` — the five configuration files of the engine, one per theme, the Forms import module's own, and how the single file of earlier builds is carried over
 - `forms-import.md` (administration) — importing the forms and results of Jahia Forms from the Results page
+- `how-to-content-action.md` (administration): creating content from a form (`formidable-content`): folders and groups to prepare, the mapping lines, how files are stored, the security model (who may write where)
 - `how-to-accounts-actions.md` (administration) — creating accounts and signing in from a form (`formidable-accounts`): author steps, the CAPTCHA and rate limits, e-mail activation, what is protected
 - `redirect-action.md` — the redirect action and the mechanism under it: a contextual action returns a same-origin path, the servlet names it in `redirect`, the island navigates
 
