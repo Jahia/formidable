@@ -576,25 +576,7 @@ public class ImportJobs {
             boolean changed = false;
             Instant now = Instant.now();
             for (JCRNodeWrapper job : jobNodes(session, siteKey)) {
-                if (job.getName().startsWith(WITHDRAWN_ATTACHMENT_JOB_PREFIX)) {
-                    log.info("[FormsImport] Job {} of site {} belongs to the withdrawn attachment action: removed", job.getName(), siteKey);
-                    job.remove();
-                    changed = true;
-                    continue;
-                }
-                JobView view = view(job, siteKey);
-                if (view.state().running()) {
-                    if (view.updated().plus(STOPPED_AFTER).isBefore(now) && !isSchedulerJobActive(view)) {
-                        log.warn("[FormsImport] Job {} of site {} reads as {} since {} and the scheduler holds no job for it: failed",
-                                view.id(), siteKey, view.state().stored(), view.updated());
-                        job.setProperty(STATE, State.FAILED.stored());
-                        job.setProperty(MESSAGE, STOPPED);
-                        job.setProperty(UPDATED, now());
-                        changed = true;
-                    }
-                } else if (view.updated().plus(STALE_AFTER).isBefore(now)) {
-                    log.info("[FormsImport] Job {} of site {} ended {} and was never closed: removed", view.id(), siteKey, view.updated());
-                    job.remove();
+                if (reconcile(job, siteKey, now)) {
                     changed = true;
                 }
             }
@@ -603,6 +585,33 @@ public class ImportJobs {
             }
             return null;
         });
+    }
+
+    /** Removes or fails one job node when its state no longer matches what happened; true when the node changed. */
+    private static boolean reconcile(JCRNodeWrapper job, String siteKey, Instant now) throws RepositoryException {
+        if (job.getName().startsWith(WITHDRAWN_ATTACHMENT_JOB_PREFIX)) {
+            log.info("[FormsImport] Job {} of site {} belongs to the withdrawn attachment action: removed", job.getName(), siteKey);
+            job.remove();
+            return true;
+        }
+        JobView view = view(job, siteKey);
+        if (view.state().running()) {
+            if (view.updated().plus(STOPPED_AFTER).isBefore(now) && !isSchedulerJobActive(view)) {
+                log.warn("[FormsImport] Job {} of site {} reads as {} since {} and the scheduler holds no job for it: failed",
+                        view.id(), siteKey, view.state().stored(), view.updated());
+                job.setProperty(STATE, State.FAILED.stored());
+                job.setProperty(MESSAGE, STOPPED);
+                job.setProperty(UPDATED, now());
+                return true;
+            }
+            return false;
+        }
+        if (view.updated().plus(STALE_AFTER).isBefore(now)) {
+            log.info("[FormsImport] Job {} of site {} ended {} and was never closed: removed", view.id(), siteKey, view.updated());
+            job.remove();
+            return true;
+        }
+        return false;
     }
 
     /** The jobs node of the site, the child of the results root of its type, whatever its name; null when absent and not created. */
