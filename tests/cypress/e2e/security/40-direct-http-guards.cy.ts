@@ -1,5 +1,4 @@
-import {getInputTextNode} from '../../support/fixtures';
-import {createPublishedLiveFormPage} from '../../support/fixtures';
+import {createPublishedLiveFormPage, FORMIDABLE_TEST_SITE, getInputTextNode} from '../../support/fixtures';
 import {
 	expectErrorResponse,
 	expectSuccessResponse,
@@ -15,6 +14,7 @@ describe('Security - direct HTTP submission guards', () => {
 
 	let publicFormId: string;
 	let authenticatedFormId: string;
+	let authenticatedLivePath: string;
 	let captchaFormId: string;
 	let authenticatedCaptchaFormId: string;
 
@@ -36,8 +36,9 @@ describe('Security - direct HTTP submission guards', () => {
 			'security-auth-form-page',
 			'Security auth form page',
 			{mixins: ['fmdbmix:requireAuthentication']}
-		).then(({formId}) => {
+		).then(({formId, livePath}) => {
 			authenticatedFormId = formId;
+			authenticatedLivePath = livePath;
 		});
 
 		createPublishedLiveFormPage(
@@ -142,6 +143,16 @@ describe('Security - direct HTTP submission guards', () => {
 		}).then(response => {
 			expectErrorResponse(response, 400, 'FMDB-004');
 		});
+	});
+
+	it('shows a line while authoring saying the form takes the submissions of signed-in visitors only', () => {
+		cy.login();
+		cy.request(`/cms/editframe/default/en/sites/${FORMIDABLE_TEST_SITE.key}/${authenticatedLivePath}`).its('body').then((body: string) => {
+			const line = new DOMParser().parseFromString(body, 'text/html').querySelector('[data-fmdb-authoring="sign-in"]');
+			expect(line, 'the sign-in line').not.to.equal(null);
+			expect(line?.textContent).to.contain('Sign-in required').and.to.contain('anonymous visitor');
+		});
+		cy.logout();
 	});
 
 	it('rejects a guest direct submission on an authenticated form', () => {

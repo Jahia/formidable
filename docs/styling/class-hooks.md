@@ -153,17 +153,24 @@ value" when it sends nothing. The line is authoring chrome, drawn with the
 | `fmdb-authoring-hidden-field-label`, `fmdb-authoring-hidden-field-title`, `fmdb-authoring-hidden-field-value` | "Hidden field", the field's title, and its value |
 | `fmdb-authoring-hidden-field-empty` | Next to `fmdb-authoring-hidden-field-value` when the field has no value |
 
-## Captcha (edit mode)
+## Captcha and sign-in (edit mode)
 
-A form that displays a captcha leaves the widget out in edit mode, and the provider script with it: no
-contributor solves a challenge in the Page Builder. One line takes its place, drawn as the line of a hidden
-field: a shield, "Captcha", and where it shows, in preview and live above the submit button. Nothing of it
-exists in live or preview, where the widget renders as before.
+Two settings of a form show nothing of themselves while authoring, and each takes one line in edit mode,
+drawn as the line of a hidden field. A form that displays a captcha leaves the widget out of the Page
+Builder, and the provider script with it: no contributor solves a challenge there. Its line is a shield,
+"Captcha enabled", and where the widget shows (preview and live). While the instance has no captcha set up,
+the widget's keys or the verification's, the same line turns into the one loud line of the form, in fault
+colours: a warning triangle, and the words that the form cannot be sent and that the administrator is the
+one to tell — what to set is in the engine log and the administration guide, not in the Page Builder. A form
+for signed-in visitors only gets a padlock, "Sign-in required", and the words that an anonymous visitor's
+submission is refused. Nothing of these lines exists in live or preview.
 
 | Class | Element |
 |---|---|
-| `fmdb-authoring-captcha` | The line, next to `fmdb-authoring-hidden-field` on the same `div` — the hook that tells it from a hidden field |
-| `fmdb-authoring-hidden-field-glyph`, `fmdb-authoring-hidden-field-label`, `fmdb-authoring-hidden-field-value` | The shield, "Captcha", and where it shows |
+| `fmdb-authoring-captcha` | The captcha line, next to `fmdb-authoring-hidden-field` on the same `div` — the hook that tells it from a hidden field; `data-fmdb-authoring="captcha"` |
+| `fmdb-authoring-captcha-alert` | Added to the captcha line while the instance has no captcha set up, with `data-fmdb-authoring-state="unconfigured"`; coloured by `--fmdb-zone-actions-error-*` |
+| `fmdb-authoring-sign-in` | The sign-in line, next to `fmdb-authoring-hidden-field` on the same `div`; `data-fmdb-authoring="sign-in"` |
+| `fmdb-authoring-hidden-field-glyph`, `fmdb-authoring-hidden-field-label`, `fmdb-authoring-hidden-field-value` | The glyph (shield or padlock; the triangle is the actions zone's, `fmdb-authoring-actions-glyph`), the label, and the words |
 
 ## Extended inputs
 
