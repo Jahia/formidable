@@ -5,7 +5,7 @@ import {ImportAction} from './import';
 /** The registry target of the Results page toolbar (formidable-engine, FormResults.utils RESULTS_TOOLBAR_TARGET). */
 const RESULTS_TOOLBAR_TARGET = 'formidable-results/toolbar';
 
-export default function () {
+export default function formidableFormsImport() {
     // After the engine's own registration (jahiaApp-init:20): the page the action sits in exists first.
     registry.add('callback', 'FormidableFormsImport', {
         targets: ['jahiaApp-init:21'],

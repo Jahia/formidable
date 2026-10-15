@@ -446,9 +446,9 @@ public final class FormsFormConverter {
             fillOptions(field, definition, label, kind, titles, buildingLang);
         }
         switch (kind) {
-            case "textArea" -> field.property(FormsFieldTypes.ROWS, plain(definition, FormsOptionNames.ROWS));
-            case "hidden" -> field.property(FormsFieldTypes.VALUE, plain(definition, FormsOptionNames.VALUE));
-            case "switch" -> {
+            case FormsFieldTypes.KIND_TEXT_AREA -> field.property(FormsFieldTypes.ROWS, plain(definition, FormsOptionNames.ROWS));
+            case FormsFieldTypes.KIND_HIDDEN -> field.property(FormsFieldTypes.VALUE, plain(definition, FormsOptionNames.VALUE));
+            case FormsFieldTypes.KIND_SWITCH -> {
                 if (mapping.is(FormsFieldTypes.SWITCH)) {
                     field.i18nProperty(FormsFieldTypes.ON_LABEL, valuesOf(definition.option(FormsOptionNames.TEXT_ON)));
                     field.i18nProperty(FormsFieldTypes.OFF_LABEL, valuesOf(definition.option(FormsOptionNames.TEXT_OFF)));

@@ -34,8 +34,8 @@ export function formatFileSize(bytes: number | null): string {
 export const sanitizeFilenamePart = (value: string): string => value
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'form-results';
+    .replaceAll(/[^a-z0-9]+/g, '-')
+    .replaceAll(/(?:^-+)|(?:-+$)/g, '') || 'form-results';
 
 export const downloadFile = (filename: string, content: string, mimeType: string) => {
     const blob = new Blob([content], {type: mimeType});

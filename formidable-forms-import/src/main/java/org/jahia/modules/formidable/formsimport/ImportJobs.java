@@ -595,8 +595,9 @@ public class ImportJobs {
         JobView view = view(job, siteKey);
         if (view.state().running()) {
             if (view.updated().plus(STOPPED_AFTER).isBefore(now) && !isSchedulerJobActive(view)) {
+                String stored = view.state().stored();
                 log.warn("[FormsImport] Job {} of site {} reads as {} since {} and the scheduler holds no job for it: failed",
-                        view.id(), siteKey, view.state().stored(), view.updated());
+                        view.id(), siteKey, stored, view.updated());
                 job.setProperty(STATE, State.FAILED.stored());
                 job.setProperty(MESSAGE, STOPPED);
                 job.setProperty(UPDATED, now());

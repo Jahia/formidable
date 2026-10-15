@@ -1,5 +1,4 @@
-import {formatFileSize} from './page';
-import {sanitizeFilenamePart} from './page';
+import {formatFileSize, sanitizeFilenamePart} from './page';
 import {formTitle, groupedNotes, type ImportIncident, type ImportReport, type ImportReportForm, type ReportLine} from './import.utils';
 import {noteText, type ProfileMapping, profileMappings} from './notes';
 

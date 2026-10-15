@@ -217,6 +217,9 @@ public final class FormsImportRun {
                 return targetForm;
             }
             case RESULTS_ONLY -> entry.target(form.name(), writer.resultsRootPath() + "/" + form.name(), ImportReport.FormOutcome.RESULTS_ONLY);
+            default -> {
+                // a form left out is never prepared: the run leaves it before this point
+            }
         }
         return null;
     }

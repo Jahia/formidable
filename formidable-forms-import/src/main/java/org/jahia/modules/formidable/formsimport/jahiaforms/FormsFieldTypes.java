@@ -16,6 +16,11 @@ import java.util.function.Predicate;
  */
 final class FormsFieldTypes {
 
+    /** The kinds of Forms fields the converter treats apart, as the export names them. */
+    static final String KIND_TEXT_AREA = "textArea";
+    static final String KIND_HIDDEN = "hidden";
+    static final String KIND_SWITCH = "switch";
+
     static final String INPUT_TEXT = "fmdb:inputText";
     static final String INPUT_EMAIL = "fmdb:inputEmail";
     static final String TEXTAREA = "fmdb:textarea";
@@ -93,9 +98,9 @@ final class FormsFieldTypes {
     private static final Map<String, String> PLAIN = Map.ofEntries(
             Map.entry("input", INPUT_TEXT),
             Map.entry("email", INPUT_EMAIL),
-            Map.entry("textArea", TEXTAREA),
+            Map.entry(KIND_TEXT_AREA, TEXTAREA),
             Map.entry("number", INPUT_NUMBER),
-            Map.entry("hidden", INPUT_HIDDEN),
+            Map.entry(KIND_HIDDEN, INPUT_HIDDEN),
             Map.entry("selectBasic", SELECT),
             Map.entry("selectMultiple", SELECT),
             Map.entry("multipleRadios", RADIO),
@@ -113,7 +118,7 @@ final class FormsFieldTypes {
     }
 
     private static final Map<String, Extended> EXTENDED = Map.of(
-            "switch", new Extended(SWITCH, RADIO),
+            KIND_SWITCH, new Extended(SWITCH, RADIO),
             "rating", new Extended(RATING, INPUT_NUMBER),
             "acceptTermCheckbox", new Extended(CONSENT, CHECKBOX));
 
