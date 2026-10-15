@@ -11,6 +11,9 @@ import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.jahia.services.content.JCRCallback;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.ComplexPublicationService;
+import org.jahia.services.content.ComplexPublicationService.FullPublicationInfo;
+import org.jahia.services.content.JCRPublicationService;
+import org.jahia.services.content.PublicationInfo;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRSessionFactory;
 import org.jahia.services.content.JCRTemplate;
@@ -31,6 +34,8 @@ import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -71,6 +76,7 @@ public class JcrContentWriter implements ContentWriter {
 
     private final Supplier<JCRTemplate> jcr;
     private final AsRoot asRoot;
+    private final Supplier<JCRPublicationService> synchronousPublication;
     private ComplexPublicationService publisher;
 
     /**
@@ -97,16 +103,13 @@ public class JcrContentWriter implements ContentWriter {
 
     /** Production constructor: the platform's own services. */
     public JcrContentWriter() {
-        this(JCRTemplate::getInstance, PLATFORM_ROOT);
+        this(JCRTemplate::getInstance, PLATFORM_ROOT, JCRPublicationService::getInstance);
     }
 
-    JcrContentWriter(Supplier<JCRTemplate> jcr) {
-        this(jcr, (step, session) -> step.doInJCR(session));
-    }
-
-    JcrContentWriter(Supplier<JCRTemplate> jcr, AsRoot asRoot) {
+    JcrContentWriter(Supplier<JCRTemplate> jcr, AsRoot asRoot, Supplier<JCRPublicationService> synchronousPublication) {
         this.jcr = jcr;
         this.asRoot = asRoot;
+        this.synchronousPublication = synchronousPublication;
     }
 
     /**
@@ -162,9 +165,7 @@ public class JcrContentWriter implements ContentWriter {
      * {@code JCRPublicationService.getPublicationInfo} do not list them, and the bare identifiers leave them out.
      *
      * <p>The session is a <em>pure</em> system session, not one attributed to the submitter: the service checks the
-     * publish right of the session's user, which the submitter does not have. The call only schedules a
-     * {@code PublicationJob}: live follows within a second or two, and a failure inside the job is logged by the
-     * platform, where this class can no longer undo anything. It is the last step: a failure up to and including the
+     * publish right of the session's user, which the submitter does not have. The publication runs in the request (not as a background job), so the next page already shows the content. It is the last step: a failure up to and including the
      * scheduling removes what was created.</p>
      */
     private void publish(ContentPlan plan, Progress progress) throws RepositoryException {
@@ -177,11 +178,34 @@ public class JcrContentWriter implements ContentWriter {
         // current request, which is live during a form submission, where the new nodes do not exist yet.
         jcr.get().doExecuteWithSystemSessionAsUser(null, DEFAULT, null, (JCRCallback<Void>) session -> {
             asRoot.run(inner -> {
-                publisher.publish(ids, languages, inner, Boolean.TRUE);
+                List<String> uuids = idsToPublish(publisher.getFullPublicationInfos(ids, languages, true, inner));
+                synchronousPublication.get().publish(uuids, DEFAULT, LIVE, false, null);
                 return null;
             }, session);
             return null;
         });
+    }
+
+    /**
+     * The identifiers to publish, collected the way {@code ComplexPublicationService.publish} collects them (the node,
+     * its translation node in each language, the translations removed since) before it schedules a background job.
+     * Published here in the request instead, so that the page the submitter lands on next already lists the content.
+     */
+    static List<String> idsToPublish(Collection<FullPublicationInfo> infos) {
+        LinkedHashSet<String> uuids = new LinkedHashSet<>();
+        for (FullPublicationInfo info : infos) {
+            if (info.getPublicationStatus() == PublicationInfo.DELETED) {
+                continue;
+            }
+            if (info.getNodeIdentifier() != null) {
+                uuids.add(info.getNodeIdentifier());
+            }
+            if (info.getTranslationNodeIdentifier() != null) {
+                uuids.add(info.getTranslationNodeIdentifier());
+            }
+            uuids.addAll(info.getDeletedTranslationNodeIdentifiers());
+        }
+        return new ArrayList<>(uuids);
     }
 
     private void writeFirstLanguage(ContentPlan plan, JCRSessionWrapper session, Progress progress) throws RepositoryException {

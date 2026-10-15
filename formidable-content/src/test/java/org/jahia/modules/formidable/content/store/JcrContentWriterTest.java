@@ -9,6 +9,7 @@ import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.jahia.services.content.JCRCallback;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.ComplexPublicationService;
+import org.jahia.services.content.JCRPublicationService;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRTemplate;
 import org.jahia.services.usermanager.JahiaUser;
@@ -38,6 +39,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.inOrder;
@@ -60,6 +62,7 @@ class JcrContentWriterTest {
 
     private JCRTemplate template;
     private ComplexPublicationService publication;
+    private JCRPublicationService synchronous;
     private JahiaUser submitter;
     private JCRNodeWrapper briefs;
     private JCRNodeWrapper filesFolder;
@@ -74,6 +77,20 @@ class JcrContentWriterTest {
     void setUp() throws Exception {
         template = mock(JCRTemplate.class);
         publication = mock(ComplexPublicationService.class);
+        synchronous = mock(JCRPublicationService.class);
+        // Jahia's id collection: each id with its translation node
+        when(publication.getFullPublicationInfos(anyCollection(), anyCollection(), anyBoolean(), any(JCRSessionWrapper.class))).thenAnswer(call -> {
+            List<ComplexPublicationService.FullPublicationInfo> infos = new ArrayList<>();
+            for (Object id : (java.util.Collection<?>) call.getArgument(0)) {
+                ComplexPublicationService.FullPublicationInfo info = mock(ComplexPublicationService.FullPublicationInfo.class);
+                when(info.getPublicationStatus()).thenReturn(org.jahia.services.content.PublicationInfo.NOT_PUBLISHED);
+                when(info.getNodeIdentifier()).thenReturn((String) id);
+                when(info.getTranslationNodeIdentifier()).thenReturn(id + "-translation");
+                when(info.getDeletedTranslationNodeIdentifiers()).thenReturn(List.of());
+                infos.add(info);
+            }
+            return infos;
+        });
         submitter = mock(JahiaUser.class);
         factory = mock(ValueFactory.class);
         when(factory.createBinary(any())).thenReturn(mock(Binary.class));
@@ -115,7 +132,7 @@ class JcrContentWriterTest {
         // the publication runs in a pure system session (no user), in default, not one attributed to the submitter
         when(template.doExecuteWithSystemSessionAsUser(isNull(), eq("default"), isNull(), any(JCRCallback.class)))
                 .thenAnswer(call -> ((JCRCallback<?>) call.getArgument(3)).doInJCR(systemSession));
-        writer = new JcrContentWriter(() -> template);
+        writer = new JcrContentWriter(() -> template, (step, session) -> step.doInJCR(session), () -> synchronous);
         writer.setPublisher(publication);
     }
 
@@ -187,29 +204,43 @@ class JcrContentWriterTest {
         assertEquals(1, references.getValue().length, "the weak reference to the stored file");
         verify(factory).createValue(fileNode, true);
 
-        InOrder order = inOrder(filesFolder, briefs, publication);
+        InOrder order = inOrder(filesFolder, briefs, synchronous);
         order.verify(filesFolder).addNode("film.png", "jnt:file");
         order.verify(briefs).addNode("summer-launch-film", "ctmd:submission");
-        order.verify(publication).publish(anyCollection(), anyCollection(), any(JCRSessionWrapper.class), any(Boolean.class));
+        order.verify(synchronous).publish(anyList(), eq("default"), eq("live"), eq(false), isNull());
     }
 
     @Test
-    void schedulesThePublicationOfTheFilesAndTheContentForTheSitesLanguagesAndTheWholeSubtree() throws Exception {
+    void publishesTheFilesTheContentAndTheirTranslationsInTheRequest() throws Exception {
         when(filesFolder.addNode("film.png", "jnt:file")).thenReturn(fileNode);
 
         writer.create(plan(true, List.of(Locale.ENGLISH, Locale.FRENCH), oneImage()), submitter);
 
-        // the file first, then the content; both languages; the whole subtree, which carries the translation nodes
-        verify(publication).publish(List.of("file-1", "content-1"), List.of("en", "fr"), systemSession, Boolean.TRUE);
-        // a pure system session: attributed to the submitter, the service would check a publish right they do not have
+        // Jahia's own collection for both languages and the whole subtree, read in a pure system session
+        verify(publication).getFullPublicationInfos(List.of("file-1", "content-1"), List.of("en", "fr"), true, systemSession);
+        // then published at once (not a background job), translation nodes included, no permission check
+        verify(synchronous).publish(List.of("file-1", "file-1-translation", "content-1", "content-1-translation"), "default", "live", false, null);
+        verify(publication, never()).publish(anyCollection(), anyCollection(), any(JCRSessionWrapper.class), any(Boolean.class));
         verify(template, never()).doExecuteWithSystemSessionAsUser(any(), eq("live"), any(Locale.class), any(JCRCallback.class));
+    }
+
+    @Test
+    void deletedEntriesAreLeftOutAndDeletedTranslationsKept() {
+        ComplexPublicationService.FullPublicationInfo gone = mock(ComplexPublicationService.FullPublicationInfo.class);
+        when(gone.getPublicationStatus()).thenReturn(org.jahia.services.content.PublicationInfo.DELETED);
+        when(gone.getNodeIdentifier()).thenReturn("gone");
+        ComplexPublicationService.FullPublicationInfo kept = mock(ComplexPublicationService.FullPublicationInfo.class);
+        when(kept.getPublicationStatus()).thenReturn(org.jahia.services.content.PublicationInfo.MODIFIED);
+        when(kept.getNodeIdentifier()).thenReturn("node");
+        when(kept.getDeletedTranslationNodeIdentifiers()).thenReturn(List.of("old-translation"));
+        assertEquals(List.of("node", "old-translation"), JcrContentWriter.idsToPublish(List.of(gone, kept)));
     }
 
     @Test
     void languagesWithARegionKeepTheirJahiaCode() throws Exception {
         when(filesFolder.addNode("film.png", "jnt:file")).thenReturn(fileNode);
         writer.create(plan(true, List.of(Locale.ENGLISH, Locale.forLanguageTag("pt-PT")), oneImage()), submitter);
-        verify(publication).publish(anyCollection(), eq(List.of("en", "pt_PT")), any(JCRSessionWrapper.class), eq(Boolean.TRUE));
+        verify(publication).getFullPublicationInfos(anyCollection(), eq(List.of("en", "pt_PT")), eq(true), any(JCRSessionWrapper.class));
     }
 
     @Test
@@ -234,7 +265,7 @@ class JcrContentWriterTest {
     void doesNotPublishWhenThePlanSaysNo() throws Exception {
         when(filesFolder.addNode("film.png", "jnt:file")).thenReturn(fileNode);
         writer.create(plan(false, List.of(Locale.ENGLISH), oneImage()), submitter);
-        verify(publication, never()).publish(anyCollection(), anyCollection(), any(JCRSessionWrapper.class), any(Boolean.class));
+        verify(synchronous, never()).publish(anyList(), anyString(), anyString(), anyBoolean(), any());
     }
 
     @Test
@@ -289,14 +320,14 @@ class JcrContentWriterTest {
 
         verify(fileNode).remove();
         verify(contentNode, never()).remove();
-        verify(publication, never()).publish(anyCollection(), anyCollection(), any(JCRSessionWrapper.class), any(Boolean.class));
+        verify(synchronous, never()).publish(anyList(), anyString(), anyString(), anyBoolean(), any());
     }
 
     @Test
-    void whenThePublicationCannotBeScheduledEverythingIsRemoved() throws Exception {
+    void whenThePublicationFailsEverythingIsRemoved() throws Exception {
         when(filesFolder.addNode("film.png", "jnt:file")).thenReturn(fileNode);
-        org.mockito.Mockito.doThrow(new IllegalStateException("publication failed")).when(publication)
-                .publish(anyCollection(), anyCollection(), any(JCRSessionWrapper.class), any(Boolean.class));
+        org.mockito.Mockito.doThrow(new IllegalStateException("publication failed")).when(synchronous)
+                .publish(anyList(), anyString(), anyString(), anyBoolean(), any());
 
         assertThrows(IllegalStateException.class, () -> writer.create(plan(true, List.of(Locale.ENGLISH), oneImage()), submitter));
 
@@ -308,8 +339,8 @@ class JcrContentWriterTest {
     @Test
     void aFailureOfTheCleanUpDoesNotHideTheOriginalError() throws Exception {
         when(filesFolder.addNode("film.png", "jnt:file")).thenReturn(fileNode);
-        org.mockito.Mockito.doThrow(new IllegalStateException("publication failed")).when(publication)
-                .publish(anyCollection(), anyCollection(), any(JCRSessionWrapper.class), any(Boolean.class));
+        org.mockito.Mockito.doThrow(new IllegalStateException("publication failed")).when(synchronous)
+                .publish(anyList(), anyString(), anyString(), anyBoolean(), any());
         org.mockito.Mockito.doThrow(new RepositoryException("cannot remove")).when(contentNode).remove();
         IllegalStateException error = assertThrows(IllegalStateException.class,
                 () -> writer.create(plan(true, List.of(Locale.ENGLISH), oneImage()), submitter));
