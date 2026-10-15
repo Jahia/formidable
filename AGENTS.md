@@ -111,6 +111,7 @@ The public API — custom actions, the submission response, the names of the con
 - `ChoiceOptionsResolver.java` — how many choices a choice field offers, counted as the views render it
 - `FormResultsStore.java` — the results of a site as the engine keeps them (root, an entry's own ACL, day split, submission names, readers synced from the form), for a module that writes results of its own: the Forms import, to become a module
 - `CaptchaSetup.java` — whether the captcha widget and its verification are both configured
+- `ChoiceOptionsSources.java` — whether the configuration declares an options source under a key
 - `SubmissionResponseEnricher.java` + `AcceptedSubmission.java` — entries a module of its own adds to the JSON body of an accepted submission
 - `FmdbNodeType.java` — the primary types the engine's CND declares (logic storage, built-in actions, submission storage)
 - `FmdbMixin.java` — every mixin it declares, the extension surface a third-party type opts into

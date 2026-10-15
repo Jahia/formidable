@@ -1,7 +1,7 @@
 package org.jahia.modules.formidable.engine.imports;
 
 import org.jahia.modules.formidable.engine.api.CaptchaSetup;
-import org.jahia.modules.formidable.engine.api.ChoiceOptionsResolver;
+import org.jahia.modules.formidable.engine.api.ChoiceOptionsSources;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.engine.api.FmdbNodeType;
 import org.jahia.modules.formidable.engine.api.FormResultsStore;
@@ -148,7 +148,7 @@ public class ImportJobs {
     }
 
     private final AtomicReference<FormResultsStore> store = new AtomicReference<>();
-    private final AtomicReference<ChoiceOptionsResolver> options = new AtomicReference<>();
+    private final AtomicReference<ChoiceOptionsSources> options = new AtomicReference<>();
     private final AtomicReference<CaptchaSetup> captcha = new AtomicReference<>();
     /** Offered by the jExperience integration when it is installed: the visitor profile properties of a site. */
     private final AtomicReference<VisitorProfileSchema> profileSchema = new AtomicReference<>();
@@ -159,7 +159,7 @@ public class ImportJobs {
     }
 
     @Reference
-    public void setOptions(ChoiceOptionsResolver service) {
+    public void setOptions(ChoiceOptionsSources service) {
         options.set(service);
     }
 
@@ -403,8 +403,8 @@ public class ImportJobs {
     }
 
     private boolean isOptionsSourceDeclared(String key) {
-        ChoiceOptionsResolver resolver = options.get();
-        return resolver != null && resolver.hasOptionsSource(key);
+        ChoiceOptionsSources sources = options.get();
+        return sources != null && sources.declares(key);
     }
 
     /** A captcha the forms can use: its widget and its verification are both configured. */

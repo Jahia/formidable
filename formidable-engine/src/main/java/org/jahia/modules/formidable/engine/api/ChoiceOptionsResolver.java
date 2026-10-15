@@ -23,10 +23,4 @@ public interface ChoiceOptionsResolver {
      * @throws RepositoryException when the field cannot be read
      */
     OptionalInt countChoices(JCRNodeWrapper field, String languageTag) throws RepositoryException;
-
-    /**
-     * Whether the configuration declares an options source under that key ({@code optionsSourceKey} of a
-     * sourced field): a module that creates choice fields (an import) asks before it points one at a source.
-     */
-    boolean hasOptionsSource(String key);
 }

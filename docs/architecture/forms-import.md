@@ -750,7 +750,7 @@ mapping or to another form.
 The import is to move into a module of its own. It therefore reaches the rest of the engine through
 `org.jahia.modules.formidable.engine.api` only, as that module will: `FormResultsStore` for the results of
 the site (the root, an entry's own ACL, the day split, the submission names, the readers synced from the form),
-`CaptchaSetup` and `ChoiceOptionsResolver.hasOptionsSource` for what the configuration lets a form carry,
+`CaptchaSetup` and `ChoiceOptionsSources` for what the configuration lets a form carry,
 `VisitorProfileSchema` for the profile properties, and the name holders of the content model. The two
 workspaces and the path of a site are facts of the repository the import keeps for itself (`ImportJcr`). A unit
 test, `ImportBoundaryTest`, reads the sources of the import and fails on any other package of the engine

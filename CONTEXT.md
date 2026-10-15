@@ -211,7 +211,8 @@ org.jahia.modules.formidable.engine
 │   │                                    ← the shape of an action behind a provider, its email specialisation, the address parsing — the samples' checks are one method each
 │   ├── FormActionException.java         ← exception carrying an httpStatus
 │   ├── SubmittedFile.java               ← a validated uploaded file
-│   ├── ChoiceOptionsResolver.java       ← how many choices a choice field offers, and whether a source key is declared
+│   ├── ChoiceOptionsResolver.java       ← how many choices a choice field offers
+│   ├── ChoiceOptionsSources.java        ← whether the configuration declares an options source under a key
 │   ├── FormResultsStore.java            ← the results of a site as the engine keeps them, for a module writing results (the Forms import)
 │   ├── CaptchaSetup.java                ← whether the widget and its verification are both configured
 │   ├── AcceptedSubmission.java          ← what the pipeline accepted (form, site, locale, parameters)
