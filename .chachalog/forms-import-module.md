@@ -3,4 +3,4 @@
 formidable: minor
 ---
 
-Added the import of Jahia Forms results as a separate module, installed only when a site migrates (#414)
+Changed the Jahia Forms import into an optional add-on: install Formidable Forms Import to show the Import button (#414)

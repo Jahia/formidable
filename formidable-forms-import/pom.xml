@@ -22,8 +22,6 @@
         <!-- The module signature, computed from the pom by the keymaker
              (java -jar keymaker-cli.jar pom -f pom.xml -s); the CI's update-signature job keeps it current. -->
         <jahia-module-signature>MCwCFFmtGT8DurM5HEAnVPojGdcHJFHGAhRvzV71L8uXlE42s/1hwpkyxyX4qQ==</jahia-module-signature>
-        <!-- The module signature, computed from the pom by the keymaker
-             (java -jar keymaker-cli.jar pom -f pom.xml -s); the CI's update-signature job keeps it current. -->
     </properties>
 
     <dependencies>
