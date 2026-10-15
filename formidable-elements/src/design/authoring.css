@@ -278,7 +278,7 @@
    administrator completes the engine's captcha configuration, so the line is the one loud line of
    the form — the triangle of the empty actions zone, in the colours of a fault rather than a warning. */
 .fmdb-authoring-captcha-alert {
-	border: var(--fmdb-zone-actions-error-border, 1px solid #dc2626);
+	border: 1px solid var(--fmdb-zone-actions-error-border, #dc2626);
 	background: var(--fmdb-zone-actions-error-bg, #fef2f2);
 	color: var(--fmdb-zone-actions-error-color, #991b1b);
 }
