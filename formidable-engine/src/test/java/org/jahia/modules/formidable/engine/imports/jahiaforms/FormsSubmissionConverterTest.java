@@ -1,6 +1,7 @@
 package org.jahia.modules.formidable.engine.imports.jahiaforms;
 
 import org.jahia.modules.formidable.engine.imports.model.ImportedForm;
+import org.jahia.modules.formidable.engine.imports.model.ImportNote;
 import org.jahia.modules.formidable.engine.imports.model.ImportedSubmission;
 import org.junit.jupiter.api.Test;
 
@@ -118,7 +119,8 @@ class FormsSubmissionConverterTest {
         assertFalse(converted.values().containsKey("your-first-name"));
         assertFalse(converted.values().containsKey("your-enquiry"));
         assertEquals(1, converted.report().size());
-        assertTrue(converted.report().get(0).contains("text-area_0_4"), converted.report().get(0));
+        assertEquals("submission.keptUnderSourceName", converted.report().get(0).code(), converted.report().toString());
+        assertEquals("text-area_0_4", converted.report().get(0).param("name"));
     }
 
     @Test
@@ -136,7 +138,9 @@ class FormsSubmissionConverterTest {
         assertEquals(List.of("kept"), converted.values().get("old-field_0_9"));
         assertEquals(List.of("Jane"), converted.values().get("your-first-name"));
         assertEquals(1, converted.report().size());
-        assertTrue(converted.report().get(0).contains("old-field_0_9"));
+        assertEquals("submission.keptUnderSourceName", converted.report().get(0).code());
+        // no field nor label holds a title for it: the note names it by its Forms name
+        assertEquals("old-field_0_9", converted.report().get(0).param("field"));
     }
 
     @Test
@@ -155,7 +159,8 @@ class FormsSubmissionConverterTest {
         ImportedSubmission converted = new FormsSubmissionConverter(form, source, results, found).convert(submission);
 
         assertEquals(List.of("Jane"), converted.values().get("name"));
-        assertTrue(converted.report().stream().anyMatch(line -> line.contains("text-input_0_1_copy_01") && line.contains("dropped")));
+        assertEquals(List.of("submission.duplicateTarget"), converted.report().stream().map(ImportNote::code).toList());
+        assertEquals(ImportNote.Level.ACTION, converted.report().get(0).level());
     }
 
     @Test

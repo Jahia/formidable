@@ -803,6 +803,15 @@ minute, one rule (decisions of 2026-09-11).
 
 ---
 
+**The Forms import is the other reader.** The engine declares `VisitorProfileSchema` in its API and the
+module implements it (`CatalogProfileSchema`) on the same catalog and the same type rule as the editor's
+dropdown (`FieldShapes`, from the type of a field being created): before the import carries a profile prefill
+of Jahia Forms over as a mapping, it asks whether the site's jCustomer declares the property with a type the
+field holds, so that it never writes a mapping the mapping rule would skip (`FormMappingReader` drops a field
+whose property the schema does not offer). A catalog that cannot be read answers "unavailable": the import then
+writes the mapping and reports it to check ([Forms import](forms-import.md)). The engine references the service
+as optional and dynamic: without this module, the import never asks.
+
 ## Decision log
 
 | Date | Decision | Why |

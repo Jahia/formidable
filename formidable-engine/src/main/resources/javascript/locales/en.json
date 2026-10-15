@@ -238,7 +238,8 @@
 				"fields": "{{count}} field(s)",
 				"files": "{{count}} file(s), {{size}}",
 				"filesMissing": "{{count}} file(s) not in the export, left behind",
-				"values": "{{dropped}} value(s) dropped, {{notConverted}} kept as stored"
+				"values": "{{dropped}} value(s) dropped, {{notConverted}} kept as stored",
+				"failed": "{{count}} not written, see the import log"
 			},
 			"choice": {
 				"resultsOnly": "Results only",
@@ -251,7 +252,8 @@
 				"import": "Import",
 				"cancel": "Cancel",
 				"close": "Close",
-				"tryAgain": "Try again"
+				"tryAgain": "Try again",
+				"downloadLog": "Download the import log"
 			},
 			"done": {
 				"title": "Import done",
@@ -335,18 +337,21 @@
 					"createdAsNearest": "Created as a {{type}} field, the closest: Formidable has no {{kind}} field",
 					"createdAsText": "Created as a text field: Formidable has no equivalent of {{source}}",
 					"logic": "Its conditional logic is not carried over: rebuild it",
-					"prefillOther": "Its prefill ({{prefill}}) is not carried over: link the field to the visitor profile instead",
-					"prefillAlreadyMapped": "Its second prefill, from {{property}}, is not carried over: the field takes one link to the visitor profile",
-					"prefillNoIntegration": "Not linked to the visitor profile property {{property}}: the jExperience integration is not installed",
-					"prefillNotMappable": "Not linked to the visitor profile property {{property}}: a {{type}} field cannot be linked",
-					"profilePrefilled": "Linked to the visitor profile property {{property}}, prefilled from it, {{after}} once filled",
-					"profileMapped": "Linked to the visitor profile property {{property}}, without prefill",
+					"prefillOther": "Its prefill ({{prefill}}) is not carried over: map the field to the visitor profile instead",
+					"prefillAlreadyMapped": "Its second prefill, from {{property}}, is not carried over: the field takes one mapping to the visitor profile",
+					"prefillNoIntegration": "Not mapped to the visitor profile property {{property}}: the jExperience integration is not installed",
+					"prefillNotMappable": "Not mapped to the visitor profile property {{property}}: a {{type}} field cannot be mapped",
+					"profilePrefilled": "Mapped to the visitor profile property {{property}}, prefilled from it, {{after}} once filled",
+					"profileMapped": "Mapped to the visitor profile property {{property}}, without prefill",
 					"rule": "Its {{rule}} rule is not carried over: a {{type}} field has no such rule",
 					"ruleMessage": "The custom message of its {{rule}} rule is not carried over",
 					"fileTypes": "Its accepted file types ({{types}}) are not carried over: set them by hand",
 					"noChoices": "No options in the export: add them by hand",
 					"noCountries": "No countries in the export: add the options by hand, or declare a country options source",
-					"termsLink": "The link to the terms ({{link}}) is not carried over: add it to the statement"
+					"termsLink": "The link to the terms ({{link}}) is not carried over: add it to the statement",
+					"prefillUnknownProperty": "Not mapped to the visitor profile property {{property}}: jCustomer has no such property. Create it, then map the field",
+					"prefillIncompatible": "Not mapped to the visitor profile property {{property}}: its type does not fit a {{type}} field",
+					"profileUnchecked": "Mapped to the visitor profile property {{property}}, unchecked: jCustomer could not be reached. Check that the property exists"
 				},
 				"form": {
 					"fromLabels": "Rebuilt from the labels of its results: Jahia Forms no longer holds the form",
@@ -364,6 +369,16 @@
 					"contentDisplayDropped": "The content display {{field}} is not recreated: it submits nothing",
 					"fieldDropped": "The field {{field}} ({{source}}) is not recreated",
 					"redirectNoTarget": "The redirect is not carried over: Formidable has no redirect yet"
+				},
+				"submission": {
+					"keptUnderSourceName": "{{field}}: kept under its Forms name {{name}}, the form holds no field for it",
+					"passwordDropped": "{{field}}: a password, not imported",
+					"notConverted": "{{field}}: {{count}} value(s) kept as stored, they could not be converted",
+					"consentUnknown": "{{field}}: {{count}} value(s) kept as stored, neither the accepted nor the refused text",
+					"duplicateTarget": "{{field}}: dropped, another answer of the submission fills the same field",
+					"fileMissing": "The file {{file}} is not in the export: left behind",
+					"writeFailed": "Not written: {{reason}}. Importing the same export again tries it again",
+					"noForm": "From the results {{form}}, which no form of the export matches: not imported"
 				}
 			},
 			"terms": {
@@ -438,6 +453,19 @@
 					"prefilled": "Prefill",
 					"status": "Status"
 				}
+			},
+			"markdown": {
+				"title": "Jahia Forms import log",
+				"site": "Site",
+				"file": "Export",
+				"date": "Date",
+				"done": "Import done",
+				"stopped": "The import stopped before its end: {{reason}}. What it wrote stays; import the same export again to go on.",
+				"totals": "{{imported}} submission(s) imported, {{failed}} not written",
+				"incidents": "What the submissions lost",
+				"incidentsOmitted": "{{count}} more, not listed",
+				"orphans": "Submissions of no form",
+				"submission": "submission {{id}}"
 			}
 		},
 		"attach": {

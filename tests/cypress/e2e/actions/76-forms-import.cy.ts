@@ -397,9 +397,24 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		reportForm('contact-us').find('[data-sel-role="import-report-toggle"]').should('contain', 'to review').click();
 		reportForm('contact-us').find('[data-sel-role="import-report-notes-action"] [data-sel-code="form.redirect"]')
 			.should('contain', 'page redirect').and('not.contain', 'fcnt:');
+		// the review writes nothing yet: there is no log to download before the import
+		cy.get('[data-sel-role="import-download-log"]').should('not.exist');
 		cy.get('[data-sel-role="import-confirm"]').click();
 		dialogState('done');
 		cy.get('[data-sel-role="import-next-step"]').should('contain', 'unpublished');
+		// the log as a Markdown file: how the import ended, one section per form, what to redo by hand in words
+		cy.exec('rm -f cypress/downloads/forms-import-*.md');
+		cy.get('[data-sel-role="import-download-log"]').click();
+		// cy.exec does not retry: the command waits itself until the browser has renamed its partial download
+		cy.exec('for i in $(seq 1 40); do f=$(ls cypress/downloads | grep "^forms-import-log-.*\\.md$") && echo "$f" && exit 0; sleep 0.5; done; exit 1', {timeout: 30000}).its('stdout').then(name => {
+			cy.readFile(`cypress/downloads/${name.trim()}`).then((content: string) => {
+				expect(content).to.contain('# Jahia Forms import log');
+				expect(content).to.contain('- Import done');
+				expect(content).to.contain('106 submission(s) imported, 0 not written');
+				expect(content).to.contain('## Contact Us');
+				expect(content).to.contain('page redirect').and.not.contain('fcnt:');
+			});
+		});
 		cy.get('[data-sel-role="import-totals"]').should('contain', '106');
 		closeDialog();
 		cy.get('[data-sel-role="form-results-entry"]', {timeout: 60000}).should('have.length', SAMPLE.forms.length);

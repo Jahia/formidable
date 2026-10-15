@@ -117,13 +117,13 @@ const FormRow = ({form, report, language, t, choices = {}, siteForms, optionsLan
     const choosable = steerable && !(form.outcome === 'found' && form.submissions.toImport === 0);
     const choice = choices[form.sourceName];
     const kind = kindOf(choice);
-    const outcome = outcomeOf(form, kind, steerable);
     const attachment = typeof choice === 'object' ? choice : null;
+    const row = rowOf(form, choices, siteForms, steerable, t);
+    const outcome = row.outcome;
     // what the form itself cannot carry over only matters when a form is created
     const notes = outcome === 'created' ? groupedNotes(form, language) : {action: [], info: []};
     const hasNotes = notes.action.length + notes.info.length > 0;
     const profile = profileMappings(notes.info, notes.action);
-    const pickedForm = attachment && siteForms?.find(siteForm => siteForm.uuid === attachment.form);
     const choose = (value: string) => {
         onChoice?.(form.sourceName, value === 'attach' ? {choice: 'attach', form: '', mapping: {}} : value as ImportChoice);
     };
@@ -161,7 +161,7 @@ const FormRow = ({form, report, language, t, choices = {}, siteForms, optionsLan
                         </div>
                     )}
                     <Typography variant={steerable ? 'caption' : 'body'} data-sel-role="import-report-outcome" style={steerable ? {color: 'var(--color-gray)'} : undefined}>
-                        {describe(form, outcome, steerable, pickedForm ? pickedForm.title : form.targetName, Boolean(attachment && !pickedForm), t)}
+                        {row.text}
                     </Typography>
                 </div>
                 <div>
@@ -206,6 +206,19 @@ const FormRow = ({form, report, language, t, choices = {}, siteForms, optionsLan
     );
 };
 
+/**
+ * What receives the results of a form, as its row says it: the choice of the review while it can change, else
+ * the outcome of the import, and that in words.
+ */
+export function rowOf(form: ImportReportForm, choices: Record<string, ImportChoice>, siteForms: SiteForm[] | null | undefined,
+                      steerable: boolean, t: Translate): {outcome: ImportReportForm['outcome']; text: string} {
+    const choice = choices[form.sourceName];
+    const outcome = outcomeOf(form, kindOf(choice), steerable);
+    const attachment = typeof choice === 'object' ? choice : null;
+    const picked = attachment && siteForms?.find(siteForm => siteForm.uuid === attachment.form);
+    return {outcome, text: describe(form, outcome, steerable, picked ? picked.title : form.targetName, Boolean(attachment && !picked), t)};
+}
+
 /** The figures of a form: its submissions, its fields, its files, and what the values lost. */
 function figuresOf(form: ImportReportForm, dryRun: boolean, t: Translate): string {
     return [
@@ -213,6 +226,7 @@ function figuresOf(form: ImportReportForm, dryRun: boolean, t: Translate): strin
             t('formResults.import.report.submissions', {count: form.submissions.found}) :
             t('formResults.import.report.imported', {count: form.submissions.imported}),
         form.submissions.alreadyImported > 0 && t('formResults.import.report.already', {count: form.submissions.alreadyImported}),
+        !dryRun && (form.submissions.failed ?? 0) > 0 && t('formResults.import.report.failed', {count: form.submissions.failed}),
         t('formResults.import.report.fields', {count: form.fields.length}),
         form.files.count > 0 && t('formResults.import.report.files', {count: form.files.count, size: formatFileSize(form.files.bytes)}),
         form.files.missing > 0 && t('formResults.import.report.filesMissing', {count: form.files.missing}),

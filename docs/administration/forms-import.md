@@ -61,7 +61,10 @@ results: the import refuses them with this procedure.
 5. Click **Import**. The import runs on the server, by batches; the dialog follows it and can be closed
    meanwhile — opening it again shows the running import, then its report. One import runs at a time per
    site.
-6. Read the final report, then publish the forms you had created: until a form is published, its entry on
+6. Read the final report — **Download the import log** saves, as a Markdown file, how the import ended,
+   what each submission lost (a password, a value kept as stored, a missing file) or why it was not
+   written, and what is left to review. A submission that could not be written is left behind: import the
+   same export again to retry it. Then publish the forms you had created: until a form is published, its entry on
    the Results page shows as **Unpublished**, with the labels of the form as column heads, read from the
    edit workspace. Review each form, do what its row lists under **Notes**, then publish it. Grant the **Form
    results reader** role on the form to the people who read its results, as for any form

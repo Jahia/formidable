@@ -550,6 +550,14 @@ public class ImportWriter {
         live.save();
     }
 
+    /**
+     * Drops the submissions written since the last save, which a failed write or save leaves in the session:
+     * the forms and the results entries, saved before any submission, stay.
+     */
+    public void discardSubmissions() throws RepositoryException {
+        live.refresh(false);
+    }
+
     // --- helpers ---
 
     /** The name the submissions are created by: the system user of the sessions, as SaveToJcrFormAction leaves it. */

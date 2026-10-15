@@ -2,6 +2,7 @@ package org.jahia.modules.formidable.engine.imports.jahiaforms;
 
 import org.jahia.modules.formidable.engine.imports.model.ImportedField;
 import org.jahia.modules.formidable.engine.imports.model.ImportedForm;
+import org.jahia.modules.formidable.engine.imports.model.ImportNote;
 import org.jahia.modules.formidable.engine.imports.model.ImportedSubmission;
 import org.junit.jupiter.api.Test;
 
@@ -70,7 +71,7 @@ class FormsSyntheticExportTest {
             + "  </forms>\n"
             + "</formFactory>\n";
 
-    private static FormsExportReader reader() throws Exception {
+    static FormsExportReader reader() throws Exception {
         return new FormsExportReader(new FormsExportZip(FormsExportReaderTest.zipOf(Map.of(FormsExportZip.XML, EXPORT))));
     }
 
@@ -119,7 +120,11 @@ class FormsSyntheticExportTest {
         ImportedSubmission converted = new FormsSubmissionConverter(form, source, results).convert(submissions.get(0));
         assertFalse(converted.values().containsKey("password_0_1"));
         assertTrue(converted.values().values().stream().flatMap(List::stream).noneMatch(FormsValues.PASSWORD_PLACEHOLDER::equals));
-        assertEquals(List.of("answer password_0_1: password dropped"), converted.report());
+        assertEquals(1, converted.report().size());
+        assertEquals("submission.passwordDropped", converted.report().get(0).code());
+        // no field was created for it: the note names it by the title of its Forms definition
+        assertEquals("Password", converted.report().get(0).param("field"));
+        assertEquals(ImportNote.Level.ACTION, converted.report().get(0).level());
     }
 
     @Test

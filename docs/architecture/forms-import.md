@@ -72,7 +72,7 @@ publish it.
 | **The forms are created unpublished, the results are written in live** | A contributor reviews a form, completes what the import reported, then publishes it: the import never publishes. Until then the Results page shows the entry as **Unpublished**, with the system names of the fields as columns, as for any native form that is not published. Results only exist in live in both products: the import writes them there, as `SaveToJcrFormAction` does, and they are never published. |
 | **`origin` = `jahia-forms` on an imported submission** | `origin` is the discriminator that [Save to JCR](save-to-jcr.md) documents for "a legacy-forms import". The Results page and the exports can tell an imported submission from a native one. |
 | **A Forms form is recognised by its `jcr:uuid` and by the `jcr:uuid` of its results node, a field by its `jcr:uuid`, a submission by its node name** | All of them are in the zip export. A later run finds the form it created, the field each value belongs to and the submissions it wrote, and adds only what is missing. The form keeps both of its keys because either can be missing: the form's, once Forms deleted the form; the results node's, while the form was never published. See [Running it twice](#running-it-twice). |
-| **A prefill from the visitor profile becomes the mapping of the field to that profile property** | The jExperience bridge of Forms (`jexperience-forms-bridge`) prefills a field from a jCustomer profile property and maps the submitted value back to it (`fcnt:mfffPrefill`), or maps without prefilling (`fcnt:mfffMappingOnly`); its `dataKey` holds the property, whose `itemId` is the identifier Formidable's jExperience integration stores in `jExperienceProfileProperty` ([jExperience integration](jexperience-integration.md)). The import writes that property, the prefill switch and what follows the write (`hideAfterPrefill` → hidden, `makeReadOnlyAfterPrefill` → read-only, else editable) when the integration is installed and its mixin reaches the field type, and reports the mapping so that the contributor checks it; without the integration, or on a type it does not reach, the report names the property to map by hand. The other prefill flavours of Forms (user info, geolocation) have no counterpart and are reported. |
+| **A prefill from the visitor profile becomes the mapping of the field to that profile property** | The jExperience bridge of Forms (`jexperience-forms-bridge`) prefills a field from a jCustomer profile property and maps the submitted value back to it (`fcnt:mfffPrefill`), or maps without prefilling (`fcnt:mfffMappingOnly`); its `dataKey` holds the property, whose `itemId` is the identifier Formidable's jExperience integration stores in `jExperienceProfileProperty` ([jExperience integration](jexperience-integration.md)). The import writes that property, the prefill switch and what follows the write (`hideAfterPrefill` → hidden, `makeReadOnlyAfterPrefill` → read-only, else editable) when the integration is installed, its mixin reaches the field type, and the profile server of the site declares the property with a type the field holds, and reports the mapping so that the contributor checks it. The integration answers that last point through `VisitorProfileSchema`, an interface of the engine API it implements from its catalog of profile properties and the type rule of its editor (`FieldShapes`): the mapping rule of a form skips, without a word, a field mapped to a property jCustomer does not declare or whose type does not fit, so the import never writes one; it reports the property to create, or the type that does not fit, instead. When jCustomer cannot be reached, the mapping is written as Forms had it, with a line to check that the property exists. Without the integration, or on a type it does not reach, the report names the property to map by hand. The other prefill flavours of Forms (user info, geolocation) have no counterpart and are reported. |
 | **The import starts from the Results page, behind a setting** | An **Import Jahia Forms results** button in the toolbar of the Results page, off by default, opens a dialog that takes the export, shows the report of a dry run, then imports into the current site. See [Running it](#running-it). |
 
 ## Source model (Forms 3.x)
@@ -318,7 +318,8 @@ For every field:
   key becomes the value, so that the imported values match, and the Forms label becomes the label;
 - a prefill from the visitor profile (`fcnt:mfffPrefill`, `fcnt:mfffMappingOnly`) is written as the mapping
   of the field to that profile property when the jExperience integration is installed and reaches the field
-  type (see the decisions), the first of the kind on a field; every other prefill, and `logics`, are reported,
+  type and the profile server declares the property with a type the field holds (see the decisions), the first
+  of the kind on a field; every other prefill, and `logics`, are reported,
   with the names of the fields they touch, and nothing is written for them. `inputsize` is dropped.
 
 **The date rule** needs no time zone. Forms stored the local midnight of the visitor: for a visitor at the
@@ -500,8 +501,8 @@ stateDiagram-v2
 | Analysing | The file name and a spinner, while the server reads the export and writes nothing. |
 | Review | The report of the dry run (below), one row per form of the export, and two buttons: **Import** and **Cancel**. A report with nothing to import (every form and every submission already imported) shows **Close** alone. While another import runs on the site, **Import** is refused with that reason. Iteration 2 adds to each row a menu, **What to do**, the choice of what receives its results (see [Iteration 2](#iteration-2-choosing-what-receives-the-results)); **Import** waits until an attachment names its form, and while every form is left out. |
 | Importing | The file name and a spinner. The dialog can be closed: the job goes on without it, and the dialog, opened again on this site, shows the running import, or its end state once it has ended. |
-| Done | Moonstone's `Check` icon, the submissions imported, a line asking to review and publish the forms when the import created some, then the final report in the same rows, each saying what received the results. **Close** refreshes the list of entries. |
-| Failed | The reason, as the server gives it (an export without results or without identifiers, a broken zip, a lost connection), then **Try again** and **Close**. Both remove the failed job: **Try again** goes back to Waiting. |
+| Done | Moonstone's `Check` icon, the submissions imported, a line asking to review and publish the forms when the import created some, then the final report in the same rows, each saying what received the results and how many submissions were not written. **Download the import log** and **Close**, which refreshes the list of entries. |
+| Failed | The reason, as the server gives it (an export without results or without identifiers, a broken zip, a lost connection), then **Try again** and **Close**. Both remove the failed job: **Try again** goes back to Waiting. An import that stopped on its way also offers **Download the import log**, with what it wrote before it stopped. |
 
 **The server.** The file is uploaded once, by a `POST` to an endpoint of the engine on the current site.
 It is stored in the repository, not on the disk of one server: a `fmdb:importJob` node under
@@ -537,7 +538,11 @@ redeployed between the schedule and the run, is marked failed, with that reason,
 asks the site for its job, so that it stops reopening.
 
 The import writes the forms first, then the submissions by batches of 100, and saves each batch on its
-own. When a phase ends, the job node keeps its end state and its report. A dry run keeps its file for the
+own. A submission that cannot be written does not stop the import: the batch it was in is dropped and its
+other submissions written again one by one, each saved alone; the one that fails is left behind, counted as
+not written in the report, with the reason, and the next run of the same export tries it again. Past 100
+of them, or on any other failure, the import stops: what it saved stays, the job ends failed and keeps the
+report as far as it went, with why it stopped. When a phase ends, the job node keeps its end state and its report. A dry run keeps its file for the
 import that may follow; the import drops the `file` child when it ends, because it has served. The dialog
 reads the report from the node, then **Close** removes the node, so a reload, or a second administrator,
 still finds the report until someone has read it. A node nobody read is removed one hour after its end, as
@@ -573,6 +578,22 @@ The final report says, on a line above the rows, that the created forms are in `
 unpublished; until a form is published, its entry shows as **Unpublished** on the Results page, with the
 labels of the form, read from edit, as columns; a contributor reviews each form, does what its row lists,
 then publishes it.
+
+**Download the import log**, once the import is done or stopped, saves the log of the import as a Markdown
+file, `forms-import-log-<site>-<yyyy-MM-dd-HHmm>.md` (UTC). The review offers none: it writes nothing, and its
+report is on the screen. The log says how the import ended (done, or stopped and why) with the submissions
+imported and not written, then has one section per form imported with what received its results, its figures,
+what its submissions lost, what to redo or check by hand and what was carried over; last, the submissions of
+no form of the export. What the submissions lost comes from the incidents the import lists, submission by
+submission (the dry run lists none): a value dropped (a password, an answer whose field another answer
+already fills), values kept as stored because they could not be converted, a value kept under its Forms
+name because the form holds no field for it, a file the export does not hold, a submission that could not
+be written, and its reason. The log gives each sentence once, with the count and the submissions it concerns
+under it, by date then source identity, a submission without a date last; past 1000 incidents per form, the
+rest are only counted. A submission not written is listed with what it lost, but its values and its files
+count in the figures of its form only once written: the figures of the log are those of the results. The dialog
+builds it from the report of the job, in its language, with the same sentences; nothing more is stored on
+the server, where the job and its report go once read.
 
 ### Running it twice
 

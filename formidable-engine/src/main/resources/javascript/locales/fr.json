@@ -238,7 +238,8 @@
 				"fields": "{{count}} champ(s)",
 				"files": "{{count}} fichier(s), {{size}}",
 				"filesMissing": "{{count}} fichier(s) absent(s) de l’export, laissé(s) de côté",
-				"values": "{{dropped}} valeur(s) écartée(s), {{notConverted}} gardée(s) telles quelles"
+				"values": "{{dropped}} valeur(s) écartée(s), {{notConverted}} gardée(s) telles quelles",
+				"failed": "{{count}} non écrite(s), voir le journal d’import"
 			},
 			"choice": {
 				"resultsOnly": "Résultats seuls",
@@ -251,7 +252,8 @@
 				"import": "Importer",
 				"cancel": "Annuler",
 				"close": "Fermer",
-				"tryAgain": "Réessayer"
+				"tryAgain": "Réessayer",
+				"downloadLog": "Télécharger le journal d’import"
 			},
 			"done": {
 				"title": "Import terminé",
@@ -346,7 +348,10 @@
 					"fileTypes": "Ses types de fichiers acceptés ({{types}}) ne sont pas repris : réglez-les à la main",
 					"noChoices": "Aucune option dans l’export : ajoutez-les à la main",
 					"noCountries": "Aucun pays dans l’export : ajoutez les options à la main, ou déclarez une source d’options de pays",
-					"termsLink": "Le lien vers les conditions ({{link}}) n’est pas repris : ajoutez-le à l’énoncé"
+					"termsLink": "Le lien vers les conditions ({{link}}) n’est pas repris : ajoutez-le à l’énoncé",
+					"prefillUnknownProperty": "Non lié à la propriété {{property}} du profil visiteur : jCustomer n’a pas cette propriété. Créez-la, puis liez le champ",
+					"prefillIncompatible": "Non lié à la propriété {{property}} du profil visiteur : son type ne convient pas à un champ {{type}}",
+					"profileUnchecked": "Lié à la propriété {{property}} du profil visiteur, sans vérification : jCustomer était injoignable. Vérifiez que la propriété existe"
 				},
 				"form": {
 					"fromLabels": "Reconstruit à partir des libellés de ses résultats : Jahia Forms ne contient plus le formulaire",
@@ -364,6 +369,16 @@
 					"contentDisplayDropped": "L’affichage de contenu {{field}} n’est pas recréé : il ne soumet rien",
 					"fieldDropped": "Le champ {{field}} ({{source}}) n’est pas recréé",
 					"redirectNoTarget": "La redirection n’est pas reprise : Formidable n’a pas encore de redirection"
+				},
+				"submission": {
+					"keptUnderSourceName": "{{field}} : gardé sous son nom Forms {{name}}, le formulaire n’a pas de champ pour lui",
+					"passwordDropped": "{{field}} : un mot de passe, non importé",
+					"notConverted": "{{field}} : {{count}} valeur(s) gardée(s) telles quelles, elles n’ont pas pu être converties",
+					"consentUnknown": "{{field}} : {{count}} valeur(s) gardée(s) telles quelles, ni le texte accepté ni le texte refusé",
+					"duplicateTarget": "{{field}} : écarté, une autre réponse de la soumission remplit le même champ",
+					"fileMissing": "Le fichier {{file}} n’est pas dans l’export : laissé de côté",
+					"writeFailed": "Non écrite : {{reason}}. Importer à nouveau le même export la retente",
+					"noForm": "Des résultats {{form}}, auxquels aucun formulaire de l’export ne correspond : non importée"
 				}
 			},
 			"terms": {
@@ -438,6 +453,19 @@
 					"prefilled": "Préremplissage",
 					"status": "État"
 				}
+			},
+			"markdown": {
+				"title": "Journal d’import Jahia Forms",
+				"site": "Site",
+				"file": "Export",
+				"date": "Date",
+				"done": "Import terminé",
+				"stopped": "L’import s’est arrêté avant la fin : {{reason}}. Ce qu’il a écrit reste ; importez à nouveau le même export pour continuer.",
+				"totals": "{{imported}} soumission(s) importée(s), {{failed}} non écrite(s)",
+				"incidents": "Ce que les soumissions ont perdu",
+				"incidentsOmitted": "{{count}} de plus, non listé(s)",
+				"orphans": "Soumissions sans formulaire",
+				"submission": "soumission {{id}}"
 			}
 		},
 		"attach": {

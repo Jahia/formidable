@@ -4,6 +4,7 @@ import org.jahia.modules.formidable.engine.imports.model.ImportNote;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -15,6 +16,10 @@ import java.util.Set;
  * The report of a dry run or of an import (docs/architecture/forms-import.md, "Running it"): per source
  * form, what the import creates or found, its fields with what could not be carried over, the counts of
  * submissions, values and files. Built as it goes, serialised as JSON for the job node and the dialog.
+ * <p>
+ * An import also lists its incidents, what the log of the dialog gives submission by submission: a value
+ * dropped or kept as stored, a file the export does not hold, a submission that could not be written, a
+ * submission of no form of the export; and, when it stopped before its end, why.
  */
 public final class ImportReport {
 
@@ -36,6 +41,28 @@ public final class ImportReport {
     /** The distinct values a field is reported with: enough for the dialog to tell a choice field's options from them. */
     public static final int VALUES_LISTED = 30;
 
+    /** The incidents listed per form and for the whole run; the ones past the cap are only counted. */
+    public static final int INCIDENTS_LISTED = 1000;
+
+    /** The incidents of a form or of the run, capped at {@link #INCIDENTS_LISTED}. */
+    private static final class Incidents {
+        private final List<JSONObject> listed = new ArrayList<>();
+        private int omitted;
+
+        void add(String submission, Instant created, ImportNote note) {
+            if (listed.size() >= INCIDENTS_LISTED) {
+                omitted++;
+                return;
+            }
+            listed.add(note.toJson().put("submission", submission)
+                    .put("created", created == null ? JSONObject.NULL : created.toString()));
+        }
+
+        void into(JSONObject json) {
+            json.put("incidents", new JSONArray(listed)).put("incidentsOmitted", omitted);
+        }
+    }
+
     /** The figures of one source form. */
     public static final class FormEntry {
         private final String sourceName;
@@ -51,6 +78,8 @@ public final class ImportReport {
         private int submissionsFound;
         private int submissionsImported;
         private int submissionsAlreadyImported;
+        private int submissionsFailed;
+        private final Incidents incidents = new Incidents();
         private int valuesConverted;
         private int valuesDropped;
         private int valuesNotConverted;
@@ -133,6 +162,18 @@ public final class ImportReport {
             return this;
         }
 
+        /** A submission the import could not write: left behind, a later run tries it again. */
+        public FormEntry submissionFailed() {
+            submissionsFailed++;
+            return this;
+        }
+
+        /** Something a submission lost or kept as it was, or why it was not written: a line of the log. */
+        public FormEntry incident(String submission, Instant created, ImportNote note) {
+            incidents.add(submission, created, note);
+            return this;
+        }
+
         public FormEntry values(int converted, int dropped, int notConverted) {
             valuesConverted += converted;
             valuesDropped += dropped;
@@ -170,7 +211,7 @@ public final class ImportReport {
                         .put("values", new JSONArray(values.getOrDefault(name, Set.of())))
                         .put("moreValues", moreValues.contains(name)));
             }
-            return new JSONObject()
+            JSONObject json = new JSONObject()
                     .put("sourceName", sourceName)
                     .put("titles", new JSONObject(titles))
                     .put("targetName", targetName)
@@ -182,18 +223,24 @@ public final class ImportReport {
                             .put("found", submissionsFound)
                             .put("imported", submissionsImported)
                             .put("alreadyImported", submissionsAlreadyImported)
+                            .put("failed", submissionsFailed)
                             .put("toImport", submissionsToImport()))
                     .put("values", new JSONObject()
                             .put("converted", valuesConverted)
                             .put("dropped", valuesDropped)
                             .put("notConverted", valuesNotConverted))
                     .put("files", new JSONObject().put("count", files).put("bytes", fileBytes).put("missing", filesMissing));
+            incidents.into(json);
+            return json;
         }
     }
 
     private final boolean dryRun;
     private final Map<String, FormEntry> forms = new LinkedHashMap<>();
     private String importedFormsFolder;
+    /** The incidents of no form: the submissions of a results entry the export holds no form nor entry for. */
+    private final Incidents incidents = new Incidents();
+    private String stopped;
 
     public ImportReport(boolean dryRun) {
         this.dryRun = dryRun;
@@ -211,6 +258,16 @@ public final class ImportReport {
         importedFormsFolder = path;
     }
 
+    /** A submission of no form of the export: not imported, and said so. */
+    public void orphan(String submission, Instant created, String formName) {
+        incidents.add(submission, created, ImportNote.action("submission.noForm", "form", formName));
+    }
+
+    /** The import stopped before its end, for this reason: what it wrote stays, a later run goes on from there. */
+    public void stopped(String reason) {
+        stopped = reason;
+    }
+
     public boolean isDryRun() {
         return dryRun;
     }
@@ -225,22 +282,28 @@ public final class ImportReport {
         int found = 0;
         int toImport = 0;
         int imported = 0;
+        int failed = 0;
         for (FormEntry form : forms.values()) {
             entries.put(form.toJson());
             found += form.submissionsFound;
             toImport += form.submissionsToImport();
             imported += form.submissionsImported;
+            failed += form.submissionsFailed;
         }
-        return new JSONObject()
+        JSONObject json = new JSONObject()
                 .put("dryRun", dryRun)
+                .put("stopped", stopped == null ? JSONObject.NULL : stopped)
                 .put("importedFormsFolder", importedFormsFolder == null ? JSONObject.NULL : importedFormsFolder)
                 .put("forms", entries)
                 .put("totals", new JSONObject()
                         .put("forms", forms.size())
                         .put("submissionsFound", found)
                         .put("submissionsToImport", toImport)
-                        .put("submissionsImported", imported))
+                        .put("submissionsImported", imported)
+                        .put("submissionsFailed", failed))
                 .put("nothingToImport", !hasSomethingToImport());
+        incidents.into(json);
+        return json;
     }
 
     @Override

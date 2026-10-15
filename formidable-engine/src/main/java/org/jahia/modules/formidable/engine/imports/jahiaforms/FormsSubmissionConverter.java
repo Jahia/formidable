@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.engine.imports.jahiaforms;
 
+import org.jahia.modules.formidable.engine.imports.model.ImportNote;
 import org.jahia.modules.formidable.engine.imports.model.ImportedField;
 import org.jahia.modules.formidable.engine.imports.model.ImportedFile;
 import org.jahia.modules.formidable.engine.imports.model.ImportedForm;
@@ -24,8 +25,8 @@ import java.util.Set;
  */
 public final class FormsSubmissionConverter {
 
-    /** The start of every line of the report about one answer of a submission. */
-    private static final String ANSWER = "answer ";
+    /** The parameter of a submission note that names the field of the answer, by its title. */
+    private static final String FIELD = "field";
 
     private final ImportedForm form;
     private final FormsForm source;
@@ -57,7 +58,7 @@ public final class FormsSubmissionConverter {
     public ImportedSubmission convert(FormsSubmission submission) {
         Map<String, List<String>> values = new LinkedHashMap<>();
         List<ImportedFile> files = new ArrayList<>();
-        List<String> report = new ArrayList<>();
+        List<ImportNote> report = new ArrayList<>();
         for (FormsResultField answer : submission.fields()) {
             FormsLabel label = results == null ? null : results.label(answer.labelName());
             ImportedField field = fieldOf(answer, label);
@@ -65,10 +66,11 @@ public final class FormsSubmissionConverter {
             String fieldName = foundNames == null ? createdName(field) : foundName(answer, label);
             String name = fieldName == null ? answer.labelName() : fieldName;
             String kind = kindOf(field, definition);
+            String title = titleOf(answer, label, field, definition);
             if (fieldName == null && !"password".equals(kind)) {
-                report.add(ANSWER + answer.name() + " kept under its Forms name: the form holds no field for it");
+                report.add(ImportNote.info("submission.keptUnderSourceName", FIELD, title, "name", answer.labelName()));
             }
-            convertValue(answer, kind, consentLabels(definition), name, values, report);
+            convertValue(answer, kind, consentLabels(definition), new Target(name, title), values, report);
             for (FormsFile file : answer.files()) {
                 files.add(new ImportedFile(name, file.name(), file.mimeType(), file.path()));
             }
@@ -77,22 +79,54 @@ public final class FormsSubmissionConverter {
                 submission.uuid(), form.sourceKey(), report);
     }
 
-    private static void convertValue(FormsResultField answer, String kind, FormsValues.ConsentLabels consent, String name,
-                                     Map<String, List<String>> values, List<String> report) {
+    /** Where the values of an answer land: the name of the field, and its title, which the notes about it give. */
+    private record Target(String name, String title) {
+    }
+
+    private static void convertValue(FormsResultField answer, String kind, FormsValues.ConsentLabels consent, Target target,
+                                     Map<String, List<String>> values, List<ImportNote> report) {
         FormsValues.Converted converted = FormsValues.convert(kind, answer.values(), consent);
         if (converted.note() != null) {
-            report.add(ANSWER + answer.name() + ": " + converted.note());
+            report.add(ImportNote.action("submission." + converted.note(), FIELD, target.title(), "count", String.valueOf(converted.count())));
         }
+        String name = target.name();
         List<String> kept = converted.values().stream().filter(v -> v != null && !v.isBlank()).toList();
         if (kept.isEmpty()) {
             return;
         }
         if (values.containsKey(name)) {
             // two answers of one submission sent to one name by a mapping: the first stays, the second is said
-            report.add(ANSWER + answer.name() + " dropped: its values would land under " + name + ", which another answer of this submission holds");
+            report.add(ImportNote.action("submission.duplicateTarget", FIELD, target.title()));
             return;
         }
         values.put(name, kept);
+    }
+
+    /**
+     * The title of the field of an answer, in the building language of the form, which the notes give: the
+     * title of the field converted for it, else the title of its Forms definition, else the label Forms kept
+     * with the results, else its Forms name.
+     */
+    private String titleOf(FormsResultField answer, FormsLabel label, ImportedField field, FormsField definition) {
+        String lang = form.buildingLang();
+        List<Map<String, String>> sources = new ArrayList<>();
+        if (field != null) {
+            sources.add(field.titles());
+        }
+        if (definition != null) {
+            sources.add(definition.titles());
+        }
+        if (label != null) {
+            sources.add(label.labels());
+        }
+        for (Map<String, String> titles : sources) {
+            String title = titles.get(lang);
+            if (title != null && !title.isBlank()) {
+                return title;
+            }
+        }
+        return sources.stream().flatMap(titles -> titles.values().stream())
+                .filter(title -> title != null && !title.isBlank()).findFirst().orElse(answer.name());
     }
 
     /** On a form the run creates: the system name of the field converted for the answer; null when none was. */

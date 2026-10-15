@@ -3,4 +3,4 @@
 formidable: minor
 ---
 
-Added the visitor profile mapping of imported Jahia Forms fields that were prefilled from the profile (#399)
+Added the visitor profile mapping of imported Jahia Forms fields prefilled from a jCustomer property (#399, #403)

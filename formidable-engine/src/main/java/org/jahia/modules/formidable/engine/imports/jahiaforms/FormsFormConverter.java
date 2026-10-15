@@ -1,6 +1,7 @@
 package org.jahia.modules.formidable.engine.imports.jahiaforms;
 
 import org.jahia.modules.formidable.engine.api.FmdbNodeType;
+import org.jahia.modules.formidable.engine.api.VisitorProfileSchema;
 import org.jahia.modules.formidable.engine.imports.SystemNames;
 import org.jahia.modules.formidable.engine.imports.model.ImportedAction;
 import org.jahia.modules.formidable.engine.imports.model.ImportedContainer;
@@ -19,6 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Predicate;
 
 /**
@@ -38,6 +40,9 @@ public final class FormsFormConverter {
     private static final String FIELD = "field";
     private static final String RULE = "rule";
     private static final String PROPERTY = "property";
+    private static final String TYPE = "type";
+    /** The Forms accept-terms box (forms-extended-inputs). */
+    private static final String ACCEPT_TERMS_KIND = "acceptTermCheckbox";
     private static final String PLAIN_LANGUAGE = "";
 
     /** The Forms file-type groups a {@code fileValidation} selects, as {@code accept} can say them; {@code all} restricts nothing. */
@@ -59,6 +64,7 @@ public final class FormsFormConverter {
     private final Predicate<String> registeredTypes;
     private final Predicate<String> declaredOptionsSources;
     private final Predicate<String> profileMappable;
+    private final ImportEnvironment.ProfileFit profileFit;
     private final boolean captchaConfigured;
 
     /**
@@ -76,6 +82,7 @@ public final class FormsFormConverter {
         this.registeredTypes = environment.registeredTypes();
         this.declaredOptionsSources = environment.declaredOptionsSources();
         this.profileMappable = environment.profileMappable();
+        this.profileFit = environment.profileFit();
         this.captchaConfigured = environment.captchaConfigured();
     }
 
@@ -184,18 +191,18 @@ public final class FormsFormConverter {
         if (mapping.note() != null) {
             field.report(mapping.note());
         }
-        fillCommon(field, definition, mapping);
+        fillCommon(field, definition, label, mapping);
         fillRules(field, definition, mapping);
         fillByKind(field, definition, label, titles, buildingLang, mapping);
         return Optional.of(field.build());
     }
 
-    private void fillCommon(ImportedField.Builder field, FormsField definition, FormsFieldTypes.Mapping mapping) {
+    private void fillCommon(ImportedField.Builder field, FormsField definition, FormsLabel label, FormsFieldTypes.Mapping mapping) {
         // a select has no placeholder, but shows its empty option's label where a placeholder would stand
         String placeholderSlot = mapping.is(FormsFieldTypes.SELECT) ? FormsFieldTypes.OPTIONS_EMPTY_LABEL : FormsFieldTypes.PLACEHOLDER;
         field.i18nProperty(placeholderSlot, valuesOf(definition.option(FormsOptionNames.PLACEHOLDER)));
         field.i18nProperty(FormsFieldTypes.HELP_TEXT, valuesOf(definition.option(FormsOptionNames.HELP_TEXT)));
-        fillPrefills(field, definition, mapping);
+        fillPrefills(field, definition, label, mapping);
         if (definition.hasLogic()) {
             field.report(ImportNote.action("field.logic"));
         }
@@ -207,34 +214,72 @@ public final class FormsFormConverter {
      * and reaches the field type; a field takes one mapping, the first prefill of the kind. Any other prefill, or
      * one the integration cannot take, is reported.
      */
-    private void fillPrefills(ImportedField.Builder field, FormsField definition, FormsFieldTypes.Mapping mapping) {
+    private void fillPrefills(ImportedField.Builder field, FormsField definition, FormsLabel label, FormsFieldTypes.Mapping mapping) {
         boolean mapped = false;
         for (FormsPrefill prefill : definition.prefills()) {
-            ImportNote refusal = refusalOf(prefill, mapping, mapped);
-            if (refusal == null) {
+            PrefillDecision decision = decide(prefill, definition, label, mapping, mapped);
+            if (decision.refusal() == null) {
                 carry(field, prefill);
                 mapped = true;
+                if (decision.unchecked()) {
+                    field.report(ImportNote.action("field.profileUnchecked", PROPERTY, prefill.profileProperty()));
+                }
             } else {
-                field.report(refusal);
+                field.report(decision.refusal());
             }
         }
     }
 
-    /** Why a prefill is reported instead of carried over; null when the field takes it. */
-    private ImportNote refusalOf(FormsPrefill prefill, FormsFieldTypes.Mapping mapping, boolean mapped) {
+    /**
+     * Whether a prefill is carried over: the refusal to report instead, or none when the field takes it, and
+     * whether the profile server could not be asked whether it declares the property.
+     */
+    private record PrefillDecision(ImportNote refusal, boolean unchecked) {
+        static final PrefillDecision CARRIED = new PrefillDecision(null, false);
+    }
+
+    /**
+     * A prefill is carried over when it comes from the visitor profile, the field is not mapped yet, the jExperience
+     * integration is installed and reaches the type, and the profile server of the site declares the property with a
+     * type the field holds: a mapping to any other property would be skipped when the mapping rule of the form is built.
+     */
+    private PrefillDecision decide(FormsPrefill prefill, FormsField definition, FormsLabel label, FormsFieldTypes.Mapping mapping, boolean mapped) {
         if (!prefill.isProfileMapping()) {
-            return ImportNote.action("field.prefillOther", "prefill", prefill.type());
+            return refused(ImportNote.action("field.prefillOther", "prefill", prefill.type()));
         }
+        String property = prefill.profileProperty();
         if (mapped) {
-            return ImportNote.action("field.prefillAlreadyMapped", PROPERTY, prefill.profileProperty());
+            return refused(ImportNote.action("field.prefillAlreadyMapped", PROPERTY, property));
         }
         if (!registeredTypes.test(PROFILE_MAPPING_MIXIN)) {
-            return ImportNote.action("field.prefillNoIntegration", PROPERTY, prefill.profileProperty());
+            return refused(ImportNote.action("field.prefillNoIntegration", PROPERTY, property));
         }
         if (!profileMappable.test(mapping.nodeType())) {
-            return ImportNote.action("field.prefillNotMappable", PROPERTY, prefill.profileProperty(), "type", mapping.nodeType());
+            return refused(ImportNote.action("field.prefillNotMappable", PROPERTY, property, TYPE, mapping.nodeType()));
         }
-        return null;
+        // the cardinality the mapping rule reads off the created field: a select made from a Forms multiple select
+        // holds several values, a checkbox one value when it has a single option
+        boolean multiple = FormsFieldTypes.isMultipleChoice(definition.kind()) && mapping.is(FormsFieldTypes.SELECT);
+        OptionalInt choices = mapping.is(FormsFieldTypes.CHECKBOX) ? choiceCount(definition, label) : OptionalInt.empty();
+        return switch (profileFit.fit(mapping.nodeType(), multiple, choices, property)) {
+            case UNKNOWN -> refused(ImportNote.action("field.prefillUnknownProperty", PROPERTY, property));
+            case INCOMPATIBLE -> refused(ImportNote.action("field.prefillIncompatible", PROPERTY, property, TYPE, mapping.nodeType()));
+            case UNAVAILABLE -> new PrefillDecision(null, true);
+            case FITS -> PrefillDecision.CARRIED;
+        };
+    }
+
+    /** The number of options the created checkbox gets, in the first language that has some; one for an accept-terms box. */
+    private static OptionalInt choiceCount(FormsField definition, FormsLabel label) {
+        Map<String, List<String>> options = optionsOf(definition, label);
+        if (options.isEmpty()) {
+            return ACCEPT_TERMS_KIND.equals(definition.kind()) ? OptionalInt.of(1) : OptionalInt.empty();
+        }
+        return OptionalInt.of(options.values().iterator().next().size());
+    }
+
+    private static PrefillDecision refused(ImportNote note) {
+        return new PrefillDecision(note, false);
     }
 
     /** The mapping of the field to the profile property, with the prefill and what follows it as Forms had them. */
@@ -261,7 +306,7 @@ public final class FormsFormConverter {
     private static void fillRules(ImportedField.Builder field, FormsField definition, FormsFieldTypes.Mapping mapping) {
         for (FormsValidation rule : definition.validations()) {
             if (!carried(field, rule, mapping)) {
-                field.report(ImportNote.action("field.rule", RULE, rule.type(), "type", mapping.nodeType()));
+                field.report(ImportNote.action("field.rule", RULE, rule.type(), TYPE, mapping.nodeType()));
             }
         }
     }
@@ -413,7 +458,7 @@ public final class FormsFormConverter {
                 }
             }
             case "rating" -> field.property(FormsFieldTypes.MAX_VALUE, plain(definition, FormsOptionNames.MAX));
-            case "acceptTermCheckbox" -> {
+            case ACCEPT_TERMS_KIND -> {
                 if (mapping.is(FormsFieldTypes.CONSENT)) {
                     field.i18nProperty(FormsFieldTypes.STATEMENT, statementOf(field, definition, titles));
                 }
@@ -433,7 +478,7 @@ public final class FormsFormConverter {
         Map<String, List<String>> options = optionsOf(definition, label);
         if (!options.isEmpty()) {
             field.options(options);
-        } else if ("acceptTermCheckbox".equals(kind)) {
+        } else if (ACCEPT_TERMS_KIND.equals(kind)) {
             // no choices to take the stored value from: the one option is the accepted value, and the
             // answers are rewritten to it as for a consent (FormsSubmissionConverter)
             String language = titles.containsKey(buildingLang) || titles.isEmpty() ? buildingLang : titles.keySet().iterator().next();
