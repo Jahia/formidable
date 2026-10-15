@@ -752,7 +752,10 @@ The import is to move into a module of its own. It therefore reaches the rest of
 the site (the root, an entry's own ACL, the day split, the submission names, the readers synced from the form),
 `CaptchaSetup` and `ChoiceOptionsSources` for what the configuration lets a form carry,
 `VisitorProfileSchema` for the profile properties, and the name holders of the content model. The two
-workspaces and the path of a site are facts of the repository the import keeps for itself (`ImportJcr`). A unit
+workspaces and the path of a site are facts of the repository the import keeps for itself (`ImportJcr`), and the
+file nodes it writes go through its own copy of the engine's JCR file helper (`ImportFiles`: a stream that fails
+to read fails the write with the cause, where `JCRNodeWrapper.uploadFile` only logs it and leaves a resource
+without data for the save to refuse). A unit
 test, `ImportBoundaryTest`, reads the sources of the import and fails on any other package of the engine
 they name. Its configuration file is read as the framework hands it over, without the completion of absent
 keys the engine applies to its own theme files.

@@ -485,7 +485,7 @@ public class ImportWriter {
                 }
                 JCRNodeWrapper folder = childOrCreate(submission, FmdbNodeName.FILES, FOLDER_TYPE);
                 JCRNodeWrapper fieldFolder = childOrCreate(folder, file.fieldName(), FOLDER_TYPE);
-                fieldFolder.uploadFile(JCRContentUtils.findAvailableNodeName(fieldFolder, file.fileName()), binary,
+                ImportFiles.add(fieldFolder, JCRContentUtils.findAvailableNodeName(fieldFolder, file.fileName()), binary,
                         file.mimeType() == null ? "application/octet-stream" : file.mimeType());
             }
         }

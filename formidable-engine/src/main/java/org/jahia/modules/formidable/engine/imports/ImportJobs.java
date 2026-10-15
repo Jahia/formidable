@@ -219,7 +219,7 @@ public class ImportJobs {
         JobView created = inLive(session -> {
             JCRNodeWrapper jobs = jobsNode(session, siteKey, true);
             JCRNodeWrapper job = jobs.addNode(JCRContentUtils.findAvailableNodeName(jobs, jobId), FmdbNodeType.IMPORT_JOB);
-            job.uploadFile(FILE_NODE, file, mimeType == null ? ZIP : mimeType);
+            ImportFiles.add(job, FILE_NODE, file, mimeType == null ? ZIP : mimeType);
             job.setProperty(STATE, State.ANALYSING.stored());
             job.setProperty(UPDATED, now());
             session.save();
