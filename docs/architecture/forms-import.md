@@ -645,7 +645,7 @@ The entry is written as iteration 1 writes it, without the form:
 - `parentForm` is left unset, which the CND allows from this iteration (`fmdb:formResults` declares it
   without `mandatory`); the engine reads an entry that carries `fmdbmix:importedResults` and no
   `parentForm` as imported without a form, everywhere it reads `parentForm` today: the list of the
-  Results page, the ACL sync, the removal of an entry, the attachment;
+  Results page, the ACL sync, the removal of an entry;
 - the Results page shows it with the status **Imported, no form**, where **Form deleted** stands for a
   native entry whose form is gone, and with the system names of the fields as columns, the names
   [the system names](#the-system-names) generate from the Forms labels, as for an unpublished form; the
@@ -778,9 +778,8 @@ mapping or to another form.
   field, proposes the second, refuses two fields sent to one field of the form with the name they collide
   on, and the values land under the names of that form, the entry of the form carrying the mapping and
   showing on the Results page with its labels. Last, on a clean results root, it imports the second sample
-  export, whose PDF lands
-  under `files/<fieldName>/` of its submission with its type and size, downloads it as root and gets a 404
-  as a visitor.
+  export, whose PDF lands under `files/<fieldName>/` of its submission with its type and size, downloads it
+  as root and gets a 404 as a visitor.
 
 ## Open points
 
