@@ -57,7 +57,7 @@ the protection.
 | **Organization property** | Receives the user's `j:organization` |
 | **Page property** | Receives a reference to the page the form was submitted from |
 | **Required companion files**, **Message for a missing companion file** | `dependentField<-field:mimePattern` rules and the sentence the visitor reads when one is broken |
-| **Publish** | On by default: the content and its files are published, in every language of the site |
+| **Publish** | On by default: the content and its files are published (asynchronously, within seconds), in every language of the site |
 
 Publish the form. Submissions run against the live workspace. The action does **not** carry the read-only compatibility marker:
 it writes, so the form is unavailable during a read-only maintenance window.
@@ -130,8 +130,10 @@ pattern for public-facing writes, with the submitter recorded on the node. The s
 5. **The type and the mappings.** The type must exist, be concrete, and be creatable in that folder; every mapped property must
    be declared by it; every value must convert.
 6. **Then the write**: files first (each saved on its own), then the content with the references to them, then the translations,
-   then the publication. If a step fails, what the earlier steps created is removed (and unpublished when publication had
-   started); the visitor reads "we could not save your submission".
+   then the **scheduling** of the publication (Jahia's own publication service, with the translations of every language of the
+   site). If a step fails up to and including the scheduling, what the earlier steps created is removed and the visitor reads
+   "we could not save your submission". The publication itself is asynchronous: live follows within a second or two, and a
+   failure inside the publication job is logged by the platform, after the visitor was answered.
 
 What the visitor reads is always generic: "your account is not set up to send content here" for 3 and 4, "one of the values is
 not valid" for a bad value, "temporarily unavailable" for a configuration error. Folder names, group names and properties go to

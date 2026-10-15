@@ -10,10 +10,9 @@ import org.jahia.modules.formidable.content.plan.FileGroup;
 import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.jahia.services.content.JCRCallback;
 import org.jahia.services.content.JCRNodeWrapper;
-import org.jahia.services.content.JCRPublicationService;
+import org.jahia.services.content.ComplexPublicationService;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRTemplate;
-import org.jahia.services.content.PublicationInfo;
 import org.jahia.services.usermanager.JahiaUser;
 import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
@@ -31,15 +30,13 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Supplier;
 
 /**
- * {@link ContentWriter} on Jahia's {@link JCRTemplate} and {@link JCRPublicationService}.
+ * {@link ContentWriter} on Jahia's {@link JCRTemplate} and {@link ComplexPublicationService}.
  *
  * <p><b>Why a system session.</b> The submitter is a signed-in reader of the site: they hold no write right in
  * {@code default}, so no session of theirs could create the content. This is the documented pattern for public-facing
@@ -50,8 +47,9 @@ import java.util.function.Supplier;
  * <p><b>Order.</b> Files first, each saved on its own (a name taken at that very moment is retried with a random
  * suffix), then the content node with its properties and the references to the files, in one save, so that a type with a
  * mandatory property or file reference is satisfied. Then the other languages (translated properties are written once per
- * language, in a session of that language), then the publication of the files and the content with its subtree and its translations in the site's languages. A failure
- * after any of these removes what was created (and unpublishes it when the publication had started).</p>
+ * language, in a session of that language), then the scheduling of the publication of the files and the content with their translations in the site's languages
+ * (Jahia's {@code ComplexPublicationService}: asynchronous, live follows within seconds). A failure up to and including
+ * the scheduling removes what was created; a failure inside the publication job is logged by the platform.</p>
  *
  * <p>Threading: a singleton with no per-request state; every session lives inside one call.</p>
  */
@@ -70,16 +68,23 @@ public class JcrContentWriter implements ContentWriter {
     private static final int NAME_ATTEMPTS = 4;
 
     private final Supplier<JCRTemplate> jcr;
-    private final Supplier<JCRPublicationService> publication;
+    private ComplexPublicationService publisher;
 
     /** Production constructor: the platform's own services. */
     public JcrContentWriter() {
-        this(JCRTemplate::getInstance, JCRPublicationService::getInstance);
+        this(JCRTemplate::getInstance);
     }
 
-    JcrContentWriter(Supplier<JCRTemplate> jcr, Supplier<JCRPublicationService> publication) {
+    JcrContentWriter(Supplier<JCRTemplate> jcr) {
         this.jcr = jcr;
-        this.publication = publication;
+    }
+
+    /**
+     * @param publisher the platform's publication service, the one Jahia's GraphQL {@code publish} uses
+     */
+    @org.osgi.service.component.annotations.Reference
+    public void setPublisher(ComplexPublicationService publisher) {
+        this.publisher = publisher;
     }
 
     /** What the first session learned, kept for the later steps and for the clean-up. */
@@ -88,7 +93,6 @@ public class JcrContentWriter implements ContentWriter {
         final List<Stored> files = new ArrayList<>();
         String contentIdentifier;
         String contentPath;
-        boolean publishing;
     }
 
     private record Stored(String identifier, String path, String originalName) {
@@ -110,8 +114,7 @@ public class JcrContentWriter implements ContentWriter {
                 });
             }
             if (plan.publish()) {
-                progress.publishing = true;
-                publish(plan, submitter, first, progress);
+                publish(plan, progress);
             }
             List<String> filePaths = new ArrayList<>();
             progress.files.forEach(file -> filePaths.add(file.path()));
@@ -123,30 +126,27 @@ public class JcrContentWriter implements ContentWriter {
     }
 
     /**
-     * Publishes the content and the files the way the platform's own publication does for a set of languages: the
-     * publication info of each root (the node, its sub nodes, and the translation nodes of the given languages) is
-     * collected between a source and a destination session, then published as a whole. Publishing the bare identifiers
-     * would leave every translated value ({@code jcr:title} and the other i18n properties) out of live.
+     * Schedules the publication of the content and its files, as Jahia's own GraphQL {@code publish} does: through
+     * {@link ComplexPublicationService}, with the node identifiers, the languages and the whole subtree, which gives the
+     * translation nodes ({@code jcr:title} and every other translated value) their way into live. The infos of
+     * {@code JCRPublicationService.getPublicationInfo} do not list them, and the bare identifiers leave them out.
      *
-     * <p>Both sessions are system sessions attributed to the submitter: the info is read in {@code default}, where the
-     * submitter has no read right. No permission check is made on publish, for the same reason.</p>
+     * <p>The session is a <em>pure</em> system session, not one attributed to the submitter: the service checks the
+     * publish right of the session's user, which the submitter does not have. The call only schedules a
+     * {@code PublicationJob}: live follows within a second or two, and a failure inside the job is logged by the
+     * platform, where this class can no longer undo anything. It is the last step: a failure up to and including the
+     * scheduling removes what was created.</p>
      */
-    private void publish(ContentPlan plan, JahiaUser submitter, Locale first, Progress progress) throws RepositoryException {
-        Set<String> languages = new LinkedHashSet<>();
+    private void publish(ContentPlan plan, Progress progress) throws RepositoryException {
+        List<String> languages = new ArrayList<>();
         plan.languages().forEach(locale -> languages.add(locale.toString()));
-        List<String> roots = new ArrayList<>();
-        progress.files.forEach(file -> roots.add(file.identifier()));
-        roots.add(progress.contentIdentifier);
-        jcr.get().doExecuteWithSystemSessionAsUser(submitter, DEFAULT, first, (JCRCallback<Void>) source ->
-                jcr.get().doExecuteWithSystemSessionAsUser(submitter, LIVE, first, (JCRCallback<Void>) destination -> {
-                    JCRPublicationService service = publication.get();
-                    List<PublicationInfo> infos = new ArrayList<>();
-                    for (String root : roots) {
-                        infos.addAll(service.getPublicationInfo(root, languages, false, true, true, source, destination));
-                    }
-                    service.publishByInfoList(infos, DEFAULT, LIVE, false, null);
-                    return null;
-                }));
+        List<String> ids = new ArrayList<>();
+        progress.files.forEach(file -> ids.add(file.identifier()));
+        ids.add(progress.contentIdentifier);
+        jcr.get().doExecuteWithSystemSession((JCRCallback<Void>) session -> {
+            publisher.publish(ids, languages, session, Boolean.TRUE);
+            return null;
+        });
     }
 
     private void writeFirstLanguage(ContentPlan plan, JCRSessionWrapper session, Progress progress) throws RepositoryException {
@@ -335,20 +335,12 @@ public class JcrContentWriter implements ContentWriter {
         throw new RepositoryException("Unsupported value type " + raw.getClass().getName() + " for '" + shape.name() + "'");
     }
 
-    /** Removes what the failed call created, newest first, after unpublishing it if the publication had started. */
+    /** Removes what the failed call created, newest first. Nothing is published yet: the publication is the last step. */
     private void rollback(Progress progress, JahiaUser submitter, Locale locale) {
         if (progress.createdIdentifiers.isEmpty()) {
             return;
         }
         List<String> ids = new ArrayList<>(progress.createdIdentifiers);
-        if (progress.publishing) {
-            try {
-                publication.get().unpublish(ids);
-            } catch (RepositoryException | RuntimeException e) {
-                log.error("[formidable-content] A submission failed while publishing and what was published of it could not be unpublished: "
-                        + "unpublish {} by hand.", ids, e);
-            }
-        }
         try {
             jcr.get().doExecuteWithSystemSessionAsUser(submitter, DEFAULT, locale, (JCRCallback<Void>) session -> {
                 for (int i = ids.size() - 1; i >= 0; i--) {

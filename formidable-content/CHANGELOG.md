@@ -14,6 +14,9 @@ Release notes for the whole repository are assembled by [chachalog](../.chachalo
   for an image the JDK can read, an optional mixin and properties on every file), and both are published.
 * A **group prefix** names the submitter's subfolder under the content folder and the files folder (prefix `orvane-supplier-`,
   group `orvane-supplier-northlight`, subfolder `northlight`). The subfolders must exist: they are never created.
+* Publication goes through Jahia's `ComplexPublicationService`, as the GraphQL `publish` does, so the translations of the
+  content and of its files reach live; it is scheduled (live follows within seconds), and a failure up to the scheduling
+  removes what was created.
 * The title is written in every language of the site; the submitter's name, organization and the page the form was submitted
   from fill properties of their own; fixed values; required companion files (`captions<-media:video/*`) with a message the
   author writes.

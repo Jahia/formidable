@@ -8,10 +8,9 @@ import org.jahia.modules.formidable.content.plan.FileGroup;
 import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.jahia.services.content.JCRCallback;
 import org.jahia.services.content.JCRNodeWrapper;
-import org.jahia.services.content.JCRPublicationService;
+import org.jahia.services.content.ComplexPublicationService;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRTemplate;
-import org.jahia.services.content.PublicationInfo;
 import org.jahia.services.usermanager.JahiaUser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,10 +36,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -57,11 +55,10 @@ class JcrContentWriterTest {
     private final List<Locale> opened = new ArrayList<>();
     private final Map<String, JCRNodeWrapper> byIdentifier = new HashMap<>();
     private final List<String> takenNames = new ArrayList<>();
-    private final Map<String, PublicationInfo> infoByRoot = new HashMap<>();
-    private final JCRSessionWrapper liveSession = mock(JCRSessionWrapper.class);
+    private final JCRSessionWrapper systemSession = mock(JCRSessionWrapper.class);
 
     private JCRTemplate template;
-    private JCRPublicationService publication;
+    private ComplexPublicationService publication;
     private JahiaUser submitter;
     private JCRNodeWrapper briefs;
     private JCRNodeWrapper filesFolder;
@@ -75,7 +72,7 @@ class JcrContentWriterTest {
     @BeforeEach
     void setUp() throws Exception {
         template = mock(JCRTemplate.class);
-        publication = mock(JCRPublicationService.class);
+        publication = mock(ComplexPublicationService.class);
         submitter = mock(JahiaUser.class);
         factory = mock(ValueFactory.class);
         when(factory.createBinary(any())).thenReturn(mock(Binary.class));
@@ -114,17 +111,10 @@ class JcrContentWriterTest {
             opened.add(locale);
             return ((JCRCallback<?>) call.getArgument(3)).doInJCR(sessions.computeIfAbsent(locale, this::session));
         });
-        when(template.doExecuteWithSystemSessionAsUser(any(), eq("live"), any(Locale.class), any(JCRCallback.class))).thenAnswer(call -> {
-            opened.add(call.getArgument(2));
-            return ((JCRCallback<?>) call.getArgument(3)).doInJCR(liveSession);
-        });
-        when(publication.getPublicationInfo(anyString(), any(), anyBoolean(), anyBoolean(), anyBoolean(), any(JCRSessionWrapper.class), any(JCRSessionWrapper.class)))
-                .thenAnswer(call -> {
-                    PublicationInfo info = mock(PublicationInfo.class);
-                    infoByRoot.put(call.getArgument(0), info);
-                    return List.of(info);
-                });
-        writer = new JcrContentWriter(() -> template, () -> publication);
+        // the publication runs in a pure system session, not one attributed to the submitter
+        when(template.doExecuteWithSystemSession(any(JCRCallback.class))).thenAnswer(call -> ((JCRCallback<?>) call.getArgument(0)).doInJCR(systemSession));
+        writer = new JcrContentWriter(() -> template);
+        writer.setPublisher(publication);
     }
 
     private JCRSessionWrapper session(Locale locale) {
@@ -198,33 +188,26 @@ class JcrContentWriterTest {
         InOrder order = inOrder(filesFolder, briefs, publication);
         order.verify(filesFolder).addNode("film.png", "jnt:file");
         order.verify(briefs).addNode("summer-launch-film", "ctmd:submission");
-        order.verify(publication).publishByInfoList(anyList(), eq("default"), eq("live"), eq(false), isNull());
+        order.verify(publication).publish(anyCollection(), anyCollection(), any(JCRSessionWrapper.class), any(Boolean.class));
     }
 
     @Test
-    void publishesTheInfoOfEachRootWithItsTranslationsInTheSitesLanguages() throws Exception {
+    void schedulesThePublicationOfTheFilesAndTheContentForTheSitesLanguagesAndTheWholeSubtree() throws Exception {
         when(filesFolder.addNode("film.png", "jnt:file")).thenReturn(fileNode);
 
         writer.create(plan(true, List.of(Locale.ENGLISH, Locale.FRENCH), oneImage()), submitter);
 
-        // the info is collected for the file and for the content, for both languages, sub nodes and whole subtree, between a
-        // system session on default and one on live (the submitter reads neither)
-        java.util.Set<String> languages = java.util.Set.of("en", "fr");
-        verify(publication).getPublicationInfo(eq("file-1"), eq(languages), eq(false), eq(true), eq(true), any(JCRSessionWrapper.class), eq(liveSession));
-        verify(publication).getPublicationInfo(eq("content-1"), eq(languages), eq(false), eq(true), eq(true), any(JCRSessionWrapper.class), eq(liveSession));
-        ArgumentCaptor<List<PublicationInfo>> infos = ArgumentCaptor.forClass(List.class);
-        verify(publication).publishByInfoList(infos.capture(), eq("default"), eq("live"), eq(false), isNull());
-        assertEquals(List.of(infoByRoot.get("file-1"), infoByRoot.get("content-1")), infos.getValue(), "the file first, then the content");
-        // the bare identifiers are never published: that left every translated value out of live
-        verify(publication, never()).publish(anyList(), anyString(), anyString(), anyBoolean(), anyBoolean(), any());
+        // the file first, then the content; both languages; the whole subtree, which carries the translation nodes
+        verify(publication).publish(List.of("file-1", "content-1"), List.of("en", "fr"), systemSession, Boolean.TRUE);
+        // a pure system session: attributed to the submitter, the service would check a publish right they do not have
+        verify(template, never()).doExecuteWithSystemSessionAsUser(any(), eq("live"), any(Locale.class), any(JCRCallback.class));
     }
 
     @Test
     void languagesWithARegionKeepTheirJahiaCode() throws Exception {
         when(filesFolder.addNode("film.png", "jnt:file")).thenReturn(fileNode);
         writer.create(plan(true, List.of(Locale.ENGLISH, Locale.forLanguageTag("pt-PT")), oneImage()), submitter);
-        verify(publication).getPublicationInfo(eq("content-1"), eq(java.util.Set.of("en", "pt_PT")), eq(false), eq(true), eq(true),
-                any(JCRSessionWrapper.class), any(JCRSessionWrapper.class));
+        verify(publication).publish(anyCollection(), eq(List.of("en", "pt_PT")), any(JCRSessionWrapper.class), eq(Boolean.TRUE));
     }
 
     @Test
@@ -249,7 +232,7 @@ class JcrContentWriterTest {
     void doesNotPublishWhenThePlanSaysNo() throws Exception {
         when(filesFolder.addNode("film.png", "jnt:file")).thenReturn(fileNode);
         writer.create(plan(false, List.of(Locale.ENGLISH), oneImage()), submitter);
-        verify(publication, never()).publishByInfoList(anyList(), anyString(), anyString(), anyBoolean(), any());
+        verify(publication, never()).publish(anyCollection(), anyCollection(), any(JCRSessionWrapper.class), any(Boolean.class));
     }
 
     @Test
@@ -304,19 +287,17 @@ class JcrContentWriterTest {
 
         verify(fileNode).remove();
         verify(contentNode, never()).remove();
-        verify(publication, never()).publishByInfoList(anyList(), anyString(), anyString(), anyBoolean(), any());
-        verify(publication, never()).unpublish(anyList());
+        verify(publication, never()).publish(anyCollection(), anyCollection(), any(JCRSessionWrapper.class), any(Boolean.class));
     }
 
     @Test
-    void whenThePublicationFailsEverythingIsUnpublishedAndRemoved() throws Exception {
+    void whenThePublicationCannotBeScheduledEverythingIsRemoved() throws Exception {
         when(filesFolder.addNode("film.png", "jnt:file")).thenReturn(fileNode);
-        org.mockito.Mockito.doThrow(new RepositoryException("publication failed")).when(publication)
-                .publishByInfoList(anyList(), anyString(), anyString(), anyBoolean(), any());
+        org.mockito.Mockito.doThrow(new IllegalStateException("publication failed")).when(publication)
+                .publish(anyCollection(), anyCollection(), any(JCRSessionWrapper.class), any(Boolean.class));
 
-        assertThrows(RepositoryException.class, () -> writer.create(plan(true, List.of(Locale.ENGLISH), oneImage()), submitter));
+        assertThrows(IllegalStateException.class, () -> writer.create(plan(true, List.of(Locale.ENGLISH), oneImage()), submitter));
 
-        verify(publication).unpublish(List.of("file-1", "content-1"));
         InOrder order = inOrder(contentNode, fileNode);
         order.verify(contentNode).remove();
         order.verify(fileNode).remove();
@@ -325,10 +306,10 @@ class JcrContentWriterTest {
     @Test
     void aFailureOfTheCleanUpDoesNotHideTheOriginalError() throws Exception {
         when(filesFolder.addNode("film.png", "jnt:file")).thenReturn(fileNode);
-        org.mockito.Mockito.doThrow(new RepositoryException("publication failed")).when(publication)
-                .publishByInfoList(anyList(), anyString(), anyString(), anyBoolean(), any());
+        org.mockito.Mockito.doThrow(new IllegalStateException("publication failed")).when(publication)
+                .publish(anyCollection(), anyCollection(), any(JCRSessionWrapper.class), any(Boolean.class));
         org.mockito.Mockito.doThrow(new RepositoryException("cannot remove")).when(contentNode).remove();
-        RepositoryException error = assertThrows(RepositoryException.class,
+        IllegalStateException error = assertThrows(IllegalStateException.class,
                 () -> writer.create(plan(true, List.of(Locale.ENGLISH), oneImage()), submitter));
         assertEquals("publication failed", error.getMessage());
     }
