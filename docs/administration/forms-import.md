@@ -11,7 +11,7 @@ a result of that form. The design is in [Importing forms and results from Jahia 
   for its own submissions. A date keeps the day the visitor chose, except for visitors at +13 and +14 hours
   from UTC (New Zealand in summer, Tonga, Samoa, Kiribati), who get the previous day.
 - What receives those results is your choice, per form, when the dialog shows what the import will do:
-  - **Results only**, the default: the entry alone, flagged **Imported, no form** on the Results page, with
+  - **Results only**, the default: the entry alone, flagged **No form** on the Results page, with
     the system names of the fields as column heads (`your-first-name`), read by the administrators of the
     site.
   - **Create the form**: a Formidable form in the **Imported from Jahia Forms** content folder of the site

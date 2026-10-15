@@ -675,7 +675,7 @@ The entry is written as iteration 1 writes it, without the form:
   without `mandatory`); the engine reads an entry that carries `fmdbmix:importedResults` and no
   `parentForm` as imported without a form, everywhere it reads `parentForm` today: the list of the
   Results page, the ACL sync, the removal of an entry;
-- the Results page shows it with the status **Imported, no form**, where **Form deleted** stands for a
+- the Results page shows it with the status **No form**, where **Form deleted** stands for a
   native entry whose form is gone, and with the system names of the fields as columns, the names
   [the system names](#the-system-names) generate from the Forms labels, as for an unpublished form; the
   exports use the same names;
@@ -745,6 +745,28 @@ The page shows the mapping as a dry run before it writes anything.
 An attachment cannot be undone, except by attaching the same source again, to the same `F` with another
 mapping or to another form.
 
+## The boundary with the engine
+
+The import is to move into a module of its own. It therefore reaches the rest of the engine through
+`org.jahia.modules.formidable.engine.api` only, as that module will: `FormResultsStore` for the results of
+the site (the root, an entry's own ACL, the day split, the submission names, the readers synced from the form),
+`CaptchaSetup` and `ChoiceOptionsSources` for what the configuration lets a form carry,
+`VisitorProfileSchema` for the profile properties, and the name holders of the content model. The two
+workspaces and the path of a site are facts of the repository the import keeps for itself (`ImportJcr`), and the
+file nodes it writes go through its own copy of the engine's JCR file helper (`ImportFiles`: a stream that fails
+to read fails the write with the cause, where `JCRNodeWrapper.uploadFile` only logs it and leaves a resource
+without data for the save to refuse). A unit
+test, `ImportBoundaryTest`, reads the sources of the import and fails on any other package of the engine
+they name. Its configuration file is read as the framework hands it over, without the completion of absent
+keys the engine applies to its own theme files.
+
+On the Results page, the **Import** button and its dialog are an action registered on the toolbar's registry
+target (`formidable-results/toolbar`, see [Save to JCR](save-to-jcr.md#the-toolbar-of-the-results-page)):
+the page knows nothing of the import, and an entry without a form shows as **No form** from its missing
+`parentForm` alone, not from the import's marker. What the move still has to take along: the holders of the
+import's own types (`fmdb:importJobs`, `fmdb:importJob`, the four markers), the CND, the configuration file and
+its OCD, the endpoint under the module's own path, the locales and the jContent app that registers the action.
+
 ## Tests
 
 - **Unit tests.** They cover the reader (the zip, ISO 9075 decoding, multi-values, references, `jcr:uuid`,
@@ -772,7 +794,7 @@ mapping or to another form.
   **Close**. An XML export, and a zip without results, must end in the failed state with the procedure.
   An **Import** clicked while another import runs on the site must be refused with its reason.
 - **The same Cypress spec for iteration 2.** The spec imports the sample with the default choice and
-  checks that no form was created, that the three entries show **Imported, no form** with the system names
+  checks that no form was created, that the three entries show **No form** with the system names
   as columns, that a second run adds nothing, and, once the entries are deleted, that the forms are created
   on request. It then deletes one created form with its entry, builds a form by hand with three fields,
   one with the same node name, one with the same label, and one that the administrator picks, and attaches

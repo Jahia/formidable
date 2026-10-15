@@ -17,7 +17,8 @@ theme's file, at their defaults: [...]`. Nothing else changes: a value present i
 as it is, your comments stay, and a line the module does not know is left in place. A setting you delete from a
 file comes back at its default at the next start, which is the value the module applied without it anyway. The
 [upgrade notes](upgrade-notes.md#settings-added-to-the-configuration-files) list the settings each version adds.
-A configuration made without a file (the Felix console) is not completed.
+A configuration made without a file (the Felix console) is not completed. The Forms import file is read as it
+stands, never completed: it ships whole with the import, which is to move into a module of its own.
 
 ## The six themes
 

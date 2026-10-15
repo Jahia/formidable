@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.engine.config.captcha;
 
+import org.jahia.modules.formidable.engine.api.CaptchaSetup;
 import org.jahia.modules.formidable.engine.config.ThemeLifecycle;
 import org.jahia.modules.formidable.engine.config.common.ConfigurationValues;
 import org.json.JSONObject;
@@ -28,9 +29,9 @@ import java.util.Map;
  * the page, whether verification is configured at all, and the verification itself against the provider's
  * endpoint (the submission pipeline's step 7).
  */
-@Component(service = CaptchaConfigService.class, configurationPid = CaptchaConfigService.PID, immediate = true)
+@Component(service = {CaptchaConfigService.class, CaptchaSetup.class}, configurationPid = CaptchaConfigService.PID, immediate = true)
 @Designate(ocd = CaptchaConfig.class)
-public class CaptchaConfigService {
+public class CaptchaConfigService implements CaptchaSetup {
 
     public static final String PID = "org.jahia.modules.formidable.captcha";
 
@@ -152,6 +153,11 @@ public class CaptchaConfigService {
 
     public boolean isCaptchaWidgetConfigured() {
         return lifecycle.current().widgetConfigured();
+    }
+
+    @Override
+    public boolean isComplete() {
+        return isCaptchaWidgetConfigured() && isCaptchaVerificationConfigured();
     }
 
     /**

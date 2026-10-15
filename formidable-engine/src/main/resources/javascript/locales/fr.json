@@ -121,7 +121,7 @@
 			"title": "Formulaires avec résultats",
 			"formDeleted": "Formulaire supprimé",
 			"formUnpublished": "Formulaire dépublié",
-			"formImported": "Importé, sans formulaire"
+			"formNoForm": "Sans formulaire"
 		},
 		"actions": {
 			"export": "Exporter",
@@ -207,7 +207,7 @@
 				"all": "{{count}} soumissions seront supprimées. Le formulaire quitte la liste jusqu'à sa prochaine soumission.",
 				"allUnpublished": "{{count}} soumissions seront supprimées. Le formulaire quitte la liste jusqu'à ce qu'il soit republié et reçoive une nouvelle soumission.",
 				"allDeleted": "{{count}} soumissions seront supprimées. Le formulaire quitte la liste pour de bon : il n'existe plus.",
-				"allImported": "{{count}} soumissions seront supprimées. L’entrée quitte la liste pour de bon : importée sans formulaire, rien n’y écrit."
+				"allNoForm": "{{count}} soumissions seront supprimées. L’entrée quitte la liste pour de bon : sans formulaire, rien n’y écrit."
 			},
 			"validation": {
 				"invalidRange": "Sélectionnez une plage de dates valide, ou supprimez tous les résultats.",

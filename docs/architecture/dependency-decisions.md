@@ -49,6 +49,9 @@ This project uses two distinct dependency strategies in its Java modules:
   - `SubmissionResponseEnricher`, `AcceptedSubmission` — the response SPI: entries a module of its own adds to the JSON body of an accepted submission (see [how to enrich the submission response](../extension/how-to-enrich-the-submission-response.md))
   - `VisitorProfileSchema` — whether the profile server of a site declares a visitor profile property with a type a field holds; implemented by the jExperience integration, asked by the Forms import before it writes a profile mapping (see [Forms import](forms-import.md))
   - `ChoiceOptionsResolver` — the number of choices a choice field offers, counted as the views render it (manual list or options source); read by the jExperience integration for the checkbox's cardinality
+  - `ChoiceOptionsSources` — whether the configuration declares an options source under a key, asked by the Forms import before it points a field at one
+  - `FormResultsStore` — the results of a site as the engine keeps them: the results root, an entry's own ACL, the day split of its submissions, the name of a submission node, the readers synced from the form; what a module that writes results of its own (the Forms import) goes through, instead of the engine's storage classes
+  - `CaptchaSetup` — whether the widget and its verification are both configured, asked by the Forms import before it adds a captcha field
   - `FmdbNodeType`, `FmdbMixin`, `FmdbProperty`, `FmdbNodeName` — the names of the content model, so a module names a node type once instead of copying the string (see `cnd-module-ownership.md`, "Naming these types from Java")
 - All other `org.jahia.modules.formidable.engine.*` packages are internal implementation details with no compatibility promise.
 

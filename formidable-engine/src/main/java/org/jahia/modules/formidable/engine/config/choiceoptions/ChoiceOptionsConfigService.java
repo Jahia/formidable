@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.engine.config.choiceoptions;
 
+import org.jahia.modules.formidable.engine.api.ChoiceOptionsSources;
 import org.jahia.modules.formidable.engine.config.ThemeLifecycle;
 import org.jahia.modules.formidable.engine.config.common.ConfigurationValues;
 import org.jahia.modules.formidable.engine.config.common.FactoryEntries;
@@ -33,9 +34,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * The list {@code optionsSources} of earlier builds is turned into one source file per line, once, then removed from
  * the configuration's file ({@link FactoryEntries}).
  */
-@Component(service = ChoiceOptionsConfigService.class, configurationPid = ChoiceOptionsConfigService.PID, immediate = true)
+@Component(service = {ChoiceOptionsConfigService.class, ChoiceOptionsSources.class}, configurationPid = ChoiceOptionsConfigService.PID, immediate = true)
 @Designate(ocd = ChoiceOptionsConfig.class)
-public class ChoiceOptionsConfigService {
+public class ChoiceOptionsConfigService implements ChoiceOptionsSources {
 
     public static final String PID = "org.jahia.modules.formidable.choiceOptions";
 
@@ -151,6 +152,11 @@ public class ChoiceOptionsConfigService {
      */
     public Optional<OptionsSource> resolveOptionsSource(String id) {
         return id == null ? Optional.empty() : Optional.ofNullable(sources.get().get(id));
+    }
+
+    @Override
+    public boolean declares(String key) {
+        return resolveOptionsSource(key).isPresent();
     }
 
     /** Maximum number of options a content-mode choice field may resolve; above it the field fails like a failing source. */

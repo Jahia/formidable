@@ -121,7 +121,7 @@
 			"title": "Forms with results",
 			"formDeleted": "Form deleted",
 			"formUnpublished": "Form unpublished",
-			"formImported": "Imported, no form"
+			"formNoForm": "No form"
 		},
 		"actions": {
 			"export": "Export",
@@ -207,7 +207,7 @@
 				"all": "{{count}} submissions will be deleted. The form leaves the list until it receives a new submission.",
 				"allUnpublished": "{{count}} submissions will be deleted. The form leaves the list until it is published again and receives a new submission.",
 				"allDeleted": "{{count}} submissions will be deleted. The form leaves the list for good: it no longer exists.",
-				"allImported": "{{count}} submissions will be deleted. The entry leaves the list for good: it was imported without a form, nothing writes into it."
+				"allNoForm": "{{count}} submissions will be deleted. The entry leaves the list for good: it has no form, nothing writes into it."
 			},
 			"validation": {
 				"invalidRange": "Select a valid start and end date, or delete all results.",

@@ -5,7 +5,6 @@ import org.apache.commons.fileupload.FileItemStream;
 import org.apache.commons.fileupload.FileUploadBase;
 import org.apache.commons.fileupload.FileUploadException;
 import org.apache.commons.fileupload.servlet.ServletFileUpload;
-import org.jahia.modules.formidable.engine.util.FormidableJcrConstants;
 import org.jahia.modules.formidable.engine.config.formsimport.FormsImportConfigService;
 import org.jahia.services.content.JCRSessionFactory;
 import org.jahia.services.content.JCRSessionWrapper;
@@ -37,8 +36,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.SITES;
 
 /**
  * The endpoint of the import dialog of the Results page (docs/architecture/forms-import.md, "Running
@@ -242,8 +239,8 @@ public class ImportServlet extends HttpServlet {
                 throw new Refused(HttpServletResponse.SC_FORBIDDEN, "not allowed");
             }
             String site = req.getParameter(SITE_PARAMETER);
-            JCRSessionWrapper user = JCRSessionFactory.getInstance().getCurrentUserSession(FormidableJcrConstants.WORKSPACE_EDIT);
-            if (site == null || site.isBlank() || !user.nodeExists(SITES + site)) {
+            JCRSessionWrapper user = JCRSessionFactory.getInstance().getCurrentUserSession(ImportJcr.EDIT_WORKSPACE);
+            if (site == null || site.isBlank() || !user.nodeExists(ImportJcr.site(site))) {
                 throw new NotFound("the site does not exist");
             }
             if (gate != Gate.ANY && !isAllowed(site, user)) {
@@ -267,7 +264,7 @@ public class ImportServlet extends HttpServlet {
 
     /** The administrators of the site: the import writes its contents, in edit, and its results, in live. */
     private static boolean isAllowed(String site, JCRSessionWrapper user) throws RepositoryException {
-        return user.getNode(SITES + site).hasPermission(SITE_ADMIN_PERMISSION);
+        return user.getNode(ImportJcr.site(site)).hasPermission(SITE_ADMIN_PERMISSION);
     }
 
     boolean isRequestAllowed() {

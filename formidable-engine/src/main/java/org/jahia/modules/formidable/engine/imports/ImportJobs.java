@@ -1,18 +1,16 @@
 package org.jahia.modules.formidable.engine.imports;
 
-import org.jahia.modules.formidable.engine.util.FormidableJcrConstants;
-import org.jahia.modules.formidable.engine.actions.form.storage.SaveToJcrFormAction;
+import org.jahia.modules.formidable.engine.api.CaptchaSetup;
+import org.jahia.modules.formidable.engine.api.ChoiceOptionsSources;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.engine.api.FmdbNodeType;
+import org.jahia.modules.formidable.engine.api.FormResultsStore;
 import org.jahia.modules.formidable.engine.api.VisitorProfileSchema;
-import org.jahia.modules.formidable.engine.config.captcha.CaptchaConfigService;
-import org.jahia.modules.formidable.engine.config.choiceoptions.ChoiceOptionsConfigService;
 import org.jahia.modules.formidable.engine.imports.jahiaforms.FormsExportException;
 import org.jahia.modules.formidable.engine.imports.jahiaforms.FormsExportReader;
 import org.jahia.modules.formidable.engine.imports.jahiaforms.FormsFormConverter;
 import org.jahia.modules.formidable.engine.imports.jahiaforms.FormsImportRun;
 import org.jahia.modules.formidable.engine.imports.jahiaforms.ImportEnvironment;
-import org.jahia.modules.formidable.engine.util.JcrFiles;
 import org.jahia.registries.ServicesRegistry;
 import org.jahia.services.content.JCRCallback;
 import org.jahia.services.content.JCRContentUtils;
@@ -54,11 +52,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACL_NODE;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACL_NODE_TYPE;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.INHERIT_PROPERTY;
-import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.SITES;
 
 /**
  * The jobs of an import (docs/architecture/forms-import.md, "Running it"): each one a {@code fmdb:importJob}
@@ -154,19 +147,25 @@ public class ImportJobs {
         }
     }
 
-    private final AtomicReference<ChoiceOptionsConfigService> optionsConfig = new AtomicReference<>();
-    private final AtomicReference<CaptchaConfigService> captchaConfig = new AtomicReference<>();
+    private final AtomicReference<FormResultsStore> store = new AtomicReference<>();
+    private final AtomicReference<ChoiceOptionsSources> options = new AtomicReference<>();
+    private final AtomicReference<CaptchaSetup> captcha = new AtomicReference<>();
     /** Offered by the jExperience integration when it is installed: the visitor profile properties of a site. */
     private final AtomicReference<VisitorProfileSchema> profileSchema = new AtomicReference<>();
 
     @Reference
-    public void setOptionsConfig(ChoiceOptionsConfigService service) {
-        optionsConfig.set(service);
+    public void setStore(FormResultsStore service) {
+        store.set(service);
     }
 
     @Reference
-    public void setCaptchaConfig(CaptchaConfigService service) {
-        captchaConfig.set(service);
+    public void setOptions(ChoiceOptionsSources service) {
+        options.set(service);
+    }
+
+    @Reference
+    public void setCaptcha(CaptchaSetup service) {
+        captcha.set(service);
     }
 
     @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, unbind = "unsetProfileSchema")
@@ -220,7 +219,7 @@ public class ImportJobs {
         JobView created = inLive(session -> {
             JCRNodeWrapper jobs = jobsNode(session, siteKey, true);
             JCRNodeWrapper job = jobs.addNode(JCRContentUtils.findAvailableNodeName(jobs, jobId), FmdbNodeType.IMPORT_JOB);
-            JcrFiles.addFile(job, FILE_NODE, file, mimeType == null ? ZIP : mimeType);
+            ImportFiles.add(job, FILE_NODE, file, mimeType == null ? ZIP : mimeType);
             job.setProperty(STATE, State.ANALYSING.stored());
             job.setProperty(UPDATED, now());
             session.save();
@@ -358,10 +357,10 @@ public class ImportJobs {
     }
 
     private ImportReport runOn(Path export, String siteKey, Phase phase, Map<String, FormChoice> choices) throws RepositoryException {
-        return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, FormidableJcrConstants.WORKSPACE_EDIT, null, edit -> {
-            JCRSessionWrapper live = JCRSessionFactory.getInstance().getCurrentSystemSession(FormidableJcrConstants.WORKSPACE_LIVE, null, null);
+        return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, ImportJcr.EDIT_WORKSPACE, null, edit -> {
+            JCRSessionWrapper live = JCRSessionFactory.getInstance().getCurrentSystemSession(ImportJcr.LIVE_WORKSPACE, null, null);
             try (FormsExportReader reader = FormsExportReader.open(export)) {
-                ImportWriter writer = new ImportWriter(edit, live, siteKey, FOLDER_TITLE);
+                ImportWriter writer = new ImportWriter(edit, live, siteKey, FOLDER_TITLE, store.get());
                 ImportEnvironment environment = new ImportEnvironment(type -> hasNodeType(edit, type), this::isOptionsSourceDeclared,
                         type -> isProfileMappable(edit, type), profileFitOf(siteKey), isCaptchaConfigured());
                 FormsImportRun run = new FormsImportRun(reader, writer, phase == Phase.DRY_RUN, choices, environment);
@@ -373,7 +372,7 @@ public class ImportJobs {
     }
 
     /** Refuses the choices the import could not honour, against the report of the dry run and the forms of the site. */
-    private static void checkChoices(String siteKey, String jobId, Map<String, FormChoice> choices) throws RepositoryException, RefusedException {
+    private void checkChoices(String siteKey, String jobId, Map<String, FormChoice> choices) throws RepositoryException, RefusedException {
         if (choices.values().stream().noneMatch(choice -> choice.choice() == ImportChoice.ATTACH)) {
             return;
         }
@@ -382,7 +381,7 @@ public class ImportJobs {
             return job == null ? null : job.getPropertyAsString(REPORT);
         });
         AtomicReference<RefusedException> refused = new AtomicReference<>();
-        JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, FormidableJcrConstants.WORKSPACE_EDIT, null, edit -> {
+        JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, ImportJcr.EDIT_WORKSPACE, null, edit -> {
             try {
                 ChoicesCheck.check(choices, report, identifier -> ImportWriter.findSiteForm(edit, siteKey, identifier));
             } catch (RefusedException e) {
@@ -396,7 +395,7 @@ public class ImportJobs {
     }
 
     /** The choices the administrator made for the import of a job, as the start recorded them. */
-    private static Map<String, FormChoice> choicesOf(String siteKey, String jobId) throws RepositoryException {
+    private Map<String, FormChoice> choicesOf(String siteKey, String jobId) throws RepositoryException {
         return inLive(session -> {
             JCRNodeWrapper job = jobNode(session, siteKey, jobId);
             return job == null ? Map.of() : FormChoice.fromJson(job.getPropertyAsString(CHOICES));
@@ -404,14 +403,14 @@ public class ImportJobs {
     }
 
     private boolean isOptionsSourceDeclared(String key) {
-        ChoiceOptionsConfigService config = optionsConfig.get();
-        return config != null && config.resolveOptionsSource(key).isPresent();
+        ChoiceOptionsSources sources = options.get();
+        return sources != null && sources.declares(key);
     }
 
     /** A captcha the forms can use: its widget and its verification are both configured. */
     private boolean isCaptchaConfigured() {
-        CaptchaConfigService config = captchaConfig.get();
-        return config != null && config.isCaptchaWidgetConfigured() && config.isCaptchaVerificationConfigured();
+        CaptchaSetup setup = captcha.get();
+        return setup != null && setup.isComplete();
     }
 
     /** Whether a field type takes a mapping to a visitor profile property: the jExperience integration's mixin reaches it. */
@@ -433,7 +432,7 @@ public class ImportJobs {
     }
 
     /** Copies the export of the job to the file; false when the job was closed meanwhile. */
-    private static boolean download(String siteKey, String jobId, Path target) throws RepositoryException {
+    private boolean download(String siteKey, String jobId, Path target) throws RepositoryException {
         return inLive(session -> {
             JCRNodeWrapper job = jobNode(session, siteKey, jobId);
             if (job == null || !job.hasNode(FILE_NODE)) {
@@ -448,7 +447,7 @@ public class ImportJobs {
         });
     }
 
-    private static void update(String siteKey, String jobId, State state, String report, String message, boolean dropFile)
+    private void update(String siteKey, String jobId, State state, String report, String message, boolean dropFile)
             throws RepositoryException {
         inLive(session -> {
             JCRNodeWrapper job = jobNode(session, siteKey, jobId);
@@ -513,7 +512,7 @@ public class ImportJobs {
         scheduler().scheduleJobNow(detail);
     }
 
-    private static RepositoryException notScheduled(String siteKey, String jobId, SchedulerException e) throws RepositoryException {
+    private RepositoryException notScheduled(String siteKey, String jobId, SchedulerException e) throws RepositoryException {
         update(siteKey, jobId, State.FAILED, null, "the job could not be scheduled: " + e.getMessage(), false);
         return new RepositoryException("The import job could not be scheduled", e);
     }
@@ -571,7 +570,7 @@ public class ImportJobs {
      * removed, and a job that reads as running while the scheduler holds no active job for it, because
      * the module stopped between the schedule and the run, is marked failed so that it stops reopening.
      */
-    private static void reconcile(String siteKey) throws RepositoryException {
+    private void reconcile(String siteKey) throws RepositoryException {
         inLive(session -> {
             boolean changed = false;
             Instant now = Instant.now();
@@ -615,12 +614,12 @@ public class ImportJobs {
     }
 
     /** The jobs node of the site, the child of the results root of its type, whatever its name; null when absent and not created. */
-    private static JCRNodeWrapper jobsNode(JCRSessionWrapper live, String siteKey, boolean create) throws RepositoryException {
-        JCRNodeWrapper site = live.getNode(SITES + siteKey);
-        if (!create && !site.hasNode(SaveToJcrFormAction.RESULTS_ROOT_NAME)) {
+    private JCRNodeWrapper jobsNode(JCRSessionWrapper live, String siteKey, boolean create) throws RepositoryException {
+        JCRNodeWrapper site = live.getNode(ImportJcr.site(siteKey));
+        if (!create && !site.hasNode(FormResultsStore.RESULTS_ROOT_NAME)) {
             return null;
         }
-        JCRNodeWrapper root = SaveToJcrFormAction.getOrCreateResultsRoot(site, live);
+        JCRNodeWrapper root = store.get().getOrCreateResultsRoot(site, live);
         NodeIterator children = root.getNodes();
         while (children.hasNext()) {
             JCRNodeWrapper child = (JCRNodeWrapper) children.nextNode();
@@ -633,12 +632,11 @@ public class ImportJobs {
         }
         // a form named import-jobs owns that entry: the jobs node then takes the next free name
         JCRNodeWrapper jobs = root.addNode(JCRContentUtils.findAvailableNodeName(root, JOBS_NODE), FmdbNodeType.IMPORT_JOBS);
-        JCRNodeWrapper acl = jobs.addNode(ACL_NODE, ACL_NODE_TYPE);
-        acl.setProperty(INHERIT_PROPERTY, false);
+        store.get().detachAcl(jobs);
         return jobs;
     }
 
-    private static List<JCRNodeWrapper> jobNodes(JCRSessionWrapper live, String siteKey) throws RepositoryException {
+    private List<JCRNodeWrapper> jobNodes(JCRSessionWrapper live, String siteKey) throws RepositoryException {
         List<JCRNodeWrapper> jobs = new ArrayList<>();
         JCRNodeWrapper jobsNode = jobsNode(live, siteKey, false);
         if (jobsNode == null) {
@@ -655,7 +653,7 @@ public class ImportJobs {
     }
 
     /** The job node of that id, and only a job node: nothing else under the jobs node is ever handed out. */
-    private static JCRNodeWrapper jobNode(JCRSessionWrapper live, String siteKey, String jobId) throws RepositoryException {
+    private JCRNodeWrapper jobNode(JCRSessionWrapper live, String siteKey, String jobId) throws RepositoryException {
         if (jobId == null || jobId.contains("/")) {
             return null;
         }
@@ -674,7 +672,7 @@ public class ImportJobs {
     }
 
     private static <T> T inLive(JCRCallback<T> callback) throws RepositoryException {
-        return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, FormidableJcrConstants.WORKSPACE_LIVE, null, callback);
+        return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, ImportJcr.LIVE_WORKSPACE, null, callback);
     }
 
     private static Calendar now() {
