@@ -123,6 +123,17 @@
 	font-size: 12px;
 }
 
+/* A field zone on a site where no module enabled provides a field-action type: nothing can be added, so
+   the zone draws this call-out in the create button's place, in the colours of a fault rather than a
+   warning (the captcha line's) — a contributor cannot fix it, an administrator enabling a module can.
+   Last in the zone, it keeps no bottom margin: the button it replaces had none. */
+.fmdb-authoring-actions-unavailable {
+	margin-bottom: 0;
+	border-left-color: var(--fmdb-zone-actions-error-border, #dc2626);
+	background: var(--fmdb-zone-actions-error-bg, #fef2f2);
+	color: var(--fmdb-zone-actions-error-color, #991b1b);
+}
+
 /* One compact card per action, numbered in execution order (the CSS counter follows the
    DOM order, which the Page Builder reloads after a drag). Two lines: title and telling
    parameter, then the type description smaller; every line clips with an ellipsis, the

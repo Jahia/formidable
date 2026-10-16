@@ -117,7 +117,7 @@ Its structure, for the rare rule that must reach inside it — the
 | `fmdb-authoring-actions` | The zone, an `aside` |
 | `fmdb-authoring-actions-header`, `fmdb-authoring-actions-title`, `fmdb-authoring-actions-hint` | The header row: the title (list icon and count) and the hint on the right |
 | `fmdb-authoring-actions-glyph` | The list's type icon in the title, and the triangle of the warning |
-| `fmdb-authoring-actions-empty` | The "no action" warning |
+| `fmdb-authoring-actions-empty` | The "no action" warning — and, with `fmdb-authoring-actions-unavailable`, the field zone's "no type" call-out |
 | `fmdb-authoring-actions-list`, `fmdb-authoring-actions-item` | The ordered list of cards and each of its items |
 | `fmdb-authoring-action` | One action card; carries `data-fmdb-action-type` with the action's node type |
 | `fmdb-authoring-action-icon`, `fmdb-authoring-action-body` | The type icon and the text column beside it |
@@ -131,12 +131,15 @@ element wrapper renders the field's action list as `aside.fmdb-authoring-actions
 next to the field's own Page Builder module, attached to it as its child for jContent (so it moves with
 the field and never counts among the fields), inset and tighter than the form's. Same header, cards, call-out (no field action yet: add one below) and create
 button (the accepted type is `fmdbmix:fieldAction`), same cards — an action's settings are read in its
-editor, for a field action as for a form action. Nothing of it exists in live, preview or the `cm` view. See
-[Field actions](../architecture/field-actions.md).
+editor, for a field action as for a form action. On a site where no module enabled provides a field-action
+type, the create button and the "add one below" call-out give way to one call-out in the colours of a fault
+(no field-action type is enabled on this site: ask your administrator), drawn in the button's place. Nothing
+of it exists in live, preview or the `cm` view. See [Field actions](../architecture/field-actions.md).
 
 | Class | Element |
 |---|---|
 | `fmdb-authoring-field-actions` | The field's zone, next to `fmdb-authoring-actions` on the same `aside` — the hook that tells the two zones apart |
+| `fmdb-authoring-actions-unavailable` | Added to the call-out (`fmdb-authoring-actions-empty`) drawn in the create button's place when no field-action type is enabled on the site, with `data-fmdb-authoring-state="no-type"`; coloured by `--fmdb-zone-actions-error-*` |
 
 ## Hidden field (edit mode)
 

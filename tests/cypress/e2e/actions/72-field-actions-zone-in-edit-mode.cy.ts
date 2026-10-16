@@ -1,5 +1,7 @@
+import {disableModule, enableModule} from '@jahia/cypress';
 import {
 	createPublishedLiveFormPage,
+	FORMIDABLE_TEST_SITE,
 	getBlockedWordsFieldActionNode,
 	getInputEmailNode,
 	getInputTextNode,
@@ -10,6 +12,10 @@ import {
 } from '../../support/fixtures';
 import {useFormidableSite} from '../support/useFormidableSite';
 
+// The only module of the instance declaring field-action types: the engine ships none, so a site
+// without it is the product's own state, the one #404 was reported on.
+const SAMPLES_MODULE = 'formidable-test-module-samples-java';
+
 /**
  * A field carrying actions shows them while authoring: the Page Builder renders the field's action
  * list as a zone under the field — one card per action in execution order, each with the settings
@@ -19,7 +25,9 @@ import {useFormidableSite} from '../support/useFormidableSite';
  * wrapper of a field with actions carries the marker the visitor's page reads — blur when any
  * action runs as the field is left, submit when every one waits — on every surface, and no marker
  * when nothing checks the field. Nothing of the zone exists in live or in preview, not even when its
- * views are requested directly, as fragments.
+ * views are requested directly, as fragments. The create button is jContent's, listing the field-action
+ * types of the modules enabled on the site: on a site with none it opened on nothing and vanished (#404),
+ * so the zone asks the engine first and, with no type to offer, says so in the button's place.
  */
 describe('Actions - 72 Field actions zone in the Page Builder', () => {
 	useFormidableSite();
@@ -75,6 +83,8 @@ describe('Actions - 72 Field actions zone in the Page Builder', () => {
 			cy.get('[data-fmdb-node-name="switchedOn"] .fmdb-authoring-field-actions').should('have.length', 1).within(() => {
 				cy.get('.fmdb-authoring-action').should('not.exist');
 				cy.get('.fmdb-authoring-actions-empty').should('be.visible');
+				// The samples module is enabled on the site: types to offer, so the "add one below" call-out, not the fault.
+				cy.get('.fmdb-authoring-actions-unavailable').should('not.exist');
 			});
 
 			// No switch: no zone, no marker.
@@ -133,6 +143,40 @@ describe('Actions - 72 Field actions zone in the Page Builder', () => {
 		]).then(({livePath}) => {
 			visitLiveForm(livePath);
 			cy.get('[data-fmdb-node-name="code"]').should('have.attr', 'data-fmdb-field-action', 'submit');
+		});
+	});
+
+	// Last of the spec: the site loses its field-action types for the length of the case and gets them back
+	// at its end; a failure in between leaves no later case of this spec without them.
+	it('says when the site offers no field-action type, and draws no create button', () => {
+		createPublishedLiveFormPage('no-field-action-type-form', 'No Field Action Type Form', [
+			withFieldActions(getInputTextNode({name: 'orphan', title: 'Switched on, no type on the site'}))
+		], undefined, undefined, {actions: [getSaveToJcrActionNode()]}).then(({pagePath}) => {
+			// The module stays installed on the server; it is no longer enabled on the site, which is what the
+			// chooser reads (a site is told its modules, not the server's).
+			disableModule(SAMPLES_MODULE, FORMIDABLE_TEST_SITE.key);
+			visitEditForm(pagePath);
+			cy.get('[data-fmdb-node-name="orphan"] .fmdb-authoring-field-actions').should('have.length', 1).within(() => {
+				cy.get('.fmdb-authoring-actions-unavailable')
+					.should('be.visible')
+					.should('have.attr', 'data-fmdb-authoring-state', 'no-type')
+					.and('contain.text', 'No field-action type is enabled on this site');
+				// Not the "add one below" call-out: there is no below.
+				cy.get('.fmdb-authoring-actions-empty:not(.fmdb-authoring-actions-unavailable)').should('not.exist');
+				cy.get('[jahiatype="module"][type="placeholder"]').should('not.exist');
+			});
+			// The form's own zone is untouched: its types are the engine's, enabled on the site.
+			cy.get('.fmdb-authoring-actions:not(.fmdb-authoring-field-actions) [jahiatype="module"][type="placeholder"]')
+				.should('have.length', 1);
+
+			// The module enabled again: the button is back, and the "add one below" call-out with it.
+			enableModule(SAMPLES_MODULE, FORMIDABLE_TEST_SITE.key);
+			visitEditForm(pagePath);
+			cy.get('[data-fmdb-node-name="orphan"] .fmdb-authoring-field-actions').should('have.length', 1).within(() => {
+				cy.get('.fmdb-authoring-actions-unavailable').should('not.exist');
+				cy.get('.fmdb-authoring-actions-empty').should('be.visible');
+				cy.get('[jahiatype="module"][type="placeholder"]').should('have.length', 1);
+			});
 		});
 	});
 });
