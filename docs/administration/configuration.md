@@ -189,8 +189,9 @@ version with the themes:
    `[org.jahia.modules.formidable.<theme>] Carried over from org.jahia.modules.formidable into the theme's file: [...]`,
    or `Nothing of org.jahia.modules.formidable to carry over`.
 3. The old file, when there is one, gets a first line saying it is no longer read, whether or not anything was
-   carried from it. It is never deleted — the administrator wrote it — and can be removed by hand once the five
-   files are checked.
+   carried from it. It is never deleted — the administrator wrote it — and can be deleted once the five files
+   are checked: nothing reads its PID any more, and deleting it brings nothing back (the checks are in
+   [the upgrade notes](upgrade-notes.md#deleting-the-old-file)).
 4. A write that fails (a persistence directory full or read-only) is tried three times in all, thirty seconds
    apart. Meanwhile the settings to carry stay in force — a CAPTCHA key or a forward target of the old file keeps
    working, the new file's defaults do not take over. After the third failure the theme's file rules as it stands
