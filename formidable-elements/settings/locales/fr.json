@@ -59,6 +59,7 @@
 		"heading": "Actions du champ · {{count}}",
 		"inOrder": "Exécutées dans cet ordre. Invisibles pour les visiteurs.",
 		"notLive": "Invisible pour les visiteurs.",
-		"empty": "Aucune action du champ : ajoutez-en une ci-dessous pour vérifier ce que les visiteurs saisissent dans ce champ."
+		"empty": "Aucune action du champ : ajoutez-en une ci-dessous pour vérifier ce que les visiteurs saisissent dans ce champ.",
+		"noType": "Aucun type d'action du champ n'est activé sur ce site : demandez à votre administrateur d'activer un module qui en fournit."
 	}
 }
