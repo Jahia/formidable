@@ -1,3 +1,3 @@
 // fmdb:captchaProvider has been removed. Captcha is the fmdbmix:captcha mixin on the
-// form plus server-side OSGi configuration (org.jahia.modules.formidable.cfg) — there is
+// form plus server-side OSGi configuration (org.jahia.modules.formidable.captcha.cfg) — there is
 // no captcha node type at all (no fmdb:captchaAction either).

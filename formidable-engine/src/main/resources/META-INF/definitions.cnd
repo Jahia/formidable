@@ -333,7 +333,8 @@ orderable
  - maxAttachmentSizeMb (long) = 10 autocreated
 
 // Forwards the full form data to a third-party endpoint (multipart/form-data).
-// targetId references a named target configured in forward_targets (org.jahia.modules.formidable.cfg).
+// targetId references a named target, an entry file of the formActions theme:
+// karaf/etc/org.jahia.modules.formidable.formActions.target-<id>.cfg.
 // The actual URL is never stored in JCR; it is resolved server-side from the operator configuration.
 [fmdb:forwardAction] > jnt:content, fmdbmix:formAction, fmdbmix:readOnlyCompatibleAction, mix:title
  - jcr:title (string) = resourceBundle('fmdb_forwardAction') autocreated i18n

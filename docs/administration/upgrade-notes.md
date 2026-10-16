@@ -129,6 +129,27 @@ upgrade is in its theme's file, and the file carries the marker line
 default was either at its default before (not copied) or lost to a write that kept failing — the log then says
 `Gave up carrying the settings of org.jahia.modules.formidable over`, and the setting is to be re-entered.
 
+### Deleting the old file
+
+Nothing of 0.5 reads the PID `org.jahia.modules.formidable`: its one reader is the carry-over above, which runs
+once per theme and stamps the theme's file with `formidable.migratedFrom`; a theme whose file carries the marker
+never reads the old configuration again, on a restart included. Once the checks below pass, delete
+`karaf/etc/org.jahia.modules.formidable.cfg` — by hand, or with **Delete** in the OSGi Configurations Manager,
+which removes the file and the PID together — and nothing changes for the module:
+
+1. The five theme files carry `formidable.migratedFrom=org.jahia.modules.formidable`.
+2. `org.jahia.modules.formidable.choiceOptions.cfg` and `….formActions.cfg` carry `formidable.linesConverted=true`,
+   and the entry files are next to them, one per id of the former lists. A line whose id is not letters, digits,
+   dashes and underscores was not converted (above): it is lost with the old file, so declare that entry as a file
+   with a valid id, and point the forms at it, before deleting.
+3. The log shows no `Gave up carrying … over`.
+
+Deleting the file makes fileinstall drop the PID from ConfigAdmin, and nothing listens. Should a theme's file be
+deleted later and recreated from the shipped defaults — so without the marker — the carry-over runs again for that
+theme, finds no old configuration, carries nothing and writes the marker: nothing comes back. The OSGi
+Configurations Manager lists properties, not comments, which is why it shows no `# Superseded on …` first line on
+the old file; **Download** does.
+
 ## 0.4.x → 0.5.0: the mixin properties lose their `fmdb:` prefix, migrated at startup
 
 **Who is affected**: every site with forms created or edited under 0.4.0 whose choice

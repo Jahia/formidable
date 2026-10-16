@@ -8,15 +8,9 @@
 
 * Added a form actions zone to the Page Builder: see, order and add a form's actions from the page it sits on (#294)
 
-* Changed the configuration file to be deployed with the module, ready to edit, with every setting at its default (#295)
+* Changed the configuration files to be deployed with the module, ready to edit, with every setting at its default (#295)
 
-  **Breaking change** for instances configured through the Felix console (or directly in ConfigAdmin) before 0.5. Those settings lived in no file; when the module is upgraded, the deployed file `karaf/etc/org.jahia.modules.formidable.cfg` takes over and replaces them with its defaults.
-
-  You are affected if the module was configured that way and the file did not exist before the upgrade. To check, after the upgrade, open the file: if this instance had CAPTCHA keys, forward targets, option sources or upload limits and the file shows them at their defaults, they were reset. On a running server the module writes them back into the file itself and logs `carried over into the file:` with their names; when it could not — the log then shows `Gave up carrying … over` — or when the file was loaded before the module started (the usual case after an upgrade done while Jahia was stopped, possible on a running server), a warning at startup points at the file, created or changed moments before.
-
-  What to do: re-enter the settings in the file, or through the provisioning API. The change applies without a restart; the file is now the one place the module is configured from.
-
-  Instances configured through the provisioning API are not affected: that configuration came from a file from the start, which is kept as it is.
+  Each configuration file — one per theme, see the entry of #350 below — is copied to `karaf/etc/` at the first start with its settings commented at their defaults, and never overwritten; the files are the one place the module is configured from, by hand or through the provisioning API, and a change applies without a restart. An instance configured before 0.5, whichever way — the Felix console (ConfigAdmin alone, no file), the single file by hand, the provisioning API — has its settings carried into the theme files at that first start, as the entry of #350 describes; what could not be carried is logged (`Gave up carrying … over`) and is to be re-entered.
 
 * Added a published package so a module of your own renders form fields like the built-in ones, masks included (#317)
 
