@@ -97,7 +97,6 @@ Examples:
 - `fmdb:emailContentAction`
 - `fmdb:forwardAction`
 - `fmdb:save2jcrAction`
-- `fmdb:redirectAction` (sends the visitor to a page or a same-origin path once the submission is accepted — see `redirect-action.md`)
 - `fmdb:resultsFolder`
 - `fmdb:formResults`
 - `fmdb:formSubmission`

@@ -34,7 +34,7 @@ Architecture decisions and internal flows are documented in `docs/`:
 - `captcha-server-side-validation.md` — provider verification and token handling
 - `configuration.md` — the five configuration files of the engine, one per theme, the Forms import module's own, and how the single file of earlier builds is carried over
 - `forms-import.md` (administration) — importing the forms and results of Jahia Forms from the Results page
-- `redirect-action.md` — the redirect action and the mechanism under it: a contextual action returns a same-origin path, the servlet names it in `redirect`, the island navigates
+- `redirect-action.md` — redirecting after a submission: a contextual action returns a same-origin path, the servlet names it in `redirect`, the island navigates (the Redirect action itself is a module of formidable-extended-actions)
 
 ## Global Instructions
 
@@ -124,7 +124,7 @@ The public API — custom actions, the submission response, the names of the con
 
 The four name holders are used qualified (`FmdbMixin.TEXT_FIELD`), never statically imported — the class states the kind, the constant the thing (`docs/architecture/cnd-module-ownership.md`, "Naming these types from Java").
 
-Built-in actions: `SaveToJcrFormAction`, `SendEmailNotificationFormAction`, `SendEmailContentFormAction`, `ForwardSubmissionFormAction`, `RedirectFormAction` (five — captcha is not an action: it is a mixin plus OSGi config, verified by the pipeline before the actions run).
+Built-in actions: `SaveToJcrFormAction`, `SendEmailNotificationFormAction`, `SendEmailContentFormAction`, `ForwardSubmissionFormAction` (four — captcha is not an action: it is a mixin plus OSGi config, verified by the pipeline before the actions run).
 
 ### Adding a New Field Type
 

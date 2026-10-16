@@ -106,7 +106,7 @@ The pipeline keeps the **first redirect and the first message** in action-list o
 same-origin path (`RedirectTargets.sameOriginPath`: one leading slash, no scheme, no backslash, no control
 character) is dropped with a warning and never reaches the browser. The servlet writes the two keys after the
 enrichers, which cannot take them (`FormSubmitServlet.RESERVED_KEYS`). The island shows the success message, fires
-`formidable:submitted`, then navigates (`window.location.assign`); see [Redirect action](redirect-action.md).
+`formidable:submitted`, then navigates (`window.location.assign`); see [Redirecting after a submission](redirect-action.md).
 
 ### Sensitive fields
 

@@ -17,8 +17,8 @@ import java.util.Optional;
  * URL rewriting (vanity URLs, the {@code /cms/render/live} prefix and the site key dropped per the server-name rules).
  * Never a hand-built {@code /<lang>/<path>.html}, which is a 404 on every site but the default one.
  *
- * <p>Stateless. Used by the redirect action and by any module that must send the visitor to a page chosen in the
- * Content Editor. The answer is always a same-origin path ({@link RedirectTargets#sameOriginPath}) or nothing.</p>
+ * <p>Stateless. For any action that must send the visitor to a page chosen in the Content Editor (the redirect
+ * and sign-in actions of formidable-extended-actions). The answer is always a same-origin path ({@link RedirectTargets#sameOriginPath}) or nothing.</p>
  */
 public final class PageLinks {
 
