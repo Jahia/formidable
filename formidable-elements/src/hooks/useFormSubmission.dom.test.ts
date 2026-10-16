@@ -293,3 +293,93 @@ describe('useFormSubmission: a rejection that names a field', () => {
 		await done;
 	});
 });
+
+describe('useFormSubmission: what an action answers', () => {
+	const assign = vi.fn();
+	/** The success message is held back by the feedback floor: fake timers move it, and the navigation after it. */
+	beforeEach(() => {
+		vi.useFakeTimers();
+		vi.stubGlobal('XMLHttpRequest', FakeXhr);
+		vi.stubGlobal('location', {assign, href: 'https://www.example.com/fr/connexion'});
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		requests.length = 0;
+		assign.mockClear();
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
+		document.body.replaceChildren();
+	});
+
+	const accepted = async (body: string) => {
+		const result = submitForm('');
+		await vi.advanceTimersByTimeAsync(0);
+		requests.at(-1)?.answer(200, body);
+		await vi.advanceTimersByTimeAsync(600);
+		return result;
+	};
+
+	it('navigates to the redirect once the success message is shown, in a task of its own', async () => {
+		const {successShown} = await accepted('{"success":true,"redirect":"/sites/mysite/account.html"}');
+
+		expect(successShown()).toBe(true);
+		expect(assign).toHaveBeenCalledExactlyOnceWith('/sites/mysite/account.html');
+	});
+
+	it('does not navigate before the success message', async () => {
+		const result = submitForm('');
+		await vi.advanceTimersByTimeAsync(0);
+		requests.at(-1)?.answer(200, '{"success":true,"redirect":"/home.html"}');
+		await vi.advanceTimersByTimeAsync(100);
+
+		expect(result.successShown()).toBe(false);
+		expect(assign).not.toHaveBeenCalled();
+	});
+
+	it('refuses a redirect that is not a path of this site, whatever the body says', async () => {
+		for (const hostile of ['https://evil.example/', '//evil.example', '/\\\\evil.example', 'javascript:alert(1)', 'home.html', '/a b', '']) {
+			await accepted(JSON.stringify({success: true, redirect: hostile}));
+		}
+		await accepted('{"success":true,"redirect":42}');
+
+		expect(assign).not.toHaveBeenCalled();
+	});
+
+	it('shows the action\'s own sentence instead of the form\'s submission message', async () => {
+		const {setMessage} = await accepted('{"success":true,"userMessage":"Check your mailbox to activate your account."}');
+
+		expect(setMessage).toHaveBeenLastCalledWith('Check your mailbox to activate your account.');
+	});
+
+	it('keeps the form\'s message when the action said nothing', async () => {
+		const {setMessage} = await accepted('{"success":true}');
+
+		expect(setMessage).toHaveBeenLastCalledWith('Form submitted successfully!');
+		expect(assign).not.toHaveBeenCalled();
+	});
+
+	it('shows an action\'s refusal as the form\'s error, without the code, and empties the password field', async () => {
+		const result = submitForm('<input type="password" name="password" value="Sup3r-Secret!"/><input name="email" value="ada@example.com"/>');
+		await vi.advanceTimersByTimeAsync(0);
+		requests.at(-1)?.answer(422, '{"success":false,"errorCode":"FMDB-018","userMessage":"We could not sign you in.","actionsCompleted":0,"actionsTotal":1}');
+		await result.done;
+
+		expect(result.setMessage).toHaveBeenLastCalledWith('We could not sign you in.');
+		expect(result.setMessageType).toHaveBeenLastCalledWith('error');
+		expect(result.form.querySelector<HTMLInputElement>('input[type="password"]')!.value).toBe('');
+		// only the secret is emptied: the visitor retypes the password, not the whole form
+		expect(result.form.querySelector<HTMLInputElement>('input[name="email"]')!.value).toBe('ada@example.com');
+		expect(assign).not.toHaveBeenCalled();
+	});
+
+	it('falls back on the generic error when FMDB-018 carries no sentence', async () => {
+		const result = submitForm('');
+		await vi.advanceTimersByTimeAsync(0);
+		requests.at(-1)?.answer(422, '{"success":false,"errorCode":"FMDB-018"}');
+		await result.done;
+
+		expect(result.setMessage.mock.calls.at(-1)?.[0]).toContain('FMDB-018');
+	});
+});

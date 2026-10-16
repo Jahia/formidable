@@ -1,0 +1,16 @@
+// Password input - a secret the form carries to one action and nowhere else.
+// fmdbmix:sensitiveField (engine) is what makes it so: the submission pipeline sets the value apart and hands it
+// only to an action that declares it consumes sensitive values (a sign-up or sign-in action of another module).
+// Save to JCR, the e-mail actions, forward, the response enrichers (so jExperience) and the field actions never
+// receive it. For the same reason the type is NOT fmdbmix:profileMappableField (no jCustomer profile property) and
+// NOT fmdbmix:textField (a conditional-logic rule has no business reading a password).
+// autocompleteMode tells the browser's password manager what the field is: 'new-password' (a sign-up or a password
+// change: it offers to generate one and never fills the saved one) or 'current-password' (a sign-in: it fills).
+// maxLength defaults to 128: the password is hashed server-side and an unbounded one is a cost lever.
+[fmdbext:password] > jnt:content, fmdbmix:element, fmdbmix:submittableField, fmdbmix:sensitiveField, fmdbmix:textValidationMessages
+ - helpText (string, richtext[ckeditor.toolbar='FormidableHelp',ckeditor.customConfig='$context/modules/formidable-engine/javascript/ckeditor/helpTextConfig.js']) i18n indexed=no
+ - required (boolean) = true autocreated
+ - placeholder (string) i18n indexed=no
+ - autocompleteMode (string, choicelist[resourceBundle]) = 'new-password' autocreated indexed=no < 'new-password', 'current-password'
+ - minLength (long)
+ - maxLength (long) = 128 autocreated

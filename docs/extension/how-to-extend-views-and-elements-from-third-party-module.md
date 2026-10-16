@@ -488,6 +488,15 @@ end of the Content section of the field's editor, and every future setting meant
 same way (`docs/architecture/field-actions.md`). The submission itself does not depend on it — a field
 without the marker is still submitted; it only lacks those switches.
 
+A field whose value is a secret by nature (a password, a one-time code) declares a third marker,
+`fmdbmix:sensitiveField`, and **never** `fmdbmix:profileMappableField` or `fmdbmix:textField` (a conditional-logic rule has
+no business reading it). The pipeline then sets its value apart: only a `ContextualFormAction` that answers
+`consumesSensitiveValues() == true` receives it (`docs/extension/how-to-create-form-action.md`, "Answer the browser, or
+refuse with a message"); Save to JCR, the e-mail actions, forward, the response enrichers (so jExperience) and the field
+actions never see it, whatever else is configured on the form. The browser still holds it in the input until the
+submission is sent, so render a plain `<input type="password">` with no default value and the right `autocomplete`
+(`new-password` or `current-password`); `fmdbext:password` of `formidable-extended-inputs` is the model.
+
 ## Make your field a conditional-logic source
 
 Any field type can let contributors build "show/hide other fields based on my value"

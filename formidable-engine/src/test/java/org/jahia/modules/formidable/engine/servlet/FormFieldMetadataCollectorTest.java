@@ -246,6 +246,42 @@ class FormFieldMetadataCollectorTest {
     }
 
     @Test
+    void collectsTheNamesOfTheSensitiveFieldsAndNoFieldActionsUnderThem() throws Exception {
+        // Verifies the type-level marker: a field whose type carries fmdbmix:sensitiveField is whitelisted like any
+        // other (its value must be parsed and validated) and named in sensitiveFields, which is what lets the pipeline
+        // keep its value from every action but the ones that consume it.
+        JCRNodeWrapper password = node(
+                "password",
+                "fmdbext:password",
+                Set.of("fmdbmix:formElement", "fmdbmix:submittableField", "fmdbmix:sensitiveField"),
+                Map.of(),
+                List.of()
+        );
+        JCRNodeWrapper email = node(
+                "email",
+                "fmdb:inputEmail",
+                Set.of("fmdbmix:formElement", "fmdbmix:submittableField"),
+                Map.of(),
+                List.of()
+        );
+
+        FormFieldMetadataCollector.Result result = FormFieldMetadataCollector.collectFromFormNode(
+                formNodeWithFields(email, password)
+        );
+
+        assertEquals(Set.of("email", "password"), result.fieldInfos().keySet());
+        assertEquals(Set.of("password"), result.sensitiveFields());
+    }
+
+    @Test
+    void aResultBuiltWithoutSensitiveFieldsHasNone() {
+        // Verifies the shape every earlier caller uses: no sensitive field, never null.
+        FormFieldMetadataCollector.Result result = new FormFieldMetadataCollector.Result(Map.of(), Map.of(), Map.of(), Map.of());
+
+        assertTrue(result.sensitiveFields().isEmpty());
+    }
+
+    @Test
     void skipsNonSubmittableNodes() throws Exception {
         // Verifies that helper nodes marked non-submittable are excluded from parser metadata.
         JCRNodeWrapper nonSubmittable = node(

@@ -207,6 +207,54 @@ throw new FormActionException("Forward target returned an error.", 502);
 > service. To guard against a missing SMTP configuration, check `mailService.isEnabled()`
 > before calling `sendMessage()`.
 
+## Step 6b: Answer the browser, or refuse with a message (`ContextualFormAction`)
+
+The plain `FormAction` returns nothing and its failures reach the browser as the opaque `FMDB-008`. When the action
+must set a cookie, send the visitor to another page, show its own success text, tell the visitor *why* it refused,
+or read a sensitive field (a password), implement `ContextualFormAction` instead; it is registered the same way
+(`@Component(service = FormAction.class)`) and the pipeline recognises it:
+
+```java
+@Component(service = FormAction.class)
+public class SignInFormAction implements ContextualFormAction {
+
+    @Override public String getNodeType() { return "mymod:signInAction"; }
+
+    /** Declared once, by the type: this action is handed the values of fmdbmix:sensitiveField fields. */
+    @Override public boolean consumesSensitiveValues() { return true; }
+
+    @Override
+    public FormActionResult execute(FormActionContext context) throws FormActionException {
+        String email = context.parameter("email");                    // a non-sensitive field
+        String password = context.sensitiveParameter("password");     // only because consumesSensitiveValues()
+        if (!credentialsAreValid(email, password)) {
+            // FMDB-018: the visitor reads this text, translated in the submission's locale. Keep it generic.
+            throw FormActionException.refusal(422, "sign-in refused",
+                    VisitorMessages.resolve(getClass().getClassLoader(), "resources.mymod", "signIn.failed",
+                            context.locale(), "We could not sign you in."));
+        }
+        return FormActionResult.redirect("/sites/mysite/account.html");   // validated: a same-origin path or dropped
+    }
+}
+```
+
+- The **context** carries the request, the response (a cookie or a header, never the body), the visitor's live
+  session, `locale`, `siteKey`, the action node and the form. The action is a singleton shared by every
+  submission: keep no per-request state in fields.
+- A **result** is advisory: the first redirect and the first message of the list win; a redirect that is not a
+  same-origin relative path is dropped.
+- A **refusal** is `FormActionException.refusal(status, internalMessage, visitorMessage)`: `FMDB-018`, the
+  action's status (400-599, 429 for a rate limit), the text escaped by the servlet. It is shown to anyone who can
+  submit the form: never write one that distinguishes two causes an attacker may probe (an unknown e-mail from a
+  wrong password).
+- **Sensitive values** are in `context.sensitiveParameters()` only when `consumesSensitiveValues()` is true. An
+  action that consumes them never stores, mails, logs nor returns one (see
+  [Sensitive fields](../architecture/form-submission-flow.md#sensitive-fields)). Logging `context` is safe:
+  its `toString()` names the fields, never their values.
+- A **redirect target** is a same-origin path: use `RedirectTargets.sameOriginPath` for one you computed,
+  `RedirectTargets.returnPath` for "back where the visitor was going" (`/login?redirect=/account`), and
+  `PageLinks.pathOf` for a page picked in the Content Editor.
+
 ## Step 7: Add authoring support
 
 The runtime code is not enough by itself. Contributors still need to be able to create and configure the action node.

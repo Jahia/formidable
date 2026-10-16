@@ -308,6 +308,14 @@ orderable
 [fmdbmix:datetimeLocalField] mixin
 [fmdbmix:colorField] mixin
 
+// Marks a field whose value is a secret the form must carry to one action and nowhere else (a password).
+// A TYPE-level marker, not an author's per-field flag (the 2026-10-05 removal of the jExperience flag stands): a
+// field type declares "> fmdbmix:sensitiveField" the way it declares a value kind. The submission pipeline then
+// withholds the value from everything that is not an action declaring ContextualFormAction#consumesSensitiveValues:
+// the save-to-JCR, e-mail and forward actions, the response enrichers (hence jExperience), the field actions, the
+// logs. A sensitive field is never also fmdbmix:profileMappableField. Declares nothing.
+[fmdbmix:sensitiveField] mixin
+
 // Marker for profile mapping: a field type carrying it can take part in a jExperience
 // profile mapping. The jExperience module attaches its property mixin to this single
 // marker (extends), never to a list of field types, so a third-party field opts in from
@@ -342,6 +350,15 @@ orderable
 // Saves the submitted form data as child nodes under a designated JCR path.
 [fmdb:save2jcrAction] > jnt:content, fmdbmix:formAction, mix:title
  - jcr:title (string) = resourceBundle('fmdb_save2jcrAction') autocreated i18n
+
+// Sends the visitor to another page of the site once the submission is accepted (docs/architecture/redirect-action.md).
+// The target is a page of the site (page, a weak reference: it follows a move or a rename) or a same-origin relative
+// path (path): never another host. The page is resolved in live, in the submission's language.
+[fmdb:redirectAction] > jnt:content, fmdbmix:formAction, fmdbmix:readOnlyCompatibleAction, mix:title
+ - jcr:title (string) = resourceBundle('fmdb_redirectAction') autocreated i18n
+ - targetType (string, choicelist[resourceBundle]) = 'page' autocreated indexed=no < 'page', 'path'
+ - page (weakreference, picker[type='page'])
+ - path (string) i18n indexed=no
 
 [fmdb:resultsFolder] > jnt:content, jmix:accessControlled
  + * (fmdb:formResults) = fmdb:formResults
