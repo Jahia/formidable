@@ -135,8 +135,9 @@ orderable
  - providerId (string) hidden indexed=no
 
 // The per-field list, fmdb:actionList in miniature. Orderable: the first blocking refusal wins,
-// so the contributor puts the cheap check before the paid one.
-[fmdb:fieldActionList] > jnt:content, jmix:list, mix:title, jmix:systemNameReadonly
+// so the contributor puts the cheap check before the paid one. jmix:hideDeleteAction as on the form's
+// lists: the switch of the field creates and removes it, a contributor never deletes it by hand.
+[fmdb:fieldActionList] > jnt:content, jmix:list, mix:title, jmix:systemNameReadonly, jmix:hideDeleteAction
  orderable
  - jcr:title (string) = resourceBundle('fmdb_fieldActionList') autocreated i18n
  + * (fmdbmix:fieldAction) = fmdbmix:fieldAction version
