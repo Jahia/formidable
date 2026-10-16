@@ -1,5 +1,33 @@
 # formidable Changelog
 
+## 0.6.0
+
+### New Features
+
+* Added a warning in Page Builder when a form’s captcha is not set up, and a line naming a sign-in-only form (#416)
+
+* Added the choice to attach imported Jahia Forms results to an existing form, with its field names mapped (#397)
+
+* Added a downloadable log of each Jahia Forms import, listing what each submission lost and what to redo by hand (#403)
+
+* Changed the Jahia Forms import into an optional add-on: install Formidable Forms Import, enable it on the site (#414)
+
+* Added the visitor profile mapping of imported Jahia Forms fields prefilled from a jCustomer property (#399, #403)
+
+* Improved the Jahia Forms import review: one row per form, plain to-do lists, and a choice not to import a form (#402)
+
+* Added the import of Jahia Forms results from the Results page, with their forms recreated on request (#393, #396)
+
+### Bug Fixes
+
+* Fixed forms in a multi-column layout so the columns beside them no longer drop below in Page Builder (#407)
+
+* Fixed Page Builder drawing a captcha challenge: a Captcha line marks its place, shown in preview and live (#410)
+
+* Fixed e-mail actions losing their message to one mistyped address: valid recipients get it, the typo is logged (#411)
+
+* Fixed the fields and actions lists of a form, which a contributor could delete or cut by mistake (#418)
+
 ## 0.5.0
 
 ### New Features
