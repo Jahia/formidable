@@ -21,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 /**
  * Sends a notification email after a successful form submission.
  *
@@ -73,7 +74,15 @@ public class SendEmailNotificationFormAction implements FormAction {
             throw FormActionException.serverError(FmdbNodeType.EMAIL_NOTIFICATION_ACTION + " is missing a 'to' address.");
         }
 
-        String from = FieldEscaper.headerSafe(JcrProps.string(actionNode, "from", null));
+        // The addresses the mail service would refuse later, in the background, are left out here and
+        // logged (EmailAddresses): a typo costs an e-mail, never the submission.
+        Optional<String> recipients = EmailAddresses.recipients(FmdbNodeType.EMAIL_NOTIFICATION_ACTION, actionNode.getPath(), to);
+        if (recipients.isEmpty()) {
+            return;
+        }
+        String sentTo = recipients.get();
+        String from = EmailAddresses.sender(FmdbNodeType.EMAIL_NOTIFICATION_ACTION, actionNode.getPath(),
+                FieldEscaper.headerSafe(JcrProps.string(actionNode, "from", null)), mailService.defaultSender());
         String subject = FieldEscaper.headerSafe(
                 TemplateInterpolator.interpolate(JcrProps.string(actionNode, "subject", null), parameters, FieldEscaper::plainText));
         String htmlBody = TemplateInterpolator.interpolate(
@@ -83,8 +92,8 @@ public class SendEmailNotificationFormAction implements FormAction {
         );
 
         MailMessage message = new MailMessage();
-        message.setTo(to);
-        message.setFrom(from.isBlank() ? null : from);
+        message.setTo(sentTo);
+        message.setFrom(from);
         message.setSubject(subject != null ? subject : "");
         message.setHtmlBody(htmlBody);
 
@@ -94,7 +103,7 @@ public class SendEmailNotificationFormAction implements FormAction {
             // and do not propagate back to this call site. The catch block below only handles
             // synchronous failures raised while invoking the mail service.
             mailService.sendMessage(message);
-            log.debug("Email notification sent to '{}' with subject '{}'", to, subject);
+            log.debug("Email notification sent to '{}' with subject '{}'", sentTo, subject);
         } catch (Exception e) {
             throw FormActionException.serverError(
                     "Failed to send email notification to '" + to + "': " + e.getMessage(),
