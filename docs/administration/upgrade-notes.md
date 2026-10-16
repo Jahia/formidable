@@ -131,9 +131,10 @@ default was either at its default before (not copied) or lost to a write that ke
 
 ### Deleting the old file
 
-Nothing of 0.5 reads the PID `org.jahia.modules.formidable`: its one reader is the carry-over above, which runs
-once per theme and stamps the theme's file with `formidable.migratedFrom`; a theme whose file carries the marker
-never reads the old configuration again, on a restart included. Once the checks below pass, delete
+Nothing of 0.5 reads the PID `org.jahia.modules.formidable` for its settings. Two migrations read it: the carry-over
+above, which runs once per theme and stamps the theme's file with `formidable.migratedFrom`, and the conversion of the
+list lines, until the theme's file carries `formidable.linesConverted=true` (check 2 below). A theme whose file carries
+its markers never reads the old configuration again, on a restart included. Once the checks below pass, delete
 `karaf/etc/org.jahia.modules.formidable.cfg` — by hand, or with **Delete** in the OSGi Configurations Manager,
 which removes the file and the PID together — and nothing changes for the module:
 
